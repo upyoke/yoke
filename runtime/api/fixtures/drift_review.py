@@ -61,6 +61,10 @@ def _apply_drift_schema() -> None:
                 created_at TIMESTAMPTZ NOT NULL
             );""",
         )
+        from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+        install_workflow_pin(conn, workflow_id="issue")
+        conn.commit()
     finally:
         conn.close()
 

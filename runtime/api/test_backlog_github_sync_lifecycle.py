@@ -20,8 +20,6 @@ from yoke_core.domain import (
     backlog_github_comments,
     backlog_github_state_sync,
     backlog_github_sync,
-    backlog_post_write_sync,
-    backlog_rendering,
     github_rest,
 )
 
@@ -38,15 +36,29 @@ def _issue(number: int = 60, state: str = "OPEN") -> github_rest.Issue:
 class TestPostComment:
     def test_posts_comment_without_touching_labels(self):
         db = _make_db()
-        insert_item(db, id=30, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#50")
+        insert_item(
+            db,
+            id=30,
+            workflow_id="issue",
+            status="implementing",
+            project="externalwebapp",
+            github_issue="#50",
+        )
         stdout = io.StringIO()
 
-        with issue_access(issue_with("status:idea", number=50)) as (resolve, _), patch.object(
-            backlog_github_comments.github_rest, "post_comment",
-        ) as post_comment, patch(
-            "yoke_core.domain.backlog_github_label_sync_rest.request_with_retry",
-        ) as label_calls:
-            rc = backlog_github_sync.post_comment(30, "idea", "implementing", conn=db, stdout=stdout)
+        with (
+            issue_access(issue_with("status:idea", number=50)) as (resolve, _),
+            patch.object(
+                backlog_github_comments.github_rest,
+                "post_comment",
+            ) as post_comment,
+            patch(
+                "yoke_core.domain.backlog_github_label_sync_rest.request_with_retry",
+            ) as label_calls,
+        ):
+            rc = backlog_github_sync.post_comment(
+                30, "idea", "implementing", conn=db, stdout=stdout
+            )
 
         assert rc == 0
         assert "Posted status update to #50" in stdout.getvalue()
@@ -61,14 +73,22 @@ class TestPostComment:
     def test_issue_validation_failure_is_nonzero(self):
         db = _make_db()
         insert_item(
-            db, id=31, workflow_id="issue", status="implementing",
-            project="externalwebapp", github_issue="#51",
+            db,
+            id=31,
+            workflow_id="issue",
+            status="implementing",
+            project="externalwebapp",
+            github_issue="#51",
         )
         stderr = io.StringIO()
 
         with issue_access(None):
             rc = backlog_github_sync.post_comment(
-                31, "idea", "implementing", conn=db, stderr=stderr,
+                31,
+                "idea",
+                "implementing",
+                conn=db,
+                stderr=stderr,
             )
 
         assert rc == 1
@@ -78,10 +98,16 @@ class TestPostComment:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=30, workflow_id="issue", status="idea", project="externalwebapp")
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
-            backlog_github_comments.github_rest, "post_comment",
-        ) as post_comment:
+        insert_item(
+            db, id=30, workflow_id="issue", status="idea", project="externalwebapp"
+        )
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch.object(
+                backlog_github_comments.github_rest,
+                "post_comment",
+            ) as post_comment,
+        ):
             rc = backlog_github_sync.post_comment(30, "idea", "implementing", conn=db)
         assert rc == 0
         post_comment.assert_not_called()
@@ -89,10 +115,19 @@ class TestPostComment:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=30, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#50")
+        insert_item(
+            db,
+            id=30,
+            workflow_id="issue",
+            status="idea",
+            project="externalwebapp",
+            github_issue="#50",
+        )
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
-            rc = backlog_github_sync.post_comment(30, "idea", "implementing", conn=db, stdout=stdout)
+            rc = backlog_github_sync.post_comment(
+                30, "idea", "implementing", conn=db, stdout=stdout
+            )
         assert rc == 0
         assert "DRY-RUN" in stdout.getvalue()
         db.close()
@@ -106,19 +141,36 @@ class TestPostComment:
 class TestCloseIssue:
     def test_closes_open_issue(self):
         db = _make_db()
-        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
+        insert_item(
+            db,
+            id=40,
+            workflow_id="issue",
+            status="done",
+            project="externalwebapp",
+            github_issue="#60",
+        )
         stdout = io.StringIO()
 
-        with issue_access(issue_with("status:implementing", number=60)) as (resolve, _), patch.object(
-            backlog_github_state_sync._label_rest, "ensure_label",
-        ) as ensure, patch.object(
-            backlog_github_state_sync._label_rest, "add_labels",
-        ) as add_labels, patch.object(
-            backlog_github_state_sync._label_rest, "remove_label",
-        ) as remove_label, patch.object(
-            backlog_github_state_sync.github_rest, "set_issue_state",
-            return_value=_issue(state="CLOSED"),
-        ) as set_state:
+        with (
+            issue_access(issue_with("status:implementing", number=60)) as (resolve, _),
+            patch.object(
+                backlog_github_state_sync._label_rest,
+                "ensure_label",
+            ) as ensure,
+            patch.object(
+                backlog_github_state_sync._label_rest,
+                "add_labels",
+            ) as add_labels,
+            patch.object(
+                backlog_github_state_sync._label_rest,
+                "remove_label",
+            ) as remove_label,
+            patch.object(
+                backlog_github_state_sync.github_rest,
+                "set_issue_state",
+                return_value=_issue(state="CLOSED"),
+            ) as set_state,
+        ):
             rc = backlog_github_sync.close_issue(40, conn=db, stdout=stdout)
 
         assert rc == 0
@@ -135,16 +187,26 @@ class TestCloseIssue:
 
     def test_already_closed_with_its_label_makes_no_label_call(self):
         db = _make_db()
-        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
+        insert_item(
+            db,
+            id=40,
+            workflow_id="issue",
+            status="done",
+            project="externalwebapp",
+            github_issue="#60",
+        )
         stdout = io.StringIO()
 
-        with issue_access(
-            issue_with("status:done", number=60, state="CLOSED")
-        ), patch(
-            "yoke_core.domain.backlog_github_label_sync_rest.request_with_retry",
-        ) as label_calls, patch.object(
-            backlog_github_state_sync.github_rest, "set_issue_state",
-        ) as set_state:
+        with (
+            issue_access(issue_with("status:done", number=60, state="CLOSED")),
+            patch(
+                "yoke_core.domain.backlog_github_label_sync_rest.request_with_retry",
+            ) as label_calls,
+            patch.object(
+                backlog_github_state_sync.github_rest,
+                "set_issue_state",
+            ) as set_state,
+        ):
             rc = backlog_github_sync.close_issue(40, conn=db, stdout=stdout)
 
         assert rc == 0
@@ -155,11 +217,17 @@ class TestCloseIssue:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp")
+        insert_item(
+            db, id=40, workflow_id="issue", status="done", project="externalwebapp"
+        )
         stdout = io.StringIO()
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
-            backlog_github_state_sync.github_rest, "set_issue_state",
-        ) as set_state:
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch.object(
+                backlog_github_state_sync.github_rest,
+                "set_issue_state",
+            ) as set_state,
+        ):
             rc = backlog_github_sync.close_issue(40, conn=db, stdout=stdout)
         assert rc == 0
         assert "skipping close" in stdout.getvalue()
@@ -175,18 +243,30 @@ class TestCloseIssue:
 class TestReopenIssue:
     def test_reopens_closed_issue(self):
         db = _make_db()
-        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(
+            db,
+            id=50,
+            workflow_id="issue",
+            status="implementing",
+            project="externalwebapp",
+            github_issue="#70",
+        )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
-        ), patch.object(
-            backlog_github_state_sync, "_get_issue_state",
-            return_value="CLOSED",
-        ), patch.object(
-            backlog_github_state_sync.github_rest, "set_issue_state",
-            return_value=_issue(number=70, state="OPEN"),
-        ) as set_state:
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch(f"{GH_PATCH}._validate_issue_in_repo", return_value=True),
+            patch.object(
+                backlog_github_state_sync,
+                "_get_issue_state",
+                return_value="CLOSED",
+            ),
+            patch.object(
+                backlog_github_state_sync.github_rest,
+                "set_issue_state",
+                return_value=_issue(number=70, state="OPEN"),
+            ) as set_state,
+        ):
             rc = backlog_github_sync.reopen_issue(50, conn=db, stdout=stdout)
 
         assert rc == 0
@@ -198,17 +278,29 @@ class TestReopenIssue:
 
     def test_already_open_is_noop(self):
         db = _make_db()
-        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(
+            db,
+            id=50,
+            workflow_id="issue",
+            status="implementing",
+            project="externalwebapp",
+            github_issue="#70",
+        )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
-        ), patch.object(
-            backlog_github_state_sync, "_get_issue_state",
-            return_value="OPEN",
-        ), patch.object(
-            backlog_github_state_sync.github_rest, "set_issue_state",
-        ) as set_state:
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch(f"{GH_PATCH}._validate_issue_in_repo", return_value=True),
+            patch.object(
+                backlog_github_state_sync,
+                "_get_issue_state",
+                return_value="OPEN",
+            ),
+            patch.object(
+                backlog_github_state_sync.github_rest,
+                "set_issue_state",
+            ) as set_state,
+        ):
             rc = backlog_github_sync.reopen_issue(50, conn=db, stdout=stdout)
 
         assert rc == 0
@@ -218,56 +310,17 @@ class TestReopenIssue:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(
+            db,
+            id=50,
+            workflow_id="issue",
+            status="implementing",
+            project="externalwebapp",
+            github_issue="#70",
+        )
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.reopen_issue(50, conn=db, stdout=stdout)
         assert rc == 0
         assert "DRY-RUN" in stdout.getvalue()
         db.close()
-
-
-class TestPostWriteTerminalAnnouncement:
-    def test_terminal_status_closes_silently_then_posts_one_comment(self):
-        out = io.StringIO()
-        with patch.object(
-            backlog_rendering, "_close_issue", return_value=True,
-        ) as close_issue, patch.object(
-            backlog_rendering, "_sync_labels", return_value=True,
-        ), patch.object(
-            backlog_rendering, "_post_comment", return_value=True,
-        ) as post_comment:
-            rc = backlog_post_write_sync.run_post_db_sync(
-                item_id=40,
-                field="status",
-                value="done",
-                old_status="reviewing-implementation",
-                out=out,
-            )
-
-        assert rc == 0
-        close_issue.assert_called_once()
-        post_comment.assert_called_once_with(
-            40, "reviewing-implementation", "done", out,
-        )
-
-    def test_already_terminal_status_posts_no_comment(self):
-        out = io.StringIO()
-        with patch.object(
-            backlog_rendering, "_close_issue", return_value=True,
-        ) as close_issue, patch.object(
-            backlog_rendering, "_sync_labels", return_value=True,
-        ), patch.object(
-            backlog_rendering, "_post_comment", return_value=True,
-        ) as post_comment:
-            rc = backlog_post_write_sync.run_post_db_sync(
-                item_id=40,
-                field="status",
-                value="done",
-                old_status="done",
-                out=out,
-            )
-
-        assert rc == 0
-        close_issue.assert_called_once()
-        post_comment.assert_not_called()

@@ -74,6 +74,9 @@ def _apply_repair_schema() -> None:
             " VALUES (1, 'yoke', 'YOK')"
         )
         conn.execute(_ITEMS_DDL)
+        from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+        install_workflow_pin(conn)
         conn.execute(_EPIC_TASKS_DDL)
         conn.execute(_EVENTS_DDL)
         conn.commit()

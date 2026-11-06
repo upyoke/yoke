@@ -34,8 +34,6 @@ from yoke_core.engines.merge_worktree_prepare import (  # noqa: F401
     MergeArgs,
     MergeContext,
     ConflictInfo,
-    _TASK_TERMINAL_SUCCESS,
-    _sql_task_terminal_success_list,
     _matches_glob,
     validate_args,
     resolve_context,

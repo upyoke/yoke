@@ -21,7 +21,6 @@ from typing import Any, Dict, Iterator, List, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 from yoke_core.domain.db_mutation_gate_shared import (
-    _NON_TERMINAL_STATUSES,
     _safe_parse_dict,
 )
 from yoke_core.domain.db_mutation_profile import (
@@ -145,12 +144,13 @@ def _other_non_terminal_profiles(
 ) -> List[Dict[str, Any]]:
     p = _placeholder(conn)
     project_id = resolve_project_id(conn, project)
+    from yoke_core.domain.workflow_status_queries import exclude_terminal_items
+
+    clause, params = exclude_terminal_items(conn)
     rows = conn.execute(
-        "SELECT id, db_mutation_profile FROM items "
-        f"WHERE project_id = {p} AND id <> {p} AND status IN ("
-        + ",".join([p] * len(_NON_TERMINAL_STATUSES))
-        + ")",
-        (project_id, exclude_item_id, *sorted(_NON_TERMINAL_STATUSES)),
+        "SELECT id, db_mutation_profile FROM items i "
+        f"WHERE project_id = {p} AND id <> {p} {clause}",
+        (project_id, exclude_item_id, *params),
     ).fetchall()
     out: List[Dict[str, Any]] = []
     for row in rows:

@@ -43,13 +43,6 @@ from yoke_core.engines.doctor_tree_scan import iter_tree_files
 _HC_NAME = "HC-oneshot-migration-coverage"
 _HC_DESC = "Governed DB-mutation authoring coverage"
 
-_TERMINAL_STATUSES = (
-    "done",
-    "cancelled",
-    "failed",
-    "stopped",
-)
-
 _REQUIRED_PROFILE_FIELDS = (
     "model_name",
     "mutation_intent",
@@ -206,7 +199,7 @@ def _scan_call_sites(api_root: Path) -> List[Dict[str, str]]:
         for match in _CALL_SITE_RE.finditer(text):
             start = match.end()
             # Look ahead to the end of the call for a ``name=`` kwarg.
-            window = text[start:start + 2000]
+            window = text[start : start + 2000]
             name_match = _NAME_KW_RE.search(window)
             if name_match:
                 out.append(
@@ -224,9 +217,7 @@ def _existing_decision_records(decisions_dir: Path) -> Set[str]:
     return {p.stem for p in decisions_dir.glob("*.md")}
 
 
-_DECISION_RECORD_REF_RE = re.compile(
-    r"docs/archive/decisions/([A-Za-z0-9_\-]+)\.md"
-)
+_DECISION_RECORD_REF_RE = re.compile(r"docs/archive/decisions/([A-Za-z0-9_\-]+)\.md")
 
 
 def _exception_reason_documented(
@@ -248,24 +239,25 @@ def _exception_reason_documented(
     return False
 
 
-def hc_oneshot_migration_coverage(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_oneshot_migration_coverage(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Scan for governed DB-mutation authoring drift and exception-path
     records that are missing a paired decision record."""
     issues: List[str] = []
 
     # Drift classes (a) and (b): items with non-default profiles.
     if _base._table_exists(conn, "items"):
-        terminal_tuple = ",".join(f"'{s}'" for s in _TERMINAL_STATUSES)
+        from yoke_core.domain.workflow_status_queries import exclude_terminal_items
+
+        clause, params = exclude_terminal_items(conn)
         rows = query_rows(
             conn,
             f"SELECT id, db_mutation_profile, db_compatibility_attestation "
-            f"FROM items "
-            f"WHERE status NOT IN ({terminal_tuple}) "
+            f"FROM items i "
+            f"WHERE 1=1 {clause} "
             f"  AND db_mutation_profile IS NOT NULL "
             f"  AND db_mutation_profile <> '' "
             f"  AND db_mutation_profile <> 'null'",
+            params,
         )
         for row in rows:
             item_id = int(row["id"])
@@ -327,9 +319,7 @@ def hc_oneshot_migration_coverage(
             path = str(row["backup_path"] or "")
             if _CANONICAL_BACKUP_RE.search(path):
                 continue
-            if _exception_reason_documented(
-                row["exception_reason"], existing_records
-            ):
+            if _exception_reason_documented(row["exception_reason"], existing_records):
                 continue
             issues.append(
                 f"- migration_audit row {int(row['id'])} "

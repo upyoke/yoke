@@ -8,6 +8,7 @@ previous landing's time.
 
 from __future__ import annotations
 
+
 from pathlib import Path
 
 import pytest
@@ -68,7 +69,11 @@ def conn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def _label(conn) -> str:
     row = conn.execute(LABEL_INPUTS_FOR_ITEM_SQL, (ITEM_ID,)).fetchone()
-    return render_merge_queue_status(row[1], row[2], item_status=row[0])
+    return render_merge_queue_status(
+        row[1],
+        row[2],
+        item_terminal=bool(row[0]),
+    )
 
 
 def _project_id(conn) -> int:

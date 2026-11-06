@@ -14,7 +14,6 @@ from yoke_core.domain.strategy_execution import (
     release_strategy_doc_claim,
 )
 from yoke_core.domain.workflow_runtime import (
-    ENGINE_TERMINAL_STAGE_IDS,
     WorkflowRuntime,
     load_item_workflow_runtime,
 )
@@ -35,7 +34,7 @@ class TerminalResourceReceipt:
 
 def terminal_stage_ids(runtime: WorkflowRuntime) -> frozenset[str]:
     """Return definition-owned and engine-owned terminal stage ids."""
-    return runtime.terminal_stage_ids | ENGINE_TERMINAL_STAGE_IDS
+    return runtime.all_terminal_stage_ids
 
 
 def workflow_pin_schema_present(conn: Any) -> bool:

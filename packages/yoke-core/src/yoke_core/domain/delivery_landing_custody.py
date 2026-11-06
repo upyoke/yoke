@@ -20,7 +20,7 @@ from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.deployment_run_member_targeting import covering_holder_pairs
 from yoke_core.domain import db_backend
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+from yoke_core.domain.workflow_status_queries import exclude_terminal_items
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED as CONTAINMENT_UNDETERMINED,
     CandidateContainment,
@@ -102,14 +102,13 @@ def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
     """Landed nonterminal items and their pinned close-out workflows."""
     columns = LANDING_STAMP_COLUMNS
     marker = _p(conn)
-    terminal = sorted(TERMINAL_STATUSES)
-    holes = ", ".join(marker for _ in terminal)
+    terminal_filter, terminal_params = exclude_terminal_items(conn)
     present = " OR ".join(f"{column} IS NOT NULL" for column in columns)
     rows = conn.execute(
-        f"SELECT id, status, workflow_id, {', '.join(columns)} FROM items "
-        f"WHERE project_id = {marker} AND status NOT IN ({holes}) "
+        f"SELECT id, status, workflow_id, {', '.join(columns)} FROM items i "
+        f"WHERE project_id = {marker} {terminal_filter} "
         f"AND ({present})",
-        (int(project_id), *terminal),
+        (int(project_id), *terminal_params),
     ).fetchall()
     return tuple(dict(row) for row in rows)
 

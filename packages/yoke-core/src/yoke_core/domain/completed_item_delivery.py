@@ -7,6 +7,9 @@ consume that durable answer and never re-evaluate a carrying run's mutable state
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import completed_items_sql
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
 import json
 from typing import Any, Iterable
 
@@ -45,7 +48,7 @@ def completed_deliveries(conn: Any, item_ids: Iterable[int]) -> dict[int, list[d
     rows = conn.execute(
         "SELECT i.id,i.project_id,s.facts FROM items i "
         "JOIN item_gate_satisfactions s ON s.item_id=i.id "
-        "WHERE i.status='done' AND s.obligation=%s AND i.id IN ("
+        f"WHERE {completed_items_sql(conn)} AND s.obligation=%s AND i.id IN ("
         + ",".join("%s" for _ in ids)
         + ")",
         (OBLIGATION_DELIVERY_EVIDENCE, *ids),
@@ -158,10 +161,11 @@ def _store(conn: Any, item_id: int, entries: list[dict]) -> None:
         conn.execute(
             "INSERT INTO item_gate_satisfactions "
             "(item_id,obligation,rung_id,target_status,detail,facts,recorded_at) "
-            "VALUES (%s,%s,'deployment_run_succeeded','done',%s,%s,%s)",
+            "VALUES (%s,%s,'deployment_run_succeeded',%s,%s,%s,%s)",
             (
                 item_id,
                 OBLIGATION_DELIVERY_EVIDENCE,
+                load_item_workflow_runtime(conn, item_id).completion_stage_id,
                 "Delivery attribution committed with item completion",
                 encoded,
                 instant_parameter(conn, utc_now()),
@@ -210,7 +214,7 @@ def record_completed_run_delivery(conn: Any, *, run_id: str) -> None:
     rows = conn.execute(
         "SELECT i.id FROM items i JOIN deployment_run_items m ON m.item_id=i.id "
         "JOIN deployment_runs dr ON dr.id=m.run_id "
-        "WHERE m.run_id=%s AND i.status='done' AND dr.status='succeeded'",
+        f"WHERE m.run_id=%s AND {completed_items_sql(conn)} AND dr.status='succeeded'",
         (run_id,),
     ).fetchall()
     for row in rows:

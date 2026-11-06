@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
 import re
 from datetime import timedelta
 from yoke_contracts.timestamps import utc_now, parse_instant
@@ -197,24 +199,20 @@ def _resolve_main_session_attribution(
                     ), "session_current"
 
         active_rows = conn.execute(
-            """SELECT i.id, i.status, i.workflow_id, i.workflow_version_id,
+            f"""SELECT i.id, i.status, i.workflow_id, i.workflow_version_id,
                       v.version, v.definition_json, v.definition_digest
                FROM items i
                JOIN workflow_versions v ON v.id = i.workflow_version_id
-               WHERE i.status IN (
-                 'implementing',
-                 'reviewing-implementation',
-                 'reviewed-implementation',
-                 'polishing-implementation',
-                 'implemented',
-                 'release'
-               )
+               WHERE NOT {terminal_items_sql(conn)}
                """
         ).fetchall()
         active_rows = [
             row
             for row in active_rows
             if not generates_task_graph(workflow_runtime_from_row(row))
+            and workflow_runtime_from_row(row).implementation_has_started(
+                str(row["status"])
+            )
         ]
         if len(active_rows) == 1:
             return normalize_event_item_id(str(active_rows[0][0])), "active_fallback"

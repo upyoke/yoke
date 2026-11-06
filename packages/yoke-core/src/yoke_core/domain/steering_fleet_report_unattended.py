@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -48,7 +50,7 @@ def unattended_linked_items(
         "l.project_id AS document_project_id, l.strategy_doc_slug "
         "FROM items i JOIN item_strategy_docs l ON l.item_id = i.id "
         f"WHERE (i.project_id IN ({slots}) OR l.project_id IN ({slots})) "
-        "AND i.status NOT IN ('done', 'cancelled', 'stopped') "
+        f"AND NOT {terminal_items_sql(conn)} "
         "ORDER BY i.id",
         (*projects, *projects),
     ).fetchall()

@@ -1,5 +1,7 @@
 """Board item rows keep merge-queue diagnostics out of the status cell."""
 
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
 from datetime import datetime
 
 import pytest
@@ -52,7 +54,15 @@ def test_queue_status_keeps_known_absence_and_closed_out_status(empty):
     assert render_merge_queue_status(None, empty) == ""
     clock = parse_instant("1969-12-31T23:59:59.123456Z")
     for status in ("done", "cancelled"):
-        assert render_merge_queue_status(clock, clock, item_status=status) == ""
+        assert (
+            render_merge_queue_status(
+                clock,
+                clock,
+                item_terminal=(status)
+                in builtin_workflow_runtime("dash").all_terminal_stage_ids,
+            )
+            == ""
+        )
 
 
 @pytest.mark.parametrize(

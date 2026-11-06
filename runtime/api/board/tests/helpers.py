@@ -67,7 +67,16 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
 
 def insert_item_raw(db_path: str, items: list) -> None:
     conn = connect_test_db(db_path)
-    for item_id, title, status, workflow_id, project, frozen, created_at, updated_at in items:
+    for (
+        item_id,
+        title,
+        status,
+        workflow_id,
+        project,
+        frozen,
+        created_at,
+        updated_at,
+    ) in items:
         conn.execute(
             "INSERT INTO items "
             "(id, title, status, workflow_id, workflow_version_id, project_id, "
@@ -76,8 +85,16 @@ def insert_item_raw(db_path: str, items: list) -> None:
             "(SELECT id FROM workflow_versions WHERE workflow_id = %s "
             "ORDER BY version DESC LIMIT 1), %s, %s, %s, %s, %s)",
             (
-                item_id, title, status, workflow_id, workflow_id, project_id(project),
-                item_id, frozen, created_at, updated_at,
+                item_id,
+                title,
+                status,
+                workflow_id,
+                workflow_id,
+                project_id(project),
+                item_id,
+                frozen,
+                created_at,
+                updated_at,
             ),
         )
     conn.commit()
@@ -85,9 +102,14 @@ def insert_item_raw(db_path: str, items: list) -> None:
 
 
 def insert_task(
-    db: BoardDB, epic_id: int, task_num: int, title: str,
+    db: BoardDB,
+    epic_id: int,
+    task_num: int,
+    title: str,
     status: str = "implementing",
 ) -> None:
+    if not db.query("SELECT id FROM items WHERE id=%s", (epic_id,)):
+        insert_item(db, epic_id, workflow_id="epic", status="implementing")
     db.execute(
         "INSERT INTO epic_tasks (epic_id, task_num, title, status) "
         "VALUES (%s, %s, %s, %s)",
@@ -150,8 +172,13 @@ def insert_transition(
         "(item_id, task_num, from_status, to_status, source, project_id, "
         "created_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (
-            int(item_id), task_num, from_status, to_status, source,
-            project_id(project), created_at,
+            int(item_id),
+            task_num,
+            from_status,
+            to_status,
+            source,
+            project_id(project),
+            created_at,
         ),
     )
     conn.commit()
@@ -215,7 +242,9 @@ def insert_projects(db_path: str, projects: list) -> None:
 
 
 def insert_deployment_run(
-    db_path: str, run_id: int, status: str = "running",
+    db_path: str,
+    run_id: int,
+    status: str = "running",
 ) -> None:
     conn = connect_test_db(db_path)
     conn.execute(

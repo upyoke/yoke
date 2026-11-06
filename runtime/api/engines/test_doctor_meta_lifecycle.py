@@ -25,6 +25,8 @@ from yoke_core.engines.doctor import (
     hc_shepherd_spec_integrity,
     hc_stale_body,
 )
+
+
 class TestEpicTaskWorktree:
     def test_pass_all_have_worktree(self):
         conn = _make_conn()
@@ -39,9 +41,11 @@ class TestEpicTaskWorktree:
             "INSERT INTO epic_tasks "
             "(id, epic_id, task_num, title, item_worktree_id, status) "
             "VALUES (1, 1, 1, 'Task', %s, 'implementing')",
-            (insert_item_worktree(
-                conn, item_id=1, branch="YOK-1", lane_role="worker"
-            )["id"],),
+            (
+                insert_item_worktree(
+                    conn, item_id=1, branch="YOK-1", lane_role="worker"
+                )["id"],
+            ),
         )
         rec = RecordCollector()
         hc_epic_task_worktree(conn, _args(), rec)
@@ -116,10 +120,7 @@ class TestStaleBody:
 
     def test_pass_no_spec_updated_at(self):
         conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, status) "
-            "VALUES (1, 'Test', 'idea')"
-        )
+        conn.execute("INSERT INTO items (id, title, status) VALUES (1, 'Test', 'idea')")
         rec = RecordCollector()
         hc_stale_body(conn, _args(), rec)
         res = _results(rec)
@@ -201,11 +202,11 @@ class TestMissingFlow:
         res = _results(rec)
         assert res["HC-missing-flow"][0] == "WARN"
 
-    def test_pass_wontdo_missing_flow(self):
+    def test_pass_cancelled_missing_flow(self):
         conn = _make_conn()
         conn.execute(
             "INSERT INTO items (id, title, status, deployment_flow) "
-            "VALUES (1, 'Test', 'wontdo', NULL)"
+            "VALUES (1, 'Test', 'cancelled', NULL)"
         )
         rec = RecordCollector()
         hc_missing_flow(conn, _args(), rec)

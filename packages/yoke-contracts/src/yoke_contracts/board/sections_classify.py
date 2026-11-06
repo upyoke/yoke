@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_filter
 from yoke_contracts.board.sections_definition_queries import query_item_rows
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
+from yoke_contracts.board.workflow_membership import membership_sql
 from yoke_contracts.board.item_data import (
     EpicStats,
     ItemRow,
@@ -55,12 +55,12 @@ def precompute_epic_stats(
         Dict mapping epic_id to :class:`EpicStats`.
     """
     pf, params = project_filter(scope, "i")
-    _tts_in = ", ".join(f"'{s}'" for s in sorted(TASK_TERMINAL_SUCCESS))
+    _success = membership_sql(db, "et.status")
     rows = db.query_quiet(
         f"""
         SELECT et.epic_id,
                COUNT(*) AS total,
-               SUM(CASE WHEN et.status IN ({_tts_in}) THEN 1 ELSE 0 END) AS done
+               SUM(CASE WHEN {_success} THEN 1 ELSE 0 END) AS done
         FROM epic_tasks et
         JOIN items i ON i.id = et.epic_id
         WHERE 1=1{pf}

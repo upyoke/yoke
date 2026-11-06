@@ -22,7 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+import json
+from yoke_core.domain.frontier_workflow_versions import load_frontier_workflow_versions
 from yoke_core.domain.deployment_run_qa_fingerprint import run_qa_fingerprint
 from yoke_core.domain.schema_common import _get_columns, _table_exists
 
@@ -38,7 +39,7 @@ def _digest(select: str, order: str) -> str:
 #: nonterminal item of a carried project, which is the custody walk's input.
 _JUDGED_ITEMS = (
     "SELECT id FROM items WHERE id=ANY(%(items)s) OR (project_id=ANY(%(projects)s) "
-    "AND status<>ALL(%(terminal)s) AND ({landed}))"
+    "AND NOT (%(terminal)s::jsonb -> workflow_version_id::text ? status) AND ({landed}))"
 )
 #: Columns the digest reads when the schema has them. A release may start
 #: before a later column converges, so each is named only once it exists.
@@ -145,7 +146,14 @@ def _composition_digest(
             "run": str(run_id),
             "items": list(item_ids),
             "projects": list(project_ids),
-            "terminal": sorted(TERMINAL_STATUSES),
+            "terminal": json.dumps(
+                {
+                    str(key): sorted(value.all_terminal_stage_ids)
+                    for key, value in load_frontier_workflow_versions(
+                        conn
+                    ).runtimes.items()
+                }
+            ),
         },
     ).fetchone()
     return f"{run_qa_fingerprint(conn, run_id)}:{row[0]}"

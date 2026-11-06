@@ -40,6 +40,7 @@ class LaneRow:
         "item_id",
         "public_ref",
         "status",
+        "terminal",
         "branch",
         "path",
         "state",
@@ -50,6 +51,7 @@ class LaneRow:
         self.item_id = int(row.get("item_id") or 0)
         self.public_ref = str(row.get("public_ref") or "")
         self.status = str(row.get("status") or "")
+        self.terminal = row.get("terminal") is True
         self.branch = str(row.get("branch") or "")
         self.path = str(row.get("path") or "")
         self.state = str(row.get("state") or "")

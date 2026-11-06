@@ -40,6 +40,7 @@ from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 #: The one gate code whose two readings the stale-head decision separates.
@@ -247,13 +248,14 @@ def evaluate(
         if str(item["workflow_id"]) != "dash":
             return None
         posture = _posture(item)
+        runtime = load_item_workflow_runtime(conn, int(item_id))
         if target_status == "implementing" and posture.get("path_claims") is True:
             return _path_activation_gate(conn, int(item_id))
         verification = posture.get("verification")
-        if target_status in {
-            ITEM_POSTURE_VERIFICATION_TRANSITION,
-            "done",
-        } and isinstance(verification, Mapping):
+        if (
+            target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
+            or target_status in runtime.terminal_stage_ids
+        ) and isinstance(verification, Mapping):
             blocked = verification_gate(
                 conn,
                 item_id=int(item_id),
@@ -262,14 +264,14 @@ def evaluate(
             )
             if blocked is not None:
                 return blocked
-        if target_status != "done":
+        if target_status not in runtime.terminal_stage_ids:
             return None
         if posture.get("path_claims") is True:
             blocked = _path_completion_gate(conn, int(item_id))
             if blocked is not None:
                 return blocked
         if posture.get("approval_on_done") is True:
-            blocked = _approval_gate(conn, int(item_id))
+            blocked = _approval_gate(conn, int(item_id), target_status)
             if blocked is not None:
                 return blocked
         if posture.get("deployment") is True:

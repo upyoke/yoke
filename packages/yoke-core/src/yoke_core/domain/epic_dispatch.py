@@ -9,6 +9,8 @@ to intercept calls.
 
 from __future__ import annotations
 
+from yoke_core.domain.task_lifecycle import task_success_statuses
+
 import json
 from typing import List
 
@@ -229,7 +231,12 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
         raise LookupError(f"dispatch chain '{epic_id}/{worktree}' not found")
 
     queue = parse_dispatch_queue(row["queue"] or "")
-    next_index, _ = select_next_task(queue, load_epic_tasks(conn, epic_id), worktree)
+    next_index, _ = select_next_task(
+        queue,
+        load_epic_tasks(conn, epic_id),
+        worktree,
+        task_success_statuses(conn, int(epic_id)),
+    )
     next_task = queue[next_index]
     ts = instant_parameter(conn, utc_now())
 

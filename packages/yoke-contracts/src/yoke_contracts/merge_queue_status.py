@@ -8,6 +8,8 @@ through the SQL below rather than the bare ``items`` columns: items alias
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import terminal_status_sql
+
 from datetime import datetime
 from typing import Any, Mapping
 
@@ -25,9 +27,14 @@ LABEL_ENQUEUED_AT_SQL = (
 LABEL_LANDED_AT_SQL = (
     "CASE WHEN mq_attempt.item_id IS NULL THEN i.merge_queue_landed_at END"
 )
-#: One item's label inputs: ``status, enqueued_at, landed_at``.
+ITEM_TERMINAL_SQL = terminal_status_sql(
+    "(SELECT definition_json FROM workflow_versions WHERE id=i.workflow_version_id)",
+    "i.status",
+)
+
+#: One item's label inputs: ``terminal, enqueued_at, landed_at``.
 LABEL_INPUTS_FOR_ITEM_SQL = (
-    f"SELECT i.status, {LABEL_ENQUEUED_AT_SQL}, {LABEL_LANDED_AT_SQL} "
+    f"SELECT {ITEM_TERMINAL_SQL}, {LABEL_ENQUEUED_AT_SQL}, {LABEL_LANDED_AT_SQL} "
     f"FROM items i {LABEL_ATTEMPT_JOIN} WHERE i.id = %s"
 )
 
@@ -36,10 +43,10 @@ def render_merge_queue_status(
     enqueued_at: datetime | str | None,
     landed_at: datetime | str | None,
     *,
-    item_status: object = "",
+    item_terminal: bool = False,
 ) -> str:
     """Describe queue occupancy or landed work awaiting close-out."""
-    if str(item_status or "") in {"done", "cancelled"}:
+    if item_terminal:
         return ""
     if enqueued_at in (None, ""):
         return ""

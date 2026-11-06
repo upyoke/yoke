@@ -40,6 +40,12 @@ def source(monkeypatch):
         "yoke_core.domain.sessions_queries_lookup.get_claim_for_work_unit",
         lambda *_args, **_kw: None,
     )
+    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+    monkeypatch.setattr(
+        "yoke_core.domain.epic_dispatch.task_success_statuses",
+        lambda *_a: builtin_workflow_runtime("epic").successful_task_stage_ids,
+    )
     state.conn = Mock()
     return state
 

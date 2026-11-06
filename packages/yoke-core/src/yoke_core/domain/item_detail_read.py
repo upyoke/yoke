@@ -26,7 +26,10 @@ from yoke_core.domain.item_content_index import build_content_index
 from yoke_core.domain.item_owner_label import owner_facts, resolve_owner_names
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
-from yoke_core.domain.item_terminal_resources import terminal_stage_ids
+from yoke_core.domain.item_terminal_resources import (
+    terminal_stage_ids,
+    item_is_terminal,
+)
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
@@ -90,7 +93,7 @@ def _merge_queue(conn: Any, item_id: int, row: dict[str, Any]) -> dict[str, Any]
         "status": render_merge_queue_status(
             attempt["enqueued_at"] if in_flight else row.get("merge_queue_enqueued_at"),
             None if in_flight else row.get("merge_queue_landed_at"),
-            item_status=row.get("status"),
+            item_terminal=bool(item_is_terminal(conn, item_id)),
         ),
     }
 
@@ -174,6 +177,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
         "version": runtime.version,
         "version_id": runtime.workflow_version_id,
         "stage_id": stage_id,
+        "stages": [dict(stage) for stage in runtime.stages],
         "stage_label": runtime.stage_label(stage_id),
         "skill_id": (runtime.skill_for_stage(stage_id) if stage_is_defined else None),
         "next_skill_id": (
@@ -187,10 +191,13 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
         "allowed_lane_roles": sorted(policy.allowed_roles),
         "required_lane_roles": sorted(policy.required_roles),
         "terminal_stage_ids": sorted(terminal_stage_ids(runtime)),
+        "successful_task_stage_ids": sorted(runtime.successful_task_stage_ids),
     }
 
 
-def get_item_detail(item_id: int, *, include: Sequence[str] = (), qa_proof: bool = False) -> dict[str, Any]:
+def get_item_detail(
+    item_id: int, *, include: Sequence[str] = (), qa_proof: bool = False
+) -> dict[str, Any]:
     """Return the item's posture and proof, plus the content sections named.
 
     ``include`` names sections from

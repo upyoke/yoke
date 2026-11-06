@@ -25,6 +25,7 @@ class _Workflow:
     workflow_id = "test"
     version = 1
     stage_ids = ("idea", "planned", "done")
+    terminal_stage_ids = frozenset({"done"})
 
     def accepts_stage(self, status: str) -> bool:
         return status in self.stage_ids

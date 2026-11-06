@@ -7,6 +7,7 @@ case (``decision=directional`` rationale) does not flag.
 """
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 from pathlib import Path
 from typing import Iterator
@@ -61,7 +62,8 @@ def _insert_item(
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
     resolved_workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, workflow_id,
+        conn,
+        workflow_id,
     )
     conn.execute(
         "INSERT INTO items "
@@ -97,8 +99,11 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict]:
 
 def test_non_activation_gate_point_not_applicable():
     r = review.review_activation_row(
-        gate_point="coordination_only", source="idea",
-        rationale="any text", dependent_status="refining-idea",
+        gate_point="coordination_only",
+        source="idea",
+        rationale="any text",
+        dependent_terminal=("refining-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
     assert "non-applicable" in r.reason
@@ -114,8 +119,10 @@ def test_directional_evidence_in_rationale_is_not_flagged():
             "why_order_matters=upstream restructures the table this row "
             "edits"
         ),
-        dependent_status="refined-idea",
-        blocking_status="implementing",
+        dependent_terminal=("refined-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
+        blocking_terminal=("implementing")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
     assert "directional evidence present" in r.reason
@@ -127,7 +134,8 @@ def test_coordination_only_rationale_on_activation_is_mislabel():
         gate_point="activation",
         source="refine",
         rationale="decision=coordination_only. shared_paths=AGENTS.md",
-        dependent_status="refined-idea",
+        dependent_terminal=("refined-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert r.over_hard
     assert "decision=coordination_only" in r.reason
@@ -144,8 +152,10 @@ def test_path_claim_authored_without_directional_flagged():
             "Path-claim overlap with YOK-1665 on "
             ".agents/skills/yoke/shepherd/design-checks.md"
         ),
-        dependent_status="refining-idea",
-        blocking_status="implementing",
+        dependent_terminal=("refining-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
+        blocking_terminal=("implementing")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert r.over_hard
     assert "without decision=directional" in r.reason
@@ -156,7 +166,8 @@ def test_terminal_dependent_status_skipped():
         gate_point="activation",
         source="idea",
         rationale="Path-claim overlap with YOK-X on AGENTS.md",
-        dependent_status="done",
+        dependent_terminal=("done")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
     assert "terminal" in r.reason
@@ -167,8 +178,10 @@ def test_terminal_blocking_status_is_already_satisfied():
         gate_point="activation",
         source="idea",
         rationale="Path-claim overlap with YOK-X on AGENTS.md",
-        dependent_status="refining-idea",
-        blocking_status="done",
+        dependent_terminal=("refining-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
+        blocking_terminal=("done")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
     assert "already satisfied" in r.reason
@@ -179,7 +192,8 @@ def test_implemented_dependent_status_still_reviewed():
         gate_point="activation",
         source="idea",
         rationale="Path-claim overlap with YOK-X on AGENTS.md",
-        dependent_status="implemented",
+        dependent_terminal=("implemented")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert r.over_hard
 
@@ -192,7 +206,8 @@ def test_non_path_claim_source_does_not_flag():
         gate_point="activation",
         source="operator",
         rationale="upstream feature must land first",
-        dependent_status="refined-idea",
+        dependent_terminal=("refined-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
 
@@ -203,7 +218,8 @@ def test_path_claim_source_without_path_in_rationale_not_flagged():
         gate_point="activation",
         source="idea",
         rationale="this work depends on the prior backend rewrite",
-        dependent_status="refined-idea",
+        dependent_terminal=("refined-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
 
@@ -216,8 +232,10 @@ def test_path_claim_guidance_overlap_without_concrete_path_not_flagged():
             "YOK-1685 overlaps path-claim intake guidance owned by YOK-1675; "
             "run after YOK-1675 so dependency teaching lands first"
         ),
-        dependent_status="refined-idea",
-        blocking_status="polishing-implementation",
+        dependent_terminal=("refined-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
+        blocking_terminal=("polishing-implementation")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert not r.over_hard
 
@@ -227,7 +245,8 @@ def test_filepath_in_rationale_triggers_path_signal():
         gate_point="activation",
         source="refine",
         rationale="touches runtime/api/domain/events.py same as YOK-X",
-        dependent_status="refining-idea",
+        dependent_terminal=("refining-idea")
+        in builtin_workflow_runtime("issue").all_terminal_stage_ids,
     )
     assert r.over_hard
 
@@ -240,9 +259,7 @@ def test_scan_returns_empty_on_minimal_schema():
     from runtime.api.fixtures import pg_testdb
 
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     try:
         assert review.scan_non_terminal_activation_rows(conn) == []
     finally:

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from yoke_core.domain.db_mutation_gate_shared import (
-    _NON_TERMINAL_STATUSES,
     _safe_parse_dict,
 )
 from yoke_core.domain.db_mutation_profile import (
@@ -50,7 +49,8 @@ def lane_only_migration_entries(
     target = resolve_target_ref(worktree_path, integration_target)
     names = set(history_names_at_ref(worktree_path, target, modules_dir))
     return tuple(
-        entry.name for entry in ordinal_entries(worktree_path / modules_dir)
+        entry.name
+        for entry in ordinal_entries(worktree_path / modules_dir)
         if entry.name not in names
     )
 
@@ -128,10 +128,7 @@ def _collision_errors(
                 "migration-bearing lanes"
             )
             continue
-        if (
-            other_id == public_ref
-            or str(row.get("status") or "") not in _NON_TERMINAL_STATUSES
-        ):
+        if other_id == public_ref or row.get("terminal"):
             continue
         other_ref = _row_public_ref(row)
         other = _profile(row.get("db_mutation_profile"))
@@ -224,8 +221,10 @@ def evaluate_migration_merge(
 
         errors = missing_claim_errors(
             profile=current_row.get("db_mutation_profile"),
-            settings=capability_settings_json, worktree_path=worktree_path,
-            integration_target=integration_target, public_ref=public_ref,
+            settings=capability_settings_json,
+            worktree_path=worktree_path,
+            integration_target=integration_target,
+            public_ref=public_ref,
         )
         return MigrationMergeGate(bool(errors), tuple(errors))
     try:

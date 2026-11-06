@@ -25,12 +25,29 @@ from yoke_core.engines import advance_implementation_entry as orch
 _FIXTURE_ITEM_REF = f"YOK-{42}"
 
 
-def _detail_response(item: Dict[str, Any]) -> FunctionCallResponse:
+def _context_response(item: Dict[str, Any]) -> FunctionCallResponse:
+    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+    runtime = builtin_workflow_runtime(item["workflow"]["id"])
     return FunctionCallResponse(
         success=True,
-        function="items.detail.get",
+        function="done_transition.item_context",
         version="v1",
-        result={"item": item},
+        result={
+            "found": True,
+            "public_ref": item["public_ref"],
+            "stage_id": item["status"],
+            "title": item["title"],
+            "project": item["project"]["slug"],
+            "lane_branch": "",
+            "workflow": {
+                "workflow_id": runtime.workflow_id,
+                "workflow_version_id": item["workflow"]["version_id"],
+                "version": runtime.version,
+                "definition_digest": runtime.definition_digest,
+                "definition": runtime.definition,
+            },
+        },
     )
 
 
@@ -49,8 +66,8 @@ def _record_calls(monkeypatch) -> List[Dict[str, Any]]:
     def fake(**kwargs):
         calls.append(kwargs)
         function_id = kwargs.get("function_id")
-        if function_id == "items.detail.get":
-            return _detail_response(
+        if function_id == "done_transition.item_context":
+            return _context_response(
                 {
                     "public_ref": "YOK-1920",
                     "status": "idea",
@@ -65,10 +82,10 @@ def _record_calls(monkeypatch) -> List[Dict[str, Any]]:
     return calls
 
 
-def test_read_item_relays_items_detail_get(monkeypatch):
+def test_read_item_relays_pinned_workflow_context(monkeypatch):
     calls = _record_calls(monkeypatch)
     item = orch._read_item("YOK-1920")
-    assert calls[0]["function_id"] == "items.detail.get"
+    assert calls[0]["function_id"] == "done_transition.item_context"
     target = calls[0]["target"]
     assert target.kind == "item" and target.public_ref == "YOK-1920"
     assert item == {
@@ -76,6 +93,7 @@ def test_read_item_relays_items_detail_get(monkeypatch):
         "workflow_id": "dash",
         "workflow_version_id": 41,
         "status": "idea",
+        "implementation_started": False,
         "title": "T",
         "project": "yoke",
     }
@@ -85,7 +103,7 @@ def test_read_item_returns_none_when_relay_refuses(monkeypatch):
     def fake(**_kwargs):
         return FunctionCallResponse(
             success=False,
-            function="items.detail.get",
+            function="done_transition.item_context",
             version="v1",
             error=FunctionError(code="not_found", message="missing"),
         )

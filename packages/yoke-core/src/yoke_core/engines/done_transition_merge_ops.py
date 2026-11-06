@@ -272,10 +272,12 @@ def _handle_already_done(
     from yoke_contracts.public_ref import unresolved_item_ref
 
     ref = public_ref or unresolved_item_ref()
-    print(f"Pre-flight: {ref} is already completed (status=done, worktree cleared).")
+    print(
+        f"Pre-flight: {ref} is already completed (status={result.old_status}, worktree cleared)."
+    )
     print("No cleanup or discovery work needed on idempotent re-run.")
     result.already_completed = True
-    result.new_status = "done"
+    result.new_status = result.old_status
     result.write(result_file)
     print(f"RESULT_FILE={result_file}")
     return 0

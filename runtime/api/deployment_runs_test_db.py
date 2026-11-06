@@ -115,6 +115,18 @@ def _apply_schema() -> None:
     from yoke_core.domain.flow_init import converge_flow_catalog
 
     with connect() as conn:
+        from runtime.api.api_workflow_test_helpers import (
+            install_workflow_registry_and_pin_items,
+        )
+
+        install_workflow_registry_and_pin_items(conn)
+        from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+        _, version_id = resolve_current_workflow_pin(conn, "issue")
+        conn.execute("ALTER TABLE items ALTER COLUMN workflow_id SET DEFAULT 'issue'")
+        conn.execute(
+            f"ALTER TABLE items ALTER COLUMN workflow_version_id SET DEFAULT {int(version_id)}"
+        )
         converge_flow_catalog(conn)
 
 

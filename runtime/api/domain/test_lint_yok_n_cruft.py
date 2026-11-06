@@ -59,6 +59,9 @@ def _seed_lint_items_table() -> None:
                 f"VALUES ({p}, {p}, {p}, {p})",
                 row,
             )
+        from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+        install_workflow_pin(conn, workflow_id="issue")
         conn.commit()
     finally:
         conn.close()
@@ -265,7 +268,7 @@ def test_remote_status_lookup_relays_through_registered_items_read(
 
     def _relay(function_id, payload):
         calls.append((function_id, payload))
-        return {"rows": [{"id": "YOK-100", "status": "done"}]}
+        return {"rows": [{"id": "YOK-100", "status": "done", "terminal": True}]}
 
     monkeypatch.setattr(
         lint_yok_n_cruft_status.control_plane_transport,

@@ -33,7 +33,7 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.item_status_transitions import record_task_transition
 from yoke_core.domain.task_lifecycle import (
     ALL_TASK_STATUSES,
-    TASK_TERMINAL_SUCCESS,
+    task_success_statuses,
     is_valid_task_status,
 )
 from yoke_core.domain.title_policy import item_title_length_error
@@ -118,22 +118,23 @@ def task_update_status(
     statuses are blocked unless *pipeline* is True (set by the status
     pipeline, ``yoke_core.domain.update_status``).
     """
-    if not is_valid_task_status(status):
+    _require_task_exists(conn, epic_id, task_num)
+    if not is_valid_task_status(status) and status not in task_success_statuses(
+        conn, int(epic_id)
+    ):
         raise ValueError(
             f"invalid epic task status {status} -- valid values: "
             + ",".join(sorted(ALL_TASK_STATUSES))
         )
 
     # Guard terminal success statuses
-    if status in TASK_TERMINAL_SUCCESS and not pipeline:
+    if status in task_success_statuses(conn, int(epic_id)) and not pipeline:
         raise PermissionError(
             f"terminal status '{status}' cannot be set directly; it is "
             "pipeline-owned. Route through the status pipeline "
             "(python3 -m yoke_core.domain.update_status) so gates and "
             "cascades fire."
         )
-
-    _require_task_exists(conn, epic_id, task_num)
 
     p = _placeholder(conn)
     old_row = conn.execute(

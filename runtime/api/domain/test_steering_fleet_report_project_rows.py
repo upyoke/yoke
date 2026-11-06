@@ -44,6 +44,7 @@ def _landed(item_id: int, ref: str, run_id: str = "") -> LandedItem:
         item_id=item_id,
         public_ref=ref,
         status="release",
+        at_release=True,
         landed_at="2026-08-26T11:00:00.000000Z",
         landed_seconds=3600,
         custody_state=HELD if run_id else "unheld",

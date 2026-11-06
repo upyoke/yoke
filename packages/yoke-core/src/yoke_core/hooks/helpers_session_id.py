@@ -50,7 +50,7 @@ def find_project_root(claude_project_dir: Optional[str] = None) -> str:
         if result.returncode == 0:
             for line in result.stdout.splitlines():
                 if line.startswith("worktree "):
-                    main_root = line[len("worktree "):]
+                    main_root = line[len("worktree ") :]
                     try:
                         from yoke_core.domain import yoke_connected_env
 
@@ -193,12 +193,14 @@ def resolve_dispatch_context(
             return (str(row[0]), str(row[1]), str(row[2]))
 
         # Fallback: unique active item ownership by branch or exact path.
+        from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
         wt_basename = os.path.basename(agent_dir)
         rows = conn.execute(
-            """SELECT DISTINCT i.id
+            f"""SELECT DISTINCT i.id
                FROM items i
                JOIN item_worktrees iw ON iw.item_id = i.id
-               WHERE i.status NOT IN ('done', 'cancelled')
+               WHERE NOT {terminal_items_sql(conn)}
                  AND iw.state = 'active'
                  AND (iw.branch = %s OR iw.path = %s)
                LIMIT 2""",

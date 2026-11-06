@@ -21,11 +21,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import task_success_statuses
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_core.domain import db_backend
-
-
-_ITEM_TERMINAL = frozenset({"done", "cancelled"})
 
 
 @dataclass(frozen=True)
@@ -75,12 +73,19 @@ def terminal_owner(
                 (lane_id,),
             ).fetchall()
             if not task_rows:
-                if str(_row_value(row, "status", 2)) not in _ITEM_TERMINAL:
+                if (
+                    str(_row_value(row, "status", 2))
+                    not in load_item_workflow_runtime(
+                        conn, item_id
+                    ).all_terminal_stage_ids
+                ):
                     return None
                 owners.add(LaneOwner("item", item_id))
                 continue
             for task_row in task_rows:
-                if str(_row_value(task_row, "status", 2)) not in TASK_TERMINAL_SUCCESS:
+                if str(_row_value(task_row, "status", 2)) not in task_success_statuses(
+                    conn, item_id
+                ):
                     return None
                 owners.add(
                     LaneOwner(
@@ -102,11 +107,11 @@ def terminal_owner(
         return None
     if len(owners) == 1:
         return next(iter(owners))
-    return _finished_epic(owners, item_status)
+    return _finished_epic(conn, owners, item_status)
 
 
 def _finished_epic(
-    owners: set[LaneOwner], item_status: dict[int, str]
+    conn: Any, owners: set[LaneOwner], item_status: dict[int, str]
 ) -> LaneOwner | None:
     """The epic whose finished tasks shared this lane, once it is closed.
 
@@ -118,7 +123,10 @@ def _finished_epic(
     if len(epics) != 1 or any(owner.kind != "epic_task" for owner in owners):
         return None
     epic_id = next(iter(epics))
-    if item_status.get(epic_id) not in _ITEM_TERMINAL:
+    if (
+        item_status.get(epic_id)
+        not in load_item_workflow_runtime(conn, epic_id).all_terminal_stage_ids
+    ):
         return None
     return LaneOwner("item", epic_id)
 

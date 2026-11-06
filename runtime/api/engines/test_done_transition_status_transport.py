@@ -45,7 +45,9 @@ class TestEpicTaskListRelay:
             return _resp("done_transition.epic_task_list", {"task_list": ""})
 
         _install(monkeypatch, fake)
-        status._cascade_epic_tasks_to_done(8600, public_ref="YOK-8600")
+        status._cascade_epic_tasks_to_done(
+            8600, public_ref="YOK-8600", target_status="done"
+        )
         assert calls[0]["function_id"] == "done_transition.epic_task_list"
         assert calls[0]["payload"] == {"epic_public_ref": "YOK-8600"}
         assert "No tasks to cascade." in capsys.readouterr().out

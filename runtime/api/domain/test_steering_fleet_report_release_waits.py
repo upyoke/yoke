@@ -47,6 +47,7 @@ def landing(number=1, **changes):
         item_id=number,
         public_ref=f"TEST-{number}",
         status="release",
+        at_release=True,
         landed_at=NOW,
         landed_seconds=14 * 3600,
         holder_session_id=str(uuid4()),
@@ -58,6 +59,13 @@ def landing(number=1, **changes):
         completion_flow_available=True,
         delivery_gate=WAITING,
     )
+    if "status" in changes:
+        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+        changes.setdefault(
+            "at_release",
+            builtin_workflow_runtime("dash").stage_implies_merge(changes["status"]),
+        )
     return replace(entry, **changes)
 
 
@@ -106,7 +114,9 @@ def report(*entries):
 def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     custody, run, expected
 ):
-    entry = landing(custody_state=custody, custody_run_id=run, custody_run_flow=RUN_FLOW)
+    entry = landing(
+        custody_state=custody, custody_run_id=run, custody_run_flow=RUN_FLOW
+    )
     body = report_body(report(entry))
     lines = [line for line in body.splitlines() if entry.public_ref in line]
     assert len(lines) == 1

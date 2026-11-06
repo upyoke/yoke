@@ -16,11 +16,19 @@ import {
   itemText,
 } from "./universe_ui_items_test_support.mjs";
 
-test("Epic detail reports task completion and its narrower fact spine", async () => {
+test("Epic detail reports all task pages and its planning progress", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const epic = detailItem("epic");
+  epic.status = "planning";
+  epic.workflow.stages = [
+    { id: "idea", label: "idea" },
+    { id: "planning", label: "planning" },
+    { id: "implementing", label: "implementing" },
+  ];
+  epic.workflow.successful_task_stage_ids = ["reviewed-implementation", "done"];
   epic.qa_plan_attachments[0].materialized_count = 0;
+  const taskOffsets = [];
   renderItemDetailView(itemContext(documentNode, async (request) => {
     if (request.function === "items.detail.get") {
       return {
@@ -32,15 +40,16 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
       };
     }
     if (request.function === "epic_tasks.list.run") {
+      taskOffsets.push(request.payload.offset);
       return {
         status: 200,
         envelope: {
           success: true,
           result: {
-            tasks: [
-              { task_num: 1, title: "Build shell", status: "done" },
-              { task_num: 2, title: "Verify shell", status: "planned" },
-            ],
+            tasks: request.payload.offset === 0
+              ? [{ task_num: 1, title: "Build shell", status: "reviewed-implementation" }]
+              : [{ task_num: 2, title: "Verify shell", status: "planned" }],
+            next_offset: request.payload.offset === 0 ? 1 : null,
           },
         },
       };
@@ -49,8 +58,15 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   }), root, "7", "ACM-22");
   await settle();
 
+  assert.deepEqual(taskOffsets, [0, 1]);
   const rendered = itemText(root);
-  assert.match(rendered, /Tasks · 2 1 of 2 done/);
+  assert.match(rendered, /Tasks · 2 tasks 1 of 2 done/);
+  const summary = byClass(root, "item-epic-progress")[0];
+  assert.equal(summary.parentNode.className, "panel-header");
+  assert.match(itemText(summary), /tasks 1 of 2 done/);
+  assert.match(rendered, /✓ idea/);
+  assert.match(rendered, /● planning/);
+  assert.match(rendered, /○ implementing/);
   assert.match(rendered, /Shepherd verdicts/);
   assert.match(
     rendered,

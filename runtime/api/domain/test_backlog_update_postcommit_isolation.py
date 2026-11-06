@@ -39,6 +39,7 @@ def _isolate_run_continuation(monkeypatch) -> None:
 def _terminal_receipt() -> UpdateEffectReceipt:
     return UpdateEffectReceipt(
         status_event=(72, "release", "done", "test"),
+        successful_terminal=True,
         session_id="origin",
         messages=(),
         path_claim_ids_to_propagate=(31, 32),

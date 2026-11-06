@@ -17,6 +17,10 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import utc_now
 from yoke_core.domain.schema_read_scope import composition_operation
+from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
+from yoke_core.domain.workflow_delivery_binding_validation import (
+    delivery_ready_for_stage,
+)
 
 
 @dataclass(frozen=True)
@@ -189,6 +193,9 @@ def _readiness(
         "JOIN items i ON i.id=dri.item_id WHERE dri.run_id=%s ORDER BY dri.item_id",
         (run_id,),
     ).fetchall()
+    pinned = read_pinned_items(
+        conn, (int(_row_value(member, "item_id", 0)) for member in members)
+    )
     for member in members:
         item_id = int(_row_value(member, "item_id", 0))
         if str(_row_value(member, "delivery_intent", 1) or "") != "final":
@@ -202,15 +209,17 @@ def _readiness(
         if supplemental_qa_run(conn, run_id=run_id, item_id=item_id):
             continue
         item_status = str(_row_value(member, "status", 2) or "")
+        runtime = pinned[item_id].require_runtime(conn, item_id)
+        completed = item_status in runtime.terminal_stage_ids
         if shared:
-            if item_status not in {"release", "done"} or not satisfied_delivery_member(
-                conn, item_id=item_id, run_id=run_id
-            ):
+            if not (
+                completed or delivery_ready_for_stage(runtime, item_status)
+            ) or not satisfied_delivery_member(conn, item_id=item_id, run_id=run_id):
                 return (
                     None,
                     member_completion_blocker(conn, run_id=run_id, item_id=item_id),
                 )
-        elif item_status != "done" and not owes_only_other_targets(
+        elif not completed and not owes_only_other_targets(
             conn, run_id=run_id, item_id=item_id
         ):
             return (

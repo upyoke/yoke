@@ -53,8 +53,6 @@ from yoke_contracts.board.status import (  # noqa: F401
     BLOCKED_BUCKET,
     FROZEN_BUCKET,
     UNKNOWN_BUCKET,
-    _STATUS_TO_BUCKET,
-    _WORKFLOW_AWARE_OVERRIDES,
     status_to_board_bucket,
 )
 

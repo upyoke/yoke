@@ -138,5 +138,8 @@ def test_done_satisfies_merge_edge_regardless_of_landing_or_edge_age(landing):
     assert "done" in verdict.reason
 
 
-def test_done_satisfies_merge_edge_without_clock_or_workflow_evidence():
-    assert evaluate_satisfaction("fact:merged", "done").satisfied
+def test_completion_satisfies_merge_edge_without_clock_evidence():
+    assert evaluate_satisfaction(
+        "fact:merged", "done", workflow=builtin_workflow_runtime("dash")
+    ).satisfied
+    assert not evaluate_satisfaction("fact:merged", "done").satisfied

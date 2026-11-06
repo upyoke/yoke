@@ -74,21 +74,21 @@ def final_open_member_ids(conn, run_id):
     from yoke_core.domain.deployment_run_composition_freeze import (
         DELIVERY_INTENT_PROGRESS,
     )
-    from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
-    from yoke_core.domain.workflow_delivery_binding_validation import (
-        COMPLETED_ITEM_STAGE_ID,
+    from yoke_core.domain.frontier_workflow_versions import (
+        load_frontier_workflow_versions,
     )
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
-        "SELECT dri.item_id,COALESCE(dri.delivery_intent,''),i.status "
+        "SELECT dri.item_id,COALESCE(dri.delivery_intent,''),i.status,i.workflow_version_id "
         f"FROM {run_items('dri')} JOIN items i ON i.id=dri.item_id "
         f"WHERE dri.run_id={marker} ORDER BY dri.item_id",
         (run_id,),
     ).fetchall()
+    versions = load_frontier_workflow_versions(conn)
     return tuple(
         int(row[0])
         for row in rows
         if str(row[1]) != DELIVERY_INTENT_PROGRESS
-        and str(row[2]) not in ENGINE_TERMINAL_STAGE_IDS | {COMPLETED_ITEM_STAGE_ID}
+        and str(row[2]) not in versions.runtimes[int(row[3])].all_terminal_stage_ids
     )

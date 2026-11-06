@@ -284,46 +284,6 @@ class TestExtractGeneratedFiles:
 # ---------------------------------------------------------------------------
 
 
-class TestPreflightEpicTasks:
-    def test_all_tasks_complete(self, mw_db):
-        conn = mw_db["conn"]
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 1, 'done')"
-        )
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 2, 'reviewed-implementation')"
-        )
-        conn.commit()
-
-        # Direct DB check matching preflight logic
-        terminal_list = merge_worktree._sql_task_terminal_success_list()
-        incomplete = conn.execute(
-            f"SELECT task_num, status FROM epic_tasks "
-            f"WHERE epic_id='100' AND status NOT IN ({terminal_list}) "
-            f"ORDER BY task_num"
-        ).fetchall()
-        assert len(incomplete) == 0
-
-    def test_incomplete_tasks(self, mw_db):
-        conn = mw_db["conn"]
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 1, 'done')"
-        )
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 2, 'implementing')"
-        )
-        conn.commit()
-
-        terminal_list = merge_worktree._sql_task_terminal_success_list()
-        incomplete = conn.execute(
-            f"SELECT task_num, status FROM epic_tasks "
-            f"WHERE epic_id='100' AND status NOT IN ({terminal_list}) "
-            f"ORDER BY task_num"
-        ).fetchall()
-        assert len(incomplete) == 1
-        assert incomplete[0][0] == 2
-
-
 # ---------------------------------------------------------------------------
 # Merge lock CLI tests
 # ---------------------------------------------------------------------------

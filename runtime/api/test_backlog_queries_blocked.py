@@ -16,6 +16,9 @@ Mirrors :mod:`runtime.api.backlog_test_support_queries_freeze` for the new
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+
 import pytest
 
 from yoke_core.domain.queries import (
@@ -27,6 +30,8 @@ from yoke_core.domain.queries import (
     sql_blocked_filter,
     sql_frozen_filter,
 )
+
+_WORKFLOW = builtin_workflow_runtime("epic")
 
 
 @pytest.mark.parametrize(
@@ -79,25 +84,25 @@ def test_item_filter_exclude_blocked():
 
 
 def test_classify_item_state_returns_blocked_for_flag():
-    assert classify_item_state("idea", frozen=False, blocked=True) == "blocked"
+    assert (
+        classify_item_state("idea", frozen=False, blocked=True, workflow=_WORKFLOW)
+        == "blocked"
+    )
     assert (
         classify_item_state(
-            "implementing",
-            frozen=False,
-            blocked=True,
+            "implementing", frozen=False, blocked=True, workflow=_WORKFLOW
         )
         == "blocked"
     )
 
 
 def test_classify_item_state_done_outranks_blocked_flag():
-    assert classify_item_state("done", frozen=False, blocked=True) == "done"
     assert (
-        classify_item_state(
-            "cancelled",
-            frozen=False,
-            blocked=True,
-        )
+        classify_item_state("done", frozen=False, blocked=True, workflow=_WORKFLOW)
+        == "done"
+    )
+    assert (
+        classify_item_state("cancelled", frozen=False, blocked=True, workflow=_WORKFLOW)
         == "cancelled"
     )
 
@@ -106,9 +111,7 @@ def test_classify_item_state_frozen_outranks_blocked_flag():
     """Frozen ordering wins over blocked when both flags are set."""
     assert (
         classify_item_state(
-            "implementing",
-            frozen=True,
-            blocked=True,
+            "implementing", frozen=True, blocked=True, workflow=_WORKFLOW
         )
         == "frozen"
     )
@@ -117,8 +120,11 @@ def test_classify_item_state_frozen_outranks_blocked_flag():
 def test_classify_item_state_default_blocked_is_none():
     """Default arg is None — same as un-set. No regression to existing
     callers that did not pass blocked=."""
-    assert classify_item_state("idea", frozen=False) == "pipeline"
-    assert classify_item_state("implementing", frozen=False) == "active_work"
+    assert classify_item_state("idea", frozen=False, workflow=_WORKFLOW) == "pipeline"
+    assert (
+        classify_item_state("implementing", frozen=False, workflow=_WORKFLOW)
+        == "active_work"
+    )
 
 
 def test_is_blocked_does_not_collide_with_is_frozen():

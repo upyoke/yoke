@@ -27,6 +27,7 @@ from .scheduler_types import (
     is_assignable_claim_state,
 )
 from .session_item_stage_rework import items_returned_after_landing
+from .workflow_item_binding_validation import read_pinned_items
 
 
 @dataclass(frozen=True)
@@ -41,9 +42,9 @@ class StaffingFacts:
     task_held: frozenset[int] = frozenset()
 
 
-def owes_relanding(status: str, returned_after_landing: bool) -> bool:
+def owes_relanding(at_release: bool, returned_after_landing: bool) -> bool:
     """Rework sent the landed item back before release; it must land again."""
-    return returned_after_landing and status != "release"
+    return returned_after_landing and not at_release
 
 
 def is_staffable(
@@ -55,9 +56,8 @@ def is_staffable(
     """Whether a new worker launched onto ``step`` could advance it."""
     if step.next_step is NextStep.WAIT:
         return False
-    if (
-        step.next_step is NextStep.CONDUCT
-        and step.item_id not in set(conduct_eligible_ids)
+    if step.next_step is NextStep.CONDUCT and step.item_id not in set(
+        conduct_eligible_ids
     ):
         return False
     if step.item_id in facts.task_held:
@@ -111,10 +111,16 @@ def read_staffing_facts(
         if int(record["id"]) in wanted
     }
     returned = items_returned_after_landing(conn, landed) if landed else set()
+    pinned = read_pinned_items(conn, landed)
     relanding = {
         item_id
         for item_id, record in landed.items()
-        if owes_relanding(str(record.get("status") or ""), item_id in returned)
+        if owes_relanding(
+            pinned[item_id]
+            .require_runtime(conn, item_id)
+            .stage_implies_merge(str(record.get("status") or "")),
+            item_id in returned,
+        )
     }
     unowed = set(landed) - relanding
     run_owed = _live_run_owed(conn, project_scope) & unowed if unowed else set()

@@ -96,6 +96,7 @@ class ItemFilter:
 
     # Exclusion filters (items matching these are excluded)
     exclude_statuses: Optional[Sequence[str]] = None
+    exclude_terminal: bool = False
     exclude_cancelled: bool = False
     exclude_done: bool = False
     exclude_frozen: bool = False
@@ -160,6 +161,14 @@ def build_where_clause(
         )
         params.extend([filt.project, filt.project])
 
+    if filt.exclude_terminal:
+        from yoke_contracts.lifecycle_status import terminal_status_sql
+
+        predicate = terminal_status_sql("wv.definition_json", f"{pfx}status")
+        conditions.append(
+            f"NOT EXISTS (SELECT 1 FROM workflow_versions wv WHERE wv.id = {pfx}workflow_version_id AND {predicate})"
+        )
+
     # Exclusion filters
     if filt.exclude_statuses:
         placeholders = ", ".join("%s" for _ in filt.exclude_statuses)
@@ -204,70 +213,43 @@ def active_queue_filter(
     """
     return ItemFilter(
         project=project,
-        exclude_done=True,
-        exclude_cancelled=True,
+        exclude_terminal=True,
         exclude_frozen=True,
         exclude_blocked=True,
     )
 
 
-def pending_work_filter(
-    project: Optional[str] = None,
-) -> ItemFilter:
-    """Return an ``ItemFilter`` for items that still need work.
-
-    Pending work: NOT done, NOT cancelled, NOT frozen, NOT blocked, and NOT
-    in a pre-release or terminal success state (implemented/done). This is
-    a stricter filter than ``active_queue_filter`` that excludes usher-ready
-    items too.
-    """
+def pending_work_filter(workflow, project: Optional[str] = None) -> ItemFilter:
+    """Exclude successful handoffs and terminals for one pinned workflow."""
     return ItemFilter(
         project=project,
-        exclude_statuses=("done", "cancelled", "implemented"),
+        exclude_statuses=sorted(
+            workflow.all_terminal_stage_ids | workflow.successful_task_stage_ids
+        ),
         exclude_frozen=True,
         exclude_blocked=True,
     )
-
-
-# ---------------------------------------------------------------------------
-# Item classification helpers
-# ---------------------------------------------------------------------------
 
 
 def classify_item_state(
-    status: str,
-    frozen: Any,
-    blocked: Any = None,
+    status: str, frozen: Any, blocked: Any = None, *, workflow
 ) -> str:
-    """Classify an item into a high-level state category.
+    """Project lifecycle and orthogonal flags using the pinned workflow."""
+    from yoke_contracts.lifecycle_status import ENGINE_EXCEPTIONAL_STAGE_IDS
 
-    Returns one of: ``"done"``, ``"cancelled"``, ``"frozen"``, ``"blocked"``,
-    ``"terminal_failure"``, ``"active_work"``, ``"pipeline"``.
-
-    The blocked-flag check fires after frozen and after the done/cancelled
-    terminals so that a done/cancelled/frozen item is never reported as
-    blocked.
-
-    This is useful for quick categorization without full board projection.
-    """
-    if status == "done":
+    if status in workflow.terminal_stage_ids:
         return "done"
     if status == "cancelled":
         return "cancelled"
-    if is_frozen(frozen) and status not in ("done", "cancelled"):
-        return "frozen"
-    if is_blocked(blocked) and status not in ("done", "cancelled"):
-        return "blocked"
-    if status in ("stopped", "failed"):
+    if status in ENGINE_EXCEPTIONAL_STAGE_IDS:
         return "terminal_failure"
-    if status in (
-        "implementing",
-        "reviewing-implementation",
-        "reviewed-implementation",
-        "polishing-implementation",
-        "implemented",
-        "release",
+    if is_frozen(frozen):
+        return "frozen"
+    if is_blocked(blocked):
+        return "blocked"
+    if (
+        workflow.implementation_has_started(status)
+        or status in workflow.successful_task_stage_ids
     ):
         return "active_work"
-    # idea, planned, refined-idea, planning, refining-plan
     return "pipeline"

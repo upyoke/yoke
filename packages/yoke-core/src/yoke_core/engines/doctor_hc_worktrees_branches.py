@@ -160,7 +160,9 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         )
         fetched = False
         for row in rows:
-            if row["status"] not in {"done", "cancelled"}:
+            from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+            if not item_is_terminal(conn, int(row["id"])):
                 continue
             branch = row["branch"]
             label = f"{branch} [{project['slug']}]"
@@ -171,7 +173,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             if not args.fix:
                 issues.append(
                     f"- Stale remote branch: {label} -- {row['public_ref']} "
-                    "is done/cancelled (rerun this check with --fix "
+                    "is terminal (rerun this check with --fix "
                     "for proof-gated cleanup)"
                 )
                 continue

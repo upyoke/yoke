@@ -72,7 +72,9 @@ def _item_qa_answer(conn: Any, *, run_id: str, **subject: Any) -> Any:
     return current_item_qa(conn, run_id=run_id, **subject)
 
 
-def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> tuple[str, str] | None:
+def _require_removable(
+    conn: Any, run_id: str, item_id: int, status: str
+) -> tuple[str, str] | None:
     """Keep ordinary composition mutable; narrow frozen edits to owed item QA."""
     if status == "created":
         if has_frozen_composition(conn, run_id):
@@ -132,16 +134,23 @@ def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> tup
     )
     if member is None:
         return  # The shared write reports the public non-member identity.
-    if item["status"] in {"done", "cancelled", "stopped"}:
+    from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+    if item_is_terminal(conn, item_id):
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} is already closed; retain its delivery evidence."
         )
     from yoke_core.domain.deployment_run_reopened_members import unready_item_ids
-    from yoke_core.domain.deployment_member_candidate_release import candidate_exclusions
+    from yoke_core.domain.deployment_member_candidate_release import (
+        candidate_exclusions,
+    )
 
     if unready_item_ids(conn, [(item_id, item["status"])], allow_completed=True):
         excluded = candidate_exclusions(
-            conn, run_id, [{"item_id": item_id, "reopened": True}], include_lane_head=True
+            conn,
+            run_id,
+            [{"item_id": item_id, "reopened": True}],
+            include_lane_head=True,
         )
         if excluded:
             return excluded[0][1:]

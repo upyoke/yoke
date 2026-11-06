@@ -6,7 +6,6 @@ timestamp helpers consumed by the gate-phase siblings:
 * :class:`GateOutcome` — the public result shape every gate returns.
 * :func:`_safe_parse_dict` — JSON-tolerant ``raw → dict`` reader.
 * :func:`_now_iso` — UTC ISO-8601 ``Z`` timestamp.
-* :data:`_NON_TERMINAL_STATUSES` — claim-holding statuses for overlap.
 
 The front door :mod:`yoke_core.domain.db_mutation_gate` re-exports
 :class:`GateOutcome` from this module so historical importers continue to
@@ -40,29 +39,6 @@ class GateOutcome:
     escalations: List[Dict[str, Any]] = field(default_factory=list)
 
 
-# Statuses considered "non-terminal" for the cross-item overlap check.
-# Work items in any of these states still hold a claim against affected
-# surfaces; once a work item reaches a terminal state its declared profile
-# no longer participates in overlap detection.
-_NON_TERMINAL_STATUSES = frozenset(
-    {
-        "idea",
-        "refining-idea",
-        "refined-idea",
-        "planning",
-        "plan-drafted",
-        "refining-plan",
-        "planned",
-        "implementing",
-        "reviewing-implementation",
-        "reviewed-implementation",
-        "polishing-implementation",
-        "implemented",
-        "release",
-    }
-)
-
-
 def _safe_parse_dict(raw: Any) -> Dict[str, Any]:
     if not raw:
         return {}
@@ -90,7 +66,6 @@ def _now_iso() -> str:
 
 __all__ = [
     "GateOutcome",
-    "_NON_TERMINAL_STATUSES",
     "_now_iso",
     "_safe_parse_dict",
 ]

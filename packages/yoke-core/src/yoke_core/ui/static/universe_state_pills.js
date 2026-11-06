@@ -8,6 +8,12 @@
 // so a state worth showing belongs here even when its family is `idle`.
 
 const FAMILIES = {
+  idea: "warn",
+  "refining-idea": "run",
+  "refined-idea": "good",
+  planning: "run",
+  "plan-drafted": "warn",
+  "refining-plan": "run",
   implementing: "run",
   "reviewing-implementation": "run",
   "reviewed-implementation": "run",
@@ -102,7 +108,7 @@ const FAMILIES = {
   claimed: "run",
   "item-owned": "run",
   archived: "idle",
-  planned: "idle",
+  planned: "good",
   drafted: "idle",
   "needs review": "warn",
   // A run halted on a person is not idle and not failing; the generic

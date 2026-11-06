@@ -12,6 +12,12 @@ HC-reviewed-implementation-epics-no-sim, HC-missing-flow
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import (
+    implementation_items_clause,
+    terminal_items_sql,
+    completed_items_sql,
+)
+
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
@@ -49,8 +55,8 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
     rows = query_rows(
         conn,
         "SELECT id, status "
-        f"FROM items WHERE {landed} "
-        "AND status NOT IN ('done', 'cancelled', 'stopped') ORDER BY id",
+        f"FROM items i WHERE {landed} "
+        f"AND NOT {terminal_items_sql(conn)} ORDER BY id",
     )
     for row in rows:
         item_id = row["id"]
@@ -76,13 +82,14 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
             if r2.returncode == 0:
                 main_branch = "master"
 
+        active_sql, active_params = implementation_items_clause(conn)
         wt_rows = query_rows(
             conn,
             "SELECT DISTINCT i.id, i.status, iw.branch FROM items i "
             "JOIN item_worktrees iw ON iw.item_id = i.id "
-            "WHERE i.status IN ('planned','implementing','reviewing-implementation',"
-            "'reviewed-implementation','polishing-implementation','release','implemented') "
+            f"WHERE {active_sql} "
             "AND iw.state = 'active' ORDER BY i.id, iw.branch",
+            active_params,
         )
         for row in wt_rows:
             item_id = row["id"]
@@ -127,7 +134,7 @@ def hc_premature_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     rows = query_rows(
         conn,
         "SELECT id, workflow_id, title, merged_at "
-        "FROM items WHERE status = 'done' "
+        f"FROM items i WHERE {completed_items_sql(conn)} "
         "AND merged_at IS NULL ORDER BY id",
     )
     issues = [
@@ -260,7 +267,7 @@ def hc_missing_flow(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "SELECT i.id, i.status, p.slug AS project FROM items i "
         "LEFT JOIN projects p ON p.id = i.project_id "
         "WHERE (i.blocked IS NULL OR i.blocked = 0) "
-        "AND i.status NOT IN ('done', 'wontdo', 'cancelled', 'stopped', 'failed') "
+        f"AND NOT {terminal_items_sql(conn)} AND i.status <> 'failed' "
         "AND (i.deployment_flow IS NULL OR i.deployment_flow = '') "
         "ORDER BY i.id",
     )

@@ -43,10 +43,13 @@ def cmd_classify_status(args: list[str]) -> int:
 
     Delegates to the domain board.status_to_board_bucket().
     Prints the bucket name to stdout.
+    Without pinned stage metadata, definition-owned stages print unknown.
     """
     if len(args) < 1:
-        print("Usage: classify-status <status> [--frozen 0|1] [--has-active-run 0|1] [--workflow WORKFLOW]",
-              file=sys.stderr)
+        print(
+            "Usage: classify-status <status> [--frozen 0|1] [--has-active-run 0|1] [--workflow WORKFLOW]",
+            file=sys.stderr,
+        )
         return 2
 
     status = args[0]
@@ -77,7 +80,6 @@ def cmd_classify_status(args: list[str]) -> int:
     )
     print(bucket)
     return 0
-
 
 
 __all__ = ["cmd_item_next_id", "cmd_classify_status"]

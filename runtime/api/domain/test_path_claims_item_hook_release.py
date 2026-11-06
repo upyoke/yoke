@@ -4,6 +4,11 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
 from runtime.api.domain.path_claims_item_hook_release_test_support import (
     _seed_item as _seed_item,
 )
@@ -196,7 +201,7 @@ class TestReleaseClaimsOnItemTerminal:
 class TestBacklogUpdateOpWiring:
     """Terminal path-claim hooks share the transactional update effects."""
 
-    def test_release_hook_imported_and_called_for_release_and_done(self):
+    def test_release_hook_uses_workflow_membership(self):
         import yoke_core.domain.backlog_update_effects as effects
         import inspect
 
@@ -207,10 +212,8 @@ class TestBacklogUpdateOpWiring:
         assert "release_claims_on_item_terminal" in src, (
             "release_claims_on_item_terminal is not referenced in update effects"
         )
-        for trigger in ("release", "done"):
-            assert f'"{trigger}"' in src, (
-                f"update-effects chokepoint does not branch on status={trigger!r}"
-            )
+        assert "runtime.all_terminal_stage_ids" in src
+        assert "_is_delivery_release_redirect(value, runtime)" in src
         assert "done-transition" in src
         assert "deploy-pipeline:" in src
 
@@ -222,8 +225,52 @@ class TestBacklogUpdateOpWiring:
         src = inspect.getsource(effects)
         assert "cancel_claims_on_item_terminal" in src
         assert "path_claims_item_hook " in src or "path_claims_item_hook\n" in src
-        for status in ("cancelled", "stopped", "release", "done"):
-            assert f'"{status}"' in src
+        assert "ENGINE_TERMINAL_STAGE_IDS" in src
         assert "except Exception" not in inspect.getsource(
             effects._clean_terminal_path_claims
         )
+
+    @pytest.mark.parametrize(
+        ("status", "expected"),
+        [
+            ("cancelled", "cancel"),
+            ("stopped", "cancel"),
+            ("complete", "release"),
+            ("shipping", "release"),
+            ("building", None),
+        ],
+    )
+    def test_cleanup_dispatches_pinned_and_engine_states(
+        self, monkeypatch, status, expected
+    ):
+        from yoke_core.domain import backlog_update_effects as effects
+        from yoke_core.domain import path_claims_item_hook as cancel_hook
+        from yoke_core.domain import path_claims_item_hook_release as release_hook
+
+        cancel = Mock(return_value=1)
+        release = Mock(return_value=1)
+        monkeypatch.setattr(cancel_hook, "cancel_claims_on_item_terminal", cancel)
+        monkeypatch.setattr(release_hook, "release_claims_on_item_terminal", release)
+        monkeypatch.setattr(effects, "render_item_ref", lambda *_: "item")
+        monkeypatch.setattr(
+            effects, "resolve_claim_bypass", lambda: ("", "done-transition")
+        )
+        runtime = SimpleNamespace(
+            terminal_stage_ids=frozenset({"complete"}),
+            stage_implies_merge=lambda stage: stage == "shipping",
+        )
+        connection = object()
+        effects._clean_terminal_path_claims(
+            connection,
+            item_id=1,
+            target_status=status,
+            terminal_statuses=frozenset({"complete", "cancelled", "stopped"}),
+            runtime=runtime,
+        )
+        assert cancel.call_count == int(expected == "cancel")
+        assert release.call_count == int(expected == "release")
+        if expected:
+            call = (cancel if expected == "cancel" else release).call_args
+            assert call.args == (connection,)
+            assert call.kwargs["new_status"] == status
+            assert call.kwargs["commit"] is False

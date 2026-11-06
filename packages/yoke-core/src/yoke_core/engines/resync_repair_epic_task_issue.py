@@ -15,6 +15,8 @@ keeps the boolean contract for the existing dispatch surface.
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import workflow_status_metadata_refusal
+
 from yoke_core.domain.public_item_target import public_item_target
 
 import sys
@@ -24,7 +26,6 @@ from typing import TextIO
 from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import github_rest
-from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 from yoke_core.domain.project_attribution import resolved_project
 
 
@@ -200,6 +201,12 @@ def repair_local_orphan_epic_task_typed(
             False, error=f"epic_tasks row {et_slug}/{et_tnum} not found"
         )
 
+    if "successful_task_stage_ids" not in context:
+        return RepairOutcome(
+            False,
+            error=workflow_status_metadata_refusal(),
+        )
+
     # The parent's public ref is rendered server-side from the project's
     # prefix and the item's project sequence — never reconstructed from
     # the internal id, which can diverge from the public sequence.
@@ -258,7 +265,7 @@ def repair_local_orphan_epic_task_typed(
         f"#{issue_num}",
     )
 
-    if et_status in TASK_TERMINAL_SUCCESS or et_status == "cancelled":
+    if et_status in context["successful_task_stage_ids"] or et_status == "cancelled":
         try:
             github_rest.set_issue_state(
                 project=resolved_project(project),

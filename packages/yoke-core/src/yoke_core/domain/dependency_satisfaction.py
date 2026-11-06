@@ -150,9 +150,17 @@ def evaluate_satisfaction(
                 f"deployment_fact_unavailable: no deployment evidence was read for "
                 f"{environment}.",
             )
-        if blocking_status == "done" and blocking_deployed.carried:
+        if (
+            workflow is not None
+            and blocking_status in workflow.terminal_stage_ids
+            and blocking_deployed.carried
+        ):
             return GateResult(True, f"Blocking item is deployed to {environment}.")
-    if satisfaction == Satisfaction.FACT_MERGED.value and blocking_status == "done":
+    if (
+        satisfaction == Satisfaction.FACT_MERGED.value
+        and workflow is not None
+        and blocking_status in workflow.terminal_stage_ids
+    ):
         return GateResult(
             True, "Blocking item is done; its merge dependency is satisfied."
         )

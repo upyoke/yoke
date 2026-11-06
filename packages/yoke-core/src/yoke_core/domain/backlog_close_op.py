@@ -22,6 +22,8 @@ from yoke_core.domain.backlog_queries import (
 from yoke_core.domain import backlog_rendering as _rendering
 from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
 
 
 def _p(conn) -> str:
@@ -105,18 +107,19 @@ def execute_close(
             )
             return {"success": True, "item_id": item_id, "noop": True}
 
-        if status == "done":
+        runtime = load_item_workflow_runtime(conn, int(item_id))
+        if status in runtime.terminal_stage_ids:
             return {
                 "success": False,
                 "error": f"{public_ref} is already done — cannot close a delivered item.",
             }
 
-        if not abandon_merged and status in {
-            "reviewed-implementation",
-            "polishing-implementation",
-            "implemented",
-            "release",
-        }:
+        position = runtime.stage_index(status)
+        passed_review = position is not None and any(
+            GATE_QA_VERIFICATION in runtime.gate_ids_for_stage(stage)
+            for stage in runtime.stage_ids[: position + 1]
+        )
+        if not abandon_merged and passed_review:
             return {
                 "success": False,
                 "error": (

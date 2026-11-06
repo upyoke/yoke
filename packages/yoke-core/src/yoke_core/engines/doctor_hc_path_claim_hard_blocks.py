@@ -18,7 +18,6 @@ from typing import List
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.domain.path_claim_hard_block_review import (
-    TERMINAL_STATUSES,
     scan_non_terminal_activation_rows,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -33,26 +32,24 @@ _LIST_PREVIEW = 10
 
 
 def hc_path_claim_hard_blocks(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Report activation edges that look like path-claim-only hard blocks."""
     if not _base._table_exists(conn, "item_dependencies"):
-        rec.record(_HC_NAME, _HC_DESC, "PASS",
-                   "item_dependencies table missing — skipping")
+        rec.record(
+            _HC_NAME, _HC_DESC, "PASS", "item_dependencies table missing — skipping"
+        )
         return
     if not _base._table_exists(conn, "items"):
-        rec.record(_HC_NAME, _HC_DESC, "PASS",
-                   "items table missing — skipping")
+        rec.record(_HC_NAME, _HC_DESC, "PASS", "items table missing — skipping")
         return
 
     findings = scan_non_terminal_activation_rows(conn)
     # Filter out rows whose dependent or blocking endpoint is terminal —
     # those are historical and do not need remediation.
-    open_findings = [
-        f for f in findings
-        if f.dependent_status
-        and f.dependent_status.lower() not in TERMINAL_STATUSES
-    ]
+    open_findings = [f for f in findings if f.dependent_status]
 
     if not open_findings:
         rec.record(_HC_NAME, _HC_DESC, "PASS", "")
@@ -76,9 +73,7 @@ def hc_path_claim_hard_blocks(
             f"| rationale: {rationale_preview}"
         )
     if len(open_findings) > _LIST_PREVIEW:
-        issues.append(
-            f"  ... and {len(open_findings) - _LIST_PREVIEW} more"
-        )
+        issues.append(f"  ... and {len(open_findings) - _LIST_PREVIEW} more")
     issues.append(
         "- Re-classify via: `yoke claims path coordination-decision-build "
         "--item YOK-N "

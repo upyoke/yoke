@@ -84,6 +84,7 @@ def relay_calls(landed_lanes, monkeypatch) -> List[Tuple[str, dict]]:
             "item_id": i,
             "public_ref": lane.name,
             "status": "done",
+            "terminal": True,
             "branch": lane.name,
             "path": str(lane),
             "state": "released",
@@ -114,7 +115,9 @@ def _fix_within_budget() -> RecordCollector:
     return rec
 
 
-def test_eighty_landed_lanes_are_reported_inside_the_check_budget(landed_lanes, relay_calls):
+def test_eighty_landed_lanes_are_reported_inside_the_check_budget(
+    landed_lanes, relay_calls
+):
     repo, lanes = landed_lanes
     git_commands: List[List[str]] = []
     real_run = hc._base._run

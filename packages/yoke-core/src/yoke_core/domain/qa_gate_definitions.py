@@ -14,16 +14,10 @@ from typing import Any, List, Optional, Tuple
 
 from yoke_contracts.timestamps import parse_instant
 
-# ``done`` asserts blocking QA is settled. Engine terminals abandon the item
-# without that claim and without auto-waiving rows; the run still enforces
-# run-owned QA at its own completion boundary.
-QA_SETTLING_TERMINAL_STATUSES = frozenset({"done"})
-QA_NONSETTLING_TERMINAL_STATUSES = frozenset({"cancelled", "stopped"})
 
-
-def status_settles_blocking_qa(status: str) -> bool:
-    """True when transitioning to *status* must settle blocking QA."""
-    return status in QA_SETTLING_TERMINAL_STATUSES
+def status_settles_blocking_qa(status: str, workflow) -> bool:
+    """Definition-owned success terminals settle every blocking obligation."""
+    return status in workflow.terminal_stage_ids
 
 
 def independent_item_obligation(row: Any) -> bool:

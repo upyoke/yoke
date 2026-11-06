@@ -58,3 +58,15 @@ test("every state a session card can show carries a deliberate family", () => {
     ["unknown", "idle"],
   ]);
 });
+
+
+test("planning stages show readiness and ongoing work", () => {
+  for (const state of ["refining-idea", "planning", "refining-plan"]) {
+    assert.equal(pillFamilyForState(state), "run", state);
+  }
+  for (const state of ["refined-idea", "planned"]) {
+    assert.equal(pillFamilyForState(state), "good", state);
+  }
+  assert.equal(pillFamilyForState("idea"), "warn");
+  assert.equal(pillFamilyForState("plan-drafted"), "warn");
+});

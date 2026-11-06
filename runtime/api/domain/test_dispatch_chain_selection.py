@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+
 import io
 
 import pytest
@@ -41,7 +44,12 @@ def test_blocked_head_yields_to_ready_later_task():
         (2, "planned", (1,)),
         (8, "planned", ()),
     )
-    assert select_next_task(["002", "008"], tasks, "scope") == (1, 8)
+    assert select_next_task(
+        ["002", "008"],
+        tasks,
+        "scope",
+        success_statuses=builtin_workflow_runtime("epic").successful_task_stage_ids,
+    ) == (1, 8)
 
 
 def test_waiting_task_is_picked_up_once_its_dependency_completes():
@@ -50,13 +58,23 @@ def test_waiting_task_is_picked_up_once_its_dependency_completes():
         (2, "planned", (1,)),
         (8, "done", ()),
     )
-    assert select_next_task(["002", "008"], tasks, "scope") == (0, 2)
+    assert select_next_task(
+        ["002", "008"],
+        tasks,
+        "scope",
+        success_statuses=builtin_workflow_runtime("epic").successful_task_stage_ids,
+    ) == (0, 2)
 
 
 def test_lane_with_running_task_is_busy():
     tasks = _tasks((2, "implementing", ()), (8, "planned", ()))
     with pytest.raises(ChainSelectionRefusal) as refusal:
-        select_next_task(["2", "8"], tasks, "scope")
+        select_next_task(
+            ["2", "8"],
+            tasks,
+            "scope",
+            success_statuses=builtin_workflow_runtime("epic").successful_task_stage_ids,
+        )
     assert refusal.value.code == "chain_busy"
     assert "task 2" in refusal.value.message
 
@@ -68,7 +86,12 @@ def test_lane_without_ready_task_names_each_wait():
         (3, "blocked", ()),
     )
     with pytest.raises(ChainSelectionRefusal) as refusal:
-        select_next_task(["2", "3"], tasks, "consumer")
+        select_next_task(
+            ["2", "3"],
+            tasks,
+            "consumer",
+            success_statuses=builtin_workflow_runtime("epic").successful_task_stage_ids,
+        )
     assert refusal.value.code == "chain_waiting"
     assert "task 2 waits on task(s) 1" in refusal.value.message
     assert "task 3 is blocked" in refusal.value.message
@@ -78,13 +101,23 @@ def test_lane_without_ready_task_names_each_wait():
 def test_completed_lane_reports_end_of_queue():
     tasks = _tasks((1, "done", ()), (2, "reviewed-implementation", ()))
     with pytest.raises(ChainSelectionRefusal) as refusal:
-        select_next_task(["1", "2"], tasks, "scope")
+        select_next_task(
+            ["1", "2"],
+            tasks,
+            "scope",
+            success_statuses=builtin_workflow_runtime("epic").successful_task_stage_ids,
+        )
     assert refusal.value.code == "chain_complete"
 
 
 def test_queue_naming_a_missing_task_is_refused():
     with pytest.raises(ChainSelectionRefusal) as refusal:
-        select_next_task(["5"], _tasks((1, "planned", ())), "scope")
+        select_next_task(
+            ["5"],
+            _tasks((1, "planned", ())),
+            "scope",
+            success_statuses=builtin_workflow_runtime("epic").successful_task_stage_ids,
+        )
     assert refusal.value.code == "chain_queue_inconsistent"
 
 

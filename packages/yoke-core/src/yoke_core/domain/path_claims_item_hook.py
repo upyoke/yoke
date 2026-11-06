@@ -22,13 +22,12 @@ Behaviour:
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import ENGINE_TERMINAL_STAGE_IDS
+
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
-
-
-_TERMINAL_STATES = ("cancelled", "stopped")
 
 
 def _p(conn: Any) -> str:
@@ -60,7 +59,7 @@ def cancel_claims_on_item_terminal(
     (zero is a valid result), or ``None`` when the new status is not
     one of the item-terminal triggers.
     """
-    if new_status not in _TERMINAL_STATES:
+    if new_status not in ENGINE_TERMINAL_STAGE_IDS:
         return None
 
     claim_ids = _non_terminal_claim_ids_for_item(conn, item_id)

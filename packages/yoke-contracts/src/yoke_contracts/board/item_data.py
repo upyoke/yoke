@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import ENGINE_TERMINAL_STAGE_IDS
+
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping, NamedTuple, Optional
 
@@ -34,6 +36,7 @@ class ItemRow(NamedTuple):
     updated_at: datetime | None
     status_glyph: Optional[str] = None
     merge_queue_status: str = ""
+    completed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -48,15 +51,16 @@ def status_emoji(
     status: str,
     celebration: Optional[str] = None,
     glyph: Optional[str] = None,
+    completed: bool = False,
 ) -> str:
     """Map a status string to its emoji-prefixed display form.
 
     Returns ``"<emoji> <status>"`` for known statuses, or the raw status
     string for unrecognised values. When *celebration* is set and the status
-    is ``done``, the celebration glyph replaces the normal ✅ (frontier
+    is completed, the celebration glyph replaces the normal glyph (frontier
     inbox-zero flourish, kept consistent with the stats box and section header).
     """
-    if celebration and status == "done":
+    if celebration and completed:
         return f"{celebration} {status}"
     prefix = glyph if glyph is not None else _STATUS_EMOJI_PREFIX.get(status)
     if prefix is None:
@@ -175,10 +179,13 @@ def classify_item_rows(
             project=project_display,
             updated_at=parse_instant(updated_at) if updated_at is not None else None,
             status_glyph=str(status_glyph) if status_glyph else None,
+            completed=status_bucket == "done"
+            and status not in ENGINE_TERMINAL_STAGE_IDS,
             merge_queue_status=render_merge_queue_status(
                 merge_queue_enqueued_at,
                 merge_queue_landed_at,
-                item_status=status,
+                item_terminal=status_bucket == "done"
+                or status in ENGINE_TERMINAL_STAGE_IDS,
             ),
         )
 

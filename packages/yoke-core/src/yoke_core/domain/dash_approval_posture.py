@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain.approval_policy import ApprovalPolicy
+from yoke_core.domain.workflow_runtime import (
+    WorkflowRuntime,
+    load_item_workflow_runtime,
+)
 from yoke_core.domain.dash_posture_read import (
     failure as _failure,
     item_row as _item,
@@ -14,14 +18,14 @@ from yoke_core.domain.dash_posture_read import (
 
 def approval_policy_for_posture(
     *,
-    workflow_id: str,
+    runtime: WorkflowRuntime,
     posture: Mapping[str, Any],
     target_status: str,
 ) -> Optional[ApprovalPolicy]:
     """Return the explicit owner gate selected by Dash approval posture."""
     if (
-        workflow_id != "dash"
-        or target_status != "done"
+        runtime.workflow_id != "dash"
+        or target_status not in runtime.terminal_stage_ids
         or posture.get("approval_on_done") is not True
     ):
         return None
@@ -37,7 +41,7 @@ def approval_policy_for_transition(
     """Return the explicit owner authority selected by approval-on-done."""
     item = _item(conn, item_id)
     return approval_policy_for_posture(
-        workflow_id=str(item["workflow_id"]),
+        runtime=load_item_workflow_runtime(conn, item_id),
         posture=_posture(item),
         target_status=target_status,
     )
@@ -46,6 +50,7 @@ def approval_policy_for_transition(
 def approval_gate(
     conn: Any,
     item_id: int,
+    target_status: str,
 ) -> Optional[dict[str, Any]]:
     """Refuse done until an owner approved this item's done transition."""
     from yoke_core.domain.decision_requests import list_subject_requests
@@ -53,7 +58,7 @@ def approval_gate(
     history = list_subject_requests(
         conn,
         "item_transition",
-        f"{int(item_id)}:done",
+        f"{int(item_id)}:{target_status}",
     )
     latest = history[0] if history else None
     if (

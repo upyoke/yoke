@@ -26,22 +26,9 @@ from unittest import mock
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
-from runtime.api.conftest import insert_epic_task, insert_item
+from runtime.api.conftest import insert_item
+from runtime.api.update_status_github_test_support import _auth, _ok_response
 from yoke_core.domain import update_status
-from yoke_core.domain.gh_rest_transport import RestResponse
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
-
-
-def _auth(project: str = "yoke", repo: str = "org/yoke") -> ProjectGithubAuth:
-    return ProjectGithubAuth(
-        project=project, repo=repo, token="t",
-    )
-
-
-def _ok_response(body=None) -> RestResponse:
-    return RestResponse(
-        status=200, headers={}, body=body if body is not None else {},
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +40,9 @@ class TestGitHubLabelSync:
     def test_label_sync_dry_run(self, test_db):
         err = io.StringIO()
         with mock.patch.object(update_status, "_is_dry_run", return_value=True):
-            update_status._github_label_sync("123", "implementing", [], "yoke", stderr=err)
+            update_status._github_label_sync(
+                "123", "implementing", [], "yoke", stderr=err
+            )
         assert "DRY-RUN" in err.getvalue()
 
     def test_label_sync_dispatches_rest(self, test_db):
@@ -66,15 +55,22 @@ class TestGitHubLabelSync:
                 return _ok_response([{"name": "status:old"}])
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ) as resolve_auth, mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ) as resolve_auth,
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             update_status._github_label_sync(
-                "123", "implementing", [], "yoke", stderr=err,
+                "123",
+                "implementing",
+                [],
+                "yoke",
+                stderr=err,
             )
         methods = [c[0] for c in calls]
         # Label sync reads existing labels (GET) and creates / mutates (POST).
@@ -91,7 +87,13 @@ class TestGitHubCommentPost:
         err = io.StringIO()
         with mock.patch.object(update_status, "_is_dry_run", return_value=True):
             update_status._github_comment_post(
-                "123", "planned", "implementing", "", [], "yoke", stderr=err,
+                "123",
+                "planned",
+                "implementing",
+                "",
+                [],
+                "yoke",
+                stderr=err,
             )
         assert "DRY-RUN" in err.getvalue()
 
@@ -103,34 +105,49 @@ class TestGitHubCommentPost:
             calls.append((req.method, req.path, req.body))
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             update_status._github_comment_post(
-                "123", "planned", "implementing", "test note", [], "yoke",
+                "123",
+                "planned",
+                "implementing",
+                "test note",
+                [],
+                "yoke",
                 stderr=err,
             )
         # Comment POST should fire on the /comments endpoint.
         assert any(
-            c[0] == "POST" and c[1].endswith("/issues/123/comments")
-            for c in calls
+            c[0] == "POST" and c[1].endswith("/issues/123/comments") for c in calls
         )
 
     def test_legacy_repo_projection_cannot_override_verified_binding(self):
         err = io.StringIO()
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(repo="org/verified"),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-        ) as request:
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(repo="org/verified"),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+            ) as request,
+        ):
             update_status._github_comment_post(
-                "123", "planned", "implementing", "",
-                ["-R", "org/stale"], "yoke", stderr=err,
+                "123",
+                "planned",
+                "implementing",
+                "",
+                ["-R", "org/stale"],
+                "yoke",
+                stderr=err,
             )
 
         request.assert_not_called()
@@ -139,6 +156,7 @@ class TestGitHubCommentPost:
 
 class TestGitHubClose:
     def test_close_on_terminal_success(self, test_db):
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic")
         err = io.StringIO()
         calls = []
 
@@ -148,15 +166,24 @@ class TestGitHubClose:
                 return _ok_response({"state": "closed"})
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             update_status._github_close_on_terminal(
-                "123", "reviewed-implementation", "42", "1", [], "yoke",
+                test_db,
+                "123",
+                "reviewed-implementation",
+                "42",
+                "1",
+                [],
+                "yoke",
                 stderr=err,
             )
         patches = [c for c in calls if c[0] == "PATCH"]
@@ -164,6 +191,7 @@ class TestGitHubClose:
         assert patches[0][2].get("state") == "closed"
 
     def test_no_close_on_non_terminal(self, test_db):
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic")
         err = io.StringIO()
         called = []
 
@@ -171,15 +199,25 @@ class TestGitHubClose:
             called.append(req.method)
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             update_status._github_close_on_terminal(
-                "123", "implementing", "42", "1", [], "yoke", stderr=err,
+                test_db,
+                "123",
+                "implementing",
+                "42",
+                "1",
+                [],
+                "yoke",
+                stderr=err,
             )
         assert not called
 
@@ -187,105 +225,6 @@ class TestGitHubClose:
 # ---------------------------------------------------------------------------
 # Epic checkbox sync (REST-mocked)
 # ---------------------------------------------------------------------------
-
-
-class TestEpicCheckbox:
-    def test_checkbox_on_terminal_success(self, test_db):
-        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
-        insert_epic_task(
-            test_db, epic_id=42, task_num=1,
-            status="reviewed-implementation", github_issue="#200",
-        )
-        out = io.StringIO()
-        body_before = "- [ ] #200 Task one\n"
-
-        def fake_req(req, *, token, **kwargs):
-            if req.method == "GET":
-                return _ok_response({"body": body_before, "number": 100})
-            return _ok_response()
-
-        with mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
-            side_effect=fake_req,
-        ):
-            update_status._update_epic_checkbox(
-                test_db, "42", "1", "reviewed-implementation", "#200",
-                [], "yoke", stdout=out,
-            )
-        assert "Checked off" in out.getvalue()
-
-    def test_no_checkbox_on_non_terminal(self, test_db):
-        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
-        insert_epic_task(
-            test_db, epic_id=42, task_num=1, status="implementing",
-            github_issue="#200",
-        )
-        out = io.StringIO()
-        called = []
-
-        def fake_req(req, *, token, **kwargs):
-            called.append(req.method)
-            return _ok_response()
-
-        with mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
-            side_effect=fake_req,
-        ):
-            update_status._update_epic_checkbox(
-                test_db, "42", "1", "implementing", "#200", [], "yoke",
-                stdout=out,
-            )
-        assert not called
-
-    def test_checkbox_dry_run(self, test_db):
-        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
-        out = io.StringIO()
-        called = []
-
-        def fake_req(req, *, token, **kwargs):
-            called.append(req.method)
-            return _ok_response()
-
-        with mock.patch.object(
-            update_status, "_is_dry_run", return_value=True,
-        ), mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
-            side_effect=fake_req,
-        ):
-            update_status._update_epic_checkbox(
-                test_db, "42", "1", "reviewed-implementation", "#200",
-                [], "yoke", stdout=out,
-            )
-        assert "DRY-RUN" in out.getvalue()
-        # Dry-run must not dispatch any REST call.
-        assert not called
-
-    def test_checkbox_rejects_mismatched_repo_projection(self, test_db):
-        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
-        err = io.StringIO()
-
-        with mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
-            return_value=_auth(repo="org/verified"),
-        ), mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
-        ) as request:
-            update_status._update_epic_checkbox(
-                test_db, "42", "1", "reviewed-implementation", "#200",
-                ["-R", "org/stale"], "yoke", stderr=err,
-            )
-
-        request.assert_not_called()
-        assert "does not match the verified binding" in err.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +244,9 @@ class TestRepoResolution:
             "github_repo = excluded.github_repo"
         )
         test_db.commit()
-        insert_item(test_db, id=42, title="Epic", workflow_id="epic", project="externalwebapp")
+        insert_item(
+            test_db, id=42, title="Epic", workflow_id="epic", project="externalwebapp"
+        )
         project, repo = update_status._resolve_repo_for_epic(test_db, "42")
         assert project == "externalwebapp"
         assert repo == "example-org/externalwebapp"

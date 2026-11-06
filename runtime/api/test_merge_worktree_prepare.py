@@ -105,7 +105,6 @@ class TestStandaloneBoundaryCeremony:
 class TestPreflight:
     """Pre-flight validation."""
 
-
     def test_yok206_preflight_dirty_user_file(self, merge_env: MergeEnv) -> None:
         """Dirty user file fails preflight."""
         _write_file(merge_env.worktree / "my-code.js", "uncommitted user work\n")
@@ -127,7 +126,10 @@ class TestPreflight:
         result = run_merge(merge_env)
         assert result.exit_code == 0
         assert "OK: Worktree clean" in result.stdout
-        assert "yoke-pre-rebase" not in _git(merge_env.repo, "stash", "list", check=False).stdout
+        assert (
+            "yoke-pre-rebase"
+            not in _git(merge_env.repo, "stash", "list", check=False).stdout
+        )
 
     def test_yok206_preflight_incomplete_tasks(self, merge_env: MergeEnv) -> None:
         """Incomplete epic tasks block merge."""
@@ -157,7 +159,7 @@ class TestPreflight:
             extra_env=extra_env,
         )
         assert result.exit_code == 1
-        assert "FAIL: Incomplete tasks found" in result.stderr
+        assert "task_completion_incomplete" in result.stderr
 
 
 # ===========================================================================

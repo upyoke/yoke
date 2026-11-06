@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List
 
 from yoke_contracts.dependency_values import VALID_SOURCES
 from yoke_core.domain.item_ref_columns import render_column_item_ref
@@ -39,7 +39,6 @@ from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 # review — the activation edge has already done (or failed to do) its
 # job. ``implemented`` / ``release`` are intentionally not terminal here:
 # those items still have merge/deploy handoff remaining.
-TERMINAL_STATUSES: frozenset[str] = frozenset({"done", "cancelled"})
 
 # Skills that attest a path overlap. An activation row from one of these
 # sources, with path evidence and no directional token, is the cleanup
@@ -108,8 +107,8 @@ def review_activation_row(
     gate_point: str,
     source: str,
     rationale: str,
-    dependent_status: Optional[str] = None,
-    blocking_status: Optional[str] = None,
+    dependent_terminal: bool = False,
+    blocking_terminal: bool = False,
 ) -> ActivationReview:
     """Classify one ``item_dependencies`` row.
 
@@ -122,12 +121,12 @@ def review_activation_row(
             "not an activation edge — non-applicable",
         )
 
-    if (dependent_status or "").lower() in TERMINAL_STATUSES:
+    if dependent_terminal:
         return ActivationReview(
             False,
             "dependent item is terminal — no remediation needed",
         )
-    if (blocking_status or "").lower() in TERMINAL_STATUSES:
+    if blocking_terminal:
         return ActivationReview(
             False,
             "blocking item is terminal — dependency is already satisfied",
@@ -224,14 +223,20 @@ def scan_non_terminal_activation_rows(
         "ORDER BY d.id ASC"
     ).fetchall()
 
+    from yoke_core.domain.item_terminal_resources import item_is_terminal
+
     out: List[OverHardRow] = []
     for row in rows:
         review = review_activation_row(
             gate_point="activation",
             source=_row_get(row, "source", 4),
             rationale=_row_get(row, "rationale", 5),
-            dependent_status=_row_get(row, "dependent_status", 6),
-            blocking_status=_row_get(row, "blocking_status", 7),
+            dependent_terminal=bool(
+                item_is_terminal(conn, int(_row_get(row, "dependent_item_id", 1)))
+            ),
+            blocking_terminal=bool(
+                item_is_terminal(conn, int(_row_get(row, "blocking_item_id", 2)))
+            ),
         )
         if not review.over_hard:
             continue
@@ -270,7 +275,6 @@ __all__ = [
     "ActivationReview",
     "OverHardRow",
     "PATH_CLAIM_AUTHORING_SOURCES",
-    "TERMINAL_STATUSES",
     "review_activation_row",
     "scan_non_terminal_activation_rows",
 ]

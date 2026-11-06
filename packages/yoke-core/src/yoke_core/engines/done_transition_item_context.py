@@ -89,6 +89,11 @@ def load_done_item_context_over_transport(
     data = resp.result or {}
     if not data.get("found"):
         return None
+    return done_item_context_from_payload(data)
+
+
+def done_item_context_from_payload(data: dict[str, Any]) -> DoneItemContext:
+    """Decode a successful immutable context receipt in one place."""
     wf = data["workflow"]
     return DoneItemContext(
         title=str(data.get("title") or ""),

@@ -38,7 +38,7 @@ from yoke_core.domain.coordination_claims import (
     release,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+from yoke_core.domain.item_terminal_resources import item_is_terminal
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.work_claim_targets import (
@@ -77,17 +77,24 @@ def enter(
                 f"SELECT status FROM items WHERE id = {marker}",
                 (held.owner_item_id,),
             ).fetchone()
-            if owner is not None and str(owner[0]) in TERMINAL_STATUSES:
+            if owner is not None and item_is_terminal(conn, held.owner_item_id):
                 release(
-                    conn, held.id, f"item-terminal:{owner[0]}",
-                    canonical_reason="completed", commit=False,
+                    conn,
+                    held.id,
+                    f"item-terminal:{owner[0]}",
+                    canonical_reason="completed",
+                    commit=False,
                 )
             elif held.owner_item_id == int(item_id):
                 return heartbeat(conn, held.id, commit=commit)
             else:
                 raise _held_as_error(conn, held)
         return acquire(
-            conn, target, session_id or "", reason=ACQUIRE_REASON, commit=commit,
+            conn,
+            target,
+            session_id or "",
+            reason=ACQUIRE_REASON,
+            commit=commit,
         )
 
 

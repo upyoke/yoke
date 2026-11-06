@@ -19,9 +19,7 @@ from yoke_core.domain import item_status_transitions as transitions
 
 @pytest.fixture
 def finishers(native_clocks, monkeypatch):
-    native_clocks.execute(
-        "ALTER TABLE items ADD status text, ADD workflow_version_id integer"
-    )
+    native_clocks.execute("ALTER TABLE items ADD status text")
     native_clocks.execute(
         "UPDATE items SET status=CASE WHEN id=3 THEN 'implementing' ELSE 'done' END,"
         "workflow_version_id=99"

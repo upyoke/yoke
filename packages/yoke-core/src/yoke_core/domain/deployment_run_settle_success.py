@@ -11,6 +11,8 @@ between; the reads are repeated under the lock, so the change is honoured.
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import completed_items_sql
+
 import json
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -106,7 +108,7 @@ def _attributions(conn: Any, run_id: str) -> dict[int, Optional[dict[str, Any]]]
         "LEFT JOIN environments target ON target.id=dr.target_environment_id "
         "AND target.project_id=dr.project_id "
         "LEFT JOIN environments e ON e.project_id=i.project_id AND e.name=target.name "
-        "WHERE m.run_id=%s AND i.status='done' ORDER BY i.id",
+        f"WHERE m.run_id=%s AND {completed_items_sql(conn)} ORDER BY i.id",
         (run_id,),
     ).fetchall()
     attributions: dict[int, Optional[dict[str, Any]]] = {}

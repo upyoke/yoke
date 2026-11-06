@@ -101,7 +101,7 @@ def check_merge_evidence(
     merge_ran: bool,
     branch_already_merged: bool,
     branch_exists: bool,
-    target_status: str = "done",
+    target_status: str,
 ) -> Optional[str]:
     """Resolve how this item's work reached the trunk, or return a refusal."""
     merged = bool(merge_ran or branch_already_merged)
@@ -135,7 +135,7 @@ def check_delivery_evidence(
     item_id: int,
     *,
     merge_recorded: bool,
-    target_status: str = "done",
+    target_status: str,
 ) -> Optional[str]:
     """Resolve how this item delivered, or return a refusal.
 
@@ -165,6 +165,7 @@ def check_done_satisfiers(
     merge_ran: bool,
     branch_already_merged: bool,
     branch_exists: bool,
+    target_status: str,
 ) -> Optional[str]:
     """Resolve both done-stage obligations; return the first refusal.
 
@@ -179,12 +180,14 @@ def check_done_satisfiers(
             merge_ran=merge_ran,
             branch_already_merged=branch_already_merged,
             branch_exists=branch_exists,
+            target_status=target_status,
         )
         if block:
             return block
         return check_delivery_evidence(
             item_id,
             merge_recorded=bool(merge_ran or branch_already_merged),
+            target_status=target_status,
         )
     except SatisfierRelayUnavailable as exc:
         return str(exc)

@@ -49,7 +49,7 @@ def _approval_semantics(
     )
 
     selected = approval_policy_for_posture(
-        workflow_id=runtime.workflow_id,
+        runtime=runtime,
         posture=posture,
         target_status=stage_id,
     )

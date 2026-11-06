@@ -115,8 +115,7 @@ def evaluate_task_completion(
     unfinished = [
         f"task {row['task_num']} ({row['status']})"
         for row in rows
-        if str(row["status"]) not in workflow.terminal_stage_ids
-        and not workflow.has_reached_stage(str(row["status"]), handoff)
+        if str(row["status"]) not in workflow.successful_task_stage_ids
     ]
     if rows and not unfinished:
         return None
@@ -150,7 +149,7 @@ def evaluate_deferred_items(
         return None
     if target_status not in workflow.terminal_stage_ids:
         return None
-    if not status_settles_blocking_qa(target_status):
+    if not status_settles_blocking_qa(target_status, workflow):
         return None
     findings = deferral_findings(item_deferral_text(conn, int(item_id)))
     if not findings:

@@ -27,6 +27,7 @@ _LANE = {
     "item_id": 70,
     "public_ref": "PLAT-139",
     "status": "done",
+    "terminal": True,
     "branch": "PLAT-139",
     "path": "/repo/.worktrees/PLAT-139",
     "state": "released",

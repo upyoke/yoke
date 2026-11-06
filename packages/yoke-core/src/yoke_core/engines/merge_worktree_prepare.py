@@ -35,9 +35,6 @@ def _parent():
     return _mw
 
 
-_TASK_TERMINAL_SUCCESS = ("done", "reviewed-implementation", "implemented", "release")
-
-
 @dataclass
 class ConflictInfo:
     """Per-file conflict classification."""
@@ -45,10 +42,6 @@ class ConflictInfo:
     path: str
     classification: str  # "generated", "doc", "yoke-gen", "additive", "overlapping"
     auto_resolvable: bool
-
-
-def _sql_task_terminal_success_list() -> str:
-    return ", ".join(f"'{s}'" for s in _TASK_TERMINAL_SUCCESS)
 
 
 def validate_args(args: MergeArgs) -> Optional[str]:

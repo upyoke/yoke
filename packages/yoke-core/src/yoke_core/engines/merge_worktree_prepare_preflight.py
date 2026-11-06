@@ -19,7 +19,6 @@ if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
     from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
 
@@ -111,33 +110,16 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     else:
         _print("  OK: Branch tracking check skipped (no remote tracking branch)")
 
-    # PF-3: Epic tasks (when epic ID provided). The completeness verdict runs
-    # on the relayed epic-task status survey so it evaluates over an https
-    # control plane as well as a local Postgres connection; the terminal
-    # success set stays engine-owned.
+    # Generated task success comes from the parent's pinned workflow.
     if ctx.epic_id:
-        from yoke_core.engines.merge_worktree_prepare import _TASK_TERMINAL_SUCCESS
+        from yoke_core.engines.merge_task_completeness import task_completion_failure
 
-        try:
-            resp = call_dispatcher(
-                function_id="merge.preflight.epic_task_statuses",
-                target=public_item_target(ctx.epic_id),
-                payload={},
-            )
-            if resp.success:
-                tasks = (resp.result or {}).get("tasks") or []
-                incomplete = [
-                    t for t in tasks if t.get("status") not in _TASK_TERMINAL_SUCCESS
-                ]
-                if tasks and incomplete:
-                    _print("  FAIL: Incomplete tasks found:", err=True)
-                    for row in incomplete:
-                        _print(f"    - {row['task_num']}:{row['status']}", err=True)
-                    fail = True
-                elif tasks:
-                    _print("  OK: All tasks completed")
-        except Exception:  # noqa: BLE001 - preflight degrades if the read is unavailable.
-            pass
+        refusal = task_completion_failure(ctx.epic_id)
+        if refusal:
+            _print(f"  FAIL: {refusal}", err=True)
+            fail = True
+        else:
+            _print("  OK: All tasks completed")
 
     # PF-4: Integration simulation gate (epics only). The relayed read
     # replaces the local ``db_router`` child process so the gate runs over an
@@ -325,9 +307,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                 if decision.passed:
                     _print("  OK: Numbered migration history extends target")
                 else:
-                    _print(
-                        "  FAIL: Numbered migration-history gate refused:", err=True
-                    )
+                    _print("  FAIL: Numbered migration-history gate refused:", err=True)
                     for error in decision.errors:
                         _print(f"    - {error}", err=True)
                     fail = True

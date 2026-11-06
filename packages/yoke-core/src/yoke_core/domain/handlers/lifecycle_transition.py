@@ -117,13 +117,18 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
     )
 
 
-def _laneless_no_change(item_id: int) -> bool:
+def _laneless_no_change(item_id: int, target_status: str) -> bool:
     """A no-change Dash with no lane closes through this very transition."""
     from yoke_core.domain import db_helpers
     from yoke_core.domain.dash_execution import laneless_no_change_close_out
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
     with db_helpers.connect() as conn:
-        return laneless_no_change_close_out(conn, int(item_id))
+        runtime = load_item_workflow_runtime(conn, int(item_id))
+        return (
+            target_status in runtime.terminal_stage_ids
+            and laneless_no_change_close_out(conn, int(item_id))
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +191,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     done_nonce_verified = payload.done_nonce_verified or (
-        payload.target_status == "done" and _laneless_no_change(item_id)
+        _laneless_no_change(item_id, payload.target_status)
     )
 
     captured = io.StringIO()

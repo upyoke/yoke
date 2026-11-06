@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.workflow_pin_test_support import install_workflow_pin
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -78,6 +79,7 @@ def _seeded_universe():
         "(2, 71, 'PLAT-141', '/repo/.worktrees/PLAT-141', "
         "'implementation', 'active')"
     )
+    install_workflow_pin(conn)
     conn.commit()
     return conn
 
@@ -91,18 +93,22 @@ def test_inventory_includes_released_lanes_with_owner_state(monkeypatch) -> None
     conn = _seeded_universe()
     monkeypatch.setattr(db_helpers, "connect", lambda: _KeepOpenConn(conn))
 
-    outcome = item_worktree_inventory.handle_inventory(_request({"project": "platform"}))
+    outcome = item_worktree_inventory.handle_inventory(
+        _request({"project": "platform"})
+    )
 
     assert outcome.primary_success
     lanes = _lanes_by_branch(outcome.result_payload)
     assert set(lanes) == {"PLAT-139", "PLAT-141"}
     retired = lanes["PLAT-139"]
     assert retired["status"] == "done"
+    assert retired["terminal"] is True
     assert retired["state"] == "released"
     assert retired["target_branch"] == "main"
     assert retired["path"] == "/repo/.worktrees/PLAT-139"
     assert retired["item_id"] == 70
     assert lanes["PLAT-141"]["status"] == "implementing"
+    assert lanes["PLAT-141"]["terminal"] is False
 
 
 def test_inventory_resolves_a_project_by_numeric_id(monkeypatch) -> None:

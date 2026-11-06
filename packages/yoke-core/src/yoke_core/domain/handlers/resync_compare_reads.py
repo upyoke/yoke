@@ -109,6 +109,8 @@ def _prefetch_items(conn: Any) -> List[Dict[str, Any]]:
 
 
 def _prefetch_epic_tasks(conn: Any) -> List[Dict[str, Any]]:
+    from yoke_core.domain.task_lifecycle import task_success_statuses
+
     tasks: List[Dict[str, Any]] = []
     try:
         cur = conn.execute(
@@ -119,6 +121,9 @@ def _prefetch_epic_tasks(conn: Any) -> List[Dict[str, Any]]:
             tasks.append(
                 {
                     "epic_id": row["epic_id"],
+                    "successful_task_stage_ids": sorted(
+                        task_success_statuses(conn, int(row["epic_id"]))
+                    ),
                     "task_num": row["task_num"],
                     "title": row["title"],
                     "status": row["status"],
@@ -143,9 +148,7 @@ def handle_compare_prefetch(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - surfaced so the engine aborts
         return HandlerOutcome(
             primary_success=False,
-            error=FunctionError(
-                code="compare_prefetch_failed", message=str(exc)
-            ),
+            error=FunctionError(code="compare_prefetch_failed", message=str(exc)),
         )
 
     return HandlerOutcome(

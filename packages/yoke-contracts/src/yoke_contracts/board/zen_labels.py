@@ -7,6 +7,8 @@ and repo-root locator from :mod:`zen_data`.
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import completed_item_sql
+
 import os
 import re
 from datetime import datetime
@@ -42,16 +44,16 @@ def _labels_for_window(
     project_id = _zen_project_id(db, project)
     if label_days > 0:
         rows = db.query(
-            "SELECT title FROM items "
-            "WHERE project_id = %s AND status = 'done' "
+            "SELECT title FROM items i "
+            f"WHERE project_id = %s AND {completed_item_sql()} "
             f"AND created_at >= {now_sql(offset_days=-label_days)} "
             "ORDER BY created_at",
             (project_id,),
         )
     else:
         rows = db.query(
-            "SELECT title FROM items "
-            "WHERE project_id = %s AND status = 'done' AND created_at >= %s "
+            "SELECT title FROM items i "
+            f"WHERE project_id = %s AND {completed_item_sql()} AND created_at >= %s "
             "ORDER BY created_at",
             (project_id, window_start),
         )

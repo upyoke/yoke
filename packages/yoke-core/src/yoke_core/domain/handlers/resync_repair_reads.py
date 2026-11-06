@@ -47,6 +47,7 @@ class EpicTaskRepairReadRequest(BaseModel):
 
 
 class EpicTaskRepairReadResponse(BaseModel):
+    successful_task_stage_ids: list[str]
     parent_ref: str = ""
     task_found: bool
     title: str = ""
@@ -179,6 +180,9 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
                 if epic_id is not None
                 else None
             )
+            from yoke_core.domain.task_lifecycle import task_success_statuses
+
+            success = sorted(task_success_statuses(conn, epic_id)) if task_row else []
             # render_item_ref tolerates schemas without project tables and
             # falls back to the default-prefix + internal-id form.
             parent_ref = render_item_ref(conn, int(parent_row[0])) if parent_row else ""
@@ -190,6 +194,7 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
             result_payload={
                 "parent_ref": parent_ref,
                 "task_found": False,
+                "successful_task_stage_ids": [],
                 "title": "",
                 "status": "",
             },
@@ -199,6 +204,7 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
         result_payload={
             "parent_ref": parent_ref,
             "task_found": True,
+            "successful_task_stage_ids": success,
             "title": task_row[0] or "",
             "status": task_row[1] or "",
         },

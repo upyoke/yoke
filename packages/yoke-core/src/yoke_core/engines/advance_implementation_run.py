@@ -55,7 +55,7 @@ def run(
         return 2
 
     pre_status = item.get("status") or ""
-    is_reentry = pre_status in entry.IMPLEMENTATION_PHASE_STATUSES
+    is_reentry = bool(item["implementation_started"])
     # worktree_path / branch populated only on worktree-phase completion;
     # failure envelopes carry a structured ``error`` instead.
     summary: Dict[str, Any] = {

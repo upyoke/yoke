@@ -145,6 +145,7 @@ def test_transition_result_emits_handoff_only_for_a_level_change(monkeypatch, ch
         handler, "_read_current_status", lambda _id: ("implementing", "LP-41")
     )
     monkeypatch.setattr(handler, "_frozen_blocked", lambda *_a: None)
+    monkeypatch.setattr(handler, "_laneless_no_change", lambda *_a: False)
     monkeypatch.setattr(
         "yoke_core.domain.backlog.execute_update", lambda **_k: {"success": True}
     )

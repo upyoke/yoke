@@ -15,6 +15,8 @@ HC-orphaned-stashes, HC-cross-project-commits.
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import completed_items_sql
+
 import re
 from pathlib import Path
 from typing import List
@@ -202,7 +204,7 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
         conn,
         "SELECT i.id, p.slug AS project FROM items i "
         "JOIN projects p ON p.id = i.project_id "
-        f"WHERE i.status='done' AND p.id <> {placeholder(conn)}",
+        f"WHERE {completed_items_sql(conn)} AND p.id <> {placeholder(conn)}",
         (checkout_project_id,),
     )
     for row in rows:

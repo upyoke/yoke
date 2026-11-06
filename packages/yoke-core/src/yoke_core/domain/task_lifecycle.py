@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from enum import Enum
 
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_contracts.lifecycle_status import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    ENGINE_WAIT_STAGE_IDS,
+)
 
 
 class TaskStatus(str, Enum):
@@ -27,7 +31,7 @@ class TaskStatus(str, Enum):
 
 
 ALL_TASK_STATUSES = tuple(status.value for status in TaskStatus)
-TERMINAL_FAILURE = frozenset({"stopped", "failed"})
+TERMINAL_FAILURE = (ENGINE_TERMINAL_STAGE_IDS - {"cancelled"}) | ENGINE_WAIT_STAGE_IDS
 
 
 def is_valid_task_status(status: str) -> bool:
@@ -39,14 +43,14 @@ def is_valid_task_status(status: str) -> bool:
         return False
 
 
-def is_task_terminal_success(status: str) -> bool:
-    """Whether a task reached a successful handoff or terminal stage."""
-    return status in TASK_TERMINAL_SUCCESS
+def task_success_statuses(conn, epic_id: int) -> frozenset[str]:
+    """Read task success from the parent's immutable workflow pin."""
+    return load_item_workflow_runtime(conn, int(epic_id)).successful_task_stage_ids
 
 
-def sql_task_terminal_success_list() -> str:
-    """Return a SQL IN-clause fragment for successful task statuses."""
-    return ",".join(f"'{status}'" for status in sorted(TASK_TERMINAL_SUCCESS))
+def is_task_terminal_success(conn, epic_id: int, status: str) -> bool:
+    """Whether a task reached its definition-owned handoff."""
+    return status in task_success_statuses(conn, epic_id)
 
 
 def display_label(status: str) -> str:
@@ -56,11 +60,10 @@ def display_label(status: str) -> str:
 
 __all__ = [
     "ALL_TASK_STATUSES",
-    "TASK_TERMINAL_SUCCESS",
+    "task_success_statuses",
     "TERMINAL_FAILURE",
     "TaskStatus",
     "display_label",
     "is_task_terminal_success",
     "is_valid_task_status",
-    "sql_task_terminal_success_list",
 ]

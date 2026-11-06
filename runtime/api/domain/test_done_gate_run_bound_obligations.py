@@ -21,8 +21,6 @@ from yoke_core.domain import backlog
 from yoke_core.domain.deployment_qa_source_obligation import unsatisfied_blocking
 from yoke_core.domain.mutations import GateContext, ItemState, prepare_update
 from yoke_core.domain.qa_gate_definitions import (
-    QA_NONSETTLING_TERMINAL_STATUSES,
-    QA_SETTLING_TERMINAL_STATUSES,
     GateTarget,
     status_settles_blocking_qa,
 )
@@ -70,9 +68,12 @@ def _update(
     resolution: str | None = None,
 ):
     out = io.StringIO()
-    with _patch_externals(), mock.patch.dict(
-        os.environ,
-        {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+    with (
+        _patch_externals(),
+        mock.patch.dict(
+            os.environ,
+            {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+        ),
     ):
         return backlog.execute_update(
             item_id=item_id,
@@ -87,13 +88,13 @@ def _update(
 
 class TestTerminalSettlementDecision:
     def test_done_settles_and_engine_terminals_do_not(self):
-        assert QA_SETTLING_TERMINAL_STATUSES == frozenset({"done"})
-        assert QA_NONSETTLING_TERMINAL_STATUSES == frozenset(
-            {"cancelled", "stopped"}
-        )
-        assert status_settles_blocking_qa("done")
-        assert not status_settles_blocking_qa("cancelled")
-        assert not status_settles_blocking_qa("stopped")
+        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+        workflow = builtin_workflow_runtime("dash")
+
+        assert status_settles_blocking_qa("done", workflow)
+        assert not status_settles_blocking_qa("cancelled", workflow)
+        assert not status_settles_blocking_qa("stopped", workflow)
 
     def test_prepare_update_cancelled_ignores_unsatisfied_count(self):
         item = _item()
@@ -190,12 +191,8 @@ class TestExecuteUpdateRunBound:
         _seed_run_bound(tmp_db, item_id=ITEM_ID)
         conn = _conn(tmp_db)
         try:
-            own = unsatisfied_blocking(
-                conn, item_id=ITEM_ID, target_status="done"
-            )
-            sister = unsatisfied_blocking(
-                conn, item_id=SISTER_ID, target_status="done"
-            )
+            own = unsatisfied_blocking(conn, item_id=ITEM_ID, target_status="done")
+            sister = unsatisfied_blocking(conn, item_id=SISTER_ID, target_status="done")
         finally:
             conn.close()
         assert own.count == 1

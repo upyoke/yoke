@@ -1,6 +1,7 @@
 """QA-verification composer surfaces backend schema failures."""
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 from unittest import mock
 
@@ -17,9 +18,15 @@ def _operational_error(message: str) -> Exception:
 
 
 def test_missing_qa_schema_error_propagates() -> None:
-    with mock.patch(
-        "yoke_core.domain.qa_gates.check_verification_gate",
-        side_effect=_operational_error("no such table: qa_runs"),
+    with (
+        mock.patch(
+            "yoke_core.domain.backlog_authoritative_status_gate.load_item_workflow_runtime",
+            return_value=builtin_workflow_runtime("issue"),
+        ),
+        mock.patch(
+            "yoke_core.domain.qa_gates.check_verification_gate",
+            side_effect=_operational_error("no such table: qa_runs"),
+        ),
     ):
         with pytest.raises(db_backend.operational_error_types(), match="qa_runs"):
             _evaluate_qa_verification(
@@ -30,9 +37,15 @@ def test_missing_qa_schema_error_propagates() -> None:
 
 
 def test_other_operational_errors_propagate() -> None:
-    with mock.patch(
-        "yoke_core.domain.qa_gates.check_verification_gate",
-        side_effect=_operational_error("connection dropped"),
+    with (
+        mock.patch(
+            "yoke_core.domain.backlog_authoritative_status_gate.load_item_workflow_runtime",
+            return_value=builtin_workflow_runtime("issue"),
+        ),
+        mock.patch(
+            "yoke_core.domain.qa_gates.check_verification_gate",
+            side_effect=_operational_error("connection dropped"),
+        ),
     ):
         with pytest.raises(db_backend.operational_error_types()):
             _evaluate_qa_verification(

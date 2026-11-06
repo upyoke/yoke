@@ -9,6 +9,9 @@ Pytest fixture (dt_db) shared via _done_transition_test_helpers (private module)
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+
 import json
 import os
 import sys
@@ -102,7 +105,10 @@ class TestTransitionResult:
             done_transition, "_update_item_direct", side_effect=fake_update
         ):
             assert done_transition._update_status_to_done(
-                _FIXTURE_ITEM_REF, skip_qa=False, public_ref=f"YOK-{42}"
+                _FIXTURE_ITEM_REF,
+                skip_qa=False,
+                public_ref=f"YOK-{42}",
+                target_status="done",
             )
 
         assert calls
@@ -135,23 +141,31 @@ class TestRecovery:
     """TC-recovery: Recovery checkpoint detection."""
 
     def test_already_done_detected(self):
-        done, resume = done_transition._check_recovery("done", "")
+        done, resume = done_transition._check_recovery(
+            "done", "", workflow=builtin_workflow_runtime("dash")
+        )
         assert done is True
         assert resume is False
 
     def test_lane_absence_alone_is_not_recovery(self):
-        done, resume = done_transition._check_recovery("implementing", "")
+        done, resume = done_transition._check_recovery(
+            "implementing", "", workflow=builtin_workflow_runtime("dash")
+        )
         assert done is False
         assert resume is False
 
     def test_normal_flow_no_recovery(self):
-        done, resume = done_transition._check_recovery("implementing", "YOK-9999")
+        done, resume = done_transition._check_recovery(
+            "implementing", "YOK-9999", workflow=builtin_workflow_runtime("dash")
+        )
         assert done is False
         assert resume is False
 
     def test_done_with_active_lane_not_clean_completion(self):
         """A terminal item with an active lane still needs reconciliation."""
-        done, resume = done_transition._check_recovery("done", "YOK-9999")
+        done, resume = done_transition._check_recovery(
+            "done", "YOK-9999", workflow=builtin_workflow_runtime("dash")
+        )
         assert done is False
         assert resume is False
 
