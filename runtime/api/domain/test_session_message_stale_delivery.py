@@ -45,6 +45,7 @@ def test_stale_running_surface_delivers_at_its_declared_hook(monkeypatch, surfac
             surface,
             {s: c.minimum_version for s, c in SESSION_SURFACE_CAPABILITIES.items()},
             "message_stopped",
+            "yoke",
         )
         is not None
     ):

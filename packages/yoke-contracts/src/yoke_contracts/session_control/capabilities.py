@@ -172,9 +172,9 @@ def surface_wake_authority(surface: str | None) -> WakeAuthority:
     return capability.wake_authority if capability is not None else "native"
 
 
-def native_wake_supported(surface: str | None) -> bool:
-    """Whether Yoke may resume this surface without a person in the loop."""
-    return surface_wake_authority(surface) == "native"
+def native_wake_supported(surface: str | None, origin: str | None) -> bool:
+    """Whether Yoke launched this session and its surface permits a resume."""
+    return origin == "yoke" and surface_wake_authority(surface) == "native"
 
 
 def operator_wake_instruction(
@@ -183,7 +183,7 @@ def operator_wake_instruction(
     """The one sentence every surface teaches about an operator-woken wake."""
     return (
         f"Yoke never resumes {display_name or 'a ' + (surface or 'desktop') + ' session'}: a native resume "
-        "forks the transcript its operator is reading. The message stays "
+        "would take over a conversation its operator controls. The message stays "
         "pending and is delivered the moment the operator types anything in "
         "that chat, so ask them to open it and type."
     )

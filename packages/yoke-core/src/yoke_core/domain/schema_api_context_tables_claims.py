@@ -27,6 +27,7 @@ CLAIMS_TABLES: dict[str, dict] = {
     "harness_sessions": {
         "columns": [
             ("session_id", "TEXT"),
+            ("launch_origin", "TEXT"),
             ("executor", "TEXT"),
             ("executor_surface", "TEXT"),
             ("harness_title", "TEXT"),
@@ -77,7 +78,12 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": HARNESS_SESSION_NOTES
         + (
-            " Native chat titles are nullable harness_title; displayed session labels "
+            " launch_origin is yoke after launch binding, otherwise operator; native wakes require yoke origin. "
+            "Wrong guess: a CLI surface or absent launch row establishes resume authority. "
+            "sessions_schema_test_ddl, session_launch_test_support and session_message_support_test_support "
+            "and roster diagnostic/resume fixtures must include launch_origin; "
+            "partial fixtures cannot omit the stored authority. "
+            "Native chat titles are nullable harness_title; displayed session labels "
             "are composed from current session, project and work-claim facts at read time. "
             "Observed effort is harness_sessions.reasoning_effort, not effort; "
             "requested_reasoning_effort records launch intent, not observed selection. "

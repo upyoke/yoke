@@ -44,7 +44,7 @@ def _refuse_operator_surface(conn: Any, target: dict[str, Any]) -> None:
     no relay holds its process. Steering frees its claims by release instead.
     """
     surface = str(target.get("executor_surface") or "")
-    if native_wake_supported(surface):
+    if native_wake_supported(surface, target.get("launch_origin")):
         return
     rows = conn.execute(
         f"SELECT id FROM work_claims WHERE session_id={_p(conn)} "

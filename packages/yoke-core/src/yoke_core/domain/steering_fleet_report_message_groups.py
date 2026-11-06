@@ -95,7 +95,9 @@ class MessageGroup:
             )
         # A desktop recipient is never resumed by Yoke, so this row is not
         # a worker to revive; it names a chat only its operator can open.
-        if not native_wake_supported(str(record.get("executor_surface") or "")):
+        if not native_wake_supported(
+            str(record.get("executor_surface") or ""), record.get("launch_origin")
+        ):
             self.operator_wake = True
 
     def name_the_failure(
@@ -124,7 +126,9 @@ class MessageGroup:
         silent = evidence.get("running_native_silent_for_seconds")
         if isinstance(silent, int) and not isinstance(silent, bool):
             if latest_tool_call_at is not None:
-                tool_silence = max(0, int((current - latest_tool_call_at).total_seconds()))
+                tool_silence = max(
+                    0, int((current - latest_tool_call_at).total_seconds())
+                )
                 if tool_silence < silent:
                     silent, observed_at = tool_silence, current
             self.held_native_silent_for_seconds = silent

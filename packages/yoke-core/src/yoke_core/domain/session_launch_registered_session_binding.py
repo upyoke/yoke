@@ -241,6 +241,10 @@ def bind_launch_to_session(
     extend_launch_message_expiry(
         conn, message_id=launch.message_id, expires_at=launch.deadline_at
     )
+    conn.execute(
+        f"UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id={marker(conn)}",
+        (session_id,),
+    )
     stamped = stamp_launch_requested_facts(conn, launch=launch, session_id=session_id)
     _insert_pending_recipient(
         conn,

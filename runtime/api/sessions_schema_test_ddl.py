@@ -16,6 +16,7 @@ from yoke_core.domain.session_native_process_observation import (
 _SESSIONS_AND_CLAIMS_DDL = f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
             session_id TEXT PRIMARY KEY,
+    launch_origin TEXT NOT NULL DEFAULT 'operator',
             executor TEXT NOT NULL,
             executor_surface TEXT DEFAULT NULL,
             provider TEXT NOT NULL,

@@ -15,6 +15,7 @@ def _connection() -> sqlite3.Connection:
         """
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
+            launch_origin TEXT NOT NULL DEFAULT 'operator',
             project_id INTEGER, org_id INTEGER, actor_id INTEGER,
             executor_surface TEXT, executor_version TEXT,
             machine_id TEXT,
@@ -98,6 +99,10 @@ def _add_session(
         ),
     )
 
+    conn.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id='session-1'"
+    )
+
 
 def _base_row(*, surface: str, liveness: str) -> dict[str, object]:
     return {
@@ -106,5 +111,6 @@ def _base_row(*, surface: str, liveness: str) -> dict[str, object]:
         "claims": [],
         "executor": surface.split("-", 1)[0],
         "executor_surface": surface,
+        "launch_origin": "yoke",
         "liveness": liveness,
     }

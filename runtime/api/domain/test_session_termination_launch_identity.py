@@ -45,6 +45,10 @@ def _register_pair(conn) -> None:
 
     acquire(conn, session_id="operator", project_id=1, reason="terminate session")
     _register(conn, session_id=WORKER, actor_id=42, machine_id=MACHINE_ID)
+    conn.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id=%s",
+        (WORKER,),
+    )
 
 
 def _insert_launch(conn, *, native_session_id, registered_session_id) -> None:

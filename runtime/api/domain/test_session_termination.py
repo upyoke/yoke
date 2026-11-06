@@ -131,6 +131,9 @@ def test_steering_claim_authorizes_termination_and_unrelated_session_does_not(
     _register(conn, session_id="unrelated", actor_id=41, mode="wait")
     _register(conn, session_id="worker", actor_id=42)
     conn.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id='worker'"
+    )
+    conn.execute(
         "INSERT INTO work_claims "
         "(session_id,target_kind,scope,claim_type,claimed_at,last_heartbeat) "
         "VALUES ('steering','steering',%s,'exclusive',%s,%s)",
@@ -162,6 +165,9 @@ def test_launch_cancel_ends_its_session_without_a_steering_seat(
 ) -> None:
     _register(conn, session_id="requester", actor_id=41, mode="wait")
     _register(conn, session_id="worker", actor_id=42, machine_id=MACHINE_ID)
+    conn.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id='worker'"
+    )
 
     result = terminate_cancelled_launch_session(
         conn,

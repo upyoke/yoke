@@ -92,12 +92,25 @@ def test_a_notice_settles_once_its_message_reaches_the_conversation() -> None:
     assert settlement["cancelled_by_actor_id"] is None
 
 
-def test_a_notice_settles_when_its_conversation_ends() -> None:
+def test_operator_notice_survives_exit_until_the_message_can_deliver() -> None:
     conn = message_connection()
     _standing_notice(conn)
     conn.execute(
         "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
         (NOW_TEXT, CLAUDE_DESKTOP_SESSION_ID),
+    )
+    conn.commit()
+
+    assert settle_operator_wake_notices(conn, actor_id=10, now=STARVED) == 0
+    assert _standing_notice_count(conn) == 1
+
+
+def test_a_notice_settles_when_its_conversation_is_terminated() -> None:
+    conn = message_connection()
+    _standing_notice(conn)
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at=?,terminated_at=? WHERE session_id=?",
+        (NOW_TEXT, NOW_TEXT, CLAUDE_DESKTOP_SESSION_ID),
     )
     conn.commit()
 

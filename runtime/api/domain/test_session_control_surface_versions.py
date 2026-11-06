@@ -183,9 +183,9 @@ def test_installed_cli_wakes_every_stopped_claude_surface_it_may_wake() -> None:
     installed = {"claude-cli": "2.1.241"}
 
     for surface in ("claude-cli", "claude-vscode"):
-        assert machine_stopped_wake_supported(surface, installed)
-    assert not machine_stopped_wake_supported("codex-desktop", installed)
-    assert not machine_stopped_wake_supported("cursor-desktop", installed)
+        assert machine_stopped_wake_supported(surface, installed, "yoke")
+    assert not machine_stopped_wake_supported("codex-desktop", installed, "yoke")
+    assert not machine_stopped_wake_supported("cursor-desktop", installed, "yoke")
 
 
 def test_a_desktop_surface_has_no_peer_wake_route_at_any_installed_version() -> None:
@@ -198,21 +198,23 @@ def test_a_desktop_surface_has_no_peer_wake_route_at_any_installed_version() -> 
     installed = {"claude-cli": "2.1.241", "cursor-cli": "2026.08.11-e8db854"}
 
     for surface in ("claude-desktop", "codex-desktop", "cursor-desktop"):
-        assert not machine_stopped_wake_supported(surface, installed)
-        assert machine_wake_surface(surface, installed, "message_idle") is None
-        assert machine_wake_surface(surface, installed, "message_stopped") is None
+        assert not machine_stopped_wake_supported(surface, installed, "yoke")
+        assert machine_wake_surface(surface, installed, "message_idle", "yoke") is None
+        assert (
+            machine_wake_surface(surface, installed, "message_stopped", "yoke") is None
+        )
 
 
 def test_machine_wake_reads_the_installed_binary_not_the_registered_surface() -> None:
     assert not machine_stopped_wake_supported(
-        "claude-vscode", {"claude-vscode": "2.1.241"}
+        "claude-vscode", {"claude-vscode": "2.1.241"}, "yoke"
     )
     assert not machine_stopped_wake_supported(
-        "claude-vscode", {"claude-cli": "2.1.237"}
+        "claude-vscode", {"claude-cli": "2.1.237"}, "yoke"
     )
-    assert not machine_stopped_wake_supported("claude-vscode", {})
-    assert not machine_stopped_wake_supported("claude-vscode", None)
-    assert not machine_stopped_wake_supported(None, {"claude-cli": "2.1.241"})
+    assert not machine_stopped_wake_supported("claude-vscode", {}, "yoke")
+    assert not machine_stopped_wake_supported("claude-vscode", None, "yoke")
+    assert not machine_stopped_wake_supported(None, {"claude-cli": "2.1.241"}, "yoke")
 
 
 def test_core_owner_module_reexports_the_contract_authority() -> None:

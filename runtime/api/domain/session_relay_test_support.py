@@ -67,9 +67,9 @@ def _add_wake_recipient(
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id,project_id,executor_surface,executor_version,machine_id,"
+        "(session_id,project_id,executor_surface,executor_version,machine_id,launch_origin,"
         "model,offered_at,last_tool_call_at,ended_at,turn_posture) "
-        "VALUES (?,10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?,"
+        "VALUES (?,10,'codex-cli','0.148.0a15',?,'yoke','gpt-5',?,NULL,?,"
         "'waiting')",
         (
             session_id,

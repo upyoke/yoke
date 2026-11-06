@@ -27,7 +27,7 @@ from yoke_core.domain.session_message_delivery import (
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
 from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
-from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
+from yoke_core.domain.session_operator_wake_route import keep_operator_hook_route
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
     messageability,
@@ -76,8 +76,9 @@ def _native_wake_route_available(
     # has to read terminated_at or qualification would reopen the kill.
     if row.get("terminated_at"):
         return False
-    # Resuming an operator-wake surface would fork its desktop transcript.
-    if not native_wake_supported(str(row.get("executor_surface") or "")):
+    if not native_wake_supported(
+        str(row.get("executor_surface") or ""), row.get("launch_origin")
+    ):
         return False
     from yoke_core.domain.session_surface_policy import live_mark
 
@@ -142,12 +143,7 @@ def wake_eligible_recipients(
         thread_select = (
             ",hs.native_thread_id" if native_thread_id_column_present(conn) else ""
         )
-        # A fixture composed by hand carries no declared posture, so no
-        # recipient there reads as parked and the parked absence self-skips.
         mode_select = ",hs.mode" if session_mode_column_present(conn) else ""
-        # The observed-death reader needs the machine's verdict, its evidence,
-        # and the episode clock that retires it. A hand-composed fixture
-        # carries none, and a recipient there simply has no such verdict.
         process_select = (
             ",hs.native_process_gone_at,hs.native_process_gone_evidence"
             if native_process_observation_columns_present(conn)
@@ -156,7 +152,7 @@ def wake_eligible_recipients(
         open_call_select = open_tool_call_select(conn, session_alias="hs")
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
-            "hs.actor_id,hs.executor,hs.execution_level,hs.last_heartbeat,"
+            "hs.actor_id,hs.executor,hs.execution_level,hs.last_heartbeat,hs.launch_origin,"
             "hs.workspace AS session_workspace,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select}{mode_select}"
@@ -191,13 +187,21 @@ def wake_eligible_recipients(
         eligible: list[dict[str, Any]] = []
         for raw in rows:
             row = row_dict(raw)
+            policy = recipient_policy(conn, row)
+            liveness = activity_liveness(row, now=current)
+            if keep_operator_hook_route(
+                conn,
+                row,
+                now=current,
+                grace_seconds=policy.wake_ack_grace_seconds,
+                liveness=liveness,
+            ):
+                continue
             if skip_ended_recipient(conn, row, now=current):
                 continue
-            policy = recipient_policy(conn, row)
             notify_failed_wake(
                 conn, row, now=current, max_attempts=policy.max_wake_attempts
             )
-            liveness = activity_liveness(row, now=current)
             explicit_wake = explicit_stopped_wake_requested(row.get("routing_snapshot"))
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
@@ -213,13 +217,6 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
-            # Desktop notices are due at grace regardless of their wake route.
-            notify_operator_to_wake(
-                conn,
-                row,
-                now=current,
-                grace_seconds=policy.wake_ack_grace_seconds,
-            )
             # Live calls still owe hooks; ended/orphaned calls can recover.
             if (
                 not explicit_wake
@@ -229,7 +226,6 @@ def wake_eligible_recipients(
                 continue
             escalation = ""
             if not explicit_wake and liveness in {"active", "stale"}:
-                # Active and stale sessions share the hook-route absence checks.
                 for reason, absent in _HOOK_ROUTE_ABSENCES:
                     if absent(
                         row,
@@ -253,8 +249,6 @@ def wake_eligible_recipients(
                     continue
                 wake_mode = WakeMode.WAITING
             elif escalation:
-                # WAITING tells every relay to resume the stopped route.
-                # An expired hook lease remains claimable after starvation.
                 wake_mode = WakeMode.WAITING
             elif waiting_pending:
                 if row.get("injection_lease_id") is not None:
@@ -319,6 +313,7 @@ def wake_eligible_recipients(
                     "machine_id": row["machine_id"],
                     "executor_surface": row["executor_surface"],
                     "executor_version": row["executor_version"],
+                    "launch_origin": row["launch_origin"],
                     "state": str(row["state"]),
                     "wake_mode": wake_mode.value,
                     "wake_escalation": escalation,

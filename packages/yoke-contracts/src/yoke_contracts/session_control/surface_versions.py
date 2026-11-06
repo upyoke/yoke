@@ -114,10 +114,11 @@ def surface_version_meets_floor(
 def machine_wake_executor_surface(
     surface: str | None,
     operation: str,
+    origin: str | None,
 ) -> str | None:
     """Name the same-machine binary that executes a peer wake."""
     target = str(surface or "")
-    if not native_wake_supported(target):
+    if not native_wake_supported(target, origin):
         # The peer binary could technically resume this conversation, which
         # is exactly the failure: the wake would land in a fork of the
         # transcript its operator is reading. Naming no executor is what
@@ -132,9 +133,10 @@ def machine_wake_surface(
     surface: str | None,
     machine_surface_versions: Mapping[str, str] | None,
     operation: str,
+    origin: str | None,
 ) -> tuple[str, str] | None:
     """Return the qualified same-machine peer binary for one wake operation."""
-    executor_surface = machine_wake_executor_surface(surface, operation)
+    executor_surface = machine_wake_executor_surface(surface, operation, origin)
     if executor_surface is None:
         return None
     version = (machine_surface_versions or {}).get(executor_surface)
@@ -146,6 +148,7 @@ def machine_wake_surface(
 def machine_stopped_wake_surface(
     surface: str | None,
     machine_surface_versions: Mapping[str, str] | None,
+    origin: str | None,
 ) -> tuple[str, str] | None:
     """Return the binary that wakes a stopped session, with its version.
 
@@ -160,15 +163,21 @@ def machine_stopped_wake_surface(
     sharing a transcript store is what would let the CLI resume the window a
     person is reading, which is the fork this refuses rather than enables.
     """
-    return machine_wake_surface(surface, machine_surface_versions, "message_stopped")
+    return machine_wake_surface(
+        surface, machine_surface_versions, "message_stopped", origin
+    )
 
 
 def machine_stopped_wake_supported(
     surface: str | None,
     machine_surface_versions: Mapping[str, str] | None,
+    origin: str | None,
 ) -> bool:
     """Return whether a machine's installed CLI can wake a stopped Claude session."""
-    return machine_stopped_wake_surface(surface, machine_surface_versions) is not None
+    return (
+        machine_stopped_wake_surface(surface, machine_surface_versions, origin)
+        is not None
+    )
 
 
 __all__ = [

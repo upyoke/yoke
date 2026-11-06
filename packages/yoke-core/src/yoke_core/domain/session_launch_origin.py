@@ -1,4 +1,4 @@
-"""Derive ``session_launches.origin`` from live steering authority.
+"""Own launch requester context and durable session resume provenance.
 
 Any live steering seat in the project is steering authority, whether it
 covers the whole project or one strategy document inside it. Matching one
@@ -41,4 +41,14 @@ def derived_launch_origin(
     return LAUNCH_ORIGIN_STEERING
 
 
-__all__ = ["derived_launch_origin"]
+def session_launch_origin(conn: Any, session_id: str) -> str:
+    """Read resume authority from the session, never from disposable launch rows."""
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT launch_origin FROM harness_sessions WHERE session_id={marker}",
+        (session_id,),
+    ).fetchone()
+    return str(row[0]) if row is not None else "operator"
+
+
+__all__ = ["derived_launch_origin", "session_launch_origin"]

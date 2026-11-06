@@ -16,7 +16,7 @@ def wake_notice_body(label):
     return (
         f"A message is waiting in your chat {label}. "
         "Open that chat and type anything; the next turn's hook delivers the pending message. "
-        "Yoke leaves this wake to you because a native resume forks the transcript you are reading. "
+        "Yoke leaves this wake to you because you control this session. "
         "The message waits until its configured expiry."
     )
 

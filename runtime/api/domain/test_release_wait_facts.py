@@ -175,9 +175,13 @@ def test_a_raising_read_never_escapes(monkeypatch):
     }
 
 
-def test_a_cli_surface_is_woken_natively():
+def test_a_yoke_launched_cli_session_is_woken_natively():
     wake = facts.session_wake(
-        {"executor_surface": "claude-cli", "executor_version": "2.1.287"}
+        {
+            "executor_surface": "claude-cli",
+            "executor_version": "2.1.287",
+            "launch_origin": "yoke",
+        }
     )
 
     assert wake == {"kind": facts.WAKE_NATIVE, "surface": "claude-cli"}
@@ -193,7 +197,11 @@ def test_a_desktop_surface_belongs_to_its_operator():
 
 def test_a_surface_with_no_stopped_route_cannot_be_woken():
     wake = facts.session_wake(
-        {"executor_surface": "claude-vscode", "executor_version": "2.1.287"}
+        {
+            "executor_surface": "claude-vscode",
+            "executor_version": "2.1.287",
+            "launch_origin": "yoke",
+        }
     )
 
     assert wake == {"kind": facts.WAKE_NONE, "surface": "claude-vscode"}

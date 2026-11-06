@@ -76,7 +76,7 @@ def notify_failed_wake(
     ):
         return None
     skipped = str(attempt[0]).startswith("skipped_")
-    if skipped and evidence.get("skip_reason") == "surface_wake_operator_driven":
+    if skipped and evidence.get("skip_reason") == "operator":
         # Hook delivery on the operator's next turn is this surface's route.
         # Having no relay wake is intentional, not a failed delivery.
         return None

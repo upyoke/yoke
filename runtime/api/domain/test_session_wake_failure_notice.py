@@ -202,7 +202,7 @@ def test_operator_driven_wake_skip_never_escalates_on_its_own(acknowledged) -> N
         candidate,
         result="skipped_operation",
         reason="skipped_operation",
-        skip_reason="surface_wake_operator_driven",
+        skip_reason="operator",
     )
     later = SWEEP + timedelta(seconds=1)
     conn.execute(

@@ -76,7 +76,7 @@ def _identity_facts(
         return {}
     marker = _marker(conn)
     rows = conn.execute(
-        "SELECT session_id,project_id,executor_surface,executor_version,machine_id,"
+        "SELECT session_id,project_id,executor_surface,executor_version,machine_id,launch_origin,"
         "last_heartbeat,last_tool_call_at,ended_at,terminated_at,turn_posture,"
         "turn_posture_at,offer_envelope "
         "FROM harness_sessions WHERE session_id IN ("
@@ -97,6 +97,7 @@ def _wake_route_available(
     surface = str(merged.get("executor_surface") or "")
     candidate = {
         "executor_surface": surface,
+        "launch_origin": merged.get("launch_origin"),
         "executor_version": str(merged.get("executor_version") or ""),
         "wake_mode": (
             WakeMode.WAITING.value
@@ -109,7 +110,10 @@ def _wake_route_available(
         return True
     return bool(
         wake_operation
-        and machine_wake_surface(surface, versions, wake_operation) is not None
+        and machine_wake_surface(
+            surface, versions, wake_operation, merged.get("launch_origin")
+        )
+        is not None
     )
 
 

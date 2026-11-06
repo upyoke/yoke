@@ -16,6 +16,7 @@ def _row(
 ) -> dict[str, object]:
     return {
         "executor_surface": surface,
+        "launch_origin": "yoke",
         "executor_version": version,
         "turn_posture": posture,
     }

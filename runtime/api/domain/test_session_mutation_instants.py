@@ -110,6 +110,10 @@ def test_termination_and_reap_share_native_fact_with_message_cancellation(
     caller = _session(test_db)
     target = _session(test_db)
     test_db.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id=%s",
+        (target,),
+    )
+    test_db.execute(
         "UPDATE harness_sessions SET mode='operator' WHERE session_id=%s", (caller,)
     )
     actor = test_db.execute(

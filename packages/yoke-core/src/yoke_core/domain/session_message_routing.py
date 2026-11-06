@@ -42,11 +42,12 @@ def _wake_interface(
     version: str | None,
     operation: str | None,
     machine_surface_versions: Mapping[str, str] | None,
+    origin: str | None,
 ) -> str:
     capability = capability_for_surface(surface)
     if capability is None or operation is None:
         return "none"
-    if not native_wake_supported(surface):
+    if not native_wake_supported(surface, origin):
         # The surface still carries its messaging capability — hook delivery
         # is untouched — but nothing here may resume it. Only the operator
         # whose window it is can end the wait.
@@ -55,7 +56,7 @@ def _wake_interface(
         return str(getattr(capability, operation))
     if (
         operation
-        and machine_wake_surface(surface, machine_surface_versions, operation)
+        and machine_wake_surface(surface, machine_surface_versions, operation, origin)
         is not None
     ):
         return "supported"
@@ -121,7 +122,7 @@ def messageability(
         )
     )
     wake_interface = _wake_interface(
-        surface, version, operation, machine_surface_versions
+        surface, version, operation, machine_surface_versions, row.get("launch_origin")
     )
     if not surface_version_supported(surface, version):
         return {
@@ -129,7 +130,9 @@ def messageability(
             "hook_injection": False,
             "wake_interface": wake_interface,
             "wake_operation": operation,
-            "wake_authority": surface_wake_authority(surface),
+            "wake_authority": surface_wake_authority(surface)
+            if row.get("launch_origin") == "yoke"
+            else "operator",
             "reason": "version_below_floor_or_unknown",
             "minimum_version": capability.minimum_version,
         }
@@ -140,7 +143,9 @@ def messageability(
         "inject_events": list(capability.inject_events),
         "wake_interface": wake_interface,
         "wake_operation": operation,
-        "wake_authority": surface_wake_authority(surface),
+        "wake_authority": surface_wake_authority(surface)
+        if row.get("launch_origin") == "yoke"
+        else "operator",
         "minimum_version": capability.minimum_version,
         "reason": "hook_delivery" if hook_injection else "unsupported_surface",
     }

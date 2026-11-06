@@ -50,21 +50,21 @@ def _wake_skip_result(
     """Return the recorded code, the driver it named, and the rule that fired."""
     surface = str(row.get("executor_surface") or "")
     machine_id = str(row.get("machine_id") or "")
-    if conn is not None and machine_id and surface:
-        if live_mark(conn, machine_id, surface) is not None:
-            return WAKE_SKIP_SURFACE_DISABLED, None, "surface_policy_disabled"
     capability = capability_for_surface(surface)
     if capability is None:
         return "skipped_surface", None, "surface_unknown"
-    if not native_wake_supported(surface):
+    if not native_wake_supported(surface, row.get("launch_origin")):
         # Named ahead of every version and driver rule because it outranks
         # them: no upgrade and no installed peer binary opens this route.
-        return "skipped_operation", None, "surface_wake_operator_driven"
+        return "skipped_operation", None, "operator"
+    if conn is not None and machine_id and surface:
+        if live_mark(conn, machine_id, surface) is not None:
+            return WAKE_SKIP_SURFACE_DISABLED, None, "surface_policy_disabled"
     if not surface_version_supported(surface, row.get("executor_version")):
         return "skipped_version", None, "surface_version_below_floor"
     if operation is None:
         return "skipped_operation", None, "wake_operation_unresolved"
-    driver = machine_wake_executor_surface(surface, operation)
+    driver = machine_wake_executor_surface(surface, operation, row.get("launch_origin"))
     if driver is not None:
         driver_version = relay_versions.get(driver)
         if not driver_version:
@@ -96,7 +96,7 @@ def record_wake_skip(
     result_code, driver, reason = _wake_skip_result(
         row, operation, relay_versions, conn=conn
     )
-    operator_route = reason == "surface_wake_operator_driven"
+    operator_route = reason == "operator"
     policy = recipient_policy(conn, row)
     previous = parse_timestamp(row.get("last_wake_at"))
     if not operator_route and previous is not None:

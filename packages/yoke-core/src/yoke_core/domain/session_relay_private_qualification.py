@@ -50,7 +50,7 @@ def authorize_wake_versions(
     wake onward under a surface that cannot perform it.
     """
     surface = str(candidate.get("executor_surface") or "")
-    if not native_wake_supported(surface):
+    if not native_wake_supported(surface, candidate.get("launch_origin")):
         # A one-shot stage grant proves a binary, never an authority. The
         # authority over an operator-driven surface is the person in front
         # of it, so no grant reopens the route.

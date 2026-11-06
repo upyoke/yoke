@@ -225,6 +225,6 @@ def test_desktop_wakes_are_operator_owned_without_a_native_resume(surface) -> No
     assert capability is not None
     assert capability.wake_authority == "operator"
     assert capability.message_stopped == "none"
-    assert not native_wake_supported(surface)
+    assert not native_wake_supported(surface, "yoke")
     for operation in ("message_active", "message_idle", "message_stopped"):
-        assert machine_wake_executor_surface(surface, operation) is None
+        assert machine_wake_executor_surface(surface, operation, "yoke") is None

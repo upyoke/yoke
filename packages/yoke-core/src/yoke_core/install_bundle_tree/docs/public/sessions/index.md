@@ -40,6 +40,13 @@ chip — surface, park state, and quiet reason — whichever band it lands in.
 item with `yoke claims work release --claim-id N`, appears for a holder without a declared pause whose process is gone
 and whose surface cannot resume it from its transcript.
 
+Yoke resumes a session headlessly only when Yoke launched it and the surface
+allows native wakes. Each session stores `launch_origin`: `yoke` after launch
+binding, otherwise `operator`. Hand-started sessions on every harness and
+surface keep messages pending for their next hook, even after their process
+exits. Yoke sends the existing operator-wake notice; QA, deploy and Inbox
+answers never override that rule.
+
 Every session card offers **Message**, including ended sessions. An idle or
 parked session whose wake belongs to the operator shows **Queued — delivered
 when you wake this session.** Its next hook delivers the message after you

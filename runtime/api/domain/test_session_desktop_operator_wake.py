@@ -22,6 +22,7 @@ from runtime.api.domain.session_desktop_operator_wake_test_support import (
     _send_to as _send_to,
 )
 
+import json
 from datetime import timedelta
 
 import pytest
@@ -54,24 +55,16 @@ CLI_SURFACES = ("claude-cli", "codex-cli", "cursor-cli")
 #: the product acknowledgement grace period — the window every starvation test reuses.
 
 
-
-
-
-
-
-
-
-
 @pytest.mark.parametrize("surface", DESKTOP_SURFACES)
 def test_every_desktop_surface_declares_its_operator_as_the_waker(surface) -> None:
     assert surface_wake_authority(surface) == "operator"
-    assert not native_wake_supported(surface)
+    assert not native_wake_supported(surface, "yoke")
 
 
 @pytest.mark.parametrize("surface", CLI_SURFACES)
 def test_cli_surfaces_keep_their_existing_declaration(surface) -> None:
     assert surface_wake_authority(surface) == "native"
-    assert native_wake_supported(surface)
+    assert native_wake_supported(surface, "yoke")
 
 
 @pytest.mark.parametrize("surface", DESKTOP_SURFACES)
@@ -88,7 +81,9 @@ def test_no_wake_route_is_version_qualified_on_a_desktop_surface(
     """
     version = SESSION_SURFACE_CAPABILITIES[surface].minimum_version
 
-    assert not wake_versions_supported(surface, version, version, wake_mode, liveness)
+    assert not wake_versions_supported(
+        surface, version, version, wake_mode, liveness, "yoke"
+    )
 
 
 @pytest.mark.parametrize("surface", DESKTOP_SURFACES)
@@ -114,9 +109,11 @@ def test_no_peer_binary_is_named_for_a_desktop_target() -> None:
 
     for surface in DESKTOP_SURFACES:
         for operation in ("message_idle", "message_stopped"):
-            assert machine_wake_surface(surface, installed, operation) is None
+            assert machine_wake_surface(surface, installed, operation, "yoke") is None
     # The peer route itself is intact for the surfaces it was built for.
-    assert machine_wake_surface("claude-vscode", installed, "message_stopped") == (
+    assert machine_wake_surface(
+        "claude-vscode", installed, "message_stopped", "yoke"
+    ) == (
         "claude-cli",
         "2.1.241",
     )
@@ -154,7 +151,7 @@ def test_a_starved_desktop_envelope_is_never_woken_and_stays_pending() -> None:
         (message_id,),
     ).fetchone()
     assert skip["result_code"] == "skipped_operation"
-    assert "surface_wake_operator_driven" in skip["evidence"]
+    assert json.loads(skip["evidence"])["skip_reason"] == "operator"
 
 
 def test_the_operator_is_told_which_chat_holds_the_waiting_message() -> None:

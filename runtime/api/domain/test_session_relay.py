@@ -275,10 +275,10 @@ def test_private_versions_use_floors_and_malformed_versions_fail_closed() -> Non
         "codex-cli", "not-a-version", "message_stopped"
     )
     assert wake_versions_supported(
-        "codex-cli", "0.148.0a15", "0.148.0a15", "waiting", "active"
+        "codex-cli", "0.148.0a15", "0.148.0a15", "waiting", "active", "yoke"
     )
     assert wake_versions_supported(
-        "codex-cli", "0.148.0a15", "0.148.0a15", "idle_timeout", "stale"
+        "codex-cli", "0.148.0a15", "0.148.0a15", "idle_timeout", "stale", "yoke"
     )
     assert wake_versions_supported(
         "cursor-cli",
@@ -286,4 +286,5 @@ def test_private_versions_use_floors_and_malformed_versions_fail_closed() -> Non
         "2026.08.11-e8db854",
         "idle_timeout",
         "stale",
+        "yoke",
     )
