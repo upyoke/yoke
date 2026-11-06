@@ -63,16 +63,23 @@ def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] 
         # idempotent read of earlier evidence, not permission to reopen it.
         return None
     from yoke_core.domain.deployment_qa_execution_target import (
-        deployment_qa_execution_target, validate_deployment_execution_target,
+        deployment_qa_execution_target,
+        validate_deployment_execution_target,
     )
     from yoke_core.domain.deployment_qa_shared_plans import execution_subject
-    from yoke_core.domain.deployment_qa_requirement_target_refresh import carry_execution_passes
+    from yoke_core.domain.deployment_qa_requirement_target_refresh import (
+        carry_execution_passes,
+    )
 
     member = execution.get("deployment_member_item_id")
     subject = execution_subject(conn, execution)
     validate_deployment_execution_target(conn, execution)
-    carry_execution_passes(conn, subject=subject,
-        target=deployment_qa_execution_target(conn, subject), execution=execution)
+    carry_execution_passes(
+        conn,
+        subject=subject,
+        target=deployment_qa_execution_target(conn, subject),
+        execution=execution,
+    )
     if subject.get("shared_plan"):
         return settle_plan_group(conn, subject)
     return settle_subject(
@@ -228,7 +235,10 @@ def continue_settled_stage(
     from yoke_core.domain.project_identity import resolve_project
 
     project = resolve_project(conn, int(status_project_id(conn, run_id)))
-    notice_facts = (status.get("reasons") or (), completion_failure)
+    notice_facts = (
+        () if outcome == "blocked" else status.get("reasons") or (),
+        completion_failure,
+    )
     key = (
         f"deployment-qa-continuation:{run_id}:{stage}:"
         f"{member if member is not None else 'run'}:"

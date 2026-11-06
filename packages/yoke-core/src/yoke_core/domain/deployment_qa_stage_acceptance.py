@@ -75,8 +75,9 @@ def unsettled_acceptance_blocker(
             f"{digest}; no case failed"
         ),
         recovery=(
-            f"re-drive the deployment run with `yoke watch deploy -- {run_id}`; steering owns the run and there "
-            "is no member or worker action"
+            f"rerun the same QA completion or review-submit command for execution {execution_id}; "
+            "it credits the saved completion. Close-out and nothing-owed commands "
+            "also retry settlement inline"
         ),
     )
 

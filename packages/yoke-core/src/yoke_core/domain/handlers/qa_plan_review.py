@@ -166,7 +166,7 @@ def handle_plan_review_submit(request: FunctionCallRequest) -> HandlerOutcome:
 
         conn.rollback()
         message = bounded_refusal(exc, step="review submission")
-        return _error("plan_review_submit_failed", message)
+        return _error(getattr(exc, "code", "plan_review_submit_failed"), message)
     finally:
         conn.close()
     return HandlerOutcome(primary_success=True, result_payload=result)

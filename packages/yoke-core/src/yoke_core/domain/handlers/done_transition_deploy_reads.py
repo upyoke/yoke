@@ -182,7 +182,7 @@ def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutco
     """Return the run's unsettled scoped stage verdicts for this item.
 
     Wraps :func:`yoke_core.domain.deployment_qa_run_acceptance.item_qa_acceptance_blockers`
-    unchanged; the engine prints the reasons and blocks when the list is
+    after retrying durable completion; the engine blocks when the list is
     non-empty.
     """
     item_id = _require_item_id(request)
@@ -203,6 +203,9 @@ def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutco
 
     try:
         with _connect_rw() as conn:
+            from yoke_core.domain.deployment_qa_resettlement import resettle_item
+
+            resettle_item(conn, run_id=body.run_id, item_id=item_id)
             blocking = item_qa_acceptance_blockers(
                 conn, run_id=body.run_id, item_id=item_id
             )

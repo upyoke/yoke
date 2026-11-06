@@ -34,15 +34,15 @@ def test_compose_refusal_reports_evaluated_state_and_recovery() -> None:
     assert "Recovery: re-drive the run" in text
 
 
-def test_unsettled_acceptance_names_matched_execution_and_re_drive() -> None:
+def test_unsettled_acceptance_names_matched_execution_and_same_command_retry() -> None:
     text = unsettled_acceptance_blocker(
         execution_id="exec-1", digest="abc123", run_id="run-1"
     )
     assert "never settled against this deployment target" in text
     assert "settling scoped execution exec-1 matches digest abc123" in text
     assert "no case failed" in text
-    assert "re-drive the deployment run" in text
-    assert "no member or worker action" in text
+    assert "Close-out and nothing-owed commands" in text
+    assert "rerun the same QA completion or review-submit command" in text
 
 
 def _same_identity(*, app_url: str) -> dict[str, object]:

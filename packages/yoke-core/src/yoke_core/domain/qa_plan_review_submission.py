@@ -307,9 +307,9 @@ def submit_plan_review(
             conn.rollback()
     announce_discharges(conn, discharged)
     if execution.get("deployment_stage"):
-        from yoke_core.domain.deployment_qa_stage_settlement import settle_execution
+        from yoke_core.domain.deployment_qa_resettlement import resettle_execution
 
-        settle_execution(conn, execution)
+        resettle_execution(conn, execution)
     elif execution.get("item_id") is not None:
         from yoke_core.domain.deployment_member_close_out_retry import (
             after_record_settled,

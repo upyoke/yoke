@@ -112,9 +112,7 @@ def qa_subject_claim_verdict(
     needs the session's live item claim — or the claim the run bound when
     it started, which is what lets an hour-long gate record the verdict it
     earned after the live claim was explicitly released or handed off.
-    Operator waiver and execution-target rebind also accept a live steering
-    seat covering the item, or the live driver of the requirement's run,
-    through the same helper.
+    Operator waiver and rebind also accept a covering steering seat or run driver.
     """
     from yoke_core.domain.agent_mission_cleanup import cleanup_claim_authority
     from yoke_core.domain.qa_execution_request_identity import (
@@ -129,6 +127,10 @@ def qa_subject_claim_verdict(
 
         try:
             with connect() as conn:
+                from yoke_core.domain.deployment_qa_resettlement import terminal_replay_allowed
+
+                if terminal_replay_allowed(conn, request):
+                    return True, None, None
                 request = resolve_execution_request(conn, request)
         except (LookupError, ValueError) as exc:
             return False, "qa_execution_subject_invalid", str(exc)
@@ -222,9 +224,7 @@ def qa_subject_claim_verdict(
             "claim_required",
             "QA operation target has no item or deployment-run subject",
         )
-    # Late import: tests patch ``who_claims_for_item`` on the dispatcher
-    # claim module, so the lookup has to resolve through that attribute at
-    # call time rather than be bound here at import time.
+    # Resolve the dispatcher attribute at call time for claim-policy tests.
     from yoke_core.domain.qa_start_bound_authority import payload_grants_authority
     from yoke_core.domain.yoke_function_dispatch_claims import who_claims_for_item
 
