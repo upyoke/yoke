@@ -10,7 +10,7 @@ import pytest
 from yoke_harness.hook_resident_http import ResidentHttpOpener
 from yoke_harness.hooks import relay
 from yoke_cli.transport.https import HttpsConnection
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpDeadlineError,
     BoundedJsonHttpNetworkError,
 )
