@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from yoke_cli.config import path_doctor as doctor
-from yoke_cli.config.path_state_contract import (
+from yoke_contracts.shell_path_state import (
     MANAGED_BEGIN,
     remove_shell_path,
     shell_setup_files,

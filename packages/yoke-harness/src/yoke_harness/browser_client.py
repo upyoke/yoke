@@ -19,16 +19,16 @@ from yoke_cli.config.browser_profile_cookies import (
     SignInCookieError,
     keep_sign_in_cookies,
 )
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     request_json,
 )
 from yoke_cli import browser_node_toolchain
 from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS
-from yoke_harness.browser_client_errors import daemon_failure_message
+from yoke_contracts.browser_client_errors import daemon_failure_message
 from yoke_harness import browser_runtime_home
-from yoke_harness.browser_daemon_profile import canonical_profile, state_file_path
+from yoke_contracts.browser_daemon_profile import canonical_profile, state_file_path
 from yoke_harness.browser_client_readiness import start_daemon
 from yoke_harness.browser_human_gate import refuse_during_human_gate
 from yoke_harness.browser_setup import ensure_browser_runtime
@@ -254,7 +254,7 @@ def daemon_start(
 def daemon_stop(
     *, profile_dir: str | None = None, expected_process_start: str | None = None
 ) -> str:
-    from yoke_harness.browser_daemon_profile import process_matches_start
+    from yoke_contracts.browser_daemon_profile import process_matches_start
 
     state_path = _state_file_path(profile_dir)
     state = DaemonState.load(state_path)

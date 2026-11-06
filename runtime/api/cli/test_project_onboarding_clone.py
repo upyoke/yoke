@@ -13,7 +13,7 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     write_https_config,
 )
 from yoke_cli.config import onboard
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_support
 from yoke_cli.config import project_onboard_clone

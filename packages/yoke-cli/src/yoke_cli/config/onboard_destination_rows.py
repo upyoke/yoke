@@ -12,7 +12,7 @@ Separated from the flow that routes these choices so the picker's vocabulary
 
 from __future__ import annotations
 
-from yoke_cli.config.onboard_destinations import (
+from yoke_contracts.onboard_destinations import (
     DEFAULT_DESTINATION,
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,

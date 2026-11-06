@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from pathlib import Path
 import re
 
-from yoke_cli.transport.https_retry_policy import (
+from yoke_contracts.https_retry_policy import (
     error_code_is_terminal_authentication,
 )
 from yoke_harness.session_relay_health import (

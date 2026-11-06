@@ -12,7 +12,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_contracts.private_network_http import PRIVATE_HTTP_WARNING
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import server_connect, team_server_authorization, setup_browser
 from yoke_cli.transport.dispatcher import _resolve_session_id

@@ -11,7 +11,7 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
-from yoke_cli.transport.response_deadline_errors import (
+from yoke_contracts.response_deadline_errors import (
     ResponseHeadersDeadlineError,
     ResponseOpenDeadlineError,
     ResponseOpenError,

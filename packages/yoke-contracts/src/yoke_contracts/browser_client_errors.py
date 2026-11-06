@@ -3,7 +3,7 @@
 import json
 from urllib.parse import urlsplit
 
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpDeadlineError,
     BoundedJsonHttpStatusError,
     safe_diagnostic_text,

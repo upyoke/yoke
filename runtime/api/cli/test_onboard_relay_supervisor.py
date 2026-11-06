@@ -6,7 +6,7 @@ import json
 import pytest
 
 from yoke_cli.config import onboard_session_relay as relay
-from yoke_cli.config.session_relay_instance import resolve_relay_instance
+from yoke_contracts.machine_config.relay_instance import resolve_relay_instance
 from yoke_core.tools.session_relay_plist import relay_launchd_paths
 from yoke_core.tools.session_relay_systemd import relay_unit_path
 

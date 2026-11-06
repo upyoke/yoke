@@ -10,7 +10,8 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     seed_remote,
     write_https_config,
 )
-from yoke_cli.config import onboard, onboard_destinations, onboard_project
+from yoke_cli.config import onboard, onboard_project
+from yoke_contracts import onboard_destinations as onboard_destinations
 
 
 def test_onboard_existing_project_clone_accepts_versioned_api_url(

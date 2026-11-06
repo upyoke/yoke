@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.transport.https_retry_policy import TERMINAL_AUTHENTICATION_CODES
+from yoke_contracts.https_retry_policy import TERMINAL_AUTHENTICATION_CODES
 from yoke_harness import session_relay
 from yoke_harness.session_relay_daemon import poll_backoff_seconds, serve_forever
 from yoke_harness.session_relay_health import observe_relay_health

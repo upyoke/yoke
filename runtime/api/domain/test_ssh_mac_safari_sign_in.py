@@ -15,7 +15,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh,
     run_functions,
 )
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_preserved_state import (
     PRESERVED_HOME_ENTRIES,
     PRESERVED_MANIFEST_KEY,
     PRESERVED_MANIFEST_VALUE,

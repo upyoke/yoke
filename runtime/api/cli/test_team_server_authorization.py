@@ -7,7 +7,7 @@ from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.config import team_server_authorization as team
 from yoke_cli.config.setup_run_facts import RunFacts
 from yoke_cli.commands import connect as command
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpResponse,
     BoundedJsonHttpStatusError,
 )

@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterator, Mapping, Optional, Tuple
 
 from yoke_cli.config import machine_config
 from yoke_cli.project_install.files import ProjectInstallError
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     error_detail,

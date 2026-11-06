@@ -69,7 +69,7 @@ class TestCollectDaemonDiagnostics:
 
     def test_collects_daemon_log_tail(self, tmp_path: Path) -> None:
         """Daemon log content is captured in diagnostics."""
-        from yoke_harness.browser_daemon_profile import state_file_path
+        from yoke_contracts.browser_daemon_profile import state_file_path
 
         daemon_log = state_file_path(tmp_path, "").parent / DAEMON_LOG_NAME
         daemon_log.parent.mkdir(parents=True)

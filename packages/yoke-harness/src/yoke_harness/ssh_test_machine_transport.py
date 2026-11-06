@@ -10,7 +10,7 @@ import time
 import shlex
 import subprocess
 from typing import Mapping, Sequence
-from yoke_cli.config.capability_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     machine_capability_secret_path,
     read_machine_capability_secret,
 )

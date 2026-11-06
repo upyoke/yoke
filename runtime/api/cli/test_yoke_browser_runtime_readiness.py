@@ -175,7 +175,7 @@ def test_itemless_capture_requires_private_scope_before_any_client_call() -> Non
 
 
 def test_private_capture_does_not_probe_kill_before_start(tmp_path) -> None:
-    from yoke_harness.browser_daemon_profile import profile_scope
+    from yoke_contracts.browser_daemon_profile import profile_scope
 
     profile = tmp_path / "private-check"
     with (

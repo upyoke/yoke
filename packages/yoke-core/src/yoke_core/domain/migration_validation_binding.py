@@ -58,7 +58,7 @@ YOKE_VALIDATION_DSN_ENV = validation_env_var(PG_DSN_ENV)
 
 def binding_file(env_var: str) -> Path:
     """Return the machine-local file that may carry *env_var*'s DSN."""
-    from yoke_cli.config.secrets import secret_path_no_create
+    from yoke_contracts.machine_config.secret_files import secret_path_no_create
 
     return secret_path_no_create(env_var, BINDING_FILE_SUFFIX)
 
@@ -119,7 +119,7 @@ def recorded_bindings() -> Tuple[RecordedBinding, ...]:
 
 def write_binding(env_var: str, dsn: str) -> Path:
     """Persist *dsn* as *env_var*'s owner-only machine-local binding."""
-    from yoke_cli.config.secrets import replace_secret_file
+    from yoke_contracts.machine_config.secret_files import replace_secret_file
 
     return replace_secret_file(binding_file(env_var), env_var, dsn)
 

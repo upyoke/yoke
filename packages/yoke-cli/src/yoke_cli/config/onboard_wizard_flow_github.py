@@ -14,7 +14,7 @@ from yoke_cli.config import onboard_wizard_github_progress as github_progress
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_github_repair
 from yoke_cli.config import onboard_wizard_saved_github as saved_github
-from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard_state import CopyTarget
 from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
 from yoke_cli.config.onboard_wizard_github_presentation import (

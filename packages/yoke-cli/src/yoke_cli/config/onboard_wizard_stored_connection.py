@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_wizard_stored_github
-from yoke_cli.config.onboard_destinations import (
+from yoke_contracts.onboard_destinations import (
     DEFAULT_SIGN_IN_ENV,
     matches_stored_hosted_authority as _matches_hosted,
 )

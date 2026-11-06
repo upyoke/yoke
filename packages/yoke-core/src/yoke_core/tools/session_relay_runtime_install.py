@@ -11,7 +11,7 @@ import venv
 from collections.abc import Callable
 from pathlib import Path
 
-from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
+from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.python_venv_dependencies import ensure_venv_support
 

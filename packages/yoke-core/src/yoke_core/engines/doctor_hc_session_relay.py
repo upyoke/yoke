@@ -11,7 +11,7 @@ from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     RelayInstanceError,
     RELAY_LOGOUT_BEHAVIOR,
     resolve_relay_instance,

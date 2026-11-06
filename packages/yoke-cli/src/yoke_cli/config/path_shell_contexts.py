@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _recovery(shell: str, context: str, env: dict, winner: str | None,
               expected: str, error: str) -> str:
-    from yoke_cli.config.path_state_contract import (
+    from yoke_contracts.shell_path_state import (
         default_startup_file, startup_files_for_shell,
     )
 

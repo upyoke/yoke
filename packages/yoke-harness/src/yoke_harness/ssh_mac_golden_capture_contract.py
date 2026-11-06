@@ -15,7 +15,7 @@ restore, so ownership is asserted too. Both refusals name the exact path.
 
 from __future__ import annotations
 
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_preserved_state import (
     OS_MANAGED_MANIFEST_KEY,
     PRESERVED_MANIFEST_KEY,
 )

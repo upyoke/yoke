@@ -26,7 +26,7 @@ from yoke_harness.ssh_mac_baseline_probes import (
     run_baseline_probes,
 )
 from yoke_harness.golden_snapshot_retention import LINUX_CAPTURE_SPACE_CHECK
-from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
+from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_contracts.test_machine_types import HostActionResult
 
 # A 2.3 GB home took over five minutes on a two-vCPU host; allow clear headroom.

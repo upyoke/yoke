@@ -11,7 +11,7 @@ from pathlib import Path
 from yoke_contracts.machine_config import capability_secrets as contract
 from yoke_contracts.machine_config import schema as machine_contract
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import runtime as machine_config
 
 
 class MachineCapabilitySecretError(RuntimeError):

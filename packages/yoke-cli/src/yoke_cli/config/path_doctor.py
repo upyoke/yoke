@@ -17,7 +17,7 @@ from yoke_cli.config.path_harness_clis import (
     resolve_harness_clis,
 )
 
-from yoke_cli.config.path_state_contract import (
+from yoke_contracts.shell_path_state import (
     HARNESS_CLIS as HARNESS_CLIS,
     MANAGED_BEGIN,
     MANAGED_END as MANAGED_END,
@@ -74,7 +74,7 @@ class PathDiagnosis:
 
 def update_shell(*, env: dict[str, str] | None = None) -> str:
     """Repair owned shell PATH blocks using the shared startup-file contract."""
-    from yoke_cli.config.path_state_contract import write_shell_path
+    from yoke_contracts.shell_path_state import write_shell_path
 
     environ = dict(os.environ if env is None else env)
     changed = write_shell_path(env=environ)

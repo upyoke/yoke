@@ -21,7 +21,7 @@ from runtime.api.domain.ssh_mac_golden_capture_test_support import (
     _capture,
 )
 from yoke_cli.config.path_doctor import resolve_path_state_contract
-from yoke_harness.ssh_mac_full_reset_contract import resolve_full_reset_path_contract
+from yoke_contracts.ssh_mac_full_reset_contract import resolve_full_reset_path_contract
 from yoke_harness.ssh_mac_golden_capture_contract import (
     CAPTURE_COPY_STDERR_LIMIT,
     CAPTURE_COPY_STDERR_PREFIX,

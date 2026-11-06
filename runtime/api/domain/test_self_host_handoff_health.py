@@ -8,7 +8,7 @@ import pytest
 
 from yoke_core.tools import self_host_handoff
 from yoke_cli.config import server_connect
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from yoke_harness.hooks.shell_command import hook_shell_command
+from yoke_contracts.hook_shell_command import hook_shell_command
 
 
 def test_hook_shell_avoids_startup_files_and_sets_launcher_path(tmp_path: Path) -> None:

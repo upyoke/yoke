@@ -48,7 +48,7 @@ def _skewed(response: FunctionCallResponse) -> bool:
 def paired_admin_env() -> str:
     """The direct-Postgres env serving the active connection's universe."""
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import runtime as machine_config
 
         return same_universe_db_admin_env(
             machine_config.load_config(), machine_config.active_env(),

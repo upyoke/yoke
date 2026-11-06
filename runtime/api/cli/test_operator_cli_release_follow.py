@@ -16,7 +16,8 @@ from yoke_cli.config import (
     install_binding,
     operator_cli_release_follow as follow,
 )
-from yoke_cli.config import self_update, session_relay_instance
+from yoke_cli.config import self_update
+from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_cli.self_host import release_target
 from yoke_cli.transport import installed_cli_staleness
 from yoke_contracts.install_binding import KIND_PACKAGED_WHEEL

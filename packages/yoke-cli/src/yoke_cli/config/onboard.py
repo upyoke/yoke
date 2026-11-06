@@ -16,7 +16,7 @@ from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_apply_project_handoff
 from yoke_cli.config import onboard_apply_runtime
 from yoke_cli.config import onboard_bridge
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_credential_source

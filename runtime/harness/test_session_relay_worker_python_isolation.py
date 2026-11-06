@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
+from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
 from yoke_harness import session_relay_codex_app_server_client as app_server_module
 from yoke_harness import session_relay_codex_cli as codex_cli_module
 from yoke_harness import session_relay_native_models as native_models_module

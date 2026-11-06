@@ -131,7 +131,7 @@ def test_undeclared_or_invalid_distribution_refuses_before_install(
     )
 
     monkeypatch.setattr(
-        "yoke_cli.config.session_relay_instance.resolve_relay_instance",
+        "yoke_contracts.machine_config.relay_instance.resolve_relay_instance",
         lambda **_kwargs: instance,
     )
     payload = release_status_payload(

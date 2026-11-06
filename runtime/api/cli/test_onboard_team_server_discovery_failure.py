@@ -11,7 +11,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (
 )
 from yoke_cli.config import team_server_authorization as team
 from yoke_cli.config.onboard_wizard import WizardDefaults
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
 
 @pytest.mark.parametrize(

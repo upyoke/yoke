@@ -9,7 +9,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from yoke_contracts import response_deadline_read
-from yoke_cli.transport.pre_resolved_https import (
+from yoke_contracts.pre_resolved_https import (
     ResponseOpenDeadlineError,
     ResponseOpenError,
     open_https_caller_owned as _open_https_caller_owned,

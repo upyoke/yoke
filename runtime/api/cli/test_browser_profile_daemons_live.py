@@ -21,7 +21,7 @@ import pytest
 from yoke_contracts.browser_qa_contract import DEFAULT_BROWSER_VIEWPORT
 from yoke_core.domain import browser_client as core_client
 from yoke_harness import browser_client
-from yoke_harness.browser_daemon_profile import profile_scope
+from yoke_contracts.browser_daemon_profile import profile_scope
 
 
 @pytest.mark.parametrize("starter", [browser_client, core_client])

@@ -25,7 +25,7 @@ from yoke_contracts.harness_machine_hooks import (
     MachineHookEvent,
 )
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
-from yoke_harness.hooks.shell_command import hook_shell_command
+from yoke_contracts.hook_shell_command import hook_shell_command
 
 YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 ROOT_VARIABLE = "YOKE_ROOT"

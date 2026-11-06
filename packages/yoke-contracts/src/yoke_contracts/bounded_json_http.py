@@ -18,20 +18,20 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_cli.transport.bounded_http_open_policy import (
+from yoke_contracts.bounded_http_open_policy import (
     HttpFinalUrlError,
     HttpOpenPolicyError,
     open_bounded_request,
     require_requested_final_url,
 )
-from yoke_cli.transport.https_relay_outcome import certificate_diagnostic
-from yoke_cli.transport.json_error_safety import (
+from yoke_contracts.certificate_diagnostic import certificate_diagnostic
+from yoke_contracts.json_error_safety import (
     decode_error_payload,
     error_detail,
     request_secrets,
     safe_diagnostic_text,
 )
-from yoke_cli.transport.response_deadline_open import (
+from yoke_contracts.response_deadline_open import (
     ResponseOpenDeadlineError,
     ResponseOpenError,
 )

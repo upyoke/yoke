@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.config.capability_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     read_machine_capability_secret,
     store_machine_capability_secret,
 )

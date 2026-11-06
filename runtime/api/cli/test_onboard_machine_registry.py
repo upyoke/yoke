@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_cli.config import onboard
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_session_relay
 from yoke_cli.config import machine_registration

@@ -13,11 +13,11 @@ from typing import Any
 
 from yoke_contracts.private_network_http import allows_http_host
 
-from yoke_cli.transport.pre_resolved_https_connection import (
+from yoke_contracts.pre_resolved_https_connection import (
     PreResolvedHTTPHandler,
     PreResolvedHTTPSHandler,
 )
-from yoke_cli.transport.response_deadline_errors import (
+from yoke_contracts.response_deadline_errors import (
     ResponseHeadersDeadlineError,
     ResponseOpenDeadlineError,
     ResponseOpenError,

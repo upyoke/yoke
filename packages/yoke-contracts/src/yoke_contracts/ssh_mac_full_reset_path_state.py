@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
-from yoke_cli.config.path_doctor import (
+from yoke_contracts.shell_path_state import (
     HARNESS_CLIS,
     MANAGED_BEGIN,
     MANAGED_END,

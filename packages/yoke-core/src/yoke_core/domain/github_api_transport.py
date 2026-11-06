@@ -6,7 +6,7 @@ from typing import Any, Callable
 import urllib.request
 
 from yoke_contracts import response_deadline_read
-from yoke_cli.transport.response_deadline_open import (
+from yoke_contracts.response_deadline_open import (
     ResponseOpenDeadlineError,
     open_https_caller_owned,
     open_replay_safe,

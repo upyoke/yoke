@@ -23,7 +23,7 @@ from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.commands.adapters import onboard_resume
 from yoke_cli.config import machine_config
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config import setup_agent_answers as answers

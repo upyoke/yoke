@@ -123,7 +123,7 @@ def _case(project, declarations, origin, records):
 
 def _probe():
     from yoke_cli.commands.browser_authorize import browser_authorize
-    from yoke_cli.config.capability_secrets import store_machine_capability_secret
+    from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
     from yoke_cli.config import browser_profile
     from yoke_harness import browser_client
 

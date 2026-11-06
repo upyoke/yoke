@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.commands.adapters.github_actions_wait import (
     wait_for_ci_completion,
 )

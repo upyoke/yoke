@@ -21,7 +21,7 @@ from yoke_cli.config import onboard_wizard_admin_name as admin_name
 from yoke_cli.config import onboard_wizard_backup as backup_flow
 from yoke_cli.config import onboard_wizard_run_connection as run_connection
 from yoke_cli.config.local_universe_setup import LOCAL_ENV
-from yoke_cli.config.onboard_destinations import (
+from yoke_contracts.onboard_destinations import (
     DEFAULT_SIGN_IN_ENV,
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,

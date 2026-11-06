@@ -7,9 +7,9 @@ import threading
 
 import pytest
 
-from yoke_cli.transport import pre_resolved_https
-from yoke_cli.transport import pre_resolved_https_connection
-from yoke_cli.transport import response_deadline_open
+from yoke_contracts import pre_resolved_https as pre_resolved_https
+from yoke_contracts import pre_resolved_https_connection as pre_resolved_https_connection
+from yoke_contracts import response_deadline_open as response_deadline_open
 
 
 class _Response:

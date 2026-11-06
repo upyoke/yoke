@@ -48,7 +48,7 @@ def _cli_daemon(args: argparse.Namespace) -> int:
             return 2
 
     elif args.daemon_cmd == "start":
-        from yoke_harness.browser_daemon_profile import selected_profile
+        from yoke_contracts.browser_daemon_profile import selected_profile
 
         try:
             result = _bc.daemon_start(

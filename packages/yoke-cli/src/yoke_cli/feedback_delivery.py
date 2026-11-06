@@ -6,8 +6,8 @@ import sys
 from urllib.error import HTTPError
 from urllib.request import Request
 
-from yoke_cli.transport.https_urlopen import open_no_redirect
-from yoke_cli.transport.json_error_safety import decode_error_payload, safe_diagnostic_text
+from yoke_contracts.https_urlopen import open_no_redirect
+from yoke_contracts.json_error_safety import decode_error_payload, safe_diagnostic_text
 from yoke_contracts.feedback_provenance import validate_feedback_identity
 
 FEEDBACK_URL = "https://app.upyoke.com/api/orgs/upyoke/v1/feedback"

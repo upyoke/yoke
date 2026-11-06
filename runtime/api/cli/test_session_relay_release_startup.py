@@ -11,7 +11,7 @@ import pytest
 
 from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
-from yoke_cli.config import session_relay_instance
+from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_core.domain import control_plane_upkeep
 from yoke_core.tools import session_relay_release
 from yoke_core.tools import session_relay_release_install

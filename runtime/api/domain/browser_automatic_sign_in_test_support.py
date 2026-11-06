@@ -22,7 +22,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     is_machine_local_capability_secret,
 )
 
-from yoke_cli.config.capability_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     list_machine_capability_secret_keys,
     store_machine_capability_secret,
 )

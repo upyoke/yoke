@@ -15,7 +15,7 @@ from yoke_contracts.api_urls import (
     HOSTED_STAGE_PLATFORM_URL,
 )
 
-from yoke_cli.config.onboard_destinations import (
+from yoke_contracts.onboard_destinations import (
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,
     DESTINATION_SERVER,

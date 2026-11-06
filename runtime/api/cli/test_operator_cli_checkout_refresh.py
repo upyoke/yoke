@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import operator_cli_release_follow as follow
-from yoke_cli.config import session_relay_instance
+from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_cli.commands.adapters import steering_report
 from yoke_core.domain import global_orientation, session_orientation
 

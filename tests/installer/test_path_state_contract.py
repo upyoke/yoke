@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli.config.path_state_contract import resolve_path_state_contract
+from yoke_contracts.shell_path_state import resolve_path_state_contract
 
 
 def _startup_file(home: Path) -> str:

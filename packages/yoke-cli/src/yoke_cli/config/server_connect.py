@@ -24,7 +24,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.config import writer
 from yoke_cli.transport import server_reach_failure
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

@@ -32,7 +32,7 @@ import pytest
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import onboard_apply_resume
 from yoke_cli.config import onboard_apply_snapshot
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import writer
 
 pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")

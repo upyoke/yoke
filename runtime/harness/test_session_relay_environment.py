@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     RELAY_STATE_DIR_ENV,
     strip_relay_owned_python_state,
 )

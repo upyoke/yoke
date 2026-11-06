@@ -7,7 +7,7 @@ import urllib.error
 import pytest
 
 from yoke_cli.config import hosted_machine_authorization as auth
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpResponse
+from yoke_contracts.bounded_json_http import BoundedJsonHttpResponse
 
 ORIGIN = "https://team.example"
 

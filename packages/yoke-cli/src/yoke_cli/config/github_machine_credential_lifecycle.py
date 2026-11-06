@@ -8,7 +8,8 @@ from typing import Any
 from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_git_credential_store
-from yoke_cli.config import machine_config, secrets
+from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import secret_files as secrets
 
 
 def remove_owned_credential(path: Path) -> bool:

@@ -16,7 +16,7 @@ from yoke_cli.product_boundary_teaching import generate_teaching_audit
 
 
 def test_update_shell_failure_names_recovery(tmp_path, monkeypatch):
-    from yoke_cli.config import path_state_contract
+    from yoke_contracts import shell_path_state as path_state_contract
 
     def fail(*args):
         raise OSError("permission denied")

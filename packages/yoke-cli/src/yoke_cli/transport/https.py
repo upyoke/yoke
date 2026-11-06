@@ -14,7 +14,7 @@ from yoke_contracts.doctor_budget import CHUNK_ATTEMPTS, CHUNK_BUDGET_S
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
 from yoke_cli.config.machine_config import active_connection
-from yoke_cli.transport.bounded_http_open_policy import (
+from yoke_contracts.bounded_http_open_policy import (
     HttpOpenPolicyError,
     open_bounded_request,
 )
@@ -24,7 +24,7 @@ from yoke_cli.transport.https_relay_outcome import (
     record_outcome,
     transport_error_response,
 )
-from yoke_cli.transport.https_retry_policy import (
+from yoke_contracts.https_retry_policy import (
     attempt_budget,
     connection_backoff_seconds,
     http_status_is_transient,
@@ -43,10 +43,10 @@ from yoke_cli.transport.https_response_policy import (
     parse_typed_response,
     read_bounded_response,
 )
-from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_contracts.https_urlopen import open_no_redirect
 from yoke_cli.transport.http_request_context import active_http_opener
 from yoke_cli.transport.https_credentials import TransportError, resolve_token
-from yoke_cli.transport.response_deadline_errors import (
+from yoke_contracts.response_deadline_errors import (
     ResponseHeadersDeadlineError,
 )
 from yoke_contracts.response_deadline_read import deadline_after

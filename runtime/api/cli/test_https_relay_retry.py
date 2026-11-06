@@ -22,7 +22,7 @@ from runtime.api.cli.https_relay_security_test_support import (
     sensitive_request,
 )
 from yoke_cli.transport import https as relay_module
-from yoke_cli.transport import https_retry_policy
+from yoke_contracts import https_retry_policy as https_retry_policy
 
 
 @pytest.fixture(autouse=True)

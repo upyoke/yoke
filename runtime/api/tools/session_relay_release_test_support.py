@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
+from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
 
 
 RELEASE = "0.2.0.202610140941"

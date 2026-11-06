@@ -32,7 +32,7 @@ from yoke_core.domain import browser_client as core_client
 
 from yoke_harness import browser_client, browser_runtime, browser_runtime_home
 
-from yoke_harness.browser_daemon_profile import profile_scope
+from yoke_contracts.browser_daemon_profile import profile_scope
 
 
 class ProbeHandler(BaseHTTPRequestHandler):

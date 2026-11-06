@@ -25,7 +25,7 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
 )
 from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     INSTALLER_TEMP_PATH,
     RESET_ABSENT_KIND_LEFTOVER,
     RESET_ABSENT_PATH_PREFIX,
@@ -34,7 +34,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_RESTORE_UNRESTORED_PREFIX,
     SELF_HOST_COMPOSE_PROJECT,
 )
-from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 
 @pytest.mark.parametrize(

@@ -18,7 +18,7 @@ from contextlib import redirect_stderr
 
 import pytest
 
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 from yoke_harness.hook_observation_delivery import (
     MAX_TRANSIENT_ATTEMPTS,
     OBSERVATION_BACKLOG_LIMIT,

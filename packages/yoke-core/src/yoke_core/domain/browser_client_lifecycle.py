@@ -27,7 +27,7 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-from yoke_harness.browser_daemon_profile import canonical_profile
+from yoke_contracts.browser_daemon_profile import canonical_profile
 
 
 def daemon_start(
@@ -105,7 +105,7 @@ def daemon_stop(
 ) -> str:
     """Stop the browser daemon.  Returns 'stopped'."""
     from yoke_core.domain import browser_client as _bc
-    from yoke_harness.browser_daemon_profile import process_matches_start
+    from yoke_contracts.browser_daemon_profile import process_matches_start
 
     state_path = _bc._state_file_path(profile_dir)
     state = _bc.DaemonState.load(state_path)

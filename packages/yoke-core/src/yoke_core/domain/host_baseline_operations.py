@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from yoke_cli.config import path_doctor
+from yoke_contracts import shell_path_state as path_doctor
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 from yoke_harness.ssh_mac_baseline_probes import (
     reach_user_equivalent_baseline,

@@ -18,7 +18,7 @@ from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 
 
 def apply_local_universe(

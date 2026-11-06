@@ -9,7 +9,7 @@ import pytest
 from runtime.api.cli.yoke_https_engine_handshake_test_support import (_request)
 from yoke_cli.transport import https as yoke_transport
 from yoke_cli.transport.https import HttpsConnection, relay_https
-from yoke_cli.transport.https_retry_policy import (
+from yoke_contracts.https_retry_policy import (
     CONNECTION_ATTEMPTS,
     connection_refusal_is_conclusive,
     should_retry_connection,

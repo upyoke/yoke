@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.api_urls import join_api_url
-from yoke_cli.transport.bounded_http_open_policy import (
+from yoke_contracts.bounded_http_open_policy import (
     HttpFinalUrlError,
     HttpOpenPolicyError,
     open_bounded_request,
@@ -23,7 +23,7 @@ from yoke_cli.transport.bounded_http_open_policy import (
 )
 from yoke_cli.transport.https import HttpsConnection
 from yoke_cli.transport.https_response_policy import safe_excerpt
-from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
+from yoke_contracts.response_deadline_open import ResponseOpenDeadlineError
 from yoke_contracts.response_deadline_read import (
     ResponseReadError,
     copy_response_body,

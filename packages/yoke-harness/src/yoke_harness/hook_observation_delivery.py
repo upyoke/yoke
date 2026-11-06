@@ -112,7 +112,7 @@ def _error_fields(payload: object) -> tuple[str, str]:
 
 def classify_delivery_failure(exc: BaseException) -> DeliveryFailure:
     """Read the transport's retained rejection instead of discarding it."""
-    from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+    from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
     if isinstance(exc, BoundedJsonHttpStatusError):
         code, message = _error_fields(exc.payload)
@@ -152,7 +152,7 @@ def owned_diagnostic_line(
     clock: Callable[[], datetime] | None = None,
 ) -> str:
     """UTC-stamped owned stderr line; never used for vendor stdout."""
-    from yoke_cli.transport.https_retry_policy import utc_stamp
+    from yoke_contracts.https_retry_policy import utc_stamp
 
     line = f"{utc_stamp(clock)} {body}; class={failure_class} outcome={outcome}"
     if recovery:

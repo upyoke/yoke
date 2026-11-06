@@ -24,7 +24,7 @@ from yoke_cli import main as yoke_operations_cli  # noqa: E402
 from yoke_cli.commands.adapters import onboard_apply  # noqa: E402
 from yoke_cli.config import local_universe_setup  # noqa: E402
 from yoke_cli.config import writer  # noqa: E402
-from yoke_cli.config.onboard_destinations import (  # noqa: E402
+from yoke_contracts.onboard_destinations import (  # noqa: E402
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
 )

@@ -30,7 +30,7 @@ import uuid
 from pathlib import Path
 
 from yoke_contracts.api_urls import HOSTED_STAGE_API_URL
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

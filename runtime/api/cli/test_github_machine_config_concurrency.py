@@ -15,7 +15,8 @@ from typing import Any
 import pytest
 
 from yoke_cli.config import github_machine, github_machine_state
-from yoke_cli.config import machine_config, secrets, writer
+from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import secret_files as secrets
 from yoke_contracts import github_app_installation_permissions
 from yoke_contracts.machine_config import schema as contract
 

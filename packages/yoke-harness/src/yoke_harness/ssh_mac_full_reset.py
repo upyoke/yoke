@@ -13,7 +13,7 @@ from yoke_cli.config.path_doctor import (
     resolve_path_state_contract,
 )
 
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     RESET_ABSENT_PATH_PREFIX,
     RESET_RELAY_SERVICE_PREFIX,

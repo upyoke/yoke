@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_harness.ssh_mac_preserved_state import OS_MANAGED_HOME_ENTRIES
+from yoke_contracts.ssh_mac_preserved_state import OS_MANAGED_HOME_ENTRIES
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     run_zsh_syntax_if_available,

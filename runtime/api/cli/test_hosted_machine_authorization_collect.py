@@ -21,7 +21,7 @@ from yoke_cli.config import (
     setup_agent_answers,
     yoke_token_verify,
 )
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpResponse
+from yoke_contracts.bounded_json_http import BoundedJsonHttpResponse
 
 pytest.importorskip("textual")
 

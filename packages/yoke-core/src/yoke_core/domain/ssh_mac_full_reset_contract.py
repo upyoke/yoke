@@ -1,6 +1,6 @@
 """Compatibility imports for the client-side Test Machine reset contract."""
 
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_MARKER,
     FULL_RESET_REMOTE_PATH,

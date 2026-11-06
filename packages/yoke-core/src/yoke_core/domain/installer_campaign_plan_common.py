@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
-from yoke_cli.config.onboard_destinations import (
+from yoke_contracts.onboard_destinations import (
     DESTINATION_LOCAL,
     DESTINATION_OVERRIDE,
 )

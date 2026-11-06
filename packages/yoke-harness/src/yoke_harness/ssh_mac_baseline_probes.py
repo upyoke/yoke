@@ -20,7 +20,7 @@ from yoke_harness.baseline_probe_failure_causes import (
     classify_declared_failure,
     with_reply_rejection,
 )
-from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
+from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )

@@ -8,7 +8,7 @@ import hashlib
 import os
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config import schema as machine_schema
 
 

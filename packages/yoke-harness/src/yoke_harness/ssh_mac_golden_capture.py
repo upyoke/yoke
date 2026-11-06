@@ -20,7 +20,7 @@ from yoke_harness.ssh_mac_baseline_probes import (
     prove_probes_document,
 )
 from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     GOLDEN_MANIFEST_SUFFIX,
     GOLDEN_PROBES_SUFFIX,
     golden_baseline_clears_home,

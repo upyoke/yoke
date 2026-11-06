@@ -9,8 +9,8 @@ from typing import Any
 
 from yoke_contracts.private_network_http import allows_http_host
 
-from yoke_cli.transport.https_urlopen import NoRedirect, open_no_redirect
-from yoke_cli.transport.response_deadline_open import (
+from yoke_contracts.https_urlopen import NoRedirect, open_no_redirect
+from yoke_contracts.response_deadline_open import (
     open_caller_owned,
     open_https_caller_owned,
     open_private_http_caller_owned,

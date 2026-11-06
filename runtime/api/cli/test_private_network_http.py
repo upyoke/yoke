@@ -12,7 +12,7 @@ import pytest
 
 from yoke_cli.commands import connect, self_host
 from yoke_cli.config import server_connect
-from yoke_cli.transport.bounded_json_http import request_json
+from yoke_contracts.bounded_json_http import request_json
 from yoke_contracts.machine_authorization import authorization_origin
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
 from yoke_contracts.private_network_http import allows_http_host

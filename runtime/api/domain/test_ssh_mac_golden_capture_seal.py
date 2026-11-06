@@ -17,7 +17,7 @@ from runtime.api.domain.ssh_mac_golden_capture_test_support import (
     closed_capture_stdout,
 )
 from yoke_contracts.machine_qa_failures import MACHINE_QA_DIAGNOSTIC_LIMIT
-from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
+from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_golden_capture_contract import GOLDEN_SIDECAR_MODE
 from yoke_harness.ssh_mac_transport import SshMacTransport
 

@@ -17,7 +17,7 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
 )
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     RELAY_SERVICE_LABEL,
     RELAY_SERVICE_LABEL_PREFIX,
     RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED,

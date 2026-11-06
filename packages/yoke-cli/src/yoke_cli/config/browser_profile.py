@@ -44,7 +44,7 @@ from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_cli.config.project_selection import required_project_context
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.capability_secrets import ensure_private_capability_dir
+from yoke_contracts.machine_config.capability_secret_store import ensure_private_capability_dir
 from yoke_cli.config.project_slug_lookup import resolve_project_slug
 
 

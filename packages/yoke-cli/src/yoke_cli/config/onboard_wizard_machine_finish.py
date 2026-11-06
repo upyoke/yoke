@@ -7,7 +7,8 @@ from urllib.parse import urlsplit
 
 from textual.widgets import Static
 
-from yoke_cli.config import onboard_destinations, onboard_project, yoke_token_verify
+from yoke_cli.config import onboard_project, yoke_token_verify
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config.onboard_wizard_flow_hosted_machine import platform_url_for_env
 
 

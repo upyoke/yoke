@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 from yoke_contracts.browser_identity import DEFAULT_IDENTITY
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
-from yoke_harness.browser_daemon_profile import selected_profile
+from yoke_contracts.browser_daemon_profile import selected_profile
 
 
 _DAEMON_MAX_RETRIES = 2  # additional attempts after the first failure

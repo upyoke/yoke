@@ -10,24 +10,24 @@ destroyer, which is the whole reason the direction was reversed.
 
 from __future__ import annotations
 
-from yoke_harness.ssh_mac_full_reset_path_state import (
+from yoke_contracts.ssh_mac_full_reset_path_state import (
     canonical_posix_path_state_contract,
 )
-from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from yoke_cli.config.path_doctor import (
+from yoke_contracts.shell_path_state import (
     PathStateContract,
     SUPPORTED_SHELLS,
 )
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     LAUNCHD_USER_DOMAIN,
     RELAY_LABEL_PREFIX,
     RELAY_BASE_LABEL,
 )
-from yoke_cli.self_host.bundle import default_bundle_dir
+from yoke_contracts.self_host_paths import default_bundle_dir
 
 
 FULL_RESET_MARKER = "YOKE_MAC_WIPE_OK"

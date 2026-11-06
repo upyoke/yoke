@@ -8,7 +8,7 @@ import sys
 import urllib.request
 from typing import Any, Callable, Optional
 
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

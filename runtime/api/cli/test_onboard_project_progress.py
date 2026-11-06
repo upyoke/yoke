@@ -17,7 +17,7 @@ from runtime.api.cli.project_onboarding_test_helpers import (
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard as onboard_config
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import project_onboard
 from yoke_cli.config import project_onboard_progress
 from yoke_cli.config import writer as machine_writer

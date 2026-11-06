@@ -35,7 +35,7 @@ from yoke_harness.ssh_mac_golden_capture_contract import (
 
 from yoke_harness.ssh_mac_golden_capture_script import render_golden_capture_script
 
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     GOLDEN_MANIFEST_SUFFIX,
     GOLDEN_PROBES_SUFFIX,
     resolve_full_reset_path_contract,

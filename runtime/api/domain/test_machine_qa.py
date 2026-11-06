@@ -25,7 +25,7 @@ from yoke_core.domain.machine_qa_capability import (
     test_machine_detail as read_test_machine_detail,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
-from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 
 def test_builtins_preserve_serial_machine_contracts_and_replace_pack_source() -> None:

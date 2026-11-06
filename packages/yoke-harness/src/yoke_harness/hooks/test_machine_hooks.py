@@ -178,7 +178,7 @@ def test_cursor_user_commands_avoid_the_bytes_its_hook_loader_mishandles():
     from yoke_contracts.cursor_hook_command_bytes import (
         CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
     )
-    from yoke_harness.hooks.machine_hooks_render import render_user_hook_entries
+    from yoke_contracts.machine_hooks_render import render_user_hook_entries
 
     rendered = render_user_hook_entries(HARNESS_MACHINE_HOOKS["cursor"])
     for entries in rendered.values():

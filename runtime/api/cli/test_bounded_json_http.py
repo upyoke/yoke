@@ -10,8 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.transport import bounded_http_open_policy as open_policy
-from yoke_cli.transport import bounded_json_http as transport
+from yoke_contracts import bounded_http_open_policy as open_policy
+from yoke_contracts import bounded_json_http as transport
 from yoke_contracts import response_deadline_read
 from yoke_contracts.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
 

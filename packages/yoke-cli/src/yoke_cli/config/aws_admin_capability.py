@@ -24,7 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-from yoke_cli.config import capability_secrets, install_binding
+from yoke_cli.config import install_binding
+from yoke_contracts.machine_config import capability_secret_store as capability_secrets
 from yoke_contracts.api_urls import (
     AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
     AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,

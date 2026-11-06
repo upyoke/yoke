@@ -12,7 +12,7 @@ from yoke_cli.config import hosted_machine_browser
 from yoke_cli.config import onboard_wizard_flow_publish_manual as manual
 from yoke_cli.config import onboard_wizard_manual_access as recovery
 from yoke_cli.config import onboard_wizard_project_github as project_access
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 
 
 TARGET = "acme/new-project"

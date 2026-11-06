@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import machine_config_file
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.transport import dispatcher as function_dispatcher  # noqa: F401 - public test injection surface
 from yoke_cli.transport import https as https_transport  # noqa: F401 - public test injection surface
 from yoke_contracts.machine_config import schema as contract

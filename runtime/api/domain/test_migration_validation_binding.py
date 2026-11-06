@@ -50,7 +50,7 @@ def test_binding_file_lives_under_the_machine_secrets_directory() -> None:
 
 
 def test_empty_binding_content_is_refused_at_write_time() -> None:
-    from yoke_cli.config.secrets import MachineSecretError
+    from yoke_contracts.machine_config.secret_files import MachineSecretError
 
     with pytest.raises(MachineSecretError):
         subject.write_binding("EXTERNAL_APP_DSN_VALIDATION", "   ")

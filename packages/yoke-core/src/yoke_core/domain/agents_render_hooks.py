@@ -17,7 +17,7 @@ rendered manifest no longer enumerates per-lint module command lines.
 
 from __future__ import annotations
 
-from yoke_harness.hooks.machine_hooks_render import (
+from yoke_contracts.machine_hooks_render import (
     CURSOR_HOOK_TIMEOUT_S as _CURSOR_HOOK_TIMEOUT_S,
     cwd_resilient_hook_command,
     evaluate_hook_command,

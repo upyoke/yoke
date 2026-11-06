@@ -10,7 +10,7 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     seed_remote,
 )
 from yoke_cli.config import onboard as onboard_config
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import writer as machine_writer

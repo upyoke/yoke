@@ -10,7 +10,7 @@ from pathlib import Path
 from yoke_contracts.browser_identity import BrowserIdentity
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_cli.config import browser_profile
-from yoke_cli.config.capability_secrets import machine_capability_secret_path
+from yoke_contracts.machine_config.capability_secret_store import machine_capability_secret_path
 from yoke_cli.config.browser_profile_cookies import (
     keep_sign_in_cookies,
     SignInCookieError,
