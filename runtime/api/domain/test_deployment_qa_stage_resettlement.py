@@ -4,6 +4,8 @@ from unittest import mock
 
 import pytest
 
+from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
+
 from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
