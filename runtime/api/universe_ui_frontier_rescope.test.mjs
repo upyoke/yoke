@@ -168,6 +168,7 @@ function overflowingDoneClient() {
     project_id: 1,
     project_sequence: 100 + index,
     workflow_id: "issue",
+    frontier_group: { section: "done", reason: "item_finished" },
     status: "done",
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: new Date(Date.now() - 60000).toISOString(),

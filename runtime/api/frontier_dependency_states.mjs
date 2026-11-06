@@ -227,7 +227,7 @@ const TERMINAL_STAGES = new Set(["cancelled", "stopped", "failed"]);
 // item not on the Frontier that was cancelled or stopped is dead.
 export function stateModel(state) {
   const nodes = new Map(state.nodes.map(([ref, band, stage, title, o = {}]) => [ref, {
-    ref, band, stage, title, href: `/items/${ref}`, projectId: ref.split("-")[0],
+    ref, band: o.held ? "on_hold" : band, stage, title, href: `/items/${ref}`, projectId: ref.split("-")[0],
     dead: band === "off" && TERMINAL_STAGES.has(stage), ...o,
   }]));
   const edges = state.edges.map(([from, to, gate = "activation", sat = "fact:merged"]) => {

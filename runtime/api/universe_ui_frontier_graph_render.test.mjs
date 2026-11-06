@@ -149,6 +149,7 @@ function row(ref, projectId, facts = {}) {
     project: projectId === 1 ? "yoke" : "beta", project_id: projectId,
     project_sequence: sequence, workflow_id: "issue", status: "idea",
     created_at: recentIso(12), updated_at: recentIso(1),
+    frontier_group: { section: "ready", reason: "ready_without_holder" },
     terminal: false, finished: false, finished_at: null, ...facts,
   };
 }
@@ -172,9 +173,9 @@ async function mount(t, hash, frontier) {
   documentNode.defaultView.location.href = hash;
   const root = documentNode.createElement("div");
   const items = [
-    row("YOK-7", 1, { frozen: true, blocked_reason: "Waiting for a product decision." }),
-    row("YOK-12", 1),
-    row("BET-3", 2),
+    row("YOK-7", 1, { frontier_group: { section: "on_hold", reason: "item_on_hold" }, frozen: true, blocked_reason: "Waiting for a product decision." }),
+    row("YOK-12", 1, { frontier_group: { section: (frontier.blocked_rows || []).some((r) => r.public_ref === "YOK-12" && (r.holds_pickup ?? (!r.gate_point || r.gate_point === "activation"))) ? "waiting" : "ready", reason: "dependency_unsatisfied" } }),
+    row("BET-3", 2, { frontier_group: { section: (frontier.blocked_rows || []).some((r) => r.public_ref === "BET-3") ? "waiting" : "ready", reason: "dependency_unsatisfied" } }),
   ];
   const mounted = mountUniverseApp(root, { client: workbenchClient({
     "items.overview.list": { rows: items },
@@ -198,11 +199,11 @@ const waitingOnFrozen = {
   ],
 };
 
-test("a frozen item others wait on stalls the graph rather than sitting On hold", async (t) => {
+test("a frozen item stays On hold and appears as a reference in the full graph", async (t) => {
   const { band, count } = await mount(t, "/frontier?project=1", waitingOnFrozen);
-  assert.equal(count("waiting"), "3");
-  assert.equal(count("hold"), "0");
-  assert.equal(ownTextContent(byClass(band("hold"), "work-band-empty")[0]), "Nothing is on hold.");
+  assert.equal(count("waiting"), "2");
+  assert.equal(count("hold"), "1");
+  assert.equal(byClass(band("hold"), "work-item-card").length, 1);
   const frozen = byClass(band("waiting"), "fdv-tile").find(
     (node) => node.getAttribute("data-fdv-ref") === "YOK-7",
   );
@@ -214,7 +215,7 @@ test("a frozen item others wait on stalls the graph rather than sitting On hold"
 test("the project filter keeps a chain that crosses into the selected project", async (t) => {
   const { band, count } = await mount(t, "/frontier?project=2", waitingOnFrozen);
   // Beta's item waits on Yoke work, so that Yoke work stays in view.
-  assert.equal(count("waiting"), "3");
+  assert.equal(count("waiting"), "2");
   assert.deepEqual(
     byClass(byClass(band("waiting"), "fdv-graph-grid")[0], "fdv-tile")
       .map((node) => node.getAttribute("data-fdv-ref")),
@@ -301,11 +302,11 @@ test("committed work waiting only for its blockers to land waits, saying so once
   });
   const items = [row("YOK-12", 1), row("YOK-7", 1), row("YOK-8", 1)];
   const bands = (blockedRows) => frontierBandRows({
-    items, readyRows: [], blockedRows, sessionRows: [],
+    items: items.map((row) => ({ ...row, frontier_group: { section: row.public_ref === "YOK-12" && blockedRows.some((b) => b.holds_pickup) ? "waiting" : "ready", reason: "dependency_unsatisfied" } })), readyRows: [], blockedRows, sessionRows: [],
   });
   const [waiting] = bands([landing("YOK-7", true), landing("YOK-8", true)]).waiting;
   assert.equal(waiting.row.public_ref, "YOK-12");
-  assert.equal(waiting.reason.flag.label, "Waiting for 2 items");
+  assert.equal(waiting.reason.flag.label, "Waiting");
   assert.equal(waiting.reason.flag.text, "Waiting on YOK-7, YOK-8 to merge");
   // A merge edge on work still free to build holds nothing back.
   assert.deepEqual(bands([landing("YOK-7", false)]).waiting, []);
@@ -324,7 +325,7 @@ test("a committed item waiting on a landing waits in the graph with the shared s
       blocking_project_id: 2, blocking_project_sequence: 3,
     })],
   });
-  assert.equal(count("ready"), "0");
+  assert.equal(count("ready"), "1");
   const tile = byClass(band("waiting"), "fdv-tile").find(
     (node) => node.getAttribute("data-fdv-ref") === "YOK-12",
   );

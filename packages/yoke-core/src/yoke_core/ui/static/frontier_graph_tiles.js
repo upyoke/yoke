@@ -10,6 +10,7 @@ import {
   frontierNever,
   frontierTileMeta,
 } from "./frontier_dependency_model.js";
+import { appendNextActor } from "./next_actor_display.js";
 import { el } from "./universe_view_support.js";
 
 /**
@@ -21,6 +22,7 @@ import { el } from "./universe_view_support.js";
 export function frontierTile(documentNode, model, ref, helpers) {
   const node = model.nodes.get(ref);
   const tile = el(documentNode, "div", "fdv-tile");
+  if (node.reference || node.band === "off") tile.classList.add("is-reference");
   tile.tabIndex = 0;
   tile.setAttribute("role", "button");
   tile.setAttribute("data-fdv-ref", ref);
@@ -31,7 +33,7 @@ export function frontierTile(documentNode, model, ref, helpers) {
   if (node.band === "off") tile.classList.add(node.dead ? "is-dead" : "is-ghost");
   const head = el(documentNode, "span", "fdv-tile-head");
   const link = el(documentNode, "a", "fdv-tile-ref", ref);
-  link.href = node.href;
+  link.href = node.reference ? node.homeHref : node.href;
   head.appendChild(link);
   head.appendChild(el(
     documentNode, "span", "fdv-tile-stage", node.held && !node.stall ? node.held : node.stage,
@@ -44,6 +46,10 @@ export function frontierTile(documentNode, model, ref, helpers) {
   tile.appendChild(el(
     documentNode, "span", "fdv-tile-title", node.title || "Open the item for its title and state",
   ));
+  const names = { on_hold: "On hold", in_progress: "In progress", active: "In progress", ready: "Ready", release: "Release", done: "Done", waiting: "Waiting" };
+  if (node.reference) tile.appendChild(el(documentNode, "span", "fdv-reference-home",
+    `Reference · ${names[node.home] || node.home}${node.activity ? ` · ${node.activity === "held" ? "Held, not working" : "Working"}` : ""}`));
+  appendNextActor(documentNode, tile, node.nextActor);
   const meta = frontierTileMeta(node);
   if (meta) tile.appendChild(el(documentNode, "span", "fdv-tile-meta", meta));
   const why = node.blockers.filter((e) => e.why).map((e) => `${e.from}: ${e.why}`);

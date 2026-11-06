@@ -123,7 +123,7 @@ def enrich_item_overview_rows(
         marker = _p(conn)
         placeholders = ", ".join(marker for _ in ids)
         cursor = conn.execute(
-            "SELECT i.id, i.owner, i.frozen, i.blocked, i.blocked_reason, i.updated_at, i.created_at, i.project_sequence, p.id AS project_id, "
+            "SELECT i.id, i.owner, i.spec, i.frozen, i.blocked, i.blocked_reason, i.updated_at, i.created_at, i.project_sequence, p.id AS project_id, "
             "p.slug AS project, p.name AS project_name, "
             "p.public_item_prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -185,7 +185,18 @@ def enrich_item_overview_rows(
             _resolve_finished_facts(conn, base_rows, runtimes)
         from yoke_core.domain.item_next_actor_read import item_action_states
 
-        action_states = item_action_states(conn, [{**facts[int(row["internal_id"])], **row} for row in base_rows], claims, runtimes)
+        from yoke_core.domain.item_spec_completeness import item_needs_spec
+
+        action_rows = []
+        for row in base_rows:
+            fact = facts[int(row["internal_id"])]
+            runtime = runtimes[int(row["workflow_version_id"])]
+            action_rows.append({
+                **fact, **row,
+                "needs_spec": row["status"] == runtime.stage_ids[0]
+                and item_needs_spec({**fact, **row}),
+            })
+        action_states = item_action_states(conn, action_rows, claims, runtimes)
         delivery = _card_delivery(conn, base_rows, facts, compact=compact)
     finally:
         conn.close()
@@ -207,7 +218,7 @@ def enrich_item_overview_rows(
                 "project_name": str(fact["project_name"]),
                 **owner_facts(fact.get("owner"), owner_names),
                 "claimed_by": claims.get(item_id),
-                "next_actor": action_states[item_id],
+                **action_states[item_id],
                 "worktrees": worktrees.get(item_id, []),
                 "stage_label": runtime.stage_label(str(row["status"])),
                 "qa_attention": qa_attention.get(item_id),

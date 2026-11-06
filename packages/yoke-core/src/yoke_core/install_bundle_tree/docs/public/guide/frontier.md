@@ -67,11 +67,22 @@ Use `/yoke feed` to refresh stale items and dependency facts or turn strategy wo
 
 ## The Frontier dashboard page
 
-The page shows **Waiting**, **On hold**, **Ready**, **Active**, **Release**, and recent **Done** work.
+The page shows **Waiting**, **On hold**, **Ready**, **In progress**, **Release**, and recent **Done** work.
 
 Waiting lays out unsatisfied dependencies in columns. The first column shows work holding other items up; later columns show how many dependency steps separate the work. Cards explain whether an item is waiting to start, merge, or finish. Coordination-only relationships do not appear as blocking edges.
+The graph keeps the full chain, including items whose home is another section.
+Those items appear as smaller outlined **Reference** cards showing their home,
+activity and next actor. Their reference link jumps to the home card, and they
+never increase the Waiting count.
 
-On hold shows work held for its own reason, such as a freeze or block. Ready shows work available to advance. Active shows ongoing execution. Release and Done show delivery state, including the environment and relevant run.
+Every item has exactly one home section. Counts include only home cards.
+On hold shows a freeze, block, missing spec or halted work that needs direction.
+Ready shows unclaimed work available to advance. In progress separates
+**Working** from **Held, not working**: a claim protects custody even while
+its holder is parked, between turns, silent or gone. The card names who acts
+next and why; a parked holder is never labelled Working. Release shows items
+at their workflow's delivery stage; Done shows recently finished work.
+Release and Done include delivery state and the relevant run.
 
 Project filters retain related items across dependency chains, including items from other projects. Open a card to inspect blockers, dependents, and the item's full context. [Dashboard details](../strategy/frontier.md)
 

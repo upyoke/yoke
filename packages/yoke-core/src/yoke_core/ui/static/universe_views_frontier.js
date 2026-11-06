@@ -20,6 +20,7 @@ export function renderFrontierView(context, main, scope) {
   const waiting = workBand(
     documentNode, "waiting", "Waiting", "Nothing is waiting on other work.",
   );
+  waiting.id = "frontier-waiting";
   const onHold = workBand(documentNode, "hold", "On hold", "Nothing is on hold.");
   const ready = workBand(
     documentNode, "ready", "Ready", "Nothing is ready to pick up.",
@@ -27,8 +28,8 @@ export function renderFrontierView(context, main, scope) {
   const active = workBand(
     documentNode,
     "active",
-    "Active",
-    "No session is running against this universe.",
+    "In progress",
+    "No item is in progress.",
   );
   const release = workBand(
     documentNode, "release", "Release", "Nothing is waiting to ship.",

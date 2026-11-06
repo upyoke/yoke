@@ -4,7 +4,7 @@
 // becomes a ghost carrying the stage and title the edge row brought with it.
 
 import { frontierIndex } from "./frontier_dependency_model.js";
-import { reference } from "./frontier_band_rows.js";
+import { reference, homeHref } from "./frontier_band_rows.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { relativeAgePhrase } from "./universe_time.js";
 
@@ -21,6 +21,11 @@ function rowNode(row, band, extra = {}) {
   return {
     ref,
     band,
+    home: row.frontier_group?.section || band,
+    homeHref: homeHref(row),
+    activity: row.frontier_group?.activity || "",
+    nextActor: row.next_actor,
+    reference: band !== "waiting",
     stage: String(row.stage_label || row.status || band),
     title: String(row.title || ""),
     href: href(row.project_id, row.project_sequence, ref),
@@ -72,6 +77,9 @@ export function frontierGraphModel(bandRows, edgeRows, deploy, cycleRows = []) {
       held: heldReason(row, reason),
       landing: reason.landing ? reason.flag.text : "",
     }));
+  }
+  for (const { row, reason } of bandRows.held || []) {
+    put(rowNode(row, "on_hold", { held: heldReason(row, reason) }));
   }
   for (const { row } of bandRows.active) {
     put(rowNode(row, "active", { age: age("updated", row.updated_at) }));

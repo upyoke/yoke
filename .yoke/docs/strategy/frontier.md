@@ -21,7 +21,7 @@ dependencies. Blocked items stay at their lifecycle stage with a reason;
 frontier routes them to wait until unblocked.
 
 The Frontier page draws six bands, in order: **Waiting**, **On hold**,
-**Ready**, **Active**, **Release** and **Done (24h)**. Waiting is a graph of
+**Ready**, **In progress**, **Release** and **Done (24h)**. Waiting is a graph of
 unsatisfied dependency edges at the start, merge and close gates
 (`coordination_only` edges never block, so they are never drawn). Its first
 column, *Holding work up*, holds every item with no unsatisfied blocker that
@@ -42,15 +42,19 @@ item's full card. On a phone the graph is an outline of each chain.
 
 Committed work waiting only to land waits too: an item whose lane has a
 recorded commit and whose only unmet edges hold back its merge cannot do
-anything but wait, so it sits in Waiting, not Ready, and its tile reads the
+anything but wait; without a holder it sits in Waiting, and its tile reads the
 server's sentence, for example "Waiting on PREFIX-14, PREFIX-15 to merge" — the
 same words `yoke frontier list` and the steering report print.
 
-On hold holds waiting items held for a reason of their own — frozen,
-blocked, an owner that stopped answering — that nothing waits on. The
-project filter keeps every item in the selected projects plus every item tied
-to one through any dependency chain, in any project, in every band. Every
-session chip on the page opens its session card as a popover.
+Each item has one server-assigned home section (`frontier_group`). On hold
+contains frozen, blocked, missing-spec and halted work. It keeps that home
+when other items depend on it. In progress separates Working from Held, not
+working using the holder's shared presence, activity and intent; a parked or
+gone holder retains custody and displays its reason. Each card shows the next
+actor and reason. Dependency references in the graph are smaller outlined
+cards naming their home and activity, with a link to their home card. Section
+counts exclude references. The project filter keeps whole dependency chains
+across projects, and session chips open the holder's session card.
 
 The graph reads `dependency_edges` from `frontier.list`. A serving build
 that predates that field gets a named refusal in Waiting and On hold, with

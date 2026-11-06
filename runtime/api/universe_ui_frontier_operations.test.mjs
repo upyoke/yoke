@@ -89,6 +89,7 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
     claims: [{ target_kind: "item", public_ref: "YOK-7", target: "YOK-7" }],
   };
   const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient({
+    homes: { "YOK-9": { section: "in_progress", activity: "working", reason: "session_can_continue" } },
     "sessions.list": {
       rows: [holding, base("s-idle", "active", 60), ended],
     },
@@ -148,6 +149,7 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
     project_id: 1,
     project_sequence: 20 + index,
     workflow_id: "issue",
+    frontier_group: { section: "done", reason: "item_finished" },
     status: "done",
     created_at: new Date(Date.now() - 6 * hour).toISOString(),
     updated_at: new Date(Date.now() - 2 * hour).toISOString(),
@@ -208,6 +210,7 @@ test("Release shows every card it holds, and Done alone truncates", async (t) =>
     project_id: 1,
     project_sequence: 40 + index,
     workflow_id: "issue",
+    frontier_group: { section: "release", reason: "awaiting_delivery" },
     status: "release",
     created_at: new Date(Date.now() - 6 * hour).toISOString(),
     updated_at: new Date(Date.now() - (index + 1) * hour).toISOString(),

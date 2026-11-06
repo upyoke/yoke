@@ -72,10 +72,10 @@ function holder(sessionId, ref, title, fields = {}) {
 function claimedEverywhereClient() {
   return workbenchClient({
     "items.overview.list": { rows: [
-      item(9, "Ship typed workflows"),
-      item(11, "Land the release band", { status: "release", merged_at: recentIso(1) }),
-      item(12, "Wait on the schema", { blocked: true, blocked_reason: "Needs the schema." }),
-      item(13, "Hold the freeze", { frozen: true, blocked_reason: "Frozen for review." }),
+      item(9, "Ship typed workflows", { frontier_group: { section: "in_progress", activity: "working", reason: "session_can_continue" } }),
+      item(11, "Land the release band", { frontier_group: { section: "release", reason: "awaiting_delivery" }, status: "release", merged_at: recentIso(1) }),
+      item(12, "Wait on the schema", { frontier_group: { section: "on_hold", reason: "item_on_hold" }, blocked: true, blocked_reason: "Needs the schema." }),
+      item(13, "Hold the freeze", { frontier_group: { section: "on_hold", reason: "item_on_hold" }, frozen: true, blocked_reason: "Frozen for review." }),
     ] },
     "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "sessions.list": { rows: [

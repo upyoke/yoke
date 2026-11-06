@@ -32,7 +32,9 @@ async function mountFrontier(session) {
   documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
-    client: workbenchClient({ "sessions.list": { rows: [session] } }),
+    client: workbenchClient({ homes: { "YOK-9": {
+      section: "in_progress", activity: "held", reason: session.quiet_reason || "session_process_gone",
+    } }, "sessions.list": { rows: [session] } }),
   });
   await settle();
   return { root, mounted };
@@ -42,7 +44,7 @@ const band = (root, key) => byClass(root, `work-band-${key}`)[0];
 const cardsIn = (root, key) => byClass(band(root, key), "work-item-card")
   .map(ownTextContent);
 
-test("a parked holder whose process exited stays active with no process chip", async (t) => {
+test("a parked holder stays held with its reason and no process chip", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountFrontier({
     ...claimingSession(),
@@ -53,6 +55,8 @@ test("a parked holder whose process exited stays active with no process chip", a
   });
 
   assert.equal(cardsIn(root, "active").length, 1);
+  assert.match(descendantText(band(root, "active")), /Held, not working/);
+  assert.match(descendantText(band(root, "active")), /awaiting YOK-9 delivery/);
   const chip = byClass(band(root, "active"), "item-claimant-mini")[0];
   assert.ok(chip, "the holding session's chip is drawn");
   assert.match(descendantText(chip), /parked/);
@@ -69,9 +73,9 @@ test("an abandoned holder is unavailable and still names itself", async (t) => {
     native_process: { state: "gone" },
   });
 
-  assert.deepEqual(cardsIn(root, "active"), []);
-  const held = band(root, "hold");
-  assert.match(descendantText(held), /Owner unavailable/);
+  const held = band(root, "active");
+  assert.match(descendantText(held), /Held, not working/);
+  assert.match(descendantText(held), /session process gone/);
   assert.equal(byClass(held, "item-claimant-mini").length, 1);
   mounted.unmount();
 });
