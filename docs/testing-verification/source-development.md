@@ -74,7 +74,13 @@ helper order, including URL scopes and empty resets, while rebinding canonical
 `python helper --config <selected-config>` commands to the snapshot. Other
 helpers and config entries stay intact; no Git config file is written.
 Source config writes affect only the snapshot, which is removed after the
-command finishes or refuses. Watcher captures use the printed separate
+command finishes or refuses. The exact `python3 -m runtime.api.tools.authority_validation_copy`
+provisioning command has one durable output: after it succeeds, the parent runner
+saves its validation binding in the caller's machine secrets directory before
+deleting the snapshot. Other commands, help requests and failed children publish
+no binding. `validation_binding_persist_failed` means the database copy finished
+but the binding could not be saved; repair access to the named secrets path and
+rerun provisioning before rehearsal. Watcher captures use the printed separate
 `source evidence root` through `YOKE_SCRATCH_ROOT`, so proof survives snapshot
 cleanup; empty evidence roots are removed. Test clusters inside that evidence
 root are stopped and destroyed on exit or interrupt. The shared cluster and

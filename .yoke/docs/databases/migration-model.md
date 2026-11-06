@@ -133,8 +133,14 @@ Yoke's `external_validation` model, provision it with:
 ```bash
 # In-tree, so it runs through the claimed-lane source runner. Other projects
 # hydrate their declared binding their own way.
-yoke dev run -- env YOKE_ENV=<name> python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
+yoke dev db-admin exec <admin-env> --dsn-var YOKE_PG_DSN -- yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
 ```
+
+The admin command keeps its tunnel leased until the copy exits. After a successful
+copy, the source runner saves the validation binding in the caller's machine
+secrets directory before deleting its disposable machine home. A
+`validation_binding_persist_failed` refusal means that save failed; repair access
+to the named path and rerun provisioning before rehearsal.
 
 The helper uses a bound target when one exists and otherwise derives one beside
 the selected authority (same cluster and credentials, database name plus

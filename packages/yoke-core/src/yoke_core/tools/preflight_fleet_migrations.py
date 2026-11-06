@@ -264,7 +264,7 @@ def _execute(parsed, engine_artifact):
     lease_reason = f"fleet migration rehearsal of {covered_env}"
     with tempfile.TemporaryDirectory(prefix="yoke-migration-rehearsal-") as work:
         with connected_env_tunnel_coordination.use_lease_for_active_tunnel(
-            lease_reason
+            lease_reason, environment=admin_env
         ):
             verdicts = migration_fleet_preflight.rehearse_fleet(
                 dsn_for,

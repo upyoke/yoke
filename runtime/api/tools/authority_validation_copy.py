@@ -22,6 +22,7 @@ import psycopg
 from psycopg import sql
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.postgres_client_runtime import postgres_executable
 from yoke_core.domain.migration_validation_binding import (
     DERIVED_DATABASE_SUFFIX,
     YOKE_VALIDATION_DSN_ENV,
@@ -95,9 +96,7 @@ def _reset_validation_schema(dsn: str) -> None:
             ).fetchall()
         ]
         for name in names:
-            conn.execute(
-                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name))
-            )
+            conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name)))
         conn.execute("CREATE SCHEMA public")
 
 
@@ -187,7 +186,7 @@ def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
         archive = Path(raw_tmp) / "authority.dump"
         dumped = subprocess.run(
             [
-                "pg_dump",
+                postgres_executable("pg_dump"),
                 "--format=custom",
                 "--no-owner",
                 "--no-privileges",
@@ -221,7 +220,7 @@ def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
         except ExtensionRestoreError as exc:
             raise ValidationCopyError(str(exc)) from exc
         restore_argv = [
-            "pg_restore",
+            postgres_executable("pg_restore"),
             "--exit-on-error",
             "--no-owner",
             "--no-privileges",

@@ -17,12 +17,12 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
-from yoke_core.domain import verification_tree_binding
-from yoke_core.domain import source_python_environment
+from yoke_core.domain import source_python_environment, verification_tree_binding
 from yoke_core.tools import (
     _source_pythonpath,
     source_dev_candidate_binding,
     source_dev_scanner,
+    source_validation_binding,
 )
 from yoke_core.tools.source_machine_home import isolated_machine_home
 
@@ -223,7 +223,10 @@ def run(
         with isolated_machine_home(
             dict(os.environ), allow_real=allow_real_machine_home, git_root=root
         ) as env:
-            return _run_bound(args, root, fallback_project_id, authority_signature, env)
+            result = _run_bound(
+                args, root, fallback_project_id, authority_signature, env
+            )
+            return result or source_validation_binding.persist(args, env)
     except OSError as exc:
         print(
             f"source_machine_home_unavailable: {exc}; repair the named path "

@@ -13,6 +13,8 @@ import pytest
 
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import db_admin_dsn_exec as exec_mod
+from yoke_core.domain import connected_env_tunnel_coordination as coordination
+from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain.yoke_cloud_db_authority import CloudAuthorityCommandError
 
 PASSWORD = "hunter2-never-shown"
@@ -84,7 +86,13 @@ def engine(tmp_path: Path, monkeypatch):
         state.activated.append(env)
         return state.activate(env)
 
+    monkeypatch.setattr(
+        coordination,
+        "detect",
+        lambda: connector.Detection(connector.CONNECTOR_UNMANAGED, None, None, None),
+    )
     modules = {
+        "yoke_core.domain.connected_env_tunnel_coordination": coordination,
         "yoke_core.domain.deploy_remote": SimpleNamespace(
             aws_machine_capability_env=lambda p, r: state.aws_env(p, r)
         ),
@@ -228,3 +236,40 @@ def test_unrunnable_command_and_bad_variable_refuse(engine, capfd) -> None:
     assert rc == 2
     assert "invalid_dsn_var" in capfd.readouterr().err
     assert engine.activated == [PROFILE]
+
+
+@pytest.mark.parametrize("outcome", [0, 7, OSError("cannot start")])
+def test_child_holds_selected_admin_tunnel_until_exit(engine, monkeypatch, outcome):
+    monkeypatch.setenv("YOKE_ENV", "unrelated")
+
+    def detect():
+        assert os.environ["YOKE_ENV"] == PROFILE
+        return connector.Detection(
+            connector.CONNECTOR_LOCAL_SSH_TUNNEL_PG,
+            PROFILE,
+            DSN,
+            None,
+            local_port=6548,
+        )
+
+    monkeypatch.setattr(coordination, "detect", detect)
+
+    def runner(_command, *, env):
+        assert env["REGISTRY_DSN"] == DSN
+        assert os.environ["YOKE_ENV"] == "unrelated"
+        leases = coordination.active_leases(6548)
+        assert len(leases) == 1 and PROFILE in leases[0].reason
+        assert coordination.active_leases(6547) == []
+        if isinstance(outcome, Exception):
+            raise outcome
+        return SimpleNamespace(returncode=outcome)
+
+    if isinstance(outcome, Exception):
+        with pytest.raises(exec_mod.DbAdminExecRefusal, match="could not be started"):
+            exec_mod.run(PROFILE, "REGISTRY_DSN", ["command"], runner=runner)
+    else:
+        assert (
+            exec_mod.run(PROFILE, "REGISTRY_DSN", ["command"], runner=runner) == outcome
+        )
+    assert coordination.active_leases(6548) == []
+    assert os.environ["YOKE_ENV"] == "unrelated"

@@ -124,7 +124,9 @@ def test_lease_for_active_tunnel_is_a_noop_without_a_managed_forward(monkeypatch
         "detect",
         lambda: cer_c.Detection(cer_c.CONNECTOR_UNMANAGED, None, None, None),
     )
-    with coordination.use_lease_for_active_tunnel("fleet rehearsal"):
+    with coordination.use_lease_for_active_tunnel(
+        "fleet rehearsal", environment="prod-db-admin"
+    ):
         assert coordination.active_leases(PORT) == []
 
 
@@ -141,7 +143,31 @@ def test_lease_for_active_tunnel_leases_the_detected_port(monkeypatch):
             local_port=PORT,
         ),
     )
-    with coordination.use_lease_for_active_tunnel("fleet rehearsal"):
+    with coordination.use_lease_for_active_tunnel(
+        "fleet rehearsal", environment="prod-db-admin"
+    ):
         assert [lease.pid for lease in coordination.active_leases(PORT)] == [
             os.getpid()
         ]
+
+
+def test_lease_reason_is_redacted_before_storage():
+    with coordination.use_lease(PORT, "copy password=secret") as path:
+        assert "secret" not in path.read_text()
+        assert "secret" not in coordination.active_leases(PORT)[0].line
+
+
+def test_selected_detection_restores_ambient_environment_on_failure(monkeypatch):
+    monkeypatch.setenv("YOKE_ENV", "unrelated")
+
+    def detect():
+        assert os.environ["YOKE_ENV"] == "prod-db-admin"
+        raise RuntimeError("detection failed")
+
+    monkeypatch.setattr(coordination, "detect", detect)
+    with pytest.raises(RuntimeError, match="detection failed"):
+        with coordination.use_lease_for_active_tunnel(
+            "fleet rehearsal", environment="prod-db-admin"
+        ):
+            pytest.fail("detection failed")
+    assert os.environ["YOKE_ENV"] == "unrelated"
