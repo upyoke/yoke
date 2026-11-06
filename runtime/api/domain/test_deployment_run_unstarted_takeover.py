@@ -51,6 +51,15 @@ def test_set_aside_qa_is_adopted_by_next_enrolling_run(test_db, monkeypatch):
     assert select_plan_execution(test_db, execution["id"], lock=False) == before
     row = test_db.execute("SELECT retracted_at FROM qa_requirements WHERE id=%s", (cases[WAITING],)).fetchone()
     assert row[0] is None
+    from yoke_core.domain.qa_deployment_run_settlement import settle_unsuccessful_run
+    from yoke_core.domain.qa_deployment_execution_cleanup import terminal_run_status
+
+    test_db.execute("UPDATE deployment_runs SET status='cancelled' WHERE id=%s", (OLD,))
+    settle_unsuccessful_run(test_db, OLD, reason="old run ended")
+    test_db.commit()
+    assert terminal_run_status(test_db, before) is None
+    assert select_plan_execution(test_db, execution["id"], lock=False) == before
+    assert test_db.execute("SELECT retracted_at FROM qa_requirements WHERE id=%s", (cases[WAITING],)).fetchone()[0] is None
     _seed_new(test_db)
     adopt_set_aside_qa(test_db, NEW, [WAITING])
     assert select_plan_execution(test_db, execution["id"], lock=False) == {**before, "deployment_run_id": NEW}

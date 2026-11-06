@@ -53,6 +53,9 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
     """
     if preserves_open_qa(conn, run_id):
         return True
+    from yoke_core.domain.deployment_run_set_aside_qa import preserved_qa_selector
+
+    preserved = preserved_qa_selector(conn, run_id)
     executions = [
         lock_plan_execution(conn, str(row["id"]))
         for row in (
@@ -72,6 +75,7 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
         e
         for e in executions
         if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES and abort_request(e) is None
+        and not preserved(e)
     ]
     # Clear queue intents together before a released host can grant the next
     # cursor from this same closed run.
@@ -88,14 +92,14 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
         return False
     rows = query_rows(
         conn,
-        "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
+        "SELECT r.id,r.deployment_member_item_id,r.execution_target_json FROM qa_requirements r WHERE r.deployment_run_id=%s "
         + f"AND NOT {settled_obligation_sql(conn, 'r')} "
         + "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
         f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
         (run_id,),
     )
     retract_requirements(
-        conn, [int(row["id"]) for row in rows], reason=reason, source="deployment_run"
+        conn, [int(row["id"]) for row in rows if not preserved(dict(row))], reason=reason, source="deployment_run"
     )
     return False
 
