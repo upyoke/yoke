@@ -53,11 +53,7 @@ def explain_dependency(
     """Generate a human-readable explanation of a dependency."""
     sat_desc = satisfaction_description(satisfaction)
 
-    gate_desc = {
-        "activation": unmet_gate_action("activation"),
-        "integration": unmet_gate_action("integration"),
-        "closure": unmet_gate_action("closure"),
-    }.get(gate_point, f"blocks at {gate_point}")
+    gate_desc = f"{gate_point} gate: {unmet_gate_action(gate_point)}"
 
     parts = [blocking_item, gate_desc, f"(satisfied when: {sat_desc})"]
     if blocking_status:
