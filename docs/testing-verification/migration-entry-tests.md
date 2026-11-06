@@ -12,6 +12,7 @@ a bare connection without that schema is not an existing-universe replay target.
 The shared harness uses the production invariant retirement and correction
 rules so frozen historical assertions do not demand surfaces later entries removed.
 The boot tests separately prove pending-history application and ledger recording.
+Migration-area impact companions select both shared checks when an entry changes.
 
 Dedicated entry tests hold data-change and refusal assertions for entries that
 an installed database can still reach. Do not duplicate the shared floor,
