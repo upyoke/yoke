@@ -7,17 +7,14 @@ from datetime import datetime
 import json
 import re
 import statistics
-import subprocess
+import base64
 
-
-def _gh(*args: str) -> str:
-    completed = subprocess.run(["gh", *args], text=True, capture_output=True)
-    if completed.returncode:
-        raise ValueError(
-            "actions_evidence_unavailable: restore GitHub read access or retained run logs, then retry: "
-            + completed.stderr.strip()
-        )
-    return completed.stdout
+from yoke_cli.config.github_local_user_access import (
+    access_token,
+    GitHubLocalUserAccessError,
+)
+from yoke_core.domain.github_actions_rest import rest_get, RestTransportError
+from yoke_core.domain.github_actions_logs import fetch_job_log
 
 
 def build_seconds(jobs: list[dict]) -> float:
@@ -75,36 +72,33 @@ def _check() -> int:
             "baseline_sample_invalid: supply ten distinct pre-cache main run ids"
         )
     repository = args.repository
-    runs = json.loads(
-        _gh(
-            "run",
-            "list",
-            "--repo",
-            repository,
-            "--workflow",
-            "yoke-server-image.yml",
-            "--branch",
-            "main",
-            "--event",
-            "push",
-            "--status",
-            "success",
-            "--limit",
-            "100",
-            "--json",
-            "databaseId,headSha,url",
-        )
-    )
+    token = access_token().access_token
+    runs = rest_get(
+        f"/repos/{repository}/actions/workflows/yoke-server-image.yml/runs",
+        query={
+            "branch": "main",
+            "event": "push",
+            "status": "success",
+            "per_page": "100",
+        },
+        token=token,
+    )["workflow_runs"]
     current = []
     for run in runs:
-        workflow = _gh(
-            "api",
-            f"repos/{repository}/contents/.github/workflows/yoke-server-image.yml?ref={run['headSha']}",
-            "-H",
-            "Accept: application/vnd.github.raw+json",
+        source = rest_get(
+            f"/repos/{repository}/contents/.github/workflows/yoke-server-image.yml",
+            query={"ref": run["head_sha"]},
+            token=token,
         )
+        workflow = base64.b64decode(source["content"]).decode()
         if "cache-to: type=gha,mode=max,scope=yoke-server-" in workflow:
-            current.append(run)
+            current.append(
+                {
+                    "databaseId": run["id"],
+                    "headSha": run["head_sha"],
+                    "url": run["html_url"],
+                }
+            )
         if len(current) == 10:
             break
     if len(current) != 10:
@@ -114,8 +108,10 @@ def _check() -> int:
         return 1
 
     def measure(run_id: int) -> tuple[float, list[dict]]:
-        jobs = json.loads(
-            _gh("api", f"repos/{repository}/actions/runs/{run_id}/jobs?per_page=100")
+        jobs = rest_get(
+            f"/repos/{repository}/actions/runs/{run_id}/jobs",
+            query={"per_page": "100"},
+            token=token,
         )["jobs"]
         return build_seconds(jobs), jobs
 
@@ -128,26 +124,16 @@ def _check() -> int:
             files = []
             if index + 1 < len(current):
                 previous = current[index + 1]["headSha"]
-                comparison = json.loads(
-                    _gh(
-                        "api",
-                        f"repos/{repository}/compare/{previous}...{run['headSha']}",
-                    )
+                comparison = rest_get(
+                    f"/repos/{repository}/compare/{previous}...{run['headSha']}",
+                    token=token,
                 )
                 files = [file["filename"] for file in comparison["files"]]
                 if len(files) >= 300:
                     files = []  # The compare API truncates larger file sets.
             for job in jobs:
                 if job["name"].startswith("build-native-"):
-                    log = _gh(
-                        "run",
-                        "view",
-                        str(run["databaseId"]),
-                        "--repo",
-                        repository,
-                        "--log-job",
-                        str(job["id"]),
-                    )
+                    log = fetch_job_log(repository, job["id"], token=token)
                     if postgres_cached(log) and application_changed_without_bootstrap(
                         files
                     ):
@@ -192,9 +178,16 @@ def _check() -> int:
 def main() -> int:
     try:
         return _check()
-    except (ValueError, KeyError, OSError) as exc:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        OSError,
+        GitHubLocalUserAccessError,
+        RestTransportError,
+    ) as exc:
         print(
-            f"image_cache_evidence_unavailable: {exc}; restore complete retained Actions evidence and retry"
+            f"image_cache_evidence_unavailable: {exc}; run `yoke github status` to check saved GitHub access, restore complete retained Actions evidence, and retry"
         )
         return 1
 

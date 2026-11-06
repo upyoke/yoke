@@ -70,3 +70,65 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
     )
 
     assert application_changed_without_bootstrap(files) is expected
+
+
+@pytest.mark.parametrize(
+    "cached_seconds, samples, expected", [(10, 10, 0), (11, 10, 1), (10, 9, 1)]
+)
+def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_seconds(
+    monkeypatch, cached_seconds, samples, expected, capsys
+):
+    import base64
+    from types import SimpleNamespace
+    from yoke_core.tools import server_image_cache_evidence as evidence
+
+    monkeypatch.setattr(
+        evidence, "access_token", lambda: SimpleNamespace(access_token="fixture-token")
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["evidence", "--repository", "owner/repo"]
+        + [
+            argument
+            for run_id in range(100, 110)
+            for argument in ("--baseline-run", str(run_id))
+        ],
+    )
+
+    def rest(path, *, query=None, token):
+        assert token == "fixture-token"
+        if path.endswith("/runs"):
+            return {
+                "workflow_runs": [
+                    {
+                        "id": i,
+                        "head_sha": f"source-{i}",
+                        "html_url": f"https://example.test/{i}",
+                    }
+                    for i in range(samples)
+                ]
+            }
+        if "/contents/" in path:
+            return {
+                "content": base64.b64encode(
+                    b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
+                ).decode()
+            }
+        if "/compare/" in path:
+            return {"files": [{"filename": "runtime/api/server.py"}]}
+        assert path.endswith("/jobs")
+        seconds = 40 if int(path.split("/")[-2]) >= 100 else cached_seconds
+        return {
+            "jobs": [dict(_job(arch, seconds), id=arch) for arch in ("amd64", "arm64")]
+        }
+
+    monkeypatch.setattr(evidence, "rest_get", rest)
+    monkeypatch.setattr(
+        evidence,
+        "fetch_job_log",
+        lambda *args, **kwargs: (
+            "#12 [builder 5/12] RUN PYTHONPATH=/build/src postgres_binaries.py\n#12 CACHED\n"
+        ),
+    )
+    assert evidence.main() == expected
+    assert "fixture-token" not in capsys.readouterr().out
