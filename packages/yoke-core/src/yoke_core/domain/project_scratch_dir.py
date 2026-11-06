@@ -207,8 +207,8 @@ def watcher_capture_path(
     """Return a watcher capture path sharing the given *nonce*.
 
     Raises :class:`ScratchSessionIdentityError` rather than minting a
-    capture under the unknown-session placeholder inside a harness
-    session, where that path is one the session-cwd guard then refuses.
+    capture under the unknown-session placeholder inside a harness session;
+    evidence must remain attributed to its actual session.
     """
 
     safe_command = _safe_segment(command)
