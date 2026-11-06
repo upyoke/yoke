@@ -66,9 +66,38 @@ def case_failed(result: dict[str, Any]) -> bool:
     )
 
 
+def plan_recovery(
+    state: str, failed_cases: list[int], results: list[dict], *, raised: bool
+) -> str | None:
+    if state == "waiting" and results:
+        return results[-1].get("recovery")
+    if state == "removed":
+        return (
+            "The deployment run removed this item while its QA was running, so "
+            "the execution was cancelled with nothing recorded as passed; no "
+            "host needs repair. The item owes its QA in its next release."
+        )
+    if state not in {"failed", "error"}:
+        return None
+    rerun = (
+        "Correct the case or plan and rerun yoke qa plan run; "
+        "no manual abort is needed."
+    )
+    if raised or not failed_cases:
+        return f"QA execution closed after a case raised while running. {rerun}"
+    named = ", ".join(str(requirement_id) for requirement_id in failed_cases)
+    return (
+        f"QA execution ran every independent chain and closed after failed "
+        f"case requirements {named}. Cases chained behind a failed case are "
+        f"recorded blocked (inherited_predecessor_not_passed) and did not run. "
+        f"{rerun}"
+    )
+
+
 __all__ = [
     "QaPlanExecutionError",
     "aggregate_state",
     "case_failed",
     "plan_order",
+    "plan_recovery",
 ]

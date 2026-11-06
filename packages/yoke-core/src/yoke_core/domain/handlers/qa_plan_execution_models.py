@@ -39,6 +39,8 @@ class PlanExecutionAbortRequest(PlanExecutionStateRequest):
 
 
 class PlanExecutionStateResponse(BaseModel):
+    settlement: str | None = None
+    credited_by: str | None = None
     execution_id: str
     standalone_plan_id: int | None = None
     item_id: int | None = None
@@ -65,9 +67,7 @@ class PlanExecutionStateResponse(BaseModel):
     stop_request: dict[str, Any] | None = None
 
 
-class PlanExecutionBeginResponse(
-    RootModel[PlanExecutionStateResponse]
-):
+class PlanExecutionBeginResponse(RootModel[PlanExecutionStateResponse]):
     pass
 
 

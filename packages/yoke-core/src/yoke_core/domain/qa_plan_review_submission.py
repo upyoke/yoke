@@ -306,10 +306,11 @@ def submit_plan_review(
         except Exception:
             conn.rollback()
     announce_discharges(conn, discharged)
+    settlement = None
     if execution.get("deployment_stage"):
         from yoke_core.domain.deployment_qa_resettlement import resettle_execution
 
-        resettle_execution(conn, execution)
+        settlement = resettle_execution(conn, execution)
     elif execution.get("item_id") is not None:
         from yoke_core.domain.deployment_member_close_out_retry import (
             after_record_settled,
@@ -321,6 +322,11 @@ def submit_plan_review(
         "bundle_id": bundle_id,
         "state": settled_state,
         "submission": "persisted",
+        **(
+            settlement
+            if settlement and settlement.get("settlement") == "deferred"
+            else {}
+        ),
         "verdicts": [
             {
                 "requirement_id": requirement_id,

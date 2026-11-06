@@ -1,8 +1,7 @@
-"""Saved QA completions get release credit by retrying their own command."""
+"""Saved verdicts return promptly and the driver adopts deferred credit."""
 
 from unittest import mock
-
-import pytest
+from time import monotonic
 
 from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
 
@@ -30,7 +29,6 @@ from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_co
 from yoke_core.domain.handlers.qa_plan_review import handle_plan_review_submit
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_execution_store import select_plan_execution
-from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
 
 
 def _request(execution, function, **payload):
@@ -86,15 +84,16 @@ def _blocked_call(conn, execution, callback):
     holder = connect_test_database(conn.info.dbname)
     try:
         holder.execute(
-            "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
-            (execution["deployment_run_id"],),
+            "SELECT id FROM items WHERE id=%s FOR NO KEY UPDATE",
+            (execution["deployment_member_item_id"],),
         )
+        started = monotonic()
         outcome = callback()
-        assert not outcome.primary_success
-        assert outcome.error.code == "qa_settlement_pending"
-        assert outcome.error.code in RETRYABLE_LOCK_CODES
-        assert "completion is saved" in outcome.error.message
-        assert "Rerun the same command" in outcome.error.message
+        assert monotonic() - started < 3
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["settlement"] == "deferred"
+        assert outcome.result_payload["credited_by"] == "the run driver's next QA check"
+        assert "qa_settlement_pending" not in RETRYABLE_LOCK_CODES
         current = select_plan_execution(conn, str(execution["id"]), lock=False)
         assert current["state"] == "completed"
         conn.commit()
@@ -103,7 +102,36 @@ def _blocked_call(conn, execution, callback):
         holder.close()
 
 
-def test_completion_retry_credits_saved_pass_after_run_lock_contention(
+def _driver_check(conn, execution):
+    from yoke_core.domain.deployment_qa_dispatch_gating import gate_members
+    from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
+
+    stage = next(
+        s
+        for s in pinned_stages(conn, execution["deployment_run_id"])
+        if s["name"] == execution["deployment_stage"]
+    )
+    member = execution["deployment_member_item_id"]
+    with mock.patch(
+        "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_items_qa_accepted"
+    ) as close:
+        code, reason = gate_members(
+            conn,
+            stage,
+            run_id=execution["deployment_run_id"],
+            members=[member],
+            errors={},
+            project_id=1,
+            target_tier="stage",
+            revision="a" * 40,
+        )
+    assert code == 0, reason
+    close.assert_called_once_with(
+        conn, run_id=execution["deployment_run_id"], item_ids=(member,)
+    )
+
+
+def test_completion_returns_saved_pass_after_member_lock_contention(
     test_db, monkeypatch
 ):
     execution = _prepared(test_db)
@@ -118,7 +146,7 @@ def test_completion_retry_credits_saved_pass_after_run_lock_contention(
         current = select_plan_execution(test_db, str(execution["id"]), lock=False)
         assert terminal_replay_allowed(test_db, request)
         test_db.commit()
-        assert handle_plan_execution_complete(request).primary_success
+        _driver_check(test_db, execution)
         assert (
             item_qa_acceptance_blockers(
                 test_db,
@@ -128,12 +156,16 @@ def test_completion_retry_credits_saved_pass_after_run_lock_contention(
             == []
         )
         test_db.commit()
-        replay = dispatch(request)
-        assert replay.success, replay.error
+        with mock.patch(
+            "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_item_qa_accepted"
+        ) as close:
+            replay = dispatch(request)
+            assert replay.success, replay.error
+        close.assert_not_called()
     notice.assert_not_called()
 
 
-def test_review_submit_retry_credits_saved_verdict_after_run_lock_contention(
+def test_review_submit_returns_saved_verdict_after_member_lock_contention(
     test_db, monkeypatch
 ):
     execution, bundle, requirement = _seed_pending(test_db, "run-review-credit", "item")
@@ -161,7 +193,7 @@ def test_review_submit_retry_credits_saved_verdict_after_run_lock_contention(
     _blocked_call(test_db, execution, lambda: handle_plan_review_submit(request))
     assert terminal_replay_allowed(test_db, request)
     test_db.commit()
-    assert handle_plan_review_submit(request).primary_success
+    _driver_check(test_db, execution)
     assert (
         item_qa_acceptance_blockers(
             test_db,
@@ -175,54 +207,39 @@ def test_review_submit_retry_credits_saved_verdict_after_run_lock_contention(
     assert replay.success, replay.error
 
 
-@pytest.mark.parametrize("command", ["nothing-owed", "close-out"])
-def test_command_settles_previously_completed_evidence_inline(
-    test_db, monkeypatch, command
+def test_closeout_reads_blockers_without_settlement_or_write_locks(
+    test_db, monkeypatch
 ):
+    from yoke_core.domain.handlers.done_transition_deploy_reads import (
+        handle_run_stage_qa_acceptance,
+    )
+
     execution = _prepared(test_db)
     _bind(monkeypatch, test_db)
     request = _request(execution, "qa.plan_execution.complete")
     _blocked_call(test_db, execution, lambda: handle_plan_execution_complete(request))
-    if command == "nothing-owed":
-        refusal = nothing_owed(
-            test_db,
-            roster_size=1,
-            deployment_run_id=execution["deployment_run_id"],
-            deployment_stage="item-qa",
+    holder = connect_test_database(test_db.info.dbname)
+    try:
+        holder.execute("SELECT id FROM items WHERE id=%s FOR UPDATE", (9891,))
+        holder.execute(
+            "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
+            (execution["deployment_run_id"],),
         )
-        assert "re-drive" not in str(refusal)
-    else:
-        from yoke_core.domain.handlers.done_transition_deploy_reads import (
-            handle_run_stage_qa_acceptance,
-        )
-
-        closeout = FunctionCallRequest(
-            function="done_transition.run_stage_qa_acceptance",
-            actor=request.actor,
-            target=request.target,
-            payload={"run_id": execution["deployment_run_id"]},
-        )
-        _blocked_call(
-            test_db, execution, lambda: handle_run_stage_qa_acceptance(closeout)
-        )
-        response = dispatch(
-            FunctionCallRequest(
-                function="done_transition.run_stage_qa_acceptance",
-                actor=request.actor,
-                target=request.target,
-                payload={"run_id": execution["deployment_run_id"]},
+        started = monotonic()
+        response = handle_run_stage_qa_acceptance(
+            request.model_copy(
+                update={
+                    "function": "done_transition.run_stage_qa_acceptance",
+                    "payload": {"run_id": execution["deployment_run_id"]},
+                }
             )
         )
-        assert response.success, response.error
-        assert response.result["blocking"] == []
-    assert (
-        item_qa_acceptance_blockers(
-            test_db,
-            run_id=execution["deployment_run_id"],
-            item_id=execution["deployment_member_item_id"],
-        )
-        == []
-    )
+        assert monotonic() - started < 3
+        assert response.primary_success, response.error
+        assert response.result_payload["blocking"]
+    finally:
+        holder.rollback()
+        holder.close()
 
 
 def test_terminal_replay_does_not_authorize_different_owner(test_db):

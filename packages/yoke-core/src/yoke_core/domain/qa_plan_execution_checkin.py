@@ -94,9 +94,18 @@ def deliver_plan_function(*, function_id, target, payload, actor):
 
     request_id = str(uuid4())
     attempts = []
-    # Only liveness may retry. The same request id reconciles a late success
-    # through the existing durable ledger before another check-in executes.
-    count = 2 if function_id == "qa.plan_execution.heartbeat" else 1
+    # Safe terminal submissions and liveness recover a late reply from the
+    # durable ledger under the same request id, without pausing the execution.
+    count = (
+        2
+        if function_id
+        in {
+            "qa.plan_execution.heartbeat",
+            "qa.plan_execution.complete",
+            "qa.plan_review.submit",
+        }
+        else 1
+    )
     # A busy answer is definite and ran nothing, so it repeats on the shared
     # backoff under a fresh request id rather than failing the walk.
     busy_delays = iter(LOCK_RETRY_DELAYS_SECONDS)

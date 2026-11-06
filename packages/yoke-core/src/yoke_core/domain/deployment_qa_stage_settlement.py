@@ -1,8 +1,7 @@
 """Settle a scoped deployment QA gate when its evidence becomes final.
 
-The deploy runner still owns external stages. QA evidence and human decisions
-are control-plane writes, so their gate can be settled here without waiting
-for the runner to happen to check the same stage again.
+Saved QA evidence may receive credit immediately. The run driver adopts
+busy evidence on its next check and owns member close-out.
 """
 
 from __future__ import annotations
@@ -165,7 +164,11 @@ def settle_acceptance(
     # Every caller continues the run once after acceptance converges.
     with stage_settlement_continues(run_id):
         status = deployment_qa_stage_status(
-            conn, run_id=run_id, stage_name=stage, member_item_id=member
+            conn,
+            run_id=run_id,
+            stage_name=stage,
+            member_item_id=member,
+            notify_acceptance=False,
         )
     outcome = str(status.get("outcome") or "")
     if outcome not in SETTLED_OUTCOMES:
