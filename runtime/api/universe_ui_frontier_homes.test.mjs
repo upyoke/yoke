@@ -63,7 +63,7 @@ test("a Done reference beyond the display limit still has a reachable home card"
   await settle();
   const doneBand = byClass(root, "work-band-done")[0];
   assert.equal(byClass(doneBand, "work-band-count")[0].textContent, "10");
-  const homes = byClass(doneBand, "work-item-card");
+  const homes = byClass(doneBand, "work-item-card").filter((card) => !card.classList.contains("see-more-card"));
   assert.equal(homes.length, 9);
   assert.ok(homes.some((card) => card.id === "frontier-home-I-10"));
   const reference = byClass(root, "fdv-tile").find((tile) => tile.getAttribute("data-fdv-ref") === "I-10");
