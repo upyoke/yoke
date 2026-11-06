@@ -17,13 +17,21 @@ def ask_operator(*, repo: str, run_id: str, output: str, actor=None) -> str:
         f"GitHub could not start CI run {run_id} in {repo}. "
         f"Please resolve its annotation before retrying.\n{output[:1700]}"
     )
-    context = output if len(output) <= 7900 else output[:7900] + "\n[truncated; open the run for all annotations]"
+    context = (
+        output
+        if len(output) <= 7900
+        else output[:7900] + "\n[truncated; open the run for all annotations]"
+    )
     try:
         response = call_dispatcher(
-            function_id="decision_requests.ask", target=TargetRef(kind="global"),
+            function_id="decision_requests.ask",
+            target=TargetRef(kind="global"),
             actor=actor,
-            payload={"key": f"ci-job-start-{run_id}", "question": question,
-                     "context": context},
+            payload={
+                "key": f"ci-job-start-{run_id}",
+                "question": question,
+                "context": context,
+            },
         )
         if response.success:
             return f"{OPERATOR_REQUIRED}: operator question filed; no re-dispatch.\n{output}"

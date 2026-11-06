@@ -71,10 +71,8 @@ def effective_conclusion(
     """
     if conclusion not in ("failure", "startup_failure"):
         return conclusion
-    if conclusion == "startup_failure":
-        return CI_JOB_NOT_STARTED
     if jobs is None:
-        return conclusion
+        return CI_JOB_NOT_STARTED if conclusion == "startup_failure" else conclusion
     if any(job_started(job) and str(job.get("conclusion") or "")
            in _RED_JOB_CONCLUSIONS for job in jobs):
         return conclusion
@@ -120,7 +118,10 @@ def with_effective_conclusion(
         try:
             copied["ci_job_annotations"] = never_started_annotations(repo, jobs, token=token)
         except RestTransportError as exc:
-            copied["ci_job_annotations_error"] = str(exc)
+            copied["ci_job_annotations_error"] = (
+                f"ci_job_annotations_unavailable: {exc}; restore Checks read "
+                "access and inspect the run before retrying"
+            )
     return copied
 
 

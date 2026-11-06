@@ -65,12 +65,15 @@ def _rerun_fakes(monkeypatch, *, post_error=None, started=True):
             body = {
                 "jobs": [
                     {
+                        "check_run_url": "https://api.github.com/repos/o/r/check-runs/7",
                         "runner_name": "runner" if started else "",
                         "steps": [{}] if started else [],
                         "conclusion": "cancelled",
                     }
                 ]
             }
+        elif req.path.endswith("/annotations"):
+            body = []
         elif "/actions/workflows/" in req.path:
             body = {"workflow_runs": [{"id": 37365021162}]}
         else:

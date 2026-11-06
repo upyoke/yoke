@@ -15,6 +15,7 @@ from typing import Callable, Sequence
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_contracts.api.function_call import HandlerOutcome
 from yoke_core.domain.gh_rest_transport import RestTransportError, split_repo
@@ -76,7 +77,7 @@ def redispatch_no_verdict_checks(
             "Ask the check provider to replace that exact-head check, verify "
             "its required-check verdict, then retry `yoke merge item`."
         )
-    auth, auth_err = resolve_auth_detail(ctx, GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS)
+    auth, auth_err = resolve_auth_detail(ctx, {**GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS})
     if auth_err or auth is None:
         return (
             f"pull request {pr_num} cannot enter the merge queue: its "

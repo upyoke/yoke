@@ -103,20 +103,13 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
         return _auth_failed(exc, project)
     root = repository_api_path(auth.repo)
     try:
-        run = checked_run(root, pr_number, payload.run_id, auth.token, get=rest_get)
+        run = checked_run(root, pr_number, payload.run_id, auth.token, get=rest_get, actor=request.actor)
     except RestTransportError as exc:
         return _refused(
             "ci_rerun_read_failed",
             f"Safety reads failed: {exc}; restore GitHub access and retry. No rerun was sent.",
         )
     if isinstance(run, HandlerOutcome):
-        if run.error.code == "ci_job_not_started_requires_operator":
-            from yoke_core.domain.ci_job_start_recovery import ask_operator
-
-            run.error.message = ask_operator(
-                repo=auth.repo, run_id=payload.run_id,
-                output=run.error.message, actor=request.actor,
-            )
         return run
     facts = RerunFailedResponse(
         run_id=payload.run_id,
@@ -138,7 +131,7 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
     # Persisting the intent can take time; refresh identity immediately before POST.
     try:
         refreshed = checked_run(
-            root, pr_number, payload.run_id, auth.token, get=rest_get
+            root, pr_number, payload.run_id, auth.token, get=rest_get, actor=request.actor
         )
     except RestTransportError as exc:
         refreshed = _refused(
