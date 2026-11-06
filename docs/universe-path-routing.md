@@ -104,6 +104,8 @@ mount. Host anchors inside the mount use app history, including detail links.
 The host's HTTP handler must serve its mount shell on these declared page
 paths, in addition to the built-in dashboard route roster, so reloads and deep
 links work. The built-in roster does not enumerate host-owned pages.
+Route canonicalization preserves a host page's query string and fragment,
+including on reload. Hosts own these values; Yoke does not parse or filter them.
 
 Content is an Element or synchronous factory receiving `UniverseHostPageContext`:
 `UniverseSectionContext` plus decoded `detail: string | null`. Host pages have

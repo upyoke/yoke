@@ -164,7 +164,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   function resolveRoute(route, entry) {
     const scope = scopeForEntry(entry, route.project, projects, scopeSelections, route.selection);
     const project = route.detail ? route.project : (entry.scope === SCOPE_SINGLE ? scope : null);
-    navigation.replace(entry.hostPage ? buildRoute(entry.id, null, route.detail) : selectionRoute(route, scopeSelections, project, navigation.current()));
+    navigation.replace(entry.hostPage ? buildRoute(entry.id, null, route.detail) + windowNode.location.search + windowNode.location.hash : selectionRoute(route, scopeSelections, project, navigation.current()));
     locationPreference.remember();
     beginHostSection(entry, scope, scopeSelections.selectionFor(entry.id));
     return scope;
