@@ -76,7 +76,6 @@ def _native_wake_route_available(
     # has to read terminated_at or qualification would reopen the kill.
     if row.get("terminated_at"):
         return False
-    # Resuming an operator-wake surface would fork its desktop transcript.
     if not native_wake_supported(
         str(row.get("executor_surface") or ""), row.get("launch_origin")
     ):
@@ -144,12 +143,7 @@ def wake_eligible_recipients(
         thread_select = (
             ",hs.native_thread_id" if native_thread_id_column_present(conn) else ""
         )
-        # A fixture composed by hand carries no declared posture, so no
-        # recipient there reads as parked and the parked absence self-skips.
         mode_select = ",hs.mode" if session_mode_column_present(conn) else ""
-        # The observed-death reader needs the machine's verdict, its evidence,
-        # and the episode clock that retires it. A hand-composed fixture
-        # carries none, and a recipient there simply has no such verdict.
         process_select = (
             ",hs.native_process_gone_at,hs.native_process_gone_evidence"
             if native_process_observation_columns_present(conn)
@@ -232,7 +226,6 @@ def wake_eligible_recipients(
                 continue
             escalation = ""
             if not explicit_wake and liveness in {"active", "stale"}:
-                # Active and stale sessions share the hook-route absence checks.
                 for reason, absent in _HOOK_ROUTE_ABSENCES:
                     if absent(
                         row,
@@ -256,8 +249,6 @@ def wake_eligible_recipients(
                     continue
                 wake_mode = WakeMode.WAITING
             elif escalation:
-                # WAITING tells every relay to resume the stopped route.
-                # An expired hook lease remains claimable after starvation.
                 wake_mode = WakeMode.WAITING
             elif waiting_pending:
                 if row.get("injection_lease_id") is not None:
