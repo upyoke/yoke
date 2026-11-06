@@ -3,5 +3,6 @@
  "title": "Exemptions",
  "status": "draft-copy",
  "page": "architecture",
- "position": 5
+ "position": 5,
+ "summary": "Architecture health skips paths matching the model exemptions when checking guarded imports; glob semantics match path-context seeding."
 }
