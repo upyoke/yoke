@@ -9,6 +9,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.hook_runner.client_facts import HARNESS_TITLE_KEY, client_fact
 from yoke_contracts.machine_config import runtime as machine_config
 
@@ -94,7 +95,11 @@ def cursor_title(session_id: str, home: Path):
 
 
 def title_fact(obs, *, transcript_tail: str | None = None):
-    if obs.event_name not in {"Stop", "UserPromptSubmit"}:
+    if obs.event_name not in {"SessionStart", "Stop", "UserPromptSubmit"}:
+        return {}
+    try:
+        harness = canonical_harness_id(obs.executor)
+    except ValueError:
         return {}
     session_id = str(obs.payload.get("session_id") or "")
     if (
@@ -109,7 +114,7 @@ def title_fact(obs, *, transcript_tail: str | None = None):
     except (OSError, ValueError):
         cached = {}
     previous = cached.get("title")
-    if obs.executor in {"claude", "claude-code"}:
+    if harness == "claude-code":
         path = obs.payload.get("transcript_path")
         if not isinstance(path, str) or not Path(path).is_file():
             return {}
@@ -122,11 +127,11 @@ def title_fact(obs, *, transcript_tail: str | None = None):
             with Path(path).open() as stream:
                 title = claude_title(stream)
         title = title or previous
-    elif obs.executor == "codex":
+    elif harness == "codex":
         title = codex_title(
             session_id, Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
         )
-    elif obs.executor == "cursor":
+    elif harness == "cursor":
         title = cursor_title(session_id, Path.home())
     else:
         return {}

@@ -216,11 +216,15 @@ def test_surface_title_reaches_relay_and_waits_for_confirmation(
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / ".codex"))
     monkeypatch.setattr(titles.sys, "platform", "darwin")
     transcript = tmp_path / "chat.jsonl"
-    transcript.write_text(json.dumps({"type": "custom-title", "customTitle": "Native name"}))
+    transcript.write_text(
+        json.dumps({"type": "custom-title", "customTitle": "Native name"})
+    )
     index = tmp_path / ".codex/session_index.jsonl"
     index.parent.mkdir()
     index.write_text(json.dumps({"id": "chat", "thread_name": "Native name"}))
-    desktop = tmp_path / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+    desktop = (
+        tmp_path / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+    )
     database(desktop, "CREATE TABLE cursorDiskKV(key TEXT PRIMARY KEY,value TEXT);")
     database(
         desktop,
