@@ -31,6 +31,7 @@ from yoke_core.domain.deployment_delivery_close_out_notice import (
 )
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain import backlog_status_write_precondition as write_precondition
+from yoke_core.domain import deployment_qa_member_acceptance_notice as acceptance_notice
 from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     item_qa_accepted_idempotency_key,
     notify_item_qa_accepted,
@@ -121,6 +122,11 @@ def test_status_write_race_only_suppresses_notice_for_done(
     _run(test_db, run_id, flow=COMPLETION_FLOW, members=(OWNER_CLOSED_ITEM,))
     _settled_member_requirement(
         test_db, item_id=OWNER_CLOSED_ITEM, run_id=run_id, resolution="pass"
+    )
+    # This completed delivery qualifies for close-out; exercise the acceptance
+    # notice's delivered-member route independently of its executing-run filter.
+    monkeypatch.setattr(
+        acceptance_notice, "independent_member_delivery_ready", lambda *a, **kw: True
     )
     _move_before_status_lock(monkeypatch, OWNER_CLOSED_ITEM, target)
 
