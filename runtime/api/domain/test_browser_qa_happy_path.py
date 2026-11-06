@@ -69,7 +69,6 @@ class TestHappyPath:
         assert result.runs[0].verdict == "pass"
         assert result.runs[0].execution_status == "captured"
 
-        # Check the automatic Browser check verdict and capture status.
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         row = conn.execute(
@@ -185,7 +184,6 @@ class TestHappyPath:
         assert handle["bucket"] == "test-artifacts"
         assert handle["key"] == f"qa/test/{captured['run_id']}/home.png"
 
-        # Browser check succeeds automatically and stamps captured status.
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         qa_row = conn.execute(
@@ -197,7 +195,9 @@ class TestHappyPath:
         assert (qa_row[0], qa_row[1], qa_row[2]) == (
             "browser_substrate", "pass", "captured",
         )
-        assert result.runs[0].artifacts == [str(expected_dir / "home.png")]
+        assert result.runs[0].artifacts == [
+            str(expected_dir / "home.png"), str(expected_dir / "run-result.json")
+        ]
 
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
@@ -208,7 +208,7 @@ class TestHappyPath:
         conn.close()
         assert raw_row is not None
         payload = json.loads(raw_row[0])
-        assert payload["artifacts"] == [str(expected_dir / "home.png")]
+        assert payload["artifacts"] == result.runs[0].artifacts
 
     def test_linked_manual_artifact_copies_to_permanent_local_storage(
         self, tmp_path: Path, db_path: str,

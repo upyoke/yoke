@@ -55,13 +55,14 @@ def test_capture_completion_hands_back_ready_artifact_reads(
 
     run = result.runs[0]
     assert run.recorded_screenshots == 1
-    assert len(run.artifact_ids) == 1
+    assert len(run.artifact_ids) == 2
     emitted = run.to_dict()
     assert emitted["artifact_ids"] == run.artifact_ids
     assert emitted["artifact_reads"] == [
         "yoke qa artifact read "
         f"--requirement-id {requirement_id} "
-        f"--artifact-id {run.artifact_ids[0]}"
+        f"--artifact-id {artifact_id}"
+        for artifact_id in run.artifact_ids
     ]
 
     conn = connect_test_db(db_path)

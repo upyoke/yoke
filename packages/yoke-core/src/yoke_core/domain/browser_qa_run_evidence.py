@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.qa_artifact_read import artifact_read_command
 from yoke_core.domain.browser_qa_steps import QaArtifactWriteError
 
 
@@ -34,6 +35,13 @@ def complete_run_with_evidence(
         )
         artifacts.append(str(evidence_path))
         artifact_ids.append(artifact_id)
+        # The retained file cannot reference its own not-yet-issued artifact id.
+        payload["artifacts"] = list(artifacts)
+        payload["artifact_ids"] = list(artifact_ids)
+        payload["artifact_reads"] = [
+            artifact_read_command(requirement_id, artifact_id)
+            for artifact_id in artifact_ids
+        ]
     except (OSError, QaArtifactWriteError) as exc:
         execution_status, verdict = "capture_failed", "fail"
         payload["execution_status"], payload["verdict"] = execution_status, verdict

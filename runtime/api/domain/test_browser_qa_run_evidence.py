@@ -73,7 +73,7 @@ def test_assert_only_pass_retains_counts_and_settles_item_qa(tmp_path):
     payload = artifacts[0]["payload"]
     assert payload["assertions_declared"] == payload["assertions_passed"] == 1
     assert payload["verdict"] == "pass"
-    assert payload == json.loads(completion["raw_result"])
+    assert json.loads(completion["raw_result"])["artifact_ids"] == [41]
     assert not completion.get("capture_degraded_reason")
     assert outcome.run_result.artifact_ids == [41]
     with (
@@ -98,7 +98,7 @@ def test_inspection_and_failed_capture_retain_payload(tmp_path, method, failure,
     assert outcome.run_result.verdict == verdict
     assert outcome.run_result.execution_status == status
     assert artifacts[0]["payload"]["execution_status"] == status
-    assert artifacts[0]["payload"] == json.loads(completion["raw_result"])
+    assert 41 in json.loads(completion["raw_result"])["artifact_ids"]
 
 
 @pytest.mark.parametrize("error", [OSError("disk full"), QaArtifactWriteError("upload refused")])
@@ -145,3 +145,50 @@ def test_clean_walk_evidence_is_taught_on_every_dispatch_and_harness():
         text = (root / relative).read_text()
         assert "On a clean walk, attach one deliberate proof of the good outcome as `evidence`" in text
         assert "before returning the report, within the same artifact limit" in text
+
+
+def test_assert_only_evidence_persists_and_settles_without_manual_attach(tmp_path):
+    from runtime.api.domain.browser_qa_test_helpers import (
+        _browser_check_steps, _placeholder, _run_scenario, _seed_item, _seed_requirement,
+    )
+    from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+
+    with init_test_db(tmp_path) as db_path:
+        _seed_item(db_path, 100)
+        requirement_id = _seed_requirement(
+            db_path, 100, "browser-check", {"steps": _browser_check_steps()},
+        )
+        outcome = _run_scenario(
+            db_path, 100, execute_step_responses=[{"success": True, "artifacts": []}],
+        )
+        run = outcome.runs[0]
+        assert run.verdict == "pass"
+        conn = connect_test_db(db_path)
+        try:
+            marker = _placeholder(conn)
+            row = conn.execute(
+                f"SELECT artifact_type,content_type FROM qa_artifacts WHERE qa_run_id={marker}",
+                (run.qa_run_id,),
+            ).fetchone()
+            assert tuple(row) == ("evidence", "application/json")
+            row = conn.execute(
+                f"SELECT capture_degraded_reason FROM qa_runs WHERE id={marker}",
+                (run.qa_run_id,),
+            ).fetchone()
+            assert row[0] is None
+            with (
+                patch.object(settlement, "scoped_cases", return_value=[{
+                    "id": requirement_id, "plan_case_key": "assertion",
+                }]),
+                patch.object(settlement, "obligation_settled", return_value=False),
+                patch.object(settlement, "_latest_verdicts", return_value={
+                    requirement_id: (run.qa_run_id, run.verdict),
+                }),
+                patch("yoke_core.domain.qa_pending_agent_review.pending_review_requirements", return_value={}),
+            ):
+                assert settlement.case_failures(
+                    conn, run_id="release", stage_name="item-qa", member_item_id=100,
+                    execution_target_digest="target",
+                ) == []
+        finally:
+            conn.close()
