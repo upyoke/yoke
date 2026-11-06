@@ -16,7 +16,7 @@ from typing import Sequence
 #: The selection and test-run machinery itself. A change here can alter
 #: what any other run selects or how it executes.
 TEST_TOOLING_PATHS = (
-    "packages/yoke-contracts/src/yoke_contracts/runtime_ports/source_providers.py",
+    "packages/yoke-contracts/src/yoke_contracts/runtime_adapter_sources.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_changed_paths.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_ci_workflow_contracts.py",

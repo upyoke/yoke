@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from yoke_contracts.runtime_ports.source_providers import runtime_references, source_providers
+from yoke_contracts.runtime_adapter_sources import runtime_references, source_providers
 from yoke_core.engines.doctor_project_checks import (
     PROJECT_CHECKS_DIR,
     PROJECT_CHECKS_PACKAGE,

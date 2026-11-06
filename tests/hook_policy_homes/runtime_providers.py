@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
-from yoke_contracts.runtime_ports.source_providers import source_providers
+from yoke_contracts.runtime_adapter_sources import source_providers
 
 
 @lru_cache(maxsize=None)
