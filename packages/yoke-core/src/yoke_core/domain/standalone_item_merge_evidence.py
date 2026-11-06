@@ -29,10 +29,12 @@ from yoke_contracts.timestamps import format_instant, parse_instant
 from typing import Any, Optional
 
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.floor_attestation import uses_agent_attested_floor
 from yoke_core.domain.standalone_item_merge_recovery import ACQUIRE_ADVICE
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 # The status a standalone item reaches once its close-out has run. An item
 # short of it has work left, so a claim refusal there is a real refusal.

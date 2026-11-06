@@ -185,7 +185,7 @@ class TestWorktreeResolution:
         assert rc == 0
         assert out == ""
         assert err == ""
-        assert seen["module_name"] == "yoke_core.domain.query_items_cli"
+        assert seen["module_name"] == "yoke_core.cli.query_items_cli"
         assert seen["argv"] == ["get", "YOK-1", "status"]
         assert seen["yoke_db"] is None
         assert os.environ.get("YOKE_DB") is None

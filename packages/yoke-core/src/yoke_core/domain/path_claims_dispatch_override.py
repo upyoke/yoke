@@ -37,9 +37,8 @@ def _parse_int_list(raw: str) -> List[int]:
 def _relay_override(args: argparse.Namespace) -> int:
     """Use the registered ``claims.path.override`` authority on every transport."""
     from yoke_contracts.api.function_call import ActorContext, TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     payload = {
         "path_claim_id": args.claim_id,

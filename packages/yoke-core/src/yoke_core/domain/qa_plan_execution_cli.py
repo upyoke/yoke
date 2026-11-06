@@ -191,7 +191,8 @@ def run(args: List[str]) -> int:
             "For corrected code under the same case, retry without --replaces."
         )
 
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
 
     actor = build_actor(session_id=parsed.session_id)
     try:

@@ -59,7 +59,8 @@ def _dispatch_machine_function(
 def _actor(actor: ActorContext | None) -> ActorContext:
     if actor is not None:
         return actor
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
 
     return build_actor()
 

@@ -63,10 +63,9 @@ def _emit(line: str) -> None:
 
 
 def _dispatch(function_id: str, payload: dict[str, Any]) -> Any:
-    from yoke_core.api.service_client_structured_api_adapter import (
-        build_actor,
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     return call_dispatcher(
         function_id=function_id,

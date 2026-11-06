@@ -17,9 +17,11 @@ from yoke_core.domain.public_item_target import public_item_target
 from datetime import datetime
 from typing import Any, Callable
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_contracts.merge_queue_status import in_flight_landing
 from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def _response_error(response: Any, fallback: str) -> str:

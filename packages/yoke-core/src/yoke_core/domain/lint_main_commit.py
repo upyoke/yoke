@@ -42,9 +42,8 @@ def _active_worktree_items() -> Optional[list[str]]:
     """Return ``ref|title`` rows for in-flight items with active lanes."""
     try:
         from yoke_contracts.api.function_call import TargetRef
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        call_dispatcher = get_structured_dispatch().call_dispatcher
 
         response = call_dispatcher(
             function_id="items.overview.list",

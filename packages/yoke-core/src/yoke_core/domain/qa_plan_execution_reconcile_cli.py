@@ -5,9 +5,11 @@ import json
 import sys
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import build_actor
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_function
 from yoke_core.domain.qa_plan_execution_abort_reason import ABORT_REASON_MAX_LENGTH
+
+build_actor = get_structured_dispatch().build_actor
 
 EPILOG = (
     "A session needs the execution item's work claim or a live steering seat; other sessions "

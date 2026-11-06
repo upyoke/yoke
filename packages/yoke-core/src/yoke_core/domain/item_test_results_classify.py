@@ -86,7 +86,8 @@ def read_item_test_results(
         return ""
     conn: Any = local_connection_or_none(lambda: db_helpers.connect(db_path))
     if conn is None:
-        from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        call_dispatcher = get_structured_dispatch().call_dispatcher
         from yoke_core.domain.public_item_target import public_item_target
 
         response = call_dispatcher(

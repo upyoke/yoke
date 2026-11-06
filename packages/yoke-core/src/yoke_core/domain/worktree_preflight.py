@@ -88,9 +88,8 @@ def run_preflight(
     # in whichever repo the session happens to be standing.
     item: Dict[str, Any] = {}
     try:
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        call_dispatcher = get_structured_dispatch().call_dispatcher
         from yoke_core.domain.advance_blocked_gate import (
             render_blocked_narrative,
         )

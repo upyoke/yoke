@@ -23,7 +23,7 @@ The router provides:
   for each domain by importing and calling its ``main(argv)`` function,
   avoiding per-call subprocess overhead.
 * **Items subcommands** — read subcommands (``get``, ``list``, ``count``,
-  ``row``, ``progress``) route to :mod:`yoke_core.domain.query_items_cli`
+  ``row``, ``progress``) route to :mod:`yoke_core.cli.query_items_cli`
   in-process; write subcommands route to the Python-owned
   ``service_client backlog-cli`` parser in-process.
 * **Merge dispatch** — ``merge run …`` delegates to
@@ -294,7 +294,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return _dispatch_items_get_section(item_args)
         if subcmd in _ITEMS_READ_SUBCMDS:
             return _dispatch_python_module(
-                "yoke_core.domain.query_items_cli",
+                "yoke_core.cli.query_items_cli",
                 [subcmd, *item_args],
             )
         if subcmd in _ITEMS_WRITE_SUBCMDS:

@@ -262,10 +262,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     register_all_handlers,
                 )
                 from yoke_contracts.api.function_call import TargetRef
-                from yoke_core.api.service_client_structured_api_adapter import (
-                    call_dispatcher,
-                    emit_response,
-                )
+                from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+                call_dispatcher = get_structured_dispatch().call_dispatcher
+                emit_response = get_structured_dispatch().emit_response
 
                 register_all_handlers()
                 response = call_dispatcher(

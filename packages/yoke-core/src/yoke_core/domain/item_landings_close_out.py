@@ -25,7 +25,7 @@ from datetime import datetime
 from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
 from typing import Any
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.item_landings_schema import (
     ROUTE_FAST_FORWARD,
@@ -33,6 +33,8 @@ from yoke_core.domain.item_landings_schema import (
     ROUTE_STANDALONE,
 )
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 RECORD_FUNCTION_ID = "item_landings.record"
 

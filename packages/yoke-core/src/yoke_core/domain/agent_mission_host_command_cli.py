@@ -73,7 +73,8 @@ def resolve_mission_contract(
     prog: str,
 ) -> Optional[dict]:
     """Return the awaiting mission's execution contract, or print why not."""
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 
     try:

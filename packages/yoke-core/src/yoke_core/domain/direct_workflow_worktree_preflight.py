@@ -66,9 +66,8 @@ def _prepare_dash_path_claim(
     or widening. Returns an error string to block preparation, or
     ``None`` on success / no-op.
     """
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     target = public_item_target(item_id)
     holder = call_dispatcher(
@@ -167,9 +166,8 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
     # resolution happens server-side from the ``public_ref`` target; the
     # recorded-survey read and conflict re-check run server-side too.
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     detail = call_dispatcher(
         function_id="items.detail.get",

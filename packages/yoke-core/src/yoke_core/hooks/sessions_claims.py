@@ -23,7 +23,7 @@ from yoke_core.domain.work_claim_targets import (
     from_row as target_from_row,
     scope_int_sql,
 )
-from yoke_core.api.service_client_shared_session_resolver import current_session_id
+from yoke_core.domain.session_current_identity import current_session_id
 
 from yoke_core.hooks.sessions_claims_acquire import (  # noqa: F401
     _claim_typed,

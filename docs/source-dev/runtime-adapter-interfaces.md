@@ -33,3 +33,10 @@ installed adapters. Hook-policy reachability follows referenced provider members
 and impacted-test selection follows provider-to-interface dependencies. These
 runtime implementation relationships remain distinct from direct Python imports
 used by architecture boundary checks.
+
+Core function calls use the `structured_dispatch` interface. Its service API
+provider owns transport selection, in-process dispatch and version-skew recovery;
+domain callers depend on the request/response contract and never import the
+service client or CLI transport. Actor envelopes and response emission cross the
+same interface. Current session lookup and item projection field sets are domain
+vocabulary and remain available directly from their domain owners.

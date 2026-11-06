@@ -21,7 +21,7 @@ from typing import Any, Optional
 from pathlib import Path
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import json_helper
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.workflow_gate_catalog import (
@@ -37,6 +37,8 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     workflow_runtime_from_row,
 )
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def pinned_workflow_for_item(
@@ -211,7 +213,8 @@ def enter_review_stage(
     The transition runs that stage's own gates on the control plane; their
     refusal is returned whole so the merge stops with the gate's reason.
     """
-    from yoke_core.api import service_client_structured_api_adapter as api
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    api = get_structured_dispatch()
     from yoke_core.domain.workflow_level_handoff import record_level_handoff
 
     response = api.call_dispatcher(

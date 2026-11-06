@@ -27,7 +27,8 @@ def read_coverage(
     *, project: str, environment: str, paths: Sequence[str]
 ) -> Tuple[Dict[str, Any], str]:
     """Coverage leaves for one environment, or why they could not be read."""
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     wanted = [str(path).strip() for path in paths if str(path or "").strip()]
     if not wanted:

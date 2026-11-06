@@ -53,7 +53,8 @@ def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
     rather than a refusal — lane creation refuses at the point it would name
     something, in :func:`resolve_worktree_lanes_for_item`.
     """
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
     from yoke_core.domain.item_worktree_resolution import ACTIVE_LANE_PRIORITY
 
     target = public_item_target(item_id)
@@ -88,9 +89,8 @@ def claim_work(item_id: int) -> Tuple[bool, str]:
     https transport). Idempotent: the acquire handler returns the session's
     existing claim when it already holds one.
     """
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     response = call_dispatcher(
         function_id="claims.work.acquire",
@@ -152,7 +152,8 @@ def _local_checkout_for_item(item_id: int) -> Optional[str]:
     ``checkout_for_project_id`` (machine config, no DB). Returns
     ``None`` when the project or its checkout mapping is unresolved.
     """
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
     from yoke_core.domain.path_claim_activation_client import local_checkout
 
     return local_checkout(public_item_target(item_id), call_dispatcher)
@@ -172,7 +173,8 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
     ``error_text`` keeps the ``db-lock:`` marker so
     :func:`classify_activation_failure` still routes substrate contention.
     """
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
     from yoke_core.domain.path_claim_activation_client import run_activation
 
     run = run_activation(

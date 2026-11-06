@@ -92,9 +92,8 @@ def dispatch_through_paired_admin_on_skew(
     server's own recovery guidance.
     """
     if dispatch is None:
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        call_dispatcher = get_structured_dispatch().call_dispatcher
 
         dispatch = call_dispatcher
 

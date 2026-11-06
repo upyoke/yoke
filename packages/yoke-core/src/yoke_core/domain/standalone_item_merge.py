@@ -8,13 +8,15 @@ from yoke_core.domain.public_item_target import public_item_target
 
 from typing import Optional, Sequence
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.engines.standalone_item_merge_engine import run as _run_merge_engine
 from yoke_core.domain.standalone_item_merge_outcome import StandaloneMergeOutcome
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can

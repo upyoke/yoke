@@ -24,12 +24,14 @@ from __future__ import annotations
 
 from yoke_core.domain import session_ambient_identity
 from yoke_contracts.api.function_call import ActorContext, TargetRef
-from yoke_core.api import service_client_structured_api_adapter as structured_api
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 
 from contextlib import contextmanager
 import threading
 import time
 from typing import Callable, Iterator, Optional
+
+structured_api = get_structured_dispatch()
 
 #: How often a running command refreshes its session's heartbeat. Well
 #: inside the shortest stale TTL, so a single dropped refresh is not a

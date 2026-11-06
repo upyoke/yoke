@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.query_items_cli import main
+from yoke_core.cli.query_items_cli import main
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 

@@ -20,8 +20,10 @@ from yoke_core.domain.public_item_target import public_item_target
 from typing import Any, Callable, Optional
 
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def recorded_receipt(

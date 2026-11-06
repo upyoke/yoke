@@ -102,7 +102,8 @@ def run_end(args: list[str]) -> int:
     contract = resolve_mission_contract(parsed, prog=PROG_END)
     if contract is None:
         return 2
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
     from yoke_core.domain.machine_qa_mission_walk import (
         execute_agent_mission_walk_end,
         record_mission_restore,
@@ -186,7 +187,8 @@ def run_end(args: list[str]) -> int:
 
 
 def _finish_cleanup(parsed, contract: dict, result: dict | None) -> str | None:
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
     from yoke_core.domain.agent_mission_host_command_cli import _target
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 

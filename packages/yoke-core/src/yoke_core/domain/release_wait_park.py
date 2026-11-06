@@ -31,10 +31,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import (
-    build_actor,
-    call_dispatcher,
-)
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.close_out_control_plane_authority import (
     connected_control_plane,
 )
@@ -57,6 +54,9 @@ from yoke_core.domain.release_wait_facts import (
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
+
+build_actor = get_structured_dispatch().build_actor
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def at_release_wait(item: dict[str, Any], status: str) -> bool:

@@ -97,7 +97,8 @@ def slug_files(
 def track(project: str, branch: str, updates: dict, item_label: str = "") -> None:
     """Create/update the preview's ``ephemeral_environments`` row."""
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     created = call_dispatcher(
         function_id="ephemeral_env.create",
@@ -134,7 +135,8 @@ def recorded_candidate(project: str, preview_key: str) -> tuple[str, str]:
     as the first would claim an occupancy it never checked.
     """
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     try:
         found = call_dispatcher(

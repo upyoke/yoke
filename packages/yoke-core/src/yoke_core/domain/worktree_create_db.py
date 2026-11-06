@@ -35,9 +35,8 @@ def _response_error(response: Any) -> str:
 
 def prepare_authoritative_item_worktrees(item_id: int | str) -> list[dict[str, Any]]:
     """Ensure the remote default lane and list every active authoritative lane."""
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     target = public_item_target(item_id)
     prepared = call_dispatcher(
@@ -113,9 +112,8 @@ def _record_authoritative_item_worktree_paths(
     item_id: int | str,
     lanes: Sequence[Tuple[Any, ...]],
 ) -> None:
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     target = public_item_target(item_id)
     for raw in lanes:
@@ -151,9 +149,8 @@ def item_project_slug(item_id: int | str, db_path: Optional[str]) -> str:
     caller that did not already carry the project must consult.
     """
     if db_path is None and item_worktree_authority_is_https():
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        call_dispatcher = get_structured_dispatch().call_dispatcher
 
         response = call_dispatcher(
             function_id="items.detail.get",

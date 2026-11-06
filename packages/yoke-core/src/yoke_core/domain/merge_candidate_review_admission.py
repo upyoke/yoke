@@ -21,8 +21,10 @@ import sys
 from typing import Any, Callable
 
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import standalone_item_merge_git as git
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 EVALUATE_FUNCTION_ID = "merge_review.candidate.evaluate"
 
