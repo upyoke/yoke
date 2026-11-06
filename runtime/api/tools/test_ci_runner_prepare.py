@@ -99,6 +99,8 @@ def test_postgres_settings_and_cleanup_publish_before_admission(monkeypatch, pos
             runner.start_postgres()
         assert "YOKE_PG_DSN=" not in postgres.read_text()
     docker = next(args for args in calls if args[:2] == ["docker", "run"])
+    assert calls[0] == ["docker", "pull", "example.test/postgres:16"]
+    assert calls.index(docker) == 1, "pull must succeed before consuming the image"
     assert docker[docker.index("--name") + 1] == "isolated-test-pg"
     assert "timezone=" + dict(runner.DISPOSABLE_SERVER_SETTINGS)["timezone"] in docker
     for value in ("fsync=off", "synchronous_commit=off", "full_page_writes=off",
@@ -118,6 +120,7 @@ def test_postgres_pull_retries_are_bounded_and_keep_cleanup(monkeypatch, postgre
     with pytest.raises(runner.PreparationError, match="ci_runner_postgres_pull_failed"):
         runner.start_postgres()
     assert len(attempts) == 5 and len(delays) == 4
+    assert all(args[:2] == ["docker", "pull"] for args in attempts)
     assert all(5 <= seconds <= 30 for seconds in delays)
     assert "YOKE_PG_SOCKET_DIR=" in postgres.read_text()
 
@@ -154,7 +157,8 @@ def test_locked_dependency_command_is_unchanged(monkeypatch):
     assert calls == [["uv", "sync", "--all-packages", "--locked"]]
 
 
-@pytest.mark.parametrize("error", [OSError("missing binary"), subprocess.TimeoutExpired("uv", 180)])
+@pytest.mark.parametrize("error", [OSError("missing binary"), subprocess.TimeoutExpired("uv", 180),
+                                  subprocess.CalledProcessError(1, ["docker", "port"])])
 def test_command_failures_teach_recovery(monkeypatch, error):
     def fail(*args, **kwargs):
         raise error
