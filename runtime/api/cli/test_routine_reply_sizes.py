@@ -20,7 +20,7 @@ from yoke_cli.transport.output_limit import read_output_scope
 )
 def test_measured_routine_read_sizes(command, budget):
     from yoke_cli.commands.adapters.qa_plan_listing import write_plan_rows
-    from yoke_cli.commands.adapters.session_control_roster import write_roster_summary
+    from yoke_cli.commands.adapters.sessions_read import write_sessions_result
     from yoke_cli.commands.adapters.session_control_common import (
         write_message_detail_result,
     )
@@ -31,7 +31,7 @@ def test_measured_routine_read_sizes(command, budget):
 
     writers = {
         "qa": write_plan_rows,
-        "sessions": write_roster_summary,
+        "sessions": write_sessions_result,
         "message": write_message_detail_result,
         "packet": write_packet_summary,
     }

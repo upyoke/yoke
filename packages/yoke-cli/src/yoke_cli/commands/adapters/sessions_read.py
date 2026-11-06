@@ -89,30 +89,6 @@ def sessions_list(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        displayed = [
-            {
-                **row,
-                **session_state_columns(row),
-                "session": row.get("display_label") or "session label unavailable",
-                "next_actor": row.get("next_actor") or (row.get("session_state") or {}).get("next_actor"),
-                "read": f"yoke sessions get {row.get('session_id')}",
-                "project": recipient_project(row),
-            }
-            for row in result.get("rows", [])
-        ]
-        fields = [
-            "session",
-            "read",
-            *(
-                key
-                for key in result.get("fields", [])
-                if key not in {"session_id", "display_label", "harness_title"}
-            ),
-        ]
-        write_human({**result, "fields": fields, "rows": displayed}, stdout)
-
     payload: Dict[str, Any] = {
         "detail": "full" if parsed.full else "summary",
         "offset": parsed.offset,
@@ -132,8 +108,34 @@ def sessions_list(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
+        human_writer=write_sessions_result,
     )
+
+
+
+def write_sessions_result(response, stdout, stderr) -> None:
+    result = response.result or {}
+    displayed = [
+        {
+            **row,
+            **session_state_columns(row),
+            "session": row.get("display_label") or "session label unavailable",
+            "next_actor": row.get("next_actor") or (row.get("session_state") or {}).get("next_actor"),
+            "read": f"yoke sessions get {row.get('session_id')}",
+            "project": recipient_project(row),
+        }
+        for row in result.get("rows", [])
+    ]
+    fields = [
+        "session",
+        "read",
+        *(
+            key
+            for key in result.get("fields", [])
+            if key not in {"session_id", "display_label", "harness_title"}
+        ),
+    ]
+    write_human({**result, "fields": fields, "rows": displayed}, stdout)
 
 
 def sessions_get(args: List[str]) -> int:
