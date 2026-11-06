@@ -186,11 +186,7 @@ def test_command_settles_previously_completed_evidence_inline(
         )
         assert "re-drive" not in str(refusal)
     else:
-        from yoke_core.domain.handlers.done_transition_deploy_reads import (
-            handle_run_stage_qa_acceptance,
-        )
-
-        response = handle_run_stage_qa_acceptance(
+        response = dispatch(
             FunctionCallRequest(
                 function="done_transition.run_stage_qa_acceptance",
                 actor=request.actor,
@@ -198,8 +194,8 @@ def test_command_settles_previously_completed_evidence_inline(
                 payload={"run_id": execution["deployment_run_id"]},
             )
         )
-        assert response.primary_success
-        assert response.result_payload["blocking"] == []
+        assert response.success, response.error
+        assert response.result["blocking"] == []
     assert (
         item_qa_acceptance_blockers(
             test_db,
