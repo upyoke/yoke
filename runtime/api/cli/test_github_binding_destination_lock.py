@@ -23,7 +23,7 @@ from yoke_contracts.api.function_call import (
 )
 
 
-from github_binding_test_support import (
+from runtime.api.cli.github_binding_test_support import (
     _two_service_config,
     _install_observed_authority,
 )
