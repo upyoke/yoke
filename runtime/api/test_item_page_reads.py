@@ -42,6 +42,7 @@ def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
     assert rows[0]["stage_label"] == "reviewing implementation"
     assert rows[0]["claimed_by"]["actor_label"] == "Codex"
     assert rows[0]["claimed_by"]["session_id"] == "session-z"
+    assert rows[0]["next_actor"]["actor"] == "this_session"
     assert rows[0]["worktrees"][0]["branch"] == "codex/footer"
     assert rows[0]["worktrees"][0]["lane_role"] == "implementation"
     assert rows[0]["worktrees"][0]["state"] == "active"

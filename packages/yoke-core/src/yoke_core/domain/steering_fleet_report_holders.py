@@ -8,7 +8,7 @@ module decides only who the holders are.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -194,12 +194,9 @@ def claim_holders(
         (session_id for session_id, process in processes.items() if process),
         now=parse_stamp(now),
     )
-    from yoke_core.domain.next_actor_facts import next_actor_facts
     from yoke_core.domain.next_actor import session_next_actor
     from yoke_core.domain.session_state import session_presence
 
-    action_facts, _ = next_actor_facts(conn, session_ids=[row["session_id"] for row in rows],
-                                    item_ids=[row["item_id"] for row in rows])
     for row in rows:
         last_activity = parse_stamp(
             row.get("last_tool_call_at")
@@ -228,7 +225,7 @@ def claim_holders(
                 ),
                 mode=mode,
                 next_actor=session_next_actor(
-                    {**row, **action_facts.get(str(row["session_id"]), {})},
+                    row,
                     presence=session_presence(row)),
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,
@@ -247,6 +244,21 @@ def claim_holders(
             )
         )
     return tuple(holders)
+
+
+def with_next_actor(conn: Any, holders: tuple[ClaimHolder, ...]) -> tuple[ClaimHolder, ...]:
+    """Enrich a report page after the narrow, one-statement holder read."""
+    from yoke_core.domain.next_actor_facts import next_actor_facts
+    from yoke_core.domain.next_actor import session_next_actor
+
+    facts, _ = next_actor_facts(conn, session_ids=[h.session_id for h in holders],
+                              item_ids=[h.item_id for h in holders])
+    return tuple(replace(holder, next_actor=session_next_actor(
+        {"mode": holder.mode, "quiet_reason": holder.quiet_reason,
+         "turn_posture_at": holder.next_actor.get("since"),
+         "native_process_gone_at": holder.native_process_gone_at,
+         **facts.get(holder.session_id, {})},
+        presence="gone" if holder.native_process_gone else "present")) for holder in holders)
 
 
 __all__ = ["ClaimHolder", "claim_holders"]

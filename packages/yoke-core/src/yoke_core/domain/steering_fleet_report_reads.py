@@ -69,7 +69,7 @@ from yoke_core.domain.steering_fleet_report_landed_open import (
     LandedItem,
     landed_without_closeout,
 )
-from yoke_core.domain.steering_fleet_report_holders import ClaimHolder, claim_holders
+from yoke_core.domain.steering_fleet_report_holders import ClaimHolder, claim_holders, with_next_actor
 from yoke_core.domain.steering_fleet_report_levels import (
     LevelReadout,
     read_level_readout,
@@ -154,7 +154,7 @@ def read_project_facts(
     parked, which is how a healthy wait came to print a close-out command.
     """
     request = reads if reads is not None else FleetReportReads()
-    holders = claim_holders(conn, project_id=project_id, now=now)
+    holders = with_next_actor(conn, claim_holders(conn, project_id=project_id, now=now))
     plan_limits = request.machine_facts(
         conn,
         "plan_limits",

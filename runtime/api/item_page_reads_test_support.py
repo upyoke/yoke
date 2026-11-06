@@ -42,6 +42,7 @@ def _connection() -> sqlite3.Connection:
           status TEXT,
           priority TEXT,
           owner TEXT,
+          frozen INTEGER,
           blocked INTEGER,
           blocked_reason TEXT,
           created_at TEXT,
@@ -233,7 +234,7 @@ def _connection() -> sqlite3.Connection:
         """
         INSERT INTO items VALUES (
               51, 'Fix the footer', 'reviewing-implementation', 'medium', '4',
-              0, '', '2026-07-25T12:00:00Z', '2026-07-26T12:00:00Z', NULL,
+              0, 0, '', '2026-07-25T12:00:00Z', '2026-07-26T12:00:00Z', NULL,
               NULL, NULL, NULL, NULL,
               '{"verification": true, "file_budget": true}',
           'Correct the footer and verify every link.
