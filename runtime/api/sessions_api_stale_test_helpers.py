@@ -222,3 +222,31 @@ __all__ = [
     "conn",
     "ownership_conn",
 ]
+
+
+SWEEP_EVENT_TABLES = """
+    CREATE TABLE IF NOT EXISTS events (
+        id INTEGER PRIMARY KEY,
+        event_name TEXT NOT NULL,
+        event_kind TEXT,
+        event_type TEXT,
+        source_type TEXT,
+        session_id TEXT,
+        item_id TEXT,
+        task_num INTEGER,
+        project_id INTEGER DEFAULT 1,
+        severity TEXT DEFAULT 'INFO',
+        outcome TEXT DEFAULT 'completed',
+        client_timing_id TEXT,
+        envelope TEXT,
+        created_at TIMESTAMPTZ
+    );
+    CREATE TABLE IF NOT EXISTS event_registry (
+        event_name TEXT PRIMARY KEY,
+        event_kind TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        owner_service TEXT NOT NULL,
+        description TEXT NOT NULL,
+        severity_default TEXT NOT NULL DEFAULT 'INFO'
+    );
+"""

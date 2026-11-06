@@ -43,7 +43,7 @@ def _python_sources() -> List[Path]:
     out: List[Path] = []
     for path in sorted(API_ROOT.rglob("*.py")):
         name = path.name
-        if name.startswith("test_"):
+        if name.startswith("test_") or name.endswith("_test_support.py"):
             continue
         if path.name == "test_zero_shell_proof.py":
             continue

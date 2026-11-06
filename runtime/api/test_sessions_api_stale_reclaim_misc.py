@@ -14,6 +14,8 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.sessions_api_stale_test_helpers import SWEEP_EVENT_TABLES
+
 from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED,
@@ -146,32 +148,7 @@ class TestEmptySessionStaleCleanup:
 class TestStaleSessionSweepEvent:
     """HarnessSessionStaleSweepCompleted event."""
 
-    _SWEEP_EVENT_TABLES = """
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY,
-            event_name TEXT NOT NULL,
-            event_kind TEXT,
-            event_type TEXT,
-            source_type TEXT,
-            session_id TEXT,
-            item_id TEXT,
-            task_num INTEGER,
-            project_id INTEGER DEFAULT 1,
-            severity TEXT DEFAULT 'INFO',
-            outcome TEXT DEFAULT 'completed',
-            client_timing_id TEXT,
-            envelope TEXT,
-            created_at TIMESTAMPTZ
-        );
-        CREATE TABLE IF NOT EXISTS event_registry (
-            event_name TEXT PRIMARY KEY,
-            event_kind TEXT NOT NULL,
-            event_type TEXT NOT NULL,
-            owner_service TEXT NOT NULL,
-            description TEXT NOT NULL,
-            severity_default TEXT NOT NULL DEFAULT 'INFO'
-        );
-    """
+    _SWEEP_EVENT_TABLES = SWEEP_EVENT_TABLES
 
     @pytest.fixture
     def conn(self, conn):

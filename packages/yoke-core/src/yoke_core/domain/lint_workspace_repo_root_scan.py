@@ -41,7 +41,7 @@ REPO_ROOT_REFERENCE_ALLOWLIST: frozenset[str] = frozenset({
     "runtime/api/domain/test_lint_workspace_repo_root_scan.py",
     # The workspace-anchored fixture's docstring names the prior pattern
     # so future readers know why the helper exists.
-    "runtime/api/domain/test_agents_render_workspace_fixtures.py",
+    "runtime/api/domain/agents_render_workspace_fixtures_test_support.py",
 })
 
 

@@ -7,6 +7,7 @@ from runtime.api.domain.function_authz_scope_routing_test_support import (
     _org_admin,
     _org_of,
     _payload_request,
+    conn as conn,
 )
 from yoke_core.domain.project_identity import resolve_project_id
 

@@ -46,8 +46,8 @@ def test_custom_callable_builds_once_and_restores_seed_rows(tmp_path):
 @pytest.mark.parametrize(
     "module_name,fixture_name",
     [
-        ("test_sessions", "conn"),
-        ("test_sessions", "ownership_conn"),
+        ("sessions_test_support", "conn"),
+        ("sessions_test_support", "ownership_conn"),
         ("sessions_api_stale_test_helpers", "conn"),
         ("sessions_api_stale_test_helpers", "ownership_conn"),
         ("test_sessions_reactivation_driver_stamp", "conn"),

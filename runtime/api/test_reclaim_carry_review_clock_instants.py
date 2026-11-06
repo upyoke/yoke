@@ -57,9 +57,7 @@ def test_actual_reclaim_fixtures_declare_native_clocks_and_seed_items(
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_stale_event_schema_binds_native_microseconds(test_db, zone):
     from runtime.api import sessions_api_stale_test_helpers as fixtures
-    from runtime.api.sessions_test_support_api_stale_reclaim_misc import (
-        TestStaleSessionSweepEvent,
-    )
+    from runtime.api.sessions_api_stale_test_helpers import SWEEP_EVENT_TABLES
 
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     # Verify the actual three event DDL owners on separate empty tables,
@@ -69,7 +67,7 @@ def test_stale_event_schema_binds_native_microseconds(test_db, zone):
         for ddl in [
             fixtures.EVENTS_TABLE_FOR_STALE_DETECTION,
             fixtures._OWNERSHIP_EXTRA_TABLES,
-            TestStaleSessionSweepEvent._SWEEP_EVENT_TABLES,
+            SWEEP_EVENT_TABLES,
         ]:
             fixtures.apply_ddl_statements(test_db, ddl)
             assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone

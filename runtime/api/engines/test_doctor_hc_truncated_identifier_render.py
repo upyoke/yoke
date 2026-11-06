@@ -145,6 +145,7 @@ def test_test_files_may_write_the_shape_the_guard_forbids(
     body = "x = session_id[:8]\n"
     _write(tmp_path, "packages/test_render.py", body)
     _write(tmp_path, "packages/render_test.py", body)
+    _write(tmp_path, "runtime/harness/render_test_support.py", body)
     assert hc.scan(tmp_path) == []
 
 
