@@ -16,12 +16,11 @@ from yoke_core.domain.merge_queue_live_drift import drift_blocking_landing
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="merge_queue_gate_probe")
     parser.add_argument("--project", required=True)
-    parser.add_argument("--checkout", required=True)
     parser.add_argument("--branch", default="main")
     args = parser.parse_args(argv)
 
     report = drift_blocking_landing(
-        args.project, checkout=args.checkout, branch=args.branch,
+        args.project, branch=args.branch,
     )
     print(f"would_block={report.drifted}")
     for line in report.drift:

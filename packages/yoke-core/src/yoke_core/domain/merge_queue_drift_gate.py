@@ -70,14 +70,12 @@ def _emit_drift_check_skipped(
 def drift_check_before_landing(
     project: str,
     *,
-    checkout: str,
     branch: str,
     public_ref: str,
 ) -> LiveDriftReport:
     """Run the gate and count every skipped comparison."""
     report = drift_blocking_landing(
         project,
-        checkout=checkout,
         branch=branch,
     )
     if not report.skipped:

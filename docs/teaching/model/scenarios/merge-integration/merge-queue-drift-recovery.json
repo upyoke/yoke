@@ -2,8 +2,8 @@
  "id": "merge-queue-drift-recovery",
  "title": "Recover merge-queue declaration drift safely",
  "status": "observed",
- "trigger": "Merge preflight refuses because the lane declaration differs from live enforcement rules.",
- "need": "Compare the gate branch declaration with live rules. When it matches live, update the lane from the gate branch, re-verify and retry merge. Apply only when the gate declaration also differs from live, from an up-to-date checkout of that branch. An unreadable gate declaration or live rules names gate_declaration_unverified and requires restoring the read before retry; never apply a stale lane declaration.",
+ "trigger": "Merge preflight finds drift between the landed gate declaration and live enforcement rules, or apply receives unlanded content.",
+ "need": "Admission, Doctor and real apply fetch the declaration from the project gate branch. Land added checks before applying. Real apply refuses declaration_not_landed for differing sent content; preview may inspect lane content. Remove or rename checks in two PRs: land and apply the declaration change, then change CI jobs. Restore unreadable gate access before retrying; never apply a stale lane declaration.",
  "sources": ["docs/public/github/merge-queue-landings.md", "packages/yoke-core/src/yoke_core/domain/merge_queue_live_drift.py", "runtime/api/test_merge_queue_drift_recovery.py"],
  "topics": ["merging/landing/merge-queue"]
 }

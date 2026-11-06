@@ -128,12 +128,10 @@ def land_item_through_merge_queue(
                 dispatch=dispatch,
             )
 
-    # The candidate may retune required checks before its declaration lands.
-    # Compare that declaration; the main checkout still carries the old one.
+    # Only the landed gate declaration owns the live rules.
     # A comparison that could not run rides the batch evidence instead.
     drift = drift_check_before_landing(
         ctx.project or "",
-        checkout=ctx.worktree_path or ctx.repo_root,
         branch=target,
         public_ref=public_ref,
     )

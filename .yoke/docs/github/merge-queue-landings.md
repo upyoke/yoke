@@ -9,17 +9,24 @@ request. A headless worker receives `landing_pending=true` and waits for the
 control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
-Merge preflight refuses when the lane's `.yoke/merge-queue.json` differs from
-live enforcement rules. It reads the gate branch's declaration before teaching
-recovery: when `origin/main` already matches live, update this lane from
-`origin/main`, re-verify, and retry the merge. Never apply a stale lane's
-declaration: that would change the rules for every pull request. When the gate
-branch also differs from live, run `yoke github merge-queue apply --project P`
-from an up-to-date checkout of that branch, then retry. Projects targeting a
-branch other than main use that gate branch. `gate_declaration_unverified`
-means the gate declaration or live rules could not be compared: restore read
-access and a valid declaration on the gate branch, then retry without applying
-from the lane.
+Merge admission and Doctor compare live rules with `.yoke/merge-queue.json`
+fetched from the project's gate branch, never a lane or local checkout.
+A lane adding checks can land while the gate declaration still matches live.
+After it lands, run `yoke github merge-queue apply --project P` to apply the
+landed declaration. Apply requires Administration: write and Contents: read.
+`--preview` reads the gate declaration without changing GitHub; add
+`--declaration PATH` to preview a lane's declaration instead.
+A real apply with `--declaration PATH` whose content differs from the gate
+branch refuses `declaration_not_landed`: land the declaration change first,
+then apply. To remove or rename a required check, use two PRs: first land and
+apply the declaration change, then remove or rename the CI job. Removing the
+job in the first PR would leave the live required check unable to pass.
+
+When the gate declaration differs from live, merge preflight refuses; apply
+the landed gate declaration, then retry. An unreadable declaration or GitHub
+reports a skipped comparison in the landing evidence. Recovery reporting
+names `gate_declaration_unverified` if it cannot verify the gate: restore read
+access and a valid declaration on that branch, then retry.
 
 Before it selects a route, the command asks the item's integration dependency
 gate (`merge.preflight.dependency_gate`). Queue admission only sees

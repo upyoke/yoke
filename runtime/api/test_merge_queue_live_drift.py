@@ -152,17 +152,18 @@ def test_refusal_names_the_declaration_and_the_command_that_clears_it(monkeypatc
 class TestLandingGate:
     """What the landing does with each report the comparison can produce."""
 
-    @staticmethod
-    def _declare(tmp_path, payload=DECLARED):
-        target = tmp_path / ".yoke"
-        target.mkdir(parents=True, exist_ok=True)
-        (target / "merge-queue.json").write_text(json.dumps(payload))
-        return tmp_path
+    @pytest.fixture(autouse=True)
+    def remote(self, monkeypatch):
+        from yoke_core.domain import project_github_auth as auth_mod
+        self.raw = json.dumps(DECLARED)
+        monkeypatch.setattr(auth_mod, "resolve_project_github_auth",
+                            lambda *a, **k: SimpleNamespace(repo="example/repo", token="t"))
+        monkeypatch.setattr(drift_mod.mq_rest, "fetch_file_text", lambda *a, **k: self.raw)
 
     def test_a_project_with_no_declaration_lands_unblocked(self, tmp_path):
+        self.raw = None
         report = drift_blocking_landing(
             "yoke",
-            checkout=str(tmp_path),
             branch="main",
         )
         assert report.drifted is False
@@ -173,10 +174,9 @@ class TestLandingGate:
         self,
         tmp_path,
     ):
-        checkout = self._declare(tmp_path, {"schema": 1, "ruleset": {}})
+        self.raw = json.dumps({"schema": 1, "ruleset": {}})
         report = drift_blocking_landing(
             "yoke",
-            checkout=str(checkout),
             branch="main",
         )
         assert report.drifted is False
@@ -190,7 +190,6 @@ class TestLandingGate:
     ):
         from yoke_core.domain import project_github_auth as auth_mod
 
-        checkout = self._declare(tmp_path)
 
         def _raise(project, **kwargs):
             raise auth_mod.MissingRepoBinding(project, "no repo binding")
@@ -202,7 +201,6 @@ class TestLandingGate:
         )
         report = drift_blocking_landing(
             "yoke",
-            checkout=str(checkout),
             branch="main",
         )
         assert report.drifted is False
@@ -216,7 +214,6 @@ class TestLandingGate:
     ):
         from yoke_core.domain import project_github_auth as auth_mod
 
-        checkout = self._declare(tmp_path)
         monkeypatch.setattr(
             auth_mod,
             "resolve_project_github_auth",
@@ -230,12 +227,32 @@ class TestLandingGate:
 
         report = drift_blocking_landing(
             "yoke",
-            checkout=str(checkout),
             branch="main",
         )
 
         assert report.drifted is False
         assert report.skip_reason == DRIFT_SKIP_GITHUB_UNREACHABLE
+
+    @pytest.mark.parametrize("lane_checks", [[], ["shard-1", "new-check"]])
+    def test_gate_matches_live_regardless_of_lane_retune(self, tmp_path, monkeypatch, lane_checks):
+        from copy import deepcopy
+        lane = deepcopy(DECLARED)
+        lane["ruleset"]["rules"][1]["parameters"]["required_status_checks"] = [
+            {"context": name} for name in lane_checks
+        ]
+        (tmp_path / ".yoke").mkdir()
+        (tmp_path / ".yoke/merge-queue.json").write_text(json.dumps(lane))
+        reads = []
+        def fetch(*args, ref, **kwargs):
+            reads.append(ref)
+            return self.raw
+        monkeypatch.setattr(drift_mod.mq_rest, "fetch_file_text", fetch)
+        monkeypatch.setattr(drift_mod, "live_branch_rules",
+                            lambda *a, **k: (_live_rules(["shard-1"]), None))
+        report = drift_blocking_landing("project", branch="release/stable")
+        assert not report.drifted
+        assert not report.skipped
+        assert reads == ["release/stable"]
 
     def test_drift_stops_the_landing_with_the_apply_recipe(
         self,

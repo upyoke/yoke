@@ -11,9 +11,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.project_contract.merge_queue import (
-    DECLARATION_RELATIVE_PATH,
-)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -22,7 +19,6 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.config.checkout_context import resolve_repo_root_from_cwd
 
 
 GITHUB_MERGE_QUEUE_APPLY_USAGE = (
@@ -137,8 +133,8 @@ def github_merge_queue_apply(args: List[str]) -> int:
         description=(
             "Idempotently apply .yoke/merge-queue.json (ruleset + "
             "allow_auto_merge) to the project's bound GitHub repository. "
-            "Requires Administration: write on the App installation. "
-            "Dry-run with --preview."
+            "Requires Administration: write and Contents: read on the App installation. "
+            "Real apply requires content matching the landed gate declaration. Preview lane changes with --preview --declaration PATH."
         ),
     )
     parser.add_argument(
@@ -150,7 +146,7 @@ def github_merge_queue_apply(args: List[str]) -> int:
         "--declaration",
         default=None,
         help=(
-            "Path to the declared JSON (default: <checkout>/.yoke/merge-queue.json)."
+            "Optional JSON to compare with the gate branch or preview; omitted content uses the gate declaration."
         ),
     )
     parser.add_argument(
@@ -174,21 +170,14 @@ def github_merge_queue_apply(args: List[str]) -> int:
     }
     if parsed.declaration:
         declaration_path = Path(parsed.declaration).expanduser()
-    else:
-        checkout = resolve_repo_root_from_cwd()
-        if checkout is None:
-            return usage_error(
-                "cannot resolve the local checkout; pass --declaration PATH"
-            )
-        declaration_path = Path(checkout) / DECLARATION_RELATIVE_PATH
-    try:
-        declaration_text = declaration_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return usage_error(f"unreadable {declaration_path}: {exc}")
-    try:
-        payload["declaration"] = json.loads(declaration_text)
-    except json.JSONDecodeError as exc:
-        return usage_error(f"invalid JSON in {declaration_path}: {exc}")
+        try:
+            declaration_text = declaration_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return usage_error(f"unreadable {declaration_path}: {exc}")
+        try:
+            payload["declaration"] = json.loads(declaration_text)
+        except json.JSONDecodeError as exc:
+            return usage_error(f"invalid JSON in {declaration_path}: {exc}")
 
     def _human_writer(response, stdout, stderr) -> None:
         del stderr

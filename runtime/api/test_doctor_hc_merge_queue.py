@@ -141,7 +141,7 @@ def test_json_null_declaration_is_unreadable_not_absent(monkeypatch):
     assert "parameter drift not checked" not in result.detail
 
 
-def test_checkout_declaration_wins_over_repo(monkeypatch):
+def test_gate_declaration_wins_over_checkout(monkeypatch):
     stale = declared()
     stale["ruleset"]["rules"][0]["parameters"]["grouping_strategy"] = (
         "ALLGREEN"
@@ -153,8 +153,8 @@ def test_checkout_declaration_wins_over_repo(monkeypatch):
         declaration=declared(),
         repo_declaration=stale,
     )
-    assert result.result == "PASS"
-    assert ".yoke/merge-queue.json" in result.detail
+    assert result.result == "FAIL"
+    assert "merge_queue parameters drifted" in result.detail
 
 
 def test_allow_auto_merge_drift_fails(monkeypatch):

@@ -1,8 +1,6 @@
-"""Queue retunes are admitted against the candidate's declaration."""
+"""Queue retunes are admitted against the gate branch declaration."""
 
 from __future__ import annotations
-
-from pathlib import Path
 
 import pytest
 
@@ -13,21 +11,18 @@ from yoke_core.domain.merge_queue_live_drift import LiveDriftReport
 
 
 @pytest.mark.parametrize("has_lane", [True, False])
-def test_landing_compares_candidate_declaration_before_arming(
+def test_landing_compares_gate_without_reading_candidate(
     monkeypatch,
     tmp_path,
     has_lane,
 ):
     main = tmp_path / "main"
     candidate = tmp_path / "candidate"
-    expected = candidate if has_lane else main
     merge_ctx = ctx(repo_root=str(main))
     observed = []
 
-    def compare(project, *, checkout, branch, public_ref):
-        observed.append(Path(checkout))
-        if Path(checkout) != expected:
-            return LiveDriftReport(drift=("old required checks",))
+    def compare(project, *, branch, public_ref):
+        observed.append(branch)
         return LiveDriftReport()
 
     monkeypatch.setattr(route_mod, "drift_check_before_landing", compare)
@@ -67,5 +62,5 @@ def test_landing_compares_candidate_declaration_before_arming(
         dispatch=dispatch_for({branch: {}}),
     )
 
-    assert observed == [expected]
+    assert observed == ["main"]
     assert outcome.error == "queue lookup after comparison"
