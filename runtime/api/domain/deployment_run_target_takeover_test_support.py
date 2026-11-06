@@ -162,3 +162,43 @@ def _memberless_copy(conn, requirement_id: int, *, stage: str = ITEM_QA_STAGE) -
     ).fetchone()
     conn.commit()
     return int(row["id"])
+
+
+def _dated_copy(conn, run_id, *, status, created_at, open_requirement=None):
+    """Another run on this target, optionally owning open QA for a closed member."""
+    conn.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,target_tier,"
+        "target_environment_id,release_lineage,status,current_stage,created_at) "
+        "SELECT %s,project_id,flow,target_tier,target_environment_id,release_lineage,"
+        "%s,current_stage,%s FROM deployment_runs WHERE id=%s",
+        (run_id, status, created_at, OLD),
+    )
+    if open_requirement is not None:
+        requirement = _memberless_copy(conn, open_requirement)
+        conn.execute(
+            "UPDATE qa_requirements SET deployment_run_id=%s,"
+            "deployment_member_item_id=%s WHERE id=%s",
+            (run_id, PASSED, requirement),
+        )
+        conn.execute(
+            "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
+            "SELECT %s,%s,created_at FROM deployment_runs WHERE id=%s",
+            (run_id, PASSED, run_id),
+        )
+    conn.commit()
+
+
+def _dated_target(conn):
+    cases = _seed_old(conn, run_qa=False)
+    _close_passed(conn)
+    conn.execute(
+        "UPDATE deployment_runs SET created_at=%s WHERE id=%s",
+        ("2026-11-02T00:00:00Z", OLD),
+    )
+    _seed_new(conn)
+    conn.execute(
+        "UPDATE deployment_runs SET created_at=%s WHERE id=%s",
+        ("2026-11-06T00:00:00Z", NEW),
+    )
+    conn.commit()
+    return cases
