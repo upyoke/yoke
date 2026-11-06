@@ -29,9 +29,10 @@ Single owner of the ambient chain every Yoke surface uses to answer
    a condition for agents to work around.
 
 Consumers: the function-call dispatcher's identity binder
-(:mod:`yoke_core.domain.yoke_function_actor_identity`), the CLI
-envelope builder (:mod:`yoke_core.domain.session_current_identity`),
-and the hook helpers. Per-command env stamping demotes to a fast path of
+(:mod:`yoke_core.domain.yoke_function_actor_identity`), domain session lookup
+(:mod:`yoke_core.domain.session_current_identity`), the CLI envelope builder
+(:mod:`yoke_core.api.service_client_shared_session_resolver`), and hook helpers.
+Per-command env stamping demotes to a fast path of
 this chain rather than the only identity source.
 """
 

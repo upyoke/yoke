@@ -1,8 +1,8 @@
 """Operator-facing item projection vocabulary.
 
-The default listing projection and the actor-label field set are domain
-vocabulary: the server-side handlers and the CLI flag parsers both derive
-their shapes from this module so the layers cannot drift.
+The selectable fields, default listing projection and actor-label field set
+are domain vocabulary: server handlers and CLI flag parsers both derive their
+shapes from this module so the layers cannot drift.
 """
 
 from __future__ import annotations

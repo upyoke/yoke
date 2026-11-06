@@ -1,13 +1,8 @@
-"""Field-set constants and filter-parsing helpers for items query commands.
+"""Filter-parsing helpers for items query commands.
 
-Owns the canonical field allowlist (`_QI_ALL_FIELDS`, `_QI_VIRTUAL_FIELDS`,
-`_QI_DEFAULT_FIELDS`, `_QI_LARGE_TEXT_FIELDS`) and the parsers that translate
-CLI flag arrays into ``queries.ItemFilter`` plus field/limit selections
-(`_parse_item_id`, `_parse_item_filters`, `_validate_fields`).
-
-These helpers are shared between the items listing/read commands and the
-backlog list-cli renderer, so they live in their own canonical module to
-satisfy the no-two-hop shim invariant.
+The domain's ``items_projection`` owns the canonical field vocabulary.
+These parsers translate CLI flag arrays into ``queries.ItemFilter`` plus
+field/limit selections for item reads and the backlog list renderer.
 """
 
 from __future__ import annotations
