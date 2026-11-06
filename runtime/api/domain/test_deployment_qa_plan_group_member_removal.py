@@ -65,3 +65,29 @@ def test_orphan_check_reads_attachments_once_and_sees_each_removal(test_db):
             if "FROM qa_plan_item_attachments" in sql
         )
         assert attachment_reads == (0 if last else 1)
+
+
+def test_set_aside_shared_qa_stays_open_without_holding_the_old_run(test_db):
+    from yoke_core.domain.deployment_run_member_set_aside import set_aside_reworking_members
+    from yoke_core.domain.deployment_qa_plan_group_standings import group_blockers
+    from yoke_core.domain.deployment_run_set_aside_qa import adopt_set_aside_qa
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import _seed_run, _stages
+
+    plan = _seed(test_db)
+    created = ensure_groups(test_db, RUN, "item-qa")
+    test_db.execute("UPDATE items SET status='implementing' WHERE id=ANY(%s)", (list(MEMBERS),))
+    set_aside_reworking_members(test_db, RUN, MEMBERS)
+    test_db.commit()
+    assert _retracted(test_db, created) == [False] * len(created)
+    assert group_blockers(test_db, RUN, "item-qa") == []
+    successor = "run-shared-after-rework"
+    stages = _stages(plan)
+    stages[1].pop("cases")
+    _seed_run(test_db, run_id=successor, stages=stages, members=(), existing_members=MEMBERS)
+    test_db.execute("UPDATE deployment_runs new SET flow=old.flow,target_environment_id=old.target_environment_id,"
+                    "created_at=old.created_at FROM deployment_runs old WHERE new.id=%s AND old.id=%s",
+                    (successor, RUN))
+    adopt_set_aside_qa(test_db, successor, MEMBERS)
+    assert run_groups(test_db, RUN) == []
+    (group,) = run_groups(test_db, successor)
+    assert group.open and set(group.requirement_ids) == set(created)
