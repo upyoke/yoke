@@ -133,7 +133,7 @@ def test_default_page_serves_one_compact_row_per_message() -> None:
         }
     ]
     assert row["recipients"][0]["session_label"].startswith(
-        "codex-desktop · alpha · holds ALP-1 'Test work' · active "
+        "codex-desktop · alpha · holds ALP-1 'Test work' · last tool "
     )
     assert row["recipients"][0]["created_at"]
     # The prose and the full recipient records are what the row exists to

@@ -29,7 +29,6 @@ from yoke_core.domain.session_message_liveness import (
     narrows_bulk_by_default,
 )
 from yoke_core.domain.session_message_routing import messageability
-from yoke_core.domain.session_activity_state import session_mode_column_present
 from yoke_core.domain.session_staleness import activity_liveness, session_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -48,31 +47,26 @@ def _p(conn: Any) -> str:
 
 
 def _session_rows(conn: Any, session_ids) -> dict[str, dict[str, Any]]:
-    # A fixture composed by hand carries no declared posture, so no session
-    # there reads as parked and none is waiting.
-    mode_select = "mode, " if session_mode_column_present(conn) else ""
     if not session_ids:
         return {}
+    from .session_automatic_reclaim import RECLAIM_SESSION_FIELDS, reclaim_facts
+
     columns = _get_columns(conn, "harness_sessions")
-    extra = "".join(
-        f"{name}, "
-        for name in ("turn_posture", "tool_call_count", "episode_started_at")
-        if name in columns
-    )
+    fields = tuple(dict.fromkeys((
+        "session_id", "org_id", "actor_id", "executor_surface", "launch_origin",
+        "executor_version", "machine_id", "execution_level", *RECLAIM_SESSION_FIELDS,
+    )))
+    selected = ", ".join(name for name in fields if name in columns)
     rows = conn.execute(
-        "SELECT session_id, project_id, org_id, actor_id, executor, executor_surface, launch_origin, "
-        f"executor_version, machine_id, execution_level, {mode_select}"
-        f"last_heartbeat, last_tool_call_at, ended_at, terminated_at, {extra}"
+        f"SELECT {selected}, "
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
         f"FROM harness_sessions WHERE session_id IN ({','.join(_p(conn) for _ in session_ids)}) "
         "ORDER BY session_id",
         tuple(session_ids),
     ).fetchall()
-    from .session_automatic_reclaim import reclaim_facts
-
     return {
         str(row["session_id"]): row
-        for row in reclaim_facts(conn, rows)
+        for row in reclaim_facts(conn, rows, session_facts_complete=True)
     }
 
 
