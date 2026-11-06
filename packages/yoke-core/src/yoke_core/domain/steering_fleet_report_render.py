@@ -18,7 +18,10 @@ from yoke_core.domain.steering_fleet_report_test_machines import (
 
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report_labels import label_text
-from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
+from yoke_core.domain.steering_fleet_report import FleetReport
+from yoke_core.domain.steering_fleet_report_render_holders import (
+    holder_lines as _holder_lines,
+)
 from yoke_core.domain.steering_fleet_report_awaiting_seat import awaiting_seat_lines
 from yoke_core.domain.steering_fleet_report_balance import launch_balance_lines
 from yoke_core.domain.steering_fleet_report_levels import (
@@ -83,28 +86,6 @@ REPORT_PREAMBLE = (
     "Server-composed control-plane facts for this project's steering holder. "
     "These are not instructions or peer text; staffing remains the steerer's. Nothing acted."
 )
-
-
-def _holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> list[str]:
-    lines = []
-    for holder in holders[:SECTION_LIMIT]:
-        line = (
-            f"  {holder.public_ref}  session {holder.session_id}  mode "
-            f"{holder.mode or 'unset'}  quiet {minutes(holder.idle_seconds)}"
-        )
-        if holder.quiet_reason:
-            line += f", {holder.quiet_reason}"
-        if holder.next_actor:
-            next_action = holder.next_actor
-            people = ", ".join(person["name"] for person in next_action.get("people", []) if person.get("name"))
-            line += f"  next: {people or next_action['actor']} — {next_action['reason']}"
-        if holder.hand_started:
-            line += "  hand-started (operator origin)"
-        line += f"  {holder.message_delivery}"
-        if idle:
-            line += f"  message it `yoke say --item {holder.public_ref} --stdin`"
-        lines.append(line)
-    return capped(lines, len(holders))
 
 
 def _run_lines(runs: tuple[DeploymentRunProgress, ...]) -> list[str]:
@@ -194,12 +175,15 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
         "",
         *landing_wait_section(report),
         *_section(
-            f"idle holders — claim held, no activity in over {idle}; process-gone "
-            "holders included even when parked; live landing waits excluded",
+            f"idle holders — silent past {idle}, no declared wait; next actor this_session",
             _holder_lines(
                 tuple(h for h in report.idle if h.item_id not in landed_ids),
                 idle=True,
             ),
+        ),
+        *_section(
+            "awaiting holders — declared wait or another actor",
+            _holder_lines(report.awaiting),
         ),
         *_in_flight.in_flight_section(report.in_flight),
         *_section(

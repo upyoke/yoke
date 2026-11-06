@@ -54,7 +54,7 @@ def test_the_body_leads_with_the_work_a_steerer_can_staff(steering_scope):
     assert "allocate by headroom" not in body
 
 
-def test_process_gone_holder_is_actionable_without_offering_a_wake(steering_scope):
+def test_process_gone_holder_is_listed_awaiting_without_offering_a_wake(steering_scope):
     claim_work(
         steering_scope,
         session_id=WORKER_SESSION,
@@ -69,7 +69,8 @@ def test_process_gone_holder_is_actionable_without_offering_a_wake(steering_scop
     steering_scope.commit()
 
     report = _compose(steering_scope)
-    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    holder = next(row for row in report.awaiting if row.session_id == WORKER_SESSION)
+    assert all(row.session_id != WORKER_SESSION for row in report.idle)
     assert holder.native_process_gone is True
     body = report_body(report)
     assert "parked waiting (reason not recorded)" in body
@@ -216,7 +217,8 @@ def test_a_sweep_contained_holder_is_named_rather_than_called_idle(steering_scop
     steering_scope.commit()
 
     report = _compose(steering_scope)
-    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    holder = next(row for row in report.awaiting if row.session_id == WORKER_SESSION)
+    assert all(row.session_id != WORKER_SESSION for row in report.idle)
 
     assert holder.contained_by_sweep is True
     assert holder.contained_reason == "registration_timeout"
@@ -247,7 +249,8 @@ def test_an_unexplained_death_describes_message_delivery_without_inventing_a_cau
     steering_scope.commit()
 
     report = _compose(steering_scope)
-    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    holder = next(row for row in report.awaiting if row.session_id == WORKER_SESSION)
+    assert all(row.session_id != WORKER_SESSION for row in report.idle)
 
     assert holder.contained_by_sweep is False
     assert (

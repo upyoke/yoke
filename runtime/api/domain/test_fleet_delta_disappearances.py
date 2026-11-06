@@ -137,7 +137,7 @@ def test_roster_activity_explains_a_removed_landing_without_holder_projection():
     before["scopes"][0]["landings"][0] = {**LANDING, "session_id": "worker"}
     after = report(landings=[])
     del after["scopes"][0]["holders"]
-    assert "worker active again" in removed(before, after, snapshot)[0]
+    assert "worker between_turns again" in removed(before, after, snapshot)[0]
 
 
 def test_unproven_cause_is_named_with_a_reachable_inspection_command():
@@ -223,3 +223,23 @@ def test_project_landed_union_is_capped_once_and_covered_runs_are_suppressed():
     rows = shown_rows({"scopes": seats}, digest=True)
     assert len(rows) == SECTION_LIMIT + 1
     assert all(row.subject != REF for row in rows.values())
+
+
+@pytest.mark.parametrize(
+    "intent,actor,reason",
+    [
+        ("parked", "parent_or_steering", "waiting for direction"),
+        ("awaiting", "operator", "decision open"),
+        ("awaiting", "ci_or_deploy", "checks running"),
+    ],
+)
+def test_clear_names_the_shared_intent_reason_and_next_actor(intent, actor, reason):
+    model = {
+        "intent": {"state": intent, "reason": reason},
+        "next_actor": {"actor": actor, "reason": reason},
+        "activity": "silent",
+    }
+    before = report(idle=[HOLDER])
+    after = report(idle=[], holders=[{**HOLDER, "session_state": model}])
+    [line] = removed(before, after)
+    assert f"worker {intent} — {reason}; next: {actor}" in line

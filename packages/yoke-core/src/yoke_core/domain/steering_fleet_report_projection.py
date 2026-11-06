@@ -55,6 +55,7 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
         "public_ref": holder.public_ref,
         "mode": holder.mode,
         "next_actor": holder.next_actor,
+        "session_state": holder.session_state,
         "parked": holder.parked,
         "last_activity_at": holder.last_activity_at,
         "idle_seconds": holder.idle_seconds,
@@ -235,9 +236,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                 "staffing_after_seconds": report.staffing_after_seconds,
                 "idle_after_seconds": report.idle_after_seconds,
                 "actionable": report.actionable,
-                "reset_debts": [
-                    row._asdict() for row in report.reset_debts
-                ],
+                "reset_debts": [row._asdict() for row in report.reset_debts],
                 "fingerprint": report.fingerprint(),
                 "available": [_entry_dict(entry, now) for entry in report.available],
                 "landing_waits": [w.__dict__ for w in report.landing_waits],
@@ -246,6 +245,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                 ],
                 "holders": [_holder_dict(holder) for holder in report.holders],
                 "idle": [_holder_dict(holder) for holder in report.idle],
+                "awaiting": [_holder_dict(holder) for holder in report.awaiting],
                 "undelivered": [
                     _undelivered_dict(entry) for entry in report.undelivered
                 ],

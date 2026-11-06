@@ -11,6 +11,7 @@ from yoke_core.domain.steering_fleet_report_render_text import SECTION_LIMIT
 ROW_SECTIONS = (
     "landings",
     "idle",
+    "awaiting",
     "in_flight",
     "suspected_orphaned_waiters",
     "landed_open",
@@ -87,6 +88,7 @@ def shown_rows(
             row.get("session_id")
             for section in (
                 "idle",
+                "awaiting",
                 "in_flight",
                 "suspected_orphaned_waiters",
                 "stranded",
@@ -184,24 +186,47 @@ def _reason(
         )
     ):
         return "claim released"
-    if session is not None and session.parked:
-        return "worker parked"
-    if any(holder.get("parked") for holder in holders):
-        return "worker parked"
-    idle_limit = scope.get("idle_after_seconds")
-    if idle_limit is not None and any(
-        holder.get("idle_seconds") is not None and holder["idle_seconds"] < idle_limit
-        for holder in holders
-    ):
-        return "worker active again"
-    if (
-        session is not None
-        and session.work_activity_at is not None
-        and snapshot is not None
-        and idle_limit is not None
-    ):
-        if (snapshot.taken_at - session.work_activity_at).total_seconds() < idle_limit:
+    from yoke_core.domain.fleet_delta_alarms import holder_state
+
+    models = [
+        holder.get("session_state") for holder in holders if holder.get("session_state")
+    ]
+    if session is not None and snapshot is not None:
+        models.insert(0, holder_state(session, snapshot.taken_at))
+    for model in models:
+        intent = model["intent"]
+        if intent["state"] != "none" or model["next_actor"]["actor"] != "this_session":
+            next_action = model["next_actor"]
+            return (
+                f"worker {intent['state'] if intent['state'] != 'none' else 'awaiting'}"
+                f" — {intent.get('reason') or next_action['reason']}; "
+                f"next: {next_action['actor']}"
+            )
+        if model["activity"] != "silent":
+            return f"worker {model['activity']} again"
+    # Serving builds predating session_state retain their previous explanation.
+    if not models:
+        if session is not None and session.parked:
+            return "worker parked"
+        if any(holder.get("parked") for holder in holders):
+            return "worker parked"
+        idle_limit = scope.get("idle_after_seconds")
+        if idle_limit is not None and any(
+            holder.get("idle_seconds") is not None
+            and holder["idle_seconds"] < idle_limit
+            for holder in holders
+        ):
             return "worker active again"
+        if (
+            session is not None
+            and session.work_activity_at is not None
+            and snapshot is not None
+            and idle_limit is not None
+        ):
+            if (
+                snapshot.taken_at - session.work_activity_at
+            ).total_seconds() < idle_limit:
+                return "worker active again"
     if _item_rows(scope, "in_flight", row.subject):
         return "holder now inside a long-running call"
     if _item_rows(scope, "idle", row.subject):

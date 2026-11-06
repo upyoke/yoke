@@ -6,9 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from yoke_contracts.project_contract.project_keys import DEFAULT_SESSION_IDLE_MINUTES
+
 from yoke_core.domain.fleet_delta_alarms import (
     DeltaState,
-    IDLE_HOLDER_MINUTES,
     STARVED_ENVELOPE_MINUTES,
     UNOWNED_ITEM_MINUTES,
     address_recipe,
@@ -274,14 +275,14 @@ OTHER_SESSION_ID = "019e41e1-1d77-7c02-9a55-3b81f4e6c0aa"
 
 
 def test_a_line_carries_the_whole_session_id() -> None:
-    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+    stale = NOW - timedelta(minutes=DEFAULT_SESSION_IDLE_MINUTES + 1)
     snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
     line = idle_holder_alarms(snapshot, DeltaState())[0]
     assert f"session={SESSION_ID}" in line
 
 
 def test_two_sessions_sharing_a_prefix_stay_distinguishable() -> None:
-    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+    stale = NOW - timedelta(minutes=DEFAULT_SESSION_IDLE_MINUTES + 1)
     assert SESSION_ID[:8] == OTHER_SESSION_ID[:8]
     snapshot = _snapshot(
         sessions={
@@ -298,7 +299,7 @@ def test_two_sessions_sharing_a_prefix_stay_distinguishable() -> None:
 
 
 def test_an_alarm_names_the_item_address_that_reaches_the_holder() -> None:
-    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+    stale = NOW - timedelta(minutes=DEFAULT_SESSION_IDLE_MINUTES + 1)
     snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
     line = idle_holder_alarms(snapshot, DeltaState())[0]
     assert "reach='yoke say --item YOK-1 --stdin'" in line
