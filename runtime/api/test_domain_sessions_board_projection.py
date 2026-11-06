@@ -54,13 +54,9 @@ class TestProjectBoard:
         status: str,
         frozen: int = 0,
         has_active_run: bool = False,
-        workflow_id: str | None = None,
+        workflow_id: str = "issue",
     ) -> ItemForBoard:
-        workflow_definition = (
-            builtin_workflow_definition(workflow_id)["definition"]
-            if workflow_id is not None
-            else None
-        )
+        workflow_definition = builtin_workflow_definition(workflow_id)["definition"]
         return ItemForBoard(
             item={"id": item_id, "status": status},
             status=status,
@@ -75,7 +71,7 @@ class TestProjectBoard:
             self._make_item(1, "implementing"),
             self._make_item(2, "done"),
             self._make_item(3, "idea"),
-            self._make_item(4, "planned"),
+            self._make_item(4, "planned", workflow_id="epic"),
         ]
         board = project_board(items, project="yoke")
         assert board.project == "yoke"
@@ -102,7 +98,7 @@ class TestProjectBoard:
         """Verify that status-to-bucket rules apply during projection."""
         items = [
             self._make_item(1, "reviewing-implementation"),  # -> reviewing
-            self._make_item(2, "planned"),  # -> refined
+            self._make_item(2, "planned", workflow_id="epic"),  # -> refined
             self._make_item(3, "refined-idea"),  # -> refined
             self._make_item(4, "stopped"),  # -> blocked
             self._make_item(5, "failed"),  # -> blocked
@@ -160,18 +156,14 @@ class TestProjectBoard:
     def test_board_columns_match_contract(self):
         assert BOARD_COLUMNS == BOARD_BUCKET_ORDER
 
-    def test_epic_workflow_refined_idea_goes_to_planning(self):
+    def test_workflows_use_declared_refined_bucket(self):
         items = [
             self._make_item(1, "refined-idea", workflow_id="epic"),
             self._make_item(2, "refined-idea", workflow_id="issue"),
         ]
         board = project_board(items)
-        # epic refined-idea -> planning bucket
-        assert len(board.columns["planning"]) == 1
-        assert board.columns["planning"][0]["id"] == 1
-        # issue refined-idea -> refined bucket
-        assert len(board.columns["refined"]) == 1
-        assert board.columns["refined"][0]["id"] == 2
+        assert len(board.columns["refined"]) == 2
+        assert {item["id"] for item in board.columns["refined"]} == {1, 2}
 
     def test_type_aware_epic_planning_goes_to_planning(self):
         """Epic with planning status goes to planning bucket."""
@@ -181,16 +173,14 @@ class TestProjectBoard:
         board = project_board(items)
         assert len(board.columns["planning"]) == 1
 
-    def test_epic_workflow_reviewing_impl_goes_to_implementing(self):
+    def test_workflows_use_declared_review_bucket(self):
         items = [
             self._make_item(1, "reviewing-implementation", workflow_id="epic"),
             self._make_item(2, "reviewing-implementation", workflow_id="issue"),
         ]
         board = project_board(items)
-        assert len(board.columns["implementing"]) == 1
-        assert board.columns["implementing"][0]["id"] == 1
-        assert len(board.columns["reviewing"]) == 1
-        assert board.columns["reviewing"][0]["id"] == 2
+        assert len(board.columns["reviewing"]) == 2
+        assert {item["id"] for item in board.columns["reviewing"]} == {1, 2}
 
 
 class TestBoardEdgeCases:
@@ -198,7 +188,12 @@ class TestBoardEdgeCases:
 
     def test_all_items_frozen(self):
         items = [
-            ItemForBoard(item={"id": i}, status="implementing", frozen_value=1)
+            ItemForBoard(
+                item={"id": i},
+                status="implementing",
+                frozen_value=1,
+                workflow_definition=builtin_workflow_runtime("issue").definition,
+            )
             for i in range(5)
         ]
         board = project_board(items)
@@ -208,8 +203,18 @@ class TestBoardEdgeCases:
 
     def test_mixed_frozen_and_normal(self):
         items = [
-            ItemForBoard(item={"id": 1}, status="implementing", frozen_value=0),
-            ItemForBoard(item={"id": 2}, status="implementing", frozen_value=1),
+            ItemForBoard(
+                item={"id": 1},
+                status="implementing",
+                frozen_value=0,
+                workflow_definition=builtin_workflow_runtime("issue").definition,
+            ),
+            ItemForBoard(
+                item={"id": 2},
+                status="implementing",
+                frozen_value=1,
+                workflow_definition=builtin_workflow_runtime("issue").definition,
+            ),
             ItemForBoard(
                 item={"id": 3},
                 status="done",
@@ -228,12 +233,30 @@ class TestBoardEdgeCases:
     def test_large_board_stats(self):
         """Verify stats remain correct with many items."""
         items = (
-            [ItemForBoard(item={"id": i}, status="done") for i in range(50)]
+            [
+                ItemForBoard(
+                    item={"id": i},
+                    status="done",
+                    workflow_definition=builtin_workflow_runtime("issue").definition,
+                )
+                for i in range(50)
+            ]
             + [
-                ItemForBoard(item={"id": i + 50}, status="implementing")
+                ItemForBoard(
+                    item={"id": i + 50},
+                    status="implementing",
+                    workflow_definition=builtin_workflow_runtime("issue").definition,
+                )
                 for i in range(30)
             ]
-            + [ItemForBoard(item={"id": i + 80}, status="idea") for i in range(20)]
+            + [
+                ItemForBoard(
+                    item={"id": i + 80},
+                    status="idea",
+                    workflow_definition=builtin_workflow_runtime("issue").definition,
+                )
+                for i in range(20)
+            ]
         )
         board = project_board(items)
         assert board.stats.total == 100
