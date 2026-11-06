@@ -9,7 +9,6 @@ from yoke_cli.transport.function_version_skew import (
     ARGUMENT_SKEW_ERROR_CODE, SKEW_ERROR_CODE,
 )
 from yoke_contracts.api.function_call import FunctionError
-from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
 
 
 RESULT_WAIT_SECONDS = 60.0
@@ -27,9 +26,7 @@ def recover_dispatch_result(request, response, connection, *, relay):
     if (
         request.function != "deployment_runs.qa_stage.dispatch"
         or not request.request_id
-        or not (is_response_timeout(response) or (
-            response.error and response.error.code in RETRYABLE_LOCK_CODES
-        ))
+        or not is_response_timeout(response)
     ):
         return response, 0
     print(
@@ -46,13 +43,12 @@ def recover_dispatch_result(request, response, connection, *, relay):
         recovered, used = relay()
         attempts += used
         if recovered.error is None or recovered.error.code not in {
-            TRANSPORT_FAILED_CODE, *RETRYABLE_LOCK_CODES,
+            TRANSPORT_FAILED_CODE,
         }:
             break
         time.sleep(min(RESULT_RETRY_SECONDS, max(0, deadline - time.monotonic())))
     if recovered.error is not None and recovered.error.code in {
         TRANSPORT_FAILED_CODE, SKEW_ERROR_CODE, ARGUMENT_SKEW_ERROR_CODE,
-        *RETRYABLE_LOCK_CODES,
     }:
         recovered = recovered.model_copy(update={"error": FunctionError(
             code="control_plane_connection_lost",
