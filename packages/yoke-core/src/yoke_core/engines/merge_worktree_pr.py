@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup
 from yoke_core.engines.merge_worktree_pr_discovery import find_existing_pr
@@ -41,20 +44,18 @@ def do_pr_merge(ctx: MergeContext) -> int:
       - Trial merge + rebase/merge-commit already succeeded against the same
         post-push origin target.
 
-    This function is fail-fast: every ``git push`` / REST PR-create /
-    REST PR-checks / REST PR-merge step checks its result and emits a
-    ``MergePullRequest*Failed`` event on failure before returning exit 1.
+    Publishing and REST steps stop at the first failure, record the failing
+    phase and return exit 1.
 
     Never falls through to PR-merge with empty identifiers — empty
     ``pr_url`` or empty ``pr_num`` are hard failures.
     """
+    from yoke_core.domain.qa_case_ci_lane import push_lane
+
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
     _emit_merge_event = mw._emit_merge_event
-    _fail_merge_subprocess = (
-        mw._fail_merge_subprocess
-    )  # still used for branch-push failure
     _fail_merge_rest = mw._fail_merge_rest
 
     # No-op detection: nothing to merge if branch has no unique commits.
@@ -79,17 +80,19 @@ def do_pr_merge(ctx: MergeContext) -> int:
 
     # 1. Push branch -- fail-fast on push failure.
     _print(f"Pushing {ctx.args.branch}...")
-    push_branch = _run_git(
-        ["push", "-u", "origin", ctx.args.branch, "--force-with-lease"],
-        cwd=ctx.worktree_path,
-        capture=True,
-    )
-    if push_branch.returncode != 0:
-        return _fail_merge_subprocess(
+    try:
+        push_lane(
+            Path(ctx.worktree_path),
+            ctx.args.branch,
+            project=ctx.project,
+            target=ctx.args.target,
+        )
+    except QaCaseExecutionError as exc:
+        return _fail_merge_rest(
             "branch-push",
-            push_branch,
             ctx=ctx,
             event_name="MergeBranchPushFailed",
+            error_detail=str(exc),
             extra_detail=(
                 "Branch force-with-lease push failed.  Inspect remote state "
                 "and retry; worktree preserved."

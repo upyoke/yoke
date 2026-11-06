@@ -154,46 +154,43 @@ def push_lane(
 ) -> None:
     """Publish the lane branch so CI can check out the tree under test.
 
-    Item branches stay local until merge, so the gate has to push before
-    it can dispatch. ``source_ref`` may be the recorded lane commit after
-    local cleanup; CI binds to that commit, not to the checkout directory.
-    ``--force-with-lease`` keeps a rebased or amended lane publishable without
-    ever overwriting a remote branch this
-    checkout has not seen; the preceding fetch is what gives the lease
-    something to compare against, and it is best-effort because a first
-    push has no remote branch to fetch.
-
-    ``project`` and ``target`` are the landing context every publisher has to
-    declare, because this is the one place a lane reaches origin: a candidate
-    the merge queue is still holding is refused here
-    (:mod:`yoke_core.domain.merge_queue_push_safety`) rather than pushed out
-    from under the landing that already took its head.
-
-    Being that one place is also why the published head is recorded here
-    (:mod:`yoke_core.domain.lane_head_record`): a rebase moves HEAD with no
-    commit, so nothing else records the candidate CI was handed.
+    Fetch supplies the lease; a failed push still succeeds if origin already
+    holds the requested commit. Queue safety and published-head recording
+    apply to every publisher, including a concurrent same-commit publish.
+    ``source_ref`` may name the recorded commit after local lane cleanup.
     """
     from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
-    from yoke_core.domain import lane_head_record, merge_queue_push_safety
+    from yoke_core.domain import (
+        lane_head_record,
+        merge_queue_push_safety,
+        standalone_item_merge_git,
+    )
 
+    head_sha = ref_sha(checkout, source_ref)
     with machine_github_user_authority():
         merge_queue_push_safety.require_publishable_lane(
             project=project,
             checkout=checkout,
             branch=branch,
             target=target,
-            head_sha=ref_sha(checkout, source_ref),
+            head_sha=head_sha,
         )
     _git(checkout, "fetch", "--quiet", "--no-tags", "origin", branch, timeout=300)
-    _git_output(
+    pushed = _git(
         checkout,
         "push",
         "--force-with-lease",
         "origin",
         f"{source_ref}:refs/heads/{branch}",
-        what=f"pushing lane branch {branch!r} to origin",
         timeout=600,
     )
+    if pushed.returncode != 0 and (
+        standalone_item_merge_git.remote_head_of(str(checkout), branch) != head_sha
+    ):
+        detail = (pushed.stderr or pushed.stdout or "").strip()
+        raise QaCaseExecutionError(
+            f"pushing lane branch {branch!r} to origin failed: {detail}"
+        )
     lane_head_record.record_published_lane_head(
         project,
         str(checkout),

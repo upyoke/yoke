@@ -13,6 +13,94 @@ from yoke_core.domain import qa_case_ci_lane as lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 
+@pytest.mark.parametrize("remote_head", ["a" * 40, "b" * 40, ""])
+def test_failed_publish_checks_origin_before_recording(monkeypatch, remote_head):
+    from yoke_core.domain import merge_queue_push_safety, standalone_item_merge_git
+
+    head = "a" * 40
+    recorded, commands, resolved = [], [], []
+    monkeypatch.setattr(lane, "ref_sha", lambda *a: resolved.append(a) or head)
+    monkeypatch.setattr(
+        merge_queue_push_safety, "require_publishable_lane", lambda **k: None
+    )
+    monkeypatch.setattr(
+        lane,
+        "_git",
+        lambda root, *args, **kw: (
+            commands.append(args)
+            or subprocess.CompletedProcess(args, 1, "", "cannot lock ref: raced")
+        ),
+    )
+    monkeypatch.setattr(
+        standalone_item_merge_git, "remote_head_of", lambda *a: remote_head
+    )
+    monkeypatch.setattr(
+        lane_head_record,
+        "record_published_lane_head",
+        lambda *a, **k: recorded.append(k),
+    )
+    if remote_head == head:
+        lane.push_lane(Path("/lane"), "topic", project="widgets", target="trunk")
+        assert recorded[0]["branch"] == "topic"
+    else:
+        with pytest.raises(
+            QaCaseExecutionError, match="pushing lane branch.*cannot lock ref"
+        ):
+            lane.push_lane(Path("/lane"), "topic", project="widgets", target="trunk")
+        assert not recorded
+    assert resolved == [(Path("/lane"), "HEAD")]
+    assert [args[0] for args in commands] == ["fetch", "push"]
+
+
+@pytest.mark.parametrize("detail", ["cannot lock ref", "stale info"])
+def test_selection_names_publish_race_recovery(monkeypatch, capsys, detail):
+    from yoke_core.tools.pytest_remote_selection_run import publish
+
+    def refused(*a, **k):
+        raise QaCaseExecutionError(f"pushing lane branch failed: {detail}")
+
+    monkeypatch.setattr(lane, "push_lane", refused)
+    assert not publish(
+        Path("/lane"), "topic", "a" * 40, project="widgets", target="trunk"
+    )
+    output = capsys.readouterr().out
+    assert "Another publish of this lane raced it" in output
+    assert "re-run after the other publish" in output
+    assert "credential" not in output
+
+
+def test_direct_merge_uses_lane_publisher_and_stops_on_refusal(monkeypatch):
+    from yoke_core.engines import merge_worktree, merge_worktree_pr as engine
+    from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+
+    ctx = MergeContext(
+        MergeArgs(branch="topic", target="trunk"),
+        worktree_path="/lane",
+        project="widgets",
+    )
+    calls = []
+
+    def refused(*a, **k):
+        calls.append((a, k))
+        raise QaCaseExecutionError("pushing lane branch failed: cannot lock ref")
+
+    monkeypatch.setattr(lane, "push_lane", refused)
+    monkeypatch.setattr(engine, "queue_lane_landing", lambda c: None)
+    monkeypatch.setattr(
+        merge_worktree,
+        "_run_git",
+        lambda *a, **k: subprocess.CompletedProcess([], 0, "commit", ""),
+    )
+    monkeypatch.setattr(merge_worktree, "_fail_merge_rest", lambda *a, **k: 1)
+    monkeypatch.setattr(
+        engine, "create_pr", lambda *a, **k: pytest.fail("published no head")
+    )
+    assert engine.do_pr_merge(ctx) == 1
+    assert calls == [
+        ((Path("/lane"), "topic"), {"project": "widgets", "target": "trunk"})
+    ]
+
+
 def _repo(tmp_path: Path, *, remote: str) -> Path:
     checkout = tmp_path / "checkout"
     checkout.mkdir()

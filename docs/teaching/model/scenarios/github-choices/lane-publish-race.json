@@ -1,0 +1,13 @@
+{
+ "id": "lane-publish-race",
+ "title": "Concurrent publishers of the same lane commit succeed",
+ "status": "observed",
+ "audience": "both",
+ "when": "CI and merge gates publish the same lane concurrently",
+ "need": "A failed lease push checks origin's exact branch head. If it already equals the requested commit, publication succeeds and records the published head. A different or unreadable head retains the push failure. Selection reports a lease race with recovery to re-run after the other publish finishes; other transport failures retain remote or credential advice.",
+ "disclosure": "current cue",
+ "surface": "Pytest selection publish refusal and shared CI/merge lane publisher",
+ "review": "Source and in-process regression coverage; deployed proof remains pending.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_case_ci_lane.py", "packages/yoke-core/src/yoke_core/tools/pytest_remote_selection_run.py", "packages/yoke-core/src/yoke_core/engines/merge_worktree_pr.py", "runtime/api/domain/test_qa_case_ci_lane_head_record.py"],
+ "position": 0
+}

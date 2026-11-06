@@ -57,6 +57,9 @@ def _arm_pr_merge_environment(
     # These cases exercise the direct merge a project without a queue uses.
     monkeypatch.setattr(merge_worktree_pr, "queue_lane_landing", lambda _ctx: None)
     monkeypatch.setattr(
+        "yoke_core.domain.qa_case_ci_lane.push_lane", lambda *a, **k: None
+    )
+    monkeypatch.setattr(
         merge_worktree_pr, "_wait_for_ci", lambda *_a, **_kw: ci_outcome
     )
     # Freshness binding: the gate reads the PR head SHA to verify the local
