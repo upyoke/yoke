@@ -2,7 +2,7 @@
 
 import shlex
 
-from runtime.api.cli.registered_read_scale_support import command_for, parser_for
+from runtime.api.cli.registered_read_scale_test_support import command_for, parser_for
 from yoke_cli.transport.output_limit import (
     REPLY_LIMIT_BYTES,
     read_output_scope,

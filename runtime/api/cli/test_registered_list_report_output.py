@@ -18,7 +18,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_steering_scope,
 )
 from runtime.api.tools.read_function_catalog import registered_read_ids
-from runtime.api.cli.registered_read_scale_support import (
+from runtime.api.cli.registered_read_scale_test_support import (
     command_for,
     parser_for,
     required_args,

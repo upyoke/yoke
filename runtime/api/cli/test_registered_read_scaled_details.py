@@ -3,7 +3,7 @@
 import json
 from unittest.mock import patch
 
-from runtime.api.cli.registered_read_scale_support import command_for
+from runtime.api.cli.registered_read_scale_test_support import command_for
 from runtime.api.cli.test_machine_detail_render import detail as detail
 from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES, read_output_scope
 from yoke_contracts.api.function_call import FunctionCallResponse
