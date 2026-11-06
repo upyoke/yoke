@@ -12,7 +12,8 @@ from yoke_core.domain.public_item_target import public_item_target
 
 from typing import Any, Mapping
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 STAMP_FUNCTION_ID = "deployment_item_stamp.record"

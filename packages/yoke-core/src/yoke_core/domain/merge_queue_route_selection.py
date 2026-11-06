@@ -18,7 +18,7 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
@@ -42,6 +42,8 @@ from yoke_core.domain.merge_context import (
     MergeArgs,
     MergeContext,
 )
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 _PROBE_SAFE_SLUG = re.compile(r"[a-z0-9][a-z0-9_-]*\Z")

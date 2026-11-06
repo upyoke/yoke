@@ -162,7 +162,8 @@ def run(args: List[str]) -> int:
         if parsed.item is not None
         else TargetRef(kind="global", project_id=parsed.project)
     )
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
 
     actor = build_actor(session_id=parsed.session_id)
     unfinished = [

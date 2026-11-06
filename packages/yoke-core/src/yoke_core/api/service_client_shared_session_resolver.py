@@ -41,17 +41,6 @@ def _resolve_session_id(explicit: str | None) -> str | None:
     return resolve_ambient_session_id()
 
 
-def current_session_id() -> str:
-    """Resolve the active harness session id from the ambient chain.
-
-    Public wrapper around the ambient probe — the canonical
-    ``session_identity`` cross-cutting entrypoint surface. Returns
-    ``""`` when no ambient identity resolves so callers can treat the
-    empty string as "no session context" and skip session-scoped work.
-    """
-    return _resolve_session_id(None) or ""
-
-
 def _parse_item_id_arg(raw: str) -> int | str:
     """Resolve a complete public ref, retaining join keys only inside engines."""
     from yoke_contracts.public_ref import parse_public_item_ref

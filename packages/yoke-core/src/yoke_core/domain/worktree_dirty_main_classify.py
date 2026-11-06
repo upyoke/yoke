@@ -89,9 +89,8 @@ def lane_source_root_prefixes(item_id: int, project_id: str = "") -> tuple[str, 
     the item's project — the roots belong to the project, and re-reading
     the item to name it is a round trip nobody needs.
     """
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
     from yoke_core.domain.architecture_context_data import package_roots_from_model
 
     if not project_id:

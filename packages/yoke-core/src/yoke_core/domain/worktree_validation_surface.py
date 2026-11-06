@@ -68,7 +68,8 @@ class ProvisionResult:
 
 def _load_capability(project: str, *, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     recovery = (
         f"Read project {project!r}'s migration_model declaration with "

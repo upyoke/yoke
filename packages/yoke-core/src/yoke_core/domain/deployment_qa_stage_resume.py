@@ -45,7 +45,8 @@ def resume_qa_refusal_message(*, run_id: str, start_stage: str) -> str:
     scoped QA is outstanding" and let a resume skip a real gate.
     """
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     response = call_dispatcher(
         function_id=RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION,

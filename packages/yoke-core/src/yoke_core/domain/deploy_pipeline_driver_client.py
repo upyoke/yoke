@@ -15,7 +15,7 @@ from typing import Any, Dict
 
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 from yoke_contracts.machine_config import runtime as machine_config
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.control_plane_function_degradation import REGISTRY_SKEW_CODES
 from yoke_core.domain.deploy_pipeline_control_plane import (
     DeploymentControlPlaneError,
@@ -30,6 +30,8 @@ from yoke_core.domain.session_liveness_pump import (
     HEARTBEAT_INTERVAL_SECONDS,
     SessionLivenessPump,
 )
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def _local_machine_id() -> str:

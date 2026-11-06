@@ -191,7 +191,8 @@ def _resolve_warm_up_connection(
     declared = str(config.get("connection_env", "") or "").strip()
     if declared:
         return declared
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.domain.environment_declared_facts import (
         MissingEnvironmentFact,

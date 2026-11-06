@@ -63,7 +63,7 @@ class ItemsListResponse(BaseModel):
 def _validated_list_fields(
     requested: List[str],
 ) -> tuple[List[str], Optional[HandlerOutcome]]:
-    from yoke_core.api.service_client_items_parsing import (
+    from yoke_core.domain.items_projection import (
         _QI_ALL_FIELDS,
         _QI_VIRTUAL_FIELDS,
     )

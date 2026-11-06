@@ -67,7 +67,7 @@ def _dispatch_stack(fake: Any, *, session_id: str = "sid") -> Iterator[None]:
         stack.enter_context(patch.object(_register_module, "register_all_handlers"))
         stack.enter_context(
             patch(
-                "yoke_core.api.service_client_shared_session_resolver.current_session_id",
+                "yoke_core.domain.session_current_identity.current_session_id",
                 return_value=session_id,
             )
         )

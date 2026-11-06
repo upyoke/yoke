@@ -34,10 +34,9 @@ def dispatch_task_update_body(
     Emits human stdout in default mode; envelope JSON when ``json_mode``.
     """
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-        emit_response,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
+    emit_response = get_structured_dispatch().emit_response
 
     register_all_handlers()
     response = call_dispatcher(

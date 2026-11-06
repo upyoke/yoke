@@ -24,7 +24,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
 )
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -39,6 +39,8 @@ from yoke_core.domain.merge_github_train_run import (
 )
 from yoke_core.domain.merge_context import MergeContext
 from yoke_core.domain.merge_verification import resolve_verification
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 @dataclass(frozen=True)

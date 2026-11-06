@@ -36,7 +36,7 @@ def _row_value(row: Any, key: str) -> Any:
 
 def _current_session_id() -> str:
     try:
-        from yoke_core.api.service_client_shared_session_resolver import (
+        from yoke_core.domain.session_current_identity import (
             current_session_id,
         )
     except ImportError:

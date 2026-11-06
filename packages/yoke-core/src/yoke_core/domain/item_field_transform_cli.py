@@ -33,10 +33,10 @@ from yoke_core.domain.structured_field_input import (
     read_body_file_or_raise,
     resolve_content_input,
 )
-from yoke_core.api.service_client_structured_api_adapter import (
-    call_dispatcher,
-    emit_response,
-)
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
+emit_response = get_structured_dispatch().emit_response
 
 
 _APPEND_ADDENDUM = "append-addendum"

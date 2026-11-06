@@ -1,13 +1,8 @@
-"""Field-set constants and filter-parsing helpers for items query commands.
+"""Filter-parsing helpers for items query commands.
 
-Owns the canonical field allowlist (`_QI_ALL_FIELDS`, `_QI_VIRTUAL_FIELDS`,
-`_QI_DEFAULT_FIELDS`, `_QI_LARGE_TEXT_FIELDS`) and the parsers that translate
-CLI flag arrays into ``queries.ItemFilter`` plus field/limit selections
-(`_parse_item_id`, `_parse_item_filters`, `_validate_fields`).
-
-These helpers are shared between the items listing/read commands and the
-backlog list-cli renderer, so they live in their own canonical module to
-satisfy the no-two-hop shim invariant.
+The domain's ``items_projection`` owns the canonical field vocabulary.
+These parsers translate CLI flag arrays into ``queries.ItemFilter`` plus
+field/limit selections for item reads and the backlog list renderer.
 """
 
 from __future__ import annotations
@@ -15,68 +10,14 @@ from __future__ import annotations
 import sys
 
 from yoke_core.api.service_client_shared import queries
-from yoke_core.domain.items_projection import DEFAULT_LIST_FIELDS_CSV
+from yoke_core.domain.items_projection import (
+    _QI_ALL_FIELDS,
+    _QI_VIRTUAL_FIELDS,
+    _QI_DEFAULT_FIELDS,
+    _QI_LARGE_TEXT_FIELDS,
+)
 
 
-# Canonical field list -- "body" is a virtual rendered field
-_QI_ALL_FIELDS = {
-    "id",
-    "title",
-    "workflow_id",
-    "workflow_version_id",
-    "status",
-    "priority",
-    "frozen",
-    "blocked",
-    "blocked_reason",
-    "github_issue",
-    "deployed_to",
-    "body",
-    "merged_at",
-    "created_at",
-    "updated_at",
-    "source",
-    "owner",
-    "project",
-    "project_id",
-    "project_sequence",
-    "deployment_flow",
-    "deploy_stage",
-    "spec",
-    "design_spec",
-    "technical_plan",
-    "worktree_plan",
-    "shepherd_caveats",
-    "test_results",
-    "deploy_log",
-    "db_mutation_profile",
-    "db_compatibility_attestation",
-    "architecture_impact",
-    "merge_queue_pr_number",
-    "merge_queue_enqueued_at",
-    "merge_queue_landed_at",
-    "merge_queue_notified_at",
-    "merge_queue_status",
-}
-
-# Rendered on demand, not stored in DB.
-_QI_VIRTUAL_FIELDS = {"body", "merge_queue_status"}
-
-_QI_DEFAULT_FIELDS = DEFAULT_LIST_FIELDS_CSV
-
-_QI_LARGE_TEXT_FIELDS = {
-    "body",
-    "spec",
-    "design_spec",
-    "technical_plan",
-    "worktree_plan",
-    "shepherd_caveats",
-    "test_results",
-    "deploy_log",
-    "db_mutation_profile",
-    "db_compatibility_attestation",
-    "architecture_impact",
-}
 
 __all__ = [
     "_QI_ALL_FIELDS",

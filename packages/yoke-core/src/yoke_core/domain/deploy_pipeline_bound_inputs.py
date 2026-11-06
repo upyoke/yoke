@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Any, Callable, Mapping, Optional
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_PREPARE_FUNCTION_ID,
 )
@@ -16,6 +16,8 @@ from yoke_core.domain.deploy_pipeline_unknown_outcome import (
     UNKNOWN_CODES,
 )
 from yoke_core.domain.deployment_start_timing import emit_records
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def bound_inputs_for_dispatch(

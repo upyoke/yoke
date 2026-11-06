@@ -40,10 +40,7 @@ from yoke_core.domain.public_item_target import public_item_target
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import (
-    build_actor,
-    call_dispatcher,
-)
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.close_out_control_plane_authority import connected_control_plane
 from yoke_core.engines.runs_continue_for_item import (
     OUTCOME_BOUND,
@@ -51,6 +48,9 @@ from yoke_core.engines.runs_continue_for_item import (
     OUTCOME_PINNED,
     OUTCOME_WAITING,
 )
+
+build_actor = get_structured_dispatch().build_actor
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 CONTINUE_FUNCTION = "deployment_runs.continue_for_item"
 

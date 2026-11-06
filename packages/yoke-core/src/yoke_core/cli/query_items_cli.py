@@ -10,7 +10,7 @@ import sys
 from typing import Iterable, Optional
 
 from yoke_core.api import service_client
-from yoke_core.api.service_client_items_parsing import _QI_ALL_FIELDS
+from yoke_core.domain.items_projection import _QI_ALL_FIELDS
 
 _USAGE = """\
 Usage:

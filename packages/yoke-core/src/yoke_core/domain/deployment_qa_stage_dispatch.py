@@ -95,7 +95,8 @@ def dispatch_deployment_qa_stage(
     stage name crosses the wire; the handler re-derives it from the stored flow.
     """
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
     from yoke_core.domain.deploy_pipeline_unknown_outcome import (
         redispatch_after_connection_loss,
     )

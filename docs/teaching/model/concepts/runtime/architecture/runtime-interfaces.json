@@ -5,6 +5,6 @@
  "audience": "Maintainers",
  "page": "runtime",
  "position": 6,
- "summary": "Core domain imports shared contracts. CLI and harness effects are supplied through structural runtime interfaces, published by their implementation packages as Python entry points. Resolution requires one complete implementation and otherwise names runtime_adapter_unavailable with installation recovery; every install mode uses the same composition path.",
- "sources": ["docs/source-dev/runtime-adapter-interfaces.md", "packages/yoke-contracts/src/yoke_contracts/runtime_ports/loader.py", "runtime/api/domain/test_runtime_adapter_interfaces.py"]
+ "summary": "Core domain imports shared contracts. CLI and harness effects are supplied through structural runtime interfaces, published by their implementation packages as Python entry points. Resolution requires one complete implementation and otherwise names runtime_adapter_unavailable with installation recovery; every install mode uses the same composition path. Core function calls use structured_dispatch, supplied by the service API adapter; domain code never imports the service client transport. Session lookup and item field vocabulary stay with their domain owners.",
+ "sources": ["docs/source-dev/runtime-adapter-interfaces.md", "packages/yoke-contracts/src/yoke_contracts/runtime_ports/loader.py", "runtime/api/domain/test_runtime_adapter_interfaces.py", "packages/yoke-contracts/src/yoke_contracts/runtime_ports/structured_dispatch.py"]
 }

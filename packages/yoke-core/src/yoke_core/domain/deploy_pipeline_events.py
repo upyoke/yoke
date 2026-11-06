@@ -27,9 +27,8 @@ def emit_deployment_event(
     del sd  # retained for callers that pass the pipeline's script directory
     try:
         from yoke_contracts.api.function_call import TargetRef
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        call_dispatcher = get_structured_dispatch().call_dispatcher
 
         payload = {
             "name": event_name,

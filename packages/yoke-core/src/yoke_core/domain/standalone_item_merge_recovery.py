@@ -10,10 +10,12 @@ from contextvars import ContextVar
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 _MISSING_CLAIM = "no live work claim on this item"
 ACQUIRE_ADVICE = "; acquire one with `yoke claims work acquire`"

@@ -31,7 +31,7 @@ from yoke_core.domain.public_item_target import public_item_target
 
 from typing import Any, Optional
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_recovery as recovery
@@ -41,6 +41,8 @@ from yoke_core.domain.workflow_level_handoff import (
     capture_level_handoffs,
     record_level_handoff,
 )
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 TERMINAL_STATUS = evidence.CLOSED_OUT_STATUS
 TRANSITION_REASON = "Merged and evidence recorded"

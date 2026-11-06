@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_core.api.service_client_shared_session_resolver import (
+from yoke_core.domain.session_current_identity import (
     current_session_id as _current_session_id,
 )
 from yoke_core.domain import db_backend

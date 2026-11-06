@@ -89,10 +89,9 @@ def _now() -> datetime:
 def dispatch_call(function_id: str, payload: dict[str, Any]) -> Any:
     """Call one registered read over the session's active transport."""
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        build_actor,
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     project = str(payload.get("project") or "").strip() or None
     return call_dispatcher(
@@ -105,7 +104,8 @@ def dispatch_call(function_id: str, payload: dict[str, Any]) -> Any:
 
 def ambient_session_id() -> str:
     """Resolve the calling session id from ambient harness identity."""
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
 
     return build_actor().session_id or ""
 

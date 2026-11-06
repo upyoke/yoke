@@ -194,6 +194,7 @@ class TestCliChokepointDelegation:
         self, machine_home, monkeypatch
     ):
         from yoke_core.api import service_client_shared_session_resolver as scr
+        from yoke_core.domain.session_current_identity import current_session_id
 
         anchors.record_session_anchor(
             "sess-cli",
@@ -210,7 +211,7 @@ class TestCliChokepointDelegation:
             lambda _pid: "s-777",
         )
         assert scr._resolve_session_id(None) == "sess-cli"
-        assert scr.current_session_id() == "sess-cli"
+        assert current_session_id() == "sess-cli"
 
     def test_none_everywhere_yields_none(self, machine_home):
         from yoke_core.api.service_client_shared_session_resolver import (
@@ -218,6 +219,9 @@ class TestCliChokepointDelegation:
         )
 
         assert _resolve_session_id(None) is None
+        from yoke_core.domain.session_current_identity import current_session_id
+
+        assert current_session_id() == ""
 
 
 class TestNestedHarnessSpawn:

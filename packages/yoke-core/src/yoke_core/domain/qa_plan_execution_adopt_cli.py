@@ -6,8 +6,10 @@ import sys
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.public_ref import parse_public_item_ref
-from yoke_core.api.service_client_structured_api_adapter import build_actor
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_function
+
+build_actor = get_structured_dispatch().build_actor
 
 
 def main(argv: list[str] | None = None) -> int:

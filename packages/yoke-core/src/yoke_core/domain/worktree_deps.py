@@ -310,7 +310,8 @@ def get_setup_command(project_id: str) -> Optional[str]:
     """Read the declaration through the transport-aware dispatcher."""
     import json
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     response = call_dispatcher(
         function_id="projects.capability_settings.get",

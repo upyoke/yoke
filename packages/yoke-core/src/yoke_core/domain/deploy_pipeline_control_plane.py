@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.deploy_pipeline_unknown_outcome import (
     UNKNOWN_CODES,
     READ_CONNECTION_CODES,
@@ -22,6 +22,8 @@ from yoke_core.domain.function_lock_refusal import (
     LOCK_RETRY_DELAYS_SECONDS,
     RETRYABLE_LOCK_CODES,
 )
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 class DeploymentControlPlaneError(RuntimeError):

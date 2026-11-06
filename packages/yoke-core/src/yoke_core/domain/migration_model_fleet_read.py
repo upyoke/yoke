@@ -86,7 +86,8 @@ def _read_document(
 ) -> Tuple[Dict[str, Any], str]:
     """One validated capability document; ``({}, "")`` when it is absent."""
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     unknown = f"could not read the {cap_type} capability of project {project!r}"
     try:

@@ -9,7 +9,7 @@ from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.merge_queue_status import in_flight_landing
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
@@ -39,6 +39,8 @@ from yoke_core.domain.standalone_item_merge_checkout import (
 )
 from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path, refresh_recorded_head
 from yoke_core.engines.terminal_lane_cleanup import record_terminal_lane_close_out
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def _session_holds_claim(item_id: int, session_id: str) -> str:

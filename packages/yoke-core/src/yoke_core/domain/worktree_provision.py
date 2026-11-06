@@ -216,7 +216,8 @@ def project_field(
         return project_db_get(project, field)
     from yoke_contracts.api.function_call import TargetRef
     from yoke_contracts.refusal_recovery import compose_refusal
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     recovery = f"Read project {project!r} with `yoke projects get`, then retry lane preparation"
     try:

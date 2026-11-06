@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.timestamps import format_instant
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.github_poll_schedule import (
     PollSchedule,
     STEADY_SCHEDULE,
@@ -50,6 +50,8 @@ from yoke_core.domain.merge_github_queue import (
     read_queue_members,
 )
 from yoke_core.domain.merge_context import MergeContext
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 
 def _emit_to_stderr(line: str) -> None:

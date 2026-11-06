@@ -27,9 +27,8 @@ def call_qa_function(
     request_id: Optional[str] = None,
 ) -> FunctionCallResponse:
     """Call a registered QA function through the normal dispatcher."""
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     return call_dispatcher(
         function_id=function_id,

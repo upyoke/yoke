@@ -32,7 +32,7 @@ from typing import Any, List, Optional
 def _dispatch_scalar(public_ref: str, field: str, value: Any, intent: str) -> Any:
     """Dispatch one ``items.scalar.update`` call. Returns the FunctionCallResponse."""
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-    from yoke_core.api.service_client_shared_session_resolver import current_session_id
+    from yoke_core.domain.session_current_identity import current_session_id
     from yoke_core.domain.yoke_function_dispatch import dispatch
 
     register_all_handlers()

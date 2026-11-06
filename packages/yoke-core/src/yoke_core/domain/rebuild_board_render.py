@@ -37,10 +37,9 @@ def parse_seed() -> int | None:
 def fetch_board_data(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Fetch the recorded board data payload over the active transport."""
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        build_actor,
-        call_dispatcher,
-    )
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    build_actor = get_structured_dispatch().build_actor
+    call_dispatcher = get_structured_dispatch().call_dispatcher
 
     response = call_dispatcher(
         function_id="board.data.get",

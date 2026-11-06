@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Tuple
 
 from yoke_core.domain.public_item_target import public_item_target
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain import control_plane_function_degradation
+
+call_dispatcher = get_structured_dispatch().call_dispatcher
 
 NO_TESTS_ATTESTED = "no_tests_attested"
 
