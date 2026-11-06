@@ -38,6 +38,7 @@ class WorktreePreflightOutcome:
                 "block_kind": self.block_kind,
                 "narrative": self.narrative,
                 "public_ref": self.public_ref,
+                "setup_command": dict(self.setup_command),
             }
         return {
             "ok": True,

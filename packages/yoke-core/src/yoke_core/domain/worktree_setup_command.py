@@ -29,7 +29,9 @@ def prepare_setup_command(path: str, project: str | None, timeout: int) -> dict:
         return result
     print(f"Installing deps via project setup_command: {command}", file=sys.stderr)
     try:
-        completed = subprocess.run(command, shell=True, cwd=path, timeout=timeout)
+        completed = subprocess.run(
+            command, shell=True, cwd=path, timeout=timeout, stdout=sys.stderr,
+        )
         reason = f"exited {completed.returncode}"
         failed = completed.returncode != 0
     except (OSError, subprocess.TimeoutExpired) as exc:
