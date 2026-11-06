@@ -24,7 +24,14 @@ JOB = {
     "steps": [],
     "check_run_url": "https://api.github.com/repos/acme/widgets/check-runs/8",
 }
-ANNOTATION = {"annotation_level": "failure", "message": "Provider refused this job"}
+ANNOTATION = {
+    "annotation_level": "failure",
+    "message": (
+        "The job was not started because recent account payments have failed "
+        "or your spending limit needs to be increased. Please check the "
+        "'Billing & plans' section in your settings"
+    ),
+}
 
 
 def test_never_started_report_poll_and_evidence_preserve_provider_reason(monkeypatch):
@@ -58,7 +65,7 @@ def test_never_started_report_poll_and_evidence_preserve_provider_reason(monkeyp
     report = build_failed_job_report(
         result, repo="acme/widgets", run_id=1, max_lines=10
     )
-    assert "failure: Provider refused this job" in report.output
+    assert f"failure: {ANNOTATION['message']}" in report.output
     assert report.jobs[0]["annotations"][0]["message"] == ANNOTATION["message"]
     run = outcome.with_effective_conclusion("acme/widgets", get("run"), token="t")
     poll = _classify(
