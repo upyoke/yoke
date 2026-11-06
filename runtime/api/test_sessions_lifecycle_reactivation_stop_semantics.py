@@ -12,6 +12,8 @@ Proves the four semantic branches of the Stop cleanup contract:
 
 from __future__ import annotations
 
+from runtime.api.service_client_sessions_helpers_test_support import session_test_db as session_test_db  # noqa: F401
+
 import json
 from datetime import datetime, timezone
 
@@ -22,9 +24,6 @@ from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_lifecycle_registry import register_session
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_contracts.session_model_facts import SessionModelFacts
-
-
-pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 def _now_iso() -> str:

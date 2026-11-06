@@ -6,6 +6,8 @@ with retained checkpoint telemetry.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -20,8 +22,6 @@ from yoke_core.domain.sessions import (
     end_session,
     update_chain_checkpoint,
 )
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def _age_heartbeat(conn, session_id: str, seconds: int) -> None:

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.hook_relay_test_support import https_connection as https_connection  # noqa: F401
+from runtime.api.cli.hook_relay_test_support import local_subset as local_subset  # noqa: F401
+
 import io
 import json
 import sys
@@ -15,8 +18,6 @@ from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
 from yoke_harness.hooks.decision_render import HOOK_SPECIFIC_OUTPUT_KEY
 from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 from yoke_harness.hooks.relay import degrade_to_noop
-
-pytest_plugins = ("runtime.api.cli.hook_relay_test_support",)
 
 
 def _context_envelope(body: str, event_name: str = "PreToolUse") -> str:

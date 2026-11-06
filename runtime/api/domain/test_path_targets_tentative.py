@@ -10,6 +10,8 @@ asserts the DDL CHECK constraint matches the canonical state list.
 
 from __future__ import annotations
 
+from runtime.api.domain._path_claims_test_helpers import conn as conn  # noqa: F401
+
 from typing import Any
 
 import pytest

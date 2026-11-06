@@ -9,6 +9,8 @@ and no backlog item already owns it.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.release_output_fixture import release_source as release_source  # noqa: F401
+
 from typing import Any
 
 import pytest
@@ -28,9 +30,6 @@ from yoke_core.domain.deployment_run_release_output_record import (
 from yoke_core.domain.item_merge_receipt_document import record_entry
 
 ITEM_REF = "YOK-9601"
-
-
-pytest_plugins = ("runtime.api.fixtures.release_output_fixture",)
 
 
 def test_recording_refuses_a_commit_a_backlog_item_already_owns(

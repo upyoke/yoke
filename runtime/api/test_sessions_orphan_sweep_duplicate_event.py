@@ -15,11 +15,11 @@ no second sentinel is written, and the transaction stays usable.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from yoke_core.domain.events_tool_call_outcome import OUTCOME_INTERRUPTED
 from yoke_core.domain.sessions_orphan_tool_call_sweep import sweep_orphaned_tool_calls
 from runtime.api.sessions_orphan_sweep_test_schema import _seed_events
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 SESSION_ID = "sess-duplicate"

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.worktree_test_helpers import git_repo as git_repo  # noqa: F401
+from runtime.api.domain.worktree_test_helpers import yoke_db as yoke_db  # noqa: F401
+
 import os
 import subprocess
 import sys
@@ -10,7 +13,6 @@ from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
-pytest_plugins = ("runtime.api.domain.worktree_test_helpers",)
 
 RESOLVE_MODULE = "yoke_core.domain.worktree_item_resolve"
 

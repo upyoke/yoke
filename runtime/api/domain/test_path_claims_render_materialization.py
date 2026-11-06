@@ -8,6 +8,8 @@ rendered Path Claims section.
 
 from __future__ import annotations
 
+from runtime.api.domain._path_claims_test_helpers import conn as conn  # noqa: F401
+
 from runtime.api.domain._path_claims_test_helpers import (
     local_human,
     seed_item,
@@ -23,8 +25,6 @@ from yoke_core.domain.path_targets_planning import (
     plan_path_target,
     plan_tentative_path_target,
 )
-
-pytest_plugins = ("runtime.api.domain._path_claims_test_helpers",)
 
 
 class TestRender:

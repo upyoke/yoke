@@ -9,6 +9,8 @@ instead — durable evidence stamped with a revision the control plane records
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_gates_reviewed_impl_fixture import qa_db as qa_db  # noqa: F401
+
 import json
 from unittest import mock
 
@@ -23,7 +25,6 @@ from yoke_core.domain.qa_gates import (
     check_reviewed_implementation_gate,
 )
 
-pytest_plugins = ("runtime.api.domain.qa_gates_reviewed_impl_fixture",)
 
 _CAPTURED_SHA = "b" * 40
 _SUPERSEDED_SHA = "e" * 40

@@ -1,0 +1,7 @@
+{
+ "id": "fixture-ownership",
+ "title": "Test fixture ownership",
+ "status": "observed",
+ "summary": "Test modules import their shared fixtures explicitly, including autouse fixtures and dependencies. Only conftest files register pytest plugins; plugin fixtures are session-global and registered plugins cannot define the same fixture name. Directory-local conftest overrides remain valid. A source-only AST contract checks registration and duplicate ownership without importing or collecting test helpers.",
+ "sources": ["docs/testing-verification/test-database-templates.md", "runtime/api/tools/test_fixture_plugin_contract.py"]
+}

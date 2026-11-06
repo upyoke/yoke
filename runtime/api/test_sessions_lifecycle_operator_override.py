@@ -5,6 +5,8 @@ Split from test_sessions_lifecycle_chain.py: TestOperatorOverrideReleaseClaim.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import os
 
 import pytest
@@ -19,8 +21,6 @@ from yoke_core.domain.sessions import (
     claim_work,
     operator_override_release_claim,
 )
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 class TestOperatorOverrideReleaseClaim:

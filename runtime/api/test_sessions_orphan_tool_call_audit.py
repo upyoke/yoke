@@ -1,5 +1,7 @@
 """First-class interrupted-tool-call audit coverage."""
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from runtime.api.sessions_test_support import _register
 from runtime.api.sessions_orphan_tool_call_sweep_test_support import (
     _close_call,
@@ -10,8 +12,6 @@ from yoke_core.domain.events_tool_call_outcome import OUTCOME_INTERRUPTED
 from yoke_core.domain.sessions_orphan_tool_call_sweep import (
     sweep_orphaned_tool_calls,
 )
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def test_count_of_interrupted_rows_matches_expected(conn):

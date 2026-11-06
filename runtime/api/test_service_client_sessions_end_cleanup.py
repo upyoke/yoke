@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.service_client_sessions_helpers_test_support import session_test_db as session_test_db  # noqa: F401
+
 import json
 
 from yoke_contracts.timestamps import format_instant, parse_instant
@@ -14,8 +16,6 @@ from runtime.api.service_client_sessions_helpers_test_support import (
 )
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.sessions import claim_work
-
-pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 # Precomputed 30-minutes-ago timestamp for tests exercising the

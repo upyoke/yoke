@@ -1,5 +1,7 @@
 """Outside commits ship through creation, admission, freeze and settlement."""
 
+from runtime.api.fixtures.release_output_fixture import release_source as release_source  # noqa: F401
+
 from typing import Any
 from pathlib import Path
 
@@ -9,8 +11,6 @@ from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_create_write import cmd_create_run
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
-
-pytest_plugins = ("runtime.api.fixtures.release_output_fixture",)
 
 
 def test_a_run_carries_outside_commits_without_attestation_or_resolution(

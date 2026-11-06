@@ -5,7 +5,8 @@ import graph cannot say which tests a conftest change touches. This module
 records the facts that can: each fixture owner's fixtures, hooks, and
 imports, and the names every test module and conftest asks for. A fixture
 owner is a ``conftest.py`` or a module a conftest loads through
-``pytest_plugins``; its scope is the conftest's directory.
+``pytest_plugins``. Conftest fixtures stay in their directory scope; fixtures
+from registered plugins are visible to every test in the pytest session.
 """
 
 from __future__ import annotations

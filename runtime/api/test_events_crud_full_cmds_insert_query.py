@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.events_crud_full_test_helpers import db_path as db_path  # noqa: F401
+
 import pytest
 
 from yoke_core.domain import events_crud
@@ -169,6 +171,3 @@ class TestQueryCmds:
     def test_query_empty_sql_raises(self, db_path):
         with pytest.raises(ValueError, match="SQL query is required"):
             events_crud.cmd_query(db_path, "")
-
-
-pytest_plugins = ("runtime.api.events_crud_full_test_helpers",)

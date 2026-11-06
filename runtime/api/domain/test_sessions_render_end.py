@@ -9,6 +9,8 @@ end-to-end CLI regression lives in
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
@@ -27,8 +29,6 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_ITEM,
     make_epic_task_target,
 )
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 @pytest.fixture(autouse=True)

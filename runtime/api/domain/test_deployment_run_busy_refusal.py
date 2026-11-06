@@ -9,6 +9,8 @@ caller's own ``lock_timeout`` is back in force for whatever it locks next.
 
 from __future__ import annotations
 
+from runtime.api.deployment_runs_test_db import db_path as db_path  # noqa: F401
+
 import re
 import time
 
@@ -26,7 +28,6 @@ from yoke_core.domain.deployment_runs_lock import (
     lock_run,
 )
 
-pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
 #: Far below the unbounded wait this replaces, generous for a loaded cluster.
 PROMPT_SECONDS = 0.5

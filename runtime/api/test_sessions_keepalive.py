@@ -1,5 +1,7 @@
 """A held session survives the idle cleanup that reaps an empty one."""
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import pytest
 
 from runtime.api.sessions_test_support import _register
@@ -12,8 +14,6 @@ from yoke_core.domain.session_message_types import timestamp, utc_now
 from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_contracts.session_control.keepalive import MAX_KEEPALIVE_SECONDS
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def _ended_at(conn, session_id: str):

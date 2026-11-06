@@ -6,6 +6,8 @@ outcomes across claim shapes, and the catch-up coverage audit.
 
 from __future__ import annotations
 
+from runtime.api.domain._path_claims_test_helpers import conn as conn  # noqa: F401
+
 
 import pytest
 
