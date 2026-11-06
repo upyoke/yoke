@@ -47,6 +47,9 @@ def _request(execution, function, **payload):
 def _prepared(conn):
     run_id, member = "run-retry-credit", 9891
     _seed_run(conn, run_id=run_id, stages=_stages(_plan(conn)), members=(member, 9892))
+    # Terminal replay is an exception for an already closed item.
+    conn.execute("UPDATE items SET status='done' WHERE id=%s", (member,))
+    conn.commit()
     materialize_deployment_qa_stage(
         conn,
         deployment_run_id=run_id,
