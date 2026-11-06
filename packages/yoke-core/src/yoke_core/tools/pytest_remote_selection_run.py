@@ -85,6 +85,13 @@ def publish(
         _error(str(exc))
         return False
     except QaCaseExecutionError as exc:
+        detail = str(exc)
+        if "stale info" in detail or "cannot lock ref" in detail:
+            _error(
+                f"push refused: {exc}. Another publish of this lane raced it; "
+                "re-run after the other publish finishes."
+            )
+            return False
         _error(
             f"push refused: {exc}. Fix the remote or credential, or re-run "
             f"with {LOCAL_FLAG}."

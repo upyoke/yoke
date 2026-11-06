@@ -56,14 +56,14 @@ def publication(tmp_path, monkeypatch):
         ["git", "init", "--bare", str(origin)], check=True, capture_output=True
     )
     git(checkout, "remote", "add", "origin", str(origin))
-    git_output = qa_case_ci_lane._git_output
+    git_run = qa_case_ci_lane._git
 
     def immutable_push(root, *args, **kwargs):
         if args[0] == "push":
             assert args[-1] == f"{sha}:refs/heads/schema-worker"
-        return git_output(root, *args, **kwargs)
+        return git_run(root, *args, **kwargs)
 
-    monkeypatch.setattr(qa_case_ci_lane, "_git_output", immutable_push)
+    monkeypatch.setattr(qa_case_ci_lane, "_git", immutable_push)
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", publish)
     monkeypatch.setattr(verification_tree_binding, "resolve_tree_identity", resolve)
     monkeypatch.setattr(
@@ -143,7 +143,7 @@ def test_published_sha_cannot_stamp_an_unproven_checkout(
         assert stamps == []
         return
     else:
-        push = qa_case_ci_lane._git_output
+        push = qa_case_ci_lane._git
 
         def mutate_after_push(root, *args, **kw):
             result = push(root, *args, **kw)
@@ -166,7 +166,7 @@ def test_published_sha_cannot_stamp_an_unproven_checkout(
                     (checkout / "untracked.txt").write_text("new work")
             return result
 
-        monkeypatch.setattr(qa_case_ci_lane, "_git_output", mutate_after_push)
+        monkeypatch.setattr(qa_case_ci_lane, "_git", mutate_after_push)
     result = qa_case_ci_run.execute_ci_case(case)
     assert result["verdict"] == "pass"
     assert git(origin, "rev-parse", "refs/heads/schema-worker") == sha
