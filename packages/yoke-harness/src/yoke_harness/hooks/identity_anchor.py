@@ -83,13 +83,14 @@ def _liveness_probe() -> Optional[ContenderIsLive]:
 def record_session_anchor(session_id: str, *, transcript_path: str = "") -> None:
     """Best-effort product-side session anchor write."""
     from yoke_harness.hooks.identity_runtime import (
-        cursor_surface_entrypoint,
+        compose_executor_from_entrypoint,
+        detect_entrypoint,
         detect_executor,
         is_claude,
     )
 
     executor = detect_executor()
-    surface = cursor_surface_entrypoint() if executor == "cursor" else executor
+    surface = compose_executor_from_entrypoint(executor, detect_entrypoint())
     names = liveness_process_names(surface)
     ambient = not names and is_claude(executor)
     anchor = _caller_anchor(tuple(names), ambient=ambient) if names or ambient else None

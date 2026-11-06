@@ -270,5 +270,40 @@ class TestAnchorRegistryIsolation:
         assert not str(anchors_dir()).startswith(str(Path.home()))
 
 
+@pytest.mark.parametrize("executor, entrypoint, names, ambient", [
+    ("claude-code", "cli", (), True),
+    ("codex", "cli", ("codex",), False),
+    ("cursor", "cursor-cli", ("cursor", "cursor-agent"), False),
+    ("codex", "desktop", (), False),
+    ("codex", "vscode", (), False),
+])
+def test_session_start_surface_anchor(tmp_path, monkeypatch, executor,
+                                      entrypoint, names, ambient):
+    from yoke_contracts.process_ancestry import ProcessAnchor
+    from yoke_harness.hooks import identity_anchor, identity_runtime
+    from yoke_contracts.session_identity import record_session_anchor
+
+    monkeypatch.setattr(identity_runtime, "detect_executor", lambda: executor)
+    monkeypatch.setattr(identity_runtime, "detect_entrypoint", lambda: entrypoint)
+    monkeypatch.setattr(identity_anchor, "_anchors_dir", lambda: tmp_path)
+    monkeypatch.setattr(identity_anchor, "_liveness_probe", lambda: None)
+    calls = []
+
+    def caller(actual_names, *, ambient=False):
+        calls.append((actual_names, ambient))
+        return ProcessAnchor(4001, "started", executor)
+
+    monkeypatch.setattr(identity_anchor, "_caller_anchor", caller)
+    monkeypatch.setattr(identity_anchor, "_record_session_anchor", record_session_anchor)
+    identity_anchor.record_session_anchor("session-start")
+    if names or ambient:
+        assert calls == [(names, ambient)]
+        import json
+        assert json.loads((tmp_path / "4001.json").read_text())["session_id"] == "session-start"
+    else:
+        assert calls == []
+        assert not list(tmp_path.glob("*.json"))
+
+
 if __name__ == "__main__":  # pragma: no cover - manual run
     raise SystemExit(pytest.main([__file__, "-q"]))
