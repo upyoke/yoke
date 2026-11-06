@@ -292,10 +292,11 @@ def test_ci_builds_container_without_registry_push() -> None:
         encoding="utf-8"
     )
 
-    assert "docker build" in workflow
+    assert "uses: docker/build-push-action@" in workflow
+    assert "push: false" in workflow
     assert "fetch-depth: 0" in workflow
     assert "python -m setuptools_scm --root" in workflow
-    assert '--build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION"' in workflow
+    assert "build-args: YOKE_ENGINE_VERSION=${{ env.YOKE_ENGINE_VERSION }}" in workflow
     assert "docker push" not in workflow
 
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -144,8 +145,25 @@ def test_dockerfile_bootstrap_pythonpath_resolves_core_imports() -> None:
     )
 
 
-def test_dockerfile_bootstrap_imports_before_dependencies_install() -> None:
+def test_dockerfile_bootstrap_imports_before_dependencies_install(tmp_path) -> None:
     roots, entry = _parse_bootstrap_step()
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+    before_download = dockerfile.split("RUN PYTHONPATH=", 1)[0]
+    assert "COPY runtime" not in before_download
+    assert "COPY packages ./packages" not in before_download
+    assert "COPY .git_archival.txt" not in before_download
+    # Recreate only files available to the download layer, never the whole
+    # checkout. A new bootstrap dependency must be copied before its RUN.
+    for source, destination in re.findall(r"^COPY (\S+) (\S+)$", before_download, re.M):
+        source_path = REPO_ROOT / source
+        target = tmp_path / destination.removeprefix("./")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source_path.is_dir():
+            shutil.copytree(source_path, target)
+        else:
+            shutil.copy2(source_path, target)
+    roots = [tmp_path / root.relative_to(REPO_ROOT) for root in roots]
+    entry = tmp_path / entry.relative_to(REPO_ROOT)
     environment = {
         **os.environ,
         "PYTHONPATH": os.pathsep.join(str(root) for root in roots),

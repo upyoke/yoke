@@ -16,26 +16,21 @@ WORKDIR /build
 
 RUN python -m pip install uv==0.12.1
 
+# Fetch checksum-verified PostgreSQL before copying application sources or
+# version metadata. Only the bootstrap module and its package dependencies
+# invalidate this layer; ordinary server changes reuse the downloaded clients.
+COPY packages/yoke-contracts/src ./packages/yoke-contracts/src
+COPY packages/yoke-cli/src ./packages/yoke-cli/src
+COPY packages/yoke-core/src/yoke_core/domain/postgres_binaries.py ./packages/yoke-core/src/yoke_core/domain/postgres_binaries.py
+RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/build/packages/yoke-core/src \
+        YOKE_MACHINE_HOME=/var/lib/yoke \
+        python -c "import runpy, shutil; binaries = runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries'](); shutil.copytree(binaries.parent, '/opt/yoke-postgres')"
+
 COPY pyproject.toml ./
 COPY uv.lock ./
 COPY .git_archival.txt ./
 COPY runtime ./runtime
 COPY packages ./packages
-
-# Portability runs pg_restore/pg_dump inside the server. Fetch the same
-# checksum-verified PostgreSQL build that local mode pins in product code.
-#
-# This runs from the source tree before any wheel exists, so the interpreter
-# resolves imports from PYTHONPATH alone. List every split package rather
-# than the subset the bootstrap module imports today: yoke-core declares
-# yoke-contracts, yoke-cli, and yoke-harness as dependencies, so any import a
-# core module legitimately adds is already inside that closure. A hand-picked
-# subset goes stale silently and fails the image build instead of the change
-# that caused it -- test_dockerfile_bootstrap_pythonpath_resolves_core_imports
-# executes this exact path to keep the two in step.
-RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/build/packages/yoke-harness/src:/build/packages/yoke-core/src \
-        YOKE_MACHINE_HOME=/var/lib/yoke \
-        python -c "import runpy, shutil; binaries = runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries'](); shutil.copytree(binaries.parent, '/opt/yoke-postgres')"
 
 ARG YOKE_ENGINE_VERSION=""
 

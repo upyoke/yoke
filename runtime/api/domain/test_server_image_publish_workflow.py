@@ -19,6 +19,8 @@ from yoke_core.tools import server_image_metadata
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-server-image.yml"
+
+
 def _text() -> str:
     return _WORKFLOW.read_text(encoding="utf-8")
 
@@ -275,3 +277,44 @@ def test_registry_logins_use_the_pinned_action():
     text = _text()
     assert text.count("uses: docker/login-action@") == 4
     assert "docker login ghcr.io" not in text
+
+
+def test_image_cache_is_scoped_by_platform_and_validation_never_writes():
+    text = _text()
+    check = text.split("  check-build:\n", 1)[1].split("\n  build:\n", 1)[0]
+    build = text.split("  build:\n", 1)[1].split("\n  assemble:\n", 1)[0]
+    cache = "type=gha,scope=yoke-server-${{ matrix.platform }}"
+    assert f"cache-from: {cache}" in check
+    assert "cache-to:" not in check
+    assert "if: github.event_name == 'merge_group'" in check
+    assert f"cache-from: {cache}" in build
+    assert "if: github.ref == 'refs/heads/main'" in build
+    assert (
+        "cache-to: type=gha,mode=max,scope=yoke-server-${{ matrix.platform }}" in build
+    )
+
+
+def test_ci_cache_writes_are_ref_gated_and_pr_builds_only_read():
+    import yaml
+
+    workflow = yaml.safe_load((_ROOT / ".github/workflows/yoke-ci.yml").read_text())
+    steps = workflow["jobs"]["container"]["steps"]
+    setup = next(
+        i
+        for i, step in enumerate(steps)
+        if "docker/setup-buildx-action@" in step.get("uses", "")
+    )
+    index, build = next(
+        (i, step)
+        for i, step in enumerate(steps)
+        if "docker/build-push-action@" in step.get("uses", "")
+    )
+    assert setup < index
+    options = build["with"]
+    assert options["push"] is False
+    assert options["load"] is True
+    assert options["cache-from"] == "type=gha,scope=yoke-ci-container"
+    assert options["cache-to"] == (
+        "${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) "
+        "&& 'type=gha,mode=max,scope=yoke-ci-container' || '' }}"
+    )
