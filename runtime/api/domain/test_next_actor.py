@@ -75,3 +75,19 @@ def test_priority_is_decision_then_dependency_then_ci_then_release():
     ]:
         assert item_next_actor(facts)["reason"] == reason
         facts.pop(key)
+
+
+@pytest.mark.parametrize("value", [None, False, 0, "0"])
+def test_unset_item_flags_do_not_park_ready_work(value):
+    assert (
+        item_next_actor({"frozen": value, "blocked": value})["reason"]
+        == "ready_without_holder"
+    )
+
+
+@pytest.mark.parametrize("flag", ["frozen", "blocked"])
+def test_item_holds_keep_their_reason(flag):
+    assert (
+        item_next_actor({flag: "1", "blocked_reason": "scope decision"})["reason"]
+        == "scope decision"
+    )

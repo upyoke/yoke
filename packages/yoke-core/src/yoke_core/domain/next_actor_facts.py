@@ -85,6 +85,23 @@ def next_actor_facts(
             "ORDER BY created_at,id",
             params,
         )
+        qa_subjects = [
+            int(row["subject_key"])
+            for row in decisions
+            if row["subject_type"] == "qa_requirement"
+            and str(row["subject_key"]).isdecimal()
+        ]
+        qa_items = {}
+        if qa_subjects and _table_exists(conn, "qa_requirements"):
+            qa_items = {
+                str(row["id"]): row["item_id"]
+                for row in _rows(
+                    conn,
+                    "SELECT id,COALESCE(item_id,epic_id,deployment_member_item_id) AS item_id "
+                    f"FROM qa_requirements WHERE id IN ({slots(qa_subjects)})",
+                    qa_subjects,
+                )
+            }
         memberships = member_matches_for_audiences(
             conn, {row["audience_id"] for row in decisions if row["audience_id"]}
         )
@@ -94,10 +111,10 @@ def next_actor_facts(
         )
         for row in decisions:
             context = _context(row["subject_context"])
-            iid = context.get("item_id")
+            iid = context.get("item_id") or qa_items.get(str(row["subject_key"]))
             if iid is None and row["subject_type"] in {
                 "item_transition",
-                "merge_candidate",
+                "item_merge_candidate",
             }:
                 head = str(row["subject_key"]).split(":", 1)[0]
                 iid = int(head) if head.isdecimal() else None

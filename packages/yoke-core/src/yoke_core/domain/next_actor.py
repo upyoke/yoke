@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_contracts.timestamps import temporal_wire
+from yoke_contracts.item_flags import is_frozen, is_blocked
 
 
 def action(actor: str, reason: str, since: Any = None, **details: Any) -> dict:
@@ -58,7 +59,7 @@ def item_next_actor(
     for key in ("pending_decision", "dependency_wait", "ci_wait", "deployment_wait"):
         if row.get(key):
             return dict(row[key])
-    if row.get("frozen") or row.get("blocked"):
+    if is_frozen(row.get("frozen")) or is_blocked(row.get("blocked")):
         return action(
             "parent_or_steering",
             row.get("blocked_reason") or "item_on_hold",

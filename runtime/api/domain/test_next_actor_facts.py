@@ -79,3 +79,56 @@ def test_decisions_and_ci_are_read_once_for_many_rows(monkeypatch):
         assert "pending_decision" not in sessions["worker-0"]
         assert "ci_wait" not in sessions["worker-0"]
         assert item_next_actor(items[19001])["actor"] == "parent_or_steering"
+
+
+def test_release_approval_overrides_running_release_and_settlement_clears_wait():
+    from yoke_core.domain.flow_create import cmd_create
+
+    now = utc_now()
+    with test_database() as conn:
+        insert_item(conn, id=19005, title="Release member", status="release")
+        cmd_create(
+            conn,
+            "release-proof",
+            "yoke",
+            "Release proof",
+            "",
+            json.dumps(
+                [{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]
+            ),
+            status="active",
+        )
+        conn.execute(
+            "INSERT INTO deployment_runs(id,project_id,flow,status,current_stage,created_at,started_at) "
+            "VALUES ('release-run',1,'release-proof','executing','deploy',%s,%s)",
+            (now, now),
+        )
+        conn.execute(
+            "INSERT INTO deployment_run_items(run_id,item_id,added_at) VALUES ('release-run',19005,%s)",
+            (now,),
+        )
+        conn.execute(
+            "INSERT INTO actors(id,kind,name,created_at) VALUES (19005,'human','Approver',%s)",
+            (now,),
+        )
+        audience = create_audience(
+            conn, project_id=1, rules=[{"scope_kind": "actor", "scope_id": 19005}]
+        )
+        conn.commit()
+        _, items = facts.next_actor_facts(conn, item_ids=[19005])
+        assert item_next_actor(items[19005])["actor"] == "ci_or_deploy"
+        conn.execute(
+            "INSERT INTO decision_requests(kind,subject_type,subject_key,subject_context,"
+            "project_id,audience_id,created_at) VALUES ('deployment_stage_approval',"
+            "'deployment_stage','release-run:deploy','{}',1,%s,%s)",
+            (audience, now),
+        )
+        conn.commit()
+        _, items = facts.next_actor_facts(conn, item_ids=[19005])
+        assert item_next_actor(items[19005])["actor"] == "operator"
+        assert item_next_actor(items[19005])["people"][0]["name"] == "Approver"
+        conn.execute("UPDATE decision_requests SET status='resolved'")
+        conn.execute("UPDATE deployment_runs SET status='succeeded'")
+        conn.commit()
+        _, items = facts.next_actor_facts(conn, item_ids=[19005])
+        assert item_next_actor(items[19005])["actor"] == "parent_or_steering"
