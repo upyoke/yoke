@@ -13,6 +13,7 @@ test("floating panels share manual top-layer disclosure and keep their DOM hosts
   documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: workbenchClient({
+    homes: { "YOK-9": { section: "in_progress", activity: "working", reason: "session_can_continue" } },
     "sessions.list": { rows: [claimingSession()] },
   }) });
   t.after(() => mounted.unmount());

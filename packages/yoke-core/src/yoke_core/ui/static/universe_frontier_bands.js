@@ -145,7 +145,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     const active = rows.active.filter(({ row }) => kept(row)).map(({ row, reason }) => card(
       row,
       () => withClaimants(workItemCard(documentNode, row, scope, {
-        flag: {
+        flag: reason?.flag || {
           label: row.frontier_group.activity === "working" ? "Working" : "Held, not working",
           text: String(row.frontier_group.reason).replaceAll("_", " "),
           tone: row.frontier_group.activity === "working" ? "ready" : "blocked",

@@ -11,17 +11,25 @@ export const homeHref = (row) => row.frontier_group?.section === "waiting"
 
 export function waitingReason(row, blockedRows = []) {
   const group = row.frontier_group || {};
-  const dependency = group.section === "waiting";
+  const blockers = [...new Set(blockedRows.map((entry) => entry.blocking_item).filter(Boolean))];
   const text = row.blocked_reason || [...new Set(blockedRows.map((entry) => entry.why).filter(Boolean))].join(" ")
     || String(group.reason || "item_on_hold").replaceAll("_", " ");
+  let label = "On hold";
+  let tone = "blocked";
+  if (enabled(row.frozen)) { label = "Frozen"; tone = "frozen"; }
+  else if (enabled(row.blocked)) label = "Blocked";
+  else if (group.reason === "needs_spec" || blockedRows.some((entry) => entry.needs_spec)) label = "Needs a spec";
+  else if (blockers.length) {
+    label = blockers.length === 1 ? `Waiting for ${blockers[0]}` : `Waiting for ${blockers.length} items`;
+    tone = "dependency";
+  } else if (blockedRows.length) label = "Held";
+  else if (group.section === "waiting") { label = "Waiting"; tone = "dependency"; }
+  else if (group.section === "in_progress") return null;
   return {
-    rank: dependency ? 2 : 1,
-    landing: dependency && blockedRows.length > 0 && blockedRows.every((entry) => entry.gate_point && entry.gate_point !== "activation"),
-    flag: {
-      label: dependency ? "Waiting" : enabled(row.frozen) ? "Frozen" : "On hold",
-      text,
-      tone: dependency ? "dependency" : enabled(row.frozen) ? "frozen" : "blocked",
-    },
+    rank: tone === "dependency" ? 2 : 1,
+    landing: group.section === "waiting" && blockedRows.length > 0
+      && blockedRows.every((entry) => entry.gate_point && entry.gate_point !== "activation"),
+    flag: { label, text, tone },
   };
 }
 

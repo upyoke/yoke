@@ -42,8 +42,9 @@ const BANDS = [
   },
 ];
 
-function bandItem({ itemId, item }, facts = {}) {
+function bandItem({ key, itemId, item }, facts = {}) {
   return {
+    frontier_group: { section: key, reason: "delivery" },
     title: "carry this somewhere",
     project: "yoke",
     project_id: 1,

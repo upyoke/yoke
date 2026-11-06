@@ -306,7 +306,7 @@ test("committed work waiting only for its blockers to land waits, saying so once
   });
   const [waiting] = bands([landing("YOK-7", true), landing("YOK-8", true)]).waiting;
   assert.equal(waiting.row.public_ref, "YOK-12");
-  assert.equal(waiting.reason.flag.label, "Waiting");
+  assert.equal(waiting.reason.flag.label, "Waiting for 2 items");
   assert.equal(waiting.reason.flag.text, "Waiting on YOK-7, YOK-8 to merge");
   // A merge edge on work still free to build holds nothing back.
   assert.deepEqual(bands([landing("YOK-7", false)]).waiting, []);
