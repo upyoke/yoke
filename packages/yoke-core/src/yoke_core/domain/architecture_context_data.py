@@ -231,6 +231,11 @@ def _candidate_paths_for_module(
                 bare_stem = _SLASH.join(parts[1:])
                 if bare_stem:
                     add(root + _SLASH + bare_stem)
+                else:
+                    path = root + _SLASH + "__init__.py"
+                    if path not in seen:
+                        seen.add(path)
+                        paths.append(path)
             else:
                 add(root + _SLASH + package_stem)
     return tuple(paths)
