@@ -124,13 +124,12 @@ def test_responsive_hooks_do_not_prove_tool_progress_or_hide_process_death():
 
 
 def test_roster_uses_the_projects_configured_tool_idle_threshold(test_db):
-    import json
-
     from runtime.api.domain.handlers.sessions_list_handler_test_support import (
         _insert_session,
     )
     from yoke_contracts.timestamps import utc_now
     from yoke_core.domain.sessions_list_read import list_sessions
+    from yoke_core.domain.project_policy_capabilities import set_project_policy_value
 
     now = utc_now()
     _insert_session(test_db, "configured-idle", last_heartbeat=now)
@@ -139,10 +138,7 @@ def test_roster_uses_the_projects_configured_tool_idle_threshold(test_db):
         (now - timedelta(minutes=10), "configured-idle"),
     )
     for minutes, expected in ((5, "silent"), (15, "working")):
-        test_db.execute(
-            "UPDATE project_capabilities SET settings=%s WHERE project_id=1 AND type='project-policy'",
-            (json.dumps({"session_idle_minutes": minutes}),),
-        )
+        set_project_policy_value(test_db, 1, "session_idle_minutes", minutes)
         test_db.commit()
         result = list_sessions(session_id="configured-idle")[0]
         assert result["session_state"]["activity"] == expected
