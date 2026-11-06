@@ -62,7 +62,7 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const captures = [];
 try {
-  for (const width of [1440, 375]) for (const state of ["options", "freeform", "answered", "error"]) {
+  for (const width of [1440, 768, 375, 320]) for (const state of ["options", "freeform", "answered", "error"]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, colorScheme: "light" });
     await page.goto(`http://127.0.0.1:${server.address().port}/?state=${state}`);
     await page.locator(".inbox-question-card").waitFor();
@@ -76,6 +76,27 @@ try {
       assert.match(await page.locator(".inbox-question-context").textContent(), /current header/);
       const heights = await page.locator(".inbox-question-option, .inbox-question-send").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));
       assert(heights.every((height) => height >= 44), `Question buttons must be at least 44px: ${heights}`);
+      const input = page.locator(".inbox-question-freeform textarea");
+      const checkAnswerRow = async () => {
+        const field = await input.boundingBox();
+        const send = await page.locator(".inbox-question-send").boundingBox();
+        if (width > 520) {
+          assert(send.x >= field.x + field.width);
+          assert.equal(send.y, field.y);
+          assert.equal(send.height, field.height);
+        } else {
+          assert(send.y >= field.y + field.height);
+          assert.equal(send.x, field.x);
+          assert.equal(send.width, field.width);
+        }
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      };
+      await checkAnswerRow();
+      await input.fill("First line\nSecond line\nThird line\nFourth line\nFifth line");
+      await checkAnswerRow();
+      await input.evaluate((node) => { node.style.height = `${node.offsetHeight + 80}px`; });
+      await checkAnswerRow();
+      await input.fill("");
       if (state === "options") {
         assert.equal(await page.locator(".inbox-question-option.primary").textContent(), "Keep blue");
         assert.equal(await page.locator(".inbox-question-choice small").textContent(), "Recommended");
@@ -124,7 +145,7 @@ try {
     await page.close();
   }
   await writeFile(path.join(output, "measurements.json"), JSON.stringify({ head, data_source: "source fixtures", captures }, null, 2));
-  process.stdout.write(`Verified ${captures.length} question states; wrote six operator review screenshots.\n`);
+  process.stdout.write(`Verified ${captures.length} question states and responsive answer alignment; wrote review screenshots.\n`);
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));

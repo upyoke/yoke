@@ -64,8 +64,12 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
     const input = el(documentNode, "textarea", "item-form-control");
     input.maxLength = 4000;
     input.rows = 3;
-    label.appendChild(input);
-    card.appendChild(label);
+    input.id = `inbox-question-answer-${row.id}`;
+    label.htmlFor = input.id;
+    const freeform = el(documentNode, "div", "inbox-question-freeform");
+    const answerRow = el(documentNode, "div", "inbox-question-answer-row");
+    freeform.appendChild(label);
+    answerRow.appendChild(input);
     const send = el(documentNode, "button", "item-button inbox-question-send", "Send");
     send.type = "button";
     send.disabled = true;
@@ -79,7 +83,9 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
     });
     send.addEventListener("click", submit);
-    card.appendChild(send);
+    answerRow.appendChild(send);
+    freeform.appendChild(answerRow);
+    card.appendChild(freeform);
   }
   return card;
 }
