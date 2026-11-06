@@ -62,6 +62,21 @@ def test_show_defaults_to_this_machine(dispatched, local_machine):
     assert dispatched[0]["payload"]["machine_id"] == MACHINE_ID
 
 
+@pytest.mark.parametrize("args, full", [([], False), (["--full"], True)])
+def test_detail_selects_human_detail_without_changing_server_payload(
+    dispatched, local_machine, args, full
+):
+    assert machine.machine_detail(args) == 0
+    call = dispatched[0]
+    assert call["payload"] == {"machine_id": MACHINE_ID}
+    assert call["human_writer"].keywords == {"full": full}
+
+
+def test_detail_json_is_forwarded(dispatched, local_machine):
+    assert machine.machine_detail(["--json"]) == 0
+    assert dispatched[0]["json_mode"] is True
+
+
 def test_retire_requires_confirmation_and_sends_the_machine(dispatched, local_machine):
     with pytest.raises(SystemExit):
         machine.machine_retire([])
