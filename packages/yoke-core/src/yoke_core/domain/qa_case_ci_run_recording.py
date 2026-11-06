@@ -6,6 +6,10 @@ import json
 import time
 
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError, recording_leg
+from yoke_core.domain.qa_case_ci_conclusion import (
+    conclusion_from_error,
+    failure_verdict,
+)
 from yoke_core.domain.qa_command_run_recording import record_command_run
 from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
@@ -94,6 +98,8 @@ def fail(
     error,
     actor,
 ):
+    conclusion = conclusion_from_error(error)
+    _, failure_class = failure_verdict(conclusion)
     recovery = (
         "qa_ci_execution_error: repair the named cause, then rerun "
         f"`yoke qa case run --requirement-id {case['requirement_id']}` "
@@ -103,10 +109,10 @@ def fail(
         {
             **evidence,
             "ci_run_id": ci_run_id or None,
-            "ci_conclusion": "error",
+            "ci_conclusion": conclusion,
             "ci_run_source": ci_run_source,
             "superseded_ci_run_id": superseded_ci_run_id or None,
-            "failure_class": "infrastructure_transient",
+            "failure_class": failure_class,
             "error": str(error),
             "recovery": recovery,
         },

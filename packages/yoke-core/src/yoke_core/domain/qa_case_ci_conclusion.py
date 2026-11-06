@@ -54,6 +54,12 @@ def conclusion_from_poll(exit_code: int, output: str) -> str:
     return "error"
 
 
+def conclusion_from_error(error: BaseException) -> str:
+    """Preserve a named no-verdict state when recovery refuses a replay."""
+    conclusion = conclusion_from_poll(1, str(error))
+    return CI_JOB_NOT_STARTED if conclusion == CI_JOB_NOT_STARTED else "error"
+
+
 def failure_verdict(conclusion: str) -> tuple[str, str]:
     """Return the ``(verdict, failure_class)`` a non-success run records.
 
@@ -71,5 +77,6 @@ __all__ = [
     "BINDING_CONCLUSIONS",
     "KNOWN_CONCLUSIONS",
     "conclusion_from_poll",
+    "conclusion_from_error",
     "failure_verdict",
 ]
