@@ -5,17 +5,15 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import tempfile
 
 import pytest
 
-from yoke_core.domain import db_backend
+from runtime.api.conftest import insert_item
 
 
-def _run_shepherd_cli(args, db_path):
-    """Invoke the shepherd CLI with ``YOKE_DB`` pinned to a temp DB."""
+def _run_shepherd_cli(args):
+    """Invoke the CLI against the fixture-owned disposable Postgres DB."""
     env = dict(os.environ)
-    env["YOKE_DB"] = db_path
     env["YOKE_DB_INIT_ALLOW"] = "1"
     return subprocess.run(
         [sys.executable, "-m", "yoke_core.cli.db_router", "shepherd", *args],
@@ -26,39 +24,18 @@ def _run_shepherd_cli(args, db_path):
 
 
 @pytest.fixture
-def shepherd_db():
-    """Create a temp DB with full schema + shepherd tables bootstrapped."""
-    fd, path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-    env = dict(os.environ)
-    env["YOKE_DB"] = path
-    env["YOKE_DB_INIT_ALLOW"] = "1"
-    init_result = subprocess.run(
-        [sys.executable, "-m", "yoke_core.cli.db_router", "init"],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert init_result.returncode == 0, init_result.stderr
-    # Bootstrap chain swallows shepherd init errors; explicitly create the
-    # shepherd tables on the temp DB so the verdict CLI has somewhere to
-    # write.
-    shepherd_init = subprocess.run(
-        [sys.executable, "-m", "yoke_core.cli.db_router", "shepherd", "init"],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert shepherd_init.returncode == 0, shepherd_init.stderr
-    yield path
-    os.unlink(path)
+def shepherd_db(test_db):
+    """Own a fresh full-schema database and real pinned epics per test."""
+    for item_id in (1, 2, 3):
+        insert_item(test_db, id=item_id, workflow_id="epic", status="planned")
+    test_db.commit()
+    return test_db
 
 
 def test_verdict_inserts_minimal_row(shepherd_db):
     """The ``verdict`` subcommand inserts with the four required positionals."""
     result = _run_shepherd_cli(
-        ["verdict", "TEST-1", "test_transition", "test-worker", "READY"],
-        shepherd_db,
+        ["verdict", "YOK-1", "planning_to_plan_drafted", "test-worker", "READY"],
     )
     assert result.returncode == 0, result.stderr
     verdict_id = result.stdout.strip()
@@ -69,13 +46,12 @@ def test_verdict_inserts_with_caveats(shepherd_db):
     result = _run_shepherd_cli(
         [
             "verdict",
-            "TEST-2",
-            "test_transition",
+            "YOK-2",
+            "planning_to_plan_drafted",
             "test-worker",
             "CAVEATS",
             "caveat body",
         ],
-        shepherd_db,
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip().isdigit()
@@ -89,14 +65,13 @@ def test_verdict_ignores_extra_trailing_positional(shepherd_db):
     result = _run_shepherd_cli(
         [
             "verdict",
-            "TEST-3",
-            "test_transition",
+            "YOK-3",
+            "planning_to_plan_drafted",
             "test-worker",
             "READY",
             "",
             "9f33bc49-bc9d-4bb9-a0b3-b7927bf8880a",
         ],
-        shepherd_db,
     )
     assert result.returncode == 0, result.stderr
     assert "ignoring extra positional argument" in result.stderr
@@ -106,15 +81,11 @@ def test_verdict_ignores_extra_trailing_positional(shepherd_db):
 def test_shepherd_verdicts_table_has_canonical_columns(shepherd_db):
     """Schema regression: the canonical column set is exact — no stranded
     columns from retired session models."""
-    conn = db_backend.connect()
-    try:
-        rows = conn.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = current_schema() "
-            "AND table_name = 'shepherd_verdicts'"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = shepherd_db.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema = current_schema() "
+        "AND table_name = 'shepherd_verdicts'"
+    ).fetchall()
     cols = {row[0] for row in rows}
     assert cols == {
         "id",

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 
+from runtime.api.conftest import insert_item
+
+
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
@@ -11,14 +14,25 @@ class TestShepherd:
     def test_verdict(self, test_db):
         from yoke_core.domain.shepherd import cmd_verdict
 
-        rid = cmd_verdict(test_db, TEST_ITEM_REF, "refined_to_planned", "boss", "READY")
+        insert_item(test_db, id=TEST_ITEM_ID, workflow_id="epic", status="planned")
+        rid = cmd_verdict(
+            test_db, TEST_ITEM_REF, "planning_to_plan_drafted", "boss", "READY"
+        )
         assert rid.isdigit()
 
     def test_verdict_log(self, test_db):
         from yoke_core.domain.shepherd import cmd_verdict, cmd_verdict_log
 
-        cmd_verdict(test_db, "YOK-10", "t1", "boss", "READY")
-        cmd_verdict(test_db, "YOK-10", "t2", "boss", "CAVEATS", "caveat1\ncaveat2")
+        insert_item(test_db, id=10, workflow_id="epic", status="planned")
+        cmd_verdict(test_db, "YOK-10", "refined_idea_to_planning", "boss", "READY")
+        cmd_verdict(
+            test_db,
+            "YOK-10",
+            "planning_to_plan_drafted",
+            "boss",
+            "CAVEATS",
+            "caveat1\ncaveat2",
+        )
         log = cmd_verdict_log(test_db, "YOK-10")
         assert "## Shepherd Log" in log
         assert "READY" in log
@@ -28,10 +42,16 @@ class TestShepherd:
         from yoke_core.domain.shepherd import cmd_verdict
         from yoke_core.domain.shepherd_verdict_log import item_verdicts
 
-        cmd_verdict(test_db, "YOK-11", "t1", "boss", "READY")
-        cmd_verdict(test_db, "YOK-11", "t2", "boss", "CAVEATS", "caveat1")
+        insert_item(test_db, id=11, workflow_id="epic", status="planned")
+        cmd_verdict(test_db, "YOK-11", "refined_idea_to_planning", "boss", "READY")
+        cmd_verdict(
+            test_db, "YOK-11", "planning_to_plan_drafted", "boss", "CAVEATS", "caveat1"
+        )
         verdicts = item_verdicts(test_db, "YOK-11")
-        assert [v["transition"] for v in verdicts] == ["t2", "t1"]
+        assert [v["transition"] for v in verdicts] == [
+            "planning_to_plan_drafted",
+            "refined_idea_to_planning",
+        ]
         assert verdicts[0]["verdict"] == "CAVEATS"
         assert verdicts[0]["caveats"] == "caveat1"
         assert verdicts[0]["worker"] == "boss"
@@ -45,10 +65,11 @@ class TestShepherd:
             cmd_caveat_dispositions,
         )
 
+        insert_item(test_db, id=5, workflow_id="epic", status="planned")
         cmd_caveat_disposition(
             test_db,
             "YOK-5",
-            "t1",
+            "planning_to_plan_drafted",
             1,
             1,
             "Missing tests",

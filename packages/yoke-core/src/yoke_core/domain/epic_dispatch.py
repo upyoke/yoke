@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import List
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_scalar
 from yoke_core.domain.epic_parsing import (
@@ -242,3 +243,74 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
     )
     conn.commit()
     return f"{next_index}|{next_task}"
+
+
+def reassign_task_dispatch(conn, epic_id, task_num, old_branch, new_branch) -> None:
+    """Move task membership and both dispatch queues in one transaction."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.item_activity import touch_item_activity
+    from yoke_core.domain.claim_chain_state import touch_epic_task_activity
+
+    p = _placeholder(conn)
+    token = str(task_num)
+    try:
+        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+        conn.execute(f"SELECT id FROM items WHERE id={p}{lock}", (epic_id,))
+        rows = conn.execute(
+            "SELECT c.id, c.queue, c.current_task, c.current_index, iw.branch "
+            "FROM epic_dispatch_chains c JOIN item_worktrees iw "
+            f"ON iw.id=c.item_worktree_id WHERE c.epic_id={p}",
+            (str(epic_id),),
+        ).fetchall()
+        for row in rows:
+            if row["branch"] == old_branch and str(row["current_task"] or "") == token:
+                raise ValueError(
+                    compose_refusal(
+                        "task_reassign_in_flight: task is the old lane's current_task",
+                        recovery="Finish or halt that dispatch and clear its current_task "
+                        "with `yoke workflow-item epic-dispatch-chain update` before reassigning",
+                    )
+                )
+        lane = record_worker_item_worktree(
+            conn,
+            item_id=int(epic_id),
+            branch=new_branch,
+            path=None,
+        )
+        ts = instant_parameter(conn, utc_now())
+        destination = False
+        for row in rows:
+            if row["branch"] not in {old_branch, new_branch}:
+                continue
+            queue = parse_dispatch_queue(row["queue"])
+            index = int(row["current_index"] or 0)
+            if row["branch"] == new_branch:
+                destination = True
+                if token not in queue:
+                    queue.append(token)
+            else:
+                index -= sum(t == token for t in queue[:index])
+                queue = [t for t in queue if t != token]
+                index = min(index, max(0, len(queue) - 1))
+            conn.execute(
+                f"UPDATE epic_dispatch_chains SET queue={p}, current_index={p}, "
+                f"last_updated={p} WHERE id={p}",
+                (json.dumps(queue), index, ts, row["id"]),
+            )
+        if not destination:
+            conn.execute(
+                "INSERT INTO epic_dispatch_chains (epic_id, item_worktree_id, "
+                f"queue, last_updated) VALUES ({p}, {p}, {p}, {p})",
+                (str(epic_id), lane["id"], json.dumps([token]), ts),
+            )
+        conn.execute(
+            f"UPDATE epic_tasks SET item_worktree_id={p} "
+            f"WHERE epic_id={p} AND task_num={p}",
+            (lane["id"], str(epic_id), task_num),
+        )
+        touch_item_activity(conn, item_id=epic_id)
+        touch_epic_task_activity(conn, epic_id=epic_id, task_num=task_num)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise

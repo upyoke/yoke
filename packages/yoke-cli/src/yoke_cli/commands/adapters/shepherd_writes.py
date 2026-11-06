@@ -43,7 +43,10 @@ def shepherd_verdict(args: List[str]) -> int:
         "--item", required=True, metavar="PREFIX-N", help="Item id (PREFIX-N)."
     )
     parser.add_argument(
-        "--transition", required=True, metavar="T", help="Lifecycle transition being judged."
+        "--transition",
+        required=True,
+        metavar="T",
+        help="Pinned Shepherd verdict key: source_to_target, with stage hyphens replaced by underscores (planning_to_plan_drafted).",
     )
     parser.add_argument(
         "--worker",
@@ -115,10 +118,17 @@ def shepherd_caveat_disposition(args: List[str]) -> int:
         "--item", required=True, metavar="PREFIX-N", help="Item id (PREFIX-N)."
     )
     parser.add_argument(
-        "--transition", required=True, metavar="T", help="Lifecycle transition being judged."
+        "--transition",
+        required=True,
+        metavar="T",
+        help="Pinned Shepherd verdict key: source_to_target, with stage hyphens replaced by underscores (planning_to_plan_drafted).",
     )
     parser.add_argument(
-        "--attempt", type=int, required=True, metavar="N", help="Verdict attempt number."
+        "--attempt",
+        type=int,
+        required=True,
+        metavar="N",
+        help="Verdict attempt number.",
     )
     parser.add_argument(
         "--caveat-num",

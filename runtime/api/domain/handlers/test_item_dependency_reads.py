@@ -248,7 +248,7 @@ class TestItemDependencyWrites:
 
 class TestShepherdVerdictWrites:
     def test_verdict_and_caveat_disposition_round_trip(self, test_db):
-        insert_item(test_db, id=42)
+        insert_item(test_db, id=42, workflow_id="epic", status="planned")
         test_db.commit()
         verdict_outcome = shepherd_verdict_writes.handle_shepherd_verdict(
             _write_request(

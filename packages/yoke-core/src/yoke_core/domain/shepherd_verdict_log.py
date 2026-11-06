@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_contracts.timestamps import format_instant
+from yoke_contracts.refusal_recovery import compose_refusal
 
 import json
 from typing import Optional
@@ -41,6 +42,32 @@ def _emit_event(item: str, event_name: str, context: str) -> None:
         pass
 
 
+class ShepherdTransitionError(ValueError):
+    """A verdict edge outside the item's pinned planning binding."""
+
+    code = "shepherd_transition_invalid"
+
+
+def validate_transition(conn, item: str, transition: str) -> None:
+    from yoke_core.domain.item_ref_resolution import resolve_item_ref
+    from yoke_core.domain.shepherd_segment import shepherd_edges
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    runtime = load_item_workflow_runtime(conn, resolve_item_ref(conn, item))
+    keys = [edge.verdict_key for edge in shepherd_edges(runtime)]
+    if transition not in keys:
+        raise ShepherdTransitionError(
+            compose_refusal(
+                f"shepherd_transition_invalid: {transition!r} is not a pinned "
+                f"Shepherd verdict key for {item}",
+                evaluated=f"Valid keys: {', '.join(keys) or '(none)'}",
+                recovery="Use a listed key with `yoke shepherd verdict` or "
+                "`yoke shepherd caveat-disposition`; an item without a Shepherd "
+                "binding accepts no planning verdicts",
+            )
+        )
+
+
 def cmd_verdict(
     conn,
     item: str,
@@ -49,6 +76,7 @@ def cmd_verdict(
     verdict: str,
     caveats: Optional[str] = None,
 ) -> str:
+    validate_transition(conn, item, transition)
     ts = now_iso()
     p = _placeholder(conn)
     prev = query_scalar(
@@ -184,6 +212,7 @@ def cmd_caveat_disposition(
     resolution_details: Optional[str] = None,
     verdict_id: Optional[int] = None,
 ) -> str:
+    validate_transition(conn, item, transition)
     if disposition not in VALID_DISPOSITIONS:
         raise ValueError(
             f"disposition must be {', '.join(sorted(VALID_DISPOSITIONS))} "

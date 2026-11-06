@@ -88,7 +88,9 @@ def check_gate(
             reason=(
                 f"No qualifying shepherd verdict for {public_ref}. "
                 f"Expected transition '{transition}' in {ACCEPTABLE_VERDICTS!r}. "
-                "Resume Shepherd within its binding and persist the final plan review."
+                f"Request a Boss review of the final edge and record it with "
+                f"`yoke shepherd verdict --item {public_ref} --transition {transition} "
+                "--worker review --verdict VERDICT`."
             ),
         )
 

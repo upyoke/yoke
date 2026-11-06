@@ -218,3 +218,53 @@ class TestShepherdGate:
 
         assert result.passed is True
         assert result.verdict == "READY"
+
+
+@pytest.mark.parametrize("writer", ["verdict", "caveat"])
+def test_verdict_writes_reject_unknown_keys_without_rows(test_db, writer):
+    from yoke_core.domain.shepherd_verdict_log import (
+        ShepherdTransitionError,
+        cmd_verdict,
+        cmd_caveat_disposition,
+    )
+
+    item_id = 508
+    insert_item(test_db, id=item_id, workflow_id="epic", status="planned")
+    ref = f"YOK-{item_id}"
+    with pytest.raises(
+        ShepherdTransitionError, match="Valid keys:.*planning_to_plan_drafted"
+    ):
+        if writer == "verdict":
+            cmd_verdict(test_db, ref, "planning-to-plan-drafted", "review", "READY")
+        else:
+            cmd_caveat_disposition(test_db, ref, "unknown", 1, 1, "caveat", "RESOLVED")
+    for table in ("shepherd_verdicts", "caveat_dispositions"):
+        assert test_db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
+    cmd_verdict(test_db, ref, "planning_to_plan_drafted", "review", "READY")
+    assert shepherd_gate.check_gate(item_id, conn=test_db).passed
+
+
+def test_gate_recovery_is_reachable_after_planning(test_db):
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+    from yoke_core.domain.workflow_task_graph_status_gates import (
+        evaluate_shepherd_verdict,
+    )
+
+    item_id = 509
+    insert_item(test_db, id=item_id, workflow_id="epic", status="planned")
+    result = evaluate_shepherd_verdict(
+        conn=test_db,
+        item_id=item_id,
+        target_status="implementing",
+        workflow=load_item_workflow_runtime(test_db, item_id),
+    )
+    for text in (
+        shepherd_gate.check_gate(item_id, conn=test_db).reason,
+        result["remediation_hint"],
+    ):
+        assert (
+            f"yoke shepherd verdict --item YOK-{item_id} --transition planning_to_plan_drafted"
+            in text
+        )
+        assert "Boss review" in text
+        assert "Resume Shepherd" not in text
