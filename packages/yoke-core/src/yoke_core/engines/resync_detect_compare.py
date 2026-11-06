@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import workflow_status_metadata_refusal
+
 import re
 from typing import Any, Dict, List, Tuple
 
@@ -280,9 +282,7 @@ def stage2_compare(
 
             # --- State comparison ---
             if "successful_task_stage_ids" not in local_task:
-                raise ValueError(
-                    "workflow_status_metadata_unavailable: task state comparison requires the next-release serving floor; use the installed CLI matching the serving engine until that engine is upgraded"
-                )
+                raise ValueError(workflow_status_metadata_refusal())
             task_status = local_task.get("status", "") or ""
             gh_state = gh_issue.get("state", "UNKNOWN")
             expected_state = "OPEN"

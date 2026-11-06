@@ -15,6 +15,8 @@ keeps the boolean contract for the existing dispatch surface.
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import workflow_status_metadata_refusal
+
 from yoke_core.domain.public_item_target import public_item_target
 
 import sys
@@ -202,7 +204,7 @@ def repair_local_orphan_epic_task_typed(
     if "successful_task_stage_ids" not in context:
         return RepairOutcome(
             False,
-            error="workflow_status_metadata_unavailable: task issue repair requires the next-release serving floor; use the installed CLI matching the serving engine until that engine is upgraded",
+            error=workflow_status_metadata_refusal(),
         )
 
     # The parent's public ref is rendered server-side from the project's

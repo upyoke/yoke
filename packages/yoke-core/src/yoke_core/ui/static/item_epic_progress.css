@@ -1,0 +1,19 @@
+/* Epic workflow progress beside generated-task completion. */
+.universe-app-root .item-epic-tasks > .panel-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.universe-app-root .item-epic-progress,
+.universe-app-root .item-epic-stages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--yoke-muted);
+}
+.universe-app-root .item-epic-step[data-state="active"] {
+  color: var(--yoke-ink);
+  font-weight: 600;
+}

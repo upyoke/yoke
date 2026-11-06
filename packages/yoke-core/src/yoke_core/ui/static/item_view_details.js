@@ -77,8 +77,33 @@ function issuePanels(context, documentNode, item) {
 }
 
 function renderEpicTasks(context, item, panel, progress) {
+  const client = {
+    async call(request) {
+      const rows = [];
+      let offset = 0;
+      let response;
+      do {
+        response = await context.client.call({
+          ...request, payload: { ...request.payload, offset },
+        });
+        if (!response.envelope?.success) return response;
+        const page = response.envelope.result || {};
+        rows.push(...(page.tasks || []));
+        const next = page.next_offset;
+        if (next != null && next <= offset) {
+          throw new Error("task_page_invalid: next_offset did not advance; retry the task read.");
+        }
+        offset = next;
+      } while (offset != null);
+      return {
+        ...response,
+        envelope: { ...response.envelope,
+          result: { ...response.envelope.result, tasks: rows } },
+      };
+    },
+  };
   loadSection(
-    context,
+    { ...context, client },
     panel,
     "epic_tasks.list.run",
     {},
@@ -102,7 +127,9 @@ function renderEpicTasks(context, item, panel, progress) {
       public_ref: item.public_ref,
       project_id: String(item.project.id),
     },
-  );
+  ).then(() => {
+    if (progress.textContent === "loading progress…") progress.textContent = "progress unavailable";
+  });
 }
 
 function epicPanels(context, documentNode, item) {
@@ -111,16 +138,22 @@ function epicPanels(context, documentNode, item) {
   const progress = el(
     documentNode, "span", "workflow-panel-detail", "loading progress…",
   );
-  tasks.children[0].appendChild(progress);
+  const summary = el(documentNode, "div", "item-epic-progress");
+  summary.appendChild(progress);
+  tasks.children[0].appendChild(summary);
   const stages = item.workflow.stages || [];
   const current = stages.findIndex((stage) => stage.id === item.status);
-  const strip = el(documentNode, "div", "workflow-panel-detail");
+  const strip = el(documentNode, "span", "item-epic-stages");
+  strip.setAttribute("aria-label", "Workflow progress");
   for (const [index, stage] of stages.entries()) {
     const marker = index < current ? "✓ " : index === current ? "● " : "○ ";
-    strip.appendChild(el(documentNode, "span", null,
-      `${marker}${stage.label || stage.id} `));
+    const step = el(documentNode, "span", "item-epic-step",
+      `${marker}${stage.label || stage.id}`);
+    step.setAttribute("data-state", index < current ? "complete" : index === current ? "active" : "pending");
+    if (index === current) step.setAttribute("aria-current", "step");
+    strip.appendChild(step);
   }
-  tasks.appendChild(strip);
+  summary.appendChild(strip);
   renderEpicTasks(context, item, tasks, progress);
   const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(

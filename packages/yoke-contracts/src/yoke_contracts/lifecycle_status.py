@@ -73,3 +73,13 @@ def terminal_status_sql(definition: str, status: str) -> str:
     """PostgreSQL terminal predicate for a joined workflow definition."""
     engine = ", ".join("'" + value + "'" for value in sorted(ENGINE_TERMINAL_STAGE_IDS))
     return f"({status} IN ({engine}) OR ({definition})::jsonb->'terminal_stage_ids' ? {status})"
+
+
+def workflow_status_metadata_refusal() -> str:
+    """Name the response-field floor and a release-independent recovery."""
+    from yoke_contracts.refusal_recovery import compose_refusal
+
+    return compose_refusal(
+        "workflow_status_metadata_unavailable: requires the next-release serving floor",
+        recovery="Use the installed CLI matching the serving engine until that engine is upgraded",
+    )

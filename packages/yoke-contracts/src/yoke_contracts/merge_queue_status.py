@@ -32,7 +32,7 @@ ITEM_TERMINAL_SQL = terminal_status_sql(
     "i.status",
 )
 
-#: One item's label inputs: ``status, enqueued_at, landed_at``.
+#: One item's label inputs: ``terminal, enqueued_at, landed_at``.
 LABEL_INPUTS_FOR_ITEM_SQL = (
     f"SELECT {ITEM_TERMINAL_SQL}, {LABEL_ENQUEUED_AT_SQL}, {LABEL_LANDED_AT_SQL} "
     f"FROM items i {LABEL_ATTEMPT_JOIN} WHERE i.id = %s"
