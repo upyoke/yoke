@@ -20,7 +20,8 @@ from yoke_core.domain.sessions_ended_recovery import session_ended_message
 from yoke_core.domain.sessions_lifecycle_claim_events import emit_steering_claimed
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.steering_scope_coverage import scopes_overlap
-from yoke_core.domain.steering_seat_holder import holder_facts, holder_label
+from yoke_core.domain.steering_seat_holder import holder_facts
+from yoke_core.domain.steering_seat_takeover import release_exited_seats
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
@@ -55,13 +56,7 @@ def lock_project(conn: Any, project_id: int) -> None:
 def _overlapping_rows(conn: Any, scope: dict[str, Any]) -> list[Any]:
     """Unreleased steering claims whose scope collides with ``scope``.
 
-    The seat invariant is "no two live steering claims with overlapping
-    scopes", not "one per project": the project is the outer key, and a
-    finer future scope nested inside a held project scope is still the same
-    seat's territory. Liveness is deliberately not consulted here -- an
-    unreleased claim row holds the scope until it is released or the
-    holder explicitly releases it, and letting a second row exist beside
-    it would leave the scope with two holders on record.
+    Exited holders are retired separately before normal acquisition.
     """
     rows = conn.execute(
         "SELECT * FROM work_claims "
@@ -103,7 +98,10 @@ def acquire(
         )
     locked_document = document or plan_document
     target = make_steering_target(project_id, document)
-    session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+    holders = {
+        str(row["session_id"]) for row in _overlapping_rows(conn, dict(target.scope))
+    } | {session_id}
+    session_rows = lock_session_rows_for_claim_lifecycle(conn, holders)
     if session_id not in session_rows:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
     if session_rows[session_id] is not None:
@@ -111,6 +109,17 @@ def acquire(
     lock_project(conn, int(project_id))
 
     rows = _overlapping_rows(conn, dict(target.scope))
+    if any(str(row["session_id"]) not in holders for row in rows):
+        conn.rollback()
+        return acquire(
+            conn,
+            session_id=session_id,
+            project_id=project_id,
+            reason=reason,
+            document=document,
+            plan_document=plan_document,
+            actor_id=actor_id,
+        )
     for row in rows:
         payload = _claim_payload(row)
         if payload["session_id"] == session_id:
@@ -136,18 +145,21 @@ def acquire(
             conn.commit()
             _emit_drain(session_id, payload, target, handoff)
             return payload
-    if rows:
-        conflict = _claim_payload(rows[0])
-        raise SessionError(
-            "ALREADY_CLAIMED",
-            f"Steering scope {target.scope_json()} overlaps the live scope "
-            f"{encode_scope(conflict['scope'])} already held by "
-            f"{holder_label(conn, conflict)} "
-            f"(claim {conflict['id']}); ask that holder for the seat, or take "
-            "a seat on a different strategy document with `yoke claims "
-            f"steering acquire --project {int(project_id)} --doc SLUG`. "
-            f"Inspect live seats with `yoke claims steering list --project "
-            f"{int(project_id)} --active-only`.",
+    if release_exited_seats(
+        conn,
+        rows,
+        session_id=session_id,
+        target=target,
+        actor_id=actor_id,
+    ):
+        return acquire(
+            conn,
+            session_id=session_id,
+            project_id=project_id,
+            reason=reason,
+            document=document,
+            plan_document=plan_document,
+            actor_id=actor_id,
         )
 
     now = utc_now()
@@ -245,12 +257,7 @@ def _acquire_document_pair(
     actor_id: Optional[int],
     reason: Optional[str],
 ) -> Optional[dict[str, Any]]:
-    """Take the document lock this seat steers with, whatever its scope.
-
-    Re-acquiring the same seat asks for the same lock it already holds, so
-    the acquire is idempotent. A seat that names no document at all --
-    neither as its scope nor as its standing plan -- locks nothing.
-    """
+    """Idempotently lock the document paired with this seat, if named."""
     from yoke_core.domain.strategy_docs import StrategyDocMissingError
     from yoke_core.domain.strategy_execution import (
         StrategyDocClaimAuthorizationError,
@@ -290,13 +297,7 @@ def list_claims(
     session_id: Optional[str] = None,
     active_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """List steering seats in one project, or in every project when unset.
-
-    Project-wide and document seats are both a project's seats, so the
-    project filter matches on the project inside the scope rather than on
-    one exact scope object -- otherwise a document seat would be invisible
-    to the listing a refusal points at.
-    """
+    """List project and document seats, optionally filtered by holder."""
     p = _p(conn)
     clauses = [f"target_kind = {p}"]
     params: list[Any] = [TARGET_KIND_STEERING]

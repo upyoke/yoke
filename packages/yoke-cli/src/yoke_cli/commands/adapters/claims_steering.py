@@ -122,7 +122,16 @@ def claims_steering_acquire(args: List[str]) -> int:
         prog="yoke claims steering acquire",
         usage=STEERING_ACQUIRE_USAGE,
     )
-    parser.add_argument("--project", required=True, metavar="P", help="Project slug or id.")
+    parser.add_argument(
+        "--project",
+        required=True,
+        metavar="P",
+        help=(
+            "Project slug or id. Automatically takes over overlapping seats "
+            "held by exited sessions and releases their paired document locks. "
+            "Live holders keep their seats; contact them with yoke say --session."
+        ),
+    )
     parser.add_argument(
         "--doc",
         default=None,
@@ -187,7 +196,10 @@ def claims_steering_release(args: List[str]) -> int:
         help="The seat's claim id, as `yoke claims steering list` shows it.",
     )
     parser.add_argument(
-        "--reason", required=True, metavar="TEXT", help="Why you are releasing the seat."
+        "--reason",
+        required=True,
+        metavar="TEXT",
+        help="Why you are releasing the seat.",
     )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_RELEASE_USAGE)
@@ -217,7 +229,9 @@ def claims_steering_list(args: List[str]) -> int:
             "--project, else the current folder's project."
         ),
     )
-    parser.add_argument("--project", default=None, metavar="P", help="Project slug or id.")
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project slug or id."
+    )
     parser.add_argument(
         "--session-id",
         default=None,
@@ -243,7 +257,9 @@ def claims_steering_list(args: List[str]) -> int:
         function_id="claims.steering.list",
         target=TargetRef(
             kind="global",
-            project_id=None if every_project else client_project_context(parsed.project),
+            project_id=None
+            if every_project
+            else client_project_context(parsed.project),
         ),
         payload=payload,
         session_id=None,
@@ -262,7 +278,9 @@ def claims_steering_verify(args: List[str]) -> int:
             "Refuses with steering_seat_required and the acquire command."
         ),
     )
-    parser.add_argument("--project", required=True, metavar="P", help="Project slug or id.")
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project slug or id."
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_VERIFY_USAGE)
     if parsed is None:

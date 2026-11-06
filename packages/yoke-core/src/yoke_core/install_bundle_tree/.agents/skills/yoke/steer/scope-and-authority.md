@@ -13,7 +13,10 @@ gates and open-work index in the plan:
 In flight / Ready to staff / Blocked / Awaiting operator decision.
 
 Use `--doc` instead of `--plan-doc` when the operator named a document. Proceed
-only with both halves held. Read all inherited mail and answer it before the
+only with both halves held. Acquire takes over an exited holder's seat and paired
+lock automatically; a live holder keeps the seat. Contact a live holder with
+`yoke say --session SESSION-ID`; do not take another document seat to free it.
+A takeover notice means reacquire before steering again. Read all inherited mail and answer it before the
 first pass.
 
 A missing doc (not a failed read): offer to create it and wait for a yes; no means stop.

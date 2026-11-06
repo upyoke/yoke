@@ -245,7 +245,7 @@ def test_project_seat_and_current_plan_document_seat_refuse_each_other(
     assert refusal.value.code == "ALREADY_CLAIMED"
     message = str(refusal.value)
     assert SESSION_ALPHA in message
-    assert "--doc SLUG" in message
+    assert f"yoke say --session {SESSION_ALPHA}" in message
 
 
 def test_one_session_cannot_hold_two_overlapping_scopes(steering_db) -> None:
