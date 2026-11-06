@@ -62,7 +62,10 @@ def detail():
 
 def render(detail, *, full=False):
     stream = StringIO()
-    write_machine_detail(detail, stream, StringIO(), full=full)
+    response = FunctionCallResponse(
+        success=True, function="machine.detail", version="v1", result=detail
+    )
+    write_machine_detail(response, stream, StringIO(), full=full)
     return stream.getvalue()
 
 

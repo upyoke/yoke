@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Any, TextIO
 
 from yoke_cli.transport.human_values import label, write_human
+from yoke_contracts.api.function_call import FunctionCallResponse
 
 
 def write_machine_detail(
-    result: dict[str, Any], stdout: TextIO, _stderr: TextIO, *, full: bool = False
+    response: FunctionCallResponse, stdout: TextIO, _stderr: TextIO, *, full: bool = False
 ) -> None:
     """Keep complete values available through the shared --full read flag."""
+    result = response.result or {}
     relay = result.get("relay")
     models = (relay or {}).get("native_models") or {}
     sections = dict(result)
