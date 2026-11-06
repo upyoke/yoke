@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 5,
- "summary": "One reclaim classifier protects active work claims independently of silence, parking or process death; either terminal stamp makes leftover custody reclaimable. Cleanup selects only unterminated sessions. One bounded, current running-call rule serves reclaim, wakes and fleet alarms.",
- "sources": ["docs/public/sessions/model/sessions.md", "docs/public/sessions/model/reclaim.md", "packages/yoke-core/src/yoke_core/domain/session_reclaim_activity.py", "packages/yoke-core/src/yoke_core/domain/session_state.py"]
+ "summary": "Active work claims remain protected independently of silence, parking or process death. Steering acquire takes over exited holders with no resume in flight while protecting native workers between turns; terminal stamps allow leftover custody reclamation. Heartbeat silence never proves exit.",
+ "sources": ["docs/public/sessions/model/sessions.md", "docs/public/sessions/model/reclaim.md", "packages/yoke-core/src/yoke_core/domain/session_reclaim_activity.py", "packages/yoke-core/src/yoke_core/domain/session_state.py", "packages/yoke-core/src/yoke_core/domain/steering_seat_takeover.py"]
 }
