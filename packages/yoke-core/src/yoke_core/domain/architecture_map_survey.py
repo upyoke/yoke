@@ -90,6 +90,31 @@ def _area_for(path: str) -> Tuple[str, str]:
     return "root", ""
 
 
+def _mixed_parent_roots(parent: str, paths: Sequence[str]) -> List[Dict[str, str]]:
+    """Collapse filename hints in classification order, then cover the rest."""
+    prefix = f"{parent}/" if parent else ""
+    remaining = [path[len(prefix):] for path in sorted(paths)]
+    roots: List[Dict[str, str]] = []
+    parent_kind, _ = _kind_for(f"{prefix}_.py")
+    for layer, hints in (("storage", _STORAGE_HINTS), ("interface", _INTERFACE_HINTS)):
+        if parent_kind == layer:
+            break  # This directory already supplies this and all weaker hints.
+        for hint in hints:
+            # Keep the spelling in the filename: classification ignores case,
+            # but map globs match paths case-sensitively.
+            spellings = sorted({
+                name[start:start + len(hint)]
+                for name in remaining
+                if (start := name.lower().find(hint)) >= 0
+            })
+            for spelling in spellings:
+                roots.append({"glob": f"{prefix}*{spelling}*.py", "layer": layer})
+                remaining = [name for name in remaining if spelling not in name]
+    if remaining:
+        roots.append({"glob": f"{prefix}*.py", "layer": parent_kind})
+    return roots
+
+
 def propose_architecture_map(
     paths: Sequence[str],
 ) -> Dict[str, Any]:
@@ -125,12 +150,9 @@ def propose_architecture_map(
                 glob = f"{parent}/*.py" if parent else "*.py"
                 path_roots.append({"glob": glob, "layer": kind})
                 continue
-            # Mixed kinds in one directory: per-file patterns keep each
-            # sibling's declared kind unambiguous.
-            for path, kind in sorted(by_parent[parent]):
-                if kind == dominant_kind:
-                    continue
-                path_roots.append({"glob": path, "layer": kind})
+            path_roots.extend(_mixed_parent_roots(
+                parent, [path for path, _kind in by_parent[parent]],
+            ))
         catch_all = f"{area_prefix}/**" if area_prefix else "*.py"
         path_roots.append({"glob": catch_all, "layer": dominant_kind})
         domains.append({"id": area_id, "path_roots": path_roots})

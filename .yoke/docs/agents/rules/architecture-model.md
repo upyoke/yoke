@@ -9,7 +9,10 @@ dependency rules, gateways and exemptions.
 
 - Read: `yoke project-structure get --project yoke --family architecture_model`.
 - Draft: `yoke project-structure architecture-draft get --project P`. The operator reviews it;
-  `project_structure.patch.apply` writes it.
+  `project_structure.patch.apply` writes it. Mixed directories use compact filename-hint
+  globs in classification order (docs, storage, interface, then the directory default);
+  the first matching pattern wins. Human reads group hint globs by parent directory;
+  JSON retains the complete map for patch application.
 - Health: `yoke project-structure architecture-health get --project P`.
 - Layers may depend only on what `may_depend_on` allows:
 
