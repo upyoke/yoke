@@ -145,7 +145,7 @@ def test_status_write_race_only_suppresses_notice_for_done(
         [row] = notices
         body = row["body"]
         assert "Automatic close-out failed" in body
-        assert "workflow/status changed while transition gates were evaluated" in body
+        assert "expected 'release', found 'implementing'" in body
 
 
 def test_collective_finalization_preserves_savepoint_after_status_lock_race(
