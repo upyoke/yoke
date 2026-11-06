@@ -237,7 +237,9 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     // would understate what is still unshipped.
     bands.release.setCount(releasing.length);
     bands.release.renderCards(rows.releasing.filter(kept).map(homeCard), "Nothing is waiting to ship.");
-    const visible = rows.done.filter(kept).slice(0, BAND_CARD_LIMIT).map(homeCard);
+    const doneRows = rows.done.filter(kept);
+    const visible = doneRows.filter((row, index) => index < BAND_CARD_LIMIT
+      || model.linked.some((node) => node.ref === reference(row))).map(homeCard);
     if (done.length > visible.length) visible.push(seeMoreCard(documentNode, scope));
     bands.done.setCount(done.length);
     bands.done.renderCards(visible, "Nothing finished in the last 24 hours.");

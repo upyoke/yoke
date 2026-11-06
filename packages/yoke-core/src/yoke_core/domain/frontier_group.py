@@ -33,10 +33,10 @@ def frontier_group(
             for s in holders
         )
         return home("in_progress", activity="working" if working else "held")
-    if row.get("dependency_holds_pickup"):
-        return home("waiting")
     if row.get("terminal") or row.get("exceptional") or row.get("needs_spec"):
         return home("on_hold", why="needs_spec" if row.get("needs_spec") else "work_halted")
+    if row.get("dependency_holds_pickup"):
+        return home("waiting")
     if next_actor.get("actor") in {"operator", "ci_or_deploy"}:
         return home("on_hold")
     return home("ready")

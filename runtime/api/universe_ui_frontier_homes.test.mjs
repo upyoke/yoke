@@ -36,3 +36,36 @@ test("home membership and counts stay exclusive across the full chain", () => {
 test("missing server projection names the required recovery", () => {
   assert.throws(() => frontierBandRows({ items: [{ public_ref: "I-1" }], readyRows: [], blockedRows: [], sessionRows: [] }), /frontier_group_unavailable.*Update/);
 });
+
+
+test("a Done reference beyond the display limit still has a reachable home card", async (t) => {
+  const { mountUniverseApp } = await import("../../packages/yoke-core/src/yoke_core/ui/static/app.js");
+  const { workbenchClient } = await import("./universe_ui_workbench_test_support.mjs");
+  const { response, settle } = await import("./universe_ui_dom_test_support.mjs");
+  const saved = globalThis.fetch;
+  globalThis.fetch = () => response(200, {});
+  t.after(() => { globalThis.fetch = saved; });
+  const done = Array.from({ length: 10 }, (_, index) => ({
+    ...item(`I-${index + 1}`, "done"), terminal: true, finished: true,
+    finished_at: new Date(Date.now() - index * 60000).toISOString(),
+  }));
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.href = "/frontier?project=all";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, { client: workbenchClient({
+    "items.overview.list": { rows: [...done, item("I-11", "waiting")] },
+    "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [{
+      blocking_item: "I-10", dependent_item: "I-11", gate_point: "activation", satisfaction: "fact:merged",
+    }] },
+    "sessions.list": { rows: [] },
+  }) });
+  t.after(() => mounted.unmount());
+  await settle();
+  const doneBand = byClass(root, "work-band-done")[0];
+  assert.equal(byClass(doneBand, "work-band-count")[0].textContent, "10");
+  const homes = byClass(doneBand, "work-item-card");
+  assert.equal(homes.length, 9);
+  assert.ok(homes.some((card) => card.id === "frontier-home-I-10"));
+  const reference = byClass(root, "fdv-tile").find((tile) => tile.getAttribute("data-fdv-ref") === "I-10");
+  assert.equal(byClass(reference, "fdv-tile-ref")[0].href, "#frontier-home-I-10");
+});

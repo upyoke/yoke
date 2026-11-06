@@ -72,3 +72,21 @@ def test_overview_projects_parked_claim_and_keeps_halted_work(test_db):
     for title in ("Halted work", "Failed work"):
         assert rows[title]["frontier_group"]["section"] == "on_hold"
         assert rows[title]["next_actor"]["actor"] == "parent_or_steering"
+
+
+def test_activation_blocker_wins_over_an_earlier_merge_edge(test_db):
+    from runtime.api.conftest import insert_item
+    from yoke_core.domain.session_control_health_facts import gating_blockers
+
+    for iid in (19411, 19412, 19413):
+        insert_item(test_db, id=iid, title=f"Dependency work {iid}", status="idea")
+    for blocker, gate in ((19412, "integration"), (19413, "activation")):
+        test_db.execute(
+            "INSERT INTO item_dependencies "
+            "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,created_at) "
+            "VALUES (%s,%s,%s,'status:done','test',%s)",
+            (19411, blocker, gate, utc_now()),
+        )
+    test_db.commit()
+    assert gating_blockers(test_db, [19411])[19411]["gate_point"] == "activation"
+    assert frontier_group({"exceptional": True, "dependency_holds_pickup": True})["section"] == "on_hold"

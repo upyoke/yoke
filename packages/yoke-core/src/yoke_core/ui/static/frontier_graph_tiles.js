@@ -48,7 +48,7 @@ export function frontierTile(documentNode, model, ref, helpers) {
   ));
   const names = { on_hold: "On hold", in_progress: "In progress", active: "In progress", ready: "Ready", release: "Release", done: "Done", waiting: "Waiting" };
   if (node.reference) tile.appendChild(el(documentNode, "span", "fdv-reference-home",
-    `Reference · ${names[node.home] || node.home}${node.activity ? ` · ${node.activity === "held" ? "Held, not working" : "Working"}` : ""}`));
+    `Reference · ${names[node.home] || node.home}${node.activity ? ` · ${node.activity === "held" ? "Held, not working" : "Working"}` : " · No holder"}`));
   appendNextActor(documentNode, tile, node.nextActor);
   const meta = frontierTileMeta(node);
   if (meta) tile.appendChild(el(documentNode, "span", "fdv-tile-meta", meta));
