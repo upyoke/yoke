@@ -87,6 +87,9 @@ def _conn() -> sqlite3.Connection:
         );
         """
     )
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN launch_origin TEXT NOT NULL DEFAULT 'operator'"
+    )
     add_launch_read_schema(conn)
     return conn
 

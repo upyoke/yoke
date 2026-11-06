@@ -134,9 +134,9 @@ def test_the_claim_response_carries_no_stagger_field() -> None:
 def _add_waiting_recipient(conn, *, message_id: str, session_id: str) -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id,project_id,executor_surface,executor_version,machine_id,"
+        "(session_id,project_id,executor_surface,executor_version,machine_id,launch_origin,"
         "model,offered_at,last_tool_call_at,ended_at,turn_posture) "
-        "VALUES (?,10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?,'waiting')",
+        "VALUES (?,10,'codex-cli','0.148.0a15',?,'yoke','gpt-5',?,NULL,?,'waiting')",
         (
             session_id,
             MACHINE_ID,

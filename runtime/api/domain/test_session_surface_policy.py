@@ -100,6 +100,7 @@ def test_native_wake_skips_a_disabled_surface() -> None:
     _disable(conn, surface="cursor-cli")
     row = {
         "machine_id": "machine-1",
+        "launch_origin": "yoke",
         "executor_surface": "cursor-cli",
         "terminated_at": None,
     }
