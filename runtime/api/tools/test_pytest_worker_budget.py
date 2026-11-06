@@ -225,3 +225,21 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
     assert "-n" in argv
     workers = argv[argv.index("-n") + 1]
     assert workers == "auto" or 1 <= int(workers) <= 10
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_grant_uses_the_live_output_stream(monkeypatch, explicit):
+    import io
+
+    current, selected = io.StringIO(), io.StringIO()
+    monkeypatch.delenv(budget.HELD_ENV, raising=False)
+    monkeypatch.setattr(budget.sys, "stderr", current)
+    monkeypatch.setattr(budget, "load_backoff", lambda request: (request, "worker notice"))
+    streams = []
+    monkeypatch.setattr(budget, "_acquire", lambda request, stream: (streams.append(stream) or None, None))
+    with budget.granted_workers(["-n", "1"], {}, **({"stream": selected} if explicit else {})):
+        pass
+    expected = selected if explicit else current
+    assert streams == [expected]
+    assert expected.getvalue() == "worker notice\n"
+    assert (current if explicit else selected).getvalue() == ""

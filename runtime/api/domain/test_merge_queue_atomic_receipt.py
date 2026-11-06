@@ -136,6 +136,17 @@ def test_new_landing_is_excluded_from_older_candidate_before_worker_closeout(
     test_db.commit()
     repo, baseline, landing = release_repository(tmp_path, "ITEM-1")
     serve_repository(monkeypatch, repo)
+    from yoke_core.domain import deployment_run_carried_work_repository as repository
+    from yoke_core.domain.deployment_run_carried_work_source import CarriedWorkSourceUnavailable
+
+    def unavailable(*args, **kwargs):
+        raise CarriedWorkSourceUnavailable("fixture_provider_unavailable", "Use the fixture checkout")
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("real-git containment fixture attempted live repository I/O")
+
+    monkeypatch.setattr(repository, "open_repository_provider_source", unavailable)
+    monkeypatch.setattr(repository, "request_with_retry", unexpected)
     stage_environment(test_db)
     cmd_create(
         test_db,
