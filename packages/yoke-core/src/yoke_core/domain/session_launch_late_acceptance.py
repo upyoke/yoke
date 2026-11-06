@@ -71,7 +71,7 @@ def accept_late_launch(
         (launch.message_id,),
     ).fetchone()
     reason = value(message, "cancellation_reason", 0) if message else None
-    if reason and reason not in {"launch_failed", "launch_expired"}:
+    if reason and reason not in {"launch_failed", "launch_expired", "launch_outcome_unknown"}:
         taken_over(launch, f"message cancelled: {reason}")
     deadline = add_seconds(now, DEFAULT_LAUNCH_DEADLINE_SECONDS)
     extend_launch_message_expiry(conn, message_id=launch.message_id, expires_at=deadline)

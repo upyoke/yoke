@@ -109,15 +109,20 @@ def test_late_acknowledgement_then_claim_succeeds(context, surface, swept):
 
 
 @pytest.mark.parametrize("surface", list(SESSION_SURFACE_CAPABILITIES))
-def test_registration_after_deadline_succeeds(context, surface):
+@pytest.mark.parametrize("uncertain", [False, True])
+def test_registration_after_deadline_succeeds(context, surface, uncertain):
     conn, *_ = context
     launch, session = seed(context, surface=surface, bound=False)
+    if uncertain:
+        update_launch(conn, launch.launch_id, state="outcome_unknown")
+        conn.commit()
     failed = settle_launch_deadlines(conn, launch_id=launch.launch_id, now=DEADLINE)[0]
-    assert failed.result_code == "registration_deadline"
+    expected = "launch_deadline" if uncertain else "registration_deadline"
+    assert failed.result_code == expected
     prepare_launch_registration(conn, launch_id=launch.launch_id, attestation=session, session_id=session, now=LATE)
     recovered = get_launch(conn, launch.launch_id)
     assert recovered.registered_session_id == session
-    assert json.loads(recovered.result_evidence)["previous_launch_result"] == "registration_deadline"
+    assert json.loads(recovered.result_evidence)["previous_launch_result"] == expected
     acknowledge_message(conn, message_id=launch.message_id, session_id=session, now=parse_instant(LATE))
     claim(context, session)
     assert settle_launch_deadlines(conn, launch_id=launch.launch_id, now=LATE)[0].state == "succeeded"
