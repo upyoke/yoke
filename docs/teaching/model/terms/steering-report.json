@@ -1,7 +1,7 @@
 {
  "id": "steering-report",
  "term": "Steering report",
- "definition": "The report of work, holders, waits and problems that need coordination.",
+ "definition": "The report of work, holders, waits and problems that need coordination. Holder alarms use shared session state: only silent held work with no declared wait and next actor this_session alarms; declared or external waits list their reason and next actor.",
  "status": "draft",
  "sources": ["docs/public/sessions/steering-report.md"]
 }

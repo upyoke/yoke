@@ -38,15 +38,10 @@ def session_presence(row: Mapping[str, Any]) -> str:
     return "gone" if gone is not None and (tool is None or tool <= gone) else "present"
 
 
-def session_in_flight(
-    row: Mapping[str, Any], *, now: datetime | None = None
-) -> bool:
+def session_in_flight(row: Mapping[str, Any], *, now: datetime | None = None) -> bool:
     """A current running call is bounded by the shared watcher ceiling."""
     started = row.get("open_tool_call_at")
-    if (
-        started is None
-        or session_presence(row) != "present"
-    ):
+    if started is None or session_presence(row) != "present":
         return False
     now = utc_now() if now is None else as_utc(now)
     stamp = parse_instant(started)
@@ -117,4 +112,14 @@ def session_state(
             "next_actor": next_action,
             "in_flight": in_flight,
         }
+    )
+
+
+def session_needs_idle_alarm(state: Mapping[str, Any]) -> bool:
+    """Only undeclared silence with held work that this session must drive."""
+    return (
+        state["activity"] == "silent"
+        and bool(state["custody"]["holds"])
+        and state["intent"]["state"] == "none"
+        and state["next_actor"]["actor"] == "this_session"
     )

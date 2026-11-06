@@ -175,6 +175,18 @@ class FleetReport:
         return tuple(entry for entry in self.deployment_runs if entry.needs_action)
 
     @property
+    def awaiting(self) -> tuple[ClaimHolder, ...]:
+        return tuple(
+            h
+            for h in self.holders
+            if h.session_state
+            and (
+                h.session_state["intent"]["state"] != "none"
+                or h.session_state["next_actor"]["actor"] != "this_session"
+            )
+        )
+
+    @property
     def actionable(self) -> bool:
         """True when something in this report needs the steerer to act."""
         return bool(
@@ -215,16 +227,9 @@ def compose_report(
 ) -> FleetReport:
     """Assemble one steering scope's report from live control-plane state.
 
-    ``scope`` is the seat's own scope object. A seat narrowed to a strategy
-    document sees only that document's items, so every item-keyed section is
-    filtered to its members. Delivery-plane and machine facts stay
-    project-wide: a launch that never bound a session has no item to
-    attribute, and machines are shared by every seat on them.
-
-    ``reads`` is the request this report belongs to. A caller composing
-    several scopes passes its own, so each project's facts are read once
-    for the whole request and every scope narrows the same values; a caller
-    composing one scope passes nothing and reads them for itself.
+    Item-keyed sections follow the seat's strategy members; delivery and
+    machine facts stay project-wide. A shared ``reads`` request caches each
+    project's facts once across scopes; a single scope can omit it.
     """
     now = parse_instant(now)
     request = reads if reads is not None else FleetReportReads()
@@ -243,11 +248,17 @@ def compose_report(
     )
     landed_open = seat_landed_open(item_facts.landed_open, members, seat_scope)
     holders = seat_claim_holders(item_facts.holders, members, landed_open)
+    from yoke_core.domain.steering_fleet_report_holders import with_session_state
+    from yoke_core.domain.session_state import session_needs_idle_alarm
+
+    holders = with_session_state(
+        holders, now=now, idle_after_seconds=idle_after_seconds
+    )
     quiet = tuple(
         holder
         for holder in holders
-        if holder.requires_immediate_alarm
-        or holder.idle_seconds >= int(idle_after_seconds)
+        if holder.session_state["in_flight"]
+        or session_needs_idle_alarm(holder.session_state)
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     stranded = item_facts.stranded if seat_scope.get("document") else facts.stranded
@@ -265,13 +276,11 @@ def compose_report(
     idle = tuple(
         holder
         for holder in split.idle
-        if holder.session_id not in stranded_ids and holder.item_id not in waiting
+        if session_needs_idle_alarm(holder.session_state)
+        and holder.session_id not in stranded_ids
+        and holder.item_id not in waiting
     )
-    alive_idle = tuple(
-        holder
-        for holder in split.alive_idle
-        if holder.session_id not in stranded_ids and holder.item_id not in waiting
-    )
+    alive_idle = tuple(holder for holder in idle if not holder.native_process_gone)
     available = members_only(item_facts.available, members)
     refs = {row.item_id: row.public_ref for row in (*available, *holders)}
     return FleetReport(

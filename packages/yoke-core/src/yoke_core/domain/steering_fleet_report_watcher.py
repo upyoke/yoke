@@ -16,6 +16,7 @@ ROW_FIELDS = frozenset(
         "run_id",
         "custody_run_id",
         "parked",
+        "session_state",
         "idle_seconds",
         "merged",
         "closed",

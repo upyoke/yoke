@@ -72,13 +72,14 @@ def test_exited_holder_on_a_resumable_surface_is_messaged_not_terminated(
     _record_exit(steering_scope)
 
     report = _compose(steering_scope)
-    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    holder = next(row for row in report.awaiting if row.session_id == WORKER_SESSION)
 
     assert holder.native_process_gone is True
     assert holder.resumable_from_transcript is True
     line = _holder_line(report)
     assert "between turns — message wakes it" in line
-    assert "yoke say --item YOK-1 --stdin" in line
+    assert "next: parent_or_steering" in line
+    assert all(row.session_id != WORKER_SESSION for row in report.idle)
     assert "terminate" not in line
 
 
@@ -106,7 +107,8 @@ def test_exited_holder_a_wake_is_resuming_reads_resuming_now(steering_scope):
 
     assert holder.resuming is True
     assert holder.native_process_gone is False
-    assert holder.requires_immediate_alarm is False
+    assert holder.session_state["next_actor"]["actor"] == "parent_or_steering"
+    assert all(row.session_id != WORKER_SESSION for row in report.idle)
     line = _holder_line(report)
     assert "message wake in flight — let the turn start" in line
     assert "terminate" not in line
@@ -168,7 +170,7 @@ def test_expected_park_describes_its_wait_with_or_without_a_native(
     assert "process running" not in line
 
 
-def test_containment_with_zero_exit_code_still_alarms_under_a_park(steering_scope):
+def test_containment_with_zero_exit_code_stays_visible_under_a_park(steering_scope):
     _record_exit(steering_scope)
     steering_scope.execute(
         "UPDATE harness_sessions SET mode='parked', native_process_gone_evidence=%s "
@@ -177,7 +179,7 @@ def test_containment_with_zero_exit_code_still_alarms_under_a_park(steering_scop
     )
     steering_scope.commit()
     report = _compose(steering_scope)
-    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    holder = next(row for row in report.awaiting if row.session_id == WORKER_SESSION)
     assert holder.native_process_gone and holder.contained_by_sweep
     assert (
         "contained by sweep: inactivity, claims held; parked waiting"

@@ -9,10 +9,11 @@ import pytest
 
 from yoke_core.domain.fleet_delta_alarms import (
     DeltaState,
-    IDLE_HOLDER_MINUTES,
     IDLE_HOLDER_REPEAT_MINUTES,
     idle_holder_alarms,
 )
+from yoke_contracts.project_contract.project_keys import DEFAULT_SESSION_IDLE_MINUTES
+
 from yoke_core.domain.fleet_delta_snapshot import (
     SESSIONS_FUNCTION,
     FleetSnapshot,
@@ -23,7 +24,7 @@ from yoke_core.domain.fleet_delta_snapshot import (
 )
 
 NOW = datetime(2026, 8, 28, 17, 0, tzinfo=timezone.utc)
-STALE = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+STALE = NOW - timedelta(minutes=DEFAULT_SESSION_IDLE_MINUTES + 1)
 
 
 def _session(session_id: str, **overrides) -> SessionRow:
@@ -62,19 +63,17 @@ def test_idle_holder_fires_past_threshold_and_holds_inside_the_cadence() -> None
     assert idle_holder_alarms(_snapshot(_session("a"), at=later), state) == []
 
 
-def test_parked_holder_past_threshold_alarms_with_its_reason() -> None:
+def test_parked_holder_past_threshold_never_alarms() -> None:
     parked = _session(
         "p", mode="parked", parked=True, quiet_reason="waiting on YOK-3965"
     )
-    [line] = idle_holder_alarms(_snapshot(parked), DeltaState())
-    assert "session=p" in line
-    assert "mode=parked reason='waiting on YOK-3965'" in line
+    assert idle_holder_alarms(_snapshot(parked), DeltaState()) == []
 
 
-def test_parked_holder_alarms_once_rather_than_on_the_cadence() -> None:
+def test_parked_holder_stays_quiet_past_the_cadence() -> None:
     state = DeltaState()
     parked = _session("p", mode="parked", parked=True)
-    assert len(idle_holder_alarms(_snapshot(parked), state)) == 1
+    assert idle_holder_alarms(_snapshot(parked), state) == []
 
     later = NOW + timedelta(minutes=3 * IDLE_HOLDER_REPEAT_MINUTES)
     assert idle_holder_alarms(_snapshot(parked, at=later), state) == []
@@ -92,12 +91,15 @@ def test_still_idle_holder_reraises_after_the_cadence() -> None:
     later = NOW + timedelta(minutes=IDLE_HOLDER_REPEAT_MINUTES)
     [again] = idle_holder_alarms(_snapshot(_session("a"), at=later), state)
     assert "ALARM idle-holder session=a" in again
-    assert f"idle={IDLE_HOLDER_MINUTES + 1 + IDLE_HOLDER_REPEAT_MINUTES}m" in again
+    assert (
+        f"idle={DEFAULT_SESSION_IDLE_MINUTES + 1 + IDLE_HOLDER_REPEAT_MINUTES}m"
+        in again
+    )
 
 
 def test_idle_holder_clears_once_when_activity_resumes() -> None:
     state = DeltaState()
-    idle_holder_alarms(_snapshot(_session("a", mode="parked", parked=True)), state)
+    idle_holder_alarms(_snapshot(_session("a")), state)
 
     active = _session("a", activity_at=NOW)
     assert idle_holder_alarms(_snapshot(active), state) == [
@@ -157,34 +159,52 @@ def test_probe_reads_the_full_live_roster_rather_than_the_summary_page() -> None
     }
 
 
-def test_parked_holder_repeats_while_named_dependents_wait() -> None:
+def test_parked_holder_never_alarms_while_named_dependents_wait() -> None:
     from dataclasses import replace
 
     blocker, dependent = (f"WORK-{number}" for number in (1, 2))
     parked = _session("p", mode="parked", parked=True, claimed_items=(blocker,))
-    items = item_rows({"blocked_steps": [
-        {"item_id": dependent, "blocked_by": [blocker]},
-    ]})
+    items = item_rows(
+        {
+            "blocked_steps": [
+                {"item_id": dependent, "blocked_by": [blocker]},
+            ]
+        }
+    )
     state = DeltaState()
     snapshot = _snapshot(parked, items=items)
-    assert f"dependents={dependent}" in idle_holder_alarms(snapshot, state)[0]
+    assert idle_holder_alarms(snapshot, state) == []
     inside = replace(snapshot, taken_at=NOW + timedelta(minutes=59))
     assert idle_holder_alarms(inside, state) == []
     later = replace(snapshot, taken_at=NOW + timedelta(minutes=60))
-    assert f"dependents={dependent}" in idle_holder_alarms(later, state)[0]
+    assert idle_holder_alarms(later, state) == []
     cleared = replace(later, taken_at=NOW + timedelta(minutes=120), items={})
     assert idle_holder_alarms(cleared, state) == []
 
 
-@pytest.mark.parametrize("dependency,quiet", [("WORK-2 integration", True), ("", False)])
+@pytest.mark.parametrize(
+    "dependency,quiet", [("WORK-2 integration", True), ("", False)]
+)
 def test_served_dependency_wait_controls_idle_alarm(dependency, quiet):
     from dataclasses import replace
 
-    row = session_rows({"rows": [{
-        "session_id": "holder", "activity_at": STALE.isoformat(),
-        "claims": [{"target_kind": "item", "target": "WORK-1",
-                    "item_awaiting_dependency": dependency}],
-    }]})["holder"]
+    row = session_rows(
+        {
+            "rows": [
+                {
+                    "session_id": "holder",
+                    "activity_at": STALE.isoformat(),
+                    "claims": [
+                        {
+                            "target_kind": "item",
+                            "target": "WORK-1",
+                            "item_awaiting_dependency": dependency,
+                        }
+                    ],
+                }
+            ]
+        }
+    )["holder"]
     assert row.dependency_waits == (("WORK-1",) if quiet else ())
     state = DeltaState()
     lines = idle_holder_alarms(_snapshot(row), state)
@@ -194,3 +214,38 @@ def test_served_dependency_wait_controls_idle_alarm(dependency, quiet):
         assert "items=WORK-3" in idle_holder_alarms(_snapshot(unheld), state)[0]
         cleared = replace(row, dependency_waits=())
         assert "items=WORK-1" in idle_holder_alarms(_snapshot(cleared), DeltaState())[0]
+
+
+@pytest.mark.parametrize(
+    "intent,actor,alarms",
+    [
+        ("none", "this_session", True),
+        ("parked", "parent_or_steering", False),
+        ("awaiting", "operator", False),
+        ("awaiting", "another_item", False),
+        ("awaiting", "ci_or_deploy", False),
+        ("none", "parent_or_steering", False),
+    ],
+)
+def test_alarm_reads_served_state_instead_of_reclassifying_tool_age(
+    intent, actor, alarms
+):
+    model = {
+        "activity": "silent",
+        "custody": {"holds": ["work"]},
+        "intent": {"state": intent},
+        "next_actor": {"actor": actor},
+    }
+    row = session_rows(
+        {
+            "rows": [
+                {
+                    "session_id": "holder",
+                    "session_state": model,
+                    "last_tool_call_at": NOW.isoformat(),
+                    "claims": [{"target_kind": "item", "target": "work"}],
+                }
+            ]
+        }
+    )["holder"]
+    assert bool(idle_holder_alarms(_snapshot(row), DeltaState())) is alarms

@@ -160,8 +160,8 @@ def test_staffing_and_idle_thresholds_answer_separate_questions(steering_scope):
     assert {entry.item_id for entry in report.waited_too_long()} == {2, 3}
 
 
-def test_a_parked_holder_quiet_past_idle_is_idle(steering_scope):
-    """A declared wait that has gone quiet is stuck, not healthy."""
+def test_a_parked_holder_quiet_past_idle_is_awaiting(steering_scope):
+    """A declared wait remains visible without becoming an idle-holder alarm."""
     claim_work(
         steering_scope,
         session_id=WORKER_SESSION,
@@ -176,8 +176,14 @@ def test_a_parked_holder_quiet_past_idle_is_idle(steering_scope):
 
     report = _compose(steering_scope)
 
-    assert {holder.item_id for holder in report.idle} == {1}
-    assert report.idle[0].parked is True
+    assert report.idle == ()
+    assert {holder.item_id for holder in report.awaiting} == {1}
+    assert report.awaiting[0].parked is True
+    assert report.awaiting[0].next_actor["actor"] == "parent_or_steering"
+    assert (
+        report.awaiting[0].session_state["intent"]["reason"]
+        == "awaiting YOK-1 delivery"
+    )
 
 
 def test_a_document_linked_landing_is_named_on_its_document_seat(steering_scope):
@@ -217,7 +223,8 @@ def test_a_document_linked_landing_is_named_on_its_document_seat(steering_scope)
     body = report_body(report)
 
     assert 4 in {entry.item_id for entry in report.landed_open}
-    assert 4 in {holder_row.item_id for holder_row in report.idle}
+    assert 4 not in {holder_row.item_id for holder_row in report.idle}
+    assert 4 in {holder_row.item_id for holder_row in report.awaiting}
     assert "YOK-4" in body
     assert "no active completion flow" in body
     assert sum("YOK-4" in line for line in body.splitlines()) == 1
