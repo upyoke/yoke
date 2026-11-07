@@ -167,3 +167,9 @@ def test_disabled_status_and_doctor_skip_session_lookup(tmp_path, folder_config,
     doctor_install.hc_session_hook_registration(None, None, SimpleNamespace(record=lambda *a: rows.append(a)))
     assert rows[0][2] == doctor_install.NOT_APPLICABLE
     assert "disabled" in rows[0][3]
+
+
+def test_malformed_payload_keeps_physical_folder_privacy(tmp_path, folder_config):
+    assert scope.folder_scope("invalid-json") == "unregistered"
+    folder_config["disabled_folders"] = [str(tmp_path)]
+    assert scope.folder_scope("invalid-json") == "disabled"

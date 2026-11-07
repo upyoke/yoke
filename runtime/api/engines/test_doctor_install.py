@@ -13,6 +13,11 @@ from yoke_core.engines.doctor_applicability_declarations import local_runtime_sl
 from yoke_core.engines.doctor_https_local_scope import requested_local_machine_slugs
 
 
+@pytest.fixture(autouse=True)
+def registered_folder_scope(monkeypatch):
+    monkeypatch.setattr("yoke_contracts.hook_runner.folder_scope.folder_scope", lambda: "registered")
+
+
 def answers(refusal="not_found", **identity):
     def relay(function, payload):
         if function != "projects.get":
@@ -152,12 +157,8 @@ def test_hook_requires_both_registered_identity_and_observed_delivery(
     )
     monkeypatch.setattr(checks, "relay", answers(session_id=registered, project_id=42))
     monkeypatch.setattr(checks, "orientation_delivered", lambda s: delivered)
-    assert (
-        run(checks.hc_session_hook_registration, only="session-hook-registration")[
-            0
-        ].result
-        == verdict
-    )
+    result = run(checks.hc_session_hook_registration, only="session-hook-registration")[0]
+    assert result.result == verdict
 
 
 @pytest.mark.parametrize("session", ["", "session"])

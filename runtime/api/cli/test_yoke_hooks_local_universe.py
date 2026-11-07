@@ -23,6 +23,9 @@ _ACTIVE = "yoke_cli.commands.adapters.hook_inprocess._active_local_universe"
 
 
 def test_bound_local_universe_runs_complete_engine_chain(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda *a, **k: "registered",
+    )
     monkeypatch.setattr(_RESOLVE, lambda: None)
     monkeypatch.setattr(_ACTIVE, lambda: True)
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))

@@ -27,7 +27,10 @@ def disabled_folder(path: str | Path, config: Mapping[str, Any]) -> str:
 def folder_scope(stdin_data: str = "", *, path: str | Path | None = None) -> str:
     """Return disabled, unregistered or registered; preserve existing error handling."""
     try:
-        payload = json.loads(stdin_data) if stdin_data else {}
+        try:
+            payload = json.loads(stdin_data) if stdin_data else {}
+        except json.JSONDecodeError:
+            payload = {}
         config = machine_config.load_config()
         candidates = workspace_path_candidates(payload if isinstance(payload, dict) else {})
         candidates.append(str(path or os.getcwd()))

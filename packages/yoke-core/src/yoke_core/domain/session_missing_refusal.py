@@ -41,7 +41,8 @@ def format_session_missing(
         f"This write requires a registered session. {TERMINAL_SUPPORTED_PATH} "
         "Outside registered projects, hooks deliberately create no session. "
         "If this session started in a registered project, this is a Yoke "
-        f"infrastructure gap: registration or process-anchor resolution failed. {DENIAL_FOOTER}"
+        f"infrastructure gap: registration or process-anchor resolution failed. {DENIAL_FOOTER} "
+        "Operator-debug --session-id is the only ambient-resolution override."
     )
 
 

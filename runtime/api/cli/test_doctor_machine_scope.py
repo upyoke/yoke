@@ -23,6 +23,9 @@ def outside_project(monkeypatch):
     monkeypatch.setattr(doctor, "required_project_context", refuse)
     monkeypatch.setattr(doctor, "connection_failure", lambda: None)
     monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda: "unregistered"
+    )
+    monkeypatch.setattr(
         doctor_https_compose, "local_connection_or_none", lambda c: None
     )
 
@@ -166,4 +169,7 @@ def test_session_readiness_outside_a_session(outside_project, monkeypatch, capsy
     rows = json.loads(capsys.readouterr().out)["result"]["results"]
     session_rows = [row for row in rows if row["hc"].removeprefix("HC-") in slugs]
     assert len(session_rows) == (1 if option == "--install" else 3)
-    assert {row["severity"] for row in session_rows} == {expected}
+    hook = next(row for row in session_rows if row["hc"].removeprefix("HC-") == "session-hook-registration")
+    assert hook["severity"] == "N/A"
+    assert "Folder is unregistered" in hook["detail"]
+    assert {row["severity"] for row in session_rows} == ({"N/A", "FAIL"} if expected == "FAIL" else {"N/A"})

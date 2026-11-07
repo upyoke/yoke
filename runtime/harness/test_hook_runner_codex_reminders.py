@@ -22,6 +22,9 @@ pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 @pytest.fixture()
 def lifecycle(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda *a, **k: "registered",
+    )
     transcript = tmp_path / "rollout-session.jsonl"
     transcript.touch()
     monkeypatch.setattr(
