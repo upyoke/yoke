@@ -45,7 +45,8 @@ def test_harness_text_keeps_the_infrastructure_gap_framing():
     )
     assert "infrastructure gap" in text
     assert "yoke feedback" in text
-    assert TERMINAL_SUPPORTED_PATH not in text
+    assert TERMINAL_SUPPORTED_PATH in text
+    assert "hooks deliberately create no session" in text
 
 
 def test_contested_anchors_ride_on_the_harness_text():

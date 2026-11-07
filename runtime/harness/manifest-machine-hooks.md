@@ -3,7 +3,7 @@
 The `machine_hooks` object of [`manifest.json`](manifest-schema.md) is rendered
 from `yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS`. It names
 where the harness reads user-level hooks and which events Yoke installs there,
-so a session opened outside any Yoke project still registers, receives
+so a session opened outside any Yoke project stays local and receives
 messages and runs the machine-scope Bash guards.
 
 Setup and project install or refresh write these entries; every Yoke hook
@@ -50,3 +50,10 @@ Codex resolves a symlinked home before matching it (codex-cli 0.161.0).
 Codex runs hooks only with `[features] hooks = true` in its `config.toml`. A user config that is not valid hook JSON is never overwritten: setup
 and doctor name `machine_hooks_config_malformed`, the path, and the recovery
 (fix or move the file, then run `yoke setup` again).
+
+Folder policy runs before deduplication, resident dispatch or self-heal.
+`yoke folder disable PATH` skips all hook work for that physical folder and
+subfolders on this machine; enable removes the exact opt-out. Unregistered
+folders run only machine guards and local orientation, with no transport or
+completion telemetry. Explicit connection or launch context retains routing.
+See [What Yoke sends](../../docs/public/agents/harness-discovery.md#what-yoke-sends).

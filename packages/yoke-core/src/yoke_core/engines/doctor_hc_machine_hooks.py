@@ -3,7 +3,7 @@
 The hooks live in each harness's user config (see
 :mod:`yoke_contracts.harness_machine_hooks`). A config Yoke cannot parse
 fails, because Yoke will not overwrite it and every session outside a
-project then runs without registration or machine guards. Missing, stale or
+project then runs without local orientation or machine guards. Missing, stale or
 untrusted hooks warn with the setup step that repairs them.
 """
 
@@ -30,6 +30,13 @@ def hc_machine_hooks(conn: Any, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record(f"HC-{SLUG}", TITLE, "PASS", "no supported harness is installed")
         return
     detail = "\n".join(f"- {result.line()}" for result in results)
+    from pathlib import Path
+    from yoke_contracts.hook_runner.folder_scope import disabled_folder
+    from yoke_contracts.machine_config.runtime import load_config
+
+    covering = disabled_folder(Path.cwd(), load_config())
+    if covering:
+        detail += f"\nHooks disabled for this folder by {covering}; enable with yoke folder enable PATH."
     if any(result.outcome == STATE_MALFORMED for result in results):
         status = "FAIL"
     elif any(result.outcome != STATE_INSTALLED for result in results):

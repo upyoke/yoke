@@ -45,7 +45,7 @@ def _session(conn, request, session_id, actor_id):
     ).fetchone()
     if row is None:
         raise ValueError(
-            "operator_question_session_missing: start a registered session and retry"
+            "operator_question_session_missing: open a session in the project folder, or run `yoke sessions begin`, then retry"
         )
     target = dict(row)
     if target.get("actor_id") != actor_id:

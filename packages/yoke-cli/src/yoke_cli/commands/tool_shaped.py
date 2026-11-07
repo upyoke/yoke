@@ -12,6 +12,10 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from yoke_cli.commands.folder import (
+    TOOL_SHAPED_SUBCOMMANDS as _FOLDER_SUBCOMMANDS,
+    TOOL_SHAPED_USAGE as _FOLDER_USAGE,
+)
 from yoke_cli.commands.advance_implementation_entry import (
     TOOL_SHAPED_SUBCOMMANDS as _ADVANCE_ENTRY_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _ADVANCE_ENTRY_USAGE,
@@ -155,6 +159,7 @@ from yoke_cli.commands.watchers import (
 )
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
+    **_FOLDER_SUBCOMMANDS,
     **_ADVANCE_ENTRY_SUBCOMMANDS,
     **_BOARD_SUBCOMMANDS,
     **_BOARD_ART_VARIANT_SUBCOMMANDS,
@@ -194,6 +199,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 
 # cli form -> one-line usage for `yoke --help`.
 TOOL_SHAPED_USAGE: Dict[str, str] = {
+    **_FOLDER_USAGE,
     **_ADVANCE_ENTRY_USAGE,
     **_BOARD_USAGE,
     **_BOARD_ART_VARIANT_USAGE,

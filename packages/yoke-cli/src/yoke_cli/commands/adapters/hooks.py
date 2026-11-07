@@ -254,6 +254,11 @@ def hook_evaluate(args: List[str]) -> int:
     )
     if is_cursor_config_invocation(os.environ, raw):
         executor = "cursor"
+    from yoke_contracts.hook_runner.folder_scope import folder_scope
+
+    if folder_scope(raw) == "disabled":
+        sys.stdout.write(plain_allow_stdout(event, executor))
+        return 0
     if hooks_off(os.environ):
         sys.stderr.write(
             format_hook_diagnostic(event, f"Yoke hooks are off ({HOOKS_OFF_ENV}).\n")

@@ -82,6 +82,8 @@ def render_human(report: Mapping[str, Any]) -> str:
         if _is_machine_local_universe(connection):
             lines.append(LOCAL_REACH_LINE)
     project = report.get("project") or {}
+    if isinstance(project, Mapping) and project.get("hooks_disabled_by"):
+        lines.append(f"  hooks: disabled by {project['hooks_disabled_by']}")
     if isinstance(project, Mapping):
         if project.get("project_id"):
             lines.append(

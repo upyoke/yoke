@@ -108,3 +108,11 @@ paths outside managed roots remain. See
 - [Install and onboard](install.md)
 - [Project installation](project-install.md)
 - [Get started](index.md)
+
+## Turn hooks off for one folder
+
+Use `yoke folder disable PATH` to stop hooks in that folder and its subfolders
+on this machine while keeping Yoke installed. It works for registered projects
+and other folders. `yoke status` reports the disabled folder;
+`yoke folder enable PATH` restores hooks unless an ancestor is still disabled.
+See [What Yoke sends](../agents/harness-discovery.md#what-yoke-sends).

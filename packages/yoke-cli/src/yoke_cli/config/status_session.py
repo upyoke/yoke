@@ -9,6 +9,12 @@ def attach_session_state(report):
     from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_cli.transport.dispatcher import _resolve_session_id
 
+    from yoke_contracts.hook_runner.folder_scope import folder_scope
+
+    scope = folder_scope(path=report.get("repo_root"))
+    if scope != "registered":
+        report["session"] = {"presence": f"no hook session: folder is {scope}"}
+        return report
     if not _control_plane_ready(report):
         return report
     session_id = _resolve_session_id()

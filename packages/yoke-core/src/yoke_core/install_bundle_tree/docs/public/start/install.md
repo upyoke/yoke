@@ -213,7 +213,10 @@ one ordinary `yoke hook resident restart` after installing the corrected CLI;
 installing code alone cannot change that old process. Hook timing stays in the
 diagnostics log. Setup also
 writes Yoke's machine-wide hooks into each existing harness home's user config,
-so sessions outside a project register; inside one, the project's hooks run.
+so sessions outside a project get local help without sending data; inside one,
+the project's hooks route to its connection. Disable any folder and subfolders
+on this machine with `yoke folder disable PATH`; restore with
+`yoke folder enable PATH`. See [What Yoke sends](../agents/harness-discovery.md#what-yoke-sends).
 
 The installed CLI follows your active connection (`active_env`, set by
 `yoke env use`) automatically, whether that is upyoke.com, a self-hosted server

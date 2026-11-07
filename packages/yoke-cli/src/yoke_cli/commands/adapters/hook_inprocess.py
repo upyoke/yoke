@@ -42,6 +42,15 @@ def evaluate_inprocess(
     on_complete: Callable[[], None] | None = None,
 ) -> int:
     """Run the existing hook chain after the caller context is established."""
+    from yoke_contracts.hook_runner.folder_scope import folder_scope
+
+    scope = folder_scope(stdin_data)
+    if scope == "disabled":
+        from yoke_contracts.hook_runner.degraded import plain_allow_stdout
+        from yoke_harness.hooks.identity import detect_executor
+
+        sys.stdout.write(plain_allow_stdout(event_name, detect_executor()))
+        return 0
     original_stdin = stdin_data
     if not dry_run:
         _touch_detached_resume()
@@ -88,13 +97,21 @@ def evaluate_inprocess(
             else session_id and not codex_transcript_exists(session_id, transcript_path)
         )
         if unsaved:
-            if on_complete is not None:
+            if on_complete is not None and scope == "registered":
                 on_complete()
             return 0
 
     # Every evaluation path — relayed, local universe, local subset — reads
     # the command's workdir from stdin, and only this machine can recover it.
     stdin_data = stamp_command_workdir(stdin_data, detect_executor())
+
+    if scope == "unregistered":
+        extra_context = _session_orientation(event_name, stdin_data, cursor=cursor_invocation)
+        def evaluate_local() -> int:
+            return evaluate_hook_event(
+                event_name, stdin_data=stdin_data, extra_context=extra_context,
+            )
+        return _evaluate_confirming_orientation(evaluate_local) if extra_context else evaluate_local()
 
     from yoke_cli.transport.https import TransportError, resolve_https_connection
 
