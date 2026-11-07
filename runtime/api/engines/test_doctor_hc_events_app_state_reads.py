@@ -132,7 +132,6 @@ class TestScanEventsReads(unittest.TestCase):
             root = Path(td)
             _write(
                 root,
-                "packages/yoke-core/src/yoke_core/install_bundle_tree/"
                 "packs/structured-events/files/events.py",
                 "from events import emit_event\n",
             )

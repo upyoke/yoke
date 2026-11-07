@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from yoke_core.domain import documentation_render as render
+from yoke_core.domain import workspace_authority
 from yoke_core.domain.documentation_links import links, resolve_link, validate_links
 from yoke_core.domain.documentation_navigation import (
     iter_nodes,
@@ -21,7 +22,7 @@ FIXTURE = Path(__file__).parent / "fixtures/documentation_corpus"
 def corpus(tmp_path, monkeypatch):
     shutil.copytree(FIXTURE, tmp_path, dirs_exist_ok=True)
     monkeypatch.setattr(
-        render, "assert_target_under_session_work_authority", lambda path: None
+        workspace_authority, "assert_target_under_session_work_authority", lambda path: None
     )
     return tmp_path
 
@@ -44,7 +45,7 @@ def test_stale_detection_repair_and_authority(corpus, capsys, monkeypatch):
     assert "STALE_NAV_BLOCK guide/setup.md" in output and "write" in output
     calls = []
     monkeypatch.setattr(
-        render, "assert_target_under_session_work_authority", calls.append
+        workspace_authority, "assert_target_under_session_work_authority", calls.append
     )
     assert render.main(["write", "--root", str(corpus)]) == 0
     assert calls == [page]
@@ -62,7 +63,7 @@ def test_atomic_write_refuses_before_mutation(corpus, monkeypatch, capsys):
     def refuse(path):
         raise RuntimeError("workspace_authority: target outside held lane")
 
-    monkeypatch.setattr(render, "assert_target_under_session_work_authority", refuse)
+    monkeypatch.setattr(workspace_authority, "assert_target_under_session_work_authority", refuse)
     assert render.main(["write", "--root", str(corpus)]) == 1
     assert page.read_bytes() == before
     assert "restore claimed write authority" in capsys.readouterr().out
@@ -170,7 +171,7 @@ def test_contents_and_breadcrumb_destinations_round_trip(tmp_path, monkeypatch, 
         path.write_text(f"# {title}\n", encoding="utf-8")
     assert validate_navigation(tmp_path, complete=True) == []
     monkeypatch.setattr(
-        render, "assert_target_under_session_work_authority", lambda path: None
+        workspace_authority, "assert_target_under_session_work_authority", lambda path: None
     )
     assert render.main(["write", "--root", str(tmp_path)]) == 0
 

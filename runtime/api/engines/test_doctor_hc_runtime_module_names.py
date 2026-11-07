@@ -33,12 +33,11 @@ def test_test_shaped_runtime_module_is_reported(tmp_path: Path) -> None:
     ]
 
 
-def test_structural_test_and_bundle_data_surfaces_are_ignored(
+def test_structural_test_surfaces_are_ignored(
     tmp_path: Path,
 ) -> None:
     runtime_root = "package"
     _write(tmp_path, f"{runtime_root}/tests/test_domain.py")
-    _write(tmp_path, f"{runtime_root}/install_bundle_tree/test_scaffold.py")
     _write(tmp_path, f"{runtime_root}/domain/machine_qa.py")
 
     assert (

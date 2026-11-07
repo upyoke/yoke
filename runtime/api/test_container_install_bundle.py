@@ -11,6 +11,7 @@ from yoke_contracts.project_contract.installed_layer import (
 from yoke_core.domain import install_bundle, install_bundle_project
 from yoke_core.domain.install_bundle_sources import HARNESS_MANIFEST_SOURCES
 from yoke_core.domain.install_bundle_sources import InstallBundleTreeError
+from yoke_core.domain.install_bundle_tree_build import write_tree
 from yoke_core.tools.container_bundle_validation import (
     ContainerBundleError,
     verify_project_bundle,
@@ -18,17 +19,14 @@ from yoke_core.tools.container_bundle_validation import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGED = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
 BUILD = "0123456789abcdef0123456789abcdef01234567"
 
 
 @pytest.fixture
 def image_tree(tmp_path, monkeypatch):
-    """Serve a copy of the packaged tree as an installed wheel would."""
-    import shutil
-
+    """Serve the tree the wheel build writes, as an installed wheel would."""
     root = tmp_path / "install_bundle_tree"
-    shutil.copytree(PACKAGED, root)
+    write_tree(target_root=ROOT, dest=root)
     monkeypatch.delenv("YOKE_SERVER_TREE_ROOT", raising=False)
     monkeypatch.setattr(install_bundle, "source_checkout_root", lambda f: None)
     monkeypatch.setattr(install_bundle, "packaged_tree_root", lambda: root)

@@ -168,5 +168,5 @@ class TestSteerDependencyWait:
         )
 
         assert DEPENDENCY_WAIT_TEACHING in STANDING_TEACHINGS
-        delivery = _read(_REPO_ROOT / ".yoke/docs/items/model/dependencies.md")
+        delivery = _read(_REPO_ROOT / "docs/public/items/model/dependencies.md")
         assert "## Wait on another item's merge or delivery" in delivery

@@ -11,8 +11,7 @@ Only list items (bulleted or numbered) under those sections count. A
 file named under ``## Cause``, ``## Tests`` or in prose is context, not
 scope. Only full repo-relative paths (containing ``/``) that exist in
 the checkout count, so planned new files and bare filenames are left to
-the author. The packaged ``install_bundle_tree/`` mirror is regenerated,
-never authored, so it is skipped. Specs without a resolved File Budget are not checked:
+the author. Specs without a resolved File Budget are not checked:
 the budget is optional for some workflows, and the missing-budget gate
 owns the case where it is required.
 """
@@ -32,7 +31,6 @@ from yoke_core.domain.file_budget_paths import (
 
 SCOPED_PATH_NOT_IN_FILE_BUDGET = "SCOPED_PATH_NOT_IN_FILE_BUDGET"
 SCOPE_HEADING_PREFIXES = ("Change", "Fix", "Delete", "Scope", "Add")
-_MIRROR_SEGMENT = "install_bundle_tree/"
 
 _LEVEL2_HEADER = re.compile(r"^## (?P<title>.*)$")
 _LIST_ITEM = re.compile(r"^\s*(?:[-*]|\d+\.)\s")
@@ -61,7 +59,7 @@ def scoped_paths(spec_text: str) -> List[str]:
             candidate = _LINE_SUFFIX.sub("", match.group(1))
             if "/" not in candidate or not is_path_token(candidate):
                 continue
-            if _MIRROR_SEGMENT in candidate or candidate in seen:
+            if candidate in seen:
                 continue
             seen.add(candidate)
             paths.append(candidate)

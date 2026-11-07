@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 from types import SimpleNamespace
 
-from yoke_core.domain import install_bundle_tree_sync, pack_catalog
+from yoke_core.domain import pack_catalog
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -27,10 +27,7 @@ def test_scaffold_clock_kernel_and_permanent_history_bytes():
         previous / "app/db/schema.sql"
     ).read_bytes()
     assert (source / "app/db/migrations/0002_canonical_instants.py").read_bytes() == (
-        ROOT
-        / install_bundle_tree_sync.PACKAGED_TREE_REL
-        / "packs/webapp-scaffold"
-        / "versions/1.1.4/files/app/db/migrations/0002_canonical_instants.py"
+        pack / "versions/1.1.4/files/app/db/migrations/0002_canonical_instants.py"
     ).read_bytes()
 
 

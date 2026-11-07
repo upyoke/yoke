@@ -18,7 +18,7 @@
    "id": "component-documents",
    "title": "Component documentation",
    "include": ["packages/*", "events/*", "packaging/*", "brand/*", "ouroboros/*"],
-   "exclude": ["packages/*/install_bundle_tree/*", "packages/*/global_skill/*"],
+   "exclude": ["packages/*/global_skill/*"],
    "publication": "Repository-owned component reference, release guidance and learning records.",
    "concepts": ["contributing/source"]
   },
@@ -80,11 +80,6 @@
   }
  ],
  "ungraphed": [
-  {
-   "include": "packages/*/install_bundle_tree/*",
-   "reason": "Packaged mirrors of sources already represented in the guide.",
-   "gap": "ungraphed-documentation"
-  },
   {
    "include": "packages/*/global_skill/*",
    "reason": "The global skill has its own source node under Skills.",

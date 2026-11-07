@@ -21,9 +21,6 @@ from yoke_core.domain.project_renderer_values import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PACKAGED_ROOT = (
-    REPO_ROOT / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree"
-)
 WORKFLOW_NAMES = ("deploy.yml", "hotfix.yml")
 STATIC_AWS_SECRET_REFERENCES = (
     "secrets.AWS_ACCESS_KEY_ID",
@@ -34,12 +31,6 @@ CLOUDFRONT_HELPER = (
     / "packs/domain-cdn-edge/versions/1.0.0/files"
     / "ops/cloudfront_invalidate.py"
 )
-PACKAGED_CLOUDFRONT_HELPER = (
-    PACKAGED_ROOT
-    / "packs/domain-cdn-edge/versions/1.0.0/files"
-    / "ops/cloudfront_invalidate.py"
-)
-
 
 def _workflow_text(name: str) -> str:
     return REPO_ROOT.joinpath(
@@ -131,10 +122,9 @@ def test_delivery_workflows_call_pack_installed_cloudfront_helper() -> None:
         )
 
 
-def test_cloudfront_helper_is_mirrored_and_bounds_failure_diagnostics() -> None:
+def test_cloudfront_helper_bounds_failure_diagnostics() -> None:
     helper = CLOUDFRONT_HELPER.read_text(encoding="utf-8")
 
-    assert CLOUDFRONT_HELPER.read_bytes() == PACKAGED_CLOUDFRONT_HELPER.read_bytes()
     assert '"list-distributions"' in helper
     assert '"create-invalidation"' in helper
     assert "CloudFront distribution ID is not configured" in helper
@@ -144,20 +134,17 @@ def test_cloudfront_helper_is_mirrored_and_bounds_failure_diagnostics() -> None:
     assert "output[-MAX_DIAGNOSTIC_CHARS:]" in helper
 
 
-def test_delivery_workflows_render_valid_oidc_only_yaml_from_both_bundles(
+def test_delivery_workflows_render_valid_oidc_only_yaml(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     canonical = _rendered_bundle(REPO_ROOT, monkeypatch)
-    packaged = _rendered_bundle(PACKAGED_ROOT, monkeypatch)
     canonical_files = {row["path"]: row for row in canonical["files"]}
-    packaged_files = {row["path"]: row for row in packaged["files"]}
 
     for source_name in WORKFLOW_NAMES:
         rendered_name = f".github/workflows/acme-{source_name}"
         canonical_path = tmp_path / source_name
         canonical_path.write_text(canonical_files[rendered_name]["content"])
-        assert canonical_files[rendered_name] == packaged_files[rendered_name]
         assert isinstance(yaml_helper.load_document(canonical_path), dict)
 
         text = canonical_path.read_text(encoding="utf-8")

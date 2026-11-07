@@ -78,16 +78,12 @@ def rule_topics(add, path, start, end, scope):
 
 
 def add_rules(add):
-    shipped = REPO / 'packages/yoke-core/src/yoke_core/install_bundle_tree/AGENTS.md'
     project = REPO / 'AGENTS.md'
-    template = shipped.read_text().splitlines()
     local = project.read_text().splitlines()
-    begin = '<!-- BEGIN YOKE MANAGED BLOCK -->'
     end = '<!-- END YOKE MANAGED BLOCK -->'
-    # The shipped preamble also contains portable field-note guidance.
-    rule_topics(add, shipped, 0, template.index(end), 'shared')
-    if local[:local.index(begin)] != template[:template.index(begin)]:
-        rule_topics(add, project, 0, local.index(begin), 'repository')
+    # Everything through the managed block's end ships to installed projects,
+    # including the portable field-note preamble; the rest is this repository's.
+    rule_topics(add, project, 0, local.index(end), 'shared')
     rule_topics(add, project, local.index(end) + 1, len(local), 'repository')
 
 

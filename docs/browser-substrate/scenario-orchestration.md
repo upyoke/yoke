@@ -10,7 +10,7 @@ the Yoke checkout and from a connected project checkout.
 
 See [Browser Automation Substrate](../browser-substrate.md) for daemon, ref,
 and step-runner primitives, and
-[Browser method configuration](../../.yoke/docs/verification/browser-targets.md#method-configuration) for the
+[Browser method configuration](../public/verification/browser-targets.md#method-configuration) for the
 case configuration contract.
 
 ## Usage

@@ -66,14 +66,14 @@ RUN --mount=type=bind,source=packages/yoke-contracts/src,target=/bootstrap/contr
 FROM tools AS builder
 
 WORKDIR /build
-COPY pyproject.toml uv.lock ./
 
 # Wheel production can run alongside runtime layer downloads. Each backend
 # writes into its own package directory in the discarded source bind mount.
+# The whole context is mounted because yoke-core's setup.py builds the
+# install-bundle tree from repo-root sources (docs, skills, packs, harness).
 ARG YOKE_ENGINE_VERSION=""
 
-RUN --mount=type=bind,source=packages,target=/build/packages,rw \
-    --mount=type=bind,source=.git_archival.txt,target=/build/.git_archival.txt \
+RUN --mount=type=bind,target=/build,rw \
     if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CLI="$YOKE_ENGINE_VERSION"; \

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.project_contract.source_installed_views import view_source
 from yoke_core.domain import workflow_level_handoff as handoffs
 from yoke_core.domain.session_launch_assignment import refuse_held_assigned_item
 from yoke_core.domain.session_launch_types import SessionLaunchError
@@ -58,7 +59,9 @@ def test_different_effective_level_names_exact_successor_command(monkeypatch):
     assert (
         "\n## Stage-level handoff\n"
         in open(
-            __file__.rsplit("/runtime/", 1)[0] + "/" + handoff["read"].split("#")[0]
+            __file__.rsplit("/runtime/", 1)[0]
+            + "/"
+            + view_source(handoff["read"].split("#")[0])
         ).read()
     )
 

@@ -53,6 +53,7 @@ from yoke_contracts.project_contract.installed_layer import (
     CURSOR_AGENTS_DEST,
 )
 from yoke_contracts.packs import PACKS_SOURCE
+from yoke_contracts.project_contract import source_installed_views
 
 # Server-tree source dirs (relative to the tree root). Skills are copied to the
 # same relative path they are authored at, so the canonical destination names
@@ -62,10 +63,10 @@ CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CURSOR_AGENTS_SOURCE = "runtime/harness/cursor/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
-DOCS_SOURCE = "docs/public"
-DOCS_DEST = ".yoke/docs"
+DOCS_SOURCE = source_installed_views.DOCS_SOURCE
+DOCS_DEST = source_installed_views.DOCS_VIEW
 
-# Packaged snapshot dirs (order matches pyproject package-data globs).
+# Source dirs the yoke-core wheel build packages into its install-bundle tree.
 INSTALL_BUNDLE_SOURCE_DIRS = (
     SKILLS_SOURCE,
     CLAUDE_AGENTS_SOURCE,
@@ -104,7 +105,8 @@ def yoke_version() -> str:
 
 
 def server_tree_root() -> Path:
-    """Install-bundle tree root from an override, checkout, or wheel snapshot."""
+    """Install-bundle tree root: a declared override, the source checkout this
+    module runs from, or the tree the yoke-core wheel build packaged."""
     import os
 
     declared = os.environ.get("YOKE_SERVER_TREE_ROOT", "").strip()
@@ -122,7 +124,13 @@ def server_tree_root() -> Path:
 def packaged_tree_root() -> Path:
     from importlib import resources
 
-    root = resources.files("yoke_core.install_bundle_tree")
+    try:
+        root = resources.files("yoke_core.install_bundle_tree")
+    except ModuleNotFoundError as exc:
+        raise InstallBundleError(
+            "packaged install-bundle source tree is absent: only a built "
+            "yoke-core wheel carries it; a source checkout serves its own sources"
+        ) from exc
     try:
         path = Path(root)
     except TypeError as exc:

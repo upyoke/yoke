@@ -1,83 +1,16 @@
-"""Read the project install manifest's installer-rendered file set.
+"""Where a project install records the files it placed.
 
-Shared by both line-gate classifiers — the source-dev
-``yoke_core.domain.file_line_check_helpers`` and the product-client
-``yoke_harness.git_hooks.file_line_check`` — which the package boundary
-keeps as separate copies (harness must not import ``yoke_core``). Both
-import this contracts helper so the manifest-reading logic itself is not
-duplicated.
-
-Installer-rendered files (the manifest ``files`` map) are upstream-authored
-and rendered into the receiving repo — the committer cannot split them — so
-the line gate treats them as GENERATED, not AUTHORED, in both the Yoke
-source tree and any installed project.
+``.yoke/install-manifest.json`` records what *this machine's* install placed.
+It is gitignored and absent from a fresh clone or a CI runner, so nothing
+that classifies a committed file may consult it.
 """
 
 from __future__ import annotations
 
-import functools
-import json
-import pathlib
-
 
 INSTALL_MANIFEST_REL = ".yoke/install-manifest.json"
-PACKAGED_INSTALL_BUNDLE_TREE_REL = (
-    "packages/yoke-core/src/yoke_core/install_bundle_tree"
-)
-
-
-@functools.lru_cache(maxsize=64)
-def _read_installer_managed(repo_root_str: str, _mtime_ns: int) -> frozenset[str]:
-    manifest = pathlib.Path(repo_root_str) / INSTALL_MANIFEST_REL
-    try:
-        data = json.loads(manifest.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return frozenset()
-    files = data.get("files")
-    if not isinstance(files, dict):
-        return frozenset()
-    return frozenset(str(p).replace("\\", "/") for p in files)
-
-
-def installer_managed_paths(repo_root: pathlib.Path) -> frozenset[str]:
-    """Posix paths the installer renders into ``repo_root`` (manifest ``files``).
-
-    Empty when no manifest. Keyed by manifest mtime so a refresh that
-    rewrites the manifest in the same commit is reflected without a stale
-    cache, while a full-tree scan over thousands of files reads it once.
-    """
-    try:
-        mtime = (repo_root / INSTALL_MANIFEST_REL).stat().st_mtime_ns
-    except OSError:
-        return frozenset()
-    return _read_installer_managed(str(repo_root), mtime)
-
-
-def is_install_bundle_generated_path(
-    path: str, repo_root: pathlib.Path
-) -> bool:
-    """Whether ``path`` mirrors packaged bundle sources in the committed tree.
-
-    Deliberately answered from the path alone. ``.yoke/install-manifest.json``
-    records what *this machine's* install placed, is gitignored, and does not
-    exist in a fresh clone or on a CI runner — so consulting it here made the
-    same commit classify generated on an installed checkout and authored
-    everywhere else. Provenance of a committed file must come from the commit;
-    downstream install layouts are declared in
-    ``file_line_policy.GENERATED_PATH_GLOBS``.
-    """
-    del repo_root
-    posix_path = path.replace("\\", "/")
-    packaged_prefix = PACKAGED_INSTALL_BUNDLE_TREE_REL + "/"
-    return (
-        posix_path == PACKAGED_INSTALL_BUNDLE_TREE_REL
-        or posix_path.startswith(packaged_prefix)
-    )
 
 
 __all__ = [
     "INSTALL_MANIFEST_REL",
-    "PACKAGED_INSTALL_BUNDLE_TREE_REL",
-    "installer_managed_paths",
-    "is_install_bundle_generated_path",
 ]

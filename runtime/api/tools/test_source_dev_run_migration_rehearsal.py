@@ -45,7 +45,7 @@ def test_source_runner_rehearses_migration_with_lane_only_import(
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
-        lambda *_args: (worktree, None, None),
+        lambda *_args: (worktree, None),
     )
     monkeypatch.setattr(
         _source_pythonpath,
@@ -102,7 +102,7 @@ def test_selected_worker_reaches_public_rehearsal_runner(apply_env, monkeypatch)
 
     def selected_root(selected):
         assert selected == worker
-        return worker, None, None
+        return worker, None
 
     monkeypatch.setattr(source_dev_run, "_claimed_root", selected_root)
     monkeypatch.setattr(

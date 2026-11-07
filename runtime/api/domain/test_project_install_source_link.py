@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -44,6 +45,11 @@ def _seed_yoke_checkout(root: Path) -> None:
     claude_settings = root / "runtime" / "harness" / "claude" / "settings.json"
     claude_settings.parent.mkdir(parents=True)
     claude_settings.write_text('{"hooks": {}}\n', encoding="utf-8")
+    for harness in ("claude", "codex", "cursor"):
+        manifest = root / "runtime" / "harness" / harness / "manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(f'{{"harness_id": "{harness}"}}\n', encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
 
 
 def _git_init(root: Path) -> None:
@@ -156,7 +162,9 @@ class TestSourceLinkSymlinks:
 
 
 class TestSourceLinkGitHooks:
-    def test_skips_hooks_without_git_dir(self, checkout):
+    def test_skips_hooks_without_git_dir(self, checkout, monkeypatch):
+        shutil.rmtree(checkout / ".git")
+        monkeypatch.setattr(source_link, "refresh_source_installed_views", lambda root: [])
         report = source_link.install_source_link(checkout)
         skips = [a for a in report["actions"] if "Skipped: .git/hooks/" in a]
         assert len(skips) == len(git_hooks.GIT_HOOK_NAMES)

@@ -76,23 +76,11 @@ def test_the_pointer_pattern_recognizes_both_shipped_and_source_paths() -> None:
     }
 
 
-def test_packet_shipped_targets_exist_in_the_canonical_bundle() -> None:
-    bundle = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree/docs/public"
+def test_packet_shipped_targets_exist_in_the_public_docs() -> None:
+    bundle = ROOT / "docs/public"
     pattern = re.compile(r"\.yoke/docs/([A-Za-z0-9_./-]+\.md)")
     for role in seed.ROLE_TOPICS:
         for relative in pattern.findall(sac.render_role_packet(role)):
             target = (bundle / relative).resolve()
             assert target.is_relative_to(bundle.resolve()), (role, relative)
             assert target.is_file(), (role, relative)
-
-
-def test_conditional_procedure_references_match_the_canonical_bundle() -> None:
-    references = {
-        "engineer": "implementation",
-        "architect": "task-templates",
-        "tester": "reporting",
-    }
-    bundle = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    for role, name in references.items():
-        relative = f"runtime/harness/claude/agents/references/{role}/{name}.md"
-        assert (ROOT / relative).read_bytes() == (bundle / relative).read_bytes()

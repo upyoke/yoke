@@ -17,7 +17,6 @@ import posixpath
 import re
 from pathlib import Path
 
-import pytest
 
 from yoke_core.domain.agents_render_project_install import write_project_install
 
@@ -27,7 +26,7 @@ REPO = Path(__file__).resolve().parents[2]
 # bodies those adapters render from — every tree copied into a target project.
 SHIPPED_ROOTS = (
     REPO / ".agents" / "skills" / "yoke",
-    REPO / ".yoke" / "docs",
+    REPO / "docs" / "public",
     REPO / "runtime" / "agents",
     REPO / "runtime" / "harness" / "claude" / "rules",
     REPO / "runtime" / "harness" / "claude" / "agents",
@@ -216,20 +215,6 @@ def test_managed_blocks_use_the_generic_item_prefix() -> None:
     )
 
 
-@pytest.mark.parametrize("packaged", [False, True])
-def test_installed_project_rules_exclude_source_bundle_sync(tmp_path, packaged):
-    from yoke_cli.project_install.managed_markdown import apply_managed_markdown
-    from yoke_core.domain.install_bundle_managed import managed_bundle_keys
-    from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
-
-    root = REPO / PACKAGED_TREE_REL if packaged else REPO
-    managed = managed_bundle_keys(root)["managed_markdown"]
-    apply_managed_markdown(tmp_path, managed, None)
-
-    for name in ("AGENTS.md",):
-        assert "install_bundle_tree_sync" not in (tmp_path / name).read_text()
-
-
 def test_the_generic_placeholder_is_actually_in_use() -> None:
     """Guard against the prefix check passing because examples vanished."""
     users = [
@@ -288,18 +273,14 @@ def _dead_bundle_links(files: list[dict[str, str]]) -> list[str]:
     return dead
 
 
-@pytest.mark.parametrize("packaged", [False, True])
-def test_installed_links_resolve_inside_the_install_bundle(packaged):
+def test_installed_links_resolve_inside_the_install_bundle():
     """A shipped link must land on a file every installed project receives.
 
     Paths that exist only in this repository — `docs/archive/`, source
     modules — resolve here and dangle in every installed project, so the
     check resolves links against the bundle's installed paths, not this tree.
     """
-    from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
-
-    root = REPO / PACKAGED_TREE_REL if packaged else REPO
-    dead = _dead_bundle_links(_bundle_files(root))
+    dead = _dead_bundle_links(_bundle_files(REPO))
     assert dead == [], (
         f"install-bundle links that dangle in an installed project: {dead}. "
         "Inline the needed sentence, point at a command's --help, or link a "

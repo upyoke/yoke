@@ -103,7 +103,6 @@ def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     from yoke_core.domain.install_bundle_docs_validation import (
         CorpusRefusal,
         validate_public_corpus,
-        validate_published_copies,
     )
 
     repo_root = _base._resolve_repo_root()
@@ -118,7 +117,6 @@ def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if public_delivery:
         _emit_hc_progress("HC-doc-health", "validate-complete-public-corpus")
         failures.extend(validate_public_corpus(public))
-        failures.extend(validate_published_copies(repo))
         failures.extend(scan_retired_references(repo))
     _emit_hc_progress("HC-doc-health", "check-readme")
     if not (repo / "README.md").is_file():

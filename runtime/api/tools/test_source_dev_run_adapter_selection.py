@@ -45,7 +45,7 @@ def test_check_selects_named_lane(
     monkeypatch.setattr(
         runner,
         "_run_bound",
-        lambda args, root, project, signature, env: calls.append((args, root)) or 7,
+        lambda args, root, env: calls.append((args, root)) or 7,
     )
     selection = [f"{selector}={selected}"] if equals else [selector, str(selected)]
     assert getattr(adapter, command)([*arguments, *selection]) == 7

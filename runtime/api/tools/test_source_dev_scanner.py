@@ -102,7 +102,6 @@ def test_teaching_build_runs_without_a_session_and_keeps_git_status(monkeypatch,
         raise AssertionError("scanner path must not look up a session")
 
     monkeypatch.setattr(source_dev_run, "_claimed_root", _no_session)
-    monkeypatch.setattr(source_dev_run, "_record_main_checkout_fallback", _no_session)
     monkeypatch.setattr(
         source_dev_run.source_python_environment,
         "resolve",

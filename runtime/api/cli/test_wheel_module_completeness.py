@@ -35,6 +35,28 @@ def test_runtime_module_prefix_is_not_mistaken_for_test_support(tmp_path: Path) 
     assert "yoke_core/domain/test_named_runtime.py" in report.wheel_members
 
 
+def test_build_generated_install_bundle_tree_is_not_a_runtime_module(
+    tmp_path: Path,
+) -> None:
+    package_root = _source_tree(tmp_path)
+    wheel = _wheel(
+        tmp_path,
+        {
+            "yoke_core/__init__.py",
+            "yoke_core/domain/__init__.py",
+            "yoke_core/domain/test_named_runtime.py",
+            "yoke_core/install_bundle_tree/__init__.py",
+            "yoke_core/install_bundle_tree/.agents/skills/yoke/tool.py",
+        },
+    )
+
+    report = wheel_module_completeness.assert_wheel_module_completeness(
+        package_root, wheel
+    )
+
+    assert not any("install_bundle_tree" in m for m in report.wheel_members)
+
+
 def test_missing_source_runtime_module_fails_artifact_gate(tmp_path: Path) -> None:
     package_root = _source_tree(tmp_path)
     wheel = _wheel(
@@ -78,6 +100,8 @@ def test_build_command_clears_incremental_module_staging(
     staging_was_clean: list[bool] = []
 
     class FakeBuildPy:
+        editable_mode = True
+
         def run(self) -> None:
             staging_was_clean.append(not Path(self.build_lib).exists())
 
@@ -89,9 +113,12 @@ def test_build_command_clears_incremental_module_staging(
     command = types.ModuleType("setuptools.command")
     build_module = types.ModuleType("setuptools.command.build_py")
     build_module.build_py = FakeBuildPy
+    sdist_module = types.ModuleType("setuptools.command.sdist")
+    sdist_module.sdist = type("FakeSdist", (), {})
     monkeypatch.setitem(sys.modules, "setuptools", setuptools)
     monkeypatch.setitem(sys.modules, "setuptools.command", command)
     monkeypatch.setitem(sys.modules, "setuptools.command.build_py", build_module)
+    monkeypatch.setitem(sys.modules, "setuptools.command.sdist", sdist_module)
     spec = importlib.util.spec_from_file_location(
         "yoke_core_product_setup",
         REPO_ROOT / "packages/yoke-core/setup.py",

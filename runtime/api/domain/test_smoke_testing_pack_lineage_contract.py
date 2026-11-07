@@ -110,7 +110,7 @@ def test_latest_smoke_workflow_keeps_dispatch_correlation_and_settings() -> None
     assert "{{web_smoke_paths}}" in text
 
 
-def test_latest_smoke_pack_matches_install_bundle_baseline(
+def test_latest_smoke_pack_builds_its_latest_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -125,15 +125,4 @@ def test_latest_smoke_pack_matches_install_bundle_baseline(
         pack="smoke-testing",
         render_values=_RENDER_VALUES,
     )
-    packaged_root = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: packaged_root)
-    packaged = pack_catalog.build_pack_bundle(
-        object(),
-        project="sample",
-        pack="smoke-testing",
-        render_values=_RENDER_VALUES,
-    )
-
     assert canonical["version"] == _latest_version()
-    assert canonical["content_digest"] == packaged["content_digest"]
-    assert canonical["files"] == packaged["files"]

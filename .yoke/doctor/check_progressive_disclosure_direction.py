@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 from typing import Iterable, List, Set, Tuple
 
+from yoke_contracts.project_contract.source_installed_views import view_or_source_present
 from yoke_contracts.project_contract.strategy_docs_paths import is_strategy_view_path
 from yoke_core.engines.doctor_registry_tier_discipline import (
     BARE_NAME_CITATION_FAMILIES,
@@ -115,7 +116,7 @@ def _classify_path(cited: str, repo_root: Path) -> int | None:
     if is_strategy_view_path(cited):
         return 3
     target = repo_root / cited
-    if not target.is_file():
+    if not view_or_source_present(repo_root, cited):
         return None
     if _is_archive_relpath(cited):
         return 6
@@ -172,7 +173,7 @@ def _normalize_cited(
     if cited.startswith("yoke/ouroboros/"):
         candidates.append(cited.removeprefix("yoke/"))
     for candidate in candidates:
-        if candidate and (repo_root / candidate).is_file():
+        if candidate and view_or_source_present(repo_root, candidate):
             return candidate
     if citing_rel in _GENERATED_SKILL_REFERENCE_DOCS and "/" not in cited:
         matches = [

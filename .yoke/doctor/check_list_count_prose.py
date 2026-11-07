@@ -76,7 +76,6 @@ _SCAN_ROOTS: tuple[str, ...] = (
 )
 _SCAN_SUFFIXES = frozenset({".md"})
 _ARCHIVE_PREFIX = "docs/archive/"
-_BUNDLE_PREFIX = "packages/yoke-core/src/yoke_core/install_bundle_tree/"
 _ROOT_RULE_FILES = ("AGENTS.md",)
 
 
@@ -191,7 +190,7 @@ def scan_markdown_list_counts(text: str) -> List[ListCountHit]:
 
 
 def _is_generated_output(relative: str) -> bool:
-    if relative.startswith(_ARCHIVE_PREFIX) or relative.startswith(_BUNDLE_PREFIX):
+    if relative.startswith(_ARCHIVE_PREFIX):
         return True
     return any(
         relative == directory.as_posix()

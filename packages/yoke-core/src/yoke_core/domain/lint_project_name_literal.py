@@ -43,7 +43,6 @@ _EXEMPT_SEGMENTS: Tuple[str, ...] = (
     "/build/",
     "/tests/",
     "/fixtures/",
-    "/install_bundle_tree/",
     "/.venv/",
 )
 _TEST_FILE_RE = re.compile(

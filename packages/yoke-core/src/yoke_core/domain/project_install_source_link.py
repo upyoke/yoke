@@ -24,19 +24,17 @@ path keep them byte-identical to their canonical runtime files.
 3. Git hooks — every managed shim (``GIT_HOOK_NAMES``) via
    :mod:`project_install_git_hooks` (same refuse/refresh/create
    semantics as copy mode; linked worktrees skip gracefully).
-4. Contract seeding — the same seed-if-missing pass copy-mode uses
-   (:func:`project_install_files.apply_contract_files`); the Yoke
+4. Contract seeding — the seed-if-missing pass copy mode uses; the Yoke
    repo tracks its own contract files, so this is normally a no-op.
-5. Manifest — ``.yoke/install-manifest.json`` with
-   ``"mode": "source-link"`` and the link inventory. ``refresh``
-   re-runs the same repair; ``uninstall`` REFUSES entirely (the links
-   are tracked files — you do not uninstall the source repo's dev
-   layer).
+5. Installed-layout views — the gitignored ``.yoke/docs`` and
+   ``.yoke/harness/*/manifest.json`` copies of their tracked sources.
+6. Manifest — ``.yoke/install-manifest.json`` with ``"mode": "source-link"``
+   and the link inventory. ``refresh`` re-runs the same repair;
+   ``uninstall`` REFUSES entirely (the links are tracked files).
 
-No bundle fetch ever happens in source-link mode, and normal
-``yoke project install`` does not enter this branch. Detection marker:
-``pyproject.toml`` declaring ``name = "yoke"`` plus a
-``runtime/harness/`` tree.
+No bundle fetch ever happens in source-link mode, and normal ``yoke project
+install`` does not enter this branch. Detection marker: ``pyproject.toml``
+declaring ``name = "yoke"`` plus a ``runtime/harness/`` tree.
 """
 
 from __future__ import annotations
@@ -53,6 +51,7 @@ from yoke_contracts.filesystem_safety import (
 )
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
+from yoke_contracts.project_contract.source_installed_views import refresh_source_installed_views
 from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
 from yoke_contracts.runtime_ports.project_install_git_hooks import get_project_install_git_hooks
 
@@ -331,6 +330,7 @@ def install_source_link(
         "contract_files_written": contract_written,
         "contract_files_existing": contract_existing,
         "contract_files_adopted": contract_adopted,
+        "source_views_refreshed": refresh_source_installed_views(repo_root),
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,
         "warnings": links.warnings + materialized.warnings + hooks.warnings,

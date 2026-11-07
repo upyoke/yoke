@@ -59,7 +59,6 @@ _SUBSTRATE_PARITY_SLUGS = (
     "codex-agent-adapter-drift",
     "codex-subagent-surface-truth",
     "path-claim-bash-guard",
-    "install-bundle-drift",
 )
 
 # Ledger-audit checks (cross-session mutation evidence). The claim-boundary

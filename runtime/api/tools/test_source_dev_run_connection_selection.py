@@ -55,7 +55,7 @@ def _bind_current_source_lane(monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
-        lambda *_args: (root, None, None),
+        lambda *_args: (root, None),
     )
     return root
 

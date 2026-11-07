@@ -10,17 +10,14 @@ from runtime.api.skill_doc_regressions_test_helpers import REPO, _read
 @pytest.mark.parametrize(
     ("document", "target"),
     (
-        ("docs/qa-platform/cli-reference.md", ".yoke/docs/verification/platform.md"),
-        (
-            "docs/qa-platform/cli-reference.md",
-            ".yoke/docs/functions/index.md",
-        ),
+        ("docs/qa-platform/cli-reference.md", "../public/verification/platform.md"),
+        ("docs/qa-platform/cli-reference.md", "../public/functions/index.md"),
     ),
 )
 def test_cross_tree_document_links_resolve(document: str, target: str) -> None:
     text = _read(REPO / document)
-    assert target in text
-    assert (REPO / target).is_file()
+    assert f"]({target})" in text
+    assert ((REPO / document).parent / target).resolve().is_file()
 
 
 class TestRetiredEventNamesLeaveTheCatalog:

@@ -10,14 +10,8 @@ SKILLS = ROOT / ".agents" / "skills" / "yoke"
 
 def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
     retired = "advance"
-    roots = (
-        SKILLS,
-        ROOT
-        / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke",
-    )
-    for root in roots:
-        assert not (root / retired / "SKILL.md").exists()
-        assert not list((root / retired).glob("*.md"))
+    assert not (SKILLS / retired / "SKILL.md").exists()
+    assert not list((SKILLS / retired).glob("*.md"))
     assert retired not in SKILLS_BY_ID
 
 

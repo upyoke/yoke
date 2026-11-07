@@ -19,9 +19,6 @@ from yoke_core.domain.documentation_navigation import (
     iter_nodes,
     load_navigation,
 )
-from yoke_core.domain.workspace_authority import (
-    assert_target_under_session_work_authority,
-)
 
 
 def _relative(page: str, target: str) -> str:
@@ -87,6 +84,12 @@ def render_page(tree: NavNode, node: NavNode, markdown: str) -> str:
 
 
 def _write(path: Path, content: str) -> None:
+    # The wheel build validates pages through render_page without the
+    # database stack this guard imports.
+    from yoke_core.domain.workspace_authority import (
+        assert_target_under_session_work_authority,
+    )
+
     assert_target_under_session_work_authority(path)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:

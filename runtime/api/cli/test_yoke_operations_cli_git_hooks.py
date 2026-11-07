@@ -32,6 +32,12 @@ from yoke_cli.project_install.git_hooks import (
 _GATE_RUN = "yoke_harness.git_hooks.pre_commit.run"
 
 
+@pytest.fixture(autouse=True)
+def _no_source_view_refresh(monkeypatch):
+    """Hooks here run from this checkout; keep its generated views untouched."""
+    monkeypatch.setattr(mod, "refresh_source_installed_views", lambda root: [])
+
+
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(
         ["git", "-C", str(repo), *args],

@@ -10,9 +10,6 @@ the pack manifest. Each names the prefixes that owe it and its tests.
 from __future__ import annotations
 
 from yoke_core.tools._impacted_pack_contracts import PACK_PREFIX_CONTRACTS
-from yoke_contracts.project_contract.install_manifest import (
-    PACKAGED_INSTALL_BUNDLE_TREE_REL,
-)
 from yoke_core.domain.install_bundle import (
     DOCS_DEST,
     INSTALL_BUNDLE_SOURCE_DIRS,
@@ -22,7 +19,6 @@ from yoke_core.domain.install_bundle import (
 AGENT_SKILL_CONTRACT_TESTS = (
     # Skill command prose has no import edge to its contract checks.
     "runtime/api/cli/test_yoke_strategy_render_refresh.py",
-    "runtime/api/domain/test_install_bundle_tree_sync.py",
     "runtime/api/engines/test_doctor_hc_atlas.py",
     "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",
     "runtime/api/test_active_context_concision.py",
@@ -34,7 +30,6 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_file_budget_workflow_teaching.py",
     "runtime/api/test_onboard_deferred_hosting.py",
     "runtime/api/test_onboard_delivery_choice.py",
-    "runtime/api/test_onboard_test_setup_profiles.py",
     "runtime/api/test_polish_skill_framing.py",
     "runtime/api/test_release_wait_retention_teaching.py",
     "runtime/api/test_safe_operator_surface_drift.py",
@@ -60,10 +55,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/tools/test_impacted_skill_contracts.py",
 )
 
-AGENT_SKILL_SOURCE_PREFIXES = (
-    ".agents/skills/yoke/",
-    "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke/",
-)
+AGENT_SKILL_SOURCE_PREFIXES = (".agents/skills/yoke/",)
 
 MIGRATION_HISTORY_CONTRACT_TESTS = (
     "runtime/api/domain/test_migration_entry_contract.py",
@@ -197,7 +189,7 @@ CANONICAL_AGENT_BODIES_SOURCE = "runtime/agents"
 
 INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES = tuple(
     dict.fromkeys(
-        prefix
+        f"{root}/"
         for root in (
             *INSTALL_BUNDLE_SOURCE_DIRS,
             # The destination the neutrality check reads: docs ship from
@@ -205,11 +197,17 @@ INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES = tuple(
             DOCS_DEST,
             CANONICAL_AGENT_BODIES_SOURCE,
         )
-        for prefix in (
-            f"{root}/",
-            f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/{root}/",
-        )
     )
+)
+
+#: The wheel build hook has no import edge from any test that imports it.
+INSTALL_BUNDLE_BUILD_SOURCE_PREFIXES = (
+    "packages/yoke-core/setup.py",
+    "packages/yoke-core/pyproject.toml",
+    "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_build.py",
+)
+INSTALL_BUNDLE_BUILD_TESTS = (
+    "runtime/api/cli/test_yoke_core_wheel_install_bundle_tree.py",
 )
 
 SOURCE_RECIPE_CONTRACT_TESTS = ("runtime/api/test_external_project_recipe_contract.py",)
@@ -232,8 +230,7 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
     (
         "harness_rule_context",
         tuple(
-            f"{mirror}runtime/harness/{harness}/rules/"
-            for mirror in ("", f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/")
+            f"runtime/harness/{harness}/rules/"
             for harness in ("claude", "codex", "cursor")
         ),
         ("runtime/api/test_installed_project_context.py",),
@@ -303,6 +300,11 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES,
         INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS,
     ),
+    (
+        "install_bundle_build_contract",
+        INSTALL_BUNDLE_BUILD_SOURCE_PREFIXES,
+        INSTALL_BUNDLE_BUILD_TESTS,
+    ),
 )
 
 
@@ -312,6 +314,8 @@ __all__ = [
     "CANONICAL_AGENT_BODIES_SOURCE",
     "FIXTURE_SCHEMA_CONTRACT_TESTS",
     "FIXTURE_SCHEMA_SOURCE_PREFIXES",
+    "INSTALL_BUNDLE_BUILD_SOURCE_PREFIXES",
+    "INSTALL_BUNDLE_BUILD_TESTS",
     "INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES",
     "INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS",
     "HANDLER_REGISTRATION_CONTRACT_TESTS",

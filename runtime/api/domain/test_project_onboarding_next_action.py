@@ -4,6 +4,9 @@ from pathlib import Path
 
 import pytest
 from yoke_contracts.onboard_checklist import ROW_SPECS, REQUIRED_SETUP_ROW_IDS
+from yoke_contracts.project_contract.source_installed_views import (
+    view_or_source_present,
+)
 from yoke_core.domain.project_onboarding_next_action import select_next_action
 
 
@@ -58,4 +61,4 @@ def test_each_result_has_an_installed_home():
             continue
         row.update(status="unknown", recovery="/yoke onboard")
         action = select_next_action([row], {"ready": False})
-        assert (root / action["home"]).is_file()
+        assert view_or_source_present(root, action["home"])

@@ -317,8 +317,7 @@ def write_all_and_record(
     CLI and handler share client-local writes and transport-aware relationship
     registration. Registration is opportunistic: unavailable authority or
     path targets leave rendering complete without recording relationships.
-    Non-dry runs also sync the packaged install bundle to the rendered bytes;
-    dry runs neither register path context nor sync the package.
+    Dry runs do not register path context.
     """
     results = write_all(target_root=target_root, dry_run=dry_run)
     if not dry_run:
@@ -327,11 +326,6 @@ def write_all_and_record(
         )
 
         record_render_relationships_to_canonical_db()
-        from yoke_core.domain.install_bundle_tree_sync import (
-            sync as sync_install_bundle_tree,
-        )
-
-        sync_install_bundle_tree(target_root=target_root)
     return results
 
 

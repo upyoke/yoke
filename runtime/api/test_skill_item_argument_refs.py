@@ -10,9 +10,6 @@ import pytest
 
 ROOT = Path(__file__).parents[2]
 CANONICAL = ROOT / ".agents/skills/yoke"
-BUNDLE = (
-    ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
-)
 
 SKILL_PATHS = (
     Path("implement/SKILL.md"),
@@ -31,13 +28,6 @@ LEGACY_ARGUMENT_PATTERNS = (
     re.compile(r"PREFIX-\{(?:N|id|item_id)\}"),
     re.compile(r"--item(?:-id)?\s+\{(?:N|id|item_id)\}"),
 )
-
-
-@pytest.mark.parametrize("relative_path", SKILL_PATHS, ids=str)
-def test_item_recipe_skill_matches_install_bundle(relative_path: Path) -> None:
-    assert (CANONICAL / relative_path).read_bytes() == (
-        BUNDLE / relative_path
-    ).read_bytes()
 
 
 @pytest.mark.parametrize("relative_path", SKILL_PATHS, ids=str)

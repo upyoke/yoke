@@ -88,7 +88,6 @@ def test_contract_roster_names_expected_checks() -> None:
         "authored-file-limit",
         "changed-path-ruff",
         "atlas-integrity",
-        "install-bundle-tree",
         "generated-blocks",
         "harness-capability",
         "agent-render",
@@ -246,7 +245,6 @@ def test_run_contracts_reports_named_failure(
             ("authored-file-limit", _pass),
             ("changed-path-ruff", _pass),
             ("atlas-integrity", _fail),
-            ("install-bundle-tree", _pass),
         ),
     )
     assert crc.run_contracts(forked_repo, base="main") == 1

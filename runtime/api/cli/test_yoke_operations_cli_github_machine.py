@@ -79,7 +79,7 @@ def test_github_machine_help_and_registry(capsys) -> None:
     assert "github.pr.create" not in landing["functions"]
 
     stale = []
-    for directory in ("packages", "docs/teaching", ".yoke/docs"):
+    for directory in ("packages", "docs/teaching", "docs/public"):
         for source in (repo_root / directory).rglob("*"):
             if not source.is_file() or source.suffix not in {".py", ".md", ".json"}:
                 continue

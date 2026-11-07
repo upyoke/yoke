@@ -15,7 +15,6 @@ from runtime.api.domain.path_context_test_support import (
 )
 
 
-import subprocess
 from pathlib import Path
 
 
@@ -32,9 +31,6 @@ from yoke_core.domain.agents_render_path_context import (
     set_render_relationship,
 )
 from yoke_core.domain.event_catalog_render import EVENT_CATALOG_RELPATH
-from yoke_contracts.project_contract.install_manifest import (
-    PACKAGED_INSTALL_BUNDLE_TREE_REL,
-)
 from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH
 
 _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
@@ -98,25 +94,6 @@ def test_render_relationship_paths_exist_on_live_tree():
         if path not in on_demand_targets and not (repo_root / path).exists()
     ]
     assert missing == []
-
-
-def test_render_relationship_map_derives_every_tracked_bundle_mirror():
-    repo_root = Path(__file__).resolve().parents[3]
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), "ls-files"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    tracked = set(result.stdout.splitlines())
-    relationships = render_relationship_map(tracked)
-    prefix = f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/"
-    mirrors = {path for path in tracked if path.startswith(prefix)}
-    assert mirrors <= relationships.keys()
-    for target_path in mirrors:
-        source_path = target_path[len(prefix) :]
-        expected_source = source_path if source_path in tracked else target_path
-        assert relationships[target_path] == [expected_source]
 
 
 def test_partially_generated_authored_surfaces_are_conservative():

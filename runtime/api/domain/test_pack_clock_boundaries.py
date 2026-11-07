@@ -9,7 +9,6 @@ import runpy
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-MIRROR = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
 RELEASES = [
     (
         "structured-events",
@@ -50,50 +49,46 @@ def test_published_kernel_bytes_match_shared_contract(slug, previous, kernel, fr
     expected = (
         ROOT / "packages/yoke-contracts/src/yoke_contracts/timestamps.py"
     ).read_bytes()
-    for root in (ROOT, MIRROR):
-        assert (_latest(root, slug) / kernel).read_bytes() == expected
+    assert (_latest(ROOT, slug) / kernel).read_bytes() == expected
 
 
 @pytest.mark.parametrize("slug,previous,kernel,frozen", RELEASES)
 def test_published_kernel_preserves_supported_utc_boundaries(
     slug, previous, kernel, frozen
 ):
-    for root in (ROOT, MIRROR):
-        api = runpy.run_path(str(_latest(root, slug) / kernel))
-        for value, wire in VALID:
-            native = api["parse_instant"](value)
-            assert api["format_instant"](native) == wire
-            assert api["format_instant"](value) == wire
-            assert native == api["parse_instant"](wire)
+    api = runpy.run_path(str(_latest(ROOT, slug) / kernel))
+    for value, wire in VALID:
+        native = api["parse_instant"](value)
+        assert api["format_instant"](native) == wire
+        assert api["format_instant"](value) == wire
+        assert native == api["parse_instant"](wire)
 
 
 @pytest.mark.parametrize("slug,previous,kernel,frozen", RELEASES)
 def test_published_kernel_utc_overflow_has_named_recovery(
     slug, previous, kernel, frozen
 ):
-    for root in (ROOT, MIRROR):
-        api = runpy.run_path(str(_latest(root, slug) / kernel))
-        for value in INVALID:
-            for supplied in (value, datetime.fromisoformat(value)):
-                for function in ("parse_instant", "format_instant"):
-                    with pytest.raises(api["InvalidInstant"], match="invalid_instant"):
-                        api[function](supplied)
+    api = runpy.run_path(str(_latest(ROOT, slug) / kernel))
+    for value in INVALID:
+        for supplied in (value, datetime.fromisoformat(value)):
+            for function in ("parse_instant", "format_instant"):
+                with pytest.raises(api["InvalidInstant"], match="invalid_instant"):
+                    api[function](supplied)
 
 
 @pytest.mark.parametrize("slug,previous,kernel,frozen", RELEASES)
 def test_previous_published_release_bytes_remain_frozen(slug, previous, kernel, frozen):
-    for root in (ROOT, MIRROR):
-        base = root / "packs" / slug
-        definition = json.loads((base / "pack.json").read_text())["versions"][previous]
-        source = base / definition["source"]
-        roster = sorted(
-            (
-                entry["source"],
-                hashlib.sha256((source / entry["source"]).read_bytes()).hexdigest(),
-            )
-            for entry in definition["files"]
+    base = ROOT / "packs" / slug
+    definition = json.loads((base / "pack.json").read_text())["versions"][previous]
+    source = base / definition["source"]
+    roster = sorted(
+        (
+            entry["source"],
+            hashlib.sha256((source / entry["source"]).read_bytes()).hexdigest(),
         )
-        digest = hashlib.sha256(
-            json.dumps(roster, separators=(",", ":")).encode()
-        ).hexdigest()
-        assert digest == frozen
+        for entry in definition["files"]
+    )
+    digest = hashlib.sha256(
+        json.dumps(roster, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert digest == frozen

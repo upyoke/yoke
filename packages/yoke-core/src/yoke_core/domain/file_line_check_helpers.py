@@ -10,9 +10,6 @@ import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 
-from yoke_contracts.project_contract.install_manifest import (
-    is_install_bundle_generated_path,
-)
 from yoke_contracts.refusal_recovery import compose_refusal
 
 # Git empty-tree object; used as the "old" side on initial commit (no HEAD).
@@ -136,10 +133,6 @@ def do_classify_path(
         pass
 
     posix_path = path.replace("\\", "/")
-    # Installer-rendered files (manifest ``files``) are upstream-authored and
-    # un-splittable in the receiving repo — GENERATED, not authored (14199).
-    if is_install_bundle_generated_path(posix_path, repo_root):
-        return Classification.GENERATED
     if posix_path in GENERATED_SENTINELS:
         return Classification.GENERATED
     if any(fnmatch.fnmatchcase(posix_path, p) for p in grow_allowed_globs):

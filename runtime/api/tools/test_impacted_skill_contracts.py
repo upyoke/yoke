@@ -12,20 +12,10 @@ from yoke_core.tools.impacted_tests import build_import_index, select
 from runtime.api.tools.impacted_tests_test_support import _tiny_repo, _write
 
 
-@pytest.mark.parametrize(
-    "changed",
-    (
-        ".agents/skills/yoke/idea/infer-and-create.md",
-        (
-            "packages/yoke-core/src/yoke_core/install_bundle_tree/"
-            ".agents/skills/yoke/idea/infer-and-create.md"
-        ),
-    ),
-)
 def test_skill_change_keeps_prose_contracts_when_selection_is_bounded(
     tmp_path: Path,
-    changed: str,
 ) -> None:
+    changed = ".agents/skills/yoke/idea/infer-and-create.md"
     root = _tiny_repo(tmp_path)
     _write(root, changed, "# Skill\n")
     for test_path in impacted_tests.AGENT_SKILL_CONTRACT_TESTS:
@@ -84,7 +74,6 @@ def test_every_skill_doc_assertion_is_rostered() -> None:
     (
         "docs/public/verification/deployment-plan-execution.md",
         "docs/testing-verification.md",
-        ".yoke/docs/verification/case-attachment.md",
         ".agents/skills/yoke/dash/close-out.md",
     ),
 )

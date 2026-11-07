@@ -69,10 +69,9 @@ def test_non_branches_and_cli_name_comparisons_pass(source: str) -> None:
         "runtime/api/migration_applied_evidence_test_helpers.py",
         "runtime/api/fixtures/backlog_inserts.py",
         "runtime/api/parity_service_client_project_fixture.py",
-        "packages/yoke-core/src/yoke_core/install_bundle_tree/docs/x.py",
     ],
 )
-def test_tests_fixtures_and_generated_copies_are_exempt(relpath: str) -> None:
+def test_tests_and_fixtures_are_exempt(relpath: str) -> None:
     assert is_exempt_relpath(relpath)
 
 

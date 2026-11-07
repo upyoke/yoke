@@ -296,29 +296,6 @@ def test_resolved_tree_is_named_in_the_result(
     assert str(repo.resolve()) in capsys.readouterr().out
 
 
-def test_mapped_main_checkout_is_not_offered_as_a_lane(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    """Main is not a substitute for a lane when a branch diff is the subject.
-
-    Diffing main against main is empty, so accepting the mapped main
-    checkout would report a clean result for a branch nothing read.
-    """
-    from yoke_core.tools import source_dev_run
-
-    main_checkout = tmp_path / "main"
-    monkeypatch.setattr(
-        source_dev_run,
-        "_claimed_root",
-        lambda *_a, **_k: (main_checkout, None, 1),
-    )
-
-    root, error = source_dev_run.claimed_lane_root()
-    assert root is None
-    assert "not a lane" in str(error)
-
-
 def test_claimed_lane_is_offered_as_the_tree(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -329,7 +306,7 @@ def test_claimed_lane_is_offered_as_the_tree(
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
-        lambda *_a, **_k: (lane, None, None),
+        lambda *_a, **_k: (lane, None),
     )
 
     assert source_dev_run.claimed_lane_root() == (lane, None)
