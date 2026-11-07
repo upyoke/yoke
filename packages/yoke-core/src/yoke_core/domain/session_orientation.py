@@ -27,11 +27,11 @@ from yoke_contracts.hook_runner.chain_registry import (
 )
 from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
 from yoke_core.domain.session_orientation_delivery import (
+    claim_orientation_attempt,
     confirm_orientation_delivery,
-    orientation_delivered,
-    record_orientation_attempt,
     reset_orientation_delivery,
     resets_orientation,
+    settle_orientation_attempt,
 )
 
 
@@ -209,13 +209,12 @@ def orientation_for_hook(
     :mod:`yoke_core.domain.global_orientation` instead of the project block.
     """
     try:
-        return _orientation_for_hook(
-            event_name,
-            stdin_data,
-            cursor=cursor,
-        )
+        block = _orientation_for_hook(event_name, stdin_data, cursor=cursor)
     except Exception:
-        return None
+        block = None
+    if not block:
+        settle_orientation_attempt()  # nothing composed: free the claim now
+    return block
 
 
 def _orientation_for_hook(
@@ -271,9 +270,9 @@ def _orientation_for_hook(
         session_orientation_redelivery_event(cursor=cursor),
     ):
         return None
-    if orientation_delivered(session_id):
+    lost_earlier = claim_orientation_attempt(session_id)
+    if lost_earlier is None:
         return None
-    lost_earlier = record_orientation_attempt(session_id)
     block = render_scoped_orientation(payload, Path(cwd))
     if not block or not lost_earlier:
         return block or None
@@ -345,4 +344,5 @@ __all__ = [
     "orientation_for_hook",
     "render_orientation",
     "render_scoped_orientation",
+    "settle_orientation_attempt",
 ]

@@ -189,13 +189,14 @@ def test_delivered_marker_fingerprints_exact_emitted_body(
     monkeypatch.setenv(
         "CURSOR_INVOKED_AS", "cursor-agent" if executor == CURSOR_EXECUTOR_ID else ""
     )
-    monkeypatch.setattr(delivery, "_composed_session", None)
+    delivery._composed_session.set(None)
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     monkeypatch.setattr(delivery, "_attempt_marker", lambda _: tmp_path / "attempt")
     monkeypatch.setattr(delivery, "_delivered_marker", lambda _: tmp_path / "delivered")
     orientation = ORIENTATION + "UTF-8: café ☃\n"
 
     def compose(*_args, **_kwargs):
-        delivery.record_orientation_attempt("s-1")
+        delivery.claim_orientation_attempt("s-1")
         return orientation
 
     monkeypatch.setattr(
@@ -288,7 +289,7 @@ def test_orientation_lands_once_and_returns_after_compaction(
     monkeypatch.setenv(EXECUTOR_ENV_VAR, executor)
     cursor = executor == CURSOR_EXECUTOR_ID
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent" if cursor else "")
-    monkeypatch.setattr(delivery, "_composed_session", None)
+    delivery._composed_session.set(None)
     monkeypatch.setattr(
         "urllib.request.urlopen", lambda *_a, **_k: _FakeResponse(_server_response())
     )

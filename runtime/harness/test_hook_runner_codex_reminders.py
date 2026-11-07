@@ -35,7 +35,7 @@ def lifecycle(monkeypatch, tmp_path, capsys):
     (root / ".yoke").mkdir(parents=True)
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     monkeypatch.setenv("YOKE_EXECUTOR", "codex")
-    monkeypatch.setattr(delivery, "_composed_session", None)
+    delivery._composed_session.set(None)
     monkeypatch.setattr("yoke_harness.hooks.identity.detect_executor", lambda: "codex")
     monkeypatch.setattr(local_entry, "detect_executor", lambda: "codex")
     monkeypatch.setattr(client, "_touch_detached_resume", lambda: None)
