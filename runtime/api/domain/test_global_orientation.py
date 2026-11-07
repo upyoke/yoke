@@ -39,7 +39,7 @@ def test_block_teaches_scope_and_one_next_action(tmp_path: Path) -> None:
     assert "use the `yoke-global` skill to pick or add its project" in out
     assert "`yoke status`" in out and go.DOCS_URL in out
     assert "Project folders" not in out
-    assert "Writing to the user: Each message to the user" in out
+    assert "Writing to the user: Keep each message to one or two" in out
     assert len(out.encode("utf-8")) <= BUDGET
 
 

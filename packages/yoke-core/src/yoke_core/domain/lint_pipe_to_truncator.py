@@ -1,9 +1,8 @@
 """PreToolUse Bash hook: block piping a live long command into a truncator.
 
-The AGENTS.md ``## Command Output — Hard Rule`` names ``<command> | tail -N``
-and ``<command> 2>&1 | head`` as anti-patterns on live long-command
-invocations, but until this guard no lint owned that clause: the polling
-lint only matches temp-path peeks on an existing capture, the subagent
+``<command> | tail -N`` and ``<command> 2>&1 | head`` on live long-command
+invocations are anti-patterns, and this guard is the only lint that owns
+them: the polling lint only matches temp-path peeks on an existing capture, the subagent
 backgrounding lint only denies backgrounding, and the shell-payload lint
 classifies bounded ``adapter | tail -N`` on *short* Yoke adapters as
 benign. The observed gap shape was a foreground
@@ -149,8 +148,7 @@ def _format_reason(label: str, truncator: str, suppression_seen: bool) -> str:
         '  <command> >"$_tmp" 2>&1; _rc=$?\n'
         '  tail -80 "$_tmp" # inspect captured output\n'
         '  grep -E "FAIL|ERROR|error" "$_tmp" || true # extract failures\n'
-        '  exit "$_rc"\n'
-        "Doctrine: AGENTS.md `## Command Output — Hard Rule`"
+        '  exit "$_rc"'
     )
     if suppression_seen:
         body = (
