@@ -23,8 +23,7 @@ def test_all_lifecycle_marker_owners_use_bound_project(monkeypatch, tmp_path):
         helpers_markers.write_done_item_marker(42)
         assert helpers_markers.read_current_item_marker() == "42"
         assert helpers_markers.read_done_item_marker() == "42"
-        monkeypatch.setattr(orientation, "_composed_session", None)
-        assert not orientation.record_orientation_attempt("session")
+        assert orientation.claim_orientation_attempt("session") is False
         orientation.confirm_orientation_delivery("orientation body")
         assert orientation.orientation_delivered("session")
     assert not (tmp_path / "9").exists()

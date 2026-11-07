@@ -113,8 +113,9 @@ def test_repeated_hook_does_not_reread_setup(monkeypatch):
     delivered = []
     reads = []
     monkeypatch.setattr(orientation, "_project_root", lambda _: Path("/external"))
-    monkeypatch.setattr(orientation, "orientation_delivered", lambda _: bool(delivered))
-    monkeypatch.setattr(orientation, "record_orientation_attempt", lambda _: False)
+    monkeypatch.setattr(
+        orientation, "claim_orientation_attempt", lambda _: None if delivered else False
+    )
     monkeypatch.setattr(orientation, "_advisory_lines", lambda _: [])
     monkeypatch.setattr(orientation, "_git_line", lambda *_: "")
 

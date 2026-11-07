@@ -212,6 +212,17 @@ def _confirm_orientation(printed: str) -> None:
         pass
 
 
+def _finish_orientation(printed: str, exit_code: int | None) -> None:
+    """Confirm a printed block, then release an undelivered claim as lost."""
+    if exit_code == 0:
+        _confirm_orientation(printed)
+    try:
+        module = importlib.import_module("yoke_core.domain.session_orientation")
+        module.settle_orientation_attempt()
+    except Exception:
+        pass
+
+
 def _evaluate_confirming_orientation(evaluate: Callable[[], int]) -> int:
     """Retire an orientation only after this request actually printed it."""
     try:
@@ -227,8 +238,7 @@ def _evaluate_confirming_orientation(evaluate: Callable[[], int]) -> int:
             exit_code = evaluate()
             return exit_code
         finally:
-            if exit_code == 0:
-                _confirm_orientation(capture.stdout_since(mark))
+            _finish_orientation(capture.stdout_since(mark), exit_code)
 
     buffered = io.StringIO()
     try:
@@ -239,8 +249,7 @@ def _evaluate_confirming_orientation(evaluate: Callable[[], int]) -> int:
         printed = buffered.getvalue()
         if printed:
             sys.stdout.write(printed)
-        if exit_code == 0:
-            _confirm_orientation(printed)
+        _finish_orientation(printed, exit_code)
 
 
 def _active_local_universe() -> bool:

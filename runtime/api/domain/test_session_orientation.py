@@ -61,7 +61,7 @@ def isolated_markers(tmp_path_factory, monkeypatch) -> None:
         SCRATCH_ROOT_ENV_KEY,
         str(tmp_path_factory.mktemp("markers")),
     )
-    monkeypatch.setattr(delivery, "_composed_session", None)
+    delivery._composed_session.set(None)
     monkeypatch.setattr("yoke_harness.hooks.identity.detect_executor", lambda: "claude-code")
 
 

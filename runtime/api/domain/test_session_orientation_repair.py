@@ -9,8 +9,9 @@ ran its whole life un-oriented, because the composer had already recorded
 the session as oriented.
 
 These regressions pin the repair: delivery — not composition — is what
-retires a session's orientation, an un-delivered block returns on the next
-context-bearing event for that harness, the repeat says so where both the
+retires a session's orientation, a block whose request ended undelivered
+(settled lost, as the hook adapter does) returns on the next context-bearing
+event for that harness, the repeat says so where both the
 operator and the agent can see it, and a session that was oriented cleanly
 never gets a second copy.
 """
@@ -47,7 +48,7 @@ def isolated_markers(tmp_path_factory, monkeypatch) -> None:
         SCRATCH_ROOT_ENV_KEY,
         str(tmp_path_factory.mktemp("markers")),
     )
-    monkeypatch.setattr(delivery, "_composed_session", None)
+    delivery._composed_session.set(None)
     monkeypatch.setattr(
         "yoke_harness.hooks.identity.detect_executor", lambda: "claude-code"
     )
@@ -83,6 +84,7 @@ def test_a_lost_block_comes_back_on_the_next_prompt(project: Path) -> None:
     # session is concerned the block never arrived — and the next prompt is
     # the first chance to say so.
     lost = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+    delivery.settle_orientation_attempt()
     repeat = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert lost is not None
@@ -93,6 +95,7 @@ def test_a_lost_block_comes_back_on_the_next_prompt(project: Path) -> None:
 
 def test_the_repeat_lands_exactly_once(project: Path) -> None:
     so.orientation_for_hook("UserPromptSubmit", _payload(project))
+    delivery.settle_orientation_attempt()
     repeat = so.orientation_for_hook("UserPromptSubmit", _payload(project))
     so.confirm_orientation_delivery(repeat)
     third = so.orientation_for_hook("UserPromptSubmit", _payload(project))
@@ -118,6 +121,7 @@ def test_the_miss_is_visible_to_the_operator_and_the_agent(
     # A session that started without its bearings is otherwise invisible:
     # the block simply never appeared and nothing later says so.
     so.orientation_for_hook("UserPromptSubmit", _payload(project))
+    delivery.settle_orientation_attempt()
     capsys.readouterr()
     repeat = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
@@ -146,6 +150,7 @@ def test_cursor_repairs_on_its_tool_result_event(project: Path) -> None:
         _cursor_payload(project),
         cursor=True,
     )
+    delivery.settle_orientation_attempt()
     repeat = so.orientation_for_hook(
         "PostToolUse",
         _cursor_payload(project, event="postToolUse"),
@@ -224,3 +229,44 @@ def test_registry_keeps_each_harness_startup_and_repair_timing(
 ):
     assert session_orientation_event(cursor=cursor, executor=executor) == startup
     assert session_orientation_redelivery_event(cursor=cursor) == repair
+
+
+def test_parallel_cursor_tool_hooks_deliver_the_block_once(project: Path) -> None:
+    # Cursor runs parallel tool calls' postToolUse hooks at once. Each runs
+    # in its own process or resident thread, so each starts with no claim.
+    import contextvars
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    start = Barrier(4)
+    payload = _cursor_payload(project, event="postToolUse")
+
+    def hook() -> str | None:
+        start.wait()
+        return so.orientation_for_hook("PostToolUse", payload, cursor=True)
+
+    with ThreadPoolExecutor(4) as pool:
+        blocks = list(
+            pool.map(lambda _: contextvars.Context().run(hook), range(4))
+        )
+
+    delivered = [block for block in blocks if block]
+    assert len(delivered) == 1
+    assert "NOTE:" not in delivered[0]
+
+
+def test_a_killed_hooks_claim_expires_into_a_repair(project: Path, monkeypatch) -> None:
+    # A hook the harness kills never settles; its claim must not silence the
+    # session past the longest any hook request can live.
+    import time
+
+    first = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+    delivery._composed_session.set(None)  # the killed request's context is gone
+    assert so.orientation_for_hook("UserPromptSubmit", _payload(project)) is None
+
+    later = time.time() + delivery._CLAIM_STALE_SECONDS + 1
+    monkeypatch.setattr(delivery.time, "time", lambda: later)
+    repeat = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+
+    assert first is not None
+    assert repeat is not None and repeat.startswith("NOTE:")

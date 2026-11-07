@@ -26,7 +26,7 @@ _REAL_PROJECT_FOLDERS = go._project_folders
 @pytest.fixture(autouse=True)
 def isolated(tmp_path_factory, monkeypatch) -> None:
     monkeypatch.setenv(SCRATCH_ROOT_ENV_KEY, str(tmp_path_factory.mktemp("markers")))
-    monkeypatch.setattr(delivery, "_composed_session", None)
+    delivery._composed_session.set(None)
     monkeypatch.setattr(go, "_project_folders", lambda: [])
 
 
