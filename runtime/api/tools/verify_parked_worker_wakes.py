@@ -28,11 +28,15 @@ def first_deployment_sql(quoted_run: str, plan_id: int) -> str:
     return (
         "(SELECT MIN(delivered_at) FROM (SELECT MAX(r.completed_at) AS delivered_at "
         "FROM deployment_stage_receipts r JOIN deployment_runs d ON d.id=r.run_id "
-        "JOIN deployment_run_items di ON di.run_id=d.id "
         "WHERE r.status='ready' AND d.target_environment_id="
         f"(SELECT target_environment_id FROM deployment_runs WHERE id={quoted_run}) "
-        "AND di.item_id IN (SELECT q.deployment_member_item_id FROM qa_requirements q "
-        f"WHERE q.deployment_run_id={quoted_run} AND q.plan_id={int(plan_id)}) "
+        "AND EXISTS (SELECT 1 FROM qa_requirements q "
+        f"WHERE q.deployment_run_id={quoted_run} AND q.plan_id={int(plan_id)} "
+        "AND (EXISTS (SELECT 1 FROM deployment_run_items di WHERE di.run_id=d.id "
+        "AND di.item_id=q.deployment_member_item_id) OR EXISTS (SELECT 1 FROM "
+        "jsonb_array_elements(COALESCE(d.membership_removals,'[]')::jsonb) removed "
+        "WHERE (removed->>'item_id')::bigint=q.deployment_member_item_id "
+        "AND removed->>'transferred_to_run_id' IS NOT NULL))) "
         "GROUP BY r.run_id) delivered)"
     )
 
