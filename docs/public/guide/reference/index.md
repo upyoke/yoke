@@ -47,7 +47,7 @@ One short rules file holds the judgment no command can check: scope, failure own
 
 ### Shared and project-specific authority
 
-Public operation homes contain reusable product procedures. Project-specific constraints belong in project guidance and [Execution instructions](../execution-instructions.md). A particular installation's credentials, topology, or release policy should not become a requirement for every user.
+Public reference docs and the agent rules contain reusable product procedures and judgment. Project-specific constraints belong in project guidance and [Execution instructions](../execution-instructions.md). A particular installation's credentials, topology, or release policy should not become a requirement for every user.
 
 The [Agent guidance](../guidance.md) page explains how installed files, skills, packets, and command feedback reach the agent. Detailed rules remain accessible to humans without making the introductory guide repeat them all.
 
@@ -89,7 +89,7 @@ Public documentation is authored in the Yoke repository and distributed through 
 
 <!-- yoke:contents -->
 - [Installation reference](../../start/index.md) — Detailed installation commands, supported platforms, and recovery.
-- [Agents](../../agents/index.md) — Use harness guidance, command maps and operation homes before acting.
+- [Agents](../../agents/index.md) — Use harness guidance, command maps and the agent rules.
 - [Projects](../../projects/index.md) — Add projects and configure their capabilities, guidance and shared files.
 - [GitHub](../../github/index.md) — Connect repository access, mirror issues and inspect merge evidence.
 - [CLI and config](../../cli/index.md) — Read command help, choose connections and configure your machine.

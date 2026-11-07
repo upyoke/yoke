@@ -54,6 +54,6 @@ Your agent can inspect the resolved set to check a rule's scope and delivery. Th
 
 ## Instruction ownership
 
-Keep project-specific policy in project instructions and maintained project documentation. Keep reusable Yoke product guidance in its public documentation or agent operation home, with a concise link from an instruction when needed.
+Keep project-specific policy in project instructions and maintained project documentation. Keep reusable Yoke product guidance in its public documentation or the agent rules, with a concise link from an instruction when needed.
 
 Avoid copying long procedures into several instructions. Updating one maintained source is more reliable than correcting multiple stale copies. See [Agent guidance](guidance.md), [Projects](configuration.md), and [Workflows and work items](work.md).

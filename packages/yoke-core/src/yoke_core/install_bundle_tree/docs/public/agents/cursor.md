@@ -8,7 +8,7 @@ This file is the Cursor-facing entry point for Yoke. It references the shared bo
 
 For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file. Cursor loads `AGENTS.md` natively (including nested per-directory `AGENTS.md`), so everything there applies to Cursor sessions unless noted otherwise below. Yoke writes shared doctrine only to `AGENTS.md`. Project-specific harness content stays outside the managed block or in the harness’s native configuration. See [native discovery](harness-discovery.md) for version floors and loading checks.
 
-Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/agents/rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
+Judgment no command can check lives in [`.yoke/docs/agents/rules.md`](rules.md), the same for every harness. Each command's `--help` ends with its recipe, and each refusal names its reason and fix.
 
 The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
 
@@ -100,4 +100,4 @@ The canonical lifecycle guide is [.yoke/docs/workflows/lifecycle.md](../workflow
 ## Related
 
 - [Operating with agents](index.md)
-- [Agent operation homes](rules/index.md)
+- [Agent rules](rules.md)

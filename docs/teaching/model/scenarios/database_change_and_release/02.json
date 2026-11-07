@@ -11,6 +11,6 @@
  "review": "The provisioning recipe activates and leases the admin tunnel, then passes its DSN through the source runner, which preserves the successful copy's binding outside its disposable machine home; end-to-end external-user provisioning remains unverified.",
  "recipes": ["yoke migration rehearse --help", "yoke dev db-admin exec <admin-env> --dsn-var YOKE_PG_DSN -- yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/agents/rules/databases.md", "docs/public/databases/migration-model.md", "docs/public/databases/migration-model-pairing.md", "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py"],
+ "sources": ["docs/public/databases/index.md", "docs/public/agents/rules.md", "docs/public/databases/migration-model.md", "docs/public/databases/migration-model-pairing.md", "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py"],
  "position": 1
 }

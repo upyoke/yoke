@@ -28,12 +28,6 @@ Run the full suite once through its QA case:
 yoke qa case run --requirement-id <id>
 ```
 
-Find `<id>` with `yoke qa requirement list --item PREFIX-N`. Commit first; a
-CI-backed case publishes the lane itself. Run it after your test selections,
-and run it again only after you change something. A gate that prints nothing
-for a while is still running. If its watcher was killed, run the same command
-again: it rejoins or adopts the CI run for that commit.
-
 ## Binding your project's command
 
 Bind a source-level command with no deployment environment flags:
@@ -233,13 +227,6 @@ Without either workflow, tests run here without refusal. Every local run prints
 why, including `--local`, `YOKE_PYTEST_LOCAL=1`, QA candidates, runs already on
 CI, and no control-plane connection. Local xdist shares one machine-wide budget.
 
-In a lane, the command first brings the lane current with its base branch;
-uncommitted work or a conflict refuses with the fix and runs no tests.
-`--local` is for a check that ends in about one minute. If it runs longer,
-stop it, treat the capture as incomplete, commit, and run on CI. When the
-selection reports itself unbounded, keep testing what you judge relevant; the
-QA case covers the rest.
-
 Full-suite authority on protected merges is CI (when configured). Local full
 sweeps are the CI-outage fallback.
 
@@ -254,12 +241,6 @@ explains recovery. Separate cases inspect both modes, with normal visual review.
 Browser methods use the packaged browser runtime. [Browser targets](browser-targets.md)
 owns method configuration; [Browser scenarios](browser-scenarios.md) owns actions,
 assertions and execution. The [QA platform](platform.md) owns obligation and gate rules.
-
-Formal Browser QA runs against its declared target. A local dashboard preview
-(`YOKE_ENV=<local-env> yoke ui up`, seeded through that same env) is only a
-self-check. Capture at the case's declared viewport sizes, add a `delay` step
-before a screenshot of a page that is still settling, and keep admission
-tokens out of captured output.
 
 
 Linux onboarding installs the packaged browser in user space and checks its

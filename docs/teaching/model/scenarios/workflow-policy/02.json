@@ -6,11 +6,11 @@
  "when": "Before authoring File Budget/path claims or entering a gated work phase.",
  "need": "Read effective_policies from workflows.item.get. File Budget, path claims and path survey are distinct axes; posture can tighten only permitted choices.",
  "disclosure": "current cue",
- "surface": "Agent operation home; intake path closure; central resolver",
+ "surface": "Scope section of the agent rules file; intake path closure; central resolver",
  "gap": "Review question: should public workflow help explain these choices at the moment a policy is proposed, rather than describing them as universal onboarding steps?",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflows item get --help"],
  "plan_notes": ["JOURNEYS row 11", "outside both"],
- "sources": ["docs/public/agents/rules/lanes-and-claims.md", ".agents/skills/yoke/idea/path-closure.md", "packages/yoke-core/src/yoke_core/domain/workflow_effective_policies.py"],
+ "sources": ["docs/public/agents/rules.md", "docs/public/sessions/model/path-claims.md", ".agents/skills/yoke/idea/path-closure.md", "packages/yoke-core/src/yoke_core/domain/workflow_effective_policies.py"],
  "position": 1
 }

@@ -8,8 +8,7 @@ Parent: {_epic_ref}; project: {PROJECT}; GitHub issue: {github_issue}
 Registered lane: {WORKTREE_PATH}; branch: {BRANCH}; main owner: {MAIN_ROOT}
 yoke workflow-item epic-task body-get --epic {_epic_ref} --task-num {_task_id}
 yoke items get PREFIX-{N} spec
-Before the first edit, read {WORKTREE_PATH}/.yoke/docs/agents/rules/index.md
-and code-and-cli.md, then each home the index names before its operation.
+Before the first edit, read {WORKTREE_PATH}/.yoke/docs/agents/rules.md.
 ```
 
 Add dependency interfaces, project docs, QA roster, preview URL, prior

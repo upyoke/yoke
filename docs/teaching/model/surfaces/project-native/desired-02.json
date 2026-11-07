@@ -1,6 +1,6 @@
 {
  "id": "desired-02",
- "title": "Read the operation home before its action; use registered Yoke reads and writes.",
+ "title": "Follow the agent rules file; use registered Yoke reads and writes, whose --help ends with the recipe.",
  "status": "candidate",
  "form": "Do",
  "verification": "Desired outline; exact recipe and live delivery still need proof.",

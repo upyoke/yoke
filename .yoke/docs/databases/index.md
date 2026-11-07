@@ -14,12 +14,15 @@ the database and migration commands for those details.
 
 ## Operator model
 
-- Pure **additive** schema (new tables/columns) converges on boot — no
-  special migration module required for net-new additive shape.
-- **Data-transforming** changes (drops, backfills, rewrites) go through the
-  ordered migration history, rehearsal, and boot apply.
-- Every item carries a **DB claim** (`db_claim.amend`). Default `none` means
-  no governed mutation declared.
+- Pure **additive** schema (new tables/columns) goes in the schema module and
+  converges on boot — no migration module is needed. Record the DB claim with
+  `yoke db-claim amend PREFIX-N --state none --reason "..."`.
+- **Data-transforming** changes (drops, backfills, rewrites, bulk data) go
+  through the ordered migration history, rehearsal, and boot apply.
+- Every item carries a **DB claim** (`yoke db-claim amend`). Default `none`
+  means no governed mutation declared.
+- A bounded repair of a few rows uses
+  [operator data repair](operator-data-repair.md) instead of a history entry.
 
 ## Authoring posture
 
@@ -31,10 +34,33 @@ When an item mutates a declared authoritative DB:
    with `yoke --env <name> migration rehearse PREFIX-N` (holds the live
    migration lease until the merge lands). If none is configured, escalate to the control-plane
    operator; rehearsal executes project-local code and is not relayed over HTTPS.
+   `yoke migration rehearse --help` shows the forms for a claimed source lane.
 4. Ship; boot converge applies pending entries fail-hard
 
 Never apply destructive migrations without a named restore point. Never use
 ad hoc write SQL against a declared authoritative DB.
+
+A destructive entry declares `MINIMUM_SERVING_VERSION = "next-release"`, the
+release that will carry it, never a literal version. An entry that changes
+rows must be safe to run again: when its output already exists, it folds into
+that output instead of creating it again. Rows covered by a digest or an
+immutability guarantee are written with the serializer their readers use, so
+the stored digest still matches.
+
+## Several items with migration entries
+
+One item at a time holds the live migration lease for a model, from
+rehearsal until its merge lands. When several items each add an entry:
+
+1. Give each entry its number in landing order.
+2. Stack each lane on the previous item's branch.
+3. List every module on the top item's DB claim and rehearse once, on the top
+   item.
+4. Land the items in order and ship them in one release.
+
+If a lease outlives its item, read
+[stranded migration lease recovery](../sessions/model/coordination.md#stranded-migration-lease-recovery)
+before you release it.
 
 ## Migration invariants
 

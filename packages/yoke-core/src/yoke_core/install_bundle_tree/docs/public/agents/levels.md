@@ -10,7 +10,7 @@ Levels carry presentation and placement; workflow bindings select skills,
 and steering or explicit operator staffing assigns work.
 
 Execution levels are distinct from the claimed worktree lanes that isolate
-code changes. See [worktree lanes and claims](rules/lanes-and-claims.md).
+code changes. See [path claims](../sessions/model/path-claims.md).
 
 ## The shipped scheme
 

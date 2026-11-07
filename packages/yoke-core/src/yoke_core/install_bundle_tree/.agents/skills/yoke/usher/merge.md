@@ -24,4 +24,4 @@ yoke claims work release --item PREFIX-N --reason usher-halt-merge-failure --jso
 
 Cancelled checks: rerun the same merge on the same head.
 
-Failing or flaky tests: `.yoke/docs/agents/rules/verification.md#failing-or-flaky-tests`.
+Failing or flaky tests: `.yoke/docs/agents/rules.md#failures`.

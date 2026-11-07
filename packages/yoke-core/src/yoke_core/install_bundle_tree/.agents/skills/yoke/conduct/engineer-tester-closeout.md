@@ -21,7 +21,7 @@ Then rerun the [loop](engineer-tester-loop.md). Exhausted: `--status failed`,
 then [cleanup-report.md](cleanup-report.md) HALTED.
 
 Renumbered migrations: rehearse the final modules
-([databases.md](../../../../.yoke/docs/agents/rules/databases.md)), then record
+([databases](../../../../.yoke/docs/databases/index.md#several-items-with-migration-entries)), then record
 the old-to-final map and audit ids before simulation:
 
 ```text

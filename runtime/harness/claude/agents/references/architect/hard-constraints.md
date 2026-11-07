@@ -73,7 +73,7 @@ Include actual references in task coverage/ACs; a missing top-level doc leaves
 users unaware and gives Tester no explicit verification target.
 
 Before specifying changed behavior, read
-`.yoke/docs/agents/rules/code-and-cli.md` for portable execution and real
+`.yoke/docs/agents/rules.md` for complete scope, portable behavior and real
 consumer contracts. Derive concise action teaching from the single standard
 at `.yoke/docs/documentation/index.md`; include every renderer output in the
 task scope and prove the receiving main/worker context before claiming delivery.

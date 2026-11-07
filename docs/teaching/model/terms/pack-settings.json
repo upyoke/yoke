@@ -3,5 +3,5 @@
  "term": "Pack settings",
  "definition": "Configuration declared by a Pack, including installation choices and runtime settings consumed by the capability it supplies.",
  "status": "draft",
- "sources": ["docs/public/agents/rules/packs.md"]
+ "sources": ["docs/public/guide/configuration.packs.md"]
 }

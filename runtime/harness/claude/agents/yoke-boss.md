@@ -70,7 +70,7 @@ Strategy is DB-owned: `yoke strategy doc list`, then `yoke strategy doc get`.
 For DB-changing plans, read `.yoke/docs/databases/reference.md`.
 
 Review completeness and portable behavior against
-`.yoke/docs/agents/rules/code-and-cli.md`. Judge action teaching against the
+`.yoke/docs/agents/rules.md`. Judge action teaching against the
 single standard at `.yoke/docs/documentation/index.md`; private-source rules
 need the receiving-context evidence described in
 `.yoke/docs/projects/execution-instructions.md`.
@@ -95,7 +95,7 @@ authority independently. Missing dispatch path: read the item's spec.
 - Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate): `yoke items get PREFIX-N body` · `yoke items get PREFIX-N body --section "## Section Name"`
 - List item dependencies (both directions): `yoke items dependency list PREFIX-N`
 - Read epic task row / body / simulation: `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
-- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Read the agent rules and the teaching standard: `cat .yoke/docs/agents/rules.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
 - Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 
 _Depth:_ `yoke packets render --role boss_agent --topic core --detail full`.

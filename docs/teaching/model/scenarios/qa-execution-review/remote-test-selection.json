@@ -8,5 +8,5 @@
  "disclosure": "before action",
  "surface": "Wrapper help, routing refusal and verification rules",
  "review": "Source and fixture coverage only; post-deploy Command proof must exercise the candidate router with fake dispatch boundaries.",
- "sources": ["docs/testing-verification/full-suite-authority.md", "docs/public/agents/rules/verification.md", "runtime/api/tools/test_pytest_remote_full_scope.py", "runtime/api/tools/test_watch_pytest_lane.py", "packages/yoke-core/src/yoke_core/engines/lane_base_update.py", "runtime/api/domain/test_lane_base_update_steps.py"]
+ "sources": ["docs/testing-verification/full-suite-authority.md", "docs/public/verification/index.md", "runtime/api/tools/test_pytest_remote_full_scope.py", "runtime/api/tools/test_watch_pytest_lane.py", "packages/yoke-core/src/yoke_core/engines/lane_base_update.py", "runtime/api/domain/test_lane_base_update_steps.py"]
 }

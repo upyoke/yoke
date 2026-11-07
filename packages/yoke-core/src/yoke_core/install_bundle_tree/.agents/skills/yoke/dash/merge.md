@@ -14,10 +14,10 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<res
 
 The merge waits for the merge lock itself and prints the holding item; do not park on it. Exit 6 means the wait hit the lock TTL: checkpoint, park naming the holding item, keep the claim, rerun after it lands. A `merge_target_moved` caused only by release pin commits recovers by itself; any other `merge_target_moved` means refresh the lane and rerun.
 
-Selected deployment: `yoke merge item ITEM --skip-status --json`; follow `.yoke/docs/agents/rules/delivery.md`. A steering-batched worker starts no run.
+Selected deployment: `yoke merge item ITEM --skip-status --json`; follow `.yoke/docs/deployments/index.md`. A steering-batched worker starts no run.
 
 `--skip-status` postpones only `done`: the item still moves to `release` and its work claim is released. Merge each step of multi-step work as its own item.
 
 Next: [close-out](close-out.md).
 
-Failing or flaky tests: `.yoke/docs/agents/rules/verification.md#failing-or-flaky-tests`.
+Failing or flaky tests: `.yoke/docs/agents/rules.md#failures`.

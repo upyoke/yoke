@@ -3,5 +3,5 @@
  "term": "File budget",
  "definition": "The declared files an item needs to change. Once a spec declares one, readiness blocks any existing file named in its Change, Fix, Delete, Scope or Add lists that has no budget row, and refine adds the missing row.",
  "status": "draft",
- "sources": ["docs/public/agents/rules/lanes-and-claims.md"]
+ "sources": ["docs/public/agents/rules.md"]
 }

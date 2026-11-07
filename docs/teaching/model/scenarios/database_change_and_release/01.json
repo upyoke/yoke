@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Idea/refinement/implementation finds a governed data-transforming change",
- "need": "Read databases operation home and amend the unified DB claim. Author permanent ordered history, compatibility evidence and rehearsal; boot applies merged history. Ordinary additive behavior depends on the project boot contract, not arbitrary manual SQL.",
+ "need": "Follow the Data rules in the agent rules file and the databases procedure, and amend the unified DB claim. Author permanent ordered history, compatibility evidence and rehearsal; boot applies merged history. Ordinary additive behavior depends on the project boot contract, not arbitrary manual SQL.",
  "disclosure": "current cue",
- "surface": "Standing databases pointer; idea DB classification; databases deep home.",
+ "surface": "Standing databases pointer; idea DB classification; databases procedure page; Data section of the agent rules file.",
  "gap": "First database-change teaching should route to both model setup and item claim, not assume a preconfigured model. Preserve the external-owner path.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke migration rehearse --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/agents/rules/databases.md", ".agents/skills/yoke/idea/db-claim-classification.md", ".agents/skills/yoke/implement/implementing/implementation.md"],
+ "sources": ["docs/public/databases/index.md", "docs/public/agents/rules.md", ".agents/skills/yoke/idea/db-claim-classification.md", ".agents/skills/yoke/implement/implementing/implementation.md"],
  "position": 0
 }

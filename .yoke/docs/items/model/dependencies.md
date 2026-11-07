@@ -74,6 +74,26 @@ Python service clients are not an agent recipe.
 
 **Loop refusal:** `items.dependency.add` and `items.dependency.update` (when it changes the gate or satisfaction) refuse with `dependency_cycle` a write that would leave unsatisfied activation/integration/closure edges among live items in a loop, because no item in it could move first. The refusal names every edge in the loop with its id, the items it would strand, and the recovery: make one edge `coordination_only` (`yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-point coordination_only --rationale TEXT`), or route the ordering decision to steering. Nothing is written. `coordination_only` edges, satisfied edges and terminal dependents never count. `yoke_core.domain.dependency_cycles` is the one detector: `frontier.list` and `charge.schedule` serve its loops as `dependency_cycles`, the fleet watch raises `fleet ALARM deadlock`, and the steering report lists them under dependency deadlocks.
 
+## Wait on another item's merge or delivery
+
+Record the wait first, then park only at the step the gate holds. Name the
+skill you are working in as the source (`dash`, `conduct`, `implement`, …);
+`operator` is for steering.
+
+```text
+yoke items dependency list ITEM
+yoke items dependency add ITEM BLOCKER dash --gate-point integration \
+  --satisfaction fact:merged --rationale "needs BLOCKER merged"
+yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
+```
+
+Add the edge before the landing you need; an earlier landing does not count.
+Park only after the write succeeds, and keep your claim and lane while you
+wait. The blocker's landing or delivery wakes you. Your own item's release
+wait needs no edge. After failed QA, record a `closure` edge only when the
+finding is in your own item and another item must land first;
+`yoke items dependency add --help` says which satisfaction to use.
+
 ## Related
 
 - [Item model](items.md)

@@ -9,6 +9,6 @@
  "surface": "Shared client-local and server hook dispatch",
  "gap": "Candidate scope is covered by regression tests; deployed installed-harness delivery is unproved. See guard-scope-live-delivery.",
  "review": "Source and candidate tests; no live delivery claim.",
- "sources": ["docs/public/agents/harness-discovery.md", "packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/relay.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/safety.py", "runtime/harness/test_hook_lifecycle_safety.py", "packages/yoke-harness/src/yoke_harness/hooks/client_write_targets.py", "packages/yoke-core/src/yoke_core/domain/lint_lane_main_write_lanes.py", "docs/public/agents/rules/shell-and-cli.md"],
+ "sources": ["docs/public/agents/harness-discovery.md", "packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/relay.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/safety.py", "runtime/harness/test_hook_lifecycle_safety.py", "packages/yoke-harness/src/yoke_harness/hooks/client_write_targets.py", "packages/yoke-core/src/yoke_core/domain/lint_lane_main_write_lanes.py", "docs/public/agents/rules.md"],
  "position": 6
 }

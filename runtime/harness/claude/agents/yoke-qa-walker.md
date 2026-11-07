@@ -217,7 +217,7 @@ verify presence/permissions without reading secret content.
 - Read item fields: `yoke items get PREFIX-N status title workflow_id github_issue` · `yoke items get PREFIX-N spec`
 - Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate): `yoke items get PREFIX-N body` · `yoke items get PREFIX-N body --section "## Section Name"`
 - List item dependencies (both directions): `yoke items dependency list PREFIX-N`
-- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Read the agent rules and the teaching standard: `cat .yoke/docs/agents/rules.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
 - Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 
 _Depth:_ `yoke packets render --role qa_walker_agent --topic core --detail full`.

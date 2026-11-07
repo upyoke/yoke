@@ -46,7 +46,7 @@ root:
       - {title: "Terminal setup (optional)", summary: "Set up Yoke yourself in a terminal instead of through your agent.", path: "start/terminal-onboarding.md"}
       - {title: "Uninstall", summary: "Preserve chosen data and remove machine or project guidance.", path: "start/uninstall.md"}
     - title: "Agents"
-      summary: "Use harness guidance, command maps and operation homes before acting."
+      summary: "Use harness guidance, command maps and the agent rules."
       path: "agents/index.md"
       children:
       - {title: "Commands", summary: "Find operator commands and the delivery skill for the current binding.", path: "agents/commands.md"}

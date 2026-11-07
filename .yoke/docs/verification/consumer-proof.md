@@ -75,4 +75,4 @@ Missing history never proves that no producer item caused a failure.
 ## Related
 
 - [Verification](index.md)
-- [Project scoping](../agents/rules/lanes-and-claims.md#project-scoping)
+- [Project scope](../agents/rules.md#scope)

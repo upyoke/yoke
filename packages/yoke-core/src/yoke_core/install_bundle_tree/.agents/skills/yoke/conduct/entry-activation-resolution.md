@@ -14,7 +14,7 @@ blocked → report, no writes; unknown → halt it. Other chains:
 yoke workflow-item epic-dispatch-chain advance --epic PREFIX-N --worktree {BRANCH}
 ```
 
-Path-claim overlaps: [lanes-and-claims.md](../../../../.yoke/docs/agents/rules/lanes-and-claims.md).
+Path-claim overlaps: [agent rules](../../../../.yoke/docs/agents/rules.md#coordination).
 
 ```text
 yoke worktree prepare --item PREFIX-N --project {PROJECT}

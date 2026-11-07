@@ -6,5 +6,5 @@
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
  "questions": ["Audit which coordination keys are product procedures versus maintainer-specific locks.", "Verify orphan/operator-release authority from current help/state; do not teach blanket cleanup from claim age alone."],
- "sources": ["docs/public/functions/claims.md", "docs/public/agents/rules/lanes-and-claims.md"]
+ "sources": ["docs/public/functions/claims.md", "docs/public/agents/rules.md", "docs/public/sessions/model/coordination.md"]
 }

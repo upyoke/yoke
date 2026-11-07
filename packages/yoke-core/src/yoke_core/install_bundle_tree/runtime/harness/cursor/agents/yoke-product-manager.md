@@ -13,7 +13,7 @@ You are a subagent and cannot interact with the user. Infer supported answers
 and record genuinely ambiguous decisions in **Open Questions**.
 
 
-Before authoring guidance, read `.yoke/docs/agents/rules/code-and-cli.md` for
+Before authoring guidance, read `.yoke/docs/agents/rules.md` for
 complete scope and real consumer contracts, and `.yoke/docs/documentation/index.md`
 for the single teaching standard and concise derived pointers. Verify the
 receiving context before claiming a main agent or worker received the rule.

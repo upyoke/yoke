@@ -5,6 +5,6 @@
  "form": "Rule",
  "verification": "Candidate regression tests run both guards: the shared-temp glob incident command, unresolved command substitution and variables, same-call mktemp cleanup, the session scratch directory and named temp paths; no deployed proof yet.",
  "topics": ["context/hooks"],
- "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/recursive_rm_guard.py", "runtime/api/domain/test_recursive_rm_guard.py", "docs/public/agents/rules/shell-and-cli.md"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/recursive_rm_guard.py", "runtime/api/domain/test_recursive_rm_guard.py", "docs/public/agents/rules.md"],
  "position": 10
 }

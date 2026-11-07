@@ -8,7 +8,7 @@ This file is the Codex-facing entry point for Yoke. It references the shared boo
 
 Shared project rules load from the canonical `AGENTS.md`. This guide explains Codex-specific operations; it is an ordinary reference, not an additional auto-loaded instruction file.
 
-Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/agents/rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
+Judgment no command can check lives in [`.yoke/docs/agents/rules.md`](rules.md), the same for every harness. Each command's `--help` ends with its recipe, and each refusal names its reason and fix.
 
 The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, implement, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
 
@@ -245,4 +245,4 @@ Frontier computation lives in [.yoke/docs/strategy/charge-frontier.md](../strate
 ## Related
 
 - [Operating with agents](index.md)
-- [Agent operation homes](rules/index.md)
+- [Agent rules](rules.md)

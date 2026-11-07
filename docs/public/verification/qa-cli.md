@@ -15,6 +15,21 @@ Installed gates updating another project's checkout continue in their leased
 CLI release. A failed restart names `qa_ci_source_restart_failed`; keep the
 updated lane and rerun the same case to rejoin any existing CI run.
 
+## Run the gate and iterate
+
+Find `<id>` with `yoke qa requirement list --item PREFIX-N`. Commit first; a
+CI-backed case publishes the lane itself. Run it after your test selections,
+and run it again only after you change something. A gate that prints nothing
+for a while is still running. If its watcher was killed, run the same command
+again: it rejoins or adopts the CI run for that commit.
+
+In a lane, the command first brings the lane current with its base branch;
+uncommitted work or a conflict refuses with the fix and runs no tests.
+`--local` is for a check that ends in about one minute. If it runs longer,
+stop it, treat the capture as incomplete, commit, and run on CI. When the
+selection reports itself unbounded, keep testing what you judge relevant; the
+QA case covers the rest.
+
 ## qa domain CLI
 
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
