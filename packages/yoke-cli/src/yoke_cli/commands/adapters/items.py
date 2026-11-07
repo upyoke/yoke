@@ -7,6 +7,7 @@ from yoke_cli.commands.adapters.lifecycle_skip_arguments import configure_skip_a
 from yoke_cli.commands.adapters.item_flow_output import (
     compact_item_result,
     render_item_field,
+    render_item_instruction_summary,
 )
 
 import argparse
@@ -25,7 +26,6 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
-    render_item_instruction_summary,
 )
 from yoke_cli.commands.adapters.lifecycle_transition import (
     LIFECYCLE_TRANSITION_USAGE,
@@ -110,11 +110,10 @@ def items_get(args: List[str]) -> int:
             return None
         result = response.result or {}
         rules = result.get("execution_instructions") or []
-        stdout.write(
-            render_item_instruction_summary(rules, parsed.item)
-            if not parsed.full
-            else render_execution_instruction_block(rules)
-        )
+        if parsed.full:
+            stdout.write(render_execution_instruction_block(rules))
+        elif not requested_fields:
+            stdout.write(render_item_instruction_summary(rules, parsed.item))
         if parsed.section is not None:
             if not result.get("section_found"):
                 print(

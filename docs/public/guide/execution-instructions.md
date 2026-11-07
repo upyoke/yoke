@@ -46,9 +46,9 @@ You can also ask your agent to manage instructions through `yoke workflow execut
 
 ## Instruction resolution
 
-Before filing, agents resolve instructions for the selected project and workflow. Item reads return the applicable read instructions and matching stage instructions. Work-claim acquisition and composed worker launches provide the full applicable instructions to the receiving agent.
+Before filing, agents resolve instructions for the selected project and workflow. Work-claim acquisition provides the full applicable instructions to the agent that takes the item; a composed worker launch has the worker acquire its claim first. Successful stage transitions return the instructions for the entered stage.
 
-Successful stage transitions return the instructions for the entered stage. Narrow reads may name the applicable instructions and point to the full read rather than repeating all the text.
+A full item read (`yoke items get ITEM --full`) prints the applicable read instructions and matching stage instructions in full. The default item read and item detail read print one line that counts them and names that full read. Field, section and Progress Log reads print only what was asked.
 
 Your agent can inspect the resolved set to check a rule's scope and delivery. This is useful when an instruction appears unexpectedly or fails to reach the work you intended. [Delivery and resolution reference](../projects/execution-instructions.md)
 

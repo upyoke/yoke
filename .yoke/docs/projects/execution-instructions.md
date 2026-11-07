@@ -39,10 +39,13 @@ Before filing, read `yoke workflow execution-instruction resolve --workflow W
 Creation receipts describe that same set. The web form uses the same resolver.
 
 Item reads resolve On every read instructions plus stage-entry instructions
-targeting the live bucket. Full item reads print one full copy; narrow field,
-section and Progress Log reads print one line naming the applicable rules and
-the exact full-read command. Work-claim acquisition delivers the full
-instructions for the item; composed worker launch mandates omit them.
+targeting the live bucket. Full item reads print one full copy. The default
+`yoke items get` read, `yoke items detail get` and the creation receipt print
+one line counting the applicable rules and naming `yoke items get ITEM --full`.
+Field, section and Progress Log reads print only the requested text; add
+`--full` to a field read for the instruction prose. Work-claim acquisition
+delivers the full instructions for the item; composed worker launch mandates
+omit them.
 Delivery is stateless, tied to these existing events; no session tracking is
 added. JSON reads retain the complete instruction facts. A successful
 `lifecycle.transition.execute` returns `execution_instructions` containing
