@@ -3,11 +3,11 @@
  "title": "Scoped workflow execution instructions",
  "status": "observed",
  "scope": "configured workflow/project, including explicitly all-workflow/all-project operator scope",
- "moment": "Before creation, on item reads or stage entry according to saved delivery settings",
- "current": "InstructionDelivery records before_creation/on_every_read/when_entering_stage and stage buckets. Compact projections give descriptors plus a precise scoped full-read command.",
+ "moment": "Before creation, on full and default item reads or stage entry according to saved delivery settings",
+ "current": "InstructionDelivery records before_creation/on_every_read/when_entering_stage and stage buckets. Default item and detail reads print one line counting the rules and naming `yoke items get ITEM --full`; field, section and Progress Log reads print only what was asked.",
  "planned": "No new global instruction engine required by FIRST-USER/JOURNEYS.",
  "proposed_content": ["Keep operator/project workflow policy in its configured live owner; resolve it at its declared delivery point.", "Ship genuinely universal product procedure in product rules/skills, not by copying this installation’s private instruction rows or CURRENT-PLAN wholesale.", "Do not turn every instruction into an always-loaded startup block. Never treat compact descriptors as the full mandatory prose."],
  "plan_notes": ["previous standing-instruction audit deltas", "JOURNEYS locked principles 2/4/5"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/execution_instruction_delivery.py:18", "packages/yoke-core/src/yoke_core/domain/execution_instruction_delivery.py:85", "packages/yoke-core/src/yoke_core/domain/execution_instruction_projection.py:11"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/item_flow_output.py:7", "packages/yoke-core/src/yoke_core/domain/execution_instruction_delivery.py:18", "packages/yoke-core/src/yoke_core/domain/execution_instruction_delivery.py:85", "packages/yoke-core/src/yoke_core/domain/execution_instruction_projection.py:11"],
  "position": 4
 }

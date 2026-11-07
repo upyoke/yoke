@@ -198,7 +198,7 @@ def test_transition_prose_is_rendered_in_full():
 
 
 @pytest.mark.parametrize("fields", [[], ["spec"], ["spec", "--section", "## Scope"]])
-def test_item_reads_deliver_operator_prose_once(fields):
+def test_item_reads_print_only_what_was_asked(fields):
     from yoke_cli.commands.adapters import items
 
     prose = "Keep the required safeguards. " * 100
@@ -226,15 +226,32 @@ def test_item_reads_deliver_operator_prose_once(fields):
         assert items.items_get(["EX-1", *fields]) == 0
     rendered = output.getvalue()
     assert prose.rstrip() not in rendered
-    assert (
-        rendered.splitlines()[0]
-        == "Execution instructions 4 apply; full text: `yoke items get EX-1 --json --full`."
-    )
     assert len(rendered) <= len(prose) + 750
     assert instruction["content"] == prose
     if not fields:
+        assert rendered.splitlines()[0] == (
+            "1 operator rule applies when you work this item; "
+            "read them with `yoke items get EX-1 --full`."
+        )
         assert "yoke items get EX-1 FIELD ..." in rendered
         assert "Specification" not in rendered
+    elif fields == ["spec"]:
+        assert rendered == "Specification\n"
+    else:
+        assert rendered == "## Scope\nSpecification\n"
+
+
+def test_compact_summary_counts_rules_in_plain_words():
+    from yoke_cli.commands.adapters.item_flow_output import (
+        render_item_instruction_summary,
+    )
+
+    rules = [{"id": rule} for rule in (166, 2, 1, 199)]
+    assert render_item_instruction_summary(rules, "EX-1") == (
+        "4 operator rules apply when you work this item; "
+        "read them with `yoke items get EX-1 --full`.\n"
+    )
+    assert render_item_instruction_summary([], "EX-1") == ""
 
 
 def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, capsys):
@@ -271,9 +288,7 @@ def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, c
         ("items_progress_log_get", ["EX-1"]),
     ],
 )
-def test_section_and_log_reads_name_rules_without_repeating_prose(
-    monkeypatch, function, args
-):
+def test_section_and_log_reads_print_only_the_content(monkeypatch, function, args):
     from yoke_cli.commands.adapters import items_section
 
     output = io.StringIO()
@@ -296,9 +311,7 @@ def test_section_and_log_reads_name_rules_without_repeating_prose(
 
     monkeypatch.setattr(items_section, "dispatch_and_emit", dispatch)
     assert getattr(items_section, function)(args) == 0
-    assert output.getvalue() == (
-        "Execution instructions 4 apply; full text: `yoke items get EX-1 --json --full`.\nCheckpoint\n"
-    )
+    assert output.getvalue() == "Checkpoint\n"
 
 
 def test_default_item_output_size_excludes_empty_fields():

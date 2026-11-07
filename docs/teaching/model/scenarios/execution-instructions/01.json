@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "human",
  "when": "When the user repeats a standing rule or asks that it apply to future work.",
- "need": "Execution instructions can apply before creation, on item reads or when entering selected stage buckets. Scope and delivery are separate choices.",
+ "need": "Execution instructions can apply before creation, on full and default item reads or when entering selected stage buckets. Field, section and Progress Log reads print only what was asked. Scope and delivery are separate choices.",
  "disclosure": "missing cue",
  "surface": "Workflows execution-instructions editor; CLI resolver/help",
  "gap": "The editor and delivery mechanism exist, but no repetition-to-reusable-rule cue was found in the reviewed onboarding guidance. Review question: should JOURNEYS add this situation?",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflow execution-instruction resolve --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/projects/execution-instructions.md"],
+ "sources": ["docs/public/projects/execution-instructions.md", "docs/public/guide/execution-instructions.md"],
  "position": 0
 }

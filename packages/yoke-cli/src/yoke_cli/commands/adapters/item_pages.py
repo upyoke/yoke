@@ -6,9 +6,11 @@ import argparse
 from yoke_cli.transport.human_values import write_human
 from typing import List
 
+from yoke_cli.commands.adapters.item_flow_output import (
+    render_item_instruction_summary,
+)
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
-    render_item_instruction_summary,
 )
 from yoke_cli.commands._helpers import (
     add_json_arg,

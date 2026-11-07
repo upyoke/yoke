@@ -24,7 +24,6 @@ from yoke_cli.commands.adapters.workflow_instruction_delivery_args import (
     _delivery_args,
     _delivery_payload,
 )
-from yoke_cli.commands.adapters.item_flow_output import render_item_instruction_summary
 from yoke_cli.commands.adapters.workflow_instruction_list import instruction_list_writer
 
 EXECUTION_INSTRUCTION_BLOCK_HEADER = (
@@ -329,18 +328,12 @@ def write_transition_instructions(response, stdout, stderr) -> None:
     write_human(result, stdout)
 
 
-def write_item_content(response, stdout, stderr, *, item: str | None = None) -> None:
-    """Render read instructions before a section or Progress Log."""
+def write_item_content(response, stdout, stderr) -> None:
+    """Print only the requested section or Progress Log text."""
     del stderr
     if not response.success:
         return
     result = response.result or {}
-    stdout.write(
-        render_item_instruction_summary(
-            result.get("execution_instructions") or [],
-            item or str(result.get("public_ref") or "ITEM"),
-        )
-    )
     text = str(result.get("content") or "")
     stdout.write(text)
     if text and not text.endswith("\n"):

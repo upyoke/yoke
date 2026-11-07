@@ -7,11 +7,15 @@ from yoke_contracts.read_detail import excerpt
 def render_item_instruction_summary(
     instructions: list[dict[str, Any]], item: str
 ) -> str:
-    """Name applicable rules and the existing read that prints their full text."""
+    """Count applicable rules and name the read that prints their full text."""
     if not instructions:
         return ""
-    names = ", ".join(str(rule.get("id") or "operator rule") for rule in instructions)
-    return f"Execution instructions {names} apply; full text: `yoke items get {item} --json --full`.\n"
+    count = len(instructions)
+    rules = "1 operator rule applies" if count == 1 else f"{count} operator rules apply"
+    return (
+        f"{rules} when you work this item; "
+        f"read them with `yoke items get {item} --full`.\n"
+    )
 
 
 def compact_item_result(
