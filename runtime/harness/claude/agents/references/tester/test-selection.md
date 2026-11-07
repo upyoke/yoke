@@ -6,7 +6,7 @@ cross-cutting changes, but do not default to an exhaustive sweep: the item's
 QA case owns the full run. Explain what you selected and excluded. Every
 selected test must pass.
 
-In Yoke, use `yoke watch pytest --impacted main`, or targeted files after
+In Yoke, use `yoke watch pytest --impacted main --bounded`, or targeted files after
 `--`. A remote run needs a committed lane; read the paths the wrapper prints
 and inspect `tail -80 <raw-capture>` after it exits. For any other command,
 capture once and read the capture:
