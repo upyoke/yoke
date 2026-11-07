@@ -124,7 +124,13 @@ def server_tree_root() -> Path:
 def packaged_tree_root() -> Path:
     from importlib import resources
 
-    root = resources.files("yoke_core.install_bundle_tree")
+    try:
+        root = resources.files("yoke_core.install_bundle_tree")
+    except ModuleNotFoundError as exc:
+        raise InstallBundleError(
+            "packaged install-bundle source tree is absent: only a built "
+            "yoke-core wheel carries it; a source checkout serves its own sources"
+        ) from exc
     try:
         path = Path(root)
     except TypeError as exc:

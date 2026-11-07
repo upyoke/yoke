@@ -267,9 +267,6 @@ def _schema_helper_call_sites() -> dict[str, list[int]]:
     found: dict[str, list[int]] = {}
     for path in sorted(_SERVING_PACKAGE.rglob("*.py")):
         relative = path.relative_to(_SERVING_PACKAGE).as_posix()
-        if relative.startswith("install_bundle_tree/"):
-            # Packaged Pack snapshots are shipped bytes, not serving code.
-            continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for scope in ast.walk(tree):
             if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):

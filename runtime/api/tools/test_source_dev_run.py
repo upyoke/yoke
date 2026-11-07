@@ -274,6 +274,6 @@ def test_bound_child_exit_status(monkeypatch, tmp_path, child_code, expected, ca
         lambda *a, **kw: SimpleNamespace(returncode=child_code),
     )
 
-    assert source_dev_run._run_bound(["child"], tmp_path, None, None, {}) == expected
+    assert source_dev_run._run_bound(["child"], tmp_path, {}) == expected
     codes = [line.split(":", 1)[0] for line in capsys.readouterr().err.splitlines()]
     assert ("source_child_signalled" in codes) is (child_code < 0)

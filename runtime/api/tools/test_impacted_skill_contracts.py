@@ -74,7 +74,6 @@ def test_every_skill_doc_assertion_is_rostered() -> None:
     (
         "docs/public/verification/deployment-plan-execution.md",
         "docs/testing-verification.md",
-        ".yoke/docs/verification/case-attachment.md",
         ".agents/skills/yoke/dash/close-out.md",
     ),
 )

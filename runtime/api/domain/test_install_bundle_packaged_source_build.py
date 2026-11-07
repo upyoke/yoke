@@ -145,6 +145,11 @@ def test_missing_packaged_tree_claims_no_build(tmp_path, monkeypatch) -> None:
     assert install_bundle_project.bundle_source_build(tmp_path) == ""
 
 
+def test_source_checkout_has_no_packaged_tree() -> None:
+    with pytest.raises(bundle_sources.InstallBundleError, match="only a built"):
+        bundle_sources.packaged_tree_root()
+
+
 def test_source_checkout_keeps_git_attribution(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         install_bundle_project, "is_yoke_source_checkout", lambda root: True
