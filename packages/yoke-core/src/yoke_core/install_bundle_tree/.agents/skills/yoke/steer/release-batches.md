@@ -24,7 +24,7 @@ CONTROL_PLANE is the project-owning HTTPS connection (`--env`, or checkout routi
 DB env refuses run creation with `use_https_env`. Both targets use the selected
 source `release_lineage`. A self-replacing run uses the paired `*-db-admin`
 driver: `stage-db-admin` for Stage ownership, `prod-db-admin` for Production. Retry lost creates with the same key; re-drive with
-`watch deploy`. Migrations: `databases.md`.
+`watch deploy`. Migrations: `.yoke/docs/databases/index.md`.
 
 ## Member QA
 

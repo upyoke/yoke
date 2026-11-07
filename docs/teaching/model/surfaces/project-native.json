@@ -8,8 +8,8 @@
  "location": "AGENTS.md managed block + project-owned rules; harness-specific native adapters",
  "basis": "Inspected managed rules and harness-specific native adapters",
  "note": "Project-owned additions carry local policy. Yoke’s own production rules and Platform runbooks stay in their owning projects.",
- "current": "The managed AGENTS.md block is one Always list of binding rules, an Operation homes list and the architecture pointer. That list still names twelve rule files that no longer ship; agent judgment now lives in one file, .yoke/docs/agents/rules.md, with Claude-only steps in .yoke/docs/agents/claude.md. Each command's --help ends with its recipe, and each refusal names its reason and fix. Native adapter/source files and automated install tests do not prove the complete actual payload received by an unrelated-project main or worker.",
- "desired": "Keep existing project rules; concise complete obligations and one pointer to .yoke/docs/agents/rules.md in place of the Operation homes list. Add no second project startup block.",
+ "current": "The managed AGENTS.md block is one Always list of binding rules, an Operation homes section and the architecture pointer. That section now holds the Live recipes line and one pointer to the rules file; agent judgment lives in one file, .yoke/docs/agents/rules.md, with Claude-only steps in .yoke/docs/agents/claude.md. Each command's --help ends with its recipe, and each refusal names its reason and fix. Native adapter/source files and automated install tests do not prove the complete actual payload received by an unrelated-project main or worker.",
+ "desired": "Keep existing project rules; concise complete obligations and one pointer to .yoke/docs/agents/rules.md with no Operation homes section. Add no second project startup block.",
  "plan_notes": ["JOURNEYS static-guidance principle", "Project-context routing proposal"],
  "sources": ["AGENTS.md", "docs/public/agents/harness-discovery.md", "docs/public/agents/rules.md", "docs/public/agents/claude.md", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py"]
 }

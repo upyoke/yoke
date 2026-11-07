@@ -51,13 +51,7 @@ File each decision with `yoke decision-requests ask --key <key> --question "..."
 
 Live recipes: `yoke packets render --role main_agent`.
 
-- `code-and-cli.md`: code, naming, teaching. `shell-and-cli.md`: shell and CLI calls.
-- `lanes-and-claims.md`: lanes, project scope, overlaps, destructive operations.
-- `item-writes.md`: item writes, Progress Log, board. `databases.md`: schema or bulk data.
-- `verification.md`: tests, QA, CI. `delivery.md`: deployment runs and delivery.
-- `release-roles.md`: release identity. `packs.md`: Packs, credentials, infrastructure.
-- `architecture-model.md`: architecture model and cross-cutting dependencies.
-- `claude-sessions.md`, `claude-long-commands.md`: Claude hooks, identity, long commands.
+Agent rules: `.yoke/docs/agents/rules.md`.
 
 ## Architecture Model
 

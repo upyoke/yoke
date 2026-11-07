@@ -34,7 +34,7 @@ command's `--help` ends with its recipe. Claude-only steps live in
 
 ```text
 yoke feedback --to universe --category failed --evidence 'Flaky test: TEST, CI run URL, observed outcomes'
-yoke feedback promote ENTRY --title 'Fix flaky TEST'
+yoke feedback promote 12345 --title 'Fix flaky TEST'
 yoke items dependency add THIS-ITEM FIX-ITEM dash --gate-point integration \
   --satisfaction fact:merged --rationale 'needs the flaky-test fix merged'
 yoke sessions touch --mode parked --reason "awaiting FIX-ITEM merge"
