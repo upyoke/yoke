@@ -132,7 +132,7 @@ def _check() -> int:
         )
         workflow = base64.b64decode(source["content"]).decode()
         if (
-            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-product-${{ matrix.arch }},mode=max"
+            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-builder-${{ matrix.arch }},mode=max"
             in workflow
         ):
             current.append(
