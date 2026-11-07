@@ -43,6 +43,13 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "FreeRDP's status. Failures or forced-stop hangs name the retained log and recovery. "
             "Install FreeRDP only for desktop_rdp_client_missing; remote logoff names the sesman log to inspect. "
             "if startup refuses, repair the registered fixture secret or xrdp/XFCE and rerun. "
+            "On a macOS test machine's VNC route, --view runs from a Mac workstation: it opens Screen "
+            "Sharing at vnc://USER@HOST:PORT, copies the password to the clipboard (never argv, URL or "
+            "logs), and clears it after 60 seconds if it still holds the password; clipboard-history "
+            "apps may keep a copy. Press Enter when done to close any SSH forward; without a "
+            "terminal it closes once the clipboard clears. Prints address, user and viewer=closed. "
+            "Another workstation refuses desktop_view_requires_mac_workstation: run without --view "
+            "and use any VNC client. "
             "For SSH forwarding the control socket is PASSWORD_FILE.ssh; close it with "
             "ssh -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST after connecting. "
             "Remove the private password copy after use."
@@ -66,7 +73,10 @@ def test_machine_desktop_access(args: list[str]) -> int:
     parser.add_argument(
         "--view",
         action="store_true",
-        help="Open the desktop in a visible FreeRDP viewer window.",
+        help=(
+            "Open the desktop in a visible viewer: FreeRDP for Linux and Windows WSL, "
+            "Screen Sharing for macOS."
+        ),
     )
     add_session_arg(parser)
     parsed = parse_or_usage_error(parser, args, DESKTOP_ACCESS_USAGE)

@@ -79,6 +79,16 @@ stdin, and owns the SSH forward until the viewer closes. It does not write a
 password file or put the password in the client arguments. Personal sign-in is
 performed by the operator in the visible desktop.
 
+A macOS Test Machine's VNC route opens in macOS Screen Sharing instead, from a
+Mac workstation. `--view` opens `vnc://USER@HOST:PORT` with the user name only,
+copies the fixture password to the clipboard through `pbcopy` stdin, and prints
+one line asking you to paste it at the Screen Sharing prompt. After 60 seconds
+Yoke clears the clipboard if it still holds the password; clipboard-history
+apps may keep their own copy. Press Enter in the terminal when done to close
+any SSH forward. Another workstation refuses
+`desktop_view_requires_mac_workstation`; run without `--view` and connect any
+VNC client to the printed address.
+
 For a loopback SSH forward, SSH host-key verification is the trust boundary.
 The viewer uses `/cert:ignore`, so random local ports never consult or change
 FreeRDP's per-port certificate cache. SSH keeps its existing known-hosts check;
@@ -128,9 +138,10 @@ To sign a browser identity in, run `yoke browser authorize --project P
 the project's declarations, opens this FreeRDP viewer when the machine has a
 Linux or Windows WSL RDP route, and opens the authorization window on that
 desktop. Close the browser window when done; the viewer closes when
-verification finishes. If no viewer route or FreeRDP client is available, the
-command prints this desktop-access command and its recovery, then still waits
-for sign-in. macOS Screen Sharing uses the printed command without `--view`.
+verification finishes. A macOS machine with a VNC route opens in Screen Sharing
+the same way as `--view`; quit it after verification finishes. If no viewer
+route or client is available, the command prints this desktop-access command
+and its recovery, then still waits for sign-in.
 No settings JSON or control-plane connection is needed on the Test Machine.
 Read `yoke browser authorize --help` and
 [browser identities](browser-identities.md) for SSH, lease and

@@ -256,6 +256,11 @@ class DesktopView:
                     evidence["capture_failed"] = True
             log.close()
 
+    closing = "the viewer closes when verification finishes."
+
+    def describe(self, test_machine):
+        return f'A window titled "Yoke desktop: {test_machine}" will appear.'
+
     def stop_client(self):
         if self._client_stopped:
             return

@@ -60,17 +60,16 @@ def _sign_in_accounts(identity) -> str:
 def _desktop_command(project, test_machine, settings) -> str:
     from yoke_contracts.machine_config.desktop_access import validate_desktop_settings
 
-    viewable = False
     try:
         route = validate_desktop_settings(settings)
     except TestMachineCapabilityError:
         route = {}
-    if (
-        route
-        and settings.get("os") in {"linux", "windows"}
-        and route.get("desktop_protocol") == "rdp"
-    ):
-        viewable = True
+    viewable = (settings.get("os"), route.get("desktop_protocol")) in {
+        ("linux", "rdp"),
+        ("windows", "rdp"),
+        # Screen Sharing opens only on a Mac workstation.
+        *((("macos", "vnc"),) if sys.platform == "darwin" else ()),
+    }
     flag = " --view" if viewable else ""
     return (
         f"yoke test-machine desktop-access --project {project} "
@@ -99,11 +98,10 @@ def _open_sign_in_viewer(project, detail, identity, json_mode):
         )
         return None
     _tell(
-        f"Opening the desktop of test machine {test_machine}. A window titled "
-        f'"Yoke desktop: {test_machine}" will appear.\n'
+        f"Opening the desktop of test machine {test_machine}. "
+        f"{viewer.describe(test_machine)}\n"
         f"Sign in with {_sign_in_accounts(identity)}.\n"
-        "Close the browser window when done; the viewer closes when "
-        "verification finishes.",
+        f"Close the browser window when done; {viewer.closing}",
         json_mode,
     )
     return viewer

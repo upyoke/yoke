@@ -44,9 +44,14 @@ RDP = {
 
 
 class Viewer:
+    closing = "the viewer closes when verification finishes."
+
     def __init__(self, events, failure=None):
         self.events = events
         self.failure = failure
+
+    def describe(self, test_machine):
+        return f'A window titled "Yoke desktop: {test_machine}" will appear.'
 
     def close(self):
         self.events.append("close")
@@ -147,18 +152,48 @@ def test_no_desktop_route_prints_command_without_view(route, capsys):
     assert route["events"] == ["gui"]
 
 
-def test_vnc_route_prints_desktop_access_without_view(route, capsys):
-    route["settings"] = {
-        **RDP,
-        "os": "macos",
-        "desktop_protocol": "vnc",
-        "desktop_port": "5900",
-    }
+MAC_VNC = {**RDP, "os": "macos", "desktop_protocol": "vnc", "desktop_port": "5900"}
+
+
+def test_mac_vnc_route_opens_screen_sharing_then_closes_it(route, monkeypatch, capsys):
+    route["settings"] = dict(MAC_VNC)
+
+    class ScreenSharing(Viewer):
+        closing = "quit Screen Sharing after verification finishes."
+
+        def describe(self, test_machine):
+            return "Screen Sharing opens vnc://fixture@test.example.com:5900."
+
+    def begin(**kwargs):
+        route["events"].append("open")
+        return ScreenSharing(route["events"])
+
+    monkeypatch.setattr("yoke_harness.desktop_access.begin_desktop_view", begin)
     assert authorize() == 0
     out = capsys.readouterr().out
-    assert "desktop_view_requires_xfce_rdp" in out
-    assert "Run `yoke test-machine desktop-access --project acme --test-machine lab`." in out
-    assert "--view" not in out
+    assert "Screen Sharing opens vnc://fixture@test.example.com:5900." in out
+    assert "quit Screen Sharing after verification finishes." in out
+    assert route["events"] == ["open", "gui", "close"]
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_mac_vnc_refusal_prints_view_only_where_screen_sharing_opens(
+    route, monkeypatch, capsys, platform
+):
+    route["settings"] = dict(MAC_VNC)
+    monkeypatch.setattr(remote.sys, "platform", platform)
+
+    def begin(**kwargs):
+        raise DesktopAccessError("desktop_view_open_failed: enable Screen Sharing")
+
+    monkeypatch.setattr("yoke_harness.desktop_access.begin_desktop_view", begin)
+    assert authorize() == 0
+    out = capsys.readouterr().out
+    flag = " --view" if platform == "darwin" else ""
+    assert (
+        f"Run `yoke test-machine desktop-access --project acme --test-machine lab{flag}`."
+        in out
+    )
     assert route["events"] == ["gui"]
 
 
