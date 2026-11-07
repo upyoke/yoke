@@ -174,8 +174,17 @@ def test_all_product_build_backends_are_exactly_pinned():
         "setuptools==83.0.0",
         "setuptools-scm[toml]==10.2.0",
     }
+    # yoke-core's setup.py validates the docs corpus while building its
+    # install-bundle tree, so it also needs those libraries, at uv.lock's pins.
+    corpus_libraries = {"markdown-it-py", "mdurl", "pygments", "pyyaml", "rich"}
+    lock = (_ROOT / "uv.lock").read_text(encoding="utf-8")
+    locked = set()
+    for name in corpus_libraries:
+        pattern = rf'^name = "{re.escape(name)}"\nversion = "([^"]+)"'
+        locked.add(f"{name}=={re.search(pattern, lock, re.MULTILINE)[1]}")
     for path in pyprojects:
         text = path.read_text(encoding="utf-8")
         build_system = text.split("[project]", 1)[0]
         requirements = set(re.findall(r'^\s*"([^"]+)",?$', build_system, re.MULTILINE))
-        assert requirements == expected, f"floating or stale PEP 517 backend: {path}"
+        wanted = expected | locked if path.parent.name == "yoke-core" else expected
+        assert requirements == wanted, f"floating or stale PEP 517 backend: {path}"

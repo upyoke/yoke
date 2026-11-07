@@ -15,7 +15,3 @@ strategy/
 install-manifest.json
 install-pending.json
 tmp/
-# Yoke source checkout only: generated views of docs/public and
-# runtime/harness/*/manifest.json (yoke_contracts.project_contract.source_installed_views).
-/docs/
-/harness/
