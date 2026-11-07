@@ -27,8 +27,8 @@ from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 # Lifecycle / notification events that route to the existing front-door
 # session-hooks dispatch entry. Listed inline so the registry stays self-
 # contained even when the underlying ordering table grows new matcher keys.
-# `PreCompact` and `Notification` mirror Claude-only events whose
-# chain-eligible content is empty today; we surface the same single
+# `PreCompact` (wired for Cursor) and `Notification` have no policy chain
+# today; we surface the same single
 # dispatch entry so the runner can route them uniformly without a None
 # check at the call site.
 _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
@@ -56,6 +56,8 @@ SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 SESSION_START_EVENT = "SessionStart"
 # The canonical name for the event a harness fires when a session ends.
 SESSION_END_EVENT = "SessionEnd"
+# Cursor's only compaction signal; it fires before the context is summarised.
+PRE_COMPACT_EVENT = "PreCompact"
 
 
 # The recurring context-bearing event that re-delivers an orientation block
@@ -81,6 +83,23 @@ def session_orientation_redelivery_event(*, cursor: bool = False) -> str:
     if cursor:
         return SESSION_ORIENTATION_REDELIVERY_EVENT
     return SESSION_ORIENTATION_EVENT
+
+
+def session_orientation_events(*, cursor: bool = False, executor: str = "") -> frozenset[str]:
+    """Return every event the orientation composer must see for one harness.
+
+    Startup and repair events deliver the block; SessionStart and PreCompact
+    can also reset it after a context restart, so the composer reads those
+    even where they deliver nothing.
+    """
+    return frozenset(
+        {
+            session_orientation_event(cursor=cursor, executor=executor),
+            session_orientation_redelivery_event(cursor=cursor),
+            SESSION_START_EVENT,
+            PRE_COMPACT_EVENT,
+        }
+    )
 
 
 def chain_for(event_name: str, matcher: str | None = None) -> list[str]:

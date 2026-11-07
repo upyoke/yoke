@@ -28,6 +28,8 @@ CURSOR_NATIVE_RUNNER_EVENTS: tuple[tuple[str, str], ...] = (
     ("preToolUse", "PreToolUse"),
     ("postToolUse", "PostToolUse"),
     ("postToolUseFailure", "PostToolUseFailure"),
+    # Observe-only; Yoke reads it to re-deliver orientation after compaction.
+    ("preCompact", "PreCompact"),
     ("stop", "Stop"),
 )
 CURSOR_COMPATIBILITY_RUNNER_ALIASES = {"PermissionRequest": "PreToolUse"}

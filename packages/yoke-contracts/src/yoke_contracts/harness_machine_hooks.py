@@ -183,6 +183,7 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
             MachineHookEvent("beforeSubmitPrompt", "UserPromptSubmit"),
             MachineHookEvent("beforeShellExecution", "PreToolUse"),
             MachineHookEvent("postToolUse", "PostToolUse"),
+            MachineHookEvent("preCompact", "PreCompact"),
             MachineHookEvent("stop", "Stop"),
             MachineHookEvent("sessionEnd", "SessionEnd"),
         ),

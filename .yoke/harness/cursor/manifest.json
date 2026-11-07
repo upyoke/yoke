@@ -203,6 +203,10 @@
         "verb": "PostToolUse"
       },
       {
+        "native_event": "preCompact",
+        "verb": "PreCompact"
+      },
+      {
         "native_event": "stop",
         "verb": "Stop"
       },
