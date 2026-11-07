@@ -34,6 +34,21 @@ def harness_manifest_view(source_rel: str) -> str:
     return source_rel.replace("runtime/harness/", ".yoke/harness/", 1)
 
 
+def view_source(rel: str) -> str:
+    """The committed source a source checkout's view ``rel`` copies, else ``rel``."""
+    if rel.startswith(f"{DOCS_VIEW}/"):
+        return f"{DOCS_SOURCE}/{rel.removeprefix(f'{DOCS_VIEW}/')}"
+    for source in HARNESS_MANIFEST_SOURCES:
+        if rel == harness_manifest_view(source):
+            return source
+    return rel
+
+
+def view_or_source_present(root: Path, rel: str) -> bool:
+    """Whether ``rel`` exists, or would once ``root``'s views are generated."""
+    return any((root / path).is_file() for path in (rel, view_source(rel)))
+
+
 def _tracked_docs(root: Path) -> List[str]:
     try:
         listed = subprocess.run(

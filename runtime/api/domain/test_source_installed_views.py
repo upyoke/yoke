@@ -10,8 +10,17 @@ import pytest
 from yoke_contracts.project_contract.source_installed_views import (
     HARNESS_MANIFEST_SOURCES,
     SourceViewError,
+    harness_manifest_view,
     refresh_source_installed_views,
+    view_source,
 )
+
+
+def test_view_source_names_the_committed_source() -> None:
+    assert view_source(".yoke/docs/agents/rules.md") == "docs/public/agents/rules.md"
+    for rel in HARNESS_MANIFEST_SOURCES:
+        assert view_source(harness_manifest_view(rel)) == rel
+    assert view_source(".yoke/BOARD.md") == ".yoke/BOARD.md"
 
 
 def _checkout(root: Path) -> Path:
