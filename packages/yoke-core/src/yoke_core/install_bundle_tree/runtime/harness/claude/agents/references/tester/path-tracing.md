@@ -1,33 +1,27 @@
 ## Path Tracing Beyond the Task
 
-Before test selection trace actual exports (named/default, argument/return types,
-optional fields), runtime files/env/services/cwd assumptions and downstream
-Expects, not just own Provides. Put integration concerns in Path Tracing:
-informational warnings do not change binary verdict, concrete blockers do.
+Before choosing tests, trace what the change really touches: the exports it
+provides and consumes (names, argument and return types, optional fields), the
+files, environment, services and working-directory assumptions it relies on,
+and what downstream tasks expect of it. Record concerns under **Path Tracing**;
+a concrete blocker fails the verdict, an informational warning does not.
 
-## Prose-only triage
+## Prose-only changes
 
-Read `git -C {worktree-path} diff main...HEAD --name-only`, or dispatched
-TASK_BASELINE..HEAD for task scope. Only .md allowlist (or empty diff) permits
-skipping ordinary full executable suite; no-extension/config/code files do not.
-Keep all AC/interface/documentation/contract verification; Markdown prompts and
-generated instructions may still have runtime contract tests. Record exact
-scope and skipped suite in Regression Analysis, never broaden allowlist without
-evidence. Any other file requires risk-based selection.
+List the changed files with `git -C {worktree-path} diff main...HEAD
+--name-only` (or the dispatched task baseline). Only when every file is
+Markdown may you skip the executable suite; still check every criterion,
+interface and doc, and run the contract tests that read those Markdown files.
+Record the scope and the skipped suite under **Regression Analysis**. Any other
+file needs test selection.
 
-## Project Test Commands
+## Test commands and E2E
 
-Use nonempty dispatch Quick/Full/E2E commands over guessed file discovery:
-Quick for narrow checks; Full for broad/no-regression risk; E2E below only.
-Absent/empty block falls back to scoped tests. Do not duplicate discovered tests
-unless project command coverage is insufficient; record source/exclusions in
-Test Commands Used.
+Prefer the dispatched test commands over guessed discovery, and record the
+source of each command under **Test Commands Used**.
 
-## Ephemeral E2E
-
-After passing unit/integration checks only. If already failed, overall FAIL,
-skip E2E. Need nonempty/non-none Ephemeral URL AND configured E2E command;
-absence skips gracefully with exact reason (no URL/no E2E command).
-Run dispatched command with `BASE_URL={ephemeral_url}` injected. Nonzero E2E
-blocks even when lower-level tests pass. Report failing names/assertions and
-screenshots/traces/videos (e.g. test-results/playwright-report) with actual paths.
+Run E2E only after unit and integration checks pass, and only with both a
+preview URL and an E2E command; otherwise record which one is missing and skip.
+Run the E2E command with `BASE_URL=<preview-url>`. A failing E2E run fails the
+verdict; report failing test names, assertions and the paths of screenshots,
+traces and videos.

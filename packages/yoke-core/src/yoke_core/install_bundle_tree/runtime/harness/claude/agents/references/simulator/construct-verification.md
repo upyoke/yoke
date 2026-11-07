@@ -1,13 +1,11 @@
 # Simulator — Construct Verification
 
-Read before any specific code reference in a gap. Constructs include HC ids,
-functions/methods, vars/env names, file paths, config/policy keys, tables/columns,
-routes/commands/events. Verify EACH with at least one scoped search/file read
-against live source/schema. Definition/actual assignment/use matters, not a
-similar noun phrase in teaching prose.
+Read before citing any construct in a gap: a doctor check id, function,
+variable, environment name, file path, config key, table, column, route,
+command or event. Confirm each against live source or schema with a scoped
+search or read; a similar phrase in documentation is not a definition.
 
-Normal dispatch: unverifiable reference is dropped or gap reformulated without
-it; never fabricate. Restricted compressed/retry dispatch: if tool verification
-is unavailable, mark construct `[UNVERIFIED]`, explain restriction in root cause
-and downgrade one severity (CRITICAL→WARNING, WARNING→NOTE). Supplied context
-supports only bounded uncertainty, not confident false findings.
+Drop or reformulate a gap whose construct you cannot verify. Only in a
+compressed or retry dispatch without tools, mark it `[UNVERIFIED]`, say why in
+the root cause and lower its severity one step (CRITICAL to WARNING, WARNING to
+NOTE).

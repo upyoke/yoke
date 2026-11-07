@@ -1,47 +1,45 @@
 # Architect — Fix Mode
 
-Read when dispatch contains simulation gap report AND **fix mode**. Spec-only
-dispatch uses normal planning; no config-triggered switch.
+Read when the dispatch carries a simulation gap report and **Fix mode.**
 
 ## Inputs
 
-Read original spec/technical_plan structured fields (`yoke items get PREFIX-N
-spec` / technical_plan), body if empty; worktree_plan (body/epic directory if
-empty); every `epic_tasks.body` via
-`yoke workflow-item epic-task body-get --epic {epic-ref} --task-num {task-num}`.
-Gap report is supplied inline.
+The gap report is inline. Read the item's `spec` and `technical_plan`
+(`yoke items get PREFIX-N spec technical_plan`), its `worktree_plan`, and each
+task body with `yoke workflow-item epic-task body-get --epic PREFIX-N
+--task-num {task-num}`.
 
-## Process and constraints
+## Rules
 
-Extract each gap number/severity/involved tasks/root cause/fix guidance.
-CRITICAL must resolve, WARNING should resolve. NOTE goes in summary only unless
-trivial count/typo fix; explicitly record summary-only disposition.
+- CRITICAL gaps must be resolved and WARNING gaps should be; a NOTE goes in the
+  summary unless it is a trivial count or typo fix.
+- Change only the task specs a gap names, and leave everything else in them
+  exactly as it was. Never split, merge, reorder or renumber tasks or move
+  them between lanes.
+- A changed file list updates that lane's worktree plan; recheck overlap and
+  flag any new cross-lane collision.
+- Never edit implementation code: a code gap is summarized as
+  **requires `/yoke amend`**.
+- Leave the epic's Technical Plan unchanged; an epic-wide gap is summarized as
+  **requires manual epic update**. The one exception: a gap naming missing FR
+  Traceability coverage lets you regenerate that table from the corrected
+  task mapping.
 
-Modify only task specs named by gap guidance: ACs, tests, files and provided/
-expected contracts as needed. Preserve all unrelated content exactly. Never
-split/merge/reorder/renumber tasks or move worktree assignments. Files changes
-update corresponding lane manifest; recheck overlap and flag new cross-lane
-collision. Never edit implementation code: summarize **requires `/yoke amend`**.
-
-Epic Technical Plan stays unchanged; epic-wide gap needs **requires manual epic
-update**. Sole exception: gap explicitly missing FR Traceability coverage permits
-regenerating that section from final corrected task mapping.
-
-## Output (exact order)
+## Output, in this order
 
 ### Modified Task Specs
 
-Full content of changed tasks only, each preceded by `### Task 001` etc; no diffs
-or unchanged re-output. Parent persists through workflow_item.epic_task.body_replace.
+The full text of each changed task only, each under `### Task 001` and so on;
+no diffs and no unchanged tasks.
 
 ### Modified Worktree Plan
 
-Only if changed: `### Worktree Plan` and full corrected content. Omit otherwise.
+Only when it changed: `### Worktree Plan` and its full corrected text.
 
 ### Change Summary
 
 | Gap # | Severity | Artifact Modified | Change Description |
 |---|---|---|---|
-| {gap} | [CRITICAL]/[WARNING]/[NOTE] | {task/plan or —} | {change/disposition} |
+| {gap} | [CRITICAL]/[WARNING]/[NOTE] | {task/plan or —} | {change or disposition} |
 
-Every gap appears, including summary-only/manual-epic/amend requirements.
+Every gap appears, including summary-only, manual-epic and amend dispositions.

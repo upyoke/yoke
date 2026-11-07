@@ -1,35 +1,22 @@
 ## Path-Claim Discipline
 
-Read before editing outside current coverage. At every implementation slice
-and before an uncovered sibling edit/create:
+Read before editing or creating a path your claim does not cover. A required
+file stays in scope; coverage is authority, not scope.
 
-1. Read dispatch declared_paths/declared_targets and current registered claims:
+1. Read the dispatch's declared paths and the live claims:
    `yoke claims path list --item PREFIX-N --state active`.
-2. Widen **before** uncovered writes, using id from that result:
+2. Widen **before** the write, using that claim id and bundling paths that share
+   a reason (`--allow-planned` for files not committed yet):
 
 ```text
 yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item PREFIX-N
 ```
 
-Run --help for planned/directory targets and contract details. Bundle same-reason
-paths. Write/Edit/commit refusal is safety net, not the widening entrypoint.
-Required uncovered files remain in scope and File Budget; coverage is authority,
-not scope. Verification fixes and main merges also require widening first.
+3. A refused widen is an overlap with other work. Report it to the parent and
+   stop; the parent records the coordination decision. Never request an
+   override yourself.
 
-3. Refused overlap is coordination: report it to the parent skill and stop.
-   The parent (the session holding the work claim) records the decision with
-   `yoke claims path coordination-decision-build` and `yoke items dependency add`
-   using its own skill as source. Do not author the edge from this subagent.
-   When no live holder exists, the parent routes to `/yoke refine`.
-   `path-claim-override` is last resort for irreducible live collisions and
-   requires explicit operator approval; never self-authorize.
-
-Apply the failure-ownership rule in `.yoke/docs/agents/rules.md` (Failures)
-to test repairs; planned future claims are not failure waivers or grounds for bypassing reconciliation.
-
-Landing releases item-owned path claims with reason `landed`. Delivery retains
-the work claim. Before reopened lane edits, register fresh coverage with
-`yoke claims path register --item PREFIX-N --paths ... --allow-planned` and
-prepare the lane to activate it; released claims cannot be widened or reactivated.
-A per-task Epic adds `--task-num N` for the landed task the rework changes; its
-other landed tasks need no new claim, and unlanded tasks keep full coverage.
+Claims released at landing cannot be widened. Before editing a reopened lane,
+register fresh coverage with `yoke claims path register --item PREFIX-N --paths
+... --allow-planned` (add `--task-num N` for the landed epic task the rework
+changes) and have the lane prepared again.
