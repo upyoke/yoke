@@ -26,8 +26,7 @@ by the hook runner's ``yoke_core.hooks.guard_denial_record``, never by the
 classifier):
 
 * ``warn`` — warn-mode lint hit. The guardrail recorded an audit row but
-  did not block. CLAUDE.md ``## Command Output — Hard Rule`` documents
-  this as required audit-trail behavior.
+  did not block; the row is the required audit trail.
 * ``suppression_attempted`` — operator placed a ``# lint:no-*-check``
   suppression token on the command body. The token is honoured ONLY as
   audit evidence so reviewers can grep bypass attempts.

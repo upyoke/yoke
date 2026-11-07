@@ -183,7 +183,7 @@ def test_rules_combine_shared_topics_and_only_local_additions(explorer):
     nodes = {node['id']: node for node in renderer.map_nodes(model)}
     topics = [n for n in nodes.values() if n['parent'] == 'source:rules']
     assert topics and all(n['id'].startswith('rules-topic:') for n in topics)
-    assert len([n for n in topics if n['title'] == 'Standing authority']) == 1
+    assert len([n for n in topics if n['title'] == 'Writing to users']) == 1
     assert {n['title'] for n in topics if n['guidance_scope'] == 'repository'} == {
         'Yoke repository'}
     assert any(n['title'] == 'Rule loading and feedback' and
