@@ -128,14 +128,8 @@ def test_digest_fingerprints_stay_out_of_scope(tmp_path: Path) -> None:
     assert hc.scan(tmp_path) == []
 
 
-def test_archive_and_generated_snapshot_are_not_scanned(tmp_path: Path) -> None:
-    body = "x = session_id[:8]\n"
-    _write(tmp_path, "docs/archive/note.py", body)
-    _write(
-        tmp_path,
-        "packages/yoke-core/src/yoke_core/install_bundle_tree/mirror.py",
-        body,
-    )
+def test_archive_is_not_scanned(tmp_path: Path) -> None:
+    _write(tmp_path, "docs/archive/note.py", "x = session_id[:8]\n")
     assert hc.scan(tmp_path) == []
 
 

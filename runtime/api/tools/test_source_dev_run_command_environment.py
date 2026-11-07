@@ -46,7 +46,7 @@ def test_run_binds_every_command_shape_to_claimed_lane(
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
-        lambda: (tmp_path, None, None),
+        lambda: (tmp_path, None),
     )
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
@@ -83,7 +83,7 @@ def test_run_refuses_partial_main_tree_resolution(monkeypatch, tmp_path, capsys)
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
-        lambda: (tmp_path, None, None),
+        lambda: (tmp_path, None),
     )
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,

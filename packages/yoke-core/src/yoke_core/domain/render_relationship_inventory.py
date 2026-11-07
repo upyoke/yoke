@@ -2,9 +2,8 @@
 
 The path-context writer consumes this module after a project snapshot has
 materialized committed paths. Static renderers contribute deterministic
-targets, while the install-bundle mirror is derived from the live tracked
-inventory instead of being hand-enumerated. A generator that preserves an
-authored region is self-seeded so it cannot activate the output-only escape.
+targets. A generator that preserves an authored region is self-seeded so it
+cannot activate the output-only escape.
 """
 
 from __future__ import annotations
@@ -12,9 +11,6 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import Dict, Iterable, List, Sequence
 
-from yoke_contracts.project_contract.install_manifest import (
-    PACKAGED_INSTALL_BUNDLE_TREE_REL,
-)
 from yoke_core.domain.agents_render_conditional import (
     HARNESS_IDS,
     RENDERED_AGENT_DIRS,
@@ -87,7 +83,6 @@ _EVENT_CATALOG_SOURCES: Sequence[str] = (
     EVENT_CATALOG_RELPATH,
 )
 
-_INSTALL_BUNDLE_PREFIX = f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/"
 _RENDERED_AGENT_PREFIXES = tuple(
     f"{directory.as_posix()}/" for directory in RENDERED_AGENT_DIRS
 )
@@ -138,22 +133,6 @@ def _atlas_sources(tracked_paths: set[str]) -> List[str]:
     return sorted(sources)
 
 
-def _install_bundle_relationships(
-    tracked_paths: set[str],
-) -> Dict[str, List[str]]:
-    relationships: Dict[str, List[str]] = {}
-    for target_path in sorted(tracked_paths):
-        if not target_path.startswith(_INSTALL_BUNDLE_PREFIX):
-            continue
-        source_path = target_path[len(_INSTALL_BUNDLE_PREFIX) :]
-        # The sync preserves a small allowed-extra set (currently the package
-        # marker) rather than copying it. Self-seeding any target without a
-        # tracked source prevents the generated-output escape on authored data.
-        source = source_path if source_path in tracked_paths else target_path
-        relationships[target_path] = [source]
-    return relationships
-
-
 def _normalise_path(path: object) -> str:
     normalised = str(path).replace("\\", "/")
     return normalised[2:] if normalised.startswith("./") else normalised
@@ -167,7 +146,6 @@ def render_relationship_map(
     relationships = _agent_relationships()
     relationships[ATLAS_RELPATH] = _atlas_sources(tracked)
     relationships[EVENT_CATALOG_RELPATH] = sorted(_EVENT_CATALOG_SOURCES)
-    relationships.update(_install_bundle_relationships(tracked))
     return dict(sorted(relationships.items()))
 
 

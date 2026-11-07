@@ -217,11 +217,7 @@ def test_only_the_aws_answer_promises_a_credential() -> None:
 
 def _live_package_python(repo: Path) -> list[Path]:
     """Package sources only — leftover ``packages/*/build/lib`` is output."""
-    return list(
-        iter_tree_files(
-            repo / "packages", "*.py", prune_dir_names={"install_bundle_tree"}
-        )
-    )
+    return list(iter_tree_files(repo / "packages", "*.py"))
 
 
 def test_the_posture_vocabulary_has_exactly_one_home() -> None:

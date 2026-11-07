@@ -21,7 +21,6 @@ _RETIRED_FILES = frozenset(
 )
 _PREFIXES = ("docs/" + "public/", ".yoke/" + "docs/")
 _DEFERRED = "Enforcement of this teaching " + "is deferred."
-_PACKED = "packages/yoke-core/src/yoke_core/install_bundle_tree/"
 
 
 def _retired(path: str) -> bool:
@@ -29,10 +28,9 @@ def _retired(path: str) -> bool:
 
 
 def _excluded(path: str) -> bool:
-    canonical = path.removeprefix(_PACKED)
     return (
         path.startswith("docs/archive/")
-        or re.match(r"^packs/[^/]+/versions/[^/]+/", canonical) is not None
+        or re.match(r"^packs/[^/]+/versions/[^/]+/", path) is not None
         or path
         in {
             ".test_durations",

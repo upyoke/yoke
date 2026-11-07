@@ -17,7 +17,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "FROM tools AS builder" in dockerfile
     assert "FROM ${PYTHON_IMAGE} AS runtime-base" in dockerfile
     assert "FROM runtime-base AS runtime" in dockerfile
-    assert "--mount=type=bind,source=packages,target=/build/packages,rw" in dockerfile
+    assert "--mount=type=bind,target=/build,rw" in dockerfile
     assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
     assert dockerfile.count('ARG YOKE_ENGINE_VERSION=""') == 2
     assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
@@ -60,8 +60,11 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "--all-packages" not in builder
     for package in ("contracts", "cli", "harness", "core"):
         assert f"yoke-{package}" in builder
-    assert "source=runtime" not in builder
-    assert "source=.git_archival.txt,target=/build/.git_archival.txt" in builder
+    # yoke-core's setup.py builds the install-bundle tree from repo-root
+    # sources, so wheels build from the whole context; only wheels leave it.
+    builder_stage = builder.split("FROM runtime-base AS runtime", 1)[0]
+    assert builder_stage.count("--mount=type=bind,target=/build,rw") == 1
+    assert "COPY" not in builder_stage
     assert "server image contains development runtime package" in builder
     runtime = builder.split("FROM runtime-base AS runtime", 1)[1]
     identity = runtime.index('ARG YOKE_BUILD_SHA=""')
@@ -76,7 +79,6 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "chown -R yoke:yoke /opt/yoke-postgres" in dependencies
     assert "COPY packages ./packages" not in builder
     assert "COPY runtime ./runtime" not in builder
-    assert "--mount=type=bind,source=packages,target=/build/packages,rw" in builder
     assert "UV_CACHE_DIR=/build/packages/.uv-build-cache" in builder
     assert "source=/wheels,target=/wheels" in runtime
     assert "--mount=type=bind,from=tools" in dependencies

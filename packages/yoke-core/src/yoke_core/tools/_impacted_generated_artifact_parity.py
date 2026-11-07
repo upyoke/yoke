@@ -1,7 +1,7 @@
 """Always-run floor: repo-global generated-artifact parity and drift.
 
-WHY: Atlas integrity, rendered agent adapters, the install-bundle
-snapshot, and the composed startup-delivery budget have no import edge to
+WHY: Atlas integrity, rendered agent adapters, the install bundle, and
+the composed startup-delivery budget have no import edge to
 the files that can break them. Lanes run impacted selection, so this
 family must execute on every local impacted run. Keep the set fast
 (roughly 30 seconds).
@@ -21,8 +21,6 @@ GENERATED_ARTIFACT_PARITY_TESTS = (
     "runtime/api/test_harness_cli_manifest.py",
     "runtime/api/engines/test_doctor_agent_drift.py",
     "runtime/api/domain/test_install_bundle.py",
-    "runtime/api/domain/test_install_bundle_tree_sync.py",
-    "runtime/api/engines/test_doctor_hc_install_bundle_drift.py",
     "runtime/api/domain/test_startup_delivery_budget.py",
     "runtime/api/domain/test_startup_rules_headroom.py",
 )

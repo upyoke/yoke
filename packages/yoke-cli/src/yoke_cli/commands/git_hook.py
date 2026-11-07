@@ -22,6 +22,8 @@ Transport honesty:
   local DB authority: each delegates to the product-safe
   ``yoke project snapshot sync --hook HOOK --head-only`` path and exits 0
   however recording fares, so a finished git operation is never failed.
+  On a Yoke source checkout they first refresh the gitignored
+  ``.yoke/docs`` and ``.yoke/harness`` views of their tracked sources.
 """
 
 from __future__ import annotations
@@ -37,6 +39,9 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands.adapters.project_snapshot import project_snapshot_sync
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
+from yoke_contracts.project_contract.source_installed_views import (
+    refresh_source_installed_views,
+)
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -70,6 +75,8 @@ Project scope comes from the committing checkout's machine registration,
 independent of inherited project or cwd environment overrides.
 Gate-owned rebase replay skips recording because the gate binds the
 final lane head after the replay completes.
+On a Yoke source checkout the hook first rewrites the gitignored
+.yoke/docs and .yoke/harness views of their tracked sources.
 
 Invoked by the `.git/hooks/{hook}` shim that `yoke project
 install` writes. Arguments from git are accepted."""
@@ -215,11 +222,26 @@ def _checkout_project() -> str:
     return str(project)
 
 
+def _refresh_source_views(hook_name: str) -> None:
+    """Git runs hooks from the top of the working tree."""
+    try:
+        refresh_source_installed_views(pathlib.Path.cwd())
+    except Exception as exc:  # never block or error a finished git operation
+        sys.stderr.write(
+            format_hook_diagnostic(
+                hook_name,
+                f"installed-layout views not refreshed ({exc}); "
+                "rerun `yoke dev setup`.\n",
+            )
+        )
+
+
 def _record_head(hook_name: str, args: List[str]) -> int:
     """Never error a finished git operation; the write dispatches server-side."""
     if _wants_help(args):
         print(_HEAD_RECORDING_HELP.format(hook=hook_name, fires=_FIRES[hook_name]))
         return 0
+    _refresh_source_views(hook_name)
     if os.environ.get(HEAD_RECORDING_SKIP_ENV) or _moves_nothing(hook_name, args):
         return 0
     sync_args = ["--hook", hook_name, "--head-only"]

@@ -2,22 +2,9 @@
 
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / ".agents/skills/yoke"
-BUNDLE = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-
-
-@pytest.mark.parametrize("skill", ("onboard", "steer"))
-def test_skills_match_installed_bytes(skill):
-    source = SKILLS / skill
-    packaged = BUNDLE / ".agents/skills/yoke" / skill
-    assert {p.name for p in source.glob("*.md")} == {
-        p.name for p in packaged.glob("*.md")
-    }
-    for path in source.glob("*.md"):
-        assert (packaged / path.name).read_bytes() == path.read_bytes()
 
 
 def test_onboard_hands_off_without_filing_or_predefining_one_outcome():
@@ -49,7 +36,6 @@ def test_steer_requires_vetting_and_approval_before_filing():
 
 
 def test_project_rules_file_decisions_as_requests():
-    for root in (ROOT, BUNDLE):
-        rules = (root / "AGENTS.md").read_text()
-        assert "yoke decision-requests ask" in rules
-        assert "yoke decision-requests resolve" in rules
+    rules = (ROOT / "AGENTS.md").read_text()
+    assert "yoke decision-requests ask" in rules
+    assert "yoke decision-requests resolve" in rules

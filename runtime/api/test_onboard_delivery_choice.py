@@ -4,35 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS
+from runtime.api.skill_doc_regressions_test_helpers import SKILLS
 
 
 ONBOARD = SKILLS / "onboard"
 USHER = SKILLS / "usher"
-PACKAGED_SKILLS = (
-    REPO
-    / "packages"
-    / "yoke-core"
-    / "src"
-    / "yoke_core"
-    / "install_bundle_tree"
-    / ".agents"
-    / "skills"
-    / "yoke"
-)
-
-
-def test_packaged_skill_contract_is_byte_exact() -> None:
-    for relative in (
-        Path("onboard/SKILL.md"),
-        Path("onboard/profile-and-scaffold.md"),
-        Path("onboard/hosting-and-environments.md"),
-        Path("onboard/domain-and-deploy.md"),
-        Path("usher/deploy.md"),
-    ):
-        assert (PACKAGED_SKILLS / relative).read_bytes() == (
-            SKILLS / relative
-        ).read_bytes()
 
 
 def test_authored_files_remain_below_the_hard_limit() -> None:

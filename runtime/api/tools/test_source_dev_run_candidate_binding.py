@@ -19,7 +19,7 @@ def test_lane_execution_is_unchanged(monkeypatch, tmp_path, bound):
             COMMAND_CASE_CANDIDATE_TREE_ENV,
             json.dumps({"root": str(alias), "head_sha": "a" * 40}),
         )
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
     monkeypatch.setattr(
         source_dev_run._source_pythonpath, "import_origins", lambda *a, **k: ({}, None)
     )
@@ -37,7 +37,7 @@ def test_malformed_binding_refuses_before_launch(
     monkeypatch, tmp_path, capsys, binding
 ):
     monkeypatch.setenv(COMMAND_CASE_CANDIDATE_TREE_ENV, binding)
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
     child = Mock()
     monkeypatch.setattr(source_dev_run.subprocess, "run", child)
     assert source_dev_run.run(["true"]) == 1
@@ -52,7 +52,7 @@ def test_different_root_refuses_before_imports(monkeypatch, tmp_path, capsys):
         COMMAND_CASE_CANDIDATE_TREE_ENV,
         json.dumps({"root": str(candidate), "head_sha": "a" * 40}),
     )
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (lane, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (lane, None))
     imports = Mock()
     monkeypatch.setattr(source_dev_run._source_pythonpath, "import_origins", imports)
     assert source_dev_run.run(["true"], lane=lane) == 1

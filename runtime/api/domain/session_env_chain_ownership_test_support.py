@@ -23,6 +23,6 @@ def source_files() -> Iterator[Path]:
     for root in SOURCE_ROOTS:
         for path in sorted(root.rglob("*.py")):
             parts = path.parts
-            if "install_bundle_tree" in parts or "__pycache__" in parts:
+            if "__pycache__" in parts:
                 continue
             yield path

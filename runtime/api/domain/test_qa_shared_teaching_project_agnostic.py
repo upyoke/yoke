@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-BUNDLE = "packages/yoke-core/src/yoke_core/install_bundle_tree"
 SHARED_QA_TEACHING = [
     "runtime/agents/qa-walker.md",
     "runtime/harness/claude/agents/yoke-qa-walker.md",
@@ -16,11 +15,6 @@ SHARED_QA_TEACHING = [
     "runtime/harness/cursor/agents/yoke-qa-walker.md",
     "docs/public/verification/exploration.md",
     "docs/public/verification/exploration-evidence.md",
-    f"{BUNDLE}/runtime/harness/claude/agents/yoke-qa-walker.md",
-    f"{BUNDLE}/runtime/harness/codex/agents/yoke-qa-walker.toml",
-    f"{BUNDLE}/runtime/harness/cursor/agents/yoke-qa-walker.md",
-    f"{BUNDLE}/docs/public/verification/exploration.md",
-    f"{BUNDLE}/docs/public/verification/exploration-evidence.md",
 ]
 YOKE_ONLY = re.compile(
     r"connected-machine|connected_machine|fixture_project|dispose_projects"

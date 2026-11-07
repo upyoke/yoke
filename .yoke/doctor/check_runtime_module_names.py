@@ -15,7 +15,7 @@ from yoke_project_checks._declare import self_project_checks
 HC_SLUG = "runtime-module-names"
 HC_NAME = "Runtime module names"
 CORE_RUNTIME_ROOT = "packages/yoke-core/src/yoke_core"
-NON_RUNTIME_PARTS = frozenset({"build", "dist", "install_bundle_tree", "tests"})
+NON_RUNTIME_PARTS = frozenset({"build", "dist", "tests"})
 
 
 @dataclass(frozen=True)

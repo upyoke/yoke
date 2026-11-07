@@ -36,10 +36,6 @@ from yoke_core.domain.schema_init_tables import (
     create_path_registry_tables,
 )
 
-from yoke_contracts.project_contract.install_manifest import (
-    PACKAGED_INSTALL_BUNDLE_TREE_REL,
-)
-
 from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db

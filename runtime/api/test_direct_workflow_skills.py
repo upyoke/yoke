@@ -18,8 +18,6 @@ from runtime.api.skill_doc_regressions_test_helpers import _read_skill_corpus
 
 
 ROOT = Path(__file__).parents[2]
-_TREE = "packages/yoke-core/src/yoke_core/install_bundle_tree"
-BUNDLE = ROOT / _TREE / ".agents/skills/yoke"
 CANONICAL = ROOT / ".agents/skills/yoke"
 
 
@@ -128,20 +126,3 @@ def test_taught_dash_and_blitz_commands_resolve_to_registered_functions():
         for function_id, command in operations.items():
             assert lookup(function_id) is not None, function_id
             assert command in content, command
-
-
-def test_direct_workflow_skills_match_install_bundle():
-    for skill in ("dash", "blitz"):
-        canonical_root = CANONICAL / skill
-        mirrored_root = BUNDLE / skill
-        canonical = {
-            path.relative_to(canonical_root): path.read_bytes()
-            for path in canonical_root.rglob("*")
-            if path.is_file()
-        }
-        mirrored = {
-            path.relative_to(mirrored_root): path.read_bytes()
-            for path in mirrored_root.rglob("*")
-            if path.is_file()
-        }
-        assert mirrored == canonical

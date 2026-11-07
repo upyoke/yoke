@@ -47,12 +47,9 @@ HC_NAME = "No surface renders part of an identifier"
 HC_ID = f"HC-{HC_SLUG}"
 
 #: Trees whose rendering this project owns. Separately versioned Pack
-#: source and the generated install-bundle snapshot are not authored here.
+#: source is not authored here.
 _SCAN_ROOTS = ("packages", "runtime", ".yoke")
-_SKIP_PREFIXES = (
-    "docs/archive/",
-    "packages/yoke-core/src/yoke_core/install_bundle_tree/",
-)
+_SKIP_PREFIXES = ("docs/archive/",)
 #: A test asserting this guard has to be able to write the shape it
 #: forbids, and no test file is a surface anyone reads an id from.
 _TEST_FILE_PREFIX = "test_"

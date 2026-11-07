@@ -27,7 +27,7 @@ def test_candidate_command_executes_bound_source(tmp_path, monkeypatch, nested):
         f"#!{sys.executable}\n"
         "import sys\nfrom pathlib import Path\n"
         "from yoke_core.tools import source_dev_run\n"
-        f"source_dev_run._claimed_root = lambda: (Path({str(lane)!r}), None, None)\n"
+        f"source_dev_run._claimed_root = lambda: (Path({str(lane)!r}), None)\n"
         "from yoke_core.domain.source_python_environment import SourcePythonEnvironment\n"
         "source_dev_run.source_python_environment.resolve = lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {})\n"
         "source_dev_run._source_pythonpath.import_origins = lambda *a, **k: ({}, None)\n"

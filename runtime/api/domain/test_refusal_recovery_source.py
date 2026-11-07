@@ -13,8 +13,7 @@ COMPOSER = "packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py"
 HOOK_GUARD_MESSAGES = {
     "packages/yoke-contracts/src/yoke_contracts/hook_runner/local_privacy_messages.py",
 }
-# Permanent migration history and standalone versioned Pack programs cannot
-# gain a dependency on the current runtime. The browser reply runs JavaScript.
+# Permanent migration history cannot gain a dependency on the current runtime. The browser reply runs JavaScript.
 # The standalone relay entrypoint diagnoses failure before packages are bound.
 # Freeze these exact source versions: this is no allowance for new literals.
 FROZEN_SOURCES = {
@@ -58,10 +57,6 @@ FROZEN_SOURCES = {
         'f9f4febf1d186cde733a9a6bfb19dc19ab4c06d0f81ed202edd43d3f6607818f',
     'packages/yoke-core/src/yoke_core/domain/migrations/_native_relay_instant_documents.py':
         'ea4baa3fc6f2a5ae4979d562fa46904a62786b84450881f09d8a43badbc18053',
-    'packages/yoke-core/src/yoke_core/install_bundle_tree/packs/ephemeral-environments/versions/1.2.0/files/ops/frozen_preview_occupancy.py':
-        '5ca48ff54ebe3c219e430dbe21a0fa2f74321ca7c528e5f8a3775c97257dc367',
-    'packages/yoke-core/src/yoke_core/install_bundle_tree/packs/ephemeral-environments/versions/1.3.0/files/ops/frozen_preview_occupancy.py':
-        'c2c6f630541a3a34e9c4c826fbf03e1716a5b26e9085c872b1c02991e4fb3a05',
     'packages/yoke-core/src/yoke_core/ui/static/universe_views_levels.js':
         '88c59ea4e62abcaadeb03fa61e0c38441c367a3c2bd4807024db23f699ede3d7',
 }

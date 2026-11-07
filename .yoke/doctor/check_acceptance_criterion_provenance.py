@@ -101,10 +101,7 @@ LABEL_FORMAT_SURFACES: tuple[str, ...] = (
 ) + RENDERED_ADAPTER_SURFACES
 
 #: Byte-exact snapshots; fix the canonical source and re-render.
-GENERATED_MIRRORS: tuple[str, ...] = (
-    "packages/yoke-core/build/",
-    "packages/yoke-core/src/yoke_core/install_bundle_tree/",
-)
+GENERATED_MIRRORS: tuple[str, ...] = ("packages/yoke-core/build/",)
 
 #: Sanctioned historical provenance.
 ARCHIVE_ROOTS: tuple[str, ...] = ("docs/archive/",)

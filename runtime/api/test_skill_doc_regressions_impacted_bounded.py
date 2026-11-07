@@ -30,7 +30,7 @@ _SURFACE_ROOTS = (
     REPO / "docs",
     REPO / "runtime" / "agents",
     REPO / "runtime" / "harness",
-    REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree",
+    REPO / "packs",
 )
 
 

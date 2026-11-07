@@ -2,15 +2,14 @@
 
 from pathlib import Path
 
-from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.project_contract.managed_block import MANAGED_BLOCK_END
+from yoke_contracts.project_contract.source_installed_views import (
+    HARNESS_MANIFEST_SOURCES,
+    harness_manifest_view,
+)
 from yoke_core.domain.install_bundle import InstallBundleError
 
 
-HARNESS_MANIFEST_SOURCES = tuple(
-    f"runtime/harness/{'claude' if harness == 'claude-code' else harness}/manifest.json"
-    for harness in CANONICAL_HARNESS_IDS
-)
 INSTALL_BUNDLE_SOURCE_FILES = ("AGENTS.md", *HARNESS_MANIFEST_SOURCES)
 
 
@@ -52,7 +51,7 @@ def harness_manifest_files(root: Path) -> list[dict[str, str]]:
             ) from exc
         entries.append(
             {
-                "path": rel.replace("runtime/harness/", ".yoke/harness/", 1),
+                "path": harness_manifest_view(rel),
                 "content": content,
             }
         )

@@ -1,8 +1,15 @@
 [build-system]
-# Exact backends keep PEP 517 builds reproducible.
+# Exact backends keep PEP 517 builds reproducible. setup.py validates the
+# public docs corpus while it builds the install-bundle tree, which needs the
+# Markdown, YAML and line-wrapping libraries at the versions uv.lock resolves.
 requires = [
     "setuptools==83.0.0",
     "setuptools-scm[toml]==10.2.0",
+    "markdown-it-py==4.2.0",
+    "mdurl==0.1.2",
+    "pygments==2.20.0",
+    "pyyaml==6.0.3",
+    "rich==15.0.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -94,23 +101,8 @@ where = ["src"]
 ]
 "yoke_core.ui" = ["static/*", "contracts/*"]
 "yoke_core.frontend_events" = ["attribution_rules.json"]
-"yoke_core.install_bundle_tree" = [
-    "AGENTS.md",
-    "runtime/harness/claude/manifest.json",
-    "runtime/harness/codex/manifest.json",
-    "runtime/harness/cursor/manifest.json",
-    ".agents/skills/yoke/**/*",
-    "runtime/harness/claude/agents/**/*",
-    "runtime/harness/claude/rules/**/*",
-    "runtime/harness/codex/agents/**/*",
-    "runtime/harness/cursor/agents/**/*",
-    "packs/**/*",
-    # Glob `*` skips dotfiles, so scaffold entries like .gitignore, .gitkeep,
-    # and .github/workflows need explicit hidden-component patterns.
-    "packs/**/.*",
-    "packs/**/.*/**/*",
-    "docs/public/**/*",
-]
+# yoke_core.install_bundle_tree is not package data: setup.py builds it from
+# the repo-root sources into the wheel (yoke_core.domain.install_bundle_tree_build).
 
 [tool.setuptools.exclude-package-data]
 "*" = ["**/__pycache__/*", "**/*.pyc", "*.pyc"]

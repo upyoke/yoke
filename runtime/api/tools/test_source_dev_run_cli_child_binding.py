@@ -42,17 +42,8 @@ def _shadowing_launcher(directory: Path) -> None:
     launcher.chmod(0o755)
 
 
-def _select_root(
-    monkeypatch: pytest.MonkeyPatch,
-    root: Path,
-    *,
-    fallback_project_id: int | None = None,
-) -> None:
-    monkeypatch.setattr(
-        source_dev_run,
-        "_claimed_root",
-        lambda *_args: (root, None, fallback_project_id),
-    )
+def _select_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda *_args: (root, None))
     monkeypatch.setattr(
         "yoke_core.domain.source_python_environment.load_declaration",
         lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
@@ -87,20 +78,20 @@ def test_two_selected_checkouts_each_answer_their_own_nested_command(
 ) -> None:
     """Selection, not ambient resolution, decides which tree the child runs."""
     lane = _stub_source_tree(tmp_path / "lane")
-    mapped_main = _stub_source_tree(tmp_path / "mapped-main")
+    other_lane = _stub_source_tree(tmp_path / "other-lane")
 
     _select_root(monkeypatch, lane)
     assert source_dev_run.run(["--", "yoke", "items", "get"]) == 0
     from_lane = capfd.readouterr().out
 
-    _select_root(monkeypatch, mapped_main)
+    _select_root(monkeypatch, other_lane)
     assert source_dev_run.run(["--", "yoke", "items", "get"]) == 0
-    from_main = capfd.readouterr().out
+    from_other = capfd.readouterr().out
 
     assert f"{LANE_MARKER} {lane}/" in from_lane
-    assert str(mapped_main) not in from_lane
-    assert f"{LANE_MARKER} {mapped_main}/" in from_main
-    assert str(lane) not in from_main
+    assert str(other_lane) not in from_lane
+    assert f"{LANE_MARKER} {other_lane}/" in from_other
+    assert str(lane) not in from_other
 
 
 def test_ambient_python_child_reports_the_same_selected_checkout(
@@ -153,22 +144,6 @@ def test_registered_scanner_runs_from_the_current_checkout_without_a_session(
     assert f"scanner {scanner.resolve()}" in captured.out
     assert f"source checkout: {checkout}" in captured.err
     assert "source authority" not in captured.err
-
-
-def test_mapped_main_fallback_refuses_an_arbitrary_nested_yoke_command(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    capfd: pytest.CaptureFixture[str],
-) -> None:
-    """Binding the CLI child never widens what mapped-main may run."""
-    mapped_main = _stub_source_tree(tmp_path / "mapped-main")
-    _select_root(monkeypatch, mapped_main, fallback_project_id=17)
-
-    assert source_dev_run.run(["--", "yoke", "items", "get"]) == 1
-
-    error = capfd.readouterr().err
-    assert "mapped-main source execution only permits" in error
-    assert "prepare and claim a Yoke source lane" in error
 
 
 def test_watcher_hands_its_own_child_to_the_running_interpreter() -> None:

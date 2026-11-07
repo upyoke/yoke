@@ -229,28 +229,10 @@ def check_atlas_integrity(
     return False, "\n".join(parts)
 
 
-def check_install_bundle_tree(
-    repo_root: Path, _scope: ChangedPathScope,
-) -> Tuple[bool, str]:
-    from yoke_core.domain import install_bundle_tree_sync
-    from yoke_core.tools._source_pythonpath import INSTALL_BUNDLE_SYNC_RECIPE
-
-    drift = install_bundle_tree_sync.detect_drift(target_root=repo_root)
-    if not drift:
-        return True, "packaged install-bundle tree matches source"
-    preview = "; ".join(drift[:3])
-    more = f" (+{len(drift) - 3} more)" if len(drift) > 3 else ""
-    return False, (
-        f"install-bundle tree drift: {preview}{more}; "
-        f"run `{INSTALL_BUNDLE_SYNC_RECIPE}` and commit every changed path"
-    )
-
-
 CONTRACTS: Tuple[Tuple[str, ContractFn], ...] = (
     ("authored-file-limit", check_authored_file_limit),
     ("changed-path-ruff", check_changed_path_ruff),
     ("atlas-integrity", check_atlas_integrity),
-    ("install-bundle-tree", check_install_bundle_tree),
     ("generated-blocks", check_generated_blocks),
     ("harness-capability", check_harness_capability),
     ("agent-render", check_agent_render),
@@ -342,7 +324,6 @@ __all__ = [
     "check_atlas_integrity",
     "check_authored_file_limit",
     "check_changed_path_ruff",
-    "check_install_bundle_tree",
     "main",
     "resolve_changed_path_scope",
     "run_contracts",

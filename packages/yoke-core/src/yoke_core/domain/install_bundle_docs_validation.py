@@ -11,9 +11,6 @@ import subprocess
 
 from yoke_contracts.response_evidence import wrapped_lines
 from yoke_contracts.project_contract.docs_corpus_files import CorpusRefusal, refuse_unexpected_file
-from yoke_contracts.project_contract.install_manifest import (
-    PACKAGED_INSTALL_BUNDLE_TREE_REL,
-)
 from yoke_core.domain import documentation_links as links
 from yoke_core.domain import documentation_navigation as nav
 from yoke_core.domain.documentation_render import render_page
@@ -138,48 +135,6 @@ def public_corpus_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*") if p.is_symlink() or p.is_file())
 
 
-def validate_published_copies(repo: Path) -> list[CorpusRefusal]:
-    """Inspect every copy, including extras and oversized generated pages."""
-    source = repo / "docs/public"
-    try:
-        expected = {
-            p.relative_to(source): p.read_bytes() for p in public_corpus_files(source)
-        }
-    except (OSError, subprocess.SubprocessError) as exc:
-        return [
-            CorpusRefusal(
-                "CORPUS_READ_FAILED",
-                str(source),
-                str(exc),
-                "restore readable source files and git metadata, then retry",
-            )
-        ]
-    refusals = []
-    for root in (
-        repo / ".yoke/docs",
-        repo / PACKAGED_INSTALL_BUNDLE_TREE_REL / "docs/public",
-    ):
-        actual = {p.relative_to(root): p for p in root.rglob("*") if p.is_file()}
-        for name in sorted(set(expected) | set(actual)):
-            path = root / name
-            if (
-                name not in expected
-                or name not in actual
-                or path.read_bytes() != expected[name]
-            ):
-                refusals.append(
-                    CorpusRefusal(
-                        "STALE_GENERATED_COPY",
-                        str(path),
-                        "copy differs from the public source",
-                        "run install_bundle_tree_sync sync from the validated source checkout",
-                    )
-                )
-            if name.suffix == ".md" and name in actual:
-                refusals.extend(_size(path, path.read_text(encoding="utf-8")))
-    return refusals
-
-
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", "-C", str(repo), *args], capture_output=True, timeout=10
@@ -288,31 +243,8 @@ def verify_candidate(
         if files.returncode:
             mismatch(repo, "cannot enumerate declared source corpus")
             return refusals
-        expected = {
-            p.removeprefix("docs/public/") for p in files.stdout.decode().splitlines()
-        }
-        if not expected:
+        if not files.stdout.strip():
             mismatch("docs/public", "declared commit contains no public corpus")
-        for root in (
-            repo / ".yoke/docs",
-            repo / PACKAGED_INSTALL_BUNDLE_TREE_REL / "docs/public",
-        ):
-            actual = {
-                p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()
-            }
-            for name in sorted(expected | actual):
-                path = root / name
-                blob = _git(repo, "show", f"{declared_commit}:docs/public/{name}")
-                if (
-                    name not in expected
-                    or not path.is_file()
-                    or blob.returncode
-                    or path.read_bytes() != blob.stdout
-                ):
-                    mismatch(
-                        path,
-                        f"published bytes differ from {declared_commit}:docs/public/{name}",
-                    )
     except (OSError, subprocess.SubprocessError) as exc:
         mismatch(repo, f"candidate identity could not be read: {exc}")
     return refusals

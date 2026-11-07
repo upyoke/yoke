@@ -40,6 +40,7 @@ from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
 def _recorded_heads(monkeypatch, fired) -> List[str]:
     """Run each fired hook's real command; return the heads it records."""
     recorded: List[str] = []
+    monkeypatch.setattr(git_hook, "refresh_source_installed_views", lambda root: [])
     monkeypatch.setattr(git_hook, "_checkout_project", lambda: "yoke")
     for hook, head, args in fired:
         calls: List[List[str]] = []

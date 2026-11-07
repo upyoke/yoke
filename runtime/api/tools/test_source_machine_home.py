@@ -47,7 +47,7 @@ def test_source_probe_and_child_writes_leave_parent_byte_identical(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "stale.json"))
     monkeypatch.setenv("YOKE_SESSION_ID", "fixture-session")
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
     monkeypatch.setattr(
         source_dev_run.source_python_environment,
         "resolve",
@@ -128,7 +128,7 @@ def test_snapshot_failure_is_named_and_does_not_launch_child(
     config, _, _ = _seed(tmp_path / "machine")
     config.write_text("invalid json")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(config.parent))
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
     assert (
         source_dev_run.run(["python3", "-c", "raise AssertionError('launched')"]) == 1
     )

@@ -178,7 +178,7 @@ class TestExemptionFamilies(unittest.TestCase):
             root = Path(td)
             _write(
                 root,
-                "packages/yoke-core/src/yoke_core/install_bundle_tree/runtime/agents/boss.md",
+                "packages/yoke-core/build/lib/yoke_core/agents/boss.md",
                 f'Cite exactly, e.g. "{_LABEL} says".\n',
             )
             result = _only_result(_run_hc(root))

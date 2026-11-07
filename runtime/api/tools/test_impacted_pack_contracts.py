@@ -6,19 +6,10 @@ from yoke_core.tools.impacted_tests import build_import_index, select
 
 
 @pytest.mark.parametrize(
-    "prefix",
-    [
-        "packs/structured-events/",
-        "packages/yoke-core/src/yoke_core/install_bundle_tree/packs/structured-events/",
-    ],
-)
-@pytest.mark.parametrize(
     "payload", ["pack.json", "versions/2.0.0/files/events/events.ts"]
 )
-def test_pack_payload_selects_catalog_and_installed_contracts(
-    tmp_path, prefix, payload
-):
-    source = prefix + payload
+def test_pack_payload_selects_catalog_and_installed_contracts(tmp_path, payload):
+    source = "packs/structured-events/" + payload
     expected = {
         "runtime/api/domain/test_pack_catalog.py",
         "runtime/api/domain/test_pack_prerequisite_catalog.py",

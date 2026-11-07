@@ -61,17 +61,3 @@ def test_default_exceptions_are_project_contract_wide_not_yoke_specific() -> Non
     # file_line_exception entries in .yoke/project.config.
     assert core_gate.TEMPORARY_EXCEPTIONS == ()
     assert "packaging/public-installer/install" not in core_gate.TEMPORARY_EXCEPTIONS
-
-
-def test_packaged_install_bundle_mirrors_are_generated(
-    tmp_path: pathlib.Path,
-) -> None:
-    rel = (
-        "packages/yoke-core/src/yoke_core/install_bundle_tree/"
-        "runtime/harness/claude/agents/yoke-architect.md"
-    )
-    target = tmp_path / rel
-    target.parent.mkdir(parents=True)
-    target.write_text("generated\n", encoding="utf-8")
-    assert core_gate.classify_path(rel, repo_root=tmp_path).value == "generated"
-    assert harness_gate.classify_path(rel, repo_root=tmp_path).value == "generated"

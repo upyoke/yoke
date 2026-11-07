@@ -1,4 +1,4 @@
-"""Released Pack snapshot carries the canonical webapp migration identity."""
+"""The released webapp Pack carries the canonical migration identity."""
 
 from __future__ import annotations
 
@@ -8,22 +8,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.domain import install_bundle_tree_sync, pack_catalog
+from yoke_core.domain import pack_catalog
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PACKAGED_ROOT = REPO_ROOT / install_bundle_tree_sync.PACKAGED_TREE_REL
 
 
-def test_packaged_webapp_bundle_exposes_content_identity_release(
+def test_webapp_bundle_exposes_content_identity_release(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     canonical = REPO_ROOT / "packs/webapp-scaffold"
-    packaged = PACKAGED_ROOT / "packs/webapp-scaffold"
-    assert (packaged / "pack.json").read_bytes() == (
-        canonical / "pack.json"
-    ).read_bytes()
-    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: PACKAGED_ROOT)
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: REPO_ROOT)
     monkeypatch.setattr(
         pack_catalog,
         "resolve_project",
@@ -73,7 +68,7 @@ def test_packaged_webapp_bundle_exposes_content_identity_release(
         "# BEGIN YOKE PACK webapp-scaffold"
     )
     settings = json.loads(
-        (packaged / f"versions/{latest}/settings-reference.json").read_text(
+        (canonical / f"versions/{latest}/settings-reference.json").read_text(
             encoding="utf-8"
         )
     )

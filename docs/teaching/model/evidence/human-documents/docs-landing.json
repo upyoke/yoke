@@ -13,7 +13,7 @@
  "distinct_from": "Overview teaches the operating model; contents lists the complete hierarchy; this page routes readers to them.",
  "proposal_status": "Proposed future landing using the existing public corpus → installed docs → pinned-wheel website pipeline",
  "plan_notes": ["FIRST-USER B: homepage handoff (adjacent)", "JOURNEYS principle 4", "Documentation organization proposal: outside current locked item details"],
- "sources": ["docs/public/index.md", "docs/public/nav.yaml", "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_sync.py"],
+ "sources": ["docs/public/index.md", "docs/public/nav.yaml", "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_build.py"],
  "private_sources": ["platform"],
  "position": 2
 }

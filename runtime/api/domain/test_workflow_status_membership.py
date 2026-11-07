@@ -68,8 +68,7 @@ def test_production_code_has_no_copied_item_terminal_sets():
     for package in ("yoke-core", "yoke-contracts"):
         for path in (root / "packages" / package / "src").rglob("*.py"):
             if (
-                "install_bundle_tree" in path.parts
-                or "migrations" in path.parts
+                "migrations" in path.parts
                 or path.name == "lifecycle_status.py"
             ):
                 continue

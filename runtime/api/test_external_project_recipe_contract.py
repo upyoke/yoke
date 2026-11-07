@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from yoke_cli.commands import registry
+from yoke_core.domain.install_bundle_tree_build import write_tree
 from yoke_core.tools.atlas_integrity_collect import collect_operation_tracker
 from yoke_core.tools.atlas_render_docs import _render_permanent_roster
 
@@ -16,14 +17,15 @@ CHECKOUT_ONLY = re.compile(
 )
 
 
-def _teaching_files() -> list[Path]:
+def _teaching_files(bundle: Path) -> list[Path]:
+    write_tree(target_root=REPO, dest=bundle)
     roots = [
         REPO / ".agents" / "skills" / "yoke",
         REPO / "runtime" / "agents",
         REPO / "runtime" / "harness" / "claude" / "rules",
         REPO / "runtime" / "harness" / "claude" / "agents",
         REPO / "runtime" / "harness" / "codex" / "agents",
-        REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree",
+        bundle,
     ]
     # Shipped public docs under the install bundle's docs/public tree are
     # operator-facing reference material: they legitimately document the
@@ -31,16 +33,7 @@ def _teaching_files() -> list[Path]:
     # runtime.api) instead of instructing agents to run them. The clean-room
     # contract guards the imperative teaching surfaces (skills, agent prompts,
     # rules, packets), so the public-docs subtree is excluded from the scan.
-    reference_docs = (
-        REPO
-        / "packages"
-        / "yoke-core"
-        / "src"
-        / "yoke_core"
-        / "install_bundle_tree"
-        / "docs"
-        / "public"
-    )
+    reference_docs = bundle / "docs" / "public"
     files: list[Path] = []
     for root in roots:
         files.extend(
@@ -56,12 +49,16 @@ def _teaching_files() -> list[Path]:
     return sorted(set(files))
 
 
-def test_external_project_teaching_has_no_checkout_only_control_plane_recipe() -> None:
+def test_external_project_teaching_has_no_checkout_only_control_plane_recipe(
+    tmp_path,
+) -> None:
     residue = []
-    for path in _teaching_files():
+    bundle = tmp_path / "install_bundle_tree"
+    for path in _teaching_files(bundle):
         text = path.read_text(encoding="utf-8", errors="replace")
         if CHECKOUT_ONLY.search(text):
-            residue.append(str(path.relative_to(REPO)))
+            root = bundle if bundle in path.parents else REPO
+            residue.append(str(path.relative_to(root)))
     assert residue == []
 
 

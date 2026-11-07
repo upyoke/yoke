@@ -21,9 +21,6 @@ from yoke_contracts.project_contract.file_line_policy import (
     resolve_file_line_policy,
     tracked_generated_views,
 )
-from yoke_contracts.project_contract.install_manifest import (
-    is_install_bundle_generated_path,
-)
 from yoke_contracts.project_contract.strategy_docs_header import (
     StrategyHeaderError,
     parse_file_text,
@@ -160,12 +157,6 @@ def _classify_path_with_policy(
     except OSError:
         pass
     posix_path = path.replace("\\", "/")
-    # Installer-rendered files (manifest ``files``) are upstream-authored and
-    # un-splittable in the receiving repo — classify GENERATED so a project
-    # refresh commit does not hard-fail the authored-file line gate (and need
-    # --no-verify) on rendered agent adapters like .claude/agents/yoke-*.md.
-    if is_install_bundle_generated_path(posix_path, repo_root):
-        return Classification.GENERATED
     if any(fnmatch.fnmatchcase(posix_path, p) for p in policy.grow_allowed_globs):
         return Classification.GROW_ALLOWED
     if posix_path in GENERATED_SENTINELS:

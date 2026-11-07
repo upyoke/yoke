@@ -6,7 +6,6 @@ import subprocess
 
 from yoke_core.domain.documentation_navigation import iter_nodes, load_navigation
 from yoke_core.domain.documentation_render import render_page
-from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
 from yoke_project_checks import check_docs
 
 
@@ -23,8 +22,6 @@ def _seed(root):
     for node in iter_nodes(tree):
         path = source / node.path
         path.write_text(render_page(tree, node, path.read_text()))
-    for mirror in (root / ".yoke/docs", root / PACKAGED_TREE_REL / "docs/public"):
-        shutil.copytree(source, mirror)
     (root / "README.md").write_text("# Source\n")
     (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
     (root / "runtime/harness").mkdir(parents=True)
@@ -63,14 +60,13 @@ def test_nested_contributor_fragments_warn_and_archives_are_excluded(
     assert "history.md" not in result.detail
 
 
-def test_public_links_and_stale_copies_fail(tmp_path, monkeypatch):
+def test_public_link_failures_fail(tmp_path, monkeypatch):
     _seed(tmp_path)
     path = tmp_path / "docs/public/guide/setup.md"
     path.write_text(path.read_text() + "\n[Absent](#absent)\n")
     result = _run(tmp_path, monkeypatch)
     assert result.result == "FAIL"
     assert "LINK_FRAGMENT_MISSING" in result.detail
-    assert "STALE_GENERATED_COPY" in result.detail
     assert "Repair:" in result.detail
 
 

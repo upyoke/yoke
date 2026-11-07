@@ -30,7 +30,6 @@ def _spec(section: str, *, budget_rows: list[str] | None) -> str:
         f"1. Edit `{_MISSING}:12,16` and `{_LISTED}:4-9`.\n"
         f"- Edit `{_LISTED}` again.\n"
         "Prose names `pkg/prose_only.py`.\n"
-        "- Mirror `pkg/install_bundle_tree/pkg/listed.py`.\n"
         "- Create `pkg/new_module.py`.\n"
     )
     if budget_rows is not None:

@@ -12,7 +12,6 @@ from yoke_core.domain.documentation_render import render_page
 from yoke_core.domain.documentation_residue import scan_retired_references
 from yoke_core.domain import install_bundle_docs_validation as validation
 from yoke_core.domain.install_bundle import InstallBundleError, validate_docs_for_bundle
-from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
 
 FIXTURES = Path(__file__).parent / "fixtures/documentation_corpus"
 MARKER = "SYNTHETIC_PRIVATE_MARKER"
@@ -36,9 +35,7 @@ def _git(root, *args):
 @pytest.fixture
 def candidate(tmp_path):
     root = tmp_path / "source"
-    source = _corpus(root / "docs/public")
-    for target in (root / ".yoke/docs", root / PACKAGED_TREE_REL / "docs/public"):
-        shutil.copytree(source, target)
+    _corpus(root / "docs/public")
     (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
     (root / "runtime/harness").mkdir(parents=True)
     (root / "runtime/harness/marker").write_text("source fixture")
@@ -76,7 +73,6 @@ def test_complete_snapshot_and_tracked_source(candidate, tmp_path):
     scratch = root / "docs/public/scratch.md"
     scratch.write_text("# Untracked scratch\n[Broken](absent.md)\n")
     assert validation.validate_public_corpus(root / "docs/public") == []
-    assert validation.validate_published_copies(root) == []
     assert not any(e["path"].endswith("scratch.md") for e in docs_bundle_files(root))
     snapshot = _corpus(tmp_path / "snapshot")
     assert validation.validate_public_corpus(snapshot) == []
@@ -123,13 +119,8 @@ def test_advisory_and_portable_examples_do_not_refuse(tmp_path):
     assert validation.validate_public_corpus(root) == []
 
 
-def test_stale_derived_blocks_and_copies_are_inspected(candidate):
+def test_stale_derived_blocks_are_inspected(candidate):
     root, _, _ = candidate
-    assert validation.validate_published_copies(root) == []
-    copy = root / ".yoke/docs/guide/setup.md"
-    copy.write_text(copy.read_text() + "\n" + "line\n" * 351)
-    codes = {r.code for r in validation.validate_published_copies(root)}
-    assert codes == {"STALE_GENERATED_COPY", "OVERSIZED_PAGE"}
     page = root / "docs/public/guide/setup.md"
     page.write_text("# Setup\n")
     assert "STALE_NAV_BLOCK" in {
@@ -166,8 +157,6 @@ def test_valid_identity_and_cli(candidate, capsys):
         "dirty",
         "other-dirty",
         "receipt",
-        "packaged",
-        "extra-copy",
     ],
 )
 def test_candidate_mismatch(candidate, kind, tmp_path):
@@ -193,16 +182,9 @@ def test_candidate_mismatch(candidate, kind, tmp_path):
         (root / "docs/public/index.md").write_text("# Dirty\n")
     elif kind == "other-dirty":
         (root / "new-source.py").write_text("uncommitted source change")
-    elif kind == "receipt":
+    else:
         receipt = tmp_path / "receipt.json"
         receipt.write_text(json.dumps(dict(source_build="a" * 40)))
-    else:
-        path = (
-            root / PACKAGED_TREE_REL / "docs/public/index.md"
-            if kind == "packaged"
-            else root / ".yoke/docs/extra.md"
-        )
-        path.write_text("wrong candidate\n")
     refusals = validation.verify_candidate(
         root, commit, receipt=receipt, consumer_evidence=proof
     )
@@ -279,9 +261,6 @@ def test_retired_scan_false_positives_and_anchored_matches(candidate):
         ".test_durations": "docs/" + "public/" + "reference/old.md\n",
         "docs/archive/history.md": ".yoke/" + "docs/" + "guides/old.md\n",
         "packs/example/versions/1.0.0/frozen.md": "docs/"
-        + "public/"
-        + "reference/old.md\n",
-        str(PACKAGED_TREE_REL / "packs/example/versions/1.0.0/frozen.md"): "docs/"
         + "public/"
         + "reference/old.md\n",
     }

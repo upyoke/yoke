@@ -2,27 +2,20 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
 
 from runtime.api.fixtures import pg_testdb
 from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
-from yoke_contracts.project_contract.managed_block import (
-    MANAGED_BLOCK_END,
-    extract_block_body,
-)
+from yoke_contracts.project_contract.managed_block import extract_block_body
 from yoke_core.domain import (
     install_bundle,
-    install_bundle_sources,
-    install_bundle_tree_sync,
 )
+from yoke_core.domain.install_bundle_tree_build import write_tree
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PACKAGED_ROOT = REPO_ROOT / install_bundle_tree_sync.PACKAGED_TREE_REL
-PYPROJECT = REPO_ROOT / "packages/yoke-core/pyproject.toml"
 INSTALLED_RULES_BUDGET_BYTES = 135_000
 REPRESENTATIVE_PROJECT_RULES = "# Project rules\n" + "- project-specific rule\n" * 350
 
@@ -60,61 +53,36 @@ def conn():
         pg_testdb.drop_test_database(name)
 
 
-def test_packaged_snapshot_carries_root_source_files() -> None:
-    # The doctrine files are FILES, not dirs, so the per-dir byte test in the
-    # sibling suite never sees them; guard them explicitly so the product wheel
-    # carries only the project-agnostic prefix build_bundle extracts blocks from.
-    for rel in install_bundle_sources.INSTALL_BUNDLE_SOURCE_FILES:
-        source = REPO_ROOT / rel
-        packaged = PACKAGED_ROOT / rel
-        source_bytes = source.read_bytes()
-        if rel == "AGENTS.md":
-            marker = MANAGED_BLOCK_END.encode("utf-8")
-            boundary = source_bytes.index(marker) + len(marker)
-            expected = source_bytes[:boundary] + b"\n"
-        else:
-            expected = source_bytes
-        assert packaged.is_file(), f"packaged snapshot missing root file {rel}"
-        assert packaged.read_bytes() == expected, (
-            f"snapshot drift for {rel}: "
-            f"source_sha256={hashlib.sha256(expected).hexdigest()} "
-            f"packaged_sha256={hashlib.sha256(packaged.read_bytes()).hexdigest()}"
-        )
+@pytest.fixture(scope="module")
+def packaged_root(tmp_path_factory) -> Path:
+    root = tmp_path_factory.mktemp("wheel") / "install_bundle_tree"
+    write_tree(target_root=REPO_ROOT, dest=root)
+    return root
 
 
-def test_packaged_managed_rules_carry_the_field_note_directive() -> None:
-    body = extract_block_body((PACKAGED_ROOT / "AGENTS.md").read_text(encoding="utf-8"))
+def test_packaged_managed_rules_carry_the_field_note_directive(packaged_root) -> None:
+    body = extract_block_body((packaged_root / "AGENTS.md").read_text(encoding="utf-8"))
     assert body is not None
     assert body.count(FIELD_NOTE_FOOTER) == 1
 
 
-def test_packaged_snapshot_excludes_repo_internal_teaching() -> None:
+def test_packaged_tree_excludes_repo_internal_teaching(packaged_root) -> None:
     markers = (
         "## Yoke repository",
         "origin/cla-signatures",
         "yoke-hosted-stage-consumer-bound",
     )
     offenders = []
-    for path in PACKAGED_ROOT.rglob("*"):
+    for path in packaged_root.rglob("*"):
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         found = [marker for marker in markers if marker in text]
         if found:
-            offenders.append((path.relative_to(PACKAGED_ROOT).as_posix(), found))
+            offenders.append((path.relative_to(packaged_root).as_posix(), found))
     assert offenders == [], (
         f"repo-internal teaching reached install bundle: {offenders}"
     )
-
-
-def test_pyproject_package_data_covers_root_source_files() -> None:
-    # A root file added to INSTALL_BUNDLE_SOURCE_FILES but not globbed here would
-    # be materialized into the snapshot yet omitted from the wheel.
-    text = PYPROJECT.read_text("utf-8")
-    for rel in install_bundle_sources.INSTALL_BUNDLE_SOURCE_FILES:
-        assert f'"{rel}"' in text, (
-            f"pyproject package-data is missing a glob for root file {rel!r}"
-        )
 
 
 def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
@@ -210,12 +178,12 @@ def test_bundle_ships_universal_docs(conn) -> None:
             assert content == (root / DOCS_SOURCE / rel).read_text("utf-8")
 
 
-def test_gitless_packaged_corpus_is_validated_before_delivery(tmp_path):
+def test_gitless_packaged_corpus_is_validated_before_delivery(tmp_path, packaged_root):
     import shutil
     from yoke_core.domain.install_bundle_managed import docs_bundle_files
 
     snapshot = tmp_path / "wheel"
-    shutil.copytree(PACKAGED_ROOT, snapshot)
+    shutil.copytree(packaged_root, snapshot)
     assert not (snapshot / ".git").exists()
     entries = docs_bundle_files(snapshot)
     assert any(e["path"] == ".yoke/docs/index.md" for e in entries)

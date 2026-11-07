@@ -104,8 +104,6 @@ def test_failure_notice_help_reaches_installed_recovery_without_execution(
     assert installed_recipe in help_text
     root = Path(__file__).resolve().parents[3]
     assert (root / "docs/public/verification/failed-item-qa.md").is_file()
-    bundle = root / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    assert (bundle / "docs/public/verification/failed-item-qa.md").is_file()
 
 
 def test_run_recipe_without_project_parses(capsys):

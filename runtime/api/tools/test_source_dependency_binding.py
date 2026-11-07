@@ -69,7 +69,7 @@ def test_import_check_and_nested_local_watcher_see_locked_lane_dependency(
         ),
     )
     monkeypatch.setattr(
-        source_dev_run, "_claimed_root", lambda *_args: (root, None, None)
+        source_dev_run, "_claimed_root", lambda *_args: (root, None)
     )
     # The original path binds candidate packages but keeps invoking dependencies.
     invoking = _stub_source_tree(tmp_path / "invoking") / ".venv/bin/python3"
@@ -136,7 +136,7 @@ def test_ambient_main_only_dependency_cannot_rescue_candidate(
         lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
     )
     monkeypatch.setattr(
-        source_dev_run, "_claimed_root", lambda *_args: (root, None, None)
+        source_dev_run, "_claimed_root", lambda *_args: (root, None)
     )
     assert source_dev_run.run(["python3", "-c", "import main_only_dependency"]) != 0
     assert "No module named 'main_only_dependency'" in capfd.readouterr().err

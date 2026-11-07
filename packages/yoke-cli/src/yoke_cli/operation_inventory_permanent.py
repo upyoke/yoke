@@ -65,11 +65,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         REASON_OPERATOR_BREAK_GLASS,
     ),
     _p(
-        "python3 -m yoke_core.domain.install_bundle_tree_sync sync",
-        "install_bundle.sync",
-        REASON_TOOL_SHAPED,
-    ),
-    _p(
         "python3 -m yoke_core.cli.db_router path-claims activate",
         "claims.path",
         REASON_OPERATOR_BREAK_GLASS,

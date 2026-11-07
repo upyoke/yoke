@@ -74,7 +74,7 @@ def test_failed_source_child_does_not_publish_any_output(monkeypatch, tmp_path):
         "resolve",
         lambda _lane: (None, None),
     )
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
     monkeypatch.setattr(source_dev_run, "_run_bound", lambda *_args: 7)
     monkeypatch.setattr(
         subject, "persist", lambda *_args: pytest.fail("published failed child")

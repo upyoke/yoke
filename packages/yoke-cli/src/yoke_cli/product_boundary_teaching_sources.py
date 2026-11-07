@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import Sequence, Tuple
 
 
-# Every place a reader is taught a command. The packaged snapshot under
-# ``install_bundle_tree`` is deliberately absent: the bundle sync derives
-# it byte-for-byte from these same sources and a drift test enforces the
-# equality, so scanning it would only duplicate each finding.
+# Every place a reader is taught a command. Generated copies such as
+# ``.yoke/docs`` are absent: they repeat these sources byte-for-byte, so
+# scanning them would only duplicate each finding.
 TEACHING_GLOBS: Tuple[str, ...] = (
     ".agents/skills/yoke/**/*.md",
     "runtime/agents/*.md",
@@ -21,7 +20,6 @@ TEACHING_GLOBS: Tuple[str, ...] = (
     "AGENTS.md",
     "docs/public/agents/codex.md",
     "docs/public/agents/cursor.md",
-    ".yoke/docs/**/*.md",
     "docs/**/*.md",
 )
 

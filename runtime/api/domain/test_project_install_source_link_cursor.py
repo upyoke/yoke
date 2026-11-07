@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -54,6 +55,11 @@ def checkout(tmp_path: Path, machine_home: Path) -> Path:
     claude_settings = root / "runtime" / "harness" / "claude" / "settings.json"
     claude_settings.parent.mkdir(parents=True)
     claude_settings.write_text('{"hooks": {}}\n', encoding="utf-8")
+    for harness in ("claude", "codex", "cursor"):
+        manifest = root / "runtime" / "harness" / harness / "manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text("{}\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     return root
 
 

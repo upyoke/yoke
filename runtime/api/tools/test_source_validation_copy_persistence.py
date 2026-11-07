@@ -45,7 +45,7 @@ def test_provisioned_copy_and_binding_survive_the_source_process(
         "resolve",
         lambda _lane: (None, None),
     )
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (root, None, None))
+    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (root, None))
     monkeypatch.setattr(
         source_dev_run.source_python_environment,
         "resolve",

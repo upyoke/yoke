@@ -34,7 +34,7 @@ def test_runner_fleet_patch_keeps_the_published_pack_contract_stable(
         assert latest[key] == previous[key]
 
 
-def test_runner_fleet_latest_renders_identically_from_source_and_install_bundle(
+def test_runner_fleet_latest_renders_its_runtime_template(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -55,18 +55,7 @@ def test_runner_fleet_latest_renders_identically_from_source_and_install_bundle(
         pack="self-hosted-runners",
         render_values=render_values,
     )
-    packaged_root = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: packaged_root)
-    packaged = pack_catalog.build_pack_bundle(
-        object(),
-        project="sample",
-        pack="self-hosted-runners",
-        render_values=render_values,
-    )
-
     assert canonical["version"] == "2.0.2"
-    assert canonical["content_digest"] == packaged["content_digest"]
-    assert canonical["files"] == packaged["files"]
     files = {row["path"]: row for row in canonical["files"]}
     runtime_template = files["infra/Pulumi.runner-fleet-stack.yaml.tmpl"]["content"]
     for key in render_values:

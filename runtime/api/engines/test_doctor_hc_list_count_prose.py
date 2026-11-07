@@ -124,16 +124,11 @@ def test_optional_adjective_before_noun_still_counts() -> None:
     assert [(hit.stated, hit.actual) for hit in hits] == [(4, 4)]
 
 
-def test_archive_and_bundle_and_rendered_adapters_are_exempt(
+def test_archive_and_rendered_adapters_are_exempt(
     tmp_path: Path,
 ) -> None:
     bad = _counted_list("parts", "five", ("a", "b", "c", "d", "e"))
     _write(tmp_path, "docs/archive/old.md", bad)
-    _write(
-        tmp_path,
-        "packages/yoke-core/src/yoke_core/install_bundle_tree/AGENTS.md",
-        bad,
-    )
     adapter = RENDERED_AGENT_DIRS[0].as_posix()
     _write(tmp_path, f"{adapter}/yoke-engineer.md", bad)
     assert hc.scan_teaching_surfaces(tmp_path) == []

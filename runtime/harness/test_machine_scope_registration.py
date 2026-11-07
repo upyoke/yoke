@@ -27,7 +27,7 @@ from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 def harness(request):
     root = Path(__file__).resolve().parents[2]
     return json.loads(
-        (root / ".yoke/harness" / request.param / "manifest.json").read_text()
+        (root / "runtime/harness" / request.param / "manifest.json").read_text()
     )["harness_id"]
 
 

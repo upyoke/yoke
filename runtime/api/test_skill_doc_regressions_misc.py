@@ -20,7 +20,7 @@ from runtime.api.skill_doc_regressions_test_helpers import REPO, _read
 def test_cross_tree_document_links_resolve(document: str, target: str) -> None:
     text = _read(REPO / document)
     assert target in text
-    assert (REPO / target).is_file()
+    assert (REPO / "docs/public" / target.removeprefix(".yoke/docs/")).is_file()
 
 
 class TestRetiredEventNamesLeaveTheCatalog:

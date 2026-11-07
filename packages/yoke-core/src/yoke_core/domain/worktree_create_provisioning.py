@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Sequence
 
-
+from yoke_contracts.project_contract.source_installed_views import (
+    refresh_source_installed_views,
+)
 from yoke_core.domain.worktree_create_db import persist_item_worktrees
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
@@ -128,9 +131,12 @@ def provision_planned_lanes(
     # Every harness contributes its lane-enablement operations through its
     # manifest. This runs for reused lanes as well as new ones so a lane
     # prepared before an adapter update is repaired on the next preparation.
+    # A Yoke source lane also gets the gitignored installed-layout views its
+    # teaching names; other projects receive those from their install.
     for entry in plan.worktrees:
         provision_worktree_harness_enablement(repo_root, entry.path)
         provision_worktree_harness_setup(entry.path)
+        refresh_source_installed_views(Path(entry.path))
 
     # Step 4 — the blocking readiness proof. A lane is ready when its tests
     # can run in it. This runs for reused lanes too, so a lane prepared

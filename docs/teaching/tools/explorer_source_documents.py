@@ -92,7 +92,6 @@ def add_repository_documents(add, files):
     for folder, title in collections:
         base = REPO / folder
         paths = [p for p in files if p.is_relative_to(base)
-                 and 'install_bundle_tree' not in p.parts
                  and 'global_skill' not in p.parts
                  and not p.is_relative_to(REPO / 'runtime/harness/claude/agents')
                  and not p.is_relative_to(REPO / 'docs/archive/decisions')]

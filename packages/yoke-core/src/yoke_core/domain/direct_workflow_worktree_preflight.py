@@ -28,7 +28,6 @@ from yoke_core.domain.worktree_preflight_outcome import (
 )
 from yoke_core.domain.worktree_preflight import run_preflight
 from yoke_core.tools._source_pythonpath import (
-    INSTALL_BUNDLE_SYNC_RECIPE,
     PYTEST_RUN_RECIPE,
     SOURCE_RUN_RECIPE,
     is_yoke_shaped_tree,
@@ -100,10 +99,7 @@ def _prepare_dash_path_claim(
 
 
 def _run_recipes(worktree_path: str) -> dict[str, str]:
-    recipes = {
-        "pytest": PYTEST_RUN_RECIPE,
-        "install_bundle_sync": INSTALL_BUNDLE_SYNC_RECIPE,
-    }
+    recipes = {"pytest": PYTEST_RUN_RECIPE}
     if worktree_path and is_yoke_shaped_tree(Path(worktree_path)):
         recipes["source"] = SOURCE_RUN_RECIPE
     return recipes
