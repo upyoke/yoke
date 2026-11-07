@@ -91,8 +91,8 @@ def test_create_instruction_count_does_not_add_lines(monkeypatch, capsys, previe
         assert items_create_dispatch.dispatch_create(**args, json_mode=False) == 0
         output = capsys.readouterr()
         counts.append(len(output.out.splitlines()))
-        for rule in instructions:
-            assert output.out.count(rule["id"]) == 1
+        assert output.out.count(f"{count} operator rule") == 1
+        assert "yoke items get APP-7 --full" in output.out
         assert "Long instruction" not in output.out
         assert "notice" in output.err
         assert items_create_dispatch.dispatch_create(**args, json_mode=True) == 0
