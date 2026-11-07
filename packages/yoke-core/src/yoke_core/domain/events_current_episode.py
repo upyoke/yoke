@@ -25,7 +25,7 @@ allowed telemetry query; only boundary resolution lives here) and
 
 Episode policy details and the orthogonal ``--current-episode`` flag
 contract live in
-``.yoke/docs/agents/rules/claude-sessions.md`` (Claude-only) and the
+``.yoke/docs/agents/claude.md`` (Claude-only) and the
 cross-harness decision record under
 ``docs/archive/decisions/session-resumption-policy.md``.
 """

@@ -177,6 +177,7 @@ setup uses the same sign-in convergence through `yoke dev setup`.
 
 <!-- yoke:contents -->
 - [Capabilities](capabilities.md) — Inspect project providers, models and test resources.
+- [Architecture model](architecture-model.md) — Declare which code may depend on which, and check the map.
 - [Execution instructions](execution-instructions.md) — Store reusable guidance for project work and sessions.
 - [Shared files](shared-files.md) — Upload files and reuse them as project context.
 - [Private forks](private-forks.md) — Bind installation artifacts and maintain a private Yoke distribution.

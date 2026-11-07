@@ -16,7 +16,7 @@ def test_architecture_topic_refusal_names_its_real_home() -> None:
         sac.render_topic_packet("architecture", role="main_agent")
     message = str(refusal.value)
     assert "unknown topic: architecture is not a packet topic" in message
-    assert ".yoke/docs/agents/rules/architecture-model.md" in message
+    assert ".yoke/docs/projects/architecture-model.md" in message
     assert "yoke project-structure architecture-draft get --project P" in message
 
 

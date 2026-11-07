@@ -38,7 +38,7 @@ Staff work through `/yoke steer`; inspect the runnable frontier with `/yoke char
 
 ## Related
 
-- [Agent operation homes](rules/index.md)
+- [Agent rules](rules.md)
 
 <!-- yoke:contents -->
 - [Commands](commands.md) — Find operator commands and the delivery skill for the current binding.
@@ -50,5 +50,5 @@ Staff work through `/yoke steer`; inspect the runnable frontier with `/yoke char
 - [Execution levels](levels.md) — Read model thresholds, routing settings and stage-level handoffs.
 - [Level launches](level-launches.md) — Launch and label sessions using model thresholds and native selectors.
 - [Capacity recovery](capacity-recovery.md) — Recover a launched session when its model capacity is exhausted.
-- [Operation homes](rules/index.md) — Choose the rule home for the operation before acting.
+- [Agent rules](rules.md) — Judgment no command can check, the same for every harness.
 <!-- /yoke:contents -->

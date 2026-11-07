@@ -93,7 +93,7 @@ def _format_reason(flag: str, suppression_seen: bool) -> str:
         f"`git stash list` is the operator's only audit surface — the rationale is lost.\n\n"
         f"Safe shape: `{safe}`\n"
         "Rule: `-m` / `--message` must appear BEFORE `--`. Tokens after `--` are pathspecs.\n"
-        "Doctrine: `.yoke/docs/agents/rules/lanes-and-claims.md` → Destructive operation discipline"
+        "Doctrine: `.yoke/docs/agents/rules.md` → Coordination"
     )
     if suppression_seen:
         body = (

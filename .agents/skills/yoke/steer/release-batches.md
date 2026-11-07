@@ -16,7 +16,7 @@ yoke --env CONTROL_PLANE watch deploy -- RUN_ID
 Every run records that commit and key `RELEASE_KEY:FLOW`. A refusal cancels
 runs already made by the call. A correction needs a new set on its passing
 commit; earlier proof does not cover it. For tip binding and the Yoke project's
-release-set example, see `.yoke/docs/agents/rules/release-roles.md`.
+release-set example, see `.yoke/docs/deployments/index.md#create-a-release-set`.
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
 

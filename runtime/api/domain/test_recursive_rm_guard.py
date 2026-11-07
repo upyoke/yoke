@@ -113,7 +113,7 @@ def test_reason_names_shape_targets_and_recovery():
     )
     assert "$(dirname $(mktemp -u))/tmp.*" in reason
     assert "trap 'rm -rf \"$T\"' EXIT" in reason
-    assert "shell-and-cli.md" in reason
+    assert ".yoke/docs/agents/rules.md" in reason
     assert "lint-destructive-git" in reason
 
 

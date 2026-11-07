@@ -113,7 +113,9 @@ def _entries(directory: Path, *, strict_names: bool) -> Tuple[MigrationEntry, ..
         if sequence in by_sequence:
             raise HistoryError(
                 f"migration history has duplicate sequence {match.group(1)}: "
-                f"{by_sequence[sequence]!r} and {stem!r}"
+                f"{by_sequence[sequence]!r} and {stem!r}. A new entry takes "
+                "the next unused number: renumber the entry that has not "
+                "been applied anywhere yet"
             )
         by_sequence[sequence] = stem
         entries.append(MigrationEntry(sequence=sequence, name=stem, path=path))

@@ -78,10 +78,9 @@ def _run_architecture_impact_gate(
                     f"Cannot advance {public_ref} to '{target_status}' — "
                     "architecture_impact='uncertain'. Refine must resolve "
                     "to none, path_context_only, or "
-                    "architecture_model_change. Repair: `printf '%s' "
-                    "<value> | python3 -m yoke_core.cli.db_router "
-                    f"items update {public_ref} architecture_impact "
-                    "--stdin`."
+                    "architecture_model_change. Repair: `yoke items "
+                    f"structured-field replace {public_ref} --field "
+                    "architecture_impact --content <value>`."
                 ),
             }
         return None

@@ -6,7 +6,7 @@ Cross-link back from [event-contract.md](../event-contract.md) for the envelope 
 
 ## Governed log-table cutover
 
-Read [database authority](../public/agents/rules/databases.md) before
+Read [databases](../public/databases/index.md) before
 changing schema or bulk data. Declare/amend the item's DB claim, author a
 permanent ordered migration, name the restore point and serving floor where
 required, then rehearse through `yoke migration rehearse PREFIX-N`. Rehearse

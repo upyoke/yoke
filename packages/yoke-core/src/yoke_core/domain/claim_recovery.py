@@ -27,5 +27,5 @@ def terminal_progress_log_recovery(item_id: int, public_ref: str) -> Optional[st
             return None
     return (
         f"item {public_ref} is terminal; its result is already recorded — "
-        "skip the final checkpoint (.yoke/docs/agents/rules/item-writes.md)"
+        "skip the final checkpoint (.yoke/docs/agents/rules.md → Items and the Progress Log)"
     )

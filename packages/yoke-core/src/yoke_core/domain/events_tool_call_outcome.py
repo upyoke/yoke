@@ -30,8 +30,7 @@ classifier):
   this as required audit-trail behavior.
 * ``suppression_attempted`` — operator placed a ``# lint:no-*-check``
   suppression token on the command body. The token is honoured ONLY as
-  audit evidence so reviewers can grep bypass attempts. ``.yoke/docs/agents/rules/lanes-and-claims.md`` documents
-  the symmetry.
+  audit evidence so reviewers can grep bypass attempts.
 
 The classifier is a pure function: no I/O, no DB, no side effects. Neither
 ``warn`` nor ``suppression_attempted`` is in ``FAILED_OUTCOMES`` — they

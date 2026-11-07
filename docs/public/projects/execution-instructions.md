@@ -83,12 +83,12 @@ Before adding an instruction, classify its clauses by audience and authority:
 
 | Clause | Maintained home | Instruction appearance |
 |---|---|---|
-| Portable product rule or recipe | Public concept page or agent operation home | Concise action and exact installed or web pointer |
+| Portable product rule or recipe | Public concept page or agent rules | Concise action and exact installed or web pointer |
 | Project policy, installation topology, credentials or current operator state | Its authorized project/private owner | Only the scoped facts the receiving actor needs |
 | Source-contributor procedure | The repository's contributor documentation | A pointer only for contributors with that source |
 
 The [teaching standard](../documentation/index.md) owns how guidance is written;
-[operation homes](../agents/rules/index.md) own agent procedures. A public rule
+[agent rules](../agents/rules.md) own agent judgment. A public rule
 does not inherit an installation's release policy, account choices or current
 holds. Source-contributor maps and generated research views do not become an
 installed project's requirements.

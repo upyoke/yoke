@@ -10,6 +10,9 @@ The holder runs item cases and single-member plans with their pinned stage:
 yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
+A stage credits only cases bound to that stage and member, so a run without
+`--stage`, or for another item, does not answer it.
+
 A post-deploy plan shared by two or more release members at item QA entry runs
 once per release as one driver-owned
 [plan group](#plan-groups):
@@ -58,8 +61,14 @@ supplemental runs that recorded the delivered revision) or superseded lineage.
 Later attachers need a new group; verification passes never count post-deploy.
 
 A failed case holds its group open; retries run only failed cases.
-[Release roles](../agents/rules/release-roles.md) names fixes, retry, authorized
-waiver and removal commands. Abort notifies unless a retry is live; changed
+The driver triages the evidence and decides which attaching items owe a fix.
+It sends only those back with `yoke lifecycle transition PREFIX-N --from
+release --to implementing --reason R`. A retry with the group command reuses
+the run's pinned commit, so use it only for environment or flaky failures; a
+code fix needs a merge and a new run on a later commit. An authorized waiver
+(`yoke qa requirement waive --requirement-id ID --rationale R --source
+operator --force`) discharges one case. `yoke deployment-runs remove-item`
+detaches a member, which still owes its delivery. Abort notifies unless a retry is live; changed
 reports notify again, and closure withdraws its notice.
 Recording a case verdict while its stage is executing settles that stage in
 the same write; a group case settles its group. When the stage cannot settle,

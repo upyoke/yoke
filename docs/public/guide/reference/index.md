@@ -39,11 +39,11 @@ Machine-readable output preserves structured results. Human output emphasizes th
 
 ## Agent operation rules
 
-### Rules by operation
+### Agent rules
 
-Operation homes explain how agents carry out classes of work: code changes, shell calls, item updates, claims, verification, delivery, databases, Packs, and architecture changes. The agent should read the relevant home before acting rather than load every procedure at once.
+One short rules file holds the judgment no command can check: scope, failure ownership, QA judgment, design, naming, data, coordination, the Progress Log and release roles. Commands and hooks teach the rest through their `--help` recipes and named refusals.
 
-[Operation-home index](../../agents/rules/index.md)
+[Agent rules](../../agents/rules.md)
 
 ### Shared and project-specific authority
 

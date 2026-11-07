@@ -128,7 +128,8 @@ lane for reads, edits and tests. Scope, budget and physical path claims are
 independent. Resolve overlaps through coordination/dependencies; claims do not
 remove required scope. Exact interface contracts prevent integration gaps;
 session-sized tasks must fit their declared execution budget. See
-[lanes and claims](public/agents/rules/lanes-and-claims.md).
+[agent rules](public/agents/rules.md#coordination) and
+[path claims](public/sessions/model/path-claims.md).
 
 ## Persistent evidence and delivery
 
@@ -145,9 +146,9 @@ Verification runs through the project's declared binding and method: Command,
 Browser, inspection or mission. Record real pass/fail/pending/waived evidence,
 not inferred success. Local checks are bounded iterations; attached immutable
 QA is the complete execution. Exact-candidate evidence must survive later
-changes or be rerun. [QA](public/verification/index.md) and
-[verification rules](public/agents/rules/verification.md) own admission,
-CI continuation and failure responsibility.
+changes or be rerun. [QA](public/verification/index.md) owns admission and
+CI continuation; [agent rules](public/agents/rules.md#failures) own failure
+responsibility.
 
 Merge and delivery remain separate. Queue-declared projects use their protected
 merge-group gate. A push is not release authority. Runs take no claim: a run
@@ -157,8 +158,8 @@ run ids are executions, and the hosted flow owns exact commits/artifacts,
 environment proof and promotion. Retain history when disabling definitions.
 Project migration models govern data transforms: permanent ordered entries,
 restore points, item rehearsal and all-live-fleet release evidence; boot converges
-and applies fail-hard. [Delivery rules](public/agents/rules/delivery.md),
-[database rules](public/agents/rules/databases.md) and
+and applies fail-hard. [Delivery](public/deployments/index.md),
+[databases](public/databases/index.md) and
 [fleet rehearsal](public/databases/migration-fleet.md) own
 operation depth.
 

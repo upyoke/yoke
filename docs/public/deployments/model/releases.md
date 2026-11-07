@@ -156,7 +156,7 @@ closes independently even while sibling item QA holds the run open. The
 same final-delivery, evidence, and done gates still apply. If automatic
 close-out refuses, the member's release-wait owner is woken on the same
 delivery contract `deployment_run_driver_notice` already implements —
-a second recipient, not a second wake path. That wake resumes only a
+a second recipient, not a second wake path. The owner reads the blockers with `yoke qa gate-summary --item PREFIX-N --target implemented`; close-out retries by itself when they settle. That wake resumes only a
 natively wakeable surface; on a surface whose wake authority is operator
 the notice stays pending until the operator types, which the merge
 close-out block already told that owner. The notice fires once per

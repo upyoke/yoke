@@ -42,12 +42,10 @@ registered `yoke` packet commands, independent of cwd. Discover files/packages
 in active project or supplied paths. Config `~/.yoke/`; designated scratch for
 temporary material. DB owns `items` and `ouroboros_entries`; Board is generated.
 
-## Read the operation homes before editing
+## Read the agent rules before editing
 
-Before the first edit, read `.yoke/docs/agents/rules/index.md` and
-`.yoke/docs/agents/rules/code-and-cli.md` in the lane. Then read each further
-home the index names for an operation before you perform it: tests, claims,
-item writes, schema or delivery. These homes are required, not optional context.
+Before the first edit, read `.yoke/docs/agents/rules.md` in the lane. Each
+command's `--help` ends with its recipe, and each refusal names its fix.
 
 ## Implementation and verification
 
@@ -105,7 +103,7 @@ background with Monitor and return: atomic turns cannot receive that later wake
 and parent dispatch deadlocks. Watcher capture path comes from printed pair,
 machine temp-root watcher-captures resolver, or explicit --raw-capture. If turn
 budget cannot cover the run, return tighter scope to parent; no detached work.
-Full rule: `.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
+Full rule: `.yoke/docs/agents/claude.md` `## Long commands and waits`.
 <!-- YOKE:HARNESS end -->
 
 ## DB Quick Reference

@@ -95,8 +95,7 @@ def _format_reason(suppression_seen: bool) -> str:
         "  2. Missing adapter — ask the control-plane operator to provide it.\n"
         "     Retain the request and selected connection; direct runtime,\n"
         "     database and HTTP calls are not an agent recovery path.\n\n"
-        "Doctrine: `.yoke/docs/agents/rules/shell-and-cli.md` → Canonical yoke CLI "
-        "— the unified `yoke` CLI is the canonical agent interface; "
+        "The unified `yoke` CLI is the canonical agent interface; "
         "HTTP-against-localhost is infrastructure / debug surface."
     )
     if suppression_seen:

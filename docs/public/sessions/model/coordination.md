@@ -50,6 +50,11 @@ its claim id, and runs serialize by the servers they occupy, described in
 
 ### BOARD.md Claims column rendering
 
+`.yoke/BOARD.md` is a generated, untracked view. Nothing rebuilds it
+automatically; run `yoke board rebuild`. Board settings live in the project's
+`project-policy` capability; change them with
+`yoke projects capability-settings set` (read its `--help`).
+
 The Active Harness Sessions and Recent Sessions tables share one Claims column that renders all three primitives as keycap entries. The shapes:
 
 | Primitive               | Active shape                | Example                            |

@@ -26,7 +26,10 @@ through the CLI or an agent; the dashboard has no setup or creation controls.
 Use `yoke projects capability-settings set --help` for required settings and
 creation options; `--new` creates a capability and `--base` protects an update
 against concurrent changes. Prefer Yoke resolvers that materialize credentials
-into subprocess env without printing secret values.
+into subprocess env without printing secret values. A bare cloud command such
+as `aws ...` reads only ambient shell credentials, so it may fail or reach the
+wrong account. To check a credential, verify that the key exists or show
+redacted evidence; never print the value.
 
 Runner fleets expose the strict boolean `lifecycle.writers_paused`, default
 false. True renders `webapp-infra:lifecycle_writers_paused` and holds webhook,

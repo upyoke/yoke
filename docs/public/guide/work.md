@@ -70,7 +70,7 @@ A **worktree** is an isolated checkout for a change. A **lane** is the working l
 
 Claims help agents avoid conflicting assignments. Overlapping work may need an ordering dependency or an explicit coordination decision. A handoff transfers responsibility with recorded state rather than relying on a private conversation's memory.
 
-Cleanup follows the workflow's completion process. It must preserve unfinished work and evidence needed for recovery. [Worktrees and claims](../agents/rules/lanes-and-claims.md)
+Cleanup follows the workflow's completion process. It must preserve unfinished work and evidence needed for recovery. [Path claims](../sessions/model/path-claims.md)
 
 ## Review and merge
 

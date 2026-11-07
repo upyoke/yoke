@@ -49,7 +49,6 @@ File each decision with `yoke decision-requests ask --key <key> --question "..."
 
 ## Operation homes
 
-Before an operation, read its home in `.yoke/docs/agents/rules/`, then the command's `--help`.
 Live recipes: `yoke packets render --role main_agent`.
 
 - `code-and-cli.md`: code, naming, teaching. `shell-and-cli.md`: shell and CLI calls.
