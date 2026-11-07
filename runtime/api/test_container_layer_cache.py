@@ -14,7 +14,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim" in dockerfile
-    assert "FROM runtime-base AS builder" in dockerfile
+    assert "FROM tools AS builder" in dockerfile
     assert "FROM ${PYTHON_IMAGE} AS runtime-base" in dockerfile
     assert "FROM runtime-base AS runtime" in dockerfile
     assert "--mount=type=bind,source=packages,target=/build/packages,rw" in dockerfile
@@ -48,7 +48,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
 
 def test_dependency_inputs_exclude_source_and_release_identity():
     dockerfile = (ROOT / "Dockerfile").read_text()
-    dependencies, builder = dockerfile.split("FROM runtime-base AS builder", 1)
+    dependencies, builder = dockerfile.split("FROM tools AS builder", 1)
     assert "--no-install-workspace" in dependencies
     assert "--locked --no-default-groups" in dependencies
     assert "COPY runtime" not in dependencies
@@ -80,7 +80,47 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "UV_CACHE_DIR=/build/packages/.uv-build-cache" in builder
     assert "source=/wheels,target=/wheels" in runtime
     assert "--mount=type=bind,from=tools" in dependencies
+    assert "uv venv /opt/yoke-build-env" in dependencies
+    assert "--no-build-isolation --offline" in builder
+    assert "--python /opt/yoke-build-env/bin/python" in builder
+    assert "FROM runtime-base AS builder" not in dockerfile
     assert "--mount=type=bind,from=tools" in runtime
+
+
+def test_cached_backend_install_uses_every_declared_build_requirement(monkeypatch):
+    import re
+    import tomllib
+
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    tools = dockerfile.split("FROM ${PYTHON_IMAGE} AS runtime-base", 1)[0]
+    command = re.search(
+        r'python -c "(import pathlib, subprocess, tomllib;[^\n]+)"', tools
+    )
+    assert command is not None
+    expected = set()
+    for manifest in (ROOT / "packages").glob("yoke-*/pyproject.toml"):
+        assert f"COPY {manifest.relative_to(ROOT)} " in tools
+        expected.update(tomllib.loads(manifest.read_text())["build-system"]["requires"])
+    calls = []
+    monkeypatch.chdir(ROOT)
+    monkeypatch.setattr(
+        subprocess, "run", lambda args, **kwargs: calls.append((args, kwargs))
+    )
+    exec(command.group(1), {})
+    assert calls == [
+        (
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                "/opt/yoke-build-env/bin/python",
+                "--no-cache",
+                *sorted(expected),
+            ],
+            {"check": True},
+        )
+    ]
 
 
 @pytest.mark.parametrize("wheel,bundle", [(0, 0), (1, 0), (0, 1), (1, 1)])
@@ -125,33 +165,44 @@ def test_parallel_validation_requires_both_processes_to_succeed(
 
 
 @pytest.mark.parametrize("failed_package", ["", "yoke-cli", "yoke-core"])
-def test_image_builds_only_product_wheels_and_stops_on_failure(
+def test_product_builds_run_concurrently_and_wait_for_every_result(
     tmp_path, failed_package
 ):
+    import sys
+
     uv = tmp_path / "uv"
-    uv.write_text('#!/bin/sh\necho "$4" >> "$CALLS"\ntest "$4" != "$FAILED_PACKAGE"\n')
-    uv.chmod(0o755)
-    command = (
-        "for package in "
-        + (ROOT / "Dockerfile")
-        .read_text()
-        .split("for package in ", 1)[1]
-        .split("done", 1)[0]
-        + "done"
+    uv.write_text(
+        f"#!{sys.executable}\n"
+        "import os, pathlib, sys, time\n"
+        "root = pathlib.Path(os.environ['CALLS'])\n"
+        "package = sys.argv[4]\n"
+        "(root / package).touch()\n"
+        "deadline = time.monotonic() + 3\n"
+        "while len(list(root.iterdir())) < 4:\n"
+        "    if time.monotonic() > deadline: sys.exit(90)\n"
+        "    time.sleep(0.01)\n"
+        "(root.parent / ('finished-' + package)).touch()\n"
+        "sys.exit(package == os.environ['FAILED_PACKAGE'])\n"
     )
+    uv.chmod(0o755)
+    calls = tmp_path / "calls"
+    calls.mkdir()
+    command = 'pids="";' + (ROOT / "Dockerfile").read_text().split('pids="";', 1)[1]
+    command = command.split("&& python packages/", 1)[0]
     result = subprocess.run(
         ["sh", "-c", command.replace("\\\n", "")],
         env={
             **os.environ,
             "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
-            "CALLS": str(tmp_path / "calls"),
+            "CALLS": str(calls),
             "FAILED_PACKAGE": failed_package,
         },
         capture_output=True,
+        timeout=10,
     )
-    products = ["yoke-contracts", "yoke-cli", "yoke-harness", "yoke-core"]
-    expected = (
-        products[: products.index(failed_package) + 1] if failed_package else products
-    )
-    assert (tmp_path / "calls").read_text().splitlines() == expected
+    products = {"yoke-contracts", "yoke-cli", "yoke-harness", "yoke-core"}
+    assert {p.name for p in calls.iterdir()} == products
+    assert {
+        p.name.removeprefix("finished-") for p in tmp_path.glob("finished-*")
+    } == products
     assert (result.returncode == 0) == (not failed_package)
