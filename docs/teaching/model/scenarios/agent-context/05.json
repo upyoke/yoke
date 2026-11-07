@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Delegating an authorized task or continuing its current phase",
- "need": "Canonical role → generated harness adapter → relevant conditional references, plus a dispatch prompt carrying item, lane, policies, project docs and QA. Before the first edit the worker must read the operation-home index and code-and-cli.md in its lane, then each home the index names before that operation; the role body and the Conduct dispatch prompt both require it. The Engineer paths are a concrete example of the role family.",
+ "need": "Canonical role → generated harness adapter → relevant conditional references, plus a dispatch prompt carrying item, lane, policies, project docs and QA. Before the first edit the worker must read the agent rules file (.yoke/docs/agents/rules.md) in its lane; the role body and the Conduct dispatch prompt both require it. The Engineer paths are a concrete example of the role family.",
  "disclosure": "current cue",
  "surface": "Role renderer + harness-native adapter + task-specific dispatch context",
  "gap": "Shared conditional references currently use Claude rendering; the accepted harness-correct access repair still needs proof. This example does not certify every role/harness combination. The operation-home read is a required instruction with no read-receipt guard, so a worker that skips it is not refused.",
