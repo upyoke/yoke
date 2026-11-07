@@ -9,6 +9,15 @@ ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim
 
 FROM ${PYTHON_IMAGE} AS tools
 RUN python -m pip install --no-cache-dir uv==0.12.1
+WORKDIR /build
+COPY packages/yoke-core/pyproject.toml ./packages/yoke-core/pyproject.toml
+COPY packages/yoke-cli/pyproject.toml ./packages/yoke-cli/pyproject.toml
+COPY packages/yoke-contracts/pyproject.toml ./packages/yoke-contracts/pyproject.toml
+COPY packages/yoke-harness/pyproject.toml ./packages/yoke-harness/pyproject.toml
+# Build backends have the same exact versions as the product manifests. Cache
+# their isolated environment once, without adding build tools to the runtime.
+RUN uv venv /opt/yoke-build-env \
+    && python -c "import pathlib, subprocess, tomllib; requirements = sorted({r for p in pathlib.Path('packages').glob('*/pyproject.toml') for r in tomllib.loads(p.read_text())['build-system']['requires']}); subprocess.run(['uv', 'pip', 'install', '--python', '/opt/yoke-build-env/bin/python', '--no-cache', *requirements], check=True)"
 
 FROM ${PYTHON_IMAGE} AS runtime-base
 
@@ -54,27 +63,33 @@ RUN --mount=type=bind,source=packages/yoke-contracts/src,target=/bootstrap/contr
     python -c "import runpy, shutil; binaries = runpy.run_path('/bootstrap/postgres_binaries.py')['ensure_binaries'](); shutil.move(str(binaries.parent), '/opt/yoke-postgres'); shutil.rmtree('/tmp/postgres-bootstrap')" \
     && chown -R yoke:yoke /opt/yoke-postgres
 
-FROM runtime-base AS builder
+FROM tools AS builder
 
 WORKDIR /build
+COPY pyproject.toml uv.lock ./
 
-# Source and setuptools scratch live only in this writable bind mount. The
-# cache receives wheels, never another copy of the application source tree.
+# Wheel production can run alongside runtime layer downloads. Each backend
+# writes into its own package directory in the discarded source bind mount.
 ARG YOKE_ENGINE_VERSION=""
 
 RUN --mount=type=bind,source=packages,target=/build/packages,rw \
     --mount=type=bind,source=.git_archival.txt,target=/build/.git_archival.txt \
-    --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
     if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CLI="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_HARNESS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE="$YOKE_ENGINE_VERSION"; \
     fi; \
+    pids=""; \
     for package in yoke-contracts yoke-cli yoke-harness yoke-core; do \
         UV_CACHE_DIR=/build/packages/.uv-build-cache \
-        uv build --wheel --package "$package" --out-dir /wheels || exit $?; \
-    done \
+        uv build --wheel --package "$package" --out-dir /wheels \
+            --python /opt/yoke-build-env/bin/python --no-build-isolation --offline & \
+        pids="$pids $!"; \
+    done; \
+    status=0; \
+    for pid in $pids; do wait "$pid" || status=1; done; \
+    test "$status" -eq 0 \
     && python packages/yoke-core/src/yoke_core/tools/wheel_module_completeness.py \
         --package-root packages/yoke-core/src/yoke_core \
         --wheel /wheels/yoke_core-*.whl
