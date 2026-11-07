@@ -107,7 +107,7 @@ def _source_member(path: Path, package_root: Path) -> str | None:
 def _classify_member(member: str) -> str:
     path = PurePosixPath(member)
     parts = path.parts
-    if parts[:2] == _BUNDLE_ROOT and parts != (*_BUNDLE_ROOT, "__init__.py"):
+    if parts[:2] == _BUNDLE_ROOT:
         return "bundle-payload"
     package = ".".join(parts[:-1])
     module = path.stem
