@@ -94,6 +94,7 @@ def _run_hook(
 
 
 def _roster_evidence(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    rows = [row for row in rows if (row.get("session_state") or {}).get("status") != "ended"]
     return {
         "live_roster_count": len(rows),
         "tool_active_bucket_proxy_count": sum(
@@ -115,7 +116,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
     surface = str(identity.get("executor_surface") or harness)
     env["YOKE_EXECUTOR"] = harness
     roster_start = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--status", "waiting"), env).get("rows", [])
+        _run_json(run, ("sessions", "list", "--full"), env).get("rows", [])
     )
     started_at = parse_instant(utc_now())
     samples = []
@@ -220,7 +221,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "incomplete" if incomplete else "pending" if pending else "complete"
         )
     roster_end = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--status", "waiting"), env).get("rows", [])
+        _run_json(run, ("sessions", "list", "--full"), env).get("rows", [])
     )
     summary = summarize_samples(samples)
     sample_statuses = {sample["status"] for sample in samples}

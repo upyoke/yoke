@@ -221,7 +221,7 @@ def sessions_get(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, "yoke sessions get SESSION [--session-id S] [--json]"
+        parser, args, "yoke sessions get SESSION [--full] [--session-id S] [--json]"
     )
     if parsed is None:
         return 2

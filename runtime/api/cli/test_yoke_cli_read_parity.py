@@ -54,7 +54,7 @@ def _run(*argv):
             function=request.function,
             version=request.version,
             request_id=request.request_id,
-            result={"environments": []},
+            result={"environments": [], "fields": ["status", "active_at", "reason"], "rows": []},
         )
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "read-parity-test"}):

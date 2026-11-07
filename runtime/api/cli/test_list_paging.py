@@ -68,6 +68,10 @@ def run_list(monkeypatch, argv, key, *, large=False, legacy=False):
             if legacy
             else page_result({key: rows}, key, request.payload)
         )
+        if request.function == "sessions.list":
+            result["fields"] = ["status", "active_at", "reason"]
+            for row in result[key]:
+                row["session_state"] = {"status": "waiting", "active_at": None, "reason": "Waiting."}
         return FunctionCallResponse(
             success=True,
             function=request.function,

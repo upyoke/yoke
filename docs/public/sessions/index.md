@@ -9,7 +9,7 @@ Inspect session liveness, work ownership and steering communication.
 ## Sessions
 
 Web dashboard **Sessions** lists harness sessions against this universe: who is
-running, what item they hold, and whether each is parked.
+running, what item they hold, and whether each is Working, Waiting or Ended.
 
 Held item IDs show Frozen and Blocked pills from the item's own state. If
 both apply, Frozen appears first and colors the active workflow segment ice

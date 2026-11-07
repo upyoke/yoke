@@ -68,3 +68,16 @@ def test_frontier_and_roster_share_project_idle_and_open_call_facts(test_db):
         item = next(row for row in overview.result_payload["rows"] if row["title"] == "Status parity")
         assert roster["status"] == expected
         assert item["frontier_group"]["activity"] == expected
+
+    set_project_policy_value(test_db, 1, "session_idle_minutes", 5)
+    test_db.execute(
+        "INSERT INTO session_tool_calls (session_id,tool_use_id,tool_name,started_at) "
+        "VALUES ('status-holder','status-watch','Bash',%s)",
+        (now - timedelta(minutes=10),),
+    )
+    test_db.commit()
+    roster = list_sessions(session_id="status-holder")[0]
+    overview = handle_items_overview_list(request_for("items.overview.list", {"relevance": "overview"}))
+    item = next(row for row in overview.result_payload["rows"] if row["title"] == "Status parity")
+    assert roster["status"] == "working"
+    assert item["frontier_group"]["activity"] == "working"
