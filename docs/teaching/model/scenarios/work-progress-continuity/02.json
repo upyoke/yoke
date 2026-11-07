@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke strategy doc get --help", "yoke workflows item get --help"],
  "plan_notes": ["FIRST-USER D", "JOURNEYS row 11", "outside both"],
- "sources": [".agents/skills/yoke/onboard/run-and-rows.md", ".agents/skills/yoke/steer/loop.md", ".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/wrapup/record-and-close.md"],
+ "sources": [".agents/skills/yoke/onboard/run-and-rows.md", ".agents/skills/yoke/steer/loop.md", ".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/wrapup/SKILL.md"],
  "position": 1
 }

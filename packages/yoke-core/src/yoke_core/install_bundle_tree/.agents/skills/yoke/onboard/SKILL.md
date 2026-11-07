@@ -6,12 +6,6 @@ argument-hint: "[--project P] [--run-id RUN]"
 
 # /yoke onboard
 
-Operator decisions in this skill always use an Inbox decision request. Follow
-`.yoke/docs/sessions/inbox.md#operator-questions`: workers route through steering
-when a seat is live, otherwise use `decision-requests ask` directly; raise the
-question in chat and record the answer with resolve. Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
-
-
 Unless it just passed, check the session; relay each failure's fix, rerun, and
 continue when all pass or only passable warnings remain. A harness CLI sign-in
 WARN allows onboarding: tell the person that worker launches need the CLI and

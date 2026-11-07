@@ -14,7 +14,7 @@ def test_polish_files_under_file_budget_limits() -> None:
     (300-line design target is advisory).
     """
     limit = 350
-    for name in ("parse-and-claim.md", "advance.md", "fixes.md"):
+    for name in ("parse-and-claim.md", "review.md", "advance.md"):
         path: Path = POLISH_DIR / name
         line_count = len(path.read_text(encoding="utf-8").splitlines())
         assert line_count <= limit, (

@@ -11,6 +11,6 @@
  "review": "Source and regression evidence cover Dash recovery, selection amendment and new-path-only widen refusal; deployed recipe proof is still pending.",
  "recipes": ["yoke claims path coordination-decision-build --help"],
  "plan_notes": ["FIRST-USER 35", "outside both"],
- "sources": [".agents/skills/yoke/idea/path-claim-blocking.md", ".agents/skills/yoke/idea/path-closure.md", "packages/yoke-core/src/yoke_core/domain/path_claims_override.py", "docs/path-claims.md", ".agents/skills/yoke/dash/survey-and-isolate.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/workflows_item_posture.py"],
+ "sources": [".agents/skills/yoke/idea/path-claim-blocking.md", ".agents/skills/yoke/idea/body-and-sync.md", "packages/yoke-core/src/yoke_core/domain/path_claims_override.py", "docs/path-claims.md", ".agents/skills/yoke/dash/survey-and-isolate.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/workflows_item_posture.py"],
  "position": 1
 }

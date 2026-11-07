@@ -1,6 +1,6 @@
 # Dash — survey and isolate
 
-Read effective policies first. Each survey replaces the whole touch set; list every concrete file. Contacts are advisory: independent edits proceed, ordered ones wait for the holder's merge, unresolved scope goes to `yoke say --steering`. When path claims are selected, register every file before prepare (`yoke claims path register --help`).
+Read effective policies first. Each survey replaces the whole touch set; list every concrete file. Resolve contacts per [coordination](../../../../.yoke/docs/agents/rules.md#coordination). When path claims are selected, register every file before prepare (`yoke claims path register --help`).
 
 ```text
 yoke workflows item get ITEM --json
@@ -14,4 +14,4 @@ Work only in the returned `worktree_path`. NEXT_STAGE is the single forward edge
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Dash execution started"
 ```
 
-Next: [implement](implement.md).
+Then make the smallest complete change. No change needed: survey `--no-changes`, then [close-out](close-out.md#laneless). Next: [verify](verify.md).

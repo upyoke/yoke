@@ -1,6 +1,6 @@
 ---
 name: conduct
-description: "Execute the pinned workflow segment bound to conduct through generated task lanes, the Engineer/Tester loop, and integration simulation."
+description: "Run an epic's generated tasks through Engineer/Tester lanes and integration simulation."
 argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 ---
 
@@ -9,8 +9,6 @@ argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 Obey Workflow Execution Instructions and every AC.
 
 ## Phase map
-
-Do NOT read all files upfront.
 
 1. Entry: [entry-gates.md](entry-gates.md)
 2. Claim and lanes: [entry-activation.md](entry-activation.md)

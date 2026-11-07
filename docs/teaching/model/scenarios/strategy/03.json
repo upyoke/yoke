@@ -10,6 +10,6 @@
  "gap": "Steer close-out teaches the archive step once every linked item is done. Open: whether a scope, evidence and deferral audit should precede it, and how it coexists with Blitz automatically archiving its execution document on successful done.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 15"],
- "sources": [".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/wrapup/record-and-close.md", "docs/public/workflows/index.md"],
+ "sources": [".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/wrapup/SKILL.md", "docs/public/workflows/index.md"],
  "position": 2
 }

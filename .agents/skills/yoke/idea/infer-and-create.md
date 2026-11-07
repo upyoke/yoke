@@ -2,8 +2,8 @@
 
 ## 2. Infer
 
-- Project: explicit or the checkout's; else ask. See
-  [reference-and-scope-verification.md](reference-and-scope-verification.md).
+- Project: explicit or the checkout's; else ask. Verify named paths and
+  symbols in that project's own checkout.
 - Flow: [infer-deployment-flow.md](infer-deployment-flow.md).
 - Workflow: smallest fitting active row of
   `yoke workflows definition get --project "$_project" --json`; epic only

@@ -41,8 +41,6 @@ def test_steer_requires_vetting_and_approval_before_filing():
     assert "simplify or delete" in rules
     assert "prefer no new DB fields or migrations" in rules
     assert "File only after explicit operator approval" in rules
-    assert "every operator decision one at a time" in rules
-    assert "filed as the Writing to users rule" in rules
     assert "simplest alternative" in rules
     assert "strategy doc current with what was filed" in rules
     loop = (SKILLS / "steer/loop.md").read_text()

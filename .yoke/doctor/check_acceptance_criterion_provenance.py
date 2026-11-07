@@ -95,7 +95,7 @@ LABEL_FORMAT_SURFACES: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/engines/"
     "advance_implementation_preflight_gates.py",
     "runtime/agents/",
-    ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
+    ".agents/skills/yoke/shepherd/boss-verdict.md",
     ".agents/skills/yoke/polish/review.md",
     "runtime/api/domain/test_data/browser_qa_inference/",
 ) + RENDERED_ADAPTER_SURFACES

@@ -13,3 +13,7 @@ yoke claims work release --claim-id {claim_id} --reason doctor_complete --json
 - After `--fix`, rerun the same scope; run `git worktree prune` for
   missing-worktree warnings.
 - File remaining issues through `/yoke idea`.
+- On a long-stale installation, run read-only first and confirm the volume:
+  `--fix` may edit many GitHub issues.
+- `--fix` never edits code, prompts or skills. `HC-doc-health` findings need
+  manual work.

@@ -7,9 +7,8 @@ yoke qa plan run --item PREFIX-N --transition <verification-stage>
 yoke qa case run --requirement-id <id>
 ```
 
-The plan run is the one full execution; iterate with
-`yoke watch pytest --impacted main --bounded`. Never run a case's command
-by hand or substitute a smaller one.
+The plan run is the one full execution. Never run a case's command by hand
+or substitute a smaller one.
 
 - Exit 12: dispatch the returned review bundle now; submit its verdicts.
 - `HUMAN_GATE`: checkpoint, route to steering or the owner, resume after.

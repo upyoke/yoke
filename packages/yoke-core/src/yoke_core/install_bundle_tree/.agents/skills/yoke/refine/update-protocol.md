@@ -1,6 +1,6 @@
 # Refine — Write, Verify, Advance
 
-Typed writes only; never shell-transform a field:
+Never shell-transform a field:
 ```bash
 yoke items structured-field append-addendum "$ITEM_REF" --field spec --heading "<addition-heading>" --source refine --stdin
 ```
