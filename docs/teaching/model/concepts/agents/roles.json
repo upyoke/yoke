@@ -5,5 +5,5 @@
  "surface_refs": ["execution-instructions", "skills-roles"],
  "page": "agents",
  "position": 1,
- "summary": "All eight subagents inherit parent session tools and permissions on Claude, Codex and Cursor. Role instructions define editing and state-change boundaries; reviewer access does not authorize source edits."
+ "summary": "All eight subagents inherit parent session tools and permissions on Claude, Codex and Cursor. Role instructions define editing and state-change boundaries; reviewer access does not authorize source edits. Each role prompt states only its job, inputs, output and judgment: Claude and Codex subagents load AGENTS.md, so prompts do not restate its rules; Cursor's subagent loading of AGENTS.md is unconfirmed, so Cursor adapters keep the core rules and feedback directive in a Cursor-only block."
 }

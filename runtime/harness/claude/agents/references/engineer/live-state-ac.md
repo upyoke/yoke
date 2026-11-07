@@ -1,24 +1,13 @@
 # Engineer — Live-State AC Execution Semantics
 
-Read when ACs name live DB, deployments, external services or shared mutable
-state. Architect tags execution intent; untagged intent never grants mutation.
+Read when an acceptance criterion names a live database, a deployment, an
+external service or other shared mutable state.
 
-## `[READ-ONLY]`
-
-Inspect/query/verify only. Satisfied condition records passing QA; mismatch
-records failing QA with observed versus expected state, reports and stops.
-Do not repair live state: the mismatch is the deliverable (e.g. missing CHECK
-constraint is reported, never added under a verification tag).
-
-## `[APPLY-MUTATION]`
-
-Apply through that domain's sanctioned write path: governed schema history,
-registered `yoke <subcommand>` control-plane updates (packet/--help), or declared
-deployment pipeline for infrastructure. Read migration-protocol.md before DDL,
-especially destructive work; author/rehearse, then boot convergence applies.
-Verify resulting state. The intent label does not waive domain safeguards.
-
-## Untagged live-state ACs
-
-Default to `[READ-ONLY]`. Never mutate from ambiguous verification language.
-Report ambiguity in structured output so parent requests Architect clarification.
+- `[READ-ONLY]`: inspect and verify only. A mismatch is the deliverable: record
+  observed against expected state and stop. Never repair live state under this
+  tag.
+- `[APPLY-MUTATION]`: change state only through its sanctioned write path —
+  the migration history (read `.claude/agents/references/engineer/migration-protocol.md` first), a registered
+  `yoke` command, or the declared deployment pipeline — then verify the result.
+- Untagged: treat as `[READ-ONLY]` and report the ambiguity so the parent can
+  ask the Architect.

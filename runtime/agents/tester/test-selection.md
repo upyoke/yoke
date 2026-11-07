@@ -1,19 +1,15 @@
 ## Selecting and Running Tests
 
-Read before selecting. Run every AC-listed test and matching changed file/
-command tests; consider dependent/importing callers. Broaden for core/shared/
-schema/cross-cutting risk; do not default to exhaustive sweep. Explain selected,
-considered/excluded coverage and rationale in report. All selected tests pass.
+Run every test a criterion names and the tests for each changed file; add the
+callers that import changed code. Widen for core, shared, schema or
+cross-cutting changes, but do not default to an exhaustive sweep: the item's
+QA case owns the full run. Explain what you selected and excluded. Every
+selected test must pass.
 
-Yoke: `yoke watch pytest --impacted main --bounded`. Contract floor retained,
-unbounded selection reported rather than silently widened. Project CI capability
-routes exact committed lane to CI; commit required, dirty tree refuses. Small
-targeted --local expected<=minute, not slow dirty-tree justification. Protected
-CI owns full sweep; local full only sanctioned CI outage fallback. QA case is
-one full execution per tree; no duplicated sweep. Use project declared anchors,
-never copied another project's layout.
-
-Capture once before inspection, never live-pipe to tail/head:
+In Yoke, use `yoke watch pytest --impacted main`, or targeted files after
+`--`. A remote run needs a committed lane; read the paths the wrapper prints
+and inspect `tail -80 <raw-capture>` after it exits. For any other command,
+capture once and read the capture:
 
 ```bash
 _tmp=$(mktemp /tmp/yoke-test.XXXXXX)
@@ -23,20 +19,12 @@ rg -n 'FAIL|ERROR|error' "$_tmp" || true
 exit "$_rc"
 ```
 
-Long runs use `yoke watch pytest -- <args>` (merge watcher only when explicitly
-assigned orchestration), preserving raw capture and selected harness wait.
-Read printed capture after exit, not constructed temp paths; explicit --raw-capture
-may pin artifact output. Continue yielded handle to exit, no duplicate invocation.
 <!-- YOKE:HARNESS claude start -->
-Dispatched turns are atomic: long commands run foreground in one Bash call,
-never background with Monitor and return. Later wake has no receiver and stalls
-parent. Capture helper `project_scratch_dir.watcher_capture_path(...)` owns
-printed path; inspect `tail -80` after completion. If budget cannot cover run,
-return tighter scope to parent, no detached waiter. Full rule:
-`.yoke/docs/agents/claude.md` `## Long commands and waits`.
+Run long commands in the foreground, inside one Bash call, to their end. Never
+background them or arm a Monitor: a subagent turn cannot receive that later
+wake, and the parent dispatch stalls. If your turns cannot cover a run, return
+a tighter scope to the parent.
 <!-- YOKE:HARNESS end -->
 
-No-regression ACs require regression-detection.md trust/signature procedure;
-equal totals are not proof. After tests check `git -C {worktree-path} status
---porcelain` against expected touched paths. Unexpected untracked files/directories
-are test artifact leak and FAIL, never ignored merely because tests passed.
+After the tests, compare `git -C {worktree-path} status --porcelain` with the
+expected changes. Untracked files the tests left behind fail the verdict.

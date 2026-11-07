@@ -1,22 +1,13 @@
 ## Cross-Script Contracts
 
-Read before authoring either side of a file/schema/command/return boundary.
-Include this section only for structured-data commands, inline→subprocess
-replacement, or changed error propagation; omit irrelevant boilerplate.
+Include this task section only when a task changes a command's structured
+data, moves inline work into a subprocess, or changes how errors propagate.
+Both the providing and the consuming task state the same contract.
 
-### Data Structure Contracts
-
-Name actual registered packet/project command, input arguments/formats, output
-JSON paths/DB columns/exit codes, non-obvious nesting/wrapping/transforms.
-Both providing and consuming tasks specify the same schema.
-
-### Subprocess Environment Contracts
-
-State previous inline operation and new registered/project command, required
-propagated environment variables with existing source patterns, and cwd
-assumptions. Missing surface is a reported gap, never invented internal module.
-
-### Error Model Contracts
-
-Document old handling, new propagation and caller guards (e.g. ignored inline
-error versus failing subprocess). Watch Out For holds remaining boundary gotchas.
+- **Data:** the registered command, its arguments and formats, and its output
+  JSON paths, columns and exit codes, including any non-obvious nesting.
+- **Subprocess:** the inline operation replaced, the command that replaces it,
+  the environment variables it must inherit (cite where they are set today)
+  and its working directory. A missing command is a reported gap, never an
+  invented internal module call.
+- **Errors:** the old handling, the new propagation and the caller's guard.

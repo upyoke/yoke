@@ -1,79 +1,40 @@
 # Architect — Hard Constraints
 
-Read/apply before technical plan, task specs or worktree plan.
+Apply before writing the technical plan, task specs or worktree plan.
 
-## Hard Constraints
-
-1. **Session-fit sizing.** One session without compaction per task: XS<10k
-   tokens, S10–30k, M30–60k, L60–100k (scrutinize), XL>100k never allowed: split.
-2. **Worktree independence.** List every touched file. Cross-lane conflicts
-   require partition repair or justified attested coordination; no dependent
-   same-hunk overlap across lanes. Programmatic overlap check verifies coverage.
-3. **Logical dependency groups.** Types/handlers, schema/migrations and other
-   logically coupled files share one lane and explicit group in worktree plan.
-4. **Sequential within, parallel across.** Default multi-lane fan-out where
-   budget/scope allows independent groups. Single-lane needs explicit blocker:
-   linear live-surface DAG, semantically dependent same hunk, or <=3tasks whose
-   overhead exceeds saved time. Shared additive settings are not inherently
-   blocking; disjoint claims and attested coordination_only permit independence.
-   Worktree Decomposition justifies shape; no convenience/shared-claim excuse.
-5. **Tests/docs/contracts mandatory.** Each task specifies test and documentation
-   work and exact provided/expected interfaces.
-6. **Epic ACs mandatory.** Technical Plan Acceptance Criteria maps every spec
-   requirement to epic ACs and every epic AC to task ACs; prose-only coverage
-   is insufficient. FR Traceability provides structural proof.
-7. **FR-to-task traceability.** FR Traceability table sits between Task Summary
-   and Task Dependency Graph. Enumerate all FR-N; verify mapped task AC intent.
-   Unmapped FR needs task or verified Coverage Note exclusion. Plain-bullet specs
-   use R-1 etc. Never emit unmapped requirements.
-8. **Epic size.** Beyond about20tasks propose sequential epic split with rationale.
-9. **Generated files.** Flag locks/compiled/build artifacts auto-resolve on merge;
-   exclude generated output from authored overlap checks.
-10. **Single responsibility.** One primary concern per task. Split unrelated
-    subsystem/concern conjunctions: migrations, substantial test suite and
-    independent documentation batch need coherent ownership. Required tests and docs
-    remain covered; splitting does not silently omit them.
-11. **Semantic anchors.** Reference functions/classes/headings/variables/markers/
-    unique literals, never changing source line numbers.
-12. **Same-file sequencing.** Within one lane declare dependencies, foundational
-    task first; later insertion anchors reference its added content. List file,
-    tasks and required order in Same-file modifications. Prevent parallel edits
-    assuming incompatible baselines. Cross-lane order (merge points, activation
-    gates) is likewise a task dependency, never plan prose alone.
-13. **Live-state AC tags.** Exactly `[READ-ONLY]` or `[APPLY-MUTATION]` on live DB/
-    deployment/service/shared-state ACs; no MUTATE/WRITE aliases. Untagged defaults
-    read-only, so mutation needs explicit intent and domain safeguards.
-14. **Pack-first capabilities.** Search existing focused packs before reusable
-    scripts/workflows/deployment/infra. New capability: immutable version bundle
-    with files/settings/dependencies/docs/verification/project gaps. Changed
-    capability: new version plus preview-first project update. Installed files
-    are project-owned, runtime output scratch/deploy-run; project settings in DB,
-    policies/docs in project .yoke. No project output in Yoke source, forced
-    upstream customizations, drift policing/pruning or whole-project sync.
-15. **File size.** Every authored tracked file<=350 lines, design<=300. Plan splits
-    before large responsibility exceeds cap; universal file_line_check applies.
-16. **File Budget upstream and independent of claims.** Read workflows.item.get effective
-    file_budget/path_claims only. required_per_task preserves task File Budget:
-    named planned files, single responsibilities and headroom. Name300+line
-    owners and decide split or bounded additions BEFORE planning concludes. Pair
-    explicit edit paths with claims only when claims enabled. Claims-off budgets
-    still size/check conflict evidence; disabled budgets do not create contracts.
-    Both off: plan the full execution scope without inventing either artifact.
-
-## Documentation File Checklist
-
-For changed capabilities review all relevant owners, including public entrypoints:
-- README.md: features, commands, layout, FAQ.
-- AGENTS.md (CLAUDE.md symlink): rules/layout/counts.
-- .yoke/docs/agents/commands.md: command catalog.
-- .agents/skills/yoke/SKILL.md: command router.
-- Every other AGENTS-linked doc and source/discovery reference to the behavior.
-
-Include actual references in task coverage/ACs; a missing top-level doc leaves
-users unaware and gives Tester no explicit verification target.
-
-Before specifying changed behavior, read
-`.yoke/docs/agents/rules.md` for complete scope, portable behavior and real
-consumer contracts. Derive concise action teaching from the single standard
-at `.yoke/docs/documentation/index.md`; include every renderer output in the
-task scope and prove the receiving main/worker context before claiming delivery.
+1. **Session-fit sizing.** Each task fits one session without compaction:
+   XS <10k tokens, S 10–30k, M 30–60k, L 60–100k (scrutinize). Split anything
+   larger; XL is never allowed. Beyond about 20 tasks, propose splitting the
+   epic with a rationale.
+2. **One concern per task.** Split unrelated subsystems; a migration, a large
+   test suite or an independent documentation batch each gets a coherent owner.
+   Splitting never drops required tests or docs.
+3. **Tests, docs and contracts.** Every task specifies its test and
+   documentation work and its exact provided and expected interfaces.
+4. **Traceability.** Map every spec requirement (FR-N, or R-1… for plain-bullet
+   specs) to epic acceptance criteria and every epic criterion to task criteria
+   in the FR Traceability table. An unmapped requirement needs a task or an
+   evidence-backed Coverage Note.
+5. **Semantic anchors.** Point at functions, classes, headings, markers or
+   unique literals, never line numbers.
+6. **Same-file sequencing.** Tasks in one lane that edit the same file declare
+   a dependency, foundational task first, and are listed under Same-file
+   modifications. Any ordering, in or across lanes, is a task dependency; plan
+   prose alone does not hold.
+7. **Lane independence.** List every touched file. Logically coupled files
+   (types and handlers, schema and migration) share a lane. Dependent same-hunk
+   edits never span lanes. Generated files (locks, build output) resolve on
+   merge and stay out of authored overlap checks.
+8. **Live-state tags.** A criterion on a live database, deployment, service or
+   shared state carries exactly `[READ-ONLY]` or `[APPLY-MUTATION]`. Untagged
+   means read-only, so a mutation needs the tag and its recovery or rollback.
+9. **Packs first.** Before planning a reusable script, workflow, deployment or
+   infrastructure capability, check `yoke packs list`. A changed pack ships as a
+   new version that projects preview before updating.
+10. **File Budget.** When enabled, name each planned file, its single
+    responsibility and its headroom, and decide before planning ends how a file
+    near the authored-file limit is split.
+11. **Documentation.** Cover every doc that teaches the changed behavior —
+    README, `AGENTS.md`, the command catalog, skills and other linked docs —
+    following `.yoke/docs/documentation/index.md`, and name each one in the task
+    so the Tester has a target.

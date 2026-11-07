@@ -3,8 +3,10 @@
 Covers the renderer contract: the single-line
 ``<!-- YOKE:FIELD-NOTE -->`` marker is recognized, expanded to
 ``field_note_text.FOOTER``, and every canonical agent body carries
-exactly one marker at the documented insertion target. Rendered Claude /
-Codex adapters carry the expanded text and no orphan markers.
+exactly one marker. Claude and Codex subagents load AGENTS.md, which carries
+the feedback directive, so their adapters drop the footer; Cursor's subagent
+loading of AGENTS.md is unconfirmed, so its adapters keep it. No rendered
+adapter carries an orphan marker.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from yoke_core.domain.agents_render import (
     render_claude_agent,
 )
 from yoke_core.domain.agents_render_codex import render_codex_agent_body
+from yoke_core.domain.agents_render_cursor import render_cursor_agent_body
 from yoke_core.domain.agents_render_field_note import (
     MARKER,
     count_field_note_markers,
@@ -116,7 +119,7 @@ def test_every_expected_agent_body_carries_exactly_one_marker(
 _RENDERED_AGENTS = tuple(a for a in EXPECTED_MARKERED_AGENTS if a != "tester-browser")
 
 
-def test_rendered_claude_adapter_carries_footer_and_no_marker(
+def test_rendered_claude_adapter_omits_footer_and_marker(
     repo_root: Path,
 ) -> None:
     for agent in _RENDERED_AGENTS:
@@ -124,22 +127,31 @@ def test_rendered_claude_adapter_carries_footer_and_no_marker(
         assert MARKER not in rendered, (
             f"rendered Claude adapter for {agent} still carries the marker"
         )
-        assert DIRECTIVE in rendered, (
-            f"rendered Claude adapter for {agent} missing FOOTER directive"
-        )
-        assert BASIC_RECIPE in rendered, (
-            f"rendered Claude adapter for {agent} missing FOOTER recipe line"
+        assert DIRECTIVE not in rendered, (
+            f"rendered Claude adapter for {agent} restates the AGENTS.md directive"
         )
 
 
-def test_rendered_codex_adapter_body_carries_footer(repo_root: Path) -> None:
+def test_rendered_codex_adapter_body_omits_footer(repo_root: Path) -> None:
     canonical_dir = repo_root / CANONICAL_DIR
     for agent in _RENDERED_AGENTS:
         body = render_codex_agent_body(canonical_dir, agent)
         assert MARKER not in body, (
             f"rendered Codex body for {agent} still carries the marker"
         )
-        assert FOOTER in body, f"rendered Codex body for {agent} missing FOOTER block"
+        assert DIRECTIVE not in body, (
+            f"rendered Codex body for {agent} restates the AGENTS.md directive"
+        )
+
+
+def test_rendered_cursor_adapter_body_carries_footer(repo_root: Path) -> None:
+    canonical_dir = repo_root / CANONICAL_DIR
+    for agent in _RENDERED_AGENTS:
+        body = render_cursor_agent_body(canonical_dir, agent)
+        assert MARKER not in body, (
+            f"rendered Cursor body for {agent} still carries the marker"
+        )
+        assert FOOTER in body, f"rendered Cursor body for {agent} missing FOOTER block"
 
 
 def test_tester_browser_canonical_body_carries_marker_without_ouroboros(
