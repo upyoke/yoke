@@ -100,6 +100,8 @@ def test_build_command_clears_incremental_module_staging(
     staging_was_clean: list[bool] = []
 
     class FakeBuildPy:
+        editable_mode = True
+
         def run(self) -> None:
             staging_was_clean.append(not Path(self.build_lib).exists())
 
@@ -111,9 +113,12 @@ def test_build_command_clears_incremental_module_staging(
     command = types.ModuleType("setuptools.command")
     build_module = types.ModuleType("setuptools.command.build_py")
     build_module.build_py = FakeBuildPy
+    sdist_module = types.ModuleType("setuptools.command.sdist")
+    sdist_module.sdist = type("FakeSdist", (), {})
     monkeypatch.setitem(sys.modules, "setuptools", setuptools)
     monkeypatch.setitem(sys.modules, "setuptools.command", command)
     monkeypatch.setitem(sys.modules, "setuptools.command.build_py", build_module)
+    monkeypatch.setitem(sys.modules, "setuptools.command.sdist", sdist_module)
     spec = importlib.util.spec_from_file_location(
         "yoke_core_product_setup",
         REPO_ROOT / "packages/yoke-core/setup.py",

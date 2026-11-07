@@ -42,7 +42,9 @@ def _expected_tree() -> dict[str, bytes]:
     marker = MANAGED_BLOCK_END.encode("utf-8")
     for rel in INSTALL_BUNDLE_SOURCE_FILES:
         data = (REPO_ROOT / rel).read_bytes()
-        expected[rel] = data[: data.index(marker) + len(marker)] + b"\n"
+        if rel == "AGENTS.md":
+            data = data[: data.index(marker) + len(marker)] + b"\n"
+        expected[rel] = data
     return expected
 
 
