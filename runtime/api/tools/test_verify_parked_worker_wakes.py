@@ -1,5 +1,7 @@
 """Taking over a parked QA requirement cannot restart its observation day."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from runtime.api.tools.verify_parked_worker_wakes import first_deployment_sql
@@ -40,4 +42,4 @@ def test_takeover_keeps_first_deployment_clock_and_target(test_db, remove_predec
         """)
     query = first_deployment_sql("'takeover'", 1)
     deployed_at = test_db.execute(f"SELECT {query}").fetchone()[0]
-    assert deployed_at.isoformat() == "2026-11-02T10:10:00+00:00"
+    assert deployed_at == datetime(2026, 11, 2, 10, 10, tzinfo=timezone.utc)
