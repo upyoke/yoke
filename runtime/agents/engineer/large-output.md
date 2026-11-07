@@ -1,34 +1,22 @@
 # Engineer — Large Output Handling
 
-Read before commands with large output. Capture once; the saved file answers
-every later question without rerunning tests for failure lines.
+Capture a large output once and answer every later question from the capture;
+never rerun a command to see more of its output.
 
 ```bash
 _tmp=$(mktemp /tmp/yoke-test.XXXXXX)
-<project test command> >"$_tmp" 2>&1; _rc=$?
+<command> >"$_tmp" 2>&1; _rc=$?
 tail -50 "$_tmp"
 rg -n 'FAIL|ERROR|error' "$_tmp" || true
 exit "$_rc"
 ```
 
-Use registered project verification, never invented tracked `.sh` runners.
-Helper summary replay often includes failure labels in tail; read more of the
-same capture when necessary. Debug the failing test alone, not another sweep.
+`yoke watch pytest` captures for you: read the paths it prints, never build
+them, and after it exits inspect `tail -80 <raw-capture>`.
 
-For runs likely >60s use `yoke watch pytest -- <args>` instead. It streams
-progress and owns raw/filtered files from
-`yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair("pytest")` in
-machine temp-root watcher-captures. Read printed paths; never construct them.
-After exit inspect `tail -80 <raw-capture>`. Explicit `--raw-capture <path>` may
-pin CI/artifact capture; helper default preferred. Continue same yielded handle
-to exit; do not duplicate, background a subagent waiter or manually poll.
-
-## Size-aware reads and recovery
-
-Before reading any temp file inspect `wc -l < <file>`. Over 500 lines: targeted
-tail/ranges/search, never blind full read. Read token-limit failure requires
-immediate offset/limit recovery: test summaries near end, source ranges found
-with scoped search. Never abandon needed information or rerun to recover it.
+Check `wc -l < <file>` before reading a capture. Over 500 lines, read targeted
+ranges or search; when a read hits the token limit, retry with an offset and
+limit at once.
 
 ## Narrow command answers
 
@@ -42,7 +30,5 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 ```
 <!-- END GENERATED: read-recipe -->
 
-Help carries this recipe; root --help owns catalog. Registered reads serve the
-requested shape whole. rg/sed/tail/head extract files/captures, never truncate a
-live long invocation. Watcher capture or capture-first file preserves full
-failure context for repeated inspection.
+Cut files and captures with `rg`, `sed` or `tail`; never pipe a live `yoke`
+command into `head` or `tail`.
