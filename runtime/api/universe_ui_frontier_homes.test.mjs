@@ -33,6 +33,29 @@ test("home membership and counts stay exclusive across the full chain", () => {
   assert.match(byClass(tile, "next-actor")[0].textContent, /Next: parent or steering/);
 });
 
+test("reference tiles stay opaque over graph lines while off-band tiles keep their states", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const css = await readFile(new URL("../../packages/yoke-core/src/yoke_core/ui/static/frontier_graph.css", import.meta.url), "utf8");
+  const rules = [...css.matchAll(/\.universe-app-root \.fdv-tile((?:\.[\w-]+)*)\{([^}]*)\}/g)];
+  const resolve = (...classes) => {
+    const style = {};
+    for (const [, modifiers, body] of rules) {
+      if (!modifiers.split(".").filter(Boolean).every((name) => classes.includes(name))) continue;
+      for (const [, name, value] of body.matchAll(/([\w-]+):([^;]+)/g)) {
+        if (name === "border") style["border-style"] = value.split(" ")[1];
+        else style[name] = value;
+      }
+    }
+    return style;
+  };
+  assert.equal(resolve("is-reference").background, "var(--yoke-surface)");
+  assert.equal(resolve("is-reference", "is-stall").background, "var(--yoke-crit-bg)");
+  for (const state of ["is-ghost", "is-dead"]) {
+    assert.deepEqual([resolve("is-reference", state).background, resolve("is-reference", state)["border-style"]], ["transparent", "dashed"]);
+  }
+  assert.equal(resolve("is-reference", "is-dead")["border-left-color"], "var(--yoke-crit)");
+});
+
 test("missing server projection names the required recovery", () => {
   assert.throws(() => frontierBandRows({ items: [{ public_ref: "I-1" }], readyRows: [], blockedRows: [], sessionRows: [] }), /frontier_group_unavailable.*Update/);
 });
