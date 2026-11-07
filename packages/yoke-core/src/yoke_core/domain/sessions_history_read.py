@@ -31,7 +31,6 @@ from yoke_core.domain.session_list_fields import (
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.session_state import session_state
 
-
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
 #: How far back a machine tile's 24-hour usage figures reach.
@@ -65,6 +64,13 @@ HISTORY_FIELDS = (
     "activity_at",
     "last_tool_call_at",
     "session_state",
+    "status",
+    "active_at",
+    "reason",
+    "chat_title",
+    "last_heartbeat",
+    "turn_posture_at",
+    "native_turn_end_recorded_at",
     "next_actor",
     "ended_at",
     "terminated_at",
@@ -198,7 +204,7 @@ def read_ended_session_history(
         + actor_label
         + " AS actor_label, s.executor, s.executor_surface, "
         "s.model, s.requested_model, s.machine_id, s.mode, s.quiet_reason, "
-        "s.last_tool_call_at, "
+        "s.last_tool_call_at, s.last_heartbeat, s.turn_posture_at, s.native_turn_end_recorded_at, "
         + _MACHINE_NAME
         + " AS machine_name, "
         + _ACTIVITY
@@ -212,6 +218,9 @@ def read_ended_session_history(
     has_more = len(rows) > limit
     page = rows[:limit]
     schedule = revision_schedule(conn) if page else []
+    from yoke_core.domain.session_display import session_display_details
+
+    display = session_display_details(conn, [row["session_id"] for row in page])
     rendered = []
     for raw in page:
         row = dict(raw)
@@ -236,6 +245,7 @@ def read_ended_session_history(
                 "actor_label": row.get("actor_label"),
                 "executor": row.get("executor"),
                 "executor_surface": row.get("executor_surface"),
+                "chat_title": display.get(str(row["session_id"]), {}).get("chat_title"),
                 "model": row.get("model"),
                 "requested_model": row.get("requested_model"),
                 "machine_id": row.get("machine_id"),
@@ -243,6 +253,15 @@ def read_ended_session_history(
                 "activity_at": row.get("activity_at"),
                 "last_tool_call_at": row.get("last_tool_call_at"),
                 "session_state": state,
+                **{key: state[key] for key in ("status", "active_at", "reason")},
+                **{
+                    key: row.get(key)
+                    for key in (
+                        "last_heartbeat",
+                        "turn_posture_at",
+                        "native_turn_end_recorded_at",
+                    )
+                },
                 "next_actor": state["next_actor"],
                 "ended_at": row.get("ended_at"),
                 "terminated_at": row.get("terminated_at"),
@@ -278,23 +297,11 @@ def read_recent_session_usage_by_machine(
     project_ids: Optional[Collection[int]],
     org_session_actor_id: int | None = None,
 ) -> dict[str, Any]:
-    """Every session's full usage for the sessions a machine's 24-hour figures
-    answer for, unpaginated, scoped to ``project_ids`` (every visible project
-    when ``None``).
+    """Read complete usage for sessions started or ended in the 24h window.
 
-    The cohort is the union of two halves, because either one alone tells a
-    half-truth about a machine that is busy right now: sessions that ENDED
-    inside the window, and sessions that STARTED inside it and have not ended.
-    A session cannot be in both halves — ended and not-ended are exact
-    complements — so the union counts each session exactly once without a
-    distinct pass. A still-open session that started before the window is
-    deliberately out: its cumulative usage is not a reading of the last 24
-    hours.
-
-    A killed session dates by ``terminated_at`` via ``ended_at_sql``, matching
-    ``ended_session_sql``'s own definition of ended so it is never silently
-    dropped for lacking ``ended_at``. A live session dates by ``offered_at``,
-    the same stamp the roster renders as when a session started.
+    End stamps include termination. Older still-open sessions stay outside
+    the cohort because their cumulative usage cannot answer for this window.
+    Project visibility and org ownership bound both halves of the union.
     """
     marker = placeholder(conn)
     clauses, params = _scope(conn, project_ids, org_session_actor_id)

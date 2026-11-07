@@ -24,17 +24,14 @@ def frontier_group(
         return home("release", why="awaiting_delivery")
     if is_frozen(row.get("frozen")) or is_blocked(row.get("blocked")):
         return home("on_hold", why=row.get("blocked_reason") or "item_on_hold")
-    holders = [s for s in holder_states if s.get("presence") != "ended"]
+    holders = [s for s in holder_states if s.get("status") != "ended"]
     if holders:
-        working = any(
-            s.get("presence") == "present"
-            and s.get("activity") == "working"
-            and (s.get("intent") or {}).get("state") == "none"
-            for s in holders
-        )
-        return home("in_progress", activity="working" if working else "held")
+        working = any(s.get("status") == "working" for s in holders)
+        return home("in_progress", activity="working" if working else "waiting")
     if row.get("terminal") or row.get("exceptional") or row.get("needs_spec"):
-        return home("on_hold", why="needs_spec" if row.get("needs_spec") else "work_halted")
+        return home(
+            "on_hold", why="needs_spec" if row.get("needs_spec") else "work_halted"
+        )
     if row.get("dependency_holds_pickup"):
         return home("waiting")
     if next_actor.get("actor") in {"operator", "ci_or_deploy"}:

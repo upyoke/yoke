@@ -197,13 +197,13 @@ test("the failed segment carries its failure without a second red line", () => {
 test("parked state and age remain while the lifecycle strip stays item-only", () => {
   const rendered = card(new FakeDocument(), {
     mode: "parked",
-    session_state: { presence: "present", activity: "silent", intent: { state: "parked" } },
+    session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent", intent: { state: "parked" } },
   });
   const badge = byClass(rendered, "pill").find(
-    (node) => node.attributes.get("data-state") === "silent",
+    (node) => node.attributes.get("data-state") === "waiting",
   );
-  assert.equal(badge.textContent, "silent");
-  assert.match(byClass(rendered, "session-intent")[0].textContent, /parked/);
+  assert.equal(badge.textContent, "Waiting");
+  assert.match(byClass(rendered, "session-details")[0].getAttribute("data-tooltip"), /Intent: parked/);
   assert.equal(byClass(rendered, "session-age").length, 1);
   assert.equal(byClass(rendered, "delivery-run-stages").length, 1);
 });

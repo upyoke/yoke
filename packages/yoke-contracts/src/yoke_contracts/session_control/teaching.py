@@ -12,7 +12,7 @@ printf '%s\\n' 'PEER REPLY' | yoke say --session EXACT-REQUESTING-SESSION-ID --s
 printf '%s\\n' 'PEER REPLY' | yoke say --session EXACT-REQUESTING-SESSION-ID --steering-scope '{"project_id": N}' --stdin  # No applicable held item
 printf '%s\\n' 'MESSAGE' | yoke say --actor ben --stdin  # Human organization member
 printf '%s\\n' 'MESSAGE' | yoke say --steering --stdin  # Whoever is steering your work
-# No claim addresses them? `yoke sessions list --presence present`, then --session
+# No claim addresses them? `yoke sessions list --status waiting`, then --session
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 # The list serves one row per message: sender, state, recipients, expiry, first line.
 yoke messages get MESSAGE-ID && yoke messages acknowledge MESSAGE-ID  # The body"""

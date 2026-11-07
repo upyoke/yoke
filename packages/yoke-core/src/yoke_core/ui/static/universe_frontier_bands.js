@@ -142,14 +142,9 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         flag: reason.flag, timestamp: row.created_at, timeLabel: "filed",
       }), row));
     }
-    const active = rows.active.filter(({ row }) => kept(row)).map(({ row, reason }) => card(
+    const active = rows.active.filter(({ row }) => kept(row)).map(({ row }) => card(
       row,
       () => withClaimants(workItemCard(documentNode, row, scope, {
-        flag: reason?.flag || {
-          label: row.frontier_group.activity === "working" ? "Working" : "Held, not working",
-          text: String(row.frontier_group.reason).replaceAll("_", " "),
-          tone: row.frontier_group.activity === "working" ? "ready" : "blocked",
-        },
         stages: rows.stages.get(reference(row)) || [],
         timestamp: row.updated_at,
       }), row),
@@ -216,7 +211,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
 
     bands.active.setCount(active.length);
     const progressCards = [];
-    for (const [activity, label] of [["working", "Working"], ["held", "Held, not working"]]) {
+    for (const [activity, label] of [["working", "Working"], ["waiting", "Waiting"]]) {
       const members = rows.active.filter(({ row }) => kept(row) && row.frontier_group.activity === activity);
       if (!members.length) continue;
       progressCards.push(el(documentNode, "h3", "frontier-progress-heading", `${label} (${members.length})`));

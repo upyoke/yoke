@@ -14,18 +14,18 @@ test("session search matches native titles and fallback labels without widening 
   const controls = byClass(filters.host, "session-filter-control");
   const titled = {
     session_id: "native-chat", harness_title: "[Release Notes]",
-    project_id: 1, liveness: "active", executor: "codex",
+    project_id: 1, session_state: {status: "waiting", active_at: null, reason: "Waiting."}, liveness: "active", executor: "codex",
   };
   const fallback = {
     ...titled, session_id: "launched-chat", harness_title: null,
     display_label: "Review deployment receipts · codex-cli",
   };
   const other = { ...titled, session_id: "other-project", project_id: 2 };
-  const ended = { ...titled, session_id: "ended-chat", liveness: "ended" };
+  const ended = { ...titled, session_id: "ended-chat", liveness: "ended", session_state: {status: "ended", active_at: null, reason: "Ended."} };
   controls[0].value = "[RELEASE NOTES]";
-  controls[2].value = "1";
+  controls[1].value = "1";
   assert.deepEqual(filters.apply([titled, fallback, other, ended]), [titled]);
-  assert.deepEqual(filters.applyOpen([titled, other, ended]), [titled, ended]);
+  assert.deepEqual(filters.applyOpen([titled, other, ended]), [titled]);
   controls[0].value = "deployment receipts";
   assert.deepEqual(filters.apply([titled, fallback]), [fallback]);
   controls[0].value = "missing title";
@@ -44,7 +44,7 @@ test("the Sessions toolbar is a search, four filters, and actions led by Clear",
     filters.host.children.map((node) => node.className),
     [
       "session-roster-filter session-filter-search",
-      "session-roster-filter", "session-roster-filter",
+      "session-status-filters", "session-roster-filter",
       "session-roster-filter", "session-roster-filter",
       "session-filter-actions",
     ],

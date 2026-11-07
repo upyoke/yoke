@@ -170,7 +170,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
   const emit = () => {
     if (context.isMounted()) onChange();
   };
-  const historyVisible = () => ["", "ended"].includes(filters.state());
+  const historyVisible = () => filters.statuses().includes("ended");
   const resetHistory = () => {
     generation += 1;
     if (searchTimer) clearTimeout(searchTimer);
@@ -248,7 +248,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
   };
 
   const filtersChanged = (key) => {
-    if (key === "state") {
+    if (key === "status") {
       if (historyVisible() && !historyLoaded && !historyLoading) loadHistory();
       else {
         if (!historyVisible()) {
@@ -281,21 +281,15 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
     loadMore: () => loadHistory(historyLoaded),
     filtersChanged,
     rows() {
-      const state = filters.state();
-      if (state && state !== "ended") return visibleOpenRows();
-      if (state === "ended") return visibleHistoryRows();
-      return [...visibleOpenRows(), ...visibleHistoryRows()];
+      return [...visibleOpenRows(), ...(historyVisible() ? visibleHistoryRows() : [])];
     },
     // The server counts ordinary ended matches across the whole history.
     // Outside-project history is filtered locally, so only loaded matches
     // count there. Open matches always come from the roster the client holds.
     matchedTotal() {
-      const state = filters.state();
       const historyMatches = filters.outsideProjectOnly()
         ? visibleHistoryRows().length : matchedCount;
-      if (state && state !== "ended") return visibleOpenRows().length;
-      if (state === "ended") return historyMatches;
-      return visibleOpenRows().length + historyMatches;
+      return visibleOpenRows().length + (historyVisible() ? historyMatches : 0);
     },
     historyEmptyMessage() {
       if (!filters.outsideProjectOnly() || !historyVisible()) return null;

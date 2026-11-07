@@ -10,7 +10,7 @@ function card(extra) {
     session_id: "session-1",
     liveness: "active",
     executor: "codex",
-    session_state: { presence: "present", activity: "working", intent: { state: "none" } },
+    session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } },
     claims: [],
     activity_at: new Date().toISOString(),
     activity_quiet_at: "2099-01-01T00:00:00Z",
@@ -20,20 +20,19 @@ function card(extra) {
 }
 
 test("intent carries the recorded wait reason separately from activity", () => {
-  const rendered = card({ session_state: { presence: "present", activity: "silent",
+  const rendered = card({ session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent",
     intent: { state: "parked", reason: "waiting on a blocking claim" } } });
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "silent");
-  assert.equal(byClass(rendered, "session-intent")[0].textContent,
-    "Intentparked · waiting on a blocking claim");
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Waiting");
+  assert.match(byClass(rendered, "session-details")[0].getAttribute("data-tooltip"), /Intent: parked · waiting on a blocking claim/);
 });
 
 test("a state with nothing to explain shows no affordance", () => {
   const rendered = card({});
   assert.deepEqual(
     byClass(rendered, "session-status-pill").map((node) => node.textContent),
-    ["working"],
+    ["Working"],
   );
-  assert.equal(byClass(rendered, "tooltip-info").length, 0);
+  assert.equal(byClass(rendered, "session-details").length, 1);
 });
 
 test("the status pill leads the second header row, beside the model", () => {
@@ -48,7 +47,7 @@ test("the status pill leads the second header row, beside the model", () => {
   assert.equal(byClass(top, "session-status-pill").length, 0);
   assert.deepEqual(
     top.children.map((node) => node.className),
-    ["session-harness h-other", "session-executor row-link", "session-level has-tooltip"],
+    ["session-harness h-other", "session-executor row-link", "session-level has-tooltip", "tooltip-info has-tooltip session-details"],
   );
 });
 

@@ -17,33 +17,39 @@ blue; Blocked remains visible beside it. Blocked alone colors that segment
 red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
-The CLI filters the same projection before pagination: `yoke sessions list
---presence present`, `--activity working`, and `--intent awaiting` can be
-combined. Presence accepts present, gone or ended; activity accepts working,
-between_turns or silent; intent accepts none, parked or awaiting.
-`yoke sessions get SESSION-ID` reads one session. The list command no longer
-accepts `--liveness`; message recipient selection keeps its own `--liveness`
-flag. Protected claims remain held independently of activity and presence.
+The server computes one status for the Sessions page, Frontier, Machines and
+`yoke sessions list`: **Working**, **Waiting** or **Ended**. Working means a
+live tool call, or an unfinished turn with a recent sign of life. A finished
+turn is Waiting. End stamps make a session Ended. A native process exit does
+not change status: a session can resume after that process exits.
 
-The roster opens on **Open**: sessions whose shared presence is present.
-**Working**, **Between turns**, **Parked or awaiting**, **Silent**, **Gone** and
-**Ended** separate the roster into non-overlapping groups. Intentional parks
-and waits take precedence over activity in these groups. Open and All are
-aggregate views; All also loads ended history.
+The recent window is the project's `session_idle_minutes` (20 minutes by
+default). **active** uses the latest tool call, heartbeat, prompt/stop marker
+or recorded turn end. The status comes from the server, never a browser clock.
 
-Cards show presence, activity, intent and its reason, next actor, and holdings
-separately. **last tool** uses the last tool call, never a heartbeat; an unknown
-tool clock says unavailable. Machines show working, held and silent counts.
-**Reclaim sessions** uses the server's reclaimable flag and rechecks protection
-before acting; claims remain protected even when their process is gone.
-An older server without the shared projection shows state unavailable; upgrade
-the server and refresh to use the detailed filters.
+The roster has independent status checkboxes: Working and Waiting start on;
+Ended starts off. Selecting Ended loads cursor-paged history. Any combination,
+including none, is allowed. Filter the CLI before pagination with
+`yoke sessions list --status working|waiting|ended`. `yoke sessions get SESSION-ID
+--full` keeps the diagnostic fields.
 
-On the **Frontier**, every claimed item's card carries its holding session's
-chip — surface, park state, and quiet reason — whichever band it lands in.
-**Owner unavailable**, with its advice that a steering-seat holder frees the
-item with `yoke claims work release --claim-id N`, appears for a holder without a declared pause whose process is gone
-and whose surface cannot resume it from its transcript.
+Cards show one status, one plain reason and active age. The header's **(i)**
+reveals presence, activity, intent and its reason, next actor and the tool,
+prompt/stop, turn-end and heartbeat times. Holdings and steering keep their
+own sections. A stored native chat title adds a line when it differs from the
+launch item's ref and title and the session has no steering claim; the harness
+name stays in the header. Machines count working, waiting and held sessions.
+An older server without status, active time or reason asks you to refresh after
+the server upgrade instead of guessing a status.
+
+Frontier chips show the same three statuses and open the holding session's
+card. They do not repeat its intent or the item's next-action sentence.
+**Reclaim sessions** still uses the server's reclaimable flag and rechecks
+protection before acting; a claim remains protected regardless of status.
+
+The steering fleet report, fleet-delta alarms, message liveness, reclaim,
+`liveness`, last-tool ages in session labels, and raw reason codes in CLI
+Frontier and item reads retain their separate presence/activity/intent rules.
 
 Yoke resumes a session headlessly only when Yoke launched it and the surface
 allows native wakes. Each session stores `launch_origin`: `yoke` after launch

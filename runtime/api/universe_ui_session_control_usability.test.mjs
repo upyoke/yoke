@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -252,25 +253,17 @@ test("roster State uses accepted liveness values while kill cause stays on the c
       facets: { projects: [], harnesses: [], machines: [] },
     }),
   });
-  const stateField = byClass(root, "session-roster-filter").find(
-    (field) => field.children[0]?.textContent === "State",
-  );
-  const state = stateField.children[1];
-  assert.deepEqual(
-    state.children.map((option) => option.value),
-    ["open", "working", "between_turns", "parked", "silent", "gone", "ended", ""],
-  );
+  assert.deepEqual(statusChecks(root).map((check) => check.value), ["working", "waiting", "ended"]);
   assert.equal(byClass(root, "session-card").length, 0);
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["ended"]);
   await settle();
   assert.equal(byClass(root, "session-card").length, 2);
   // The kill rides the card's one timing region, the same region a live card
   // uses for its age, rather than a fact line only ended cards have.
   const killed = byClass(root, "session-card")[0];
   assert.match(byClass(killed, "session-age")[0].textContent, /^killed /);
-  assert.equal(byClass(killed, "session-history-reason")[0].textContent,
-    "Reason: operator stopped worker");
+  assert.equal(byClass(killed, "session-history-reason").length, 0);
+  assert.match(byClass(killed, "session-details")[0].getAttribute("data-tooltip"), /operator stopped worker/);
   // An end nobody recorded a time for says so instead of reading as recent.
   const wound = byClass(root, "session-card")[1];
   assert.match(

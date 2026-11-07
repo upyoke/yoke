@@ -48,10 +48,10 @@ same words `yoke frontier list` and the steering report print.
 
 Each item has one server-assigned home section (`frontier_group`). On hold
 contains frozen, blocked, missing-spec and halted work. It keeps that home
-when other items depend on it. In progress separates Working from Held, not
-working using the holder's shared presence, activity and intent; a parked or
-gone holder retains custody and displays its reason. Each card shows the next
-actor and reason. Dependency references in the graph are smaller outlined
+when other items depend on it. In progress separates Working from Waiting using the holder's shared server
+status. A finished turn is Waiting; process exits never change status or
+custody. Each card shows its next-action sentence once in plain words, with
+raw reason and next-actor detail behind its (i). Dependency references in the graph are smaller outlined
 cards naming their home and activity, with a link to their home card. Section
 counts exclude references. The project filter keeps whole dependency chains
 across projects, and session chips open the holder's session card.

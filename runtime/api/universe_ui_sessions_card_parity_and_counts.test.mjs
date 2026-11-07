@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 // One card renderer for every session, and one count for how much of the
 // current filter is on screen. Both are things a status branch used to own:
 // an ended session was drawn in a simpler shape, and its page count was a
@@ -54,6 +55,7 @@ function statValues(root) {
 }
 
 const BASE_ROW = {
+  session_state: {status: "waiting", active_at: null, reason: "Waiting."},
   project: "yoke", project_id: 1, executor: "codex",
   executor_surface: "codex-cli", execution_level: "DARIUS",
   executor_mark: "X", executor_class_name: "h-codex",
@@ -148,12 +150,7 @@ test("the sessions-shown tile carries the page against the filtered match", asyn
     },
   });
 
-  const stateField = byClass(root, "session-roster-filter").find(
-    (field) => field.children[0]?.textContent === "State",
-  );
-  const state = stateField.children[1];
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["ended"]);
   await settle();
   assert.deepEqual(statValues(root)[0], ["2 of 4,758", "sessions shown"]);
   // The tile is the only place the page count is stated.
@@ -168,8 +165,7 @@ test("the sessions-shown tile carries the page against the filtered match", asyn
 
   // Unfiltered counts open and ended rows together, so its denominator means
   // the same thing as either single-state one.
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting", "ended"]);
   await settle();
   assert.deepEqual(statValues(root)[0], ["5 of 4,759", "sessions shown"]);
   mounted.unmount();
@@ -183,24 +179,21 @@ test("Open excludes gone processes while Parked retains present parked claims", 
       assert.ok(request.payload.open, "Parked needs no ended history");
       return ok({ rows: [
         { ...BASE_ROW, session_id: "running", liveness: "active",
-          session_state: { presence: "present", activity: "working", intent: { state: "none" } } },
+          session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } } },
         { ...BASE_ROW, session_id: "parked", liveness: "waiting", mode: "parked",
-          session_state: { presence: "present", activity: "silent", intent: { state: "parked" } } },
+          session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent", intent: { state: "parked" } } },
         { ...BASE_ROW, session_id: "gone", liveness: "stale",
-          session_state: { presence: "gone", activity: "silent", intent: { state: "none" } } },
+          session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "gone", activity: "silent", intent: { state: "none" } } },
       ] });
     },
   });
-  assert.deepEqual(statValues(root)[0], ["2", "sessions shown"]);
-  assert.equal(byClass(root, "session-card").length, 2);
-  const state = byClass(root, "session-roster-filter").find(
-    (field) => field.children[0]?.textContent === "State",
-  ).children[1];
-  state.value = "parked";
-  state.dispatchEvent(new Event("change"));
+  assert.deepEqual(statValues(root)[0], ["3", "sessions shown"]);
+  assert.equal(byClass(root, "session-card").length, 3);
+
+  setStatuses(root, ["waiting"]);
   await settle();
   assert.deepEqual(statValues(root).slice(0, 2), [
-    ["1", "session shown"], ["1", "item claimed"],
+    ["2", "sessions shown"], ["1", "item claimed"],
   ]);
   assert.equal(byClass(root, "session-item-link")[0].textContent, "YOK-1");
   mounted.unmount();

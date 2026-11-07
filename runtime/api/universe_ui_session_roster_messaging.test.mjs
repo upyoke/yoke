@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -24,6 +25,7 @@ function sessionRow(sessionId, liveness, overrides = {}) {
   return {
     session_id: sessionId,
     liveness,
+    session_state: {status: liveness === "ended" ? "ended" : "waiting", active_at: null, reason: "Waiting for direction."},
     executor: "codex",
     executor_surface: "codex-cli",
     model: "gpt-5.6-sol",
@@ -112,23 +114,17 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
   assert.deepEqual(
     fields.map((field) => field.classList.contains("session-filter-search")
       ? "Search" : field.children[0].textContent),
-    ["Search", "State", "Project", "Harness", "Machine"],
+    ["Search", "Project", "Harness", "Machine"],
   );
-  const state = fields[1].children[1];
-  assert.equal(state.value, "open");
-  assert.deepEqual(
-    state.children.map((entry) => [entry.value, entry.textContent]),
-    [["open", "Open"], ["working", "Working"], ["between_turns", "Between turns"],
-      ["parked", "Parked or awaiting"], ["silent", "Silent"], ["gone", "Gone"],
-      ["ended", "Ended"], ["", "All"]],
-  );
+  assert.deepEqual(statusChecks(root).map((check) => [check.value, check.checked]),
+    [["working", true], ["waiting", true], ["ended", false]]);
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   const staleCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "stale-cursor",
   );
   assert.equal(staleCard.classList.contains("is-stale"), false);
   assert.deepEqual(byClass(staleCard, "session-status-pill").map((pill) => pill.textContent),
-    ["unavailable"]);
+    ["Waiting"]);
   // One roster read, this view's own scoped load; the page's durable 24h
   // spend read fires beside it, because the window it answers for is not
   // the filtered roster. The app-wide steering-color read
@@ -142,8 +138,7 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
     ],
   );
 
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting", "ended"]);
   await settle();
   assert.deepEqual(
     cardIds(root), ["active-codex", "stale-cursor", "ended-cursor"],
@@ -153,12 +148,10 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
   );
   assert.equal(anyStaleCard.classList.contains("is-stale"), false);
   assert.equal(byClass(anyStaleCard, "session-stale-pill").length, 0);
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["ended"]);
   await settle();
   assert.deepEqual(cardIds(root), ["ended-cursor"]);
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting", "ended"]);
   await settle();
   const harness = fields.find(
     (field) => field.children[0].textContent === "Harness",
@@ -173,7 +166,7 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
   );
 
   button(root, "Clear").dispatchEvent(new Event("click"));
-  assert.equal(state.value, "open");
+  assert.deepEqual(statusChecks(root).map((check) => check.checked), [true, true, false]);
   assert.equal(harness.value, "");
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   assert.equal(
@@ -204,14 +197,10 @@ test("Message all sends to the exact current roster result without a preview ste
   };
   const { root, mounted } = await mountRoster(t, rows, requests, handlers);
   const fields = byClass(root, "session-roster-filter");
-  const state = fields.find(
-    (field) => field.children[0]?.textContent === "State",
-  ).children[1];
   const harness = fields.find(
     (field) => field.children[0].textContent === "Harness",
   ).children[1];
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting", "ended"]);
   await settle();
   harness.value = "cursor";
   harness.dispatchEvent(new Event("input"));
@@ -227,7 +216,7 @@ test("Message all sends to the exact current roster result without a preview ste
   });
   assert.equal(
     byClass(root, "session-message-filter-summary")[0].textContent,
-    "Filters: State: any · Harness: cursor",
+    "Filters: Status: working, waiting, ended · Harness: cursor",
   );
   assert.equal(byClass(root, "session-message-preview-list")[0].children.length, 2);
   assert.equal(button(root, "Preview recipients"), undefined);

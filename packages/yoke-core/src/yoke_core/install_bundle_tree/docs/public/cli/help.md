@@ -108,13 +108,13 @@ CLI's options; public docs describe the current service. A project-relative
 
 ## Session and item state reads
 
-`yoke sessions list` and `yoke sessions get SESSION` show presence, activity,
-intent, next actor and holds from the same model as the web pages. Intent and
-custody include their reasons. Filter before pagination with `--presence
-present|gone|ended`, `--activity working|between_turns|silent`, or `--intent
-none|parked|awaiting`. The session read flag `--liveness` is removed; a server
-receiving it names the required client floor and upgrade recovery. Message
-recipient filters remain documented separately in [Inbox](../sessions/inbox.md).
+`yoke sessions list` shows server status (Working, Waiting or Ended), one plain
+reason, active age and holds. Filter before pagination with
+`--status working|waiting|ended`. `yoke sessions get SESSION --full` keeps
+presence, activity, intent, custody and next actor as detail. The old state
+selectors are removed. An older server lacking status, active time or reason
+requires the carrying server upgrade before the client can show its roster.
+Message recipient filters remain documented separately in [Inbox](../sessions/inbox.md).
 
 `yoke items list` and `yoke items get ITEM stage home_section next_actor progress`
 show the pinned workflow stage, Frontier home, next action and ordered stage

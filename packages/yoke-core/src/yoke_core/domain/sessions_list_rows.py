@@ -119,7 +119,9 @@ def render_session_roster_rows(
     display = session_display_details(conn, [row["session_id"] for row in page])
     from yoke_core.domain.next_actor_facts import next_actor_facts
 
-    actor_facts, _ = next_actor_facts(conn, session_ids=[row["session_id"] for row in page])
+    actor_facts, _ = next_actor_facts(
+        conn, session_ids=[row["session_id"] for row in page]
+    )
     for row in page:
         activity_at, _parsed = _latest_activity(
             row.get("last_heartbeat"),
@@ -155,13 +157,29 @@ def render_session_roster_rows(
             entry.get(ITEM_AWAITING_LANDING_KEY) for entry in holdings["current"]
         )
         model = session_state(
-            {**row, **actor_facts.get(session_id, {}), "holds": holdings["current"], "claims": claims}, now=now
+            {
+                **row,
+                **actor_facts.get(session_id, {}),
+                "holds": holdings["current"],
+                "claims": claims,
+            },
+            now=now,
         )
         result.append(
             {
                 "session_id": session_id,
                 "display_label": display.get(session_id, {}).get("label"),
                 "harness_title": display.get(session_id, {}).get("title"),
+                "chat_title": display.get(session_id, {}).get("chat_title"),
+                **{key: model[key] for key in ("status", "active_at", "reason")},
+                **{
+                    key: row.get(key)
+                    for key in (
+                        "last_heartbeat",
+                        "turn_posture_at",
+                        "native_turn_end_recorded_at",
+                    )
+                },
                 "liveness": state,
                 "ended_cause": cause,
                 "reclaimable": state == LIVENESS_STALE,

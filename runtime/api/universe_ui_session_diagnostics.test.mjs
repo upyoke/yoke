@@ -99,6 +99,7 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
 
   const rendered = card({
     session_id: "killed-1",
+    session_state: {status: "ended", active_at: null, reason: "operator stopped worker"},
     liveness: "ended",
     ended_cause: "killed",
     termination_reason: "operator stopped worker",
@@ -112,40 +113,54 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
   assert.equal(byClass(rendered, "session-kill-badge").length, 0);
   assert.match(
     statusExplanation(rendered),
-    /^Terminated: .*Reason: operator stopped worker$/,
+    /Terminated: .*Reason: operator stopped worker$/,
   );
   // The kill and its time ride the shared timing region every card carries.
   assert.match(byClass(rendered, "session-age")[0].textContent, /^killed /);
-  assert.equal(
-    byClass(rendered, "session-history-reason")[0].textContent,
-    "Reason: operator stopped worker",
-  );
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "ended");
+  assert.equal(byClass(rendered, "session-history-reason").length, 0);
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Ended");
 });
 
 
-test("server facts stay independent of legacy liveness and posture", () => {
-  for (const presence of ["present", "gone", "ended"]) {
-    const rendered = card({
-      ...quietHolder({}), liveness: "stale", turn_posture: "waiting",
-      session_state: {
-        presence, activity: "between_turns",
-        intent: { state: "awaiting", reason: "CI is running" },
-        next_actor: { actor: "ci_or_deploy", reason: "CI is running" },
-      },
+test("one server status and reason appear once; raw facts stay in the header info", () => {
+  for (const status of ["working", "waiting", "ended"]) {
+    const reason = "Waiting for CI to finish.";
+    const rendered = card({ ...quietHolder({}),
+      session_state: { status, active_at: null, reason,
+        presence: "gone", activity: "silent",
+        intent: { state: "awaiting", reason: "ci_run_in_progress" },
+        next_actor: { actor: "ci_or_deploy", reason: "ci_run_in_progress" } },
     });
     assert.equal(byClass(rendered, "session-status-pill")[0].textContent,
-      presence === "present" ? "between turns" : presence);
-    assert.equal(byClass(rendered, "session-intent")[0].textContent,
-      "Intentawaiting · CI is running");
-    assert.equal(byClass(rendered, "session-presence")[0].textContent,
-      `Presence${presence}`);
-    assert.doesNotMatch(byClass(rendered, "session-state-facts")[0].textContent, /stale|active/);
+      status[0].toUpperCase() + status.slice(1));
+    assert.equal(rendered.textContent.split(reason).length - 1, 1);
+    assert.doesNotMatch(rendered.textContent, /gone|silent|ci_run_in_progress/);
+    assert.equal(byClass(rendered, "session-state-facts").length, 0);
+    const info = byClass(rendered, "session-details")[0];
+    assert.match(info.getAttribute("data-tooltip"), /Presence: gone/);
+    assert.match(info.getAttribute("data-tooltip"), /Intent: awaiting/);
+    assert.match(info.getAttribute("data-tooltip"), /Heartbeat:/);
+    assert.equal(info.getAttribute("aria-label"), "Session details");
   }
 });
 
-test("an older serving response names missing state without guessing activity", () => {
-  const rendered = card(quietHolder({}));
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "unavailable");
-  assert.match(statusExplanation(rendered), /refresh after the server upgrade/);
+test("an older server missing any status field refuses without guessing", () => {
+  for (const missing of ["status", "active_at", "reason"]) {
+    const state = {status: "waiting", active_at: null, reason: "Waiting."};
+    delete state[missing];
+    const rendered = card(quietHolder({session_state: state}));
+    assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Unavailable");
+    assert.match(byClass(rendered, "session-reason")[0].textContent,
+      /refresh after the server upgrade/);
+  }
+});
+
+test("native chat titles add a line without replacing the harness", () => {
+  for (const title of [null, "Release notes discussion"]) {
+    const rendered = card({executor: "codex", chat_title: title,
+      harness_title: "An item-derived fallback"});
+    assert.equal(byClass(rendered, "session-chat-title").length, title ? 1 : 0);
+    assert.match(byClass(rendered, "session-top")[0].textContent, /codex/);
+    assert.doesNotMatch(rendered.textContent, /An item-derived fallback/);
+  }
 });

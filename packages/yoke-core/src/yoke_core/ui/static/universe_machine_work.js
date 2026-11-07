@@ -1,3 +1,4 @@
+import { sessionStatusAvailable } from "./universe_session_diagnostics.js";
 // What a machine is actually carrying, beside what it could carry.
 //
 // Capacity says whether a machine has room; this says what is using it. Three
@@ -115,17 +116,17 @@ export function appendMachineWork(
   const rows = sessionsOnMachine(roster.rows, relay);
   if (!rows.length) return null;
   const section = el(documentNode, "section", "machine-work");
-  const working = rows.filter((row) => row.session_state?.activity === "working").length;
-  const silent = rows.filter((row) => row.session_state?.activity === "silent").length;
+  const working = rows.filter((row) => row.session_state?.status === "working").length;
+  const waiting = rows.filter((row) => row.session_state?.status === "waiting").length;
   const held = rows.filter((row) => row.session_state?.custody?.holds?.length).length;
   const steering = rows.filter((row) => steeringClaims(row).length);
   section.appendChild(el(
     documentNode,
     "h3",
     null,
-    rows.some((row) => !row.session_state)
+    rows.some((row) => !sessionStatusAvailable(row))
       ? "Session state unavailable; upgrade the server and refresh."
-      : `${working} working · ${held} held · ${silent} silent`,
+      : `${working} working · ${waiting} waiting · ${held} held`,
   ));
   for (const row of steering) {
     const line = el(documentNode, "div", "machine-steering");

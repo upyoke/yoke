@@ -150,7 +150,7 @@ printf '%s\n' 'PEER REQUEST' | yoke say --item PREFIX-N --steering --stdin
 printf '%s\n' 'PEER REPLY' | yoke say --session EXACT-REQUESTING-SESSION-ID --steering --stdin
 printf '%s\n' 'MESSAGE' | yoke say --actor ben --stdin
 printf '%s\n' 'MESSAGE' | yoke say --steering --stdin
-yoke sessions list --presence present --limit 25
+yoke sessions list --status waiting --limit 25
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID
 yoke messages acknowledge MESSAGE-ID [MESSAGE-ID ...]

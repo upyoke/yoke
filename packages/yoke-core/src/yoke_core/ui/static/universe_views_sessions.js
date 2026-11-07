@@ -1,4 +1,3 @@
-import { appendNextActor } from "./next_actor_display.js";
 import { exactSessionAudience, openSessionMessageCompose } from "./session_message_compose_dialog.js";
 import { sessionCardLink, sessionScopeLabel } from "./universe_session_detail.js";
 import {
@@ -17,7 +16,9 @@ import {
 import {
   appendSessionMessageLine,
   appendSessionPrimaryStatus,
-  appendSessionStateFacts,
+  appendSessionHeaderDetails,
+  appendSessionChatTitle,
+  appendSessionReason,
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import {
@@ -114,7 +115,6 @@ export function sessionCard(
   // with a harness name and a level for the same eye.
   const top = el(documentNode, "div", "session-top");
   const harness = harnessIdentity(row);
-  if (row.harness_title) attachTooltip(documentNode, top, row.harness_title);
   top.appendChild(el(
     documentNode,
     "span",
@@ -125,7 +125,9 @@ export function sessionCard(
   top.appendChild(levelChip(documentNode, row));
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
+  appendSessionHeaderDetails(documentNode, top, row);
   card.appendChild(top);
+  appendSessionChatTitle(documentNode, card, row);
 
   const body = el(documentNode, "div", "session-card-body");
   body.appendChild(el(
@@ -135,8 +137,7 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
-  appendSessionStateFacts(documentNode, body, row);
-  appendNextActor(documentNode, body, row.session_state?.next_actor || row.next_actor);
+  appendSessionReason(documentNode, body, row);
   appendSessionUsage(documentNode, body, row);
   // Every state uses the same section sequence; empty sections stay silent.
   appendSteeringHoldings(documentNode, body, row, projects);

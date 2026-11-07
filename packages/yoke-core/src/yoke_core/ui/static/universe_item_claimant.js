@@ -78,11 +78,6 @@ function miniSessionCard(documentNode, row, note) {
     documentNode, "span", "session-executor", harness.label,
   ));
   appendSessionPrimaryStatus(documentNode, button, row);
-  const intent = row.session_state?.intent;
-  if (intent && intent.state !== "none") button.appendChild(el(
-    documentNode, "span", "item-claimant-intent",
-    [intent.state, intent.reason].filter(Boolean).join(" · "),
-  ));
   // Anything else this session holds reads after its status, inside the same
   // chip, because it is a property of the session and not a thing the
   // session is filed under.
@@ -125,7 +120,7 @@ export function itemClaimantControl(
  *
  * Every live holder gets its chip, an abandoned one included: the card always
  * names who holds the item, and the chip's own status says whether it is
- * working, waiting, exited or gone.
+ * Working, Waiting or Ended.
  *
  * Returns how many were drawn, so a caller can say "unclaimed" where that is
  * the fact rather than inferring it from an empty element.

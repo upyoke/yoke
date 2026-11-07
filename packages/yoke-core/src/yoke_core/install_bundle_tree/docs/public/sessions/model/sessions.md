@@ -20,16 +20,23 @@ Active work claims protect their holders regardless of activity age or process
 presence. Explicit release, completion, cancellation or authorized termination
 settles ownership; automatic reclaim refuses with `reason=active_work_claim`.
 
-The roster consumes `session_state` for presence, activity, intent, custody and
-next actor. An absent end stamp means open, not working or process present.
-Tool recency uses `last_tool_call_at`; heartbeat age never establishes activity.
-The CLI reads these fields with `sessions list --presence`, `--activity` and
-`--intent`, applied before pagination, or `sessions get SESSION-ID`. The list
-command removes `--liveness`; message recipient filtering is unchanged.
+The roster consumes `session_state.status`, `active_at` and `reason`.
+Status is Working for an open live tool call, or a running/unknown unfinished
+turn whose newest sign of life is within `session_idle_minutes` (default 20).
+Waiting covers every other non-ended session, including finished turns.
+`ended_at` or `terminated_at` makes it Ended. Native process death never changes
+this display status. `active_at` is the latest of `last_tool_call_at`,
+`last_heartbeat`, `turn_posture_at` and `native_turn_end_recorded_at`.
 
-The legacy `liveness` response field reports `active`, `waiting`, `stale` or `ended`.
-An explicit parked claim holder reports `waiting`; other protected holders
-report `active`. Turn posture never declares a pause. Live roster `reclaimable`
+The same projection drives CLI, Sessions, Frontier and Machines; callers supply
+the project idle setting and open tool-call facts. `sessions list --status`
+filters before pagination. `sessions get SESSION-ID --full` and the card's (i)
+retain presence, activity, intent, custody, next actor and timestamps as detail.
+Older responses lacking the display fields require a server upgrade and refresh.
+
+Steering reports, fleet-delta alarms, message liveness, reclaim, the `liveness`
+field, last-tool ages in labels and raw reasons in CLI Frontier/item reads keep
+their existing separate rules. The server's reclaimable
 flags match `liveness=stale`. `classify_activity` applies holdings and progress rules;
 execution rechecks protection before mutation.
 Wake routing uses `activity_liveness` for hook reachability: a fresh heartbeat

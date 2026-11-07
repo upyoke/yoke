@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -15,7 +16,7 @@ const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 
 function row(sessionId, liveness = "ended") {
   return {
-    session_state: { presence: liveness === "ended" ? "ended" : "present",
+    session_state: { status: liveness === "ended" ? "ended" : "waiting", active_at: null, reason: "Waiting for the next turn.", presence: liveness === "ended" ? "ended" : "present",
       activity: "silent", intent: { state: "none" } },
     session_id: sessionId, liveness, reclaimable: liveness === "stale",
     project_id: 1, project: "yoke",
@@ -117,9 +118,8 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
   ]);
   assert.deepEqual(cardIds(root), ["open-active", "open-stale"]);
 
-  const state = control(root, "State");
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+
+  setStatuses(root, ["ended"]);
   await settle();
   const firstHistory = requests.find((request) => request.payload.history);
   assert.deepEqual(firstHistory.payload.history, {
@@ -133,14 +133,13 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
   button(root, "Load more").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(cardIds(root), ["ended-1", "ended-2", "ended-3"]);
-  assert.deepEqual(byClass(root, "session-presence").map((node) => node.textContent),
-    ["Presenceended", "Presenceended", "Presenceended"]);
-  assert.deepEqual(byClass(root, "session-activity").map((node) => node.textContent),
-    ["Activitysilent", "Activitysilent", "Activitysilent"]);
+  assert.deepEqual(byClass(root, "session-status-pill").map((node) => node.textContent),
+    ["Ended", "Ended", "Ended"]);
+  assert.equal(byClass(root, "session-state-facts").length, 0);
+
   assert.equal(button(root, "Load more").hidden, true);
 
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting", "ended"]);
   assert.deepEqual(cardIds(root), ["open-active", "open-stale", "ended-1", "ended-2", "ended-3"]);
   button(root, "Message all").dispatchEvent(new Event("click"));
   await settle();
@@ -160,9 +159,8 @@ test("reclaim refreshes open rows without resetting loaded history", async (t) =
     if (request.function === "sessions.reclaim_stale") return ok({ total_reclaimed: 1 });
     throw new Error(`unexpected function ${request.function}`);
   });
-  const state = control(root, "State");
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+
+  setStatuses(root, ["ended"]);
   await settle();
   button(root, "Reclaim sessions").dispatchEvent(new Event("click"));
   await settle();
@@ -218,9 +216,8 @@ test("new search criteria discard an older in-flight history response", async (t
     if (!search) return history([], 0);
     return new Promise((resolve) => pending.set(search, resolve));
   });
-  const state = control(root, "State");
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+
+  setStatuses(root, ["ended"]);
   await settle();
   const search = byClass(root, "session-filter-search")[0].children[1];
   search.value = "older";
@@ -246,9 +243,8 @@ test("first-page and load-more failures preserve data and remain retryable", asy
     if (calls === 2) return history([row("ended-1")], 2, "next");
     return history([row("ended-2")], 2);
   });
-  const state = control(root, "State");
-  state.value = "ended";
-  state.dispatchEvent(new Event("change"));
+
+  setStatuses(root, ["ended"]);
   await settle();
   assert.equal(button(root, "Retry history").hidden, false);
   button(root, "Retry history").dispatchEvent(new Event("click"));

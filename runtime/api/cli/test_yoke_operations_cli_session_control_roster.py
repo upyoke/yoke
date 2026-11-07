@@ -15,7 +15,9 @@ from yoke_cli.commands.adapters.session_control_usage import (
     SESSION_CONTROL_USAGE_BY_FUNCTION_ID,
 )
 from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_REGISTRY
-from yoke_cli.commands.registry_session_control import SESSION_CONTROL_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_session_control import (
+    SESSION_CONTROL_SUBCOMMAND_REGISTRY,
+)
 from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
 )
@@ -85,8 +87,8 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
             [
                 "--project",
                 "yoke",
-                "--presence",
-                "present",
+                "--status",
+                "waiting",
                 "--limit",
                 "5",
                 "--full",
@@ -98,7 +100,7 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
     assert captured["function_id"] == "sessions.list"
     assert captured["payload"] == {
         "project": "yoke",
-        "presence": "present",
+        "status": "waiting",
         "limit": 5,
         "detail": "full",
         "offset": 0,
@@ -163,9 +165,7 @@ def test_roster_point_lookup_dispatches_the_exact_session_filter(monkeypatch) ->
     )
 
     assert (
-        roster.sessions_list(
-            ["--project", "yoke", "--session", "session-1", "--json"]
-        )
+        roster.sessions_list(["--project", "yoke", "--session", "session-1", "--json"])
         == 0
     )
     assert captured["function_id"] == "sessions.list"
@@ -225,5 +225,5 @@ def test_roster_help_names_the_list_and_say_commands(capsys) -> None:
 
     assert exit_info.value.code == 0
     rendered = capsys.readouterr().out
-    assert "yoke sessions list --presence present" in rendered
+    assert "yoke sessions list --status working" in rendered
     assert "yoke say --help" in rendered

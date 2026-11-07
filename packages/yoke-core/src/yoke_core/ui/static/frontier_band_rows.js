@@ -13,7 +13,7 @@ export function waitingReason(row, blockedRows = []) {
   const group = row.frontier_group || {};
   const blockers = [...new Set(blockedRows.map((entry) => entry.blocking_item).filter(Boolean))];
   const text = row.blocked_reason || [...new Set(blockedRows.map((entry) => entry.why).filter(Boolean))].join(" ")
-    || String(group.reason || "item_on_hold").replaceAll("_", " ");
+    || row.next_actor?.sentence || "Open the item for the next action.";
   let label = "On hold";
   let tone = "blocked";
   if (enabled(row.frozen)) { label = "Frozen"; tone = "frozen"; }

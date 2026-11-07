@@ -123,6 +123,7 @@ def overlapping_dirty_main(
 
 def _dispatch(function_id: str, target: TargetRef, payload: dict | None = None):
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+
     call_dispatcher = get_structured_dispatch().call_dispatcher
 
     return call_dispatcher(function_id=function_id, target=target, payload=payload)
@@ -280,7 +281,7 @@ def format_dirty_main_narrative(
         lines.append(
             "No live session on this machine is recorded as working on main. "
             "Commit, stash, or drop the files, then retry. "
-            "Find peers with: yoke sessions list --presence present"
+            "Find peers with: yoke sessions list --status waiting"
         )
     return "\n".join(lines)
 

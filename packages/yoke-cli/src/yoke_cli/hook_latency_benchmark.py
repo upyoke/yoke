@@ -115,9 +115,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
     surface = str(identity.get("executor_surface") or harness)
     env["YOKE_EXECUTOR"] = harness
     roster_start = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--presence", "present"), env).get(
-            "rows", []
-        )
+        _run_json(run, ("sessions", "list", "--status", "waiting"), env).get("rows", [])
     )
     started_at = parse_instant(utc_now())
     samples = []
@@ -222,9 +220,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "incomplete" if incomplete else "pending" if pending else "complete"
         )
     roster_end = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--presence", "present"), env).get(
-            "rows", []
-        )
+        _run_json(run, ("sessions", "list", "--status", "waiting"), env).get("rows", [])
     )
     summary = summarize_samples(samples)
     sample_statuses = {sample["status"] for sample in samples}

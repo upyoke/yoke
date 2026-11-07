@@ -243,12 +243,12 @@ test("work whose only claimant is gone waits, and says whose fault that is", asy
   };
   const { root, mounted } = await mountAt(
     "/frontier?project=1",
-    workbenchClient({ homes: { "YOK-9": { section: "in_progress", activity: "held", reason: "session_process_gone" } }, "sessions.list": { rows: [gone] } }),
+    workbenchClient({ homes: { "YOK-9": { section: "in_progress", activity: "waiting", reason: "session_process_gone" } }, "sessions.list": { rows: [gone] } }),
   );
 
   assert.equal(byClass(band(root, "active"), "work-item-card").length, 1);
-  assert.match(descendantText(band(root, "active")), /Held, not working/);
-  assert.match(descendantText(band(root, "active")), /session process gone/);
+  assert.match(descendantText(band(root, "active")), /Waiting/);
+  assert.doesNotMatch(descendantText(band(root, "active")), /session process gone/);
   assert.equal(byClass(band(root, "ready"), "work-item-card").length, 0);
   mounted.unmount();
 });

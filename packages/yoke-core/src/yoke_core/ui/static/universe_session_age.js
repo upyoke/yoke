@@ -6,10 +6,10 @@ import { isInstantRelativeTime, relativeAge, relativeTime } from "./universe_tim
 import { el } from "./universe_view_support.js";
 import { formatInstant } from "./timestamps.js";
 
-// Refresh tool age as it crosses unit boundaries.
+// Refresh activity age as it crosses unit boundaries.
 const ACTIVITY_REFRESH_MS = 5_000;
 
-// Only a qualified tool clock supplies recency.
+// The server supplies the latest sign of life.
 function activityAge(value, now = Date.now()) {
   return value == null ? "unavailable"
     : isInstantRelativeTime(value, now) ? "<1m" : relativeAge(value, now);
@@ -24,17 +24,17 @@ function optionalActivityInstant(value) {
   }
 }
 
-// Tool recency remains independent of heartbeat and session intent.
+// The card never derives its own activity instant.
 function appendActivityStatus(documentNode, age, timestamp) {
   const activityTimestamp = optionalActivityInstant(timestamp);
   if (!activityTimestamp) {
-    age.appendChild(el(documentNode, "span", "session-age-prefix", "last tool unavailable"));
+    age.appendChild(el(documentNode, "span", "session-age-prefix", "active time unavailable"));
     return;
   }
   const time = relativeTime(documentNode, activityTimestamp, Date.now(), {
     instantText: "<1m", relativeAgeFn: activityAge,
   });
-  const prefix = el(documentNode, "span", "session-age-prefix", "last tool ");
+  const prefix = el(documentNode, "span", "session-age-prefix", "active ");
   const paint = () => {
     if (time.getAttribute("aria-pressed") !== "true") {
       time.textContent = activityAge(activityTimestamp, Date.now());
@@ -58,15 +58,6 @@ function appendActivityStatus(documentNode, age, timestamp) {
   if (typeof timer.unref === "function") timer.unref();
 }
 
-// Why it ended stays on the shared fact-line. The last item it held is the
-// holdings panel, not a summary parsed onto this line.
-function appendEndedFacts(documentNode, body, row) {
-  if (row.termination_reason) body.appendChild(el(
-    documentNode, "div", "fact-line session-history-reason",
-    `Reason: ${row.termination_reason}`,
-  ));
-}
-
 export function appendSessionAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
   const now = Date.now();
@@ -77,7 +68,6 @@ export function appendSessionAge(documentNode, body, row) {
     age.appendChild(relativeTime(documentNode, timestamp, now, { instantText }));
   };
   if (String(row.liveness || "") === "ended") {
-    appendEndedFacts(documentNode, body, row);
     // An ended session's activity age IS the moment it ended, so the region
     // names that once rather than repeating it as a second duration. An end
     // nobody recorded a time for says so, rather than reading as recent.
@@ -87,6 +77,8 @@ export function appendSessionAge(documentNode, body, row) {
     else age.appendChild(el(
       documentNode, "span", "session-age-prefix", `${cause}· time unavailable`,
     ));
+    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
+    appendActivityStatus(documentNode, age, row.session_state?.active_at);
     body.appendChild(age);
     return;
   }
@@ -112,6 +104,6 @@ export function appendSessionAge(documentNode, body, row) {
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
   // Tool recency is independent of presence, intent and heartbeat.
-  appendActivityStatus(documentNode, age, row.last_tool_call_at);
+  appendActivityStatus(documentNode, age, row.session_state?.active_at);
   body.appendChild(age);
 }

@@ -9,7 +9,7 @@ import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
 const item = (ref, section, activity = null) => ({
   public_ref: ref, title: ref, project_id: 1, project_sequence: Number(ref.split("-").at(-1)),
   frontier_group: { section, activity, reason: "awaiting_direction" },
-  next_actor: { actor: "parent_or_steering", reason: "awaiting_direction" },
+  next_actor: { actor: "parent_or_steering", sentence: "Waiting for direction.", reason: "awaiting_direction" },
 });
 
 test("home membership and counts stay exclusive across the full chain", () => {
@@ -29,7 +29,7 @@ test("home membership and counts stay exclusive across the full chain", () => {
   const tile = frontierTile(new FakeDocument(), model, "I-1", { claimantFor: () => null });
   assert.equal(tile.classList.contains("is-reference"), true);
   assert.equal(byClass(tile, "fdv-tile-ref")[0].href, "#frontier-home-I-1");
-  assert.match(byClass(tile, "fdv-reference-home")[0].textContent, /In progress.*Held, not working/);
+  assert.match(byClass(tile, "fdv-reference-home")[0].textContent, /In progress.*Waiting/);
   assert.match(byClass(tile, "next-actor")[0].textContent, /Next: parent or steering/);
 });
 

@@ -75,9 +75,7 @@ def list_sessions(
     org_session_actor_id: int | None = None,
     liveness: Optional[str] = None,
     ended_cause: Optional[str] = None,
-    presence: Optional[str] = None,
-    activity: Optional[str] = None,
-    intent: Optional[str] = None,
+    status: Optional[str] = None,
     limit: int | None = DEFAULT_SESSIONS_LIST_LIMIT,
     offset: int = 0,
     per_project: bool = False,
@@ -88,9 +86,11 @@ def list_sessions(
     """List sessions, applying state filters before the requested page."""
     from yoke_core.domain.session_state_filter import validate_state_filters, state_page
 
-    filters = dict(presence=presence, activity=activity, intent=intent)
+    filters = dict(status=status)
     validate_state_filters(filters)
-    filtered = any(value is not None for value in filters.values()) or liveness is not None
+    filtered = (
+        any(value is not None for value in filters.values()) or liveness is not None
+    )
     if liveness is not None and liveness not in LIVENESS_STATES:
         raise ValueError(
             f"liveness must be one of {', '.join(LIVENESS_STATES)}; got {liveness!r}"
@@ -121,7 +121,11 @@ def list_sessions(
         else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
     )
     windowed = (
-        per_project and not filtered and not project and not project_ids and not normalized_session_id
+        per_project
+        and not filtered
+        and not project
+        and not project_ids
+        and not normalized_session_id
     )
 
     if offset < 0:
@@ -194,9 +198,9 @@ def list_sessions(
             clauses.append("s.session_id = ANY(%s)")
             where_params.append(list(session_ids))
         clauses.append(not_probe_session_sql("s"))
-        if presence == "ended":
+        if status == "ended":
             clauses.append(ended_session_sql("s"))
-        elif presence in {"present", "gone"} or activity in {"working", "between_turns"}:
+        elif status in {"working", "waiting"}:
             clauses.append(live_session_sql("s"))
         if liveness == LIVENESS_ENDED or ended_cause is not None:
             clauses.append(ended_session_sql("s"))
@@ -209,10 +213,16 @@ def list_sessions(
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         query = build_sessions_query(where, windowed=windowed)
         if windowed:
-            params = [*where_params, PER_PROJECT_SESSIONS_LIST_CAP, None if filtered else bounded_limit]
+            params = [
+                *where_params,
+                PER_PROJECT_SESSIONS_LIST_CAP,
+                None if filtered else bounded_limit,
+            ]
         else:
             params = [*where_params, None if filtered else bounded_limit]
-        rows = conn.execute(query + " OFFSET %s", (*params, 0 if filtered else offset)).fetchall()
+        rows = conn.execute(
+            query + " OFFSET %s", (*params, 0 if filtered else offset)
+        ).fetchall()
         session_ids = [str(dict(raw)["session_id"]) for raw in rows]
         claims_by_session, roles_by_session = active_claims_by_session(
             conn,
@@ -234,7 +244,9 @@ def list_sessions(
                 session_ids=session_ids,
             ),
         )
-        return state_page(result, filters, offset, bounded_limit) if filtered else result
+        return (
+            state_page(result, filters, offset, bounded_limit) if filtered else result
+        )
     finally:
         conn.close()
 
@@ -253,9 +265,9 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
         "model",
         "execution_level",
         "mode",
-        "presence",
-        "activity",
-        "intent",
+        "status",
+        "active_at",
+        "reason",
         "holds",
         "custody",
         "next_actor",
@@ -264,7 +276,13 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
     )
     return {
         "fields": list(fields),
-        "rows": [{**{key: row.get(key) for key in fields}, "session_state": row.get("session_state")} for row in rows],
+        "rows": [
+            {
+                **{key: row.get(key) for key in fields},
+                "session_state": row.get("session_state"),
+            }
+            for row in rows
+        ],
         "offset": offset,
         "limit": limit,
         "next_offset": offset + len(rows) if limit and len(rows) == limit else None,

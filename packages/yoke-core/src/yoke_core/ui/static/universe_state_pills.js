@@ -112,7 +112,7 @@ const FAMILIES = {
   claimed: "run",
   "item-owned": "run",
   archived: "idle",
-  planned: "good",
+  planned: "idle",
   drafted: "idle",
   "needs review": "warn",
   // A run halted on a person is not idle and not failing; the generic

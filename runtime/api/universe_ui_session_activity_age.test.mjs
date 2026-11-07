@@ -19,7 +19,8 @@ function renderedActivityAge(documentNode, activityAt, extras = {}) {
     claims: [],
     coordination_leases: [],
     activity_at: "2026-08-27T12:00:00Z",
-    last_tool_call_at: activityAt,
+    last_tool_call_at: "2026-08-01T00:00:00Z",
+    session_state: {active_at: activityAt},
     messageability: { messageable: false },
     ...extras,
   });
@@ -40,83 +41,83 @@ test("session activity copy keeps server liveness authoritative", (t) => {
   const documentNode = new FakeDocument();
   assert.equal(
     renderedActivityAge(documentNode, "2026-08-27T11:59:00.000001Z"),
-    "last tool <1m ago",
+    "active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 59_999).toISOString()),
-    "last tool <1m ago",
+    "active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 60_000).toISOString()),
-    "last tool 1m ago",
+    "active 1m ago",
   );
   // A long executor TTL can keep a quiet session alive without making its
   // activity recent. This line rolls over to hours/days exactly like the
   // shared relative-age helper — 1440 minutes reads as a day of hours.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
-    "last tool 24h ago",
+    "active 24h ago",
   );
   // The operator screenshot's reported case: a long idle stretch reads in
   // hours, not the elapsed minute count.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 887 * 60_000).toISOString()),
-    "last tool 14h ago",
+    "active 14h ago",
   );
   // Minute/hour boundary: 59 minutes stays minutes, 60 rolls to the hour.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 59 * 60_000).toISOString()),
-    "last tool 59m ago",
+    "active 59m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 60 * 60_000).toISOString()),
-    "last tool 1h ago",
+    "active 1h ago",
   );
   // Hour/day boundary: 47h stays hours, 48h rolls to days.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 47 * 3_600_000).toISOString()),
-    "last tool 47h ago",
+    "active 47h ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 48 * 3_600_000).toISOString()),
-    "last tool 2d ago",
+    "active 2d ago",
   );
   // Past the 48-hour threshold the same rollover reaches days.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 3 * 24 * 3_600_000).toISOString()),
-    "last tool 3d ago",
+    "active 3d ago",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 1_000).toISOString(), { liveness: "stale" },
     ),
-    "last tool <1m ago",
+    "active <1m ago",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 60_000).toISOString(), { liveness: "stale" },
     ),
-    "last tool 1m ago",
+    "active 1m ago",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 1_000).toISOString(), { liveness: undefined },
     ),
-    "last tool <1m ago",
+    "active <1m ago",
   );
   // Missing or invalid activity timestamps must never read as active now —
   // including a stray literal "now" that isn't actually a parseable date.
   assert.equal(
     renderedActivityAge(documentNode, undefined),
-    "last tool unavailable",
+    "active time unavailable",
   );
   assert.equal(
     renderedActivityAge(documentNode, "not-a-time"),
-    "last tool unavailable",
+    "active time unavailable",
   );
   assert.equal(
     renderedActivityAge(documentNode, "now"),
-    "last tool unavailable",
+    "active time unavailable",
   );
   for (const activityAt of [
     "2026-08-27", "2026-08-27T11:59:00", "2026-08-27T11:59:00-00:00",
@@ -125,7 +126,7 @@ test("session activity copy keeps server liveness authoritative", (t) => {
     const row = { activity_at: "2026-08-27T12:00:00Z",
     last_tool_call_at: activityAt, liveness: "stale", mode: "wait", claims: [] };
     appendSessionAge(documentNode, body, row);
-    assert.equal(body.textContent, "last tool unavailable");
+    assert.equal(body.textContent, "active time unavailable");
     assert.equal(row.last_tool_call_at, activityAt);
     assert.equal(row.activity_at, "2026-08-27T12:00:00Z");
     assert.equal(row.liveness, "stale");
@@ -150,26 +151,26 @@ test("session status line leads with total age from offered_at", (t) => {
       renderedActivityAge(documentNode, activityNow, {
         offered_at: new Date(now - elapsed).toISOString(),
       }),
-      `${expected} · last tool <1m ago`,
+      `${expected} · active <1m ago`,
     );
   }
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now - 1_000).toISOString(),
     }),
-    "created just now · last tool <1m ago",
+    "created just now · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now + 60_000).toISOString(),
     }),
-    "created just now · last tool <1m ago",
+    "created just now · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now - 3 * 60_000).toISOString(),
     }),
-    "3m old · last tool <1m ago",
+    "3m old · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -180,11 +181,11 @@ test("session status line leads with total age from offered_at", (t) => {
         holding_kind: "work_claim", target_kind: "item", target: "YOK-1",
       }] },
     }),
-    "3h old · claim held 1m · last tool <1m ago",
+    "3h old · claim held 1m · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, { offered_at: "not-a-time" }),
-    "last tool <1m ago",
+    "active <1m ago",
   );
   // Attribution names the relationship. Activity duration does not restate
   // server liveness beside it.
@@ -194,7 +195,7 @@ test("session status line leads with total age from offered_at", (t) => {
       current_item: "YOK-1",
       work_role: "worker",
     }),
-    "worktree attached now · last tool <1m ago",
+    "worktree attached now · active <1m ago",
   );
 });
 
@@ -220,7 +221,7 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         claimed_at: ago(12 * 60_000),
       }] },
     }),
-    "2h old · claim held 12m · last tool <1m ago",
+    "2h old · claim held 12m · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -232,7 +233,7 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         claimed_at: ago(5 * 60_000),
       }] },
     }),
-    "2h old · claim held 5m · last tool <1m ago",
+    "2h old · claim held 5m · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -253,7 +254,7 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         },
       ] },
     }),
-    "2h old · claim held 12m · last tool <1m ago",
+    "2h old · claim held 12m · active <1m ago",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -273,6 +274,6 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         },
       ] },
     }),
-    "2h old · claim held 8m · last tool <1m ago",
+    "2h old · claim held 8m · active <1m ago",
   );
 });

@@ -160,8 +160,6 @@ def test_charge_schedule_dispatches() -> None:
     assert req.payload["workspace"]
 
 
-
-
 def test_sessions_hook_overhead_dispatches_hours() -> None:
     assert _run("sessions", "hook-overhead", "--hours", "12", "--json") == 0
     req = _CAPTURED_REQUESTS[-1]
@@ -200,11 +198,15 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
             version=request.version,
             request_id=request.request_id,
             result={
-                "fields": ["session_id", "presence", "mode", "current_item_ref"],
+                "fields": ["session_id", "status", "active_at", "reason"],
                 "rows": [
                     {
                         "session_id": "s-1",
-                        "presence": "present",
+                        "session_state": {
+                            "status": "working",
+                            "active_at": None,
+                            "reason": "Working on the item.",
+                        },
                         "activity": "working",
                         "intent": {"state": "none"},
                         "next_actor": {"actor": "this_session", "reason": "working"},
@@ -231,8 +233,8 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
                             "list",
                             "--project",
                             "yoke",
-                            "--presence",
-                            "present",
+                            "--status",
+                            "working",
                             "--limit",
                             "5",
                         ]
@@ -240,8 +242,8 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
 
     assert rc == 0
     text = out.getvalue()
-    assert "presence | activity | intent | next | holds" in text
-    assert "present | working | none | this_session: working | YOK-41" in text
+    assert "status | reason | active | holds" in text
+    assert "Working | Working on the item. | unavailable | YOK-41" in text
     assert "s-1" in text
     assert "yoke sessions get SESSION" in text
     assert err.getvalue() == ""
@@ -250,7 +252,7 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
     assert req.target.kind == "global"
     assert req.payload == {
         "project": "yoke",
-        "presence": "present",
+        "status": "working",
         "limit": 5,
         "detail": "summary",
         "offset": 0,

@@ -18,7 +18,6 @@ from yoke_contracts.api.function_call import (
     FunctionError,
 )
 
-
 SENDER_ID = "11111111-1111-4111-8111-111111111111"
 RECIPIENT_ID = "22222222-2222-4222-8222-222222222222"
 MESSAGE_ID = "33333333-3333-4333-8333-333333333333"
@@ -70,6 +69,7 @@ class _FleetBroker:
             "executor_surface": "codex-desktop",
             "machine_id": MACHINE_ID,
             "liveness": "active",
+            "session_state": {"status": "waiting", "active_at": None, "reason": "Waiting for a message."},
             "messageability": {
                 "messageable": messageable,
                 "reason": None if messageable else "hook_route_missing",
@@ -80,7 +80,7 @@ class _FleetBroker:
         return _success(
             request,
             {
-                "fields": ["project"],
+                "fields": ["project", "status", "active_at", "reason"],
                 "rows": [
                     {
                         **self._recipient(),
@@ -202,7 +202,7 @@ def test_operator_journey_discovers_sends_reads_and_acknowledges() -> None:
 
     result, output, error = _run_cli(
         broker,
-        ["sessions", "list", "--presence", "present", "--full"],
+        ["sessions", "list", "--status", "waiting", "--full"],
         session_id=SENDER_ID,
     )
     assert result == 0 and error == ""
