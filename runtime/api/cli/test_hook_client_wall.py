@@ -138,3 +138,64 @@ def test_configured_local_client_wall_records_through_engine(monkeypatch) -> Non
 
     assert imports == ["yoke_core.domain.hook_client_wall"]
     assert reports == [("timing-local", 10)]
+
+
+@pytest.mark.parametrize("scope", ["unregistered", "disabled", "registered"])
+@pytest.mark.parametrize("queued", [False, True])
+def test_resident_completion_respects_request_folder_privacy(tmp_path, scope, queued):
+    """The completion frame must retain the original hook's privacy boundary."""
+    import json
+    import subprocess
+    import sys
+    import textwrap
+
+    program = textwrap.dedent("""
+        import json, os, sys
+        from pathlib import Path
+        from types import SimpleNamespace
+        from yoke_contracts.hook_process_context import install_process_context
+        from yoke_contracts.hook_evaluator_protocol import HookEvaluatorRequest, HookClientWallReport
+        from yoke_cli import hook_client_wall
+        from yoke_harness.hook_resident_client_wall import record_resident_client_wall
+
+        root, scope, queued = Path(sys.argv[1]), sys.argv[2], sys.argv[3] == 'True'
+        registered, outside, home = root/'registered', root/'outside', root/'machine'
+        for path in (registered, outside, home):
+            path.mkdir()
+        config = {
+            'schema_version': 1,
+            'connections': {'qa': {'transport': 'https'}},
+            'active_env': 'qa',
+            'connection_projects': {'qa': [{'checkout': str(registered), 'project_id': 1}]},
+        }
+        if scope == 'disabled':
+            config['disabled_folders'] = [str(outside)]
+        (home/'config.json').write_text(json.dumps(config))
+        # The resident's own launch context must not override its caller.
+        os.chdir(registered)
+        os.environ['YOKE_ENV'] = 'resident-authority'
+        install_process_context()
+        cwd = registered if scope == 'registered' else outside
+        request = HookEvaluatorRequest(
+            event_name='UserPromptSubmit', stdin=json.dumps({'cwd': str(cwd)}),
+            dry_run=False, pid=100, ppid=99, cwd=str(cwd),
+            environment={'YOKE_MACHINE_HOME': str(home)}, revision='test',
+            client_timing_id='completion',
+        )
+        direct, batch = [], []
+        hook_client_wall.record_client_wall = lambda *args: direct.append(args)
+        record_resident_client_wall(
+            queue=SimpleNamespace(enqueue=batch.append), request=request,
+            report=HookClientWallReport(event_id='completion', client_wall_ms=10),
+            target=('https://example.invalid/client-wall', 'fake') if queued else None,
+        )
+        print(json.dumps({'direct': len(direct), 'queued': len(batch)}))
+    """)
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(tmp_path), scope, str(queued)],
+        check=True, capture_output=True, text=True, timeout=15,
+    )
+    expected = {"direct": 0, "queued": 0}
+    if scope == "registered":
+        expected["queued" if queued else "direct"] = 1
+    assert json.loads(result.stdout) == expected
