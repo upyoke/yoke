@@ -65,8 +65,11 @@ machine with a registered RDP desktop opens in the same FreeRDP viewer as
 account, and the viewer closes when verification finishes. Close the browser
 window when done. If no viewer route or FreeRDP client is available, the
 command prints the exact desktop-access command and its recovery, then still
-waits for you to sign in on that desktop. macOS Screen Sharing uses the
-printed command without --view. A machine leased by another session refuses
+waits for you to sign in on that desktop. A macOS machine with a registered
+VNC route opens in Screen Sharing from a Mac workstation, as with
+desktop-access --view: paste the desktop password from the clipboard, which
+Yoke clears after 60 seconds, and quit Screen Sharing after verification
+finishes. A machine leased by another session refuses
 until released. Without --test-machine, this host keeps local behavior. Without a
 remote route, --declarations-json still supplies settings locally.
 

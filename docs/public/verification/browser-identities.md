@@ -157,8 +157,11 @@ forward closed with the viewer). A window titled `Yoke desktop: NAME` appears.
 Sign in with the identity's declared account. Close the browser window when
 done; the viewer closes when verification finishes. If no viewer route or
 FreeRDP client is available, the command prints the exact `desktop-access`
-command and recovery and still waits for sign-in. macOS Screen Sharing uses
-that printed command without `--view`. The Test Machine needs an installed
+command and recovery and still waits for sign-in. A macOS machine with a
+registered VNC route opens in Screen Sharing from a Mac workstation: paste the
+desktop password from the clipboard, which Yoke clears after 60 seconds
+(clipboard-history apps may keep a copy), and quit Screen Sharing after
+verification finishes. The Test Machine needs an installed
 Yoke browser runtime, but no control-plane connection or pasted settings.
 Read `yoke browser authorize --help` for reset, starting URL, JSON output
 and window bounds.

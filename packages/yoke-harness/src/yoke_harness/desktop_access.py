@@ -125,19 +125,16 @@ def _prepare_desktop(settings, key_path, password):
     return receipt, run
 
 
-def _ready_desktop_view(project, test_machine, settings):
+def _desktop_route(settings):
     route = validate_desktop_settings(settings)
     if not route:
         raise DesktopAccessError(
             "desktop_route_missing: declare the desktop route with yoke test-machine settings-replace"
         )
-    if (
-        settings.get("os") not in {"linux", "windows"}
-        or route["desktop_protocol"] != "rdp"
-    ):
-        raise DesktopAccessError(
-            "desktop_view_requires_xfce_rdp: use the declared RDP route on Linux or Windows WSL"
-        )
+    return route
+
+
+def _desktop_password(project, test_machine):
     cap_type = test_machine_capability_type(test_machine)
     password = read_machine_capability_secret(project, cap_type, DESKTOP_PASSWORD_KEY)
     if password is None:
@@ -148,6 +145,23 @@ def _ready_desktop_view(project, test_machine, settings):
         )
     if "\n" in password or "\r" in password:
         raise DesktopAccessError("desktop_password_invalid: import one password line")
+    return password
+
+
+def _screen_sharing_route(settings, route) -> bool:
+    """macOS test machines are viewed in Screen Sharing; Linux and WSL in FreeRDP."""
+    if settings.get("os") == "macos" and route["desktop_protocol"] == "vnc":
+        return True
+    if settings.get("os") in {"linux", "windows"} and route["desktop_protocol"] == "rdp":
+        return False
+    raise DesktopAccessError(
+        "desktop_view_route_unsupported: --view needs an RDP route on Linux or "
+        "Windows WSL, or a VNC route on macOS; run desktop-access without --view"
+    )
+
+
+def _ready_desktop_view(project, test_machine, settings):
+    password = _desktop_password(project, test_machine)
     key_path = machine_capability_secret_path(
         project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
     )
@@ -161,6 +175,11 @@ def _ready_desktop_view(project, test_machine, settings):
 
 def begin_desktop_view(*, project: str, test_machine: str, settings: Mapping[str, str]):
     """Start the desktop-access --view owner and leave it open until close()."""
+    if _screen_sharing_route(settings, _desktop_route(settings)):
+        from yoke_harness.screen_sharing_view import ScreenSharingView
+
+        password = _desktop_password(project, test_machine)
+        return ScreenSharingView.open(project, test_machine, settings, password)
     password, receipt, run = _ready_desktop_view(project, test_machine, settings)
     from yoke_harness.rdp_desktop_client import DesktopView
 
@@ -171,26 +190,18 @@ def open_desktop_access(
     *, project: str, test_machine: str, settings: Mapping[str, str], view: bool = False
 ) -> dict[str, str]:
     """Return only the connectable address, desktop user and private file path."""
+    route = _desktop_route(settings)
+    if view and _screen_sharing_route(settings, route):
+        from yoke_harness.screen_sharing_view import view_screen_sharing
+
+        password = _desktop_password(project, test_machine)
+        return view_screen_sharing(project, test_machine, settings, password)
     if view:
         password, receipt, run = _ready_desktop_view(project, test_machine, settings)
         from yoke_harness.rdp_desktop_client import view_desktop
 
         return view_desktop(project, test_machine, settings, password, receipt, run)
-    route = validate_desktop_settings(settings)
-    if not route:
-        raise DesktopAccessError(
-            "desktop_route_missing: declare the desktop route with yoke test-machine settings-replace"
-        )
-    cap_type = test_machine_capability_type(test_machine)
-    password = read_machine_capability_secret(project, cap_type, DESKTOP_PASSWORD_KEY)
-    if password is None:
-        raise DesktopAccessError(
-            "desktop_password_missing: import a private password file with "
-            f"yoke projects capability secret set --project {project} --cap-type {cap_type} "
-            "--key desktop_password --value-file FILE"
-        )
-    if "\n" in password or "\r" in password:
-        raise DesktopAccessError("desktop_password_invalid: import one password line")
+    password = _desktop_password(project, test_machine)
     key_path = machine_capability_secret_path(
         project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
     )

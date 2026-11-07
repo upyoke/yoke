@@ -21,13 +21,13 @@ def desktop_forward(project, settings):
     )
 
     route = validate_desktop_settings(settings)
-    if not route or route["desktop_protocol"] != "rdp":
+    if not route:
         raise DesktopAccessError(
-            "desktop_rdp_route_required: register the RDP desktop route with yoke test-machine settings-replace"
+            "desktop_route_missing: declare the desktop route with yoke test-machine settings-replace"
         )
     host = route.get("desktop_host") or settings["host"]
     port = int(route["desktop_port"])
-    directory = tempfile.mkdtemp(prefix="yoke-rdp-", dir="/tmp")
+    directory = tempfile.mkdtemp(prefix="yoke-desktop-", dir="/tmp")
     preserve_socket = False
     try:
         control_path = str(Path(directory) / "ssh")
@@ -71,7 +71,7 @@ def desktop_forward(project, settings):
                         "desktop_forward_failed: check the registered SSH host, key and remote desktop port, then retry"
                     )
                 host, port = "127.0.0.1", local_port
-            _check_desktop(host, port, "rdp")
+            _check_desktop(host, port, route["desktop_protocol"])
             yield host, port, route["desktop_user"]
         except (OSError, subprocess.TimeoutExpired):
             raise DesktopAccessError(

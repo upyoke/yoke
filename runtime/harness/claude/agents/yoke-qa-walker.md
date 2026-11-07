@@ -98,6 +98,8 @@ commands you ran.
 
 Native windows, dialogs, Terminal, keychain and app handoffs need a visible GUI
 session through the dispatch's desktop control; never infer them from SSH.
+For a person at a workstation, name `yoke test-machine desktop-access --view`;
+it opens every registered desktop, macOS through Screen Sharing.
 
 ## Human gates
 
