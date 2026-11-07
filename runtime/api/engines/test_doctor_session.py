@@ -33,6 +33,13 @@ UNATTENDED_CODEX = 'approval_policy = "never"\nsandbox_mode = "danger-full-acces
 SESSION = "11111111-1111-4111-8111-111111111111"
 
 
+@pytest.fixture(autouse=True)
+def registered_folder_scope(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda: "registered"
+    )
+
+
 def run(fn, **kwargs):
     rec = RecordCollector()
     fn(None, DoctorArgs(project="42", **kwargs), rec)

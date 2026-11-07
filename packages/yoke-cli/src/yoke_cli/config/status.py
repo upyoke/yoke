@@ -98,7 +98,10 @@ def build_status(
     cache = _path_status(machine_config.cache_dir(selected_path), "cache_dir")
     issues.extend(temp.pop("issues"))
     issues.extend(cache.pop("issues"))
+    from yoke_contracts.hook_runner.folder_scope import disabled_folder
+
     project = _project_status(selected_repo, selected_path)
+    project["hooks_disabled_by"] = disabled_folder(selected_repo, payload)
     issues.extend(project.pop("issues"))
     runtime = _runtime_status(connection)
     issues.extend(runtime.pop("issues"))

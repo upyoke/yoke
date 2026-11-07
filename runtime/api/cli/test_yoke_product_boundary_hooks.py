@@ -92,10 +92,14 @@ def _payload(repo: Path, command: str) -> str:
 def test_bound_local_hook_reports_missing_engine_loudly(
     tmp_path: Path,
 ) -> None:
+    config = _local_config()
+    config["connection_projects"] = {
+        "local": [{"checkout": str(tmp_path / "client-cwd"), "project_id": 1}],
+    }
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload=_local_config(),
+        config_payload=config,
     )
 
     assert run.returncode == 1

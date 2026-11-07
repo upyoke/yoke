@@ -1,23 +1,8 @@
-"""Explain a mutating call that resolved no harness session.
+"""Teach how to obtain a registered session when a write requires one.
 
-The same missing session means two different things, and one message for
-both taught the wrong recovery to whichever caller it was not written
-for.
-
-Inside a harness, a session should have been there: registration or
-process-anchor resolution failed, the operator can do nothing about it
-from the prompt, and reporting it is the whole recovery.
-
-In a plain terminal there was never going to be one, and the operator
-did nothing wrong. Most of what a person runs from a shell declares
-itself session-optional and binds the operating actor instead
-(:mod:`yoke_core.domain.terminal_reachable_functions`); what is left
-requires a session because it takes a work claim, and a claim belongs to
-a session. So the recovery is to run the same command from a harness
-session — not to file a report about an operation that is behaving as
-designed. A live install produced the harness text on a terminal, and
-its operator was told to file a field-note about their own first
-command.
+Unregistered folders deliberately keep hooks local. A missing session there
+is expected; a registered project with broken registration needs diagnosis.
+The server cannot infer the client folder from its own machine config.
 """
 
 from __future__ import annotations
@@ -30,7 +15,7 @@ from typing import Any
 #: How a terminal caller reaches a function that requires a session.
 TERMINAL_SUPPORTED_PATH = (
     "Run the same command from a Yoke harness session (claude, codex or cursor) "
-    "started in this project."
+    "started in the project folder, or run `yoke sessions begin`."
 )
 
 
@@ -53,8 +38,10 @@ def format_session_missing(
             f"a session. {TERMINAL_SUPPORTED_PATH}"
         )
     return opening + (
-        "Yoke infrastructure gap: registration or process-anchor resolution "
-        f"failed. {DENIAL_FOOTER} Report it to the operator if unavailable. "
+        f"This write requires a registered session. {TERMINAL_SUPPORTED_PATH} "
+        "Outside registered projects, hooks deliberately create no session. "
+        "If this session started in a registered project, this is a Yoke "
+        f"infrastructure gap: registration or process-anchor resolution failed. {DENIAL_FOOTER} "
         "Operator-debug --session-id is the only ambient-resolution override."
     )
 

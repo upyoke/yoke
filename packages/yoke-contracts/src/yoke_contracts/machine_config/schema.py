@@ -7,6 +7,8 @@ names the machine-global default. Per-command routing (``--env`` /
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 import uuid
 from typing import Any, Mapping
 
@@ -138,6 +140,15 @@ def validate_payload(
     raw: Mapping[str, Any] = payload
     issues: list[ValidationIssue] = []
     issues.extend(validate_github_config(raw))
+    folders = raw.get("disabled_folders", [])
+    if not isinstance(folders, list) or not all(
+        isinstance(value, str) and value.strip() and Path(value).is_absolute()
+        for value in folders
+    ):
+        issues.append(_error(
+            "disabled_folders_invalid", "disabled_folders must list absolute folder paths",
+            path="disabled_folders", hint="Use `yoke folder disable PATH` to manage folder opt-outs.",
+        ))
     github_available = has_github_config(raw)
     if raw.get("schema_version") != SCHEMA_VERSION:
         issues.append(

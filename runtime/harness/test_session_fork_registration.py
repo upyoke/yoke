@@ -15,6 +15,13 @@ from yoke_core.hooks.types import HookContext
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 
+@pytest.fixture(autouse=True)
+def registered_transport_scope(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda *a, **k: "registered",
+    )
+
+
 def _context(family, payload):
     return HookContext("SessionStart", family, family, payload)
 

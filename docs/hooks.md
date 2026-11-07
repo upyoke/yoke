@@ -116,9 +116,9 @@ guard that ran and denied blocks (`yoke_contracts.hook_runner.degraded`). Each s
 call repeats one warning: guard rules are NOT enforced, the cause, the operator
 (never agents) runs `yoke hook resident restart` from their own terminal, and
 `YOKE_HOOKS_OFF`. Claude Code and Codex show it as `systemMessage`, Cursor in
-`user_message`/`agent_message` or `additional_context`. `YOKE_HOOKS_OFF=1` where
-the harness starts makes every hook allow unevaluated, for a failure loop or a
-guard bug that denies everything; unset it and restart the harness to re-enable.
+`user_message`/`agent_message` or `additional_context`. For a folder and its
+subfolders use `yoke folder disable PATH`; `yoke folder enable PATH` restores.
+[What Yoke sends](public/agents/harness-discovery.md#what-yoke-sends) owns scope and privacy.
 
 `yoke hook resident stop`/`restart` SIGTERM, then after ten seconds SIGKILL, residents
 proven by start time; a loading one exits at once. Failures name a running pid or held

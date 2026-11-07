@@ -178,7 +178,10 @@ def claim_work(
         (session_id,),
     ).fetchone()
     if sess_row is None:
-        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
+        raise SessionError(
+            "NOT_FOUND", f"Session '{session_id}' not found. Open a session in the "
+            "project folder, or run `yoke sessions begin`.",
+        )
     if sess_row["ended_at"] is not None:
         raise SessionError(
             "SESSION_ENDED",
@@ -213,7 +216,10 @@ def claim_work(
     conn.commit()
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
-        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
+        raise SessionError(
+            "NOT_FOUND", f"Session '{session_id}' not found. Open a session in the "
+            "project folder, or run `yoke sessions begin`.",
+        )
     if session_rows[session_id] is not None:
         raise SessionError(
             "SESSION_ENDED",

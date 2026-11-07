@@ -15,6 +15,14 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 from yoke_cli.main import main as cli_main
 
 
+@pytest.fixture(autouse=True)
+def registered_transport_scope(monkeypatch):
+    """Dedup tests exercise a registered caller independently of machine config."""
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda *a, **k: "registered",
+    )
+
+
 class TransportReached(BaseException):
     """Probe that evaluation reached transport; hooks fail open on Exception."""
 

@@ -288,7 +288,8 @@ manifest's `machine_hooks` names the file and events); inside a managed
 project they step aside so the project's own hooks run once per event. Project rules
 (such as main-commit and destructive-Git checks) apply inside managed projects.
 Lane rules check the real lane and claim authority there, including on main.
-Unmapped HTTPS clients finish machine checks locally without project registration.
+Unregistered folders run machine checks and orientation locally, without any connection call
+or server session. Explicit `YOKE_ENV` or Yoke launch context retains its selected connection.
 All harnesses use the same applicability declarations.
 
 `yoke hook evaluate PreToolUse --dry-run` shows the registered chain inventory;
@@ -299,7 +300,16 @@ A `hook_scope_unavailable` diagnostic names the mapping or scope repair needed
 before retrying. Required project messages and lifecycle delivery retain their
 own handlers; guard scope does not redefine session lifecycle.
 
-## Related
+## What Yoke sends
 
-- [Operating with agents](index.md)
-- [Agent operation homes](rules/index.md)
+In registered project folders, hooks send prompts, commands, paths and tool
+facts to that project's own connection. Other folders send nothing: no HTTPS
+request and no Postgres session row. Local orientation and the add-project
+nudge still work; `yoke status` shows no hook session there. Commands requiring
+a session refuse: open a session in the project folder, or run `yoke sessions begin`.
+
+Run `yoke folder disable PATH` to skip all hook work for that folder and its
+subfolders on this machine. This personal `~/.yoke/config.json` setting keeps
+project registration and teammates unchanged. Cursor retains its allow envelope.
+Status and doctor report the opt-out. `yoke folder enable PATH` removes it;
+a disabled ancestor still applies. Typed commands keep normal connection selection.

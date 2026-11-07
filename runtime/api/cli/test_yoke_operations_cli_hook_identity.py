@@ -35,6 +35,10 @@ class _FakeResponse:
 
 @pytest.fixture(autouse=True)
 def local_subset(monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.folder_scope.folder_scope", lambda *a, **k: "registered",
+    )
     from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 
     monkeypatch.setattr(

@@ -1,0 +1,5 @@
+{
+  "folder": "Control personal folder hook opt-outs.",
+  "folder disable": "Turn hooks off for a folder and its subfolders.",
+  "folder enable": "Remove this folder's personal hook opt-out."
+}

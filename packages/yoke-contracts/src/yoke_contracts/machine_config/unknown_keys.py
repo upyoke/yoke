@@ -12,6 +12,7 @@ from yoke_contracts.machine_config.schema_projects import ValidationIssue, _warn
 _ROOT_KEYS = frozenset(
     {
         "schema_version",
+        "disabled_folders",
         "machine_id",
         "active_env",
         "connections",

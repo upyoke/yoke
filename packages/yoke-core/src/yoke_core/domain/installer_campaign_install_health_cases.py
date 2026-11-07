@@ -16,6 +16,7 @@ from yoke_core.engines import doctor_install_guidance as guidance
 from yoke_core.engines import doctor_hc_machine_registry as machine
 from yoke_core.engines import doctor_hc_hook_resident as resident
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_contracts.hook_runner import folder_scope
 with TemporaryDirectory(prefix="install-health-") as directory:
     root = Path(directory)
     paths = SimpleNamespace(socket=root / "socket", log=root / "log")
@@ -29,6 +30,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
             (checks, "collect_execution_provenance", lambda: {"source_sha": "a" * 40}),
         ]),
         "session-hook-unobserved": (checks.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED", [
+            (folder_scope, "folder_scope", lambda: "registered"),
             (checks, "build_actor", lambda: SimpleNamespace(session_id="fixture-session")),
             (checks, "relay", lambda function, payload: {"value": 42} if function == "projects.get" else {"session_id": "fixture-session", "project_id": 42}),
             (checks, "orientation_delivered", lambda session: False),
