@@ -12,7 +12,7 @@ yoke merge item PREFIX-N --result "what shipped" --verification "<proof>"
 ```
 
 Route B: a steering seat or reserving mandate means report and stop. Read
-[delivery rules](../../../../.yoke/docs/agents/rules/delivery.md):
+[run members](../../../../.yoke/docs/deployments/model/run-members.md):
 
 ```text
 yoke claims steering list --project PROJECT --active-only

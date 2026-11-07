@@ -4,7 +4,7 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Items](../index.md) > Item model
 <!-- /yoke:breadcrumbs -->
 
-Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
+Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. An `item_id` is always the integer `items.id`, never the number in the item's ref. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
 
 Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / dependency tables. Read [database reference](../../databases/reference.md) for entry points, the domain catalog, JSON-payload conventions and common pitfalls; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI](../../verification/qa-cli.md) and [body writes](body-writes.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
 
@@ -13,7 +13,9 @@ Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / de
 Backlog items are flat rows in `items` — there is no parent-child column or
 table relating one item to another. A pinned workflow whose
 `generated_children` policy creates task graphs stores decomposition in
-`epic_tasks`; workflow names alone do not determine that policy.
+`epic_tasks`; workflow names alone do not determine that policy. The
+planning step creates those task rows, so never file separate child items
+for an Epic's tasks.
 
 Epic tasks are keyed by `(epic_id, task_num)`. The `epic_id` foreign key IS
 the Epic item's own numeric `items.id`. There is no parent-link column on

@@ -44,6 +44,12 @@ and commit must be established first, and the receipt records them. Legacy
 null rows stay as incident evidence and are not backfilled. `model_name` is a
 declared migration model; an execution level in that column is refused.
 
+A bounded maintenance helper with its own safety model records a completed
+audit row through `record_audit_fingerprint` instead of a history entry. Each
+such call site needs a decision record at `docs/archive/decisions/<name>.md`,
+and a call without a backup carries an `exception_reason`;
+`HC-oneshot-migration-coverage` reports a call site without its record.
+
 The extra provenance columns below remain nullable so older rows stay
 readable. `set_audit_provenance` still skips unknown columns on a
 pre-migration authoritative DB.

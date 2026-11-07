@@ -93,6 +93,18 @@ claim, then rerun readiness; a whole-item claim does not substitute:
 yoke claims path register --item PREFIX-N --task-num <task-number> --paths <path1>,<path2>,... [--allow-planned]
 ```
 
+## File Budget and path claims
+
+`yoke workflows item get PREFIX-N --json` reports the item's
+`effective_policies`. The File Budget and path claims are separate settings
+there. Readiness compares the File Budget with the claimed paths only when
+both are required. When only path claims are required, register claims for
+every file the item changes. When only the File Budget is required, register
+no claim. The 350-line limit on authored files applies in every case.
+
+A claim covers physical files: claiming a symlink inside the repository
+covers the file it points to.
+
 ## Registration
 
 The renderer registers each known generated output's
@@ -139,17 +151,21 @@ some overlaps that would have required `coordination_only` edges now
 resolve silently.
 
 
-The session holding the work claim uses the same evidence packet and records
+The session holding the work claim decides the overlap from its own skill.
+It builds the evidence packet with `yoke claims path coordination-decision-build
+--item ITEM --conflicting-claim CLAIM-ID --paths PATH1,PATH2`, then records
 an independent overlap with `yoke items dependency add ITEM HOLDER SOURCE
 --gate-point coordination_only --rationale "<shared paths and disjoint edits>"`,
 where SOURCE is that session's skill. Ordered edits wait for proven landing;
 when no live holder exists, route to `/yoke refine`. Uncertain independence
-goes through `yoke say --steering`. Read dependency-add help for serving
+goes through `yoke say --steering`. Engineer and Tester subagents report the
+overlap to their parent instead of deciding it. An overlap nobody has
+recorded stays incompatible. Read dependency-add help for serving
 capability. Dash claim selection can be restored to its pinned default with `yoke workflows
 item-posture amend ITEM --key path_claims --clear --reason "<why>"`; live
 coverage must first be released by its holder. Read amendment help for authority
-and release recovery. [Lanes and claims](../../agents/rules/lanes-and-claims.md)
-owns the full recipe.
+and release recovery. [Agent rules](../../agents/rules.md#coordination) give
+the order of choices when claims overlap.
 
 ## Ending coverage and reopening work
 

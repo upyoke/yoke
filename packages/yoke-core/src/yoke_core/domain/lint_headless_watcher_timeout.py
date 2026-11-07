@@ -117,7 +117,7 @@ def _format_reason(timeout_ms: Optional[int], suppression_seen: bool) -> str:
         "For background Bash, pass run_in_background: true and timeout equal "
         "to the wrapper duration in milliseconds, as printed by its recipe. "
         "Subagents must use foreground Bash. "
-        "See .yoke/docs/agents/rules/claude-long-commands.md. "
+        "See .yoke/docs/agents/claude.md → Long commands and waits. "
         "A moved call is not evidence that its lifetime is sufficient; "
         "never start a duplicate while it is running."
     )

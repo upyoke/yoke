@@ -8,6 +8,6 @@ Step 6: set `domain.mode=default-subdomain` and `domain.hostname` on each
 environment (`yoke projects environment-settings merge`).
 
 Step 7, managed deploys only: show the full Pack preview, ask `[y/N]`
-(default No records `deferred`). After yes, read `.yoke/docs/agents/rules/delivery.md`,
+(default No records `deferred`). After yes, read `.yoke/docs/deployments/index.md`,
 apply, deploy stage, smoke. Failure: keep it up, write `blocked`, no retry. A requested reconfigure shows
 its delta behind the same gate; never reapply silently.

@@ -89,7 +89,7 @@ Epic arguments/targets use complete public refs, never bare numeric tails.
 - List item dependencies (both directions): `yoke items dependency list PREFIX-N`
 - Read epic task row / body / simulation: `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
 - Write epic task body / metadata via CLI adapters: `yoke workflow-item epic-task body-replace --epic PREFIX-1704 --task-num 5 --body-file PATH` · `yoke workflow-item epic-task metadata-update --epic PREFIX-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
-- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Read the agent rules and the teaching standard: `cat .yoke/docs/agents/rules.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
 - Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 
 _Depth:_ `yoke packets render --role architect_agent --topic core --detail full`.

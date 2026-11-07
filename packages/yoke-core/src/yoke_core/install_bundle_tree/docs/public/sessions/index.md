@@ -107,7 +107,7 @@ Sessions own work claims. Implementation lanes require an active claim and a
 registered worktree. A persisted active work claim keeps its session live
 through stale, idle, parked, process-gone, and startup sweeps. This includes
 release waits. Parking records delivery wake routing; claims own retention.
-Before parking on another item, [record its dependency](../agents/rules/delivery.md#wait-on-another-items-merge-or-delivery). Claim release, completion, cancellation, and
+Before parking on another item, [record its dependency](../items/model/dependencies.md#wait-on-another-items-merge-or-delivery). Claim release, completion, cancellation, and
 authorized operator termination free ownership. Any session holding a live
 steering seat on any project may terminate a session on any project, and
 termination releases every claim the target holds, steering seats and their
@@ -160,7 +160,7 @@ they do not create separate state.
 A session belongs to the project whose registered folder it started in, else to
 its organization (shown as **Outside any project**), and keeps that scope. Its ID
 comes from the harness; never invent one. A session may claim items in any project
-it can access ([session scope](../agents/rules/lanes-and-claims.md#session-scope)).
+it can access.
 
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
 PostToolUse client wall time, evaluator time, and their remainder, then shows

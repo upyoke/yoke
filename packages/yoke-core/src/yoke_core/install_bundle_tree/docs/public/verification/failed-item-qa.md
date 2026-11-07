@@ -31,14 +31,14 @@ driver, falling back to its starting session, then steering. This includes an
 aborted attempt that saved no result and has no live retry. The driver owns triage:
 choose which attaching items owe fixes and send only those back for implementation,
 or retry, record an authorized waiver, or remove an item. The notice names the
-existing commands; [release roles](../agents/rules/release-roles.md) also lists them.
+existing commands; [plan groups](deployment-plan-execution.md#plan-groups) also lists them.
 Pending, failed and passed shared plans send no holder notice. A single-member
 plan stays with its member holder, with ownership fixed at item QA entry.
 Closing the group withdraws its pending driver notice. Read named delivery failures; absence of a notice does not clear the
 failed requirement.
 
 - **Product defect:** fix current-item failures in that item by default under
-  [verification ownership](../agents/rules/verification.md#verification-failure-ownership).
+  [failure ownership](../agents/rules.md#failures).
   Refresh its required survey, take its pinned workflow's ordinary rework
   transition, retain its claim and lane, correct, verify and merge. The driver
   settles the old run without changing its frozen pin; arrange a later run

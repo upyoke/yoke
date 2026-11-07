@@ -1,0 +1,11 @@
+{
+ "id": "agents-md-rules-pointer",
+ "title": "Point the AGENTS.md managed block at the one rules file",
+ "status": "observed",
+ "topics": ["context/startup", "context/docs"],
+ "description": "Agent judgment now lives in docs/public/agents/rules.md, with Claude-only steps in docs/public/agents/claude.md, and the twelve per-operation rule files no longer ship. The AGENTS.md managed block now points to .yoke/docs/agents/rules.md, but under a heading still titled Operation homes beside the Live recipes line. Desired: the managed block names the rules file directly with no operation-home framing. Until that managed block change ships in a refreshed install, the project-native surface stays current-state only.",
+ "sources": ["AGENTS.md:50", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py", "docs/public/agents/rules.md", "docs/public/agents/claude.md"],
+ "work_items": ["YOK-5118"],
+ "owner": "YOK-5118 AGENTS.md managed block",
+ "position": 62
+}

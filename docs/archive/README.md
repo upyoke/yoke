@@ -26,7 +26,7 @@ migration proofs, and incident follow-ups.
 
 Archived source names identify historical implementations. Do not execute an
 archived command or resolve an old identifier as a current file. Current
-migration authority is the [database doctrine](../public/reference/agent-rules/databases.md);
+migration authority is the [databases guide](../public/databases/index.md);
 current operations are the registered `yoke` commands and their `--help`.
 Repair broken navigational links; retain retired names only where they explain
 the historical record. When a current doc needs content from an archive,

@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "verification",
  "position": 4,
- "sources": ["docs/public/agents/rules/claude-long-commands.md", "packages/yoke-contracts/src/yoke_contracts/harness_cli_manifest.py"]
+ "sources": ["docs/public/agents/claude.md", "packages/yoke-contracts/src/yoke_contracts/harness_cli_manifest.py"]
 }

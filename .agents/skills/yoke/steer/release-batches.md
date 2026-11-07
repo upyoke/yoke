@@ -16,7 +16,7 @@ yoke --env CONTROL_PLANE watch deploy -- RUN_ID
 Every run records that commit and key `RELEASE_KEY:FLOW`. A refusal cancels
 runs already made by the call. A correction needs a new set on its passing
 commit; earlier proof does not cover it. For tip binding and the Yoke project's
-release-set example, see `.yoke/docs/agents/rules/release-roles.md`.
+release-set example, see `.yoke/docs/deployments/index.md#create-a-release-set`.
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
 
@@ -24,7 +24,7 @@ CONTROL_PLANE is the project-owning HTTPS connection (`--env`, or checkout routi
 DB env refuses run creation with `use_https_env`. Both targets use the selected
 source `release_lineage`. A self-replacing run uses the paired `*-db-admin`
 driver: `stage-db-admin` for Stage ownership, `prod-db-admin` for Production. Retry lost creates with the same key; re-drive with
-`watch deploy`. Migrations: `databases.md`.
+`watch deploy`. Migrations: `.yoke/docs/databases/index.md`.
 
 ## Member QA
 

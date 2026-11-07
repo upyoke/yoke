@@ -2,7 +2,7 @@
 
 Defense-in-depth check; upstream shepherd/refine gates enforce the
 contract at authoring time. The governed contract is in
-``.yoke/docs/agents/rules/databases.md``. This HC scans for drift classes the
+``.yoke/docs/databases/index.md``. This HC scans for drift classes the
 gates can miss:
 
 (a) items with malformed ``db_mutation_profile`` (missing

@@ -63,12 +63,10 @@ registered `yoke` packet commands, independent of cwd. Discover files/packages
 in active project or supplied paths. Config `~/.yoke/`; designated scratch for
 temporary material. DB owns `items` and `ouroboros_entries`; Board is generated.
 
-## Read the operation homes before editing
+## Read the agent rules before editing
 
-Before the first edit, read `.yoke/docs/agents/rules/index.md` and
-`.yoke/docs/agents/rules/code-and-cli.md` in the lane. Then read each further
-home the index names for an operation before you perform it: tests, claims,
-item writes, schema or delivery. These homes are required, not optional context.
+Before the first edit, read `.yoke/docs/agents/rules.md` in the lane. Each
+command's `--help` ends with its recipe, and each refusal names its fix.
 
 ## Implementation and verification
 
@@ -125,7 +123,7 @@ background with Monitor and return: atomic turns cannot receive that later wake
 and parent dispatch deadlocks. Watcher capture path comes from printed pair,
 machine temp-root watcher-captures resolver, or explicit --raw-capture. If turn
 budget cannot cover the run, return tighter scope to parent; no detached work.
-Full rule: `.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
+Full rule: `.yoke/docs/agents/claude.md` `## Long commands and waits`.
 
 ## DB Quick Reference
 
@@ -147,7 +145,7 @@ Full rule: `.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
 - Amend DB-mutation claim on an item: `yoke db-claim amend PREFIX-N --reason TEXT (--state none | --payload JSON | --payload-file PATH | --stdin)`
 - Read epic task row / body / simulation: `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
 - Engineer: append a progress note to an epic task: `yoke workflow-item epic-progress-note append --epic PREFIX-1704 --task-num 5 --note-num 3 --body-file PATH` · `yoke workflow-item epic-progress-note list --epic PREFIX-1704 --task-num 5 --limit 10` · `yoke workflow-item epic-task submission-receipt-get --epic PREFIX-1704 --task-num 5 --after-note-count 2`
-- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Read the agent rules and the teaching standard: `cat .yoke/docs/agents/rules.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
 - Structural patches: Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.
 - Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 - Project Python scripts: Put them in the project's tracked tools directory, never /tmp/*.py.

@@ -38,4 +38,4 @@ Read the Pack's documentation for its setup, prerequisites, configuration, and u
 
 When a reusable improvement belongs in the Pack, publish it as a new Pack version so other projects can choose to adopt it. A project-specific change can remain in the installed project files.
 
-See [Pack operation rules](../agents/rules/packs.md), [Installation and setup](setup.install.md), and [Command and technical reference](reference/index.md).
+See [capabilities](../projects/capabilities.md), [Installation and setup](setup.install.md), and [Command and technical reference](reference/index.md).

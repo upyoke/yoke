@@ -89,6 +89,12 @@ Every surface that authors a Browser case chooses its phase here:
 | Also a server the project runs from its unmerged candidate, reporting that commit at `/served-build` | A pre-merge `verification` case against that server is also available, bound to the review stage. |
 | Nowhere — a prototype, design document, or other change no server serves | No Browser case. Select the `approval_on_done` posture (`--approval-on-done` at file time, or `yoke workflows item-posture amend PREFIX-N --key approval_on_done --value true --reason "..."`) so the operator signs off before the item closes. |
 
+Formal Browser QA runs against its declared target. A local dashboard preview
+(`YOKE_ENV=<local-env> yoke ui up`, seeded through that same env) is only a
+self-check. Capture at the case's declared viewport sizes, add a `delay` step
+before a screenshot of a page that is still settling, and keep admission
+tokens out of captured output.
+
 ## Method configuration
 
 `method_config` must be a JSON object with a non-empty `steps` array. An

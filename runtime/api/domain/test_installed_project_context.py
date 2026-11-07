@@ -131,7 +131,7 @@ def test_installed_rules_name_the_installed_harness_manifest(bundle):
     files = {entry["path"]: entry["content"] for entry in bundle["files"]}
     for path in (
         ".agents/skills/yoke/steer/loop.md",
-        ".yoke/docs/agents/rules/lanes-and-claims.md",
+        ".yoke/docs/agents/rules.md",
     ):
         assert ".yoke/harness/<harness-dir>/manifest.json" in files[path]
         assert "runtime/harness/<harness-dir>/manifest.json" not in files[path]

@@ -33,7 +33,7 @@ never background with Monitor and return. Later wake has no receiver and stalls
 parent. Capture helper `project_scratch_dir.watcher_capture_path(...)` owns
 printed path; inspect `tail -80` after completion. If budget cannot cover run,
 return tighter scope to parent, no detached waiter. Full rule:
-`.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
+`.yoke/docs/agents/claude.md` `## Long commands and waits`.
 <!-- YOKE:HARNESS end -->
 
 No-regression ACs require regression-detection.md trust/signature procedure;

@@ -124,7 +124,7 @@ def format_reason(
         f"BLOCKED: destructive git command would wipe uncommitted changes.\n\n"
         f"Shape: {label}\n{_threat_block(shape, threatened)}\n\n"
         f"Remediation: {remediation}\n"
-        f"Doctrine: `.yoke/docs/agents/rules/lanes-and-claims.md` → Destructive operation discipline"
+        f"Doctrine: `.yoke/docs/agents/rules.md` → Coordination"
         f"{config_line}{_suffix(suppression_seen)}",
         check_id=RULE_ID,
     )
@@ -144,7 +144,7 @@ def format_recursive_rm_reason(
         "BLOCKED: recursive delete could remove files this session did not "
         f"create.\n\nShape: {label}\nTargets:\n  {listed}\n\n"
         f"Remediation: {remediation}\n"
-        "Doctrine: `.yoke/docs/agents/rules/shell-and-cli.md` → Shell calls and path authority"
+        "Doctrine: `.yoke/docs/agents/rules.md` → Coordination"
         f"{config_line}{_suffix(suppression_seen)}",
         check_id=RULE_ID,
     )

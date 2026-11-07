@@ -32,6 +32,15 @@ Valid structured fields are `spec`, `design_spec`, `technical_plan`,
 `worktree_plan`, `shepherd_caveats`, `test_results`, and
 `deploy_log`.
 
+To add to a field, use `append_addendum`, `section_upsert` or `section_append`
+(`yoke items structured-field --help`). Do not read a field into the shell and
+write a transformed copy back; the shell guard refuses that and names the
+additive command. Write `shepherd_caveats` and `worktree_plan` only when the
+pinned workflow generates Epic tasks; with `generated_children=none`, record
+that context in the Progress Log. Epic task bodies and task notes use their own
+functions, `workflow_item.epic_task.*` and
+`workflow_item.epic_progress_note.append` ([task functions](../../functions/tasks.md)).
+
 Shepherd subagents (PM, Architect) write structured content during lifecycle transitions (e.g., spec, technical plan, shepherd caveats) using the same path.
 
 ### Error Propagation

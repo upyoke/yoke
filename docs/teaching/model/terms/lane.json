@@ -3,5 +3,5 @@
  "term": "Lane",
  "definition": "The isolated checkout assigned to work on an item or task.",
  "status": "draft",
- "sources": ["docs/public/agents/rules/lanes-and-claims.md"]
+ "sources": ["docs/public/agents/rules.md"]
 }

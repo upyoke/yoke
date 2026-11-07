@@ -106,6 +106,12 @@ and [this help reference](https://upyoke.com/docs/cli/help).
 CLI's options; public docs describe the current service. A project-relative
 `.yoke/docs` path applies only after that project's operating layer is installed.
 
+Agents run Yoke operations as `yoke` commands, never as HTTP requests, runtime
+imports or database calls. Most function ids name their command: dots become
+spaces and underscores become hyphens, so `items.structured_field.replace` is
+`yoke items structured-field replace`. Hooks refuse direct API calls and
+runtime imports and name the command to use instead.
+
 ## Session and item state reads
 
 `yoke sessions list` shows server status (Working, Waiting or Ended), one plain

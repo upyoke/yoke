@@ -27,7 +27,7 @@ yoke claims work holder-get --path SHARED_PATH
 git -C ABSOLUTE_REGISTERED_NEIGHBOUR diff -- SHARED_PATH
 ```
 
-Read only; then follow `lanes-and-claims.md`.
+Read only; then follow `.yoke/docs/agents/rules.md#coordination`.
 
 ## Restaff on a different model
 

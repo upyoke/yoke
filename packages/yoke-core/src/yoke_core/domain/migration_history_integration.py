@@ -129,7 +129,9 @@ def _listed_entries(
         if sequence in seen:
             raise HistoryError(
                 f"migration history at {ref} has duplicate sequence "
-                f"{match.group(1)}: {seen[sequence]!r} and {path.stem!r}"
+                f"{match.group(1)}: {seen[sequence]!r} and {path.stem!r}. "
+                "A new entry takes the next unused number: renumber the "
+                "entry that has not been applied anywhere yet"
             )
         seen[sequence] = path.stem
         listed.append((sequence, path))

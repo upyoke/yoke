@@ -10,7 +10,7 @@
  "outline": ["Skills and agent roles", "Hooks, packets and repository rules"],
  "terms": ["agent", "agent-role", "agents-md", "harness", "hook", "skill", "context-packet", "harness-session", "watcher", "agent-guidance", "context-chain"],
  "commands": ["command:yoke packets", "command:yoke agents", "command:yoke hook", "command:yoke codex"],
- "sources": ["source:rules", "source:skills", "source:roles", "source:packets", "source:global-hooks", "source:project-hooks", "doc:docs/public/agents/index.md", "doc:docs/public/agents/harness-discovery.md", "replies:packets", "replies:agents", "doc:docs/public/agents/commands.md", "doc:docs/public/agents/maintenance-commands.md", "doc:docs/public/agents/codex.md", "doc:docs/public/agents/cursor.md", "doc:docs/public/agents/rules/claude-sessions.md", "doc:docs/public/agents/rules/claude-long-commands.md", "packet:main_agent", "replies:hook"],
+ "sources": ["source:rules", "source:skills", "source:roles", "source:packets", "source:global-hooks", "source:project-hooks", "doc:docs/public/agents/index.md", "doc:docs/public/agents/harness-discovery.md", "replies:packets", "replies:agents", "doc:docs/public/agents/commands.md", "doc:docs/public/agents/maintenance-commands.md", "doc:docs/public/agents/codex.md", "doc:docs/public/agents/cursor.md", "doc:docs/public/agents/claude.md", "doc:docs/public/agents/rules.md", "packet:main_agent", "replies:hook"],
  "deeper_pages": ["execution-instructions"],
  "open_questions": ["This is a source map, not a request to duplicate every instruction into public docs."],
  "position": 25,

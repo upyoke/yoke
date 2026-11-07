@@ -3,5 +3,5 @@
  "term": "Architecture model",
  "definition": "A project's declared structure and relationships, used to reason about change impact.",
  "status": "draft",
- "sources": ["docs/public/agents/rules/architecture-model.md"]
+ "sources": ["docs/public/projects/architecture-model.md"]
 }

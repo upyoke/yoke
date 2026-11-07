@@ -9,9 +9,8 @@ enforces the rule by asserting that no canonical agent body in
 ``runtime/agents/`` for the dispatched-subagent set contains the literal
 substring ``run_in_background``.
 
-The rule home at ``docs/public/agents/rules/claude-long-commands.md`` is
-deliberately out of scope: that file owns the rule statement itself and
-must name the forbidden shape verbatim.
+The Claude guide at ``docs/public/agents/claude.md`` is deliberately out of
+scope: it owns the rule statement itself.
 """
 
 from __future__ import annotations
@@ -48,5 +47,5 @@ def test_dispatched_subagent_body_has_no_run_in_background(agent_name: str) -> N
     assert FORBIDDEN_SUBSTRING not in text, (
         f"{body_path} teaches `{FORBIDDEN_SUBSTRING}` — dispatched subagent "
         "turns must use foreground watcher wrappers (see "
-        ".yoke/docs/agents/rules/claude-long-commands.md `## Subagents`)."
+        ".yoke/docs/agents/claude.md `## Long commands and waits`)."
     )

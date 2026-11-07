@@ -1,6 +1,6 @@
 """``core`` topic operational recipes: how an agent reaches Yoke.
 
-Lifecycle, Progress Log, rules homes, feedback, Fleet messaging, scripts
+Lifecycle, Progress Log, agent rules, feedback, Fleet messaging, scripts
 and lane-source checks. Registered function ids use the strict
 ``yoke <subcommand>`` grammar. Pure data only — no I/O or DB connections.
 """
@@ -88,17 +88,16 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "boss_agent",
         ),
         "topic": "core",
-        "purpose": "Read the rules home before acting",
+        "purpose": "Read the agent rules and the teaching standard",
         "recipe": (
-            "cat .yoke/docs/agents/rules/code-and-cli.md\n"
+            "cat .yoke/docs/agents/rules.md\n"
             "cat .yoke/docs/documentation/index.md\n"
             "yoke <family> --help"
         ),
         "notes": (
             "`.yoke/docs/functions/index.md` links the registered "
-            "function catalogs per family. Read the operation home before acting; "
-            "complete scope and portable behavior live in "
-            "`.yoke/docs/agents/rules/code-and-cli.md`; the teaching standard "
+            "function catalogs per family. Judgment no command checks lives in "
+            "`.yoke/docs/agents/rules.md`; the teaching standard "
             "lives in `.yoke/docs/documentation/index.md`. The matching `yoke <subcommand> "
             "--help` carries that adapter's variants and flag matrix. The "
             "CLI grammar is reversible — dots become spaces, underscores "

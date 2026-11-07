@@ -6,5 +6,5 @@
  "coverage": "partial",
  "current": "Configure BASH_DEFAULT_TIMEOUT_MS and BASH_MAX_TIMEOUT_MS set to the longest wrapper duration before the native worker starts. Keep in-turn watcher calls foreground with the documented timeout; the inherited setting protects moved commands. Explicit background calls use timeout equal to the wrapper duration in milliseconds. If the launch setting is missing, relaunch through the launcher before starting long work; a Bash export is too late. Preserve any running call and its capture instead of duplicating it. Monitor defaults to five minutes and caps at thirty minutes interactively or ten minutes for text-prompt headless runs, independent of plan. Rearm the same tail after its effective expiry; durable tool-call deadlines govern duplicate refusal.",
  "questions": ["Has a released relay-launched headless worker completed a wait longer than twenty minutes?"],
- "sources": ["docs/public/agents/rules/claude-long-commands.md", "runtime/harness/manifest-native-cli.md"]
+ "sources": ["docs/public/agents/claude.md", "runtime/harness/manifest-native-cli.md"]
 }

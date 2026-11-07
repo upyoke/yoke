@@ -147,8 +147,7 @@ def _format_reason(
         "  yoke watch pytest --local -- <paths>          # ~1 min targeted check\n"
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"
         "  yoke qa case run --requirement-id <id>\n"
-        "Admission is per invocation; quoted wrapper names do not exempt raw tests.\n"
-        "Doctrine: `.yoke/docs/agents/rules/verification.md` → Testing"
+        "Admission is per invocation; quoted wrapper names do not exempt raw tests."
     )
     if severity != "full":
         body += "\n\n[advisory] narrow, deliberate sweeps are legitimate."

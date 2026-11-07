@@ -56,7 +56,7 @@ Cwd is execution convenience. Every workspace-sensitive call uses the session's
 active `work_claims`, with explicit absolute paths and source import anchors.
 Sticky main-shell cwd and subagent tool cwd can differ; neither grants authority.
 Use the registered lane returned by preparation, never compose it from a branch
-slug or a machine checkout mapping. Read [lanes and claims](public/agents/rules/lanes-and-claims.md)
+slug or a machine checkout mapping. Read [path claims](public/sessions/model/path-claims.md)
 before overlap/recovery and [source-dev doctrine](source-dev-doctrine.md) before
 source execution/render/verification.
 

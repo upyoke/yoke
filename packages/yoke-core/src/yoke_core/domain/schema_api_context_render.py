@@ -58,7 +58,7 @@ def _validate_detail(detail: str) -> str:
 NON_PACKET_TOPIC_HOMES: dict[str, str] = {
     "architecture": (
         "architecture operations are taught in "
-        ".yoke/docs/agents/rules/architecture-model.md: yoke project-structure "
+        ".yoke/docs/projects/architecture-model.md: yoke project-structure "
         "architecture-draft get --project P, yoke project-structure "
         "architecture-health get --project P, and yoke project-structure get "
         "--project P --family architecture_model --json"

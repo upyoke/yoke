@@ -85,9 +85,8 @@ def verify_architecture_impact_resolved(
             "Decide whether this item touches architecture surfaces "
             "(dependency shape, path classification, cross-cutting "
             "entrypoints, or the architecture_model payload). Set the "
-            "resolved value with `printf '%s' <value> | python3 -m "
-            "yoke_core.cli.db_router items update YOK-N "
-            "architecture_impact --stdin`."
+            "resolved value with `yoke items structured-field replace "
+            "PREFIX-N --field architecture_impact --content <value>`."
         ),
         context={"current_value": value},
     )]

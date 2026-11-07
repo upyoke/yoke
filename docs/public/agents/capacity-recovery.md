@@ -110,4 +110,4 @@ shorter polling does not reset message attempts or bypass native custody.
 ## Related
 
 - [Operating with agents](index.md)
-- [Agent operation homes](rules/index.md)
+- [Agent rules](rules.md)

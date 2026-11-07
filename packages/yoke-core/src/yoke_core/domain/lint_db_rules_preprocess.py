@@ -211,7 +211,7 @@ for py_code in extract_python_payloads(shell):
                     "Examples:\n"
                     "  yoke db read \"SELECT ...\"\n"
                     "  yoke items get PREFIX-N status\n"
-                    "See `.yoke/docs/agents/rules/databases.md`."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+                    "See `.yoke/docs/databases/index.md`."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
 
         sys.exit(0)
 

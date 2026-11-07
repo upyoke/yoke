@@ -42,7 +42,7 @@ class TestTerminalProgressLogRecovery(_ClaimMatrixSuite):
         assert response.error.code == "claim_required"
         expected = (
             f"item {public_ref} is terminal; its result is already recorded — "
-            "skip the final checkpoint (.yoke/docs/agents/rules/item-writes.md)"
+            "skip the final checkpoint (.yoke/docs/agents/rules.md → Items and the Progress Log)"
         )
         assert response.error.message == expected
         assert response.error.recovery_hint == expected

@@ -97,7 +97,7 @@ CONNECTIONS = (
     ('source:global-hooks', 'skill:yoke-global', 'Choose or add the project'),
     ('skill:yoke-global', 'source:project-hooks', 'Open a session in the project folder'),
     ('source:project-hooks', 'source:rules', 'Project session also loads standing rules'),
-    ('source:rules', 'branch:installed-docs', 'Read the relevant operation home'),
+    ('source:rules', 'branch:installed-docs', 'Read the agent rules'),
     ('source:rules', 'source:project', 'Load the project’s own guidance'),
     ('source:skills', 'source:roles', 'Delegated work supplies a role mandate'),
     ('source:skills', 'source:instructions', 'Load instructions for the current work'),

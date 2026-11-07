@@ -11,6 +11,6 @@
  "review": "Pending live proof on a release that carries both items.",
  "recipes": ["yoke deployment-runs create --help", "yoke deployment-runs validate-composition --help", "yoke items dependency list --help"],
  "plan_notes": ["JOURNEYS row 11"],
- "sources": ["docs/public/verification/case-attachment.md", "docs/public/agents/rules/release-roles.md", "docs/public/verification/failed-item-qa.md"],
+ "sources": ["docs/public/verification/case-attachment.md", "docs/public/agents/rules.md", "docs/public/verification/failed-item-qa.md"],
  "position": 4
 }
