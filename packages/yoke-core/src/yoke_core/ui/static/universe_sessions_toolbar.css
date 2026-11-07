@@ -93,3 +93,7 @@
     grid-column: span 1;
   }
 }
+
+.universe-app-root .sessions-toolbar .session-filter-action[hidden] {
+  display: none;
+}

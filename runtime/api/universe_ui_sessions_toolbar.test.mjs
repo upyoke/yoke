@@ -58,6 +58,7 @@ test("the toolbar grid fills every row edge to edge at each width", () => {
     /@import url\("\.\/universe_sessions_toolbar\.css"\);/,
   );
   const css = staticFile("universe_sessions_toolbar.css");
+  assert.match(css, /\.session-filter-action\[hidden\] \{\s*display: none;/);
   // The page is the container: a grid cannot query its own width.
   assert.match(css, /\.sessions-view \{\s*container: sessions-view \/ inline-size;/);
   assert.match(
