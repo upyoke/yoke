@@ -202,7 +202,7 @@ _TEST_MACHINE_FLOOR = ArgumentFloor(
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
     "sessions.list": {
         name: ArgumentFloor("next-release", "an unfiltered sessions list read; update the serving release before filtering state")
-        for name in ("presence", "activity", "intent")
+        for name in ("status",)
     },
     **{
         function_id: {

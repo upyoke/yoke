@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 import { sessionCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -32,7 +33,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   const rows = () => {
     const result = [
       {
-        session_id: "a7b4pl", liveness: "active", session_state: { presence: "present", activity: "working", intent: { state: "none" } },
+        session_id: "a7b4pl", liveness: "active", session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } },
         execution_level: "ALTMAN", level_label: "Integration", level_glyph: "🧭",
         mode: "resume", executor: "claude-code", model: "claude-opus-4-8",
         executor_mark: "A", executor_class_name: "h-claude",
@@ -63,7 +64,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
         },
       },
       {
-        session_state: { presence: reclaimed ? "ended" : "present", activity: "silent", intent: { state: "none" } },
+        session_state: { status: reclaimed ? "ended" : "waiting", active_at: null, reason: "Waiting for the next turn.", presence: reclaimed ? "ended" : "present", activity: "silent", intent: { state: "none" } },
         session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale", reclaimable: !reclaimed,
         execution_level: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
@@ -123,10 +124,8 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
       { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
     ],
   );
-  const state = byClass(root, "session-roster-filter").find(
-    (field) => field.children[0].textContent === "State",
-  ).children[1];
-  assert.equal(state.value, "open");
+
+  assert.deepEqual(statusChecks(root).map((check) => check.checked), [true, true, false]);
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children
@@ -159,7 +158,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
     ],
   );
   // Modes without a quiet reason render no explanation or invented state.
-  assert.equal(byClass(root, "tooltip-info").length, 0);
+  assert.equal(byClass(root, "session-details").length, 2);
   // The mode pill is gone; the level names the session beside its harness and
   // the relay pill is the one reachability fact the card keeps.
   assert.deepEqual(
@@ -169,9 +168,9 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   assert.deepEqual(
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
-      ["working", "pill good session-status-pill"],
+      ["Working", "pill good session-status-pill"],
       ["test-mac", "pill good session-relay-pill"],
-      ["silent", "pill warn session-status-pill"],
+      ["Waiting", "pill warn session-status-pill"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
@@ -213,14 +212,14 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
-    "🧭 Integration", "claude-opus-4-8", "claim held", "last tool unavailable", "Ben",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "active time unavailable", "Ben",
     "Relay:", "test-mac",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
   }
   for (const expected of [
     "codex", "DARIUS", "gpt-5.6-sol", "worktree attached",
-    "silent", "preview-ci", "no relay connected",
+    "Waiting", "preview-ci", "no relay connected",
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
@@ -241,11 +240,11 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   // The server-active card can be quiet without being recategorized as stale.
   assert.deepEqual(
     byClass(cards[0], "session-age-prefix").map((node) => node.textContent),
-    ["claim held ", "last tool unavailable"],
+    ["claim held ", "active time unavailable"],
   );
   assert.deepEqual(
     byClass(cards[1], "session-age-prefix").map((node) => node.textContent),
-    ["worktree attached ", "last tool unavailable"],
+    ["worktree attached ", "active time unavailable"],
   );
 
   const reclaim = byClass(root, "item-button").find(
@@ -270,8 +269,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
     byClass(root, "sessions-action-status")[0].textContent,
     "1 reclaimable session reclaimed",
   );
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting", "ended"]);
   await settle();
   const reclaimedCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "v8c2qa",
@@ -285,10 +283,11 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
 test("Sessions cards separate activity, intent and its full reason", () => {
   const reason = "Waiting for the merge queue without clipping recovery context.";
   const rendered = sessionCard(new FakeDocument(), {
-    session_id: "waiting", executor: "codex", liveness: "active", session_state: { presence: "present", activity: "working", intent: { state: "none" } },
-    session_state: { presence: "present", activity: "between_turns",
+    session_id: "waiting", executor: "codex", liveness: "active", session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } },
+    session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "between_turns",
       intent: { state: "awaiting", reason } },
   }, () => {});
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "between turns");
-  assert.equal(byClass(rendered, "session-intent")[0].textContent, `Intentawaiting · ${reason}`);
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Waiting");
+  assert.match(byClass(rendered, "session-details")[0].getAttribute("data-tooltip"), new RegExp(reason));
+  assert.equal(byClass(rendered, "session-intent").length, 0);
 });

@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -24,7 +25,7 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   // The operator owns the wake; hooks deliver the queued message next turn.
   const rows = [
     {
-      session_id: "desk-1", harness_title: "[PILLS]", liveness: "stale",
+      session_id: "desk-1", harness_title: "[PILLS]", chat_title: "[PILLS]", liveness: "stale",
       execution_level: "ALTMAN", mode: "wait",
       executor: "claude-code", model: "claude-opus-4-8",
       executor_mark: "A", executor_class_name: "h-claude",
@@ -42,14 +43,11 @@ test("Message button explains a quiet desktop chat waits on its operator", async
     client: sessionsClient(rows, []),
   });
   await settle();
-  const state = byClass(root, "session-roster-filter").find(
-    (field) => field.children[0].textContent === "State",
-  ).children[1];
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+
+  setStatuses(root, ["working", "waiting", "ended"]);
   assert.equal(byClass(root, "session-message-delivery-note").length, 1);
-  assert.equal(byClass(root, "session-top")[0].getAttribute("data-tooltip"), "[PILLS]");
-  assert.ok(!byClass(root, "session-card")[0].textContent.includes("[PILLS]"));
+  assert.equal(byClass(root, "session-chat-title")[0].textContent, "[PILLS]");
+  assert.ok(byClass(root, "session-card")[0].textContent.includes("[PILLS]"));
   const buttons = byClass(byClass(root, "session-card")[0], "item-button");
   assert.deepEqual(buttons.map((button) => button.textContent), ["Message"]);
   assert.equal(

@@ -1,6 +1,6 @@
 // Shared roster-read stub for the Sessions view suites: the card anatomy
 // suite and the view-shell suite mount the same screen against it.
-import { allNodes } from "./universe_ui_dom_test_support.mjs";
+import { allNodes, byClass } from "./universe_ui_dom_test_support.mjs";
 
 export function ok(result) {
   return { status: 200, envelope: { success: true, result } };
@@ -42,4 +42,14 @@ export function sessionsClient(
       throw new Error(`unexpected function ${request.function}`);
     },
   };
+}
+
+export function setStatuses(root, values) {
+  const checks = byClass(root, "session-status-filter").map((label) => label.children[1]);
+  for (const check of checks) check.checked = values.includes(check.value);
+  checks[0].dispatchEvent(new Event("change"));
+}
+
+export function statusChecks(root) {
+  return byClass(root, "session-status-filter").map((label) => label.children[1]);
 }

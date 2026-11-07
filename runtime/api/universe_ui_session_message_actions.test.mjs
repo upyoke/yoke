@@ -39,7 +39,7 @@ test("delivery notes follow wake authority and preserve active hook delivery", (
   }), "Queued — delivered when you wake this session.");
   assert.equal(sessionMessageDeliveryNote({
     liveness: "active", messageability: desktop,
-    session_state: { presence: "present", activity: "working", intent: { state: "none" } },
+    session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } },
   }), "");
   assert.equal(sessionMessageDeliveryNote({
     liveness: "stale", messageability: native,

@@ -30,7 +30,7 @@ async function mountFrontier(session) {
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client: workbenchClient({ homes: { "YOK-9": {
-      section: "in_progress", activity: "held", reason: session.quiet_reason || "session_process_gone",
+      section: "in_progress", activity: "waiting", reason: session.quiet_reason || "session_process_gone",
     } }, "sessions.list": { rows: [session] } }),
   });
   await settle();
@@ -47,17 +47,18 @@ test("a parked holder stays held with its reason and no process chip", async (t)
     ...claimingSession(),
     liveness: "waiting",
     mode: "parked",
-    session_state: { presence: "gone", activity: "silent", intent: { state: "parked" } },
+    session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "gone", activity: "silent", intent: { state: "parked" } },
     quiet_reason: "awaiting YOK-9 delivery",
     native_process: { state: "gone", resumable_from_transcript: true },
   });
 
   assert.equal(cardsIn(root, "active").length, 1);
-  assert.match(descendantText(band(root, "active")), /Held, not working/);
-  assert.match(descendantText(band(root, "active")), /awaiting YOK-9 delivery/);
+  assert.match(descendantText(band(root, "active")), /Waiting/);
+  assert.doesNotMatch(descendantText(band(root, "active")), /Held, not working/);
   const chip = byClass(band(root, "active"), "item-claimant-mini")[0];
   assert.ok(chip, "the holding session's chip is drawn");
-  assert.match(descendantText(chip), /parked/);
+  assert.match(descendantText(chip), /Waiting/);
+  assert.equal(byClass(chip, "item-claimant-intent").length, 0);
   assert.equal(byClass(chip, "item-claimant-process").length, 0);
   assert.doesNotMatch(descendantText(root), /Owner unavailable/);
   mounted.unmount();
@@ -72,8 +73,8 @@ test("a gone holder stays held and still names itself", async (t) => {
   });
 
   const held = band(root, "active");
-  assert.match(descendantText(held), /Held, not working/);
-  assert.match(descendantText(held), /session process gone/);
+  assert.match(descendantText(held), /Waiting/);
+  assert.doesNotMatch(descendantText(held), /session process gone/);
   assert.equal(byClass(held, "item-claimant-mini").length, 1);
   mounted.unmount();
 });

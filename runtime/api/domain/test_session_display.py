@@ -5,7 +5,10 @@ from yoke_core.domain.decision_request_requester_label import requester_labels
 from yoke_core.domain.session_message_display import project_session_names
 from yoke_core.domain.session_message_list_row import message_list_row
 from yoke_core.domain.steering_fleet_report_labels import label_text
-from runtime.api.domain.session_message_support_test_support import message_connection, NOW
+from runtime.api.domain.session_message_support_test_support import (
+    message_connection,
+    NOW,
+)
 
 
 def test_human_title_holds_and_read_time_rename(monkeypatch):
@@ -18,6 +21,10 @@ def test_human_title_holds_and_read_time_rename(monkeypatch):
         "[PILLS] · claude-desktop · alpha · holds ALP-1 'Test work' · last tool 0s ago"
     )
     assert session_display.session_display_names(conn, ["s1"]) == {"s1": expected}
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        == "[PILLS]"
+    )
     assert requester_labels(conn, ["s1"])["s1"] == expected
     message = {"message_id": "message", "sender_session_id": "s1", "body": "Hello"}
     project_session_names(conn, [message])
@@ -51,6 +58,17 @@ def test_launched_item_title_and_most_recent_released_claim(monkeypatch):
     )
     label = session_display.session_display_names(conn, ["s1"])["s1"]
     assert label.startswith("ALP-1 Test work · codex-desktop · alpha · holds ALP-1")
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        is None
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET harness_title='ALP-1 Test work' WHERE session_id='s1'"
+    )
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        is None
+    )
     conn.execute("UPDATE work_claims SET released_at=? WHERE session_id='s1'", (NOW,))
     assert (
         " · held ALP-1 · " in session_display.session_display_names(conn, ["s1"])["s1"]
@@ -93,6 +111,30 @@ def test_label_uses_tool_clock_even_when_gone_process_has_fresh_heartbeat(monkey
     assert "last tool 1h ago" in label
     assert "0s ago" not in label
     assert "active " not in label
-    conn.execute("UPDATE harness_sessions SET last_tool_call_at=NULL WHERE session_id='s1'")
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=NULL WHERE session_id='s1'"
+    )
     assert "last tool" not in session_display.session_display_name(conn, "s1")
+    conn.close()
+
+
+def test_chat_title_excludes_launch_item_and_steering_titles():
+    from runtime.api.domain.session_message_support_test_support import (
+        seed_steering_seat,
+    )
+
+    conn = message_connection()
+    # This fixture records a launch for the first item holder.
+    conn.execute(
+        "UPDATE harness_sessions SET harness_title='Native discussion' WHERE session_id='s1'"
+    )
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        == "Native discussion"
+    )
+    seed_steering_seat(conn, session_id="s1", project_id=1)
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        is None
+    )
     conn.close()

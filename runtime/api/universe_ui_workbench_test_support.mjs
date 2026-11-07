@@ -30,6 +30,7 @@ function item(ref, project, projectId, facts = {}) {
     created_at: recentIso(12),
     updated_at: recentIso(1),
     // The feed resolves these against the item's pinned workflow definition.
+    next_actor: {actor: "parent_or_steering", reason: "ready_without_holder", sentence: "A session can pick up this item."},
     frontier_group: { section: "ready", activity: null, reason: "ready_without_holder" },
     terminal: false,
     finished: false,
@@ -42,6 +43,7 @@ function session(sessionId, project, projectId) {
   return {
     session_id: sessionId,
     liveness: "active",
+    session_state: {status: "waiting", active_at: null, reason: "Waiting for direction."},
     project,
     project_id: projectId,
     executor: "codex",

@@ -40,37 +40,53 @@ export function killExplanation(row) {
   return reason ? `${base} Reason: ${reason}` : base;
 }
 
-// Render the server projection without another browser-side classifier.
-export function appendSessionPrimaryStatus(documentNode, host, row) {
+export const SESSION_STATUS_UPGRADE =
+  "Session state unavailable; refresh after the server upgrade.";
+
+export function sessionStatusAvailable(row) {
   const state = row.session_state;
-  const value = state?.presence === "present"
-    ? state.activity : state?.presence || (sessionIsLive(row) ? "unavailable" : "ended");
-  const pill = statePill(documentNode, value, value.replaceAll("_", " "));
-  pill.className += " session-status-pill";
-  host.appendChild(pill);
-  const detail = [killExplanation(row), !state && sessionIsLive(row)
-    ? "Session state unavailable; refresh after the server upgrade." : null]
-    .filter(Boolean).join(" · ");
-  const explanation = infoTooltip(documentNode, detail, `Why ${value}`);
-  if (explanation) host.appendChild(explanation);
+  return ["working", "waiting", "ended"].includes(state?.status)
+    && Object.hasOwn(state, "active_at") && typeof state.reason === "string";
 }
 
-export function appendSessionStateFacts(documentNode, host, row) {
+// All card surfaces render the server's status, including during rollout.
+export function appendSessionPrimaryStatus(documentNode, host, row) {
+  const value = sessionStatusAvailable(row) ? row.session_state.status : "unavailable";
+  const label = value[0].toUpperCase() + value.slice(1);
+  const pill = statePill(documentNode, value, label);
+  pill.className += " session-status-pill";
+  host.appendChild(pill);
+  if (value === "unavailable") attachTooltip(documentNode, pill, SESSION_STATUS_UPGRADE);
+}
+
+export function appendSessionHeaderDetails(documentNode, host, row) {
   const state = row.session_state;
-  const facts = el(documentNode, "dl", "session-state-facts");
-  const add = (label, value, className) => {
-    const column = el(documentNode, "div", className);
-    column.appendChild(el(documentNode, "dt", null, label));
-    column.appendChild(el(documentNode, "dd", null, value));
-    facts.appendChild(column);
-  };
-  add("Presence", state?.presence || "unavailable", "session-presence");
-  add("Activity", (state?.activity || "unavailable").replaceAll("_", " "),
-    "session-activity");
   const intent = state?.intent;
-  add("Intent", [intent?.state || "unavailable", intent?.reason]
-    .filter(Boolean).join(" · "), "session-intent");
-  host.appendChild(facts);
+  const next = state?.next_actor;
+  const detail = [
+    `Presence: ${state?.presence || "unavailable"}`,
+    `Activity: ${state?.activity || "unavailable"}`,
+    `Intent: ${intent?.state || "unavailable"}${intent?.reason ? ` · ${intent.reason}` : ""}`,
+    `Next actor: ${next?.actor || "unavailable"}${next?.reason ? ` · ${next.reason}` : ""}`,
+    ...[["Tool", row.last_tool_call_at], ["Prompt / stop", row.turn_posture_at],
+      ["Finished turn", row.native_turn_end_recorded_at], ["Heartbeat", row.last_heartbeat]]
+      .map(([name, time]) => `${name}: ${time || "unavailable"}`),
+    killExplanation(row),
+  ].filter(Boolean).join("\n");
+  const info = infoTooltip(documentNode, detail, "Session details");
+  info.classList.add("session-details");
+  host.appendChild(info);
+}
+
+export function appendSessionChatTitle(documentNode, host, row) {
+  if (row.chat_title) host.appendChild(el(
+    documentNode, "div", "session-chat-title", row.chat_title,
+  ));
+}
+
+export function appendSessionReason(documentNode, host, row) {
+  host.appendChild(el(documentNode, "div", "session-reason",
+    sessionStatusAvailable(row) ? row.session_state.reason : SESSION_STATUS_UPGRADE));
 }
 
 export function appendSessionMessageLine(

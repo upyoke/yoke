@@ -91,3 +91,14 @@ def test_item_holds_keep_their_reason(flag):
         item_next_actor({flag: "1", "blocked_reason": "scope decision"})["reason"]
         == "scope decision"
     )
+
+
+def test_reason_sentences_preserve_free_text_and_translate_codes():
+    from yoke_core.domain.next_actor import reason_sentence, REASON_SENTENCES
+
+    for code, sentence in REASON_SENTENCES.items():
+        assert reason_sentence(code) == sentence
+        assert "_" not in sentence
+        assert action("operator", code)["sentence"] == sentence
+    assert reason_sentence("Please review the release") == "Please review the release"
+    assert "gone" not in reason_sentence("session_process_gone")

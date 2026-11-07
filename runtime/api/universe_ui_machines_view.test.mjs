@@ -50,6 +50,7 @@ function openSession(id, machineId, facts = {}) {
     holdings: { current: [] },
     ...facts,
     session_state: facts.session_state || {
+      status: facts.liveness === "stale" ? "waiting" : "working", active_at: null, reason: "Ready for the next turn.",
       presence: "present", activity: facts.liveness === "stale" ? "silent" : "working",
       custody: { holds: facts.holdings?.current || [] }, intent: { state: "none" },
     },
@@ -129,7 +130,7 @@ test("machine cards paint while the open roster is still in flight", async () =>
   }));
   await settle();
   assert.equal(byClass(main, "machine-work-loading").length, 0);
-  assert.match(visibleText(main, " "), /1 working · 1 held · 0 silent/);
+  assert.match(visibleText(main, " "), /1 working · 0 waiting · 1 held/);
   assert.match(visibleText(main, " "), /YOK-9/);
   assert.match(visibleText(main, " "), /Held work/);
 });
@@ -161,7 +162,7 @@ test("a failing open roster leaves machines up and retries only that read", asyn
     client.requests.filter((request) => request.function === "machine.list").length,
     1,
   );
-  assert.match(visibleText(main, " "), /0 working · 0 held · 1 silent/);
+  assert.match(visibleText(main, " "), /0 working · 1 waiting · 0 held/);
 });
 
 test("a large open roster keeps every session in the machine totals", async () => {
@@ -188,7 +189,7 @@ test("a large open roster keeps every session in the machine totals", async () =
     }));
   }
   rows.push(openSession("gone", "alpha", {
-    session_state: { presence: "gone", activity: "silent", custody: { holds: [] } },
+    session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "gone", activity: "silent", custody: { holds: [] } },
   }));
   const { main } = await renderView({
     "machine_authorization.pending": () => ok({ requests: [] }),
@@ -210,8 +211,8 @@ test("a large open roster keeps every session in the machine totals", async () =
   const headings = byClass(main, "machine-work")
     .map((node) => node.children[0].textContent);
   assert.deepEqual(headings, [
-    "25 working · 5 held · 16 silent",
-    "40 working · 1 held · 0 silent",
+    "25 working · 16 waiting · 5 held",
+    "40 working · 0 waiting · 1 held",
   ]);
   assert.equal(byClass(main, "machine-work-row").length, 5);
   assert.equal(byClass(main, "machine-work-rest")[0].children.length, 3);

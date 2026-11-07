@@ -78,9 +78,10 @@ never increase the Waiting count.
 Every item has exactly one home section. Counts include only home cards.
 On hold shows a freeze, block, missing spec or halted work that needs direction.
 Ready shows unclaimed work available to advance. In progress separates
-**Working** from **Held, not working**: a claim protects custody even while
-its holder is parked, between turns, silent or gone. The card names who acts
-next and why; a parked holder is never labelled Working. Release shows items
+**Working** from **Waiting**, from the server session status. Session chips
+use Working, Waiting and Ended consistently with Sessions; a process exit
+does not change the status. Cards show one plain next-action sentence, with
+the raw diagnostic detail behind (i); chips do not repeat intent or reasons. Release shows items
 at their workflow's delivery stage; Done shows recently finished work and older finished blockers referenced by a live dependency.
 Release and Done include delivery state and the relevant run.
 

@@ -1,4 +1,4 @@
-"""One projection of session presence, activity, intent, custody and next actor.
+"""One display status plus diagnostic session facts and custody.
 
 Callers supply durable session, holdings and open-call facts, plus the project's
 session_idle_minutes. No heartbeat or telemetry event proves process presence
@@ -16,7 +16,7 @@ from yoke_contracts.session_queue_posture import (
     session_declared_wait,
 )
 from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
-from yoke_core.domain.next_actor import session_next_actor
+from yoke_core.domain.next_actor import session_next_actor, reason_sentence
 from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
 from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 
@@ -38,12 +38,11 @@ def session_presence(row: Mapping[str, Any]) -> str:
     return "gone" if gone is not None and (tool is None or tool <= gone) else "present"
 
 
-def session_in_flight(row: Mapping[str, Any], *, now: datetime | None = None) -> bool:
-    """A current running call is bounded by the shared watcher ceiling."""
+def _tool_in_flight(row: Mapping[str, Any], *, now: datetime) -> bool:
+    """An open running call does not depend on native process presence."""
     started = row.get("open_tool_call_at")
-    if started is None or session_presence(row) != "present":
+    if started is None:
         return False
-    now = utc_now() if now is None else as_utc(now)
     stamp = parse_instant(started)
     return timedelta(0) <= now - stamp < timedelta(
         seconds=IN_FLIGHT_CEILING_SECONDS
@@ -52,6 +51,12 @@ def session_in_flight(row: Mapping[str, Any], *, now: datetime | None = None) ->
         and open_tool_call_is_live(stamp, row.get("last_tool_call_at"))
         and not open_call_predates_park(row, started_at=stamp)
     )
+
+
+def session_in_flight(row: Mapping[str, Any], *, now: datetime | None = None) -> bool:
+    """The diagnostic progress check retains its process-presence gate."""
+    current = utc_now() if now is None else as_utc(now)
+    return session_presence(row) == "present" and _tool_in_flight(row, now=current)
 
 
 def session_state(
@@ -68,6 +73,32 @@ def session_state(
     from yoke_core.domain.session_automatic_reclaim import automatic_reclaim
 
     current = utc_now() if now is None else as_utc(now)
+    stamps = [
+        parse_instant(row[key])
+        for key in (
+            "last_tool_call_at",
+            "last_heartbeat",
+            "turn_posture_at",
+            "native_turn_end_recorded_at",
+        )
+        if row.get(key)
+    ]
+    active_at = max(stamps) if stamps else None
+    idle = row.get("session_idle_minutes", DEFAULT_SESSION_IDLE_MINUTES)
+    status = (
+        "ended"
+        if row.get("ended_at") or row.get("terminated_at")
+        else (
+            "working"
+            if _tool_in_flight(row, now=current)
+            or (
+                row.get("turn_posture", "unknown") in {"running", "unknown", None}
+                and active_at is not None
+                and active_at >= current - timedelta(minutes=idle)
+            )
+            else "waiting"
+        )
+    )
     presence = session_presence(row)
     declared = session_declared_wait(row)
     intent = (
@@ -96,6 +127,15 @@ def session_state(
     holds = row.get("holds", row.get("claims", []))
     return temporal_wire(
         {
+            "status": status,
+            "active_at": active_at,
+            "reason": reason_sentence(
+                (row.get("termination_reason") or "session_ended")
+                if status == "ended"
+                else row.get("quiet_reason") or next_action["reason"]
+            )
+            if status != "working"
+            else "This session is working.",
             "presence": presence,
             "activity": activity,
             "intent": {

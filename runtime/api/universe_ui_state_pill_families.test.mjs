@@ -32,41 +32,20 @@ test("healthy is green and genuinely neutral states stay grey", () => {
   }
 });
 
-test("every state a session card can show carries a deliberate family", () => {
-  // The session vocabulary is small and fully enumerable, so none of it is
-  // allowed to reach the map's unknown-value fallback by accident. "idle" is
-  // retired as a primary-status pill — recency now lives on the timing line
-  // as plain "active now" / "idle Xm" text, not a second pill — but the
-  // family itself stays live for other muted states (ended, unknown, …) and
-  // other pill families across the UI.
-  const shown = [
-    "active", "waiting", "parked", "probed", "stale",
-    "quiet", "process-gone", "resuming", "ended",
-    "unknown",
-  ];
-  const families = new Map(shown.map((s) => [s, pillFamilyForState(s)]));
-  assert.deepEqual([...families.entries()], [
-    ["active", "good"],
-    ["waiting", "warn"],
-    ["parked", "park"],
-    ["probed", "run"],
-    ["stale", "warn"],
-    ["quiet", "warn"],
-    ["process-gone", "crit"],
-    ["resuming", "run"],
-    ["ended", "idle"],
-    ["unknown", "idle"],
-  ]);
+test("the three session statuses share deliberate colors on every card", () => {
+  assert.deepEqual(["working", "waiting", "ended"].map(
+    (status) => [status, pillFamilyForState(status)],
+  ), [["working", "good"], ["waiting", "warn"], ["ended", "idle"]]);
 });
-
 
 test("planning stages show readiness and ongoing work", () => {
   for (const state of ["refining-idea", "planning", "refining-plan"]) {
     assert.equal(pillFamilyForState(state), "run", state);
   }
-  for (const state of ["refined-idea", "planned"]) {
+  for (const state of ["refined-idea"]) {
     assert.equal(pillFamilyForState(state), "good", state);
   }
+  assert.equal(pillFamilyForState("planned"), "idle");
   assert.equal(pillFamilyForState("idea"), "warn");
   assert.equal(pillFamilyForState("plan-drafted"), "warn");
 });

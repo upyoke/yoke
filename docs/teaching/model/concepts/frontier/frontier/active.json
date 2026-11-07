@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "frontier",
  "position": 2,
- "summary": "Claimed work separates Working from Held, not working using shared session presence, activity and intent; parked holders retain custody without being called Working."
+ "summary": "Claimed work separates Working and Waiting using the central session status. Finished turns wait; a native process exit never changes status or custody. Chips show one status and no intent line; each card shows its next-action sentence once."
 }

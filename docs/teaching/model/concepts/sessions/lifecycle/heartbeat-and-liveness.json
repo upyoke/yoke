@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 1,
- "summary": "CLI and web read the same session_state: presence, tool activity, explicit intent, custody and next actor. Session list filters presence, activity and intent before pagination; the liveness read flag is removed. A waiting turn is not a park. Heartbeats never hide process death; protected work claims retain custody regardless of silence.",
+ "summary": "Working means an in-flight tool or a recent running/unknown turn. Finished turns and other non-ended sessions are Waiting; end stamps make Ended. Active time takes the latest tool, heartbeat, prompt/stop or recorded turn-end stamp. The project idle window defaults to 20 minutes. CLI, Sessions, Frontier and Machines share the server status; card details retain raw state. Reclaim, fleet reports and message liveness keep their separate rules.",
  "sources": ["docs/public/sessions/inbox.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py", "docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/session_message_reachability.py"]
 }

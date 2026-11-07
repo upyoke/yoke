@@ -1,3 +1,4 @@
+import { setStatuses } from "./universe_ui_sessions_view_test_support.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -12,6 +13,7 @@ import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_
 const orgRow = {
   display_label: "codex · outside a project", session_label: "codex · outside a project",
   session_id: "org-owner", project_id: null, org_id: 7, scope_kind: "org",
+  session_state: {status: "waiting", active_at: null, reason: "Waiting."},
   project: null, liveness: "active", executor: "codex", claims: [],
 };
 const projectRow = {
@@ -67,7 +69,7 @@ test("search blur preserves the rendered link after its input already filtered",
 test("the project facet offers outside-project sessions separately", () => {
   const filters = sessionRosterFilters(new FakeDocument(), () => {});
   filters.setFacets({ projects: [{ id: 1, slug: "yoke" }] });
-  const project = byClass(filters.host, "session-filter-control")[2];
+  const project = byClass(filters.host, "session-filter-control")[1];
   assert.ok(project.children.some((option) => option.textContent === "Outside any project"));
   const outside = project.children.find((option) => option.textContent === "Outside any project").value;
   change(project, outside);
@@ -114,8 +116,8 @@ test("actual detail loads org and project cards without expanding explicit scope
 });
 
 test("outside facet filters active, ended and all while paging honest loaded counts", async () => {
-  const endedOrg = { ...orgRow, session_id: "org-ended", liveness: "ended" };
-  const endedProject = { ...projectRow, session_id: "project-ended", liveness: "ended" };
+  const endedOrg = { ...orgRow, session_id: "org-ended", liveness: "ended", session_state: {status: "ended", active_at: null, reason: "Ended."} };
+  const endedProject = { ...projectRow, session_id: "project-ended", liveness: "ended", session_state: {status: "ended", active_at: null, reason: "Ended."} };
   const { context, main, requests } = setup((request) => {
     assert.equal(request.function, "sessions.list");
     if (request.payload.usage_last_24h) return ok({ rows: [] });
@@ -133,10 +135,10 @@ test("outside facet filters active, ended and all while paging honest loaded cou
   renderSessionsView(context, main, "all");
   await settle();
   const controls = byClass(main, "session-filter-control");
-  const outside = controls[2].children.find((option) => option.textContent === "Outside any project").value;
-  change(controls[2], outside);
+  const outside = controls[1].children.find((option) => option.textContent === "Outside any project").value;
+  change(controls[1], outside);
   assert.deepEqual(cardIds(main), [orgRow.session_id]);
-  change(controls[1], "ended");
+  setStatuses(main, ["ended"]);
   await settle();
   assert.deepEqual(cardIds(main), []);
   assert.match(main.textContent, /loaded history.*Load more to continue/);
@@ -146,14 +148,14 @@ test("outside facet filters active, ended and all while paging honest loaded cou
   await settle();
   assert.deepEqual(cardIds(main), [endedOrg.session_id]);
   assert.equal(byClass(main, "n")[0].textContent, "1");
-  change(controls[1], "");
+  setStatuses(main, ["working", "waiting", "ended"]);
   assert.deepEqual(new Set(cardIds(main)), new Set([orgRow.session_id, endedOrg.session_id]));
   assert.equal(byClass(main, "n")[0].textContent, "2");
   assert.ok(requests.filter((r) => r.payload.history).every((r) => !r.payload.history.projects.includes(outside)));
 });
 
 test("outside history never widens an outer project and normal counts stay server-owned", async () => {
-  const ended = { ...projectRow, liveness: "ended" };
+  const ended = { ...projectRow, liveness: "ended", session_state: {status: "ended", active_at: null, reason: "Ended."} };
   const { context, main, requests } = setup((request) => {
     if (request.payload.usage_last_24h) return ok({ rows: [] });
     if (request.payload.history) return ok({ rows: [ended], matched_count: 72, next_cursor: null });
@@ -162,11 +164,11 @@ test("outside history never widens an outer project and normal counts stay serve
   renderSessionsView(context, main, ["1"]);
   await settle();
   const controls = byClass(main, "session-filter-control");
-  change(controls[1], "ended");
+  setStatuses(main, ["ended"]);
   await settle();
   assert.equal(byClass(main, "n")[0].textContent, "1 of 72");
-  const outside = controls[2].children.find((option) => option.textContent === "Outside any project").value;
-  change(controls[2], outside);
+  const outside = controls[1].children.find((option) => option.textContent === "Outside any project").value;
+  change(controls[1], outside);
   await settle();
   assert.deepEqual(cardIds(main), []);
   assert.deepEqual(requests.filter((r) => r.payload.history).at(-1).payload.history.projects, ["1"]);

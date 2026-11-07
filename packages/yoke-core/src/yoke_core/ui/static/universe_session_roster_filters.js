@@ -1,4 +1,4 @@
-import { sessionIsLive } from "./universe_session_diagnostics.js";
+import { sessionStatusAvailable } from "./universe_session_diagnostics.js";
 import { magnifier } from "./universe_search_overlay.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
@@ -26,7 +26,7 @@ function includes(value, query) {
   return !query || String(value || "").toLowerCase().includes(query);
 }
 
-const DEFAULT_STATE = "open";
+const DEFAULT_STATUSES = ["working", "waiting"];
 const OUTSIDE_PROJECT = "outside-project";
 
 function setOptions(documentNode, control, defaultLabel, values) {
@@ -46,11 +46,7 @@ function setOptionEntries(documentNode, control, defaultLabel, entries) {
 }
 
 export function sessionFilterGroup(row) {
-  const state = row.session_state;
-  if (!state) return sessionIsLive(row) ? "unavailable" : "ended";
-  if (state.presence !== "present") return state.presence;
-  if (["parked", "awaiting"].includes(state.intent?.state)) return "parked";
-  return state.activity;
+  return sessionStatusAvailable(row) ? row.session_state.status : "unavailable";
 }
 
 export function sessionRosterFilters(documentNode, onChange) {
@@ -68,18 +64,21 @@ export function sessionRosterFilters(documentNode, onChange) {
   );
   controls.search = search.control;
   host.appendChild(search.wrapper);
-  const state = input(documentNode, "State", "select");
-  for (const [value, label] of [
-    ["open", "Open"], ["working", "Working"],
-    ["between_turns", "Between turns"], ["parked", "Parked or awaiting"],
-    ["silent", "Silent"], ["gone", "Gone"],
-    ["ended", "Ended"], ["", "All"],
-  ]) {
-    state.control.appendChild(option(documentNode, value, label));
+  const statuses = new Map();
+  const statusHost = el(documentNode, "fieldset", "session-status-filters");
+  statusHost.appendChild(el(documentNode, "legend", "session-filter-label", "Status"));
+  for (const value of ["working", "waiting", "ended"]) {
+    const field = input(documentNode, value[0].toUpperCase() + value.slice(1), "checkbox");
+    field.wrapper.className = "session-status-filter";
+    field.control.className = "session-status-check";
+    field.control.value = value;
+    field.control.checked = DEFAULT_STATUSES.includes(value);
+    field.control.setAttribute("aria-label", value[0].toUpperCase() + value.slice(1));
+    statuses.set(value, field.control);
+    statusHost.appendChild(field.wrapper);
   }
-  state.control.value = DEFAULT_STATE;
-  controls.state = state.control;
-  host.appendChild(state.wrapper);
+  const selectedStatuses = () => [...statuses].filter(([, c]) => c.checked).map(([v]) => v);
+  host.appendChild(statusHost);
   for (const [name, label] of [
     ["project", "Project"], ["harness", "Harness"], ["machine", "Machine"],
   ]) {
@@ -95,8 +94,8 @@ export function sessionRosterFilters(documentNode, onChange) {
     || String(controls.harness.value || "").trim()
     || String(controls.machine.value || "").trim()
     || String(controls.project.value || "").trim()
-    || controls.state.value !== DEFAULT_STATE;
-  const filterValues = () => Object.values(controls).map((control) => control.value);
+    || selectedStatuses().join(",") !== DEFAULT_STATUSES.join(",");
+  const filterValues = () => [...Object.values(controls).map((control) => control.value), selectedStatuses().join(",")];
   let previousValues = filterValues();
   const changed = (key = "unknown") => {
     const values = filterValues();
@@ -109,12 +108,15 @@ export function sessionRosterFilters(documentNode, onChange) {
     control.addEventListener("input", () => changed(key));
     control.addEventListener("change", () => changed(key));
   }
+  for (const control of statuses.values()) {
+    control.addEventListener("change", () => changed("status"));
+  }
   clear.addEventListener("click", () => {
     controls.search.value = "";
     controls.project.value = "";
     controls.harness.value = "";
     controls.machine.value = "";
-    controls.state.value = DEFAULT_STATE;
+    for (const [value, control] of statuses) control.checked = DEFAULT_STATUSES.includes(value);
     changed("clear");
   });
   // Clear leads the roster actions rather than standing alone, so the
@@ -144,11 +146,9 @@ export function sessionRosterFilters(documentNode, onChange) {
           || includes(row.executor_surface, harness)
           || includes(row.presentation_surface, harness))
         && (includes(row.machine_id, machine) || includes(row.machine_name, machine))
-        && (!includeState || (!controls.state.value
-          || (controls.state.value === DEFAULT_STATE
-            ? (row.session_state ? row.session_state.presence === "present"
-              : sessionIsLive(row) && !row.native_process_exited_at)
-            : sessionFilterGroup(row) === controls.state.value)));
+        && (!includeState || (selectedStatuses().length > 0
+          && (sessionFilterGroup(row) === "unavailable"
+            || selectedStatuses().includes(sessionFilterGroup(row)))));
     });
   };
   return {
@@ -167,9 +167,7 @@ export function sessionRosterFilters(documentNode, onChange) {
         })));
       clear.disabled = !hasChanges();
     },
-    state() {
-      return String(controls.state.value || "");
-    },
+    statuses: selectedStatuses,
     outsideProjectOnly() {
       return controls.project.value === OUTSIDE_PROJECT;
     },
@@ -191,11 +189,11 @@ export function sessionRosterFilters(documentNode, onChange) {
         || String(controls.project.value || "").trim()
         || String(controls.harness.value || "").trim()
         || String(controls.machine.value || "").trim()
-        || controls.state.value,
+        || selectedStatuses().length !== 3,
       );
     },
     summary() {
-      const values = [`State: ${controls.state.value || "any"}`];
+      const values = [`Status: ${selectedStatuses().join(", ") || "none"}`];
       for (const [key, label] of [
         ["search", "Search"], ["project", "Project"],
         ["harness", "Harness"], ["machine", "Machine"],
@@ -210,7 +208,7 @@ export function sessionRosterFilters(documentNode, onChange) {
       return applyRows(rows, true);
     },
     applyOpen(rows) {
-      return applyRows(rows, false);
+      return applyRows(rows, true);
     },
     applyHistory(rows) {
       return controls.project.value === OUTSIDE_PROJECT

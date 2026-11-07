@@ -1,3 +1,4 @@
+import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -241,10 +242,8 @@ test("roster keeps exact message actions on every session", async (t) => {
     t, "/sessions?project=1", client,
   );
   const filters = byClass(root, "session-roster-filter");
-  const state = filters.find((field) => field.children[0].textContent === "State")
-    .children[1];
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+
+  setStatuses(root, ["working", "waiting", "ended"]);
   await settle();
   const cardIds = () => byClass(root, "session-card").map(
     (card) => card.getAttribute("data-session-id"),
@@ -270,8 +269,7 @@ test("roster keeps exact message actions on every session", async (t) => {
     ).payload.selector,
     { session_ids: ["messageable"] },
   );
-  state.value = "open";
-  state.dispatchEvent(new Event("change"));
+  setStatuses(root, ["working", "waiting"]);
   assert.deepEqual(cardIds(), ["messageable", "wakeable"]);
   mounted.unmount();
 });

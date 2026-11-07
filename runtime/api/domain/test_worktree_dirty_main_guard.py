@@ -343,4 +343,4 @@ def test_unknown_machine_falls_back_to_self_clear_recipe(monkeypatch):
         needed_paths=("foo.py",),
     )
     assert "No live session on this machine" in verdict.narrative
-    assert "yoke sessions list --presence present" in verdict.narrative
+    assert "yoke sessions list --status waiting" in verdict.narrative

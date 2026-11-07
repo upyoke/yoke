@@ -167,3 +167,61 @@ def test_an_explicit_wait_carries_its_reason_and_addressee():
     }
     assert state["activity"] != "working"
     assert session_pause_declared(facts) is True
+
+
+@pytest.mark.parametrize("executor", ["codex", "claude-code", "cursor"])
+@pytest.mark.parametrize(
+    "stamp",
+    [
+        "last_tool_call_at",
+        "last_heartbeat",
+        "turn_posture_at",
+        "native_turn_end_recorded_at",
+    ],
+)
+@pytest.mark.parametrize(
+    "posture,expected",
+    [("running", "working"), ("unknown", "working"), ("waiting", "waiting")],
+)
+def test_status_uses_all_signs_of_life_and_finished_turn_wins(
+    executor, stamp, posture, expected
+):
+    old = NOW - timedelta(hours=1)
+    facts = row(
+        executor=executor,
+        last_tool_call_at=old,
+        last_heartbeat=old,
+        turn_posture=posture,
+        native_process_gone_at=NOW,
+    )
+    facts[stamp] = NOW
+    state = session_state(facts, now=NOW)
+    assert state["status"] == expected
+    assert state["active_at"] == "2026-11-06T12:00:00.000000Z"
+    assert "_" not in state["reason"]
+
+
+def test_status_respects_project_threshold_and_ended_override():
+    facts = row(last_tool_call_at=NOW - timedelta(minutes=10), last_heartbeat=None)
+    assert session_state(facts, now=NOW)["status"] == "working"
+    assert (
+        session_state({**facts, "session_idle_minutes": 5}, now=NOW)["status"]
+        == "waiting"
+    )
+    assert session_state({**facts, "ended_at": NOW}, now=NOW)["status"] == "ended"
+    assert (
+        session_state({**facts, "terminated_at": NOW}, now=NOW)["reason"]
+        == "This session has ended."
+    )
+
+
+def test_an_open_tool_call_ignores_process_presence_for_status():
+    start = NOW - timedelta(minutes=30)
+    facts = row(
+        last_tool_call_at=start,
+        last_heartbeat=start,
+        open_tool_call_at=start,
+        native_process_gone_at=NOW,
+    )
+    assert session_state(facts, now=NOW)["status"] == "working"
+    assert session_state(facts, now=NOW)["in_flight"] is False

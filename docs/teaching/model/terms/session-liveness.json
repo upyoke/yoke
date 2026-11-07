@@ -1,7 +1,7 @@
 {
  "id": "session-liveness",
  "term": "Session liveness",
- "definition": "Session presence, tool activity, explicit intent, custody and next actor are independent facts. The legacy liveness selector separately projects reclaim eligibility and explicit pauses.",
+ "definition": "Cards and session CLI share server statuses Working, Waiting and Ended plus active time and a plain reason. A finished turn waits; a native process exit does not end the session. Presence, activity, intent, custody and next actor remain diagnostic facts; message liveness and reclaim keep separate rules.",
  "status": "draft",
  "sources": ["docs/public/guide/glossary.md", "docs/public/sessions/model/sessions.md"]
 }

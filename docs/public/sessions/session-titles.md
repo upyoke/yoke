@@ -13,8 +13,10 @@ refresh this age, including after a process exits; without a tool timestamp,
 the label omits the age.
 UUIDs remain in commands and secondary session details.
 
-Session cards retain their usual fields. Hover or tap their identity header
-to reveal the title. Dashboard search matches chat titles.
+Session cards keep the harness name in the header. They add a title line
+only for a stored native chat title that differs from the launch item ref
+and title and has no steering claim. Item-derived fallback titles stay off
+the card face. The header (i) reveals state details. Search matches titles.
 
 A session start, prompt or Stop hook observes the name on the machine running
 the harness. Desktop and CLI surfaces use their harness family's title reader:

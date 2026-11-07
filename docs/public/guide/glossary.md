@@ -11,8 +11,10 @@ together to understand a session; an active claim alone does not prove progress.
 
 | Term | Meaning |
 | --- | --- |
+| Session status | Working for an in-flight tool or a recent unfinished turn; Waiting for other non-ended sessions; Ended for end stamps. All card surfaces and the session CLI share it. |
+| Active time | Latest tool call, heartbeat, prompt/stop marker or recorded finished turn. The project recent window defaults to 20 minutes. |
 | Presence | `present` unless end stamps or unsuperseded native process death prove `ended` or `gone`. A later tool call proves presence again; heartbeat alone does not. |
-| Activity | `working`, `between_turns`, or `silent`, based on tool activity and turn posture. The project idle threshold defaults to 20 minutes. |
+| Activity | `working`, `between_turns`, or `silent`, based on tool activity and turn posture. This diagnostic tool-progress classification is separate from the display status. |
 | Intent | An explicit pause: `parked` or `awaiting`, with a reason; otherwise `none`. Between turns does not mean parked. |
 | Custody | Active holdings and whether automatic reclaim is eligible, with the policy reason. Work claims protect their holders regardless of activity age. |
 | Next actor | Who can act next, with a reason and state time. Actors are `this_session`, `operator`, `parent_or_steering`, `another_item`, `ci_or_deploy`, and `nobody`. |
@@ -21,7 +23,7 @@ together to understand a session; an active claim alone does not prove progress.
 See the [session model](../sessions/model/sessions.md) for wire fields and the
 [sessions guide](sessions.md) for coordination and recovery.
 
-The wire field `session_state` contains `presence`, `activity`, `intent`,
+The wire field `session_state` contains `status`, `active_at`, `reason`, `presence`, `activity`, `intent`,
 `custody`, and `next_actor`. Intent includes `state`, `reason` and `awaiting_who`;
 custody includes `holds`, `holds_work_claim`, `reclaimable` and `reason`;
 next actor includes `actor`, `reason` and `since`. A pending decision names its active human audience; an unsatisfied dependency names

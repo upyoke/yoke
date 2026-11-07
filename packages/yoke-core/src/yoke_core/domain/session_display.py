@@ -60,6 +60,11 @@ def session_display_details(conn, session_ids):
         for session_id in (row["registered_session_id"], row["native_session_id"]):
             if session_id:
                 launched.setdefault(session_id, f"{refs[item_id]} {title}".strip())
+    steering = {
+        row["session_id"]
+        for row, target in targets
+        if target.kind == "steering" and row["released_at"] is None
+    }
     current, recent = defaultdict(list), {}
     for row, target in targets:
         if target.kind not in {"item", "epic_task"}:
@@ -106,7 +111,14 @@ def session_display_details(conn, session_ids):
                 else f"{seconds // 86400}d"
             )
             parts.append(f"last tool {age} ago")
-        details[session_id] = {"title": title, "label": " · ".join(parts)}
+        chat_title = row.get("harness_title")
+        if session_id in steering or chat_title == launched.get(session_id):
+            chat_title = None
+        details[session_id] = {
+            "title": title,
+            "chat_title": chat_title,
+            "label": " · ".join(parts),
+        }
     return details
 
 

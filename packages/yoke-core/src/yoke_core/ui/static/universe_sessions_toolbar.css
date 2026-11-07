@@ -1,4 +1,4 @@
-/* The Sessions roster toolbar: a search, four filters, and the roster
+/* The Sessions roster toolbar: a search, status checkboxes and three facets, and the roster
    actions led by Clear. Laid out on a grid sized by the page's width, so
    every row ends on the same edges and where a control lands never depends
    on how long the longest machine or harness name in a select happens to be.
@@ -18,7 +18,8 @@
   align-items: center;
 }
 
-.universe-app-root .sessions-toolbar > .session-roster-filter {
+.universe-app-root .sessions-toolbar > .session-roster-filter,
+.universe-app-root .sessions-toolbar > .session-status-filters {
   width: auto;
 }
 /* A select gives up its intrinsic width, so a long option truncates inside
@@ -59,7 +60,8 @@
 }
 /* Below two readable filters per row, each filter takes the full row. */
 @container sessions-view (max-width: 319px) {
-  .universe-app-root .sessions-toolbar > .session-roster-filter {
+  .universe-app-root .sessions-toolbar > .session-roster-filter,
+.universe-app-root .sessions-toolbar > .session-status-filters {
     grid-column: 1 / -1;
   }
 }
@@ -68,7 +70,8 @@
   .universe-app-root .session-roster-filters.sessions-toolbar {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-  .universe-app-root .sessions-toolbar > .session-roster-filter {
+  .universe-app-root .sessions-toolbar > .session-roster-filter,
+.universe-app-root .sessions-toolbar > .session-status-filters {
     grid-column: span 2;
   }
   .universe-app-root .sessions-toolbar > .session-filter-search {
@@ -85,7 +88,12 @@
 
 @container sessions-view (min-width: 900px) {
   .universe-app-root .sessions-toolbar
-    > .session-roster-filter:not(.session-filter-search) {
+    > .session-roster-filter:not(.session-filter-search),
+  .universe-app-root .sessions-toolbar > .session-status-filters {
     grid-column: span 1;
   }
+}
+
+.universe-app-root .sessions-toolbar .session-filter-action[hidden] {
+  display: none;
 }

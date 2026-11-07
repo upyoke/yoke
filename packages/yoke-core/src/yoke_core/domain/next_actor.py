@@ -8,8 +8,43 @@ from yoke_contracts.timestamps import temporal_wire
 from yoke_contracts.item_flags import is_frozen, is_blocked
 
 
+REASON_SENTENCES = {
+    "session_ended": "This session has ended.",
+    "session_process_gone": "The process exited; a message resumes this session.",
+    "session_can_continue": "This session can continue when prompted.",
+    "parked_session_needs_direction": "This session is waiting for direction.",
+    "dependency_unsatisfied": "Waiting for another item to clear its dependency.",
+    "declared_wait": "Waiting for the declared next action.",
+    "ci_run_in_progress": "Waiting for CI to finish.",
+    "release_run_in_progress": "Waiting for the release to finish.",
+    "item_terminal": "This item has finished.",
+    "item_on_hold": "This item is on hold.",
+    "ready_without_holder": "A session can pick up this item.",
+    "work_halted": "Work has stopped; steering must review it.",
+}
+
+
+def reason_sentence(reason):
+    """Translate internal reasons once; preserve operator-written prose."""
+    if not reason:
+        return "Waiting for the next turn."
+    if reason in REASON_SENTENCES:
+        return REASON_SENTENCES[reason]
+    if "_" in reason and " " not in reason:
+        return "Waiting for the next action; open the details."
+    return reason
+
+
 def action(actor: str, reason: str, since: Any = None, **details: Any) -> dict:
-    return temporal_wire(dict(actor=actor, reason=reason, since=since, **details))
+    return temporal_wire(
+        dict(
+            actor=actor,
+            reason=reason,
+            sentence=reason_sentence(reason),
+            since=since,
+            **details,
+        )
+    )
 
 
 def session_next_actor(row: Mapping[str, Any], *, presence: str) -> dict:

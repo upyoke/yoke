@@ -28,6 +28,7 @@ RECLAIM_SESSION_FIELDS = (
     "native_process_gone_at",
     "native_process_gone_evidence",
     "turn_posture_at",
+    "native_turn_end_recorded_at",
     "quiet_reason",
     "last_heartbeat",
     "last_tool_call_at",

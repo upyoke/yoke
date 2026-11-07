@@ -40,7 +40,7 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
             "no session matches the session id(s) "
             f"{_listed(selector.session_ids)}. IDs match whole and exactly; "
             "shortened, padded, or hand-assembled IDs can reach the wrong session. "
-            "Read a whole id from `yoke sessions list --presence present`, "
+            "Read a whole id from `yoke sessions list --status waiting`, "
             "or address the live claim with `yoke say --item PREFIX-N --stdin`."
         )
     if selector.public_refs:
@@ -66,7 +66,7 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
     return (
         "the roster audience resolved to zero sessions. Filters intersect; "
         "--project/--universe default to present, working/between-turns sessions; --liveness selects legacy states. "
-        "Check `yoke sessions list --presence present`, then adjust filters."
+        "Check `yoke sessions list --status waiting`, then adjust filters."
     )
 
 

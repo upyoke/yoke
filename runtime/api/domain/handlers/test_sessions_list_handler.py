@@ -226,11 +226,11 @@ class TestHandler:
         assert not outcome.primary_success
         assert outcome.error.code == "not_found"
 
-    def test_handler_bad_presence_is_typed_payload_error(self, test_db):
-        outcome = handle_sessions_list(_request({"presence": "running"}))
+    def test_handler_bad_status_is_typed_payload_error(self, test_db):
+        outcome = handle_sessions_list(_request({"status": "running"}))
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
-        for state in ("present", "gone", "ended"):
+        for state in ("working", "waiting", "ended"):
             assert state in outcome.error.message
 
     def test_handler_requires_global_target(self):

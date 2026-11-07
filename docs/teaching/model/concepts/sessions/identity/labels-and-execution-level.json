@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "session-identity",
  "position": 5,
- "summary": "Session mentions resolve the current native chat title, surface, project, current or most recent item claim and last tool age at read time. Unnamed launched chats use their assigned item. Session cards expose titles on hover or tap; dashboard search matches titles."
+ "summary": "Session mentions resolve title, surface, project, claims and last tool age at read time. Cards retain the harness header and add a stored native chat title only when it differs from the launch item ref and title and no steering claim is held. The header info control reveals diagnostic state and timestamps; card active age includes heartbeat and turn markers."
 }
