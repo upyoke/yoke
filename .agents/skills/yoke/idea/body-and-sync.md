@@ -22,5 +22,5 @@ yoke readiness check "$ITEM_REF" --json
 yoke claims work release --item "$ITEM_REF" --reason idea-complete
 ```
 
-Release only on `verdict` pass, after [path-closure.md](path-closure.md).
-Otherwise keep the claim and show the fix.
+Before release, list every required file by name; "all callers" is not a
+list. Release only on `verdict` pass; otherwise keep the claim and show the fix.

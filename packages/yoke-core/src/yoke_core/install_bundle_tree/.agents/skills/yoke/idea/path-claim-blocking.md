@@ -1,7 +1,5 @@
 # Idea — Claim Conflict Resolution
 
-Never drop a required file.
-
 ```text
 yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim <claim-id> --paths <path1>,<path2>,...
 ```

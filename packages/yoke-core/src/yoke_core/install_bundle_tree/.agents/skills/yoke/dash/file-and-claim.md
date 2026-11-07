@@ -14,4 +14,4 @@ yoke claims work acquire --item ITEM --reason "Dash execution"
 yoke items detail get ITEM --include '' --json
 ```
 
-On resume read the Progress Log and the lane's `git status`; lane state wins. Before any stop short of done, checkpoint with `yoke items progress-log append ITEM --headline "<checkpoint>" --stdin`. Next: [survey-and-isolate](survey-and-isolate.md).
+On resume read the Progress Log and the lane's `git status`; lane state wins. Checkpoint with `yoke items progress-log append ITEM --headline "<checkpoint>" --stdin`. Next: [survey-and-isolate](survey-and-isolate.md).

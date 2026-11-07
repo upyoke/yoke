@@ -82,15 +82,9 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
     "product_designer_agent": ("runtime/agents/product-designer.md",),
     "architect_agent": (
         ".agents/skills/yoke/shepherd/SKILL.md",
-        ".agents/skills/yoke/shepherd/design-and-plan.md",
         ".agents/skills/yoke/shepherd/plan-handoff.md",
-        ".agents/skills/yoke/shepherd/planning-gates.md",
     ),
-    "boss_agent": (
-        ".agents/skills/yoke/shepherd/boss-verdict.md",
-        ".agents/skills/yoke/shepherd/boss-verdict-rubric.md",
-        ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
-    ),
+    "boss_agent": (".agents/skills/yoke/shepherd/boss-verdict.md",),
     "simulator_agent": (
         ".agents/skills/yoke/simulate/SKILL.md",
         ".agents/skills/yoke/simulate/epic-flow.md",

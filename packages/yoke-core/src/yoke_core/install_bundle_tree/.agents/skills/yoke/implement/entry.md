@@ -8,7 +8,7 @@ The pinned binding containing the live status must be `implement`; else
 report the live stage and bound skill and stop.
 
 At the binding's entry stage, let the engine take the claim. Pass only flags
-the invocation authorized; never add one to cure a refusal.
+the invocation authorized.
 
 ```text
 yoke advance implementation-entry --item PREFIX-N
@@ -16,8 +16,7 @@ yoke advance implementation-entry --item PREFIX-N
 
 On success, set WORKTREE_PATH from the lane read in [reentry.md](reentry.md).
 
-Refusals: [worktree.md](worktree.md), [activation.md](activation.md),
-[environment.md](environment.md). No repository change:
+Refusals: [refusals.md](refusals.md). No repository change:
 [evidence-only.md](evidence-only.md).
 
 Past the entry stage, claim, then follow [reentry.md](reentry.md):

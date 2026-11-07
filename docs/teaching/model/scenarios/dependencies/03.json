@@ -11,6 +11,6 @@
  "review": "Pending live proof on a parked dependent.",
  "recipes": ["yoke items dependency add --help", "yoke items dependency list --help", "yoke sessions touch --help"],
  "plan_notes": ["JOURNEYS row 11"],
- "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/agents/rules.md", "docs/public/items/model/dependencies.md", "docs/public/verification/failed-item-qa.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/item_dependency.py", "packages/yoke-core/src/yoke_core/domain/dependency_satisfied_notice.py", "packages/yoke-core/src/yoke_core/domain/session_launch_mandate.py", "packages/yoke-core/src/yoke_core/domain/session_launch_mandate_teaching.py", ".agents/skills/yoke/implement/activation.md"],
+ "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/agents/rules.md", "docs/public/items/model/dependencies.md", "docs/public/verification/failed-item-qa.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/item_dependency.py", "packages/yoke-core/src/yoke_core/domain/dependency_satisfied_notice.py", "packages/yoke-core/src/yoke_core/domain/session_launch_mandate.py", "packages/yoke-core/src/yoke_core/domain/session_launch_mandate_teaching.py", ".agents/skills/yoke/implement/refusals.md"],
  "position": 2
 }

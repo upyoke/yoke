@@ -1,6 +1,6 @@
 ---
 name: steer
-description: "Direct-mode entrypoint — itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN."
+description: "Staff and track work from a strategy doc, defaulting to CURRENT-PLAN."
 argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 ---
 
@@ -23,7 +23,6 @@ workers and keep plan state; never implement.
 | Blitz document handoff | [blitz-handoff.md](blitz-handoff.md) |
 | Batch merged delivery | [release-batches.md](release-batches.md) |
 | Stop, hand off, release | [close-out.md](close-out.md) |
-| Command lookup | [function-reference.md](function-reference.md) |
 
 ## Standing rules
 
@@ -50,9 +49,7 @@ workers and keep plan state; never implement.
   the strategy doc current with what was filed.
 - Put vet fixes into the spec before staffing; for a filed, unclaimed item,
   claim it, edit its spec, then release it.
-- Present every operator decision one at a time with context and a
-  recommendation, filed as the Writing to users rule in `AGENTS.md` says.
-  Before filing or amending major scope, name what it adds,
+- Before filing or amending major scope, name what it adds,
   why, and the simplest alternative: recurring processes, DB fields/tables
   or migrations, services, infrastructure, dependencies, or a new mechanism
   where one could be reused. Get explicit approval; ask PR reviewers to

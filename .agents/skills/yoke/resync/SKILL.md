@@ -1,6 +1,6 @@
 ---
 name: resync
-description: Detect and repair drift between local backlog items and their GitHub issues. Default mode is detect-only (read-only); use --fix for auto-repair.
+description: "Detect, and with --fix repair, drift between items and their GitHub issues."
 argument-hint: "[--fix]"
 ---
 

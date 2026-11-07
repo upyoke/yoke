@@ -13,7 +13,7 @@ Page; group by root cause; skip promoted entries.
 
 ## 3. Validate and propose
 
-Verify named paths in current code and check existing items. Run only the
+Check existing items. Run only the
 resolver for the selected output; these are alternatives
 (`workflow.execution_instruction.resolve`, `--workflow dash` or `issue`):
 

@@ -1,6 +1,6 @@
 ---
 name: blitz
-description: "Execute a substantial document-led Blitz as integrated slices with continuous plan evidence."
+description: "Execute a document-led Blitz item as integrated slices."
 argument-hint: "{PREFIX-N}"
 ---
 

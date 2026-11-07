@@ -1,20 +1,21 @@
 ---
 name: strategize
-description: "Direct-mode entrypoint — guided SML review across the MISSION, LANDSCAPE, VISION, MASTER-PLAN, and CURRENT-PLAN strategy docs."
+description: "Review and update the MISSION, LANDSCAPE, VISION, MASTER-PLAN and CURRENT-PLAN strategy docs."
 argument-hint: "[--model MODEL]"
 ---
 
 # /yoke strategize
 
-Operator decisions in this skill always use an Inbox decision request. Follow
-`.yoke/docs/sessions/inbox.md#operator-questions`: workers route through steering
-when a seat is live, otherwise use `decision-requests ask` directly; raise the
-question in chat and record the answer with resolve. Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
-
-
 Guided review and approved edits of the strategy docs.
 
 Docs (MISSION, LANDSCAPE, VISION, MASTER-PLAN, CURRENT-PLAN) live in DB rows;
-`.yoke/strategy/` is a gitignored render. Phase map, in order: [entry](entry.md),
-[refresh](refresh.md), [research](research.md), [propose](propose.md),
-[approve](approve.md), [finalize](finalize.md). Any abort releases the claim.
+`.yoke/strategy/` is a gitignored render. Claim first; `claim_conflict`
+stops. Any abort releases the claim:
+
+```text
+yoke claims work acquire --process STRATEGIZE --project <project>
+yoke claims work release --process STRATEGIZE --project <project> --reason "strategize abort"
+```
+
+Phase map, in order: [refresh](refresh.md), [research](research.md),
+[approve](approve.md), [finalize](finalize.md).

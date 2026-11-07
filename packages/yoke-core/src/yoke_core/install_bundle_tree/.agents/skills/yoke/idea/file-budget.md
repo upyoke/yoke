@@ -1,6 +1,7 @@
 # Idea — File Budget
 
-One row per file created, edited or deleted, project-relative:
+One row per physical file created, edited or deleted, project-relative,
+including every generated copy:
 
 ```markdown
 ## File Budget

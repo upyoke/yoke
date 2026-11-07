@@ -1,6 +1,6 @@
 # Steer — batch delivery
 
-Workers merge; steering creates runs through the connection owning the project.
+Create runs through the connection owning the project.
 
 Resolve the intended full commit once and verify its CI passed. Create the
 project's release set in one command, listing its flows in order; each flow
