@@ -241,3 +241,11 @@ def test_advisory_fail_open_on_probe_exception(monkeypatch) -> None:
 
     monkeypatch.setattr(python_interpreter_probe, "probe", _boom)
     assert render_interpreter_advisory_block() == ""
+
+
+def test_startup_block_carries_the_one_line_message_trust_rule() -> None:
+    from yoke_core.domain.main_agent_packet import MESSAGE_TRUST_LINE
+
+    block = render_main_agent_block(include_advisories=False)
+    assert block.splitlines()[1:] == [MESSAGE_TRUST_LINE]
+    assert "`Acknowledge:`" in MESSAGE_TRUST_LINE

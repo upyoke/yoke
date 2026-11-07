@@ -10,10 +10,7 @@ import sys
 from typing import Any, Callable
 
 from yoke_contracts.hook_evaluator_protocol import attach_evaluator_metadata
-from yoke_contracts.hook_runner.chain_registry import (
-    session_orientation_event,
-    session_orientation_redelivery_event,
-)
+from yoke_contracts.hook_runner.chain_registry import session_orientation_events
 
 
 def _touch_detached_resume() -> None:
@@ -167,12 +164,15 @@ def _session_orientation(
     *,
     cursor: bool,
 ) -> str:
-    """Compose this machine's harness-timed session orientation, or ``""``."""
+    """Compose this machine's harness-timed session orientation, or ``""``.
+
+    Reset events reach the composer too, so a compacted or cleared context
+    gets the block again on its next orientation event.
+    """
     from yoke_harness.hooks.identity import detect_executor
 
-    if event_name not in (
-        session_orientation_event(cursor=cursor, executor=detect_executor()),
-        session_orientation_redelivery_event(cursor=cursor),
+    if event_name not in session_orientation_events(
+        cursor=cursor, executor=detect_executor()
     ):
         return ""
     try:

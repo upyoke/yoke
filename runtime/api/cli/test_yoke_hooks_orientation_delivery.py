@@ -247,3 +247,69 @@ def test_delivered_marker_fingerprints_exact_emitted_body(
         "byte_count": len(encoded),
         "sha256": hashlib.sha256(encoded).hexdigest(),
     }
+
+
+# (event, payload extra, oriented?) for one session's life on each harness:
+# orient once, stay silent on the next context event, and orient again after
+# the harness's own compaction signal.
+_LIFECYCLES = {
+    "claude-code": [
+        ("UserPromptSubmit", {}, True),
+        ("UserPromptSubmit", {}, False),
+        ("SessionStart", {"source": "compact"}, False),
+        ("UserPromptSubmit", {}, True),
+        ("UserPromptSubmit", {}, False),
+    ],
+    "codex": [
+        ("SessionStart", {"source": "startup"}, True),
+        ("UserPromptSubmit", {}, False),
+        ("SessionStart", {"source": "compact"}, True),
+        ("UserPromptSubmit", {}, False),
+    ],
+    CURSOR_EXECUTOR_ID: [
+        ("SessionStart", {}, True),
+        ("PostToolUse", {}, False),
+        ("PreCompact", {"trigger": "auto"}, False),
+        ("PostToolUse", {}, True),
+        ("PostToolUse", {}, False),
+    ],
+}
+
+
+@pytest.mark.usefixtures("bound_project_context")
+@pytest.mark.parametrize("executor", sorted(_LIFECYCLES))
+def test_orientation_lands_once_and_returns_after_compaction(
+    executor, monkeypatch, tmp_path, capsys, https_connection, local_subset
+):
+    from yoke_core.domain import session_orientation_delivery as delivery
+    from yoke_core.domain.project_scratch_roots import ENV_KEY
+
+    monkeypatch.setenv(ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv(EXECUTOR_ENV_VAR, executor)
+    cursor = executor == CURSOR_EXECUTOR_ID
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent" if cursor else "")
+    monkeypatch.setattr(delivery, "_composed_session", None)
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda *_a, **_k: _FakeResponse(_server_response())
+    )
+    project = tmp_path / "project"
+    (project / ".yoke").mkdir(parents=True)
+    transcript = tmp_path / "s-life.jsonl"
+    transcript.touch()
+    base = {
+        "session_id": "s-life",
+        "conversation_id": "s-life",
+        "cwd": str(project),
+        "workspace_roots": [str(project)],
+        "transcript_path": str(transcript),
+    }
+    seen = []
+    for event, extra, _oriented in _LIFECYCLES[executor]:
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({**base, **extra})))
+        assert cli_main(["hook", "evaluate", event]) == 0
+        out = capsys.readouterr().out
+        seen.append((event, "## Yoke Orientation" in out, "NOTE:" in out))
+
+    assert seen == [
+        (event, oriented, False) for event, _extra, oriented in _LIFECYCLES[executor]
+    ]

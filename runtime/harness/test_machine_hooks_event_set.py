@@ -2,8 +2,9 @@
 
 Outside a project only machine-scope guards apply, so a user-level hook is
 worth installing only on the session lifecycle events (registration, prompt
-delivery, turn and session end), on the events whose chain carries a
-machine guard, and on one mid-turn event that injects messages. Adding a
+delivery, turn and session end), on a compaction signal that resets session
+orientation, on the events whose chain carries a machine guard, and on one
+mid-turn event that injects messages. Adding a
 machine guard to another chain fails this test until the contract installs
 that event too.
 """
@@ -18,6 +19,9 @@ from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING
 from yoke_contracts.session_control.capabilities import capabilities_for_harness
 
 LIFECYCLE_VERBS = {"SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"}
+# Claude and Codex report compaction as a SessionStart source; Cursor only
+# through PreCompact.
+CONTEXT_RESET_VERBS = {"PreCompact"}
 # Tool events that fire inside a running turn, in install preference order:
 # the PreToolUse Bash hook is already installed for the machine guards.
 MID_TURN_VERBS = ("PreToolUse", "PostToolUse")
@@ -87,6 +91,7 @@ def test_no_project_only_event_is_installed(harness_id):
     spec = HARNESS_MACHINE_HOOKS[harness_id]
     allowed = (
         LIFECYCLE_VERBS
+        | CONTEXT_RESET_VERBS
         | {verb for verb, _ in _machine_guard_pairs()}
         | {_mid_turn_delivery_verb(harness_id)}
     )

@@ -329,3 +329,17 @@ def test_module_takes_no_source_repo_imports() -> None:
     # hook event in every managed project into an ImportError.
     source = Path(so.__file__).read_text(encoding="utf-8")
     assert "runtime." not in source.replace("runtime.*", "")
+
+
+@pytest.mark.parametrize(
+    "event,payload,resets",
+    [
+        ("SessionStart", {"source": "compact"}, True),
+        ("SessionStart", {"source": "clear"}, True),
+        ("SessionStart", {"source": "startup"}, False),
+        ("PreCompact", {"trigger": "auto"}, True),
+        ("UserPromptSubmit", {"source": "compact"}, False),
+    ],
+)
+def test_only_a_context_restart_resets_orientation(event, payload, resets) -> None:
+    assert delivery.resets_orientation(event, payload) is resets

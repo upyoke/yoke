@@ -68,7 +68,9 @@ entries pin an explicit generous value.
 Cursor-only events with no Yoke chain today: `beforeReadFile` (payload
 carries file content — a read-gate Yoke has never had), `afterFileEdit`
 (full `edits[{old_string,new_string}]` diff), `afterAgentResponse`,
-`beforeMCPExecution` / `afterMCPExecution`, `preCompact`, Tab events. The
+`beforeMCPExecution` / `afterMCPExecution`, Tab events. `preCompact` is
+wired as `PreCompact` with no policy chain; it only resets session orientation
+so the next `postToolUse` delivers it again after compaction. The
 non-interactive CLI omits exactly the conversational-loop events (no typed
 prompt, no waiting turn boundary), so a Cursor manifest must declare
 per-surface affordances, not one list.
@@ -270,5 +272,5 @@ existing registration deadline remain authoritative.
   model as the CLI does (measured on CLI 2026.10.16 only).
 - Whether `updated_input` rewriting and `beforeReadFile` gating open
   enforcement options Yoke has no chain vocabulary for yet.
-- MCP and `preCompact` events (unexercised), and `Write`-tool coverage of
+- MCP events and a live `preCompact` firing (unexercised), and `Write`-tool coverage of
   every edit path the IDE offers (only agent-driven edits were measured).

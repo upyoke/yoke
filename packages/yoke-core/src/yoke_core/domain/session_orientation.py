@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
+    session_orientation_events,
     session_orientation_redelivery_event,
 )
 from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
@@ -30,6 +31,7 @@ from yoke_core.domain.session_orientation_delivery import (
     orientation_delivered,
     record_orientation_attempt,
     reset_orientation_delivery,
+    resets_orientation,
 )
 
 
@@ -228,10 +230,7 @@ def _orientation_for_hook(
 
     executor = detect_executor()
     startup_event = session_orientation_event(cursor=cursor, executor=executor)
-    if event_name not in (
-        startup_event,
-        session_orientation_redelivery_event(cursor=cursor),
-    ):
+    if event_name not in session_orientation_events(cursor=cursor, executor=executor):
         return None
     payload = loads_text(stdin_data) if stdin_data else None
     if not isinstance(payload, dict):
@@ -265,20 +264,19 @@ def _orientation_for_hook(
         return None
     if not cwd:
         return None
-    if (
-        executor == "codex"
-        and event_name == startup_event
-        and payload.get("source") in {"clear", "compact"}
-    ):
+    if resets_orientation(event_name, payload):
         reset_orientation_delivery(session_id)
+    if event_name not in (
+        startup_event,
+        session_orientation_redelivery_event(cursor=cursor),
+    ):
+        return None
     if orientation_delivered(session_id):
         return None
     lost_earlier = record_orientation_attempt(session_id)
     block = render_scoped_orientation(payload, Path(cwd))
-    if not block:
-        return None
-    if event_name == startup_event and not lost_earlier:
-        return block
+    if not block or not lost_earlier:
+        return block or None
     return _announce_redelivery(session_id, event_name) + block
 
 

@@ -147,14 +147,14 @@ half so client/server cannot consume each other's markers. `PreToolUse`,
 `PostToolUse`, `PostToolUseFailure` and `PermissionRequest` always evaluate
 individually with their tool-use identities.
 
-`session_orientation_delivery` records composition attempts separately from
-actual allow-response delivery. A deny or killed process leaves orientation
-undelivered, so the next context-bearing event repairs it once. Claude/Codex
-use their per-prompt channel; Cursor's block/allow prompt channel uses its
-tool-result event selected by `session_orientation_redelivery_event` and the
-manifest's `inject_events`. Repair labels context and emits
-`YOKE_ORIENTATION_REDELIVERED` on stderr. Preserved allow stdout during server
-degradation counts as delivery. See [native discovery](public/agents/harness-discovery.md).
+`session_orientation_delivery` records composition attempts apart from allow-response
+delivery. A deny or killed process leaves orientation undelivered, so the next
+context-bearing event repairs it once: Claude/Codex per prompt, Cursor on the tool-result
+event from `session_orientation_redelivery_event` and `inject_events`. A lost-attempt repair
+labels context and emits `YOKE_ORIENTATION_REDELIVERED` on stderr; preserved allow stdout
+during server degradation counts as delivery. `resets_orientation` clears the markers on
+`SessionStart` `source` `clear`/`compact` (Claude, Codex) and Cursor `preCompact`, so the
+block returns after a context restart. See [native discovery](public/agents/harness-discovery.md).
 
 ### Read-only observation batches
 

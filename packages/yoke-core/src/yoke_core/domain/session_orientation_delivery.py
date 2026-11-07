@@ -30,13 +30,23 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.hook_runner.chain_registry import (
+    PRE_COMPACT_EVENT,
+    SESSION_START_EVENT,
+)
+
 
 __all__ = [
     "confirm_orientation_delivery",
     "orientation_delivered",
     "record_orientation_attempt",
     "reset_orientation_delivery",
+    "resets_orientation",
 ]
+
+# SessionStart sources (Claude, Codex) that start over with a fresh context
+# window inside the same session.
+_CONTEXT_RESET_SOURCES = frozenset({"clear", "compact"})
 
 
 # Set by ``record_orientation_attempt`` and read by
@@ -127,6 +137,22 @@ def confirm_orientation_delivery(emitted_body: str) -> None:
         )
 
 
+def resets_orientation(event_name: str, payload: dict) -> bool:
+    """Whether this event empties the session's context of its orientation.
+
+    Claude and Codex fire SessionStart with ``source`` ``clear`` or
+    ``compact`` after the context restarts; Cursor reports only the coming
+    compaction, on ``PreCompact``. Either way the next orientation event
+    must deliver the block again.
+    """
+    if event_name == PRE_COMPACT_EVENT:
+        return True
+    return (
+        event_name == SESSION_START_EVENT
+        and payload.get("source") in _CONTEXT_RESET_SOURCES
+    )
+
+
 def reset_orientation_delivery(session_id: str) -> None:
     """A cleared context needs a fresh delivery, including retry after a lost hook."""
     for marker in (_attempt_marker(session_id), _delivered_marker(session_id)):
@@ -135,5 +161,6 @@ def reset_orientation_delivery(session_id: str) -> None:
         except OSError as exc:
             sys.stderr.write(
                 f"WARNING: orientation_delivery_reset_failed: {marker}: {exc}. "
-                "Restore write access to the hook-markers directory and retry SessionStart.\n"
+                "Restore write access to the hook-markers directory; until then "
+                "this session will not get its orientation back after compaction.\n"
             )
