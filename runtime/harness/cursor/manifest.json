@@ -90,6 +90,7 @@
         "minimum_version": "3.17.8",
         "inject_events": [
           "SessionStart",
+          "UserPromptSubmit",
           "PostToolUse"
         ],
         "create": "none",

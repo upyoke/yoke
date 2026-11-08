@@ -113,6 +113,17 @@ def test_local_advisory_uses_native_context_on_supported_events(event):
     }
 
 
+def test_prompt_context_also_says_continue():
+    # beforeSubmitPrompt answers allow/block; IDE first chats get orientation here.
+    expected = {"additional_context": "orientation", "continue": True}
+    assert json.loads(render_context_stdout("orientation", "UserPromptSubmit", cursor=True)) == expected
+    shared = json.dumps(
+        {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "orientation"}}
+    )
+    assert json.loads(cursor_allow_stdout("UserPromptSubmit", shared)) == expected
+    assert cursor_allow_stdout("UserPromptSubmit") == ""
+
+
 def test_permission_advisory_does_not_replace_verdict():
     shared = json.dumps(
         {

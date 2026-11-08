@@ -6,7 +6,17 @@ import json
 
 CURSOR_LIFECYCLE_EVENTS = frozenset({"Stop", "SessionEnd"})
 CURSOR_PERMISSION_EVENTS = frozenset({"PreToolUse", "apply_patch"})
-CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "PostToolUse"})
+CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit", "PostToolUse"})
+# beforeSubmitPrompt answers allow/block; a context reply also says continue.
+CURSOR_PROMPT_EVENT = "UserPromptSubmit"
+
+
+def cursor_context_reply(event_name: str, body: str) -> str:
+    """Render Cursor's context reply for ``event_name``."""
+    reply: dict[str, object] = {"additional_context": body}
+    if event_name == CURSOR_PROMPT_EVENT:
+        reply["continue"] = True
+    return json.dumps(reply)
 
 
 def cursor_allow_stdout(
@@ -25,16 +35,17 @@ def cursor_allow_stdout(
         except (ValueError, TypeError):
             return preserved_stdout
         if isinstance(payload, dict):
-            if event_name in CURSOR_PERMISSION_EVENTS and set(payload) == {
-                "additional_context"
-            }:
-                return json.dumps({"permission": "allow"})
+            if set(payload) == {"additional_context"}:
+                if event_name in CURSOR_PERMISSION_EVENTS:
+                    return json.dumps({"permission": "allow"})
+                if event_name == CURSOR_PROMPT_EVENT:
+                    return cursor_context_reply(event_name, str(payload["additional_context"]))
             inner = payload.get("hookSpecificOutput")
             if isinstance(inner, dict) and "permissionDecision" not in inner:
                 body = inner.get("additionalContext")
                 if isinstance(body, str):
                     if event_name in CURSOR_CONTEXT_EVENTS:
-                        return json.dumps({"additional_context": body})
+                        return cursor_context_reply(event_name, body)
                     if event_name in CURSOR_PERMISSION_EVENTS:
                         return json.dumps({"permission": "allow"})
         return preserved_stdout
@@ -47,5 +58,7 @@ __all__ = [
     "CURSOR_LIFECYCLE_EVENTS",
     "CURSOR_PERMISSION_EVENTS",
     "CURSOR_CONTEXT_EVENTS",
+    "CURSOR_PROMPT_EVENT",
     "cursor_allow_stdout",
+    "cursor_context_reply",
 ]

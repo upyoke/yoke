@@ -25,7 +25,7 @@ import pytest
 
 from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
-    session_orientation_redelivery_event,
+    session_orientation_redelivery_events,
 )
 from yoke_core.domain import session_orientation as so
 from yoke_core.domain import session_orientation_delivery as delivery
@@ -174,8 +174,28 @@ def test_cursor_stays_silent_once_its_startup_block_landed(project: Path) -> Non
     assert repeat is None
 
 
-def test_cursor_prompt_submit_is_never_the_repair_channel(project: Path) -> None:
+def test_cursor_first_prompt_orients_a_chat_that_had_no_session_start(project: Path) -> None:
+    # Cursor desktop fires no sessionStart for the first chat in a new window;
+    # its beforeSubmitPrompt reply carries additional_context, so it orients.
+    block = so.orientation_for_hook(
+        "UserPromptSubmit",
+        _cursor_payload(project, event="beforeSubmitPrompt"),
+        cursor=True,
+    )
+    so.confirm_orientation_delivery(block)
+    repeat = so.orientation_for_hook(
+        "UserPromptSubmit",
+        _cursor_payload(project, event="beforeSubmitPrompt"),
+        cursor=True,
+    )
+
+    assert block is not None and "Your Session: sess-cursor" in block
+    assert repeat is None
+
+
+def test_cursor_prompt_stays_silent_once_session_start_landed(project: Path) -> None:
     so.orientation_for_hook("SessionStart", _cursor_payload(project), cursor=True)
+    so.confirm_orientation_delivery("orientation body")
 
     assert (
         so.orientation_for_hook(
@@ -190,12 +210,14 @@ def test_cursor_prompt_submit_is_never_the_repair_channel(project: Path) -> None
 @pytest.mark.parametrize("cursor", [False, True])
 def test_every_harness_has_a_repeating_repair_channel(cursor: bool) -> None:
     # A repair event that fires once per session cannot repair anything:
-    # Claude and Codex reuse their per-prompt channel, Cursor moves to the
-    # tool-result event its prompt hook cannot serve.
+    # Claude and Codex reuse their per-prompt channel; Cursor adds the
+    # tool-result event, which also fires in print mode with no prompt hook.
     startup = session_orientation_event(cursor=cursor)
-    repair = session_orientation_redelivery_event(cursor=cursor)
+    repair = session_orientation_redelivery_events(cursor=cursor)
 
-    assert repair == ("PostToolUse" if cursor else startup)
+    assert repair == (
+        {"UserPromptSubmit", "PostToolUse"} if cursor else {startup}
+    )
 
 
 @pytest.mark.parametrize("cursor", [False, True])
@@ -204,7 +226,7 @@ def test_a_session_registered_midway_is_oriented_exactly_once(
 ) -> None:
     # Hooks installed during a live conversation never see its startup
     # event; the next prompt (or Cursor's next tool result) orients it once.
-    event = session_orientation_redelivery_event(cursor=cursor)
+    event = "PostToolUse" if cursor else "UserPromptSubmit"
     payload = (
         _cursor_payload(project, event="postToolUse") if cursor else _payload(project)
     )
@@ -219,16 +241,16 @@ def test_a_session_registered_midway_is_oriented_exactly_once(
 @pytest.mark.parametrize(
     "executor,cursor,startup,repair",
     [
-        ("claude-code", False, "UserPromptSubmit", "UserPromptSubmit"),
-        ("codex", False, "SessionStart", "UserPromptSubmit"),
-        ("cursor", True, "SessionStart", "PostToolUse"),
+        ("claude-code", False, "UserPromptSubmit", {"UserPromptSubmit"}),
+        ("codex", False, "SessionStart", {"UserPromptSubmit"}),
+        ("cursor", True, "SessionStart", {"UserPromptSubmit", "PostToolUse"}),
     ],
 )
 def test_registry_keeps_each_harness_startup_and_repair_timing(
     executor, cursor, startup, repair
 ):
     assert session_orientation_event(cursor=cursor, executor=executor) == startup
-    assert session_orientation_redelivery_event(cursor=cursor) == repair
+    assert session_orientation_redelivery_events(cursor=cursor) == repair
 
 
 def test_parallel_cursor_tool_hooks_deliver_the_block_once(project: Path) -> None:

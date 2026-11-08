@@ -120,8 +120,14 @@ def test_folder_commands_persist_and_restore(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(selected.parent))
     assert folder_disable([str(tmp_path)]) == 0
     assert json.loads(selected.read_text())["disabled_folders"] == [str(tmp_path)]
+    other = tmp_path / "other"
+    other.mkdir()
+    assert folder_disable([str(other)]) == 0
     assert folder_enable([str(tmp_path)]) == 0
-    assert json.loads(selected.read_text())["disabled_folders"] == []
+    assert json.loads(selected.read_text())["disabled_folders"] == [str(other)]
+    assert folder_enable([str(other)]) == 0
+    # The last enable removes the key, so the config returns to how it was found.
+    assert "disabled_folders" not in json.loads(selected.read_text())
     assert "Hooks enabled" in capsys.readouterr().out
 
 

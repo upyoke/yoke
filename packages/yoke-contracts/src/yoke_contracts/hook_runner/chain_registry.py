@@ -60,15 +60,6 @@ SESSION_END_EVENT = "SessionEnd"
 PRE_COMPACT_EVENT = "PreCompact"
 
 
-# The recurring context-bearing event that re-delivers an orientation block
-# the startup event lost. Claude and Codex accept context on every prompt, so
-# the prompt event repeats their delivery chance; Cursor's prompt hook answers
-# block/allow only, leaving the tool-result event as its one repeating
-# injection channel. Both mappings follow the harness manifests'
-# ``inject_events`` capability rather than restating it.
-SESSION_ORIENTATION_REDELIVERY_EVENT = "PostToolUse"
-
-
 def session_orientation_event(*, cursor: bool = False, executor: str = "") -> str:
     """Return the context-bearing startup event for one harness family."""
     return (
@@ -78,11 +69,25 @@ def session_orientation_event(*, cursor: bool = False, executor: str = "") -> st
     )
 
 
-def session_orientation_redelivery_event(*, cursor: bool = False) -> str:
-    """Return the event that re-delivers a missed orientation block."""
-    if cursor:
-        return SESSION_ORIENTATION_REDELIVERY_EVENT
-    return SESSION_ORIENTATION_EVENT
+def session_orientation_redelivery_events(*, cursor: bool = False) -> frozenset[str]:
+    """Return the recurring events that re-deliver a missed orientation block.
+
+    Claude and Codex accept context on every prompt, so the prompt event
+    repeats their delivery chance. Cursor's come from its surfaces' manifest
+    ``inject_events``: the IDE's prompt hook orients the first chat in a new
+    window, which fires no sessionStart, and tool results repeat the chance.
+    """
+    if not cursor:
+        return frozenset({SESSION_ORIENTATION_EVENT})
+    from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
+
+    return frozenset(
+        event
+        for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
+        if surface.startswith("cursor-")
+        for event in capability.inject_events
+        if event != SESSION_START_EVENT
+    )
 
 
 def session_orientation_events(*, cursor: bool = False, executor: str = "") -> frozenset[str]:
@@ -95,11 +100,10 @@ def session_orientation_events(*, cursor: bool = False, executor: str = "") -> f
     return frozenset(
         {
             session_orientation_event(cursor=cursor, executor=executor),
-            session_orientation_redelivery_event(cursor=cursor),
             SESSION_START_EVENT,
             PRE_COMPACT_EVENT,
         }
-    )
+    ) | session_orientation_redelivery_events(cursor=cursor)
 
 
 def chain_for(event_name: str, matcher: str | None = None) -> list[str]:

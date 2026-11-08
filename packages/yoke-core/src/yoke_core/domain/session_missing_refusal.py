@@ -46,4 +46,44 @@ def format_session_missing(
     )
 
 
-__all__ = ["TERMINAL_SUPPORTED_PATH", "format_session_missing"]
+#: Registry guardrail naming functions that act on the caller's own session.
+ACTIVE_SESSION_GUARDRAIL = "active_session_required"
+
+
+def unregistered_session_refusal(entry: Any, request: Any, bound: Any) -> Any:
+    """Refuse a session-scoped write whose bound session was never registered.
+
+    A harness in an unregistered folder still exports its own native id, and
+    the client sends it, but hooks there deliberately register no session.
+    Without this check the handler answers a bare ``not found``.
+    """
+    if ACTIVE_SESSION_GUARDRAIL not in entry.guardrails or bound.session_registered is not False:
+        return None
+    from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+
+    session_id = request.actor.session_id
+    return FunctionCallResponse(
+        success=False,
+        function=entry.function_id,
+        version=entry.version,
+        request_id=request.request_id,
+        result={},
+        warnings=[],
+        error=FunctionError(
+            code="actor_session_missing",
+            message=(
+                f"function {entry.function_id!r} needs a registered session, but "
+                f"session {session_id!r} is not registered. Outside registered "
+                f"projects, hooks deliberately create no session. {TERMINAL_SUPPORTED_PATH}"
+            ),
+        ),
+        event_ids=[],
+    )
+
+
+__all__ = [
+    "ACTIVE_SESSION_GUARDRAIL",
+    "TERMINAL_SUPPORTED_PATH",
+    "format_session_missing",
+    "unregistered_session_refusal",
+]

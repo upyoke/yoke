@@ -142,7 +142,10 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
     ),
     "cursor-desktop": SessionSurfaceCapability(
         "3.17.8",
-        ("SessionStart", "PostToolUse"),
+        # The IDE fires no sessionStart for the first chat in a new window;
+        # its beforeSubmitPrompt reply carries additional_context (measured
+        # on 3.25.6, YOK-5126), so the prompt event can still orient it.
+        ("SessionStart", "UserPromptSubmit", "PostToolUse"),
         "none",
         "none",
         "none",
