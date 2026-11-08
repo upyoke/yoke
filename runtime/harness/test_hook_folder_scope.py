@@ -131,6 +131,22 @@ def test_folder_commands_persist_and_restore(tmp_path, monkeypatch, capsys):
     assert "Hooks enabled" in capsys.readouterr().out
 
 
+def test_disable_then_enable_restores_config_bytes(tmp_path, monkeypatch):
+    from yoke_cli.commands.folder import folder_disable, folder_enable
+
+    selected = tmp_path / "machine" / "config.json"
+    selected.parent.mkdir()
+    # An operator config whose keys are not in sorted order.
+    original = json.dumps({"zeta": 1, "connections": {"two": {}, "one": {}}, "active_env": "two"}, indent=2) + "\n"
+    selected.write_text(original)
+    monkeypatch.setattr(config, "config_path", lambda: selected)
+    monkeypatch.setattr(config, "load_config", lambda: json.loads(selected.read_text()))
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(selected.parent))
+    assert folder_disable([str(tmp_path)]) == 0
+    assert folder_enable([str(tmp_path)]) == 0
+    assert selected.read_text() == original
+
+
 def test_outside_orientation_and_machine_guards_are_local(tmp_path, folder_config, monkeypatch, capsys):
     from yoke_cli.commands.adapters import hook_inprocess as entry
     from yoke_cli.transport import https
