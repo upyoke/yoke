@@ -58,6 +58,7 @@ class DeploymentRunCreateResponse(BaseModel):
     idempotency_basis: Optional[str] = None
     supersedes_run_id: Optional[str] = None
     waiting_for_run_id: Optional[str] = None
+    execution_instructions: list[dict] = []
 
 
 def _retry_candidate(run_id: str, *, project: str, flow: str) -> tuple[str, str | None]:
@@ -298,7 +299,8 @@ def _created_outcome(
         member_count=len(member_items),
         source_sha=created.get("release_lineage") or "",
     )
-    from yoke_core.domain.deployment_run_create_receipt import continuation_facts
+    from yoke_core.domain.deployment_run_create_receipt import (
+        continuation_facts, release_instructions)
     return HandlerOutcome(
         result_payload={
             "run_id": run_id,
@@ -316,6 +318,7 @@ def _created_outcome(
             "replayed": replayed,
             "idempotency_basis": basis,
             **continuation_facts(run_id),
+            "execution_instructions": release_instructions(created.get("project") or project),
         },
         primary_success=True,
     )

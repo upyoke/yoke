@@ -48,7 +48,8 @@ def render_execution_instruction_block(instructions: List[Dict[str, Any]]) -> st
 
 _DELIVERY_NOTE = (
     "Select at least one delivery point; When entering stage requires a "
-    "stage bucket. Creation defaults to Before creation + On every read; "
+    "stage bucket. When creating release reaches deployment-runs create for "
+    "a scoped project, any workflow scope. Creation defaults to Before creation + On every read; "
     "edits preserve omitted settings."
 )
 
@@ -205,7 +206,8 @@ def workflow_execution_instruction_list(args: List[str]) -> int:
 
 def _resolve_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--workflow", required=True, metavar="W", help="Workflow to resolve for."
+        "--workflow", metavar="W",
+        help="Workflow to resolve for; required except for when_creating_release.",
     )
     parser.add_argument(
         "--project", required=True, metavar="P", help="Project to resolve for."
@@ -214,7 +216,8 @@ def _resolve_args(parser: argparse.ArgumentParser) -> None:
         "--delivery-point",
         default="before_creation",
         metavar="POINT",
-        help="before_creation (default), on_every_read, or when_entering_stage.",
+        help="before_creation (default), on_every_read, when_entering_stage, "
+        "or when_creating_release.",
     )
     parser.add_argument(
         "--stage-bucket",
@@ -254,7 +257,7 @@ def workflow_execution_instruction_resolve(args: List[str]) -> int:
         configure=_resolve_args,
         function_id="workflow.execution_instruction.resolve",
         payload=lambda parsed: {
-            "workflow": parsed.workflow,
+            **({"workflow": parsed.workflow} if parsed.workflow else {}),
             "project": parsed.project,
             "detail": detail_of(parsed),
             **(
@@ -284,6 +287,7 @@ _DELIVERY_USAGE = (
     "[--before-creation | --no-before-creation] "
     "[--on-every-read | --no-on-every-read] "
     "[--when-entering-stage | --no-when-entering-stage] "
+    "[--when-creating-release | --no-when-creating-release] "
     "[--stage-bucket BUCKET ... | --clear-stage-buckets]"
 )
 _TAIL = "[--session-id S] [--json]"
@@ -305,7 +309,7 @@ USAGE_BY_FUNCTION_ID = {
         f"yoke workflow execution-instruction list [--full] {_TAIL}"
     ),
     "workflow.execution_instruction.resolve": (
-        "yoke workflow execution-instruction resolve --workflow W --project P "
+        "yoke workflow execution-instruction resolve [--workflow W] --project P "
         f"[--delivery-point POINT] [--stage-bucket BUCKET] [--full] {_TAIL}"
     ),
     "workflow.execution_instruction.delete": (

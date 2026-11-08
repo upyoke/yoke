@@ -143,7 +143,7 @@ test("creating an instruction calls create then set_scope, then reloads", async 
   assert.deepEqual(client.requests[1].payload, {
     content: "Freshly authored guidance",
     before_creation: true, on_every_read: true,
-    when_entering_stage: false, stage_buckets: [],
+    when_entering_stage: false, when_creating_release: false, stage_buckets: [],
   });
   const scope = client.requests[2].payload;
   assert.equal(scope.instruction_id, 900);
@@ -187,7 +187,7 @@ test("editing an instruction calls update then set_scope with the new scope", as
     instruction_id: 42,
     content: "New prose",
     before_creation: true, on_every_read: true,
-    when_entering_stage: false, stage_buckets: [],
+    when_entering_stage: false, when_creating_release: false, stage_buckets: [],
   });
   assert.deepEqual(client.requests[2].payload.workflow_ids, ["dash", "issue"]);
 });

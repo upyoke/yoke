@@ -9,7 +9,8 @@ deterministic tiebreak.
 
 An instruction with no workflow scope reaches nothing, which is how an
 instruction is taken out of use: there is no separate status flag that
-could disagree with what an agent actually reads.
+could disagree with what an agent actually reads. Release creation is
+itemless, so it resolves without a workflow: any workflow scope qualifies.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.execution_instruction_delivery import (
+    DELIVERY_FIELDS,
     DeliveryPoint,
     InstructionDelivery,
     delivery_from_row,
@@ -41,6 +43,9 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+_DELIVERY_COLUMNS = ", ".join(f"i.{field}" for field in DELIVERY_FIELDS)
+
+
 class UnknownExecutionInstructionError(ValueError):
     """Raised when the requested instruction id has no row."""
 
@@ -52,29 +57,33 @@ class EmptyExecutionInstructionError(ValueError):
 def resolve_execution_instructions(
     conn: Any,
     *,
-    workflow_id: str,
+    workflow_id: str | None,
     project_id: int,
     delivery_point: DeliveryPoint = "before_creation",
     stage_bucket: str | None = None,
 ) -> List[Dict[str, Any]]:
-    """Return the instructions an item on this scope must obey."""
+    """Return the instructions an item on this scope must obey.
+
+    ``workflow_id=None`` (itemless release creation) accepts any workflow
+    scope, but an instruction with none still reaches nothing.
+    """
     p = _p(conn)
+    workflow_match = f" AND w.workflow_id = {p}" if workflow_id is not None else ""
     rows = conn.execute(
         f"""
         SELECT i.id, i.content, i.applies_to_all_workflows,
-               i.applies_to_all_projects, i.before_creation, i.on_every_read,
-               i.when_entering_stage, i.stage_buckets
+               i.applies_to_all_projects, {_DELIVERY_COLUMNS}
         FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} i
         WHERE (i.applies_to_all_workflows = 1 OR EXISTS (
                   SELECT 1 FROM {INSTRUCTION_WORKFLOWS_TABLE} w
-                  WHERE w.instruction_id = i.id AND w.workflow_id = {p}))
+                  WHERE w.instruction_id = i.id{workflow_match}))
           AND (i.applies_to_all_projects = 1 OR EXISTS (
                   SELECT 1 FROM {INSTRUCTION_PROJECTS_TABLE} pr
                   WHERE pr.instruction_id = i.id AND pr.project_id = {p}))
         ORDER BY i.applies_to_all_workflows DESC,
                  i.applies_to_all_projects DESC, i.id
         """,
-        (workflow_id, project_id),
+        (*([workflow_id] if workflow_id is not None else []), project_id),
     ).fetchall()
     instructions = [
         {
@@ -82,7 +91,7 @@ def resolve_execution_instructions(
             "content": row[1],
             "applies_to_all_workflows": bool(row[2]),
             "applies_to_all_projects": bool(row[3]),
-            **delivery_from_row(row[4:8]),
+            **delivery_from_row(row[4:]),
         }
         for row in rows
     ]
@@ -259,8 +268,7 @@ def list_instructions(conn: Any) -> List[Dict[str, Any]]:
         f"""
         SELECT id, content, applies_to_all_workflows,
                applies_to_all_projects, updated_by_actor_id,
-               created_at, updated_at, before_creation, on_every_read,
-               when_entering_stage, stage_buckets
+               created_at, updated_at, {", ".join(DELIVERY_FIELDS)}
         FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE}
         ORDER BY applies_to_all_workflows DESC,
                  applies_to_all_projects DESC, id
@@ -287,7 +295,7 @@ def list_instructions(conn: Any) -> List[Dict[str, Any]]:
                 "updated_by_actor_id": row[4],
                 "created_at": row[5],
                 "updated_at": row[6],
-                **delivery_from_row(row[7:11]),
+                **delivery_from_row(row[7:]),
                 "workflow_ids": [w[0] for w in workflow_rows],
                 "project_ids": [p_row[0] for p_row in project_rows],
             }

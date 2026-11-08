@@ -6,8 +6,8 @@
 
 Operator instructions combine workflow/project scope with delivery settings.
 `workflow.execution_instruction.create`, `.update`, and `.set_scope` accept
-`before_creation`, `on_every_read`, `when_entering_stage` booleans and a
-`stage_buckets` list. Omitted fields retain stored settings on edits; creation
+`before_creation`, `on_every_read`, `when_entering_stage`,
+`when_creating_release` booleans and a `stage_buckets` list. Omitted fields retain stored settings on edits; creation
 and existing rows default to Before creation + On every read, with no stage targets.
 
 At least one delivery point must be selected. When entering stage requires
@@ -23,8 +23,9 @@ new-instruction delivery), both read from the server's delivery model.
 
 In the dashboard's Workflows page, the Execution instructions panel shows each
 instruction's delivery points and selected stage buckets beneath its scope.
-Choose New instruction or Edit to change the three delivery checkboxes and
-stage-bucket checkboxes. The bucket list and new-instruction defaults come from
+Choose New instruction or Edit to change the four delivery checkboxes and
+stage-bucket checkboxes. A serving build that predates When creating release
+serves no such field, and the panel omits that checkbox. The bucket list and new-instruction defaults come from
 the list's `delivery_options`, so the panel holds no copy; a serving build that
 omits them disables New instruction and Edit and shows
 `delivery_options_unavailable` with the recovery. New instructions select
@@ -52,6 +53,23 @@ added. JSON reads retain the complete instruction facts. A successful
 stage-entry instructions for its entered bucket. Failed transitions return none.
 Instructions remain separate from item content and never round-trip into it.
 
+## When creating release
+
+Release creators are itemless, so item-bound points never reach them. An
+instruction that selects When creating release is returned as
+`execution_instructions` by `deployment_runs.create` and printed once by
+`yoke deployment-runs create`, single run or release set, including replays.
+Scope is project-only at this point: any workflow scope qualifies, but an
+instruction with no workflow scope still reaches nothing. `watch deploy`
+does not print them. Inspect them with `yoke workflow execution-instruction
+resolve --project P --delivery-point when_creating_release --full`; `--workflow`
+is required for every other point and ignored for this one. To opt an
+existing instruction in, resend its current prose with the flag:
+
+```text
+yoke workflow execution-instruction update {instruction_id} --stdin --when-creating-release < current-prose.txt
+```
+
 The resolve function also accepts `delivery_point` and `stage_bucket`. To inspect
 stage delivery directly, run `yoke workflow execution-instruction resolve
 --workflow W --project P --delivery-point when_entering_stage --stage-bucket
@@ -60,7 +78,8 @@ includes stage targets when a bucket is supplied. Summary descriptors retain
 the selection in their full-read command.
 
 CLI writes expose `--before-creation` / `--no-before-creation`, `--on-every-read`
-/ `--no-on-every-read`, and `--when-entering-stage` / `--no-when-entering-stage`.
+/ `--no-on-every-read`, `--when-entering-stage` / `--no-when-entering-stage`, and
+`--when-creating-release` / `--no-when-creating-release`.
 Repeat `--stage-bucket BUCKET` to replace the target list; `--clear-stage-buckets`
 clears it. Disable stage delivery in the same edit when clearing an enabled target.
 

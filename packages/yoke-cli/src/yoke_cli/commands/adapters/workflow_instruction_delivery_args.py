@@ -8,6 +8,7 @@ def _delivery_args(parser: argparse.ArgumentParser) -> None:
         ("before-creation", "Before creation"),
         ("on-every-read", "On every read"),
         ("when-entering-stage", "When entering stage"),
+        ("when-creating-release", "When creating release (deployment-runs create)"),
     ):
         parser.add_argument(
             f"--{flag}",
@@ -35,6 +36,7 @@ def _delivery_payload(parsed: argparse.Namespace) -> dict:
         "before_creation",
         "on_every_read",
         "when_entering_stage",
+        "when_creating_release",
         "stage_buckets",
     )
     result = {

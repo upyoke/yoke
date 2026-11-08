@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} (
     before_creation INTEGER NOT NULL DEFAULT 1,
     on_every_read INTEGER NOT NULL DEFAULT 1,
     when_entering_stage INTEGER NOT NULL DEFAULT 0,
+    when_creating_release INTEGER NOT NULL DEFAULT 0,
     stage_buckets TEXT NOT NULL DEFAULT '[]',
     updated_by_actor_id INTEGER,
     created_at TIMESTAMPTZ NOT NULL,
@@ -79,6 +80,7 @@ def ensure_workflow_execution_instructions_schema(
         ("before_creation", "INTEGER NOT NULL DEFAULT 1"),
         ("on_every_read", "INTEGER NOT NULL DEFAULT 1"),
         ("when_entering_stage", "INTEGER NOT NULL DEFAULT 0"),
+        ("when_creating_release", "INTEGER NOT NULL DEFAULT 0"),
         ("stage_buckets", "TEXT NOT NULL DEFAULT '[]'"),
     ):
         _add_column_if_not_exists(
