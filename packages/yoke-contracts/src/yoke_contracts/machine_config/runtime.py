@@ -150,7 +150,8 @@ def _replace_config(selected: Path, payload: Mapping[str, Any]) -> None:
     temp_path = Path(handle.name)
     try:
         os.chmod(temp_path, 0o600)
-        json.dump(dict(payload), handle, indent=2, sort_keys=True)
+        # Keep the document's key order so an edit and its undo restore the bytes.
+        json.dump(dict(payload), handle, indent=2)
         handle.write("\n")
         handle.flush()
         os.fsync(handle.fileno())
