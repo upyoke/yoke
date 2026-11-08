@@ -93,7 +93,9 @@ Otherwise every file carrying a token or password is staged inside that
 directory and nowhere else, never a loose `/tmp` path. `walk-end`
 removes the directory with plain OS commands (no Yoke install on the host),
 restores the declared starting state, and records that restore as a
-`starting_state_restore` artifact on the mission's run; it exits non-zero
+`starting_state_restore` artifact on the mission's run. An `as_is` mission
+has nothing to restore: its no-restore receipt proves cleanup and owes no
+reset, while a mission whose declared baseline was not restored owes one. It exits non-zero
 naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any

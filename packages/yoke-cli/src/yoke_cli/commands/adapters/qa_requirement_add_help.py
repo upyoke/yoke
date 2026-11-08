@@ -80,12 +80,16 @@ method_config.browser_identities lists the identities its walker verifies
 signed in before browsing (`yoke browser verify --identity NAME`).
 Full configuration: verification/browser-targets.md#method-configuration.
 
-A machine-run case (host_control or agent_mission method) declares the Test
-Machine state it starts from: --host-baseline names a registered baseline the
-runner resets to and restores afterwards, or --starting-state as_is with
---starting-state-reason runs on the machine as found. An undeclared machine
-case is refused. A case added on its own belongs to no plan, so it cannot
-inherit a preceding case's machine; author that chain in a plan.
+A case that runs on a Test Machine declares the state it starts from:
+--host-baseline names a registered baseline the runner resets to and restores
+afterwards, or --starting-state as_is with --starting-state-reason runs on the
+machine as found. An undeclared Test Machine case is refused. Every host_control
+case runs on a Test Machine. An agent_mission runs on one only when its
+method_config names test_machine, test_machines or os (os leases a Test
+Machine of that OS), it requires a test-machine: capability, or it names a
+baseline; otherwise it runs on the controller and needs no starting state.
+A case added on its own belongs to no plan, so it cannot inherit a preceding
+case's machine; author that chain in a plan.
 
 --workflow-transition names a stage of the item's pinned workflow; read it
 from `yoke workflows item get PREFIX-N --json` (Dash: reviewing-implementation).

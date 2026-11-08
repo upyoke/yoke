@@ -3,7 +3,10 @@
 import json
 
 from yoke_core.domain.machine_reset_debt import record_reset_owed
-from yoke_core.domain.qa_plan_execution_abort_state import restore_cleanup_proven
+from yoke_core.domain.qa_plan_execution_abort_state import (
+    case_restore_proven,
+    restore_cleanup_proven,
+)
 
 
 def record_unproven_restore(conn, *, case, test_machine, lease_id, restore):
@@ -53,6 +56,8 @@ def record_restore_artifact(conn, requirement_id, run_id, content, actor):
     except (ValueError, TypeError):
         restore = None
     case = get_case_execution_context(conn, requirement_id=requirement_id)
+    if case_restore_proven(case, restore if isinstance(restore, dict) else {}):
+        return  # An as-is mission's no-restore receipt owes no reset.
     record_unproven_restore(
         conn,
         case=case,

@@ -229,7 +229,8 @@ case without a baseline. Failed recovery records `machine_needs_repair` and
 the exact `yoke test-machine reset` command; the steering report shows that
 machine and command until a later successful reset receipt clears the debt.
 A failed ordinary case restore or current holder's mission restore artifact
-also records this debt before custody ends. A terminal case missing its
+also records this debt before custody ends; an `as_is` mission's no-restore
+artifact records none. A terminal case missing its
 restore receipt records debt too; an intermediate successful case keeps
 its chain state, and an intentional `as_is` no-restore receipt remains proof
 that its declared cleanup finished. A cleanup finish always releases its

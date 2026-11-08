@@ -246,10 +246,19 @@ def restore_cleanup_proven(restore, baseline):
     return restore.get("restored") is True and restore.get("baseline") == baseline
 
 
+def restore_required(case):
+    return case.get("starting_state") != "as_is" and bool(case.get("host_baseline"))
+
+
+def case_restore_proven(case, restore):
+    """A required restore proves its baseline; an as-is case proves any receipt."""
+    if restore_required(case):
+        return restore_cleanup_proven(restore, case.get("host_baseline"))
+    return bool(restore)
+
+
 def host_cleanup_proven(conn, execution, ordinal):
     case = execution["roster"][ordinal]
-    baseline = case.get("host_baseline")
-    restore_required = case.get("starting_state") != "as_is" and bool(baseline)
     for row in result_rows(conn, str(execution["id"])):
         if row["ordinal"] != ordinal:
             continue
@@ -264,16 +273,12 @@ def host_cleanup_proven(conn, execution, ordinal):
         evidence = (json.loads(raw) if isinstance(raw, str) else raw).get(
             "evidence"
         ) or {}
-        restore = evidence.get("starting_state_restore") or {}
-        if restore_required:
-            if restore_cleanup_proven(restore, baseline):
-                return True
-        elif restore:
+        if case_restore_proven(case, evidence.get("starting_state_restore") or {}):
             return True
-    if restore_required:
+    if restore_required(case):
         from yoke_core.domain.qa_plan_abort_reset import reset_cleanup_proven
 
-        return reset_cleanup_proven(conn, execution, baseline)
+        return reset_cleanup_proven(conn, execution, case.get("host_baseline"))
     return False
 
 
