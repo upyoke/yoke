@@ -38,7 +38,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "p._postgres_executable(name), '--version'" in dockerfile
     assert ("shutil.move(str(binaries.parent), '/opt/yoke-postgres')") in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
-    assert "RUN python -m yoke_core.tools.product_wheel_validation" in dockerfile
+    assert "RUN python -m yoke_core.tools.container_image_validation" in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]' in dockerfile
     assert "EXPOSE 8765" in dockerfile
     assert "USER yoke" in dockerfile
@@ -87,6 +87,11 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "--python /opt/yoke-build-env/bin/python" in builder
     assert "FROM runtime-base AS builder" not in dockerfile
     assert "--mount=type=bind,from=tools" in runtime
+    assert dependencies.index("['ensure_binaries']()") < dependencies.index(
+        "COPY uv.lock"
+    )
+    assert "--compression=stored" in builder
+    assert "target=/bootstrap/cli" not in dependencies
 
 
 def test_cached_backend_install_uses_every_declared_build_requirement(monkeypatch):
@@ -125,45 +130,61 @@ def test_cached_backend_install_uses_every_declared_build_requirement(monkeypatc
     ]
 
 
-@pytest.mark.parametrize("wheel,bundle", [(0, 0), (1, 0), (0, 1), (1, 1)])
-def test_parallel_validation_requires_both_processes_to_succeed(
-    tmp_path, wheel, bundle
-):
-    python = tmp_path / "python"
-    python.write_text(
-        "#!/bin/sh\n"
-        'echo "$*" >> "$CALLS"\n'
-        'case "$*" in\n'
-        '  *product_wheel_validation*) exit "$WHEEL_STATUS";;\n'
-        '  *container_bundle_validation*) exit "$BUNDLE_STATUS";;\n'
-        "  *) exit 99;;\n"
-        "esac\n"
+def test_declared_wheel_option_produces_stored_zip_entries(tmp_path):
+    import json
+    import re
+    import sys
+    import zipfile
+
+    option = re.search(r"--config-setting=([^ ]+)", (ROOT / "Dockerfile").read_text())
+    assert option is not None
+    config = dict([option.group(1).split("=", 1)])
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname="image-probe"\nversion="1.0"\n'
+        '[tool.setuptools]\npy-modules=["probe"]\n'
     )
-    python.chmod(0o755)
-    dockerfile = (ROOT / "Dockerfile").read_text()
-    command = dockerfile.split(
-        "RUN python -m yoke_core.tools.product_wheel_validation", 1
-    )[1].split("\n\n", 1)[0]
-    command = "python -m yoke_core.tools.product_wheel_validation" + command
-    result = subprocess.run(
-        ["sh", "-c", command.replace("\\\n", "")],
-        env={
-            **os.environ,
-            "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
-            "WHEEL_STATUS": str(wheel),
-            "BUNDLE_STATUS": str(bundle),
-            "CALLS": str(tmp_path / "calls"),
-        },
+    (tmp_path / "probe.py").write_text('VALUE = "installed product"\n')
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json,sys; from setuptools.build_meta import build_wheel; build_wheel('wheels', json.loads(sys.argv[1]))",
+            json.dumps(config),
+        ],
+        cwd=tmp_path,
+        check=True,
         capture_output=True,
     )
-    assert (result.returncode == 0) == (wheel == 0 and bundle == 0)
-    calls = (tmp_path / "calls").read_text().splitlines()
-    assert sorted(calls) == sorted(
-        [
-            "-m yoke_core.tools.product_wheel_validation",
-            "-m yoke_core.tools.container_bundle_validation verify",
-        ]
-    )
+    with zipfile.ZipFile(next((tmp_path / "wheels").glob("*.whl"))) as wheel:
+        assert wheel.read("probe.py") == (tmp_path / "probe.py").read_bytes()
+        assert all(
+            entry.compress_type == zipfile.ZIP_STORED for entry in wheel.infolist()
+        )
+
+
+@pytest.mark.parametrize("wheel,bundle", [(0, 0), (1, 0), (0, 1), (1, 1)])
+def test_image_validation_runs_both_checks_and_requires_both(
+    monkeypatch, wheel, bundle
+):
+    from yoke_core.tools import container_image_validation as validation
+
+    calls = []
+
+    def core():
+        calls.append("core")
+        if wheel:
+            raise ValueError("missing product module")
+
+    def project_bundle():
+        assert calls == ["core"]
+        calls.append("bundle")
+        if bundle:
+            raise ValueError("misattributed bundle")
+
+    monkeypatch.setattr(validation, "verify_installed_boot", core)
+    monkeypatch.setattr(validation, "verify_bundle", project_bundle)
+    assert (validation.main() == 0) == (wheel == 0 and bundle == 0)
+    assert calls == ["core", "bundle"]
 
 
 @pytest.mark.parametrize("failed_package", ["", "yoke-cli", "yoke-core"])
