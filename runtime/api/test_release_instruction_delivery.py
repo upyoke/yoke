@@ -54,6 +54,8 @@ def test_release_point_reaches_only_opted_in_project_instructions(release_conn):
 
     assert ids(receipt.release_instructions("acme")) == [opted, any_workflow]
     assert ids(receipt.release_instructions("other")) == [elsewhere]
+    everywhere = seed(conn, "Every project's release rule.", **RELEASE_ONLY)
+    assert ids(receipt.release_instructions("unregistered")) == [everywhere]
     # Item-bound points never deliver a release-only instruction.
     assert opted not in ids(domain.resolve_for_item(conn, 51))
     assert opted not in ids(

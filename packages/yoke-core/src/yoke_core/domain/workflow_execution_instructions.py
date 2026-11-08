@@ -58,7 +58,7 @@ def resolve_execution_instructions(
     conn: Any,
     *,
     workflow_id: str | None,
-    project_id: int,
+    project_id: int | None,
     delivery_point: DeliveryPoint = "before_creation",
     stage_bucket: str | None = None,
 ) -> List[Dict[str, Any]]:

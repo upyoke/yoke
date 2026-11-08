@@ -25,8 +25,14 @@ def release_instructions(project):
 
     conn = connect(None)
     try:
+        try:
+            project_id = resolve_project_id(conn, project)
+        except LookupError:
+            # A run's project need not be a registered row; only
+            # all-project instructions can reach it then.
+            project_id = None
         return resolve_execution_instructions(
-            conn, workflow_id=None, project_id=resolve_project_id(conn, project),
+            conn, workflow_id=None, project_id=project_id,
             delivery_point="when_creating_release")
     finally:
         conn.close()
