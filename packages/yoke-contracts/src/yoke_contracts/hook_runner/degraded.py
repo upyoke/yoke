@@ -19,6 +19,7 @@ from yoke_contracts.hook_context_compose import (
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 from yoke_contracts.hook_runner.cursor_response import (
     CURSOR_CONTEXT_EVENTS,
+    cursor_context_reply,
     CURSOR_PERMISSION_EVENTS,
     cursor_allow_stdout,
 )
@@ -78,7 +79,7 @@ def _cursor_stdout(event: str, warning: str, preserved: str) -> str:
             harness_id="cursor",
             alerts=[context] if kind == "alert" else [],
         )
-        return json.dumps({"additional_context": text})
+        return cursor_context_reply(event, text)
     return stdout
 
 

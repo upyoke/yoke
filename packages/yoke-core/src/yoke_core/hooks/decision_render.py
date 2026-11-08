@@ -46,7 +46,9 @@ import json
 from typing import Iterable
 
 from yoke_contracts.hook_runner.cursor_response import (
+    CURSOR_CONTEXT_EVENTS,
     CURSOR_LIFECYCLE_EVENTS,
+    cursor_context_reply,
 )
 from yoke_core.hooks.hook_context_compose import composed_additional_context
 from yoke_core.hooks.types import HookDecision, Outcome
@@ -206,10 +208,6 @@ def render_codex_decision(
 _CURSOR_PERMISSION_EVENTS = frozenset({"PreToolUse", "apply_patch"})
 
 
-# Cursor events whose allow-time reply may carry ``additional_context``.
-# Measured on Cursor IDE 3.14.7 / cursor-agent 2026.07.23: sessionStart and
-# postToolUse accept it; preToolUse has no allow-time injection channel.
-_CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "PostToolUse"})
 
 
 # Empty allow stdout on these events previously left Cursor with no JSON
@@ -229,7 +227,8 @@ def render_cursor_decision(
       "user_message": ...}``. ``agent_message`` reaches the model;
       ``user_message`` reaches the operator. Both carry the narrative.
     * No deny + at least one advisory on a context-accepting event ->
-      ``{"additional_context": ...}``.
+      ``{"additional_context": ...}`` (plus ``"continue": true`` on the
+      prompt event).
     * Otherwise -> an explicit allow on permission events
       (``{"permission": "allow"}``), empty stdout elsewhere.
 
@@ -253,8 +252,8 @@ def render_cursor_decision(
         }
         return (json.dumps(envelope), 0)
     body = _composed_body(decisions, "cursor")
-    if body and event_name in _CURSOR_CONTEXT_EVENTS:
-        return (json.dumps({"additional_context": body}), 0)
+    if body and event_name in CURSOR_CONTEXT_EVENTS:
+        return (cursor_context_reply(event_name, body), 0)
     if event_name in _CURSOR_PERMISSION_EVENTS:
         return (json.dumps({"permission": "allow"}), 0)
     if event_name in CURSOR_LIFECYCLE_EVENTS:

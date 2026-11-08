@@ -23,7 +23,7 @@ from typing import Any, Optional
 from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
     session_orientation_events,
-    session_orientation_redelivery_event,
+    session_orientation_redelivery_events,
 )
 from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
 from yoke_core.domain.session_orientation_delivery import (
@@ -265,9 +265,8 @@ def _orientation_for_hook(
         return None
     if resets_orientation(event_name, payload):
         reset_orientation_delivery(session_id)
-    if event_name not in (
-        startup_event,
-        session_orientation_redelivery_event(cursor=cursor),
+    if event_name != startup_event and event_name not in (
+        session_orientation_redelivery_events(cursor=cursor)
     ):
         return None
     lost_earlier = claim_orientation_attempt(session_id)

@@ -31,6 +31,9 @@ implementation; hook payloads and event coverage are vendor-owned.*
 - **Context injection works where Yoke needs it**: `sessionStart` and
   `postToolUse` both accepted `additional_context` (measured; the vendor's
   own on-disk hook guide omits `sessionStart` from its output cheat sheet).
+  The IDE's `beforeSubmitPrompt` also delivers `additional_context` to the
+  model (measured on Cursor 3.25.6, YOK-5126). That matters because the IDE
+  fires no `sessionStart` for the first chat in a newly opened window.
 - **Discovery is free**: `AGENTS.md`, `.agents/skills/`, `.cursor/agents/`,
   and `.claude/agents/` (including tolerated Claude-only frontmatter keys)
   all resolved without configuration.
@@ -127,7 +130,7 @@ started it (`yoke_harness.cursor_native_result_usage`).
 | Denial narrative to model | stderr text | JSON field | `agent_message` (model) + `user_message` (operator) |
 | Allow-time advisory | `hookSpecificOutput.additionalContext` | same | `postToolUse.additional_context`; no allow-time channel on `preToolUse` — advisory-only chain output needs rerouting or omission via `AdapterCapability.pretool_omissions` |
 | Rewrite tool input | — | — | `preToolUse.updated_input` |
-| Orientation injection | `UserPromptSubmit` additionalContext | `SessionStart` | `sessionStart.additional_context` (measured working; only channel in `-p` mode, where `beforeSubmitPrompt` never fires) |
+| Orientation injection | `UserPromptSubmit` additionalContext | `SessionStart` | `sessionStart.additional_context` (measured working; only channel in `-p` mode, where `beforeSubmitPrompt` never fires). In the IDE, a chat that saw no `sessionStart` (the first chat in a new window) is oriented by its first `beforeSubmitPrompt` reply, `{"additional_context": …, "continue": true}`; `postToolUse` repeats a missed delivery |
 | Stop discipline | empty allow; policy hold uses `decision/block`, with shared reentry and repetition brakes | allow `{}`; policy hold uses `decision/block`, with shared reentry and repetition brakes | Stop allows `{}` without `followup_message`; SessionEnd cannot continue a turn; machine-wide lifecycle hooks recover a deleted lane cwd and step aside while project hooks own the event |
 
 ## Session identity, process shape, container model

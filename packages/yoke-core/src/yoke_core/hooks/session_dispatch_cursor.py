@@ -129,11 +129,11 @@ def run_session_start(record: HookContext, root: str) -> str:
 def run_prompt_submit(record: HookContext, root: str) -> str:
     """First-prompt model heal only; no reply body and no heartbeat.
 
-    ``beforeSubmitPrompt`` fires on the IDE surface only, and its reply
-    contract is block/allow rather than context injection — orientation
-    already rode ``sessionStart`` — so this handler performs side effects
-    and stays silent. A wake-injected prompt is not session activity, so
-    later prompts must not stamp ``last_heartbeat``.
+    ``beforeSubmitPrompt`` fires on the IDE surface only. Orientation for a
+    chat that saw no ``sessionStart`` rides the adapter's orientation layer,
+    not this handler, so this handler performs side effects and stays
+    silent. A wake-injected prompt is not session activity, so later
+    prompts must not stamp ``last_heartbeat``.
     """
     from yoke_core.hooks import cursor_payload as _cursor
     from yoke_core.hooks import telemetry
