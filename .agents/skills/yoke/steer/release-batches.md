@@ -3,9 +3,9 @@
 Create runs through the connection owning the project.
 
 Resolve the intended full commit once and verify its CI passed. Create the
-project's release set in one command, listing its flows in order; each flow
-owns its environment. Respect any declared QA gate before creating a flow
-that it must precede.
+project's release set in one command: one flow per environment, and drive
+every run. Respect any declared QA gate before creating a flow that it must
+precede.
 
 ```sh
 PINNED_SHA=$(git -C "$CHECKOUT" rev-parse HEAD)
@@ -15,8 +15,8 @@ yoke --env CONTROL_PLANE watch deploy -- RUN_ID
 
 Every run records that commit and key `RELEASE_KEY:FLOW`. A refusal cancels
 runs already made by the call. A correction needs a new set on its passing
-commit; earlier proof does not cover it. For tip binding and the Yoke project's
-release-set example, see `.yoke/docs/deployments/index.md#create-a-release-set`.
+commit; earlier proof does not cover it. For tip binding, see
+`.yoke/docs/deployments/index.md#create-a-release-set`.
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
 
@@ -28,9 +28,9 @@ driver: `stage-db-admin` for Stage ownership, `prod-db-admin` for Production. Re
 
 ## Member QA
 
-The owner runs member QA and keeps its claim. The driver logs `Still waiting
-for scoped QA` per minute, exits 5 at timeout, then re-drives; longer silence
-is stuck. Stop with `yoke qa plan abort`, never kill the runner.
+The owner runs member QA (its post-deploy item cases) and keeps its claim.
+The driver logs `Still waiting for scoped QA` per minute, exits 5 at timeout,
+then re-drives; longer silence is stuck. Stop with `yoke qa plan abort`, never kill the runner.
 
 ```text
 yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project {_project}
