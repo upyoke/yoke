@@ -9,7 +9,7 @@ export const SERVED_DELIVERY_OPTIONS = {
   ],
   defaults: {
     before_creation: true, on_every_read: true, when_entering_stage: false,
-    stage_buckets: [],
+    when_creating_release: false, stage_buckets: [],
   },
 };
 

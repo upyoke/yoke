@@ -33,6 +33,9 @@ from yoke_cli.commands.adapters.deployment_execution_authority import (
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
 )
+from yoke_cli.commands.adapters.workflow_execution_instructions import (
+    render_execution_instruction_block,
+)
 from yoke_cli.commands.deployment_lineage import (
     DeploymentLineageResolutionError,
     resolve_commit_lineage,
@@ -78,6 +81,15 @@ def _execute_connection(run_id: str) -> str:
     if same_host:
         return _same_universe_admin_env(active) or active
     return active
+
+
+def write_release_instructions(result, stdout) -> None:
+    """Print the project's When creating release instructions once.
+
+    An older server omits the field; that prints nothing.
+    """
+    stdout.write(render_execution_instruction_block(
+        (result or {}).get("execution_instructions") or []))
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
@@ -192,9 +204,10 @@ def deployment_runs_create(args: List[str]) -> int:
     ):
         return usage_error("--retry-of cannot be combined with artifact identity")
 
-    def _human_writer(response, stdout, stderr) -> None:
-        run_id_receipt(response, stdout, stderr)
-        result = response.result or {}
+    def _receipt_writer(response, stdout, stderr) -> None:
+        result = dict(response.result or {})
+        result.pop("execution_instructions", None)
+        run_id_receipt(response.model_copy(update={"result": result}), stdout, stderr)
         run_id = result.get("run_id")
         if run_id and result.get("replayed"):
             print(replayed_run_note(run_id, result.get("idempotency_key") or parsed.idempotency_key), file=stderr)
@@ -206,6 +219,10 @@ def deployment_runs_create(args: List[str]) -> int:
         if run_id:
             authority = _execute_connection(run_id) or "<control-plane-env>"
             print(execute_created_run_note(authority, run_id), file=stderr)
+
+    def _human_writer(response, stdout, stderr) -> None:
+        write_release_instructions(response.result, stdout)
+        _receipt_writer(response, stdout, stderr)
 
     payload = {
         "project": parsed.project,
@@ -239,7 +256,7 @@ def deployment_runs_create(args: List[str]) -> int:
     if len(flows) > 1:
         from yoke_cli.commands.adapters.deployment_run_create_set import create_release_set
 
-        return create_release_set(parsed, flows, payload, _human_writer)
+        return create_release_set(parsed, flows, payload, _receipt_writer)
     if parsed.retry_of is not None or parsed.project_repo_path is not None:
         guard_error = pin_regression_error(parsed)
         if guard_error is not None:

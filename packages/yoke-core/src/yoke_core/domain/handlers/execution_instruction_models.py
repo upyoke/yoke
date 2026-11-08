@@ -14,6 +14,7 @@ class DeliveryUpdateFields(BaseModel):
     before_creation: bool | None = None
     on_every_read: bool | None = None
     when_entering_stage: bool | None = None
+    when_creating_release: bool | None = None
     stage_buckets: list[StageBucket] | None = None
 
     def delivery_changes(self) -> dict[str, Any]:
@@ -46,7 +47,8 @@ class InstructionListRequest(BaseModel):
 
 
 class InstructionResolveRequest(BaseModel):
-    workflow: str = Field(..., min_length=1)
+    #: Release creation is itemless and ignores workflow; every other point needs it.
+    workflow: str | None = Field(default=None, min_length=1)
     project: str = Field(..., min_length=1)
     #: ``full`` serves the prose a filer must read and obey.
     detail: ReadDetail = DETAIL_SUMMARY
@@ -55,6 +57,12 @@ class InstructionResolveRequest(BaseModel):
 
     @model_validator(mode="after")
     def require_stage_target(self):
+        if self.delivery_point == "when_creating_release":
+            self.workflow = None
+        elif self.workflow is None:
+            raise ValueError(
+                "workflow_required: pass workflow unless resolving when_creating_release"
+            )
         if self.delivery_point == "when_entering_stage" and self.stage_bucket is None:
             raise ValueError(
                 "stage_bucket_required: pass stage_bucket when resolving stage-entry delivery"

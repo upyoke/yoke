@@ -69,5 +69,6 @@ def test_delivery_columns_preserve_existing_rows_on_additive_convergence():
     ensure_workflow_execution_instructions_schema(conn)
     ensure_workflow_execution_instructions_schema(conn)
     assert conn.execute(
-        "SELECT before_creation, on_every_read, when_entering_stage, stage_buckets FROM workflow_execution_instructions"
-    ).fetchone() == (1, 1, 0, "[]")
+        "SELECT before_creation, on_every_read, when_entering_stage, "
+        "when_creating_release, stage_buckets FROM workflow_execution_instructions"
+    ).fetchone() == (1, 1, 0, 0, "[]")

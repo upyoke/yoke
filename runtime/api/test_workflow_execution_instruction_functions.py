@@ -83,6 +83,7 @@ def test_crud_handlers_write_rows_and_emit_audited_events(monkeypatch):
         "before_creation": True,
         "on_every_read": True,
         "when_entering_stage": False,
+        "when_creating_release": False,
         "stage_buckets": [],
     }
     assert rows[0]["applies_to_all_projects"] is True

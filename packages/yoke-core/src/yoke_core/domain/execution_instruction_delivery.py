@@ -15,26 +15,28 @@ from yoke_core.domain.workflow_execution_instructions_schema import (
 StageBucket = Literal[
     "idea", "planning", "refined", "implementing", "reviewing", "implemented", "release"
 ]
-DeliveryPoint = Literal["before_creation", "on_every_read", "when_entering_stage"]
-DELIVERY_FIELDS = (
-    "before_creation",
-    "on_every_read",
-    "when_entering_stage",
-    "stage_buckets",
-)
+DeliveryPoint = Literal[
+    "before_creation", "on_every_read", "when_entering_stage", "when_creating_release"
+]
+#: Boolean delivery switches, one stored column each, in storage order.
+DELIVERY_POINTS: tuple[str, ...] = get_args(DeliveryPoint)
+DELIVERY_FIELDS = (*DELIVERY_POINTS, "stage_buckets")
 
 
 class InstructionDelivery(BaseModel):
     before_creation: bool = True
     on_every_read: bool = True
     when_entering_stage: bool = False
+    #: Itemless: reaches whoever creates a deployment run for a scoped project.
+    when_creating_release: bool = False
     stage_buckets: list[StageBucket] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def valid_delivery(self):
-        if not (self.before_creation or self.on_every_read or self.when_entering_stage):
+        if not any(getattr(self, point) for point in DELIVERY_POINTS):
             raise ValueError(
-                "delivery_point_required: select Before creation, On every read, or When entering stage"
+                "delivery_point_required: select Before creation, On every read, "
+                "When entering stage, or When creating release"
             )
         if self.when_entering_stage and not self.stage_buckets:
             raise ValueError(
@@ -53,11 +55,18 @@ def delivery_options() -> dict[str, Any]:
 
 
 def delivery_from_row(row) -> dict[str, Any]:
-    return dict(
-        zip(
-            DELIVERY_FIELDS,
-            [bool(row[0]), bool(row[1]), bool(row[2]), json.loads(row[3])],
-        )
+    """Map a row selected in ``DELIVERY_FIELDS`` order to delivery settings."""
+    *points, buckets = row
+    return {
+        **{point: bool(value) for point, value in zip(DELIVERY_POINTS, points)},
+        "stage_buckets": json.loads(buckets),
+    }
+
+
+def _stored(delivery: InstructionDelivery) -> tuple:
+    return (
+        *(int(getattr(delivery, point)) for point in DELIVERY_POINTS),
+        json.dumps(delivery.stage_buckets),
     )
 
 
@@ -75,13 +84,7 @@ def save_delivery(conn, instruction_id: int, changes: dict[str, Any] | None) -> 
         f"UPDATE {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} SET "
         + ", ".join(f"{field} = {p}" for field in DELIVERY_FIELDS)
         + f" WHERE id = {p}",
-        (
-            int(delivery.before_creation),
-            int(delivery.on_every_read),
-            int(delivery.when_entering_stage),
-            json.dumps(delivery.stage_buckets),
-            instruction_id,
-        ),
+        (*_stored(delivery), instruction_id),
     )
 
 
@@ -95,6 +98,8 @@ def matches_delivery(
         return instruction["on_every_read"] or at_stage
     if point == "when_entering_stage":
         return bool(at_stage)
+    if point == "when_creating_release":
+        return instruction["when_creating_release"]
     return instruction["before_creation"]
 
 

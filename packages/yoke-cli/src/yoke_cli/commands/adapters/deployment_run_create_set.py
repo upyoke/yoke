@@ -73,6 +73,10 @@ def create_release_set(parsed, flows, payload, human_writer):
     combined = response.model_copy(update={"result": {"runs": results}})
 
     def writer(_response, stdout, stderr):
+        from yoke_cli.commands.adapters.deployment_run_create import write_release_instructions
+
+        # Every run in a set shares one project, so its release policy prints once.
+        write_release_instructions(results[0], stdout)
         for result in results:
             human_writer(response.model_copy(update={"result": result}), stdout, stderr)
 

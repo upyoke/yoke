@@ -174,7 +174,7 @@ _EXPECTED_SCHEMA_STR = (
     "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,scope/TEXT,claim_type/TEXT,claimed_at/TIMESTAMPTZ,last_heartbeat/TIMESTAMPTZ,released_at/TIMESTAMPTZ,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
     "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"
     "|workflow_execution_instruction_workflows:instruction_id/INTEGER,workflow_id/TEXT"
-    "|workflow_execution_instructions:id/INTEGER,content/TEXT,applies_to_all_workflows/INTEGER,applies_to_all_projects/INTEGER,before_creation/INTEGER,on_every_read/INTEGER,when_entering_stage/INTEGER,stage_buckets/TEXT,updated_by_actor_id/INTEGER,created_at/TIMESTAMPTZ,updated_at/TIMESTAMPTZ"
+    "|workflow_execution_instructions:id/INTEGER,content/TEXT,applies_to_all_workflows/INTEGER,applies_to_all_projects/INTEGER,before_creation/INTEGER,on_every_read/INTEGER,when_entering_stage/INTEGER,when_creating_release/INTEGER,stage_buckets/TEXT,updated_by_actor_id/INTEGER,created_at/TIMESTAMPTZ,updated_at/TIMESTAMPTZ"
     "|workflow_versions:id/INTEGER,workflow_id/TEXT,version/INTEGER,definition_schema_version/INTEGER,definition_json/TEXT,definition_digest/TEXT,published_at/TIMESTAMPTZ,published_by_actor_id/INTEGER,immutable_at/TIMESTAMPTZ,derived_from_canon_version/INTEGER,published_reason/TEXT"
     "|workflows:id/TEXT,name/TEXT,description/TEXT,source/TEXT,status/TEXT,canon_follow/TEXT,canon_adopted_from_version/INTEGER,current_version_id/INTEGER,created_at/TIMESTAMPTZ,updated_at/TIMESTAMPTZ"
 )

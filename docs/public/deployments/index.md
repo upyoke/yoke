@@ -184,6 +184,15 @@ drive each run; your flows and QA gates decide any order. When a
 correction lands, create a new release set on its passing commit; earlier
 Stage proof does not cover the correction.
 
+### Release policy at creation
+
+`deployment-runs create` prints the project's execution instructions that
+select When creating release, once per call: a release set prints them once,
+not per run, and a replayed create prints them again. Read and obey them
+before you execute the runs. JSON returns them as `execution_instructions`;
+an older server omits the field and prints nothing. `watch deploy` does not
+repeat them. See [execution instructions](../projects/execution-instructions.md).
+
 ## Hosting
 
 There is no separate Hosting destination. Hosting shows up as:

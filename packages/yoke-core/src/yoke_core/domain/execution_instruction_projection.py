@@ -9,7 +9,7 @@ from yoke_core.domain.execution_instruction_delivery import (
 
 
 def resolve_read_command(
-    workflow: str,
+    workflow: str | None,
     project: str,
     *,
     delivery_point: DeliveryPoint = "before_creation",
@@ -22,16 +22,17 @@ def resolve_read_command(
         else ""
     )
     selection += f" --stage-bucket {stage_bucket}" if stage_bucket else ""
+    scope = f"--workflow {workflow} " if workflow else ""
     return (
         "yoke workflow execution-instruction resolve "
-        f"--workflow {workflow} --project {project}{selection} --full"
+        f"{scope}--project {project}{selection} --full"
     )
 
 
 def resolve_projection(
     instructions: List[Dict[str, Any]],
     *,
-    workflow: str,
+    workflow: str | None,
     project: str,
     detail: str,
     delivery_point: DeliveryPoint = "before_creation",

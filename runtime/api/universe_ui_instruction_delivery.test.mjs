@@ -3,7 +3,7 @@ import test from "node:test";
 import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import { classText } from "./universe_ui_workflows_test_support.mjs";
 import {
-  buttonByText, checkboxRows, mountPanel, toggle,
+  buttonByText, checkboxRows, mountPanel, SERVED_DELIVERY_OPTIONS, toggle,
 } from "./universe_ui_instruction_test_support.mjs";
 
 const point = (host, name) => byClass(host, `instruction-${name}`)[0].children[0];
@@ -58,7 +58,7 @@ test("invalid delivery sends no writes and the editor teaches how to recover", a
   assert.deepEqual(writeRequests(client)[0].payload, {
     content: "Check the candidate.",
     before_creation: false, on_every_read: false, when_entering_stage: true,
-    stage_buckets: ["implementing", "reviewing"],
+    when_creating_release: false, stage_buckets: ["implementing", "reviewing"],
   });
   assert.deepEqual(classText(host, "workflow-instruction-delivery"), [
     "When entering stage: implementing, reviewing",
@@ -92,7 +92,7 @@ test("editing loads delivery, retains disabled buckets, and saves replacements",
   assert.deepEqual(writeRequests(client)[0].payload, {
     instruction_id: 24, content: "Check the release.",
     before_creation: true, on_every_read: false, when_entering_stage: true,
-    stage_buckets: ["release", "planning"],
+    when_creating_release: false, stage_buckets: ["release", "planning"],
   });
   buttonByText(host, "Edit").dispatchEvent(new Event("click"));
   assert.deepEqual(buckets(host).filter((row) => row.input.checked).map((row) => row.label), [
@@ -164,4 +164,40 @@ test("a list without delivery options disables editing and names the recovery", 
   assert.equal(buttonByText(host, "Edit").disabled, true);
   assert.deepEqual(classText(host, "workflow-instruction-delivery"), ["Before creation"]);
   assert.match(classText(host, "error")[0], /^delivery_options_unavailable: .*Deploy a Yoke build/);
+});
+
+test("When creating release saves alone and shows in the delivery hint", async () => {
+  const { host, client } = await mountPanel({ seed: [{
+    id: 31, content: "Deploy stage and production together.",
+    before_creation: true, on_every_read: true, when_entering_stage: false,
+    when_creating_release: false, stage_buckets: [],
+  }] });
+  buttonByText(host, "Edit").dispatchEvent(new Event("click"));
+  assert.equal(point(host, "when-creating-release").checked, false);
+  toggle(point(host, "before-creation"), false);
+  toggle(point(host, "on-every-read"), false);
+  toggle(point(host, "when-creating-release"), true);
+  buttonByText(host, "Save instruction").dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(writeRequests(client)[0].payload, {
+    instruction_id: 31, content: "Deploy stage and production together.",
+    before_creation: false, on_every_read: false, when_entering_stage: false,
+    when_creating_release: true, stage_buckets: [],
+  });
+  assert.deepEqual(classText(host, "workflow-instruction-delivery"), ["When creating release"]);
+});
+
+test("a build that serves no release point hides it and omits it from writes", async () => {
+  const { stage_buckets } = SERVED_DELIVERY_OPTIONS;
+  const { host, client } = await mountPanel({ deliveryOptions: { stage_buckets, defaults: {
+    before_creation: true, on_every_read: true, when_entering_stage: false, stage_buckets: [],
+  } } });
+  buttonByText(host, "New instruction").dispatchEvent(new Event("click"));
+  assert.equal(byClass(host, "instruction-when-creating-release").length, 0);
+  const content = byClass(host, "instruction-content-input")[0];
+  content.value = "Read guidance.";
+  content.dispatchEvent(new Event("input"));
+  buttonByText(host, "Create instruction").dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal("when_creating_release" in writeRequests(client)[0].payload, false);
 });

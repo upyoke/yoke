@@ -4,6 +4,7 @@ const DELIVERY_POINTS = [
   ["before_creation", "Before creation"],
   ["on_every_read", "On every read"],
   ["when_entering_stage", "When entering stage"],
+  ["when_creating_release", "When creating release"],
 ];
 // Stage buckets and new-instruction defaults are served by
 // workflow.execution_instruction.list as `delivery_options`; the UI keeps no copy.
@@ -15,10 +16,13 @@ export const DELIVERY_OPTIONS_UNAVAILABLE =
 /** The instruction's delivery, with fields it omits taken from the served defaults. */
 export function instructionDelivery(instruction, options) {
   const defaults = options?.defaults || {};
+  const releaseCreation = instruction.when_creating_release ?? defaults.when_creating_release;
   return {
     before_creation: instruction.before_creation ?? defaults.before_creation,
     on_every_read: instruction.on_every_read ?? defaults.on_every_read,
     when_entering_stage: instruction.when_entering_stage ?? defaults.when_entering_stage,
+    // An older server serves no release-creation point; its writes omit it.
+    ...(releaseCreation === undefined ? {} : { when_creating_release: releaseCreation }),
     stage_buckets: [...(instruction.stage_buckets ?? defaults.stage_buckets ?? [])],
   };
 }
@@ -33,7 +37,7 @@ export function instructionDeliveryHint(instruction, options) {
 
 export function deliveryValidationError(delivery) {
   if (!DELIVERY_POINTS.some(([key]) => delivery[key])) {
-    return "delivery_point_required: select Before creation, On every read, or When entering stage.";
+    return "delivery_point_required: select Before creation, On every read, When entering stage, or When creating release.";
   }
   if (delivery.when_entering_stage && !delivery.stage_buckets.length) {
     return "stage_bucket_required: select at least one stage bucket for When entering stage.";
@@ -52,7 +56,8 @@ export function deliveryControls(documentNode, delivery, options, checkboxRow) {
   const syncBuckets = () => {
     for (const input of bucketInputs) input.disabled = !delivery.when_entering_stage;
   };
-  for (const [key, label] of DELIVERY_POINTS) {
+  // Offer only the points the serving build stores (see instructionDelivery).
+  for (const [key, label] of DELIVERY_POINTS.filter(([key]) => key in delivery)) {
     points.appendChild(checkboxRow(
       documentNode, delivery[key], label, `instruction-${key.replaceAll("_", "-")}`,
       (event) => { delivery[key] = event.target.checked; syncBuckets(); },
