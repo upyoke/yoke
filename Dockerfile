@@ -40,6 +40,42 @@ RUN addgroup --system yoke \
     && mkdir -p /var/lib/yoke/.yoke \
     && chown -R yoke:yoke /var/lib/yoke
 
+# Only the transitive bootstrap sources own this layer. Workspace manifests,
+# unrelated client modules and release clocks cannot trigger a new download.
+RUN --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/__init__.py,target=/bootstrap/contracts/yoke_contracts/__init__.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/api_urls.py,target=/bootstrap/contracts/yoke_contracts/api_urls.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/git_ref_name.py,target=/bootstrap/contracts/yoke_contracts/git_ref_name.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/github_app_snapshot.py,target=/bootstrap/contracts/yoke_contracts/github_app_snapshot.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/github_app_tokens.py,target=/bootstrap/contracts/yoke_contracts/github_app_tokens.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/github_origin.py,target=/bootstrap/contracts/yoke_contracts/github_origin.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/github_web_endpoint.py,target=/bootstrap/contracts/yoke_contracts/github_web_endpoint.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/__init__.py,target=/bootstrap/contracts/yoke_contracts/machine_config/__init__.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/checkout.py,target=/bootstrap/contracts/yoke_contracts/machine_config/checkout.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/credential_sources.py,target=/bootstrap/contracts/yoke_contracts/machine_config/credential_sources.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/directories.py,target=/bootstrap/contracts/yoke_contracts/machine_config/directories.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/paths.py,target=/bootstrap/contracts/yoke_contracts/machine_config/paths.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/retired_keys.py,target=/bootstrap/contracts/yoke_contracts/machine_config/retired_keys.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/runtime.py,target=/bootstrap/contracts/yoke_contracts/machine_config/runtime.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_connection_validation.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_connection_validation.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_connections.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_connections.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_example.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_example.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_github.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_github.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_github_access.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_github_access.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_product.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_product.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_project_validation.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_project_validation.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_projects.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_projects.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_transport.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_transport.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/selection.py,target=/bootstrap/contracts/yoke_contracts/machine_config/selection.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/unknown_keys.py,target=/bootstrap/contracts/yoke_contracts/machine_config/unknown_keys.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/platform_file_lock.py,target=/bootstrap/contracts/yoke_contracts/platform_file_lock.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/resilient_fetch.py,target=/bootstrap/contracts/yoke_contracts/resilient_fetch.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/terminal_detached_process.py,target=/bootstrap/contracts/yoke_contracts/terminal_detached_process.py \
+    --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \
+    PYTHONPATH=/bootstrap/contracts YOKE_MACHINE_HOME=/tmp/postgres-bootstrap \
+    python -c "import runpy, shutil; binaries = runpy.run_path('/bootstrap/postgres_binaries.py')['ensure_binaries'](); shutil.move(str(binaries.parent), '/opt/yoke-postgres'); shutil.rmtree('/tmp/postgres-bootstrap')" \
+    && chown -R yoke:yoke /opt/yoke-postgres
+
 # Lockfile and manifests alone own third-party dependencies. Workspace source
 # and release clocks must not rebuild or republish this large virtualenv.
 ENV UV_PROJECT_ENVIRONMENT=/opt/yoke-venv
@@ -51,17 +87,6 @@ COPY packages/yoke-contracts/pyproject.toml ./packages/yoke-contracts/pyproject.
 COPY packages/yoke-harness/pyproject.toml ./packages/yoke-harness/pyproject.toml
 RUN --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
     uv sync --locked --no-default-groups --no-editable --no-install-workspace --compile-bytecode --no-cache
-
-WORKDIR /app
-
-# The checksum-verified PostgreSQL operation is an ancestor of the final image,
-# so the final image and cache share its downloaded client layer.
-RUN --mount=type=bind,source=packages/yoke-contracts/src,target=/bootstrap/contracts \
-    --mount=type=bind,source=packages/yoke-cli/src,target=/bootstrap/cli \
-    --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \
-    PYTHONPATH=/bootstrap/contracts:/bootstrap/cli YOKE_MACHINE_HOME=/tmp/postgres-bootstrap \
-    python -c "import runpy, shutil; binaries = runpy.run_path('/bootstrap/postgres_binaries.py')['ensure_binaries'](); shutil.move(str(binaries.parent), '/opt/yoke-postgres'); shutil.rmtree('/tmp/postgres-bootstrap')" \
-    && chown -R yoke:yoke /opt/yoke-postgres
 
 FROM tools AS builder
 
@@ -84,7 +109,8 @@ RUN --mount=type=bind,target=/build,rw \
     for package in yoke-contracts yoke-cli yoke-harness yoke-core; do \
         UV_CACHE_DIR=/build/packages/.uv-build-cache \
         uv build --wheel --package "$package" --out-dir /wheels \
-            --python /opt/yoke-build-env/bin/python --no-build-isolation --offline & \
+            --python /opt/yoke-build-env/bin/python --no-build-isolation --offline \
+            --config-setting=--build-option=--compression=stored & \
         pids="$pids $!"; \
     done; \
     status=0; \
@@ -95,6 +121,8 @@ RUN --mount=type=bind,target=/build,rw \
         --wheel /wheels/yoke_core-*.whl
 
 FROM runtime-base AS runtime
+
+WORKDIR /app
 
 # Bind mounts keep build tooling/wheels out of the image. Only the small
 # workspace installation changes; the external-dependency layer stays shared.
@@ -112,12 +140,9 @@ ENV YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
 # The installed wheel's packaged tree is the server tree: install-bundle and
 # Pack routes read it, and its bundles carry this image's build as their
 # receipt `source_build`. Render one project bundle from it here.
-# Independent processes retain both checks and both exit codes. Parallel
-# validation runs both import passes concurrently on the critical path.
-RUN python -m yoke_core.tools.product_wheel_validation & wheel_pid=$!; \
-    python -m yoke_core.tools.container_bundle_validation verify; bundle_status=$?; \
-    wait "$wheel_pid"; wheel_status=$?; \
-    test "$wheel_status" -eq 0 && test "$bundle_status" -eq 0
+# The tracked module pass runs first; bundle rendering reuses those imports.
+# Both checks run and either failure rejects the image.
+RUN python -m yoke_core.tools.container_image_validation
 
 # Every image consumer inherits this build-time release-identity gate. An
 # explicit release version must match the installed wheel metadata exactly;

@@ -48,6 +48,20 @@ def test_cache_hit_must_belong_to_postgres_download_step():
     )
 
 
+@pytest.mark.parametrize(
+    "dockerfile",
+    [
+        "FROM python",
+        "RUN PYTHONPATH=x python -c \"runpy.run_path('/bootstrap/postgres_binaries.py')\"",
+    ],
+)
+def test_bootstrap_evidence_refuses_missing_declared_inputs(dockerfile):
+    from yoke_core.tools.server_image_cache_evidence import postgres_bootstrap_inputs
+
+    with pytest.raises(ValueError, match="postgres_bootstrap_inputs_missing"):
+        postgres_bootstrap_inputs(dockerfile)
+
+
 def test_transfer_diagnostics_keep_parallel_vertex_times_without_changing_build_metric():
     from yoke_core.tools.server_image_cache_evidence import buildkit_timings
 
@@ -79,6 +93,8 @@ def test_transfer_diagnostics_keep_parallel_vertex_times_without_changing_build_
         ),
         (["runtime/api/main.py", "Dockerfile"], False),
         (["docs/overview.md"], False),
+        (["packages/yoke-cli/src/yoke_cli/main.py"], True),
+        (["packages/yoke-contracts/src/yoke_contracts/browser_schema.py"], True),
     ],
 )
 def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
@@ -88,7 +104,13 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
         application_changed_without_bootstrap,
     )
 
-    assert application_changed_without_bootstrap(files) is expected
+    from yoke_core.tools.server_image_cache_evidence import postgres_bootstrap_inputs
+    from pathlib import Path
+
+    bootstrap = postgres_bootstrap_inputs(
+        (Path(__file__).resolve().parents[3] / "Dockerfile").read_text()
+    )
+    assert application_changed_without_bootstrap(files, bootstrap) is expected
 
 
 @pytest.mark.parametrize(
@@ -101,6 +123,7 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
         (10, 10, "registry-max", 1),
         (10, 10, "registry-min", 1),
         (10, 10, "product", 1),
+        (10, 10, "builder", 1),
     ],
 )
 def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_seconds(
@@ -133,17 +156,27 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
                     for i in range(samples)
                 ]
             }
+        if path.endswith("/Dockerfile"):
+            return {
+                "content": base64.b64encode(
+                    b"RUN --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py PYTHONPATH=/bootstrap python -c \"import runpy; runpy.run_path('/bootstrap/postgres_binaries.py')\""
+                ).decode()
+            }
         if "/contents/" in path:
-            workflow = b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-builder-${{ matrix.arch }},mode=max"
+            workflow = b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-runtime-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1"
             if legacy is True:
                 workflow = b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
             elif legacy in ("registry-max", "registry-min"):
-                workflow = workflow.replace(b"buildcache-builder-", b"buildcache-")
+                workflow = workflow.replace(b"buildcache-runtime-", b"buildcache-")
                 if legacy == "registry-min":
                     workflow = workflow.replace(b"mode=max", b"mode=min")
+            elif legacy == "builder":
+                workflow = workflow.replace(
+                    b"buildcache-runtime-", b"buildcache-builder-"
+                )
             elif legacy == "product":
                 workflow = workflow.replace(
-                    b"buildcache-builder-", b"buildcache-product-"
+                    b"buildcache-runtime-", b"buildcache-product-"
                 )
             return {"content": base64.b64encode(workflow).decode()}
         if "/compare/" in path:

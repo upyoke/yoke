@@ -85,15 +85,33 @@ def buildkit_timings(log: str) -> list[dict]:
     return sorted(timings, key=lambda row: row["seconds"], reverse=True)
 
 
-def application_changed_without_bootstrap(files: list[str]) -> bool:
-    bootstrap = (
-        "Dockerfile",
-        "packages/yoke-contracts/src/",
-        "packages/yoke-cli/src/",
-        "packages/yoke-core/src/yoke_core/domain/postgres_binaries.py",
+def postgres_bootstrap_inputs(dockerfile: str) -> tuple[str, ...]:
+    """Use the immutable build's declared inputs as its cache invalidators."""
+    steps = dockerfile.replace("\\\n", " ").split("\n")
+    bootstrap = next(
+        (
+            step
+            for step in steps
+            if step.startswith("RUN ")
+            and "runpy.run_path('/bootstrap/postgres_binaries.py')" in step
+        ),
+        "",
     )
+    sources = re.findall(r"--mount=type=bind,source=([^, ]+),target=", bootstrap)
+    if not sources:
+        raise ValueError(
+            "postgres_bootstrap_inputs_missing: retain declared bootstrap mounts and retry"
+        )
+    return ("Dockerfile", *sources)
+
+
+def application_changed_without_bootstrap(
+    files: list[str], bootstrap: tuple[str, ...]
+) -> bool:
     return any(
-        name.startswith(("runtime/", "packages/yoke-core/src/")) for name in files
+        name.startswith("runtime/")
+        or (name.startswith("packages/") and "/src/" in name)
+        for name in files
     ) and not any(name.startswith(bootstrap) for name in files)
 
 
@@ -132,14 +150,22 @@ def _check() -> int:
         )
         workflow = base64.b64decode(source["content"]).decode()
         if (
-            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-builder-${{ matrix.arch }},mode=max"
+            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-runtime-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1"
             in workflow
         ):
+            dockerfile = rest_get(
+                f"/repos/{repository}/contents/Dockerfile",
+                query={"ref": run["head_sha"]},
+                token=token,
+            )
             current.append(
                 {
                     "databaseId": run["id"],
                     "headSha": run["head_sha"],
                     "url": run["html_url"],
+                    "bootstrap_inputs": postgres_bootstrap_inputs(
+                        base64.b64decode(dockerfile["content"]).decode()
+                    ),
                 }
             )
         if len(current) == 10:
@@ -205,7 +231,7 @@ def _check() -> int:
                             }
                         )
                     if postgres_cached(log) and application_changed_without_bootstrap(
-                        files
+                        files, tuple(run["bootstrap_inputs"])
                     ):
                         hits.append(
                             {

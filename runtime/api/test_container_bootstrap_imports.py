@@ -61,6 +61,11 @@ def _repo_path(declared: str, mounts: dict[str, Path]) -> Path:
             return source
         if declared.startswith(target + "/"):
             return source / declared.removeprefix(target + "/")
+        if target.startswith(declared + "/"):
+            root = source
+            for _part in Path(target).relative_to(declared).parts:
+                root = root.parent
+            return root
     raise AssertionError(f"bootstrap path {declared} has no declared source mount")
 
 
@@ -163,7 +168,7 @@ def test_bootstrap_imports_from_only_declared_mounts(tmp_path, omit_contracts) -
     # Materialize only mounted files, never the whole checkout or installed
     # workspace. A missing contracts mount must fail the same isolated import.
     for destination, source in mounts.items():
-        if omit_contracts and destination == "/bootstrap/contracts":
+        if omit_contracts and destination.startswith("/bootstrap/contracts/"):
             continue
         target = tmp_path / destination.lstrip("/")
         target.parent.mkdir(parents=True, exist_ok=True)
