@@ -80,7 +80,15 @@ def require_closed_landing(conn, item_id):
 
 
 def reworking_members(conn, item_ids, *, reconcile=True):
-    """Members with a live landing or actively implementing a correction."""
+    """Members with a live landing or actively implementing a correction.
+
+    An item whose merge landed after it entered its current stage is only
+    waiting for close-out, not reworking; a reopen after landing still is.
+    """
+    from yoke_core.domain.deployment_run_landed_closeout import (
+        landed_closeout_members,
+    )
+
     ids = sorted({int(i) for i in item_ids})
     if not ids:
         return set()
@@ -90,5 +98,6 @@ def reworking_members(conn, item_ids, *, reconcile=True):
     rows = conn.execute(
         f"SELECT id,status FROM items WHERE id IN ({slots})", tuple(ids)
     ).fetchall()
-    return found | {int(row[0]) for row in rows
-                    if row[1] in {"implementing", "reviewing-implementation"}}
+    active = {int(row[0]) for row in rows
+              if row[1] in {"implementing", "reviewing-implementation"}}
+    return found | (active - landed_closeout_members(conn, active))
