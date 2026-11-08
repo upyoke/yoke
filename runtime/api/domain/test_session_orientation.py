@@ -105,7 +105,12 @@ def test_cursor_session_start_gets_shared_orientation_without_cwd(
     assert str(project) in out
 
 
-def test_cursor_prompt_submit_stays_silent(project: Path) -> None:
+def test_cursor_prompt_submit_stays_silent_after_session_start(project: Path) -> None:
+    # A first prompt with no sessionStart orients (the IDE's new-window chat);
+    # once sessionStart's block landed, the prompt hook adds nothing.
+    so.confirm_orientation_delivery(
+        so.orientation_for_hook("SessionStart", _payload(project), cursor=True)
+    )
     assert (
         so.orientation_for_hook(
             "UserPromptSubmit",
