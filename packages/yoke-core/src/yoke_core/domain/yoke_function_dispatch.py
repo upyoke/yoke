@@ -42,6 +42,7 @@ from yoke_core.domain.yoke_function_idempotency_scope import (
 )
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_core.domain.qa_request_subjects import request_subject_scope
+from yoke_core.domain.session_missing_refusal import unregistered_session_refusal
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -209,6 +210,9 @@ def _dispatch_impl(
         return bound.error
     assert bound.bound_request is not None  # narrows for the type checker
     typed_request = bound.bound_request
+    unregistered = unregistered_session_refusal(entry, typed_request, bound)
+    if unregistered is not None:
+        return unregistered
     # Keep binder findings on every dispatcher event.
     identity_context = identity_event_context(bound) or None
 

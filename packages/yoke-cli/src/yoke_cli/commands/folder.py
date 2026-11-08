@@ -32,7 +32,11 @@ def _set_folder(args: list[str], *, disabled: bool) -> int:
             values.add(str(folder))
         else:
             values.discard(str(folder))
-        config[DISABLED_FOLDERS_KEY] = sorted(values)
+        if values:
+            config[DISABLED_FOLDERS_KEY] = sorted(values)
+        else:
+            # Enabling the last folder leaves the config as it was before any opt-out.
+            config.pop(DISABLED_FOLDERS_KEY, None)
         selected = machine_config.config_path()
         selected.parent.mkdir(parents=True, exist_ok=True)
         machine_config.write_config(selected, config)
