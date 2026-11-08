@@ -80,7 +80,7 @@ def test_a_carried_dash_before_release_is_skipped_and_warned(
     assert _members(test_db) == []
     assert "Skipped 1 carried item(s)" in message
     assert "WARNING: merged into this candidate but not at release yet" in message
-    assert "wait for it or add-item once it reaches release" in message
+    assert "start enrolls it if it reaches release first, else a later release" in message
     assert f"{ref} (status={status})" in message
 
 

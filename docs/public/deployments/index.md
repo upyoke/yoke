@@ -169,8 +169,7 @@ run and its members then close together.
 
 ## Create a release set
 
-To release one commit to Stage and then Production, name both flows in order
-in one create:
+To release one commit through several flows, name each flow in one create:
 
 ```sh
 yoke --env CONTROL-PLANE deployment-runs create PROJECT STAGE-FLOW PRODUCTION-FLOW --idempotency-key RELEASE-KEY
@@ -180,8 +179,8 @@ With no source options, every run binds the same CI-proven gate branch tip.
 To choose a commit, pass `--project-repo-path CHECKOUT --source-ref FULL_SHA`
 once. Each run gets the key `RELEASE-KEY:FLOW` and its own flow's
 environment, so `--environment` is refused. If one create refuses, the runs
-that call already made are cancelled. Name only flows that may start now: if
-Production must wait for a Stage result, create it after that result. When a
+that call already made are cancelled. Name only flows that may start now, and
+drive each run; your flows and QA gates decide any order. When a
 correction lands, create a new release set on its passing commit; earlier
 Stage proof does not cover the correction.
 

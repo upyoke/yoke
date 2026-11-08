@@ -208,7 +208,7 @@ def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) 
     if rework:
         parts.append(
             "WARNING: merged into this candidate but not at release yet — "
-            "wait for it or add-item once it reaches release: "
+            "start enrolls it if it reaches release first, else a later release: "
             + "; ".join(
                 f"{ref(item_id)} (status={status})" for item_id, status in rework
             )
