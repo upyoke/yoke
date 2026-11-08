@@ -175,10 +175,10 @@ def _finish(
             "run yoke test-machine reset before using this machine again",
         )
     from yoke_core.domain.machine_reset_debt import record_reset_owed
-    from yoke_core.domain.qa_plan_execution_abort_state import restore_cleanup_proven
+    from yoke_core.domain.qa_plan_execution_abort_state import case_restore_proven
 
     _, case, _ = _mission(conn, execution, parsed.requirement_id)
-    if not restore_cleanup_proven(parsed.restore or {}, case.get("host_baseline")) or (
+    if not case_restore_proven(case, parsed.restore or {}) or (
         outcome is not None and not outcome.primary_success
     ):
         record_reset_owed(
