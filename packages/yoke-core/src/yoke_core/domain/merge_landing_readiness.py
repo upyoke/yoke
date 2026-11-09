@@ -8,8 +8,9 @@ The questions, in report order: review stage, close-out evidence flags, lane
 resolution, checkout, stale unlanded work, work claim (including a pruned
 lane with nothing landed), uncommitted lane files, blocking QA proof for the
 item, the post-deploy QA answer, then the landing route's own gates
-(integration dependencies, candidate review, the merge-queue probe and, for
-the standalone engine, the project's verification command). Those route gates
+(integration dependencies, candidate review, the merge-queue probe, train
+composition, failed-train replay and, for the standalone engine, the project's
+verification command). Those route gates
 call the functions the landing itself calls, so ``--check`` and the merge
 cannot disagree. A lane that already landed skips everything after the clean
 tree: nothing is left to prove before a landing that happened. So does a
@@ -42,6 +43,7 @@ from yoke_core.domain.close_out_evidence_gate import (
 )
 from yoke_core.domain.merge_queue_landing_timeout import merge_item_resume_command
 from yoke_core.domain.merge_queue_route_selection import route_admission
+from yoke_core.domain.merge_queue_admission_gates import check_queue_gates
 from yoke_core.domain.merge_review_readiness import (
     ReviewReadiness,
     gates_left_to_merge,
@@ -162,7 +164,9 @@ def _route_gates(
     )
     if admission.refusal:
         readiness.blockers.append(LandingBlocker(admission.gate, admission.refusal))
-    elif not admission.declares_queue:
+    elif admission.declares_queue:
+        check_queue_gates(readiness, item=item, head=head)
+    else:
         # The standalone engine resolves this after its rebase; read-only here.
         try:
             resolve_verification(public_ref, materialize=False)

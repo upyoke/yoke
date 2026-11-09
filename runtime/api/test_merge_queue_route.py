@@ -19,6 +19,7 @@ from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_failed_train as failed_train_mod
 from yoke_core.domain import merge_queue_landing_timeout as timeout_mod
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain import merge_queue_admission_gates as admission_gates
 from yoke_core.domain import session_liveness_pump as liveness_mod
 from yoke_core.domain.merge_queue_landing_record_state import PENDING
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
@@ -70,7 +71,7 @@ def test_happy_path_lands_and_records(monkeypatch):
 
 def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "read_queue_members",
         lambda ctx, base_branch="main": (
             [QueueMember(pr_num="9", head_ref="YOK-150")],
@@ -107,7 +108,7 @@ def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):
 
 def test_queue_unreadable_is_named_error(monkeypatch):
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "read_queue_members",
         lambda ctx, base_branch="main": (None, "no merge queue on 'main'"),
     )
@@ -313,7 +314,7 @@ def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
         base_sha=base_sha,
     )
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "unchanged_failed_train_refusal",
         lambda *_a, **_k: refusal,
     )
