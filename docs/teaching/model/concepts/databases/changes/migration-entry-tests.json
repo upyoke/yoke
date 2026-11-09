@@ -3,15 +3,5 @@
  "title": "Migration entry test coverage",
  "status": "observed",
  "text": "One shared table-driven harness discovers every packaged entry, checks destructive serving floors, applies twice on empty booted and seeded current schemas, and re-proves standing invariants with the production retirement rules. Dedicated tests retain reachable data-change and refusal assertions. Retiring historical coverage requires accounting for known hosted, local and self-hosted installs. A baseline squash deletes dedicated tests with their entries; a source check refuses references to absent entry modules or loader selectors. Migration-area impact selection includes both shared checks whenever an entry changes. Folded entries retain their digest and resolved serving floor in released_history_digests.json. Merge preflight accepts removing released scripts when their folded identities preserve the frozen history; live applied scripts still cannot change. Doctor and released-history checks compare folded digests without reading removed scripts. New databases stamp them without scripts; existing databases missing any folded name, including empty pre-ledger databases, must upgrade through a build carrying the scripts first. The import-layer guard separately checks every domain *_schema.py and numbered entry after 0106 against explicit lower-layer module membership (schema_storage, persistence_queries, payload_validators and listed migration infrastructure). It detects lazy, relative and package-from imports and reports the source path, line, forbidden module, allowed layers and recovery. Take storage constants from the schema owner and pass data down from orchestration instead of importing live gates or invariants. Historical entries through 0106 and two existing schema edges have restricted exceptions; applied imports remain immutable until baseline squashing removes their scripts.",
- "sources": [
-  "docs/testing-verification/migration-entry-tests.md",
-  "runtime/api/domain/test_migration_entry_contract.py",
-  "runtime/api/domain/test_migration_entry_test_policy.py",
-  "packages/yoke-core/src/yoke_core/tools/_impacted_contract_prefix_families.py",
-  "runtime/api/domain/test_migration_folded_history.py",
-  "runtime/api/domain/test_migration_history_integration.py",
-  "runtime/api/engines/test_doctor_hc_migration_content_identity.py",
-  "runtime/api/domain/test_migration_import_layers.py",
-  "docs/public/databases/migrations.md"
- ]
+ "sources": ["docs/testing-verification/migration-entry-tests.md", "runtime/api/domain/test_migration_entry_contract.py", "runtime/api/domain/test_migration_entry_test_policy.py", "packages/yoke-core/src/yoke_core/tools/_impacted_contract_prefix_families.py", "runtime/api/domain/test_migration_folded_history.py", "runtime/api/domain/test_migration_history_integration.py", "runtime/api/engines/test_doctor_hc_migration_content_identity.py", "runtime/api/domain/test_migration_import_layers.py", "docs/public/databases/migrations.md"]
 }
