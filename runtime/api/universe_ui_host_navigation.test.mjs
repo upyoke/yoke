@@ -6,6 +6,8 @@ import { routeHref, routeDocumentTitle } from "../../packages/yoke-core/src/yoke
 import { locationResolves } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_location_preference.js";
 import { FakeDocument, allNodes, byClass, injectedClient, response, settle } from "./universe_ui_dom_test_support.mjs";
 
+import { NAV_ICONS } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_nav_icons.js";
+
 const basePath = "/orgs/sample";
 function group(content) {
   return [{ id: "host-tools", label: "Host tools", pages: [
@@ -174,4 +176,69 @@ test("factory failures show a diagnosis and cancel the signal", async (t) => {
   }));
   assert.ok(signal.aborted);
   assert.match(byClass(mounted.root, "error-banner")[0].textContent, /host_page_render_failed: host unavailable.*reload/);
+});
+
+
+test("host page icons use existing keys and leave omitted or unknown slots blank", async (t) => {
+  const navigation = group(() => null);
+  navigation[0].pages[0].icon = "items";
+  navigation[0].pages[1].icon = "unknown-icon";
+  navigation[0].pages.push({ id: "archive", label: "Archive", content: () => null });
+  navigation[0].pages.push({ id: "inherited", label: "Inherited", icon: "constructor", content: () => null });
+  const mounted = await mount(t, `${basePath}/reports`, navigation);
+  const links = byClass(mounted.root, "nav-link");
+  assert.deepEqual(links.slice(-4).map(link => link.children[0].innerHTML), [NAV_ICONS.items, "", "", ""]);
+  const strategy = links.find(link => link.children[1].textContent === "Strategy");
+  assert.equal(strategy.children[0].innerHTML, NAV_ICONS.strategy);
+});
+
+test("collapsible host groups start closed and remember mouse and keyboard toggles on reload", async (t) => {
+  const navigation = group(() => null);
+  navigation[0].collapsible = true;
+  const groups = {}, writes = [];
+  const client = injectedClient("host"), call = client.call.bind(client);
+  client.call = request => {
+    if (request.function === "ui_preferences.nav_group.list") {
+      return Promise.resolve({ status: 200, envelope: { success: true, result: { groups: { ...groups } } } });
+    }
+    if (request.function === "ui_preferences.nav_group.set") {
+      writes.push(request.payload);
+      groups[request.payload.group_id] = request.payload.open;
+      return Promise.resolve({ status: 200, envelope: { success: true, result: {} } });
+    }
+    return call(request);
+  };
+  function disclosure(root) {
+    const heading = byClass(root, "nav-group").find(node => node.textContent === "Host tools");
+    const items = byClass(root, "nav-group-items").find(node => node.id === heading.getAttribute("aria-controls"));
+    assert.equal(heading.getAttribute("role"), "button");
+    assert.equal(heading.tabIndex, 0);
+    return { heading, items };
+  }
+  const first = await mount(t, `${basePath}/reports`, navigation, client);
+  let { heading, items } = disclosure(first.root);
+  assert.equal(heading.getAttribute("aria-expanded"), "false");
+  assert.equal(items.hidden, true);
+  heading.dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(items.hidden, false);
+  assert.deepEqual(writes.at(-1), { group_id: "host-tools", open: true });
+  first.app.unmount();
+
+  const second = await mount(t, `${basePath}/reports`, navigation, client);
+  ({ heading, items } = disclosure(second.root));
+  assert.equal(heading.getAttribute("aria-expanded"), "true");
+  assert.equal(items.hidden, false);
+  for (const key of [" ", "Enter", "Enter"]) {
+    const event = new Event("keydown", { cancelable: true });
+    Object.defineProperty(event, "key", { value: key });
+    heading.dispatchEvent(event);
+    assert.ok(event.defaultPrevented);
+    await settle();
+  }
+  assert.equal(items.hidden, true);
+  assert.deepEqual(writes.at(-1), { group_id: "host-tools", open: false });
+  second.app.unmount();
+  const third = await mount(t, `${basePath}/reports`, navigation, client);
+  assert.equal(disclosure(third.root).items.hidden, true);
 });
