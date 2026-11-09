@@ -12,6 +12,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_contracts.model_reference_data import MODEL_RECORDS
 from yoke_core.domain import db_helpers, yoke_function_registry
 from yoke_core.domain.handlers import __init_register__ as init_register
 from yoke_core.domain.handlers import model_reference
@@ -62,7 +63,7 @@ def test_diff_and_get_read_complete_published_catalog(catalog_db):
         _request(model_reference.GET_FUNCTION_ID, {})
     )
     assert current.primary_success is True
-    assert current.result_payload["count"] == 21
+    assert current.result_payload["count"] == len(MODEL_RECORDS)
     assert current.result_payload["source_note"]
     assert current.result_payload["published_at"]
     diff = publication.handle_models_diff(
