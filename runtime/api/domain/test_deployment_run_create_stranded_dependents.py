@@ -35,13 +35,15 @@ TRANSITIVE_ID = 9803
 UNRELATED_ID = 9804
 
 
-def _depend(conn: Any, dependent: int, blocker: int) -> None:
+def _depend(
+    conn: Any, dependent: int, blocker: int, *, gate: str = "integration"
+) -> None:
     conn.execute(
         "INSERT INTO item_dependencies "
         "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,"
-        "created_at) VALUES (%s,%s,'closure','fact:deployed:stage','test',"
+        "created_at) VALUES (%s,%s,%s,'fact:deployed:stage','test',"
         "'2026-09-14T00:00:00Z')",
-        (dependent, blocker),
+        (dependent, blocker, gate),
     )
     conn.commit()
 
@@ -112,6 +114,28 @@ def test_create_warns_when_no_carried_item_depends_on_the_unreleased_item(
     assert "WARNING: merged into this candidate but not at release yet" in notice
     assert f"{refs[UNRELEASED_ID]} (status=implementing)" in notice
     assert "release_stranding_unreleased_blocker" not in notice
+
+
+def test_create_enrolls_a_member_whose_closure_blocker_has_not_released(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, tip = _candidate(
+        test_db,
+        tmp_path,
+        monkeypatch,
+        {UNRELEASED_ID: "implementing", DEPENDENT_ID: "release"},
+    )
+    _depend(test_db, DEPENDENT_ID, UNRELEASED_ID, gate="closure")
+
+    created = create_run("yoke", RELEASE_FLOW, release_lineage=tip)
+
+    assert [
+        row[0]
+        for row in test_db.execute(
+            "SELECT item_id FROM deployment_run_items WHERE run_id=%s",
+            (created.run_id,),
+        ).fetchall()
+    ] == [DEPENDENT_ID]
 
 
 def test_validating_an_existing_run_keeps_the_notice_instead_of_refusing(
