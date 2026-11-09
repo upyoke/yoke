@@ -23,7 +23,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -73,7 +72,8 @@ def _payload_project_id(payload: Dict[str, Any]) -> Optional[str]:
 def handle_project_structure_patch_apply(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    from yoke_core.domain.project_structure import UsageError, ValidationError
+    from yoke_contracts.project_structure_errors import UsageError, ValidationError
+
     from yoke_core.domain.project_structure_write import apply_patch
 
     payload = request.payload or {}
@@ -157,9 +157,9 @@ def handle_project_structure_deploy_defaults_get(
 def handle_project_structure_get(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
+    from yoke_contracts.project_structure_errors import UsageError, ValidationError
+
     from yoke_core.domain.project_structure import (
-        UsageError,
-        ValidationError,
         read_structure,
     )
 

@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from yoke_contracts.architecture_families import ARCHITECTURE_EXEMPTION_FAMILIES
+from yoke_core.domain import path_context, path_continuity
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.domain import path_continuity, path_context
 from runtime.api.path_context_test_helpers import (
     NOW,
     emit_event,
@@ -274,7 +275,7 @@ class TestArchitectureFamilyConstants:
     def test_classification_and_exemption_disjoint(self):
         assert (
             path_context.ARCHITECTURE_CLASSIFICATION_FAMILIES
-            & path_context.ARCHITECTURE_EXEMPTION_FAMILIES
+            & ARCHITECTURE_EXEMPTION_FAMILIES
             == frozenset()
         )
 

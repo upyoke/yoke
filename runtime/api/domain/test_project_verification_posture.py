@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import pytest
-
-from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.project_structure_errors import ValidationError
 from yoke_contracts.verification_posture import (
     POSTURE_ATTESTED_NO_TESTS,
     POSTURE_UNDECIDED,
     VERIFICATION_POSTURE_FAMILY,
 )
-from yoke_core.domain.project_structure import ValidationError
 from yoke_core.domain.project_structure_validation import _validate_payload
 from yoke_core.domain.project_verification_posture import (
     VerificationPostureError,
@@ -23,6 +21,8 @@ from yoke_core.domain.project_verification_posture import (
 from yoke_core.domain.qa_command_plan_registration import (
     ensure_registered_command_plan,
 )
+
+from runtime.api.fixtures.pg_testdb import test_database
 
 _REASON = "idea-only repository; the client has not funded tests yet"
 

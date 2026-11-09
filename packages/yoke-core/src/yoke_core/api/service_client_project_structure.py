@@ -18,9 +18,11 @@ import json
 import sys
 from typing import Any, Dict, Optional, Sequence
 
-from yoke_core.domain.project_structure_write import apply_patch
-from yoke_core.domain.project_structure_seeds import cmd_seed
+from yoke_contracts.project_structure_errors import UsageError, ValidationError
+
 from yoke_core.domain import project_structure as ps
+from yoke_core.domain.project_structure_seeds import cmd_seed
+from yoke_core.domain.project_structure_write import apply_patch
 
 
 def cmd_project_structure_get(argv: Sequence[str]) -> int:
@@ -33,7 +35,7 @@ def cmd_project_structure_get(argv: Sequence[str]) -> int:
     args = parser.parse_args(list(argv))
     try:
         result = ps.read_structure(args.project_id, family=args.family)
-    except ps.ValidationError as exc:
+    except ValidationError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))
@@ -42,7 +44,7 @@ def cmd_project_structure_get(argv: Sequence[str]) -> int:
 
 def _load_patch_input(stdin: bool, ops_file: Optional[str]) -> Dict[str, Any]:
     if stdin == bool(ops_file):
-        raise ps.UsageError("patch requires exactly one of --stdin or --ops-file.")
+        raise UsageError("patch requires exactly one of --stdin or --ops-file.")
     if stdin:
         raw = sys.stdin.read()
     else:
@@ -52,11 +54,11 @@ def _load_patch_input(stdin: bool, ops_file: Optional[str]) -> Dict[str, Any]:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ps.UsageError(f"patch input is not valid JSON: {exc}") from exc
+        raise UsageError(f"patch input is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
-        raise ps.UsageError("patch input must be a JSON object with an 'ops' array.")
+        raise UsageError("patch input must be a JSON object with an 'ops' array.")
     if "ops" not in data:
-        raise ps.UsageError("patch input must include 'ops'.")
+        raise UsageError("patch input must include 'ops'.")
     return data
 
 
@@ -72,7 +74,7 @@ def cmd_project_structure_patch(argv: Sequence[str]) -> int:
     args = parser.parse_args(list(argv))
     try:
         payload = _load_patch_input(args.stdin, args.ops_file)
-    except ps.UsageError as exc:
+    except UsageError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     try:
@@ -81,7 +83,7 @@ def cmd_project_structure_patch(argv: Sequence[str]) -> int:
             ops=payload["ops"],
             actor=args.actor or payload.get("actor"),
         )
-    except (ps.ValidationError, ps.UsageError) as exc:
+    except (ValidationError, UsageError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))
@@ -98,7 +100,7 @@ def cmd_project_structure_seed(argv: Sequence[str]) -> int:
     args = parser.parse_args(list(argv))
     try:
         result = cmd_seed(args.project_id, args.recipe)
-    except (ps.ValidationError, ps.UsageError) as exc:
+    except (ValidationError, UsageError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))

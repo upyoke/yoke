@@ -28,16 +28,15 @@ Exit codes: 0 success, 1 error, 2 usage.
 
 from __future__ import annotations
 
-import sys
 import json
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
+from yoke_core.domain.schema_init_apply import execute_schema_script
 
 # When invoked as ``python3 -m yoke_core.domain.project_structure`` Python
 # loads this file as ``__main__``. Submodule imports below resolve back to
@@ -164,23 +163,6 @@ CONTEXT_ROUTING_ALWAYS_KEY: str = "always"
 
 
 ALL_FAMILIES: Tuple[str, ...] = tuple(sorted(NET_NEW_FAMILIES))
-
-
-# ---------------------------------------------------------------------------
-# Exceptions (domain-level; CLI maps these to exit codes)
-# ---------------------------------------------------------------------------
-
-
-class ProjectStructureError(Exception):
-    """Base class for Project Structure domain errors."""
-
-
-class UsageError(ProjectStructureError):
-    """CLI argument or op-shape misuse."""
-
-
-class ValidationError(ProjectStructureError):
-    """Envelope or payload validation failure."""
 
 
 # ---------------------------------------------------------------------------

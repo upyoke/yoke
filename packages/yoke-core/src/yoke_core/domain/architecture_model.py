@@ -39,7 +39,7 @@ Derived views: callers that want flat ``allowed_edges`` /
 payload only stores the per-layer source; readers project.
 
 Validation is pure: the validator raises
-:class:`yoke_core.domain.project_structure.ValidationError` on any
+:class:`yoke_contracts.project_structure_errors.ValidationError` on any
 shape miss. No DB access.
 """
 
@@ -47,13 +47,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, FrozenSet, List, Mapping, Tuple
 
+from yoke_contracts.project_structure_errors import ValidationError
+
 from yoke_core.domain.architecture_model_sections import (
     PACKAGE_LAYOUTS,
     validate_decisions,
     validate_exemptions,
     validate_package_roots,
 )
-from yoke_core.domain.project_structure import ValidationError
 
 
 def validate_payload(payload: Mapping[str, Any]) -> None:

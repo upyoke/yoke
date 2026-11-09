@@ -33,9 +33,10 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.architecture_families import ARCHITECTURE_EXEMPTION_FAMILIES
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
-
 
 FAMILY_POSTURE = "posture"
 FAMILY_DOC_LINK = "doc_link"
@@ -69,15 +70,6 @@ ARCHITECTURE_CLASSIFICATION_FAMILIES = frozenset(
     }
 )
 
-ARCHITECTURE_EXEMPTION_FAMILIES = frozenset(
-    {
-        FAMILY_GENERATED,
-        FAMILY_FIXTURE,
-        FAMILY_ARCHIVE,
-        FAMILY_TEST_SURFACE,
-        FAMILY_PACK_SOURCE,
-    }
-)
 
 ARCHITECTURE_FAMILIES = (
     ARCHITECTURE_CLASSIFICATION_FAMILIES | ARCHITECTURE_EXEMPTION_FAMILIES
@@ -323,7 +315,6 @@ def read_context_value(
 
 __all__ = [
     "ARCHITECTURE_CLASSIFICATION_FAMILIES",
-    "ARCHITECTURE_EXEMPTION_FAMILIES",
     "ARCHITECTURE_FAMILIES",
     "FAMILY_ARCHITECTURE_DOMAIN",
     "FAMILY_ARCHITECTURE_LAYER",

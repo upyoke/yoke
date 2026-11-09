@@ -13,19 +13,18 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.project_structure_errors import UsageError, ValidationError
+
 from yoke_core.domain.project_structure import (
     ATTACHMENT_BRANCHES,
     MULTIPLICITIES,
     NET_NEW_FAMILIES,
     PATH_SELECTOR_KINDS,
-    UsageError,
-    ValidationError,
     cmd_init,
+    read_structure,
 )
 from yoke_core.domain.project_structure_seeds import cmd_seed
-from yoke_core.domain.project_structure import read_structure
 from yoke_core.domain.project_structure_write import apply_patch
-
 
 _USAGE = """\
 Usage: python3 -m yoke_core.domain.project_structure <subcmd> [args...]

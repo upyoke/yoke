@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "During project survey or when a proposed change touches a component boundary or cross-cutting dependency.",
- "need": "Learn where components, permitted dependencies, entrypoints and project structure facts live; the agent reads the authoritative payload and declares impact.",
+ "need": "Learn where components, permitted dependencies, entrypoints and project structure facts live; the agent reads the authoritative payload and declares impact. Classify state-reading hook policies as domain invariants, keep named pure checks and pure hook formatting in payload validators, and audit callers plus transitive dependencies before batch reclassification.",
  "disclosure": "audit needed",
  "surface": "Architecture page/health/draft; project-structure get and patch; architecture rule home",
  "gap": "These commands/rules exist; initial adoption and maintenance discovery have not been traced. Review question: should JOURNEYS include architecture-impact and project-topology-change scenarios without requiring every new project to model everything?",

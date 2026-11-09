@@ -23,11 +23,12 @@ import argparse
 import sys
 from typing import Any, List, Optional
 
-from yoke_core.domain.project_structure_write import apply_patch
+from yoke_contracts.project_structure_errors import ProjectStructureError
+
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain import project_structure as ps
 from yoke_core.domain.project_identity import resolve_project_id
-
+from yoke_core.domain.project_structure_write import apply_patch
 
 FAMILY = "deploy_defaults"
 
@@ -160,7 +161,7 @@ def clear_default_flow(
 def _cmd_set(args: argparse.Namespace) -> int:
     try:
         set_default_flow(args.project_id, args.flow_id, actor=args.actor)
-    except (ValueError, ps.ProjectStructureError) as exc:
+    except (ValueError, ProjectStructureError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(f"Set deploy_defaults for '{args.project_id}' -> {args.flow_id}")
@@ -170,7 +171,7 @@ def _cmd_set(args: argparse.Namespace) -> int:
 def _cmd_clear(args: argparse.Namespace) -> int:
     try:
         removed = clear_default_flow(args.project_id, actor=args.actor)
-    except ps.ProjectStructureError as exc:
+    except ProjectStructureError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if removed:

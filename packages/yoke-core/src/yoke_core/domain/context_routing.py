@@ -33,10 +33,11 @@ import argparse
 import sys
 from typing import Dict, List, Optional
 
-from yoke_core.domain.project_structure_write import apply_patch
+from yoke_contracts.project_structure_errors import ProjectStructureError
+
 from yoke_core.domain import project_structure as ps
 from yoke_core.domain.project_structure import CONTEXT_ROUTING_ALWAYS_KEY
-
+from yoke_core.domain.project_structure_write import apply_patch
 
 FAMILY = "context_routing"
 
@@ -192,7 +193,7 @@ def _cmd_set_always(args: argparse.Namespace) -> int:
         set_entry(
             args.project_id, CONTEXT_ROUTING_ALWAYS_KEY, args.docs, actor=args.actor,
         )
-    except (ValueError, ps.ProjectStructureError) as exc:
+    except (ValueError, ProjectStructureError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(f"Set context_routing always for '{args.project_id}' -> {len(args.docs)} doc(s)")
@@ -209,7 +210,7 @@ def _cmd_set_topic(args: argparse.Namespace) -> int:
         return 1
     try:
         set_entry(args.project_id, args.topic, args.docs, actor=args.actor)
-    except (ValueError, ps.ProjectStructureError) as exc:
+    except (ValueError, ProjectStructureError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(
@@ -222,7 +223,7 @@ def _cmd_set_topic(args: argparse.Namespace) -> int:
 def _cmd_clear_topic(args: argparse.Namespace) -> int:
     try:
         removed = clear_entry(args.project_id, args.topic, actor=args.actor)
-    except ps.ProjectStructureError as exc:
+    except ProjectStructureError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if removed:

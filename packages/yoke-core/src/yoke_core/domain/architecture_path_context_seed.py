@@ -23,12 +23,13 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Pattern, Tuple
 
+from yoke_contracts.architecture_families import ARCHITECTURE_EXEMPTION_FAMILIES
+
 from yoke_core.domain.architecture_context_data import (
     iter_python_entries,
     load_architecture_model,
 )
 from yoke_core.domain.path_context import (
-    ARCHITECTURE_EXEMPTION_FAMILIES,
     FAMILY_ARCHITECTURE_DOMAIN,
     FAMILY_ARCHITECTURE_LAYER,
     remove_context_value,

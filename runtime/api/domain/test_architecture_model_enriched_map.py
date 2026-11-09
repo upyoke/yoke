@@ -10,13 +10,12 @@ from __future__ import annotations
 import copy
 
 import pytest
-
+from yoke_contracts.project_structure_errors import ValidationError
 from yoke_core.domain.architecture_model import (
     PACKAGE_LAYOUTS,
     derive_edges,
     validate_payload,
 )
-from yoke_core.domain.project_structure import ValidationError
 
 
 def _enriched_payload() -> dict:

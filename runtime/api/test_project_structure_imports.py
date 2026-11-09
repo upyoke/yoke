@@ -35,8 +35,9 @@ def test_project_structure_module_cli():
 def test_connection_writer_leaves_transaction_with_caller(test_db):
     from unittest.mock import Mock
 
+    from yoke_contracts.project_structure_errors import ValidationError
     from yoke_core.domain.project_structure import (
-        ValidationError, create_project_structure_tables,
+        create_project_structure_tables,
     )
     from yoke_core.domain.project_structure_write import apply_patch_on_connection
 
