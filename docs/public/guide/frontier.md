@@ -72,7 +72,7 @@ The page shows **Waiting**, **On hold**, **Ready**, **In progress**, **Release**
 Waiting lays out unsatisfied dependencies in columns. The first column shows work holding other items up; later columns show how many dependency steps separate the work. Cards explain whether an item is waiting to start, merge, or finish. Coordination-only relationships do not appear as blocking edges.
 The graph keeps the full chain, including items whose home is another section.
 Those items appear as smaller outlined **Reference** cards showing their home,
-activity and next actor. Their reference link jumps to the home card, and they
+activity. Their reference link jumps to the home card, and they
 never increase the Waiting count.
 
 Every item has exactly one home section. Counts include only home cards.
@@ -90,7 +90,8 @@ Project filters retain related items across dependency chains, including items f
 ## Who acts next
 
 Session and item rows carry `next_actor` with `actor`, `reason` and `since`.
-Cards show the responsible person or actor beside the waiting reason. Pending
+The session card information disclosure shows its next actor and waiting reason.
+Item cards omit next-actor text. JSON and named-field CLI reads retain it. Pending
 decisions take priority, followed by unmet dependencies, CI and release runs.
 A decision resolves its audience to active people, including organization roles
 inherited by the project. An empty audience names the steering owner and asks

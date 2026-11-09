@@ -23,6 +23,8 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.items_projection import DEFAULT_SEARCH_LIMIT
+from yoke_cli.transport.human_values import write_human
+from .item_flow_output import without_next_actor
 
 
 __all__ = [
@@ -80,7 +82,7 @@ def items_list(args: List[str]) -> int:
         metavar='"f1,f2,..."',
         help=(
             "Comma-separated columns to print "
-            "(default id,title,status,priority,workflow_id,source,stage,home_section,next_actor,progress)."
+            "(default id,title,status,priority,workflow_id,source,stage,home_section,progress)."
         ),
     )
     parser.add_argument(
@@ -123,12 +125,17 @@ def items_list(args: List[str]) -> int:
             payload["limit"] = int(parsed.limit)
         except ValueError:
             return usage_error("--limit must be an integer")
+    def write_listing(response, stdout, stderr):
+        result = response.result or {}
+        write_human(result if parsed.fields else without_next_actor(result), stdout)
+
     return dispatch_and_emit(
         function_id="items.list.run",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=write_listing,
     )
 
 

@@ -45,11 +45,13 @@ export function sessionsClient(
 }
 
 export function setStatuses(root, values) {
-  const checks = byClass(root, "session-status-filter").map((label) => label.children[1]);
-  for (const check of checks) check.checked = values.includes(check.value);
-  checks[0].dispatchEvent(new Event("change"));
+  for (const chip of statusChecks(root)) {
+    if ((chip.getAttribute("aria-pressed") === "true") !== values.includes(chip.value)) {
+      chip.dispatchEvent(new Event("click"));
+    }
+  }
 }
 
 export function statusChecks(root) {
-  return byClass(root, "session-status-filter").map((label) => label.children[1]);
+  return byClass(root, "session-status-chip");
 }

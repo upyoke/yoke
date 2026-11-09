@@ -64,6 +64,7 @@ export function appendSessionHeaderDetails(documentNode, host, row) {
   const intent = state?.intent;
   const next = state?.next_actor;
   const detail = [
+    state?.reason ? `Reason: ${state.reason}` : "",
     `Presence: ${state?.presence || "unavailable"}`,
     `Activity: ${state?.activity || "unavailable"}`,
     `Intent: ${intent?.state || "unavailable"}${intent?.reason ? ` · ${intent.reason}` : ""}`,
@@ -82,11 +83,6 @@ export function appendSessionChatTitle(documentNode, host, row) {
   if (row.chat_title) host.appendChild(el(
     documentNode, "div", "session-chat-title", row.chat_title,
   ));
-}
-
-export function appendSessionReason(documentNode, host, row) {
-  host.appendChild(el(documentNode, "div", "session-reason",
-    sessionStatusAvailable(row) ? row.session_state.reason : SESSION_STATUS_UPGRADE));
 }
 
 export function appendSessionMessageLine(

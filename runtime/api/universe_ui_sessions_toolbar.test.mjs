@@ -74,3 +74,16 @@ test("the toolbar grid fills every row edge to edge at each width", () => {
   assert.match(wide, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
   assert.match(wide, /\.session-filter-actions \{[^}]*grid-row: 1;[^}]*justify-self: end;/);
 });
+
+test("Status chips toggle independently and Clear restores defaults", () => {
+  const changes = [];
+  const filters = sessionRosterFilters(new FakeDocument(), (key) => changes.push(key));
+  const chips = byClass(filters.host, "session-status-chip");
+  assert.deepEqual(chips.map((c) => c.getAttribute("aria-pressed")), ["true", "true", "false"]);
+  chips[2].dispatchEvent(new Event("click"));
+  chips[0].dispatchEvent(new Event("click"));
+  assert.deepEqual(filters.statuses(), ["waiting", "ended"]);
+  filters.actions.children[0].dispatchEvent(new Event("click"));
+  assert.deepEqual(filters.statuses(), ["working", "waiting"]);
+  assert.deepEqual(changes, ["status", "status", "clear"]);
+});

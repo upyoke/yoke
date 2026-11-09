@@ -65,19 +65,23 @@ export function sessionRosterFilters(documentNode, onChange) {
   controls.search = search.control;
   host.appendChild(search.wrapper);
   const statuses = new Map();
-  const statusHost = el(documentNode, "fieldset", "session-status-filters");
-  statusHost.appendChild(el(documentNode, "legend", "session-filter-label", "Status"));
+  const statusHost = el(documentNode, "div", "session-status-filters");
+  statusHost.setAttribute("role", "group");
+  statusHost.setAttribute("aria-label", "Status");
+  statusHost.appendChild(el(documentNode, "span", "session-filter-label", "Status"));
+  const chips = el(documentNode, "span", "session-status-chips");
+  statusHost.appendChild(chips);
   for (const value of ["working", "waiting", "ended"]) {
-    const field = input(documentNode, value[0].toUpperCase() + value.slice(1), "checkbox");
-    field.wrapper.className = "session-status-filter";
-    field.control.className = "session-status-check";
-    field.control.value = value;
-    field.control.checked = DEFAULT_STATUSES.includes(value);
-    field.control.setAttribute("aria-label", value[0].toUpperCase() + value.slice(1));
-    statuses.set(value, field.control);
-    statusHost.appendChild(field.wrapper);
+    const chip = el(documentNode, "button", "session-status-chip",
+      value[0].toUpperCase() + value.slice(1));
+    chip.type = "button";
+    chip.value = value;
+    chip.setAttribute("aria-pressed", String(DEFAULT_STATUSES.includes(value)));
+    statuses.set(value, chip);
+    chips.appendChild(chip);
   }
-  const selectedStatuses = () => [...statuses].filter(([, c]) => c.checked).map(([v]) => v);
+  const selectedStatuses = () => [...statuses]
+    .filter(([, c]) => c.getAttribute("aria-pressed") === "true").map(([v]) => v);
   host.appendChild(statusHost);
   for (const [name, label] of [
     ["project", "Project"], ["harness", "Harness"], ["machine", "Machine"],
@@ -109,14 +113,19 @@ export function sessionRosterFilters(documentNode, onChange) {
     control.addEventListener("change", () => changed(key));
   }
   for (const control of statuses.values()) {
-    control.addEventListener("change", () => changed("status"));
+    control.addEventListener("click", () => {
+      control.setAttribute("aria-pressed", String(control.getAttribute("aria-pressed") !== "true"));
+      changed("status");
+    });
   }
   clear.addEventListener("click", () => {
     controls.search.value = "";
     controls.project.value = "";
     controls.harness.value = "";
     controls.machine.value = "";
-    for (const [value, control] of statuses) control.checked = DEFAULT_STATUSES.includes(value);
+    for (const [value, control] of statuses) {
+      control.setAttribute("aria-pressed", String(DEFAULT_STATUSES.includes(value)));
+    }
     changed("clear");
   });
   // Clear leads the roster actions rather than standing alone, so the
@@ -258,21 +267,6 @@ export function appendSessionRelay(documentNode, body, row) {
   body.appendChild(line);
 }
 
-export function sessionMessageDeliveryNote(row) {
-  const routing = row.messageability || {};
-  if (row.session_state?.presence === "present"
-      && row.session_state.activity !== "silent"
-      && row.session_state.intent?.state === "none") return "";
-  if (routing.wake_authority === "operator") {
-    return "Queued — delivered when you wake this session.";
-  }
-  if (routing.relay_connected === false) {
-    return "Queued — delivered on this session's next hook. Automatic wake "
-      + "waits for the relay to reconnect.";
-  }
-  return "";
-}
-
 export function sessionMessageButton(documentNode, row, onMessage) {
   const message = el(
     documentNode,
@@ -284,20 +278,9 @@ export function sessionMessageButton(documentNode, row, onMessage) {
   attachTooltip(
     documentNode,
     message,
-    sessionMessageDeliveryNote(row) || `Message only session ${row.session_id}`,
+    `Message only session ${row.session_id}`,
     { pinOnClick: false },
   );
   message.addEventListener("click", () => onMessage(String(row.session_id)));
   return message;
-}
-
-export function appendSessionMessageDeliveryNote(documentNode, body, row) {
-  const note = sessionMessageDeliveryNote(row);
-  if (!note) return;
-  body.appendChild(el(
-    documentNode,
-    "p",
-    "fact-line session-message-delivery-note",
-    note,
-  ));
 }

@@ -4,13 +4,13 @@ import { sessionRosterFilters } from "../../packages/yoke-core/src/yoke_core/ui/
 import { FakeDocument } from "./universe_ui_dom_test_support.mjs";
 import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_support.mjs";
 
-test("every checkbox combination filters the server status, including exited processes", () => {
+test("every chip combination filters the server status, including exited processes", () => {
   const filters = sessionRosterFilters(new FakeDocument(), () => {});
   const rows = ["working", "waiting", "ended"].map((status) => ({
     session_id: status, native_process_exited_at: "2026-11-06T12:00:00Z",
     session_state: {status, active_at: null, reason: "A plain sentence."},
   }));
-  assert.deepEqual(statusChecks(filters.host).map((c) => c.checked), [true, true, false]);
+  assert.deepEqual(statusChecks(filters.host).map((c) => c.getAttribute("aria-pressed") === "true"), [true, true, false]);
   assert.deepEqual(filters.apply(rows).map((r) => r.session_id), ["working", "waiting"]);
   for (let mask = 0; mask < 8; mask++) {
     const selected = rows.filter((_, i) => mask & (1 << i)).map((r) => r.session_id);

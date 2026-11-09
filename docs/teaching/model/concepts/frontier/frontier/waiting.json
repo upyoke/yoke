@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "frontier",
  "position": 0,
- "summary": "Dependency-blocked home cards count once; the full chain includes smaller outlined reference cards with home links, activity and next actor, excluded from counts."
+ "summary": "Dependency-blocked home cards count once; the full chain includes smaller outlined reference cards with home links and activity, excluded from counts."
 }

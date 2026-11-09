@@ -24,7 +24,6 @@ function rowNode(row, band, extra = {}) {
     home: row.frontier_group?.section || band,
     homeHref: homeHref(row),
     activity: row.frontier_group?.activity || "",
-    nextActor: row.next_actor,
     reference: band !== "waiting",
     stage: String(row.stage_label || row.status || band),
     title: String(row.title || ""),

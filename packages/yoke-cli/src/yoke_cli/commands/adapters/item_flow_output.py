@@ -33,7 +33,6 @@ def compact_item_result(
                     "status",
                     "stage",
                     "home_section",
-                    "next_actor",
                     "progress",
                     "priority",
                     "workflow_id",
@@ -49,7 +48,7 @@ def compact_item_result(
     projected["fields"] = {
         key: value
         for key, value in (result.get("fields") or {}).items()
-        if value is not None and value != ""
+        if key != "next_actor" and value is not None and value != ""
     }
     projected["sections"] = [
         section
@@ -75,3 +74,13 @@ def render_item_field(value: Any) -> str:
             source += f"; follows retired pin {value['pinned']}"
         return f"{value['value'] or 'no completion flow'} ({source})"
     return "" if value is None else str(value)
+
+
+def without_next_actor(value: Any) -> Any:
+    """Project default human reads without changing server or JSON data."""
+    if isinstance(value, dict):
+        return {key: without_next_actor(child) for key, child in value.items()
+                if key != "next_actor"}
+    if isinstance(value, list):
+        return [without_next_actor(child) for child in value if child != "next_actor"]
+    return value

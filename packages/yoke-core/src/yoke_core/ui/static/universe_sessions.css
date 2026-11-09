@@ -341,7 +341,3 @@
 
 .universe-app-root .session-details { position: absolute; top: 0; right: 0; }
 .universe-app-root .session-chat-title { margin: 6px 0; font-weight: 600; overflow-wrap: anywhere; }
-.universe-app-root .session-reason { margin: 6px 0; color: var(--yoke-muted); }
-.universe-app-root .session-status-filters { display: flex; flex-wrap: wrap; gap: 8px; border: 0; margin: 0; padding: 0; }
-.universe-app-root .session-status-filters label { display: flex; align-items: center; gap: 4px; }
-.universe-app-root .session-status-filters input { width: auto; }
