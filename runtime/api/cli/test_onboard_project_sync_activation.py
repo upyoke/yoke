@@ -14,10 +14,10 @@ from yoke_cli.config import project_onboard_progress
     [
         (
             "active",
-            ["projects.github_binding.bind"],
+            ["projects.github_binding.status", "projects.github_binding.bind"],
             "disabled",
         ),
-        ("pending", ["projects.github_binding.bind"], "disabled"),
+        ("pending", ["projects.github_binding.status", "projects.github_binding.bind"], "disabled"),
     ],
 )
 @pytest.mark.parametrize("persist_sync_mode", [True, False])
@@ -57,6 +57,8 @@ def test_app_binding_never_opts_into_issue_sync(
 
     def dispatch(function_id, payload, _config_path, **_kwargs):
         calls.append((function_id, payload))
+        if function_id == "projects.github_binding.status":
+            return {"binding": None}
         if function_id == "projects.github_binding.bind":
             return {"binding": {"status": binding_status}}
         return {"project": payload}
