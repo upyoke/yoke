@@ -11,7 +11,7 @@ import unicodedata
 from typing import Iterable
 from urllib.parse import unquote, urlsplit, urlunsplit
 
-from markdown_it import MarkdownIt
+from yoke_core.domain.documentation_markdown import parse_markdown
 
 
 @dataclass(frozen=True)
@@ -59,7 +59,7 @@ def _visible(tokens) -> str:
 
 
 def heading_ids(markdown: str) -> list[str]:
-    tokens = MarkdownIt("commonmark").parse(markdown)
+    tokens = parse_markdown(markdown)
     emitted: set[str] = set()
     result: list[str] = []
     for index, token in enumerate(tokens):
@@ -85,7 +85,7 @@ def heading_ids(markdown: str) -> list[str]:
 
 def links(markdown: str) -> list[MarkdownLink]:
     result: list[MarkdownLink] = []
-    for token in MarkdownIt("commonmark").parse(markdown):
+    for token in parse_markdown(markdown):
         children = token.children or []
         for index, child in enumerate(children):
             if child.type == "link_open":
@@ -147,7 +147,7 @@ class _HeadingHTML(HTMLParser):
 
 def _html_heading_ids(markdown: str) -> list[str]:
     parser = _HeadingHTML()
-    for token in MarkdownIt("commonmark").parse(markdown):
+    for token in parse_markdown(markdown):
         if token.type == "html_block":
             parser.feed(token.content)
         for child in token.children or []:

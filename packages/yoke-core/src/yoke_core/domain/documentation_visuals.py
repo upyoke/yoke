@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from markdown_it import MarkdownIt
+from yoke_core.domain.documentation_markdown import parse_markdown
 
 from yoke_core.domain.documentation_navigation import NavigationRefusal
 
@@ -18,6 +18,8 @@ def validate_visual_fallbacks(page: str, markdown: str) -> list[NavigationRefusa
     a visual. Parse Markdown so example markers in fenced code are inert.
     A heading starts a new section; text may precede or follow its visual.
     """
+    if not _MARKER.search(markdown):
+        return []
     refusals: list[NavigationRefusal] = []
     markers: list[tuple[str, int]] = []
     readable = False
@@ -38,7 +40,7 @@ def validate_visual_fallbacks(page: str, markdown: str) -> list[NavigationRefusa
                 )
             )
 
-    for token in MarkdownIt("commonmark", {"html": True}).enable("table").parse(markdown):
+    for token in parse_markdown(markdown, mode="visuals"):
         if token.type == "heading_open":
             finish()
             markers, readable, heading = [], False, True
@@ -56,7 +58,11 @@ def validate_visual_fallbacks(page: str, markdown: str) -> list[NavigationRefusa
             ):
                 navigation = False
             for match in _MARKER.finditer(token.content):
-                line = (token.map or [0])[0] + token.content[: match.start()].count("\n") + 1
+                line = (
+                    (token.map or [0])[0]
+                    + token.content[: match.start()].count("\n")
+                    + 1
+                )
                 markers.append((match.group(1), line))
         elif token.type == "inline" and not heading and not navigation:
             link_depth = 0
