@@ -24,6 +24,9 @@ behavior and give impact, the smallest reproduction, and confidence
 (established, probable or unverified). Rank by user impact and fix leverage.
 A clean walk backed by evidence is a valid result; never manufacture findings.
 Missing access is a setup failure to report, not permission to change policy.
+Never attach walk data to records that existed before the walk; create your
+own and retire them during Cleanup. If the mission needs unavailable setup,
+create owned fixtures or stop with setup-failure proof attached as `diagnostic`.
 
 ## Hosts
 
