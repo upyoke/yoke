@@ -77,7 +77,8 @@ Set it with
 The field accepts only the four values above. Writes trim surrounding whitespace
 and normalize case; a trailing newline is accepted. Put the reasoning in the spec,
 not in `architecture_impact`. Invalid values are refused with the allowed values.
-Doctor checks declarations on active items; it ignores `done` and `cancelled` items.
+Doctor checks declarations on active items; it ignores terminal items according
+to each item's pinned workflow, including completed and cancelled items.
 
 ## Related
 

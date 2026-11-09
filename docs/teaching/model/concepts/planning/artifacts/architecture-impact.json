@@ -5,6 +5,6 @@
  "related": "architecture/impact",
  "page": "planning",
  "position": 4,
- "summary": "architecture_impact stores only none, path_context_only, architecture_model_change or uncertain. Structured-field writes normalize case and surrounding whitespace and refuse other values; put the reasoning in the spec. Doctor checks active declarations and ignores done/cancelled items.",
+ "summary": "architecture_impact stores only none, path_context_only, architecture_model_change or uncertain. Structured-field writes normalize case and surrounding whitespace and refuse other values; put the reasoning in the spec. Doctor checks active declarations and ignores terminal items according to each item's pinned workflow.",
  "sources": ["docs/public/projects/architecture-model.md"]
 }

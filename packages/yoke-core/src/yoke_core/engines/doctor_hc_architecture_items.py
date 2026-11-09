@@ -35,6 +35,7 @@ from yoke_core.domain.architecture_impact import (
     IMPACT_UNCERTAIN,
 )
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
 from yoke_core.engines.doctor_hc_architecture_helpers import format_findings
 
 
@@ -56,16 +57,16 @@ def hc_architecture_impact_declaration(
 ) -> None:
     """Validate active declarations, including unresolved advanced items.
 
-    Done and cancelled items no longer pass readiness or lifecycle gates.
+    Terminal membership follows each item's pinned workflow.
     """
     if not _base._column_exists(conn, "items", "architecture_impact"):
         rec.record(_IMPACT_DECL, _IMPACT_DECL_DESC, "PASS",
                    "items.architecture_impact column missing — skipping")
         return
     rows = conn.execute(
-        "SELECT id, status, architecture_impact FROM items "
+        "SELECT i.id, i.status, i.architecture_impact FROM items i "
         "WHERE architecture_impact IS NOT NULL "
-        "AND status NOT IN ('done', 'cancelled')",
+        f"AND NOT {terminal_items_sql(conn)}",
     ).fetchall()
     findings: List[str] = []
     for row in rows:
