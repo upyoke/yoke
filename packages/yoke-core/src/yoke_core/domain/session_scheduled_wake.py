@@ -15,7 +15,7 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_types import SessionMessageError, utc_now
-from yoke_core.hooks.relayed_session_identity import session_ownership_refusal
+from yoke_core.domain.session_ownership import session_ownership_refusal
 
 
 def schedule_session_wake(

@@ -136,7 +136,7 @@ EVALUATING_PROCESS_TELEMETRY = (
         "yoke_contracts.machine_config.schema_projects:project_entry_for_checkout",
         "yoke_core.domain.observability_debug:parse_debug_campaign",
         "yoke_core.domain.observability_otel:service_name",
-        "yoke_core.hooks.stdin:emit_session_hook_failed",
+        "yoke_core.domain.session_hook_failure:emit_session_hook_failed",
         _C + "emit_event:_registry_warning",
         _C + "emit_event:emit",
         _C + "events:emit_event",

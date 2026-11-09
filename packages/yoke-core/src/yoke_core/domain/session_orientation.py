@@ -238,22 +238,19 @@ def _orientation_for_hook(
         if payload.get("source") == "startup" and not payload.get("transcript_path"):
             return None
     if cursor:
-        from yoke_core.hooks.cursor_payload import (
-            is_folded_cursor_session,
-            parse_payload,
-            resolve_root,
-            resolve_session_id,
-        )
+        from yoke_core.domain.session_orientation_cursor import get_cursor_payload
 
-        payload = parse_payload(stdin_data)
-        if is_folded_cursor_session(payload):
+        adapter = get_cursor_payload()
+
+        payload = adapter.parse_payload(stdin_data)
+        if adapter.is_folded_cursor_session(payload):
             return None
         session_id = (
             _text(payload, "container_session_id")
             or _text(payload, "session_id")
-            or resolve_session_id(stdin_data)
+            or adapter.resolve_session_id(stdin_data)
         )
-        cwd = resolve_root(stdin_data)
+        cwd = adapter.resolve_root(stdin_data)
         if session_id:
             payload["session_id"] = session_id
     else:

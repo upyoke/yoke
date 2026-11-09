@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone, tzinfo
 
 import pytest
 
-from yoke_core.hooks import session_message_delivery as delivery
+from yoke_core.domain import session_message_wake_eligibility as delivery
 
 
 NOW = datetime(2026, 8, 22, 20, 0, tzinfo=timezone.utc)

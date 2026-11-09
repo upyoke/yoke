@@ -15,7 +15,7 @@ from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_lifecycle_identity import resolve_session_project_id
-from yoke_core.hooks.relayed_session_identity import session_ownership_refusal
+from yoke_core.domain.session_ownership import session_ownership_refusal
 
 
 @dataclass(frozen=True)

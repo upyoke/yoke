@@ -94,7 +94,7 @@ def _evidence_for(context: HookContext) -> TurnEndEvidence:
 
 
 def _emit_unavailable(context: HookContext) -> None:
-    from yoke_core.hooks.stdin import emit_session_hook_failed
+    from yoke_core.domain.session_hook_failure import emit_session_hook_failed
 
     emit_session_hook_failed(
         hook_event=context.event_name or "Stop",

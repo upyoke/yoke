@@ -41,7 +41,6 @@ from yoke_core.hooks.session_message_rendering import (
     render_lease,
 )
 from yoke_core.hooks.session_message_settlement import classify_lease_settlement
-from yoke_core.hooks.session_message_wake_eligibility import wake_eligible
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -338,5 +337,4 @@ __all__ = [
     "evaluate",
     "message_probe_ran",
     "settle_after_render",
-    "wake_eligible",
 ]

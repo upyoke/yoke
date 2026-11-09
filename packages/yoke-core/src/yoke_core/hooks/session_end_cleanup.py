@@ -12,7 +12,7 @@ from typing import Optional
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.runtime_settings import get_int
 from yoke_core.domain.sessions import end_session_if_empty as domain_end_session_if_empty
-from yoke_core.hooks.stdin import emit_session_hook_failed
+from yoke_core.domain.session_hook_failure import emit_session_hook_failed
 
 
 CLEANUP_TIMEOUT_CONFIG_KEY = "hook_session_end_cleanup_timeout_ms"

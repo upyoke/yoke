@@ -27,7 +27,7 @@ from yoke_core.hooks.session_end_cleanup import (
     _connect_cleanup_db,
     resolve_cleanup_timeout_ms,
 )
-from yoke_core.hooks.stdin import emit_session_hook_failed
+from yoke_core.domain.session_hook_failure import emit_session_hook_failed
 
 
 def run_session_start_stale_cleanup(
