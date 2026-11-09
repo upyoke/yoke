@@ -6,7 +6,7 @@ import json
 import time
 from typing import Callable
 
-from yoke_core.api.health_payload_contract import migration_readiness_problem
+from yoke_contracts.health_payload_contract import migration_readiness_problem
 from yoke_core.domain.deploy_core_container_remote_errors import (
     RemoteConvergenceError,
     fail_remote_step,

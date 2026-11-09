@@ -89,7 +89,7 @@ def test_emit_cli_rejects_retired_user_identity(events_db):
 
 def test_emit_envelope_copies_active_trace_context(events_db):
     with patch(
-        "yoke_core.api.observability.trace_context",
+        "yoke_core.domain.observability.trace_context",
         return_value={"trace_id": "trace-1", "span_id": "span-1"},
     ):
         rc = emit_event.main(

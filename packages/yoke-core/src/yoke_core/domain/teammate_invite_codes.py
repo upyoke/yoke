@@ -46,7 +46,7 @@ def invite_form_fact() -> dict[str, str]:
         return {"invite_form": "email", "sign_in_method": "yoke_account"}
     if mode == "local":
         return {"invite_form": "local", "sign_in_method": "local"}
-    from yoke_core.api.oidc_config import OidcConfigError, resolve_oidc_config
+    from yoke_core.domain.oidc_config import OidcConfigError, resolve_oidc_config
 
     try:
         company_sign_in = resolve_oidc_config() is not None

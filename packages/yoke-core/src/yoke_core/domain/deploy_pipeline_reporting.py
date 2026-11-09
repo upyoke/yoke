@@ -154,7 +154,7 @@ def _github_actions(
 
 
 def _resolve_script_dir() -> str:
-    from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.domain.repo_root import find_repo_root
 
     return str(
         find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"

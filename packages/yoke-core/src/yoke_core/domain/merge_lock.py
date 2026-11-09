@@ -42,7 +42,7 @@ DEFAULT_TTL_MINUTES = 30
 
 
 def _repo_root() -> Path:
-    from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.domain.repo_root import find_repo_root
 
     return find_repo_root(Path(__file__))
 

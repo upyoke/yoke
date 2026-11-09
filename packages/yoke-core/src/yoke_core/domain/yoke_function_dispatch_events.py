@@ -34,7 +34,7 @@ import json
 from yoke_contracts.timestamps import temporal_wire
 from typing import Any, Dict, List, Optional, Tuple
 
-from yoke_core.api.observability import debug_detail_allowed, service_name
+from yoke_core.domain.observability import debug_detail_allowed, service_name
 from yoke_core.domain.admission_result_redaction import ONE_TIME_SECRET_GUARDRAIL
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
@@ -105,7 +105,7 @@ def detailed_capture_context(
 
     Default is off: with no campaign armed, or one that is expired, out
     of scope, or past its record cap,
-    :func:`yoke_core.api.observability.debug_detail_allowed` answers false
+    :func:`yoke_core.domain.observability.debug_detail_allowed` answers false
     and the routine event keeps the compact shape. Called exactly once
     per dispatch, because a true answer consumes one unit of the
     campaign's record budget. One-time credential results never reach it.

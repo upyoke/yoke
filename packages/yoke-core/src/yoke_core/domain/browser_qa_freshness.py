@@ -76,7 +76,7 @@ def _resolve_repo_root() -> str:
     except Exception:
         pass
 
-    from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.domain.repo_root import find_repo_root
 
     return str(find_repo_root(Path(__file__)))
 

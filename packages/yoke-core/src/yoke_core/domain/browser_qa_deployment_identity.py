@@ -33,7 +33,7 @@ from yoke_core.domain.qa_activity_selection import project_of_requirement
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
-from yoke_core.api.health_payload_contract import BUILD_FIELD
+from yoke_contracts.health_payload_contract import BUILD_FIELD
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.browser_qa_freshness_outcome import (
     DEPLOYMENT_RECORD_MISSING,

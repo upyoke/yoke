@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
-from yoke_core.api.observability import (
+from yoke_core.domain.observability import (
     observation_span,
     record_counter,
     record_histogram,

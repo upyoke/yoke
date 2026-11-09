@@ -68,7 +68,7 @@ def receive_owner_token(host_end: socket.socket, token_path: Path) -> None:
 
 
 def _company_sign_in(mode: str, env: dict[str, str]):
-    from yoke_core.api.oidc_stub_provider import StubOidcProvider
+    from yoke_core.domain.oidc_stub_provider import StubOidcProvider
 
     provider = StubOidcProvider(
         auto_approve_claims={

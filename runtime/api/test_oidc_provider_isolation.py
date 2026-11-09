@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from yoke_core.api import oidc_stub_provider
+from yoke_core.domain import oidc_stub_provider
 from yoke_core.api.oidc_stub_provider import StubOidcProvider
-from yoke_core.api import oidc_client
+from yoke_core.domain import oidc_client
 from yoke_core.api.oidc_config import OidcConfig
 
 

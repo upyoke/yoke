@@ -64,7 +64,7 @@ class TestBuildEnvelope(unittest.TestCase):
 
     def test_trace_context_is_copied_when_available(self):
         with patch(
-            "yoke_core.api.observability.trace_context",
+            "yoke_core.domain.observability.trace_context",
             return_value={"trace_id": "trace-1", "span_id": "span-1"},
         ):
             env = build_envelope(

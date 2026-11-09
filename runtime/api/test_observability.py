@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from yoke_core.api import observability
-from yoke_core.api import observability_otel
+from yoke_core.domain import observability_otel
 
 
 @pytest.fixture
@@ -273,7 +273,7 @@ def test_emf_documents_encode_histogram_and_gauge() -> None:
 
 
 def test_emf_logger_does_not_propagate_into_json_formatter() -> None:
-    from yoke_core.api import observability_log_metrics as log_metrics
+    from yoke_core.domain import observability_log_metrics as log_metrics
 
     logger = log_metrics._configure_emf_logger()
     assert logger.propagate is False

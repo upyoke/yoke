@@ -47,7 +47,7 @@ WORKTREE_LABEL_COLOR_DEFAULT = DEFAULT_LABEL_COLORS["label_color_worktree"]
 
 
 def _repo_root() -> Path:
-    from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.domain.repo_root import find_repo_root
 
     return find_repo_root(Path(__file__))
 

@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 from yoke_contracts.function_serving_floors import FUNCTION_MINIMUM_SERVING_VERSIONS
 from yoke_contracts.registered_reads import READ_FUNCTION_IDS
-from yoke_core.api import oidc_config
+from yoke_core.domain import oidc_config
 from yoke_core.domain import teammate_invite_codes as invites
 from yoke_core.domain import yoke_function_registry as registry
 from yoke_core.domain.handlers import identity_invites

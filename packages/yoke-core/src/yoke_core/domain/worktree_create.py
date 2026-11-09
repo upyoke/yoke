@@ -87,7 +87,7 @@ def create_worktree(
     per-call by ``lint_session_cwd``.
     """
     if scripts_dir is None:
-        from yoke_core.api.repo_root import find_repo_root
+        from yoke_core.domain.repo_root import find_repo_root
 
         scripts_dir = str(
             find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
