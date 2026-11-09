@@ -1,8 +1,8 @@
 {
  "id": "done",
- "title": "Done",
+ "title": "Done (24h)",
  "status": "observed",
  "page": "frontier",
  "position": 3,
- "summary": "Done includes recent finished work and older finished blockers still referenced by a live unsatisfied dependency. Every known graph reference retains a home card and its actual finishing time."
+ "summary": "Done (24h) includes work finished in the last 24 hours and older finished blockers still referenced by a live unsatisfied dependency. Every known graph reference retains a home card and its actual finishing time. The always-present See more... link opens Items for the current scope, even when the window is empty."
 }

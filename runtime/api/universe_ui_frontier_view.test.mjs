@@ -33,6 +33,9 @@ async function mountAt(hash, client) {
 }
 
 const band = (root, key) => byClass(root, `work-band-${key}`)[0];
+const itemCards = (root) => byClass(root, "work-item-card").filter(
+  (card) => !card.classList.contains("see-more-card"),
+);
 
 test("Frontier is six bands of work under one page heading", async (t) => {
   stubFetch(t);
@@ -45,7 +48,7 @@ test("Frontier is six bands of work under one page heading", async (t) => {
   assert.equal(byClass(root, "title")[0].textContent, "Frontier");
   assert.deepEqual(
     byClass(root, "work-band-title").map(ownTextContent),
-    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done"],
+    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done (24h)"],
   );
   // Shipping is its own page; the Frontier does not draw run cards.
   assert.equal(byClass(root, "shipping-run-card").length, 0);
@@ -74,7 +77,7 @@ test("an item card is readable text with its own links and controls", async (t) 
   // control inside a link is neither keyboard-reachable nor clickable
   // without also navigating.
   assert.deepEqual(
-    byClass(root, "work-item-card").map((node) => node.tagName),
+    itemCards(root).map((node) => node.tagName),
     ["ARTICLE", "ARTICLE", "ARTICLE"],
   );
   assert.deepEqual(
@@ -298,7 +301,7 @@ test("a release item is drawn once, and only in Release", async (t) => {
   const { root, mounted } = await mountAt("/frontier?project=1", releasingClient());
 
   assert.deepEqual(
-    byClass(root, "work-item-card").map(
+    itemCards(root).map(
       (card) => byClass(card, "work-item-card-ref")[0].textContent,
     ),
     ["YOK-11"],
@@ -313,7 +316,7 @@ test("a release item is drawn once, and only in Release", async (t) => {
   // The readings that would otherwise have claimed it: a live session holds
   // its work claim, and the frontier still calls it ready to pick up.
   for (const key of ["waiting", "hold", "ready", "active", "done"]) {
-    assert.equal(byClass(band(root, key), "work-item-card").length, 0, key);
+    assert.equal(itemCards(band(root, key)).length, 0, key);
   }
   mounted.unmount();
 });

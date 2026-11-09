@@ -30,8 +30,8 @@ export const DEPENDENCY_GRAPH_FLOOR_MESSAGE = "Waiting and On hold need the "
   + "is an older build that does not return them. Update that server to the "
   + "release these page assets came from, then reload the Frontier.";
 
-// The overflow card is navigation, not a statistic: the band above it already
-// carries its own count, so this one says only where the rest of them are.
+// Done always links to the scoped Items view, including when its recent
+// window is empty. The band count belongs to finished items, not navigation.
 function seeMoreCard(documentNode, scope) {
   const card = el(documentNode, "a", "work-item-card see-more-card");
   card.href = buildUniverseRoute(
@@ -226,18 +226,18 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       for (const band of [bands.release, bands.done]) band.renderCards([], "Loading delivery…");
       return;
     }
-    // Every card, with no overflow tile: Done is the one band that truncates,
-    // because it is a window on finished work that only grows. Release is a
-    // queue somebody is waiting to see empty, and a hidden remainder there
-    // would understate what is still unshipped.
+    // Release shows every unshipped item and has no overflow tile. Done
+    // limits recent history, retains linked blockers and always links to Items.
     bands.release.setCount(releasing.length);
     bands.release.renderCards(rows.releasing.filter(kept).map(homeCard), "Nothing is waiting to ship.");
     const doneRows = rows.done.filter(kept);
     const visible = doneRows.filter((row, index) => index < BAND_CARD_LIMIT
       || model.linked.some((node) => node.ref === reference(row))).map(homeCard);
-    if (done.length > visible.length) visible.push(seeMoreCard(documentNode, scope));
     bands.done.setCount(done.length);
-    bands.done.renderCards(visible, "Nothing finished in the last 24 hours.");
+    bands.done.renderCards(
+      visible, "Nothing finished in the last 24 hours.", "",
+      [seeMoreCard(documentNode, scope)],
+    );
   };
   paint();
   Promise.resolve(options.deployments).catch(() => undefined).then((runs) => {
