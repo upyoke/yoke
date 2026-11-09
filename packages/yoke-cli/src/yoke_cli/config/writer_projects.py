@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shlex
+import sys
 from typing import Any, Optional
 
 from yoke_cli.config.machine_config_mutation import (
@@ -92,6 +93,12 @@ def register_project(
                     if Path(entry["checkout"]).expanduser().resolve() != root
                 ]
     _write_payload(payload, cfg_path)
+    print(
+        "warning: project register saves local routing only; it does not validate "
+        "the project GitHub binding. Install and snapshot sync check any existing "
+        "origin; use a separate scratch project for QA fixtures.",
+        file=sys.stderr,
+    )
     written = next(
         (
             e

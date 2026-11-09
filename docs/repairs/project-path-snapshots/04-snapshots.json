@@ -1,0 +1,14 @@
+{
+  "project": "yoke",
+  "sql": "DELETE FROM path_snapshots WHERE id IN (31783,31915) AND project_id=1",
+  "table": "path_snapshots",
+  "key_columns": [
+    "id"
+  ],
+  "after": [],
+  "reason": "Remove QA scratch checkout snapshots and rows referenced only by those snapshots; execute documents in filename order",
+  "before": [
+    {"built_at": "2026-11-07T18:55:47.208388+00:00", "commit_sha": "ac4a3073418f3f2cda6d42d8e1402b3d4e2d630d", "id": 31783, "project_id": 1},
+    {"built_at": "2026-11-07T20:38:56.173478+00:00", "commit_sha": "ae53dad05f60b3715252733280339b8fa72d6bff", "id": 31915, "project_id": 1}
+  ]
+}

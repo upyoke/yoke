@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.machine_config.checkout import main_checkout
 
+from yoke_cli.project_repository_identity import assert_install_repository
 from yoke_cli.config import github_project_setup
 from yoke_cli.config import machine_config
 from yoke_cli.config import project_publication_destination
@@ -91,6 +92,7 @@ def install(
         resolved_id, explicit_env=explicit_env, config_path=config_path
     )
     validate_bundle_for_project(bundle, resolved_id)
+    assert_install_repository(root, resolved_id, config_path=config_path, explicit_env=explicit_env)
     raw_branch = bundle.get("default_branch")
     require_branch = (
         require_default_branch

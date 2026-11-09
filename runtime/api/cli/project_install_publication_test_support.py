@@ -186,7 +186,9 @@ def managed_bundle(block: str = MANAGED_BLOCK) -> dict:
 def bind_bundle(monkeypatch, bundle: dict | None = None) -> None:
     """Point the install runner at a fake bundle and skip machine registration."""
     from yoke_cli.project_install import runner
+    from yoke_cli import project_repository_identity
 
+    monkeypatch.setattr(project_repository_identity, "_binding_status", lambda *a, **k: None)
     monkeypatch.setattr(
         runner,
         "_resolve_bundle",
