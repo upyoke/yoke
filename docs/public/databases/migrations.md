@@ -22,8 +22,8 @@ the required data into the migration or schema helper. Otherwise later policy
 changes can break historical migrations or make schema boot depend on services
 whose tables do not exist yet.
 
-In the Yoke source repository,
-`runtime/api/domain/test_migration_import_layers.py` owns the allow-list and
+The guard `runtime/api/domain/test_migration_import_layers.py` (Yoke source repo only)
+owns the allow-list and
 checks every domain `*_schema.py` and numbered migration after `0106`.
 It finds top-level and lazy imports, including relative and package-from forms.
 Entries through `0106` retain their historical imports; two existing schema
