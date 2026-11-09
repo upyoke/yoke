@@ -82,14 +82,27 @@ readonly array of `UniverseHostNavGroup` values from
 
 ```ts
 navigation: [{
-  id: "host-tools", label: "Host tools", pages: [{
-    id: "reports", label: "Reports",
+  id: "host-tools", label: "Host tools", collapsible: true, pages: [{
+    id: "reports", label: "Reports", icon: "items",
     content: ({ detail, signal }) => renderReport(detail, signal),
   }],
 }]
 ```
 
-Each group has `{ id, label, pages }`; each page has `{ id, label, content }`.
+Each group has `{ id, label, pages, collapsible? }`; each page has
+`{ id, label, content, icon? }`. Both new fields are optional; hosts omitting
+them keep their existing behavior. `icon` names an existing key in
+`static/universe_nav_icons.js`: Lucide SVGs keyed by Yoke view ids (for example
+`items`), rather than Lucide icon names or host-supplied SVG. An unknown key
+leaves the icon slot blank and never refuses mounting.
+
+Set `collapsible: true` to use the same disclosure control and remembered state
+as Diagnostics. A group never opened starts closed. State persists through
+`ui_preferences.nav_group.set/list` by group id matching
+`^[a-z][a-z0-9-]{0,63}$`; longer valid group ids still render and toggle but
+silently do not save. Host group ids `diagnostics` and `settings` share those
+built-in groups’ saved state.
+
 Groups follow Diagnostics in host order, and empty groups do not appear. Group
 ids are unique lowercase slugs. Page ids are lowercase slugs unique across all
 host groups. A Yoke view id or moved view id refuses mounting with
