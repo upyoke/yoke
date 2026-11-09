@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 
 from yoke_core.domain import migrations as migration_history_package
@@ -31,17 +30,6 @@ def _run(conn: sqlite3.Connection) -> RecordCollector:
 
 def _first_entry():
     return ordered_entries(history_dir(migration_history_package))[0]
-
-
-def _released_digests() -> dict[str, str]:
-    directory = history_dir(migration_history_package)
-    pins = json.loads(
-        (directory / "released_history_digests.json").read_text(encoding="utf-8")
-    )
-    return {
-        name: value["content_sha256"] if isinstance(value, dict) else value
-        for name, value in pins.items()
-    }
 
 
 def test_passes_when_packaged_and_ledger_digests_match() -> None:
@@ -76,18 +64,6 @@ def test_fails_with_both_identities_when_bytes_differ() -> None:
     assert f"packaged={entry.content_sha256}" in result.detail
 
 
-def test_released_ledger_matches_packaged_migration_content() -> None:
-    conn = _connection()
-    conn.executemany(
-        "INSERT INTO applied_migrations VALUES (?, ?)",
-        sorted(_released_digests().items()),
-    )
-
-    result = _run(conn).results[0]
-
-    assert result.result == "PASS", result.detail
-
-
 def test_unreachable_ledger_is_not_a_pass() -> None:
     result = _run(sqlite3.connect(":memory:")).results[0]
 
@@ -95,13 +71,14 @@ def test_unreachable_ledger_is_not_a_pass() -> None:
     assert "not reachable" in result.detail
 
 
-def test_passes_with_folded_entries_without_scripts(tmp_path, monkeypatch) -> None:
+def test_checks_code_baseline_identity_without_scripts(tmp_path, monkeypatch) -> None:
     directory = tmp_path / "migrations"
     directory.mkdir()
-    name = "0001_folded"
+    name = "0106_baseline"
     digest = "a" * 64
-    (directory / "released_history_digests.json").write_text(json.dumps({
-        name: {"content_sha256": digest, "minimum_serving_version": None},
+    (directory / "__init__.py").write_text("HISTORY_BASELINE = " + repr({
+        "name": name, "content_sha256": digest,
+        "minimum_serving_version": "next-release",
     }))
     monkeypatch.setattr(
         "yoke_project_checks.check_migration_content_identity.history_dir",
