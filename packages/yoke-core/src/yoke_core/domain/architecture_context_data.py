@@ -19,6 +19,7 @@ from yoke_core.domain.path_context import (
     FAMILY_ARCHITECTURE_DOMAIN,
     FAMILY_ARCHITECTURE_LAYER,
 )
+from yoke_core.domain.path_snapshot_content_rows import newest_content_snapshot_id
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.schema_common import _table_exists
 
@@ -269,13 +270,17 @@ def module_to_target_id(
 
 
 def iter_python_entries(
-    conn: Any, project_id: str | int,
+    conn: Any, project_id: str | int, *, snapshot_id: Optional[int] = None,
 ) -> List[Tuple[int, str, str, str]]:
     """Yield ``(target_id, path_string, module_name, dependency_edges)``
     for each ``language='python'`` snapshot entry in the project's
-    latest HEAD snapshot."""
+    newest snapshot carrying files."""
     p = _p(conn)
     numeric_project_id = resolve_project_numeric(conn, project_id)
+    if snapshot_id is None:
+        snapshot_id = newest_content_snapshot_id(conn, numeric_project_id)
+    if snapshot_id is None:
+        return []
     rows = conn.execute(
         "SELECT pse.target_id, pt.path_string, pse.module_name, "
         "       pse.dependency_edges "
@@ -283,11 +288,8 @@ def iter_python_entries(
         "JOIN path_snapshots ps ON ps.id = pse.snapshot_id "
         "JOIN path_targets pt ON pt.id = pse.target_id "
         f"WHERE ps.project_id = {p} AND pse.language = 'python' "
-        "AND ps.id = ("
-        "  SELECT id FROM path_snapshots "
-        f"  WHERE project_id = {p} ORDER BY id DESC LIMIT 1"
-        ")",
-        (numeric_project_id, numeric_project_id),
+        f"AND ps.id = {p}",
+        (numeric_project_id, snapshot_id),
     ).fetchall()
     return [(int(r[0]), str(r[1]), str(r[2] or ""), str(r[3] or "[]"))
             for r in rows]

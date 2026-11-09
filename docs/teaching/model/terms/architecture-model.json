@@ -1,7 +1,7 @@
 {
  "id": "architecture-model",
  "term": "Architecture model",
- "definition": "A project's declared structure and relationships, used to reason about change impact.",
+ "definition": "A project's declared structure and relationships, used to reason about change impact. Health evaluates the newest stored file-bearing snapshot and identifies its id and commit; missing file inventory requires snapshot sync before evaluation.",
  "status": "draft",
  "sources": ["docs/public/projects/architecture-model.md"]
 }

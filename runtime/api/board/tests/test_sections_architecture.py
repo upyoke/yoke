@@ -98,12 +98,15 @@ def test_reports_coverage_with_inherited_context(tmp_path: Path) -> None:
                (12, 1, 'file', 'tests/inherited.py', 10),
                (13, 1, 'file', 'scripts/uncovered.py', NULL);
     INSERT INTO path_snapshots (id, project_id, commit_sha, built_at)
-        VALUES (500, 1, 'aaa', '2026-01-01T00:00:00Z');
+        VALUES (500, 1, 'aaa', '2026-01-01T00:00:00Z'),
+               (501, 1, 'directory-only', '2026-01-02T00:00:00Z'),
+               (502, 1, 'empty', '2026-01-03T00:00:00Z');
     INSERT INTO path_snapshot_entries
         (id, snapshot_id, target_id, language, dependency_edges)
         VALUES (1, 500, 11, 'python', '[]'),
                (2, 500, 12, 'python', '[]'),
-               (3, 500, 13, 'python', '[]');
+               (3, 500, 13, 'python', '[]'),
+               (4, 501, 10, NULL, '[]');
     INSERT INTO path_context_values
         (id, target_id, context_family, entry_key, value)
         VALUES (1, 11, 'architecture_layer', '', '{"layer": "domain"}'),

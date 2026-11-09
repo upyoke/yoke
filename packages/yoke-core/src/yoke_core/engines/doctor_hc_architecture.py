@@ -1,6 +1,6 @@
 """Path-based architecture-fitness Doctor HCs.
 
-Owns the three checks that read the project's latest HEAD snapshot:
+Owns the three checks that read the project's newest snapshot carrying files:
 
 * ``HC-architecture-unclassified-path`` — a snapshot path has no
   inherited ``architecture_layer`` / ``architecture_domain`` and is
@@ -24,9 +24,8 @@ Item-side checks (``HC-architecture-impact-declaration`` and
 registry exposes all five via
 :mod:`yoke_core.engines.doctor_registry_architecture`.
 
-All three checks degrade gracefully: missing tables, missing
-``architecture_model`` rows, or empty snapshots all PASS rather than
-raise.
+Missing tables or an undeclared model skip evaluation. A declared model
+without a file-bearing snapshot fails with a recovery command.
 """
 
 from __future__ import annotations
@@ -36,6 +35,10 @@ from typing import List
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
+from yoke_core.domain.architecture_context_data import resolve_project_numeric
+from yoke_core.domain.architecture_snapshot import (
+    ArchitectureSnapshotUnavailable, require_architecture_snapshot,
+)
 from yoke_core.domain.architecture_health import (
     cross_cutting_violations,
     forbidden_edge_violations,
@@ -64,6 +67,11 @@ def _model_or_skip(conn, args, rec, hc_name: str, hc_desc: str):
     if model is None:
         rec.record(hc_name, hc_desc, "PASS",
                    "architecture_model not set for project — skipping")
+        return None
+    try:
+        require_architecture_snapshot(conn, resolve_project_numeric(conn, args.project))
+    except ArchitectureSnapshotUnavailable as exc:
+        rec.record(hc_name, hc_desc, "FAIL", str(exc))
         return None
     return model
 
@@ -119,7 +127,7 @@ def hc_architecture_forbidden_edge(
         return
     head = (
         f"- {len(findings)} forbidden / unsanctioned dependency edge(s) "
-        "found in the latest HEAD snapshot."
+        "found in the newest snapshot carrying files."
     )
     rec.record(_FORBIDDEN_EDGE, _FORBIDDEN_EDGE_DESC, "WARN",
                format_findings(head, findings))
@@ -155,7 +163,7 @@ def hc_architecture_cross_cutting_entrypoint(
         return
     head = (
         f"- {len(findings)} cross-cutting-entrypoint violation(s) found "
-        "in the latest HEAD snapshot."
+        "in the newest snapshot carrying files."
     )
     rec.record(_CROSS_CUTTING, _CROSS_CUTTING_DESC, "WARN",
                format_findings(head, findings))

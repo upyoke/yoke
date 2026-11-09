@@ -27,6 +27,9 @@ from typing import List
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
+from yoke_core.domain.architecture_snapshot import (
+    ArchitectureSnapshotUnavailable, require_architecture_snapshot,
+)
 from yoke_core.domain.architecture_impact import (
     ALLOWED_VALUES as _IMPACT_ALLOWED,
     IMPACT_UNCERTAIN,
@@ -99,17 +102,19 @@ def hc_architecture_scan_error(
                    "path_snapshot_entries missing — skipping")
         return
     project_id = resolve_project_id(conn, args.project)
+    try:
+        snapshot = require_architecture_snapshot(conn, project_id)
+    except ArchitectureSnapshotUnavailable as exc:
+        rec.record(_SCAN_ERROR, _SCAN_ERROR_DESC, "FAIL", str(exc))
+        return
     rows = conn.execute(
         "SELECT pse.target_id, pt.path_string, pse.dependency_edges "
         "FROM path_snapshot_entries pse "
         "JOIN path_snapshots ps ON ps.id = pse.snapshot_id "
         "JOIN path_targets pt ON pt.id = pse.target_id "
         "WHERE ps.project_id = %s AND pse.language = 'python' "
-        "AND ps.id = ("
-        "  SELECT id FROM path_snapshots "
-        "  WHERE project_id = %s ORDER BY id DESC LIMIT 1"
-        ")",
-        (project_id, project_id),
+        "AND ps.id = %s",
+        (project_id, snapshot["snapshot_id"]),
     ).fetchall()
     findings: List[str] = []
     for target_id, path, deps_text in rows:

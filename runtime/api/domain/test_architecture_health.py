@@ -177,9 +177,9 @@ def test_aggregate_health_reads_the_python_snapshot_once(conn, monkeypatch) -> N
     calls = {"n": 0}
     original = data.iter_python_entries
 
-    def counting(conn_arg, project_id):
+    def counting(conn_arg, project_id, **kwargs):
         calls["n"] += 1
-        return original(conn_arg, project_id)
+        return original(conn_arg, project_id, **kwargs)
 
     monkeypatch.setattr(subject, "iter_python_entries", counting)
     compute_architecture_health(conn, 1)
