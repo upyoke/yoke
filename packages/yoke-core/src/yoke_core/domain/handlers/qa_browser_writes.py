@@ -253,8 +253,6 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{row['qa_requirement_id']}, not {req_id}",
             )
-        if issue := captured_completion_refusal(row, payload, int(req_id)):
-            return _error("qa_captured_review_required", issue)
         if settled := superseded_run_outcome(conn, run_id, req_id, verdict):
             return settled
         if issue := _review_evidence.agent_undetermined_evidence_error(
@@ -265,6 +263,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         ) or pending_review_verdict_refusal(conn, int(req_id), verdict, row):
             code = getattr(issue, "code", "policy_violation")
             return _error(code, str(issue), jsonpath="$.payload.verdict")
+        if issue := captured_completion_refusal(row, payload, int(req_id)):
+            return _error("qa_captured_review_required", issue)
         reason = capture_degraded_reason
         if reason is None:
             reason = row["capture_degraded_reason"]
