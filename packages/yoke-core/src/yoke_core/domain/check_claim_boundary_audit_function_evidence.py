@@ -67,9 +67,9 @@ def _ensure_registry_entry(function_name: str) -> Optional[RegistryEntry]:
     entry = lookup(function_name)
     if entry is not None:
         return entry
-    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.handler_registry_runtime import ensure_handlers_registered
 
-    register_all_handlers()
+    ensure_handlers_registered()
     return lookup(function_name)
 
 
@@ -96,10 +96,10 @@ def function_audit_metadata(
 
 def claimed_mutation_function_names() -> tuple[str, ...]:
     """Return exact in-scope function ids from authoritative registry rows."""
-    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.handler_registry_runtime import ensure_handlers_registered
     from yoke_core.domain.yoke_function_registry import list_entries
 
-    register_all_handlers()
+    ensure_handlers_registered()
     names = []
     for entry in list_entries():
         metadata = function_audit_metadata({}, entry.function_id)

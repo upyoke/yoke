@@ -192,9 +192,9 @@ def _ensure_handlers_registered() -> None:
     CLI invocations do not go through that lifespan, so the registry is
     bootstrapped lazily here. The registration helper is idempotent.
     """
-    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.handler_registry_runtime import ensure_handlers_registered
 
-    register_all_handlers()
+    ensure_handlers_registered()
 
 
 def _dispatch_via_function(operation: str, args, content: str, item_id: str) -> int:
