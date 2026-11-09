@@ -1,12 +1,11 @@
 """Missing required checks stop an armed landing without disarming it."""
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.merge_github_check_runs import LandingCheck, _parse_landing_state
 from yoke_core.domain.merge_github_membership import PrQueueMembership
 from yoke_core.domain.merge_landing_state import PrLandingState
@@ -19,6 +18,17 @@ from yoke_core.domain.merge_queue_readiness import classify_readiness
 from yoke_core.domain.merge_queue_landing_refresh import LANDING_RECORD_STALE_SECONDS
 
 
+FIXED_NOW = datetime(2026, 11, 9, 12, tzinfo=timezone.utc)
+
+
+@pytest.fixture(autouse=True)
+def fixed_detection_clock(monkeypatch):
+    # Collection may precede execution by minutes on a full CI shard.
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_queue_missing_checks.utc_now", lambda: FIXED_NOW
+    )
+
+
 def stalled_state(**changes):
     return replace(
         PrLandingState(
@@ -27,7 +37,7 @@ def stalled_state(**changes):
             auto_merge_active=True,
             merge_state_status="blocked",
             head_sha="cd" * 20,
-            auto_merge_enabled_at=utc_now()
+            auto_merge_enabled_at=FIXED_NOW
             - timedelta(seconds=LANDING_RECORD_STALE_SECONDS + 60),
         ),
         **changes,
@@ -64,7 +74,7 @@ def test_stalled_readback_and_readiness_are_not_admitted():
 @pytest.mark.parametrize(
     "changes,checks",
     [
-        ({"auto_merge_enabled_at": utc_now()}, ()),
+        ({"auto_merge_enabled_at": FIXED_NOW}, ()),
         ({"auto_merge_enabled_at": None}, ()),
         ({"merge_state_status": "clean"}, ()),
         ({"merge_state_status": "unknown"}, ()),
@@ -215,8 +225,17 @@ def test_readiness_only_reads_names_after_detection(monkeypatch):
     )
     assert "missing-required-checks=signature-check" in result.describe()
     assert calls == ["names"]
-    state = replace(state, auto_merge_enabled_at=utc_now())
+    state = replace(state, auto_merge_enabled_at=FIXED_NOW)
     assert readiness.read_merge_queue_readiness(
         None, pr_number="42", target="main", reads=reads
     ).in_flight
     assert calls == ["names"]
+
+
+@pytest.mark.parametrize("offset,expected", [(-1, False), (0, False), (1, True)])
+def test_grace_boundary_uses_the_arming_clock(offset, expected):
+    state = stalled_state(
+        auto_merge_enabled_at=FIXED_NOW
+        - timedelta(seconds=LANDING_RECORD_STALE_SECONDS + offset)
+    )
+    assert missing_checks_stalled(state, (), now=FIXED_NOW) is expected
