@@ -8,6 +8,7 @@ import pytest
 from yoke_core.domain import events, events_project_identity as identity
 from yoke_core.domain import path_claim_bash_guard, path_claim_pre_edit_guard
 from yoke_core.hooks import telemetry, stdin, dispatch_dedup
+from yoke_core.domain import session_hook_failure
 from yoke_core.domain import path_claims_dependency_events as dependency_events
 from yoke_core.domain import path_claims_blocked_reason_refresh as refresh
 
@@ -59,6 +60,7 @@ def test_local_hook_stamps_mapped_project_or_none(monkeypatch, project):
     monkeypatch.setattr(
         dispatch_dedup, "default_project_for_directory", lambda _: project
     )
+    monkeypatch.setattr(session_hook_failure, "default_project_for_directory", lambda _: project)
     monkeypatch.setattr(stdin, "_stamp_first_user_prompt", lambda _: None)
     calls = []
     monkeypatch.setattr(events, "emit_event", lambda *a, **kw: calls.append(kw))
@@ -72,7 +74,7 @@ def test_local_hook_stamps_mapped_project_or_none(monkeypatch, project):
         executor="codex",
         session_id="unknown",
     )
-    stdin.emit_session_hook_failed(
+    session_hook_failure.emit_session_hook_failed(
         hook_event="Stop",
         executor="codex",
         reason="timeout",

@@ -119,7 +119,7 @@ def _model_facts_can_upgrade(
         if not isinstance(payload, dict):
             return False
         from yoke_contracts.session_model_facts import facts_from_mapping
-        from yoke_core.hooks.registration_observed import (
+        from yoke_core.domain.session_model_normalization import (
             reclassify_unservable_model,
         )
         from yoke_core.domain import db_backend

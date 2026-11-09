@@ -17,6 +17,8 @@ Sibling owners provide session identity
 """
 
 from __future__ import annotations
+
+from yoke_core.domain.session_hook_failure import emit_session_hook_failed
 from pathlib import Path
 from yoke_core.domain.events_project_identity import working_project_for_event
 from typing import Any, Optional
@@ -38,7 +40,6 @@ from yoke_core.hooks.stdin import (  # noqa: F401
     STDIN_FALLBACK_TIMEOUT_SECONDS,
     bounded_stdin_read,
     emit_harness_session_sent_first_user_prompt_submit,
-    emit_session_hook_failed,
 )
 
 

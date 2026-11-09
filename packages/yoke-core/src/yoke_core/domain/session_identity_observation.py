@@ -121,7 +121,7 @@ def _served_only(facts: SessionModelFacts) -> SessionModelFacts:
 
 def carried_served_facts(payload: dict[str, Any]) -> SessionModelFacts:
     """Return the served facts a relayed hook already resolved, if any."""
-    from yoke_core.hooks.registration_observed import reclassify_unservable_model
+    from yoke_core.domain.session_model_normalization import reclassify_unservable_model
 
     return _served_only(reclassify_unservable_model(facts_from_mapping(payload)))
 

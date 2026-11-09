@@ -125,7 +125,7 @@ def wake_eligible_recipients(
     ignore_attempt_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return redacted wake routes with their scheduler authority."""
-    from yoke_core.hooks.session_message_delivery import wake_eligible
+    from yoke_core.domain.session_message_wake_eligibility import wake_eligible
 
     from yoke_core.domain.session_scheduled_wake import enqueue_due_session_wakes
 

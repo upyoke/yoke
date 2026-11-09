@@ -24,6 +24,7 @@ import yoke_core.hooks.identity as identity
 import yoke_core.hooks.service_client as svc_client
 import yoke_core.hooks.session_model_attestation_write as model_attestation
 import yoke_core.hooks.stdin as stdin
+from yoke_core.domain import session_hook_failure
 import yoke_core.hooks.telemetry as telemetry
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.adapter_capability import AdapterCapability
@@ -66,7 +67,7 @@ _OWNER_FOR: dict[str, object] = {
     "STDIN_FALLBACK_TIMEOUT_SECONDS": stdin,
     "bounded_stdin_read": stdin,
     "emit_harness_session_sent_first_user_prompt_submit": stdin,
-    "emit_session_hook_failed": stdin,
+    "emit_session_hook_failed": session_hook_failure,
 }
 
 

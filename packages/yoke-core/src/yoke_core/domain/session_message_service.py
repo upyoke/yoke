@@ -59,7 +59,7 @@ from yoke_core.domain.session_message_launch_queue import (
     launch_snapshot,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
-from yoke_core.hooks.relayed_session_identity import session_ownership_refusal
+from yoke_core.domain.session_ownership import session_ownership_refusal
 from yoke_core.domain.steering_recipient_projection import (
     previewed_steering_recipient,
     stored_steering_recipient,

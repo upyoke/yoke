@@ -21,7 +21,7 @@ conversation folds to empty, and an empty fold never sets
 that exists, and the shape test is applied to unstamped payloads only.
 
 Trusting the stamp is not the whole answer, which is why
-:func:`session_ownership_refusal` exists: a caller may still stamp a
+:func:`yoke_core.domain.session_ownership.session_ownership_refusal` exists: a caller may still stamp a
 session id belonging to somebody else. That check reads the authoritative
 ``harness_sessions`` row and requires it to belong to the authenticated
 actor, matching how completed client-wall reports are authorized. It is
@@ -71,40 +71,11 @@ def refusal_text(reason: str) -> str:
     return _REFUSAL_TEXT.get(reason, _REFUSAL_TEXT[IDENTITY_MISSING])
 
 
-def session_ownership_refusal(
-    conn: Any,
-    session_id: str,
-    actor_id: int | None,
-) -> str | None:
-    """Refuse a stamped id whose existing session belongs to another actor.
-
-    An id with no session row yet is accepted: the observation itself is
-    what registers a session that a hook has only just started stamping.
-    """
-    if actor_id is None or not session_id:
-        return None
-    from yoke_core.domain import db_backend
-
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"SELECT actor_id FROM harness_sessions WHERE session_id = {marker}",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    stored = row.get("actor_id") if isinstance(row, dict) else row[0]
-    if stored is None or int(stored) == int(actor_id):
-        return None
-    return (
-        "stamped session id belongs to a different actor; relay through the "
-        "connection whose actor owns the session"
-    )
 
 
 __all__ = [
     "IDENTITY_CONVERSATION_SHAPED",
     "IDENTITY_MISSING",
     "refusal_text",
-    "session_ownership_refusal",
     "stamped_identity_refusal",
 ]
