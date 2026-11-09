@@ -18,11 +18,11 @@ Each level contains ordered base-model rows at their minimum effort:
 
 | Level | Model | Minimum effort |
 |---|---|---|
-| INTERN 🐣 | claude-haiku-5-5, gpt-6-luna, claude-sonnet-5-5, gpt-5.6-terra, grok-4.7 | low |
-| JUNIOR 🐥 | grok-4.7, gpt-5.6-terra, claude-sonnet-5-5 | high |
-| | claude-opus-5-5, gpt-6.1-sol, claude-fable-5-1, gpt-6-astra | low |
-| SENIOR 🦉 | claude-opus-5-5, gpt-6.1-sol, claude-fable-5-1, gpt-6-astra | medium |
-| PRINCIPAL 🦅 | claude-fable-5-1, gpt-6-astra | xhigh |
+| INTERN 🐣 | claude-haiku-5-5, gpt-6-luna, claude-sonnet-5-5, gpt-6.1-terra, grok-4.7 | low |
+| JUNIOR 🐥 | grok-4.7, gpt-6.1-terra, claude-sonnet-5-5 | high |
+| | claude-opus-5-5, gpt-6.1-sol, claude-fable-5-2, gpt-6-astra | low |
+| SENIOR 🦉 | claude-opus-5-5, gpt-6.1-sol, claude-fable-5-2, gpt-6-astra | medium |
+| PRINCIPAL 🦅 | claude-fable-5-2, gpt-6-astra | xhigh |
 
 ## Document shape
 

@@ -56,7 +56,7 @@ def staged_launch(monkeypatch, *, capacity=50):
         "codex-cli",
         [
             native_model("gpt-6.1-sol", reasoning_efforts=["low", "medium"]),
-            native_model("gpt-5.6-terra", reasoning_efforts=["low", "high"]),
+            native_model("gpt-6.1-terra", reasoning_efforts=["low", "high"]),
             native_model("gpt-6-astra", reasoning_efforts=["low", "medium", "xhigh"]),
         ],
         source="native fixture",

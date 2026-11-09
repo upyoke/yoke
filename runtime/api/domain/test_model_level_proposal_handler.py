@@ -98,7 +98,7 @@ def _set(levels):
 def _superseded_fable(conn) -> None:
     records = [
         replace(r, replacement_model_id="claude-fable-6")
-        if r.model_id == "claude-fable-5-1"
+        if r.model_id == "claude-fable-5-2"
         else r
         for r in MODEL_RECORDS
     ]
