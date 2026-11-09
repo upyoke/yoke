@@ -71,6 +71,17 @@ def execute_structured_write(
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
+    if field == "architecture_impact":
+        from yoke_core.domain.architecture_impact import ArchitectureImpactError, validate_value
+
+        try:
+            content = validate_value(content)
+        except ArchitectureImpactError as exc:
+            return {
+                "success": False,
+                "error": f"architecture_impact validation failed: {exc}; put the reasoning in the spec",
+            }
+
     if field == "db_mutation_profile" and content and content.strip():
         from yoke_core.domain.db_mutation_profile import (
             DbMutationProfileError,

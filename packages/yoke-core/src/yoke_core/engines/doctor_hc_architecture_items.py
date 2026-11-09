@@ -73,8 +73,9 @@ def hc_architecture_impact_declaration(
             findings.append(
                 f"- {public_ref}: architecture_impact='{raw_value}' is "
                 f"not one of {sorted(_IMPACT_ALLOWED)}. Repair: rewrite "
-                "via `db_router items update YOK-N architecture_impact "
-                "--stdin` with a valid enum value."
+                f"via `yoke items structured-field replace {public_ref} "
+                "--field architecture_impact --content <value>` with a valid "
+                "enum value; put the reasoning in the spec."
             )
             continue
         if value == IMPACT_UNCERTAIN and status in _NON_UNCERTAIN_STATUSES:

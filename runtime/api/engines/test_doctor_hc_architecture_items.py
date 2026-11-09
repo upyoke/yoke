@@ -68,6 +68,10 @@ class TestImpactDeclaration:
         hc_architecture_impact_declaration(conn, _args(), rec)
         assert rec.results[-1].result == "WARN"
         assert "major_refactor" in rec.results[-1].detail
+        assert "yoke items structured-field replace" in rec.results[-1].detail
+        assert "--field architecture_impact --content <value>" in rec.results[-1].detail
+        assert "put the reasoning in the spec" in rec.results[-1].detail
+        assert "db_router" not in rec.results[-1].detail
 
     def test_uncertain_past_refined_idea_warns(self, conn):
         _make_items_table(conn)
