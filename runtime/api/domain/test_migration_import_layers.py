@@ -56,6 +56,7 @@ ALLOWED_CORE = {
     for module in modules
 }
 
+
 def imported_modules(source: str, package: str):
     """Include lazy imports and normalize relative and package-from spellings."""
     for node in ast.walk(ast.parse(source)):
@@ -164,12 +165,20 @@ def reverse_violations(source: str, package: str):
 
 def test_live_source_never_imports_migration_modules():
     errors = []
-    for root in sorted((ROOT / "packages").glob("*/src")):
+    roots = [
+        *sorted((ROOT / "packages").glob("*/src")),
+        ROOT / "runtime",
+        ROOT / "tests",
+        ROOT / "docs",
+    ]
+    for root in roots:
         for path in sorted(root.rglob("*.py")):
             if DOMAIN / "migrations" in path.parents:
                 continue
             relative = path.relative_to(root)
             package = ".".join(relative.parts[:-1])
+            if root.name != "src":
+                package = ".".join(filter(None, (root.name, package)))
             errors.extend(
                 f"{path.relative_to(ROOT)}: {error}"
                 for error in reverse_violations(path.read_text(), package)
