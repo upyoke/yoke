@@ -17,6 +17,7 @@ from yoke_contracts.schema_authority import (
     refuse_without_serving_build_authority,
 )
 from yoke_core.domain import (
+    administered_postgres,
     db_backend,
     migration_restore_point,
     migration_serving_version,
@@ -66,7 +67,7 @@ def stamp_history(
     *,
     ledger: LedgerContract,
     applied_by: str,
-    administering_env: str,
+    administering_env: str | None = None,
 ) -> Tuple[str, ...]:
     """Record the whole history as applied without running any of it.
 
@@ -81,7 +82,11 @@ def stamp_history(
     """
     refuse_without_serving_build_authority(
         "recording a migration history as applied",
-        administering_env=administering_env,
+        administering_env=(
+            administered_postgres.administering_target(connection=conn)
+            if administering_env is None
+            else administering_env
+        ),
     )
     require_matching_content_identity(conn, history, ledger)
     stamped: list[str] = []
@@ -134,11 +139,11 @@ def apply_pending(
     history: Sequence[MigrationEntry],
     ledger: LedgerContract,
     applied_by: str,
-    administering_env: str,
+    administering_env: str | None = None,
     running_version: str,
     attribution: Mapping[str, Any],
     model_name: str,
-    dump_backup: Callable[[str, str, Path], str],
+    dump_backup: Callable[[str, str, Path], str] | None = None,
     backup_root: Optional[Path] = None,
     backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str] = None,
@@ -154,8 +159,8 @@ def apply_pending(
     a per-database dump and, unlike one written inside a container about to be
     torn down, still there afterwards.
 
-    ``administering_env`` names the caller-resolved target authority;
-    ``dump_backup`` is the caller's dump operation for that target.
+    ``administering_env`` names the target authority, resolved from ``conn``
+    when omitted. ``dump_backup`` is required only for a local backup.
 
     Refusing when neither is present is the policy, not a precaution: nothing
     destructive runs without a named way back.
@@ -174,7 +179,11 @@ def apply_pending(
     """
     refuse_without_serving_build_authority(
         "applying a migration history",
-        administering_env=administering_env,
+        administering_env=(
+            administered_postgres.administering_target(connection=conn)
+            if administering_env is None
+            else administering_env
+        ),
     )
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
