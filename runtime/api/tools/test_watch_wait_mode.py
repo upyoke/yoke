@@ -20,11 +20,8 @@ from yoke_contracts.harness_wake_capability import HarnessWakeCapability
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_core.domain.sessions_list_read import session_summary_result
 from yoke_core.tools import _watch_wait_mode
-from yoke_core.tools._watch_wait_mode import (
-    HEADLESS_CONTINUATION_DIRECTIVE,
-    resolve_wait_mode,
-    wait_mode_for_session,
-)
+from yoke_core.domain.watch_headless_caller import HEADLESS_CONTINUATION_DIRECTIVE
+from yoke_core.tools._watch_wait_mode import resolve_wait_mode, wait_mode_for_session
 
 
 def _session(

@@ -76,7 +76,10 @@ from yoke_core.domain.schema_api_context_tables_qa import (
 from yoke_core.domain.schema_api_context_tables_merge_helpers import MERGE_HELPER_TABLES
 
 
+from yoke_core.domain.schema_api_context_tables_utility_helpers import UTILITY_HELPERS_TABLES
+
 CANONICAL_TABLES: dict[str, dict] = {
+    **UTILITY_HELPERS_TABLES,
     **CORE_TABLES,
     **GATE_SATISFIER_TABLES,
     **DISPATCH_TABLES,

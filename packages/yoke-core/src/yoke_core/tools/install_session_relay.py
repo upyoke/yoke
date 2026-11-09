@@ -20,10 +20,8 @@ from yoke_core.tools.session_relay_service import (
     relay_service_current,
     relay_service_present,
 )
-from yoke_core.tools.session_relay_local_install import (
-    local_launcher_path,
-    local_launcher_ready,
-)
+from yoke_core.domain.local_relay_launcher_path import local_launcher_path
+from yoke_core.domain.local_relay_launcher_path import local_launcher_ready
 from yoke_core.tools.session_relay_release import relay_release_status
 
 

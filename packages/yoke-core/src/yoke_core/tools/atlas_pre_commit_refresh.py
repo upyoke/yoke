@@ -19,7 +19,8 @@ from typing import Sequence
 
 from yoke_core.tools.atlas_currency_inputs import staged_touches_currency_inputs
 from yoke_core.tools.atlas_integrity_audit import build_report
-from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH, is_stale, render, write
+from yoke_core.domain.atlas_document_path import ATLAS_RELPATH
+from yoke_core.tools.atlas_render_docs import is_stale, render, write
 
 
 def refresh_if_stale(

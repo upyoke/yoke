@@ -28,11 +28,8 @@ from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
 from yoke_contracts.uv_project import is_uv_project
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.domain.watch_digest import TIER_HELP
-from yoke_core.tools._watch_wait_mode import (
-    WatchWaitMode,
-    resolve_wait_mode,
-    caller_is_headless_command,
-)
+from yoke_core.domain.watch_headless_caller import caller_is_headless_command
+from yoke_core.tools._watch_wait_mode import WatchWaitMode, resolve_wait_mode
 from yoke_core.tools._watch_timeout import watcher_timeout_ms
 from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
 

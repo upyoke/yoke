@@ -46,7 +46,7 @@ def _owned(instance, variables, argv):
         or argv[2] != instance.environment
     ):
         return False
-    from yoke_core.tools.session_relay_release_install import relay_launcher_path
+    from yoke_core.domain.relay_launcher_path import relay_launcher_path
 
     state = instance.yoke_home / SHARED_RELAY_STATE_DIR_NAME
     expected = relay_launcher_path(
