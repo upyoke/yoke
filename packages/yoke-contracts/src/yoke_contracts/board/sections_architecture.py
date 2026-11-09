@@ -28,8 +28,11 @@ _CONTEXT_FAMILIES = (
 def _coverage_sql(project_id: int) -> str:
     return (
         "WITH RECURSIVE "
-        f"latest AS (SELECT id FROM path_snapshots WHERE project_id = "
-        f"{int(project_id)} ORDER BY id DESC LIMIT 1), "
+        "latest AS (SELECT MAX(s.id) AS id FROM path_snapshots s "
+        f"WHERE s.project_id = {int(project_id)} AND EXISTS ("
+        "SELECT 1 FROM path_snapshot_entries e "
+        "JOIN path_targets t ON t.id = e.target_id "
+        "WHERE e.snapshot_id = s.id AND t.kind = 'file')), "
         "py AS (SELECT pse.target_id FROM path_snapshot_entries pse "
         "JOIN latest ON pse.snapshot_id = latest.id "
         "WHERE pse.language = 'python'), "

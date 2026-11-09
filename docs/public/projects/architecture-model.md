@@ -26,6 +26,14 @@ yoke project-structure get --project P --family architecture_model
 4. Check coverage and rule breaks:
    `yoke project-structure architecture-health get --project P`.
 
+Health, Doctor and board coverage read the newest stored snapshot that carries
+files; empty and directory-only snapshots are skipped. Selection does not filter
+by branch. Health names the snapshot id and commit in human and JSON output.
+When no file inventory exists, health and Doctor report
+`architecture_snapshot_unavailable` with recovery: run
+`yoke project snapshot sync --project P` from the project checkout and retry.
+A file inventory with no Python files is valid and has zero Python paths.
+
 ## How files are classified
 
 Each file gets one domain and one layer from the first path pattern that

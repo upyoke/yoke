@@ -20,8 +20,10 @@ from yoke_core.domain.architecture_context_data import (
     load_module_target_index,
     module_to_target_id_from_index,
     package_roots_from_model,
+    resolve_project_numeric,
 )
 from yoke_core.domain.architecture_model import derive_edges
+from yoke_core.domain.architecture_snapshot import require_architecture_snapshot
 from yoke_core.domain.architecture_path_context_seed import _compile
 
 
@@ -221,7 +223,10 @@ def compute_architecture_health(
     )
     if model is None:
         return {"declared": False}
-    entries = iter_python_entries(conn, project_id)
+    snapshot = require_architecture_snapshot(
+        conn, resolve_project_numeric(conn, project_id),
+    )
+    entries = iter_python_entries(conn, project_id, snapshot_id=snapshot["snapshot_id"])
     package_roots = package_roots_from_model(model)
     module_index = load_module_target_index(conn, project_id)
     _parsed, extra_ids = _parsed_python_entries(
@@ -252,6 +257,7 @@ def compute_architecture_health(
     )
     return {
         "declared": True,
+        **snapshot,
         "python_paths": total,
         "classified": classified,
         "exempt": exempt,

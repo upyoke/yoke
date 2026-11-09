@@ -164,6 +164,11 @@ def architecture_health_get(args: List[str]) -> int:
         if not health.get("declared"):
             stdout.write("architecture map: not declared\n")
             return None
+        if health.get("snapshot_id") is not None:
+            stdout.write(
+                f"snapshot: {health['snapshot_id']} "
+                f"commit {health.get('snapshot_commit')}\n"
+            )
         stdout.write(
             f"coverage: {health.get('coverage_pct')}% "
             f"({health.get('classified')} classified, "

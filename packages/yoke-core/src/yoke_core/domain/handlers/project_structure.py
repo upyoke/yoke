@@ -241,8 +241,16 @@ def handle_architecture_health_get(
     project_id = _architecture_project_id(request)
     if project_id is None:
         return _missing_project()
-    with db_helpers.connect() as conn:
-        health = compute_architecture_health(conn, project_id)
+    from yoke_core.domain.architecture_snapshot import ArchitectureSnapshotUnavailable
+
+    try:
+        with db_helpers.connect() as conn:
+            health = compute_architecture_health(conn, project_id)
+    except ArchitectureSnapshotUnavailable as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(code=exc.code, message=str(exc)),
+        )
     return HandlerOutcome(
         result_payload={"project_id": str(project_id), "health": health},
         primary_success=True,

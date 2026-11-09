@@ -195,3 +195,17 @@ def test_missing_project_rejects(tmp_path) -> None:
         outcome = ps_handler.handle_architecture_health_get(request)
         assert outcome.primary_success is False
         assert outcome.error.code == "payload_invalid"
+
+
+def test_health_missing_inventory_returns_named_refusal(tmp_path):
+    from yoke_core.domain import db_helpers
+
+    with path_snapshot_db(tmp_path, _repo(tmp_path)):
+        with db_helpers.connect() as conn:
+            _declare_model(conn)
+        outcome = ps_handler.handle_architecture_health_get(
+            _request("project_structure.architecture_health.get", {})
+        )
+        assert outcome.primary_success is False
+        assert outcome.error.code == "architecture_snapshot_unavailable"
+        assert "yoke project snapshot sync" in outcome.error.message

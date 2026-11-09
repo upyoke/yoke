@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_derived_facts import converge_derived_facts
+from yoke_core.domain.path_snapshot_content_rows import newest_content_snapshot_id
 
 
 _LOG = logging.getLogger(__name__)
@@ -22,11 +23,14 @@ _LOG = logging.getLogger(__name__)
 
 def latest_snapshot_commit(conn: Any, project_id: int) -> str:
     """The commit of the project's newest stored content snapshot, or ``""``."""
+    snapshot_id = newest_content_snapshot_id(conn, project_id)
+    if snapshot_id is None:
+        return ""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT commit_sha FROM path_snapshots "
-        f"WHERE project_id = {marker} ORDER BY id DESC LIMIT 1",
-        (int(project_id),),
+        f"WHERE id = {marker}",
+        (snapshot_id,),
     ).fetchone()
     return str(row[0] or "") if row else ""
 

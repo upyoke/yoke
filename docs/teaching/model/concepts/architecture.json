@@ -2,7 +2,7 @@
  "id": "architecture",
  "title": "Project Structure and architecture",
  "status": "draft-copy",
- "current": "Architecture drafts group mixed directories with compact filename-hint globs in classification order; the first matching pattern assigns the layer. Human reads group hint globs by parent directory. JSON retains the complete proposed map for review and patch application.",
+ "current": "Architecture drafts group mixed directories with compact filename-hint globs in classification order; the first matching pattern assigns the layer. Human reads group hint globs by parent directory. JSON retains the complete proposed map for review and patch application. Architecture health, Doctor and board select the newest stored snapshot carrying files, skipping empty and directory-only snapshots without filtering by branch. Health names its snapshot id and commit; health and Doctor report architecture_snapshot_unavailable with snapshot-sync recovery when no file inventory exists.",
  "sources": ["docs/public/projects/architecture-model.md", "docs/public/databases/model/projects.md", "docs/public/start/concepts.md"],
  "commands": ["yoke project-structure architecture-draft get", "yoke project-structure architecture-health get"],
  "functions": ["project_structure.architecture_draft.get", "project_structure.architecture_health.get"],
