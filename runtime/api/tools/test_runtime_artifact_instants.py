@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
-from yoke_core.api import observability
+from yoke_core.domain import observability
 from yoke_core.cli import board_rebuild_timing_events as board
 from yoke_core.tools import (
     build_release,
