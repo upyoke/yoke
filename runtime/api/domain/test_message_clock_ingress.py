@@ -2,6 +2,8 @@
 
 from importlib import import_module
 
+import sqlite3
+
 import pytest
 
 from runtime.api.domain.provided_clock_ingress_test_support import (
@@ -157,7 +159,7 @@ def test_github_signing_and_cache_refuse_bad_clock_before_custody_or_transport(
 @pytest.mark.parametrize("postgres", (True, False))
 @pytest.mark.parametrize("clock", (INSTANT, "2026-10-09T20:45:00.123456+05:45", None))
 def test_surface_policy_sql_and_response_clocks_have_distinct_owned_representations(
-    monkeypatch, clock, postgres
+    monkeypatch, clock, postgres, request
 ):
     from yoke_core.domain import session_surface_policy as policy
 
@@ -175,9 +177,9 @@ def test_surface_policy_sql_and_response_clocks_have_distinct_owned_representati
 
     conn = Connection()
     monkeypatch.setattr(policy, "marker", lambda conn: "%s")
-    from yoke_core.domain import db_backend
-
-    monkeypatch.setattr(db_backend, "connection_is_postgres", lambda conn: postgres)
+    if not postgres:
+        conn._conn = sqlite3.connect(":memory:")
+        request.addfinalizer(conn._conn.close)
     expected_sql = INSTANT if postgres else format_instant(INSTANT)
     created = policy.set_mark(
         conn,
