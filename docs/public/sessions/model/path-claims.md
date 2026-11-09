@@ -188,9 +188,10 @@ merges, releasing both path coverage and migration territory before cleanup.
 If recording fails, `item_landing_record_failed` preserves the lane: restore
 control-plane access and retry the same merge command, even if Git already
 contains the branch. The work claim stays held through delivery.
-Landed items in a pinned stage
-that implies merge need no open path coverage; released coverage remains
-evidence for the merge boundary. Snapshot materialization writes all observed
+Merge admission checks the lane's committed paths against open coverage,
+including commits added after review. Widen coverage before merging when
+that check refuses. Recorded landing ends the boundary check: close-out
+requires no open coverage and does not recheck released claims. Snapshot materialization writes all observed
 planned targets together and emits one summary event, whose loss changes no fact.
 
 Before reopening landed work, register fresh coverage for the complete touch

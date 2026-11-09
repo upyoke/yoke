@@ -17,7 +17,6 @@ from yoke_core.domain.gate_satisfier_facts import (
     DECLARED_DEFAULT_BRANCH,
     DERIVED_DEFAULT_BRANCH,
     DERIVED_ENVIRONMENTS_PRESENT,
-    OBSERVED_LANDED_MERGE,
     OBSERVED_LOCAL_INTEGRATION_REF,
     OBSERVED_MERGE_RECORDED,
     OBSERVED_NO_IMPLEMENTATION_BRANCH,
@@ -51,15 +50,6 @@ PATH_CLAIM_BOUNDARY_LADDER = SatisfierLadder(
         "declared, diffed against the integration target."
     ),
     rungs=(
-        SatisfierRung(
-            rung_id="landed_merge",
-            summary=(
-                "files the item's merge receipt recorded for its newest landing, "
-                "changed against the target as it stood before landing — fixed "
-                "once it lands"
-            ),
-            requires=(OBSERVED_LANDED_MERGE,),
-        ),
         SatisfierRung(
             rung_id="remote_integration_ref",
             summary=(

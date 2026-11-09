@@ -48,7 +48,6 @@ class MigrationPathClaimContext:
 class _MigrationScope:
     model_name: str
     modules_dir: str
-    module_identifiers: tuple[str, ...]
 
 
 def _p(conn: Any) -> str:
@@ -173,7 +172,7 @@ def _normalized_dir(raw: str) -> str:
 def _scope_for_paths(settings: Mapping[str, Any] | None, paths: Sequence[str]):
     if settings is None or not paths:
         return None
-    matches: dict[str, tuple[str, list[str]]] = {}
+    matches: dict[str, str] = {}
     for model_name, model in (settings.get("models") or {}).items():
         config = (model.get("runner") or {}).get("config") or {}
         modules_dir = _normalized_dir(str(config.get("modules_dir") or ""))
@@ -184,7 +183,7 @@ def _scope_for_paths(settings: Mapping[str, Any] | None, paths: Sequence[str]):
             if path.rstrip("/") == modules_dir or path.startswith(prefix)
         ]
         if matched:
-            matches[str(model_name)] = (modules_dir, matched)
+            matches[str(model_name)] = modules_dir
     if len(matches) > 1:
         raise MigrationPathClaimError(
             "one path widen cannot enter multiple migration models: "
@@ -192,19 +191,8 @@ def _scope_for_paths(settings: Mapping[str, Any] | None, paths: Sequence[str]):
         )
     if not matches:
         return None
-    model_name, (modules_dir, matched_paths) = next(iter(matches.items()))
-    identifiers: list[str] = []
-    for path in matched_paths:
-        relative = path.removeprefix(f"{modules_dir}/")
-        if "/" not in relative and relative.endswith(".py"):
-            name = relative.removesuffix(".py")
-            if name != "__init__":
-                identifiers.append(name)
-    return _MigrationScope(
-        model_name=model_name,
-        modules_dir=modules_dir,
-        module_identifiers=tuple(dict.fromkeys(identifiers)),
-    )
+    model_name, modules_dir = next(iter(matches.items()))
+    return _MigrationScope(model_name=model_name, modules_dir=modules_dir)
 
 
 def _validate_matching_claim(
@@ -223,13 +211,6 @@ def _validate_matching_claim(
         raise MigrationPathClaimError(
             f"db_mutation_profile.model_name must be '{scope.model_name}' for "
             f"runner.config.modules_dir '{scope.modules_dir}'"
-        )
-    declared_modules = set(profile.get("migration_modules") or [])
-    missing_modules = sorted(set(scope.module_identifiers) - declared_modules)
-    if missing_modules:
-        raise MigrationPathClaimError(
-            "db_mutation_profile.migration_modules does not declare widened "
-            f"module(s): {missing_modules}"
         )
     try:
         attestation = dca.validate(

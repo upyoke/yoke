@@ -1,5 +1,5 @@
 # ruff: noqa: F401, F811
-"""Releasing landed claims preserves enforcement of the merge boundary."""
+"""Released landed claims do not block close-out."""
 
 from contextlib import closing
 
@@ -18,7 +18,7 @@ from yoke_core.domain.path_claims_gate_boundary import (
 from yoke_core.domain.path_claims_landing import release_landed_claims
 
 
-def test_released_coverage_still_rejects_undeclared_landed_files(project_repo, real_db):
+def test_released_coverage_does_not_recheck_landed_files(project_repo, real_db):
     _claim(real_db, "covered.py")
     _commit_in_worktree(project_repo, name="undeclared.py")
     _land_by_merge(project_repo, real_db)
@@ -32,5 +32,4 @@ def test_released_coverage_still_rejects_undeclared_landed_files(project_repo, r
     verdict = check_boundary_for_item(
         item_id=7777, target_status="release", db_path=real_db
     )
-    assert verdict["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
-    assert "undeclared.py" in verdict["error"]
+    assert verdict is None

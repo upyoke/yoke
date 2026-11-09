@@ -11,7 +11,7 @@ before the branch lands, with ``--verification`` as the reason. Reaching the
 stage runs its own gates, so a gate refusal there stops the merge with the
 gate's reason. An item further back is refused with the walk it still owes.
 
-Landing readiness checks lane-only migration files locally.
+Landing readiness rechecks migration declarations and path coverage locally.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from yoke_core.domain import json_helper
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.workflow_gate_catalog import (
     GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
+    GATE_PATH_CLAIM_BOUNDARY,
 )
 from yoke_core.domain.workflow_declared_transitions import (
     declares_transition,
@@ -115,14 +116,20 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
     if not review_stage_id:
         reached = implementation_review_stage_id(workflow)
         gates = workflow.gate_ids_for_stage(reached) if reached else ()
-        return ReviewReadiness(review_gates=(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,)) if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in gates else ReviewReadiness()
+        if not reached:
+            return ReviewReadiness()
+        return ReviewReadiness(review_gates=tuple(dict.fromkeys(
+            gate for gate in (*gates, GATE_PATH_CLAIM_BOUNDARY)
+            if gate in {GATE_NEW_MIGRATIONS_NEED_DB_CLAIM, GATE_PATH_CLAIM_BOUNDARY}
+        )))
     if declares_transition(workflow, status, review_stage_id):
         return ReviewReadiness(
             source_stage=status,
             review_stage=review_stage_id,
-            review_gates=tuple(
-                str(gate["id"]) for gate in workflow.gates_for_stage(review_stage_id)
-            ),
+            review_gates=tuple(dict.fromkeys((
+                *(str(gate["id"]) for gate in workflow.gates_for_stage(review_stage_id)),
+                GATE_PATH_CLAIM_BOUNDARY,
+            ))),
         )
     return ReviewReadiness(
         refusal=(
@@ -147,7 +154,51 @@ def review_entry_refusal(
 ) -> str:
     """Ask locally inspectable review gates before the landing."""
     if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in readiness.review_gates:
-        return _migration_entry_refusal(public_ref, item or {}, integration_target)
+        refusal = _migration_entry_refusal(public_ref, item or {}, integration_target)
+        if refusal:
+            return refusal
+    if GATE_PATH_CLAIM_BOUNDARY in readiness.review_gates:
+        return _path_entry_refusal(public_ref, item or {})
+    return ""
+
+
+def _path_entry_refusal(public_ref: str, item: dict[str, Any]) -> str:
+    from yoke_core.domain.standalone_item_merge_lane import lane_path
+    from yoke_core.domain.path_claims_boundary import (
+        BoundaryCheckError, BoundaryCheckStatus, boundary_check_for_paths,
+    )
+    from yoke_core.domain.path_claims_integration_resolver import IntegrationTargetDiverged
+
+    response = call_dispatcher(
+        function_id="claims.path.list", target=public_item_target(public_ref), payload={},
+    )
+    if not response.success:
+        detail = getattr(response.error, "message", "path claims read failed")
+        return f"Path coverage unavailable: {detail}. Restore the item read and retry the merge."
+    claims = [claim for claim in (response.result or {}).get("claims") or []
+              if claim.get("state") in {"planned", "blocked", "active"}]
+    if not claims:
+        return ""
+    lane = lane_path(item)
+    if not lane or not Path(lane).is_dir():
+        return "Path coverage needs the item's lane. Restore its checkout and retry the merge."
+    declared = sorted({path for claim in claims for path in claim["declared_paths"]})
+    for claim in claims:
+        try:
+            result = boundary_check_for_paths(
+                None, project_id=0, candidate_paths=declared,
+                integration_target=claim["integration_target"], repo_path=lane,
+            )
+        except (BoundaryCheckError, IntegrationTargetDiverged) as exc:
+            return f"Path boundary unavailable: {exc}. Repair the lane or integration ref and retry."
+        if result.status is BoundaryCheckStatus.CONFLICT:
+            paths = ", ".join(result.undeclared_paths or result.uncommitted_paths)
+            return (
+                f"Path-claim boundary refused claim {claim['id']}: {result.diagnostics}; "
+                f"offending paths: {paths}. Before merging, run `yoke claims path widen "
+                f"--item {public_ref} --claim-id {claim['id']} --add-paths <paths> "
+                '--reason "<why>"`, or revert the uncovered change, then retry the merge.'
+            )
     return ""
 
 
@@ -201,7 +252,7 @@ def gates_left_to_merge(readiness: ReviewReadiness) -> tuple[str, ...]:
     return tuple(
         gate
         for gate in readiness.review_gates
-        if gate not in {GATE_NEW_MIGRATIONS_NEED_DB_CLAIM}
+        if gate not in {GATE_NEW_MIGRATIONS_NEED_DB_CLAIM, GATE_PATH_CLAIM_BOUNDARY}
     )
 
 
