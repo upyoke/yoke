@@ -17,7 +17,7 @@ from yoke_cli.commands.adapters.workflows_read import (
 from yoke_contracts.api.function_call import FunctionCallResponse
 
 
-def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
+def test_human_output_renders_workflow_roster_and_gate_count(capsys) -> None:
     response = FunctionCallResponse(
         success=True,
         function="workflows.definition.get",
@@ -27,6 +27,7 @@ def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
             "workflows": [
                 {
                     "id": "issue",
+                    "description": "A bounded change. More detail.",
                     "current_version": 1,
                     "current_version_id": 7,
                     "status": "active",
@@ -66,16 +67,14 @@ def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
         assert workflows_definition_get([]) == 0
 
     text = capsys.readouterr().out
-    assert "family: work-items" in text
-    assert "title max length: 100" in text
-    assert "id: issue" in text
-    assert "## issue" in text
+    assert "issue  1  A bounded change." in text
+    assert "## Workflows" in text
     assert "## Gate catalog" in text
-    assert "## Flows" in text
-    assert "1 versions, current 1 (see `yoke workflows version list issue`)" in text
+    assert "1 gates." in text
+    assert "## Deployment flows (0 active of 0)" in text
+    assert "Details: yoke workflows definition get --section issue" in text
     assert "Initial definition" not in text
-    assert "db_mutation" in text
-    assert "DB mutation evidence is complete." in text
+    assert "DB mutation evidence is complete." not in text
 
 
 def test_item_get_builds_server_resolved_target_and_renders_pin(capsys) -> None:

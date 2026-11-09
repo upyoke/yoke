@@ -34,7 +34,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 WORKFLOWS_DEFINITION_GET_USAGE = (
-    "yoke workflows definition get [--project P] [--full] [--session-id S] [--json]"
+    "yoke workflows definition get [--project P] [--section HEADING] [--full] [--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_GET_USAGE = (
     "yoke workflows item get PREFIX-N [--project P] [--full] [--session-id S] [--json]"
@@ -55,9 +55,11 @@ def workflows_definition_get(args: List[str]) -> int:
         prog="yoke workflows definition get",
         usage=WORKFLOWS_DEFINITION_GET_USAGE,
         description=(
-            "Read current workflows, gate catalog and deployment flows. "
-            "Use --section WORKFLOW-ID, --section 'Gate catalog', or "
-            "--section FLOW-NAME for one section; --full includes version history."
+            "Read a short roster of current workflows, gate count and active deployment flows. "
+            "For example, use --section dash for workflow detail, "
+            "--section 'Gate catalog', "
+            "--section Flows, or --section FLOW-NAME for full section detail; "
+            "--full prints all detail including version history."
         ),
     )
     parser.add_argument(

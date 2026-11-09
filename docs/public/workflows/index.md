@@ -43,6 +43,7 @@ and a document shared with another non-terminal Blitz stays active.
 ## Inspect
 
 ```bash
+yoke workflows definition get --project <project>
 yoke workflows definition get --project <project> --section dash
 yoke workflows definition get --project <project> --section 'Gate catalog'
 yoke workflows definition get --project <project> --section '<flow-name>'
@@ -50,11 +51,13 @@ yoke workflows item get PREFIX-N --json
 yoke workflows version get <workflow> <version> --json
 ```
 
-The human definition view groups workflows, gates and flows under headings.
-Version history is one summary line per workflow; `--full` expands it, and
-`yoke workflows version list <workflow>` reads it separately. An oversized
-reply lists exact `--section` commands for its headings. Use `--json` for the
-complete, unchanged machine payload.
+The default human definition view lists each workflow's current version and
+short description, the gate count and active deployment flows. Disabled flows
+appear only as a count. Follow its exact detail commands to read a workflow,
+`--section 'Gate catalog'`, `--section Flows` (including disabled flows), or
+`--section '<flow-name>'`. Sections retain full detail with summarized workflow
+history; `--full` prints all detail including version history. Use `--json`
+for the complete, unchanged machine payload.
 
 Publishing a new version affects **new** items only. Migrating an existing
 item's pin is explicit and compatibility-checked.

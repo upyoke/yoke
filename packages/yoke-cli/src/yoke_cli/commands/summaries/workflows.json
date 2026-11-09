@@ -24,7 +24,7 @@
   "workflows current": "Choose the workflow version new items use.",
   "workflows current set": "Make one workflow version the one new items use.",
   "workflows definition": "Read a project's workflow definitions.",
-  "workflows definition get": "Show the workflow definitions a project uses.",
+  "workflows definition get": "List workflows, gate count and active flows.",
   "workflows delivery": "Set the delivery flow a workflow uses.",
   "workflows delivery default": "Set the delivery flow a workflow uses.",
   "workflows delivery default set": "Set the default delivery flow for a workflow.",
