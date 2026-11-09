@@ -1,0 +1,10 @@
+{
+ "id": "repository-origin",
+ "title": "Use the project repository when origin exists",
+ "status": "observed",
+ "audience": "both",
+ "when": "Installing or syncing a checkout for a GitHub-bound project.",
+ "need": "Use the bound repository, including matching HTTPS or SSH origins. A fork needs its own project binding. Missing origins are allowed. Registration only warns; use an owned scratch project for QA fixtures.",
+ "surface": "Project registration, installation and snapshot sync",
+ "sources": ["docs/public/projects/index.md", "runtime/api/cli/test_project_repository_identity.py", "runtime/api/cli/test_project_onboard_origin_order.py"]
+}
