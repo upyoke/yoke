@@ -56,7 +56,8 @@ def workflows_definition_get(args: List[str]) -> int:
         usage=WORKFLOWS_DEFINITION_GET_USAGE,
         description=(
             "Read a short roster of current workflows, gate count and active deployment flows. "
-            "Use --section WORKFLOW-ID, --section 'Gate catalog', or "
+            "For example, use --section dash for workflow detail, "
+            "--section 'Gate catalog', "
             "--section Flows, or --section FLOW-NAME for full section detail; "
             "--full prints all detail including version history."
         ),

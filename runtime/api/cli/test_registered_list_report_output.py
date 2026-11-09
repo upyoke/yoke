@@ -211,7 +211,7 @@ def test_oversized_json_fixture_keeps_selected_result(capsys):
     assert json.loads(capsys.readouterr().out)["result"] == response.result
 
 
-def test_workflow_definition_scale_has_working_section_retry(
+def test_workflow_definition_scale_has_compact_roster_and_working_sections(
     read_universe, capsys, monkeypatch
 ):
     function = "workflows.definition.get"
@@ -252,10 +252,12 @@ def test_workflow_definition_scale_has_working_section_retry(
             code = adapter(args)
         rendered = capsys.readouterr()
         if not flags:
-            assert code == 1
-            assert not rendered.out
-            assert "read_output_limit_exceeded" in rendered.err
-            assert "--section output-1" in rendered.err
+            assert code == 0, rendered.err
+            assert not rendered.err
+            assert "## Workflows" in rendered.out
+            assert "output-1  " in rendered.out
+            assert "--project yoke --section output-1" in rendered.out
+            assert len(rendered.out.encode()) < REPLY_LIMIT_BYTES
         elif flags[0] == "--section":
             assert code == 0, rendered.err
             assert "## output-1\n" in rendered.out

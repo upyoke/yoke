@@ -36,6 +36,7 @@ def registry():
         ],
         "flows": [
             {
+                "id": n + 1,
                 "name": f"release-{n}",
                 "description": "flow-detail " * 12,
                 "status": "active" if n < 4 else "disabled",
@@ -84,6 +85,7 @@ def test_default_roster_lists_workflows_gate_count_and_only_active_flows(capsys)
     assert "4 active of 25" in captured.out
     assert "release-3  prod" in captured.out
     assert "release-4" not in captured.out
+    assert "1  prod" not in captured.out.splitlines()
     assert "21 disabled flows hidden" in captured.out
     assert "history-" not in captured.out
     assert "flow-detail" not in captured.out
