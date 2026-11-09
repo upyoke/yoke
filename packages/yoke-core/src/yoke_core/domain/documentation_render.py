@@ -9,7 +9,7 @@ import posixpath
 import tempfile
 from urllib.parse import quote
 
-from markdown_it import MarkdownIt
+from yoke_core.domain.documentation_markdown import parse_markdown
 from yoke_contracts.response_evidence import wrapped_lines
 
 from yoke_core.domain.documentation_navigation import (
@@ -33,7 +33,7 @@ def _remove_blocks(markdown: str) -> str:
     lines = markdown.splitlines(keepends=True)
     remove: set[int] = set()
     opened: dict[str, int] = {}
-    for token in MarkdownIt("commonmark").parse(markdown):
+    for token in parse_markdown(markdown):
         if token.type != "html_block" or token.map is None:
             continue
         for index in range(*token.map):
@@ -57,7 +57,7 @@ def render_page(tree: NavNode, node: NavNode, markdown: str) -> str:
             )
             + f" > {node.title}"
         )
-        tokens = MarkdownIt("commonmark").parse(markdown)
+        tokens = parse_markdown(markdown, mode="blocks")
         heading = next(
             (t for t in tokens if t.type == "heading_open" and t.tag == "h1"), None
         )

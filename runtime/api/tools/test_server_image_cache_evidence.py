@@ -124,6 +124,7 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
         (10, 10, "registry-min", 1),
         (10, 10, "product", 1),
         (10, 10, "builder", 1),
+        (10, 10, "runtime", 1),
     ],
 )
 def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_seconds(
@@ -163,20 +164,24 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
                 ).decode()
             }
         if "/contents/" in path:
-            workflow = b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-runtime-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1"
+            workflow = b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-analysis-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1"
             if legacy is True:
                 workflow = b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
             elif legacy in ("registry-max", "registry-min"):
-                workflow = workflow.replace(b"buildcache-runtime-", b"buildcache-")
+                workflow = workflow.replace(b"buildcache-analysis-", b"buildcache-")
                 if legacy == "registry-min":
                     workflow = workflow.replace(b"mode=max", b"mode=min")
+            elif legacy == "runtime":
+                workflow = workflow.replace(
+                    b"buildcache-analysis-", b"buildcache-runtime-"
+                )
             elif legacy == "builder":
                 workflow = workflow.replace(
-                    b"buildcache-runtime-", b"buildcache-builder-"
+                    b"buildcache-analysis-", b"buildcache-builder-"
                 )
             elif legacy == "product":
                 workflow = workflow.replace(
-                    b"buildcache-runtime-", b"buildcache-product-"
+                    b"buildcache-analysis-", b"buildcache-product-"
                 )
             return {"content": base64.b64encode(workflow).decode()}
         if "/compare/" in path:

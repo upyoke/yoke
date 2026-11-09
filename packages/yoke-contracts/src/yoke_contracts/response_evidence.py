@@ -17,8 +17,12 @@ _MEASUREMENT_CONSOLE = Console(width=80, color_system=None)
 
 def wrapped_lines(text: str) -> int:
     """Measure teaching text for the authored-file validation contract."""
+    # A printable ASCII line already within the width always occupies one row.
+    # Rich still owns folding, tabs, ANSI escapes and Unicode display widths.
     return sum(
-        max(
+        1
+        if len(line) <= 80 and line.isascii() and (not line or line.isprintable())
+        else max(
             1, len(Text.from_ansi(line).wrap(_MEASUREMENT_CONSOLE, 80, overflow="fold"))
         )
         for line in text.splitlines()

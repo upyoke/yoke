@@ -150,7 +150,7 @@ def _check() -> int:
         )
         workflow = base64.b64decode(source["content"]).decode()
         if (
-            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-runtime-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1"
+            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-analysis-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1"
             in workflow
         ):
             dockerfile = rest_get(
