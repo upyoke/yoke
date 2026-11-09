@@ -59,6 +59,7 @@ class SteeringClaimRow(BaseModel):
 
 class AcquireRequest(BaseModel):
     reason: Optional[str] = None
+    take_over: bool = False
     document: Optional[str] = Field(
         None,
         min_length=1,
@@ -143,6 +144,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=request.actor.session_id,
                 project_id=project_id,
                 reason=body.reason,
+                take_over=body.take_over,
                 document=body.document,
                 plan_document=body.plan_document,
                 actor_id=(
@@ -154,6 +156,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         except SessionError as exc:
             code = {
                 "ALREADY_CLAIMED": "already_claimed",
+                "REASON_REQUIRED": "reason_required",
                 "DOCUMENT_ALREADY_CLAIMED": "document_already_claimed",
                 "DOCUMENT_CONFLICT": "document_conflict",
                 "DOCUMENT_NOT_FOUND": "unknown_document",

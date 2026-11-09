@@ -21,7 +21,7 @@ from yoke_core.domain.sessions_lifecycle_claim_events import emit_steering_claim
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.steering_scope_coverage import scopes_overlap
 from yoke_core.domain.steering_seat_holder import holder_facts
-from yoke_core.domain.steering_seat_takeover import release_exited_seats
+from yoke_core.domain.steering_seat_takeover import release_overlapping_seats
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
@@ -54,10 +54,7 @@ def lock_project(conn: Any, project_id: int) -> None:
 
 
 def _overlapping_rows(conn: Any, scope: dict[str, Any]) -> list[Any]:
-    """Unreleased steering claims whose scope collides with ``scope``.
-
-    Exited holders are retired separately before normal acquisition.
-    """
+    """Unreleased steering claims whose scope collides with ``scope``."""
     rows = conn.execute(
         "SELECT * FROM work_claims "
         f"WHERE target_kind = {_p(conn)} AND released_at IS NULL "
@@ -75,19 +72,18 @@ def acquire(
     session_id: str,
     project_id: int,
     reason: Optional[str] = None,
+    take_over: bool = False,
     document: Optional[str] = None,
     plan_document: Optional[str] = None,
     actor_id: Optional[int] = None,
 ) -> dict[str, Any]:
     """Acquire one steering seat, and the document lock it steers with.
 
-    Coverage and authorship are two decisions, not one. ``document``
-    narrows the seat to that document's linked items AND locks it, so a
-    document seat steers exactly its own work. ``plan_document`` locks a
-    document without narrowing anything: the seat covers the whole
-    project and is still the only writer of the standing plan it reads.
-    Naming neither takes the project-wide seat and locks nothing.
+    ``document`` narrows coverage and locks that document. ``plan_document``
+    locks a document while covering the whole project. Neither locks nothing.
     """
+    if take_over and not (reason and reason.strip()):
+        raise SessionError("REASON_REQUIRED", "--take-over requires --reason TEXT; name why you need the seat.")
     if document is not None and plan_document is not None and document != plan_document:
         raise SessionError(
             "DOCUMENT_CONFLICT",
@@ -116,10 +112,31 @@ def acquire(
             session_id=session_id,
             project_id=project_id,
             reason=reason,
+            take_over=take_over,
             document=document,
             plan_document=plan_document,
             actor_id=actor_id,
         )
+    if release_overlapping_seats(
+        conn,
+        rows,
+        session_id=session_id,
+        target=target,
+        actor_id=actor_id,
+        take_over=take_over,
+        reason=reason,
+    ):
+        return acquire(
+            conn,
+            session_id=session_id,
+            project_id=project_id,
+            reason=reason,
+            take_over=take_over,
+            document=document,
+            plan_document=plan_document,
+            actor_id=actor_id,
+        )
+
     for row in rows:
         payload = _claim_payload(row)
         if payload["session_id"] == session_id:
@@ -145,22 +162,6 @@ def acquire(
             conn.commit()
             _emit_drain(session_id, payload, target, handoff)
             return payload
-    if release_exited_seats(
-        conn,
-        rows,
-        session_id=session_id,
-        target=target,
-        actor_id=actor_id,
-    ):
-        return acquire(
-            conn,
-            session_id=session_id,
-            project_id=project_id,
-            reason=reason,
-            document=document,
-            plan_document=plan_document,
-            actor_id=actor_id,
-        )
 
     now = utc_now()
     clock = instant_parameter(conn, now)
