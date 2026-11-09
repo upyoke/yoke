@@ -27,7 +27,7 @@ def answer_text(request):
 
 def _recipient(conn, request):
     from yoke_core.domain.decision_requests import _p
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     p = _p(conn)
     row = conn.execute(

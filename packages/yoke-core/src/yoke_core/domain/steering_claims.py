@@ -22,7 +22,7 @@ from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.steering_scope_coverage import scopes_overlap
 from yoke_core.domain.steering_seat_holder import holder_facts
 from yoke_core.domain.steering_seat_takeover import release_overlapping_seats
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     decode_scope,

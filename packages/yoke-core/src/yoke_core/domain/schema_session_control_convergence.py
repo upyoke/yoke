@@ -6,7 +6,7 @@ from typing import Any
 
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
 from yoke_contracts.session_control.sender_surface import SENDER_SURFACES
-from yoke_core.domain.actor_message_recipient_schema import (
+from yoke_core.domain.schema_actor_message_recipients import (
     converge_role_addressed_recipients,
 )
 from yoke_core.domain.schema_common import _column_exists

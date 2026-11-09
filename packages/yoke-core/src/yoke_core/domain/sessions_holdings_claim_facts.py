@@ -27,7 +27,7 @@ from yoke_core.domain.turn_end_unfinished_work import (
     landing_notice_pending,
     waiting_on_landing,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def param_marker(conn: Any) -> str:

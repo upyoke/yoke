@@ -36,7 +36,7 @@ from yoke_core.domain.qa_settlement_followups import (
     QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL,
 )
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
-from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
+from yoke_core.domain.schema_epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,

@@ -144,7 +144,7 @@ def claim_heartbeat_is_stale(
 ) -> bool:
     """True when the matching work claim's heartbeat is past the stale TTL."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     try:
         if claim.task_num is None:

@@ -9,7 +9,7 @@ from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
 from yoke_core.domain.inbox_post_schema import create_inbox_post_table
-from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.schema_events import ensure_event_schema
 
 
 @contextmanager

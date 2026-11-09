@@ -27,7 +27,7 @@ from yoke_core.domain.session_launch_types import (
 )
 from yoke_core.domain.session_recovery_facts import resume_episode_key
 from yoke_core.domain.session_scope_identity import session_scope_of
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def capacity_catalog(conn: Any, *, now: Any):

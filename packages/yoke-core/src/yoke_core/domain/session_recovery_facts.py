@@ -19,25 +19,14 @@ from typing import Any, Mapping, Optional
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.schema_harness_session_constants import (
+    SESSION_RECOVERY_COLUMNS,
+    PROMISED_WORK_HOLDS_TABLE,
+)
+
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
-
-#: Additive ``harness_sessions`` columns, in the order the schema applies
-#: them. Both the fresh-install DDL and the converge step read this list,
-#: so a new fact is declared once.
-SESSION_RECOVERY_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("first_user_prompt_at", "TIMESTAMPTZ DEFAULT NULL"),
-    ("first_completed_work_at", "TIMESTAMPTZ DEFAULT NULL"),
-    ("last_completed_work_at", "TIMESTAMPTZ DEFAULT NULL"),
-    ("native_turn_end_recorded_at", "TIMESTAMPTZ DEFAULT NULL"),
-    ("native_turn_end_observation", "TEXT DEFAULT NULL"),
-    ("vendor_resume_episode_key", "TEXT DEFAULT NULL"),
-    ("vendor_resume_attempts", "INTEGER NOT NULL DEFAULT 0"),
-)
-
-#: The compact session-and-item hold ledger the Stop gate reads.
-PROMISED_WORK_HOLDS_TABLE = "session_promised_work_holds"
 
 #: Bounded size for the stored provider message and error body. The
 #: observation exists to classify a failure and explain it to a person,

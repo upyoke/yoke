@@ -2,7 +2,7 @@
 
 Canonical source reference for event emission, indexed correlation,
 attribution and transaction ownership. The generated [catalog](event-catalog.md)
-owns registered names; [schema source](../packages/yoke-core/src/yoke_core/domain/events_schema.py)
+owns registered names; [schema source](../packages/yoke-core/src/yoke_core/domain/schema_events.py)
 owns physical columns. Events are telemetry, never product state authority.
 
 ## 1. Event Envelope Structure
@@ -122,7 +122,7 @@ to 512. If serialized detail exceeds 4096 UTF-8 bytes, it shrinks those fields
 to 1024/1024/256 respectively. Above 65536 envelope bytes it replaces detail
 with the tool name and `truncated: true`, and adds `_truncated: true`.
 These are character cuts inside byte-size triggers; never report them as token
-limits or promise that full tool output was retained. `events_schema` enforces
+limits or promise that full tool output was retained. `schema_events` enforces
 backend-specific valid JSON for non-null envelopes.
 
 Observer insertion projects activity into session state independently of
@@ -216,7 +216,7 @@ All event names MUST be registered in the `event_registry` table before first em
 
 ### Registry metadata and catalog
 
-`events_schema` owns `event_registry`: event name, kind, type, owner service,
+`schema_events` owns `event_registry`: event name, kind, type, owner service,
 description, optional context schema, default severity, added-in metadata and
 active/deprecated status. It has no timestamp columns; lifecycle observations
 belong in the ledger. Consult the generated [full catalog](event-catalog.md)

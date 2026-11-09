@@ -19,7 +19,7 @@ from yoke_core.domain.release_intent_classification import (
     NON_TERMINAL_RELEASE_INTENTS,
 )
 from yoke_core.domain.runtime_settings import get_seconds
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 

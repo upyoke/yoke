@@ -8,7 +8,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def rollback_workflow_binding_write_errors(function: Any) -> Any:

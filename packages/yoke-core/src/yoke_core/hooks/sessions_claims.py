@@ -21,8 +21,8 @@ from yoke_core.domain.sessions_render_attribution import (
 from yoke_core.domain.work_claim_targets import (
     WorkClaimTarget,
     from_row as target_from_row,
-    scope_int_sql,
 )
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.session_current_identity import current_session_id
 
 from yoke_core.hooks.sessions_claims_acquire import (  # noqa: F401

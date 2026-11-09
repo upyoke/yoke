@@ -152,7 +152,7 @@ def _item_coordination_blockers(
     touch_paths: tuple[str, ...],
     integration_target: str,
 ) -> list[ConflictMatch]:
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     marker = _p(conn)
     worktree_select = (

@@ -27,7 +27,7 @@ from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 #: Probe recipient states that mean the question is still outstanding. An

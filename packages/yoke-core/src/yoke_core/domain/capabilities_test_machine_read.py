@@ -14,10 +14,7 @@ from yoke_core.domain.machine_qa_capability import host_claim_target
 from yoke_core.domain.machine_qa_host_registrar import host_registrations
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.qa_method_capabilities import capability_kinds
-from yoke_core.domain.work_claim_target_sql import (
-    scope_int_sql,
-    scope_text_sql,
-)
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql, scope_text_sql
 from yoke_core.domain.work_claim_targets import TARGET_KIND_QA_ADMISSION
 
 

@@ -50,7 +50,7 @@ def recent_claim_denial_holder(
         )
         if not attempted:
             return None
-        from yoke_core.domain.work_claim_targets import scope_int_sql
+        from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
         item_scope = scope_int_sql(conn, "scope", "item_id")
         holder_row = conn.execute(

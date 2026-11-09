@@ -18,7 +18,7 @@ from yoke_core.domain.function_target_row_project import (
     slug_for_project_id,
 )
 from yoke_contracts.coordination_claim_keys import QA_HOST_KEY_PREFIX
-from yoke_core.domain.work_claim_target_sql import scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_QA_ADMISSION,
     from_row as work_claim_target_from_row,

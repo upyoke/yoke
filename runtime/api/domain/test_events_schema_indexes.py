@@ -1,4 +1,4 @@
-"""Fresh-schema index coverage tests for ``events_schema``.
+"""Fresh-schema index coverage tests for ``schema_events``.
 
 Locks in the structural contract session-scoped telemetry lookups
 depend on: ``cmd_init`` MUST create ``idx_events_session_event_tool``
@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from yoke_core.domain.events_schema import (
+from yoke_core.domain.schema_events import (
     CLIENT_TIMING_INDEX_NAME,
     STOP_CLEANUP_INDEX_NAME,
     ensure_event_schema,

@@ -10,7 +10,7 @@ import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.runtime_settings import get_int
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.workflow_status_queries import release_items_clause
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 

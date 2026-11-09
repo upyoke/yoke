@@ -24,7 +24,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import PathClaimError, get_claim
 from yoke_core.domain.path_claims_register import activate_with_events
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 

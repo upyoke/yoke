@@ -19,7 +19,7 @@ from typing import Any, Mapping, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_message_receipt_expiry import steering_open_sql
-from yoke_core.domain.actor_message_recipient_schema import (
+from yoke_core.domain.schema_actor_message_recipients import (
     TABLE as RECIPIENT_TABLE,
 )
 from yoke_core.domain.steering_scope_coverage import PROJECT_KEY

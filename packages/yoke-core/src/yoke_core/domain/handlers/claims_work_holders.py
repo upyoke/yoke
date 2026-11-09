@@ -180,7 +180,7 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     from yoke_core.domain import db_backend, db_helpers
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     with db_helpers.connect() as conn:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"

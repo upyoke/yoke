@@ -5,7 +5,7 @@ Split from ``runtime.api.sessions_test_support`` (350-line authored cap). Both
 definition.
 """
 
-from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.schema_work_claim_targets import TARGET_KIND_CHECK_SQL
 from yoke_core.domain.session_native_process_observation import (
     NATIVE_PROCESS_GONE_AT_COLUMN,
     NATIVE_PROCESS_GONE_EVIDENCE_COLUMN,

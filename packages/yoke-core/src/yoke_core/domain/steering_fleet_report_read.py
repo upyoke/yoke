@@ -23,10 +23,12 @@ from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
 from yoke_core.domain.steering_fleet_report_render import scope_inner_body
 from yoke_core.domain.steering_fleet_report_levels import level_readout_lines
 from yoke_core.domain.steering_fleet_report_slow_paths import slow_path_lines
+from yoke_core.domain.schema_harness_session_constants import (
+    READ_FINGERPRINTS_COLUMN,
+    READ_FINGERPRINTS_DDL,
+)
 
 
-READ_FINGERPRINTS_COLUMN = "steering_report_read_fingerprints"
-READ_FINGERPRINTS_DDL = "TEXT DEFAULT NULL"
 _SHARED_FACTS = (
     "launchable",
     "session_counts",

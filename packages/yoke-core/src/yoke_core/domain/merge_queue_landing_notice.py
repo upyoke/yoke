@@ -20,7 +20,7 @@ from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import SessionMessageError
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 #: Reached the session holding the item's work claim.

@@ -9,15 +9,13 @@ from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns
-
-
-TURN_POSTURES = frozenset({"running", "waiting", "unknown"})
-TURN_POSTURE_COLUMN_DDL = (
-    "TEXT NOT NULL DEFAULT 'unknown' "
-    "CHECK(turn_posture IN ('running','waiting','unknown'))"
+from yoke_core.domain.schema_harness_session_constants import (
+    TURN_POSTURES,
+    TURN_POSTURE_COLUMN_DDL,
+    TURN_POSTURE_AT_COLUMN_DDL,
+    TURN_POSTURE_INSTANT_COLUMN_DDL,
 )
-TURN_POSTURE_AT_COLUMN_DDL = "TEXT DEFAULT NULL"
-TURN_POSTURE_INSTANT_COLUMN_DDL = "TIMESTAMPTZ DEFAULT NULL"
+
 
 _WAITING_HOOK_EVENTS = frozenset({"Stop", "SessionEnd"})
 _RUNNING_HOOK_EVENTS = frozenset({"UserPromptSubmit"})

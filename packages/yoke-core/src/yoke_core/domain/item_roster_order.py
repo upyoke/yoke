@@ -9,7 +9,7 @@ from typing import Any
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 SORT_COLUMNS = (
     "id",

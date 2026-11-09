@@ -8,7 +8,7 @@ from typing import Iterator
 
 from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import parse_instant
-from yoke_core.domain.events_schema import _create_events_table
+from yoke_core.domain.schema_events import _create_events_table
 from yoke_core.domain.schema_init_tables import create_path_registry_tables
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout

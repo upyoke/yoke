@@ -48,7 +48,7 @@ from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     item_qa_accepted_idempotency_key,
 )
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 NO_OBLIGATION_ITEM = 9821

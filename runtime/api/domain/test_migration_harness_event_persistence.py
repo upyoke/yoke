@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.schema_events import ensure_event_schema
 from yoke_core.domain.migration_harness_contract import AuditEmissionError
 from yoke_core.domain.migration_harness_events import _emit_event
 

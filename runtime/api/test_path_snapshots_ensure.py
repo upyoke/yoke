@@ -50,7 +50,7 @@ def _make_apply_schema(repo_path: Path, project_id: str = "demo"):
 
     def _apply() -> None:
         from yoke_core.domain import db_backend
-        from yoke_core.domain.events_schema import _create_events_table
+        from yoke_core.domain.schema_events import _create_events_table
 
         conn = db_backend.connect()
         try:

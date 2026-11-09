@@ -19,7 +19,7 @@ from yoke_core.domain.strategy_execution import (
     acquire_strategy_doc_claim,
     active_strategy_doc_claim,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.workflow_behavior import worktree_lane_policy
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 

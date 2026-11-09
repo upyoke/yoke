@@ -65,7 +65,7 @@ def _claimed_items(conn: Any, session_ids: Sequence[str]) -> dict[str, int]:
     """The item each of these sessions holds a work claim on, if any."""
     if not session_ids:
         return {}
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     item_id = scope_int_sql(conn, "c.scope", "item_id")
     slots = ",".join(marker(conn) for _ in session_ids)

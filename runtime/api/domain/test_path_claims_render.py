@@ -29,7 +29,7 @@ def _apply_core_only_schema() -> None:
     raises.
     """
     from yoke_core.domain import db_backend
-    from yoke_core.domain.events_schema import _create_events_table
+    from yoke_core.domain.schema_events import _create_events_table
     from yoke_core.domain.schema_init_tables import create_core_tables
 
     c = db_backend.connect()

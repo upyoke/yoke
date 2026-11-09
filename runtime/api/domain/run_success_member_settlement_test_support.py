@@ -39,7 +39,7 @@ from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 
 from yoke_core.domain.project_identity import render_item_ref
 
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 FIRST_ITEM = 9841
 

@@ -12,7 +12,7 @@ import json
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.events_schema import _create_events_table
+from yoke_core.domain.schema_events import _create_events_table
 from yoke_core.domain.scheduler_events import emit_scheduler_offer_skipped
 from yoke_core.domain.scheduler_skip_reasons import (
     SKIP_REASON_PATH_CLAIM_BLOCKED,

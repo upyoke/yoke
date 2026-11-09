@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.work_claim_targets import scope_int_sql, scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql, scope_text_sql
 
 ACTIVE_ITEM_INDEX_NAME = "idx_work_claims_active_item"
 ACTIVE_EPIC_TASK_INDEX_NAME = "idx_work_claims_active_epic_task"

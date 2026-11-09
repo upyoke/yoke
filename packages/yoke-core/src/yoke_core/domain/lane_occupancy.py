@@ -29,7 +29,7 @@ from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.lint_session_cwd_path_authority import is_inside
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 @dataclass(frozen=True)

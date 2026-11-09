@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 from pathlib import Path
 
-from yoke_core.domain.events_schema import _create_events_table
+from yoke_core.domain.schema_events import _create_events_table
 from yoke_core.domain.schema_init_tables import (
     create_core_tables,
     create_governed_tables,

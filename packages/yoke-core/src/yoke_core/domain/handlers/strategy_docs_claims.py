@@ -23,7 +23,7 @@ from yoke_core.domain.work_processes import (
     PROCESS_STRATEGIZE,
     conflict_group_for,
 )
-from yoke_core.domain.work_claim_targets import scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 
 CLAIM_ACQUIRE_RECIPE = 'yoke claims work acquire --process STRATEGIZE --reason "<why>"'
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.actor_message_recipient_schema import (
+from yoke_core.domain.schema_actor_message_recipients import (
     RECIPIENT_KIND_STATE_CONSTRAINT,
     RECIPIENT_KIND_STATE_PREDICATE,
 )
@@ -15,7 +15,7 @@ from yoke_core.domain.session_message_recipient_schema import (
     create_session_message_recipient_table,
 )
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
-from yoke_core.domain.session_control_schema_convergence import (
+from yoke_core.domain.schema_session_control_convergence import (
     SENDER_SURFACE_VALUES_SQL,
     converge_session_control_schema,
 )

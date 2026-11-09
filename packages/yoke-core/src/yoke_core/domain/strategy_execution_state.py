@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_contracts.public_ref import ITEM_NOT_FOUND

@@ -45,7 +45,7 @@ def apply_canonical_schema(conn) -> None:
     from yoke_core.domain.schema_common import _column_exists
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
     from yoke_core.domain.auth_schema import create_auth_tables
-    from yoke_core.domain.events_schema import ensure_event_schema
+    from yoke_core.domain.schema_events import ensure_event_schema
     from yoke_core.domain.external_identity_schema import (
         create_external_identity_tables,
     )

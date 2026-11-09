@@ -16,7 +16,7 @@ from yoke_core.domain.session_launch_types import (
     DEFAULT_LAUNCH_DEADLINE_SECONDS, LaunchRecord, SessionLaunchError,
 )
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def taken_over(launch: LaunchRecord, takeover: str) -> None:

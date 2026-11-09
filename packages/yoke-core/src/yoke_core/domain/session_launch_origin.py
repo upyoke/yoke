@@ -15,7 +15,7 @@ from yoke_contracts.session_control.launch_origin import (
     LAUNCH_ORIGIN_STEERING,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import TARGET_KIND_STEERING
 
 

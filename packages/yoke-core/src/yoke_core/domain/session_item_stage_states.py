@@ -25,7 +25,7 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     workflow_runtime_from_row,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:

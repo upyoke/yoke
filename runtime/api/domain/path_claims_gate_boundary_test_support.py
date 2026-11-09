@@ -75,7 +75,7 @@ def _apply_boundary_schema(project_repo):
     def _apply() -> None:
         from yoke_core.domain import db_backend
         from yoke_core.domain.actors import seed_canonical_human
-        from yoke_core.domain.events_schema import _create_events_table
+        from yoke_core.domain.schema_events import _create_events_table
         from yoke_core.domain.gate_satisfaction_schema import (
             create_gate_satisfaction_tables,
         )

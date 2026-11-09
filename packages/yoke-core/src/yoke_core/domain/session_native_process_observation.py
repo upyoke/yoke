@@ -53,12 +53,14 @@ from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
+from yoke_core.domain.schema_harness_session_constants import (
+    NATIVE_PROCESS_GONE_AT_COLUMN,
+    NATIVE_PROCESS_GONE_EVIDENCE_COLUMN,
+    NATIVE_PROCESS_EVIDENCE_COLUMN_DDL,
+    NATIVE_PROCESS_INSTANT_COLUMN_DDL,
+)
 
 
-NATIVE_PROCESS_GONE_AT_COLUMN = "native_process_gone_at"
-NATIVE_PROCESS_GONE_EVIDENCE_COLUMN = "native_process_gone_evidence"
-NATIVE_PROCESS_EVIDENCE_COLUMN_DDL = "TEXT DEFAULT NULL"
-NATIVE_PROCESS_INSTANT_COLUMN_DDL = "TIMESTAMPTZ DEFAULT NULL"
 NATIVE_PROCESS_GONE_STATE = "gone"
 #: What the reporting machine read from the native's own result.  Only a
 #: measured zero says the command finished; an exit nobody captured says

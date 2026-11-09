@@ -34,7 +34,7 @@ from yoke_core.domain.deployment_qa_manual_notice import (
     withdraw_obsolete_manual_notices,
 )
 from yoke_core.domain.session_staleness import activity_liveness
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 #: What the owner column says when no live session holds the item.
 NO_OWNER = "no live claim holder; staff the item before waking it"

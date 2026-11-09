@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.schema_events import ensure_event_schema
 from yoke_core.domain.path_registry import KIND_FILE
 from yoke_core.domain.schema_common import (
     _get_check_constraint_defs,

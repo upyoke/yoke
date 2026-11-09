@@ -8,7 +8,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:

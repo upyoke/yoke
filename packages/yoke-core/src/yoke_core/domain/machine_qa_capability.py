@@ -48,7 +48,7 @@ from yoke_core.domain.project_identity import (
     unresolved_item_ref,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
