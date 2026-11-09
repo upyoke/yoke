@@ -54,6 +54,11 @@ Activation, integration and closure edges have directional meaning: the dependen
 - `activation` -- do not start or staff yet (checked before advancing to `implementing`)
 - `integration` -- work, test and open the pull request now; merge only after the condition clears
 - `closure` -- work and merge now; close only after the condition clears
+
+Release creation, batch compatibility and carried-item enrollment ignore closure
+edges. They still enforce activation and integration edges. Member close-out
+checks closure before writing `done`, so a release may wait at settling for a
+closure blocker instead of refusing creation.
 - `coordination_only` -- attested independent overlap; no lifecycle wait
 
 **Satisfaction condition** (`satisfaction`) -- *what* must be true about the blocker:

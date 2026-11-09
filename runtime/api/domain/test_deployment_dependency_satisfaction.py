@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
-from runtime.api.deployment_runs_full_helpers_test_support import (db_path as db_path)
-from runtime.api.domain.dependency_deployed_satisfaction_test_support import (dependency_conn as dependency_conn)
+from runtime.api.deployment_runs_full_helpers_test_support import db_path as db_path
+from runtime.api.domain.dependency_deployed_satisfaction_test_support import (
+    dependency_conn as dependency_conn,
+)
 
 import json
 from typing import Any
@@ -94,6 +96,31 @@ def test_composition_reports_missing_environment_delivery(db_path: str) -> None:
     ok, message = dr.cmd_validate_composition(run_id, db_path=db_path)
     assert ok is False
     assert "merged, not yet deployed to prod" in message
+
+
+def test_closure_wait_does_not_block_release_validation_or_batch(db_path: str) -> None:
+    from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
+    from yoke_core.domain.deployment_runs_batch_compatibility import (
+        cmd_check_batch_compatibility,
+    )
+
+    run_id = _seed_validation(db_path, with_delivery_fact=False)
+    conn = _conn(db_path)
+    conn.execute(
+        "UPDATE item_dependencies SET gate_point='closure',satisfaction='status:done' "
+        "WHERE dependent_item_id=100"
+    )
+    conn.commit()
+    # Manual-block and path-claim callers retain closure waits by default.
+    assert [(d, b) for d, b, _ in unsatisfied_dependency_pairs(conn, [100])] == [
+        (100, 200)
+    ]
+    conn.close()
+
+    assert dr.cmd_validate_composition(run_id, db_path=db_path) == (True, "OK")
+    assert cmd_check_batch_compatibility(
+        "yoke", "yoke-internal", [100], db_path=db_path
+    ) == (True, "OK")
 
 
 def test_cross_project_progress_member_does_not_clear_completion_dependency(

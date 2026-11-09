@@ -75,6 +75,7 @@ def cmd_check_batch_compatibility(
             conn,
             item_ids,
             co_scheduled_blocker_ids=item_ids,
+            skip_closure=True,
         )
         if blocked:
             ref = render_item_ref_lookup(

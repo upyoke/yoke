@@ -16,7 +16,7 @@ from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 BLOCKER = LANDED_ITEM_ID + 1
 
 
-def _dependency(conn, *, gate="closure", satisfaction="status:done", status="idea"):
+def _dependency(conn, *, gate="integration", satisfaction="status:done", status="idea"):
     insert_item(
         conn,
         id=BLOCKER,
@@ -34,7 +34,7 @@ def _dependency(conn, *, gate="closure", satisfaction="status:done", status="ide
     conn.commit()
 
 
-@pytest.mark.parametrize("gate", ["activation", "integration", "closure"])
+@pytest.mark.parametrize("gate", ["activation", "integration"])
 def test_open_blocking_edge_skips_member_and_freezes_with_reason(
     test_db, tmp_path, monkeypatch, gate
 ):
@@ -54,6 +54,7 @@ def test_open_blocking_edge_skips_member_and_freezes_with_reason(
     "gate,satisfaction,status",
     [
         ("coordination_only", "status:done", "idea"),
+        ("closure", "status:done", "release"),
         ("closure", "status:release", "release"),
         ("closure", "status:done", "done"),
     ],

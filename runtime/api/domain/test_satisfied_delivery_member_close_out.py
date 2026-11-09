@@ -33,6 +33,7 @@ from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
+from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_delivery_close_out_notice import (
     delivery_cleared_idempotency_key,
     notify_delivery_cleared,
@@ -42,6 +43,38 @@ from yoke_core.domain.no_obligation_member_close_out import satisfied_delivery_m
 
 
 SATISFIED_QA_ITEM = 9827
+
+
+def test_satisfied_member_qa_still_refuses_an_unsatisfied_closure_dependency(
+    test_db: Any, monkeypatch
+) -> None:
+    _isolate_status_effects(monkeypatch)
+    _project(test_db)
+    _ready_member(test_db, SATISFIED_QA_ITEM, HOLDER_A)
+    blocker = SATISFIED_QA_ITEM + 1
+    insert_item(test_db, id=blocker, project_sequence=blocker, status="release")
+    test_db.execute(
+        "INSERT INTO item_dependencies(dependent_item_id,blocking_item_id,"
+        "gate_point,satisfaction,source,created_at) "
+        "VALUES(%s,%s,'closure','status:done','operator','2026-10-01T00:00:00Z')",
+        (SATISFIED_QA_ITEM, blocker),
+    )
+    run_id = "run-closure-refusal"
+    _run(test_db, run_id, flow=COMPLETION_FLOW, members=(SATISFIED_QA_ITEM,))
+    _settled_member_requirement(
+        test_db, item_id=SATISFIED_QA_ITEM, run_id=run_id, resolution="pass"
+    )
+
+    [report] = notify_delivery_cleared(test_db, run_id=run_id)
+
+    assert report["delivery"].startswith("failed:")
+    assert "closure dependency(ies) remain unsatisfied" in report["delivery"]
+    assert (
+        test_db.execute(
+            "SELECT status FROM items WHERE id=%s", (SATISFIED_QA_ITEM,)
+        ).fetchone()["status"]
+        == "release"
+    )
 
 
 def test_waived_item_check_does_not_hold_collective_finalization(

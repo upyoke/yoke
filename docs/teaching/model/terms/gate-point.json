@@ -1,7 +1,7 @@
 {
  "id": "gate-point",
  "term": "Gate point",
- "definition": "The point where a dependency is enforced: activation before starting, integration before merging, or closure before finishing.",
+ "definition": "The point where a dependency is enforced: activation before starting, integration before merging, or closure before finishing. Closure edges permit release creation and enrollment; member close-out still waits before done, which can hold a release at settling.",
  "status": "draft",
  "sources": ["docs/public/items/model/dependencies.md"]
 }
