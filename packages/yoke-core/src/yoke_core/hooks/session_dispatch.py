@@ -119,7 +119,8 @@ def _codex_model_facts(payload: Any, thread_id: str) -> SessionModelFacts:
     The rollout is keyed by the thread this dispatch already resolved, so
     it is handed over rather than re-derived from the raw payload.
     """
-    from yoke_harness.hooks.identity_relay import resolve_model_facts
+    from yoke_contracts.runtime_ports.identity_relay import get_identity_relay
+    resolve_model_facts = get_identity_relay().resolve_model_facts
 
     block = dict(payload) if isinstance(payload, dict) else {}
     block["thread_id"] = thread_id
@@ -167,10 +168,9 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
 
 def _run_claude_session_start(record: HookContext) -> None:
     from yoke_core.hooks.registration import _register_from_hook
-    from yoke_harness.hooks.session_lifecycle import (
-        env_file_session_id,
-        persist_session_env,
-    )
+    from yoke_contracts.runtime_ports.hook_session_lifecycle import get_hook_session_lifecycle
+    env_file_session_id = get_hook_session_lifecycle().env_file_session_id
+    persist_session_env = get_hook_session_lifecycle().persist_session_env
 
     session_id = env_file_session_id(record.payload)
     if not session_id:
@@ -234,9 +234,8 @@ def evaluate(context: HookContext) -> HookDecision:
                 else ""
             )
         if context.event_name == "SessionStart":
-            from yoke_harness.hooks.session_lifecycle import (
-                sync_session_main_checkout,
-            )
+            from yoke_contracts.runtime_ports.hook_session_lifecycle import get_hook_session_lifecycle
+            sync_session_main_checkout = get_hook_session_lifecycle().sync_session_main_checkout
 
             sync_session_main_checkout(root)
             if context.executor_family == "codex":

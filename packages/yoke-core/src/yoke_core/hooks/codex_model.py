@@ -40,9 +40,8 @@ def resolve_from_transcript(thread_id: str) -> Optional[str]:
     transcript that can reach gigabytes. Resolving it twice, in two
     packages, is how one of the two copies keeps its unbounded read.
     """
-    from yoke_harness.hooks.identity_codex_runtime import (
-        _codex_model_from_transcript,
-    )
+    from yoke_contracts.runtime_ports.identity_codex_runtime import get_identity_codex_runtime
+    _codex_model_from_transcript = get_identity_codex_runtime()._codex_model_from_transcript
 
     return _codex_model_from_transcript(thread_id)
 
@@ -78,9 +77,8 @@ def resolve_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
     resolver stops at the metadata row, remembers the answer for the
     thread, and bounds what it reads on the way there.
     """
-    from yoke_harness.hooks.identity_codex_runtime import (
-        _codex_entrypoint_from_transcript,
-    )
+    from yoke_contracts.runtime_ports.identity_codex_runtime import get_identity_codex_runtime
+    _codex_entrypoint_from_transcript = get_identity_codex_runtime()._codex_entrypoint_from_transcript
 
     return _codex_entrypoint_from_transcript(thread_id)
 

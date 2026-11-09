@@ -8,8 +8,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import credentialed_git
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
 from yoke_core.domain import runtime_settings
+
+credentialed_git = get_credentialed_git()
 
 _GIT_TIMEOUT_ENV = "YOKE_GIT_COMMAND_TIMEOUT_SECONDS"
 _DEFAULT_GIT_COMMAND_TIMEOUT_SECONDS = 120

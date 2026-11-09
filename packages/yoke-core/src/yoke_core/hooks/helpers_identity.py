@@ -194,7 +194,8 @@ def detect_native_thread_id(
     payload_json: str = "",
 ) -> Optional[str]:
     """Return this harness's native thread, session, or conversation id."""
-    from yoke_harness.hooks.identity_relay import client_native_thread_id
+    from yoke_contracts.runtime_ports.identity_relay import get_identity_relay
+    client_native_thread_id = get_identity_relay().client_native_thread_id
 
     try:
         payload = json.loads(payload_json) if payload_json else {}

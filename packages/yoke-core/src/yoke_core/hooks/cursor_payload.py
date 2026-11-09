@@ -38,7 +38,7 @@ import os
 import sys
 from typing import Any, Dict
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts import cursor_session_map
 from yoke_contracts.cursor_remount_expect import REMOUNT_REFUSAL_PAYLOAD_FIELD
 from yoke_contracts.cursor_tool_names import payload_tool_name

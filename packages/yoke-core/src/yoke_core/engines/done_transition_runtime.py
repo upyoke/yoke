@@ -185,7 +185,8 @@ def _run_git(
     its finalization publishes, so this shares the one credentialed runner
     rather than trusting the shell the transition happens to run in.
     """
-    from yoke_cli.config import credentialed_git
+    from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
+    credentialed_git = get_credentialed_git()
 
     return credentialed_git.run(
         args,
