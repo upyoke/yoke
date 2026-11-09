@@ -23,12 +23,12 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
 from yoke_contracts.hook_runner.shell_expansion_scan import Heredoc, scan
 from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_word import shell_words
 
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ENV_OPTIONS_WITH_ARG = frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"})
@@ -108,7 +108,7 @@ def parse_shell(command: str) -> ShellParse:
     for pipeline, stages in enumerate(groups):
         for stage, statement in enumerate(stages):
             try:
-                tokens = shlex.split(statement.replace("\\\n", " "))
+                tokens = shell_words(statement.replace("\\\n", " "))
             except ValueError:
                 unparsed.append(statement)
                 continue
