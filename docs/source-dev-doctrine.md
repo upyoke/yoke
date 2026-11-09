@@ -153,10 +153,15 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
 - Create the render-proof connection for local UI review: check
   `yoke dev setup <checkout> --admin-env render-proof --with-test-postgres --dry-run`,
   then rerun with `--yes` in place of `--dry-run`.
-- Serve a lane's UI: `yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`.
-  Commit first; a dirty tree fails the served-commit match. With `env YOKE_ENV=render-proof`,
-  add `--prepare-only` to prepare a render universe. Self-hosted sign-in review uses
-  `serve_self_host_workbench_for_review` the same way.
+- Serve a lane's UI using the render-proof connection:
+  `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_workbench_for_review`.
+  Commit first; a dirty tree fails the served-commit match. To prepare a render universe:
+  `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_workbench_for_review --prepare-only`.
+  Put `env YOKE_ENV=render-proof` after `yoke dev run --` so lane discovery uses the control plane.
+  For self-hosted sign-in review:
+  `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_self_host_workbench_for_review`.
+  To prepare its render universe:
+  `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_self_host_workbench_for_review --prepare-only`.
 - Teaching model: read `docs/teaching/README.md` before changing what Yoke teaches; it owns
   the build and `--check` recipes and `yoke dev yokepedia`.
 - Worktree cleanup: [worktree cleanup](source-dev-worktree-cleanup.md).
