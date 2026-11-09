@@ -5,20 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.schema_common import _add_column_if_not_exists
-from yoke_core.domain.session_turn_posture import (
-    TURN_POSTURE_INSTANT_COLUMN_DDL,
-    TURN_POSTURE_COLUMN_DDL,
-)
-from yoke_core.domain.session_native_process_observation import (
+from yoke_core.domain.schema_harness_session_constants import (
+    NATIVE_PROCESS_EVIDENCE_COLUMN_DDL,
     NATIVE_PROCESS_GONE_AT_COLUMN,
     NATIVE_PROCESS_GONE_EVIDENCE_COLUMN,
-    NATIVE_PROCESS_EVIDENCE_COLUMN_DDL,
     NATIVE_PROCESS_INSTANT_COLUMN_DDL,
-)
-from yoke_core.domain.session_recovery_facts import SESSION_RECOVERY_COLUMNS
-from yoke_core.domain.steering_fleet_report_read import (
     READ_FINGERPRINTS_COLUMN,
     READ_FINGERPRINTS_DDL,
+    SESSION_RECOVERY_COLUMNS,
+    TURN_POSTURE_COLUMN_DDL,
+    TURN_POSTURE_INSTANT_COLUMN_DDL,
 )
 
 

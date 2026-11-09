@@ -76,7 +76,7 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/schema_init_path_tables.py::create_path_registry_tables",
         "domain/session_control_schema.py::create_session_control_tables",
         "domain/auth_schema.py::create_auth_tables",
-        "domain/events_schema.py::_create_events_table",
+        "domain/schema_events.py::_create_events_table",
         "domain/pack_projection.py::converge_pack_catalog",
         "domain/flow_init.py::converge_flow_catalog",
         "domain/flow_init.py::_ensure_flow_schema",

@@ -38,7 +38,7 @@ from yoke_core.domain.steering_fleet_report_limits import (
     load_plan_limits,
 )
 from yoke_core.domain.steering_fleet_report_render_text import SECTION_LIMIT, capped
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 KIND_METER_EXHAUSTED = "meter_exhausted"

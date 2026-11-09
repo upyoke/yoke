@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from . import db_backend
 from .scheduler_types import ClaimState
 from .yok_n_parser import parse_item_id_or_none
-from .work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _evaluate_claim_states(

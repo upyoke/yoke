@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Optional
 from . import db_backend
 from .harness_capability_registry import downstream_paths_for_manifest
 from .sessions_queries_base import _row_to_dict, normalize_claim_item_id
-from .work_claim_targets import from_row as target_from_row, scope_int_sql
+from .work_claim_targets import from_row as target_from_row
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:

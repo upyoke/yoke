@@ -30,7 +30,7 @@ from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_message_recipient_schema import (
+from yoke_core.domain.schema_actor_message_recipients import (
     TABLE as RECIPIENT_TABLE,
 )
 from yoke_core.domain.steering_recipient_candidates import (

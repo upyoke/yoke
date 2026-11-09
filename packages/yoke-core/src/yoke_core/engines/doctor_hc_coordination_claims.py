@@ -200,7 +200,7 @@ def hc_coordination_claims_unmerged_source(
 
 
 def _scope_text(conn, key: str) -> str:
-    from yoke_core.domain.work_claim_target_sql import scope_text_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 
     return scope_text_sql(conn, "cl.scope", key)
 

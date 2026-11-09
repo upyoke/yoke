@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.work_claim_targets import scope_int_sql, scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql, scope_text_sql
 
 
 def _claim_rows(

@@ -48,7 +48,7 @@ def test_schema_script_uses_the_injected_sqlite_connection():
         assert conn.execute("SELECT id FROM sample").fetchone() == (7,)
 
 
-@pytest.mark.parametrize("module", ["schema_common", "schema_init_apply", "events_schema", "qa_schema", "schema_connection"])
+@pytest.mark.parametrize("module", ["schema_common", "schema_init_apply", "schema_events", "qa_schema", "schema_connection"])
 def test_schema_helpers_do_not_import_connection_factories(module):
     root = Path(schema_connection.__file__).parent
     tree = ast.parse((root / f"{module}.py").read_text())

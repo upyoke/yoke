@@ -21,8 +21,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_holdings_claim_rows import active_claim_rows
 from yoke_core.domain.work_claim_targets import (
     from_row as work_claim_target_from_row,
-    scope_int_sql,
 )
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_core.domain.sessions_holdings_claim_facts import (

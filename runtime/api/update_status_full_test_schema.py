@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from yoke_core.domain.github_app_schema import GITHUB_APP_SCHEMA_SQL
 from yoke_core.domain.sql_json import json_get
-from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.schema_work_claim_targets import TARGET_KIND_CHECK_SQL
 
 
 _SCHEMA_DDL = (

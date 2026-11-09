@@ -33,7 +33,10 @@ from yoke_core.domain.sessions_lifecycle_reactivation import (
     auto_reacquire_session_ended_claims,
     emit_reactivated_with_released_claims,
 )
-from yoke_core.domain.work_claim_targets import make_item_target, scope_int_sql
+from yoke_core.domain.work_claim_targets import (
+    make_item_target,
+)
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _insert_active_claim_other(

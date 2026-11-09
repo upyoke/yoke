@@ -8,7 +8,7 @@ import pytest
 from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import backlog_github_compact_pending_flag as compact
-from yoke_core.domain import db_helpers, events_schema
+from yoke_core.domain import db_helpers, schema_events
 from runtime.api.fixtures.backlog_inserts import insert_item
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
@@ -79,20 +79,20 @@ def test_severity_seed_preserves_native_microseconds_and_existing_seed(
     test_db, monkeypatch, zone
 ):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
-    events_schema.ensure_event_schema(test_db)
+    schema_events.ensure_event_schema(test_db)
     test_db.execute(
         "DELETE FROM severity_config WHERE event_name='*' AND source_type='*'"
     )
-    monkeypatch.setattr(events_schema, "utc_now", lambda: MOMENT)
-    events_schema.ensure_event_schema(test_db)
+    monkeypatch.setattr(schema_events, "utc_now", lambda: MOMENT)
+    schema_events.ensure_event_schema(test_db)
     row = test_db.execute(
         "SELECT created_at FROM severity_config WHERE event_name='*' AND source_type='*'"
     ).fetchone()
     assert isinstance(row[0], datetime) and row[0] == MOMENT
     monkeypatch.setattr(
-        events_schema, "utc_now", lambda: MOMENT + timedelta(microseconds=1)
+        schema_events, "utc_now", lambda: MOMENT + timedelta(microseconds=1)
     )
-    events_schema.ensure_event_schema(test_db)
+    schema_events.ensure_event_schema(test_db)
     assert (
         test_db.execute(
             "SELECT created_at FROM severity_config WHERE event_name='*' AND source_type='*'"

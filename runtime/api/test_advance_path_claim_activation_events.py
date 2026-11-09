@@ -21,7 +21,7 @@ from yoke_core.domain.actors import seed_canonical_human, seed_human_actor  # no
 from yoke_core.domain.advance_path_claim_activation import (
     run_activation_phase,
 )
-from yoke_core.domain.events_schema import _create_events_table
+from yoke_core.domain.schema_events import _create_events_table
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_path_claim_tables,
 )

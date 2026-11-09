@@ -25,7 +25,7 @@ from yoke_core.domain.inbox_post_schema import create_inbox_post_table
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_function_index import ensure_function_index
 from yoke_core.domain.events_retention_index import ensure_retention_index
-from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.schema_events import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.field_note_dash_promotion import (
     ensure_field_note_dash_promotion_schema,

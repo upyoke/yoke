@@ -7,7 +7,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 
 
-MEMBERSHIP_FINALIZED_COLUMN = "generated_task_membership_finalized_at"
+from yoke_core.domain.schema_epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 
 
 def _p(conn: Any) -> str:

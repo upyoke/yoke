@@ -28,7 +28,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.dependency_cycles_read import LiveEdge, cycles_in
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.steering_fleet_report_render_text import SECTION_LIMIT, capped
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 HEADING = (
     "waiting chains — blockers holding the most work; ! marks an unstarted, "

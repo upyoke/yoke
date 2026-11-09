@@ -170,7 +170,7 @@ def has_active_authority(
 ) -> bool:
     """Conservatively treat lookup failure as active authority."""
     marker = _p(conn)
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     try:
         if owner.kind == "item":

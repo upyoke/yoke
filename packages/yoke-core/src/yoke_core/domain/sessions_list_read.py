@@ -32,7 +32,7 @@ from yoke_core.domain.sessions_holdings_read import (
 from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_list_rows import render_session_roster_rows
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 _READ_BATCH = ContextVar("session_read_batch", default=None)

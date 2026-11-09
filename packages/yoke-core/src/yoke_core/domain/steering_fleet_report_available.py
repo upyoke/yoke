@@ -27,7 +27,7 @@ from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.scheduler import compute_schedule
 from yoke_core.domain.scheduler_types import ClaimState
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 #: Launch states that mean a worker is already being staffed onto the item.
 STAFFING_LAUNCH_STATES = ("assigned", "launching", "awaiting_registration")

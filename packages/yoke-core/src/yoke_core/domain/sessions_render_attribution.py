@@ -21,7 +21,7 @@ from .sessions_queries import (
     normalize_claim_item_id,
     normalize_session_item_id,
 )
-from .work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:

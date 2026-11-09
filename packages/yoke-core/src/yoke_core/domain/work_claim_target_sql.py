@@ -11,20 +11,12 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.sql_json import json_get
+from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 from yoke_core.domain.work_claim_targets import (
-    ALL_TARGET_KINDS,
     STICKY_TARGET_KINDS,
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_PROCESS,
     WorkClaimTarget,
-)
-
-#: The one rendering of the ``work_claims.target_kind`` vocabulary as a SQL
-#: CHECK body. Schema creation and every test fixture read it from here so
-#: adding a kind cannot leave a table behind that refuses to store it.
-TARGET_KIND_CHECK_SQL = "target_kind IN (%s)" % ", ".join(
-    f"'{kind}'" for kind in ALL_TARGET_KINDS
 )
 
 #: The predicate every session-scoped release and reclaim adds so a
@@ -48,18 +40,6 @@ _CONFLICT_KEYS = {
     TARGET_KIND_PROCESS: ("conflict_group",),
     TARGET_KIND_MIGRATION_SERIALIZATION: ("project_id", "model"),
 }
-
-
-def scope_text_sql(conn: Any, column_expr: str, key: str) -> str:
-    """Return a portable SQL expression reading one scope value as text."""
-    if db_backend.connection_is_postgres(conn):
-        return json_get(column_expr, f"$.{key}")
-    return f"json_extract({column_expr}, '$.{key}')"
-
-
-def scope_int_sql(conn: Any, column_expr: str, key: str) -> str:
-    """Return a portable SQL expression reading one scope value as integer."""
-    return f"CAST({scope_text_sql(conn, column_expr, key)} AS INTEGER)"
 
 
 def exact_match_clause(
@@ -99,10 +79,7 @@ def conflict_match_clause(
 
 __all__ = [
     "LIVENESS_BOUND_SQL",
-    "TARGET_KIND_CHECK_SQL",
     "conflict_match_clause",
     "exact_match_clause",
     "liveness_bound_clause",
-    "scope_int_sql",
-    "scope_text_sql",
 ]

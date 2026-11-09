@@ -27,7 +27,7 @@ from runtime.api.dependency_schema_test_support import (
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,
 )
-from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.schema_work_claim_targets import TARGET_KIND_CHECK_SQL
 
 
 def fresh_now() -> datetime:

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.schema_connection import connection_is_postgres
 from yoke_core.domain.schema_common import _column_exists
 
 
@@ -98,7 +98,7 @@ def converge_role_addressed_recipients(conn: Any) -> None:
     that predates those columns: an index declared beside the table would
     reference a column this function has not added yet.
     """
-    if db_backend.connection_is_postgres(conn):
+    if connection_is_postgres(conn):
         _converge_postgres_shape(conn)
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_actor_message_recipients_steering "

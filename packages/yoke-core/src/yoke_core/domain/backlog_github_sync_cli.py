@@ -20,7 +20,7 @@ from yoke_core.domain.project_github_auth import (
 )
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.yok_n_parser import parse_item_argument
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
 from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
 from yoke_core.domain.project_attribution import resolved_project

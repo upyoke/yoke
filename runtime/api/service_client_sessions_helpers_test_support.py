@@ -18,7 +18,7 @@ from runtime.api.dependency_schema_test_support import (
 )
 from runtime.api.service_client_test_support import _run_client
 from runtime.api.constants_test_support import TEST_MODEL_ID
-from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.schema_work_claim_targets import TARGET_KIND_CHECK_SQL
 from yoke_core.domain.session_turn_posture import TURN_POSTURE_COLUMN_DDL
 from yoke_contracts.machine_config.schema import upsert_project_entry
 

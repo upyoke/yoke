@@ -19,7 +19,7 @@ from yoke_core.domain.strategy_execution_state import (
     _row,
     claim_holder_label,
 )
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     decode_scope,

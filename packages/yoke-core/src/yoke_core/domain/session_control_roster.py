@@ -35,7 +35,7 @@ from yoke_core.domain.session_relay_machine_versions import (
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_candidate_supported
 from yoke_core.domain.session_wake_meter import overlay_resume_state
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 SESSION_CONTROL_ROSTER_FIELDS = tuple(

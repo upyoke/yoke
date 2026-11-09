@@ -6,7 +6,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_store import marker
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def launch_work_entered(conn: Any, launch: Any) -> bool:

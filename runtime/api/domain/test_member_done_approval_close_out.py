@@ -28,7 +28,7 @@ from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _live_claim(conn: Any, item_id: int) -> Any:

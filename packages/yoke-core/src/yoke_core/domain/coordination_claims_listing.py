@@ -32,7 +32,7 @@ from yoke_core.domain.coordination_claim_record import (
     row_to_claim,
 )
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.work_claim_target_sql import scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 
 _KINDS_SQL = ", ".join(f"'{kind}'" for kind in sorted(COORDINATION_TARGET_KINDS))
 

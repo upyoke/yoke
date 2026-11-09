@@ -124,7 +124,7 @@ def _apply_schema_and_seed() -> None:
 
         ensure_workflow_execution_instructions_schema(conn)
         from yoke_core.domain.auth_schema import create_auth_tables
-        from yoke_core.domain.events_schema import ensure_event_schema
+        from yoke_core.domain.schema_events import ensure_event_schema
         from yoke_core.domain.org_schema import seed_default_org
         from yoke_core.domain.schema_init_actor_path_claim_tables import (
             create_actor_identity_tables,

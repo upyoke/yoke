@@ -21,7 +21,7 @@ from yoke_core.domain import db_helpers, events_writes
 
 from yoke_core.domain.auth_schema import create_auth_tables
 
-from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.schema_events import ensure_event_schema
 
 from yoke_core.domain.org_schema import seed_default_org
 

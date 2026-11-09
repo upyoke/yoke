@@ -54,7 +54,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
     NO_OBLIGATION_QA_KIND,
 )
 
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _no_obligation(conn: Any, item_id: int, *, reason: str) -> None:

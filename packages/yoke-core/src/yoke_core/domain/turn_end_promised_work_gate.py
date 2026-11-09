@@ -109,7 +109,7 @@ def _emit_unavailable(context: HookContext) -> None:
 
 def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     from yoke_core.domain import db_backend
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")

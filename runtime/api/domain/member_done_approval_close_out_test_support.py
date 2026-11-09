@@ -27,7 +27,7 @@ from yoke_core.domain.decision_request_resolution import resolve_decision_reques
 
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 RUN_ID = "run-done-approval"
 

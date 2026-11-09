@@ -30,7 +30,7 @@ from typing import Any, Optional
 
 from yoke_core.domain.qa_constants import MAX_CASE_COMMAND_TIMEOUT_SECONDS
 from yoke_core.domain.time_parse import parse_timestamp_utc
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 #: Payload key the case contract and every recording leg use to carry the
 #: claim the run bound at its start.

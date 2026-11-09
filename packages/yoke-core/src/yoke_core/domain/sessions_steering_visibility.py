@@ -28,7 +28,7 @@ from yoke_core.domain.steering_scope_membership import (
     item_coverage_target,
     item_document_links,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 _OUTPUT_FIELDS = (

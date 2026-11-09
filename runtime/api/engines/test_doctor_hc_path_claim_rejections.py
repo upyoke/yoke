@@ -63,7 +63,7 @@ def _apply_schema() -> None:
     backend-native schema helpers.
     """
     from yoke_core.domain import db_backend
-    from yoke_core.domain.events_schema import _create_events_table
+    from yoke_core.domain.schema_events import _create_events_table
 
     from yoke_core.domain.project_seed_test_helpers import (
         seed_project_identities,

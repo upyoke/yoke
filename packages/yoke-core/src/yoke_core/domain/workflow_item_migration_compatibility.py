@@ -29,7 +29,7 @@ from yoke_core.domain.workflow_item_migration_review_bindings import (
 from yoke_core.domain.workflow_effective_policies import (
     resolve_effective_workflow_policies,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 _LIVE_PATH_CLAIM_STATES = ("planned", "blocked", "active")

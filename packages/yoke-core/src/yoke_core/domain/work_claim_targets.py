@@ -274,8 +274,6 @@ def __getattr__(name: str):
     if name not in {
         "conflict_match_clause",
         "exact_match_clause",
-        "scope_int_sql",
-        "scope_text_sql",
     }:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     from yoke_core.domain import work_claim_target_sql as sql
@@ -315,7 +313,5 @@ __all__ = [
     "make_route_qualification_target",
     "make_steering_target",
     "normalize_scope",
-    "scope_int_sql",  # noqa: F822  (PEP 562)
-    "scope_text_sql",  # noqa: F822  (PEP 562)
     "validate_target",
 ]

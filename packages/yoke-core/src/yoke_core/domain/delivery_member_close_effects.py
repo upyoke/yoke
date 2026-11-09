@@ -91,7 +91,7 @@ def run_closed_member_effects(
 def _end_previous_claim_holders_if_empty(conn: Any, *, item_id: int) -> None:
     """End any previous holding sessions released by the transition if now empty."""
     from yoke_core.domain.sessions_render_end_if_empty import end_session_if_empty
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     item_scope = scope_int_sql(conn, "scope", "item_id")

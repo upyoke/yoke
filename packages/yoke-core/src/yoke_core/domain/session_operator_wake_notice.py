@@ -32,7 +32,7 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_message_recipient_schema import (
+from yoke_core.domain.schema_actor_message_recipients import (
     TABLE as ACTOR_RECIPIENT_TABLE,
 )
 from yoke_core.domain.actor_message_recipients import (

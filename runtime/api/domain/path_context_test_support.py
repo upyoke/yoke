@@ -27,7 +27,7 @@ from yoke_core.domain.agents_render_path_context import (
 
 from yoke_core.domain.event_catalog_render import EVENT_CATALOG_RELPATH
 
-from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.schema_events import ensure_event_schema
 
 from yoke_core.domain.schema_init_tables import (
     create_core_tables,

@@ -37,7 +37,7 @@ def next_actor_facts(
     """
     sessions = tuple(dict.fromkeys(session_ids))
     items = tuple(dict.fromkeys(int(value) for value in item_ids))
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
     held = {}
     if sessions and _table_exists(conn, "work_claims"):

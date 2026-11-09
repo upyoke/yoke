@@ -29,7 +29,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 def _apply_minimal_events_schema() -> None:
     from yoke_core.domain import db_backend
-    from yoke_core.domain.events_schema import _create_events_table
+    from yoke_core.domain.schema_events import _create_events_table
 
     conn = db_backend.connect()
     try:

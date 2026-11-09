@@ -17,6 +17,8 @@ from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.frontend_events_schema import create_frontend_event_tables
 
+from yoke_core.domain.schema_organization import create_organization_table
+
 
 REQUIRED_ORG_TABLES = ("organizations", "actor_org_roles")
 
@@ -26,23 +28,6 @@ DEFAULT_ORG_NAME = "Default Org"
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def create_organization_table(conn: Any) -> None:
-    """Create org identity before session scope or role grants reference it."""
-    execute_schema_script(
-        conn,
-        """
-        CREATE TABLE IF NOT EXISTS organizations (
-            id INTEGER PRIMARY KEY,
-            slug TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            domain TEXT DEFAULT NULL,
-            settings TEXT NOT NULL DEFAULT '{}',
-            created_at TIMESTAMPTZ NOT NULL
-        );
-        """,
-    )
 
 
 def create_org_tables(conn: Any) -> None:

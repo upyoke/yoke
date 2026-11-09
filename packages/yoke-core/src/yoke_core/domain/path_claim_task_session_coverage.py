@@ -12,7 +12,7 @@ from yoke_core.domain.path_claim_task_coverage import (
     task_budget_paths,
 )
 from yoke_core.domain.project_checkout_locations import worktree_path_for_branch
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:

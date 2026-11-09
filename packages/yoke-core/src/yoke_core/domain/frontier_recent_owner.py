@@ -35,7 +35,7 @@ from . import db_backend
 from .release_intent_classification import is_non_terminal_release_intent
 from .schema_common import _get_columns as _schema_get_columns
 from .session_reclaim_activity import latest_activity
-from .work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 # Latest released claim per item, joined to the still-live owner session.

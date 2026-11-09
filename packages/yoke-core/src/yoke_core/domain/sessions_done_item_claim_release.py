@@ -18,10 +18,8 @@ from . import sessions_analytics as _sa
 from .sessions_analytics import EVENT_WORK_RELEASED
 from .sessions_item_focus_release import release_item_focus_for_sessions
 from .sessions_queries import normalize_claim_item_id
-from .work_claim_targets import (
-    from_row as work_claim_target_from_row,
-    scope_int_sql,
-)
+from .work_claim_targets import from_row as work_claim_target_from_row
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from .workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,

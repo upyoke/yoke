@@ -18,7 +18,7 @@ from yoke_core.domain.session_message_recipient_rows import insert_session_recei
 from yoke_core.domain.session_message_types import SessionMessageError, utc_now
 from yoke_core.domain.session_message_zero_recipients import zero_recipients_detail
 from yoke_core.domain.work_claim_holder import holder_session_for_item
-from yoke_core.domain.work_claim_target_sql import scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 
 
 def resolve_item_launch_mail(conn, selector, recipients, *, now, for_update=False):

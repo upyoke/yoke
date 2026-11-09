@@ -12,7 +12,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_level import level_is_unresolved
 
 from yoke_core.domain.project_identity import placeholder, render_item_ref
-from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 from yoke_core.domain.workflow_stage_levels import item_stage_level
 
 _CAPTURE: ContextVar[list[dict[str, str]] | None] = ContextVar(

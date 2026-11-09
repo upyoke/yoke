@@ -34,7 +34,7 @@ from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql, scope_text_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql, scope_text_sql
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     row_dict,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
+from yoke_core.domain.schema_epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.schema_checks import (
     _validate_epic_task_statuses,
     _validate_item_workflow_stages,

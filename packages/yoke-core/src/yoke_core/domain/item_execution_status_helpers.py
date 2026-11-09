@@ -21,7 +21,7 @@ from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_summary import render_gate_summary
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_reclaim_activity import latest_activity
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 NEAR_CAP_THRESHOLD = 300  # AGENTS.md design target.
 PROGRESS_LOG_STALE_SECONDS = 24 * 60 * 60

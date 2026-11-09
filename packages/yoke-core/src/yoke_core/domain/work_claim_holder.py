@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from .db_backend import connection_is_postgres
 from .item_ref_resolution import internal_item_key
-from .work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:
