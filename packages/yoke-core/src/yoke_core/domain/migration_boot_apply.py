@@ -41,6 +41,7 @@ from yoke_core.domain.migration_content_identity import (
 )
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
 from yoke_core.domain.migration_ledger_contract import LedgerContract
+from yoke_core.domain.migration_folded_history import require_folded_membership
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
 from yoke_core.domain.migration_entry_failure_cause import (
     EntryFailed,
@@ -86,6 +87,17 @@ def stamp_history(
     stamped: list[str] = []
     try:
         for entry in history:
+            if entry.is_folded:
+                record_applied(
+                    conn,
+                    entry,
+                    ledger=ledger,
+                    applied_by=applied_by,
+                    content_sha256=entry.content_sha256,
+                    minimum_serving_version=entry.minimum_serving_version,
+                )
+                stamped.append(entry.name)
+                continue
             source_bytes = entry.path.read_bytes()
             module = load_migration_module(
                 entry.path,
@@ -166,6 +178,8 @@ def apply_pending(
     # not pending work. Refuse before the current fast-path or any restore.
     require_matching_content_identity(conn, history, ledger)
 
+    require_folded_membership(history, applied_names(conn, ledger))
+
     # Cheap probe first. The overwhelming majority of boots are current, and
     # they should cost two queries and take no lock at all. Attribution and
     # model_name are apply-time obligations: a current database must not
@@ -190,6 +204,7 @@ def apply_pending(
         # *shared* lock, so two of them genuinely do converge at once, and
         # both would otherwise see the same work and race to do it.
         require_matching_content_identity(conn, history, ledger)
+        require_folded_membership(history, applied_names(conn, ledger))
         outstanding = pending_entries(conn, history, ledger)
         applied: list[str] = []
         for entry in outstanding:

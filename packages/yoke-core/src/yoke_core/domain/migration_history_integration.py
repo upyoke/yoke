@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable
 
 from yoke_core.domain.migration_content_identity import raw_content_sha256
+from yoke_core.domain.migration_folded_history import (
+    RELEASED_DIGESTS_NAME,
+    folded_entries_from_bytes,
+    parse_released_digests,
+)
 from yoke_core.domain.migration_history import (
     ENTRY_NAME_PATTERN,
     HistoryError,
     ordinal_entries,
 )
-
-
-RELEASED_DIGESTS_NAME = "released_history_digests.json"
 
 
 @dataclass(frozen=True)
@@ -70,9 +71,7 @@ def resolve_target_ref(repo: Path, integration_target: str) -> str:
     if not target:
         raise HistoryError("migration history integration target is empty")
     candidates = (
-        (target,)
-        if target.startswith("origin/")
-        else (f"origin/{target}", target)
+        (target,) if target.startswith("origin/") else (f"origin/{target}", target)
     )
     for candidate in candidates:
         result = _git(
@@ -146,15 +145,30 @@ def history_names_at_ref(
     """Ordered entry names the history at one exact revision carries.
 
     Names alone, so a caller asking only "which entries does this build
-    carry?" pays one ``ls-tree`` instead of a ``git show`` per entry. The
+    carry?" reads the tree and folded metadata, without reading each script. The
     name is the entry's ledger and fleet-receipt identity, so it is the
     whole answer to that question.
     """
-    return tuple(
-        path.stem
-        for _sequence, path in _listed_entries(
-            repository, ref, _relative_modules_dir(modules_dir)
-        )
+    directory = _relative_modules_dir(modules_dir)
+    live = [
+        (sequence, path.stem)
+        for sequence, path in _listed_entries(repository, ref, directory)
+    ]
+    folded = [
+        (entry.sequence, entry.name)
+        for entry in _folded_at_ref(repository, ref, directory)
+    ]
+    return tuple(name for _, name in sorted(live + folded))
+
+
+def _folded_at_ref(repo: Path, ref: str, modules_dir: str):
+    result = _git(
+        repo, "show", f"{ref}:{modules_dir}/{RELEASED_DIGESTS_NAME}", required=False
+    )
+    return (
+        folded_entries_from_bytes(result.stdout, Path(modules_dir))
+        if result.returncode == 0
+        else ()
     )
 
 
@@ -163,7 +177,7 @@ def _target_history(
     target_ref: str,
     modules_dir: str,
 ) -> tuple[HistoryIdentity, ...]:
-    return tuple(
+    live = tuple(
         HistoryIdentity(
             sequence,
             path.stem,
@@ -173,6 +187,12 @@ def _target_history(
         )
         for sequence, path in _listed_entries(repo, target_ref, modules_dir)
     )
+
+    folded = tuple(
+        HistoryIdentity(entry.sequence, entry.name, entry.content_sha256)
+        for entry in _folded_at_ref(repo, target_ref, modules_dir)
+    )
+    return tuple(sorted(live + folded, key=lambda entry: entry.sequence))
 
 
 def _lane_history(repo: Path, modules_dir: str) -> tuple[HistoryIdentity, ...]:
@@ -203,25 +223,15 @@ def _digest_pins(
     )
     if target.returncode == 0:
         raw = target.stdout
-        source = f"{target_ref}:{manifest_path}"
     else:
         lane_path = repo / modules_dir / RELEASED_DIGESTS_NAME
         if not lane_path.is_file():
             return {}
         raw = lane_path.read_bytes()
-        source = str(lane_path)
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HistoryError(f"released migration digest manifest {source} is invalid: {exc}") from exc
-    if not isinstance(payload, dict) or any(
-        not isinstance(name, str) or not isinstance(digest, str)
-        for name, digest in payload.items()
-    ):
-        raise HistoryError(
-            f"released migration digest manifest {source} must map names to digests"
-        )
-    return payload
+    return {
+        name: value["content_sha256"] if isinstance(value, dict) else value
+        for name, value in parse_released_digests(raw).items()
+    }
 
 
 def _is_frozen_content_restoration(
@@ -315,7 +325,7 @@ def require_merge_history_extension(
     if not lane:
         return
     expected = (target[-1].sequence + 1) if target else 1
-    for entry in lane[len(target):]:
+    for entry in lane[len(target) :]:
         if entry.sequence != expected:
             raise HistoryError(
                 f"merge refused: new migration entry {entry.name!r} has ordinal "
