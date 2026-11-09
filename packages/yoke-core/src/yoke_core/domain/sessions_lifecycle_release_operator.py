@@ -35,7 +35,8 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-from .work_claim_targets import from_row as target_from_row, scope_int_sql
+from .work_claim_targets import from_row as target_from_row
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:

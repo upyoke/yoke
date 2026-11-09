@@ -17,7 +17,7 @@ from .runtime_settings import get_seconds
 from .session_reclaim_activity import latest_activity
 from .yoke_function_dispatch_claims import who_claims_for_item
 from . import db_backend
-from .work_claim_targets import scope_int_sql
+from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
 STATUS_RESUMABLE = "resumable"

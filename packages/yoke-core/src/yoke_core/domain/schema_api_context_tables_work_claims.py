@@ -41,6 +41,10 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             ("release_reason_intent", "TEXT"),
         ],
         "notes": (
+            "Claim JSON SQL helpers scope_int_sql and scope_text_sql live in "
+            "schema_work_claim_sql; importing them from work_claim_targets "
+            "is the wrong surface and raises ImportError. Target-kind DDL "
+            "lives in schema_work_claim_targets. "
             "Every typed target uses target_kind plus one canonical JSON "
             'object in scope: item={"item_id":N}, epic_task={"epic_id":N,'
             '"task_num":N}, process={"process_key":K,"conflict_group":G}, '
