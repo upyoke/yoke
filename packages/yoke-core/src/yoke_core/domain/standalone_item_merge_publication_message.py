@@ -47,6 +47,7 @@ def publication_narration(
         None: "Publication: target pushed; post-push checks were not run.",
         "passed": "Publication: target pushed; post-push checks passed.",
         "no_checks": "Publication: target pushed; no post-push checks discovered.",
+        "observed": "Publication: target pushed; post-push checks recorded as evidence.",
     }.get(kind, "")
     return (
         f"{message} {verdict.detail}".strip() if verdict and verdict.detail else message

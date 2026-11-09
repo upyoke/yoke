@@ -9,6 +9,7 @@ from typing import Callable, Optional, Sequence
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.machine_config.settings_keys import machine_setting_default
 from yoke_core.domain import runtime_settings
+from yoke_core.domain.standalone_post_push_policy import observe_post_push_checks
 from yoke_core.domain.standalone_post_push_ci import (
     read_push_checks,
     superseding_push_sha,
@@ -290,10 +291,12 @@ def complete(
     record()
     observed: Optional[PostPushVerdict] = None
     if pushed and not disconnected and merge_sha:
-        observed = await_post_push_checks(project, merge_sha, authority)
+        observed, required = observe_post_push_checks(
+            project, merge_sha, authority, notes
+        )
         if observed.runs:
             record(observed.evidence)
-        if not observed.ok:
+        if required and not observed.ok:
             command = resume_command or f"yoke merge item {branch}"
             return StandaloneMergeOutcome(
                 ok=False,

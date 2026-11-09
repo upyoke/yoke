@@ -50,6 +50,10 @@ def test_unrecorded_correction_lands_and_publishes_after_red_post_push(tmp_path,
     from yoke_core.domain import standalone_item_merge_lane as lane
     from yoke_core.domain import standalone_item_merge_post_push as post_push
 
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_post_push_policy.project_ci_workflow_file",
+        lambda _p: "ci.yml",
+    )
     root = make_checkout(tmp_path)
     remote = tmp_path / "origin.git"
     remote.mkdir()

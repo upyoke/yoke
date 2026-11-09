@@ -14,6 +14,7 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import item_merge_receipts as receipts
+from yoke_core.domain import standalone_post_push_policy as push_policy
 from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_INSTALLATION,
 )
@@ -25,6 +26,7 @@ from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 @pytest.fixture(autouse=True)
 def _connected_project(monkeypatch):
     monkeypatch.setattr(post_push, "github_merge_enabled", lambda _p: True)
+    monkeypatch.setattr(push_policy, "project_ci_workflow_file", lambda _p: "ci.yml")
 
 
 MERGE_SHA = "b" * 40

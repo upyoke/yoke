@@ -34,7 +34,10 @@ its recorded candidate. A missed hook recording is repaired and re-read before
 QA and landing use that candidate. A failed recording names the `project snapshot
 sync --head-only` recovery; `--check` stays read-only.
 
-For a standalone landing, retry the same command after fixing post-push CI.
+For a standalone landing with declared `ci_workflow_file`, retry the same
+command after fixing post-push CI. Without that declaration, observed push
+runs (including failures) are receipt evidence with a warning and do not gate
+close-out. An unreadable declaration retains the CI gate.
 Yoke checks the landing commit again before close-out, including when it already
 landed. A new lane correction is recorded, verified, merged and published.
 A failed publication reports the push error and retains the lane for recovery.
