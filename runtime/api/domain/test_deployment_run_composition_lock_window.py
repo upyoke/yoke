@@ -132,7 +132,7 @@ def _with_members(conn: Any, release: dict, count: int) -> list[int]:
 def test_bound_source_refresh_judges_before_the_run_lock(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, count: int
 ) -> None:
-    from yoke_core.domain.github_workflow_dispatch_intents import (
+    from yoke_core.domain.schema_github_workflow_dispatch_intents import (
         GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
     )
 

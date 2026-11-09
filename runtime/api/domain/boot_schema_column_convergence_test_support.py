@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain import deployment_runs_schema_init
+
 import hashlib
 
 from pathlib import Path
@@ -11,7 +13,7 @@ from psycopg import Error, sql
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
-from yoke_core.domain import deployment_runs_schema, schema, schema_common_postgres
+from yoke_core.domain import schema, schema_common_postgres
 
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 
@@ -21,7 +23,7 @@ from yoke_core.domain.schema_init import converge_core_schema
 
 def _apply_complete_control_plane_schema() -> None:
     schema.cmd_init()
-    deployment_runs_schema.cmd_init()
+    deployment_runs_schema_init.cmd_init()
 
 def _column_map(conn) -> dict[str, frozenset[str]]:
     return {table: frozenset(_get_columns(conn, table)) for table in _get_tables(conn)}

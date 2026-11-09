@@ -18,16 +18,12 @@ from contextvars import ContextVar
 from typing import Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.schema_deployment_run_lock import RUN_ROW_LOCK_TIMEOUT_MS
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
 _RUN_MEMBERSHIP_LOCK_RETRIES = 5
 _BOUNDED_WRITE = ContextVar("deployment_bounded_write", default=False)
 _HELD_RUN = ContextVar("deployment_run_lock_held", default=None)
-
-#: How long a caller lets the run row settle before refusing. Long enough to
-#: ride out an ordinary concurrent mutation, far short of any client's
-#: response timeout, so the refusal reaches a caller that is still listening.
-RUN_ROW_LOCK_TIMEOUT_MS = 2000
 
 #: The function error code, and the first word of every refusal message, for
 #: a run row that stayed locked past the bound.

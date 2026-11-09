@@ -31,7 +31,7 @@ from yoke_core.domain.github_app_control_plane import (
     GITHUB_APP_ISSUER_ENV,
     GITHUB_APP_PRIVATE_KEY_FILE_ENV,
 )
-from yoke_core.domain.function_call_ledger import FUNCTION_CALL_LEDGER_CREATE_SQL
+from yoke_core.domain.schema_function_call_ledger import FUNCTION_CALL_LEDGER_CREATE_SQL
 
 
 USER_TOKEN_SENTINELS = (

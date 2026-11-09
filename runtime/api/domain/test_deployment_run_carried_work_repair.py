@@ -80,7 +80,7 @@ def _repository(tmp_path: Path) -> tuple[Path, str, str]:
 def repair_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
-        from yoke_core.domain.deployment_runs_schema import cmd_init
+        from yoke_core.domain.deployment_runs_schema_init import cmd_init
 
         cmd_init(db_path)
         yield db_path

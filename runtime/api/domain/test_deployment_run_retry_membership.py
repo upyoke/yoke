@@ -32,7 +32,7 @@ SELECTION = json.dumps({"schema": 1, "plan_ids": [], "requirement_ids": [7]})
 def retry_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
-        from yoke_core.domain.deployment_runs_schema import cmd_init
+        from yoke_core.domain.deployment_runs_schema_init import cmd_init
         from yoke_core.domain.shepherd_init import cmd_init as init_dependencies
 
         cmd_init(db_path)

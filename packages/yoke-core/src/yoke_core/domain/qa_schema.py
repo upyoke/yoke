@@ -14,7 +14,7 @@ from yoke_core.domain.qa_deployment_scope_schema import (
 from yoke_core.domain.qa_standalone_schema import (
     REQUIREMENT_SUBJECT_EXPRESSION,
 )
-from yoke_core.domain.qa_settlement_followups import (
+from yoke_core.domain.schema_qa_settlement_followups import (
     QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL,
 )
 

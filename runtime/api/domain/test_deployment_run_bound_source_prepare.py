@@ -31,7 +31,7 @@ from yoke_core.domain.deployment_run_stale_bound_sources import (
 
 @pytest.fixture(autouse=True)
 def dispatch_intent_schema(test_db):
-    from yoke_core.domain.github_workflow_dispatch_intents import (
+    from yoke_core.domain.schema_github_workflow_dispatch_intents import (
         GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
     )
 
