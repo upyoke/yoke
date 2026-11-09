@@ -16,7 +16,7 @@ OPUS_55_DOCS = "https://platform.claude.com/docs/en/models/opus-5-5/overview"
 CURSOR_PRICING = "https://cursor.com/docs/models-and-pricing"
 GROK_46_DOCS = "https://cursor.com/docs/models/grok-4-6"
 GROK_47_DOCS = "https://cursor.com/docs/models/grok-4-7"
-CLAUDE_MAX_PLAN = "https://support.claude.com/en/articles/11049741-what-is-the-max-plan"
+CLAUDE_ULTRA_PLAN = "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
 CODEX_PRO_PLAN = "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers"
 CHATGPT_PRICING = "https://learn.chatgpt.com/docs/pricing"
 OPENAI_MODEL_DOCS = "https://developers.openai.com/api/docs/models"
@@ -26,18 +26,13 @@ OPENAI_MODEL_DOCS = "https://developers.openai.com/api/docs/models"
 #: allowance, so they stay a consumption weight rather than a price.
 CHATGPT_CREDIT_UNIT = "credits"
 
-CLAUDE_MAX_RULE = SubscriptionRule(
+CLAUDE_ULTRA_RULE = SubscriptionRule(
     harness="claude",
-    plan="max-20x",
+    plan="ultra",
     pool="included",
-    rule=(
-        "Max 20x provides 20 times more usage per session than Pro, on a "
-        "five-hour session window, plus a weekly limit that applies across "
-        "all models. No token-to-percent conversion is published, and the "
-        "page reserves further discretionary limiting."
-    ),
-    source_url=CLAUDE_MAX_PLAN,
-    checked_at=CHECKED_AT,
+    rule="Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage).",
+    source_url=CLAUDE_ULTRA_PLAN,
+    checked_at="2026-11-09",
 )
 CURSOR_MODELS_RULE = SubscriptionRule(
     harness="cursor",

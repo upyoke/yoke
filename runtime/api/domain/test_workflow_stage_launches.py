@@ -37,7 +37,7 @@ def test_default_create_applies_one_shift_and_places_the_effective_level(monkeyp
     assert default_launch_level(conn, resolved) == resolved
     launch = create_launch(conn, auth=authorization(), request=request, now=NOW).launch
     assert launch.requested_level == "JUNIOR"
-    assert launch.resolved_model == "gpt-5.6-terra"
+    assert launch.resolved_model == "gpt-6.1-terra"
     assert json.loads(launch.level_placement)["level"] == "JUNIOR"
 
 
@@ -52,7 +52,7 @@ def test_effective_default_preview_matches_create_without_double_shift(monkeypat
     )
     assert preview.launchable
     assert placed.level == "JUNIOR"
-    assert placed.model == "gpt-5.6-terra"
+    assert placed.model == "gpt-6.1-terra"
     assert preview.level_placement["level"] == "JUNIOR"
     assert default_launch_level(conn, placed) == placed
     assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == 0

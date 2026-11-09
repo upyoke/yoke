@@ -20,7 +20,7 @@ def test_unchanged_current_catalog_proposes_no_changes():
 
 def test_new_successor_replaces_all_threshold_rows_in_place():
     current = next(
-        record for record in RECORDS if record.model_id == "claude-fable-5-1"
+        record for record in RECORDS if record.model_id == "claude-fable-5-2"
     )
     successor = replace(
         current, model_id="claude-fable-6", aliases=(), replacement_model_id=None
@@ -37,7 +37,7 @@ def test_new_successor_replaces_all_threshold_rows_in_place():
     assert [entry.model for level in proposed for entry in level.options].count(
         "claude-fable-6"
     ) == 3
-    assert "claude-fable-5-1" not in [
+    assert "claude-fable-5-2" not in [
         entry.model for level in proposed for entry in level.options
     ]
 
