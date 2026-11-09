@@ -79,7 +79,8 @@ def attest_served_model_facts(
     if not session_id or not transcript_path:
         return False
     try:
-        from yoke_harness.model_attestation import attest_served_facts
+        from yoke_contracts.runtime_ports.model_attestation import get_model_attestation
+        attest_served_facts = get_model_attestation().attest_served_facts
 
         # The session id is not decoration here: Claude's served window
         # lives in the status line recording keyed by it, not in the

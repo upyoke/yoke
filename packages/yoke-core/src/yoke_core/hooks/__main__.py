@@ -18,13 +18,17 @@ from yoke_core.hooks.helpers_identity import detect_executor
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
-from yoke_harness.hooks.decision_render import write_hook_output
+from yoke_contracts.runtime_ports.hook_decision_render import get_hook_decision_render
+
+write_hook_output = get_hook_decision_render().write_hook_output
 
 
 def _client_facts(event_name: str, stdin_data: str, executor: str) -> dict:
     """Collect the client facts every other evaluation path collects too."""
     from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
-    from yoke_harness.hooks.client_facts import collect_client_facts, event_chain
+    from yoke_contracts.runtime_ports.hook_client_facts import get_hook_client_facts
+    collect_client_facts = get_hook_client_facts().collect_client_facts
+    event_chain = get_hook_client_facts().event_chain
 
     try:
         payload = json.loads(stdin_data) if stdin_data else {}

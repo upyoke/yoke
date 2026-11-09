@@ -24,7 +24,7 @@ from __future__ import annotations
 import time
 from typing import Any, Optional
 
-from yoke_cli.commands.help_invocation import is_help_only_command
+from yoke_contracts.runtime_ports.help_invocation import get_help_invocation
 from yoke_contracts.hook_runner.chain_registry import chain_for, help_only_chain
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
 from yoke_contracts.hook_runner.degraded import infrastructure_reply
@@ -47,6 +47,8 @@ from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner_invoke import invoke_module
 from yoke_core.hooks.skipped_guards import record_skipped_guards
 from yoke_core.hooks.types import HookDecision, Next, Outcome
+
+is_help_only_command = get_help_invocation().is_help_only_command
 
 
 __all__ = ["run_event"]

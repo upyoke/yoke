@@ -29,7 +29,8 @@ def registration_failure_stdout(
     """Keep registration recovery in the same budgeted harness envelope."""
     if not reason:
         return ""
-    from yoke_harness.hooks.decision_render import render_context_stdout
+    from yoke_contracts.runtime_ports.hook_decision_render import get_hook_decision_render
+    render_context_stdout = get_hook_decision_render().render_context_stdout
     from yoke_contracts.hook_context_compose import compose_context_list
     from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 

@@ -44,7 +44,8 @@ from yoke_core.domain.ephemeral_substrate import (
 
 def _git_push(repo_root: str, branch: str) -> Tuple[bool, str]:
     """Publish the lane branch with the machine's stored GitHub credential."""
-    from yoke_cli.config import credentialed_git
+    from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
+    credentialed_git = get_credentialed_git()
 
     proc = credentialed_git.run(
         ["-C", repo_root, "push", "-u", "origin", branch],

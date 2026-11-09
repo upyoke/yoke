@@ -13,6 +13,7 @@ class Identity(Protocol):
     canonical_harness_id: Any
     compose_executor_from_entrypoint: Any
     detect_executor: Any
+    cursor_surface_entrypoint: Any
 
 
 def get_identity() -> Identity:

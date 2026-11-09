@@ -46,7 +46,7 @@ def workspace_path_from_payload(payload: Mapping[str, Any]) -> str:
 def _cursor_map_dir(map_dir=None):
     if map_dir is not None:
         return map_dir
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import runtime as machine_config
     from yoke_contracts.cursor_session_map import CURSOR_SESSION_MAP_DIR_NAME
 
     return machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME
@@ -148,11 +148,12 @@ def _holder_session_for_lane(lane: str) -> str:
 def _holder_session_via_dispatcher(lane: str) -> str:
     """HTTPS-safe holder lookup through the function-call dispatcher."""
     try:
-        from yoke_cli.commands._helpers import (
-            ensure_handlers_loaded,
-            item_target,
-        )
-        from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+        from yoke_contracts.runtime_ports.command_targets import get_command_targets
+        ensure_handlers_loaded = get_command_targets().ensure_handlers_loaded
+        item_target = get_command_targets().item_target
+        from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+        build_actor = get_structured_dispatch().build_actor
+        call_dispatcher = get_structured_dispatch().call_dispatcher
     except Exception:
         return ""
     try:
@@ -215,7 +216,8 @@ def record_remount_conversation_session(
         holder = found
     writer = record
     if writer is None:
-        from yoke_harness.hooks.cursor_session_map import record_conversation_session
+        from yoke_contracts.runtime_ports.cursor_session_map import get_cursor_session_map
+        record_conversation_session = get_cursor_session_map().record_conversation_session
 
         writer = record_conversation_session
     try:

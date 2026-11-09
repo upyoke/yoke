@@ -95,3 +95,9 @@ Set it with
 
 - [Projects](index.md)
 - [Projects and capabilities data model](../databases/model/projects.md)
+
+Runtime orchestration calls adapter effects through the declared interfaces in
+`yoke_contracts.runtime_ports`; installed packages provide their implementations
+through `yoke.runtime` entry points. Pure shared helpers belong in contracts.
+Product inspection tools and Doctor checks may deliberately inspect adapter code;
+record those findings explicitly rather than moving every tool into a new layer.

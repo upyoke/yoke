@@ -53,7 +53,7 @@ def parse_hook_registration_facts(
     transcript_path: str,
 ) -> HookRegistrationFacts:
     """Parse only the bounded scalar identity fields carried by a hook."""
-    from yoke_harness.hooks.identity_relay import workspace_path_candidates
+    from yoke_contracts.hook_runner.project_scope import workspace_path_candidates
 
     try:
         payload = json.loads(payload_json) if payload_json else {}
@@ -98,12 +98,12 @@ def reclassify_unservable_model(facts: SessionModelFacts) -> SessionModelFacts:
     from dataclasses import replace
 
     from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_SUFFIX
-    from yoke_harness.hooks.identity import _is_placeholder_model
+    from yoke_contracts.session_model_facts import is_placeholder_model
 
     model = facts.model
     if model is None:
         return facts
-    if _is_placeholder_model(model):
+    if is_placeholder_model(model):
         return replace(facts, model=None)
     if not model.strip().lower().endswith(CLAUDE_CONTEXT_TIER_SUFFIX):
         return facts
@@ -144,10 +144,9 @@ def enrich_local_observed_facts(
     if executor_version and machine_id:
         return executor_version, machine_id
     try:
-        from yoke_harness.hooks.identity_observed import (
-            client_executor_version,
-            client_machine_id,
-        )
+        from yoke_contracts.runtime_ports.identity_observed import get_identity_observed
+        client_executor_version = get_identity_observed().client_executor_version
+        client_machine_id = get_identity_observed().client_machine_id
 
         return (
             executor_version

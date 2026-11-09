@@ -197,7 +197,8 @@ def _resolve_model_facts(
     try:
         import json as _json
 
-        from yoke_harness.hooks.identity_relay import resolve_model_facts
+        from yoke_contracts.runtime_ports.identity_relay import get_identity_relay
+        resolve_model_facts = get_identity_relay().resolve_model_facts
 
         payload = _json.loads(payload_json) if payload_json else {}
         payload = payload if isinstance(payload, dict) else {}

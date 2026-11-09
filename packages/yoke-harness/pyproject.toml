@@ -22,6 +22,13 @@ dependencies = [
 ]
 
 [project.entry-points."yoke.runtime"]
+hook_session_lifecycle = "yoke_harness.hooks.session_lifecycle"
+hook_client_facts = "yoke_harness.hooks.client_facts"
+hook_decision_render = "yoke_harness.hooks.decision_render"
+identity_observed = "yoke_harness.hooks.identity_observed"
+cursor_session_map = "yoke_harness.hooks.cursor_session_map"
+identity_codex_runtime = "yoke_harness.hooks.identity_codex_runtime"
+model_attestation = "yoke_harness.model_attestation"
 browser_automatic_sign_in = "yoke_harness.browser_automatic_sign_in"
 browser_check_profile = "yoke_harness.browser_check_profile"
 browser_client_readiness = "yoke_harness.browser_client_readiness"

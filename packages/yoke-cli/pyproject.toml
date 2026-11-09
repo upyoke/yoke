@@ -31,6 +31,8 @@ yoke = "yoke_cli.main:main"
 images = ["Pillow>=10.0,<12"]
 
 [project.entry-points."yoke.runtime"]
+command_targets = "yoke_cli.commands._helpers"
+help_invocation = "yoke_cli.commands.help_invocation"
 browser_node_toolchain = "yoke_cli.browser_node_toolchain"
 deployment_execution_authority = "yoke_cli.commands.adapters.deployment_execution_authority"
 project_snapshot = "yoke_cli.commands.adapters.project_snapshot"

@@ -13,7 +13,9 @@ the update comes back as an advisory naming its own recovery.
 
 from __future__ import annotations
 
-from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
+from yoke_contracts.runtime_ports.repo_upstream_freshness import get_repo_upstream_freshness
+
+refresh_base_branch = get_repo_upstream_freshness().refresh_base_branch
 
 NOT_SYNCED = "main checkout not fast-forwarded"
 

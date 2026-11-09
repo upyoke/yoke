@@ -40,13 +40,15 @@ def _model_facts(payload: dict) -> SessionModelFacts:
     lives in the launch environment and the served variant is written per
     conversation by Cursor itself, so neither is taken from stdin.
     """
-    from yoke_harness.hooks.identity_relay import resolve_model_facts
+    from yoke_contracts.runtime_ports.identity_relay import get_identity_relay
+    resolve_model_facts = get_identity_relay().resolve_model_facts
 
     return resolve_model_facts(payload, "cursor")
 
 
 def _entrypoint() -> str:
-    from yoke_harness.hooks.identity import cursor_surface_entrypoint
+    from yoke_contracts.runtime_ports.identity import get_identity
+    cursor_surface_entrypoint = get_identity().cursor_surface_entrypoint
 
     return cursor_surface_entrypoint()
 

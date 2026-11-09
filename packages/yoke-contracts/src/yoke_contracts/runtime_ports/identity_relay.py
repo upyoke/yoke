@@ -13,6 +13,7 @@ class IdentityRelay(Protocol):
 
     client_entrypoint: Callable[..., Any]
     resolve_model_facts: Any
+    client_native_thread_id: Any
 
 
 def get_identity_relay() -> IdentityRelay:
