@@ -59,3 +59,10 @@ def test_provider_and_helper_reach_only_their_interface_consumers(checkout, chan
 def test_declared_deleted_provider_still_reaches_consumers(checkout):
     (checkout / (PREFIX + 'provider.py')).unlink()
     assert reachable_tests([PREFIX + 'provider.py'], build_import_index(checkout)) == {CONSUMER}
+
+
+def test_domain_owned_port_retains_provider_consumers(checkout):
+    _write(checkout, 'packages/yoke-core/src/yoke_core/domain/engine_ports.py', 'def get():\n    return load_port("git", Interface)\n')
+    _write(checkout, 'packages/yoke-core/src/yoke_core/domain/consumer.py', 'from yoke_core.domain.engine_ports import get\nprovider = get()\n')
+    reached = reachable_tests([PREFIX + 'provider.py'], build_import_index(checkout))
+    assert reached == {CONSUMER}

@@ -9,11 +9,13 @@ from typing import Any
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.db_mutation_gate_shared import _safe_parse_dict
 from yoke_core.domain.migration_history import HistoryError
-from yoke_core.domain.migration_merge_preflight import lane_only_migration_entries
+from yoke_core.domain.engine_runtime_ports import get_migration_merge_preflight
 from yoke_core.domain.migration_model_capability import (
     MigrationModelCapabilityError,
     validate,
 )
+
+lane_only_migration_entries = get_migration_merge_preflight().lane_only_migration_entries
 
 ERROR_CODE = "GATE_NEW_MIGRATIONS_NEED_DB_CLAIM"
 

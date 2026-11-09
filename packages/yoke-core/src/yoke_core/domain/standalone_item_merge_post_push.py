@@ -27,7 +27,8 @@ from yoke_core.domain.merge_landing_proof import (
     verified_target_sha,
 )
 from yoke_core.domain.github_poll_schedule import MINIMUM_POLL_INTERVAL_SECONDS
-from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
+from yoke_core.domain.engine_runtime_ports import get_main_checkout_sync
+fast_forward_main_checkout = get_main_checkout_sync().fast_forward_main_checkout
 
 DISCOVERY_TIMEOUT_KEY = "standalone_post_push_ci_discovery_timeout"
 CONCLUSION_TIMEOUT_KEY = "standalone_post_push_ci_timeout"

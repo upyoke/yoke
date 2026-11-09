@@ -32,7 +32,8 @@ from yoke_core.domain.merge_landing_proof import (
 )
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_stale_lane import stale_unlanded_work
-from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
+from yoke_core.domain.engine_runtime_ports import get_main_checkout_sync
+fast_forward_main_checkout = get_main_checkout_sync().fast_forward_main_checkout
 
 
 def _converge_queue_landing(

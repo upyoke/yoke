@@ -13,8 +13,10 @@ from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import item_merge_receipts as receipts
-from yoke_core.engines.standalone_item_merge_engine import run as _run_merge_engine
+from yoke_core.domain.engine_runtime_ports import get_standalone_item_merge_engine
 from yoke_core.domain.standalone_item_merge_outcome import StandaloneMergeOutcome
+
+_run_merge_engine = get_standalone_item_merge_engine().run
 
 call_dispatcher = get_structured_dispatch().call_dispatcher
 

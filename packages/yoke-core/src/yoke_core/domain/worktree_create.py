@@ -24,7 +24,7 @@ from yoke_core.domain.worktree_create_db import (
     prepare_authoritative_item_worktrees,
     provisioning_project,
 )
-from yoke_core.engines.worktree_maintenance import retire_finished_lanes
+from yoke_core.domain.engine_runtime_ports import get_worktree_maintenance
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
     dirty_main_error,
@@ -45,6 +45,8 @@ from yoke_core.domain.worktree_paths import (
 from yoke_core.domain.worktree_provision import (
     project_field as _project_field,
 )
+
+retire_finished_lanes = get_worktree_maintenance().retire_finished_lanes
 
 
 refresh_base_branch = get_repo_upstream_freshness().refresh_base_branch

@@ -51,7 +51,8 @@ from yoke_core.domain.deployment_runs_batch_compatibility import (
     cmd_check_batch_compatibility,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
-from yoke_core.engines.runs_start_for_item import start_for_item
+from yoke_core.domain.engine_runtime_ports import get_runs_start_for_item
+start_for_item = get_runs_start_for_item().start_for_item
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -228,9 +229,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0 if handle.ok else 1
 
         elif args.command == "continue-for-item":
-            from yoke_core.engines.runs_continue_for_item import (
-                continue_for_item,
-            )
+            from yoke_core.domain.engine_runtime_ports import get_runs_continue_for_item
+            continue_for_item = get_runs_continue_for_item().continue_for_item
 
             outcome = continue_for_item(
                 args.item_id,
