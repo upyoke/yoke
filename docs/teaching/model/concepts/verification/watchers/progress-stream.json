@@ -2,7 +2,7 @@
  "id": "progress-stream",
  "title": "Progress stream",
  "status": "observed",
- "summary": "Printed watcher and progress-tail commands preserve yoke dev run when emitted from source development, including the selected connection. Subagents use the foreground invocation in their current turn.",
+ "summary": "Printed watcher and progress-tail commands preserve yoke dev run when emitted from source development, including the selected connection. Subagents use the foreground invocation in their current turn. Printed commands anchor at the nearest uv project or git checkout boundary, so a lane without a lockfile never selects an enclosing checkout.",
  "sources": ["packages/yoke-core/src/yoke_core/tools/_watch_streaming_pair.py", "docs/public/agents/claude.md"],
  "page": "verification",
  "position": 0
