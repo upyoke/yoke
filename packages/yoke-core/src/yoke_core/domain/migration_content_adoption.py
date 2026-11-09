@@ -79,6 +79,11 @@ def verify_migration_entry_state_equivalence(
     supplied, the entry's own invariant remains the artifact-local fallback.
     """
     if state_verifiers is None:
+        if entry.is_baseline:
+            raise MigrationContentAdoptionError(
+                f"{entry.name} is a code-declared baseline with no executable state verifier; "
+                "restore its verified ledger receipt or supply a declared state-equivalence verifier"
+            )
         module = load_migration_module(entry.path, entry.name)
         verifier = getattr(module, "invariants", None)
         label = "packaged migration invariant"

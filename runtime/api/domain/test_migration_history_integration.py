@@ -97,7 +97,7 @@ def test_rehearsal_refuses_changed_permanent_bytes(lane: Path) -> None:
         _rehearsal(lane, "0013_existing")
 
 
-def test_rehearsal_accepts_restoration_to_a_bootstrap_frozen_digest(
+def test_rehearsal_refuses_restoration_using_an_untrusted_manifest(
     lane: Path,
 ) -> None:
     entry = lane / MODULES_DIR / "0013_existing.py"
@@ -113,7 +113,8 @@ def test_rehearsal_accepts_restoration_to_a_bootstrap_frozen_digest(
         encoding="utf-8",
     )
 
-    _rehearsal(lane, "0013_existing")
+    with pytest.raises(HistoryError, match="different permanent bytes"):
+        _rehearsal(lane, "0013_existing")
 
 
 def test_target_manifest_cannot_be_rewritten_to_authorize_lane_bytes(
@@ -197,56 +198,53 @@ def test_history_names_at_ref_refuses_an_unreadable_revision(lane: Path) -> None
         history_names_at_ref(lane, "no-such-ref", MODULES_DIR)
 
 
-def _fold_prefix(lane: Path, *, released: bool = True) -> None:
-    entry = lane / MODULES_DIR / "0013_existing.py"
-    digest = raw_content_sha256(entry.read_bytes())
-    if released:
-        _git(lane, "checkout", "main")
-        (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
-            json.dumps({"0013_existing": digest})
-        )
-        _git(lane, "add", "-A")
-        _git(lane, "commit", "-q", "-m", "freeze released history")
-        _git(lane, "checkout", "lane")
-    else:
-        # An established manifest cannot be expanded by the lane to bless a fold.
-        _git(lane, "checkout", "main")
-        (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text("{}")
-        _git(lane, "add", "-A")
-        _git(lane, "commit", "-q", "-m", "empty released history")
-        _git(lane, "checkout", "lane")
-    entry.unlink()
-    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(json.dumps({
-        "0013_existing": {
-            "content_sha256": digest, "minimum_serving_version": None,
-        },
+def _collapse_prefix(lane: Path, *, digest_override=None) -> None:
+    directory = lane / MODULES_DIR
+    predecessors = {
+        path.stem: raw_content_sha256(path.read_bytes())
+        for path in directory.glob("[0-9]*.py")
+    }
+    for path in directory.glob("[0-9]*.py"):
+        path.unlink()
+    if digest_override:
+        predecessors["0013_existing"] = digest_override
+    (directory / RELEASED_DIGESTS_NAME).write_text(json.dumps(predecessors))
+    (directory / "__init__.py").write_text("HISTORY_BASELINE = " + repr({
+        "name": "0013_baseline", "content_sha256": "a" * 64,
+        "minimum_serving_version": "next-release",
+        "predecessor_manifest": RELEASED_DIGESTS_NAME,
+        "adoption_evidence_table": "migration_content_adoptions",
     }))
 
 
 @pytest.mark.parametrize("check", [_merge, _rehearsal])
-def test_accepts_removing_a_released_folded_script(lane, check) -> None:
-    _fold_prefix(lane)
+def test_accepts_exact_baseline_transition_and_next_script(lane, check) -> None:
+    _collapse_prefix(lane)
     _entry(lane, "0014_next")
-
     check(lane, "0014_next")
 
 
 @pytest.mark.parametrize("check", [_merge, _rehearsal])
-def test_folded_prefix_does_not_authorize_changing_live_script(lane, check) -> None:
+def test_baseline_transition_refuses_changed_predecessor_digest(lane, check) -> None:
+    _collapse_prefix(lane, digest_override="b" * 64)
+    with pytest.raises(HistoryError, match="exact names and digests"):
+        check(lane, "0013_baseline")
+
+
+@pytest.mark.parametrize("check", [_merge, _rehearsal])
+def test_baseline_does_not_authorize_changing_subsequent_script(lane, check) -> None:
+    _collapse_prefix(lane)
     _entry(lane, "0014_live")
     _git(lane, "add", "-A")
-    _git(lane, "commit", "-q", "-m", "add live script")
+    _git(lane, "commit", "-q", "-m", "establish baseline and live tail")
     _git(lane, "branch", "-f", "main", "HEAD")
-    _fold_prefix(lane)
     _entry(lane, "0014_live", marker="rewritten")
-
     with pytest.raises(HistoryError, match="different permanent bytes"):
         check(lane, "0014_live")
 
 
-def test_merge_refuses_folding_without_a_released_pin(lane) -> None:
-    _fold_prefix(lane, released=False)
-    _entry(lane, "0014_next")
-
-    with pytest.raises(HistoryError, match="lacks its released digest"):
-        _merge(lane, "0014_next")
+def test_history_names_at_ref_includes_code_baseline(lane) -> None:
+    _collapse_prefix(lane)
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "baseline")
+    assert history_names_at_ref(lane, "lane", MODULES_DIR) == ("0013_baseline",)

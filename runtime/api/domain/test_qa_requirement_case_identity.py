@@ -1,7 +1,5 @@
 """Receipt changes rebind open cases; cutover converges duplicate obligations."""
 
-import importlib
-
 import pytest
 
 from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
@@ -108,70 +106,6 @@ def test_plan_run_rebinds_in_place_and_carries_only_matching_pass(
     frozen = select_plan_execution(test_db, execution["id"], lock=False)
     assert frozen["execution_target_digest"] == before["execution_target_digest"]
     assert frozen["roster"] == before["roster"]
-
-
-@pytest.mark.parametrize("has_pass", [False, True])
-def test_duplicate_cutover_prefers_completed_pass_and_is_idempotent(
-    test_db, monkeypatch, has_pass
-):
-    execution = _seed_member_execution(test_db, monkeypatch)
-    first = int(execution["roster"][0]["requirement_id"])
-    from yoke_core.domain.qa_deployment_scope_schema import (
-        REQUIREMENT_SCOPE_INDEX_NAMES,
-    )
-
-    for name in REQUIREMENT_SCOPE_INDEX_NAMES[1:]:
-        test_db.execute(f'DROP INDEX "{name}"')
-    test_db.execute(
-        "CREATE UNIQUE INDEX idx_qa_requirement_deployment_member_stage_materialization "
-        "ON qa_requirements(deployment_run_id,deployment_stage,deployment_member_item_id,"
-        "plan_id,plan_case_key,COALESCE(host_baseline,''),execution_target_digest) "
-        "WHERE deployment_run_id IS NOT NULL AND deployment_stage IS NOT NULL "
-        "AND deployment_member_item_id IS NOT NULL AND plan_id IS NOT NULL"
-    )
-    row = dict(
-        test_db.execute(
-            "SELECT * FROM qa_requirements WHERE id=%s", (first,)
-        ).fetchone()
-    )
-    row.pop("id")
-    row["execution_target_digest"] = "another-receipt"
-    columns = list(row)
-    duplicate = test_db.execute(
-        f"INSERT INTO qa_requirements({','.join(columns)}) VALUES ({','.join(['%s'] * len(columns))}) RETURNING id",
-        tuple(row.values()),
-    ).fetchone()[0]
-    if has_pass:
-        test_db.execute(
-            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,completed_at,created_at) "
-            "VALUES (%s,'worktree_run','plan_case','pass',now(),now())",
-            (duplicate,),
-        )
-    from yoke_core.domain.qa_deployment_requirement_identity_schema import (
-        ensure_requirement_scope_indexes,
-    )
-
-    ensure_requirement_scope_indexes(
-        test_db
-    )  # Boot must defer uniqueness until history converges.
-    migration = importlib.import_module(
-        "yoke_core.domain.migrations.0098_qa_requirement_case_identity"
-    )
-    for _ in range(2):
-        migration.apply(test_db)
-        migration.invariants(test_db)
-        ensure_requirement_scope_indexes(test_db)
-    rows = test_db.execute(
-        "SELECT id,superseded_by_requirement_id,supersession_source FROM qa_requirements "
-        "WHERE id=ANY(%s) ORDER BY id",
-        ([first, duplicate],),
-    ).fetchall()
-    survivor, loser = (duplicate, first) if has_pass else (first, duplicate)
-    by_id = {row["id"]: row for row in rows}
-    assert by_id[loser]["superseded_by_requirement_id"] == survivor
-    assert by_id[loser]["supersession_source"] == "migration"
-    assert by_id[survivor]["superseded_by_requirement_id"] is None
-    assert migration.MINIMUM_SERVING_VERSION == "next-release"
 
 
 def test_original_pass_digest_survives_two_takeovers(test_db, monkeypatch):

@@ -90,19 +90,15 @@ def load_module(name: str) -> Any:
         entry.name: entry for entry in ordered_entries(history_dir(history_package))
     }
     entry = entries[name]
-    return load_migration_module(entry.path, entry.name)
+    # Folded entries have ledger identity but no executable invariants.
+    return entry if entry.is_baseline else load_migration_module(entry.path, entry.name)
 
 
 def verify_migrated_copy(conn: Any, copy_dsn: str) -> str | None:
-    """Run product readers, the secret-receipt replay, then release tooling; first failure wins."""
+    """Run product readers then release tooling; first failure wins."""
     from yoke_core.tools.migration_rehearsal_readers import verify_migrated_readers
-    from yoke_core.tools.migration_rehearsal_secret_receipts import (
-        verify_secret_receipt_replay,
-    )
 
     failure = verify_migrated_readers(conn, copy_dsn)
-    if failure is None:
-        failure = verify_secret_receipt_replay(conn)
     return (
         failure
         if failure is not None

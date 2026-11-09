@@ -26,9 +26,10 @@ The guard `runtime/api/domain/test_migration_import_layers.py` (Yoke source repo
 owns the allow-list and
 checks every domain `*_schema.py` and numbered migration after `0106`.
 It finds top-level and lazy imports, including relative and package-from forms.
-Entries through `0106` retain their historical imports; two existing schema
-edges have explicit, source-owner-specific exceptions. Neither exemption
-authorizes a new import edge.
+The entries through `0106` have been replaced by a code-declared baseline.
+The guard also rejects imports of migration modules from runtime code outside
+the history package, including dynamic `import_module` calls. Runtime behavior
+belongs to its domain owner; the guard has no live-policy exceptions.
 
 A violation names the source path, line, forbidden module and allowed layers,
 then directs the author to move live policy to orchestration and pass data in.
@@ -40,12 +41,19 @@ with the migration entry tests before submitting a migration change.
 
 Never edit an applied migration, including its imports: the ledger records its
 raw-byte digest. Correct an old invariant with a new ordered entry. Historical
-scripts are removed by a baseline squash, with their released digests and
-resolved serving floors preserved in `released_history_digests.json`; removal
-is not permission to rewrite a retained entry. Remove dedicated tests with
-their squashed entries and keep the shared entry-contract checks. An existing
-database missing folded history must first upgrade through a build carrying
-those scripts; a new database stamps the folded history without running them.
+scripts may be replaced by one code-declared baseline after every known
+installation's predecessor identities have been verified. Boot collapses only
+the exact predecessor names and digests, atomically, and records the carrying
+release as the baseline serving floor. New databases stamp only the baseline.
+The predecessor manifest is temporary transition input; a following release
+removes it and the collapse step after every ledger has converged. Removal is
+not permission to rewrite a retained entry. Remove dedicated tests with their
+retired scripts and retain shared replay and baseline contracts.
+
+After a ledger collapses, rollback below the carrying release is unsupported.
+Recovery pairs a database restore point with its matching older release, or
+proceeds forward. Portable archives must match the current trusted schema;
+the importer does not reconstruct retired tables, column names or QA snapshots.
 
 ## Timestamp discipline
 

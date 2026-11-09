@@ -9,13 +9,8 @@ seed the prior shape and prove converge completes on integer keys.
 from __future__ import annotations
 
 import psycopg
-import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
-from yoke_core.domain.migrations._numeric_environment_site_keys import (
-    registry_is_numeric,
-)
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     environment_reference_column_sql,
@@ -246,42 +241,7 @@ def test_fresh_universe_converge_uses_integer_environment_keys() -> None:
         with psycopg.connect(dsn) as conn:
             converge_core_schema(conn)
             conn.commit()
-            assert registry_is_numeric(conn)
             assert _column_type(conn, "environments", "id") == "integer"
-            assert (
-                _column_type(conn, "deployment_flows", "target_environment_id")
-                == "integer"
-            )
-    finally:
-        pg_testdb.drop_test_database(database, pooled=False)
-
-
-def test_converge_converts_legacy_text_environment_keys(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv(RESTORE_POINT_ENV, "snapshot:legacy-text-env-keys")
-    database = pg_testdb.create_test_database(pooled=False)
-    try:
-        dsn = pg_testdb.dsn_for_test_database(database)
-        with psycopg.connect(dsn) as conn:
-            _seed_text_environment_universe(conn)
-            assert _column_type(conn, "environments", "id") == "text"
-            converge_core_schema(conn)
-            conn.commit()
-            assert registry_is_numeric(conn)
-            assert _column_type(conn, "environments", "id") == "integer"
-            assert _column_type(conn, "sites", "id") == "integer"
-            applied = conn.execute(
-                "SELECT 1 FROM applied_migrations "
-                "WHERE migration_name = '0010_numeric_environment_site_keys'"
-            ).fetchone()
-            assert applied is not None
-            fk = conn.execute(
-                "SELECT 1 FROM pg_constraint "
-                "WHERE conname = "
-                "'deployment_flows_target_environment_id_fkey'"
-            ).fetchone()
-            assert fk is not None
             assert (
                 _column_type(conn, "deployment_flows", "target_environment_id")
                 == "integer"

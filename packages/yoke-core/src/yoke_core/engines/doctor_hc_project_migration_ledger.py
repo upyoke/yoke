@@ -15,7 +15,6 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
         migration_ledger_contract,
         migration_serving_version,
     )
-    from yoke_core.domain.migration_history import load_migration_module
     from yoke_core.engines.doctor_project_migration_state import (
         MigrationAuthorityUnavailable,
         MigrationConfigurationError,
@@ -41,7 +40,9 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
             rows = ledger_rows(state)
         except Exception as exc:  # noqa: BLE001 - unreadable never passes
             rec.record(
-                SLUG, TITLE, "WARN",
+                SLUG,
+                TITLE,
+                "WARN",
                 f"cannot read {state.project}.{state.model_name} ledger "
                 f"{state.ledger.table}: {exc}",
             )
@@ -49,16 +50,19 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
         history_names = [entry.name for entry in state.history]
         applied = [name for name, _floor, _digest in rows]
         newer = migration_ledger_contract.applied_entries_outside_history(
-            history_names, applied,
+            history_names,
+            applied,
         )
         pending = migration_ledger_contract.pending_entries(
-            history_names, applied,
+            history_names,
+            applied,
         )
         if pending:
             rec.record(
-                SLUG, TITLE, "FAIL",
-                f"{len(pending)} entry(ies) not applied here: "
-                + ", ".join(pending),
+                SLUG,
+                TITLE,
+                "FAIL",
+                f"{len(pending)} entry(ies) not applied here: " + ", ".join(pending),
             )
             return
 
@@ -95,12 +99,11 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
                 except InvalidVersion:
                     invalid_floors.append(f"{name}={recorded!r}")
         for entry in state.history:
-            module = load_migration_module(entry.path, entry.name)
             # A sentinel declaration resolves per applying artifact, so an
             # absent row value is evidence about that build, not a lost floor.
-            declared = migration_serving_version.recorded_floor(
-                module, running_version=""
-            )
+            declared = migration_serving_version.entry_minimum(entry)
+            if declared == migration_serving_version.NEXT_RELEASE:
+                declared = None
             recorded = floors.get(entry.name)
             if declared is not None and not recorded:
                 missing_floors.append(entry.name)
@@ -113,8 +116,7 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
                 )
             if invalid_floors:
                 detail.append(
-                    "invalid recorded serving floors: "
-                    + ", ".join(invalid_floors)
+                    "invalid recorded serving floors: " + ", ".join(invalid_floors)
                 )
             rec.record(SLUG, TITLE, "FAIL", "; ".join(detail))
             return
@@ -143,7 +145,9 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
             shown = ", ".join(newer[:5])
             more = f" and {len(newer) - 5} more" if len(newer) > 5 else ""
             rec.record(
-                SLUG, TITLE, "WARN",
+                SLUG,
+                TITLE,
+                "WARN",
                 f"{state.project}.{state.model_name}: membership is current, "
                 f"but {len(newer)} applied row(s) are newer than this packaged "
                 f"history ({shown}{more}); this is rollback-compatible only "
@@ -159,7 +163,8 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
                     continue
                 try:
                     safe = migration_serving_version.satisfies_minimum(
-                        state.running_version, str(recorded),
+                        state.running_version,
+                        str(recorded),
                     )
                 except migration_serving_version.ServingVersionError as exc:
                     rec.record(SLUG, TITLE, "FAIL", str(exc))
@@ -168,20 +173,25 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
                     stranded.append(f"{name} requires {recorded}")
             if stranded:
                 rec.record(
-                    SLUG, TITLE, "FAIL",
+                    SLUG,
+                    TITLE,
+                    "FAIL",
                     f"running artifact {state.running_version} is below "
                     "recorded serving floor(s): " + ", ".join(stranded),
                 )
                 return
         rec.record(
-            SLUG, TITLE, "PASS",
+            SLUG,
+            TITLE,
+            "PASS",
             f"{state.project}.{state.model_name}: {len(applied)} membership "
             f"row(s), serving floors readable via "
             f"{state.ledger.serving_floor_column}, content identity readable "
             f"via {state.ledger.digest_column}"
             + (
                 f", rollback floor checked against {state.running_version}"
-                if newer and state.running_version else ""
+                if newer and state.running_version
+                else ""
             ),
         )
     finally:
@@ -193,7 +203,9 @@ def _yoke_evidence_schema_problem(control_conn, state) -> str:
     from yoke_core.engines.doctor_context import self_project_names
 
     try:
-        if state.project not in {str(name) for name in self_project_names(control_conn)}:
+        if state.project not in {
+            str(name) for name in self_project_names(control_conn)
+        }:
             return ""
         from yoke_core.domain.migration_yoke_ledger import (
             yoke_migration_content_schema_is_prepared,

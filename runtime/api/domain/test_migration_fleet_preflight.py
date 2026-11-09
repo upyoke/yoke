@@ -290,7 +290,8 @@ class TestAppliedHistoryInvariants:
             RETIRED_STANDING_INVARIANTS,
         )
 
-        name, reason = next(iter(RETIRED_STANDING_INVARIANTS.items()))
+        name, reason = "8000_retired_check", "surface removed"
+        monkeypatch.setitem(RETIRED_STANDING_INVARIANTS, name, reason)
         conn = _ConvergeConn()
         monkeypatch.setattr(db_backend, "_open_native_postgres", lambda _dsn: conn)
         dump = tmp_path / "tenant.dump"

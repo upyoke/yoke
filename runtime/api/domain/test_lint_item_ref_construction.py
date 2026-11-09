@@ -176,12 +176,12 @@ def test_flags_numeric_tail_item_ref_coercion(tmp_path: Path) -> None:
 
 
 def test_numeric_tail_allowances_are_exact_and_stale_checked(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch,
 ) -> None:
-    allowed = (
-        "packages/yoke-core/src/yoke_core/domain/migrations/"
-        "_numeric_item_dependency_ids.py"
-    )
+    from yoke_core.domain import lint_item_ref_construction as policy
+
+    allowed = "packages/fixture/src/stored_tokens.py"
+    monkeypatch.setitem(policy._NUMERIC_TAIL_ALLOWLIST, allowed, "synthetic legacy parser")
     _write(tmp_path, allowed, 'tail = int(raw.rsplit("-", 1)[-1])\n')
 
     assert scan_parser_policy(tmp_path) == []

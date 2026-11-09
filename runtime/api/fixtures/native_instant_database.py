@@ -3,32 +3,6 @@
 from contextlib import contextmanager
 
 
-#: Instant columns born native TIMESTAMPTZ after the cutover; the frozen
-#: history never converts them, but the live roster still declares them.
-BORN_NATIVE_AFTER_HISTORY = frozenset(
-    {("qa_test_machine_waits", c) for c in ("queued_at", "settled_at")}
-    | {("merge_queue_landing_attempts", c) for c in ("enqueued_at", "opened_at")}
-    | {("merge_queue_landing_attempts", "closed_at")}
-    | {("session_tool_calls", "monitor_deadline_at")}
-    | {("deployment_run_timings", "recorded_at")}
-    | {("session_scheduled_wakes", c) for c in ("created_at", "due_at")}
-    | {("machine_authorization_codes", "decided_at")}
-    | {("qa_plan_execution_adoptions", "adopted_at")}
-    | {("qa_plan_execution_reconciliations", "reconciled_at")}
-    | {("qa_settlement_followups", c) for c in ("requested_at", "attempted_at")}
-    | {
-        ("teammate_invite_codes", column)
-        for column in (
-            "created_at",
-            "expires_at",
-            "consumed_at",
-            "revoked_at",
-            "replaced_at",
-        )
-    }
-)
-
-
 @contextmanager
 def blank_database():
     from runtime.api.fixtures.pg_testdb import (

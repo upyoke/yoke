@@ -89,10 +89,7 @@ _NUMERIC_TAIL_COERCION_RE = re.compile(
 # These modules consume stored pre-cutover item tokens, not operator input.
 # Each path stays visible here so removing its legacy read also removes a stale
 # allowance enforced by ``stale_parser_policy_allowances``.
-_NUMERIC_TAIL_ALLOWLIST: dict[str, str] = {
-    "packages/yoke-core/src/yoke_core/domain/migrations/"
-    "_numeric_item_dependency_ids.py": "frozen migration of stored item tokens",
-}
+_NUMERIC_TAIL_ALLOWLIST: dict[str, str] = {}
 
 
 def _is_test_file(rel_posix: str) -> bool:

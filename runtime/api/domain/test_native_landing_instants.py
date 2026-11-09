@@ -13,11 +13,6 @@ from yoke_core.domain.item_landings import (
     append_landing,
     landings_for_item,
 )
-from yoke_core.domain.item_landings_reconstruct import (
-    LandingFact,
-    facts_from_json,
-    facts_to_json,
-)
 
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 WIRE = "1969-12-31T23:59:59.123456Z"
@@ -32,9 +27,6 @@ def _record(item_id=7):
 def test_native_fact_and_record_payloads_preserve_microseconds():
     assert _record().landed_at == STAMP
     assert _record().payload()["landed_at"] == WIRE
-    fact = LandingFact("b" * 40, "a" * 40, "1", "main", STAMP, 7)
-    assert fact.as_json()["landed_at"] == WIRE
-    assert facts_from_json(facts_to_json([fact])) == (fact,)
 
 
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])

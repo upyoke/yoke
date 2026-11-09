@@ -77,7 +77,7 @@ def converge_and_validate_restored_universe(
 ) -> dict[str, object]:
     """Converge an imported DB and prove org identity + exact current schema."""
     from yoke_core.domain import db_backend, universe_capability_compatibility
-    from yoke_core.domain import qa_requirement_snapshot_convergence as snapshots
+    from yoke_core.domain import qa_requirement_snapshot_validation as snapshots
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
     from yoke_core.domain.flow_init import create_or_replace_item_progress_view
@@ -115,7 +115,7 @@ def converge_and_validate_restored_universe(
         seed_roles_and_permissions(conn)
         create_or_replace_item_progress_view(conn)
         _ensure_qa_runs_verdict_trigger(conn)
-        snapshots.converge_restored_requirement_snapshots(
+        snapshots.validate_restored_requirement_snapshots(
             conn, ArchiveCompatibilityError
         )
         conn.commit()

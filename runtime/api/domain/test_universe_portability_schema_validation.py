@@ -1,11 +1,5 @@
 """Portable restore convergence and schema compatibility checks."""
 
-from runtime.api.domain.universe_portability_schema_validation_test_support import (
-    assert_older_schema_restored as assert_older_schema_restored,
-    seed_older_schema as seed_older_schema,
-)
-
-
 import os
 import pytest
 from yoke_core.domain import universe_portability as portability

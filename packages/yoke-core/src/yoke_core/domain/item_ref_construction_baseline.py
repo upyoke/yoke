@@ -11,16 +11,6 @@ allowance. Empty => zero tolerance.
 from __future__ import annotations
 
 BASELINE: dict[str, dict[str, object]] = {
-    "packages/yoke-core/src/yoke_core/domain/item_landings_reconstruct.py": {
-        "count": 3,
-        "reason": "legacy_key_lookup",
-        "note": "migration 0046 backfill reads historical YOK merge-commit subjects",
-    },
-    "packages/yoke-core/src/yoke_core/domain/migrations/0057_shepherd_public_refs.py": {
-        "count": 1,
-        "reason": "legacy_key_lookup",
-        "note": "frozen migration rewrites stored YOK-{internal_id} shepherd keys",
-    },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees.py": {
         "count": 1,
         "reason": "token_recognition",

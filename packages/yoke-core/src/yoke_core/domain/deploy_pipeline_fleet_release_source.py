@@ -13,7 +13,6 @@ and the schema-shape digest — before it may rehearse on the release's behalf.
 from __future__ import annotations
 
 from yoke_core.domain.deployment_run_recovery_command import deploy_command
-import hashlib
 import subprocess
 import tempfile
 from contextlib import contextmanager
@@ -112,9 +111,14 @@ def engine_source_mismatch(
             f"the dispatching engine's migration history differs from release "
             f"commit {release_sha}'s; {remedy}"
         )
+    from yoke_core.domain.migration_history_integration import _target_history
+
+    released = {
+        entry.name: entry.content_sha256
+        for entry in _target_history(Path(repository), release_sha, modules_dir)
+    }
     for name in history:
-        content = _file_at(repository, release_sha, f"{modules_dir}/{name}.py")
-        if hashlib.sha256(content).hexdigest() != running[name]:
+        if released.get(name) != running[name]:
             return (
                 f"history entry {name} in the dispatching engine differs from "
                 f"release commit {release_sha}'s; {remedy}"
@@ -125,21 +129,6 @@ def engine_source_mismatch(
             f"{release_sha}'s; {remedy}"
         )
     return ""
-
-
-def _file_at(repository: str, sha: str, path: str) -> bytes:
-    result = subprocess.run(
-        ["git", "-C", str(Path(repository).expanduser()), "show", f"{sha}:{path}"],
-        capture_output=True,
-        timeout=60,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise ReleaseSourceError(
-            f"could not read {path} at release commit {sha}: "
-            f"{result.stderr.decode('utf-8', errors='replace').strip()}"
-        )
-    return result.stdout
 
 
 __all__ = [

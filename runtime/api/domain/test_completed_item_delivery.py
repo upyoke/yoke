@@ -177,36 +177,6 @@ def test_later_stage_delivery_has_its_own_exact_candidate(test_db, monkeypatch):
     assert _deployed(test_db, environment="prod")
 
 
-def test_historical_conversion_is_idempotent_and_preserves_exact_attribution(
-    test_db, monkeypatch
-):
-    import importlib
-
-    migration = importlib.import_module(
-        "yoke_core.domain.migrations.0067_completed_item_delivery_attribution"
-    )
-    _isolate_status_effects(monkeypatch)
-    run_id = "historical-completion"
-    _seed_final_run(test_db, run_id, shared_qa=False)
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
-    exact = completed_deliveries(test_db, [MEMBER_A])[MEMBER_A]
-    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (run_id,))
-    migration.apply(test_db)
-    migration.apply(test_db)
-    migration.invariants(test_db)
-    assert completed_deliveries(test_db, [MEMBER_A])[MEMBER_A] == exact
-    test_db.execute(
-        "UPDATE item_gate_satisfactions SET facts='{}' WHERE item_id=%s AND obligation='delivery_evidence'",
-        (MEMBER_A,),
-    )
-    migration.apply(test_db)
-    historical = completed_deliveries(test_db, [MEMBER_A])[MEMBER_A]
-    assert len(historical) == 1
-    assert historical[0]["run_id"] == run_id
-    assert historical[0]["precision"] == "historical"
-    assert _deployed(test_db)
-
-
 def test_cross_project_attribution_uses_the_bound_candidate(test_db, monkeypatch):
     from yoke_core.domain.completed_item_delivery import record_completed_run_delivery
 

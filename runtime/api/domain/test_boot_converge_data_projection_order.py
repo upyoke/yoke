@@ -22,69 +22,8 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_core.domain import migrations as migration_history_package
-from yoke_core.domain.migration_history import (
-    history_dir,
-    load_migration_module,
-    ordered_entries,
-)
-from yoke_core.domain.migration_content_transition_guard import (
-    adoption_transition_guard_function_name,
-    ensure_adoption_transition_guard,
-)
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
-from yoke_core.domain.migration_yoke_ledger import (
-    YOKE_ADOPTION_EVIDENCE_CONTRACT,
-    YOKE_LEDGER_CONTRACT,
-)
-from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init import converge_core_schema
-
-ENTRY_NAME = "0008_qa_runner_identity_columns"
-
-
-def _entry():
-    """Load the entry the way the applier does: by path, not by import name."""
-    directory = history_dir(migration_history_package)
-    match = next(
-        record for record in ordered_entries(directory) if record.name == ENTRY_NAME
-    )
-    return load_migration_module(directory / f"{match.name}.py", match.name)
-
-
-def _unstamp(conn, entry_name: str) -> None:
-    """Make one entry pending again on a database that recorded it at birth.
-
-    Ledger membership is immutable in the running product — a database may
-    never forget an entry it applied — so the only way to model a universe that
-    predates an entry is to lift that guard, remove the row, and put the guard
-    back exactly as it was. Dropping the guard's function takes its triggers
-    with it, so the public name is all this needs to know.
-    """
-    function = adoption_transition_guard_function_name(
-        YOKE_LEDGER_CONTRACT, YOKE_ADOPTION_EVIDENCE_CONTRACT
-    )
-    conn.execute(f"DROP FUNCTION IF EXISTS {function}() CASCADE")
-    conn.execute(
-        f"DELETE FROM {YOKE_LEDGER_CONTRACT.table} "
-        f"WHERE {YOKE_LEDGER_CONTRACT.entry_column} = %s",
-        (entry_name,),
-    )
-    ensure_adoption_transition_guard(
-        conn, YOKE_LEDGER_CONTRACT, YOKE_ADOPTION_EVIDENCE_CONTRACT
-    )
-    conn.commit()
-
-
-def _regress_to_retired_qa_vocabulary(conn) -> None:
-    """Undo the entry, leaving the shape every live tenant boots with.
-
-    The retired names are read from the entry rather than written here, so this
-    fixture keeps describing the same database the entry describes.
-    """
-    for table, retired, current in _entry().RENAMED_COLUMNS:
-        conn.execute(f'ALTER TABLE "{table}" RENAME COLUMN "{current}" TO "{retired}"')
-    _unstamp(conn, ENTRY_NAME)
 
 
 def _method_runner(conn, method_id: str) -> str:
@@ -101,27 +40,6 @@ def named_restore_point(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(RESTORE_POINT_ENV, "snapshot:boot-converge-order-test")
 
 
-def test_a_universe_on_the_retired_qa_vocabulary_converges(
-    tmp_path: Path, named_restore_point: None
-) -> None:
-    """The tenant boot that the fleet preflight caught failing."""
-    with init_test_db(tmp_path) as db_path:
-        conn = connect_test_db(db_path)
-        try:
-            _regress_to_retired_qa_vocabulary(conn)
-            assert _column_exists(conn, "qa_methods", "runner_id") is False
-
-            converge_core_schema(conn)
-
-            entry = _entry()
-            entry.invariants(conn)
-            for table, retired, current in entry.RENAMED_COLUMNS:
-                assert _column_exists(conn, table, retired) is False
-                assert _column_exists(conn, table, current) is True
-        finally:
-            conn.close()
-
-
 def test_the_projected_methods_carry_their_runner(
     tmp_path: Path, named_restore_point: None
 ) -> None:
@@ -133,8 +51,6 @@ def test_the_projected_methods_carry_their_runner(
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
-            _regress_to_retired_qa_vocabulary(conn)
-
             converge_core_schema(conn)
 
             assert _method_runner(conn, "command") == "worktree_run"
@@ -155,7 +71,6 @@ def test_a_method_the_universe_has_never_seen_is_projected(
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
-            _regress_to_retired_qa_vocabulary(conn)
             conn.execute("DELETE FROM qa_plan_cases WHERE method_id = 'command'")
             conn.execute("DELETE FROM qa_requirements WHERE method_id = 'command'")
             conn.execute("DELETE FROM qa_methods WHERE id = 'command'")

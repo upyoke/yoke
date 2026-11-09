@@ -62,12 +62,6 @@ ALLOWANCES: Tuple[Allowance, ...] = (
         "GitHub App slug in a documented configuration example",
     ),
     Allowance(
-        "packages/yoke-core/src/yoke_core/domain/item_landings_reconstruct.py",
-        "YOKE_PROJECT_SLUG",
-        "read only by a permanent migration that reconstructs this "
-        "repository's own historical landings",
-    ),
-    Allowance(
         "packages/yoke-core/src/yoke_core/domain/lint_yok_n_cruft_status.py",
         "_PROJECT_SLUG",
         "backs the Yoke repository's own historical-ref check",
@@ -92,18 +86,6 @@ ALLOWANCES: Tuple[Allowance, ...] = (
         "RECEIPT_PROJECT",
         "names the Yoke source checkout's --project in a refusal's teaching "
         "text; nothing branches on it",
-    ),
-    Allowance(
-        "packages/yoke-core/src/yoke_core/domain/migrations/"
-        "0061_declare_hosted_runtime_consumer.py",
-        "_FORMER_HOST_PROJECT",
-        "permanent migration writing the former in-code rule into stored settings",
-    ),
-    Allowance(
-        "packages/yoke-core/src/yoke_core/domain/migrations/"
-        "0061_declare_hosted_runtime_consumer.py",
-        "_FORMER_CONSUMER_PROJECT",
-        "permanent migration writing the former in-code rule into stored settings",
     ),
 )
 

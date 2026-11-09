@@ -41,7 +41,6 @@ from yoke_core.domain.migration_content_identity import (
 )
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
 from yoke_core.domain.migration_ledger_contract import LedgerContract
-from yoke_core.domain.migration_folded_history import require_folded_membership
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
 from yoke_core.domain.migration_entry_failure_cause import (
     EntryFailed,
@@ -68,6 +67,7 @@ def stamp_history(
     ledger: LedgerContract,
     applied_by: str,
     administering_env: str | None = None,
+    running_version: str = "",
 ) -> Tuple[str, ...]:
     """Record the whole history as applied without running any of it.
 
@@ -76,9 +76,8 @@ def stamp_history(
     running them would be at best a no-op and at worst a corruption. The
     equivalent of Flyway's baseline or Django's fake-initial.
 
-    Birth is a fact the caller observes, never something inferred from an
-    empty ledger here — a pre-ledger database that predates this mechanism
-    also has no rows, and stamping *that* one would skip real work.
+    Birth must be observed by the caller: an empty pre-ledger database
+    still owes real migrations and must never be stamped.
     """
     refuse_without_serving_build_authority(
         "recording a migration history as applied",
@@ -92,14 +91,20 @@ def stamp_history(
     stamped: list[str] = []
     try:
         for entry in history:
-            if entry.is_folded:
+            if entry.is_baseline:
+                from yoke_core.domain.migration_baseline_collapse import (
+                    baseline_recorded_floor,
+                )
+
                 record_applied(
                     conn,
                     entry,
                     ledger=ledger,
                     applied_by=applied_by,
                     content_sha256=entry.content_sha256,
-                    minimum_serving_version=entry.minimum_serving_version,
+                    minimum_serving_version=baseline_recorded_floor(
+                        entry, running_version
+                    ),
                 )
                 stamped.append(entry.name)
                 continue
@@ -150,32 +155,14 @@ def apply_pending(
 ) -> ApplyOutcome:
     """Apply every entry this database still owes, in history order.
 
-    Exactly one restore-point source must be supplied. ``backup_root`` plus a
-    caller-resolved ``backup_target_dsn`` makes the kernel take a ``pg_dump``
-    itself, which is right where the database is local to the machine or its
-    volume. ``external_restore_point`` names a
-    restore point someone else established — the managed-Postgres snapshot a
-    fleet roll takes before replacing any container, which is both faster than
-    a per-database dump and, unlike one written inside a container about to be
-    torn down, still there afterwards.
+    A pending transition requires a named external restore point or a backup
+    root and target supplied by composition. The applier owns the transaction:
+    apply and membership commit together, and a baseline collapse is atomic.
 
     ``administering_env`` names the target authority, resolved from ``conn``
     when omitted. ``dump_backup`` is required only for a local backup.
-
-    Refusing when neither is present is the policy, not a precaution: nothing
-    destructive runs without a named way back.
-
-    ``running_version`` is the version of the artifact doing the applying. The
-    kernel stays ignorant of what that means — the caller knows whether it is
-    a wheel version, an image tag, or nothing at all — and an empty string is
-    the honest answer from a source tree. It is required rather than defaulted
-    on purpose: an omitted version reads as unresolved and disables the
-    refusal entirely, so a default would let a caller silently switch the
-    guard off. Passing ``""`` is still allowed, but it has to be said. It is compared against each entry's
-    declared floor, so an entry can never be applied by a build too old to
-    serve against the result, and it is recorded on the ledger row, because a
-    build old enough to be in danger does not ship the entry that would tell
-    it so.
+    ``running_version`` is explicit; an empty source-tree version records no
+    invented floor. A next-release entry records the carrying version.
     """
     refuse_without_serving_build_authority(
         "applying a migration history",
@@ -190,9 +177,17 @@ def apply_pending(
 
     # A permanent name whose recorded non-NULL digest differs is corruption,
     # not pending work. Refuse before the current fast-path or any restore.
-    require_matching_content_identity(conn, history, ledger)
+    from yoke_core.domain.migration_baseline_collapse import (
+        baseline_transition_required,
+        collapse_baseline,
+    )
 
-    require_folded_membership(history, applied_names(conn, ledger))
+    baseline = next((entry for entry in history if entry.is_baseline), None)
+    transition = baseline is not None and baseline_transition_required(
+        conn, baseline, ledger
+    )
+    if not transition:
+        require_matching_content_identity(conn, history, ledger)
 
     # Cheap probe first. The overwhelming majority of boots are current, and
     # they should cost two queries and take no lock at all. Attribution and
@@ -218,10 +213,18 @@ def apply_pending(
         # it is check-then-act: the boot guard other containers hold is a
         # *shared* lock, so two of them genuinely do converge at once, and
         # both would otherwise see the same work and race to do it.
-        require_matching_content_identity(conn, history, ledger)
-        require_folded_membership(history, applied_names(conn, ledger))
-        outstanding = pending_entries(conn, history, ledger)
         applied: list[str] = []
+        if baseline is not None and collapse_baseline(
+            conn,
+            baseline,
+            ledger,
+            running_version=running_version,
+            applied_by=applied_by,
+        ):
+            conn.commit()
+            applied.append(baseline.name)
+        require_matching_content_identity(conn, history, ledger)
+        outstanding = pending_entries(conn, history, ledger)
         for entry in outstanding:
             _apply_one(
                 conn,

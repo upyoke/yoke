@@ -1,28 +1,14 @@
-"""Report Yoke migration state for every Yoke tenant DB in one environment.
+"""Read every tenant ledger, content identity and live invariant in an environment.
 
-Answers the question a single-database probe cannot: whether the installs
-behind one control plane agree about what has been applied to them. Each
-tenant is its own database with its own ``applied_migrations`` ledger, so
-"the fleet is current" is a claim about every tenant, not about whichever
-database a connection happens to resolve to.
-
-Reads only. Credential material is owned by the explicitly named connection's
-declared source and retained in a secret-safe readiness handle, so no secret
-reaches this process's argv or its output.
-
-Usage::
-
-    python3 -m runtime.api.tools.report_yoke_tenant_migration_state <env-name>
-
-where *env-name* is a configured admin connection (for example
-``prod-db-admin`` or ``stage-db-admin``).
+Usage: python3 -m runtime.api.tools.report_yoke_tenant_migration_state prod-db-admin
+Credentials stay in the named admin connection's secret-safe readiness handle.
 """
 
 from __future__ import annotations
 
 import sys
 from collections.abc import Callable, Sequence
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Literal, Optional, Tuple
 
 from yoke_core.domain.migration_yoke_ledger import (
     YOKE_LEDGER_CONTRACT,
@@ -45,7 +31,8 @@ RETIRED_SURFACES: Tuple[Tuple[str, str], ...] = (
     ("events", "user_id"),
 )
 
-InvariantCheck = Tuple[str, Optional[Callable[[Any], None]]]
+InvariantCheck = Tuple[str, Optional[Callable[[Any], None]] | Literal["baseline"]]
+
 
 def _connect(dsn: str) -> Any:
     import psycopg
@@ -110,14 +97,14 @@ def _latest_audit_outcomes(cur: Any) -> List[Tuple[str, str, Any]]:
 
 def _completed_receipt_names(cur: Any) -> set[str]:
     cur.execute(
-        "SELECT DISTINCT migration_name FROM migration_audit "
-        "WHERE state='completed'"
+        "SELECT DISTINCT migration_name FROM migration_audit WHERE state='completed'"
     )
     return {str(row[0]) for row in cur.fetchall()}
 
 
 def _ledger_rows_without_completed_evidence(
-    rows: List[Tuple[str, str, str, Optional[str]]], completed: set[str],
+    rows: List[Tuple[str, str, str, Optional[str]]],
+    completed: set[str],
 ) -> List[str]:
     return sorted({str(row[0]) for row in rows} - completed)
 
@@ -139,6 +126,9 @@ def _packaged_invariant_checks(history: Sequence[Any]) -> List[InvariantCheck]:
 
     checks = []
     for entry in history:
+        if entry.is_baseline:
+            checks.append((entry.name, "baseline"))
+            continue
         module = load_migration_module(entry.path, entry.name)
         check = getattr(module, "invariants", None)
         checks.append((entry.name, check if callable(check) else None))
@@ -149,9 +139,7 @@ def _content_evidence_state(conn: Any, history: Sequence[Any]) -> dict[str, Any]
     """Return secret-free content/adoption evidence, failing closed on reads."""
     try:
         prepared = yoke_migration_content_schema_is_prepared(conn)
-        status = migration_content_identity_status(
-            conn, history, YOKE_LEDGER_CONTRACT
-        )
+        status = migration_content_identity_status(conn, history, YOKE_LEDGER_CONTRACT)
     except Exception:  # noqa: BLE001 — reporter exposes no database internals
         return {
             "prepared": False,
@@ -170,7 +158,8 @@ def _content_evidence_state(conn: Any, history: Sequence[Any]) -> dict[str, Any]
 
 
 def _packaged_pending(
-    checks: Sequence[InvariantCheck], applied_names: set[str],
+    checks: Sequence[InvariantCheck],
+    applied_names: set[str],
 ) -> List[str]:
     return [name for name, _check in checks if name not in applied_names]
 
@@ -184,6 +173,9 @@ def _applied_invariant_outcomes(
     outcomes = []
     for name, check in checks:
         if name not in applied_names:
+            continue
+        if check == "baseline":
+            outcomes.append((name, "baseline", None))
             continue
         if check is None:
             outcomes.append((name, "not_declared", None))
@@ -255,14 +247,17 @@ def _report_database(dsn_for: Any, database: str) -> bool:
                 suffix = f" ({detail})" if detail else ""
                 print(f"    {name}: {state}{suffix}")
             failed_invariants = [
-                name for name, state, _detail in outcomes if state != "passed"
+                name
+                for name, state, _detail in outcomes
+                if state not in {"passed", "baseline"}
             ]
 
             attempts = _audit_attempts(cur)
             if attempts is None:
                 print("  migration audit: TABLE ABSENT")
                 missing_receipts = _ledger_rows_without_completed_evidence(
-                    rows or [], set(),
+                    rows or [],
+                    set(),
                 )
             else:
                 latest_outcomes = _latest_audit_outcomes(cur)
@@ -272,7 +267,8 @@ def _report_database(dsn_for: Any, database: str) -> bool:
                     if str(state).endswith("_failed")
                 ]
                 missing_receipts = _ledger_rows_without_completed_evidence(
-                    rows or [], _completed_receipt_names(cur),
+                    rows or [],
+                    _completed_receipt_names(cur),
                 )
                 print("  migration audit historical attempts:")
                 for state, count, latest in attempts:
@@ -287,10 +283,7 @@ def _report_database(dsn_for: Any, database: str) -> bool:
             print(f"  retired surfaces still present: {surviving or 'none'}")
 
             content = _content_evidence_state(conn, history)
-            print(
-                "  migration content schema/guards prepared: "
-                f"{content['prepared']}"
-            )
+            print(f"  migration content schema/guards prepared: {content['prepared']}")
             print(f"  verified raw-byte identities: {content['verified'] or 'none'}")
             print(
                 "  content identity adoption required: "

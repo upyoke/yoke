@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from runtime.api.domain.universe_portability_qa_snapshots_test_support import (
     _create_requirement_source as _create_requirement_source,
-    assert_requirement_snapshot_restored as assert_requirement_snapshot_restored,
-    seed_older_requirement_snapshot as seed_older_requirement_snapshot,
 )
 
 

@@ -1,59 +1,16 @@
-"""The ordered migration history for the Yoke control-plane schema.
+"""Current control-plane baseline and future ordered migration entries.
 
-Every data-transforming schema change lands here as a ``NNNN_slug.py``
-module and **stays here permanently**. The directory is the history, in
-order; each database's ``applied_migrations`` ledger records how far
-through it that database has got. The pending set is the difference, so
-every install computes what it still owes from its own rows plus the code
-it is running, and the boot converge applies it.
-
-Nothing is deleted after an apply. A module that is gone cannot be applied
-by a universe that never received it, which is precisely how installs
-silently diverge. Entries are folded into the baseline schema only by an
-occasional squash, once every known install's ledger is verifiably past
-them.
-
-Contract for a module here:
-
-- ``apply(conn)`` is required, and **must not commit**. The applier commits
-  the body and the ledger row together, which is what makes "applied but
-  unrecorded" impossible; a commit inside ``apply()`` splits that
-  transaction and gives the state back.
-- ``invariants(conn)`` is optional. It runs after the apply commits, and
-  again on every fleet preflight against a copy of a live database. So it
-  may assert only what the entry permanently owes: the schema shape it
-  produced, or a data fact no live writer can undo. A count of rows in the
-  state the apply happened to leave behind is a snapshot, not an invariant —
-  the writers that fill those rows afterwards are doing their job, and the
-  assertion fails on every preflight from the first one onward. It must also
-  hold after **this** entry's own ``apply()``, because rehearsal runs the
-  entry alone against a validation surface that may predate everything
-  before it: assert only a shape this entry establishes, converging it here
-  with guarded statements rather than assuming a predecessor ran.
-- Invariants remain true forever unless a later entry declares
-  ``RETIRES_INVARIANTS`` naming those prior entries — because the surface
-  they describe is gone. A standing invariant found wrong after apply is
-  retired by name and reason in the fleet re-prover's
-  ``RETIRED_STANDING_INVARIANTS`` map, never by editing the applied module
-  whose bytes every database ledger records. The fleet preflight summary
-  reports that skip as its own count and reason, alongside passed and
-  failed — not only as a converge-stream line, and not as a pass.
-  A frozen check that is still true except for one supported state the
-  applied bytes reject is reproved from ``CORRECTED_STANDING_INVARIANTS``
-  instead of being skipped.
-- **The body must be safe to re-run.** A database restored from a
-  pre-ledger archive replays its history, so guard every statement
-  (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).
-- The filename stem is the entry's only identity — it is what the ledger
-  stores. Do not add a name constant that could disagree with it.
-- A new entry takes the next number, and the sequence number is the only
-  order: an entry always runs after every lower-numbered entry. Nothing can
-  reorder the history — an entry declaring an ordering override such as
-  ``PRECEDES`` is refused with ``migration_ordering_override``. Work an
-  earlier entry needs before it can apply belongs in that entry's own
-  refusal and recovery.
-
-Pure-additive net-new tables and columns do **not** belong here: those are
-authored in the schema modules and self-propagate through the converge step
-on the boot after a deploy.
+The predecessor manifest is temporary rollout input for ledger collapse, not
+active history. Only hosted Stage and Production tenants exist; their exact
+predecessor content identities are verified before any membership is replaced.
+After collapse, rollback below the release carrying this baseline is unsupported.
+Future data transformations use numbered scripts after the baseline ordinal.
 """
+
+HISTORY_BASELINE = {
+    "name": "0106_baseline",
+    "content_sha256": "e186ea2a939a1ae1451e96a69a25c9bfda163f0f92d0e28b48dc89913dea23dc",
+    "minimum_serving_version": "next-release",
+    "predecessor_manifest": "released_history_digests.json",
+    "adoption_evidence_table": "migration_content_adoptions",
+}

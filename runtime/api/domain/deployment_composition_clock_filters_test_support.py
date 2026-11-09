@@ -21,10 +21,6 @@ STAMP = parse_instant("2026-10-10T23:30:00.123456Z")
 
 DRIVER_STAMP = parse_instant("2026-10-10T23:07:54.695930Z")
 
-history = importlib.import_module(
-    "yoke_core.domain.migrations.0070_native_domain_instants"
-)
-
 
 @pytest.fixture
 def clocks():
@@ -75,3 +71,20 @@ def clocks():
             ("a" * 40, DRIVER_STAMP),
         )
         yield conn
+
+
+def native_clock_columns(conn):
+    """Build the fixture's current timestamp types without migration code."""
+    from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+
+    for table, column in sorted(STORED_INSTANT_COLUMNS):
+        row = conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_schema=current_schema() AND table_name=%s AND column_name=%s",
+            (table, column),
+        ).fetchone()
+        if row and row[0] == "text":
+            conn.execute(
+                f'ALTER TABLE "{table}" ALTER COLUMN "{column}" TYPE timestamptz '
+                f"USING NULLIF(\"{column}\", '')::timestamptz"
+            )

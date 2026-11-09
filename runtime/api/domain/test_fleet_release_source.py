@@ -34,8 +34,9 @@ def engine_repo(tmp_path: Path) -> tuple[Path, str]:
     repo = tmp_path / "repo"
     (repo / _MODULES).mkdir(parents=True)
     _git(repo, "init", "-q")
-    for entry in ordered_entries(history_dir(history_package)):
-        shutil.copyfile(entry.path, repo / _MODULES / entry.path.name)
+    for path in history_dir(history_package).iterdir():
+        if path.is_file():
+            shutil.copyfile(path, repo / _MODULES / path.name)
     return repo, _commit(repo, "release")
 
 
@@ -55,15 +56,15 @@ def test_identical_engine_source_may_rehearse_for_the_release(engine_repo) -> No
 
 def test_engine_differing_from_the_release_commit_is_refused(engine_repo) -> None:
     repo, _sha = engine_repo
-    first = sorted((repo / _MODULES).glob("[0-9]*.py"))[0]
-    first.write_text(first.read_text() + "\n# changed at release\n")
+    first = repo / _MODULES / "__init__.py"
+    first.write_text(first.read_text().replace("e186ea2a", "a186ea2a"))
     changed = _commit(repo, "release with a changed entry")
 
     mismatch = release_source.engine_source_mismatch(
         str(repo), changed, _MODULES, _names(), digest_schema_shape()
     )
 
-    assert first.stem in mismatch
+    assert "0106_baseline" in mismatch
     assert "release driver from the release commit" in mismatch
 
 

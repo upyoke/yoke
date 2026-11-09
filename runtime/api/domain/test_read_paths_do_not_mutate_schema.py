@@ -81,10 +81,6 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/flow_init.py::converge_flow_catalog",
         "domain/flow_init.py::_ensure_flow_schema",
         "domain/workflow_schema.py::ensure_workflow_schema",
-        # Ordered migration history, which changes schema by definition.
-        "domain/migrations/0015_session_surface_and_organization_domain.py::apply",
-        "domain/migrations/0021_session_termination.py::apply",
-        "domain/migrations/0101_decision_request_audiences.py::apply",
         # ``cmd_init`` surfaces whose whole job is standing a database up.
         "domain/events_writes.py::cmd_init",
         "domain/flow_init.py::cmd_init",

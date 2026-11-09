@@ -8,7 +8,6 @@ from runtime.api.qa_case_environment_obligations_test_support import (
 )
 
 
-import importlib
 import json
 
 import pytest
@@ -267,21 +266,6 @@ def test_case_targets_refuse_invalid_or_unregistered_names(test_db, targets):
         replace_plan_cases(
             test_db, plan_id=plan["id"], cases=[{**case, "target_envs": targets}]
         )
-
-
-def test_index_retirement_is_idempotent_and_preserves_rows(test_db):
-    item, _plan, _case = _setup(test_db, qa_phase="verification")
-    test_db.execute(
-        "CREATE UNIQUE INDEX idx_qa_requirement_materialization ON qa_requirements(item_id,plan_id,plan_case_key,COALESCE(host_baseline,''),workflow_transition_id) WHERE item_id IS NOT NULL AND plan_id IS NOT NULL"
-    )
-    migration = importlib.import_module(
-        "yoke_core.domain.migrations.0058_qa_case_environment_materialization"
-    )
-    migration.apply(test_db)
-    migration.apply(test_db)
-    migration.invariants(test_db)
-    result = materialize_for_item(test_db, item_id=item["id"], transition_id="release")
-    assert len(result["created_requirement_ids"]) == 2
 
 
 def test_single_target_execution_refuses_to_drop_a_declared_sibling():

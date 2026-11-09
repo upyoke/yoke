@@ -33,9 +33,6 @@ from yoke_core.domain.lint_item_ref_construction import (
 _ALLOWLIST: frozenset[str] = frozenset(
     {
         "packages/yoke-core/src/yoke_core/domain/lint_item_ref_message_text.py",
-        # Applied migration content is immutable ordered history. Its old
-        # refusal remains frozen; current operational messages are scanned.
-        "packages/yoke-core/src/yoke_core/domain/migrations/0053_retire_advance_skill.py",
     }
 )
 

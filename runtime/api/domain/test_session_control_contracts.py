@@ -214,14 +214,14 @@ def test_closed_function_vocabulary_is_fully_registered() -> None:
     assert set(SESSION_CONTROL_FUNCTION_IDS) <= registered
 
 
-def test_portability_classifies_every_session_control_table() -> None:
+def test_current_archives_require_every_session_control_table() -> None:
     from yoke_core.domain.universe_portability_content_contract import (
         ARCHIVE_OMITTABLE_TARGET_TABLES,
         USER_CONTENT_TABLES,
     )
 
     portable = {"session_messages", "session_launches"}
-    operational = set(required_tables()) - portable
     assert portable <= set(USER_CONTENT_TABLES)
-    assert operational <= set(ARCHIVE_OMITTABLE_TARGET_TABLES)
-    assert not (portable & set(ARCHIVE_OMITTABLE_TARGET_TABLES))
+    # Current archives carry the entire session-control schema; only secrets
+    # may be omitted. Operational data may still be cleared during restore.
+    assert not (set(required_tables()) & set(ARCHIVE_OMITTABLE_TARGET_TABLES))
