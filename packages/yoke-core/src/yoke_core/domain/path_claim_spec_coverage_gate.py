@@ -25,8 +25,8 @@ from yoke_core.domain.file_budget_paths import (
     extract_file_budget_paths,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.db_backend import connect
 from yoke_core.domain.schema_common import (
-    _connect_raw,
     _get_columns as _schema_get_columns,
     _table_exists as _schema_table_exists,
 )
@@ -163,7 +163,7 @@ def evaluate(
     """
     own_conn = conn is None
     if conn is None:
-        conn = _connect_raw()
+        conn = connect()
     try:
         from yoke_core.domain.workflow_effective_policies import (
             load_item_effective_workflow_policies,

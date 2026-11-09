@@ -46,7 +46,6 @@ from yoke_core.domain.schema_common import (
     _USAGE,
     _cli_error,
     _cli_usage_error,
-    _connect_raw,
     _resolve_db_path,
     _resolve_db_root,
 )
@@ -62,7 +61,6 @@ def cmd_init() -> None:
     """Converge shared tables while preserving front-door patch hooks."""
     _schema_init._check_sibling_state_collision = _check_sibling_state_collision
     _schema_init._cli_error = _cli_error
-    _schema_init._connect_raw = _connect_raw
     _schema_init._resolve_db_path = _resolve_db_path
     _schema_init._resolve_db_root = _resolve_db_root
     return _schema_init.cmd_init()

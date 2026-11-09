@@ -250,7 +250,7 @@ class TestAddRemoveItem:
         assert [line.split("|")[1] for line in items_out.splitlines()] == ["100", "200"]
 
     def test_remove_item(self, db_path):
-        from yoke_core.domain.qa_schema import cmd_init
+        from yoke_core.domain.qa_cli import cmd_init
         from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 
         cmd_init(db_path=db_path)

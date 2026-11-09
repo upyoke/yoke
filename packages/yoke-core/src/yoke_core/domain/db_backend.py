@@ -17,6 +17,7 @@ from typing import Optional
 from yoke_contracts import control_plane_locality
 from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
 from yoke_core.domain import postgres_connection_reuse, universe_source_pause
+from yoke_core.domain.schema_connection import connection_is_postgres as connection_is_postgres
 from yoke_core.domain.db_row import PostgresRow, postgres_row_factory
 from yoke_core.domain.postgres_control_plane_connection import (
     bind_read_deadline,
@@ -60,18 +61,6 @@ def pg_dsn_is_bound() -> bool:
 
 def is_postgres() -> bool:
     return True
-
-
-def connection_is_postgres(conn) -> bool:
-    """Return the dialect of an *existing* connection by type, not env.
-
-    Existing SQLite fixtures remain SQLite; all other connections are Postgres.
-    """
-    for attr in ("_inner", "_conn"):
-        inner = getattr(conn, attr, None)
-        if isinstance(inner, sqlite3.Connection):
-            return False
-    return not isinstance(conn, sqlite3.Connection)
 
 
 def resolve_pg_dsn(dbname: Optional[str] = None) -> str:

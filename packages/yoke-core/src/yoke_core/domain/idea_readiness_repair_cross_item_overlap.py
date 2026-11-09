@@ -301,8 +301,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps({"success": False,
                           "error": str(exc)}))
         return 1
-    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
-    conn = _connect_raw(_resolve_db_path())
+    from yoke_core.domain.db_backend import connect
+    from yoke_core.domain.schema_common import _resolve_db_path
+    conn = connect(_resolve_db_path())
     try:
         if args.evidence:
             outcome = attempt_cross_item_overlap_repair(conn, item_id=item_id)

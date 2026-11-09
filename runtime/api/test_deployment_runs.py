@@ -38,7 +38,7 @@ class TestNextIdAndCreateRun:
 class TestItemManagement:
 
     def test_remove_item(self, db_path: str) -> None:
-        from yoke_core.domain.qa_schema import cmd_init
+        from yoke_core.domain.qa_cli import cmd_init
         from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
         from runtime.api.api_workflow_test_helpers import (
             install_workflow_registry_and_pin_items,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Iterator
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.schema_connection import connection_is_postgres
 
 
 _INTEGER_PRIMARY_KEY_RE = re.compile(
@@ -79,7 +79,7 @@ def _postgres_statement(statement: str) -> str:
 
 def execute_schema_script(conn: Any, sql: str) -> None:
     """Execute a schema script one native statement at a time."""
-    postgres = db_backend.connection_is_postgres(conn)
+    postgres = connection_is_postgres(conn)
     for statement in iter_schema_statements(sql):
         if postgres:
             statement = _postgres_statement(statement)

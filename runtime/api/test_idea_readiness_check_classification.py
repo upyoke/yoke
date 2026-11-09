@@ -37,7 +37,7 @@ def _run_main_and_capture(item_id: int, *, issues, advisories, unavailable=()):
     )
     with patch.object(idea_readiness_check, "run_all_checks", return_value=outcome), \
          patch(
-             "yoke_core.domain.schema_common._connect_raw",
+             "yoke_core.domain.db_backend.connect",
              return_value=conn,
          ), \
          patch(

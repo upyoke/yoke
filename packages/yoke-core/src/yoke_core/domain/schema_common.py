@@ -12,6 +12,9 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
+from yoke_core.domain.schema_connection import (
+    connection_is_postgres as _connection_is_postgres,
+)
 from yoke_core.domain.schema_common_postgres import (
     _postgres_check_constraint_defs,
     _postgres_column_exists,
@@ -63,7 +66,7 @@ def _cli_usage_error(msg: str) -> None:
 def _resolve_db_path() -> str:
     """Return the empty token Postgres authority uses in place of a file path.
 
-    Active schema work should call :func:`_connect_raw` with no path. The
+    Active schema work receives an existing connection from its caller. The
     empty token remains for legacy migration-audit CLI surfaces that have
     not yet been deleted.
     """
@@ -75,19 +78,6 @@ def _resolve_db_root() -> str:
     if not _resolve_db_path():
         return ""
     return str(Path(_resolve_db_path()).parent)
-
-
-def _connect_raw(db_path: str = "") -> Any:
-    """Open the active Postgres authority connection."""
-    from yoke_core.domain import db_backend
-
-    return db_backend.connect(db_path)
-
-
-def _connection_is_postgres(conn: Any) -> bool:
-    from yoke_core.domain import db_backend
-
-    return db_backend.connection_is_postgres(conn)
 
 
 def _using_generic_sqlite_validation(conn: Any) -> bool:

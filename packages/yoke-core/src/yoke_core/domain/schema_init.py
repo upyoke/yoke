@@ -26,7 +26,7 @@ from yoke_contracts.schema_authority import (
     refuse_without_serving_build_authority,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _connect_raw, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_creation import converge_additive_schema
 from yoke_core.domain.schema_init_columns import (
     finalize_initial_schema,
@@ -240,7 +240,7 @@ def converge_migration_history(
 
 def cmd_init() -> None:
     """Create DB and shared tables (idempotent)."""
-    conn = _connect_raw("")
+    conn = db_backend.connect("")
     try:
         converge_core_schema(conn, backup_target_dsn=db_backend.resolve_pg_dsn())
         seed_roles_and_permissions(conn)
