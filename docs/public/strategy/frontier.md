@@ -21,7 +21,7 @@ dependencies. Blocked items stay at their lifecycle stage with a reason;
 frontier routes them to wait until unblocked.
 
 The Frontier page draws six bands, in order: **Waiting**, **On hold**,
-**Ready**, **In progress**, **Release** and **Done**. Waiting is a graph of
+**Ready**, **In progress**, **Release** and **Done (24h)**. Waiting is a graph of
 unsatisfied dependency edges at the start, merge and close gates
 (`coordination_only` edges never block, so they are never drawn). Its first
 column, *Holding work up*, holds every item with no unsatisfied blocker that
@@ -60,7 +60,12 @@ The graph reads `dependency_edges` from `frontier.list`. A serving build
 that predates that field gets a named refusal in Waiting and On hold, with
 its serving floor, rather than a graph guessed from reason text.
 
-Release and recent Done cards show delivery by landing and environment. A
+
+Done (24h) shows finishes from the last 24 hours plus older blockers retained
+by live dependencies, with their actual finishing times. Its **See more...**
+link always opens Items in the current scope, including when the window is empty.
+
+Release and Done cards show delivery by landing and environment. A
 candidate run appears while it carries a landing awaiting delivery there;
 the first successful run settles that landing in that environment. Later runs
 that only contain the same code remain in run history. Stage delivery does not

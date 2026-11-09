@@ -52,20 +52,20 @@ function disclosure(
     countNode.textContent = value === null || value === undefined
       ? "" : String(value);
   };
-  root.renderCards = (cards, message = empty, gridClass = "") => {
+  root.renderCards = (cards, message = empty, gridClass = "", trailingCards = []) => {
     body.replaceChildren();
     if (!cards.length) {
       body.appendChild(el(
         documentNode, "p", "work-band-empty", message,
       ));
-      return;
     }
+    if (!cards.length && !trailingCards.length) return;
     const grid = el(
       documentNode,
       "div",
       ["work-card-grid", gridClass].filter(Boolean).join(" "),
     );
-    for (const card of cards) grid.appendChild(card);
+    for (const card of [...cards, ...trailingCards]) grid.appendChild(card);
     body.appendChild(grid);
   };
   root.renderError = (message) => {

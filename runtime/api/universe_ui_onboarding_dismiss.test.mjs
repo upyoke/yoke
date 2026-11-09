@@ -239,7 +239,7 @@ test("empty live bands remain visible beside day-zero onboarding", async (t) => 
 
   assert.deepEqual(
     byClass(root, "work-band-title").map((node) => node.textContent),
-    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done"],
+    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done (24h)"],
   );
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("Nothing is waiting on other work."));
@@ -255,6 +255,6 @@ test("non-empty reads draw cards while onboarding is still day zero", async (t) 
   );
 
   assert.equal(byClass(root, "onboarding-trigger")[0].textContent, "Setup · 0/3");
-  assert.equal(byClass(root, "work-item-card").length, 1);
+  assert.equal(byClass(root, "work-item-card-ref").length, 1);
   mounted.unmount();
 });

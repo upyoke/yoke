@@ -88,7 +88,49 @@ test("a Done reference beyond the display limit still has a reachable home card"
   assert.equal(byClass(doneBand, "work-band-count")[0].textContent, "10");
   const homes = byClass(doneBand, "work-item-card").filter((card) => !card.classList.contains("see-more-card"));
   assert.equal(homes.length, 9);
+  assert.equal(byClass(doneBand, "see-more-card").length, 1);
   assert.ok(homes.some((card) => card.id === "frontier-home-I-10"));
   const reference = byClass(root, "fdv-tile").find((tile) => tile.getAttribute("data-fdv-ref") === "I-10");
   assert.equal(byClass(reference, "fdv-tile-ref")[0].href, "#frontier-home-I-10");
 });
+
+for (const count of [0, 3, 8, 10]) {
+  for (const scope of ["all", "1"]) {
+    test(`Done history link persists with ${count} finishes in scope ${scope}`, async (t) => {
+      const { mountUniverseApp } = await import("../../packages/yoke-core/src/yoke_core/ui/static/app.js");
+      const { workbenchClient } = await import("./universe_ui_workbench_test_support.mjs");
+      const { response, settle } = await import("./universe_ui_dom_test_support.mjs");
+      const saved = globalThis.fetch;
+      globalThis.fetch = () => response(200, {});
+      t.after(() => { globalThis.fetch = saved; });
+      const done = Array.from({ length: count }, (_, index) => ({
+        ...item(`I-${index + 1}`, "done"), terminal: true, finished: true,
+        finished_at: new Date(Date.now() - index * 60000).toISOString(),
+      }));
+      const documentNode = new FakeDocument();
+      documentNode.defaultView.location.href = `/frontier?project=${scope}`;
+      const root = documentNode.createElement("div");
+      const mounted = mountUniverseApp(root, { client: workbenchClient({
+        "items.overview.list": { rows: done },
+        "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
+        "sessions.list": { rows: [] },
+      }) });
+      t.after(() => mounted.unmount());
+      await settle();
+      const doneBand = byClass(root, "work-band-done")[0];
+      assert.equal(byClass(doneBand, "work-band-title")[0].textContent, "Done (24h)");
+      assert.equal(byClass(doneBand, "work-band-count")[0].textContent, String(count));
+      const links = byClass(doneBand, "see-more-card");
+      assert.equal(links.length, 1);
+      assert.equal(links[0].href, scope === "all" ? "/items" : "/items?project=1");
+      assert.equal(links[0].getAttribute("aria-label"), "See more...");
+      const cards = byClass(doneBand, "work-item-card");
+      assert.equal(cards.length, Math.min(count, 8) + 1);
+      assert.equal(cards.at(-1), links[0]);
+      const empty = byClass(doneBand, "work-band-empty");
+      assert.equal(empty.length, count === 0 ? 1 : 0);
+      if (!count) assert.equal(empty[0].textContent, "Nothing finished in the last 24 hours.");
+      assert.equal(byClass(byClass(root, "work-band-release")[0], "see-more-card").length, 0);
+    });
+  }
+}
