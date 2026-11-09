@@ -17,7 +17,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 STEERING_ACQUIRE_USAGE = (
     "yoke claims steering acquire --project P [--doc SLUG | --plan-doc SLUG] "
-    "[--reason TEXT] [--json]"
+    "[--take-over] [--reason TEXT] [--json]"
 )
 STEERING_RELEASE_USAGE = "yoke claims steering release CLAIM_ID --reason TEXT [--json]"
 STEERING_LIST_USAGE = (
@@ -127,9 +127,9 @@ def claims_steering_acquire(args: List[str]) -> int:
         required=True,
         metavar="P",
         help=(
-            "Project slug or id. Automatically takes over overlapping seats "
-            "held by exited sessions and releases their paired document locks. "
-            "Live holders keep their seats; contact them with yoke say --session."
+            "Project slug or id. Automatically releases overlapping seats "
+            "and paired document locks only for ended or terminated sessions. "
+            "Other holders require --take-over --reason TEXT."
         ),
     )
     parser.add_argument(
@@ -155,10 +155,16 @@ def claims_steering_acquire(args: List[str]) -> int:
     parser.add_argument(
         "--reason", default=None, metavar="TEXT", help="Why you are taking the seat."
     )
+    parser.add_argument(
+        "--take-over", action="store_true",
+        help="Release every other overlapping holder and notify them; requires --reason.",
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_ACQUIRE_USAGE)
     if parsed is None:
         return 2
+    if parsed.take_over and not (parsed.reason and parsed.reason.strip()):
+        return usage_error("--take-over requires --reason TEXT; name why you need the seat.")
     if parsed.doc and parsed.plan_doc:
         return usage_error(
             "--doc narrows the seat to a document and already locks it; "
@@ -166,6 +172,8 @@ def claims_steering_acquire(args: List[str]) -> int:
             "project. Pass one, not both."
         )
     payload: Dict[str, Any] = {}
+    if parsed.take_over:
+        payload["take_over"] = True
     if parsed.doc:
         payload["document"] = parsed.doc
     if parsed.plan_doc:

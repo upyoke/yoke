@@ -13,9 +13,11 @@ gates and open-work index in the plan:
 In flight / Ready to staff / Blocked / Awaiting operator decision.
 
 Use `--doc` instead of `--plan-doc` when the operator named a document. Proceed
-only with both halves held. Acquire takes over an exited holder's seat and paired
-lock automatically; a live holder keeps the seat. Contact a live holder with
-`yoke say --session SESSION-ID`; do not take another document seat to free it.
+only with both halves held. Acquire automatically releases a seat and paired lock
+only for a holder marked ended or terminated. For another holder, use the same
+acquire command with `--take-over --reason TEXT` to release every overlapping seat
+held by another session, even a live holder. Process exit alone never authorizes
+automatic takeover; do not take another document seat to free a stuck seat.
 A takeover notice means reacquire before steering again. Read all inherited mail and answer it before the
 first pass.
 
