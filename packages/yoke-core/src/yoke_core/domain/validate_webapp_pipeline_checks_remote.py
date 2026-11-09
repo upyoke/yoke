@@ -229,7 +229,7 @@ def _check_pipeline_scripts(_ctx: ValidateContext, counters: Counters) -> None:
         "yoke_core.domain.flow",
         "yoke_core.domain.deploy_pipeline",
         "yoke_core.domain.github_actions",
-        "yoke_core.domain.deployment_step_utilities",
+        "yoke_core.tools.step_runners",
     ):
         if _module_available(module_name):
             _check_pass(counters, f"Python entrypoint exists: {module_name}")

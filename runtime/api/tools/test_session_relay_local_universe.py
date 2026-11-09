@@ -22,6 +22,7 @@ from yoke_contracts.machine_config.relay_instance import (
 )
 from yoke_core.tools import install_session_relay
 from yoke_core.tools import session_relay_local_install as local_install
+from yoke_core.domain import local_relay_launcher_path as local_launcher
 from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.domain.relay_launchd_status import relay_launchd_paths
 from yoke_core.domain.relay_launchd_status import relay_plist_document
@@ -69,7 +70,7 @@ def _installed_launcher(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
     launcher = tmp_path / "bin" / "yoke"
     launcher.parent.mkdir(parents=True, exist_ok=True)
     launcher.touch(mode=0o755)
-    monkeypatch.setattr(local_install, "local_launcher_candidates", lambda: (launcher,))
+    monkeypatch.setattr(local_launcher, "local_launcher_candidates", lambda: (launcher,))
     return launcher
 
 
@@ -83,10 +84,10 @@ def test_venv_python_symlink_keeps_its_installed_console_script(tmp_path, monkey
     interpreter.symlink_to(base_python)
     launcher = venv_bin / "yoke"
     launcher.touch(mode=0o755)
-    monkeypatch.setattr(local_install.sys, "executable", str(interpreter))
-    monkeypatch.setattr(local_install, "TARGET_PRIORITY", ())
+    monkeypatch.setattr(local_launcher.sys, "executable", str(interpreter))
+    monkeypatch.setattr(local_launcher, "TARGET_PRIORITY", ())
 
-    assert local_install.local_launcher_path() == launcher
+    assert local_launcher.local_launcher_path() == launcher
 
 
 def test_local_universe_owns_a_relay_that_runs_the_installed_yoke(
@@ -129,7 +130,7 @@ def test_local_relay_install_refuses_by_name_without_an_installed_launcher(
 ) -> None:
     """A missing component is named with its repair, never silently skipped."""
     missing = tmp_path / "bin" / "yoke"
-    monkeypatch.setattr(local_install, "local_launcher_candidates", lambda: (missing,))
+    monkeypatch.setattr(local_launcher, "local_launcher_candidates", lambda: (missing,))
     calls: list[list[str]] = []
 
     with pytest.raises(RelayInstallError) as raised:

@@ -12,7 +12,7 @@ from yoke_core.domain import qa_plan_source_revision as source_binding
 from yoke_core.domain import schema_init
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
 from yoke_core.domain.qa_plan_source_convergence import converge_source_bound_plans
-from yoke_core.tools import installer_campaign_plan
+from yoke_core.domain import installer_campaign_plan_source as installer_campaign_plan
 
 SLUG = "installer-campaign"
 

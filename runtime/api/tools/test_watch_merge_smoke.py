@@ -66,7 +66,7 @@ class TestLiveWrapperSmokeViaPython:
                 sys.executable,
                 "-c",
                 (
-                    "from yoke_core.domain import watch_runner as _watch_runner, watch_merge;"
+                    "from yoke_core.domain import watch_runner as _watch_runner;from yoke_core.tools import watch_merge;"
                     "import sys;"
                     f"raw = r'{raw}'; prog = r'{progress}';"
                     "rc = _watch_runner.run_watcher("
