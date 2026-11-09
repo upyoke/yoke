@@ -37,7 +37,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from yoke_core.api.health_payload_contract import BUILD_FIELD
+from yoke_contracts.health_payload_contract import BUILD_FIELD
 
 
 #: A revision is 40 characters; anything longer is a page, not an answer.

@@ -46,7 +46,7 @@ __all__ = [
 
 
 def _repo_root() -> Path:
-    from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.domain.repo_root import find_repo_root
 
     return find_repo_root(Path(__file__))
 
@@ -128,7 +128,7 @@ def _registry_warning(event_name: str) -> tuple[Optional[str], bool]:
 
 def _current_trace_context() -> dict[str, str]:
     try:
-        from yoke_core.api.observability import trace_context
+        from yoke_core.domain.observability import trace_context
     except Exception:
         return {}
     try:

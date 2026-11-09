@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from yoke_contracts.browser_sign_in import (
+    OIDC_CALLBACK_PATH,
     BROWSER_SIGN_IN_PATH,
     BROWSER_SIGN_IN_REDEEM_PATH,
 )
@@ -42,7 +43,6 @@ AUTH_STATE_ATTR = "yoke_auth"
 # Browser sign-in door surface. The start/callback pair is public by
 # construction: they are how a browser acquires a credential.
 OIDC_START_PATH = "/v1/auth/oidc/start"
-OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
 #: Ends this browser's own web session; its cookie is the only credential.
 SIGN_OUT_PATH = "/v1/auth/sign-out"
 

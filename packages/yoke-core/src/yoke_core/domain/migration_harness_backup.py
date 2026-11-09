@@ -82,7 +82,7 @@ def _infer_backup_worktree_path(db_path: str) -> Path:
     if candidate.parent != Path("."):
         return candidate.parent
 
-    from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.domain.repo_root import find_repo_root
 
     return find_repo_root(Path(__file__))
 

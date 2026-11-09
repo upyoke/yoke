@@ -246,7 +246,7 @@ def test_configured_child_logger_expiry_keeps_info(
     clock = {"now": live}
 
     monkeypatch.setattr(
-        "yoke_core.api.observability_debug.utc_now", lambda: clock["now"]
+        "yoke_core.domain.observability_debug.utc_now", lambda: clock["now"]
     )
     stream = io.StringIO()
     child = _configure_child_capture(

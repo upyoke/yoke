@@ -1,91 +1,15 @@
-"""Shared migration-readiness checks for Yoke health payload consumers."""
+"""API import surface for :mod:`yoke_contracts.health_payload_contract`."""
 
-from __future__ import annotations
-
-from collections.abc import Mapping
-from typing import Any
-
-#: The commit the answering process was built from. The one field of this
-#: payload that identifies WHICH code replied, so every consumer that
-#: asserts a served revision reads it by this name.
-BUILD_FIELD = "build"
-MIGRATIONS_CURRENT_FIELD = "migrations_current"
-PENDING_MIGRATIONS_FIELD = "pending_migrations"
-CAN_SERVE_DATABASE_FIELD = "can_serve_this_database"
-STRANDED_MIGRATIONS_FIELD = "stranded_by_migrations"
-CONTENT_MATCHES_FIELD = "migration_content_matches"
-CONTENT_MISMATCHES_FIELD = "migration_content_mismatches"
-CONTENT_EVIDENCE_READY_FIELD = "migration_content_evidence_ready"
-CONTENT_ADOPTION_REQUIRED_FIELD = "migration_content_adoption_required"
-
-
-def _list_detail(payload: Mapping[str, Any], field: str, label: str) -> str:
-    values = payload.get(field)
-    if not isinstance(values, list) or not values:
-        return ""
-    return f" ({label}: {'; '.join(str(value) for value in values)})"
-
-
-def migration_readiness_problem(
-    payload: Mapping[str, Any],
-    *,
-    require_current: bool,
-) -> str:
-    """Return why a health payload cannot serve, or an empty string.
-
-    ``migrations_current=false`` is always an explicit refusal. Callers that
-    own the current container contract additionally set ``require_current`` so
-    an absent field cannot pass. Cross-version deploy probes preserve rolling
-    compatibility by accepting an absent field while still rejecting an
-    explicit false value.
-
-    ``can_serve_this_database`` was added after the original health contract.
-    Missing therefore remains compatible during a mixed-version roll, but an
-    explicit false is authoritative and must never be reduced to HTTP liveness.
-    """
-    current = payload.get(MIGRATIONS_CURRENT_FIELD)
-    if current is False or (require_current and current is not True):
-        return f"did not report {MIGRATIONS_CURRENT_FIELD}=true" + _list_detail(
-            payload,
-            PENDING_MIGRATIONS_FIELD,
-            "pending migrations",
-        )
-    if payload.get(CAN_SERVE_DATABASE_FIELD) is False:
-        return f"reported {CAN_SERVE_DATABASE_FIELD}=false" + _list_detail(
-            payload,
-            STRANDED_MIGRATIONS_FIELD,
-            "stranded by migrations",
-        )
-    content_matches = payload.get(CONTENT_MATCHES_FIELD)
-    if content_matches is False or (require_current and content_matches is not True):
-        return f"did not report {CONTENT_MATCHES_FIELD}=true" + _list_detail(
-            payload,
-            CONTENT_MISMATCHES_FIELD,
-            "migration content mismatches",
-        )
-    evidence_ready = payload.get(CONTENT_EVIDENCE_READY_FIELD)
-    if evidence_ready is False or (require_current and evidence_ready is not True):
-        return f"did not report {CONTENT_EVIDENCE_READY_FIELD}=true"
-    adoption_required = payload.get(CONTENT_ADOPTION_REQUIRED_FIELD)
-    if isinstance(adoption_required, list) and adoption_required:
-        return f"reported non-empty {CONTENT_ADOPTION_REQUIRED_FIELD}" + _list_detail(
-            payload,
-            CONTENT_ADOPTION_REQUIRED_FIELD,
-            "entries requiring adoption",
-        )
-    if require_current and not isinstance(adoption_required, list):
-        return f"did not report {CONTENT_ADOPTION_REQUIRED_FIELD}=[]"
-    return ""
-
-
-__all__ = [
-    "CAN_SERVE_DATABASE_FIELD",
-    "CONTENT_ADOPTION_REQUIRED_FIELD",
-    "CONTENT_EVIDENCE_READY_FIELD",
-    "CONTENT_MATCHES_FIELD",
-    "CONTENT_MISMATCHES_FIELD",
-    "MIGRATIONS_CURRENT_FIELD",
-    "PENDING_MIGRATIONS_FIELD",
-    "STRANDED_MIGRATIONS_FIELD",
-    "migration_readiness_problem",
-]
+from yoke_contracts.health_payload_contract import (
+    BUILD_FIELD as BUILD_FIELD,
+    CAN_SERVE_DATABASE_FIELD as CAN_SERVE_DATABASE_FIELD,
+    CONTENT_ADOPTION_REQUIRED_FIELD as CONTENT_ADOPTION_REQUIRED_FIELD,
+    CONTENT_EVIDENCE_READY_FIELD as CONTENT_EVIDENCE_READY_FIELD,
+    CONTENT_MATCHES_FIELD as CONTENT_MATCHES_FIELD,
+    CONTENT_MISMATCHES_FIELD as CONTENT_MISMATCHES_FIELD,
+    MIGRATIONS_CURRENT_FIELD as MIGRATIONS_CURRENT_FIELD,
+    PENDING_MIGRATIONS_FIELD as PENDING_MIGRATIONS_FIELD,
+    STRANDED_MIGRATIONS_FIELD as STRANDED_MIGRATIONS_FIELD,
+    __all__ as __all__,
+    migration_readiness_problem as migration_readiness_problem,
+)

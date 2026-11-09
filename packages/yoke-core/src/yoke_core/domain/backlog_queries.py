@@ -90,7 +90,7 @@ def _yoke_root() -> Path:
 
         return Path(resolve_yoke_root())
     except (RuntimeError, ImportError):
-        from yoke_core.api.repo_root import find_repo_root
+        from yoke_core.domain.repo_root import find_repo_root
 
         return find_repo_root(Path(__file__)) / "runtime"
 

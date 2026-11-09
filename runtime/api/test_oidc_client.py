@@ -23,7 +23,7 @@ from yoke_core.api.oidc_config import (
     callback_url,
     resolve_oidc_config,
 )
-from yoke_core.api.oidc_flow_state import (
+from yoke_core.domain.oidc_flow_state import (
     OidcFlowStateError,
     _signature,
     mint_flow_state,

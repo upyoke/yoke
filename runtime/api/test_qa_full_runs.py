@@ -283,7 +283,7 @@ class TestRunAdd:
         screenshot = tmp_path / "manual-shot.png"
         screenshot.write_bytes(b"\x89PNG")
         monkeypatch.setattr(
-            "yoke_core.api.repo_root.find_repo_root", lambda start=None: tmp_path
+            "yoke_core.domain.repo_root.find_repo_root", lambda start=None: tmp_path
         )
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
         monkeypatch.setattr(

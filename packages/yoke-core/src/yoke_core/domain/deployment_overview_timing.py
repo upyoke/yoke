@@ -6,7 +6,7 @@ from functools import wraps
 import sys
 from time import monotonic
 
-from yoke_core.api.observability import trace_context
+from yoke_core.domain.observability import trace_context
 from yoke_core.domain.deployment_start_timing import (
     emit_records,
     start_step,

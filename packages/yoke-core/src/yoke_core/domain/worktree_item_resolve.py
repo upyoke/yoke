@@ -86,7 +86,7 @@ def resolve_item_worktree(
         item_num = parse_item_argument(public_ref, conn=conn)
 
         if scripts_dir is None:
-            from yoke_core.api.repo_root import find_repo_root
+            from yoke_core.domain.repo_root import find_repo_root
 
             scripts_dir = str(
                 find_repo_root(Path(__file__))

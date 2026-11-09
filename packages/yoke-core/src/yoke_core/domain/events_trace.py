@@ -7,7 +7,7 @@ from typing import Dict
 
 def current_trace_context() -> Dict[str, str]:
     try:
-        from yoke_core.api.observability import trace_context
+        from yoke_core.domain.observability import trace_context
     except Exception:
         return {}
     try:

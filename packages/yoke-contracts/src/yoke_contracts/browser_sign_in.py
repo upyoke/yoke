@@ -3,3 +3,5 @@
 BROWSER_SIGN_IN_PATH = "/v1/auth/browser-sign-in"
 BROWSER_SIGN_IN_REDEEM_PATH = BROWSER_SIGN_IN_PATH + "/redeem"
 BROWSER_SIGN_IN_MAX_LENGTH = 128
+
+OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
