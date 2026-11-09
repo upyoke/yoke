@@ -76,7 +76,7 @@ def converge_release_start_schema(run_id: str) -> bool:
     import psycopg
 
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.environment_bootstrap import universe_is_born_on
+    from yoke_core.domain.schema_common import universe_is_born_on
     from yoke_core.domain.schema_converge_statements import SchemaConvergeLockError
 
     recovery = (

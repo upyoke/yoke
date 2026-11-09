@@ -91,6 +91,23 @@ def _table_exists(conn: Any, table: str) -> bool:
     return _postgres_table_exists(conn, table)
 
 
+def universe_is_born_on(conn: Any) -> bool:
+    """True when *conn*'s database already carries a bootstrapped org card.
+
+    The connection-taking form of :func:`universe_is_born`, for callers that
+    already hold one — notably the schema converge, which must decide whether
+    it is converging a newborn database or an existing one *before* it creates
+    anything, and must not open a second connection to ask.
+    """
+    try:
+        if not _table_exists(conn, "organizations"):
+            return False
+        row = conn.execute("SELECT COUNT(*) FROM organizations").fetchone()
+        return bool(row and int(row[0]) >= 1)
+    except Exception:  # noqa: BLE001 — an unreadable database is "not born"
+        return False
+
+
 def _table_create_sql(conn: Any, table: str) -> Optional[str]:
     """Return SQLite CREATE text when the generic validation DB stores it."""
     if _using_generic_sqlite_validation(conn):

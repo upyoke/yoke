@@ -116,7 +116,7 @@ def create_external_identity_tables(conn: Any) -> None:
     )
 
     create_teammate_invite_codes_table(conn)
-    from yoke_core.domain.actor_visitor_links import create_actor_visitor_links_table
+    from yoke_core.domain.schema_actor_visitor_links import create_actor_visitor_links_table
 
     create_actor_visitor_links_table(conn)
     conn.commit()
