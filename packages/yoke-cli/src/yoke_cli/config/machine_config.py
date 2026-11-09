@@ -15,7 +15,7 @@ from yoke_contracts.machine_config.paths import (
     yoke_home,
 )
 
-DEFAULT_HOME_NAME = ".yoke"
+from yoke_contracts.machine_config.paths import DEFAULT_HOME_NAME, default_yoke_home
 DEFAULT_CONFIG_NAME = contract.DEFAULT_CONFIG_NAME
 DEFAULT_BOARD_PATH = contract.DEFAULT_BOARD_PATH
 DEFAULT_CACHE_DIR_NAME = contract.DEFAULT_CACHE_DIR_NAME
@@ -36,8 +36,6 @@ class ConfiguredProject:
     entry: dict[str, Any]
 
 
-def default_yoke_home() -> Path:
-    return Path.home() / DEFAULT_HOME_NAME
 
 
 def load_config(path: str | Path | None = None) -> dict[str, Any]:

@@ -306,7 +306,7 @@ def test_artifact_pattern_matches_the_selection_workflow_upload() -> None:
     import fnmatch
 
     from yoke_core.domain.yaml_helper import load_document
-    from yoke_core.tools._source_pythonpath import repo_root
+    from yoke_core.domain.source_pythonpath import repo_root
     from yoke_core.tools.pytest_remote_selection_run import OUTPUT_ARTIFACT_PATTERN
 
     workflow = repo_root() / ".github" / "workflows" / "yoke-tests-selection.yml"

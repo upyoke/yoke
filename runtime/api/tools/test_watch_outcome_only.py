@@ -2,23 +2,21 @@
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 import io
 import sys
 from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import (
-    _watch_capture_binding,
-    _watch_runner,
-    watch_deploy,
-    watch_merge,
-)
-from yoke_core.tools import gate_stall_report
+from yoke_core.domain import watch_capture_binding as _watch_capture_binding
+from yoke_core.domain import watch_runner as _watch_runner, watch_deploy, watch_merge
+from yoke_core.domain import gate_stall_report
 from yoke_core.tools._watch_wait_mode import WatchWaitMode
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain.watch_throttle import Classification, LineClass
 from yoke_core.tools import watch_tail
-from yoke_core.tools._watch_terminal_outcome import format_terminal_outcome
+from yoke_core.domain.watch_terminal_outcome import format_terminal_outcome
 
 
 WATCHERS = (
@@ -318,7 +316,7 @@ def test_deadlock_abort_reports_named_cause_without_heartbeat(
 )
 def test_wait_mode_changes_transport_not_outcome_policy(wait_mode, expected) -> None:
     output = io.StringIO()
-    _watch_runner.print_wait_mode_invocation(
+    _watch_streaming_pair.print_wait_mode_invocation(
         kind="merge",
         wrapper_module="yoke_core.tools.watch_merge",
         wrapper_args=["merge-item", "ITEM-1", "--wait"],

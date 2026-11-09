@@ -26,8 +26,8 @@ from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.session_relay_storage import marker, utc_now
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_core.tools.session_relay_plist import relay_launchd_status
-from yoke_core.tools.session_relay_systemd import relay_systemd_status
+from yoke_core.domain.relay_launchd_status import relay_launchd_status
+from yoke_core.domain.relay_systemd_status import relay_systemd_status
 
 
 SLUG = "session-relay"

@@ -9,7 +9,7 @@ import shutil
 
 from yoke_contracts.harness_cli_manifest import harness_cli_executables
 
-from yoke_core.tools.install_yoke_launcher_core import TARGET_PRIORITY
+from yoke_core.domain.launcher_locations import TARGET_PRIORITY
 
 
 _RELAY_CLI_EXECUTABLES = harness_cli_executables()

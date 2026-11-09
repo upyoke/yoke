@@ -10,7 +10,7 @@ import pytest
 from yoke_contracts.machine_config.relay_instance import RelayInstanceError
 from yoke_core.engines import doctor_hc_session_relay as relay_hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_core.tools.session_relay_plist import RelayLaunchdStatus
+from yoke_core.domain.relay_launchd_status import RelayLaunchdStatus
 from runtime.api.domain.session_launch_test_support import add_relay, launch_connection
 
 

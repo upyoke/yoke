@@ -211,7 +211,7 @@ def refuse_claimed_capture(
     refuses and exits without a sentinel leaves that follower reporting
     a dead watcher instead of the refusal the operator has to act on.
     Writes the refusal and the exit sentinel
-    :func:`yoke_core.tools._watch_runner.run_watcher` would otherwise
+    :func:`yoke_core.domain.watch_runner.run_watcher` would otherwise
     have written, then returns *exit_code* so a refusal site stays one
     ``return`` statement.
 

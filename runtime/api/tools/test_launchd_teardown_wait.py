@@ -14,11 +14,9 @@ import subprocess
 
 import pytest
 
-from yoke_core.tools import launchctl_boundary as boundary
-from yoke_core.tools.session_relay_plist import (
-    RelayInstallError,
-    install_relay_launchd,
-)
+from yoke_core.domain import launchctl_boundary as boundary
+from yoke_core.domain.relay_launchd_status import RelayInstallError
+from yoke_core.tools.session_relay_plist import install_relay_launchd
 
 from runtime.api.tools.session_relay_plist_test_support import _config, _pin_release
 

@@ -13,18 +13,13 @@ import pytest
 from yoke_contracts.machine_config.relay_instance import (
     resolve_relay_instance,
 )
-from yoke_core.tools import install_session_relay, launchctl_boundary, session_relay_plist
-from yoke_core.tools.session_relay_plist import (
-    RelayInstallError,
-    install_relay_launchd,
-    relay_launchd_paths,
-    uninstall_relay_launchd,
-)
-from yoke_core.tools.session_relay_release import (
-    RELAY_RELEASE_FETCH_FAILED,
-    RelayReleaseError,
-    relay_launch_executable,
-)
+from yoke_core.domain import launchctl_boundary as launchctl_boundary
+from yoke_core.tools import install_session_relay, session_relay_plist
+from yoke_core.domain.relay_launchd_status import RelayInstallError
+from yoke_core.domain.relay_launchd_status import relay_launchd_paths
+from yoke_core.tools.session_relay_plist import install_relay_launchd, uninstall_relay_launchd
+from yoke_core.domain.relay_release_path import relay_launch_executable
+from yoke_core.tools.session_relay_release import RELAY_RELEASE_FETCH_FAILED, RelayReleaseError
 
 
 @pytest.fixture(autouse=True)

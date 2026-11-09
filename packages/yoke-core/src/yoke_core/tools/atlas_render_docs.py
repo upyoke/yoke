@@ -6,6 +6,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.atlas_document_path import (
+    ATLAS_RELPATH,
+)
+
 import argparse
 import json
 import re
@@ -26,8 +30,6 @@ from yoke_core.tools.atlas_render_docs_sections import (
 )
 from yoke_core.tools.atlas_render_docs_tables import _md_table
 
-
-ATLAS_RELPATH = "docs/atlas.md"
 _TIMESTAMP_LINE_RE = re.compile(
     r"^_Audit generated_at: .*_$", re.MULTILINE
 )
@@ -54,7 +56,6 @@ _FIELD_NOTE_SUMMARY_RE = re.compile(
 _FIELD_NOTE_SUMMARY_PLACEHOLDER = (
     "- Recent feedback inspected: <live DB count>"
 )
-
 
 def _render_summary(report: Dict[str, Any]) -> List[str]:
     s = report["summary"]
@@ -95,7 +96,6 @@ def _render_summary(report: Dict[str, Any]) -> List[str]:
     out.append("")
     return out
 
-
 def _render_wrapped_roster(report: Dict[str, Any]) -> List[str]:
     out = ["## 2. Wrapped operation roster", ""]
     cli_rows = [
@@ -130,7 +130,6 @@ def _render_wrapped_roster(report: Dict[str, Any]) -> List[str]:
     ))
     out.append("")
     return out
-
 
 def _render_tool_cli_roster(report: Dict[str, Any]) -> List[str]:
     out = ["## 3. Tool-shaped CLI roster", ""]

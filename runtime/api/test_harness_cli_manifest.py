@@ -17,7 +17,7 @@ from yoke_core.domain.agents_render_manifests import (
     CODEX_MANIFEST,
     CURSOR_MANIFEST,
 )
-from yoke_core.tools import session_relay_executable
+from yoke_core.domain import session_relay_executable
 from yoke_harness import session_relay_surface_probes
 
 

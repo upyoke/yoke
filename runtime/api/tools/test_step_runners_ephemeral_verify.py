@@ -11,7 +11,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.ephemeral_substrate import slugify_branch
-from yoke_core.tools import step_runners
+from yoke_core.domain import deployment_step_utilities as step_runners
 
 
 class ExecEphemeralVerifyTests(unittest.TestCase):

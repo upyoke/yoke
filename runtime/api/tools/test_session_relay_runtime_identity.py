@@ -13,10 +13,8 @@ from uuid import uuid4
 import pytest
 
 from runtime.api.tools.session_relay_release_test_support import relay_instance
-from yoke_core.tools.session_relay_plist import (
-    relay_launchd_paths,
-    relay_plist_document,
-)
+from yoke_core.domain.relay_launchd_status import relay_launchd_paths
+from yoke_core.domain.relay_launchd_status import relay_plist_document
 from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_FETCH_FAILED,
     RelayReleaseError,

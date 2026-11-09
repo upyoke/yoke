@@ -28,6 +28,12 @@ it while the rest of the release tree keeps its distribution URL.
 
 from __future__ import annotations
 
+from yoke_core.domain.release_artifact_layout import (
+    DIST_ROOT,
+    RELEASES_DIR,
+    RELEASE_RECORDS_FILENAME,
+)
+
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
@@ -44,12 +50,9 @@ from yoke_core.tools import (
 )
 
 
-DIST_ROOT = "dist"
 CHANNELS_DIR = "channels"
-RELEASES_DIR = "releases"
 WHEELS_DIR = "wheels"
 SIMPLE_DIR = "simple"
-RELEASE_RECORDS_FILENAME = "release-records.json"
 MIGRATION_HISTORY_MANIFEST_FILENAME = (
     distribution_channel.MIGRATION_HISTORY_MANIFEST_FILENAME
 )

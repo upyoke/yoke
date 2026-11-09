@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from yoke_core.tools import launchctl_boundary as boundary
+from yoke_core.domain import launchctl_boundary as boundary
 
 
 def _sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:

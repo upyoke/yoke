@@ -9,7 +9,7 @@ import pytest
 
 from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.qa_plan_execution_checkin import QaPlanCommunicationUnknown
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_throttle import LineClass
 from yoke_core.tools.watch_qa_plan import classify_qa_plan_line
 
 

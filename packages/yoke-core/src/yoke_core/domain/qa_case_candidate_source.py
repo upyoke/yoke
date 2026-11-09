@@ -10,7 +10,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterator, Mapping
 
-from yoke_core.tools import _source_pythonpath as source
+from yoke_core.domain import source_pythonpath as source
 from yoke_core.domain import source_python_environment
 
 
@@ -66,7 +66,7 @@ def candidate_source(
         return
     root = root.resolve()
     # Each runner reads its own declaration; an enclosing case cannot supply it.
-    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+    from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
     incoming = shared_postgres_environment(env)
     incoming.pop(source_python_environment.QA_SOURCE_ENVIRONMENT_ENV, None)

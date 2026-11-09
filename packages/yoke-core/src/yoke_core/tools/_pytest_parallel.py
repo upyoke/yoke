@@ -38,7 +38,7 @@ from typing import Optional, Sequence
 from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.machine_config import runtime as machine_config_runtime
 
-from yoke_core.tools import _source_pythonpath
+from yoke_core.domain import source_pythonpath as _source_pythonpath
 from yoke_contracts.machine_config.machine_capacity import free_memory_bytes
 
 
@@ -211,7 +211,7 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
     from pathlib import Path
 
     from yoke_core.domain import administered_postgres, postgres_binaries
-    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+    from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
     inherited_binaries = env.get("YOKE_PG_BIN_DIR")
     binaries = (

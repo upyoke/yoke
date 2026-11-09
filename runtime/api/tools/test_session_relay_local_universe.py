@@ -22,12 +22,10 @@ from yoke_contracts.machine_config.relay_instance import (
 )
 from yoke_core.tools import install_session_relay
 from yoke_core.tools import session_relay_local_install as local_install
-from yoke_core.tools.session_relay_plist import (
-    RelayInstallError,
-    install_relay_launchd,
-    relay_launchd_paths,
-    relay_plist_document,
-)
+from yoke_core.domain.relay_launchd_status import RelayInstallError
+from yoke_core.domain.relay_launchd_status import relay_launchd_paths
+from yoke_core.domain.relay_launchd_status import relay_plist_document
+from yoke_core.tools.session_relay_plist import install_relay_launchd
 
 
 def _config(tmp_path: Path) -> Path:

@@ -43,11 +43,9 @@ def _synthetic_selector_roots(request, monkeypatch):
     """Import-graph fixtures declare their own test universe explicitly."""
     name = request.module.__name__.rsplit(".", 1)[-1]
     if name.startswith("test_impacted") and name != "test_impacted_project_test_roots":
-        from yoke_core.tools import (
-            impacted_project_test_roots,
-            watch_pytest_project_python,
-        )
-        from yoke_core.tools.impacted_project_test_roots import YOKE_SEEDED_TEST_ROOTS
+        from yoke_core.domain import impacted_project_test_roots as impacted_project_test_roots
+        from yoke_core.tools import watch_pytest_project_python
+        from yoke_core.domain.impacted_project_test_roots import YOKE_SEEDED_TEST_ROOTS
 
         impacted_project_test_roots.resolve_test_roots.cache_clear()
         monkeypatch.setattr(

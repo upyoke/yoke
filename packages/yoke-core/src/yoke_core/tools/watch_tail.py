@@ -3,13 +3,13 @@
 Reads existing file content first, then follows the file for new
 lines, exiting cleanly with code ``0`` when it observes a watcher
 exit sentinel of the form ``# watch_<kind> exit=<rc>`` (the literal
-footer written by :func:`yoke_core.tools._watch_runner.run_watcher`).
+footer written by :func:`yoke_core.domain.watch_runner.run_watcher`).
 ``<rc>`` may be negative — a signal-killed child reports the negated
 signal number (e.g. ``exit=-15`` after SIGTERM).
 
 Following is bounded by writer evidence, not only by that sentinel. A
 bound watcher stamps its pid into the capture's first line (see
-:mod:`yoke_core.tools._watch_capture_binding`), so a capture that no
+:mod:`yoke_core.domain.watch_capture_binding`), so a capture that no
 process ever claimed, and a capture whose claiming process died before
 its sentinel, both end in a named non-zero refusal instead of an
 unbounded silent wait.
@@ -57,7 +57,7 @@ from pathlib import Path
 from typing import Callable, Sequence, TextIO
 
 from yoke_contracts.watch_capture import EXIT_SENTINEL
-from yoke_core.tools._watch_capture_binding import (
+from yoke_core.domain.watch_capture_binding import (
     DEFAULT_WRITER_GRACE_SECONDS,
     UNWRITTEN_CAPTURE_EXIT,
     WRITER_MARKER_RE,
@@ -66,8 +66,8 @@ from yoke_core.tools._watch_capture_binding import (
     writer_alive,
     writer_pid,
 )
-from yoke_core.tools._watch_digest import ROUTINE_PROGRESS_RE
-from yoke_core.tools._watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
+from yoke_core.domain.watch_digest import ROUTINE_PROGRESS_RE
+from yoke_core.domain.watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 
 WRAPPER_MODULE = "yoke_core.tools.watch_tail"
@@ -226,7 +226,7 @@ def follow(
 
     Waiting is bounded by writer evidence. A bound watcher claims its
     progress capture with a pid marker before it runs anything (see
-    :mod:`yoke_core.tools._watch_capture_binding`), so a capture that is
+    :mod:`yoke_core.domain.watch_capture_binding`), so a capture that is
     still empty and unclaimed once ``grace_seconds`` has passed is one
     no run will ever write, and a claimed capture whose writer is gone
     without a sentinel will never gain one. Both return

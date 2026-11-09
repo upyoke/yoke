@@ -142,7 +142,8 @@ def test_dispatch_handler_refuses_missing_payload_project_before_path_resolution
 @pytest.mark.parametrize("streaming_pair", [False, True])
 def test_unbound_watcher_refuses_without_traceback(monkeypatch, capsys, streaming_pair):
     from argparse import Namespace
-    from yoke_core.tools import _watch_capture_binding, _watch_runner
+    from yoke_core.domain import watch_capture_binding as _watch_capture_binding
+    from yoke_core.domain import watch_runner as _watch_runner
 
     def refuse(*args, **kwargs):
         raise MissingProjectError(

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.launcher_locations import (
+    TARGET_PRIORITY,
+)
+
 import os
 import re
 import subprocess
@@ -18,15 +22,8 @@ from yoke_core.tools.install_yoke_launcher_cleanup import (
 )
 
 
-TARGET_PRIORITY: Tuple[Tuple[str, str], ...] = (
-    ("/opt/homebrew/bin", "homebrew_apple_silicon"),
-    ("/usr/local/bin", "homebrew_intel_or_linux"),
-    ("~/.local/bin", "fallback_user_local"),
-)
-
 MIN_PYTHON: Tuple[int, int] = (3, 11)
 YOKE_PACKAGE_NAME = "yoke"
-LAUNCHER_FILENAME = "yoke"
 LAUNCHER_SOURCE = Path(__file__).resolve().parent / "yoke_launcher.py"
 PROBE_BYTES = 4096
 LAUNCHER_FINGERPRINT_IMPORT = "from yoke_cli.main"

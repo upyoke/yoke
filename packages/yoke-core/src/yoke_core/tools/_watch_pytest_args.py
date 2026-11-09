@@ -11,13 +11,16 @@ Also owns wrapper-flag parsing so ``--impacted`` stays bounded by default.
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 import argparse
 import re
 from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import verification_tree_binding
-from yoke_core.tools import _watch_digest, _watch_runner
+from yoke_core.domain import watch_digest as _watch_digest
+from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.tools._impacted_changed_paths import DEFAULT_BASE_REF
 from yoke_core.tools._watch_pytest_selection_diagnostics import (  # noqa: F401
     has_bare_runtime_path,
@@ -152,7 +155,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help=_watch_runner.STREAMING_WAIT_HELP,
+        help=_watch_streaming_pair.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(

@@ -43,7 +43,7 @@ def converge_source_bound_plans(conn: Any, build_sha: str | None = None) -> list
         return []
     from yoke_core.domain.qa_plan_detail import get_plan
     from yoke_core.domain.qa_plan_management import replace_plan_cases
-    from yoke_core.tools.installer_campaign_plan import (
+    from yoke_core.domain.installer_campaign_plan_source import (
         SOURCE_AUTHORED_PLAN_SLUGS,
         compare_plan,
     )

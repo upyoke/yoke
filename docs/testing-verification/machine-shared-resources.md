@@ -44,7 +44,7 @@ platform launcher run, and points `BROWSER` at a harmless command so a child
 process cannot fall through to the operator's default browser either.
 
 **launchd.** Every launchctl invocation and every launch-agent plist location
-resolves through `yoke_core.tools.launchctl_boundary`. An isolated
+resolves through `yoke_core.domain.launchctl_boundary`. An isolated
 `YOKE_MACHINE_HOME` keeps LaunchAgents inside that machine-home, so a
 pytest sandbox can never write the operator's login domain. Under a test
 process the boundary also records launchctl commands into a per-test

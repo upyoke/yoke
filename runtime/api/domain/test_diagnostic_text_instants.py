@@ -16,7 +16,7 @@ from yoke_core.domain.steering_fleet_report_compose import (
     CombinedFleetReport,
     combined_body,
 )
-from yoke_core.tools._watch_capture_binding import unwritten_capture_refusal
+from yoke_core.domain.watch_capture_binding import unwritten_capture_refusal
 
 WIRE = "2026-10-05T00:00:00.123456Z"
 

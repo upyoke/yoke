@@ -15,10 +15,8 @@ from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationScope,
 )
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
-from yoke_core.tools.session_relay_plist import (
-    relay_launchd_paths,
-    relay_plist_document,
-)
+from yoke_core.domain.relay_launchd_status import relay_launchd_paths
+from yoke_core.domain.relay_launchd_status import relay_plist_document
 from yoke_harness import session_relay_private_qualification as qualification
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_native_spawn import SupervisedNative

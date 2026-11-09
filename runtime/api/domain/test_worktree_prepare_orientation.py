@@ -9,7 +9,7 @@ implementation paths that did not exist, and running a bare pytest.
 from __future__ import annotations
 
 from yoke_core.domain import worktree_prepare_orientation as orientation
-from yoke_core.tools._source_pythonpath import FOCUSED_PYTEST_RUN_RECIPE
+from yoke_core.domain.source_pythonpath import FOCUSED_PYTEST_RUN_RECIPE
 
 
 def _stub_roots(monkeypatch, *, package_roots=(), test_roots=()) -> None:
@@ -18,7 +18,7 @@ def _stub_roots(monkeypatch, *, package_roots=(), test_roots=()) -> None:
         lambda _item_id, _project_id="": tuple(package_roots),
     )
     monkeypatch.setattr(
-        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        "yoke_core.domain.impacted_project_test_roots.resolve_test_roots",
         lambda _checkout: tuple(test_roots),
     )
 
@@ -67,7 +67,7 @@ def test_an_unreadable_declaration_never_blocks_preparation(
         _explode,
     )
     monkeypatch.setattr(
-        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        "yoke_core.domain.impacted_project_test_roots.resolve_test_roots",
         _explode,
     )
 
@@ -86,7 +86,7 @@ def test_a_lane_that_was_skipped_has_no_tree_to_read_test_roots_from(
         lambda _item_id, _project_id="": ("packages/yoke-core/src",),
     )
     monkeypatch.setattr(
-        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        "yoke_core.domain.impacted_project_test_roots.resolve_test_roots",
         lambda _checkout: (_ for _ in ()).throw(
             AssertionError("no tree means no test-root read")
         ),

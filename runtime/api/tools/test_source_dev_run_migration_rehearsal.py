@@ -14,7 +14,8 @@ from runtime.api.domain.migration_apply_test_helpers import (
     apply_env,  # noqa: F401 - fixture registration
 )
 from runtime.api.backlog_test_support import tmp_db  # noqa: F401 - fixture dependency
-from yoke_core.tools import _source_pythonpath, source_dev_run
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_run
 
 
 def test_source_runner_rehearses_migration_with_lane_only_import(

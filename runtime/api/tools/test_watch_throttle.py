@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`yoke_core.tools._watch_throttle`.
+"""Unit tests for :mod:`yoke_core.domain.watch_throttle`.
 
 Covers the standalone primitives — :class:`ProgressGate`,
 :func:`annotate_progress_line`, and :func:`load_throttle_policy` —
@@ -12,7 +12,7 @@ from __future__ import annotations
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import pytest
 
-from yoke_core.tools._watch_throttle import (
+from yoke_core.domain.watch_throttle import (
     Classification,
     DEFAULT_PERCENT_STEP,
     LineClass,

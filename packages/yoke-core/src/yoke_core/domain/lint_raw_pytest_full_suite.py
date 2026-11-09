@@ -70,7 +70,7 @@ def full_sweep_anchors() -> tuple[str, ...]:
     guard to its advisory half rather than guessing a deny set.
     """
     try:
-        from yoke_core.tools._impacted_import_index import TEST_ANCHORS
+        from yoke_core.domain.impacted_project_test_roots import YOKE_SEEDED_TEST_ROOTS as TEST_ANCHORS
 
         return tuple(str(anchor).strip("/") for anchor in TEST_ANCHORS if anchor)
     except Exception:

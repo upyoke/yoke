@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 from yoke_core.domain.deploy_pipeline_driver_client import attach_driver
 from yoke_core.domain.deploy_pipeline_driver_client import release_driver
 from yoke_core.domain.deploy_pipeline_control_plane import (
@@ -34,17 +36,18 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     PHASE_FREEZING_SOURCE,
 )
 from yoke_core.domain.deployment_runs_lock import RUN_BUSY_CODE
-from yoke_core.tools import _watch_runner, watch_preflight
-from yoke_core.tools.deploy_start_preflight import prepare_driver
-from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND
-from yoke_core.tools._watch_terminal_outcome import (
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.domain import fleet_preflight_watch as watch_preflight
+from yoke_core.domain.deploy_start_preflight import prepare_driver
+from yoke_core.domain.watch_designed_waits import DEPLOY_WATCH_KIND
+from yoke_core.domain.watch_terminal_outcome import (
     OUTCOME_ONLY_WATCH_KINDS,
     PYTHON_EXCEPTION_PATTERN,
     emit_terminal_failure,
     is_python_exception_line,
 )
-from yoke_core.tools._watch_throttle import Classification, LineClass
-from yoke_core.tools.deploy_pipeline_pinned_driver import (
+from yoke_core.domain.watch_throttle import Classification, LineClass
+from yoke_core.domain.deploy_pipeline_pinned_driver import (
     child_environment,
     frozen_driver_notice,
     pinned_driver_cwd,
@@ -185,7 +188,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help=_watch_runner.STREAMING_WAIT_HELP,
+        help=_watch_streaming_pair.STREAMING_WAIT_HELP,
     )
     parser.add_argument(
         "--raw-capture",
@@ -268,7 +271,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.print_wait_mode_invocation(
+        return _watch_streaming_pair.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=passthrough,

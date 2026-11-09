@@ -18,7 +18,7 @@ so piped Python output stays visible before exit.
 
 from __future__ import annotations
 
-from yoke_core.tools.deploy_start_preflight import (
+from yoke_core.domain.deploy_start_preflight import (
     launch_watched_child as _launch_watched_child,
 )
 
@@ -32,35 +32,25 @@ from yoke_core.domain import process_group_reaping
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.watcher_activity import refresh_watcher_activity
 
-# Re-exported so wrappers keep importing one watcher entrypoint.
-from yoke_core.tools._watch_capture_binding import (  # noqa: F401
-    bind_capture_paths,
-    mint_cli_capture_paths as mint_capture_paths,
-    misplaced_capture_flags,
-    misplaced_capture_rejection,
-    note_claimed_capture,
-    refuse_claimed_capture,
+from yoke_core.domain.watch_capture_binding import (  # noqa: F401
+    bind_capture_paths, mint_cli_capture_paths as mint_capture_paths,
+    misplaced_capture_flags, misplaced_capture_rejection,
+    note_claimed_capture, refuse_claimed_capture,
 )
-from yoke_core.tools._watch_streaming_pair import (  # noqa: F401
-    STREAMING_WAIT_HELP,
-    print_in_turn_invocation,
-    print_streaming_pair,
-    print_wait_mode_invocation,
-)
-from yoke_core.tools._watch_output import (
+from yoke_core.domain.watch_output import (
     emit_immediate as _emit_immediate,
     emit_watcher_header,
     unbuffered_child_environment as _unbuffered_child_environment,
 )
-from yoke_core.tools._watch_digest import (  # noqa: F401
+from yoke_core.domain.watch_digest import (  # noqa: F401
     DEFAULT_FLUSH_SECONDS,
     ProgressDigest,
 )
-from yoke_core.tools._watch_terminal_outcome import (
+from yoke_core.domain.watch_terminal_outcome import (
     emit_terminal_outcome,
     terminal_error_from_raw_capture,
 )
-from yoke_core.tools._watch_throttle import (  # noqa: F401
+from yoke_core.domain.watch_throttle import (  # noqa: F401
     Classification,
     Classifier,
     LineClass,
@@ -71,7 +61,7 @@ from yoke_core.tools._watch_throttle import (  # noqa: F401
     load_throttle_policy,
     regex_classifier,
 )
-from yoke_core.tools.watch_child_drain import (
+from yoke_core.domain.watch_child_drain import (
     QUIET_HEARTBEAT_SECONDS_ENV,  # noqa: F401 - watcher test/config surface
     drain_watched_child,
 )

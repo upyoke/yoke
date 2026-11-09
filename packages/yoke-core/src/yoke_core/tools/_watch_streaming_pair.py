@@ -27,7 +27,7 @@ from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
 from yoke_contracts.uv_project import is_uv_project
 from yoke_contracts.watch_cli_forms import cli_form
-from yoke_core.tools._watch_digest import TIER_HELP
+from yoke_core.domain.watch_digest import TIER_HELP
 from yoke_core.tools._watch_wait_mode import (
     WatchWaitMode,
     resolve_wait_mode,

@@ -9,6 +9,8 @@ invoking connection env.
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 import io
 import shlex
 from pathlib import Path
@@ -18,7 +20,6 @@ import pytest
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.uv_project import uv_project_root
-from yoke_core.tools import _watch_runner
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +33,7 @@ def _pair_text(
     wrapper_module: str = "yoke_core.tools.watch_pytest",
 ) -> str:
     out = io.StringIO()
-    _watch_runner.print_streaming_pair(
+    _watch_streaming_pair.print_streaming_pair(
         kind="pytest",
         wrapper_module=wrapper_module,
         wrapper_args=wrapper_args,

@@ -5,8 +5,8 @@ from __future__ import annotations
 import io
 import sys
 
-from yoke_core.tools import _watch_runner
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.domain.watch_throttle import Classification, LineClass
 
 
 def _noise(_line: str) -> Classification:

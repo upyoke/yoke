@@ -91,7 +91,7 @@ def configure_macos_path_for_homebrew(
         )
         parts = ph_output.split('"', 2)
         if len(parts) >= 2:
-            from yoke_core.tools.launchctl_boundary import run_launchctl
+            from yoke_core.domain.launchctl_boundary import run_launchctl
 
             run_launchctl(
                 ["launchctl", "setenv", "PATH", parts[1]],

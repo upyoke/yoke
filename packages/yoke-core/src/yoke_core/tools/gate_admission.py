@@ -48,13 +48,17 @@ Mechanics:
 
 from __future__ import annotations
 
+from yoke_core.domain.test_gate_connection import (
+    maintenance_dsn,
+)
+
 import contextlib
 import os
 import random
 import sys
 import time
 from pathlib import Path
-from typing import Iterator, Optional, Sequence, TextIO
+from typing import Iterator, Sequence, TextIO
 
 from yoke_core.domain import qa_gate_timeout
 from yoke_core.tools.gate_admission_ancestry import (
@@ -65,7 +69,7 @@ from yoke_core.tools.gate_admission_ancestry import (
     ancestor_admission_state,
     published_state,
 )
-from yoke_core.tools.gate_slot_observability import (
+from yoke_core.domain.gate_slot_observability import (
     SLOT_HELD_APP_PREFIX,
     SLOT_WAIT_APP_PREFIX,
     _stamp_activity,
@@ -132,30 +136,6 @@ def _resolve_cap() -> int:
         return get_int(CAP_MACHINE_CONFIG_KEY, DEFAULT_MAX_CONCURRENT_GATES)
     except Exception:
         return DEFAULT_MAX_CONCURRENT_GATES
-
-
-def maintenance_dsn() -> Optional[str]:
-    """DSN for the shared cluster's maintenance database, or None.
-
-    Shared with the worker budget, which arbitrates on the same cluster.
-    """
-    try:
-        from yoke_core.domain import db_backend
-
-        if os.environ.get(db_backend.PG_DSN_ENV) or os.environ.get(
-            db_backend.PG_DSN_FILE_ENV
-        ):
-            base = db_backend.resolve_pg_dsn()
-        else:
-            from yoke_core.tools import pg_testcluster
-
-            if not pg_testcluster._is_ready():
-                return None
-            base = pg_testcluster.dsn()
-    except Exception:
-        return None
-    # libpq key/value DSN: a later dbname= key wins, so appending overrides.
-    return f"{base} dbname=postgres"
 
 
 _maintenance_dsn = maintenance_dsn

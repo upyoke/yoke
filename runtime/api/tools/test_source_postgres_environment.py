@@ -12,7 +12,7 @@ from yoke_core.domain import qa_case_command_stream
 from yoke_core.tools import pg_testcluster
 from yoke_core.tools import pg_testcluster_reclaim as reclaim
 from yoke_core.tools import source_machine_home
-from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
 
 def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkeypatch):

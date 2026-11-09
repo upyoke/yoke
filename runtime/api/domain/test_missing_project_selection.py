@@ -127,7 +127,7 @@ def test_project_scoped_tools_refuse_without_binding(monkeypatch, tmp_path):
 def test_unmapped_tooling_does_not_read_another_projects_declarations(
     monkeypatch, tmp_path
 ):
-    from yoke_core.tools import impacted_project_test_roots as roots
+    from yoke_core.domain import impacted_project_test_roots as roots
     from yoke_core.engines import lane_residue_declared_paths as residue
 
     monkeypatch.setattr(roots, "default_project_for_directory", lambda _p: None)

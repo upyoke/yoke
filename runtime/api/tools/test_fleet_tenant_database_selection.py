@@ -248,7 +248,7 @@ def test_the_watcher_surfaces_the_roster_and_the_binding_warning(cluster) -> Non
     # the reader inside the run's next digest; a binding it could not read is
     # urgent, because it decides membership.
     from yoke_core.tools import watch_preflight
-    from yoke_core.tools._watch_throttle import LineClass
+    from yoke_core.domain.watch_throttle import LineClass
 
     cluster(["yoke_alpha", f"{SCRATCH_DATABASE_PREFIX}87369x7c8be1_template"])
     lines, emit = _emitter()

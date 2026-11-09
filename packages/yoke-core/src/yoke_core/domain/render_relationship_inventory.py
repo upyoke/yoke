@@ -17,7 +17,7 @@ from yoke_core.domain.agents_render_conditional import (
     rendered_agent_path,
 )
 from yoke_core.domain.event_catalog_render import EVENT_CATALOG_RELPATH
-from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH
+from yoke_core.domain.atlas_document_path import ATLAS_RELPATH
 
 
 _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"

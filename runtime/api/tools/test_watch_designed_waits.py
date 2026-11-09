@@ -11,8 +11,8 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
     awaiting_qa_report_lines,
     held_stage_report_lines,
 )
-from yoke_core.tools._watch_designed_waits import designed_wait
-from yoke_core.tools._watch_terminal_outcome import format_terminal_outcome
+from yoke_core.domain.watch_designed_waits import designed_wait
+from yoke_core.domain.watch_terminal_outcome import format_terminal_outcome
 
 
 RUN_ID = "run-20260929-004"

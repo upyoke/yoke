@@ -27,7 +27,7 @@ from yoke_core.domain.worktree_preflight_outcome import (
     unexpected_failure_envelope,
 )
 from yoke_core.domain.worktree_preflight import run_preflight
-from yoke_core.tools._source_pythonpath import (
+from yoke_core.domain.source_pythonpath import (
     PYTEST_RUN_RECIPE,
     SOURCE_RUN_RECIPE,
     is_yoke_shaped_tree,

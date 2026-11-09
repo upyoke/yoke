@@ -32,7 +32,7 @@ class RecordingStream:
 
 def run_probe_script(tmp_path: Path, source: str, stdout: RecordingStream) -> int:
     """Run *source* as the watched probe, capturing raw and progress."""
-    from yoke_core.tools import _watch_runner, watch_fleet
+    from yoke_core.domain import watch_runner as _watch_runner, watch_fleet
 
     script = tmp_path / "emit.py"
     script.write_text(source, encoding="utf-8")

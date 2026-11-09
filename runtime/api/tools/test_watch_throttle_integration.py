@@ -1,6 +1,6 @@
 """Runner-level integration tests for the throttle pipeline.
 
-Exercises :func:`yoke_core.tools._watch_runner.run_watcher` against
+Exercises :func:`yoke_core.domain.watch_runner.run_watcher` against
 synthetic streams with the throttle gate active, plus the watcher
 classifier round-trips. Unit-level tests for the standalone primitives
 live in ``test_watch_throttle.py``.
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import _watch_runner, watch_merge, watch_pytest
-from yoke_core.tools._watch_throttle import (
+from yoke_core.domain import watch_runner as _watch_runner, watch_merge, watch_pytest
+from yoke_core.domain.watch_throttle import (
     LineClass,
     ThrottlePolicy,
 )

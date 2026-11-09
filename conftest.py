@@ -56,7 +56,7 @@ from runtime.browser_launch_isolation import (  # noqa: E402,F401
 from runtime.project_context_fixture import bound_project_context  # noqa: E402,F401
 from runtime.product_wheel_fixture import product_venv  # noqa: E402,F401
 from yoke_core.tools import build_release  # noqa: E402
-from yoke_core.tools import launchctl_boundary  # noqa: E402
+from yoke_core.domain import launchctl_boundary  # noqa: E402
 
 
 PRODUCT_WHEELHOUSE_PACKAGES = build_release.PRODUCT_PACKAGE_NAMES

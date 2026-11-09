@@ -13,87 +13,33 @@ the receipt, and failure signatures to its progress capture.
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
+from yoke_core.domain.fleet_preflight_watch import (
+    KIND,
+    _preflight_argv,
+    classify_preflight_line,
+    preflight_failure,
+)
+
 import argparse
-import json
-import re
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_digest, _watch_runner
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain import watch_digest as _watch_digest
+from yoke_core.domain import watch_runner as _watch_runner
 
 WRAPPER_MODULE = "yoke_core.tools.watch_preflight"
-KIND = "preflight"
 DEFAULT_PROG = "watch_preflight"
-PREFLIGHT_MODULE = "yoke_core.tools.preflight_fleet_migrations"
 
-PREFLIGHT_URGENT_RE = re.compile(
-    r"(^FAIL\b|could not (?:copy|read)\b|receipt was not recorded\b"
-    r"|release gate will still refuse\b|^Traceback \(most recent call last\):"
-    r"|^(?:[\w.]*Error|[\w.]*Exception):|^fatal:)",
-    re.IGNORECASE,
-)
 # Terminal outcomes: what the whole fleet came to, and whether the
 # receipt the release gate reads was written.
-PREFLIGHT_SUMMARY_RE = re.compile(
-    r"(^\d+ passed,\s+\d+ failed(?:,\s+\d+ skipped)?\b"
-    r"|^skipped \S+ -- |^receipt recorded\b)",
-    re.IGNORECASE,
-)
 # Motion: a fleet rehearsal names its artifact, rosters the cluster it
 # selected from, then passes one database at a time. Every one of those
 # lines is distinct content, so the digest carries them all rather than
 # dropping any -- the roster in particular is the only place a reader can
 # see which neighbours were left out of the fleet and why.
-PREFLIGHT_PROGRESS_RE = re.compile(
-    r"(^PASS\b|^scratch databases skipped\b|^fleet roster:"
-    r"|^\s*(?:member|not a member)\s"
-    r"|^engine artifact:|^environment:|^rehearsal cluster:"
-    r"|^instant-(?:copy|census)\b|^diagnostic instant census:"
-    r"|^\s*(?:copy(?:ing)?|converg(?:e|ing))\b)",
-    re.IGNORECASE,
-)
-PREFLIGHT_PROGRESS_PATTERN = re.compile(
-    "|".join(
-        (
-            PREFLIGHT_URGENT_RE.pattern,
-            PREFLIGHT_SUMMARY_RE.pattern,
-            PREFLIGHT_PROGRESS_RE.pattern,
-        )
-    ),
-    re.IGNORECASE,
-)
-
-
-def _timing_outcome_failed(line: str) -> bool:
-    """True when a deployment-start timing line records outcome failed."""
-    payload = line.removeprefix("Deployment start timing: ").strip()
-    try:
-        record = json.loads(payload)
-    except json.JSONDecodeError:
-        return False
-    return isinstance(record, dict) and record.get("outcome") == "failed"
-
-
-def classify_preflight_line(line: str) -> Classification:
-    """Classify one fleet-preflight output line."""
-    if line.startswith("Deployment start timing: "):
-        if _timing_outcome_failed(line):
-            return Classification(LineClass.URGENT)
-        return Classification(LineClass.METADATA)
-    if PREFLIGHT_URGENT_RE.search(line):
-        return Classification(LineClass.URGENT)
-    if PREFLIGHT_SUMMARY_RE.search(line):
-        return Classification(LineClass.SUMMARY)
-    if PREFLIGHT_PROGRESS_RE.search(line):
-        return Classification(LineClass.PROGRESS)
-    return Classification(LineClass.NOISE)
-
-
-def _preflight_argv(args: Sequence[str]) -> list[str]:
-    """Build the underlying project preflight invocation."""
-    return [sys.executable, "-m", PREFLIGHT_MODULE, *list(args)]
 
 
 HELP_EPILOG = """\
@@ -172,7 +118,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help=_watch_runner.STREAMING_WAIT_HELP,
+        help=_watch_streaming_pair.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -214,28 +160,6 @@ def _strip_separator(passthrough: Sequence[str]) -> list[str]:
     return args
 
 
-def preflight_failure(rc: int, raw_capture: Path) -> str:
-    """Keep launch/import failures actionable in both watcher captures."""
-    if rc == 0:
-        return ""
-    try:
-        output = raw_capture.read_text(errors="replace")
-    except OSError:
-        output = ""
-    reason = (
-        "fleet_preflight_import_failed"
-        if "ModuleNotFoundError:" in output or "ImportError:" in output
-        else "fleet_preflight_failed"
-    )
-    return (
-        f"{reason}: exit code {rc}; diagnostic capture: {raw_capture}. "
-        "Read the capture and correct its named cause, then retry "
-        "yoke watch preflight with the same arguments. For a missing packaged "
-        "module, reinstall a complete Yoke release with yoke update, or report "
-        "the capture to the control-plane operator if that release is defective."
-    )
-
-
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
@@ -247,7 +171,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.print_wait_mode_invocation(
+        return _watch_streaming_pair.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=passthrough,

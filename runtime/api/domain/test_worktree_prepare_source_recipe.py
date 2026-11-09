@@ -11,7 +11,7 @@ import json
 
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.domain import direct_workflow_worktree_preflight as preflight
-from yoke_core.tools._source_pythonpath import (
+from yoke_core.domain.source_pythonpath import (
     PYTEST_RUN_RECIPE,
     SOURCE_RUN_RECIPE,
 )

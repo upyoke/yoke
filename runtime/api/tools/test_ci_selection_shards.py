@@ -161,7 +161,7 @@ def rooted_repo(sharded_repo: Path, monkeypatch) -> Path:
     (sharded_repo / "elsewhere").mkdir()
     (sharded_repo / "elsewhere" / "test_broken.py").write_text("import missing_module\n")
     monkeypatch.setattr(
-        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        "yoke_core.domain.impacted_project_test_roots.resolve_test_roots",
         lambda checkout: ("suite/", "elsewhere/"),
     )
     return sharded_repo
@@ -219,7 +219,7 @@ def test_root_collection_keeps_options_and_files_dispatched_paths(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        "yoke_core.domain.impacted_project_test_roots.resolve_test_roots",
         lambda checkout: ("suite/",),
     )
     roots, options, selection_file = runner.root_collection(

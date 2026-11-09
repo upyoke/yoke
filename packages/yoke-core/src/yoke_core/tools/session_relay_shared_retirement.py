@@ -16,7 +16,7 @@ from yoke_harness.session_process_custody import custody_state
 
 
 def _refuse(detail):
-    from yoke_core.tools.session_relay_plist import RelayInstallError
+    from yoke_core.domain.relay_launchd_status import RelayInstallError
 
     return RelayInstallError(
         "relay_shared_service_retirement_blocked: "
@@ -72,10 +72,8 @@ def _shared(instance):
 def retire_shared_launchd(instance, *, home, runner, uid):
     if instance.label == RELAY_BASE_LABEL:
         return
-    from yoke_core.tools.session_relay_plist import (
-        relay_launchd_paths,
-        uninstall_relay_launchd,
-    )
+    from yoke_core.domain.relay_launchd_status import relay_launchd_paths
+    from yoke_core.tools.session_relay_plist import uninstall_relay_launchd
 
     shared = _shared(instance)
     path = relay_launchd_paths(home=home, instance=shared).plist
@@ -101,10 +99,8 @@ def retire_shared_launchd(instance, *, home, runner, uid):
 def retire_shared_systemd(instance, *, home, runner, pid1_path):
     if instance.label == RELAY_BASE_LABEL:
         return
-    from yoke_core.tools.session_relay_systemd import (
-        relay_unit_path,
-        uninstall_relay_systemd,
-    )
+    from yoke_core.domain.relay_systemd_status import relay_unit_path
+    from yoke_core.tools.session_relay_systemd import uninstall_relay_systemd
 
     shared = _shared(instance)
     path = relay_unit_path(shared, home=home)

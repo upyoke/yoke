@@ -142,7 +142,7 @@ def isolated_machine_home(
         )
         yield resolved
         return
-    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+    from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
     resolved = shared_postgres_environment(env)
     source = _home(env)

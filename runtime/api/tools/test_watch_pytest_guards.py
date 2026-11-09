@@ -22,7 +22,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.tools import _watch_pytest_args, watch_pytest
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_throttle import LineClass
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

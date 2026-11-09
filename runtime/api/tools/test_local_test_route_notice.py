@@ -2,7 +2,8 @@
 
 import pytest
 
-from yoke_core.tools import _watch_capture_binding, pytest_remote_selection as routing
+from yoke_core.domain import watch_capture_binding as _watch_capture_binding
+from yoke_core.tools import pytest_remote_selection as routing
 from yoke_core.tools import run_tests, watch_pytest
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")

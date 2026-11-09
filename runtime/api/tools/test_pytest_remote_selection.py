@@ -12,7 +12,7 @@ from yoke_core.tools import (
     watch_pytest,
     watch_pytest_remote,
 )
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_throttle import LineClass
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

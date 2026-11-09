@@ -7,7 +7,7 @@ import shlex
 from pathlib import Path
 from typing import Sequence, TextIO
 
-from yoke_core.tools._watch_wait_mode import (
+from yoke_core.domain.watch_headless_caller import (
     HEADLESS_CONTINUATION_DIRECTIVE,
     caller_is_headless_command,
 )

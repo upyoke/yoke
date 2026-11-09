@@ -35,7 +35,7 @@ install — the shape that had already failed once.
 
 ## What is enforced instead
 
-`yoke_core.tools.launchctl_boundary` is the one place Yoke may invoke
+`yoke_core.domain.launchctl_boundary` is the one place Yoke may invoke
 launchctl or resolve where a launch-agent plist lives. Under a test process
 it never executes:
 

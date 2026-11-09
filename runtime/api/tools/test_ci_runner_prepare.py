@@ -9,7 +9,7 @@ import threading
 import pytest
 
 from yoke_core.tools import ci_runner_prepare as runner
-from yoke_core.tools._source_pythonpath import source_entries
+from yoke_core.domain.source_pythonpath import source_entries
 
 
 @pytest.mark.parametrize(

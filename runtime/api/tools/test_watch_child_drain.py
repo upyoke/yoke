@@ -14,15 +14,16 @@ import sys
 import time
 from pathlib import Path
 
-from yoke_core.tools import watch_child_drain, watch_progress_stall
-from yoke_core.tools._watch_digest import ProgressDigest
-from yoke_core.tools._watch_throttle import (
+from yoke_core.domain import watch_child_drain as watch_child_drain
+from yoke_core.domain import watch_progress_stall as watch_progress_stall
+from yoke_core.domain.watch_digest import ProgressDigest
+from yoke_core.domain.watch_throttle import (
     Classification,
     LineClass,
     ProgressGate,
     ThrottlePolicy,
 )
-from yoke_core.tools.watch_child_drain import drain_watched_child
+from yoke_core.domain.watch_child_drain import drain_watched_child
 
 #: The child stays quiet long enough that the reader waits on a timeout
 #: rather than on data — the state a polling gate spends most of its life

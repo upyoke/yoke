@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from yoke_contracts.project_defaults import default_project_for_directory
-from yoke_core.tools._source_pythonpath import is_yoke_shaped_tree
+from yoke_core.domain.source_pythonpath import is_yoke_shaped_tree
 
 UNSUPPORTED_PROJECT_TEST_ROOTS = "unsupported_project_test_roots"
 YOKE_SEEDED_TEST_ROOTS = ("runtime/api/", "runtime/harness/", "tests/")

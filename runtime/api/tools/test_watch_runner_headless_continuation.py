@@ -22,9 +22,9 @@ import pytest
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
-from yoke_core.tools import _watch_runner
+from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.tools._watch_wait_mode import HEADLESS_CONTINUATION_DIRECTIVE
-from yoke_core.tools._watch_throttle import Classification, LineClass, ThrottlePolicy
+from yoke_core.domain.watch_throttle import Classification, LineClass, ThrottlePolicy
 
 
 PASSTHROUGH_POLICY = ThrottlePolicy(percent_step=0.0001)

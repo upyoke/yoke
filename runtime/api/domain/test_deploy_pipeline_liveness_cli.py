@@ -49,11 +49,11 @@ def test_liveness_cli_reexecs_into_the_pinned_tree(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         lambda _run_id: dict(_PINNED_ENV),
     )
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.frozen_driver_notice",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.frozen_driver_notice",
         lambda env: f"Self-deploy driver frozen at {env[PINNED_RELEASE_ENV]}",
     )
     calls: list[tuple] = []
@@ -85,7 +85,7 @@ def test_liveness_cli_does_not_reexec_on_the_relayed_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         lambda _run_id: None,
     )
     monkeypatch.setattr(
@@ -102,7 +102,7 @@ def test_liveness_cli_skips_reexec_when_already_pinned(
 ) -> None:
     monkeypatch.setenv(PINNED_REEXEC_ENV, "1")
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         _must_not("already-pinned process must not pin again"),
     )
     monkeypatch.setattr(
@@ -120,7 +120,7 @@ def test_liveness_cli_skips_reexec_when_watch_already_bound_the_child(
     monkeypatch.setenv(PINNED_RELEASE_ENV, "abc")
     monkeypatch.setenv(PINNED_SOURCE_ROOT_ENV, "/pin")
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         _must_not("watch-bound child must not pin again"),
     )
     monkeypatch.setattr(
@@ -140,7 +140,7 @@ def test_liveness_cli_prints_freeze_failure(
         raise DeployPinnedSourceError("cannot freeze")
 
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         _raise,
     )
     assert liveness_cli.main(["run-1"]) == 2
@@ -149,7 +149,7 @@ def test_liveness_cli_prints_freeze_failure(
 
 def test_liveness_cli_reports_pinned_interpreter_launch_failure(monkeypatch, capsys):
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         lambda _: dict(_PINNED_ENV),
     )
 
@@ -171,11 +171,11 @@ def test_liveness_cli_records_the_driver_before_the_freeze(
         lambda _run_id, *, phase: order.append(phase),
     )
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.child_environment",
         lambda _run_id: order.append("freeze") or dict(_PINNED_ENV),
     )
     monkeypatch.setattr(
-        "yoke_core.tools.deploy_pipeline_pinned_driver.frozen_driver_notice",
+        "yoke_core.domain.deploy_pipeline_pinned_driver.frozen_driver_notice",
         lambda env: f"Self-deploy driver frozen at {env[PINNED_RELEASE_ENV]}",
     )
     monkeypatch.setattr(

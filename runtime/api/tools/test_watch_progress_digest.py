@@ -2,7 +2,7 @@
 
 Unit cases exercise :class:`ProgressDigest` and the shared
 ``--flush-seconds`` option directly; runner cases drive
-:func:`yoke_core.tools._watch_runner.run_watcher` against synthetic
+:func:`yoke_core.domain.watch_runner.run_watcher` against synthetic
 streams to prove the three flush points — the window timer, an urgent
 line, and completion.
 """
@@ -15,8 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import _watch_digest, _watch_runner, watch_deploy
-from yoke_core.tools._watch_digest import (
+from yoke_core.domain import watch_digest as _watch_digest
+from yoke_core.domain import watch_runner as _watch_runner, watch_deploy
+from yoke_core.domain.watch_digest import (
     DEFAULT_FLUSH_SECONDS,
     DIGEST_SEPARATOR,
     ProgressDigest,

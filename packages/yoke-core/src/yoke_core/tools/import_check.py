@@ -26,7 +26,7 @@ from typing import Sequence
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_core.tools import _source_pythonpath
+from yoke_core.domain import source_pythonpath as _source_pythonpath
 
 #: Marker Python uses for a module caught mid-initialisation by a cycle.
 _PARTIAL_INIT_MARKERS = ("partially initialized module", "circular import")

@@ -12,7 +12,8 @@ import sys
 import pytest
 
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
-from yoke_core.tools import _source_pythonpath, source_dev_run
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_run
 
 
 ADMIN_ENV = "prod-db-admin"

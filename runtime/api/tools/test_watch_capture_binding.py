@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.timestamps import parse_instant
-from yoke_core.tools import _watch_capture_binding as binding
+from yoke_core.domain import watch_capture_binding as binding
 
 
 def _namespace(raw: Path | None, progress: Path | None) -> argparse.Namespace:

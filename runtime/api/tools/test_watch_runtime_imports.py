@@ -8,8 +8,8 @@ from yoke_core.domain.deploy_pipeline import EXIT_AWAITING_QA
 from yoke_core.domain.deployment_run_completion_preconditions import (
     awaiting_qa_report_lines,
 )
-from yoke_core.tools import _watch_runner
-from yoke_core.tools._watch_throttle import Classification, LineClass, ThrottlePolicy
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.domain.watch_throttle import Classification, LineClass, ThrottlePolicy
 
 
 def test_terminal_wait_uses_modules_loaded_before_child_started(tmp_path, monkeypatch):
