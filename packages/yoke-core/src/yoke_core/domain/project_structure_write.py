@@ -11,20 +11,20 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from yoke_contracts.project_structure_errors import UsageError, ValidationError
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import (
     instant_parameter,
-    utc_now,
     query_one,
+    utc_now,
 )
+from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_structure import (
     EMPTY_SLOT,
     NET_NEW_FAMILIES,
-    UsageError,
-    ValidationError,
     _connect,
 )
-from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_structure_validation import (
     _require_known_family,
     _validate_envelope,

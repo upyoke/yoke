@@ -14,15 +14,15 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+from yoke_contracts.architecture_families import ARCHITECTURE_EXEMPTION_FAMILIES
+
 from yoke_core.domain.path_context import (
-    ARCHITECTURE_EXEMPTION_FAMILIES,
     FAMILY_ARCHITECTURE_DOMAIN,
     FAMILY_ARCHITECTURE_LAYER,
 )
 from yoke_core.domain.path_snapshot_content_rows import newest_content_snapshot_id
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.schema_common import _table_exists
-
 
 _SLASH = chr(47)
 

@@ -9,15 +9,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.domain.project_structure_write import apply_patch
 import pytest
-
+from yoke_contracts.project_structure_errors import ValidationError
 from yoke_core.domain import db_backend
 from yoke_core.domain import deploy_defaults as dd
 from yoke_core.domain import project_structure as ps
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from yoke_core.domain.project_structure_write import apply_patch
 
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 NOW = "2026-04-20T00:00:00Z"
 PROJECT_IDS = {**SEED_PROJECT_IDS, "solo": 101}
@@ -85,7 +85,7 @@ class TestSetDefaultFlow:
         # The helper never constructs a bad payload itself — but the
         # underlying family validator must reject a malformed put so
         # operators who bypass the helper still hit a structural error.
-        with pytest.raises(ps.ValidationError):
+        with pytest.raises(ValidationError):
             apply_patch(
                 "solo",
                 ops=[

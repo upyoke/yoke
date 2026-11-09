@@ -13,10 +13,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Iterator
 
-from yoke_core.domain.project_structure_write import apply_patch
 import pytest
-
+from yoke_contracts.project_structure_errors import ValidationError
 from yoke_core.domain import project_structure as ps
+from yoke_core.domain.project_structure_write import apply_patch
+
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.project_structure_test_helpers import seed_project
 
@@ -78,14 +79,14 @@ class TestContextRoutingFamily:
         ({"docs": ["AGENTS.md", 42]}, "must be a non-empty string"),
     ])
     def test_payload_validation_rejects(self, initialized_db, payload, match):
-        with pytest.raises(ps.ValidationError, match=match):
+        with pytest.raises(ValidationError, match=match):
             apply_patch(
                 "test", ops=[_put("context_routing", "project", payload, entry_key="always")],
                 db_path=initialized_db,
             )
 
     def test_keyed_set_rejects_missing_entry_key(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="entry_key is required"):
+        with pytest.raises(ValidationError, match="entry_key is required"):
             apply_patch(
                 "test", ops=[_put("context_routing", "project", {"docs": ["AGENTS.md"]})],
                 db_path=initialized_db,
@@ -136,7 +137,7 @@ class TestWriteReadRoundTrip:
         assert structure["families"]["areas"] == []
 
     def test_remove_nonexistent_entry_errors(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="Cannot remove nonexistent"):
+        with pytest.raises(ValidationError, match="Cannot remove nonexistent"):
             apply_patch(
                 "test",
                 ops=[_remove("areas", "project", entry_key="missing")],
@@ -157,7 +158,7 @@ class TestWriteReadRoundTrip:
 class TestAtomicity:
     def test_all_ops_fail_if_any_op_fails(self, initialized_db: str):
         """If the second op has an invalid envelope, the first must not land."""
-        with pytest.raises(ps.ValidationError):
+        with pytest.raises(ValidationError):
             apply_patch(
                 "test",
                 ops=[
@@ -239,7 +240,7 @@ class TestArchitectureModelFamily:
         assert slice_["entries"][0]["payload"] == payload
 
     def test_singleton_rejects_entry_key(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="singleton"):
+        with pytest.raises(ValidationError, match="singleton"):
             apply_patch(
                 "test",
                 ops=[_put("architecture_model", "project",
@@ -276,7 +277,7 @@ class TestArchitectureModelFamily:
         self, initialized_db: str, mutate, match,
     ):
         payload = _mutate(_minimal_architecture_model(), mutate)
-        with pytest.raises(ps.ValidationError, match=match):
+        with pytest.raises(ValidationError, match=match):
             apply_patch(
                 "test",
                 ops=[_put("architecture_model", "project", payload)],

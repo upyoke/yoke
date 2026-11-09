@@ -13,18 +13,21 @@ from yoke_contracts.hosting_posture import (
     HOSTING_POSTURE_FAMILY,
     POSTURE_UNDECIDED,
 )
+from yoke_contracts.project_structure_errors import ValidationError
 from yoke_contracts.verification_posture import (
     DECLARED_VERIFICATION_POSTURES,
-    POSTURE_UNDECIDED as VERIFICATION_POSTURE_UNDECIDED,
     VERIFICATION_POSTURE_FAMILY,
 )
+from yoke_contracts.verification_posture import (
+    POSTURE_UNDECIDED as VERIFICATION_POSTURE_UNDECIDED,
+)
+
 from yoke_core.domain.project_structure import (
     ALL_FAMILIES,
     EMPTY_SLOT,
     NET_NEW_FAMILIES,
     PATH_SELECTOR_KINDS,
     PROJECT_ATTACHMENT_TOKEN,
-    ValidationError,
 )
 
 

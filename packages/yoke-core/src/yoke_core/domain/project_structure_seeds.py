@@ -10,11 +10,12 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.project_structure_errors import UsageError
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.project_structure import UsageError, read_structure
+from yoke_core.domain.project_structure import read_structure
 from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.strategy_docs_paths import STRATEGY_DIR_REL

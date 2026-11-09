@@ -5,13 +5,13 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from yoke_core.domain.handlers import project_structure as ps_handler
-from yoke_core.domain.project_structure import UsageError, ValidationError
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_contracts.project_structure_errors import UsageError, ValidationError
+from yoke_core.domain.handlers import project_structure as ps_handler
 
 
 def _request(payload=None) -> FunctionCallRequest:

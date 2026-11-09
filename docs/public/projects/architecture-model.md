@@ -43,6 +43,22 @@ Domains are labels only; no check treats them as dependency boundaries.
 Generated files, fixtures, archives, tests and Pack source are left out
 through the model's `exemptions`, not through lists in prose.
 
+## Policies and pure checks
+
+Classify policy evaluation with domain invariants when it reads session, claim,
+lane or persistence state. A `lint_` or `hint_` name alone does not make a module
+a pure payload validator. Keep named pure checks in `payload_validators` and
+place their specific patterns before broad policy patterns. Check their callers
+and transitive dependencies before reclassifying a group so lower layers do not
+gain forbidden edges; record the exceptions in the model's `decisions`.
+
+Pure hook decision records, decision rendering and context composition may also
+sit in `payload_validators` when they depend only on contracts and other pure
+surfaces. Runtime hook execution stays in `orchestration`. Domain policies may
+import the pure surfaces; their location under `hooks/` does not grant permission
+to import the runtime. Shared validation errors and vocabulary belong below
+validators, rather than in database-backed modules.
+
 ## Dependency rules
 
 A layer may depend only on the layers its `may_depend_on` names. The order

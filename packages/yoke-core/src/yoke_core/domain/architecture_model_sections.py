@@ -4,7 +4,7 @@ Sibling of :mod:`yoke_core.domain.architecture_model`, which owns the
 required sections (layers, domains, cross-cutting entrypoints) and
 composes these optional-section validators so the parent stays under
 the authored-file cap. Same contract: pure validation, raises
-:class:`yoke_core.domain.project_structure.ValidationError`, no DB
+:class:`yoke_contracts.project_structure_errors.ValidationError`, no DB
 access.
 """
 
@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.path_context import ARCHITECTURE_EXEMPTION_FAMILIES
-from yoke_core.domain.project_structure import ValidationError
-
+from yoke_contracts.architecture_families import ARCHITECTURE_EXEMPTION_FAMILIES
+from yoke_contracts.project_structure_errors import ValidationError
 
 PACKAGE_LAYOUTS = frozenset({"package_under_root", "package_is_root"})
 

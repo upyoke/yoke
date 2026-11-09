@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
+from yoke_contracts.architecture_families import ARCHITECTURE_EXEMPTION_FAMILIES
+
 from yoke_core.domain.architecture_context_data import (  # noqa: F401
     PackageRoots,
     iter_python_entries,
@@ -22,12 +24,10 @@ from yoke_core.domain.architecture_context_data import (  # noqa: F401
     package_roots_from_model,
 )
 from yoke_core.domain.path_context import (
-    ARCHITECTURE_EXEMPTION_FAMILIES,
     FAMILY_ARCHITECTURE_DOMAIN,
     FAMILY_ARCHITECTURE_LAYER,
     read_context_value,
 )
-
 
 LIST_PREVIEW = 10
 

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from runtime.api.fixtures.file_test_db import apply_empty_schema
 import json
 from pathlib import Path
 from typing import List
 
-from yoke_core.domain.project_structure_seeds import cmd_seed
-from yoke_core.domain.project_structure_cli import main
 import pytest
-
+from yoke_contracts.project_structure_errors import UsageError
 from yoke_core.domain import project_structure as ps
+from yoke_core.domain.project_structure_cli import main
+from yoke_core.domain.project_structure_seeds import cmd_seed
 from yoke_core.domain.schema_common import _table_exists
-from runtime.api.fixtures.file_test_db import init_test_db
+
+from runtime.api.fixtures.file_test_db import apply_empty_schema, init_test_db
 from runtime.api.project_structure_test_helpers import seed_project
 
 
@@ -99,7 +99,7 @@ class TestSeed:
         assert second["applied_ops"] == []
 
     def test_seed_unknown_recipe_errors_with_known_recipes(self, initialized_db: str):
-        with pytest.raises(ps.UsageError, match="Known recipes: yoke-source"):
+        with pytest.raises(UsageError, match="Known recipes: yoke-source"):
             cmd_seed("yoke", "nonexistent", db_path=initialized_db)
 
     def test_seed_dogfoods_apply_patch_contract(self, initialized_db: str):

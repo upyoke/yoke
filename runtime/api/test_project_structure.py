@@ -13,11 +13,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.domain.project_structure_write import apply_patch
 import pytest
-
 from yoke_contracts import hosting_posture
+from yoke_contracts.project_structure_errors import ValidationError
 from yoke_core.domain import project_structure as ps
+from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -143,7 +143,7 @@ class TestHostingPosturePayload:
         assert slice_["entries"][0]["payload"]["provider"] == "Render"
 
     def test_unknown_posture_is_refused_by_name(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError) as excinfo:
+        with pytest.raises(ValidationError) as excinfo:
             apply_patch(
                 "test",
                 ops=[_put(
@@ -159,7 +159,7 @@ class TestHostingPosturePayload:
 
     def test_undecided_is_absence_not_a_row(self, initialized_db: str):
         """Storing "not answered" would give one state two spellings."""
-        with pytest.raises(ps.ValidationError, match="remove the entry"):
+        with pytest.raises(ValidationError, match="remove the entry"):
             apply_patch(
                 "test",
                 ops=[_put(
@@ -171,7 +171,7 @@ class TestHostingPosturePayload:
             )
 
     def test_non_string_prose_is_refused(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="must be a string or absent"):
+        with pytest.raises(ValidationError, match="must be a string or absent"):
             apply_patch(
                 "test",
                 ops=[_put(
@@ -188,7 +188,7 @@ class TestHostingPosturePayload:
 
 class TestEnvelopeValidation:
     def test_unknown_family_rejected(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="Unknown family"):
+        with pytest.raises(ValidationError, match="Unknown family"):
             apply_patch(
                 "test",
                 ops=[_put("not_a_family", "project", {"x": 1}, entry_key="y")],
@@ -197,7 +197,7 @@ class TestEnvelopeValidation:
 
     def test_project_branch_requires_literal_token(self, initialized_db: str):
         """project-branch families must use attachment='project'."""
-        with pytest.raises(ps.ValidationError, match="literal token 'project'"):
+        with pytest.raises(ValidationError, match="literal token 'project'"):
             apply_patch(
                 "test",
                 ops=[_put("areas", "some/path", {"description": "x"}, entry_key="k")],
@@ -206,7 +206,7 @@ class TestEnvelopeValidation:
 
     def test_path_selector_rejects_project_token(self, initialized_db: str):
         """path_selector families cannot use 'project' as attachment."""
-        with pytest.raises(ps.ValidationError, match="non-empty path/glob/subtree"):
+        with pytest.raises(ValidationError, match="non-empty path/glob/subtree"):
             apply_patch(
                 "test",
                 ops=[_put("mappings", "project", {"area_name": "core"})],
@@ -218,7 +218,7 @@ class TestEnvelopeValidation:
         the closed PATH_SELECTOR_KINDS vocabulary. Locked families
         auto-fill from the caller's omission, so this test exercises
         the rejection of an explicit invalid value."""
-        with pytest.raises(ps.ValidationError, match="attachment_kind must be one of"):
+        with pytest.raises(ValidationError, match="attachment_kind must be one of"):
             apply_patch(
                 "test",
                 ops=[_put(
@@ -242,7 +242,7 @@ class TestEnvelopeValidation:
 
     def test_locked_kind_family_rejects_wrong_kind(self, initialized_db: str):
         """test_roots is locked to 'tree'; 'exact' must be rejected."""
-        with pytest.raises(ps.ValidationError, match="locked to attachment_kind 'tree'"):
+        with pytest.raises(ValidationError, match="locked to attachment_kind 'tree'"):
             apply_patch(
                 "test",
                 ops=[_put(
@@ -257,7 +257,7 @@ class TestEnvelopeValidation:
 
     def test_keyed_set_requires_entry_key(self, initialized_db: str):
         """keyed_set families require non-empty entry_key."""
-        with pytest.raises(ps.ValidationError, match="entry_key is required"):
+        with pytest.raises(ValidationError, match="entry_key is required"):
             apply_patch(
                 "test",
                 ops=[_put("areas", "project", {"description": "x"})],
@@ -266,7 +266,7 @@ class TestEnvelopeValidation:
 
     def test_singleton_rejects_entry_key(self, initialized_db: str):
         """singleton families must not carry entry_key."""
-        with pytest.raises(ps.ValidationError, match="singleton; entry_key must be omitted"):
+        with pytest.raises(ValidationError, match="singleton; entry_key must be omitted"):
             apply_patch(
                 "test",
                 ops=[_put(
@@ -280,7 +280,7 @@ class TestEnvelopeValidation:
 
     def test_mappings_requires_area_name(self, initialized_db: str):
         """mappings payload must carry area_name per constitution."""
-        with pytest.raises(ps.ValidationError, match="area_name"):
+        with pytest.raises(ValidationError, match="area_name"):
             apply_patch(
                 "test",
                 ops=[_put("mappings", "runtime/**", {"description": "x"})],
@@ -288,7 +288,7 @@ class TestEnvelopeValidation:
             )
 
     def test_payload_must_be_dict(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="must be a JSON object"):
+        with pytest.raises(ValidationError, match="must be a JSON object"):
             apply_patch(
                 "test",
                 ops=[{
