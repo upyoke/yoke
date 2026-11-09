@@ -76,9 +76,8 @@ def stamp_history(
     running them would be at best a no-op and at worst a corruption. The
     equivalent of Flyway's baseline or Django's fake-initial.
 
-    Birth is a fact the caller observes, never something inferred from an
-    empty ledger here — a pre-ledger database that predates this mechanism
-    also has no rows, and stamping *that* one would skip real work.
+    Birth must be observed by the caller: an empty pre-ledger database
+    still owes real migrations and must never be stamped.
     """
     refuse_without_serving_build_authority(
         "recording a migration history as applied",
@@ -163,8 +162,7 @@ def apply_pending(
     ``administering_env`` names the target authority, resolved from ``conn``
     when omitted. ``dump_backup`` is required only for a local backup.
     ``running_version`` is explicit; an empty source-tree version records no
-    invented serving floor. A next-release entry records the carrying version
-    so older builds can refuse that database.
+    invented floor. A next-release entry records the carrying version.
     """
     refuse_without_serving_build_authority(
         "applying a migration history",
