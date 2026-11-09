@@ -72,8 +72,9 @@ class GovernedMigration(_core.GovernedMigration):
 
 
 def record_audit_fingerprint(*args, **kwargs):
-    _audit.create_exception_backup = create_exception_backup
-    return _audit.record_audit_fingerprint(*args, **kwargs)
+    return _audit.record_audit_fingerprint(
+        *args, create_backup=create_exception_backup, **kwargs
+    )
 
 __all__ = [
     "AUDIT_TABLE", "CRITICAL_TABLES", "AuditEmissionError",

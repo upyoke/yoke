@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain.migration_apply_runners import UnknownRunnerKind
 from yoke_core.domain.migration_model_capability_defaults import (
     governed_postgres_seed,
     resolve_model,
@@ -45,7 +44,6 @@ from yoke_core.domain.migration_model_capability_validation import (
     RUNNER_KIND_GOVERNED_MODULE,
     validate,
 )
-from yoke_core.domain.worktree_validation_recipes import UnknownValidationRecipe
 
 
 def canonical_json(payload: dict) -> str:
@@ -70,8 +68,6 @@ __all__ = [
     "MigrationModelCapabilityError",
     "RECIPE_WEBAPP_SQLITE_EMPTY",
     "RUNNER_KIND_GOVERNED_MODULE",
-    "UnknownRunnerKind",
-    "UnknownValidationRecipe",
     "canonical_json",
     "governed_postgres_seed",
     "resolve_model",

@@ -25,7 +25,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator, Optional, Tuple
+from typing import Any, Callable, Iterator, Optional, Tuple
 
 from yoke_contracts.machine_config.runtime import yoke_home
 
@@ -82,6 +82,7 @@ def establish(
     conn: Any,
     *,
     backup_root: Optional[Path],
+    dump_backup: Callable[[str, str, Path], str],
     backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str],
 ) -> str:
@@ -127,9 +128,7 @@ def establish(
             "restore-point dumps are Postgres-only; a non-Postgres authoritative "
             "database needs its own explicit restore contract"
         )
-    from yoke_core.domain.migration_apply_targets import dump_postgres_to_directory
-
-    return dump_postgres_to_directory(
+    return dump_backup(
         backup_target_dsn, BACKUP_REASON, Path(backup_root)
     )
 

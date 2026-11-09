@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
-from yoke_core.domain.migration_harness_backup import create_exception_backup
 from yoke_core.domain.migration_harness_contract import AuditEmissionError
 
 
@@ -19,6 +18,7 @@ def record_audit_fingerprint(
     pre_counts: Dict[str, int],
     post_counts: Dict[str, int],
     *,
+    create_backup: Optional[Callable[[str, str], str]] = None,
     backup_reason: Optional[str] = None,
     exception_reason: Optional[str] = None,
     model_name: Optional[str] = None,
@@ -39,7 +39,7 @@ def record_audit_fingerprint(
     a rollback artifact before recording the audit row:
 
       * ``backup_reason=<non-empty-str>`` — the helper calls
-        :func:`create_exception_backup` to create a Postgres rollback
+        the caller-supplied ``create_backup`` to create a Postgres rollback
         dump through the same target helper used by governed migration
         apply, then stores the resulting path in ``backup_path``.
       * ``backup_reason=None`` (default) — no backup is created and the
@@ -89,7 +89,12 @@ def record_audit_fingerprint(
                 "created silently-unbacked audit rows and are no longer "
                 "accepted."
             )
-        backup_path = create_exception_backup(db_path, backup_reason)
+        if create_backup is None:
+            raise ValueError(
+                "backup_reason requires create_backup; pass the rollback backup "
+                "operation from the migration orchestration caller"
+            )
+        backup_path = create_backup(db_path, backup_reason)
     else:
         if not isinstance(exception_reason, str) or not exception_reason.strip():
             raise ValueError(

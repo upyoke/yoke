@@ -88,17 +88,6 @@ def target_environment_for_admin_env(admin_env: str) -> str:
     return admin_env.strip()
 
 
-def admin_connection_for_environment(
-    environment: str, settings: Mapping[str, Any] | None = None
-) -> str:
-    """The admin connection the environment declares, or a named refusal."""
-    from yoke_core.domain.environment_declared_facts import (
-        admin_connection_for_environment as declared_admin_connection,
-    )
-
-    return declared_admin_connection(environment, settings)
-
-
 def rehearsed_build_description(
     engine_artifact: Mapping[str, Any] | None,
 ) -> str:

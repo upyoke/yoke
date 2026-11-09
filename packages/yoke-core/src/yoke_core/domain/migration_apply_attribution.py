@@ -108,27 +108,6 @@ def collect_boot_attribution(
     }
 
 
-def collect_operator_attribution(
-    control_conn: Any,
-    *,
-    worktree: Optional[Path] = None,
-) -> Dict[str, str]:
-    """Attribution for a manual apply. Missing ambient identity fails closed."""
-    from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
-
-    session_id = resolve_ambient_session_id()
-    actor_id = lookup_session_actor_id(control_conn, session_id)
-    branch, commit = git_branch_and_commit(worktree or Path.cwd())
-    return require_attribution(
-        {
-            "session_id": session_id,
-            "actor_id": actor_id,
-            "source_branch": branch,
-            "source_commit": commit,
-        }
-    )
-
-
 def lookup_session_actor_id(
     control_conn: Any, session_id: Optional[str]
 ) -> Optional[str]:
@@ -195,7 +174,6 @@ __all__ = [
     "IncompleteAttributionError",
     "LevelAsModelNameError",
     "collect_boot_attribution",
-    "collect_operator_attribution",
     "git_branch_and_commit",
     "lookup_session_actor_id",
     "refuse_level_as_model_name",

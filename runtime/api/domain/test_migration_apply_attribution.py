@@ -19,10 +19,10 @@ from yoke_core.domain.migration_apply_attribution import (
     IncompleteAttributionError,
     LevelAsModelNameError,
     collect_boot_attribution,
-    collect_operator_attribution,
     refuse_level_as_model_name,
     require_attribution,
 )
+from yoke_core.domain.migration_operator_attribution import collect_operator_attribution
 from yoke_core.domain.migration_boot_apply import apply_pending as kernel_apply_pending
 from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 

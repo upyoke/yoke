@@ -189,6 +189,8 @@ def converge_migration_history(
     from yoke_core.domain.migration_apply_attribution import collect_boot_attribution
     from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
     from yoke_core.domain import migrations as migration_history_package
+    from yoke_core.domain import administered_postgres
+    from yoke_core.domain.postgres_dump_restore_point import dump_postgres_to_directory
     from yoke_core.domain.migration_boot_apply import apply_pending, stamp_history
     from yoke_core.domain.migration_restore_point import configured_restore_point
     from yoke_core.domain.migration_history import history_dir, ordered_entries
@@ -217,6 +219,7 @@ def converge_migration_history(
             history,
             ledger=YOKE_LEDGER_CONTRACT,
             applied_by="birth",
+            administering_env=administered_postgres.administering_target(connection=conn),
         )
         return
 
@@ -226,6 +229,8 @@ def converge_migration_history(
         history=history,
         ledger=YOKE_LEDGER_CONTRACT,
         applied_by="boot-converge",
+        administering_env=administered_postgres.administering_target(connection=conn),
+        dump_backup=dump_postgres_to_directory,
         running_version=installed_engine_version(),
         attribution=collect_boot_attribution(
             applied_by="boot-converge",

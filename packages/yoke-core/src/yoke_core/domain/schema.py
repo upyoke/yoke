@@ -97,12 +97,12 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     # migration audit commands
     if subcmd == "migration-audit-list":
-        from yoke_core.domain.migration_harness import cmd_audit_list
+        from yoke_core.domain.migration_harness_cli import cmd_audit_list
 
         cmd_audit_list(_resolve_db_path())
         return
     if subcmd == "migration-verify":
-        from yoke_core.domain.migration_harness import cmd_verify
+        from yoke_core.domain.migration_harness_cli import cmd_verify
 
         cmd_verify(_resolve_db_path())
         return

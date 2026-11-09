@@ -41,7 +41,7 @@ def test_real_strategy_day_projection_native_cutoff_and_registered_reader(
     test_db, monkeypatch, zone
 ):
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.strategy_docs_schema import record_doc_revision
+    from yoke_core.domain.strategy_doc_revisions import record_doc_revision
 
     monkeypatch.setattr(strategy_doc_surfaces, "utc_now", lambda: NOW)
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))

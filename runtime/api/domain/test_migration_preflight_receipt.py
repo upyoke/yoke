@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.environment_declared_facts import admin_connection_for_environment
+
 from datetime import datetime, timezone
 
 import pytest
@@ -238,12 +240,12 @@ class TestAdminConnectionForEnvironment:
     def test_the_declared_admin_connection_is_used(self):
         settings = {"release": {"admin_connection": "custom-admin"}}
         assert (
-            receipt.admin_connection_for_environment("blah", settings) == "custom-admin"
+            admin_connection_for_environment("blah", settings) == "custom-admin"
         )
 
     def test_an_undeclared_pairing_refuses_by_name(self):
         with pytest.raises(Exception, match="release.admin_connection"):
-            receipt.admin_connection_for_environment("prod")
+            admin_connection_for_environment("prod", None)
 
 
 class TestRehearsedBuildDescription:

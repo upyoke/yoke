@@ -67,8 +67,8 @@ def read_declared_admin_connection(
     """The environment's declared admin connection, or why it could not be read."""
     from yoke_core.domain.environment_declared_facts import (
         ADMIN_CONNECTION_PATH,
-        MissingEnvironmentFact,
         admin_connection_for_environment,
+        MissingEnvironmentFact,
         settings_from_projection,
     )
 
