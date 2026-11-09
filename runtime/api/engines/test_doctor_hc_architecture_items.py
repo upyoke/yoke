@@ -58,6 +58,17 @@ def _make_snapshot(
 
 
 class TestImpactDeclaration:
+    @pytest.mark.parametrize("status", ["done", "cancelled"])
+    @pytest.mark.parametrize("value", ["major_refactor", "uncertain"])
+    def test_terminal_declarations_are_ignored(self, conn, status, value):
+        _make_items_table(conn)
+        conn.execute("INSERT INTO items VALUES (1, %s, %s)", (status, value))
+        conn.commit()
+        rec = RecordCollector()
+        hc_architecture_impact_declaration(conn, _args(), rec)
+        assert rec.results[-1].result == "PASS"
+        assert not rec.results[-1].detail
+
     def test_invalid_enum_warns(self, conn):
         _make_items_table(conn)
         conn.execute(

@@ -3,7 +3,7 @@
 Owns the two checks that read items / item-side state rather than the
 project path snapshot:
 
-* ``HC-architecture-impact-declaration`` — every item's
+* ``HC-architecture-impact-declaration`` — every active item's
   ``architecture_impact`` value must be one of the closed enum; items
   that have advanced past ``refining-idea`` must not carry
   ``'uncertain'``.
@@ -43,26 +43,29 @@ _IMPACT_DECL_DESC = "Item architecture_impact value is invalid or unresolved"
 _SCAN_ERROR = "HC-architecture-scan-error"
 _SCAN_ERROR_DESC = "Stored dependency_edges value is invalid or scan failed"
 
-# Item statuses that must NOT carry architecture_impact='uncertain'.
+# Active item statuses that must NOT carry architecture_impact='uncertain'.
 _NON_UNCERTAIN_STATUSES = (
     "refined-idea", "planning", "plan-drafted", "refining-plan", "planned",
     "implementing", "reviewing-implementation", "reviewed-implementation",
-    "polishing-implementation", "implemented", "release", "done",
+    "polishing-implementation", "implemented", "release",
 )
 
 
 def hc_architecture_impact_declaration(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
-    """Validate every item's architecture_impact value and flag any
-    item past refining-idea that is still 'uncertain'."""
+    """Validate active declarations, including unresolved advanced items.
+
+    Done and cancelled items no longer pass readiness or lifecycle gates.
+    """
     if not _base._column_exists(conn, "items", "architecture_impact"):
         rec.record(_IMPACT_DECL, _IMPACT_DECL_DESC, "PASS",
                    "items.architecture_impact column missing — skipping")
         return
     rows = conn.execute(
         "SELECT id, status, architecture_impact FROM items "
-        "WHERE architecture_impact IS NOT NULL",
+        "WHERE architecture_impact IS NOT NULL "
+        "AND status NOT IN ('done', 'cancelled')",
     ).fetchall()
     findings: List[str] = []
     for row in rows:
