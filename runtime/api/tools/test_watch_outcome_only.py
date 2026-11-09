@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import watch_capture_binding as _watch_capture_binding
-from yoke_core.domain import watch_runner as _watch_runner, watch_deploy, watch_merge
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_deploy, watch_merge
 from yoke_core.domain import gate_stall_report
 from yoke_core.tools._watch_wait_mode import WatchWaitMode
 from yoke_core.domain.watch_throttle import Classification, LineClass

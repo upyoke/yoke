@@ -14,7 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import watch_runner as _watch_runner, watch_merge, watch_pytest
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_merge, watch_pytest
 from yoke_core.domain.watch_throttle import (
     LineClass,
     ThrottlePolicy,

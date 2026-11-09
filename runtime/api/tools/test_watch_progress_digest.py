@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import watch_digest as _watch_digest
-from yoke_core.domain import watch_runner as _watch_runner, watch_deploy
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_deploy
 from yoke_core.domain.watch_digest import (
     DEFAULT_FLUSH_SECONDS,
     DIGEST_SEPARATOR,

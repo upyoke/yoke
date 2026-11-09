@@ -16,7 +16,8 @@ import sys
 
 import pytest
 
-from yoke_core.domain import watch_runner as _watch_runner, watch_lifecycle
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_lifecycle
 from yoke_core.domain.watch_runner import filter_match
 from yoke_core.domain.watch_throttle import LineClass
 

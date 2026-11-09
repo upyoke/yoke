@@ -47,7 +47,7 @@ def _postmasters() -> list[tuple[int, Path, Path]]:
 
 
 def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
-    from yoke_core.tools.pg_testcluster import PGUSER
+    from yoke_core.domain.test_postgres_cluster import PGUSER
 
     if root.is_symlink() or root.stat().st_uid != os.getuid():
         raise ValueError("cluster root is not an owned real directory")
