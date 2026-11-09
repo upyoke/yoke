@@ -1,7 +1,7 @@
 """Keep newly authored migrations and table schemas below live domain policy.
 
 This source contract deliberately does not read the database architecture snapshot.
-Applied migration entries through 0106 retain their historical imports.
+Folded migration entries have metadata only; live scripts stay isolated.
 """
 
 from __future__ import annotations
@@ -97,6 +97,107 @@ def guarded_paths(domain: Path = DOMAIN):
     for path in sorted((domain / "migrations").glob("[0-9]*_*.py")):
         if int(path.name.split("_", 1)[0]) > 106:
             yield path
+
+
+MIGRATION_PACKAGE = "yoke_core.domain.migrations"
+
+
+def _module_text(node, bindings):
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        return bindings.get(node.id, "*")
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _module_text(node.left, bindings) + _module_text(node.right, bindings)
+    if isinstance(node, ast.JoinedStr):
+        return "".join(_module_text(part, bindings) for part in node.values)
+    if isinstance(node, ast.FormattedValue):
+        return _module_text(node.value, bindings)
+    return "*"
+
+
+def reverse_violations(source: str, package: str):
+    """Live code may read history metadata, but cannot import entry modules."""
+    tree = ast.parse(source)
+    bindings = {}
+    dynamic_loaders = {"import_module", "__import__"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            dynamic_loaders.update(
+                alias.asname or alias.name
+                for alias in node.names
+                if alias.name == "import_module"
+            )
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    bindings[target.id] = _module_text(node.value, bindings)
+    imports = list(imported_modules(source, package))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if node.level:
+                module = resolve_name("." * node.level + module, package)
+            if module == MIGRATION_PACKAGE:
+                imports.extend(
+                    (node.lineno, module + "." + alias.name) for alias in node.names
+                )
+        if isinstance(node, ast.Call) and node.args:
+            name = getattr(node.func, "id", getattr(node.func, "attr", ""))
+            if name in dynamic_loaders:
+                module = _module_text(node.args[0], bindings)
+                if module.startswith("."):
+                    target = (
+                        node.args[1]
+                        if len(node.args) > 1
+                        else next(
+                            (kw.value for kw in node.keywords if kw.arg == "package"),
+                            None,
+                        )
+                    )
+                    module = resolve_name(module, _module_text(target, bindings))
+                imports.append((node.lineno, module))
+    for line, module in imports:
+        if module.startswith(MIGRATION_PACKAGE + "."):
+            yield f"line {line}: live code imports migration module {module}; move required behavior to its domain owner"
+
+
+def test_live_source_never_imports_migration_modules():
+    errors = []
+    for root in sorted((ROOT / "packages").glob("*/src")):
+        for path in sorted(root.rglob("*.py")):
+            if DOMAIN / "migrations" in path.parents:
+                continue
+            relative = path.relative_to(root)
+            package = ".".join(relative.parts[:-1])
+            errors.extend(
+                f"{path.relative_to(ROOT)}: {error}"
+                for error in reverse_violations(path.read_text(), package)
+            )
+    assert not errors, "\n".join(errors)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import yoke_core.domain.migrations._helper",
+        "from yoke_core.domain.migrations import _helper",
+        "from .migrations._helper import apply",
+        "entry = import_module('yoke_core.domain.migrations.0107_change')",
+        "import importlib\nentry = importlib.import_module('yoke_core.domain.migrations.' + '0107_change')",
+        "NAME = '0107_change'\nentry = import_module(f'yoke_core.domain.migrations.{NAME}')",
+        "entry = import_module(f'yoke_core.domain.migrations.{name}')",
+        "from importlib import import_module as load\nentry = load('yoke_core.domain.migrations._helper')",
+        "entry = import_module('.migrations._helper', 'yoke_core.domain')",
+    ],
+)
+def test_reverse_guard_rejects_static_and_dynamic_entry_imports(source):
+    assert list(reverse_violations(source, "yoke_core.domain"))
+
+
+def test_reverse_guard_allows_history_package_and_generic_loader():
+    source = "from yoke_core.domain import migrations\nfrom yoke_core.domain.migration_history import load_migration_module"
+    assert not list(reverse_violations(source, "yoke_core.domain"))
 
 
 @pytest.mark.parametrize("path", list(guarded_paths()), ids=lambda p: p.name)

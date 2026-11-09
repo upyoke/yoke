@@ -5,15 +5,8 @@ from __future__ import annotations
 from typing import Any, Sequence, Tuple
 
 from yoke_core.domain import db_backend, migration_serving_version
-from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
+from yoke_core.domain.migration_history import MigrationEntry
 from yoke_core.domain.migration_ledger_contract import LedgerContract
-
-
-def _permanent_history_compatibility_ledger() -> LedgerContract:
-    """Bind immutable Yoke entry 0004's historical two-argument call."""
-    from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
-
-    return YOKE_LEDGER_CONTRACT
 
 
 def _placeholder(conn: Any) -> str:
@@ -24,7 +17,7 @@ def backfill_serving_floors(
     conn: Any,
     history: Sequence[MigrationEntry],
     *,
-    ledger: LedgerContract | None = None,
+    ledger: LedgerContract,
 ) -> Tuple[str, ...]:
     """Fill missing ledger floors from permanent applied history entries.
 
@@ -33,7 +26,7 @@ def backfill_serving_floors(
     runs long afterwards with no way to learn which one that was; writing a
     version it cannot know would be worse evidence than the absence it repairs.
     """
-    selected = ledger or _permanent_history_compatibility_ledger()
+    selected = ledger
     rows = conn.execute(
         f"SELECT {selected.entry_column} FROM {selected.table}"
     ).fetchall()
@@ -43,8 +36,9 @@ def backfill_serving_floors(
     for entry in history:
         if entry.name not in recorded:
             continue
-        module = load_migration_module(entry.path, entry.name)
-        minimum = migration_serving_version.recorded_floor(module, running_version="")
+        minimum = migration_serving_version.entry_minimum(entry)
+        if minimum == migration_serving_version.NEXT_RELEASE:
+            minimum = None
         if minimum is None:
             continue
         cursor = conn.execute(
@@ -62,7 +56,7 @@ def missing_declared_serving_floors(
     conn: Any,
     history: Sequence[MigrationEntry],
     *,
-    ledger: LedgerContract | None = None,
+    ledger: LedgerContract,
 ) -> Tuple[str, ...]:
     """Applied entries whose declared rollback floor is absent in the ledger.
 
@@ -70,7 +64,7 @@ def missing_declared_serving_floors(
     absent row value records that the applying build had no release identity
     rather than that evidence was lost.
     """
-    selected = ledger or _permanent_history_compatibility_ledger()
+    selected = ledger
     rows = conn.execute(
         f"SELECT {selected.entry_column} FROM {selected.table} "
         f"WHERE {selected.serving_floor_column} IS NULL"
@@ -80,11 +74,10 @@ def missing_declared_serving_floors(
     for entry in history:
         if entry.name not in missing:
             continue
-        module = load_migration_module(entry.path, entry.name)
-        if (
-            migration_serving_version.recorded_floor(module, running_version="")
-            is not None
-        ):
+        if migration_serving_version.entry_minimum(entry) not in {
+            None,
+            migration_serving_version.NEXT_RELEASE,
+        }:
             findings.append(entry.name)
     return tuple(findings)
 

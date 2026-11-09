@@ -74,7 +74,8 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
     executions = [
         e
         for e in executions
-        if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES and abort_request(e) is None
+        if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES
+        and abort_request(e) is None
         and not preserved(e)
     ]
     # Clear queue intents together before a released host can grant the next
@@ -99,7 +100,10 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
         (run_id,),
     )
     retract_requirements(
-        conn, [int(row["id"]) for row in rows if not preserved(dict(row))], reason=reason, source="deployment_run"
+        conn,
+        [int(row["id"]) for row in rows if not preserved(dict(row))],
+        reason=reason,
+        source="deployment_run",
     )
     return False
 
@@ -111,7 +115,9 @@ def restore_retry_obligations(conn: Any, run_id: str) -> None:
     rows, current members' rows and plan groups some member still attaches
     come back.
     """
-    from yoke_core.domain.deployment_qa_obsolete_plan_runs import failed_obsolete_plan_run_ids
+    from yoke_core.domain.deployment_qa_obsolete_plan_runs import (
+        failed_obsolete_plan_run_ids,
+    )
 
     if str(run_id) in failed_obsolete_plan_run_ids(conn):
         raise ValueError(
@@ -126,7 +132,9 @@ def restore_retry_obligations(conn: Any, run_id: str) -> None:
         )
 
         plans = attached_plans(conn, run_id)
-        orphaned = [g.digest for g in run_groups(conn, run_id) if not plans.get(g.plan_id)]
+        orphaned = [
+            g.digest for g in run_groups(conn, run_id) if not plans.get(g.plan_id)
+        ]
         conn.execute(
             "UPDATE qa_requirements SET retracted_at=NULL, "
             "retraction_rationale=NULL, retraction_source=NULL "

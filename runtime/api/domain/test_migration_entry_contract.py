@@ -14,12 +14,19 @@ from yoke_core.domain.migration_history import (
     load_migration_module,
     ordered_entries,
 )
-from yoke_core.domain.migration_serving_version import declared_minimum, removes_a_surface
+from yoke_core.domain.migration_serving_version import (
+    declared_minimum,
+    removes_a_surface,
+)
 
 
 @pytest.mark.parametrize("surface", ["empty", "current"])
 def test_packaged_entries_replay_and_keep_their_contract(tmp_path, surface):
-    entries = ordered_entries(history_dir(migrations))
+    entries = tuple(
+        entry
+        for entry in ordered_entries(history_dir(migrations))
+        if not entry.is_folded
+    )
     modules = {
         entry.name: load_migration_module(entry.path, entry.name) for entry in entries
     }
@@ -28,7 +35,9 @@ def test_packaged_entries_replay_and_keep_their_contract(tmp_path, surface):
             module = modules[entry.name]
             try:
                 if removes_a_surface(entry.path.read_text()):
-                    assert declared_minimum(module), "destructive entry needs a serving floor"
+                    assert declared_minimum(module), (
+                        "destructive entry needs a serving floor"
+                    )
                 for _ in range(2):
                     module.apply(conn)
                     report = verify_applied_history_invariants(

@@ -1,8 +1,5 @@
 """Only a persisted Yoke launch may authorize a native session resume."""
 
-from importlib import import_module
-import sqlite3
-
 import pytest
 
 from yoke_contracts.executor_labels import canonical_harness_id
@@ -10,8 +7,6 @@ from yoke_contracts.session_control.capabilities import (
     SESSION_SURFACE_CAPABILITIES,
     native_wake_supported,
 )
-from yoke_core.domain.session_launch_origin import session_launch_origin
-from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
 from yoke_core.domain.session_message_routing import messageability
 from yoke_core.domain.session_message_wake_skip import _wake_skip_result
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
@@ -99,35 +94,3 @@ def test_missing_origin_never_grants_native_authority():
     )
     assert routing["wake_interface"] == "none"
     assert routing["wake_authority"] == "operator"
-
-
-def test_backfill_matches_registered_and_native_identities_and_survives_retention():
-    conn = sqlite3.connect(":memory:")
-    conn.executescript("""
-        CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY, native_thread_id TEXT);
-        CREATE TABLE session_launches(registered_session_id TEXT, native_session_id TEXT);
-        INSERT INTO harness_sessions VALUES
-            ('registered',NULL),('native',NULL),('folded','thread'),('manual',NULL);
-        INSERT INTO session_launches VALUES
-            ('registered',NULL),(NULL,'native'),(NULL,'thread');
-    """)
-    migration = import_module("yoke_core.domain.migrations.0104_session_launch_origin")
-    migration.apply(conn)
-    migration.invariants(conn)
-    assert dict(
-        conn.execute("SELECT session_id,launch_origin FROM harness_sessions")
-    ) == {
-        "registered": "yoke",
-        "native": "yoke",
-        "folded": "yoke",
-        "manual": "operator",
-    }
-    migration.apply(conn)
-    conn.execute("DELETE FROM session_launches")
-    migration.apply(conn)
-    assert session_launch_origin(conn, "folded") == "yoke"
-    assert session_was_relay_launched(conn, "registered")
-    assert not session_was_relay_launched(conn, "manual")
-    conn.execute("INSERT INTO harness_sessions(session_id) VALUES ('unbound')")
-    assert session_launch_origin(conn, "unbound") == "operator"
-    assert session_launch_origin(conn, "unknown") == "operator"

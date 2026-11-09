@@ -77,6 +77,15 @@ def removes_a_surface(source: str) -> bool:
     return _SURFACE_REMOVAL_SQL.search(source) is not None
 
 
+def entry_minimum(entry: Any) -> Optional[str]:
+    """Read a declaration from frozen metadata or an executable entry."""
+    if entry.is_folded:
+        return entry.minimum_serving_version
+    from yoke_core.domain.migration_history import load_migration_module
+
+    return declared_minimum(load_migration_module(entry.path, entry.name))
+
+
 def declared_minimum(module: Any) -> Optional[str]:
     """Return an entry module's declared floor, or ``None`` when absent.
 

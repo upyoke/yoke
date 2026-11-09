@@ -2,25 +2,18 @@
 
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
 from typing import Any
 
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
-from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain import qa_cli_requirement_insert
 from yoke_core.domain.deployment_requirement_snapshot_format import (
     REQUIREMENT_FIELDS,
     semantic_row,
 )
 from yoke_core.domain.handlers import qa_requirement_insert
-from yoke_core.domain.migration_history import (
-    history_dir,
-    load_migration_module,
-    ordered_entries,
-)
 from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 from yoke_core.domain.qa_requirement_policy_validation import (
     ALL_PASS_POLICY,
@@ -29,17 +22,8 @@ from yoke_core.domain.qa_requirement_policy_validation import (
 )
 
 
-ENTRY_NAME = "0085_qa_success_policy_named_form"
 CREATED_AT = datetime(2026, 10, 18, tzinfo=timezone.utc)
 ROW = {"qa_kind": "smoke", "qa_phase": "post_deploy", "success_policy": "all-pass"}
-
-
-def _entry() -> Any:
-    directory = history_dir(migration_history_package)
-    record = next(
-        entry for entry in ordered_entries(directory) if entry.name == ENTRY_NAME
-    )
-    return load_migration_module(directory / f"{record.name}.py", record.name)
 
 
 def test_the_all_pass_name_is_stored_as_its_structured_form() -> None:
@@ -112,31 +96,3 @@ def test_requirement_update_stores_the_structured_form_and_refuses_text(
     assert not refused.ok
     assert refused.error_code == "payload_invalid"
     assert "qa_success_policy_invalid" in refused.message
-
-
-def test_history_entry_rewrites_stored_policy_names_once() -> None:
-    entry = _entry()
-    conn = sqlite3.connect(":memory:")
-    conn.execute("CREATE TABLE qa_requirements (id INTEGER, success_policy TEXT)")
-    conn.executemany(
-        "INSERT INTO qa_requirements VALUES (?, ?)",
-        [
-            (1, "all-pass"),
-            (2, "all_pass"),
-            (3, '{"type":"deterministic","criteria":"verdict_pass"}'),
-            (4, None),
-        ],
-    )
-
-    entry.apply(conn)
-    entry.apply(conn)
-    entry.invariants(conn)
-
-    rows = dict(conn.execute("SELECT id, success_policy FROM qa_requirements"))
-    assert rows == {
-        1: ALL_PASS_POLICY,
-        2: ALL_PASS_POLICY,
-        3: '{"type":"deterministic","criteria":"verdict_pass"}',
-        4: None,
-    }
-    assert entry.STRUCTURED_FORM == ALL_PASS_POLICY

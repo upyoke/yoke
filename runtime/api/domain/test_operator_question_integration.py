@@ -7,7 +7,6 @@ from runtime.api.domain.operator_question_integration_test_support import _call 
 
 from runtime.api.fixtures.actor_roles import seed_org_role
 
-import importlib
 
 from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _project,
@@ -75,29 +74,6 @@ def test_worker_files_without_steering_and_receives_one_engine_answer(
     )
     row = next(row for row in decided["needs_decision"] if row["id"] == request["id"])
     assert row["decided_by_you"] and row["actions"] == []
-
-
-def test_migration_admits_questions_preserves_gates_and_carries_floor(test_db):
-    migration = importlib.import_module(
-        "yoke_core.domain.migrations.0100_operator_questions"
-    )
-    test_db.execute(
-        "ALTER TABLE decision_requests DROP CONSTRAINT decision_requests_kind_check"
-    )
-    test_db.execute(
-        "ALTER TABLE decision_requests ADD CONSTRAINT decision_requests_kind_check CHECK(kind IN ('deployment_stage_approval', 'qa_needs_review', 'lifecycle_transition_approval', 'machine_approval', 'merge_candidate_review'))"
-    )
-    migration.apply(test_db)
-    migration.invariants(test_db)
-    migration.apply(test_db)
-    assert migration.MINIMUM_SERVING_VERSION == "next-release"
-    assert "operator_question" in migration.ALL_KINDS
-    assert (
-        test_db.execute(
-            "SELECT requesting_session_id FROM decision_requests LIMIT 1"
-        ).fetchone()
-        is None
-    )
 
 
 def test_terminal_item_questions_are_disposed(test_db):

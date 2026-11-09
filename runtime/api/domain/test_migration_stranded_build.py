@@ -8,7 +8,6 @@ this probe exists to convert from silent broken reads into a failed container.
 
 from __future__ import annotations
 
-import importlib
 import sqlite3
 from pathlib import Path
 
@@ -16,19 +15,16 @@ from yoke_core.domain import schema_readiness
 from yoke_core.domain.migration_history import MigrationEntry
 from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
+# Probe the frozen destructive entry without importing its retired script.
+from yoke_core.domain import migrations
+from yoke_core.domain.migration_history import history_dir, ordered_entries
+
 RETIREMENT_ENTRY_NAME = "0001_retire_superseded_surfaces"
 
-# A history entry's filename stem starts with its ordering digits, so it is
-# not a valid identifier and cannot be imported by name.
-retirement_entry = importlib.import_module(
-    f"yoke_core.domain.migrations.{RETIREMENT_ENTRY_NAME}"
-)
-RETIREMENT_HISTORY = (
-    MigrationEntry(
-        sequence=1,
-        name=RETIREMENT_ENTRY_NAME,
-        path=Path(retirement_entry.__file__).resolve(),
-    ),
+RETIREMENT_HISTORY = tuple(
+    entry
+    for entry in ordered_entries(history_dir(migrations))
+    if entry.name == RETIREMENT_ENTRY_NAME
 )
 
 
@@ -179,16 +175,3 @@ class TestMalformedFloorIsVisibleNotFatal:
 
         assert len(findings) == 1
         assert "repair" in findings[0]
-
-
-class TestRetirementEntryDeclaresItsFloor:
-    def test_the_real_destructive_entry_carries_a_declaration(self) -> None:
-        """The mandated fixture must itself satisfy the authoring contract."""
-        declared = getattr(retirement_entry, "MINIMUM_SERVING_VERSION", None)
-
-        assert declared, "the retirement entry must declare its serving floor"
-
-    def test_the_retirement_entry_removes_the_surfaces_it_claims(self) -> None:
-        retired = dict(retirement_entry.SUPERSEDED_COLUMNS)
-
-        assert retired["items"] or retired["path_claims"]

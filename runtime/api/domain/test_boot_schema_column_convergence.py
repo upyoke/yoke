@@ -22,8 +22,6 @@ from pathlib import Path
 from psycopg import Error, sql
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
-from yoke_core.domain.schema_common import _get_indexes
 from yoke_core.domain.schema_init import converge_core_schema
 
 
@@ -156,59 +154,6 @@ def _drop_without_cascade(conn, table: str, column: str) -> bool:
 def _column_pair_digest(columns: set[tuple[str, str]]) -> str:
     payload = "\n".join(f"{table}.{column}" for table, column in sorted(columns))
     return hashlib.sha256(payload.encode()).hexdigest()
-
-
-def _restore_pre_machine_credentials_schema(conn) -> None:
-    """Remove the exact columns and ledger row absent from the prior release."""
-    conn.execute("ALTER TABLE applied_migrations DISABLE TRIGGER USER")
-    conn.execute(
-        "DELETE FROM applied_migrations WHERE migration_name = %s",
-        (_MACHINE_CREDENTIALS_MIGRATION,),
-    )
-    conn.execute("ALTER TABLE applied_migrations ENABLE TRIGGER USER")
-    for table, column in sorted(_MACHINE_CREDENTIAL_COLUMNS):
-        conn.execute(
-            sql.SQL("ALTER TABLE {} DROP COLUMN {}").format(
-                sql.Identifier(table),
-                sql.Identifier(column),
-            )
-        )
-    conn.commit()
-
-
-def test_machine_credentials_history_upgrades_prior_serving_schema(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.setenv(
-        RESTORE_POINT_ENV,
-        "snapshot:machine-credentials-prior-serving-schema",
-    )
-    with init_test_db(
-        tmp_path,
-        apply_schema=_apply_complete_control_plane_schema,
-    ) as db_path:
-        conn = connect_test_db(db_path)
-        try:
-            _restore_pre_machine_credentials_schema(conn)
-
-            converge_core_schema(conn)
-            converge_core_schema(conn)
-
-            columns = _column_map(conn)
-            assert _MACHINE_CREDENTIAL_COLUMNS <= {
-                (table, column)
-                for table, table_columns in columns.items()
-                for column in table_columns
-            }
-            assert "idx_api_tokens_machine" in _get_indexes(conn, "api_tokens")
-            assert "idx_machines_retired" in _get_indexes(conn, "machines")
-            assert conn.execute(
-                "SELECT COUNT(*) FROM applied_migrations WHERE migration_name = %s",
-                (_MACHINE_CREDENTIALS_MIGRATION,),
-            ).fetchone() == (1,)
-        finally:
-            conn.close()
 
 
 def test_every_droppable_boot_schema_column_converges(

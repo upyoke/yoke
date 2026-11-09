@@ -1,7 +1,7 @@
 """The ordered migration history for the Yoke control-plane schema.
 
 Every data-transforming schema change lands here as a ``NNNN_slug.py``
-module and **stays here permanently**. The directory is the history, in
+module. Live scripts and frozen folded identities form the history, in
 order; each database's ``applied_migrations`` ledger records how far
 through it that database has got. The pending set is the difference, so
 every install computes what it still owes from its own rows plus the code
@@ -38,9 +38,6 @@ Contract for a module here:
   whose bytes every database ledger records. The fleet preflight summary
   reports that skip as its own count and reason, alongside passed and
   failed — not only as a converge-stream line, and not as a pass.
-  A frozen check that is still true except for one supported state the
-  applied bytes reject is reproved from ``CORRECTED_STANDING_INVARIANTS``
-  instead of being skipped.
 - **The body must be safe to re-run.** A database restored from a
   pre-ledger archive replays its history, so guard every statement
   (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).
@@ -57,3 +54,6 @@ Pure-additive net-new tables and columns do **not** belong here: those are
 authored in the schema modules and self-propagate through the converge step
 on the boot after a deploy.
 """
+
+# Entries through 0106 are folded. Existing databases must already carry
+# their ledger rows; only a newly born database may stamp this baseline.

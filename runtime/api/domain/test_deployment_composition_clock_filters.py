@@ -4,7 +4,7 @@ from runtime.api.domain.deployment_composition_clock_filters_test_support import
     DRIVER_STAMP as DRIVER_STAMP,
     STAMP as STAMP,
     clocks as clocks,
-    history as history,
+    native_clock_columns,
 )
 
 
@@ -42,8 +42,7 @@ def _resolve(conn, times=None):
 @pytest.mark.parametrize("native", [False, True])
 def test_composition_ignores_unrelated_historical_clocks(clocks, monkeypatch, native):
     if native:
-        history.apply(clocks)
-        history.invariants(clocks)
+        native_clock_columns(clocks)
     decoded = []
 
     def decode(value):
@@ -96,8 +95,7 @@ def test_empty_optional_landing_clocks_are_absent_in_sql_window(clocks, native):
     clocks.execute("UPDATE items SET merge_queue_landed_at='' WHERE id=1")
     clocks.execute("UPDATE items SET merged_at='',merge_queue_landed_at='' WHERE id=2")
     if native:
-        history.apply(clocks)
-        history.invariants(clocks)
+        native_clock_columns(clocks)
     assert _resolve(clocks) == {"a" * 40: {1}}
 
 

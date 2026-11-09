@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 from pathlib import Path
 from typing import Any
@@ -28,7 +27,6 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.flow_crud import cmd_update_stages
 
-ENTRY_NAME = "0047_deployment_flow_delivery_custody"
 EXECUTION_STAGES = json.dumps(
     [
         {
@@ -40,10 +38,6 @@ EXECUTION_STAGES = json.dumps(
     ]
 )
 ITEM_ID = 9601
-
-
-def _entry():
-    return importlib.import_module(f"yoke_core.domain.migrations.{ENTRY_NAME}")
 
 
 def _create(
@@ -154,39 +148,3 @@ def test_editing_stages_does_not_change_custody(seeded: Any) -> None:
     custody = row["takes_delivery_custody"] if hasattr(row, "keys") else row[1]
     assert int(version) == 2
     assert int(custody) == 0
-
-
-def test_backfill_fills_nulls_and_leaves_authored_zero(seeded: Any) -> None:
-    entry = _entry()
-    _create(seeded, "backfill-v2", EXECUTION_STAGES, name="Backfill v2")
-    _create(
-        seeded,
-        "authored-zero",
-        EXECUTION_STAGES,
-        name="Authored zero",
-        takes_delivery_custody=False,
-    )
-    seeded.execute(
-        "ALTER TABLE deployment_flows ALTER COLUMN takes_delivery_custody DROP NOT NULL"
-    )
-    seeded.execute(
-        "UPDATE deployment_flows SET takes_delivery_custody = NULL "
-        "WHERE id='backfill-v2'"
-    )
-    seeded.commit()
-    entry.apply(seeded)
-    seeded.commit()
-    entry.invariants(seeded)
-    assert _custody(seeded, "backfill-v2") == 1
-    assert _custody(seeded, "authored-zero") == 0
-
-
-def test_backfill_adds_the_column_when_absent(seeded: Any) -> None:
-    entry = _entry()
-    _create(seeded, "pre-column", EXECUTION_STAGES, name="Pre column")
-    seeded.execute("ALTER TABLE deployment_flows DROP COLUMN takes_delivery_custody")
-    seeded.commit()
-    entry.apply(seeded)
-    seeded.commit()
-    entry.invariants(seeded)
-    assert _custody(seeded, "pre-column") == 1

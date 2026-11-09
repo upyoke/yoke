@@ -3,14 +3,12 @@
 from runtime.api.domain.steering_operation_authority_test_support import seat as seat
 
 
-import importlib
 from unittest.mock import patch
 
 import pytest
 
 from runtime.api.domain.session_message_support_test_support import message_connection
 from yoke_contracts.api.function_call import FunctionCallRequest
-from yoke_contracts.session_queue_posture import SESSION_MODES
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.session_steering_authority import (
     require_steering_authority,
@@ -88,27 +86,6 @@ def test_registered_operations_take_the_steering_gate(function, allowed):
         assert error.error.code == "steering_seat_required"
         assert "requires a live steering seat for project alpha" in error.error.message
         assert "yoke say --steering" in error.error.message
-
-
-def test_mode_convergence_is_idempotent_and_preserves_claims():
-    conn = message_connection()
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
-    conn.execute("UPDATE harness_sessions SET mode='operator' WHERE session_id='s1'")
-    seat(conn)
-    module = importlib.import_module(
-        "yoke_core.domain.migrations.0069_retire_operator_session_mode"
-    )
-    module.apply(conn)
-    module.apply(conn)
-    module.invariants(conn)
-    assert (
-        conn.execute(
-            "SELECT mode FROM harness_sessions WHERE session_id='s1'"
-        ).fetchone()[0]
-        == "wait"
-    )
-    assert require_steering_authority(conn, caller_session_id="s1", project_id=1)
-    assert "operator" not in SESSION_MODES
 
 
 @pytest.mark.parametrize("claim_in_target", [True, False])

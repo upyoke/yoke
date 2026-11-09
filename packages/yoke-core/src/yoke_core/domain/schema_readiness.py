@@ -237,11 +237,10 @@ def stranded_by_applied_migrations(
     truthful when consumed on its own rather than relying on every caller to
     compose both fields correctly.
     """
-    from yoke_core.domain.migration_history import load_migration_module
     from yoke_core.domain.migration_serving_version import (
         NEXT_RELEASE,
         ServingVersionError,
-        declared_minimum,
+        entry_minimum,
         satisfies_minimum,
         version_is_unresolved,
     )
@@ -270,9 +269,7 @@ def stranded_by_applied_migrations(
         declared = None
         if entry is not None:
             try:
-                declared = declared_minimum(
-                    load_migration_module(entry.path, entry.name)
-                )
+                declared = entry_minimum(entry)
             except Exception:  # noqa: BLE001 — unreadable declaration is unsafe
                 findings.append(
                     f"{name}: packaged serving-floor declaration is unreadable; "

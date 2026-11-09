@@ -1,6 +1,5 @@
 """Release plan-group contracts at authoring, routing, enrollment and cutover."""
 
-import importlib
 import shlex
 
 from runtime.api.domain.deployment_run_carried_membership_enrollment_test_support import (
@@ -68,28 +67,6 @@ def test_merged_dash_is_enrolled_before_closeout_finishes(
     from yoke_core.domain.deployment_run_landed_closeout import carried_release_members
 
     assert item_id not in carried_release_members(test_db, [item_id])
-
-
-def test_cutover_drops_old_index_and_boot_does_not_recreate_it(test_db):
-    from yoke_core.domain.qa_deployment_scope_schema import EXECUTION_SCOPE_INDEX_SQL
-
-    migration = importlib.import_module(
-        "yoke_core.domain.migrations.0096_qa_execution_target_scope"
-    )
-    test_db.execute(
-        "CREATE UNIQUE INDEX idx_qa_plan_executions_deployment_stage_active "
-        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id) "
-        "WHERE deployment_run_id IS NOT NULL AND deployment_stage IS NOT NULL "
-        "AND deployment_member_item_id IS NULL AND state IN "
-        "('active','waiting','walking','awaiting_walk_review')"
-    )
-    migration.apply(test_db)
-    migration.invariants(test_db)
-    for statement in EXECUTION_SCOPE_INDEX_SQL.split(";"):
-        if statement.strip():
-            test_db.execute(statement)
-    migration.invariants(test_db)
-    assert migration.MINIMUM_SERVING_VERSION == "next-release"
 
 
 def test_candidate_route_precedes_full_scope_and_detached_branch_checks(

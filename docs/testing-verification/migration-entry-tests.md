@@ -1,7 +1,7 @@
 # Migration entry test coverage
 
 `runtime/api/domain/test_migration_entry_contract.py` owns the shared contract
-for every entry discovered by `ordered_entries()`: load through the production
+for every executable entry discovered by `ordered_entries()`: load through the production
 loader, require a serving floor for destructive entries, apply twice, and check
 standing invariants through the fleet re-prover. It runs against an empty
 booted universe and a current schema with test projects, using the existing
@@ -9,7 +9,7 @@ schema templates in `migration_boot_test_helpers.py`.
 
 An empty universe has today's additive schema before boot stamps history;
 a bare connection without that schema is not an existing-universe replay target.
-The shared harness uses the production invariant retirement and correction
+The shared harness uses the production invariant retirement
 rules so frozen historical assertions do not demand surfaces later entries removed.
 The boot tests separately prove pending-history application and ledger recording.
 Migration-area impact companions select both shared checks when an entry changes.
@@ -29,5 +29,12 @@ Later entry-specific assertions remain until their reachable-install proof exist
 
 When entries are folded into the baseline by an authorized squash, delete their
 dedicated tests in the same change. `test_migration_entry_test_policy.py` rejects
-references to absent numbered modules and explicit history-loader entry or slug
+references to absent or folded numbered modules and explicit history-loader entry or slug
 selectors. Engine tests may keep historical names as inert fixture data.
+
+Entries through 0106 are now folded into the baseline. Their frozen digests
+and resolved serving floors remain in `released_history_digests.json`; their
+scripts, migration-only helpers and dedicated tests are removed. Generic boot,
+stamp, serving-floor and content-identity contracts continue to cover them.
+Runtime modules cannot import a migration script: required live behavior belongs
+to its domain owner, as enforced by `test_migration_import_layers.py`.

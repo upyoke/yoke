@@ -10,7 +10,7 @@ import pytest
 from runtime.api.domain.deployment_composition_clock_filters_test_support import (
     DRIVER_STAMP,
     clocks as clocks,
-    history,
+    native_clock_columns,
 )
 
 from yoke_contracts.timestamps import format_instant, parse_instant
@@ -105,8 +105,7 @@ def native_clocks(clocks, monkeypatch):
     )
     monkeypatch.setattr(deployment_runs_crud_query, "connect", lambda *_: proxy)
     monkeypatch.setattr(updates, "connect", lambda *_: proxy)
-    history.apply(clocks)
-    history.invariants(clocks)
+    native_clock_columns(clocks)
     from runtime.api.workflow_pin_test_support import install_workflow_pin
 
     install_workflow_pin(clocks)
