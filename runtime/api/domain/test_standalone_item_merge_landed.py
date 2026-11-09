@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain import merge_queue_close_out as queue_close_out
+from yoke_core.domain import merge_review_readiness
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_converge as converging
 from yoke_core.domain import standalone_item_merge_git as git
@@ -52,6 +53,12 @@ def _item(**extra):
 
 
 def _wire_cli(monkeypatch, item, *, stale=""):
+    review_dispatch = merge_review_readiness.call_dispatcher
+    monkeypatch.setattr(
+        merge_review_readiness, "call_dispatcher",
+        lambda **kwargs: SimpleNamespace(success=True, result={"claims": []})
+        if kwargs["function_id"] == "claims.path.list" else review_dispatch(**kwargs),
+    )
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(

@@ -16,6 +16,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts.conflict_survey import DURABLE_RECORDED
+from yoke_core.domain import merge_review_readiness
 from yoke_core.domain import conflict_survey_gate
 from yoke_core.domain import db_helpers
 from yoke_core.domain import standalone_item_merge as merge_domain
@@ -196,6 +197,12 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
     monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
     monkeypatch.setattr(
         merge_cli, "record_terminal_lane_close_out", lambda *_a, **_kw: None
+    )
+    review_dispatch = merge_review_readiness.call_dispatcher
+    monkeypatch.setattr(
+        merge_review_readiness, "call_dispatcher",
+        lambda **kwargs: SimpleNamespace(success=True, result={"claims": []})
+        if kwargs["function_id"] == "claims.path.list" else review_dispatch(**kwargs),
     )
     calls = []
 

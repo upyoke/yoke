@@ -62,6 +62,7 @@ def test_one_edge_before_review_is_entered_by_the_merge(monkeypatch) -> None:
         "new_migrations_need_db_claim",
         "db_mutation",
         "architecture_impact",
+        "path_claim_boundary",
     )
 
 
@@ -89,7 +90,7 @@ def test_the_review_stage_and_beyond_are_admitted(monkeypatch) -> None:
         )
         assert result.refusal == ""
         assert not result.enters_review
-        assert result.review_gates == ("new_migrations_need_db_claim",)
+        assert result.review_gates == ("new_migrations_need_db_claim", "path_claim_boundary")
 
 
 def test_a_workflow_that_declares_no_review_stage_is_admitted(monkeypatch) -> None:
@@ -187,3 +188,62 @@ def test_a_stage_without_local_gates_asks_nothing(monkeypatch) -> None:
 
     assert readiness.review_entry_refusal("ITEM-41", _gated_entry("db_mutation")) == ""
     assert calls == []
+
+
+def test_commit_added_after_review_is_refused_before_landing(monkeypatch, tmp_path):
+    import subprocess
+
+    lane = tmp_path / "lane"
+    lane.mkdir()
+
+    def git(*args):
+        subprocess.run(["git", "-C", str(lane), *args], check=True, capture_output=True)
+
+    git("init", "-b", "main")
+    git("config", "user.name", "Test")
+    git("config", "user.email", "test@example.com")
+    (lane / "base").write_text("base")
+    git("add", ".")
+    git("commit", "-m", "base")
+    git("checkout", "-b", "work")
+    (lane / "covered.py").write_text("covered")
+    git("add", ".")
+    git("commit", "-m", "covered work")
+    item = _item(workflow_id="dash", status="reviewing-implementation")
+    claim = {"id": 9, "state": "active", "integration_target": "main",
+             "declared_paths": ["covered.py"]}
+
+    def dispatch(**kwargs):
+        if kwargs["function_id"] == "workflows.version.get":
+            return _version_response("dash")
+        if kwargs["function_id"] == "projects.capability_settings.get":
+            return SimpleNamespace(success=True, result={})
+        assert kwargs["function_id"] == "claims.path.list"
+        return SimpleNamespace(success=True, result={"claims": [claim]})
+
+    monkeypatch.setattr(readiness, "call_dispatcher", dispatch)
+    from yoke_core.domain import standalone_item_merge_lane
+    monkeypatch.setattr(standalone_item_merge_lane, "lane_path", lambda _: str(lane))
+    review = readiness.review_readiness(item, public_ref=item["public_ref"])
+    assert not review.enters_review
+    assert readiness.review_entry_refusal(item["public_ref"], review, item=item) == ""
+
+    (lane / "after_review.py").write_text("uncovered")
+    git("add", ".")
+    git("commit", "-m", "work after review")
+    refusal = readiness.review_entry_refusal(item["public_ref"], review, item=item)
+    assert "after_review.py" in refusal
+    assert "yoke claims path widen" in refusal
+    claim["declared_paths"].append("after_review.py")
+    assert readiness.review_entry_refusal(item["public_ref"], review, item=item) == ""
+
+
+def test_unreadable_claims_refuse_merge_admission(monkeypatch):
+    _review_answer(monkeypatch, SimpleNamespace(
+        success=False, error=SimpleNamespace(message="offline"),
+    ))
+    refusal = readiness.review_entry_refusal(
+        "ITEM-41", _gated_entry("path_claim_boundary"), item={},
+    )
+    assert "offline" in refusal
+    assert "retry the merge" in refusal

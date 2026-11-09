@@ -1,12 +1,8 @@
-"""Enforce committed touch coverage at the pinned merge boundary.
+"""Enforce committed touch coverage before landing.
 
-Before landing, use open claims and the registered lane's committed diff.
-After landing, released coverage remains evidence for the files the item's
-merge receipt recorded against the pre-landing target. Rework selects fresh open coverage and a new lane head.
-
-Unreadable claims, unresolved lanes or integration refs refuse by name and
-teach recovery. An item that declared no claims has no boundary to enforce.
-Recorded rung facts distinguish remote proof, local proof and landed proof.
+Open claims cover the registered lane's committed diff. A recorded landing
+ends this gate; coverage can only be amended before the branch lands.
+Unreadable claims, lanes or integration refs refuse with recovery.
 """
 
 from __future__ import annotations
@@ -21,10 +17,7 @@ from yoke_core.domain.gate_satisfier_ladder_catalog import (
 )
 from yoke_core.domain.gate_satisfier_stamp import record_refusal, record_rung
 from yoke_core.domain.path_claims_boundary_ladder import resolve_boundary_rung
-from yoke_core.domain.path_claims_landed_boundary import (
-    check_landed_boundary,
-    landing_for_boundary,
-)
+from yoke_core.domain.path_claims_landed_boundary import landing_for_boundary
 from yoke_core.domain.project_checkout_locations import item_worktree_path
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -144,6 +137,8 @@ def check_boundary_for_item(
 
     conn = connect(db_path)
     try:
+        if landing_for_boundary(conn, item_id) is not None:
+            return None
         try:
             claims = claims_for_boundary(conn, item_id)
         except (PinnedPathClaimPolicyUnreadable, PathClaimsUnreadable) as exc:
@@ -151,15 +146,6 @@ def check_boundary_for_item(
         if not claims:
             return None
         claim_ids = [claim_id for claim_id, _target in claims]
-        landing = landing_for_boundary(conn, item_id)
-        if landing is not None:
-            return check_landed_boundary(
-                conn,
-                item_id=item_id,
-                target_status=target_status,
-                claim_ids=claim_ids,
-                landing=landing,
-            )
 
         repo_path = _resolve_repo_path(conn, item_id)
         if repo_path is None:

@@ -277,14 +277,16 @@ def test_missing_declaration_refuses_without_partial_state(control_conn):
     )
 
 
-def test_same_session_reuses_existing_migration_territory(control_conn):
+@pytest.mark.parametrize("widened_module", ["0009_reused_scope", "deleted_old_schema"])
+def test_same_session_reuses_existing_migration_territory(control_conn, widened_module):
     claim_id, target_id = _seed_widen(
         control_conn,
         item_id=4104,
         project="yoke",
         modules_dir=YOKE_MODULES,
-        module_name="0009_reused_scope",
+        module_name=widened_module,
     )
+    # Deleted modules need coverage, but are not migrations to apply.
     amend(
         4104,
         _declared_payload("0009_reused_scope"),

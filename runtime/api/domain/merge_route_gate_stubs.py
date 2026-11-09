@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import merge_landing_readiness as readiness_gate
+from yoke_core.domain import merge_review_readiness as review_gate
 from yoke_core.domain.merge_queue_route_selection import RouteAdmission
 
 
@@ -19,6 +20,7 @@ def admit_route_gates(
     admission: RouteAdmission = RouteAdmission(),
     verification: tuple[str, str, list] = ("full", "make test", []),
 ) -> None:
+    monkeypatch.setattr(review_gate, "_path_entry_refusal", lambda *_a: "")
     monkeypatch.setattr(readiness_gate, "route_admission", lambda **_k: admission)
     monkeypatch.setattr(
         readiness_gate, "resolve_verification", lambda *_a, **_k: verification
