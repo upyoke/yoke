@@ -93,7 +93,7 @@ class TestArtifactAdd:
         source.write_text("evidence", encoding="utf-8")
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
         monkeypatch.setattr(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
             lambda *_args: None,
         )
         art_id = qa.cmd_artifact_add(
@@ -122,7 +122,9 @@ class TestArtifactList:
         assert len(lines) == 2
 
     def test_empty_item_listing_names_the_item_after_the_conn_closes(
-        self, db_path, capsys,
+        self,
+        db_path,
+        capsys,
     ):
         """Regression: the empty-list message ran against a closed handle.
 
@@ -196,7 +198,7 @@ class TestArtifactList:
         )
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
         monkeypatch.setattr(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
             lambda *_args: None,
         )
         one = tmp_path / "one.png"
@@ -231,9 +233,7 @@ class TestArtifactList:
         assert "one.png" in lines[0]
         assert "two.png" not in lines[0]
 
-    def test_list_by_item_id_resolves_handle_addresses(
-        self, db_path, capsys, tmp_path
-    ):
+    def test_list_by_item_id_resolves_handle_addresses(self, db_path, capsys, tmp_path):
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
@@ -257,11 +257,13 @@ class TestArtifactList:
             "(%s,'screenshot',%s,'2026-01-01T00:00:00Z')",
             (
                 run_id,
-                json.dumps({
-                    "backend": "s3",
-                    "bucket": "externalwebapp-prod-artifacts",
-                    "key": f"qa-artifacts/externalwebapp/100/{run_id}/shot.png",
-                }),
+                json.dumps(
+                    {
+                        "backend": "s3",
+                        "bucket": "externalwebapp-prod-artifacts",
+                        "key": f"qa-artifacts/externalwebapp/100/{run_id}/shot.png",
+                    }
+                ),
                 run_id,
                 json.dumps({"backend": "local", "path": str(local)}),
             ),

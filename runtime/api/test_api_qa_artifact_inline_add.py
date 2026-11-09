@@ -167,16 +167,15 @@ def test_configured_s3_receives_bytes_before_the_row_is_recorded() -> None:
         run_id = _seed_run(conn)
         with (
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign."
-                "resolve_artifacts_bucket",
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
                 return_value=("prod", "project-artifacts", None),
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._aws_region",
+                "yoke_core.domain.qa_artifact_configuration._aws_region",
                 return_value="us-east-1",
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                 return_value=AwsCredentials("access", "secret"),
             ),
             patch(
@@ -212,16 +211,15 @@ def test_configured_s3_upload_failure_has_no_local_fallback() -> None:
         run_id = _seed_run(conn)
         with (
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign."
-                "resolve_artifacts_bucket",
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
                 return_value=("prod", "project-artifacts", None),
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._aws_region",
+                "yoke_core.domain.qa_artifact_configuration._aws_region",
                 return_value="us-east-1",
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                 return_value=AwsCredentials("access", "secret"),
             ),
             patch(
@@ -314,7 +312,7 @@ def test_existing_s3_handle_add_still_records_the_authorized_handle() -> None:
         run_id = _seed_run(conn)
         with (
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
                 return_value=("prod", "p-prod-artifacts", None),
             ),
             patch.object(qa_artifact_size, "handle_size", return_value=3),

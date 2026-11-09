@@ -26,7 +26,7 @@ from yoke_core.domain.signed_object_transfer import (
 
 BUCKET = "yoke-prod-artifacts"
 KEY = "qa-artifacts/yoke/42/1/output.png"
-CREDENTIALS = "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials"
+CREDENTIALS = "yoke_core.domain.qa_artifact_configuration._capability_credentials"
 URLOPEN = "yoke_core.domain.signed_object_transfer.urllib.request.urlopen"
 
 

@@ -146,7 +146,7 @@ def test_archive_roundtrip_rehomes_bytes(
                     ]
                     == shared
                 )
-                from yoke_core.domain.handlers.qa_artifact_presign import (
+                from yoke_core.domain.qa_artifact_configuration import (
                     resolve_artifacts_bucket,
                 )
 

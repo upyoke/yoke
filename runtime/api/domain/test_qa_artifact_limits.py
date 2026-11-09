@@ -128,7 +128,7 @@ def test_handle_size_failure_is_a_named_refusal(tmp_path, monkeypatch):
 def test_machine_store_size_uses_head_object(monkeypatch):
     monkeypatch.setattr(qa_artifact_size, "broker_config", lambda: None)
     from yoke_core.domain import universe_artifact_store
-    from yoke_core.domain.handlers import qa_artifact_presign
+    from yoke_core.domain import qa_artifact_configuration as qa_artifact_presign
 
     monkeypatch.setattr(qa_artifact_presign, "_aws_region", lambda *_: "us-east-1")
     with patch.object(universe_artifact_store, "_client") as client:

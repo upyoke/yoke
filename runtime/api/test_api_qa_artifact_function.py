@@ -34,12 +34,17 @@ def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallR
     )
 
 
-def _seed_browser_requirement(conn, *, req_id: int = 10, item_id: int = 42,
-                              qa_kind: str = "plan_case") -> None:
+def _seed_browser_requirement(
+    conn, *, req_id: int = 10, item_id: int = 42, qa_kind: str = "plan_case"
+) -> None:
     insert_item(conn, id=item_id, title="T", status="reviewing-implementation")
     insert_qa_requirement(
-        conn, id=req_id, item_id=item_id, qa_kind=qa_kind,
-        qa_phase="verification", blocking_mode="blocking",
+        conn,
+        id=req_id,
+        item_id=item_id,
+        qa_kind=qa_kind,
+        qa_phase="verification",
+        blocking_mode="blocking",
         success_policy='{"base_url": "http://localhost:9", "steps": []}',
         method_id="browser-check",
     )
@@ -51,14 +56,18 @@ class TestQaArtifactAdd(unittest.TestCase):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             outcome = qa_browser_writes.handle_qa_artifact_add(
-                _request("qa.artifact.add",
-                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                         payload={"run_id": 9999,
-                                  "artifact_type": "screenshot",
-                                  "artifact_handle": {
-                                      "backend": "local",
-                                      "path": "/tmp/home.png",
-                                  }}),
+                _request(
+                    "qa.artifact.add",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                    payload={
+                        "run_id": 9999,
+                        "artifact_type": "screenshot",
+                        "artifact_handle": {
+                            "backend": "local",
+                            "path": "/tmp/home.png",
+                        },
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "not_found")
@@ -69,14 +78,23 @@ class TestQaArtifactAdd(unittest.TestCase):
             _seed_browser_requirement(conn)
             for payload in (
                 # retired column shape
-                {"run_id": 1, "artifact_type": "screenshot",
-                 "storage_path": "qa-artifacts/p/42/1/home.png"},
+                {
+                    "run_id": 1,
+                    "artifact_type": "screenshot",
+                    "storage_path": "qa-artifacts/p/42/1/home.png",
+                },
                 # bare path where the handle belongs
-                {"run_id": 1, "artifact_type": "screenshot",
-                 "artifact_handle": "qa-artifacts/p/42/1/home.png"},
+                {
+                    "run_id": 1,
+                    "artifact_type": "screenshot",
+                    "artifact_handle": "qa-artifacts/p/42/1/home.png",
+                },
                 # handle without backend
-                {"run_id": 1, "artifact_type": "screenshot",
-                 "artifact_handle": {"path": "/tmp/home.png"}},
+                {
+                    "run_id": 1,
+                    "artifact_type": "screenshot",
+                    "artifact_handle": {"path": "/tmp/home.png"},
+                },
                 # missing handle entirely
                 {"run_id": 1, "artifact_type": "screenshot"},
             ):
@@ -103,10 +121,13 @@ class TestQaArtifactAdd(unittest.TestCase):
                     ),
                 )
             run_id = int(run_outcome.result_payload["qa_run_id"])
-            with patch(
-                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
-                return_value=("prod", "yoke-prod-artifacts", None),
-            ), patch.object(qa_artifact_size, "handle_size", return_value=3):
+            with (
+                patch(
+                    "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
+                    return_value=("prod", "yoke-prod-artifacts", None),
+                ),
+                patch.object(qa_artifact_size, "handle_size", return_value=3),
+            ):
                 outcome = qa_browser_writes.handle_qa_artifact_add(
                     _request(
                         "qa.artifact.add",
@@ -167,10 +188,13 @@ class TestQaArtifactAdd(unittest.TestCase):
                 "artifact_handle": handle,
                 "metadata": "{}",
             }
-            with patch(
-                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
-                return_value=("prod", "yoke-prod-artifacts", None),
-            ), patch.object(qa_artifact_size, "handle_size", return_value=3):
+            with (
+                patch(
+                    "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
+                    return_value=("prod", "yoke-prod-artifacts", None),
+                ),
+                patch.object(qa_artifact_size, "handle_size", return_value=3),
+            ):
                 first = qa_browser_writes.handle_qa_artifact_add(
                     _request(
                         "qa.artifact.add",
@@ -240,13 +264,15 @@ class TestQaArtifactAdd(unittest.TestCase):
                 except Exception as exc:  # noqa: BLE001 - collected
                     errors.append(exc)
 
-            with patch(
-                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
-                return_value=("prod", "yoke-prod-artifacts", None),
-            ), patch.object(qa_artifact_size, "handle_size", return_value=3):
+            with (
+                patch(
+                    "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
+                    return_value=("prod", "yoke-prod-artifacts", None),
+                ),
+                patch.object(qa_artifact_size, "handle_size", return_value=3),
+            ):
                 threads = [
-                    threading.Thread(target=_caller, args=(index,))
-                    for index in (0, 1)
+                    threading.Thread(target=_caller, args=(index,)) for index in (0, 1)
                 ]
                 for thread in threads:
                     thread.start()
