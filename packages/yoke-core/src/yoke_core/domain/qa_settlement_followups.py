@@ -28,19 +28,6 @@ _LOG = logging.getLogger(__name__)
 RETRY_AFTER_SECONDS = 60
 CYCLE_LIMIT = 50
 
-#: Part of the QA schema, which initializes on its own before ``items``
-#: exists, so ``item_id`` carries no foreign key, like ``qa_requirements``.
-QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS qa_settlement_followups (
-  item_id INTEGER PRIMARY KEY,
-  requested_at TIMESTAMPTZ NOT NULL,
-  attempts INTEGER NOT NULL DEFAULT 0,
-  attempted_at TIMESTAMPTZ,
-  last_error TEXT NOT NULL DEFAULT ''
-);
-"""
-
-
 def request_settlement_followup(conn: Any, *, item_id: int) -> None:
     """Owe *item_id* its close-out replay, in the caller's transaction."""
     conn.execute(
@@ -132,7 +119,6 @@ def replay_settlement_followups(
 
 __all__ = [
     "CYCLE_LIMIT",
-    "QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL",
     "RETRY_AFTER_SECONDS",
     "replay_settlement_followups",
     "request_settlement_followup",

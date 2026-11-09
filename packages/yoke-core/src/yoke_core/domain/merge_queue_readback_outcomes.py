@@ -1,5 +1,7 @@
 """Named outcomes shared by merge-queue readbacks and durable records."""
 
+
+from yoke_core.domain.merge_queue_landing_record_schema import (LANDED, CLOSED_UNMERGED, CONFLICTED)
 ENQUEUED = "enqueued"
 ARMED_NOT_ENQUEUED = "armed_not_enqueued"
 NEITHER = "neither"
@@ -7,9 +9,6 @@ UNREADABLE = "unreadable"
 NOT_STARTED = "not_started"
 
 IN_FLIGHT = "in_flight"
-LANDED = "landed"
-CLOSED_UNMERGED = "closed_unmerged"
-CONFLICTED = "conflicted"
 NOT_IN_FLIGHT = "not_in_flight"
 #: Open, unarmed and waiting on required checks that have not concluded:
 #: `yoke merge item` arms only after CI passes, so this is a normal wait.

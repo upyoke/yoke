@@ -9,10 +9,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.merge_queue_landing_record_state import LANDING_RECORD_STATES
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
+
+PENDING = "pending"
+LANDED = "landed"
+CLOSED_UNMERGED = "closed_unmerged"
+CONFLICTED = "conflicted"
+STALLED = "stalled"
+ENTRY_CHECKS_FAILED = "entry_checks_failed"
+LANDING_RECORD_STATES = (
+    PENDING, LANDED, CLOSED_UNMERGED, CONFLICTED, STALLED, ENTRY_CHECKS_FAILED,
+)
 
 _STATE_SQL = ",".join(f"'{state}'" for state in LANDING_RECORD_STATES)
 

@@ -14,6 +14,11 @@ import time
 from yoke_core.domain import db_helpers, function_call_ledger as ledger
 from yoke_core.domain import github_workflow_dispatch_intents as intents
 
+from yoke_core.domain.schema_function_call_ledger import FUNCTION_CALL_LEDGER_CREATE_SQL
+from yoke_core.domain.schema_github_workflow_dispatch_intents import (
+    GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
+)
+
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 
 
@@ -21,7 +26,7 @@ STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 def test_ledger_expiration_is_strict_at_native_microsecond_cutoff(
     test_db, monkeypatch, zone
 ):
-    test_db.execute(ledger.FUNCTION_CALL_LEDGER_CREATE_SQL)
+    test_db.execute(FUNCTION_CALL_LEDGER_CREATE_SQL)
     monkeypatch.setattr(ledger, "utc_now", lambda: STAMP)
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     policy = RetentionPolicy()
@@ -62,7 +67,7 @@ def test_ledger_expiration_is_strict_at_native_microsecond_cutoff(
 def test_dispatch_birth_and_terminal_retention_use_native_clocks(
     test_db, monkeypatch, zone
 ):
-    test_db.execute(intents.GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL)
+    test_db.execute(GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL)
     monkeypatch.setattr(intents, "utc_now", lambda: STAMP)
 
     @contextmanager

@@ -28,6 +28,8 @@ nothing about the head, so its recovery is not a fix on the lane: re-running
 
 from __future__ import annotations
 
+from yoke_core.domain.merge_queue_landing_record_schema import (ENTRY_CHECKS_FAILED)
+
 from typing import Optional, Sequence
 
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -39,7 +41,6 @@ from yoke_core.domain.merge_github_queue import (
 )
 from yoke_core.domain.merge_context import MergeContext
 
-ENTRY_CHECKS_FAILED = "entry_checks_failed"
 
 RED_CONCLUSIONS = frozenset(
     {

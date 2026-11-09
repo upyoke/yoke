@@ -14,8 +14,8 @@ from yoke_core.domain.schema_init_path_tables import (
     create_path_registry_tables,  # noqa: F401 - compatibility re-export
 )
 from yoke_core.domain.schema_init_tables_sessions import create_session_tables
-from yoke_core.domain.function_call_ledger import FUNCTION_CALL_LEDGER_CREATE_SQL
-from yoke_core.domain.github_workflow_dispatch_intents import (
+from yoke_core.domain.schema_function_call_ledger import FUNCTION_CALL_LEDGER_CREATE_SQL
+from yoke_core.domain.schema_github_workflow_dispatch_intents import (
     GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
 )
 from yoke_core.domain.item_worktree_schema import (
@@ -32,7 +32,7 @@ from yoke_core.domain.merge_queue_landing_record_schema import (
 from yoke_core.domain.session_ci_wait_schema import (
     SESSION_CI_RUN_WAITS_CREATE_SQL,
 )
-from yoke_core.domain.qa_settlement_followups import (
+from yoke_core.domain.schema_qa_settlement_followups import (
     QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL,
 )
 from yoke_core.domain.projects_restart_schema import _projects_table_sql

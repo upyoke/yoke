@@ -18,7 +18,7 @@ from yoke_core.domain.deployment_run_carried_work import (
 from yoke_core.domain.deployment_run_composition_freeze import freeze_run_composition
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.domain.deployment_run_bound_source_prepare import prepare_bound_sources
-from yoke_core.domain.github_workflow_dispatch_intents import (
+from yoke_core.domain.schema_github_workflow_dispatch_intents import (
     GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
 )
 

@@ -46,7 +46,7 @@ from yoke_core.domain.deployment_runs_preview import (
     cmd_preview_claim,
     cmd_preview_release,
 )
-from yoke_core.domain.deployment_runs_schema import cmd_init
+from yoke_core.domain.deployment_runs_schema_init import cmd_init
 from yoke_core.domain.deployment_runs_batch_compatibility import (
     cmd_check_batch_compatibility,
 )

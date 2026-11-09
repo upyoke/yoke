@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from yoke_core.domain.deployment_run_pipe_format import pipe_row, pipe_rows
-from yoke_core.domain.deployment_runs_schema_init import cmd_init as cmd_init
 from yoke_core.domain.runs import RunStatus
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 

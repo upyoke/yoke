@@ -44,7 +44,7 @@ DISPATCH_TABLES: dict[str, dict] = {
             "by scanning the telemetry journal or a branch/head-SHA search. "
             "Do not assume the general test_db fixture initializes this table: "
             "focused dispatch tests initialize it with the canonical "
-            "github_workflow_dispatch_intents.GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL."
+            "schema_github_workflow_dispatch_intents.GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL."
         ),
     },
 }

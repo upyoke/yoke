@@ -18,8 +18,9 @@ from yoke_core.domain.deployment_runs_schema import (  # noqa: F401
     _RUN_SELECT,
     _pipe_row,
     _pipe_rows,
-    cmd_init,
 )
+
+from yoke_core.domain.deployment_runs_schema_init import cmd_init as cmd_init
 
 # Run CRUD — read paths
 from yoke_core.domain.deployment_runs_crud_query import (  # noqa: F401

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain import deployment_runs_schema_init
+
 from runtime.api.domain.deployment_flow_versioning_test_support import (
     ADVANCED_STAGES as ADVANCED_STAGES,
     SUPPORTED_ADVANCED_STAGES as SUPPORTED_ADVANCED_STAGES,
@@ -16,7 +18,7 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_core.domain import deployment_runs_schema, schema
+from yoke_core.domain import schema
 from yoke_core.domain.deployment_flow_versioning import (
     cmd_reorder_stages,
     cmd_update_definition,
@@ -175,7 +177,7 @@ def _flow_lineage_reference(conn: Any) -> tuple[str, str] | None:
 
 def _complete_schema() -> None:
     schema.cmd_init()
-    deployment_runs_schema.cmd_init()
+    deployment_runs_schema_init.cmd_init()
 
 
 def test_flow_lineage_reference_matches_fresh_schema_after_boot_convergence(
@@ -216,8 +218,8 @@ def test_delivery_intent_constraint_matches_both_initialization_orders(
                 converge_core_schema(conn)
             else:
                 conn.close()
-                deployment_runs_schema.cmd_init(db_path)
-                deployment_runs_schema.cmd_init(db_path)
+                deployment_runs_schema_init.cmd_init(db_path)
+                deployment_runs_schema_init.cmd_init(db_path)
                 conn = connect_test_db(db_path)
 
             with pytest.raises(Exception) as exc_info:

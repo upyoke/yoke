@@ -92,6 +92,9 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("created_by_session_id", "TEXT"),
         ],
         "notes": (
+            "Deployment-run initialization is deployment_runs_schema_init.cmd_init; "
+            "deployment_runs_schema owns row shapes and does not export cmd_init "
+            "(the wrong import raises cannot import name during environment bootstrap). "
             "Partial deployment clock fixtures need supersedes_run_id and "
             "superseded_by_run_id for QA takeover; omitting the takeover "
             "links causes an undefined-column failure during failed-run settlement. "

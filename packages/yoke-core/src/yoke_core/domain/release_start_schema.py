@@ -32,7 +32,7 @@ from __future__ import annotations
 from yoke_contracts.runtime_ports.https import get_https
 
 from yoke_contracts.schema_authority import serving_build_authority
-from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_TIMEOUT_MS
+from yoke_core.domain.schema_deployment_run_lock import RUN_ROW_LOCK_TIMEOUT_MS
 from yoke_core.domain.release_start_schema_lock import (
     ConvergenceLockHeld,
     holding_convergence_lock,
