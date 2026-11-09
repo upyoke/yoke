@@ -2,7 +2,7 @@
  "id": "definitions",
  "title": "Workflow definitions",
  "status": "draft-copy",
- "summary": "Read one workflow, the Gate catalog or a named flow with --section. Human replies summarize version history; --full expands it and --json preserves the complete server payload.",
+ "summary": "The default read lists workflow versions and short descriptions, the gate count and active flows, with a count of hidden disabled flows. Follow exact --section commands for workflow, Gate catalog, Flows or named flow detail. --full prints all detail and version history; --json preserves the complete server payload.",
  "commands": ["yoke workflows definition get"],
  "functions": ["workflows.definition.get"],
  "page": "workflows",

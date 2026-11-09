@@ -71,3 +71,33 @@ def test_architecture_draft_adapter_bounds_large_scanned_inventory(capsys, monke
     assert all(note in human for note in draft["notes"])
     machine = run_read(function, [*args, "--json"], draft, capsys)
     assert json.loads(machine)["result"] == draft
+
+
+def test_workflow_registry_adapter_bounds_versions_gates_and_disabled_flows(capsys, monkeypatch):
+    from runtime.api.cli.test_workflows_definition_sections import registry
+
+    monkeypatch.setenv("YOKE_SESSION_ID", "test-session")
+    result = registry()
+    template = result["workflows"][0]
+    result["workflows"] = [
+        {**template, "id": f"workflow-{index}", "description": "Choose this workflow. " * 100}
+        for index in range(75)
+    ]
+    result["gate_catalog"] *= 100
+    result["flows"] += [
+        {**result["flows"][-1], "name": f"disabled-{index}"}
+        for index in range(500)
+    ]
+    function = "workflows.definition.get"
+    args = ["--project", "example"]
+    assert len(json.dumps(result).encode()) > REPLY_LIMIT_BYTES
+    human = run_read(function, args, result, capsys)
+    assert len(human.encode()) < REPLY_LIMIT_BYTES
+    assert "workflow-74  10  Choose this workflow." in human
+    assert "100 gates." in human
+    assert "4 active of 525" in human
+    assert "521 disabled flows hidden" in human
+    whole = run_read(function, [*args, "--full"], result, capsys)
+    assert len(whole.encode()) > REPLY_LIMIT_BYTES
+    machine = run_read(function, [*args, "--json"], result, capsys)
+    assert json.loads(machine)["result"] == result

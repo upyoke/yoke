@@ -38,8 +38,8 @@ A stage name or workflow id alone is not completion evidence: without that
 metadata, `done`, `release`, and other definition-owned stages classify as
 `unknown`. Engine cancellation and failure states retain their shared meaning.
 
-`yoke workflows definition get` serves current selections and the gate
-catalog. Select `--section 'Gate catalog'` for gates or `--section <flow-name>`
+`yoke workflows definition get` lists current workflow versions and short
+descriptions, the gate count and active flows. Select `--section 'Gate catalog'` for gates or `--section <flow-name>`
 for a deployment flow; `--full` expands workflow version history.
 `yoke workflows item get PREFIX-N` plus
 `yoke workflows version get WORKFLOW VERSION` serves the exact authority for
