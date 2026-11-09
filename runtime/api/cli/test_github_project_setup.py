@@ -145,6 +145,9 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
     monkeypatch.setattr(
         github_git_credentials, "_helper_dir", lambda: tmp_path / "site"
     )
+    from yoke_cli import project_repository_identity
+
+    monkeypatch.setattr(project_repository_identity, "_binding_status", lambda *a, **k: None)
     monkeypatch.setattr(runner, "_resolve_project_id", lambda *args: (7, False))
     monkeypatch.setattr(
         runner, "_resolve_bundle", lambda *a, **kw: ({"default_branch": "main"}, "test")

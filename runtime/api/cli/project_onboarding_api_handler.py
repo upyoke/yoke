@@ -13,6 +13,7 @@ ALLOWED_FUNCTION_IDS = {
     "projects.create",
     "projects.update",
     "projects.github_binding.bind",
+    "projects.github_binding.status",
     "projects.get",
     "projects.list",
     "projects.resolve_by_github_repo",
@@ -38,6 +39,13 @@ def handler_for(owner):
             function_id = body.get("function")
             if function_id not in ALLOWED_FUNCTION_IDS:
                 self.send_error(404, f"unknown function {function_id!r}")
+                return
+            if function_id == "projects.github_binding.status":
+                self._send_json({
+                    "success": True, "function": function_id,
+                    "version": body.get("version", "v1"),
+                    "result": {"bound": False, "binding": None},
+                })
                 return
             if function_id == "project.snapshot.sync":
                 response = {

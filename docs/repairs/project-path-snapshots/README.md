@@ -12,8 +12,8 @@ this item's worker prepares the repair but does not hold that seat.
 | 01-symlink-facts.json | 3a7363bcba5a7d92d57bcd1683edeee837bd6f8b954a7dc47731ee270a5c12b3 |
 | 02-entries.json | 0489f0b47707ae032226e3362d5cac49db618a4d2d7bbcd3a4303bf38a3755b2 |
 | 03-entries.json | 6ef87c5582c1af84b1a3f7d8c357558d6909e51d4c8dfabe564cb6400fd477a5 |
-| 04-snapshots.json | eb76b5d0231c44c16a704bfe4ba5b33415336c6bfdf99c96545a16c42ecfd974 |
-| 05-unreferenced-targets.json | 153003af262a0c5772726216fb70a1dcf5382a17a534b06f443393a060529fad |
+| 04-snapshots.json | ddc5344240374c6c6a31d5f3c829da64a85e0b8047cdebfa6ed35190d29fd068 |
+| 05-unreferenced-targets.json | 47f69db5ce338a048f58f726261f125a9f2fcb8981f50e73690f76ebd27f1a2d |
 
 From this directory, replacing FILE and DIGEST with the reviewed row:
 
@@ -30,3 +30,8 @@ or outside child reference to the 57 targets. The guarded repair rechecks the
 reviewed rows and foreign keys rather than assuming that observation stays true.
 Afterward, read the two snapshot ids and confirm no rows remain, then sync the
 real checkout to refresh architecture context if needed.
+
+Steering completed the repair: applied audits 9102, 9104, 9106, 9109 and 9111;
+corresponding simulations 9101, 9103, 9105, 9108 and 9110. Audit 9107 refused
+the original timestamp spelling; the last two documents now preserve the
+approved `Z` timestamps and digests. Steering verified both snapshot ids absent.
