@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   sessionMessageButton,
-  sessionMessageDeliveryNote,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_roster_filters.js";
 import { FakeDocument } from "./universe_ui_dom_test_support.mjs";
 
@@ -28,21 +27,12 @@ test("every session state offers its exact-session Message action", () => {
   }
 });
 
-test("delivery notes follow wake authority and preserve active hook delivery", () => {
-  const desktop = { wake_authority: "operator", wake_available: false };
-  const native = { wake_authority: "native", wake_available: true };
-  assert.equal(sessionMessageDeliveryNote({
-    liveness: "stale", messageability: desktop,
-  }), "Queued — delivered when you wake this session.");
-  assert.equal(sessionMessageDeliveryNote({
-    liveness: "active", mode: "parked", messageability: desktop,
-  }), "Queued — delivered when you wake this session.");
-  assert.equal(sessionMessageDeliveryNote({
-    liveness: "active", messageability: desktop,
-    session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } },
-  }), "");
-  assert.equal(sessionMessageDeliveryNote({
-    liveness: "stale", messageability: native,
-  }), "");
-  assert.equal(sessionMessageDeliveryNote({ liveness: "ended" }), "");
+test("Message tooltips never claim delivery is queued", () => {
+  for (const messageability of [
+    {wake_authority: "operator"}, {relay_connected: false}, {},
+  ]) {
+    const button = sessionMessageButton(new FakeDocument(),
+      {session_id: "target", messageability}, () => {});
+    assert.equal(button.getAttribute("data-tooltip"), "Message only session target");
+  }
 });

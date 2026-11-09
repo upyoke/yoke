@@ -35,7 +35,7 @@ retain presence, activity, intent, custody, next actor and timestamps as detail.
 Older responses lacking the display fields require a server upgrade and refresh.
 
 Steering reports, fleet-delta alarms, message liveness, reclaim, the `liveness`
-field, last-tool ages in labels and raw reasons in CLI Frontier/item reads keep
+field, last-tool ages in labels and raw reasons in explicit CLI Frontier/item JSON and named-field reads keep
 their existing separate rules. The server's reclaimable
 flags match `liveness=stale`. `classify_activity` applies holdings and progress rules;
 execution rechecks protection before mutation.

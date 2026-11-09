@@ -30,7 +30,7 @@ test("home membership and counts stay exclusive across the full chain", () => {
   assert.equal(tile.classList.contains("is-reference"), true);
   assert.equal(byClass(tile, "fdv-tile-ref")[0].href, "#frontier-home-I-1");
   assert.match(byClass(tile, "fdv-reference-home")[0].textContent, /In progress.*Waiting/);
-  assert.match(byClass(tile, "next-actor")[0].textContent, /Next: parent or steering/);
+  assert.equal(byClass(tile, "next-actor").length, 0);
 });
 
 test("reference tiles stay opaque over graph lines while off-band tiles keep their states", async () => {

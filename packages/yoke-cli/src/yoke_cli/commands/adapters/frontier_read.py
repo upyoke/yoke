@@ -7,6 +7,7 @@ event rows (the read is poll-safe by construction).
 
 from __future__ import annotations
 from yoke_cli.transport.human_values import write_human
+from .item_flow_output import without_next_actor
 
 import argparse
 from typing import Any, Dict, List
@@ -37,7 +38,7 @@ def frontier_list(args: List[str]) -> int:
         usage=FRONTIER_LIST_USAGE,
         description=(
             "List the items ready to start, best first, and the items that\n"
-            "wait, with home_section, next_actor, pinned stage and progress. Changes nothing."
+            "wait, with home_section, pinned stage and progress. Changes nothing."
         ),
     )
     parser.add_argument(
@@ -57,7 +58,7 @@ def frontier_list(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
+        write_human(without_next_actor(response.result or {}), stdout)
 
     payload: Dict[str, Any] = {}
     if parsed.project is not None:

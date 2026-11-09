@@ -1,4 +1,4 @@
-/* The Sessions roster toolbar: a search, status checkboxes and three facets, and the roster
+/* The Sessions roster toolbar: a search, status chips and three facets, and the roster
    actions led by Clear. Laid out on a grid sized by the page's width, so
    every row ends on the same edges and where a control lands never depends
    on how long the longest machine or harness name in a select happens to be.
@@ -43,6 +43,7 @@
 /* On a phone the actions fill their row, so a button that wraps takes the
    line's full width rather than hanging off its left edge. */
 @container sessions-view (max-width: 479px) {
+  .universe-app-root .sessions-toolbar > .session-status-filters { grid-column: 1 / -1; }
   .universe-app-root .session-roster-filters.sessions-toolbar
     > .session-filter-actions {
     justify-self: stretch;
@@ -96,4 +97,40 @@
 
 .universe-app-root .sessions-toolbar .session-filter-action[hidden] {
   display: none;
+}
+
+.universe-app-root .session-status-filters {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 7px;
+  height: var(--session-control-height);
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 0 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-bg);
+}
+.universe-app-root .session-status-chips { display: flex; flex: 1; height: 100%; min-width: 0; }
+.universe-app-root .session-status-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 5px;
+  border: 0;
+  border-left: 1px solid var(--yoke-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--yoke-ink-2);
+  font-size: 11px;
+  cursor: pointer;
+}
+.universe-app-root .session-status-chip:last-child { border-radius: 0 var(--yoke-radius) var(--yoke-radius) 0; }
+.universe-app-root .session-status-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--yoke-accent) 14%, var(--yoke-bg));
+  color: var(--yoke-accent);
+}
+.universe-app-root .session-status-chip:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: -2px;
 }

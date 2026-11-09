@@ -116,7 +116,7 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
       ? "Search" : field.children[0].textContent),
     ["Search", "Project", "Harness", "Machine"],
   );
-  assert.deepEqual(statusChecks(root).map((check) => [check.value, check.checked]),
+  assert.deepEqual(statusChecks(root).map((check) => [check.value, check.getAttribute("aria-pressed") === "true"]),
     [["working", true], ["waiting", true], ["ended", false]]);
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   const staleCard = byClass(root, "session-card").find(
@@ -166,7 +166,7 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
   );
 
   button(root, "Clear").dispatchEvent(new Event("click"));
-  assert.deepEqual(statusChecks(root).map((check) => check.checked), [true, true, false]);
+  assert.deepEqual(statusChecks(root).map((check) => check.getAttribute("aria-pressed") === "true"), [true, true, false]);
   assert.equal(harness.value, "");
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   assert.equal(

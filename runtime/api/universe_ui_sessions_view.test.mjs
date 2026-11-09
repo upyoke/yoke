@@ -77,7 +77,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   const filterHost = byClass(emptyRoot, "session-roster-filters")[0];
   assert.deepEqual(
     filterHost.children.map((node) => node.tagName),
-    ["LABEL", "FIELDSET", "LABEL", "LABEL", "LABEL", "SPAN"],
+    ["LABEL", "DIV", "LABEL", "LABEL", "LABEL", "SPAN"],
   );
   const filterControls = byClass(filterHost, "session-filter-control");
   assert.deepEqual(
@@ -90,7 +90,11 @@ test("Sessions renders resolved local identity and the exact empty state", async
   );
   assert.deepEqual(
     byClass(filterHost, "session-filter-label").map((node) => node.textContent),
-    ["Status", "Working", "Waiting", "Ended", "Project", "Harness", "Machine"],
+    ["Status", "Project", "Harness", "Machine"],
+  );
+  assert.deepEqual(
+    byClass(filterHost, "session-status-chip").map((node) => node.textContent),
+    ["Working", "Waiting", "Ended"],
   );
   const filterButtons = [
     byClass(filterHost, "session-filter-clear")[0],

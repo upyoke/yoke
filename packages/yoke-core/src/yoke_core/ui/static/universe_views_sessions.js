@@ -18,7 +18,6 @@ import {
   appendSessionPrimaryStatus,
   appendSessionHeaderDetails,
   appendSessionChatTitle,
-  appendSessionReason,
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import {
@@ -34,7 +33,6 @@ import {
   steeringWorkerRow,
 } from "./universe_sessions_steering.js";
 import {
-  appendSessionMessageDeliveryNote,
   appendSessionRelay,
   sessionMessageButton,
   sessionRosterFilters,
@@ -137,7 +135,6 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
-  appendSessionReason(documentNode, body, row);
   appendSessionUsage(documentNode, body, row);
   // Every state uses the same section sequence; empty sections stay silent.
   appendSteeringHoldings(documentNode, body, row, projects);
@@ -153,7 +150,6 @@ export function sessionCard(
   appendSessionRelay(documentNode, body, row);
   const messageAction = sessionMessageButton(documentNode, row, onMessage);
   appendSessionMessageLine(documentNode, body, row, messageAction);
-  appendSessionMessageDeliveryNote(documentNode, body, row);
   card.appendChild(body);
   return card;
 }

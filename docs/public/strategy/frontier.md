@@ -42,16 +42,16 @@ item's full card. On a phone the graph is an outline of each chain.
 
 Committed work waiting only to land waits too: an item whose lane has a
 recorded commit and whose only unmet edges hold back its merge cannot do
-anything but wait; without a holder it sits in Waiting, and its tile reads the
-server's sentence, for example "Waiting on PREFIX-14, PREFIX-15 to merge" — the
-same words `yoke frontier list` and the steering report print.
+anything but wait; without a holder it sits in Waiting. Dependency tiles name
+the unmet gate and blockers. The steering report retains the server's next-action
+sentence; JSON and named-field item reads retain its next-actor projection.
 
 Each item has one server-assigned home section (`frontier_group`). On hold
 contains frozen, blocked, missing-spec and halted work. It keeps that home
 when other items depend on it. In progress separates Working from Waiting using the holder's shared server
 status. A finished turn is Waiting; process exits never change status or
-custody. Each card shows its next-action sentence once in plain words, with
-raw reason and next-actor detail behind its (i). Dependency references in the graph are smaller outlined
+custody. Session cards keep reasons and next actor in their information
+disclosure; item cards omit next-actor text. Dependency references in the graph are smaller outlined
 cards naming their home and activity, with a link to their home card. Section
 counts exclude references. The project filter keeps whole dependency chains
 across projects, and session chips open the holder's session card.

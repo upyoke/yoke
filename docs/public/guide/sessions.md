@@ -107,7 +107,8 @@ A disconnected relay can prevent new launches or automatic wakes while server re
 ## Who acts next
 
 Session and item rows carry `next_actor` with `actor`, `reason` and `since`.
-Cards show the responsible person or actor beside the waiting reason. Pending
+The session card information disclosure shows its next actor and waiting reason.
+Item cards omit next-actor text. JSON and named-field CLI reads retain it. Pending
 decisions take priority, followed by unmet dependencies, CI and release runs.
 A decision resolves its audience to active people, including organization roles
 inherited by the project. An empty audience names the steering owner and asks

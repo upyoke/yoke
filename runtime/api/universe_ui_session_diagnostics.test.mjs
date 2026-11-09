@@ -122,7 +122,7 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
 });
 
 
-test("one server status and reason appear once; raw facts stay in the header info", () => {
+test("one server status appears; reason and raw facts stay in the header info", () => {
   for (const status of ["working", "waiting", "ended"]) {
     const reason = "Waiting for CI to finish.";
     const rendered = card({ ...quietHolder({}),
@@ -133,10 +133,11 @@ test("one server status and reason appear once; raw facts stay in the header inf
     });
     assert.equal(byClass(rendered, "session-status-pill")[0].textContent,
       status[0].toUpperCase() + status.slice(1));
-    assert.equal(rendered.textContent.split(reason).length - 1, 1);
+    assert.equal(rendered.textContent.split(reason).length - 1, 0);
     assert.doesNotMatch(rendered.textContent, /gone|silent|ci_run_in_progress/);
     assert.equal(byClass(rendered, "session-state-facts").length, 0);
     const info = byClass(rendered, "session-details")[0];
+    assert.match(info.getAttribute("data-tooltip"), /Reason: Waiting for CI to finish/);
     assert.match(info.getAttribute("data-tooltip"), /Presence: gone/);
     assert.match(info.getAttribute("data-tooltip"), /Intent: awaiting/);
     assert.match(info.getAttribute("data-tooltip"), /Heartbeat:/);
@@ -150,7 +151,7 @@ test("an older server missing any status field refuses without guessing", () => 
     delete state[missing];
     const rendered = card(quietHolder({session_state: state}));
     assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Unavailable");
-    assert.match(byClass(rendered, "session-reason")[0].textContent,
+    assert.match(byClass(rendered, "session-status-pill")[0].getAttribute("data-tooltip"),
       /refresh after the server upgrade/);
   }
 });

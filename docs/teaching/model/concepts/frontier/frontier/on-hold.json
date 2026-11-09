@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "frontier",
  "position": 5,
- "summary": "Frozen, blocked, title-only and halted unclaimed work has one home with its reason and next actor, even when it appears as a reference in the Waiting graph."
+ "summary": "Frozen, blocked, title-only and halted unclaimed work has one home with its hold reason, even when it appears as a reference in the Waiting graph."
 }

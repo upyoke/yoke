@@ -125,7 +125,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
     ],
   );
 
-  assert.deepEqual(statusChecks(root).map((check) => check.checked), [true, true, false]);
+  assert.deepEqual(statusChecks(root).map((check) => check.getAttribute("aria-pressed") === "true"), [true, true, false]);
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children
@@ -226,17 +226,13 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   for (const gone of ["a7b4pl", "v8c2qa", "resume"]) {
     assert.ok(!cardText.join(" ").includes(gone), gone);
   }
-  // Both sessions offer messaging; the missing relay explains queued delivery.
+  // Both sessions offer messaging without a queued-delivery claim.
   assert.deepEqual(
     byClass(cards[0], "item-button").map((button) => button.textContent),
     ["Message"],
   );
   assert.equal(byClass(cards[1], "item-button")[0].textContent, "Message");
-  assert.equal(
-    byClass(cards[1], "session-message-delivery-note")[0].textContent,
-    "Queued — delivered on this session's next hook. Automatic wake "
-      + "waits for the relay to reconnect.",
-  );
+  assert.equal(byClass(cards[1], "session-message-delivery-note").length, 0);
   // The server-active card can be quiet without being recategorized as stale.
   assert.deepEqual(
     byClass(cards[0], "session-age-prefix").map((node) => node.textContent),

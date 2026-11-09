@@ -15,7 +15,7 @@ import {
   sessionsClient,
 } from "./universe_ui_sessions_view_test_support.mjs";
 
-test("Message button explains a quiet desktop chat waits on its operator", async (t) => {
+test("Message button offers quiet desktop messaging without a queued note", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -45,18 +45,12 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   await settle();
 
   setStatuses(root, ["working", "waiting", "ended"]);
-  assert.equal(byClass(root, "session-message-delivery-note").length, 1);
+  assert.equal(byClass(root, "session-message-delivery-note").length, 0);
   assert.equal(byClass(root, "session-chat-title")[0].textContent, "[PILLS]");
   assert.ok(byClass(root, "session-card")[0].textContent.includes("[PILLS]"));
   const buttons = byClass(byClass(root, "session-card")[0], "item-button");
   assert.deepEqual(buttons.map((button) => button.textContent), ["Message"]);
-  assert.equal(
-    buttons[0].getAttribute("data-tooltip"),
-    "Queued — delivered when you wake this session.",
-  );
-  assert.equal(
-    byClass(root, "session-message-delivery-note")[0].textContent,
-    "Queued — delivered when you wake this session.",
-  );
+  assert.match(buttons[0].getAttribute("data-tooltip"), /^Message only session /);
+  assert.equal(byClass(root, "session-message-delivery-note").length, 0);
   mounted.unmount();
 });

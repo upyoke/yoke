@@ -27,14 +27,14 @@ The recent window is the project's `session_idle_minutes` (20 minutes by
 default). **active** uses the latest tool call, heartbeat, prompt/stop marker
 or recorded turn end. The status comes from the server, never a browser clock.
 
-The roster has independent status checkboxes: Working and Waiting start on;
+The roster has independent status toggle chips: Working and Waiting start on;
 Ended starts off. Selecting Ended loads cursor-paged history. Any combination,
 including none, is allowed. Filter the CLI before pagination with
 `yoke sessions list --status working|waiting|ended`. `yoke sessions get SESSION-ID
 --full` keeps the diagnostic fields.
 
-Cards show one status, one plain reason and active age. The header's **(i)**
-reveals presence, activity, intent and its reason, next actor and the tool,
+Cards show one status and active age. The header's **(i)** reveals the
+session's reason, presence, activity, intent and its reason, next actor and the tool,
 prompt/stop, turn-end and heartbeat times. Holdings and steering keep their
 own sections. A stored native chat title adds a line when it differs from the
 launch item's ref and title and the session has no steering claim; the harness
@@ -58,12 +58,11 @@ surface keep messages pending for their next hook, even after their process
 exits. Yoke sends the existing operator-wake notice; QA, deploy and Inbox
 answers never override that rule.
 
-Every session card offers **Message**, including ended sessions. An idle or
-parked session whose wake belongs to the operator shows **Queued — delivered
-when you wake this session.** Its next hook delivers the message after you
+Every session card offers **Message**, including ended sessions. For sessions
+whose wake belongs to the operator, the next hook delivers messages after you
 open the chat and start a turn. A missing relay leaves messaging available;
-the card explains that hook delivery can proceed and automatic wake waits
-for the relay to reconnect. Active sessions keep their normal hook delivery.
+hook delivery can proceed and automatic wake waits for the relay to reconnect.
+Cards and Message tooltips do not claim that a message is queued.
 
 The relay never resumes a CLI session while a live interactive process holds
 it, including after an Inbox answer or an explicit wake request. A matching

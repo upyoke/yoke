@@ -122,9 +122,9 @@ selectors are removed. An older server lacking status, active time or reason
 requires the carrying server upgrade before the client can show its roster.
 Message recipient filters remain documented separately in [Inbox](../sessions/inbox.md).
 
-`yoke items list` and `yoke items get ITEM stage home_section next_actor progress`
-show the pinned workflow stage, Frontier home, next action and ordered stage
-progress. Epics include completed and total task counts beside those stages.
+`yoke items list` shows the pinned workflow stage, Frontier home and ordered
+stage progress. Default human item, status and Frontier output omit next actor;
+JSON and named-field reads such as `yoke items get ITEM next_actor` retain it. Epics include completed and total task counts beside those stages.
 `yoke frontier list` carries the same item state. The canonical `frontier_group`
 also explains the home's activity and reason; older serving builds may omit
 that field. `yoke status` adds the current session and item state to machine health.
