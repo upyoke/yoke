@@ -55,9 +55,6 @@ from yoke_core.domain.github_actions_identifiers import WorkflowIdentifier
 from yoke_core.domain.handlers.github_actions_set import _auth_failed
 
 
-_RUNNING_STATUSES = frozenset({"queued", "in_progress", "pending", "waiting"})
-
-
 class CheckCiRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     workflow: WorkflowIdentifier = Field(
