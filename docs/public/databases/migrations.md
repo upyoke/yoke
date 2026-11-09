@@ -6,6 +6,47 @@
 
 Use the timestamp, query-clock and migration-audit conventions when authoring or applying governed migrations.
 
+## Migration and schema layering
+
+Migrations and `*_schema.py` modules describe storage below live domain policy.
+Import core helpers only from the `schema_storage`, `persistence_queries` and
+`payload_validators` layers; the guard also explicitly lists migration
+infrastructure helpers. These are layer names in an explicit module allow-list,
+not Python packages or permission to import any module with a matching suffix.
+Standard-library modules, `psycopg` and `yoke_contracts` are also allowed.
+
+Take storage constants from the schema layer that owns their declaration.
+Do not import live orchestration, workflow gates or domain invariants to obtain
+a constant or perform a backfill. Keep live policy in orchestration and pass
+the required data into the migration or schema helper. Otherwise later policy
+changes can break historical migrations or make schema boot depend on services
+whose tables do not exist yet.
+
+The guard `runtime/api/domain/test_migration_import_layers.py` (Yoke source repo only)
+owns the allow-list and
+checks every domain `*_schema.py` and numbered migration after `0106`.
+It finds top-level and lazy imports, including relative and package-from forms.
+Entries through `0106` retain their historical imports; two existing schema
+edges have explicit, source-owner-specific exceptions. Neither exemption
+authorizes a new import edge.
+
+A violation names the source path, line, forbidden module and allowed layers,
+then directs the author to move live policy to orchestration and pass data in.
+Fix the dependency at its owner rather than disguising it with a lazy import
+or assuming a `_schema` or `_contract` suffix makes it allowed. Run this guard
+with the migration entry tests before submitting a migration change.
+
+## Applied history is immutable
+
+Never edit an applied migration, including its imports: the ledger records its
+raw-byte digest. Correct an old invariant with a new ordered entry. Historical
+scripts are removed by a baseline squash, with their released digests and
+resolved serving floors preserved in `released_history_digests.json`; removal
+is not permission to rewrite a retained entry. Remove dedicated tests with
+their squashed entries and keep the shared entry-contract checks. An existing
+database missing folded history must first upgrade through a build carrying
+those scripts; a new database stamps the folded history without running them.
+
 ## Timestamp discipline
 
 PostgreSQL instant columns use `TIMESTAMPTZ`; Python retains aware datetimes.

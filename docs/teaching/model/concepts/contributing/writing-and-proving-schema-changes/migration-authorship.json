@@ -1,8 +1,10 @@
 {
  "id": "migration-authorship",
  "title": "Migration authorship",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "contributing-guides",
- "position": 0
+ "position": 0,
+ "text": "Migrations and *_schema.py modules depend on the explicit schema_storage, persistence_queries and payload_validators allow-list, plus listed migration infrastructure helpers, stdlib, psycopg and yoke_contracts. Storage constants come from their schema owner; live orchestration, gates and domain invariants stay above storage and pass required data in. Applied entries cannot be edited, including imports; corrections use a new entry and baseline squashing removes historical scripts while retaining released identity evidence. The import guard checks every domain *_schema.py and entries after 0106, including lazy and relative imports. Historical entries through 0106 and two owner-specific existing schema edges retain explicit exceptions. A violation names the path, line, forbidden module, allowed layers and recovery: move policy to orchestration and pass data into the migration/schema.",
+ "sources": ["docs/public/databases/migrations.md", "runtime/api/domain/test_migration_import_layers.py"]
 }
