@@ -42,6 +42,9 @@ def apply_pending(conn, **kwargs):
         },
     )
     kwargs.setdefault("model_name", "primary")
+    kwargs.setdefault("administering_env", "")
+    from yoke_core.domain.postgres_dump_restore_point import dump_postgres_to_directory
+    kwargs.setdefault("dump_backup", dump_postgres_to_directory)
     return _apply_pending(conn, ledger=YOKE_LEDGER_CONTRACT, **kwargs)
 
 #: An entry shaped like the ones in the real history: it crosses a guard,

@@ -15,9 +15,9 @@ import pytest
 from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.board.momentum_series import strategy_bytes_by_day
 from yoke_core.domain.board_zen_signals import ConnBoardDB
+from yoke_core.domain.strategy_doc_revisions import record_doc_revision
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_TABLE,
-    record_doc_revision,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 

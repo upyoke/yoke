@@ -34,6 +34,7 @@ import sys
 from pathlib import Path
 
 from yoke_core.domain import (
+    administered_postgres,
     db_backend,
     db_helpers,
     migration_audit_receipts,
@@ -43,8 +44,9 @@ from yoke_core.domain import (
 from yoke_core.domain.migration_apply_attribution import (
     IncompleteAttributionError,
     LevelAsModelNameError,
-    collect_operator_attribution,
 )
+from yoke_core.domain.migration_operator_attribution import collect_operator_attribution
+from yoke_core.domain.postgres_dump_restore_point import dump_postgres_to_directory
 from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.environment_bootstrap import universe_is_born_on
@@ -195,6 +197,7 @@ def main(argv: list[str] | None = None) -> int:
                 history,
                 ledger=YOKE_LEDGER_CONTRACT,
                 applied_by="operator-birth-stamp",
+                administering_env=administered_postgres.administering_target(connection=conn),
             )
             print(f"newborn database: stamped {len(stamped)} entries, applied none")
             return 0
@@ -207,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
                 history=history,
                 ledger=YOKE_LEDGER_CONTRACT,
                 applied_by="operator-apply-migration-history",
+                administering_env=administered_postgres.administering_target(connection=conn),
+                dump_backup=dump_postgres_to_directory,
                 running_version=installed_engine_version(),
                 attribution=attribution,
                 model_name=args.model_name,

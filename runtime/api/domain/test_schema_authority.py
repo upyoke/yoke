@@ -126,26 +126,22 @@ class TestKernelsRefuseBeforeTouchingTheDatabase:
                 running_version="",
                 attribution={},
                 model_name="",
+                administering_env=PROD_ENV,
+                dump_backup=lambda *args: pytest.fail("dump before authority"),
             )
 
     def test_stamping_a_history_as_applied_refuses(self, prod_connection: None) -> None:
         with pytest.raises(schema_authority.SchemaAuthorityRefused):
             migration_boot_apply.stamp_history(
-                None, (), ledger=YOKE_LEDGER_CONTRACT, applied_by="test"
+                None, (), ledger=YOKE_LEDGER_CONTRACT, applied_by="test",
+                administering_env=PROD_ENV
             )
 
-    def test_stamping_uses_the_resolved_target_over_ambient_selection(
+    def test_stamping_uses_explicit_target_authority_over_ambient_selection(
         self,
         prod_connection: None,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         target_connection = connection()
-        observed = []
-        monkeypatch.setattr(
-            migration_boot_apply.administered_postgres,
-            "administering_target",
-            lambda *, connection: observed.append(connection) or "",
-        )
 
         assert (
             migration_boot_apply.stamp_history(
@@ -153,10 +149,10 @@ class TestKernelsRefuseBeforeTouchingTheDatabase:
                 (),
                 ledger=YOKE_LEDGER_CONTRACT,
                 applied_by="test",
+                administering_env="",
             )
             == ()
         )
-        assert observed == [target_connection]
 
 
 def _select(

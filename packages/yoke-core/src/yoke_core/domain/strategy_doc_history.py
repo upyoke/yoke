@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.strategy_doc_revisions import record_doc_revision
+
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_contracts.timestamps import parse_instant, format_instant
 
@@ -24,7 +26,6 @@ from yoke_core.domain.strategy_docs import (
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOCS_TABLE,
     STRATEGY_DOC_REVISIONS_TABLE,
-    record_doc_revision,
 )
 
 

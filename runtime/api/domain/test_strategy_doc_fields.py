@@ -186,7 +186,7 @@ def test_writes_refuse_invalid_fields_without_changing_row(connection):
 def test_restore_repairs_legacy_revision_only_with_explicit_fields(connection):
     from yoke_core.domain.strategy_docs import get_doc
     from yoke_core.domain.strategy_docs_create import create_doc
-    from yoke_core.domain.strategy_docs_schema import record_doc_revision
+    from yoke_core.domain.strategy_doc_revisions import record_doc_revision
     from yoke_core.domain.strategy_doc_history import restore_doc_revision
 
     create_doc(

@@ -44,11 +44,14 @@ def apply_pending(conn, **kwargs):
         },
     )
     kwargs.setdefault("model_name", "primary")
+    kwargs.setdefault("administering_env", "")
+    from yoke_core.domain.postgres_dump_restore_point import dump_postgres_to_directory
+    kwargs.setdefault("dump_backup", dump_postgres_to_directory)
     return _apply_pending(conn, ledger=YOKE_LEDGER_CONTRACT, **kwargs)
 
 
 def stamp_history(conn, history, **kwargs):
-    return _stamp_history(conn, history, ledger=YOKE_LEDGER_CONTRACT, **kwargs)
+    return _stamp_history(conn, history, ledger=YOKE_LEDGER_CONTRACT, administering_env="", **kwargs)
 
 
 def connection() -> sqlite3.Connection:

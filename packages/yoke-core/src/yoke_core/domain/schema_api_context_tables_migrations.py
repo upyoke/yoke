@@ -20,7 +20,11 @@ MIGRATION_TABLES: dict[str, dict] = {
             "names and preserve empty results with source identity/read time. "
             "These are Yoke's names; other projects declare their ledger in "
             "migration_model. Rehearsal evidence lives separately in the "
-            "item control plane's migration_audit."
+            "item control plane's migration_audit. "
+            "Manual apply_migration_history composes operator attribution from "
+            "migration_operator_attribution, not migration_apply_attribution; "
+            "the boot kernel requires caller-resolved administering_env and "
+            "dump_backup rather than importing ambient domain authority."
         ),
     },
     "migration_content_adoptions": {

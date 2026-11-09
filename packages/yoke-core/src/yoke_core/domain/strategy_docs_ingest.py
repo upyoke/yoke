@@ -50,7 +50,7 @@ from yoke_core.domain.strategy_docs_header import (
     content_sha256,
     parse_file_text,
 )
-from yoke_core.domain.strategy_docs_schema import record_doc_revision
+from yoke_core.domain.strategy_doc_revisions import record_doc_revision
 
 
 @dataclass(frozen=True)

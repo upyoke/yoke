@@ -64,6 +64,7 @@ def test_validation_copy_covers_batch_and_nested_applies_without_dumps(
             assert root is None and external == restore_point
             assert migration_restore_point.establish(
                 conn, backup_root=root, external_restore_point=external,
+                dump_backup=migration_apply_targets.dump_postgres_to_directory,
             ) == restore_point
         seen.append((operation, restore_point))
 

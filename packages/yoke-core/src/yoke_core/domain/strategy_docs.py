@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.strategy_doc_revisions import record_doc_revision
+
 from datetime import datetime
 from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
 from yoke_core.domain.db_helpers import instant_parameter
@@ -18,7 +20,6 @@ from yoke_core.domain.strategy_doc_presentation import summary_from_row
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOCS_TABLE,
-    record_doc_revision,
 )
 
 StrategyHeaderError = _header.StrategyHeaderError

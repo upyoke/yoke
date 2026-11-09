@@ -24,7 +24,7 @@ from yoke_core.domain.strategy_docs import (
     _require_valid_slug,
     next_updated_at,
 )
-from yoke_core.domain.strategy_docs_schema import record_doc_revision
+from yoke_core.domain.strategy_doc_revisions import record_doc_revision
 
 
 class DuplicateStrategyDocError(ValueError):

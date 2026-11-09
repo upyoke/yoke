@@ -20,6 +20,7 @@ def test_backup_root_refuses_without_an_explicit_dump_target(tmp_path: Path) -> 
     ):
         migration_restore_point.establish(
             _PostgresConnection(),
+            dump_backup=migration_apply_targets.dump_postgres_to_directory,
             backup_root=tmp_path,
             external_restore_point=None,
         )
@@ -32,13 +33,14 @@ def test_blank_external_restore_point_is_refused() -> None:
     ):
         migration_restore_point.establish(
             _PostgresConnection(),
+            dump_backup=migration_apply_targets.dump_postgres_to_directory,
             backup_root=None,
             external_restore_point="   ",
         )
 
 
 def test_dump_uses_the_caller_resolved_target_not_ambient_authority(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
 ) -> None:
     seen = {}
 
@@ -46,10 +48,9 @@ def test_dump_uses_the_caller_resolved_target_not_ambient_authority(
         seen.update(dsn=dsn, reason=reason, backup_root=backup_root)
         return "backup:external-project"
 
-    monkeypatch.setattr(migration_apply_targets, "dump_postgres_to_directory", dump)
-
     restore_point = migration_restore_point.establish(
         _PostgresConnection(),
+        dump_backup=dump,
         backup_root=tmp_path,
         backup_target_dsn="postgresql://external.example/external_app",
         external_restore_point=None,
@@ -61,3 +62,15 @@ def test_dump_uses_the_caller_resolved_target_not_ambient_authority(
         "reason": migration_restore_point.BACKUP_REASON,
         "backup_root": tmp_path,
     }
+
+
+def test_external_restore_point_does_not_invoke_the_dump_operation() -> None:
+    def dump(*args):
+        pytest.fail("an existing restore point must not trigger another dump")
+
+    assert migration_restore_point.establish(
+        _PostgresConnection(),
+        backup_root=None,
+        dump_backup=dump,
+        external_restore_point="snapshot:existing",
+    ) == "snapshot:existing"
