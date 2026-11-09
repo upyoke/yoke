@@ -112,7 +112,7 @@ candidate ancestry are required whenever the checkout has a remote. Disabled iss
 not turn those merge gates off.
 See [GitHub](index.md#merge-connectivity-and-issue-mirroring).
 
-Standalone post-push close-out reads workflow runs with `event=push` for the
+For projects declaring `ci_workflow_file`, standalone post-push close-out reads workflow runs with `event=push` for the
 landed head SHA, then reads only those runs' check suites. Dispatched workflows
 on the same commit do not hold close-out. A queued workflow with no checks yet
 still counts as pending. The discovery window and 15-minute conclusion budget
@@ -129,6 +129,12 @@ Contents read access and resume the same item:
 ```text
 yoke merge item PREFIX-N --result "<result>" --verification "<passing proof>"
 ```
+
+When no `ci_workflow_file` is declared, close-out samples the current push
+checks once, records observed runs (including failures), and warns without
+waiting for or gating on CI. Undeclared-but-running CI does not gate close-out;
+undeclaring CI is the operator's deliberate choice. A failed declaration read
+retains the CI gate and warns to repair the capability read.
 
 The receipt preserves the landing identity and records the observed push
 workflow URL, conclusion and evaluated head SHA in its check evidence.
