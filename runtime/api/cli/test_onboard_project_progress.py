@@ -278,6 +278,8 @@ def test_existing_app_binding_failure_never_enables_sync(
     )
 
     def fail_bind(function_id, payload, _config_path, **_kwargs):
+        if function_id == "projects.github_binding.status":
+            return {"binding": None}
         calls.append((function_id, payload))
         raise RuntimeError("binding rejected")
 

@@ -141,6 +141,9 @@ def test_fresh_create_refreshes_app_access_before_binding(
         return {"ok": True}
 
     def _binding_dispatch(function_id, payload, _config_path, **_kwargs):
+        if function_id == "projects.github_binding.status":
+            events.append("binding-status")
+            return {"binding": None}
         if function_id == "projects.github_binding.bind":
             events.append("bind")
             assert payload["repository_id"] == 88
@@ -187,7 +190,7 @@ def test_fresh_create_refreshes_app_access_before_binding(
 
     project_onboard.create_project(publish=_publish(), **kwargs)
 
-    assert events == ["publish", "refresh", "bind"]
+    assert events == ["publish", "refresh", "binding-status", "bind"]
 
 
 def test_create_project_no_publish_does_not_create_repo(
