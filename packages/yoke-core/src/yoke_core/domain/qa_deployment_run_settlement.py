@@ -111,11 +111,9 @@ def restore_retry_obligations(conn: Any, run_id: str) -> None:
     rows, current members' rows and plan groups some member still attaches
     come back.
     """
-    from importlib import import_module
+    from yoke_core.domain.deployment_qa_obsolete_plan_runs import failed_obsolete_plan_run_ids
 
-    migration = import_module("yoke_core.domain.migrations.0094_delete_post_deploy_item_qa_copies")
-    predicate = migration.OLD_MODEL_RUNS.replace(migration.UNFINISHED, "('failed')")
-    if str(run_id) in {str(row[0]) for row in conn.execute(predicate).fetchall()}:
+    if str(run_id) in failed_obsolete_plan_run_ids(conn):
         raise ValueError(
             f"old_model_plan_run_retry_refused: run {run_id} used obsolete plan copies; "
             "create a new release run with `yoke deployment-runs create --help` "
