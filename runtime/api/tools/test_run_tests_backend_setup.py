@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import _source_pythonpath, run_tests
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import run_tests
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

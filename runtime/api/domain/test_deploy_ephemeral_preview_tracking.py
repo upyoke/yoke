@@ -44,7 +44,7 @@ class TestPreviewTrackingKey:
         runner = _scripted_runner()
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
-            "yoke_core.tools.step_runners.exec_health_check",
+            "yoke_core.domain.deployment_step_utilities.exec_health_check",
             lambda url, request_id="": 0,
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
@@ -123,7 +123,7 @@ class TestTheReservedFrozenNamespace:
         project_root = install_ephemeral_project_source(tmp_path)
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
-            "yoke_core.tools.step_runners.exec_health_check",
+            "yoke_core.domain.deployment_step_utilities.exec_health_check",
             lambda url, request_id="": 0,
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
@@ -182,7 +182,7 @@ class TestOccupancyOwnershipIsRead:
         project_root = install_ephemeral_project_source(tmp_path)
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
-            "yoke_core.tools.step_runners.exec_health_check",
+            "yoke_core.domain.deployment_step_utilities.exec_health_check",
             lambda url, request_id="": 0,
         )
         return deploy_ephemeral.exec_ephemeral_deploy(
@@ -233,7 +233,7 @@ class TestOccupancyOwnershipIsRead:
         project_root = install_ephemeral_project_source(tmp_path)
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
-            "yoke_core.tools.step_runners.exec_health_check",
+            "yoke_core.domain.deployment_step_utilities.exec_health_check",
             lambda url, request_id="": 0,
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
@@ -263,7 +263,7 @@ class TestABranchNamedForARunCannotReachItsPreview:
         project_root = install_ephemeral_project_source(tmp_path)
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
-            "yoke_core.tools.step_runners.exec_health_check",
+            "yoke_core.domain.deployment_step_utilities.exec_health_check",
             lambda url, request_id="": 0,
         )
         return deploy_ephemeral.exec_ephemeral_deploy(

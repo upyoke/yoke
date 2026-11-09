@@ -230,7 +230,7 @@ def main(argv: "Sequence[str] | None" = None) -> int:
     import argparse
     import sys
 
-    from yoke_core.tools import _source_pythonpath
+    from yoke_core.domain import source_pythonpath as _source_pythonpath
 
     parser = argparse.ArgumentParser(
         prog="impacted_tests",

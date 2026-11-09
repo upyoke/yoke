@@ -41,14 +41,18 @@ The wrapper preserves the underlying engine's exit code.
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 import argparse
 import re
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _source_pythonpath, _watch_digest, _watch_runner
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.domain import watch_digest as _watch_digest
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.domain.watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_lifecycle"
 KIND = "lifecycle"
@@ -161,7 +165,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help=_watch_runner.STREAMING_WAIT_HELP,
+        help=_watch_streaming_pair.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -248,7 +252,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 return 2
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.print_wait_mode_invocation(
+        return _watch_streaming_pair.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=sub_args,

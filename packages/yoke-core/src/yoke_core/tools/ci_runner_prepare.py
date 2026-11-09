@@ -17,7 +17,7 @@ import tempfile
 import time
 
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_core.tools.pg_testcluster import DISPOSABLE_SERVER_SETTINGS
+from yoke_core.domain.pytest_cluster_identity import DISPOSABLE_SERVER_SETTINGS
 
 
 class PreparationError(RuntimeError):

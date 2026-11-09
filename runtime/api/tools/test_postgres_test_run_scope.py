@@ -5,7 +5,7 @@ from io import StringIO
 import pytest
 
 from yoke_contracts.install_binding import is_yoke_source_checkout
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, pytest_cluster_identity as test_postgres_cluster
 from yoke_core.tools import _pytest_parallel, gate_admission, pg_testcluster
 from yoke_core.tools import pytest_worker_budget as budget
 
@@ -14,12 +14,12 @@ from yoke_core.tools import pytest_worker_budget as budget
 def test_maintenance_dsn_only_probes_existing_cluster(monkeypatch, capsys, ready):
     monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
     monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
-    monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: ready)
+    monkeypatch.setattr(test_postgres_cluster, "_is_ready", lambda: ready)
     monkeypatch.setattr(
         pg_testcluster, "ensure_started",
         lambda: pytest.fail("admission must not start PostgreSQL"),
     )
-    monkeypatch.setattr(pg_testcluster, "dsn", lambda: "host=fixture port=1234")
+    monkeypatch.setattr(test_postgres_cluster, "dsn", lambda: "host=fixture port=1234")
 
     expected = "host=fixture port=1234 dbname=postgres" if ready else None
     assert gate_admission.maintenance_dsn() == expected
@@ -32,7 +32,7 @@ def test_maintenance_dsn_preserves_explicit_environment(monkeypatch):
         db_backend, "resolve_pg_dsn", lambda: "host=explicit dbname=tests",
     )
     monkeypatch.setattr(
-        pg_testcluster, "_is_ready",
+        test_postgres_cluster, "_is_ready",
         lambda: pytest.fail("explicit DSN must not probe shared cluster"),
     )
     assert gate_admission.maintenance_dsn() == (

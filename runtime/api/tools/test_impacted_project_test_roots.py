@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import impacted_project_test_roots as roots
+from yoke_core.domain import impacted_project_test_roots as roots
 
 
 def test_live_entries_are_normalized(monkeypatch, tmp_path: Path) -> None:

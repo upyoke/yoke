@@ -6,8 +6,8 @@ import pytest
 
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.tools import watch_qa_plan
-from yoke_core.tools._watch_runner import filter_match
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_runner import filter_match
+from yoke_core.domain.watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 from yoke_contracts.watch_capture import EXIT_SENTINEL
 from yoke_cli.commands.watchers import TOOL_SHAPED_USAGE

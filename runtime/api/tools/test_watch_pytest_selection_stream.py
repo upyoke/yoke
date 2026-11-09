@@ -5,9 +5,10 @@ from __future__ import annotations
 import io
 import sys
 
-from yoke_core.tools import _watch_runner, watch_pytest
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_pytest
 from yoke_core.tools._impacted_selection import Selection
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain.watch_throttle import Classification, LineClass
 from yoke_core.tools.watch_pytest_project_python import BOUNDED_DEFERRAL_VERDICT
 
 import pytest

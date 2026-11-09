@@ -18,12 +18,8 @@ from typing import Sequence
 
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import source_python_environment, verification_tree_binding
-from yoke_core.tools import (
-    _source_pythonpath,
-    source_dev_candidate_binding,
-    source_dev_scanner,
-    source_validation_binding,
-)
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_candidate_binding, source_dev_scanner, source_validation_binding
 from yoke_core.tools.source_machine_home import isolated_machine_home
 
 _NO_SOURCE_LANE = (

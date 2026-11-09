@@ -11,8 +11,9 @@ from yoke_contracts.machine_config.relay_instance import (
     RELAY_STATE_DIR_ENV,
 )
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_core.tools import session_relay_plist, session_relay_systemd
-from yoke_core.tools.launchctl_boundary import (
+from yoke_core.domain import relay_launchd_status as session_relay_plist
+from yoke_core.domain import relay_systemd_status as session_relay_systemd
+from yoke_core.domain.launchctl_boundary import (
     bootstrap_launchd_job,
     launchd_target,
     run_launchctl,

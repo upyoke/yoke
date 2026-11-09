@@ -13,7 +13,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from yoke_core.tools import _watch_capture_binding as binding
+from yoke_core.domain import watch_capture_binding as binding
 from yoke_core.tools import watch_tail
 
 SENTINEL = "# watch_pytest exit=0 raw=/tmp/raw.log\n"

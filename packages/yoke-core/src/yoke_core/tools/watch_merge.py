@@ -23,19 +23,21 @@ The wrapper preserves the underlying engine's exit code.
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 import argparse
 import re
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_runner
-from yoke_core.tools._watch_terminal_outcome import (
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.domain.watch_terminal_outcome import (
     OUTCOME_ONLY_WATCH_KINDS,
     PYTHON_EXCEPTION_PATTERN,
     is_python_exception_line,
 )
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain.watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_merge"
 KIND = "merge"
@@ -222,7 +224,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help=_watch_runner.STREAMING_WAIT_HELP,
+        help=_watch_streaming_pair.STREAMING_WAIT_HELP,
     )
     parser.add_argument(
         "--raw-capture",
@@ -309,7 +311,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 )
                 return 2
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.print_wait_mode_invocation(
+        return _watch_streaming_pair.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=sub_args,

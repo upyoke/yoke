@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain.verification_tree_binding import ClaimLookup
-from yoke_core.tools import _source_pythonpath, source_dev_run
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_run
 
 
 def _make_source_lane(path: Path) -> Path:

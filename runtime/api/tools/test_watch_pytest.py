@@ -21,7 +21,7 @@ import pytest
 
 from runtime.api import source_pythonpath_test_helpers as source_helpers
 from yoke_core.tools import _watch_pytest_args, watch_pytest
-from yoke_core.tools._watch_runner import filter_match
+from yoke_core.domain.watch_runner import filter_match
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

@@ -26,7 +26,7 @@ from yoke_contracts.machine_config.relay_instance import (
 )
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_core.tools.launchctl_boundary import (
+from yoke_core.domain.launchctl_boundary import (
     launch_agents_dir,
     launchd_target,
     run_launchctl,

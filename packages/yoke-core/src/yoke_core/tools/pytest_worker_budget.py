@@ -43,7 +43,7 @@ from yoke_core.tools._pytest_parallel import (
     explicit_workers,
     with_workers,
 )
-from yoke_core.tools.gate_slot_observability import _stamp_activity, slot_identity
+from yoke_core.domain.gate_slot_observability import _stamp_activity, slot_identity
 from yoke_core.tools.github_runner_disk_reclaim import GITHUB_HOSTED
 
 BUDGET_ENV = "YOKE_PYTEST_WORKER_BUDGET"

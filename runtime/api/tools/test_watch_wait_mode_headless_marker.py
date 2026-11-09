@@ -14,11 +14,9 @@ import pytest
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
-from yoke_core.tools._watch_wait_mode import (
-    caller_is_headless_command,
-    headless_marker_name,
-    resolve_wait_mode,
-)
+from yoke_core.domain.watch_headless_caller import caller_is_headless_command
+from yoke_core.domain.watch_headless_caller import headless_marker_name
+from yoke_core.tools._watch_wait_mode import resolve_wait_mode
 
 
 def test_a_resumed_worker_keeps_the_wait_in_turn_without_its_launch_context() -> None:

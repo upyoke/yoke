@@ -56,7 +56,7 @@ def _reexec_into_pinned_source(argv: List[str]) -> Optional[int]:
     from yoke_core.domain.deploy_pipeline_pinned_source import (
         DeployPinnedSourceError,
     )
-    from yoke_core.tools.deploy_pipeline_pinned_driver import (
+    from yoke_core.domain.deploy_pipeline_pinned_driver import (
         child_environment,
         frozen_driver_notice,
         pinned_driver_command,

@@ -10,7 +10,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.machine_config.paths import HOME_ENV
 from yoke_contracts.machine_config.schema import SECRETS_DIR_NAME
 from yoke_core.domain import migration_validation_binding as binding
-from yoke_core.tools._source_pythonpath import AMBIENT_PYTHON_NAMES
+from yoke_core.domain.source_pythonpath import AMBIENT_PYTHON_NAMES
 
 PROVISION_MODULE = "runtime.api.tools.authority_validation_copy"
 

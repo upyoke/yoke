@@ -10,7 +10,7 @@ def prepare_driver(run_id, raw_path, prepare):
 
 
 def launch_watched_child(kind, raw_stream, launch, *args, **kwargs):
-    from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND
+    from yoke_core.domain.watch_designed_waits import DEPLOY_WATCH_KIND
 
     if kind != DEPLOY_WATCH_KIND:
         return launch(*args, **kwargs)

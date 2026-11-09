@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.yaml_helper import load_document
-from yoke_core.tools._source_pythonpath import repo_root
+from yoke_core.domain.source_pythonpath import repo_root
 
 GITHUB = repo_root() / ".github"
 RUNNER_ACTION = "./.github/actions/yoke-test-runner"

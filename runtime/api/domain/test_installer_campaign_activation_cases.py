@@ -7,7 +7,7 @@ import pytest
 
 from yoke_core.domain import pack_catalog
 from yoke_core.domain.qa_method_config_validation import validate_method_config
-from yoke_core.tools.installer_campaign_plan import compare_plan
+from yoke_core.domain.installer_campaign_plan_source import compare_plan
 
 
 ROOT = Path(__file__).resolve().parents[3]

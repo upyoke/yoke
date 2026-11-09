@@ -18,7 +18,7 @@ from typing import Any, Literal, Mapping
 
 from yoke_core.domain.workspace_authority import assert_seed_source_under_target_root
 from yoke_core.domain import source_python_environment
-from yoke_core.tools import _source_pythonpath
+from yoke_core.domain import source_pythonpath as _source_pythonpath
 
 RENDER_SOURCE_BOUND_ENV = "YOKE_RENDER_SOURCE_BOUND"
 RendererMode = Literal["check", "render", "dry-run"]

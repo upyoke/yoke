@@ -1,4 +1,4 @@
-"""Tests for ``yoke_core.tools.python_interpreter_probe``.
+"""Tests for ``yoke_core.domain.python_interpreter_probe``.
 
 Covers the typed-result shape, the fail-open contract on every uncertain
 state (no python3, exec failure, timeout, non-sentinel stderr), the
@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.tools import python_interpreter_probe as probe_mod
-from yoke_core.tools.python_interpreter_probe import (
+from yoke_core.domain import python_interpreter_probe as probe_mod
+from yoke_core.domain.python_interpreter_probe import (
     OVERRIDE_ENV_VAR,
     SENTINEL_MODULE,
     SUBPROCESS_TIMEOUT_S,

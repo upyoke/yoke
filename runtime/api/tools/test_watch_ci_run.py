@@ -12,7 +12,7 @@ import pytest
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.tools import watch_ci_run
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")

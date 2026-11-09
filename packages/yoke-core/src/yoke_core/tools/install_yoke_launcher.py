@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.launcher_locations import LAUNCHER_FILENAME
+
 from yoke_cli.config.install_advice import install_command
 
 import argparse
@@ -24,7 +26,6 @@ TARGET_PRIORITY = _core.TARGET_PRIORITY
 MIN_PYTHON = _core.MIN_PYTHON
 YOKE_PACKAGE_NAME = _core.YOKE_PACKAGE_NAME
 YOKE_EDITABLE_PACKAGE_NAMES = _core.YOKE_EDITABLE_PACKAGE_NAMES
-LAUNCHER_FILENAME = _core.LAUNCHER_FILENAME
 LAUNCHER_SOURCE = _core.LAUNCHER_SOURCE
 PROBE_BYTES = _core.PROBE_BYTES
 LAUNCHER_FINGERPRINT_IMPORT = _core.LAUNCHER_FINGERPRINT_IMPORT

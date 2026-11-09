@@ -19,7 +19,7 @@ from yoke_core.domain.deploy_pipeline_pinned_source import (
     PinnedDriverSource,
     prepare_self_deploy_driver,
 )
-from yoke_core.tools._source_pythonpath import with_source_pythonpath
+from yoke_core.domain.source_pythonpath import with_source_pythonpath
 
 
 def environment_for_pinned_driver(

@@ -10,9 +10,10 @@ import pytest
 
 from yoke_cli.config import machine_config
 from yoke_contracts.machine_config.relay_instance import RelayInstance
+from yoke_core.domain import relay_launcher_path as relay_launcher
 from yoke_core.tools import session_relay_systemd as service
 from yoke_core.tools import session_relay_service as lifecycle
-from yoke_core.tools.session_relay_plist import RelayInstallError
+from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.tools.session_relay_release import RelayReleaseError
 
 
@@ -89,7 +90,7 @@ def test_install_uses_existing_launcher_and_user_unit_without_linger(
 def test_unit_quotes_paths_and_prevents_expansion(instance, monkeypatch):
     launcher = Path('/home/user with spaces/100%/$HOME/"yoke"')
     monkeypatch.setattr(
-        service.relay_install, "relay_launcher_path", lambda *a, **kw: launcher
+        relay_launcher, "relay_launcher_path", lambda *a, **kw: launcher
     )
     document = service.relay_unit_document(instance, environ={"PATH": "/bin"})
     assert '100%%/$$HOME/\\"yoke\\"' in document

@@ -190,7 +190,7 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
     from yoke_core.domain.deployment_run_completion_preconditions import (
         held_stage_report_lines,
     )
-    from yoke_core.tools._watch_designed_waits import designed_wait
+    from yoke_core.domain.watch_designed_waits import designed_wait
 
     run_id = "run-scoped-qa"
     context = {

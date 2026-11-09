@@ -23,13 +23,8 @@ from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_core.tools.install_yoke_launcher_cleanup import (
     quarantine_shadow_launcher,
 )
-from yoke_core.tools.install_yoke_launcher_core import (
-    InstallError,
-    LAUNCHER_FILENAME,
-    refuse_foreign_binary,
-    verify_repo_root,
-    write_launcher,
-)
+from yoke_core.domain.launcher_locations import LAUNCHER_FILENAME
+from yoke_core.tools.install_yoke_launcher_core import InstallError, refuse_foreign_binary, verify_repo_root, write_launcher
 
 
 LAUNCHER_PROBE_TIMEOUT_SECONDS = 5.0

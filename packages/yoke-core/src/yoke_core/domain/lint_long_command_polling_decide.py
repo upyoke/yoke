@@ -25,7 +25,7 @@ def _raw_capture_hint(progress_capture: str) -> str:
     """Best-effort raw-capture path for the duplicate-Monitor reason text.
 
     Yoke's watcher wrappers write a paired raw + progress capture (see
-    ``yoke_core.tools._watch_runner``). The convention is
+    ``yoke_core.domain.watch_runner``). The convention is
     ``<base>.raw.<suffix>`` next to ``<base>.progress.<suffix>``; the
     reason text routes the agent to the raw capture for post-completion
     inspection. When the progress path doesn't carry the ``.progress.``

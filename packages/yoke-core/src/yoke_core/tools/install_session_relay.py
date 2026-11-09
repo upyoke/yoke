@@ -12,20 +12,16 @@ from yoke_contracts.machine_config.relay_instance import (
     RelayInstanceError,
     resolve_relay_instance,
 )
-from yoke_core.tools.session_relay_plist import (
-    RelayInstallError,
-)
-from yoke_core.tools.session_relay_systemd import RelaySystemdStatus
-from yoke_core.tools.session_relay_plist import RelayLaunchdStatus
+from yoke_core.domain.relay_launchd_status import RelayInstallError
+from yoke_core.domain.relay_systemd_status import RelaySystemdStatus
+from yoke_core.domain.relay_launchd_status import RelayLaunchdStatus
 from yoke_core.tools.session_relay_service import (
     relay_service_operation,
     relay_service_current,
     relay_service_present,
 )
-from yoke_core.tools.session_relay_local_install import (
-    local_launcher_path,
-    local_launcher_ready,
-)
+from yoke_core.domain.local_relay_launcher_path import local_launcher_path
+from yoke_core.domain.local_relay_launcher_path import local_launcher_ready
 from yoke_core.tools.session_relay_release import relay_release_status
 
 

@@ -15,7 +15,8 @@ from yoke_core.domain.source_python_environment import (
     venv_python,
 )
 from yoke_core.domain.verification_tree_binding import ClaimLookup
-from yoke_core.tools import _source_pythonpath, watch_pytest_project_python as helper
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import watch_pytest_project_python as helper
 from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
 
 
@@ -187,7 +188,7 @@ def test_impacted_tree_prefers_the_unique_claimed_sibling(
     )
     (lane / trigger).parent.mkdir(parents=True)
     (lane / trigger).write_text("new\n", encoding="utf-8")
-    from yoke_core.tools import impacted_project_test_roots as roots
+    from yoke_core.domain import impacted_project_test_roots as roots
 
     def test_roots() -> tuple[str, ...]:
         return ("runtime/api/",)

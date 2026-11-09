@@ -23,7 +23,7 @@ from yoke_contracts.watch_capture import (
 
 
 def sentinel_line(kind: str, rc: int, raw_path: str) -> str:
-    """Build the footer ``yoke_core.tools._watch_runner.run_watcher`` writes."""
+    """Build the footer ``yoke_core.domain.watch_runner.run_watcher`` writes."""
     return f"# watch_{kind} exit={rc} raw={raw_path}\n"
 
 

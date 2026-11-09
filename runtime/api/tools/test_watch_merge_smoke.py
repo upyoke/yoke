@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 import pytest
 from yoke_core.tools import watch_merge
-from yoke_core.tools._watch_runner import filter_match
+from yoke_core.domain.watch_runner import filter_match
 
 from runtime.api.tools.watch_merge_test_support import (
     FAKE_ITEM,
@@ -66,7 +66,7 @@ class TestLiveWrapperSmokeViaPython:
                 sys.executable,
                 "-c",
                 (
-                    "from yoke_core.tools import _watch_runner, watch_merge;"
+                    "from yoke_core.domain import watch_runner as _watch_runner;from yoke_core.tools import watch_merge;"
                     "import sys;"
                     f"raw = r'{raw}'; prog = r'{progress}';"
                     "rc = _watch_runner.run_watcher("

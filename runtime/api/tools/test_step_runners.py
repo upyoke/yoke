@@ -13,7 +13,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
-from yoke_core.tools import step_runners
+from yoke_core.domain import deployment_step_utilities as step_runners
 
 
 class ExecAutoTests(unittest.TestCase):

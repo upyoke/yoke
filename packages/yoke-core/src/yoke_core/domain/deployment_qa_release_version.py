@@ -64,7 +64,7 @@ def _capability_settings(conn: Any, project_id: int) -> dict[str, Any] | None:
 
 def release_records_url(installer_base_url: str, version: str) -> str:
     """The immutable per-release record the distribution publishes."""
-    from yoke_core.tools.release_artifacts import (
+    from yoke_core.domain.release_artifact_layout import (
         DIST_ROOT,
         RELEASE_RECORDS_FILENAME,
         RELEASES_DIR,

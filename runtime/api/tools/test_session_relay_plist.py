@@ -20,16 +20,13 @@ from yoke_contracts.machine_config.relay_instance import (
     RelayInstanceError,
     resolve_relay_instance,
 )
-from yoke_core.tools.session_relay_plist import (
-    RELAY_KEEP_ALIVE,
-    RELAY_LAUNCHD_LABEL,
-    install_relay_launchd,
-    relay_launchd_paths,
-    relay_launchd_status,
-    relay_plist_document,
-    uninstall_relay_launchd,
-)
-from yoke_core.tools.session_relay_release import relay_launch_executable
+from yoke_core.domain.relay_launchd_status import RELAY_KEEP_ALIVE
+from yoke_core.domain.relay_launchd_status import RELAY_LAUNCHD_LABEL
+from yoke_core.domain.relay_launchd_status import relay_launchd_paths
+from yoke_core.domain.relay_launchd_status import relay_launchd_status
+from yoke_core.domain.relay_launchd_status import relay_plist_document
+from yoke_core.tools.session_relay_plist import install_relay_launchd, uninstall_relay_launchd
+from yoke_core.domain.relay_release_path import relay_launch_executable
 
 
 def _instance(tmp_path: Path, environment: str):

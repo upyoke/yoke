@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.relay_launcher_path import (
+    relay_launcher_path,
+)
+
 import os
 import shutil
 import subprocess
@@ -18,27 +22,8 @@ from yoke_contracts.timestamps import iso8601_now
 from yoke_core.tools import session_relay_local_install as local_install
 from yoke_core.tools.distribution_channel import join_public_url
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
-from yoke_core.tools.session_relay_release import (
-    PYTHON_ISOLATION_FLAG,
-    RELAY_ACTIVE_RELEASE_NAME,
-    RELAY_RELEASE_ERROR_NAME,
-    RELAY_RELEASE_FETCH_FAILED,
-    RELAY_RELEASE_INSTALL_FAILED,
-    RELAY_RELEASE_RECEIPT_NAME,
-    ManifestFetcher,
-    RelayReleaseError,
-    RelayReleaseStatus,
-    distribution_index_for_instance,
-    fetch_served_build,
-    relay_active_release_path,
-    relay_launch_executable,
-    relay_release_receipt,
-    relay_release_status,
-    relay_runtime_executable,
-    relay_runtime_python,
-    release_version_from_build,
-    write_release_json,
-)
+from yoke_core.domain.relay_release_path import relay_launch_executable
+from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_ERROR_NAME, RELAY_RELEASE_FETCH_FAILED, RELAY_RELEASE_INSTALL_FAILED, RELAY_RELEASE_RECEIPT_NAME, ManifestFetcher, RelayReleaseError, RelayReleaseStatus, distribution_index_for_instance, fetch_served_build, relay_active_release_path, relay_release_receipt, relay_release_status, relay_runtime_executable, relay_runtime_python, release_version_from_build, write_release_json
 from yoke_core.tools.session_relay_release_retention import (
     prune_relay_releases,
     release_install_lock,
@@ -121,18 +106,6 @@ def pin_relay_release(
         _record_failure(selected, refusal.code, str(refusal), observed)
         raise refusal from exc
     return _status(selected, release, observed, index)
-
-
-def relay_launcher_path(state_dir: Path, *, follows_served_release: bool) -> Path:
-    """The absolute executable launchd runs for one relay.
-
-    Pure and total: a machine that has not installed its launcher yet still
-    resolves to a path, so the launchd document stays computable and the
-    refusal is raised where it can be recovered.
-    """
-    if follows_served_release:
-        return relay_launch_executable(state_dir)
-    return local_install.local_launcher_path()
 
 
 def converge_relay_launcher(

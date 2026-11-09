@@ -50,7 +50,7 @@ def supported() -> bool:
 
 def _boundary():
     try:
-        return importlib.import_module("yoke_core.tools.launchctl_boundary")
+        return importlib.import_module("yoke_core.domain.launchctl_boundary")
     except ModuleNotFoundError as exc:
         raise UiLaunchdError(ENGINE_MISSING_MESSAGE) from exc
 

@@ -103,7 +103,7 @@ def root_collection(
     target outside every root is never reached by that walk, so it is also
     named on the command line: a selected test is never silently dropped.
     """
-    from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
+    from yoke_core.domain.impacted_project_test_roots import resolve_test_roots
 
     targets, options = split_args(passthrough)
     roots = list(resolve_test_roots(str(root)))

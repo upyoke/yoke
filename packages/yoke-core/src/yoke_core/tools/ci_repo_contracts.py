@@ -207,7 +207,8 @@ def check_atlas_integrity(
     repo_root: Path, _scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
     from yoke_core.tools.atlas_integrity_audit import build_report
-    from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH, is_stale, render
+    from yoke_core.domain.atlas_document_path import ATLAS_RELPATH
+    from yoke_core.tools.atlas_render_docs import is_stale, render
 
     report = build_report(repo_root)
     findings = _atlas_drift_findings(report)

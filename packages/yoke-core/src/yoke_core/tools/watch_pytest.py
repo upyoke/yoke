@@ -31,6 +31,8 @@ underlying exit code — a remote run's mirrors the CI conclusion.
 
 from __future__ import annotations
 
+from yoke_core.tools import _watch_streaming_pair
+
 from yoke_core.tools.watch_pytest_project_python import (
     pytest_argv,
     project_parallel_args,
@@ -48,18 +50,10 @@ from yoke_core.domain import qa_gate_timeout, verification_tree_binding
 from yoke_core.domain import (
     verification_tree_binding_pytest_startup as _tree_binding_startup,
 )
-from yoke_core.tools import (
-    _source_pythonpath,
-    _watch_digest,
-    _watch_pytest_args,
-    _watch_pytest_rootdir,
-    _watch_runner,
-    gate_admission,
-    pytest_remote_selection,
-    pytest_worker_budget,
-    watch_pytest_lane,
-    watch_pytest_remote,
-)
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.domain import watch_digest as _watch_digest
+from yoke_core.tools import _watch_pytest_args, _watch_pytest_rootdir, gate_admission, pytest_remote_selection, pytest_worker_budget, watch_pytest_lane, watch_pytest_remote
+from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
     isolate_from_administering_machine_config,
@@ -279,7 +273,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_options.append(pytest_remote_selection.LOCAL_FLAG)
         if ns.allow_tree_mismatch:
             wrapper_options.append(verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG)
-        return _watch_runner.print_wait_mode_invocation(
+        return _watch_streaming_pair.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=pytest_args,

@@ -9,7 +9,7 @@ yoke dev run -- <command>
 ```
 
 The command resolves the current session's claimed lane, derives every package
-source directory and the repo root through `yoke_core.tools._source_pythonpath`,
+source directory and the repo root through `yoke_core.domain.source_pythonpath`,
 and makes the lane the child process's working directory. A candidate-bound
 Command case instead selects its bound candidate without a claim or machine
 checkout lookup; an explicit `--lane` pointing elsewhere refuses. Before execution it

@@ -36,7 +36,7 @@ from yoke_core.domain.schema_init_tables import (
     create_path_registry_tables,
 )
 
-from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH
+from yoke_core.domain.atlas_document_path import ATLAS_RELPATH
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 

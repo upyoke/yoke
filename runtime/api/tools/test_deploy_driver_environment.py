@@ -13,7 +13,7 @@ from yoke_core.domain.deploy_pipeline_pinned_source import (
     DeployPinnedSourceError,
     PinnedDriverSource,
 )
-from yoke_core.tools import deploy_pipeline_pinned_driver as driver
+from yoke_core.domain import deploy_pipeline_pinned_driver as driver
 
 
 def _locked_candidate(root: Path) -> None:

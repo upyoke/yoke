@@ -11,6 +11,8 @@ from typing import Iterator
 from yoke_contracts.machine_config.schema import DEFAULT_CONFIG_NAME
 
 
+DEFAULT_HOME_NAME = ".yoke"
+
 CONFIG_FILE_ENV = "YOKE_MACHINE_CONFIG_FILE"
 HOME_ENV = "YOKE_MACHINE_HOME"
 _READ_CONFIG: ContextVar[Path | None] = ContextVar("machine_config_read", default=None)
@@ -18,6 +20,10 @@ _READ_CONFIG: ContextVar[Path | None] = ContextVar("machine_config_read", defaul
 
 class MachineConfigOwnershipError(RuntimeError):
     """A config mutation targets another machine home."""
+
+
+def default_yoke_home() -> Path:
+    return Path.home() / DEFAULT_HOME_NAME
 
 
 def yoke_home() -> Path:

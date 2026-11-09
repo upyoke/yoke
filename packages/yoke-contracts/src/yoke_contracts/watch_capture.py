@@ -20,7 +20,7 @@ import re
 import time
 from typing import Optional
 
-#: The wrapper footer ``yoke_core.tools._watch_runner.run_watcher`` writes.
+#: The wrapper footer ``yoke_core.domain.watch_runner.run_watcher`` writes.
 #: The rc may be negative (signal-killed child, e.g. ``exit=-15``).
 EXIT_SENTINEL = re.compile(r"^# watch_\w+ exit=-?\d+")
 

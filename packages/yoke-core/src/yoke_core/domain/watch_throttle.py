@@ -12,7 +12,7 @@ expressed as five line classes:
 
 - ``PROGRESS`` — motion: stage boundaries, run and workflow ids,
   rehearsal verdicts, percentages, status polls. Batched by
-  :class:`yoke_core.tools._watch_digest.ProgressDigest` into one digest
+  :class:`yoke_core.domain.watch_digest.ProgressDigest` into one digest
   line per flush window, so a long run costs a wake every couple of
   minutes rather than one wake per line.
 

@@ -20,7 +20,7 @@ from yoke_core.engines.doctor_project_checks import (
     PROJECT_CHECKS_DIR,
     PROJECT_CHECKS_PACKAGE,
 )
-from yoke_core.tools.impacted_project_test_roots import (
+from yoke_core.domain.impacted_project_test_roots import (
     YOKE_SEEDED_TEST_ROOTS,
     resolve_test_roots,
 )

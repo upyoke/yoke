@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain import postgres_binaries, postgres_client_runtime
-from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
 
 def _client_dir(root: Path, *names: str) -> Path:

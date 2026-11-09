@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 
 from yoke_core.domain import process_group_reaping
-from yoke_core.tools import _watch_runner, gate_stall_report
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain import gate_stall_report as gate_stall_report
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.domain.watch_throttle import Classification, LineClass
 
 
 def test_pid_from_slot_identity_parses_the_suffix():

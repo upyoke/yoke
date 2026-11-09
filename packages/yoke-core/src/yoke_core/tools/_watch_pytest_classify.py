@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain.watch_throttle import Classification, LineClass
 
 
 # Per-class regexes. Each is line-oriented; callers feed one line at a

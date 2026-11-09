@@ -16,11 +16,8 @@ from runtime.api.tools.source_dev_run_cli_child_binding_test_support import (
 )
 from yoke_core.domain import source_python_environment as environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
-from yoke_core.tools import (
-    _source_pythonpath,
-    source_dev_run,
-    watch_pytest_project_python,
-)
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_run, watch_pytest_project_python
 
 
 def _locked_dependency(root):

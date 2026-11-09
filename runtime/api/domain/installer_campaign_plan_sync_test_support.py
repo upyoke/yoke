@@ -15,7 +15,8 @@ from yoke_core.domain.installer_campaign_execution_target import (
 
 from yoke_core.tools import installer_campaign_plan as sync
 
-from yoke_core.tools.installer_campaign_plan import compare_plan, main
+from yoke_core.domain.installer_campaign_plan_source import compare_plan
+from yoke_core.tools.installer_campaign_plan import main
 
 from runtime.api.domain.qa_release_channel_target_test_support import _target
 

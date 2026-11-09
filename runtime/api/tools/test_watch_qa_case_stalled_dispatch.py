@@ -12,8 +12,10 @@ from yoke_core.domain.github_actions_run_stall import (
     PENDING_ZERO_JOBS_STALL_REASON,
     pending_run_message,
 )
-from yoke_core.tools import _watch_runner, watch_progress_stall, watch_qa_case
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain import watch_progress_stall as watch_progress_stall
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_qa_case
+from yoke_core.domain.watch_throttle import LineClass
 
 
 def _stalled_line() -> str:

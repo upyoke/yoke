@@ -50,7 +50,8 @@ from yoke_core.domain import process_group_reaping, verification_tree_binding
 from yoke_core.domain import (
     verification_tree_binding_pytest_startup as _tree_binding_startup,
 )
-from yoke_core.tools import _source_pythonpath, pytest_remote_selection
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import pytest_remote_selection
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
@@ -61,7 +62,7 @@ from yoke_core.tools._run_tests_args import (
     parse_args,
     split_passthrough,
 )
-from yoke_core.tools.impacted_project_test_roots import (
+from yoke_core.domain.impacted_project_test_roots import (
     UNSUPPORTED_PROJECT_TEST_ROOTS,
     default_testpaths,
 )

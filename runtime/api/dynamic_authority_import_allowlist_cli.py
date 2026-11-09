@@ -85,7 +85,7 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/config/universe_ui_launchd.py",
-        "yoke_core.tools.launchctl_boundary",
+        "yoke_core.domain.launchctl_boundary",
     ): (
         "local_engine_activation",
         "the local-universe UI daemon registers its launch agent through "

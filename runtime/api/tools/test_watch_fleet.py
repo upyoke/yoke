@@ -11,7 +11,7 @@ from pathlib import Path
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.tools import watch_fleet
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 from yoke_core.tools.watch_inventory import EXCLUDE_PATHS, FALLBACK_TOKENS
 
@@ -138,7 +138,7 @@ def test_the_follower_receives_the_whole_report_in_one_wake(
 def test_a_delayed_report_body_arrives_in_the_same_wake_as_its_header(
     tmp_path: Path,
 ) -> None:
-    from yoke_core.tools import _watch_runner
+    from yoke_core.domain import watch_runner as _watch_runner
 
     go = tmp_path / "go"
     script = tmp_path / "emit.py"

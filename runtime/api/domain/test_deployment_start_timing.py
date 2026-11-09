@@ -4,7 +4,7 @@ import json
 from unittest.mock import Mock
 import pytest
 from yoke_core.domain import deployment_start_timing as timing
-from yoke_core.tools.deploy_start_preflight import prepare_driver, launch_watched_child
+from yoke_core.domain.deploy_start_preflight import prepare_driver, launch_watched_child
 
 
 def test_steps_flush_identity_and_failure_elapsed(capsys, monkeypatch):

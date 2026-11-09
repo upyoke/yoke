@@ -16,7 +16,7 @@ from yoke_core.domain.deploy_pipeline_github_workflow import (
     _dispatch_github_actions_workflow,
 )
 from yoke_core.domain.deploy_pipeline_events import emit_run_event
-from yoke_core.tools import step_runners as _step_runners
+from yoke_core.domain import deployment_step_utilities as _step_runners
 
 __all__ = [
     "_dispatch_step_runner",

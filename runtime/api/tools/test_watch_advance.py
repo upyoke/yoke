@@ -16,9 +16,10 @@ import sys
 
 import pytest
 
-from yoke_core.tools import _watch_runner, watch_advance
-from yoke_core.tools._watch_runner import filter_match
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain import watch_runner as _watch_runner
+from yoke_core.tools import watch_advance
+from yoke_core.domain.watch_runner import filter_match
+from yoke_core.domain.watch_throttle import LineClass
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

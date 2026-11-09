@@ -68,7 +68,7 @@ def render_interpreter_advisory_block() -> str:
     pydantic), or either alone.
     """
     try:
-        from yoke_core.tools import python_interpreter_probe
+        from yoke_core.domain import python_interpreter_probe
     except Exception:
         return ""
     try:

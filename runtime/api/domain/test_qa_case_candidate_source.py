@@ -13,7 +13,7 @@ import pytest
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict, TreeIdentity
-from yoke_core.tools._source_pythonpath import PACKAGE_SRC_RELS, source_entries
+from yoke_core.domain.source_pythonpath import PACKAGE_SRC_RELS, source_entries
 from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 

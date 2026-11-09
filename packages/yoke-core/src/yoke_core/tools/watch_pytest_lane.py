@@ -16,7 +16,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from yoke_core.tools import _watch_runner
+from yoke_core.domain import watch_runner as _watch_runner
 
 KIND = "pytest"
 

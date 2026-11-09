@@ -16,8 +16,8 @@ from yoke_contracts.uv_project import is_uv_project, uv_run_argv
 from yoke_core.domain.qa_environment_declaration import load_declaration
 from yoke_core.domain import source_python_environment
 import os
-from yoke_core.tools import _source_pythonpath
-from yoke_core.tools.impacted_project_test_roots import (
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.domain.impacted_project_test_roots import (
     UNSUPPORTED_PROJECT_TEST_ROOTS,
     resolve_test_roots,
 )

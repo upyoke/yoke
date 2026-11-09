@@ -14,8 +14,8 @@ import io
 from pathlib import Path
 
 from yoke_core.tools import watch_tail
-from yoke_core.tools._watch_capture_binding import writer_marker_line
-from yoke_core.tools._watch_digest import ROUTINE_PROGRESS_RE
+from yoke_core.domain.watch_capture_binding import writer_marker_line
+from yoke_core.domain.watch_digest import ROUTINE_PROGRESS_RE
 
 DIGEST = (
     '# watch_deploy digest: Deployment start timing: {"step": '

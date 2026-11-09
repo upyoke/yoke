@@ -1,7 +1,7 @@
 """Tests for the disposable local Postgres cluster frontend.
 
 The initdb/pg_ctl choreography itself is covered by
-``runtime/api/domain/test_postgres_cluster.py``; these tests pin the
+``runtime/api/domain/pytest_cluster_identity.py``; these tests pin the
 disposable frontend's spec (binary resolution, throwaway tuning, scratch
 root) and its ownership-gated orphan sweep.
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import postgres_cluster
+from yoke_core.domain import postgres_cluster, pytest_cluster_identity as test_postgres_cluster
 from yoke_core.tools import pg_testcluster
 
 
@@ -36,7 +36,7 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
 
     spec = pg_testcluster._spec()
 
-    assert spec.superuser == pg_testcluster.PGUSER
+    assert spec.superuser == test_postgres_cluster.PGUSER
     assert spec.bin_dir is None  # fallback to system binaries from PATH
     assert spec.socket_dir is None  # short root keeps the socket inside the cluster
     assert spec.stop_mode == "immediate"

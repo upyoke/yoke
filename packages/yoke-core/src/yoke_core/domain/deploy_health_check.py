@@ -9,7 +9,7 @@ from typing import Any, Dict
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.deploy_cli_manifest_gate import verify_deployed_cli_manifest
-from yoke_core.tools import step_runners as _step_runners
+from yoke_core.domain import deployment_step_utilities as _step_runners
 
 # Poll through the container swap window so the gate tolerates the brief
 # interval between core-deploy's container-health wait and the edge serving

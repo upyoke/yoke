@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from yoke_core.tools._source_pythonpath import FOCUSED_PYTEST_RUN_RECIPE
+from yoke_core.domain.source_pythonpath import FOCUSED_PYTEST_RUN_RECIPE
 
 
 def lane_orientation(
@@ -63,7 +63,7 @@ def _test_roots(tree_root: str) -> tuple[str, ...]:
     """Declared ``test_roots`` attachments for the lane's own checkout."""
     if not tree_root:
         return ()
-    from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
+    from yoke_core.domain.impacted_project_test_roots import resolve_test_roots
 
     try:
         return tuple(root.rstrip("/") for root in resolve_test_roots(tree_root))

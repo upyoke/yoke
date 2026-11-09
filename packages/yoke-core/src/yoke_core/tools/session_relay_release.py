@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.relay_release_path import (
+    relay_launch_executable,
+)
+
 import json
 import os
 import subprocess
@@ -23,7 +27,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 
-RELAY_LAUNCH_LINK_NAME = "venv"
+from yoke_core.domain.relay_release_path import relay_launch_path
 RELAY_RUNTIME_NAME = "runtime"
 RELAY_ACTIVE_RELEASE_NAME = "release"
 RELAY_RELEASE_RECEIPT_NAME = ".yoke-relay-release.json"
@@ -68,14 +72,6 @@ ManifestFetcher = Callable[[str], Mapping[str, Any] | None]
 
 def relay_active_release_path(state_dir: Path) -> Path:
     return Path(state_dir) / RELAY_ACTIVE_RELEASE_NAME
-
-
-def relay_launch_path(state_dir: Path) -> Path:
-    return Path(state_dir) / RELAY_LAUNCH_LINK_NAME
-
-
-def relay_launch_executable(state_dir: Path) -> Path:
-    return relay_launch_path(state_dir) / "bin" / "yoke"
 
 
 def relay_runtime_path(state_dir: Path) -> Path:

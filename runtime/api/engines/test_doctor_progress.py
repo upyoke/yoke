@@ -18,7 +18,7 @@ from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_result_report import report_from_result
 from yoke_core.tools.watch_doctor import classify_doctor_line
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.domain.watch_throttle import LineClass
 
 
 class _Conn:

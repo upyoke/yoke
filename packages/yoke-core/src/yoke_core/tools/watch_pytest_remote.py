@@ -14,9 +14,10 @@ import shlex
 import time
 from pathlib import Path
 
-from yoke_core.tools import _watch_pytest_wall_clock, _watch_runner
+from yoke_core.tools import _watch_pytest_wall_clock
+from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.tools._watch_pytest_classify import classify_pytest_line
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain.watch_throttle import Classification, LineClass
 from yoke_core.tools.pytest_remote_selection import LOCAL_FLAG, PREFIX, RemoteRoute
 
 _WORKFLOW_STATUS_RE = re.compile(r"Workflow status: .*\(elapsed: (\d+)s")

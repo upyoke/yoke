@@ -234,7 +234,7 @@ def exec_ephemeral_deploy(
         verify_slug_health(
             runner, env, api_port, env.health_path, str(uuid.uuid4()), emit
         )
-        from yoke_core.tools import step_runners as _step_runners
+        from yoke_core.domain import deployment_step_utilities as _step_runners
 
         public_rc = _step_runners.exec_health_check(
             url + env.health_path, request_id=str(uuid.uuid4())

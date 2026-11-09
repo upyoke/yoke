@@ -12,16 +12,16 @@ from typing import Callable, Mapping, Optional, TextIO
 
 from yoke_contracts.designed_wait import DESIGNED_WAIT_PREFIX
 from yoke_core.domain import process_group_reaping
-from yoke_core.tools._watch_digest import ProgressDigest
-from yoke_core.tools._watch_throttle import (
+from yoke_core.domain.watch_digest import ProgressDigest
+from yoke_core.domain.watch_throttle import (
     Classification,
     LineClass,
     ProgressGate,
     annotate_progress_line,
 )
-from yoke_core.tools.gate_stall_report import handle_quiet_period
-from yoke_core.tools.watch_progress_stall import ProgressEmitWatch
-from yoke_core.tools.watch_child_source import ChildSource
+from yoke_core.domain.gate_stall_report import handle_quiet_period
+from yoke_core.domain.watch_progress_stall import ProgressEmitWatch
+from yoke_core.domain.watch_child_source import ChildSource
 
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 

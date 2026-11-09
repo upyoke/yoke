@@ -18,7 +18,8 @@ from yoke_core.domain import migration_validation_binding as binding
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 from yoke_core.domain import pg_test_db_namespace, postgres_cluster
 from yoke_core.domain.source_python_environment import SourcePythonEnvironment
-from yoke_core.tools import _source_pythonpath, source_dev_run
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_run
 
 
 def test_provisioned_copy_and_binding_survive_the_source_process(

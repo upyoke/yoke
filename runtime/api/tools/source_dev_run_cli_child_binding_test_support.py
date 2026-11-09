@@ -13,12 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import (
-    _source_pythonpath,
-    source_dev_run,
-    source_dev_scanner,
-    watch_qa_case,
-)
+from yoke_core.domain import source_pythonpath as _source_pythonpath
+from yoke_core.tools import source_dev_run, source_dev_scanner, watch_qa_case
 
 from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
 

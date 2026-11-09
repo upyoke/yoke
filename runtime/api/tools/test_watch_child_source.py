@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from yoke_core.tools.watch_child_source import ChildSource
+from yoke_core.domain.watch_child_source import ChildSource
 
 
 def test_child_source_reads_lines_and_end_of_pipe() -> None:

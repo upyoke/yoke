@@ -274,10 +274,8 @@ def test_relay_install_refuses_a_door_whose_https_env_serves_it(tmp_path):
     )
     assert door_relay_refusal(https_relay) == ""
 
-    from yoke_core.tools.session_relay_plist import (
-        RelayInstallError,
-        install_relay_launchd,
-    )
+    from yoke_core.domain.relay_launchd_status import RelayInstallError
+    from yoke_core.tools.session_relay_plist import install_relay_launchd
 
     with pytest.raises(RelayInstallError) as raised:
         install_relay_launchd(

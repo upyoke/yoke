@@ -30,7 +30,7 @@ TEST_TOOLING_PATHS = (
     "packages/yoke-core/src/yoke_core/tools/watch_pytest_remote.py",
     "packages/yoke-core/src/yoke_core/tools/_watch_pytest_args.py",
     "packages/yoke-core/src/yoke_core/tools/_watch_pytest_classify.py",
-    "packages/yoke-core/src/yoke_core/tools/_watch_runner.py",
+    "packages/yoke-core/src/yoke_core/domain/watch_runner.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_import_index.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_conftest_dependencies.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_dispatch_edges.py",

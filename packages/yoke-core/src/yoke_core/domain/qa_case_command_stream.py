@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Mapping, Optional, TextIO
 
 from yoke_core.domain.source_python_environment import venv_python
-from yoke_core.tools import _source_pythonpath
+from yoke_core.domain import source_pythonpath as _source_pythonpath
 
 #: Capture-file and banner label. Names the surface an agent is reading,
 #: matching the ``watch_<kind>`` banners the wrappers already emit.
@@ -99,13 +99,13 @@ def stream_command(
     # Imported here rather than at module scope: the watcher machinery
     # reaches back into this package for its scratch paths and process
     # reaping, so binding it lazily keeps that a call-time edge.
-    from yoke_core.tools._watch_runner import (
+    from yoke_core.domain.watch_runner import (
         TIMEOUT_EXIT,
         run_watcher,
     )
-    from yoke_core.tools._watch_throttle import Classification, LineClass
+    from yoke_core.domain.watch_throttle import Classification, LineClass
 
-    from yoke_core.tools._watch_capture_binding import mint_capture_paths
+    from yoke_core.domain.watch_capture_binding import mint_capture_paths
 
     relay = Classification(LineClass.URGENT)
 

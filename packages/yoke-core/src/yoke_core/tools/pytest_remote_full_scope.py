@@ -11,7 +11,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain.project_verification_posture import REGISTERED_COMMAND_PLAN_PREFIX
-from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
+from yoke_core.domain.impacted_project_test_roots import resolve_test_roots
 
 
 def _config(raw: object) -> dict:

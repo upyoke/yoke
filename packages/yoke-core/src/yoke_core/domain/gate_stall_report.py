@@ -16,7 +16,7 @@ Observability never raises: every probe degrades to an empty answer.
 
 from __future__ import annotations
 
-from yoke_core.tools import gate_admission
+from yoke_core.domain import pytest_gate_connection as gate_admission
 import psycopg
 
 import os
@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from yoke_core.domain.process_group_reaping import descendant_pids
-from yoke_core.tools.gate_slot_observability import (
+from yoke_core.domain.gate_slot_observability import (
     SLOT_HELD_APP_PREFIX,
     SLOT_WAIT_APP_PREFIX,
     slot_parties,
@@ -126,7 +126,7 @@ def _command_for_pid(pid: int) -> str:
 def _read_slot_parties() -> tuple[list[str], list[str]]:
     """Open a short-lived observer connection; empty on any failure."""
     try:
-        dsn = gate_admission._maintenance_dsn()
+        dsn = gate_admission.maintenance_dsn()
         if dsn is None:
             return ([], [])
 

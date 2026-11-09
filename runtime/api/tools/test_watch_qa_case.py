@@ -20,8 +20,8 @@ from contextlib import redirect_stdout
 import pytest
 
 from yoke_core.tools import watch_qa_case
-from yoke_core.tools._watch_runner import filter_match
-from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.domain.watch_runner import filter_match
+from yoke_core.domain.watch_throttle import Classification, LineClass
 from yoke_contracts.watch_capture import EXIT_SENTINEL
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")

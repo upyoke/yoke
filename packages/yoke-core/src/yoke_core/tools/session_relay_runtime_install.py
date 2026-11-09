@@ -15,18 +15,9 @@ from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.python_venv_dependencies import ensure_venv_support
 
-from yoke_core.tools.session_relay_release import (
-    PYTHON_ISOLATION_FLAG,
-    RELAY_ACTIVE_RELEASE_NAME,
-    RELAY_LAUNCH_LINK_NAME,
-    RELAY_RELEASE_INSTALL_FAILED,
-    RelayReleaseError,
-    relay_active_release_path,
-    relay_launch_path,
-    relay_launch_targets_runtime,
-    relay_runtime_path,
-    relay_runtime_python,
-)
+from yoke_core.domain.relay_release_path import RELAY_LAUNCH_LINK_NAME
+from yoke_core.domain.relay_release_path import relay_launch_path
+from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_INSTALL_FAILED, RelayReleaseError, relay_active_release_path, relay_launch_targets_runtime, relay_runtime_path, relay_runtime_python
 from yoke_core.tools.session_relay_release_retention import RELAY_RELEASE_LOCK_NAME
 
 RUNTIME_ENTRYPOINT_SOURCE = Path(__file__).with_name(

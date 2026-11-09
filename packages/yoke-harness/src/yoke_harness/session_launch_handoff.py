@@ -25,7 +25,7 @@ from yoke_harness.session_process_custody import write_record
 from yoke_harness.session_relay_termination import adopt_launched_session
 
 
-LAUNCH_CONTEXT_ENV = "YOKE_SESSION_LAUNCH_CONTEXT"
+from yoke_contracts.session_control.launch_context import LAUNCH_CONTEXT_ENV
 HANDOFF_DIRECTORY_NAME = "session-launch-handoffs"
 HANDOFF_TTL_SECONDS = 2 * 60 * 60
 _MAX_HANDOFF_BYTES = 4096

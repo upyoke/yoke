@@ -19,7 +19,7 @@ from yoke_core.tools import ci_selection_run as runner
 from yoke_core.tools import ci_shards
 from yoke_core.tools._impacted_changed_paths import changed_paths
 from yoke_core.tools._impacted_selection import Selection
-from yoke_core.tools._source_pythonpath import repo_root
+from yoke_core.domain.source_pythonpath import repo_root
 from yoke_core.tools._watch_pytest_args import NO_SELECTED_TESTS
 
 

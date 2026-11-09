@@ -81,7 +81,7 @@ EXCLUDE_PATHS: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/tools/watch_advance.py",
     "packages/yoke-core/src/yoke_core/tools/watch_lifecycle.py",
     "packages/yoke-core/src/yoke_core/tools/watch_inventory.py",
-    "packages/yoke-core/src/yoke_core/tools/_watch_runner.py",
+    "packages/yoke-core/src/yoke_core/domain/watch_runner.py",
     "runtime/api/tools/test_watch_pytest.py",
     "runtime/api/tools/test_watch_merge.py",
     "runtime/api/tools/test_watch_doctor.py",

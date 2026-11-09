@@ -11,7 +11,7 @@ import pytest
 
 from yoke_core.tools import watch_merge
 
-from yoke_core.tools._watch_runner import filter_match
+from yoke_core.domain.watch_runner import filter_match
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

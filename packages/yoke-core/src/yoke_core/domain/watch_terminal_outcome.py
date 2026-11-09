@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND, designed_wait
+from yoke_core.domain.watch_designed_waits import DEPLOY_WATCH_KIND, designed_wait
 
 _JSON_ERROR_FIELD_RE = re.compile(r'^\s*"error"\s*:\s*(.+)\s*$')
 _TERMINAL_LINE_RE = re.compile(

@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import _watch_capture_binding as binding
+from yoke_core.domain import watch_capture_binding as binding
 from yoke_core.tools import watch_pytest, watch_tail
 
 

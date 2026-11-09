@@ -7,7 +7,7 @@ import selectors
 import time
 from typing import TextIO
 
-from yoke_core.tools.watch_child_lines import ChildLines
+from yoke_core.domain.watch_child_lines import ChildLines
 
 
 class ChildSource:
