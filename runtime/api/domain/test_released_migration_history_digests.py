@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.migration_history import (
     history_dir,
@@ -34,7 +36,16 @@ def _history_and_pins():
     return history, pins
 
 
-def test_released_history_manifest_matches_raw_packaged_bytes() -> None:
+@pytest.mark.parametrize("folded", [False, True])
+def test_released_history_manifest_matches_raw_packaged_bytes(
+    tmp_path, monkeypatch, folded,
+) -> None:
+    if folded:
+        name, digest = "0001_folded", "a" * 64
+        (tmp_path / MANIFEST_NAME).write_text(json.dumps({
+            name: {"content_sha256": digest, "minimum_serving_version": None},
+        }))
+        monkeypatch.setattr(__name__ + ".history_dir", lambda package: tmp_path)
     history, pins = _history_and_pins()
     entries = {entry.name: entry for entry in history}
     assert set(pins) <= set(entries), "digest manifest names a missing entry"

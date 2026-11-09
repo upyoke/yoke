@@ -195,3 +195,58 @@ def test_history_names_at_ref_orders_by_sequence_not_discovery(lane: Path) -> No
 def test_history_names_at_ref_refuses_an_unreadable_revision(lane: Path) -> None:
     with pytest.raises(HistoryError, match="could not read git state"):
         history_names_at_ref(lane, "no-such-ref", MODULES_DIR)
+
+
+def _fold_prefix(lane: Path, *, released: bool = True) -> None:
+    entry = lane / MODULES_DIR / "0013_existing.py"
+    digest = raw_content_sha256(entry.read_bytes())
+    if released:
+        _git(lane, "checkout", "main")
+        (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
+            json.dumps({"0013_existing": digest})
+        )
+        _git(lane, "add", "-A")
+        _git(lane, "commit", "-q", "-m", "freeze released history")
+        _git(lane, "checkout", "lane")
+    else:
+        # An established manifest cannot be expanded by the lane to bless a fold.
+        _git(lane, "checkout", "main")
+        (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text("{}")
+        _git(lane, "add", "-A")
+        _git(lane, "commit", "-q", "-m", "empty released history")
+        _git(lane, "checkout", "lane")
+    entry.unlink()
+    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(json.dumps({
+        "0013_existing": {
+            "content_sha256": digest, "minimum_serving_version": None,
+        },
+    }))
+
+
+@pytest.mark.parametrize("check", [_merge, _rehearsal])
+def test_accepts_removing_a_released_folded_script(lane, check) -> None:
+    _fold_prefix(lane)
+    _entry(lane, "0014_next")
+
+    check(lane, "0014_next")
+
+
+@pytest.mark.parametrize("check", [_merge, _rehearsal])
+def test_folded_prefix_does_not_authorize_changing_live_script(lane, check) -> None:
+    _entry(lane, "0014_live")
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "add live script")
+    _git(lane, "branch", "-f", "main", "HEAD")
+    _fold_prefix(lane)
+    _entry(lane, "0014_live", marker="rewritten")
+
+    with pytest.raises(HistoryError, match="different permanent bytes"):
+        check(lane, "0014_live")
+
+
+def test_merge_refuses_folding_without_a_released_pin(lane) -> None:
+    _fold_prefix(lane, released=False)
+    _entry(lane, "0014_next")
+
+    with pytest.raises(HistoryError, match="lacks its released digest"):
+        _merge(lane, "0014_next")

@@ -35,9 +35,13 @@ def _first_entry():
 
 def _released_digests() -> dict[str, str]:
     directory = history_dir(migration_history_package)
-    return json.loads(
+    pins = json.loads(
         (directory / "released_history_digests.json").read_text(encoding="utf-8")
     )
+    return {
+        name: value["content_sha256"] if isinstance(value, dict) else value
+        for name, value in pins.items()
+    }
 
 
 def test_passes_when_packaged_and_ledger_digests_match() -> None:
@@ -89,3 +93,27 @@ def test_unreachable_ledger_is_not_a_pass() -> None:
 
     assert result.result == "N/A"
     assert "not reachable" in result.detail
+
+
+def test_passes_with_folded_entries_without_scripts(tmp_path, monkeypatch) -> None:
+    directory = tmp_path / "migrations"
+    directory.mkdir()
+    name = "0001_folded"
+    digest = "a" * 64
+    (directory / "released_history_digests.json").write_text(json.dumps({
+        name: {"content_sha256": digest, "minimum_serving_version": None},
+    }))
+    monkeypatch.setattr(
+        "yoke_project_checks.check_migration_content_identity.history_dir",
+        lambda package: directory,
+    )
+    conn = _connection()
+    conn.execute("INSERT INTO applied_migrations VALUES (?, ?)", (name, digest))
+
+    result = _run(conn).results[0]
+
+    assert result.result == "PASS", result.detail
+    conn.execute("UPDATE applied_migrations SET content_sha256 = ?", ("b" * 64,))
+    result = _run(conn).results[0]
+    assert result.result == "FAIL"
+    assert name in result.detail
