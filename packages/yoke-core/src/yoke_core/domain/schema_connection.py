@@ -37,5 +37,3 @@ def instant_parameter(
     return (
         instant if connection_is_postgres(conn) else format_instant(instant)
     )
-
-
