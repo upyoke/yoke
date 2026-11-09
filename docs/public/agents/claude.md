@@ -61,8 +61,8 @@ you are unsure which you are, follow the subagent steps.
   note about the missing wrapper.
 - Stop only a local check that has run past about one minute: stop it cleanly,
   keep its partial capture, commit and let CI run it. Never stop a CI watcher.
-- To keep a claim through a stop after arming a Monitor, run
-  `yoke sessions touch --mode parked --reason claim` first.
+- To keep a claim through a stop, arm the Monitor first, then run
+  `yoke sessions touch --mode parked --reason claim` as the turn's last action.
 - A subagent runs foreground Bash through to the end. It never uses background
   Bash, Monitor or `ScheduleWakeup`; if the launch settings are missing, it asks
   its parent to relaunch.

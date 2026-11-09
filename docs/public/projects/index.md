@@ -62,6 +62,21 @@ the checkout's path snapshot after that commit; if the setup checklist still
 shows `setup-checklist-handoff` blocked, `yoke project snapshot sync` repairs
 the snapshot and clears that row.
 
+## Checkout repository identity
+
+`yoke project register` saves machine-local routing and warns that it does not
+validate the project's GitHub binding; it requires no server round-trip.
+Before install or snapshot sync writes anything, the client compares any existing
+`origin` with the project's GitHub repository binding. HTTPS and SSH forms of the
+same repository match. A different repository, including a fork, refuses with
+`project_repository_mismatch`: select the right project or correct `origin`.
+A missing `origin` is accepted, including during local setup; projects without a
+GitHub binding accept any origin. New-project publication adds origin before install.
+
+For QA, create a separate scratch project for throwaway checkouts. Follow the
+[exploration and cleanup guidance](../verification/exploration.md); do not register
+fixtures against an existing real project.
+
 ## Snapshot refresh
 
 `yoke project snapshot sync` skips HEAD-derived context refreshes when the

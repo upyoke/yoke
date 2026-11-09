@@ -1,0 +1,14 @@
+{
+  "project": "yoke",
+  "sql": "DELETE FROM path_snapshot_symlink_facts WHERE snapshot_id IN (31783,31915)",
+  "table": "path_snapshot_symlink_facts",
+  "key_columns": [
+    "snapshot_id",
+    "symlink_path"
+  ],
+  "after": [],
+  "reason": "Remove QA scratch checkout snapshots and rows referenced only by those snapshots; execute documents in filename order",
+  "before": [
+    {"canonical_path": ".agents/skills/yoke", "canonical_target_id": 48154, "reason": "canonicalized", "snapshot_id": 31783, "symlink_path": ".claude/skills/yoke", "symlink_target_id": 49704, "target_attempt": "../../.agents/skills/yoke"}
+  ]
+}

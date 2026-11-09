@@ -1,7 +1,9 @@
 {
  "id": "repository-and-remote",
  "title": "Repository and remote",
- "status": "draft-copy",
+ "status": "observed",
  "page": "projects",
- "position": 2
+ "position": 2,
+ "summary": "Install and snapshot sync compare an existing origin with the project GitHub binding on the client. Different repositories and forks refuse; missing origin and unbound projects remain supported. Register only warns and saves local routing without a server read.",
+ "sources": ["docs/public/projects/index.md", "packages/yoke-cli/src/yoke_cli/project_repository_identity.py"]
 }

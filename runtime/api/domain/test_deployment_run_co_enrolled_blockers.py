@@ -54,7 +54,7 @@ def _depend(conn: Any, dependent: int, blocker: int) -> None:
     conn.execute(
         "INSERT INTO item_dependencies "
         "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,"
-        "created_at) VALUES (%s,%s,'closure','fact:deployed:stage','test',"
+        "created_at) VALUES (%s,%s,'integration','fact:deployed:stage','test',"
         "'2026-09-14T00:00:00Z')",
         (dependent, blocker),
     )

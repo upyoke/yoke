@@ -77,6 +77,7 @@ def split_pending_pair_merges(
         conn,
         item_ids,
         co_scheduled_blocker_ids=item_ids,
+        skip_closure=True,
     )
     if not blocked:
         return [], []

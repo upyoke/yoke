@@ -15,6 +15,9 @@ from yoke_cli.commands._helpers import (
     ensure_handlers_loaded,
     parse_or_usage_error,
 )
+from yoke_cli.project_repository_identity import (
+    ProjectRepositoryIdentityError, assert_project_repository,
+)
 from yoke_cli.project_snapshot import (
     ProjectSnapshotScanError,
     identity_sync_payload,
@@ -79,15 +82,14 @@ def project_snapshot_sync(args: List[str]) -> int:
 
     project = _project_context(parsed.project)
     hook_mode = parsed.hook_name is not None
-    # --head-only and the git hook ask for commit identity only: the server
-    # records the lane head and stores no snapshot. A full sync stores the
-    # inventory, uploading only files the server's base snapshot lacks.
     try:
         plan = plan_sync(
             parsed.repo_root,
             integration_target=parsed.integration_target,
             head_only=parsed.head_only,
         )
+        assert_project_repository(plan.repo_root, project, session_id=parsed.session_id,
+                                  timeout_s=HOOK_WRITE_TIMEOUT_S if hook_mode else None)
         if parsed.head_only and not hook_mode:
             response = _dispatch_sync_payload(
                 project=project,
@@ -106,7 +108,7 @@ def project_snapshot_sync(args: List[str]) -> int:
                 session_id=parsed.session_id,
                 timeout_s=HOOK_WRITE_TIMEOUT_S if hook_mode else None,
             )
-    except ProjectSnapshotScanError as exc:
+    except (ProjectSnapshotScanError, ProjectRepositoryIdentityError) as exc:
         label = "warning" if hook_mode else "error"
         message = f"{label}: {exc}"
         if hook_mode:
@@ -173,6 +175,7 @@ def sync_local_snapshot_for_write(
             integration_target=integration_target,
             head_only=head_only,
         )
+        assert_project_repository(plan.repo_root, project_id, session_id=session_id, timeout_s=timeout_s)
         if head_only:
             # Identity-only callers match the git hook shims: no blob scan,
             # and the server stores no snapshot for them.
@@ -193,6 +196,9 @@ def sync_local_snapshot_for_write(
                 session_id=session_id,
                 timeout_s=timeout_s,
             )
+    except ProjectRepositoryIdentityError as exc:
+        print(f"warning: {exc}", file=stderr)
+        return _sync_status(False, "failed", str(exc), "")
     except ProjectSnapshotScanError as exc:
         return _sync_status(False, "skipped", str(exc), snapshot_repair)
     except Exception as exc:
@@ -305,12 +311,7 @@ def _failure_warning(message: str, repair: str) -> str:
 
 
 def _sync_outcome_line(response: Any, *, repair: Optional[str] = None) -> str:
-    """Stderr line for an unsuccessful sync response.
-
-    A by-design deferral (a large snapshot kept off the commit / path-claim
-    hot path) reads as a calm note — not a scary "FAILED ... repair" warning
-    that throws operators off track. Genuine failures keep the warning.
-    """
+    """Use a note for designed deferrals and a warning for failures."""
     error = getattr(response, "error", None)
     message = (getattr(error, "message", "") or "") or "snapshot sync failed"
     if _is_snapshot_deferral(response):

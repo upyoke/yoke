@@ -9,6 +9,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
 )
 
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain import merge_queue_admission_gates as admission_gates
 
 
 def test_an_unqueued_pull_request_never_reports_a_pending_handoff(monkeypatch):
@@ -95,7 +96,7 @@ def test_unchanged_failed_train_never_dispatches_or_enters_queue(monkeypatch):
         actions.append(kwargs["function_id"])
         return ordinary_dispatch(**kwargs)
 
-    def guard(*args, **kwargs):
+    def guard(*args, train=None, **kwargs):
         return failed.unchanged_failed_train_refusal(
             *args,
             **kwargs,
@@ -108,7 +109,7 @@ def test_unchanged_failed_train_never_dispatches_or_enters_queue(monkeypatch):
             ),
         )
 
-    monkeypatch.setattr(route_mod, "unchanged_failed_train_refusal", guard)
+    monkeypatch.setattr(admission_gates, "unchanged_failed_train_refusal", guard)
     monkeypatch.setattr(
         route_mod, "enter_merge_queue", lambda *args: entries.append(args)
     )

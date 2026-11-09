@@ -23,14 +23,14 @@ function el(documentNode, tag, className, text) {
 // hover colours carry the icon with them.
 export function navIcon(documentNode, viewId) {
   const slot = el(documentNode, "span", "ico");
-  const markup = NAV_ICONS[viewId];
+  const markup = Object.hasOwn(NAV_ICONS, viewId) ? NAV_ICONS[viewId] : null;
   if (markup) slot.innerHTML = markup;
   return slot;
 }
 
 function navRow(documentNode, entry) {
   const link = el(documentNode, "a", "nav-link");
-  link.appendChild(navIcon(documentNode, entry.id));
+  link.appendChild(navIcon(documentNode, entry.icon ?? entry.id));
   link.appendChild(el(documentNode, "span", "txt", entry.label));
   return link;
 }

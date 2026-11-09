@@ -36,7 +36,7 @@ def unshipped_dependency_pairs(
     shipping = {int(item_id) for item_id in item_ids}
     while True:
         pairs = unsatisfied_dependency_pairs(
-            conn, item_ids, co_scheduled_blocker_ids=shipping | members
+            conn, item_ids, co_scheduled_blocker_ids=shipping | members, skip_closure=True
         )
         still_shipping = shipping - {dependent for dependent, _, _ in pairs}
         if still_shipping == shipping:

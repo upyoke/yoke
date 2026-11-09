@@ -32,6 +32,8 @@ def unpark_after_work(conn: Any, envelope: dict[str, Any]) -> bool:
             ("messages", "get"),
             ("messages", "acknowledge"),
             ("messages", "list"),
+            ("events", "query"),
+            ("items", "progress-log"),
             ("sessions", "touch"),
         }
         if (
