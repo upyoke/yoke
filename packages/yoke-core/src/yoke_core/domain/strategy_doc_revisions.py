@@ -1,11 +1,12 @@
 """Append a strategy document revision in its content writer's transaction."""
 
-from yoke_core.domain.db_helpers import instant_parameter
-from datetime import datetime
-from yoke_contracts.timestamps import parse_instant
+from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.strategy_docs_header import content_sha256
 from yoke_core.domain.strategy_docs_schema import STRATEGY_DOC_REVISIONS_TABLE
 

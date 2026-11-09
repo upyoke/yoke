@@ -133,6 +133,8 @@ def test_custom_ledger_schema_adoption_and_apply_use_no_fixed_identifiers(
             "source_commit": "test-commit",
         },
         model_name="primary",
+        administering_env="",
+        dump_backup=lambda *args: pytest.fail("external restore point must not dump"),
         external_restore_point=RESTORE_POINT,
     )
 

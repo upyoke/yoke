@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 from yoke_core.domain.migration_boot_apply import apply_pending
@@ -59,6 +61,8 @@ def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
             "source_commit": "test-commit",
         },
         model_name="primary",
+        administering_env="",
+        dump_backup=lambda *args: pytest.fail("external restore point must not dump"),
         external_restore_point="snapshot:legacy-yoke",
     )
 

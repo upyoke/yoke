@@ -51,6 +51,7 @@ def test_birth_stamp_records_each_entry_serving_floor(tmp_path: Path) -> None:
         _history(tmp_path),
         ledger=YOKE_LEDGER_CONTRACT,
         applied_by="birth",
+        administering_env="",
     )
 
     row = conn.execute(

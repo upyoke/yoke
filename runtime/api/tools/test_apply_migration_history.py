@@ -16,6 +16,10 @@ _TEST_ATTRIBUTION = {
 
 def _stub_operator_attribution(monkeypatch) -> None:
     monkeypatch.setattr(
+        tool.administered_postgres, "administering_target",
+        lambda *, connection: "operator-target",
+    )
+    monkeypatch.setattr(
         tool,
         "collect_operator_attribution",
         lambda _conn, *, worktree=None: dict(_TEST_ATTRIBUTION),
@@ -77,6 +81,8 @@ def test_pending_apply_supplies_the_running_artifact_version(monkeypatch) -> Non
 
     assert tool.main([]) == 0
     assert seen["running_version"] == "4.2.0"
+    assert seen["administering_env"] == "operator-target"
+    assert seen["dump_backup"] is tool.dump_postgres_to_directory
     assert seen["attribution"]["session_id"] == "test-session"
     assert seen["model_name"] == "primary"
     assert guard_repairs == [True]
