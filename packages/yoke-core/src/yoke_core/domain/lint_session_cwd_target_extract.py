@@ -62,7 +62,7 @@ def glued_file_redirect_target(token: str) -> str | None:
     match = _GLUED_REDIRECT_RE.match(token)
     if match is None:
         return None
-    target = match.group(1).rstrip(";&")
+    target = token[match.start(1):]
     return target if is_file_redirect_operand(target) else None
 
 

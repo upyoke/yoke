@@ -16,6 +16,7 @@ import tempfile
 from pathlib import PurePath
 from typing import Dict, List, Mapping, Optional, Tuple
 
+from yoke_contracts.hook_runner.shell_word import ShellWord
 
 
 _REGEX_METACHARS = re.compile(r"[?*{]")
@@ -131,7 +132,7 @@ def path_target_from_token(
     bindings: Mapping[str, str],
 ) -> Optional[str]:
     """Return the absolute path ``token`` names, or ``None`` for no verdict."""
-    expanded = expand_variables(token, bindings)
+    expanded = expand_variables(_without_shell_suffix(token), bindings)
     if expanded is None:
         return None
     expanded = unwrap_cli_file_param(expanded)
@@ -155,12 +156,30 @@ def resolve_path_operands(
     resolved: List[str] = []
     unresolved = False
     for token in tokens:
-        expanded = expand_variables(token, bindings)
+        expanded = expand_variables(_without_shell_suffix(token), bindings)
         if expanded is None:
             unresolved = True
             continue
         resolved.append(unwrap_cli_file_param(expanded))
     return resolved, unresolved
+
+
+def _without_shell_suffix(token: str) -> str:
+    """Drop glued shell separators and unmatched closing parentheses.
+
+    Balanced parentheses belong to the filename. Normalize before variable
+    expansion so punctuation in a bound path remains literal.
+    """
+    suffix = token.shell_suffix if isinstance(token, ShellWord) else len(token)
+    literal = token[:len(token) - suffix]
+    trailing = token[len(token) - suffix:].rstrip(";&")
+    token = literal + trailing
+    excess = max(0, token.count(")") - token.count("("))
+    while excess and trailing.endswith(")"):
+        trailing = trailing[:-1].rstrip(";&")
+        token = literal + trailing
+        excess -= 1
+    return token
 
 
 def _scan_assignments(command: str) -> List[Tuple[int, str, Optional[str]]]:
