@@ -13,6 +13,7 @@ from yoke_core.domain import project_github_auth as project_auth
 from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import standalone_post_push_ci as push_ci
+from yoke_core.domain import standalone_post_push_policy as push_policy
 from yoke_core.domain.merge_github_authority import (
     DIRECT_MERGE_ROUTE,
     PULL_REQUEST_MERGE_ROUTE,
@@ -134,12 +135,15 @@ class TestPostPushProofUsesTheMergesAuthority:
             "authority": GITHUB_AUTHORITY_INSTALLATION,
         }
 
+    @pytest.mark.parametrize("workflow", ["ci.yml", ""])
     def test_a_direct_landing_proves_itself_under_installation_authority(
         self,
         monkeypatch,
         tmp_path,
+        workflow,
     ) -> None:
         seen: list[str] = []
+        monkeypatch.setattr(push_policy, "project_ci_workflow_file", lambda _p: workflow)
         monkeypatch.setattr(post_push.git, "git_out", lambda *_a: "m" * 40)
         monkeypatch.setattr(post_push.git, "publish", lambda *_a: (True, ""))
         monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
@@ -176,6 +180,12 @@ class TestPostPushProofUsesTheMergesAuthority:
             lambda _project, _sha, authority: (
                 seen.append(authority) or post_push.PostPushVerdict("no_checks")
             ),
+        )
+
+        monkeypatch.setattr(
+            post_push,
+            "read_check_runs",
+            lambda _project, _sha, authority: (seen.append(authority) or (), ""),
         )
 
         outcome = merge_boundary.merge_standalone_branch(
