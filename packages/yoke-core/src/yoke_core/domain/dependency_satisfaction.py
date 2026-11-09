@@ -230,8 +230,9 @@ def unsatisfied_dependency_pairs(
     dependent_item_ids: Sequence[int],
     *,
     co_scheduled_blocker_ids: Iterable[int] = (),
+    skip_closure: bool = False,
 ) -> list[tuple[int, int, GateResult]]:
-    """Evaluate external deployment-run blockers through the shared kernel."""
+    """Evaluate blockers; release callers may leave closure for the done write."""
     if not dependent_item_ids:
         return []
     p = _placeholder(conn)
@@ -240,11 +241,7 @@ def unsatisfied_dependency_pairs(
     item_columns = set(_get_columns(conn, "items"))
     has_workflow_context = (
         _table_exists(conn, "workflow_versions")
-        and {
-            "workflow_id",
-            "workflow_version_id",
-        }
-        <= item_columns
+        and {"workflow_id", "workflow_version_id"} <= item_columns
     )
     workflow_fields = (
         "b.workflow_id,b.workflow_version_id,wv.version,wv.definition_json,"
@@ -257,8 +254,9 @@ def unsatisfied_dependency_pairs(
         if has_workflow_context
         else ""
     )
+    excluded_gates = "'coordination_only','closure'" if skip_closure else "'coordination_only'"
     gate_filter = (
-        "AND COALESCE(d.gate_point,'activation') <> 'coordination_only'"
+        f"AND COALESCE(d.gate_point,'activation') NOT IN ({excluded_gates})"
         if "gate_point" in dependency_columns
         else ""
     )

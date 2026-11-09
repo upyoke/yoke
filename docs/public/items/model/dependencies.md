@@ -56,6 +56,11 @@ Activation, integration and closure edges have directional meaning: the dependen
 - `closure` -- work and merge now; close only after the condition clears
 - `coordination_only` -- attested independent overlap; no lifecycle wait
 
+Release creation, batch compatibility and carried-item enrollment ignore closure
+edges. They still enforce activation and integration edges. Member close-out
+checks closure before writing `done`, so a release may wait at settling for a
+closure blocker instead of refusing creation.
+
 **Satisfaction condition** (`satisfaction`) -- *what* must be true about the blocker:
 - `status:<stage-id>` -- blocking item must reach that stage in its pinned workflow. Use `status:done` for the usual item-to-item wait, including required deployment and closeout. Authoring a stage that workflow version does not have refuses and lists the stages it does
 - `fact:merged` -- a blocker at `done` satisfies the edge regardless of its age. For an unfinished blocker, its recorded landing (`merged_at`) must be strictly after this edge's `created_at`; earlier landings, branch ancestry and other lifecycle statuses do not clear the wait
