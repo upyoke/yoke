@@ -13,7 +13,7 @@ UTILITY_HELPERS_TABLES: dict[str, dict] = {
         "columns": [("start_postgres", "callable")],
         "notes": (
             "CI bootstrap imports DISPOSABLE_SERVER_SETTINGS from "
-            "yoke_core.domain.test_postgres_cluster. Wrong guess: the constant "
+            "yoke_core.domain.pytest_cluster_identity. Wrong guess: the constant "
             "remains importable from tools.pg_testcluster after its utility extraction."
         ),
     },

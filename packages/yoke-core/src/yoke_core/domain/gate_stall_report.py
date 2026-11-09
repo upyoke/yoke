@@ -16,7 +16,7 @@ Observability never raises: every probe degrades to an empty answer.
 
 from __future__ import annotations
 
-from yoke_core.domain import test_gate_connection as gate_admission
+from yoke_core.domain import pytest_gate_connection as gate_admission
 import psycopg
 
 import os

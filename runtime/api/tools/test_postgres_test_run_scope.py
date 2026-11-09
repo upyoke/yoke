@@ -5,7 +5,7 @@ from io import StringIO
 import pytest
 
 from yoke_contracts.install_binding import is_yoke_source_checkout
-from yoke_core.domain import db_backend, test_postgres_cluster
+from yoke_core.domain import db_backend, pytest_cluster_identity as test_postgres_cluster
 from yoke_core.tools import _pytest_parallel, gate_admission, pg_testcluster
 from yoke_core.tools import pytest_worker_budget as budget
 

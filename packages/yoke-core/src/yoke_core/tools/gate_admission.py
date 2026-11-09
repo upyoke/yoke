@@ -48,7 +48,7 @@ Mechanics:
 
 from __future__ import annotations
 
-from yoke_core.domain.test_gate_connection import (
+from yoke_core.domain.pytest_gate_connection import (
     maintenance_dsn,
 )
 

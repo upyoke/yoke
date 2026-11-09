@@ -43,7 +43,7 @@ Keep the shared cluster running between invocations. Use an explicit private
 
 from __future__ import annotations
 
-from yoke_core.domain.test_postgres_cluster import (
+from yoke_core.domain.pytest_cluster_identity import (
     LOCAL_CLUSTER_MAX_CONNECTIONS,
     _is_ready,
     _root,

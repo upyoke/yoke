@@ -16,7 +16,7 @@ def maintenance_dsn() -> Optional[str]:
         ):
             base = db_backend.resolve_pg_dsn()
         else:
-            from yoke_core.domain import test_postgres_cluster as pg_testcluster
+            from yoke_core.domain import pytest_cluster_identity as pg_testcluster
 
             if not pg_testcluster._is_ready():
                 return None
