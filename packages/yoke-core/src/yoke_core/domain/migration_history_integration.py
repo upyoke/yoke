@@ -19,7 +19,6 @@ from yoke_core.domain.migration_history import (
     ordinal_entries,
 )
 
-
 @dataclass(frozen=True)
 class HistoryIdentity:
     sequence: int
@@ -260,12 +259,18 @@ def _extension(
     relative_dir = _relative_modules_dir(modules_dir)
     target_ref = resolve_target_ref(worktree_path, integration_target)
     target = _target_history(worktree_path, target_ref, relative_dir)
-    lane = _lane_history(worktree_path, relative_dir)
     pins = _digest_pins(
         worktree_path,
         target_ref=target_ref,
         modules_dir=relative_dir,
     )
+    for entry in ordinal_entries(worktree_path / relative_dir):
+        if entry.is_folded and pins.get(entry.name) != entry.content_sha256:
+            raise HistoryError(
+                f"folded migration {entry.name!r} lacks its released digest; "
+                "restore the integration target's released identity before folding"
+            )
+    lane = _lane_history(worktree_path, relative_dir)
     lane_names = {entry.name for entry in lane}
     missing = [name for name in declared if name not in lane_names]
     if missing:
@@ -299,7 +304,7 @@ def require_rehearsal_history_extension(
     integration_target: str,
     migration_modules: Iterable[str],
 ) -> None:
-    """Refuse rehearsal unless the lane preserves the target's full history."""
+    """Require the target history, including identities of folded scripts."""
     _extension(
         worktree_path=worktree_path,
         modules_dir=modules_dir,
@@ -332,7 +337,6 @@ def require_merge_history_extension(
                 f"{entry.sequence}; {target_ref} requires exactly {expected} next"
             )
         expected += 1
-
 
 __all__ = [
     "HistoryIdentity",

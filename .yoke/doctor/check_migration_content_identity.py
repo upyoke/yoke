@@ -1,4 +1,4 @@
-"""Compare packaged permanent migration bytes with the connected ledger."""
+"""Compare live and folded migration identities with the connected ledger."""
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
 HC_SLUG = "migration-content-identity"
 HC_ID = f"HC-{HC_SLUG}"
-HC_NAME = "Packaged migration bytes match the connected applied ledger"
+HC_NAME = "Live and folded migration identities match the connected applied ledger"
 
 
 def hc_migration_content_identity(conn, args, rec) -> None:
-    """Packaged migration bytes match the connected applied ledger."""
+    """Live and folded migration identities match the connected applied ledger."""
     history = ordered_entries(history_dir(migration_history_package))
     try:
         status = read_content_identity_status(
