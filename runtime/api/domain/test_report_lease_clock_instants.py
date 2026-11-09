@@ -3,6 +3,7 @@
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+import sqlite3
 
 import pytest
 
@@ -38,11 +39,13 @@ class Connection:
 @pytest.mark.parametrize("postgres", (True, False))
 @pytest.mark.parametrize("empty_lease", (True, False))
 def test_actual_report_port_round_trip_preserves_metadata_and_native_sql(
-    monkeypatch, postgres, empty_lease
+    monkeypatch, postgres, empty_lease, request
 ):
     conn = Connection()
     monkeypatch.setattr(db_backend, "connect", lambda **kwargs: conn)
-    monkeypatch.setattr(db_backend, "connection_is_postgres", lambda *args: postgres)
+    if not postgres:
+        conn._conn = sqlite3.connect(":memory:")
+        request.addfinalizer(conn._conn.close)
     monkeypatch.setattr(
         session_message_delivery,
         "lease_for_hook",

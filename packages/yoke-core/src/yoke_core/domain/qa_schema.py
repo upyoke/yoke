@@ -1,12 +1,7 @@
-"""QA table definitions and initialization."""
+"""QA table definitions."""
 
 from __future__ import annotations
 
-import sys
-
-from typing import Optional
-
-from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.qa_plan_execution_schema import (
     QA_PLAN_EXECUTION_SCHEMA_SQL,
 )
@@ -22,7 +17,6 @@ from yoke_core.domain.qa_standalone_schema import (
 from yoke_core.domain.qa_settlement_followups import (
     QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL,
 )
-from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 # ---------------------------------------------------------------------------
@@ -117,17 +111,3 @@ CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
     + QA_PLAN_REVIEW_SCHEMA_SQL
     + QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL
 )
-
-
-def cmd_init(*, db_path: Optional[str] = None) -> None:
-    """Create QA tables (idempotent)."""
-    from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
-
-    conn = connect(path=db_path)
-    try:
-        execute_schema_script(conn, _QA_SCHEMA)
-        _ensure_qa_runs_verdict_trigger(conn)
-        conn.commit()
-    finally:
-        conn.close()
-    print("QA tables initialized", file=sys.stderr)

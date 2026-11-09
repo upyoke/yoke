@@ -54,9 +54,10 @@ def _read_item(item_id: int) -> Tuple[str, str]:
 
 def _rerun_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]]]:
     from yoke_core.domain.idea_readiness_check import run_all_checks
-    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
+    from yoke_core.domain.db_backend import connect
+    from yoke_core.domain.schema_common import _resolve_db_path
 
-    conn = _connect_raw(_resolve_db_path())
+    conn = connect(_resolve_db_path())
     try:
         outcome = run_all_checks(conn, item_id)
     finally:

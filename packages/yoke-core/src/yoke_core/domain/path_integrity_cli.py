@@ -118,10 +118,9 @@ def _verify_run_exit_code(
 
 
 def _connect() -> Any:
-    from yoke_core.domain.schema_common import (
-        _connect_raw, _resolve_db_path,
-    )
-    return _connect_raw(_resolve_db_path())
+    from yoke_core.domain.db_backend import connect
+    from yoke_core.domain.schema_common import _resolve_db_path
+    return connect(_resolve_db_path())
 
 
 def main(argv: Optional[List[str]] = None) -> int:

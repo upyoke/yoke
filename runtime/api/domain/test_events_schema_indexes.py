@@ -17,9 +17,9 @@ import pytest
 from yoke_core.domain.events_schema import (
     CLIENT_TIMING_INDEX_NAME,
     STOP_CLEANUP_INDEX_NAME,
-    cmd_init,
     ensure_event_schema,
 )
+from yoke_core.domain.events_writes import cmd_init
 from yoke_core.domain.schema_common import _column_exists, _get_indexes
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 

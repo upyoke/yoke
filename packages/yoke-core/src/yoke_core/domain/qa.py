@@ -80,10 +80,9 @@ from yoke_core.domain.qa_reporting import (  # noqa: F401
 
 from yoke_core.domain.qa_schema import (  # noqa: F401
     _QA_SCHEMA,
-    cmd_init,
 )
 
-from yoke_core.domain.qa_cli import main  # noqa: F401
+from yoke_core.domain.qa_cli import cmd_init, main  # noqa: F401
 
 
 if __name__ == "__main__":

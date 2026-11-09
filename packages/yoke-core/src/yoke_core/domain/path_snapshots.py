@@ -271,9 +271,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     from yoke_core.domain.path_snapshots_integration_warm import (
         ensure_integration_target_snapshot,
     )
-    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
+    from yoke_core.domain.db_backend import connect
+    from yoke_core.domain.schema_common import _resolve_db_path
 
-    conn = _connect_raw(_resolve_db_path())
+    conn = connect(_resolve_db_path())
     try:
         snapshot_id = build_head_snapshot(conn, project_id)
         ensure_integration_target_snapshot(conn, project_id)

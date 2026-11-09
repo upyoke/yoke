@@ -1,6 +1,7 @@
 """QA day summaries use explicit UTC instant bounds on every SQL backend."""
 
 from datetime import timedelta
+import sqlite3
 
 import pytest
 
@@ -56,12 +57,12 @@ def test_daily_summary_keeps_half_open_microsecond_bounds_in_every_server_zone(
 
 @pytest.mark.parametrize("postgres", [True, False])
 def test_summary_binds_native_midnights_or_canonical_sqlite_boundaries(
-    monkeypatch, postgres
+    monkeypatch, postgres, request
 ):
     seen = []
-    monkeypatch.setattr(
-        activity.db_backend, "connection_is_postgres", lambda conn: postgres
-    )
+    conn = object() if postgres else sqlite3.connect(":memory:")
+    if not postgres:
+        request.addfinalizer(conn.close)
     monkeypatch.setattr(
         activity,
         "query_rows",
@@ -69,7 +70,7 @@ def test_summary_binds_native_midnights_or_canonical_sqlite_boundaries(
     )
     start = parse_instant("2026-10-09T00:00:00.000000Z")
     activity._activity_summary(
-        object(), identity=None, deployment_run_id=None, item_ids=None, day=start.date()
+        conn, identity=None, deployment_run_id=None, item_ids=None, day=start.date()
     )
     if postgres:
         assert seen[0][1] == (start, start + timedelta(days=1))

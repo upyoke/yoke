@@ -227,9 +227,10 @@ def attempt_stale_count_repair(
 
 def _item_checkout(item_id: int) -> Optional[Path]:
     """This machine's checkout for the item's project, or ``None``."""
-    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
+    from yoke_core.domain.db_backend import connect
+    from yoke_core.domain.schema_common import _resolve_db_path
 
-    conn = _connect_raw(_resolve_db_path())
+    conn = connect(_resolve_db_path())
     try:
         return item_project_checkout(conn, item_id)
     finally:

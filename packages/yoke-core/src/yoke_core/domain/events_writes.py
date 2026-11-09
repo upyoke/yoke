@@ -1,6 +1,6 @@
 """Insert and severity config/check helpers for the Yoke event platform.
 
-Schema/init belongs to events_schema and retention to universe_retention.
+Schema belongs to events_schema and retention to universe_retention.
 Import events_crud constants inside functions: that module re-exports this
 module after defining its helpers, so eager imports would create a cycle.
 """
@@ -14,7 +14,7 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
-from yoke_core.domain.events_schema import _create_events_table, cmd_init
+from yoke_core.domain.events_schema import _create_events_table, ensure_event_schema
 from yoke_core.domain.yok_n_parser import parse_item_id
 
 __all__ = [
@@ -28,6 +28,16 @@ __all__ = [
     "cmd_severity_config_set",
     "hook_emit_connection",
 ]
+
+
+def cmd_init(db_path: Optional[str] = None) -> None:
+    """Open the authority connection and initialize the event tables."""
+    conn = connect(db_path)
+    try:
+        ensure_event_schema(conn)
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @contextmanager

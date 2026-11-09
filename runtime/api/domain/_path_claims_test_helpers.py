@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 import pytest
 
-from yoke_core.domain import db_backend, events_schema
+from yoke_core.domain import db_backend, events_writes
 from yoke_core.domain.actors import seed_canonical_human, seed_human_actor
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -63,7 +63,7 @@ def _apply_path_claim_schema() -> None:
     Materializing those tables empty keeps every tolerated lookup on the
     success path so the caller's transaction survives — the SQLite double the
     fixture replaced had no aborted-transaction state, so it tolerated the
-    missing relations silently. ``events_schema.cmd_init`` supplies
+    missing relations silently. ``events_writes.cmd_init`` supplies
     events + severity_config + event_registry against the same repointed DSN.
     """
     c = db_backend.connect()
@@ -78,7 +78,7 @@ def _apply_path_claim_schema() -> None:
     finally:
         c.close()
 
-    events_schema.cmd_init()
+    events_writes.cmd_init()
     c = db_backend.connect()
     try:
         apply_harness_session_columns(c)

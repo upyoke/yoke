@@ -44,9 +44,9 @@ def rerun_readiness(
 ) -> Any:
     """Re-run every readiness check after a repair, through the handoff."""
     from yoke_core.domain.idea_readiness_check import run_all_checks
-    from yoke_core.domain.schema_common import _connect_raw
+    from yoke_core.domain.db_backend import connect
 
-    conn = _connect_raw()
+    conn = connect()
     try:
         return run_all_checks(conn, item_id, observations)
     finally:

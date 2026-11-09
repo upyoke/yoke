@@ -33,9 +33,24 @@ from yoke_core.domain.qa_requirements import (
     cmd_requirement_update,
     cmd_requirement_waive,
 )
-from yoke_core.domain.qa_schema import cmd_init
+from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.qa_schema import _QA_SCHEMA
+from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
 
 _build_parser = build_parser
+
+
+def cmd_init(*, db_path: Optional[str] = None) -> None:
+    """Create QA tables using a caller-owned authority connection."""
+    conn = connect(path=db_path)
+    try:
+        execute_schema_script(conn, _QA_SCHEMA)
+        _ensure_qa_runs_verdict_trigger(conn)
+        conn.commit()
+    finally:
+        conn.close()
+    print("QA tables initialized", file=sys.stderr)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:

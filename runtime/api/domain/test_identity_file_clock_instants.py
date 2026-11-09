@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import json
+import sqlite3
 
 import pytest
 
@@ -52,10 +53,7 @@ def test_identity_file_publishers_keep_microseconds_and_opaque_process_identity(
 
 
 @pytest.mark.parametrize("postgres", [True, False])
-def test_routed_fixture_binds_native_or_explicit_sqlite_instants(monkeypatch, postgres):
-    monkeypatch.setattr(
-        routed.db_backend, "connection_is_postgres", lambda conn: postgres
-    )
+def test_routed_fixture_binds_native_or_explicit_sqlite_instants(monkeypatch, postgres, request):
     monkeypatch.setattr(routed, "utc_now", lambda: INSTANT)
     monkeypatch.setattr(
         workflow_registry, "resolve_current_workflow_pin", lambda *args: ("issue", 1)
@@ -72,6 +70,9 @@ def test_routed_fixture_binds_native_or_explicit_sqlite_instants(monkeypatch, po
             pass
 
     conn = Connection()
+    if not postgres:
+        conn._conn = sqlite3.connect(":memory:")
+        request.addfinalizer(conn._conn.close)
     routed.seed_item(conn)
     routed.register_live_session(conn, "sample-session")
     seeded = routed._SEED_TS if postgres else timestamps.format_instant(routed._SEED_TS)

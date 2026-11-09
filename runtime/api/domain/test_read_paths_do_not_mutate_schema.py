@@ -86,7 +86,7 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/migrations/0021_session_termination.py::apply",
         "domain/migrations/0101_decision_request_audiences.py::apply",
         # ``cmd_init`` surfaces whose whole job is standing a database up.
-        "domain/events_schema.py::cmd_init",
+        "domain/events_writes.py::cmd_init",
         "domain/flow_init.py::cmd_init",
         "domain/project_structure.py::cmd_init",
         "domain/projects_restart.py::cmd_init",
