@@ -97,7 +97,9 @@ def operation_mission(
     missions = [
         case
         for case in execution["roster"]
-        if case.get("runner_id") == "agent_mission" and needs_test_machine(case) and case.get("project") == project
+        if case.get("runner_id") == "agent_mission"
+        and needs_test_machine(case)
+        and case.get("project") == project
     ]
     if execution["state"] not in {"walking", "awaiting_walk_review"} or not missions:
         raise MachineQaProtocolError(
@@ -120,7 +122,9 @@ def begin_operation_execution(
     plan_execution_id: str | None = None,
     **shape: Any,
 ) -> Any:
-    candidate = load_test_machine_contract(conn, project=project, test_machine=test_machine)
+    candidate = load_test_machine_contract(
+        conn, project=project, test_machine=test_machine
+    )
     lease = active_claim(conn, host_claim_target(candidate.settings["resource_name"]))
     mission = (
         None
@@ -151,7 +155,10 @@ def begin_operation_execution(
             select_any=False,
             **shape,
         )
-    if shape.get("baselines") and mission["state"] in {"walking", "awaiting_walk_review"}:
+    if shape.get("baselines") and mission["state"] in {
+        "walking",
+        "awaiting_walk_review",
+    }:
         raise MachineQaProtocolError(
             "test_machine_cleanup_live_lease: you hold the lease on "
             f"{candidate.settings['resource_name']} for your awaiting mission "
@@ -201,7 +208,7 @@ def repeated_mission_receipt(parsed: Any, recorded: Any, mission: Any) -> Any:
         return None
     checks = deepcopy(parsed.checks)
     if parsed.operation == "screenshot":
-        from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+        from yoke_core.domain.machine_qa_screenshot_artifact import (
             replay_screenshot,
         )
 

@@ -59,7 +59,10 @@ ENTRY_LIST_COLUMNS = (
     "body",
     "reviewed_at",
     "project",
-    "actor_id", "reporter_email", "yoke_version", "universe_fingerprint",
+    "actor_id",
+    "reporter_email",
+    "yoke_version",
+    "universe_fingerprint",
 )
 
 
@@ -73,7 +76,8 @@ def _entry_list_filters(
     unreviewed: bool,
     project: Optional[str],
     category: Optional[str],
-    project_ids=None, include_unscoped=False,
+    project_ids=None,
+    include_unscoped=False,
 ) -> tuple[str, list[object]]:
     """Shared WHERE clause + params for list and count projections."""
     p = _p(conn)
@@ -85,7 +89,8 @@ def _entry_list_filters(
             "o.reviewed_at IS NULL AND o.archived_at IS NULL AND o.correlation_id IS NULL"
         )
     if project_ids is not None:
-        from yoke_core.domain.handlers.ouroboros_roster_scope import scope_predicate
+        from yoke_core.domain.ouroboros_roster_scope import scope_predicate
+
         clause, ids = scope_predicate(conn, project_ids, include_unscoped)
         conditions.append(clause)
         params.extend(ids)
@@ -122,7 +127,8 @@ def list_entry_rows(
     category: Optional[str] = None,
     limit: Optional[int] = None,
     offset: int = 0,
-    project_ids=None, include_unscoped=False,
+    project_ids=None,
+    include_unscoped=False,
 ) -> list[dict]:
     """Typed entry rows; shared by the CLI renderer and ouroboros.field_note.list.
 
@@ -136,7 +142,8 @@ def list_entry_rows(
         unreviewed=unreviewed,
         project=project,
         category=category,
-        project_ids=project_ids, include_unscoped=include_unscoped,
+        project_ids=project_ids,
+        include_unscoped=include_unscoped,
     )
     bound = _bounded_limit(limit)
     skip = _bounded_offset(offset)
@@ -178,7 +185,8 @@ def count_entry_rows(
     unreviewed: bool = False,
     project: Optional[str] = None,
     category: Optional[str] = None,
-    project_ids=None, include_unscoped=False,
+    project_ids=None,
+    include_unscoped=False,
 ) -> int:
     """Matching row count for the same filters as :func:`list_entry_rows`."""
     where, params = _entry_list_filters(
@@ -186,7 +194,8 @@ def count_entry_rows(
         unreviewed=unreviewed,
         project=project,
         category=category,
-        project_ids=project_ids, include_unscoped=include_unscoped,
+        project_ids=project_ids,
+        include_unscoped=include_unscoped,
     )
     total = query_scalar(
         conn,

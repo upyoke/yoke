@@ -12,7 +12,7 @@ from runtime.api.domain.machine_operation_test_support import MACHINE
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import case_contract
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from yoke_contracts.api.function_call import ActorContext, TargetRef
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 from yoke_core.domain.machine_reset_debt import reset_owed
 from yoke_core.domain import machine_qa_submission_recording as recording
 

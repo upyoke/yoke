@@ -5,7 +5,7 @@ from typing import Any
 from psycopg.errors import LockNotAvailable, QueryCanceled
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.qa_plan_execution_models import PlanExecutionStateRequest
-from yoke_core.domain.handlers.machine_qa_plan_case_request import (
+from yoke_core.domain.machine_qa_plan_case_request import (
     target_plan_subject as _subject,
 )
 

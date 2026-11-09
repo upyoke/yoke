@@ -50,7 +50,10 @@ def resolve_visible_project_id(
     from yoke_core.domain.project_identity import resolve_project
 
     ident = resolve_project(
-        conn, project, required=False, visible_project_ids=visible_project_ids,
+        conn,
+        project,
+        required=False,
+        visible_project_ids=visible_project_ids,
     )
     return None if ident is None else ident.id
 
@@ -75,7 +78,9 @@ def resolve_visible_project_ids(
     resolved: list[int] = []
     for project in projects:
         project_id = resolve_visible_project_id(
-            conn, project, visible_project_ids,
+            conn,
+            project,
+            visible_project_ids,
         )
         if project_id is not None and project_id not in resolved:
             resolved.append(project_id)

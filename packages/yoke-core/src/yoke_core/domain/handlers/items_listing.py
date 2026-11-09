@@ -26,7 +26,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain.handlers.items_project_scope import (
+from yoke_core.domain.items_project_scope import (
     actor_visible_scope,
     ambiguous_project_error,
     resolve_visible_project_id,
@@ -70,7 +70,13 @@ def _validated_list_fields(
 
     fields = [str(f).strip() for f in requested if str(f).strip()]
     if not fields:
-        return [*DEFAULT_LIST_FIELDS, "stage", "home_section", "next_actor", "progress"], None
+        return [
+            *DEFAULT_LIST_FIELDS,
+            "stage",
+            "home_section",
+            "next_actor",
+            "progress",
+        ], None
     if len(set(fields)) != len(fields):
         return [], HandlerOutcome(
             primary_success=False,
@@ -95,7 +101,12 @@ def _validated_list_fields(
                     jsonpath="$.payload.fields",
                 ),
             )
-        if field not in _QI_ALL_FIELDS and field not in {"stage", "home_section", "next_actor", "progress"}:
+        if field not in _QI_ALL_FIELDS and field not in {
+            "stage",
+            "home_section",
+            "next_actor",
+            "progress",
+        }:
             return [], HandlerOutcome(
                 primary_success=False,
                 error=FunctionError(
@@ -155,7 +166,9 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.item_display_state import STATE_FIELDS, item_display_states
 
     stored_fields = [field for field in fields if field not in STATE_FIELDS] or ["id"]
-    select_cols, needs_project = item_project_join_select(stored_fields, native_instants=True)
+    select_cols, needs_project = item_project_join_select(
+        stored_fields, native_instants=True
+    )
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""
     select_cols += ", i.id"
 
@@ -208,9 +221,21 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                 if set(fields).intersection(STATE_FIELDS):
                     states = item_display_states(conn, [int(row[-1]) for row in rows])
                     for raw, rendered in zip(rows, out_rows):
-                        rendered.update({key: states[int(raw[-1])][key]
-                                         for key in fields if key in STATE_FIELDS})
-                    out_rows = [{key: value for key, value in row.items() if key in fields or key == "terminal"} for row in out_rows]
+                        rendered.update(
+                            {
+                                key: states[int(raw[-1])][key]
+                                for key in fields
+                                if key in STATE_FIELDS
+                            }
+                        )
+                    out_rows = [
+                        {
+                            key: value
+                            for key, value in row.items()
+                            if key in fields or key == "terminal"
+                        }
+                        for row in out_rows
+                    ]
     finally:
         conn.close()
     return HandlerOutcome(

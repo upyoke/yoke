@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.actors import seed_human_actor
-from yoke_core.domain.handlers import machine_qa_case_evidence as evidence
+from yoke_core.domain import machine_qa_case_evidence as evidence
 from yoke_core.domain.handlers import merge_engine_post_rebase_ci as ci
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.qa_artifact_handle import s3_handle

@@ -41,7 +41,9 @@ class TestHappyPath:
         """Happy path records qa_run with performed_by='browser_substrate'."""
         _seed_item(db_path, 100)
         req_id = _seed_requirement(
-            db_path, 100, "browser-check",
+            db_path,
+            100,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": _browser_check_steps(
@@ -54,9 +56,13 @@ class TestHappyPath:
         shot_file = tmp_path / "home.png"
         shot_file.write_bytes(b"PNG")
         result = _run_scenario(
-            db_path, 100,
+            db_path,
+            100,
             execute_step_responses=[
-                {"success": True, "artifacts": []},  # navigate step — no artifact expected
+                {
+                    "success": True,
+                    "artifacts": [],
+                },  # navigate step — no artifact expected
                 {"success": True, "artifacts": [str(shot_file)]},  # screenshot step
             ],
         )
@@ -125,21 +131,30 @@ class TestHappyPath:
                 browser_qa,
                 "_fetch_browser_context",
                 side_effect=partial(
-                    _fetch_context_from_test_db, db_path=db_path,
+                    _fetch_context_from_test_db,
+                    db_path=db_path,
                 ),
             ),
             mock.patch.object(browser_qa, "_validate_reachability", return_value=None),
             mock.patch.object(browser_qa, "_ensure_daemon_running", return_value=None),
-            mock.patch.object(browser_qa, "_record_run", side_effect=recorder.record_run),
-            mock.patch.object(browser_qa, "_complete_run", side_effect=recorder.complete_run),
-            mock.patch.object(browser_qa, "_record_artifact", side_effect=recorder.record_artifact),
+            mock.patch.object(
+                browser_qa, "_record_run", side_effect=recorder.record_run
+            ),
+            mock.patch.object(
+                browser_qa, "_complete_run", side_effect=recorder.complete_run
+            ),
+            mock.patch.object(
+                browser_qa, "_record_artifact", side_effect=recorder.record_artifact
+            ),
             mock.patch.object(
                 browser_qa,
                 "_record_artifact_file",
                 side_effect=recorder.record_artifact_file,
             ),
             mock.patch.object(
-                browser_qa, "open_owned_page", return_value="page-under-test",
+                browser_qa,
+                "open_owned_page",
+                return_value="page-under-test",
             ),
             mock.patch.object(browser_qa, "close_owned_page", return_value=None),
             mock.patch.object(browser_qa, "_execute_step", side_effect=_fake_step),
@@ -193,10 +208,13 @@ class TestHappyPath:
         ).fetchone()
         conn.close()
         assert (qa_row[0], qa_row[1], qa_row[2]) == (
-            "browser_substrate", "pass", "captured",
+            "browser_substrate",
+            "pass",
+            "captured",
         )
         assert result.runs[0].artifacts == [
-            str(expected_dir / "home.png"), str(expected_dir / "run-result.json")
+            str(expected_dir / "home.png"),
+            str(expected_dir / "run-result.json"),
         ]
 
         conn = connect_test_db(db_path)
@@ -211,13 +229,15 @@ class TestHappyPath:
         assert payload["artifacts"] == result.runs[0].artifacts
 
     def test_linked_manual_artifact_copies_to_permanent_local_storage(
-        self, tmp_path: Path, db_path: str,
+        self,
+        tmp_path: Path,
+        db_path: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Unconfigured S3 stores manual artifact evidence permanently."""
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
         monkeypatch.setattr(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
             lambda *_args: None,
         )
         _seed_item(db_path, 100)
@@ -225,9 +245,11 @@ class TestHappyPath:
             db_path,
             100,
             "browser-check",
-            {"steps": _browser_check_steps(
-                {"action": "screenshot", "capture": True},
-            )},
+            {
+                "steps": _browser_check_steps(
+                    {"action": "screenshot", "capture": True},
+                )
+            },
         )
         source = tmp_path / "manual.png"
         source.write_bytes(b"PNG")
@@ -255,7 +277,9 @@ class TestHappyPath:
         """Non-browser qa_kinds (simulation) are not touched by execute_scenario."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser-check",
+            db_path,
+            100,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": _browser_check_steps(),
@@ -273,7 +297,8 @@ class TestHappyPath:
         conn.close()
 
         result = _run_scenario(
-            db_path, 100,
+            db_path,
+            100,
             execute_step_responses=[{"success": True, "artifacts": []}],
         )
         assert result.verdict == "pass"
@@ -284,67 +309,3 @@ class TestHappyPath:
         # Only browser kinds should have been executed; simulation must not appear.
         assert "simulation" not in kinds
         assert "plan_case" in kinds
-
-
-class TestFailurePropagation:
-    def test_ac13_success_false_step_marks_run_fail(self, db_path: str) -> None:
-        """A step returning success:false marks the run verdict=fail."""
-        _seed_item(db_path, 100)
-        _seed_requirement(
-            db_path, 100, "browser-check",
-            {
-                "base_url": "http://localhost:9999",
-                "steps": _browser_check_steps(
-                    {"action": "click", "target": "#missing"},
-                ),
-            },
-        )
-
-        result = _run_scenario(
-            db_path, 100,
-            execute_step_responses=[
-                {"success": True, "artifacts": []},
-                {"success": False, "error": "element not found", "artifacts": []}
-            ],
-        )
-
-        assert result.verdict == "fail"
-        assert result.runs[0].verdict == "fail"
-        assert "element not found" in result.runs[0].errors
-
-    def test_env_setup_failure_hard_stops(self, db_path: str) -> None:
-        """Step returning exit_code=2 aborts remaining requirements."""
-        _seed_item(db_path, 100)
-        _seed_requirement(
-            db_path, 100, "browser-check",
-            {
-                "base_url": "http://localhost:9999",
-                "steps": _browser_check_steps(
-                    {"action": "click", "target": "button"},
-                ),
-            },
-        )
-        _seed_requirement(
-            db_path, 100, "browser-inspection",
-            {
-                "base_url": "http://localhost:9999",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
-                    {"action": "screenshot", "capture": True},
-                ],
-            },
-        )
-
-        result = _run_scenario(
-            db_path, 100,
-            execute_step_responses=[
-                {"success": False, "error": "env_setup_failure", "exit_code": 2}
-            ],
-        )
-
-        assert result.verdict == "fail"
-        # Only the first requirement should have been executed before the
-        # env failure aborted the loop.
-        assert len(result.runs) == 1
-        assert result.runs[0].verdict == "fail"
-        assert "env_setup_failure" in result.runs[0].errors

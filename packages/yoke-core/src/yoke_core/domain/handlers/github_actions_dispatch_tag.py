@@ -15,6 +15,13 @@ different commit is refused, never moved.
 
 from __future__ import annotations
 
+from yoke_core.domain.github_actions_dispatch_identity import DISPATCH_TAG_PREFIX
+
+from yoke_core.domain.github_actions_dispatch_identity import (
+    FUNCTION_ID as FUNCTION_ID,
+    dispatch_tag_name as dispatch_tag_name,
+)
+
 import re
 from typing import Any, Dict, List
 
@@ -39,19 +46,11 @@ from yoke_core.domain.handlers.github_actions_set import (
 )
 
 
-FUNCTION_ID = "github_actions.dispatch_tag.ensure"
-
 #: The only tag namespace this function writes; one tag per deployment run.
-DISPATCH_TAG_PREFIX = "yoke-deploy/"
 
 _TAG_NAME = re.compile(
     "^" + re.escape(DISPATCH_TAG_PREFIX) + r"[A-Za-z0-9][A-Za-z0-9._-]*$"
 )
-
-
-def dispatch_tag_name(run_id: str) -> str:
-    """The tag a deployment run's stages are dispatched at."""
-    return f"{DISPATCH_TAG_PREFIX}{run_id}"
 
 
 class DispatchTagEnsureRequest(BaseModel):

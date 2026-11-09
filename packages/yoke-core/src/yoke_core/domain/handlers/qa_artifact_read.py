@@ -111,7 +111,7 @@ def _local_result(row, handle: dict) -> dict:
 
 
 def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]:
-    from yoke_core.domain.handlers.qa_artifact_presign import (
+    from yoke_core.domain.qa_artifact_configuration import (
         _aws_region,
         _capability_credentials,
         resolve_artifacts_bucket,

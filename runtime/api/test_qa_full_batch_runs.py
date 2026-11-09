@@ -301,7 +301,7 @@ class TestRunAddBatch:
     ):
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
         monkeypatch.setattr(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
             lambda *_args: None,
         )
         req_id = self._seed_requirement(db_path, capsys)

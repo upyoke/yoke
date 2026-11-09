@@ -18,7 +18,7 @@ from yoke_core.domain.db_read_column_hints import (
 )
 from yoke_core.domain.handlers import db_read
 from yoke_core.domain.handlers.db_read import DbReadRunRequest
-from yoke_core.domain.handlers.db_read_sql import validate_read_only_sql
+from yoke_core.domain.db_read_sql import validate_read_only_sql
 
 
 def _refusal_code(sql: str) -> str | None:

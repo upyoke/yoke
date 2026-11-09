@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import _failure
-from yoke_core.domain.handlers.machine_qa_case_evidence import (
+from yoke_core.domain.machine_qa_case_evidence import (
     record_machine_case_result as _record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult

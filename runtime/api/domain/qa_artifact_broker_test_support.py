@@ -31,7 +31,7 @@ from yoke_contracts.api.function_call import (
 
 from yoke_core.domain import qa_artifact_broker as broker
 
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 
 from yoke_core.domain.handlers.qa_artifact_presign import handle_qa_artifact_presign
 

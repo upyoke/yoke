@@ -27,7 +27,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.timestamps import format_instant, parse_instant, temporal_wire
 from yoke_core.domain.function_response_refs import collect_item_ids
-from yoke_core.domain.handlers.event_presentation import event_envelope, present_event
+from yoke_core.domain.event_presentation import event_envelope, present_event
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 
 

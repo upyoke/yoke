@@ -23,7 +23,7 @@ from runtime.api.domain.baseline_probe_failure_causes_test_support import (
     _claude_probe,
 )
 
-from yoke_core.domain.handlers.machine_qa_case_evidence import (
+from yoke_core.domain.machine_qa_case_evidence import (
     record_machine_case_result,
 )
 

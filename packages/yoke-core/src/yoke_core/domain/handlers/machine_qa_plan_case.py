@@ -1,20 +1,24 @@
 """Plan-scoped Machine QA under one uninterrupted server-owned lease."""
 
+from yoke_core.domain.machine_qa_plan_case_ownership import (
+    _owned_case as _owned_case,
+)
+
+
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import _failure
-from yoke_core.domain.handlers.machine_qa_plan_case_models import (
+from yoke_core.domain.machine_qa_plan_case_models import (
     TestMachinePlanCaseBeginRequest,
     TestMachinePlanCaseBeginResponse,
     TestMachinePlanCaseSubmitRequest,
     TestMachinePlanCaseSubmitResponse,
 )
-from yoke_core.domain.handlers.machine_qa_plan_case_request import (
+from yoke_core.domain.machine_qa_plan_case_request import (
     parse_plan_case_request,
     target_plan_subject,
 )
@@ -29,61 +33,6 @@ from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 from yoke_core.domain.machine_qa_host_unreachable import wait_if_host_unreachable
 from yoke_core.domain.machine_qa_host_selection import TestMachineHostUnhealthy
 from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
-from yoke_core.domain.machine_qa_plan_case_snapshot import (
-    assert_current_snapshot as _assert_current_snapshot,
-)
-
-
-def _owned_case(
-    conn: Any,
-    request: FunctionCallRequest,
-    parsed: TestMachinePlanCaseBeginRequest,
-    item_id: int | None,
-    deployment_run_id: str | None,
-    *,
-    replay: bool,
-    expected_runner: str | None = "host_control",
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    from yoke_core.domain.qa_plan_execution_state import (
-        expected_plan_case,
-        lock_plan_execution,
-        require_plan_execution_owner,
-    )
-
-    execution = lock_plan_execution(conn, parsed.execution_id)
-    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
-
-    request = resolve_execution_request(conn, request, execution)
-    item_id, deployment_run_id = (
-        request.target.item_id,
-        request.target.deployment_run_id,
-    )
-    if request.target.kind == "global":
-        from yoke_core.domain.qa_standalone_execution import require_standalone_project
-
-        require_standalone_project(conn, execution, str(request.target.project_id))
-    require_plan_execution_owner(
-        execution,
-        conn=conn,
-        item_id=item_id,
-        deployment_run_id=deployment_run_id,
-        actor_id=request.actor.actor_id,
-        session_id=request.actor.session_id,
-    )
-    case = expected_plan_case(
-        execution,
-        ordinal=parsed.ordinal,
-        requirement_id=parsed.requirement_id,
-        allow_replay=replay or expected_runner is None,
-    )
-    if expected_runner is not None and case.get("runner_id") != expected_runner:
-        raise ValueError(f"the ordered plan case is not a {expected_runner} case")
-    _assert_current_snapshot(conn, case)
-    if replay and parsed.ordinal >= int(execution["cursor_ordinal"]):
-        from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
-
-        require_case_host_leases(conn, execution, case)
-    return execution, case
 
 
 def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
@@ -114,14 +63,23 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             expected_runner=None,
         )
         if case.get("runner_id") == "agent_mission" and not needs_test_machine(case):
-            from yoke_core.domain.agent_mission_controller import record_controller_mission
+            from yoke_core.domain.agent_mission_controller import (
+                record_controller_mission,
+            )
 
-            result = record_controller_mission(conn, execution, case, ordinal=parsed.ordinal)
+            result = record_controller_mission(
+                conn, execution, case, ordinal=parsed.ordinal
+            )
             conn.commit()
-            return HandlerOutcome(primary_success=True, result_payload={
-                "state": "retained", "execution_id": str(execution["id"]),
-                "cursor_ordinal": int(execution["cursor_ordinal"]), "result": result,
-            })
+            return HandlerOutcome(
+                primary_success=True,
+                result_payload={
+                    "state": "retained",
+                    "execution_id": str(execution["id"]),
+                    "cursor_ordinal": int(execution["cursor_ordinal"]),
+                    "result": result,
+                },
+            )
         if parsed.ordinal != int(execution["cursor_ordinal"]):
             raise ValueError("QA plan execution expects its current ordinal")
         if not needs_test_machine(case) and not (
@@ -174,7 +132,10 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             from yoke_core.domain.qa_host_turns import record_host_wait
 
             waiting = record_host_wait(
-                conn, execution, test_machine=unhealthy.test_machine, rationale=str(unhealthy)
+                conn,
+                execution,
+                test_machine=unhealthy.test_machine,
+                rationale=str(unhealthy),
             )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
         from yoke_core.domain.qa_plan_execution_reentry import record_case_admitted

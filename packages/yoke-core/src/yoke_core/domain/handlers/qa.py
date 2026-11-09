@@ -15,20 +15,19 @@ on validation failure; handlers return a structured ``FunctionError`` instead.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from yoke_core.domain.qa_handler_outcomes import (
+    _p as _p,
+    _error as _error,
+)
+
+from typing import List, Optional
 
 from pydantic import BaseModel
 
-from yoke_core.domain import db_backend
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
-    FunctionError,
     HandlerOutcome,
 )
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 # ---------------------------------------------------------------------------
@@ -48,15 +47,6 @@ class QaRequirementUpdateResponse(BaseModel):
     #: Admitted deployment-stage copies this amendment also reached, so the
     #: caller learns a run in flight was corrected rather than left behind.
     admitted_copies_updated: List[int] = []
-
-
-def _error(
-    code: str, message: str, *, jsonpath: Optional[str] = None
-) -> HandlerOutcome:
-    return HandlerOutcome(
-        primary_success=False,
-        error=FunctionError(code=code, message=message, jsonpath=jsonpath),
-    )
 
 
 def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome:

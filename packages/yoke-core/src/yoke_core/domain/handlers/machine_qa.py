@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.machine_qa_outcomes import (
+    _failure as _failure,
+)
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
-    FunctionError,
     HandlerOutcome,
 )
 from yoke_contracts.machine_qa_execution import (
@@ -157,9 +160,7 @@ def handle_operation_on_control_plane(
             "test_machine_operation_unknown",
             f"{request.function!r} is not an operator-run test-machine operation",
         )
-    selector = (
-        f" --test-machine {parsed.test_machine}" if parsed.test_machine else ""
-    )
+    selector = f" --test-machine {parsed.test_machine}" if parsed.test_machine else ""
     return _failure(
         "host_control_client_required",
         f"test-machine {operation.replace('_', ' ')} cannot execute on "
@@ -171,13 +172,6 @@ def handle_operation_on_control_plane(
 
 def _invalid(exc: ValidationError) -> HandlerOutcome:
     return _failure("payload_invalid", safe_validation_message(exc))
-
-
-def _failure(code: str, message: str) -> HandlerOutcome:
-    return HandlerOutcome(
-        primary_success=False,
-        error=FunctionError(code=code, message=message, jsonpath="$.payload"),
-    )
 
 
 __all__ = [

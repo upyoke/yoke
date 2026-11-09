@@ -190,7 +190,7 @@ def test_s3_evidence_returns_authorized_presigned_download() -> None:
         seed_s3_configuration(conn, bucket=bucket)
         with (
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                 return_value=CREDS,
             ),
             patch(
@@ -238,7 +238,7 @@ def test_s3_read_matches_real_http_function_boundary() -> None:
             client.headers.update(auth.headers)
             with (
                 patch(
-                    "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                    "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                     return_value=CREDS,
                 ),
                 patch(

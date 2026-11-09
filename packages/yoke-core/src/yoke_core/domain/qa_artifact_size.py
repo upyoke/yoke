@@ -25,7 +25,7 @@ def handle_size(conn: Any, owner: dict, run_id: int, handle: dict) -> int:
         if (signed.bucket, signed.key) != (handle["bucket"], handle["key"]):
             raise ValueError("submitted handle differs from the signer-owned object")
         return signed_object_size(signed.url, bucket=signed.bucket, key=signed.key)
-    from yoke_core.domain.handlers.qa_artifact_presign import _aws_region
+    from yoke_core.domain.qa_artifact_configuration import _aws_region
 
     return stored_handle_size(
         handle,

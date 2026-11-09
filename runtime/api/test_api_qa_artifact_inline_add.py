@@ -20,7 +20,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import machine_config, project_scratch_dir, qa_artifact_size
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_read import (
     MAX_INLINE_BYTES,
     handle_qa_artifact_read,
@@ -167,17 +167,15 @@ def test_configured_s3_receives_bytes_before_the_row_is_recorded() -> None:
         run_id = _seed_run(conn)
         with (
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign."
-                "resolve_artifacts_bucket",
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
                 return_value=("prod", "project-artifacts", None),
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._aws_region",
+                "yoke_core.domain.qa_artifact_configuration._aws_region",
                 return_value="us-east-1",
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign."
-                "_capability_credentials",
+                "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                 return_value=AwsCredentials("access", "secret"),
             ),
             patch(
@@ -213,17 +211,15 @@ def test_configured_s3_upload_failure_has_no_local_fallback() -> None:
         run_id = _seed_run(conn)
         with (
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign."
-                "resolve_artifacts_bucket",
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
                 return_value=("prod", "project-artifacts", None),
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._aws_region",
+                "yoke_core.domain.qa_artifact_configuration._aws_region",
                 return_value="us-east-1",
             ),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign."
-                "_capability_credentials",
+                "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                 return_value=AwsCredentials("access", "secret"),
             ),
             patch(
@@ -314,10 +310,13 @@ def test_inline_png_round_trips_through_authorized_read(
 def test_existing_s3_handle_add_still_records_the_authorized_handle() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn)
-        with patch(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
-            return_value=("prod", "p-prod-artifacts", None),
-        ), patch.object(qa_artifact_size, "handle_size", return_value=3):
+        with (
+            patch(
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
+                return_value=("prod", "p-prod-artifacts", None),
+            ),
+            patch.object(qa_artifact_size, "handle_size", return_value=3),
+        ):
             outcome = handle_qa_artifact_add(
                 _request(
                     {

@@ -7,14 +7,12 @@ reviewed human repairs use operator.data_repair.run.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import format_instant
+from yoke_core.domain.db_read_json import (
+    json_safe as json_safe,
+)
 
-import base64
-import math
-from datetime import date, datetime, time
-from decimal import Decimal
+
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -32,7 +30,7 @@ from yoke_core.domain.db_read_column_hints import (
 )
 from yoke_core.domain.db_read_schema_hint import schema_hint_for_error
 from yoke_core.domain.db_read_secret_columns import secret_column_refusal
-from yoke_core.domain.handlers.db_read_sql import (
+from yoke_core.domain.db_read_sql import (
     DbReadRefusal,
     validate_read_only_sql,
 )
@@ -179,30 +177,6 @@ def _column_name(description: Any) -> str:
     if name is not None:
         return str(name)
     return str(description[0])
-
-
-def json_safe(value: Any) -> Any:
-    """Return *value* as a JSON-serializable value, unchanged in meaning."""
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        return value if math.isfinite(value) else str(value)
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, datetime):
-        return format_instant(value)
-    if isinstance(value, (date, time, UUID)):
-        return value.isoformat() if hasattr(value, "isoformat") else str(value)
-    if isinstance(value, bytes):
-        try:
-            return value.decode("utf-8")
-        except UnicodeDecodeError:
-            return base64.b64encode(value).decode("ascii")
-    if isinstance(value, dict):
-        return {str(key): json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [json_safe(item) for item in value]
-    return str(value)
 
 
 __all__ = [

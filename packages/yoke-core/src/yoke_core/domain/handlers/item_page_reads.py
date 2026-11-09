@@ -164,7 +164,7 @@ def _handle_paged_roster(
     reach back up into this package to scope itself.
     """
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.handlers.items_project_scope import (
+    from yoke_core.domain.items_project_scope import (
         actor_visible_scope,
         ambiguous_project_error,
         resolve_visible_project_ids,
@@ -275,7 +275,9 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
             "$.payload.include",
         )
     try:
-        item = get_item_detail(int(request.target.item_id), include=include, qa_proof=payload.qa_proof)
+        item = get_item_detail(
+            int(request.target.item_id), include=include, qa_proof=payload.qa_proof
+        )
     except LookupError as exc:
         return _error("not_found", str(exc))
     from yoke_core.domain.db_helpers import connect

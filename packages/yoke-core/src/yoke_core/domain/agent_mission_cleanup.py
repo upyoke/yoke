@@ -140,7 +140,7 @@ def _finish(
     outcome = None
     try:
         if parsed.restore is not None:
-            from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+            from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
             from yoke_core.domain.machine_qa_submission_artifacts import (
                 ensure_secret_free_result,
             )
@@ -167,7 +167,7 @@ def _finish(
     except SavepointLostError:
         raise
     except Exception:
-        from yoke_core.domain.handlers.machine_qa import _failure
+        from yoke_core.domain.machine_qa_outcomes import _failure
 
         outcome = _failure(
             "mission_restore_evidence_failed",
@@ -221,7 +221,7 @@ def _finish(
 def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
     from yoke_core.domain.coordination_claims import CoordinationClaimError
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.handlers.machine_qa import _failure
+    from yoke_core.domain.machine_qa_outcomes import _failure
     from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,

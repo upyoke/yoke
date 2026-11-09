@@ -1,12 +1,14 @@
 """Canonical Python helper surfaces and diagnosed wrong imports.
-
 Pure data for schema_api_context_tables; columns name symbols, not SQL fields.
 """
 
 from __future__ import annotations
 
-
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_core.domain.github_actions_dispatch_identity": {
+        "columns": [("FUNCTION_ID", "constant"), ("dispatch_tag_name", "callable")],
+        "notes": "Owns FUNCTION_ID and dispatch_tag_name together. Wrong guess: extracting only the tag constructor also moves its function id; deployment dispatch imports both.",
+    },
     "yoke_harness.browser_check_profile": {
         "columns": [("check_scope", "context manager"), ("sweep_checks", "callable")],
         "notes": (

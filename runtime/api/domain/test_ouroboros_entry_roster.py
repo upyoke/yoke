@@ -21,7 +21,14 @@ def _request(payload) -> FunctionCallRequest:
         function="ouroboros.field_note.list",
         actor=ActorContext(actor_id="op", session_id="s-1"),
         target=TargetRef(kind="global"),
-        payload={**({"scope": "project"} if "project" in payload or "projects" in payload else {}), **payload},
+        payload={
+            **(
+                {"scope": "project"}
+                if "project" in payload or "projects" in payload
+                else {}
+            ),
+            **payload,
+        },
     )
 
 
@@ -33,7 +40,9 @@ def _seed(conn, *, timestamp: str, body: str, project="yoke") -> int:
         "observation",
         body,
         project,
-    yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
+        yoke_version="0.2.0.202610290013",
+        universe_fingerprint="fixture@2026-01-01T00:00:00Z",
+    )
     conn.commit()
     return int(entry_id)
 
@@ -245,7 +254,7 @@ def test_multi_project_roster_never_widens_unknown_project_scope(test_db):
 
 
 def test_multi_project_roster_respects_explicit_actor_visibility(test_db, monkeypatch):
-    from yoke_core.domain.handlers import ouroboros_roster_scope
+    from yoke_core.domain import ouroboros_roster_scope as ouroboros_roster_scope
 
     _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="restricted")
     monkeypatch.setattr(

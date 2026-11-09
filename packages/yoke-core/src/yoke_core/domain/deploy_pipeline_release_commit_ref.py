@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping, Optional
 
 from yoke_core.domain.flow_validation import RUN_FROM_RELEASE_COMMIT
-from yoke_core.domain.handlers.github_actions_dispatch_tag import (
+from yoke_core.domain.github_actions_dispatch_identity import (
     FUNCTION_ID as DISPATCH_TAG_FUNCTION_ID,
     dispatch_tag_name,
 )
@@ -42,8 +42,7 @@ def dispatch_ref(
     if config.get(RUN_FROM_RELEASE_COMMIT) is not True:
         return str(config.get("ref", "") or "main"), ""
     prefix = (
-        f"stage {name!r} declares {RUN_FROM_RELEASE_COMMIT} and was not "
-        "dispatched: "
+        f"stage {name!r} declares {RUN_FROM_RELEASE_COMMIT} and was not dispatched: "
     )
     if len(head_sha) != 40:
         return "", (
@@ -53,8 +52,13 @@ def dispatch_ref(
         )
     tag = dispatch_tag_name(run_id)
     result = github_actions(
-        "dispatch-tag", "ensure", github_repo, tag, head_sha,
-        project=project, sd=sd,
+        "dispatch-tag",
+        "ensure",
+        github_repo,
+        tag,
+        head_sha,
+        project=project,
+        sd=sd,
     )
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip() or "no output"

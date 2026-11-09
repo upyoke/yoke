@@ -130,7 +130,7 @@ def validate_operation_result(
             and parsed.checks[0].get("os") != contract.settings["os"]
         ):
             raise ValueError("screenshot OS differs from its issued machine contract")
-        from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+        from yoke_core.domain.machine_qa_screenshot_artifact import (
             validate_screenshot,
         )
 

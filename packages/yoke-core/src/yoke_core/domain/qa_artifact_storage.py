@@ -43,7 +43,7 @@ def _checked_bytes(content: bytes) -> bytes:
 
 def _configured_store(conn: Any, owner: dict[str, Any]) -> Any:
     """The owner's configured object store, or None when none is declared."""
-    from yoke_core.domain.handlers.qa_artifact_presign import resolve_artifacts_bucket
+    from yoke_core.domain.qa_artifact_configuration import resolve_artifacts_bucket
     from yoke_core.domain.qa_artifact_broker import ArtifactBrokerError
 
     try:
@@ -159,7 +159,7 @@ def store_owned_artifact_bytes(
     before_local_write: Callable[[Path], None] | None = None,
 ) -> dict[str, Any]:
     """Store evidence for an authority-resolved requirement or machine receipt."""
-    from yoke_core.domain.handlers.qa_artifact_presign import (
+    from yoke_core.domain.qa_artifact_configuration import (
         _aws_region,
         _capability_credentials,
     )

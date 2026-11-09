@@ -170,7 +170,7 @@ def _handle_roster_list(
             )
         from yoke_core.domain.db_helpers import connect
 
-        from yoke_core.domain.handlers.ouroboros_roster_scope import roster_project_ids
+        from yoke_core.domain.ouroboros_roster_scope import roster_project_ids
 
         conn = connect()
         try:
@@ -229,17 +229,14 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
     filters = dict(
         unreviewed=bool(payload.get("unreviewed", False)),
         project=(str(project) if project else None),
-        category=(
-            str(payload.get("category"))
-            if payload.get("category")
-            else None
-        ),
+        category=(str(payload.get("category")) if payload.get("category") else None),
     )
     count_only = bool(payload.get("count", False))
     conn = connect()
     try:
         try:
-            from yoke_core.domain.handlers.ouroboros_roster_scope import roster_project_ids
+            from yoke_core.domain.ouroboros_roster_scope import roster_project_ids
+
             ids, include_unscoped = roster_project_ids(conn, request)
             filters.update(project_ids=ids, include_unscoped=include_unscoped)
             if count_only:
@@ -294,7 +291,8 @@ def handle_ouroboros_entry_get(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         entry = get_entry_row(conn, entry_id)
-        from yoke_core.domain.handlers.ouroboros_roster_scope import entry_visible
+        from yoke_core.domain.ouroboros_roster_scope import entry_visible
+
         if entry is not None and not entry_visible(conn, request, entry):
             entry = None
     finally:

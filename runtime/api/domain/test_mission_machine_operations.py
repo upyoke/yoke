@@ -82,7 +82,7 @@ def mission(test_db, tmp_path, monkeypatch):
         assert begin_plan_review(test_db, lock_plan_execution(test_db, execution_id))
         test_db.commit()
         monkeypatch.setattr(
-            "yoke_core.domain.handlers.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
+            "yoke_core.domain.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
             lambda conn, **kwargs: {
                 "backend": "local",
                 "path": str(tmp_path / "desktop.png"),

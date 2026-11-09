@@ -95,7 +95,7 @@ def execute_query(
         Column separator (default ``|``).
     """
     from yoke_core.domain import db_backend
-    from yoke_core.domain.handlers.db_read_sql import validate_read_only_sql
+    from yoke_core.domain.db_read_sql import validate_read_only_sql
 
     refusal = validate_read_only_sql(sql)
     if refusal is not None:

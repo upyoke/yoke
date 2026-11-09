@@ -22,7 +22,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import machine_config, project_scratch_dir, qa_artifact_size
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_read import handle_qa_artifact_read
 from yoke_core.domain.handlers.qa_browser_writes import handle_qa_run_add
 from yoke_core.domain.qa_artifact_handle import parse_handle
@@ -94,10 +94,13 @@ def test_mission_handle_naming_the_test_host_is_refused_with_its_recipe() -> Non
 def test_mission_s3_handle_is_still_accepted() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn, performed_by="agent_mission")
-        with patch(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
-            return_value=("prod", "yoke-prod-artifacts", None),
-        ), patch.object(qa_artifact_size, "handle_size", return_value=3) as size:
+        with (
+            patch(
+                "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
+                return_value=("prod", "yoke-prod-artifacts", None),
+            ),
+            patch.object(qa_artifact_size, "handle_size", return_value=3) as size,
+        ):
             outcome = handle_qa_artifact_add(
                 _request(
                     {
@@ -119,7 +122,7 @@ def test_mission_s3_handle_outside_tenant_prefix_is_refused() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn, performed_by="agent_mission")
         with patch(
-            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            "yoke_core.domain.qa_artifact_configuration.resolve_artifacts_bucket",
             return_value=("prod", "yoke-prod-artifacts", "tenants/7"),
         ):
             outcome = handle_qa_artifact_add(

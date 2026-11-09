@@ -46,7 +46,6 @@ UNVERIFIABLE = "release_source_unverifiable"
 
 
 class ReleaseSourceRefused(DomainRefusal):
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
@@ -175,7 +174,7 @@ def _read(target: CiGateTarget, path: str, query: Dict[str, str]) -> Any:
 
 def _proof_state(target: CiGateTarget, sha: str) -> str:
     """The state of the run that proves *sha*, or ``no_runs``."""
-    from yoke_core.domain.handlers.github_actions_check_ci import _classify
+    from yoke_core.domain.github_actions_ci_result import _classify
 
     data = _read(
         target,
@@ -299,8 +298,14 @@ def bind_tested_release_source(
     every recovery names a flag that command accepts.
     """
     if (release_lineage or "").strip():
-        require_tested_lineage(project, flow, environment, release_lineage,
-                               retry=retry, source_flag=source_flag)
+        require_tested_lineage(
+            project,
+            flow,
+            environment,
+            release_lineage,
+            retry=retry,
+            source_flag=source_flag,
+        )
         return release_lineage
     target = ci_gate_target(project, flow, environment)
     if target is None:

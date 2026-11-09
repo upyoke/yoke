@@ -6,18 +6,20 @@ from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.agent_mission_docket import insert_mission_docket
-from yoke_core.domain.handlers.machine_qa import _failure
-from yoke_core.domain.handlers.machine_qa_plan_case import (
-    _assert_current_snapshot,
+from yoke_core.domain.machine_qa_outcomes import _failure
+from yoke_core.domain.machine_qa_plan_case_snapshot import (
+    assert_current_snapshot as _assert_current_snapshot,
+)
+from yoke_core.domain.machine_qa_plan_case_ownership import (
     _owned_case,
 )
-from yoke_core.domain.handlers.machine_qa_plan_case_models import (
+from yoke_core.domain.machine_qa_plan_case_models import (
     AgentMissionAccessRequest,
     AgentMissionAccessResponse,
     AgentMissionPlanCaseReadyRequest,
     AgentMissionPlanCaseReadyResponse,
 )
-from yoke_core.domain.handlers.machine_qa_plan_case_request import (
+from yoke_core.domain.machine_qa_plan_case_request import (
     parse_plan_case_request,
     target_plan_subject,
 )

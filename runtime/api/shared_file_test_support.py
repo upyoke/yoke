@@ -88,7 +88,7 @@ def fake_object_store() -> Iterator[FakeObjectStore]:
         with (
             patch("yoke_core.domain.s3_presign.presign_s3_url", side_effect=store.sign),
             patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                "yoke_core.domain.qa_artifact_configuration._capability_credentials",
                 return_value=CREDS,
             ),
         ):

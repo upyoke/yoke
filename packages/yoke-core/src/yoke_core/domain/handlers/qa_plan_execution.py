@@ -20,7 +20,7 @@ from yoke_core.domain.handlers.qa_plan_execution_models import (
     PlanExecutionAbortRequest,
     PlanExecutionStateResponse,
 )
-from yoke_core.domain.handlers.machine_qa_plan_case_request import (
+from yoke_core.domain.machine_qa_plan_case_request import (
     target_plan_subject as _subject,
 )
 

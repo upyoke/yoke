@@ -22,7 +22,7 @@ import pytest
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.qa_artifact_read_test_support import artifact_read_request
 from yoke_core.domain import qa_artifact_broker as broker
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_presign import handle_qa_artifact_presign
 from yoke_core.domain.handlers.qa_artifact_read import handle_qa_artifact_read
 
