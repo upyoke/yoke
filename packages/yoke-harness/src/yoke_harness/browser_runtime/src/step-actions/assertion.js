@@ -108,6 +108,22 @@ async function waitForCount(locator, page, timeout, predicate) {
   return count;
 }
 
+// Keep attachment waits and text polling inside one budget. Let locator
+// errors propagate, including strict-mode failures for ambiguous targets.
+async function waitForElementText(locator, page, timeout, matches) {
+  const deadline = Date.now() + timeout;
+  let text = null;
+  while (true) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return text;
+    text = await locator.textContent({ timeout: remaining });
+    if (text !== null && matches(text)) return text;
+    const wait = deadline - Date.now();
+    if (wait <= 0) return text;
+    await page.waitForTimeout(Math.min(100, wait));
+  }
+}
+
 /**
  * Execute an assert action.
  * Supports checks: visible, hidden, text_contains, text_equals, count_gte, count_eq
@@ -135,7 +151,7 @@ async function executeAssert(page, step, options, refMap) {
     case 'text_contains': {
       // For document-wide targets (body, html), use visible-text path that
       // excludes script/style content and waits for the expected hydrated
-      // text. Non-body locators use normal textContent() semantics.
+      // text. Element targets poll using normal textContent() semantics.
       const expected = String(step.expected).toLowerCase();
       const text = isDocumentWideTarget(step.target)
         ? await waitForVisibleText(
@@ -143,7 +159,9 @@ async function executeAssert(page, step, options, refMap) {
           timeout,
           value => value.toLowerCase().includes(expected)
         )
-        : await locator.textContent({ timeout });
+        : await waitForElementText(
+          locator, page, timeout, value => value.toLowerCase().includes(expected)
+        );
       if (text === null || !text.toLowerCase().includes(expected)) {
         throw new Error(
           `Expected text to contain "${step.expected}", got "${truncateForError(text)}"`
@@ -162,7 +180,9 @@ async function executeAssert(page, step, options, refMap) {
           timeout,
           value => value.trim() === expected
         )
-        : await locator.textContent({ timeout });
+        : await waitForElementText(
+          locator, page, timeout, value => value.trim() === expected
+        );
       if (text === null || text.trim() !== expected) {
         throw new Error(
           `Expected text to equal "${step.expected}", got "${truncateForError(text)}"`

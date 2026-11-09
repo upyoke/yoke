@@ -1,7 +1,9 @@
 {
  "id": "assertions",
  "title": "Assertions",
- "status": "draft-copy",
+ "status": "observed",
  "page": "browser-qa",
- "position": 2
+ "position": 2,
+ "summary": "Element text_contains and text_equals poll textContent until the expected text matches within timeout_ms, including attachment waits. Contains is case-insensitive; equals trims whitespace. Ambiguous element locators still fail in strict mode.",
+ "sources": ["docs/public/verification/browser-scenarios.md", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-actions/assertion.js"]
 }
