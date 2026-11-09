@@ -25,7 +25,7 @@ from typing import Optional, Sequence, TextIO
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
-from yoke_contracts.uv_project import uv_project_root
+from yoke_contracts.uv_project import is_uv_project
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.tools._watch_digest import TIER_HELP
 from yoke_core.tools._watch_wait_mode import (
@@ -51,15 +51,12 @@ def _anchor_directory(start: Path | None = None) -> Path:
 
     A subdirectory cwd embeds that sticky path in the minted line, and
     the watch adapter then binds a nested or mixed environment. Prefer
-    the uv-managed project that owns the lockfile; otherwise the git
-    checkout; otherwise the invocation directory.
+    the nearest uv-managed project within the git checkout; never cross
+    a checkout boundary. Otherwise use the invocation directory.
     """
     here = (start or Path.cwd()).resolve()
-    found = uv_project_root(here)
-    if found is not None:
-        return found
     for candidate in [here, *here.parents]:
-        if (candidate / ".git").exists():
+        if is_uv_project(candidate) or (candidate / ".git").exists():
             return candidate
     return here
 
