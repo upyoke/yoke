@@ -258,15 +258,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                 # Route through the function dispatcher and emit the typed
                 # envelope. Operators can read structured success/result
                 # without ``2>&1; echo $?`` choreography.
-                from yoke_core.domain.handlers.__init_register__ import (
-                    register_all_handlers,
+                from yoke_core.domain.handler_registry_runtime import (
+                    ensure_handlers_registered,
                 )
                 from yoke_contracts.api.function_call import TargetRef
                 from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
                 call_dispatcher = get_structured_dispatch().call_dispatcher
                 emit_response = get_structured_dispatch().emit_response
 
-                register_all_handlers()
+                ensure_handlers_registered()
                 response = call_dispatcher(
                     function_id="projects.capability.has",
                     target=TargetRef(kind="global"),

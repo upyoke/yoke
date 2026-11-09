@@ -75,11 +75,11 @@ def _ensure_handlers_registered() -> None:
     global _HANDLERS_REGISTERED
     if _HANDLERS_REGISTERED and list_entries():
         return
-    from yoke_core.domain.handlers.__init_register__ import (
-        register_all_handlers,
+    from yoke_core.domain.handler_registry_runtime import (
+        ensure_handlers_registered,
     )
 
-    register_all_handlers()
+    ensure_handlers_registered()
     _HANDLERS_REGISTERED = True
 
 

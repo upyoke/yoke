@@ -232,8 +232,6 @@ def register_all_handlers() -> None:
     immediately before `register_all_handlers()`.
     """
     global _REGISTRATION_COMPLETE
-    if _REGISTRATION_COMPLETE and yoke_function_registry.list_entries():
-        return
     with _REGISTRATION_LOCK:
         if _REGISTRATION_COMPLETE and yoke_function_registry.list_entries():
             return

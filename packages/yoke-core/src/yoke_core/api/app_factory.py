@@ -72,14 +72,14 @@ def create_app() -> FastAPI:
         dsn = db_backend.resolve_pg_dsn()
         with universe_source_pause.startup_access(dsn), db_backend.bound_pg_dsn(dsn):
             _ensure_db_initialized()
-        from yoke_core.domain.handlers.__init_register__ import (
-            register_all_handlers,
+        from yoke_core.domain.handler_registry_runtime import (
+            ensure_handlers_registered,
         )
         from yoke_core.domain.github_app_public_runtime import (
             attest_github_app_runtime_identity_with_hard_deadline,
         )
 
-        register_all_handlers()
+        ensure_handlers_registered()
         await attest_github_app_runtime_identity_with_hard_deadline()
         from yoke_core.api.health_refresh import health_refresh_lifespan
 

@@ -70,6 +70,7 @@ dependencies = [
 ]
 
 [project.entry-points."yoke.runtime"]
+handler_registry = "yoke_core.api.handler_registry_runtime"
 structured_dispatch = "yoke_core.api.service_client_structured_api_adapter"
 main_checkout_sync = "yoke_core.engines.main_checkout_sync"
 runs_continue_for_item = "yoke_core.engines.runs_continue_for_item"

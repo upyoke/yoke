@@ -33,12 +33,12 @@ def dispatch_task_update_body(
     Returns the CLI exit code (0 on success, 1 on dispatch failure).
     Emits human stdout in default mode; envelope JSON when ``json_mode``.
     """
-    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.handler_registry_runtime import ensure_handlers_registered
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
     call_dispatcher = get_structured_dispatch().call_dispatcher
     emit_response = get_structured_dispatch().emit_response
 
-    register_all_handlers()
+    ensure_handlers_registered()
     response = call_dispatcher(
         function_id="workflow_item.epic_task.body_replace",
         target=public_item_target(epic_id, kind="epic_task", task_num=int(task_num)),
