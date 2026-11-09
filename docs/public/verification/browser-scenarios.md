@@ -65,7 +65,9 @@ defines. Authored plan cases should use verified selectors and set
 | `count_eq` | `expected` | yes | Exactly the requested number of targets exist. |
 
 Every assertion honours `timeout_ms` (default 5000ms): `count_gte` and
-`count_eq` poll until the count holds or that budget expires. `wait_for`
+`count_eq` poll until the count holds or that budget expires. Element-target
+`text_contains` and `text_equals` poll until the expected text matches within
+the same budget, including time spent waiting for attachment. `wait_for`
 waits for a visible target. `delay` waits `duration` / `duration_ms`; it
 does not take a destination.
 
