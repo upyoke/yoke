@@ -128,7 +128,6 @@ def qa_run_add(args: List[str]) -> int:
     )
     parser.add_argument(
         "--requirement-id",
-        dest="requirement_id",
         type=int,
         required=True,
         metavar="N",
@@ -242,18 +241,25 @@ def qa_run_complete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run complete",
         usage=QA_RUN_COMPLETE_USAGE,
+        description=(
+            "Captured agent-reviewed runs refuse --verdict and --raw-result. "
+            "Use yoke qa run record-verdict --performed-by agent to review them."
+        ),
         epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument(
         "--requirement-id",
-        dest="requirement_id",
         type=int,
         required=True,
         metavar="N",
         help="QA requirement id the run belongs to.",
     )
     parser.add_argument(
-        "--run-id", dest="run_id", type=int, required=True, metavar="N",
+        "--run-id",
+        dest="run_id",
+        type=int,
+        required=True,
+        metavar="N",
         help="Id of the started QA run to complete.",
     )
     parser.add_argument(

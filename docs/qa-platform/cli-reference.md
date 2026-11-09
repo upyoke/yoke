@@ -65,7 +65,7 @@ authorized environment; command checkouts retain the admitted source.
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
 | `yoke qa run add` | Read `yoke qa run add --help` | Start a run before attaching evidence |
-| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status captured\|capture_failed] [opts]` | Complete a run; agent `undetermined` requires a linked artifact and halts for owner/operator review |
+| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status captured\|capture_failed] [opts]` | Complete a run; already captured, agent-reviewed runs refuse `--verdict` and `--raw-result`: use `yoke qa run record-verdict --performed-by agent` to preserve evidence and link review. Agent `undetermined` requires a linked artifact and halts for owner/operator review |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [--verdict-reason R] [--raw-result JSON] [opts]` | One-shot verdict; a blocking pass carries `{"verification_tree": {"head_sha": "<full commit sha>"}}` in `--raw-result` JSON (a `browser-inspection` review passes none); agent `undetermined` is refused because this surface cannot attach evidence |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |

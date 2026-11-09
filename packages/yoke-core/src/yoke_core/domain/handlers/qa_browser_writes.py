@@ -23,6 +23,7 @@ from yoke_core.domain.qa_capture_agreement import (
     run_artifact_count,
 )
 from yoke_core.domain.qa_pending_agent_review import pending_review_verdict_refusal
+from yoke_core.domain.qa_captured_completion import captured_completion_refusal
 from yoke_core.domain.qa_run_execution_evidence import (
     VerdictSettlementRefused,
     commit_settled_verdict,
@@ -237,7 +238,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         row = query_one(
             conn,
             "SELECT run.qa_requirement_id, run.qa_kind, run.performed_by, "
-            "run.verdict, run.raw_result, run.capture_degraded_reason, req.verdict_path, "
+            "run.verdict, run.raw_result, run.execution_status, "
+            "run.capture_degraded_reason, req.verdict_path, "
             "req.method_id FROM qa_runs run "
             "JOIN qa_requirements req ON req.id = run.qa_requirement_id "
             f"WHERE run.id = {p}",
@@ -251,6 +253,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{row['qa_requirement_id']}, not {req_id}",
             )
+        if issue := captured_completion_refusal(row, payload, int(req_id)):
+            return _error("qa_captured_review_required", issue)
         if settled := superseded_run_outcome(conn, run_id, req_id, verdict):
             return settled
         if issue := _review_evidence.agent_undetermined_evidence_error(
