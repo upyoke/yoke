@@ -261,8 +261,7 @@
   opacity: 0.55;
 }
 
-.universe-app-root .session-relay-warning,
-.universe-app-root .session-message-delivery-note {
+.universe-app-root .session-relay-warning {
   min-width: 0;
   color: var(--yoke-muted);
   font-size: 11px;
