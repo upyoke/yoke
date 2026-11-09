@@ -72,6 +72,7 @@ def execute_structured_write(
             content = f.read()
 
     if field == "architecture_impact":
+        from yoke_contracts.refusal_recovery import compose_refusal
         from yoke_core.domain.architecture_impact import ArchitectureImpactError, validate_value
 
         try:
@@ -79,7 +80,10 @@ def execute_structured_write(
         except ArchitectureImpactError as exc:
             return {
                 "success": False,
-                "error": f"architecture_impact validation failed: {exc}; put the reasoning in the spec",
+                "error": compose_refusal(
+                    f"architecture_impact validation failed: {exc}",
+                    recovery="Write one allowed value; put the reasoning in the spec",
+                ),
             }
 
     if field == "db_mutation_profile" and content and content.strip():
