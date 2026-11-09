@@ -11,6 +11,7 @@ cross-cutting-entrypoint) live in
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -42,8 +43,14 @@ def conn(tmp_path: Path) -> Any:
 def _make_items_table(conn: Any) -> None:
     conn.execute(
         "CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT, "
-        "architecture_impact TEXT NOT NULL DEFAULT 'none')"
+        "architecture_impact TEXT NOT NULL DEFAULT 'none', "
+        "workflow_version_id INTEGER NOT NULL DEFAULT 1)"
     )
+    conn.execute("CREATE TABLE workflow_versions (id INTEGER, definition_json TEXT)")
+    for version, terminal in ((1, "done"), (2, "archived")):
+        conn.execute("INSERT INTO workflow_versions VALUES (%s, %s)", (
+            version, json.dumps({"terminal_stage_ids": [terminal]}),
+        ))
 
 
 def _make_snapshot(
@@ -58,21 +65,47 @@ def _make_snapshot(
 
 
 class TestImpactDeclaration:
-    def test_invalid_enum_warns(self, conn):
+    @pytest.mark.parametrize("status,version", [
+        ("done", 1), ("cancelled", 1), ("stopped", 1), ("archived", 2),
+    ])
+    @pytest.mark.parametrize("value", ["major_refactor", "uncertain"])
+    def test_terminal_declarations_are_ignored(self, conn, status, version, value):
         _make_items_table(conn)
-        conn.execute(
-            "INSERT INTO items VALUES (1, 'idea', 'major_refactor')"
-        )
+        conn.execute("INSERT INTO items VALUES (1, %s, %s, %s)", (status, value, version))
+        conn.commit()
+        rec = RecordCollector()
+        hc_architecture_impact_declaration(conn, _args(), rec)
+        assert rec.results[-1].result == "PASS"
+        assert not rec.results[-1].detail
+
+    def test_done_is_active_when_the_pin_uses_a_different_terminal(self, conn):
+        _make_items_table(conn)
+        conn.execute("INSERT INTO items VALUES (1, 'done', 'major_refactor', 2)")
         conn.commit()
         rec = RecordCollector()
         hc_architecture_impact_declaration(conn, _args(), rec)
         assert rec.results[-1].result == "WARN"
         assert "major_refactor" in rec.results[-1].detail
 
+    def test_invalid_enum_warns(self, conn):
+        _make_items_table(conn)
+        conn.execute(
+            "INSERT INTO items VALUES (1, 'idea', 'major_refactor', 1)"
+        )
+        conn.commit()
+        rec = RecordCollector()
+        hc_architecture_impact_declaration(conn, _args(), rec)
+        assert rec.results[-1].result == "WARN"
+        assert "major_refactor" in rec.results[-1].detail
+        assert "yoke items structured-field replace" in rec.results[-1].detail
+        assert "--field architecture_impact --content <value>" in rec.results[-1].detail
+        assert "put the reasoning in the spec" in rec.results[-1].detail
+        assert "db_router" not in rec.results[-1].detail
+
     def test_uncertain_past_refined_idea_warns(self, conn):
         _make_items_table(conn)
         conn.execute(
-            "INSERT INTO items VALUES (1, 'implementing', 'uncertain')"
+            "INSERT INTO items VALUES (1, 'implementing', 'uncertain', 1)"
         )
         conn.commit()
         rec = RecordCollector()
@@ -84,7 +117,7 @@ class TestImpactDeclaration:
     def test_uncertain_at_idea_passes(self, conn):
         _make_items_table(conn)
         conn.execute(
-            "INSERT INTO items VALUES (1, 'idea', 'uncertain')"
+            "INSERT INTO items VALUES (1, 'idea', 'uncertain', 1)"
         )
         conn.commit()
         rec = RecordCollector()
@@ -94,7 +127,7 @@ class TestImpactDeclaration:
     def test_resolved_value_passes(self, conn):
         _make_items_table(conn)
         conn.execute(
-            "INSERT INTO items VALUES (1, 'implementing', 'none')"
+            "INSERT INTO items VALUES (1, 'implementing', 'none', 1)"
         )
         conn.commit()
         rec = RecordCollector()

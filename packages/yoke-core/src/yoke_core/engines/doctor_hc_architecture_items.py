@@ -3,7 +3,7 @@
 Owns the two checks that read items / item-side state rather than the
 project path snapshot:
 
-* ``HC-architecture-impact-declaration`` — every item's
+* ``HC-architecture-impact-declaration`` — every active item's
   ``architecture_impact`` value must be one of the closed enum; items
   that have advanced past ``refining-idea`` must not carry
   ``'uncertain'``.
@@ -35,6 +35,7 @@ from yoke_core.domain.architecture_impact import (
     IMPACT_UNCERTAIN,
 )
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
 from yoke_core.engines.doctor_hc_architecture_helpers import format_findings
 
 
@@ -43,26 +44,29 @@ _IMPACT_DECL_DESC = "Item architecture_impact value is invalid or unresolved"
 _SCAN_ERROR = "HC-architecture-scan-error"
 _SCAN_ERROR_DESC = "Stored dependency_edges value is invalid or scan failed"
 
-# Item statuses that must NOT carry architecture_impact='uncertain'.
+# Active item statuses that must NOT carry architecture_impact='uncertain'.
 _NON_UNCERTAIN_STATUSES = (
     "refined-idea", "planning", "plan-drafted", "refining-plan", "planned",
     "implementing", "reviewing-implementation", "reviewed-implementation",
-    "polishing-implementation", "implemented", "release", "done",
+    "polishing-implementation", "implemented", "release",
 )
 
 
 def hc_architecture_impact_declaration(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
-    """Validate every item's architecture_impact value and flag any
-    item past refining-idea that is still 'uncertain'."""
+    """Validate active declarations, including unresolved advanced items.
+
+    Terminal membership follows each item's pinned workflow.
+    """
     if not _base._column_exists(conn, "items", "architecture_impact"):
         rec.record(_IMPACT_DECL, _IMPACT_DECL_DESC, "PASS",
                    "items.architecture_impact column missing — skipping")
         return
     rows = conn.execute(
-        "SELECT id, status, architecture_impact FROM items "
-        "WHERE architecture_impact IS NOT NULL",
+        "SELECT i.id, i.status, i.architecture_impact FROM items i "
+        "WHERE architecture_impact IS NOT NULL "
+        f"AND NOT {terminal_items_sql(conn)}",
     ).fetchall()
     findings: List[str] = []
     for row in rows:
@@ -73,8 +77,9 @@ def hc_architecture_impact_declaration(
             findings.append(
                 f"- {public_ref}: architecture_impact='{raw_value}' is "
                 f"not one of {sorted(_IMPACT_ALLOWED)}. Repair: rewrite "
-                "via `db_router items update YOK-N architecture_impact "
-                "--stdin` with a valid enum value."
+                f"via `yoke items structured-field replace {public_ref} "
+                "--field architecture_impact --content <value>` with a valid "
+                "enum value; put the reasoning in the spec."
             )
             continue
         if value == IMPACT_UNCERTAIN and status in _NON_UNCERTAIN_STATUSES:

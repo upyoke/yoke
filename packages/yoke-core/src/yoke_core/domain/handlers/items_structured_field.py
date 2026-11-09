@@ -201,6 +201,11 @@ def handle_replace(request: FunctionCallRequest) -> HandlerOutcome:
 
     sync_warning = str(result.get("sync_warning") or "")
     github_sync = "degraded" if sync_warning else "ok"
+    expected = payload.content
+    if payload.field == "architecture_impact":
+        from yoke_core.domain.architecture_impact import validate_value
+
+        expected = validate_value(expected)
 
     response = ReplaceResponse(
         item_id=item_id,
@@ -211,7 +216,7 @@ def handle_replace(request: FunctionCallRequest) -> HandlerOutcome:
         new_hash=new_hash,
         payload_byte_count=payload_bytes,
         empty_payload=not has_content,
-        verification="ok" if new_hash == _hash(payload.content) else "drift",
+        verification="ok" if new_hash == _hash(expected) else "drift",
         github_sync=github_sync,
     )
     return HandlerOutcome(
