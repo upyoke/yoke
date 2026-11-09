@@ -1,0 +1,9 @@
+{
+ "id": "missing-required-checks",
+ "title": "Recover a required check that never reported",
+ "status": "observed",
+ "trigger": "An armed BLOCKED PR has no queue entry or pending/red required check past two refresh intervals from autoMergeRequest.enabledAt.",
+ "need": "The landing becomes STALLED and its holder receives the existing per-head stopped notice. Names are best-effort from rulesets and classic protection; unknown names do not hide the alarm. Merge-when-ready stays armed. Inspect the Actions run page, fix why the workflow did not start, and push a new commit. GitHub cannot rerun startup_failure runs.",
+ "sources": ["docs/public/github/merge-queue-landings.md", "runtime/api/domain/test_merge_queue_missing_checks.py"],
+ "topics": ["merging/landing", "merging/evidence/item-landing-record", "merging/recovery/stopped-queue-entry"]
+}

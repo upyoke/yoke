@@ -12,6 +12,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
+from yoke_core.domain.merge_queue_missing_checks import (
+    readback_missing_checks_stalled,
+    missing_checks_description,
+    missing_checks_recovery,
+    complete_missing_checks_readback,
+    name_missing_checks,
+)
 from yoke_core.domain.merge_queue_entry_check_redispatch import (
     redispatch_no_verdict_checks,
 )
@@ -80,7 +87,7 @@ def landing_eligible(state: Optional[PrLandingState]) -> bool:
 
 @dataclass(frozen=True)
 class LandingReadback:
-    """The four facts one admission decision is made from, read together."""
+    """The facts one admission decision is made from, read together."""
 
     state: Optional[PrLandingState] = None
     membership: Optional[PrQueueMembership] = None
@@ -89,6 +96,7 @@ class LandingReadback:
     membership_error: str = ""
     checks_error: str = ""
     queue_recovery: dict = field(default_factory=dict)
+    missing_checks: tuple[str, ...] | None = None
 
     @property
     def failed_required(self) -> tuple[LandingCheck, ...]:
@@ -105,22 +113,14 @@ class LandingReadback:
         return self.state is not None and self.state.merged
 
     def admitted(self) -> bool:
-        """True when GitHub is holding this landing.
-
-        A retained UNMERGEABLE queue entry cannot land the pull request.
-        Without an entry the landing must be armed, eligible, and not already
-        refused by its own required checks — which together are the
-        ordinary armed-and-waiting state before those checks pass.
-
-        Unreadable admission facts are undetermined, not a refusal.
-        """
+        """True when GitHub is holding this landing."""
         if self.state is None or self.membership is None:
             return False
         if self.membership.entry_state == "UNMERGEABLE":
             return False
         if self.membership.in_queue:
             return True
-        if self.failed_required:
+        if self.failed_required or readback_missing_checks_stalled(self):
             return False
         return self.state.auto_merge_active and landing_eligible(self.state)
 
@@ -171,6 +171,7 @@ class LandingReadback:
             f"merge-when-ready={armed}, {queue}, "
             f"mergeStateStatus={merge_state.upper()}, "
             f"failed-required-checks={checks}"
+            + missing_checks_description(self)
         )
 
     def recovery(self, *, target: str) -> str:
@@ -178,6 +179,8 @@ class LandingReadback:
         state = self.state
         if state is not None and state.closed:
             return "it is closed — reopen or recreate it and re-run `yoke merge item`"
+        if readback_missing_checks_stalled(self):
+            return missing_checks_recovery(self.missing_checks)
         failed = self.failed_required
         if failed:
             return red_checks_recovery(failed)
@@ -212,7 +215,9 @@ def admission_facts_for_state(
     if state is None or state.merged:
         return LandingReadback(state=state, state_error=state_error)
     membership, membership_error = read_membership(ctx, pr_num)
-    checks, checks_error = read_checks(ctx, pr_num)
+    state, checks, checks_error = complete_missing_checks_readback(
+        ctx, pr_num, state, read_checks
+    )
     readback = LandingReadback(
         state=state,
         membership=membership,
@@ -220,7 +225,7 @@ def admission_facts_for_state(
         membership_error=membership_error or "",
         checks_error=checks_error or "",
     )
-    return failed_train_readback(ctx, pr_num, readback)
+    return failed_train_readback(ctx, pr_num, name_missing_checks(ctx, readback))
 
 
 def read_landing(
@@ -254,13 +259,7 @@ def verify_landing_admitted(
     read_state: Callable[..., object] = read_pr_landing_state,
     read_checks: Callable[..., object] = read_required_checks,
 ) -> str:
-    """Return ``""`` once GitHub reports it is holding the landing for ``pr_num``.
-
-    Any other outcome — an admission GitHub never made, a landing its own
-    required checks have already refused, or reads that cannot answer —
-    returns a refusal naming all four fields and the recovery, so nothing
-    downstream records a handoff GitHub never took.
-    """
+    """Confirm GitHub holds the landing, or name its refusal and recovery."""
     for attempt in (0, 1):
         if attempt:
             sleep(confirm_seconds)

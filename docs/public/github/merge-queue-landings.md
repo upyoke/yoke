@@ -81,6 +81,18 @@ observer waits three seconds and reads it once more before sending a stopped
 notice. If the second read still shows that state, it reports the stop; if
 it merged, it receives the normal completion notice.
 
+An armed PR with no queue entry can also stop when a required check never
+reports. After two refresh intervals from `autoMergeRequest.enabledAt`, a
+`BLOCKED` PR with no pending or failed required check becomes `STALLED`.
+The readback and stopped notice show `missing-required-checks=<names>` from
+rulesets and classic branch protection, or `missing-required-checks=unknown`
+if those names cannot be read. The alarm does not depend on reading names.
+Merge-when-ready stays armed. Inspect the named workflow's Actions run page
+for why it did not start, fix the cause, then push a new commit to retrigger
+it. GitHub cannot rerun a `startup_failure` run. This occurred on 2026-11-09
+on PRs #3464 and #3467–#3470: GitHub's `pull_request_target` brownout left the
+required `signature-check` absent despite all reported checks being green.
+
 Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base
 moved, rebase onto the base, re-run verification, and re-enter that command.

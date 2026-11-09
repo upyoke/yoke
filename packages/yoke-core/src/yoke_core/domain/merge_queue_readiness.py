@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 from typing import Optional, Sequence
 
+from yoke_core.domain.merge_queue_missing_checks import (
+    missing_checks_stalled,
+    missing_checks_recovery,
+    read_missing_check_names,
+)
 from yoke_core.domain.merge_queue_entry_checks import (
     ENTRY_CHECKS_FAILED,
     describe_failed_checks,
@@ -67,6 +72,8 @@ class MergeQueueReadiness:
     merged_at: datetime | None = None
     failed_checks: tuple[LandingCheck, ...] = field(default=())
     warnings: tuple[str, ...] = field(default=())
+    missing_checks: tuple[str, ...] | None = None
+    missing_checks_blocked: bool = False
 
     def __post_init__(self) -> None:
         if self.merged_at is not None:
@@ -111,7 +118,9 @@ class MergeQueueReadiness:
     def describe(self) -> str:
         """Render the facts without treating a consumed arming as cleared."""
         recovery = ""
-        if self.failed_checks:
+        if self.missing_checks_blocked:
+            recovery = "; " + missing_checks_recovery(self.missing_checks)
+        elif self.failed_checks:
             from yoke_core.domain.merge_queue_entry_checks import red_checks_recovery
 
             recovery = "; " + red_checks_recovery(self.failed_checks)
@@ -132,7 +141,13 @@ class MergeQueueReadiness:
             f"merged={_truth(self.merged)}, "
             f"state={_open_state(self.closed)}, "
             f"mergeStateStatus={self.merge_state_status or 'unreported'}, "
-            f"failed-required-checks={describe_failed_checks(self.failed_checks)}{recovery}"
+            f"failed-required-checks={describe_failed_checks(self.failed_checks)}"
+            + (
+                f", missing-required-checks={','.join(self.missing_checks or ()) or 'unknown'}"
+                if self.missing_checks_blocked
+                else ""
+            )
+            + recovery
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -227,6 +242,8 @@ def classify_readiness(
         # concluded red: GitHub will never create the entry, whatever the
         # arming field still reports.
         landing_state, in_flight = ENTRY_CHECKS_FAILED, False
+    elif missing_checks_stalled(state, required_checks):
+        landing_state, in_flight = NOT_IN_FLIGHT, False
     elif state is not None and state.auto_merge_active:
         landing_state, in_flight = IN_FLIGHT, True
     elif state is None or entry_state == UNREADABLE:
@@ -254,6 +271,7 @@ def classify_readiness(
         merged_at=state.merged_at if state is not None else None,
         failed_checks=failed_checks,
         warnings=warnings,
+        missing_checks_blocked=missing_checks_stalled(state, required_checks),
     )
 
 
@@ -271,7 +289,7 @@ def read_merge_queue_readiness(
     checks_error = ""
     if state is not None and not state.merged:
         required_checks, checks_error = reader.required_checks(ctx, pr_number)
-    return classify_readiness(
+    readiness = classify_readiness(
         pr_number=pr_number,
         target=target,
         state=state,
@@ -279,6 +297,12 @@ def read_merge_queue_readiness(
         required_checks=required_checks,
         checks_error=checks_error or "",
     )
+    if readiness.missing_checks_blocked:
+        readiness = replace(
+            readiness,
+            missing_checks=read_missing_check_names(ctx, target, required_checks),
+        )
+    return readiness
 
 
 def not_started(*, target: str) -> MergeQueueReadiness:

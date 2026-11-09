@@ -63,6 +63,7 @@ query($owner: String!, $name: String!, $number: Int!) {
       autoMergeRequest { enabledAt }
       mergeQueueEntry { state }
       mergeStateStatus
+      baseRefName
       headRefOid
       mergedAt
       mergeCommit { oid }
@@ -254,6 +255,8 @@ def _parse_landing_state(pull_request: dict[str, Any]) -> PrLandingState:
         closed=bool(pull_request.get("closed")) or state in _CLOSED_PR_STATES,
         auto_merge_active=pull_request.get("autoMergeRequest") is not None,
         queue_entry_state=entry_state,
+        auto_merge_enabled_at=(pull_request.get("autoMergeRequest") or {}).get("enabledAt"),
+        target_branch=str(pull_request.get("baseRefName") or ""),
         merge_state_status=str(pull_request.get("mergeStateStatus") or "")
         .strip()
         .lower(),
