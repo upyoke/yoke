@@ -130,31 +130,51 @@ def test_converging_publishes_a_landing_that_never_reached_origin(monkeypatch):
     assert pushes == ["main"] and outcome.pushed is True
 
 
+@pytest.mark.parametrize("workflow", ["ci.yml", "", None])
 @pytest.mark.parametrize("kind", ["passed", "failed", "timed_out", "unreadable"])
-def test_retry_rechecks_post_push_on_the_landing(monkeypatch, kind):
+def test_retry_rechecks_post_push_on_the_landing(monkeypatch, kind, workflow):
     from yoke_core.domain.project_github_auth_models import GITHUB_AUTHORITY_INSTALLATION
 
+    from yoke_core.domain import standalone_post_push_policy as policy
+
+    def declaration(_project):
+        if workflow is None:
+            raise RuntimeError("CI declaration unavailable")
+        return workflow
+
+    monkeypatch.setattr(policy, "project_ci_workflow_file", declaration)
+    run = converging.post_push.CheckRun("suite", "completed", "failure", "https://run/red")
+    recorded = []
     seen = []
     monkeypatch.setattr(converging, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(converging, "verified_target_sha", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(converging, "verified_landing_identity", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(converging.git, "has_remote", lambda *_a: True)
     monkeypatch.setattr(converging, "github_merge_enabled", lambda _p: True)
-    monkeypatch.setattr(converging.receipts, "record", lambda *_a, **_k: "")
+    monkeypatch.setattr(converging.receipts, "record", lambda _i, receipt: recorded.append(receipt) or "")
     monkeypatch.setattr(converging, "fast_forward_main_checkout", lambda *_a: "")
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at", lambda *_a, **_k: ""
     )
     def checks(*args):
         seen.append(args)
-        return converging.post_push.PostPushVerdict(kind)
+        return converging.post_push.PostPushVerdict(kind, runs=(run,))
     monkeypatch.setattr(converging.post_push, "await_post_push_checks", checks)
+    def read(*args):
+        seen.append(args)
+        return (run,), ""
+    monkeypatch.setattr(converging.post_push, "read_check_runs", read)
     outcome = converging.converge(
         item_id=7, project="example", repo_root="/repo", public_ref="ITEM-7",
         lane=landed.LandedLane(branch="lane", target="main", commit_sha=LANE_SHA),
     )
     assert seen == [("example", MERGE_SHA, GITHUB_AUTHORITY_INSTALLATION)]
-    assert outcome.ok is (kind == "passed")
+    assert outcome.ok is (kind == "passed" or workflow == "")
+    assert recorded[-1].check_runs == (run.evidence(),)
+    if workflow == "":
+        assert any("do not gate close-out" in note for note in outcome.warnings)
+    if workflow is None:
+        assert any("retaining the post-push CI gate" in note for note in outcome.warnings)
     assert outcome.already_merged
-    if kind != "passed":
+    if kind != "passed" and workflow != "":
         assert "yoke merge item ITEM-7" in outcome.error

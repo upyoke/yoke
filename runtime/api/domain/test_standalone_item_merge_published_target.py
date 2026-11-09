@@ -18,6 +18,10 @@ from runtime.api.domain.standalone_merge_simulation_support import (
 
 @pytest.fixture
 def checkout(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_post_push_policy.project_ci_workflow_file",
+        lambda _p: "ci.yml",
+    )
     repo = make_checkout(tmp_path)
     remote = tmp_path / "origin.git"
     git(repo, "init", "--bare", str(remote))

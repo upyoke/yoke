@@ -15,8 +15,11 @@ this lane's work, and the one way to make that false again is to land it twice.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from yoke_core.domain import item_merge_contributed_commits as contributed
 from yoke_core.domain import standalone_item_merge_post_push as post_push
+from yoke_core.domain.standalone_post_push_policy import observe_post_push_checks
 from yoke_core.domain.merge_github_authority import (
     classify_merge_authority, github_merge_enabled,
 )
@@ -243,29 +246,32 @@ def converge(
     )
     if stamp_error:
         warnings.append(f"merged_at not recorded: {stamp_error}")
-    receipt_note = receipts.record(
-        item_id,
-        receipts.MergeReceipt(
-            branch=lane.branch,
-            target=lane.target,
+    receipt = receipts.MergeReceipt(
+        branch=lane.branch,
+        target=lane.target,
+        commit_sha=lane.commit_sha,
+        merge_sha=merge_sha,
+        touched_files=lane.touched_files,
+        contributed_commits=contributed.after_landing(
+            repo_root,
             commit_sha=lane.commit_sha,
             merge_sha=merge_sha,
-            touched_files=lane.touched_files,
-            contributed_commits=contributed.after_landing(
-                repo_root,
-                commit_sha=lane.commit_sha,
-                merge_sha=merge_sha,
-            ),
         ),
     )
+    receipt_note = receipts.record(item_id, receipt)
     if receipt_note:
         warnings.append(receipt_note)
 
     if connected:
-        observed = post_push.await_post_push_checks(
-            project, merge_sha, classify_merge_authority(local_merge=True).authority
+        observed, required = observe_post_push_checks(
+            project, merge_sha, classify_merge_authority(local_merge=True).authority,
+            warnings,
         )
-        if not observed.ok:
+        if observed.runs:
+            note = receipts.record(item_id, replace(receipt, check_runs=observed.evidence))
+            if note:
+                warnings.append(note)
+        if required and not observed.ok:
             return StandaloneMergeOutcome(
                 ok=False, exit_code=1, already_merged=True,
                 commit_sha=lane.commit_sha, merge_sha=merge_sha,
