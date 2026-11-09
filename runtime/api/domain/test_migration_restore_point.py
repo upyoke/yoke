@@ -68,9 +68,36 @@ def test_external_restore_point_does_not_invoke_the_dump_operation() -> None:
     def dump(*args):
         pytest.fail("an existing restore point must not trigger another dump")
 
-    assert migration_restore_point.establish(
-        _PostgresConnection(),
-        backup_root=None,
-        dump_backup=dump,
-        external_restore_point="snapshot:existing",
-    ) == "snapshot:existing"
+    assert (
+        migration_restore_point.establish(
+            _PostgresConnection(),
+            backup_root=None,
+            dump_backup=dump,
+            external_restore_point="snapshot:existing",
+        )
+        == "snapshot:existing"
+    )
+
+
+def test_external_restore_point_needs_no_dump_operation() -> None:
+    assert (
+        migration_restore_point.establish(
+            _PostgresConnection(),
+            backup_root=None,
+            external_restore_point="snapshot:external-project",
+        )
+        == "snapshot:external-project"
+    )
+
+
+def test_backup_root_requires_a_dump_operation(tmp_path: Path) -> None:
+    with pytest.raises(
+        migration_restore_point.RestorePointRequired,
+        match="requires dump_backup",
+    ):
+        migration_restore_point.establish(
+            _PostgresConnection(),
+            backup_root=tmp_path,
+            backup_target_dsn="postgresql://external.example/external_app",
+            external_restore_point=None,
+        )

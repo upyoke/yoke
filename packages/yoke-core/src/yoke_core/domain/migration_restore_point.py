@@ -82,7 +82,7 @@ def establish(
     conn: Any,
     *,
     backup_root: Optional[Path],
-    dump_backup: Callable[[str, str, Path], str],
+    dump_backup: Callable[[str, str, Path], str] | None = None,
     backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str],
 ) -> str:
@@ -117,6 +117,11 @@ def establish(
             "backup_root to dump before applying, or external_restore_point to "
             "name a snapshot already taken"
         )
+    if dump_backup is None:
+        raise RestorePointRequired(
+            "backup_root requires dump_backup; pass the dump operation for the "
+            "authoritative database, or use external_restore_point instead"
+        )
     if not backup_target_dsn or not backup_target_dsn.strip():
         raise RestorePointRequired(
             "backup_root requires backup_target_dsn resolved for the same "
@@ -128,9 +133,7 @@ def establish(
             "restore-point dumps are Postgres-only; a non-Postgres authoritative "
             "database needs its own explicit restore contract"
         )
-    return dump_backup(
-        backup_target_dsn, BACKUP_REASON, Path(backup_root)
-    )
+    return dump_backup(backup_target_dsn, BACKUP_REASON, Path(backup_root))
 
 
 __all__ = [
