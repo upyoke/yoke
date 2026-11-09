@@ -29,11 +29,13 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_core.domain import authored_file_merge_preflight
-from yoke_core.engines import lane_base_update
+from yoke_core.domain.engine_runtime_ports import get_lane_base_update
 from yoke_core.domain import qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain import qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+
+lane_base_update = get_lane_base_update()
 
 #: How long to wait for GitHub to mint the entry run after the pull request
 #: opens. Runs normally appear within seconds; the bound exists so a
@@ -63,10 +65,9 @@ def routes_through_merge_queue(project: str) -> bool:
 
 def base_branch(project: str, checkout: Path) -> str:
     """The branch this project's item branches land on."""
-    from yoke_core.engines.done_transition_gates import (
-        _get_base_branch,
-        _resolve_default_branch,
-    )
+    from yoke_core.domain.engine_runtime_ports import get_done_transition_gates
+    _get_base_branch = get_done_transition_gates()._get_base_branch
+    _resolve_default_branch = get_done_transition_gates()._resolve_default_branch
 
     return _get_base_branch(_resolve_default_branch(project), checkout) or "main"
 

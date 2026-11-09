@@ -71,6 +71,18 @@ dependencies = [
 
 [project.entry-points."yoke.runtime"]
 structured_dispatch = "yoke_core.api.service_client_structured_api_adapter"
+main_checkout_sync = "yoke_core.engines.main_checkout_sync"
+runs_continue_for_item = "yoke_core.engines.runs_continue_for_item"
+lane_base_update = "yoke_core.engines.lane_base_update"
+done_transition_gates = "yoke_core.engines.done_transition_gates"
+deploy_run_worktree_naming = "yoke_core.engines.deploy_run_worktree_naming"
+deploy_run_worktree_retirement = "yoke_core.engines.deploy_run_worktree_retirement"
+runs_start_for_item = "yoke_core.engines.runs_start_for_item"
+standalone_item_merge_engine = "yoke_core.engines.standalone_item_merge_engine"
+terminal_lane_cleanup = "yoke_core.engines.terminal_lane_cleanup"
+done_transition_runner = "yoke_core.engines.done_transition_runner"
+worktree_maintenance = "yoke_core.engines.worktree_maintenance"
+migration_merge_preflight = "yoke_core.domain.migration_merge_preflight"
 
 [project.optional-dependencies]
 test = [

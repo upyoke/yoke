@@ -256,7 +256,8 @@ def _finalize_release_epic_if_ready(
         file=stdout,
     )
 
-    from yoke_core.engines import done_transition_runner
+    from yoke_core.domain.engine_runtime_ports import get_done_transition_runner
+    done_transition_runner = get_done_transition_runner()
 
     # The engine chdirs into the repo root and reseats ``sys.path[0]``; snapshot
     # and restore both so an in-process caller (the task-status mutator and its

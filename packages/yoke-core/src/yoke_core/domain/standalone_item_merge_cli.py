@@ -38,7 +38,8 @@ from yoke_core.domain.standalone_item_merge_checkout import (
     resolve_checkout as _resolve_checkout,
 )
 from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path, refresh_recorded_head
-from yoke_core.engines.terminal_lane_cleanup import record_terminal_lane_close_out
+from yoke_core.domain.engine_runtime_ports import get_terminal_lane_cleanup
+record_terminal_lane_close_out = get_terminal_lane_cleanup().record_terminal_lane_close_out
 
 call_dispatcher = get_structured_dispatch().call_dispatcher
 

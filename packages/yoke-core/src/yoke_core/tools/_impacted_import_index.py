@@ -298,7 +298,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         except (SyntaxError, ValueError, OSError):
             continue
         references = _imported_modules(tree, module) | _string_module_references(tree)
-        if module and module.startswith("yoke_contracts.runtime_ports."):
+        if module:
             references |= runtime_references(tree, declared)
         for referenced in references:
             importers.setdefault(referenced, set()).add(rel)

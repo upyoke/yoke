@@ -18,10 +18,9 @@ def resolve_checkout(item: dict[str, Any], target_override: str) -> tuple[Path, 
     from yoke_core.domain.worktree_preflight_repo_resolution import (
         resolve_preflight_lane_target,
     )
-    from yoke_core.engines.done_transition_gates import (
-        _get_base_branch,
-        _resolve_default_branch,
-    )
+    from yoke_core.domain.engine_runtime_ports import get_done_transition_gates
+    _get_base_branch = get_done_transition_gates()._get_base_branch
+    _resolve_default_branch = get_done_transition_gates()._resolve_default_branch
 
     lane_target = resolve_preflight_lane_target(
         item=item,

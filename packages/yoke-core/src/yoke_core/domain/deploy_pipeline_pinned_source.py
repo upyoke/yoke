@@ -34,9 +34,8 @@ from yoke_core.domain import machine_config
 from yoke_core.domain.project_checkout_locations import project_id_for_slug
 from yoke_core.domain.worktree_paths import _run, captured_process_detail
 from yoke_core.domain.worktree_provision import GIT_WORKTREE_ADD_TIMEOUT_SECONDS
-from yoke_core.engines.deploy_run_worktree_naming import (
-    driver_worktree_path as _driver_worktree_path,
-)
+from yoke_core.domain.engine_runtime_ports import get_deploy_run_worktree_naming
+_driver_worktree_path = get_deploy_run_worktree_naming().driver_worktree_path
 
 
 
@@ -109,9 +108,8 @@ def retire_finished_driver_worktrees(checkout: Path, current_run_id: str) -> Non
     surviving needs to say so, since the cap it consumes is what eventually
     refuses somebody else's item lane.
     """
-    from yoke_core.engines.deploy_run_worktree_retirement import (
-        retire_terminal_deploy_run_worktrees,
-    )
+    from yoke_core.domain.engine_runtime_ports import get_deploy_run_worktree_retirement
+    retire_terminal_deploy_run_worktrees = get_deploy_run_worktree_retirement().retire_terminal_deploy_run_worktrees
 
     try:
         verdicts = retire_terminal_deploy_run_worktrees(

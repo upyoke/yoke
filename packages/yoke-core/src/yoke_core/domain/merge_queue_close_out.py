@@ -70,9 +70,11 @@ from yoke_core.domain.merge_queue_landing_carrier import (
     repoint_to_landing_carrier,
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
-from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
+from yoke_core.domain.engine_runtime_ports import get_main_checkout_sync
 from yoke_core.domain.merge_github_files import read_pr_changed_files
 from yoke_core.domain.merge_context import MergeContext
+
+fast_forward_main_checkout = get_main_checkout_sync().fast_forward_main_checkout
 
 
 @dataclass(frozen=True)

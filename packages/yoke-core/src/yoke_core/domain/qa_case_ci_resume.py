@@ -30,12 +30,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Optional
 
-from yoke_core.engines import lane_base_update
+from yoke_core.domain.engine_runtime_ports import get_lane_base_update
 from yoke_core.domain import qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_entry_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain import qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+
+lane_base_update = get_lane_base_update()
 
 
 @dataclass(frozen=True)

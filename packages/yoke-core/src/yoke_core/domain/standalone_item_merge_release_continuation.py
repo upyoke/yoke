@@ -42,12 +42,12 @@ from typing import Any, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 from yoke_core.domain.close_out_control_plane_authority import connected_control_plane
-from yoke_core.engines.runs_continue_for_item import (
-    OUTCOME_BOUND,
-    OUTCOME_NONE,
-    OUTCOME_PINNED,
-    OUTCOME_WAITING,
-)
+from yoke_core.domain.engine_runtime_ports import get_runs_continue_for_item
+
+OUTCOME_BOUND = get_runs_continue_for_item().OUTCOME_BOUND
+OUTCOME_NONE = get_runs_continue_for_item().OUTCOME_NONE
+OUTCOME_PINNED = get_runs_continue_for_item().OUTCOME_PINNED
+OUTCOME_WAITING = get_runs_continue_for_item().OUTCOME_WAITING
 
 build_actor = get_structured_dispatch().build_actor
 call_dispatcher = get_structured_dispatch().call_dispatcher
