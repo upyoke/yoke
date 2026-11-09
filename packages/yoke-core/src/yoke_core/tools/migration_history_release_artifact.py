@@ -7,6 +7,10 @@ import zipfile
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.domain.migration_folded_history import (
+    RELEASED_DIGESTS_NAME,
+    folded_entries_from_bytes,
+)
 from yoke_core.domain.migration_history import ENTRY_NAME_PATTERN
 from yoke_core.domain.migration_history import MigrationEntry, ordered_entries
 from yoke_core.domain.migration_history_manifest import (
@@ -41,7 +45,9 @@ def manifest_for_core_wheel(
         source_sha256=record.sha256,
         source_commit=source_commit,
     )
-    return manifest_from_content(_wheel_history(record.source), artifact)
+    return manifest_from_content(
+        _wheel_history(record.source), artifact, folded=_wheel_folded(record.source)
+    )
 
 
 def manifest_for_core_wheel_path(
@@ -179,6 +185,10 @@ def materialize_core_wheel_history(
     destination.mkdir(parents=True, exist_ok=True)
     for name, content in _wheel_history(wheel):
         (destination / f"{name}.py").write_bytes(content)
+    with zipfile.ZipFile(wheel) as archive:
+        manifest = CORE_HISTORY_PREFIX + RELEASED_DIGESTS_NAME
+        if manifest in archive.namelist():
+            (destination / RELEASED_DIGESTS_NAME).write_bytes(archive.read(manifest))
     return ordered_entries(destination)
 
 
@@ -190,6 +200,16 @@ def _core_record(records: Sequence[WheelRecord]) -> WheelRecord:
             "history manifest"
         )
     return matches[0]
+
+
+def _wheel_folded(wheel: Path):
+    with zipfile.ZipFile(wheel) as archive:
+        manifest = CORE_HISTORY_PREFIX + RELEASED_DIGESTS_NAME
+        if manifest not in archive.namelist():
+            return ()
+        return folded_entries_from_bytes(
+            archive.read(manifest), Path(CORE_HISTORY_PREFIX)
+        )
 
 
 def _wheel_history(wheel: Path) -> tuple[tuple[str, bytes], ...]:
@@ -210,7 +230,7 @@ def _wheel_history(wheel: Path) -> tuple[tuple[str, bytes], ...]:
                     f"core wheel contains invalid migration entry {relative!r}"
                 )
             found.append((int(match.group(1)), stem, archive.read(member)))
-    if not found:
+    if not found and not _wheel_folded(wheel):
         raise MigrationHistoryManifestError(
             "core wheel contains no permanent migration history entries"
         )

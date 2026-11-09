@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain import migrations as migration_history_package
-from yoke_core.domain.migration_content_identity import raw_content_sha256
 from yoke_core.domain.migration_history import (
     history_dir,
     load_migration_module,
@@ -28,6 +27,10 @@ def _history_and_pins():
     directory = history_dir(migration_history_package)
     history = ordered_entries(directory)
     pins = json.loads((directory / MANIFEST_NAME).read_text(encoding="utf-8"))
+    pins = {
+        name: value["content_sha256"] if isinstance(value, dict) else value
+        for name, value in pins.items()
+    }
     return history, pins
 
 
@@ -36,9 +39,9 @@ def test_released_history_manifest_matches_raw_packaged_bytes() -> None:
     entries = {entry.name: entry for entry in history}
     assert set(pins) <= set(entries), "digest manifest names a missing entry"
     mismatches = {
-        name: (expected, raw_content_sha256(entries[name].path.read_bytes()))
+        name: (expected, entries[name].content_sha256)
         for name, expected in pins.items()
-        if raw_content_sha256(entries[name].path.read_bytes()) != expected
+        if entries[name].content_sha256 != expected
     }
     assert mismatches == {}
 
@@ -56,10 +59,9 @@ def test_validation_database_ledger_matches_raw_packaged_bytes(test_db) -> None:
     assert set(ledger) <= set(entries), "ledger names a missing packaged entry"
     assert ledger[VALIDATION_LEDGER_ENTRY] == VALIDATION_LEDGER_DIGEST
     mismatches = {
-        name: (digest, raw_content_sha256(entries[name].path.read_bytes()))
+        name: (digest, entries[name].content_sha256)
         for name, digest in ledger.items()
-        if name in entries
-        and raw_content_sha256(entries[name].path.read_bytes()) != digest
+        if name in entries and entries[name].content_sha256 != digest
     }
     assert mismatches == {}
 
@@ -75,8 +77,11 @@ def test_released_history_manifest_is_a_complete_frozen_prefix() -> None:
 
     unpinned_cut_floors = []
     for entry in history:
-        module = load_migration_module(entry.path, entry.name)
-        floor = declared_minimum(module)
+        floor = (
+            entry.minimum_serving_version
+            if entry.is_folded
+            else declared_minimum(load_migration_module(entry.path, entry.name))
+        )
         if floor not in {None, NEXT_RELEASE} and entry.name not in pins:
             unpinned_cut_floors.append(entry.name)
     assert unpinned_cut_floors == []
