@@ -8,8 +8,8 @@ from yoke_core.domain import qa_events
 from yoke_core.domain import qa_undetermined_evidence as _review_evidence
 from yoke_core.domain.db_helpers import connect, utc_now, query_one
 from yoke_core.domain.handlers.qa import _error, _p
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
-from yoke_core.domain.handlers.qa_browser_write_models import (
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
+from yoke_core.domain.qa_browser_write_models import (
     QaArtifactAddRequest,
     QaArtifactAddResponse,
     QaRunAddRequest,

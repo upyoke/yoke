@@ -11,7 +11,7 @@ from yoke_core.domain.aws_machine_client import (
     machine_aws_client,
     safe_aws_error_reason,
 )
-from yoke_core.domain.handlers.qa_artifact_presign import (
+from yoke_core.domain.qa_artifact_configuration import (
     _aws_region,
     resolve_artifacts_bucket,
 )

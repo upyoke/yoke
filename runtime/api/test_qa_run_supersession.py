@@ -45,7 +45,7 @@ def test_replaced_error_ignores_completion_and_artifact(late_verdict):
         add()
         before = snapshot(conn, run_id)
         with patch(
-            "yoke_core.domain.handlers.qa_artifact_add._store_inline_bytes"
+            "yoke_core.domain.qa_artifact_recording._store_inline_bytes"
         ) as store:
             artifact = writes.handle_qa_artifact_add(
                 request(

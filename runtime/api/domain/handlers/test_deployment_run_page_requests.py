@@ -74,11 +74,11 @@ def test_page_shape_resolves_actor_visible_projects_before_the_read():
             return_value=connection,
         ),
         patch(
-            "yoke_core.domain.handlers.items_project_scope.actor_visible_scope",
+            "yoke_core.domain.items_project_scope.actor_visible_scope",
             return_value={1, 2},
         ),
         patch(
-            "yoke_core.domain.handlers.items_project_scope.resolve_visible_project_ids",
+            "yoke_core.domain.items_project_scope.resolve_visible_project_ids",
             return_value=[2],
         ) as resolve,
         patch(
@@ -127,7 +127,7 @@ def test_page_shape_names_malformed_cursor_and_recovery():
             return_value=_Connection(),
         ),
         patch(
-            "yoke_core.domain.handlers.items_project_scope.actor_visible_scope",
+            "yoke_core.domain.items_project_scope.actor_visible_scope",
             return_value=None,
         ),
         patch(

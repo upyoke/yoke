@@ -99,7 +99,7 @@ def check_ci_command(
         ci_url = str(run.get("html_url") or "")
 
         if ci_status == "completed":
-            from yoke_core.domain.handlers.github_actions_check_ci import (
+            from yoke_core.domain.github_actions_ci_result import (
                 _classify,
             )
 
@@ -147,7 +147,10 @@ def failed_log_command(
     token = resolve_token(
         project,
         repo,
-        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
+        required_permissions={
+            **GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            **GITHUB_CHECKS_READ_PERMISSION_LEVELS,
+        },
     )
 
     try:

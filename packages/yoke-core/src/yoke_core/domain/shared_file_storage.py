@@ -74,7 +74,7 @@ def _local_path(project: str, path: str) -> Path:
 
 
 def _bucket(conn: Any, project_id: int, project: str, path: str) -> _Bucket | None:
-    from yoke_core.domain.handlers.qa_artifact_presign import (
+    from yoke_core.domain.qa_artifact_configuration import (
         resolve_artifacts_bucket,
     )
     from yoke_core.domain.qa_artifact_broker import ArtifactBrokerError, broker_config
@@ -101,7 +101,7 @@ def _bucket(conn: Any, project_id: int, project: str, path: str) -> _Bucket | No
 
 
 def _signed_url(conn: Any, store: _Bucket, method: str) -> str:
-    from yoke_core.domain.handlers.qa_artifact_presign import (
+    from yoke_core.domain.qa_artifact_configuration import (
         _aws_region,
         _capability_credentials,
     )

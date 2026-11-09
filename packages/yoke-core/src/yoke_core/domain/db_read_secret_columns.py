@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, List
 
-from yoke_core.domain.handlers.db_read_sql import DbReadRefusal
+from yoke_core.domain.db_read_sql import DbReadRefusal
 
 
 SECRET_COLUMNS = frozenset({("organizations", "events_signing_key")})

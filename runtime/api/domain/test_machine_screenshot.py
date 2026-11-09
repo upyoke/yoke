@@ -82,7 +82,7 @@ def test_screenshot_operation_stores_handle_and_replay_does_not_upload(
         return handle
 
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
+        "yoke_core.domain.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
         store,
     )
     control = FakeHostControl()
@@ -184,7 +184,7 @@ def test_untrusted_screenshot_receipt_never_creates_artifact(
     configure_test_machine(conn, tmp_path, monkeypatch)
     uploads = []
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
+        "yoke_core.domain.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
         lambda *args, **kwargs: uploads.append(kwargs),
     )
     result = screenshot_result()
@@ -220,7 +220,7 @@ def test_artifact_store_failure_is_named_without_success_receipt(tmp_path, monke
         raise ArtifactStorageError("s3_upload_failed", "upload refused")
 
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
+        "yoke_core.domain.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
         refuse,
     )
     control = FakeHostControl()

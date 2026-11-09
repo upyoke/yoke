@@ -18,7 +18,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.qa_artifact_read_test_support import artifact_read_request
 from yoke_cli.commands.adapters.qa_execution_subjects import _no_bytes_message
 from yoke_core.domain import qa_artifact_broker as broker
-from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_read import handle_qa_artifact_read
 from yoke_core.domain.qa_artifact_handle import build_artifact_key
 from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
@@ -156,7 +156,9 @@ def test_owner_write_and_read_return_identical_evidence(subject, tmp_path, monke
             assert "run `yoke qa artifact rehome" not in message
 
 
-@pytest.mark.parametrize("invalid_part", ["qa_run", "project", "prefix", "count", "subject"])
+@pytest.mark.parametrize(
+    "invalid_part", ["qa_run", "project", "prefix", "count", "subject"]
+)
 def test_broker_read_preserves_capture_owner_after_takeover(
     invalid_part, tmp_path, monkeypatch
 ):
@@ -193,7 +195,9 @@ def test_broker_read_preserves_capture_owner_after_takeover(
         conn.commit()
         with (
             patch.object(broker, "presign_with_broker", side_effect=sign),
-            patch("yoke_core.domain.qa_artifact_storage._upload_bytes", side_effect=upload),
+            patch(
+                "yoke_core.domain.qa_artifact_storage._upload_bytes", side_effect=upload
+            ),
             patch("yoke_core.domain.signed_object_transfer.probe_signed_object"),
             patch(
                 "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
@@ -217,7 +221,8 @@ def test_broker_read_preserves_capture_owner_after_takeover(
             artifact_id = added.result_payload["qa_artifact_id"]
             handle = json.loads(
                 conn.execute(
-                    "SELECT artifact_handle FROM qa_artifacts WHERE id=%s", (artifact_id,)
+                    "SELECT artifact_handle FROM qa_artifacts WHERE id=%s",
+                    (artifact_id,),
                 ).fetchone()[0]
             )
             conn.execute(
@@ -229,7 +234,8 @@ def test_broker_read_preserves_capture_owner_after_takeover(
             assert read.result_payload["disposition"] == "ready"
             assert base64.b64decode(read.result_payload["content_base64"]) == content
             assert signed_subjects == [
-                ("put", f"deployment-run-{first}"), ("get", f"deployment-run-{first}")
+                ("put", f"deployment-run-{first}"),
+                ("get", f"deployment-run-{first}"),
             ]
             segments = handle["key"].split("/")
             if invalid_part == "qa_run":

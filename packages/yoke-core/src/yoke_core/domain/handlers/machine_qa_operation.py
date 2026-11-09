@@ -243,7 +243,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
         recorded = repeated_mission_receipt(parsed, recorded, mission)
         if recorded is not None:
             if parsed.operation == "screenshot":
-                from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+                from yoke_core.domain.machine_qa_screenshot_artifact import (
                     replay_screenshot,
                 )
 
@@ -261,7 +261,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
 
                 raise ValueError(released_without_receipt(lease))
             if parsed.operation == "screenshot":
-                from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+                from yoke_core.domain.machine_qa_screenshot_artifact import (
                     store_screenshot,
                 )
                 from yoke_core.domain.qa_artifact_storage import ArtifactStorageError

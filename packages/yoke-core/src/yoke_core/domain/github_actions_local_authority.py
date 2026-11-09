@@ -78,23 +78,16 @@ def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
     options = dict(request.options or {})
     options["authorized_project_id"] = project_id
     narrowed = request.model_copy(update={"actor": actor, "options": options})
-    from yoke_core.domain.handlers import github_actions_dispatch_receipt
-    from yoke_core.domain.handlers import github_actions_commit_runs
-    from yoke_core.domain.handlers import github_actions_failed_log
-    from yoke_core.domain.handlers import github_actions_run
-    from yoke_core.domain.handlers import github_actions_workflow
+    from yoke_core.domain.handler_registry_runtime import ensure_handlers_registered
+    from yoke_core.domain.yoke_function_registry import lookup
 
-    registrations = (
-        *github_actions_commit_runs.REGISTRATIONS,
-        *github_actions_dispatch_receipt.REGISTRATIONS,
-        *github_actions_failed_log.REGISTRATIONS,
-        *github_actions_run.REGISTRATIONS,
-        *github_actions_workflow.REGISTRATIONS,
-    )
-    registration = next(
-        row for row in registrations if row["function_id"] == request.function
-    )
-    outcome = registration["handler"](narrowed)
+    ensure_handlers_registered()
+    registration = lookup(request.function)
+    if registration is None:
+        return _denied(
+            request, f"handler {request.function!r} is unavailable; reinstall Yoke"
+        )
+    outcome = registration.handler(narrowed)
     return FunctionCallResponse(
         success=outcome.primary_success and outcome.error is None,
         function=request.function,

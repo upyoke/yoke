@@ -221,7 +221,7 @@ def test_quota_diagnosis_is_durable_on_the_blocked_qa_run(
         _case,
         _probe_rows,
     )
-    from yoke_core.domain.handlers.machine_qa_case_evidence import (
+    from yoke_core.domain.machine_qa_case_evidence import (
         record_machine_case_result,
     )
     from yoke_core.domain.qa_artifact_handle import parse_handle

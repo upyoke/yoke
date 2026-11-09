@@ -52,7 +52,7 @@ def handle_deployment_run_page(
         RunHistoryCursorError,
         read_deployment_run_history,
     )
-    from yoke_core.domain.handlers.items_project_scope import (
+    from yoke_core.domain.items_project_scope import (
         actor_visible_scope,
         ambiguous_project_error,
         resolve_visible_project_ids,

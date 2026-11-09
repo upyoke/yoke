@@ -104,7 +104,8 @@ def _roster_filters(
     ids = (
         project_ids if project_ids is not None else [resolve_project_id(conn, project)]
     )
-    from yoke_core.domain.handlers.ouroboros_roster_scope import scope_predicate
+    from yoke_core.domain.ouroboros_roster_scope import scope_predicate
+
     clause, params = scope_predicate(conn, ids, include_unscoped)
     conditions = [clause]
     review_sql = _review_clause(review_state)
@@ -151,9 +152,11 @@ def parse_category(raw: object) -> Optional[str]:
     if raw is None or raw == "":
         return None
     from yoke_contracts.field_note_text import KIND_VALUES
+
     if raw not in KIND_VALUES:
         raise RosterFilterError(
-            "feedback_category_invalid: use failed, new, unclear, observation or idea. " + RELOAD_FIRST_PAGE,
+            "feedback_category_invalid: use failed, new, unclear, observation or idea. "
+            + RELOAD_FIRST_PAGE,
             "$.payload.category",
         )
     return raw
@@ -221,9 +224,7 @@ def list_roster_page(
     cursor: Optional[str] = None,
     include_unscoped: bool = False,
 ) -> dict[str, Any]:
-    """Newest-first keyset page plus the matching count behind it.
-
-    """
+    """Newest-first keyset page plus the matching count behind it."""
     if not project and project_ids is None:
         raise RosterFilterError(
             "project is required for the roster list; unknown or "
@@ -245,7 +246,9 @@ def list_roster_page(
     )
     cursor_scope = [*ids, "unscoped"] if include_unscoped else ids
     try:
-        cursor_where, cursor_params = continuation(cursor, ordering, cursor_scope, conn=conn)
+        cursor_where, cursor_params = continuation(
+            cursor, ordering, cursor_scope, conn=conn
+        )
     except ValueError as exc:
         raise RosterCursorError(str(exc)) from exc
     bound = _bounded_limit(limit)

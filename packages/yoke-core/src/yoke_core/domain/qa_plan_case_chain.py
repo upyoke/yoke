@@ -252,7 +252,7 @@ def record_blocked_case(
 
     *execution* carries the advanced cursor afterwards.
     """
-    from yoke_core.domain.handlers.machine_qa_case_evidence import (
+    from yoke_core.domain.machine_qa_case_evidence import (
         record_machine_case_result,
     )
     from yoke_core.domain.machine_qa_case_result import MachineCaseResult

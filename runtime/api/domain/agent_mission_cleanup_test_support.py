@@ -129,7 +129,7 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     if restored_before_removal:
         import base64
         import json
-        from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+        from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 
         outcome = handle_qa_artifact_add(
             request.model_copy(

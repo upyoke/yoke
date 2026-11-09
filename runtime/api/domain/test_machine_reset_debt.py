@@ -184,7 +184,7 @@ def test_failed_artifact_storage_still_releases_and_records_debt(
         raise OSError("artifact store unavailable")
 
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.qa_artifact_add.handle_qa_artifact_add", unavailable
+        "yoke_core.domain.qa_artifact_recording.handle_qa_artifact_add", unavailable
     )
     finished = handle_agent_mission_access(
         request.model_copy(
@@ -259,7 +259,7 @@ def test_lost_savepoint_is_not_treated_as_an_artifact_failure(
         raise SavepointLostError("transaction lost")
 
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.qa_artifact_add.handle_qa_artifact_add", lost
+        "yoke_core.domain.qa_artifact_recording.handle_qa_artifact_add", lost
     )
     with pytest.raises(SavepointLostError):
         handle_agent_mission_access(

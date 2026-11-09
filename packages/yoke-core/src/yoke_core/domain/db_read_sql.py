@@ -12,30 +12,32 @@ _WRITE_WORDS = frozenset({"INSERT", "UPDATE", "DELETE", "MERGE", "COPY", "CALL",
 # LABEL is deliberately absent: it is only a DDL keyword as the second word of
 # SECURITY LABEL, and SECURITY alone already refuses that statement. Listing
 # LABEL as its own token refused any bare `label` column/alias reference.
-_DDL_WORDS = frozenset({
-    "ALTER",
-    "ATTACH",
-    "CLUSTER",
-    "COMMENT",
-    "CREATE",
-    "DETACH",
-    "DROP",
-    "GRANT",
-    "IMPORT",
-    "INTO",
-    "LISTEN",
-    "LOCK",
-    "NOTIFY",
-    "PRAGMA",
-    "REFRESH",
-    "REINDEX",
-    "RESET",
-    "REVOKE",
-    "SECURITY",
-    "SET",
-    "TRUNCATE",
-    "VACUUM",
-})
+_DDL_WORDS = frozenset(
+    {
+        "ALTER",
+        "ATTACH",
+        "CLUSTER",
+        "COMMENT",
+        "CREATE",
+        "DETACH",
+        "DROP",
+        "GRANT",
+        "IMPORT",
+        "INTO",
+        "LISTEN",
+        "LOCK",
+        "NOTIFY",
+        "PRAGMA",
+        "REFRESH",
+        "REINDEX",
+        "RESET",
+        "REVOKE",
+        "SECURITY",
+        "SET",
+        "TRUNCATE",
+        "VACUUM",
+    }
+)
 _WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _DOLLAR_TAG_RE = re.compile(r"\$[A-Za-z_][A-Za-z0-9_]*\$|\$\$")
 

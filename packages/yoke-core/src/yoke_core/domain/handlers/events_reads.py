@@ -28,10 +28,8 @@ from yoke_core.domain.events_history_read import (
     EventsHistoryRequest,
     history_outcome,
 )
-from yoke_core.domain.handlers.event_presentation import present_event
+from yoke_core.domain.event_presentation import present_event
 from yoke_core.domain.events_read_filters import _where_from_payload
-
-
 
 
 class EventsFilterRequest(BaseModel):
@@ -146,8 +144,6 @@ def _validated_limit(
     return limit, None
 
 
-
-
 def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, Any]]:
     """Newest-first typed projection plus readable presentation facts."""
     from yoke_core.domain.db_helpers import connect
@@ -182,7 +178,9 @@ def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
     if (request.payload or {}).get("history") is not None:
         outcome = history_outcome(request, _where_from_payload)
         if outcome.primary_success:
-            outcome.result_payload["visitor_id"] = (request.payload or {}).get("visitor_id")
+            outcome.result_payload["visitor_id"] = (request.payload or {}).get(
+                "visitor_id"
+            )
         return outcome
     limit, limit_error = _validated_limit(request.payload or {}, default=50)
     if limit_error is not None:
@@ -192,8 +190,10 @@ def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
         return where_error
     from yoke_core.domain.events_current_episode import note_elided_prior_episodes
 
-    result: Dict[str, Any] = {"rows": _select_rows(where, params, limit),
-                              "visitor_id": (request.payload or {}).get("visitor_id")}
+    result: Dict[str, Any] = {
+        "rows": _select_rows(where, params, limit),
+        "visitor_id": (request.payload or {}).get("visitor_id"),
+    }
     note_elided_prior_episodes(request.payload or {}, where, params, result)
     return HandlerOutcome(result_payload=result, primary_success=True)
 
@@ -232,8 +232,10 @@ def handle_events_count(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"count": int(row[0] if row else 0),
-                        "visitor_id": (request.payload or {}).get("visitor_id")},
+        result_payload={
+            "count": int(row[0] if row else 0),
+            "visitor_id": (request.payload or {}).get("visitor_id"),
+        },
         primary_success=True,
     )
 
@@ -248,8 +250,10 @@ def handle_events_anomalies(request: FunctionCallRequest) -> HandlerOutcome:
     extra = "anomaly_flags IS NOT NULL AND anomaly_flags <> ''"
     where = f"{where} AND {extra}" if where else f"WHERE {extra}"
     return HandlerOutcome(
-        result_payload={"rows": _select_rows(where, params, limit),
-                        "visitor_id": (request.payload or {}).get("visitor_id")},
+        result_payload={
+            "rows": _select_rows(where, params, limit),
+            "visitor_id": (request.payload or {}).get("visitor_id"),
+        },
         primary_success=True,
     )
 

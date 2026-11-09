@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.handlers.db_read import json_safe
+from yoke_core.domain.db_read_json import json_safe
 
 
 _SENSITIVE_KEY_TOKENS = (
