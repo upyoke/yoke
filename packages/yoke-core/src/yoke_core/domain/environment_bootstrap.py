@@ -32,7 +32,9 @@ from __future__ import annotations
 
 import importlib
 import sys
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
+
+from yoke_core.domain.schema_common import universe_is_born_on
 
 #: Canonical schema/domain init order — schema first, then domains that
 #: depend on the ``items``/``projects`` tables. One source of truth shared
@@ -111,25 +113,6 @@ def run_init_chain(emit: Callable[[str], None] = _emit) -> None:
             ) from exc
         if rc not in (None, 0):
             raise BootstrapError(f"[env-bootstrap] init module {modname} exited {rc}")
-
-
-def universe_is_born_on(conn: Any) -> bool:
-    """True when *conn*'s database already carries a bootstrapped org card.
-
-    The connection-taking form of :func:`universe_is_born`, for callers that
-    already hold one — notably the schema converge, which must decide whether
-    it is converging a newborn database or an existing one *before* it creates
-    anything, and must not open a second connection to ask.
-    """
-    from yoke_core.domain.schema_common import _table_exists
-
-    try:
-        if not _table_exists(conn, "organizations"):
-            return False
-        row = conn.execute("SELECT COUNT(*) FROM organizations").fetchone()
-        return bool(row and int(row[0]) >= 1)
-    except Exception:  # noqa: BLE001 — an unreadable database is "not born"
-        return False
 
 
 def universe_is_born(dsn: str) -> bool:

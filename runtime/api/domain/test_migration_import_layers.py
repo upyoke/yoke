@@ -31,7 +31,7 @@ CORE_LAYERS = {
         qa_catalog_schema qa_deployment_requirement_identity_schema
         qa_deployment_scope_schema qa_method_definitions qa_plan_execution_schema
         qa_plan_review_schema qa_schema qa_standalone_schema qa_test_machine_wait_schema
-        release_start_schema_lock runs schema_actor_message_recipients schema_common
+        release_start_schema_lock runs schema_actor_message_recipients schema_actor_visitor_links schema_common
         schema_converge_statements schema_creation schema_deployment_run_lock
         schema_init_apply schema_organization schema_qa_plan_requirement_identity
         schema_qa_settlement_followups schema_session_control_convergence
@@ -56,14 +56,6 @@ ALLOWED_CORE = {
     for module in modules
 }
 
-# Operator-approved existing edges, restricted to their current source owners.
-# Retire each exception when its dependency moves out of the schema module.
-EXISTING_EDGES = {
-    ("external_identity_schema.py", "yoke_core.domain.actor_visitor_links"),
-    ("release_start_schema.py", "yoke_core.domain.environment_bootstrap"),
-}
-
-
 def imported_modules(source: str, package: str):
     """Include lazy imports and normalize relative and package-from spellings."""
     for node in ast.walk(ast.parse(source)):
@@ -81,8 +73,7 @@ def imported_modules(source: str, package: str):
                 yield node.lineno, module
 
 
-def violations(source: str, package: str, filename: str = ""):
-
+def violations(source: str, package: str):
     for line, module in imported_modules(source, package):
         if (
             module.split(".")[0] in sys.stdlib_module_names
@@ -91,7 +82,6 @@ def violations(source: str, package: str, filename: str = ""):
             or module == "yoke_contracts"
             or module.startswith("yoke_contracts.")
             or module in ALLOWED_CORE
-            or (filename, module) in EXISTING_EDGES
         ):
             continue
         yield (
@@ -114,7 +104,7 @@ def test_migrations_and_schema_import_only_allowed_layers(path):
     package = "yoke_core.domain" + (
         ".migrations" if path.parent.name == "migrations" else ""
     )
-    errors = list(violations(path.read_text(), package, path.name))
+    errors = list(violations(path.read_text(), package))
     assert not errors, f"{path.relative_to(ROOT)}:\n" + "\n".join(errors)
 
 
@@ -127,6 +117,8 @@ def test_migrations_and_schema_import_only_allowed_layers(path):
         "from ..backlog import update_status",
         "def apply(conn):\n    from yoke_core.domain.backlog import update_status",
         "from yoke_cli import main",
+        "from yoke_core.domain.actor_visitor_links import create_actor_visitor_links_table",
+        "from yoke_core.domain.environment_bootstrap import universe_is_born_on",
     ],
 )
 def test_bad_import_fixture_names_import_and_allowed_layers(source):
@@ -147,17 +139,6 @@ from ..schema_common import _get_columns
 from yoke_core.domain.migration_ledger_contract import LedgerContract
 """
     assert not list(violations(source, "yoke_core.domain.migrations"))
-
-
-@pytest.mark.parametrize("filename,module", sorted(EXISTING_EDGES))
-def test_existing_edge_exception_is_restricted_to_its_owner(filename, module):
-    source = f"import {module}"
-    assert not list(violations(source, "yoke_core.domain", filename))
-    assert list(violations(source, "yoke_core.domain", "new_schema.py"))
-    assert list(violations(source, "yoke_core.domain.migrations", "0107_new.py"))
-    assert list(
-        violations("import yoke_core.domain.backlog", "yoke_core.domain", filename)
-    )
 
 
 def test_guard_discovers_new_migrations_and_schema_modules(tmp_path):
