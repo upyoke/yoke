@@ -1,5 +1,6 @@
 """Stable tag identity for deployment workflow dispatch."""
 
+FUNCTION_ID = "github_actions.dispatch_tag.ensure"
 DISPATCH_TAG_PREFIX = "yoke-deploy/"
 
 

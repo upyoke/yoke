@@ -18,6 +18,7 @@ from __future__ import annotations
 from yoke_core.domain.github_actions_dispatch_identity import DISPATCH_TAG_PREFIX
 
 from yoke_core.domain.github_actions_dispatch_identity import (
+    FUNCTION_ID as FUNCTION_ID,
     dispatch_tag_name as dispatch_tag_name,
 )
 
@@ -44,8 +45,6 @@ from yoke_core.domain.handlers.github_actions_set import (
     _validate_and_resolve,
 )
 
-
-FUNCTION_ID = "github_actions.dispatch_tag.ensure"
 
 #: The only tag namespace this function writes; one tag per deployment run.
 
