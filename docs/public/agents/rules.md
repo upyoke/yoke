@@ -87,7 +87,7 @@ yoke sessions touch --mode parked --reason "awaiting FIX-ITEM merge"
 Name paths, symbols, tests and prose for what they do now. Leave out item refs
 (`PREFIX-1234`); plan, milestone, phase, stage, tier, slice, track, wave or
 batch labels; feedback provenance; and criterion, requirement or spec ids
-(`AC-7`, `FR-3`). Runtime data is the exception; in tests, build item refs from
+(`AC-<n>`, `FR-<n>`). Runtime data is the exception; in tests, build item refs from
 variables or pattern matchers. Directory names explain purpose.
 
 ## Data
