@@ -17,7 +17,6 @@ from yoke_core.domain.universe_portability_common import (
 from yoke_core.domain.universe_portability_content_contract import (
     ARCHIVE_OMITTABLE_TARGET_SEQUENCES,
     ARCHIVE_OMITTABLE_TARGET_TABLES,
-    ARCHIVE_RETIRED_TABLE_STAGING,
 )
 from yoke_core.domain.universe_portability_restore_contract import (
     COPY_HEADER_RE,
@@ -83,39 +82,6 @@ def copy_restore_rows(
         at_line_start = chunk.endswith(b"\n")
 
 
-def _migration_content_contract_expected(
-    target_columns: dict[str, tuple[str, ...]],
-) -> bool:
-    return (
-        MIGRATION_EVIDENCE_TABLE in target_columns
-        and MIGRATION_LEDGER_TABLE in target_columns
-        and MIGRATION_DIGEST_COLUMN in target_columns[MIGRATION_LEDGER_TABLE]
-    )
-
-
-def _validate_migration_content_archive_shape(
-    *, evidence_table_present: bool, ledger_digest_present: bool | None
-) -> None:
-    if ledger_digest_present is None:
-        raise ArchiveCompatibilityError(
-            "the universe archive does not describe migration ledger columns"
-        )
-    if evidence_table_present != ledger_digest_present:
-        raise ArchiveCompatibilityError(
-            "migration_content_adoptions and applied_migrations.content_sha256 "
-            "must be present or absent together"
-        )
-
-
-def stage_retired_archive_tables(conn: object, allowed_tables: set[str]) -> None:
-    """Recreate each retired table the archive still carries data for."""
-    present = set(restore_target_columns(conn))
-    for table, statements in ARCHIVE_RETIRED_TABLE_STAGING.items():
-        if table in allowed_tables and table not in present:
-            for statement in statements:
-                conn.execute(statement)  # type: ignore[attr-defined]
-
-
 def apply_restore_stream(
     source: object,
     conn: object,
@@ -126,7 +92,6 @@ def apply_restore_stream(
     deadline: float,
 ) -> None:
     """Apply only catalog-approved COPY data and sequence values via libpq."""
-    stage_retired_archive_tables(conn, allowed_tables)
     target_columns = restore_target_columns(conn)
     target_sequences = restore_target_sequences(conn)
     expected_tables = set(target_columns)
@@ -152,7 +117,6 @@ def apply_restore_stream(
         )
     observed_tables: set[str] = set()
     observed_sequences: set[str] = set()
-    ledger_digest_present: bool | None = None
     consumed = 0
     while True:
         raw = source.readline(64 * 1024)  # type: ignore[attr-defined]
@@ -184,8 +148,6 @@ def apply_restore_stream(
             table_name, columns = _restore_copy_header(
                 copy_match, target_columns, allowed_tables, observed_tables
             )
-            if table_name == MIGRATION_LEDGER_TABLE:
-                ledger_digest_present = MIGRATION_DIGEST_COLUMN in columns
             statement = sql.SQL("COPY {}.{} ({}) FROM STDIN").format(
                 sql.Identifier("public"),
                 sql.Identifier(table_name),
@@ -228,11 +190,6 @@ def apply_restore_stream(
     _validate_observed_catalog(
         observed_tables, observed_sequences, allowed_tables, allowed_sequences
     )
-    if _migration_content_contract_expected(target_columns):
-        _validate_migration_content_archive_shape(
-            evidence_table_present=MIGRATION_EVIDENCE_TABLE in allowed_tables,
-            ledger_digest_present=ledger_digest_present,
-        )
 
 
 def _restore_copy_header(
@@ -294,7 +251,6 @@ __all__ = [
     "RESTORE_SET_RE",
     "SETVAL_RE",
     "apply_restore_stream",
-    "stage_retired_archive_tables",
     "compatible_restore_columns",
     "consume_restore_bytes",
     "copy_restore_rows",

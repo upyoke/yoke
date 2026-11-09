@@ -27,14 +27,20 @@ production and stage showed every entry through 0102 applied, local convergence
 reached 0099, and the operator confirmed there were no self-hosted installs.
 Later entry-specific assertions remain until their reachable-install proof exists.
 
-When entries are folded into the baseline by an authorized squash, delete their
-dedicated tests in the same change. `test_migration_entry_test_policy.py` rejects
-references to absent or folded numbered modules and explicit history-loader entry or slug
+When a verified predecessor history is replaced with a code-declared baseline,
+retire its dedicated tests in the same change. The entry-test policy rejects
+references to absent numbered modules and explicit history-loader entry or slug
 selectors. Engine tests may keep historical names as inert fixture data.
 
-Entries through 0106 are now folded into the baseline. Their frozen digests
-and resolved serving floors remain in `released_history_digests.json`; their
-scripts, migration-only helpers and dedicated tests are removed. Generic boot,
-stamp, serving-floor and content-identity contracts continue to cover them.
-Runtime modules cannot import a migration script: required live behavior belongs
-to its domain owner, as enforced by `test_migration_import_layers.py`.
+The control plane now declares `0106_baseline` without a migration script.
+The temporary `released_history_digests.json` is only an exact-set input to the
+atomic boot ledger collapse. Births write only baseline membership; the shared
+script replay test continues to discover future entries after ordinal 0106.
+Baseline tests cover birth, exact predecessor verification, mismatch refusal,
+rollback after a failed insert, trigger restoration, repeat boot, wheel identity
+and later migration application. Runtime modules cannot import migration
+scripts; the source guard enforces that boundary in both directions.
+
+After ledger collapse, rollback below the carrying release is unsupported.
+See [the baseline decision](../archive/decisions/control-plane-ledger-baseline.md)
+for the two-release transition and removal of old archive import adapters.

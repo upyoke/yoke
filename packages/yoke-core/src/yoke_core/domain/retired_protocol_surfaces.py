@@ -15,10 +15,6 @@ RETIRED_EVENTS = (
 RETIREMENT_FLOOR = "0.2.0.202610291830"
 
 
-def retirement_floor():
-    return RETIREMENT_FLOOR
-
-
 def retired_surface_reason(kind, name):
     if kind == "function":
         names = {
@@ -30,16 +26,10 @@ def retired_surface_reason(kind, name):
         names = RETIRED_HOOKS if kind == "hook" else RETIRED_EVENTS
     if name not in names:
         return None
-    floor = retirement_floor()
+    floor = RETIREMENT_FLOOR
     repair = (
-        (
-            f"Run yoke update --version {floor}, then yoke project refresh in "
-            "each registered checkout and use the current command from yoke --help."
-        )
-        if floor != "next-release"
-        else (
-            "Ask the release operator for the carrying release, then update the CLI and refresh each project."
-        )
+        f"Run yoke update --version {floor}, then yoke project refresh in "
+        "each registered checkout and use the current command from yoke --help."
     )
     return f"protocol_surface_removed: {kind} {name!r} was removed; required client floor {floor}. {repair}"
 

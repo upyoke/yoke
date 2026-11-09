@@ -33,7 +33,7 @@ def test_packaged_history_has_no_obsolete_dedicated_tests():
     names = {
         entry.name
         for entry in ordered_entries(history_dir(migrations))
-        if not entry.is_folded
+        if not entry.is_baseline
     }
     directory = Path(__file__).resolve().parents[1]
     obsolete = obsolete_dedicated_tests(directory, names)

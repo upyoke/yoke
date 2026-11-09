@@ -219,7 +219,10 @@ def converge_migration_history(
             history,
             ledger=YOKE_LEDGER_CONTRACT,
             applied_by="birth",
-            administering_env=administered_postgres.administering_target(connection=conn),
+            running_version=installed_engine_version(),
+            administering_env=administered_postgres.administering_target(
+                connection=conn
+            ),
         )
         return
 

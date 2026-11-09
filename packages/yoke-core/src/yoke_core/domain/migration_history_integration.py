@@ -6,18 +6,18 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable
+import json
+
+from yoke_core.domain.migration_baseline import baseline_from_source, declared_baseline
 
 from yoke_core.domain.migration_content_identity import raw_content_sha256
-from yoke_core.domain.migration_folded_history import (
-    RELEASED_DIGESTS_NAME,
-    folded_entries_from_bytes,
-    parse_released_digests,
-)
+from yoke_core.domain.migration_baseline import RELEASED_DIGESTS_NAME
 from yoke_core.domain.migration_history import (
     ENTRY_NAME_PATTERN,
     HistoryError,
     ordinal_entries,
 )
+
 
 @dataclass(frozen=True)
 class HistoryIdentity:
@@ -144,7 +144,7 @@ def history_names_at_ref(
     """Ordered entry names the history at one exact revision carries.
 
     Names alone, so a caller asking only "which entries does this build
-    carry?" reads the tree and folded metadata, without reading each script. The
+    carry?" reads the tree and baseline metadata, without reading each script. The
     name is the entry's ledger and fleet-receipt identity, so it is the
     whole answer to that question.
     """
@@ -155,20 +155,18 @@ def history_names_at_ref(
     ]
     folded = [
         (entry.sequence, entry.name)
-        for entry in _folded_at_ref(repository, ref, directory)
+        for entry in _baseline_at_ref(repository, ref, directory)
     ]
     return tuple(name for _, name in sorted(live + folded))
 
 
-def _folded_at_ref(repo: Path, ref: str, modules_dir: str):
-    result = _git(
-        repo, "show", f"{ref}:{modules_dir}/{RELEASED_DIGESTS_NAME}", required=False
-    )
-    return (
-        folded_entries_from_bytes(result.stdout, Path(modules_dir))
-        if result.returncode == 0
-        else ()
-    )
+def _baseline_at_ref(repo: Path, ref: str, modules_dir: str):
+    source = _git(repo, "show", f"{ref}:{modules_dir}/__init__.py", required=False)
+    if source.returncode == 0:
+        baseline = baseline_from_source(source.stdout, Path(modules_dir))
+        if baseline is not None:
+            return (baseline,)
+    return ()
 
 
 def _target_history(
@@ -189,7 +187,7 @@ def _target_history(
 
     folded = tuple(
         HistoryIdentity(entry.sequence, entry.name, entry.content_sha256)
-        for entry in _folded_at_ref(repo, target_ref, modules_dir)
+        for entry in _baseline_at_ref(repo, target_ref, modules_dir)
     )
     return tuple(sorted(live + folded, key=lambda entry: entry.sequence))
 
@@ -198,51 +196,6 @@ def _lane_history(repo: Path, modules_dir: str) -> tuple[HistoryIdentity, ...]:
     return tuple(
         HistoryIdentity(entry.sequence, entry.name, entry.content_sha256)
         for entry in ordinal_entries(repo / modules_dir)
-    )
-
-
-def _digest_pins(
-    repo: Path,
-    *,
-    target_ref: str,
-    modules_dir: str,
-) -> dict[str, str]:
-    """Return frozen pins, preferring the integration target's manifest.
-
-    A lane manifest is considered only while bootstrapping the manifest into
-    a target that has none. After that first merge, a lane cannot rewrite a
-    pin to authorize its own history edit because the target copy wins.
-    """
-    manifest_path = f"{modules_dir}/{RELEASED_DIGESTS_NAME}"
-    target = _git(
-        repo,
-        "show",
-        f"{target_ref}:{manifest_path}",
-        required=False,
-    )
-    if target.returncode == 0:
-        raw = target.stdout
-    else:
-        lane_path = repo / modules_dir / RELEASED_DIGESTS_NAME
-        if not lane_path.is_file():
-            return {}
-        raw = lane_path.read_bytes()
-    return {
-        name: value["content_sha256"] if isinstance(value, dict) else value
-        for name, value in parse_released_digests(raw).items()
-    }
-
-
-def _is_frozen_content_restoration(
-    target: HistoryIdentity,
-    lane: HistoryIdentity,
-    pins: dict[str, str],
-) -> bool:
-    """Whether *lane* restores one target entry to its released raw bytes."""
-    return (
-        lane.sequence == target.sequence
-        and lane.name == target.name
-        and pins.get(lane.name) == lane.content_sha256
     )
 
 
@@ -259,18 +212,26 @@ def _extension(
     relative_dir = _relative_modules_dir(modules_dir)
     target_ref = resolve_target_ref(worktree_path, integration_target)
     target = _target_history(worktree_path, target_ref, relative_dir)
-    pins = _digest_pins(
-        worktree_path,
-        target_ref=target_ref,
-        modules_dir=relative_dir,
-    )
-    for entry in ordinal_entries(worktree_path / relative_dir):
-        if entry.is_folded and pins.get(entry.name) != entry.content_sha256:
-            raise HistoryError(
-                f"folded migration {entry.name!r} lacks its released digest; "
-                "restore the integration target's released identity before folding"
-            )
     lane = _lane_history(worktree_path, relative_dir)
+    baseline = declared_baseline(worktree_path / relative_dir)
+    if baseline is not None and baseline.name not in {entry.name for entry in target}:
+        try:
+            predecessors = json.loads(baseline.baseline_predecessors.read_bytes())
+        except (AttributeError, OSError, ValueError) as exc:
+            raise HistoryError(
+                "baseline transition lacks its exact predecessor manifest"
+            ) from exc
+        if (
+            predecessors != {entry.name: entry.content_sha256 for entry in target}
+            or baseline.sequence != target[-1].sequence
+        ):
+            raise HistoryError(
+                "baseline transition does not preserve the integration target's exact names and digests"
+            )
+        # Validate subsequent entries against the equivalent collapsed prefix.
+        target = (
+            HistoryIdentity(baseline.sequence, baseline.name, baseline.content_sha256),
+        )
     lane_names = {entry.name for entry in lane}
     missing = [name for name in declared if name not in lane_names]
     if missing:
@@ -284,11 +245,7 @@ def _extension(
         )
     for index, target_entry in enumerate(target):
         lane_entry = lane[index]
-        if lane_entry != target_entry and not _is_frozen_content_restoration(
-            target_entry,
-            lane_entry,
-            pins,
-        ):
+        if lane_entry != target_entry:
             raise HistoryError(
                 f"lane migration history does not extend {target_ref}: target "
                 f"entry {target_entry.name!r} is replaced by {lane_entry.name!r} "
@@ -304,7 +261,7 @@ def require_rehearsal_history_extension(
     integration_target: str,
     migration_modules: Iterable[str],
 ) -> None:
-    """Require the target history, including identities of folded scripts."""
+    """Require the target history, including the code-declared baseline."""
     _extension(
         worktree_path=worktree_path,
         modules_dir=modules_dir,
@@ -337,6 +294,7 @@ def require_merge_history_extension(
                 f"{entry.sequence}; {target_ref} requires exactly {expected} next"
             )
         expected += 1
+
 
 __all__ = [
     "HistoryIdentity",

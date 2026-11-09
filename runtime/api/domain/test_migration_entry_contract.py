@@ -25,7 +25,7 @@ def test_packaged_entries_replay_and_keep_their_contract(tmp_path, surface):
     entries = tuple(
         entry
         for entry in ordered_entries(history_dir(migrations))
-        if not entry.is_folded
+        if not entry.is_baseline
     )
     modules = {
         entry.name: load_migration_module(entry.path, entry.name) for entry in entries

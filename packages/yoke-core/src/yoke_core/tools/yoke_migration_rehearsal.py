@@ -91,7 +91,7 @@ def load_module(name: str) -> Any:
     }
     entry = entries[name]
     # Folded entries have ledger identity but no executable invariants.
-    return entry if entry.is_folded else load_migration_module(entry.path, entry.name)
+    return entry if entry.is_baseline else load_migration_module(entry.path, entry.name)
 
 
 def verify_migrated_copy(conn: Any, copy_dsn: str) -> str | None:

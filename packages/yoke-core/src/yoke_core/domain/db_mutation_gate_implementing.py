@@ -206,7 +206,8 @@ def _history_membership_error(
             "install."
         )
     try:
-        load_migration_module(match.path, match.name)
+        if not match.is_baseline:
+            load_migration_module(match.path, match.name)
     except Exception as exc:  # noqa: BLE001 — surface the contract failure
         return f"module '{match.name}': does not load as a migration: {exc}"
     return None

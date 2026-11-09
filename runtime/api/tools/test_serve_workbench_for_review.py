@@ -65,23 +65,10 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
         serving_build_authority(),
     ):
         run_bootstrap(emit=lambda _: None)
-    from yoke_core.domain import migrations, migration_history
+    from yoke_core.domain import migrations
     from yoke_core.domain.org_schema import seed_default_org
 
-    history = migration_history.ordered_entries(
-        migration_history.history_dir(migrations)
-    )
-    standalone = next(
-        entry for entry in history if "standalone_qa_plan_execution" in entry.name
-    )
-    # Model an aged universe that has not received the standalone history entry.
-    with monkeypatch.context() as older_build:
-        older_build.setattr(
-            migration_history,
-            "ordered_entries",
-            lambda directory: tuple(entry for entry in history if entry != standalone),
-        )
-        review.prepare_review_database()
+    review.prepare_review_database()
     seed_default_org(fixture)
     seed_default_org(fresh)
     fixture.commit()
@@ -99,9 +86,7 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
         if got != wanted
     ]
 
-    fixture.execute(
-        "ALTER TABLE qa_requirements DROP COLUMN standalone_execution_id CASCADE"
-    )
+    fixture.execute("ALTER TABLE projects DROP COLUMN breakage_policy")
     fixture.commit()
     assert _schema_shape(fixture) != expected
     fixture.commit()  # Release inspection locks before independent boot connections.
@@ -132,9 +117,9 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
     assert (
         fixture.execute(
             "SELECT applied_by FROM applied_migrations WHERE migration_name = %s",
-            (standalone.name,),
+            ("0106_baseline",),
         ).fetchone()[0]
-        == "boot-converge"
+        == "birth"
     )
 
 

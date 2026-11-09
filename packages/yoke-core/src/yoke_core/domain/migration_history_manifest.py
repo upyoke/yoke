@@ -96,12 +96,12 @@ def manifest_from_content(
     entries: Iterable[tuple[str, bytes]],
     artifact: ArtifactIdentity,
     *,
-    folded: Sequence[MigrationEntry] = (),
+    baselines: Sequence[MigrationEntry] = (),
 ) -> MigrationHistoryManifest:
     """Build a manifest directly from named artifact member bytes."""
     return _manifest_from_digests(
         [(name, raw_content_sha256(content)) for name, content in entries]
-        + [(entry.name, entry.content_sha256) for entry in folded],
+        + [(entry.name, entry.content_sha256) for entry in baselines],
         artifact,
     )
 

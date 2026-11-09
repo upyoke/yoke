@@ -7,11 +7,11 @@ import zipfile
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.domain.migration_folded_history import (
-    RELEASED_DIGESTS_NAME,
-    folded_entries_from_bytes,
-)
 from yoke_core.domain.migration_history import ENTRY_NAME_PATTERN
+from yoke_core.domain.migration_baseline import (
+    baseline_from_source,
+    RELEASED_DIGESTS_NAME,
+)
 from yoke_core.domain.migration_history import MigrationEntry, ordered_entries
 from yoke_core.domain.migration_history_manifest import (
     ArtifactIdentity,
@@ -46,7 +46,9 @@ def manifest_for_core_wheel(
         source_commit=source_commit,
     )
     return manifest_from_content(
-        _wheel_history(record.source), artifact, folded=_wheel_folded(record.source)
+        _wheel_history(record.source),
+        artifact,
+        baselines=_wheel_baselines(record.source),
     )
 
 
@@ -186,6 +188,9 @@ def materialize_core_wheel_history(
     for name, content in _wheel_history(wheel):
         (destination / f"{name}.py").write_bytes(content)
     with zipfile.ZipFile(wheel) as archive:
+        package_source = CORE_HISTORY_PREFIX + "__init__.py"
+        if package_source in archive.namelist():
+            (destination / "__init__.py").write_bytes(archive.read(package_source))
         manifest = CORE_HISTORY_PREFIX + RELEASED_DIGESTS_NAME
         if manifest in archive.namelist():
             (destination / RELEASED_DIGESTS_NAME).write_bytes(archive.read(manifest))
@@ -202,14 +207,16 @@ def _core_record(records: Sequence[WheelRecord]) -> WheelRecord:
     return matches[0]
 
 
-def _wheel_folded(wheel: Path):
+def _wheel_baselines(wheel: Path):
     with zipfile.ZipFile(wheel) as archive:
-        manifest = CORE_HISTORY_PREFIX + RELEASED_DIGESTS_NAME
-        if manifest not in archive.namelist():
-            return ()
-        return folded_entries_from_bytes(
-            archive.read(manifest), Path(CORE_HISTORY_PREFIX)
-        )
+        package_source = CORE_HISTORY_PREFIX + "__init__.py"
+        if package_source in archive.namelist():
+            baseline = baseline_from_source(
+                archive.read(package_source), Path(CORE_HISTORY_PREFIX)
+            )
+            if baseline is not None:
+                return (baseline,)
+        return ()
 
 
 def _wheel_history(wheel: Path) -> tuple[tuple[str, bytes], ...]:
@@ -230,7 +237,7 @@ def _wheel_history(wheel: Path) -> tuple[tuple[str, bytes], ...]:
                     f"core wheel contains invalid migration entry {relative!r}"
                 )
             found.append((int(match.group(1)), stem, archive.read(member)))
-    if not found and not _wheel_folded(wheel):
+    if not found and not _wheel_baselines(wheel):
         raise MigrationHistoryManifestError(
             "core wheel contains no permanent migration history entries"
         )

@@ -79,7 +79,7 @@ def removes_a_surface(source: str) -> bool:
 
 def entry_minimum(entry: Any) -> Optional[str]:
     """Read a declaration from frozen metadata or an executable entry."""
-    if entry.is_folded:
+    if entry.is_baseline:
         return entry.minimum_serving_version
     from yoke_core.domain.migration_history import load_migration_module
 

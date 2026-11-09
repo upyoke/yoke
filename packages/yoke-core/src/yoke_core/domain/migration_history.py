@@ -1,6 +1,6 @@
 """The ordered migration history: what exists to be applied, and in what order.
 
-A history contains live ``NNNN_slug.py`` modules and frozen folded entries.
+A history contains live ``NNNN_slug.py`` modules and a code-declared baseline.
 Together with each database's ``applied_migrations`` ledger it makes the
 pending set derivable — ``history - ledger`` — from the installed code plus
 one connection, with no central registry to consult and nothing to keep in
@@ -68,17 +68,21 @@ class MigrationEntry:
     name: str
     path: Path
 
-    folded_content_sha256: str | None = None
     minimum_serving_version: str | None = None
+    baseline_content_sha256: str | None = None
+    baseline_predecessors: Path | None = None
+    baseline_evidence_table: str | None = None
 
     @property
-    def is_folded(self) -> bool:
-        return self.folded_content_sha256 is not None
+    def is_baseline(self) -> bool:
+        return self.baseline_content_sha256 is not None
 
     @property
     def content_sha256(self) -> str:
-        """SHA256 of the entry's raw bytes, with no text normalization."""
-        return self.folded_content_sha256 or raw_content_sha256(self.path.read_bytes())
+        """Frozen baseline identity, or a script SHA256 with no normalization."""
+        return self.baseline_content_sha256 or raw_content_sha256(
+            self.path.read_bytes()
+        )
 
 
 def history_dir(package: ModuleType) -> Path:
@@ -127,13 +131,14 @@ def _entries(directory: Path, *, strict_names: bool) -> Tuple[MigrationEntry, ..
         by_sequence[sequence] = stem
         entries.append(MigrationEntry(sequence=sequence, name=stem, path=path))
 
-    from yoke_core.domain.migration_folded_history import folded_entries
+    from yoke_core.domain.migration_baseline import declared_baseline
 
-    for entry in folded_entries(directory):
+    baseline = declared_baseline(directory)
+    for entry in (baseline,) if baseline else ():
         if entry.sequence in by_sequence:
             raise HistoryError(
-                f"folded migration {entry.name} collides with live migration "
-                f"{by_sequence[entry.sequence]}; remove its script when folding"
+                f"baseline {entry.name} collides with live migration "
+                f"{by_sequence[entry.sequence]}; keep the baseline ordinal reserved"
             )
         by_sequence[entry.sequence] = entry.name
         entries.append(entry)
@@ -181,7 +186,7 @@ def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
     """
     entries = _entries(directory, strict_names=True)
     for entry in entries:
-        if not entry.is_folded:
+        if not entry.is_baseline:
             require_sequence_order_only(entry.name, entry.path.read_bytes())
     return entries
 

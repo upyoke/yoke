@@ -31,7 +31,7 @@ RETIRED_SURFACES: Tuple[Tuple[str, str], ...] = (
     ("events", "user_id"),
 )
 
-InvariantCheck = Tuple[str, Optional[Callable[[Any], None]] | Literal["folded"]]
+InvariantCheck = Tuple[str, Optional[Callable[[Any], None]] | Literal["baseline"]]
 
 
 def _connect(dsn: str) -> Any:
@@ -126,8 +126,8 @@ def _packaged_invariant_checks(history: Sequence[Any]) -> List[InvariantCheck]:
 
     checks = []
     for entry in history:
-        if entry.is_folded:
-            checks.append((entry.name, "folded"))
+        if entry.is_baseline:
+            checks.append((entry.name, "baseline"))
             continue
         module = load_migration_module(entry.path, entry.name)
         check = getattr(module, "invariants", None)
@@ -174,8 +174,8 @@ def _applied_invariant_outcomes(
     for name, check in checks:
         if name not in applied_names:
             continue
-        if check == "folded":
-            outcomes.append((name, "folded", None))
+        if check == "baseline":
+            outcomes.append((name, "baseline", None))
             continue
         if check is None:
             outcomes.append((name, "not_declared", None))
@@ -249,7 +249,7 @@ def _report_database(dsn_for: Any, database: str) -> bool:
             failed_invariants = [
                 name
                 for name, state, _detail in outcomes
-                if state not in {"passed", "folded"}
+                if state not in {"passed", "baseline"}
             ]
 
             attempts = _audit_attempts(cur)

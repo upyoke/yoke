@@ -157,9 +157,9 @@ def test_applied_invariants_are_isolated_and_fail_closed() -> None:
     ]
 
 
-def test_folded_membership_stays_required_without_executable_invariants():
-    checks = [("0001_folded", "folded")]
-    assert report._packaged_pending(checks, set()) == ["0001_folded"]
-    assert report._applied_invariant_outcomes(object(), checks, {"0001_folded"}) == [
-        ("0001_folded", "folded", None)
+def test_baseline_membership_stays_required_without_executable_invariants():
+    checks = [("0106_baseline", "baseline")]
+    assert report._packaged_pending(checks, set()) == ["0106_baseline"]
+    assert report._applied_invariant_outcomes(object(), checks, {"0106_baseline"}) == [
+        ("0106_baseline", "baseline", None)
     ]

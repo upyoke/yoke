@@ -7,7 +7,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 
-from yoke_core.domain.qa_requirement_snapshot_convergence import (
+from yoke_core.domain.qa_requirement_snapshot_validation import (
     assert_requirement_execution_snapshot_invariants,
 )
 

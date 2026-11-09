@@ -9,10 +9,6 @@ from yoke_core.domain.universe_portability_common import (
     ArchiveCompatibilityError,
     ArchiveInvalidError,
 )
-from yoke_core.domain.universe_portability_content_contract import (
-    ARCHIVE_COLUMN_RENAMES,
-    ARCHIVE_OMITTABLE_TARGET_COLUMNS,
-)
 
 
 _SQL_IDENTIFIER = r'(?:(?:"(?:[^"]|"")*")|[a-z_][a-z0-9_$]*)'
@@ -78,11 +74,8 @@ def compatible_restore_columns(
     archive_columns: Sequence[str],
     target_columns: Sequence[str],
 ) -> tuple[str, ...]:
-    """Map one known historical COPY shape onto the trusted target table."""
-    mapped = tuple(
-        ARCHIVE_COLUMN_RENAMES.get((table, column), column)
-        for column in archive_columns
-    )
+    """Require the archive COPY columns to match the current trusted table."""
+    mapped = tuple(archive_columns)
     target = set(target_columns)
     if len(mapped) != len(set(mapped)):
         raise ArchiveInvalidError(
@@ -90,8 +83,7 @@ def compatible_restore_columns(
         )
     unknown = set(mapped) - target
     missing = target - set(mapped)
-    omittable = ARCHIVE_OMITTABLE_TARGET_COLUMNS.get(table, frozenset())
-    if unknown or not missing.issubset(omittable):
+    if unknown or missing:
         raise ArchiveCompatibilityError(
             f"the universe archive COPY columns are not compatible with {table}"
             f" (missing={sorted(missing)}, unknown={sorted(unknown)})"

@@ -1,98 +1,39 @@
-"""Frozen raw-byte identities for migration entries carried by releases."""
-
-from __future__ import annotations
+"""Baseline identity is active history; predecessor pins are transition input."""
 
 import json
 
-import pytest
-
-from yoke_core.domain import migrations as migration_history_package
-from yoke_core.domain.migration_history import (
-    history_dir,
-    load_migration_module,
-    ordered_entries,
-)
-from yoke_core.domain.migration_serving_version import (
-    NEXT_RELEASE,
-    declared_minimum,
-)
+from yoke_core.domain import migrations
+from yoke_core.domain.migration_baseline import declared_baseline
+from yoke_core.domain.migration_history import history_dir, ordered_entries
 
 
-MANIFEST_NAME = "released_history_digests.json"
-VALIDATION_LEDGER_ENTRY = "0035_clear_unproven_onboard_activation_latch"
-VALIDATION_LEDGER_DIGEST = (
-    "1c6a854577ba890eb69882e58030c9af10f4ffcaa4969929fbd51941eb6e52ef"
-)
+def test_packaged_history_has_one_code_declared_baseline_and_no_scripts():
+    directory = history_dir(migrations)
+    baseline = declared_baseline(directory)
+    assert baseline.name == "0106_baseline"
+    assert (
+        baseline.content_sha256
+        == "e186ea2a939a1ae1451e96a69a25c9bfda163f0f92d0e28b48dc89913dea23dc"
+    )
+    assert tuple(
+        entry for entry in ordered_entries(directory) if entry.is_baseline
+    ) == (baseline,)
+    assert not list(directory.glob("[0-9]*.py"))
+    predecessors = json.loads(baseline.baseline_predecessors.read_text())
+    assert len(predecessors) == 102
+    assert baseline.name not in predecessors
+    assert (
+        predecessors["0035_clear_unproven_onboard_activation_latch"]
+        == "1c6a854577ba890eb69882e58030c9af10f4ffcaa4969929fbd51941eb6e52ef"
+    )
 
 
-def _history_and_pins():
-    directory = history_dir(migration_history_package)
-    history = ordered_entries(directory)
-    pins = json.loads((directory / MANIFEST_NAME).read_text(encoding="utf-8"))
-    pins = {
-        name: value["content_sha256"] if isinstance(value, dict) else value
-        for name, value in pins.items()
-    }
-    return history, pins
-
-
-@pytest.mark.parametrize("folded", [False, True])
-def test_released_history_manifest_matches_raw_packaged_bytes(
-    tmp_path, monkeypatch, folded,
-) -> None:
-    if folded:
-        name, digest = "0001_folded", "a" * 64
-        (tmp_path / MANIFEST_NAME).write_text(json.dumps({
-            name: {"content_sha256": digest, "minimum_serving_version": None},
-        }))
-        monkeypatch.setattr(__name__ + ".history_dir", lambda package: tmp_path)
-    history, pins = _history_and_pins()
-    entries = {entry.name: entry for entry in history}
-    assert set(pins) <= set(entries), "digest manifest names a missing entry"
-    mismatches = {
-        name: (expected, entries[name].content_sha256)
-        for name, expected in pins.items()
-        if entries[name].content_sha256 != expected
-    }
-    assert mismatches == {}
-
-
-def test_validation_database_ledger_matches_raw_packaged_bytes(test_db) -> None:
-    history, _pins = _history_and_pins()
-    entries = {entry.name: entry for entry in history}
-    ledger = {
-        str(name): str(digest)
-        for name, digest in test_db.execute(
-            "SELECT migration_name, content_sha256 FROM applied_migrations "
-            "WHERE content_sha256 IS NOT NULL"
-        ).fetchall()
-    }
-    assert set(ledger) <= set(entries), "ledger names a missing packaged entry"
-    assert ledger[VALIDATION_LEDGER_ENTRY] == VALIDATION_LEDGER_DIGEST
-    mismatches = {
-        name: (digest, entries[name].content_sha256)
-        for name, digest in ledger.items()
-        if name in entries and entries[name].content_sha256 != digest
-    }
-    assert mismatches == {}
-
-
-def test_released_history_manifest_is_a_complete_frozen_prefix() -> None:
-    history, pins = _history_and_pins()
-    entries = {entry.name: entry for entry in history}
-    highest_frozen = max(entries[name].sequence for name in pins)
-    frozen_prefix = {
-        entry.name for entry in history if entry.sequence <= highest_frozen
-    }
-    assert set(pins) == frozen_prefix
-
-    unpinned_cut_floors = []
-    for entry in history:
-        floor = (
-            entry.minimum_serving_version
-            if entry.is_folded
-            else declared_minimum(load_migration_module(entry.path, entry.name))
-        )
-        if floor not in {None, NEXT_RELEASE} and entry.name not in pins:
-            unpinned_cut_floors.append(entry.name)
-    assert unpinned_cut_floors == []
+def test_validation_database_ledger_matches_current_history(test_db):
+    entries = {entry.name: entry for entry in ordered_entries(history_dir(migrations))}
+    ledger = dict(
+        test_db.execute("SELECT migration_name,content_sha256 FROM applied_migrations")
+    )
+    assert set(ledger) == set(entries)
+    assert all(
+        digest == entries[name].content_sha256 for name, digest in ledger.items()
+    )

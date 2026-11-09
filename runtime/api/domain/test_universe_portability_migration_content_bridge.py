@@ -10,89 +10,7 @@ from runtime.api.domain.universe_portability_test_support import (
 )
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import universe_portability as portability
-from yoke_core.domain.environment_bootstrap import BootstrapError
-from yoke_core.domain.schema_fingerprint import (
-    fingerprint_portable_postgres_schema,
-)
 from yoke_core.domain.source_authority_receipts import authority_receipt
-
-from runtime.api.domain.universe_portability_schema_validation_test_support import (
-    seed_older_schema,
-)
-from runtime.api.domain.universe_portability_qa_snapshots_test_support import (
-    seed_older_requirement_snapshot,
-)
-
-
-CONTENT_MIGRATION = "0006_migration_content_identity"
-
-
-def _remove_content_identity_schema(conn: psycopg.Connection) -> tuple[str, ...]:
-    """Make a current fixture represent an authentic pre-content archive."""
-    conn.execute("ALTER TABLE applied_migrations DISABLE TRIGGER USER")
-    conn.execute(
-        "DELETE FROM applied_migrations WHERE migration_name >= %s",
-        (CONTENT_MIGRATION,),
-    )
-    conn.execute(
-        "DELETE FROM migration_audit WHERE migration_name >= %s",
-        (CONTENT_MIGRATION,),
-    )
-    names = tuple(
-        str(row[0])
-        for row in conn.execute(
-            "SELECT migration_name FROM applied_migrations ORDER BY migration_name"
-        ).fetchall()
-    )
-    assert names
-    conn.execute("DROP TABLE migration_content_adoptions CASCADE")
-    conn.execute("ALTER TABLE applied_migrations DROP COLUMN content_sha256 CASCADE")
-    conn.commit()
-    return names
-
-
-def test_archive_missing_folded_history_requires_an_earlier_build(
-    tmp_path,
-) -> None:
-    with _canonical_test_universe() as (source, source_dsn):
-        with _canonical_test_universe() as (reference, _reference_dsn):
-            expected_fingerprint = fingerprint_portable_postgres_schema(reference)
-        source.execute(
-            "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
-            "VALUES (88901, 'portable-content', 'Portable Content', 'PCM', now())"
-        )
-        seed_older_schema(source)
-        seed_older_requirement_snapshot(source)
-        legacy_names = _remove_content_identity_schema(source)
-        archive = tmp_path / "pre-content-identity.dump"
-        portability.dump_universe(source_dsn, archive)
-
-        target_database = pg_testdb.create_test_database()
-        target_dsn = pg_testdb.dsn_for_test_database(target_database)
-        try:
-            portability.restore_universe(archive, target_dsn)
-            with psycopg.connect(target_dsn) as restored:
-                rows = restored.execute(
-                    "SELECT migration_name, content_sha256 "
-                    "FROM applied_migrations ORDER BY migration_name"
-                ).fetchall()
-                assert tuple(str(row[0]) for row in rows) == legacy_names
-                assert all(row[1] is None for row in rows)
-                assert restored.execute(
-                    "SELECT COUNT(*) FROM migration_content_adoptions"
-                ).fetchone() == (0,)
-
-            with pytest.raises(
-                BootstrapError,
-                match="migration_folded_history_missing",
-            ):
-                portability.converge_and_validate_restored_universe(
-                    target_dsn,
-                    expected_org_slug="default",
-                    expected_schema_fingerprint=expected_fingerprint,
-                )
-        finally:
-            pg_testdb.drop_test_database(target_database)
 
 
 @pytest.mark.parametrize(
@@ -117,7 +35,7 @@ def test_partial_content_identity_archive_shape_is_rejected(
         try:
             with pytest.raises(
                 portability.ArchiveCompatibilityError,
-                match="must be present or absent together",
+                match="catalog|columns",
             ):
                 portability.restore_universe(archive, target_dsn)
         finally:

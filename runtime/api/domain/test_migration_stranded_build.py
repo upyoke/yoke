@@ -15,16 +15,16 @@ from yoke_core.domain import schema_readiness
 from yoke_core.domain.migration_history import MigrationEntry
 from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
-# Probe the frozen destructive entry without importing its retired script.
-from yoke_core.domain import migrations
-from yoke_core.domain.migration_history import history_dir, ordered_entries
 
 RETIREMENT_ENTRY_NAME = "0001_retire_superseded_surfaces"
-
-RETIREMENT_HISTORY = tuple(
-    entry
-    for entry in ordered_entries(history_dir(migrations))
-    if entry.name == RETIREMENT_ENTRY_NAME
+RETIREMENT_HISTORY = (
+    MigrationEntry(
+        sequence=1,
+        name=RETIREMENT_ENTRY_NAME,
+        path=Path("unused.py"),
+        baseline_content_sha256="a" * 64,
+        minimum_serving_version="0.1.1+launch.181",
+    ),
 )
 
 
