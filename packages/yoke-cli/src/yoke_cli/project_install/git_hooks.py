@@ -89,13 +89,15 @@ def install_git_hook(
         context="managed git hook mutation",
     )
     hooks_dir = target_root / ".git" / "hooks"
-    if not hooks_dir.is_dir():
+    if not (target_root / ".git").is_dir():
         result.note(
             f"Skipped: .git/hooks/{hook_name} (.git/hooks/ does not exist — "
             "not a git repo, or a linked worktree sharing the main "
             "checkout's .git)"
         )
         return
+
+    hooks_dir.mkdir(exist_ok=True)
 
     hook_path = hooks_dir / hook_name
     if hook_path.exists():
@@ -198,7 +200,7 @@ def preview_git_hooks(
     hooks_dir = target_root / ".git" / "hooks"
     for spec in selected:
         hook_path = hooks_dir / spec["name"]
-        if not hooks_dir.is_dir():
+        if not (target_root / ".git").is_dir():
             result.note(
                 f"Skipped: .git/hooks/{spec['name']} (.git/hooks/ does not "
                 "exist — not a git repo, or a linked worktree sharing the "

@@ -96,19 +96,33 @@ def store_github_binding(
                     (github_adoption or {}).get("installation_id")
                 ),
             )
-            result = dispatch(
-                "projects.github_binding.bind",
-                {
-                    "project": str(project["id"]),
-                    "installation_id": repository["installation_id"],
-                    "repository_id": repository["repository_id"],
-                    "github_repo": github_repo,
-                    "expected_api_url": authority.api_url,
-                    "github_user_access_token": authority.token.access_token,
-                },
-                config_path,
-                sensitive_values=(authority.token.access_token,),
-            )
+            try:
+                result = dispatch(
+                    "projects.github_binding.status",
+                    {"project": str(project["id"])},
+                    config_path,
+                )
+            except Exception:
+                result = {}
+            binding = result.get("binding") or {}
+            if not (
+                binding.get("status") == "active"
+                and str(binding.get("installation_id")) == str(repository["installation_id"])
+                and str(binding.get("repository_id")) == str(repository["repository_id"])
+            ):
+                result = dispatch(
+                    "projects.github_binding.bind",
+                    {
+                        "project": str(project["id"]),
+                        "installation_id": repository["installation_id"],
+                        "repository_id": repository["repository_id"],
+                        "github_repo": github_repo,
+                        "expected_api_url": authority.api_url,
+                        "github_user_access_token": authority.token.access_token,
+                    },
+                    config_path,
+                    sensitive_values=(authority.token.access_token,),
+                )
     except github_binding_auth.GitHubBindingAuthError as exc:
         raise ProjectGithubAdoptionError(
             "GitHub App authorization could not be refreshed. Run `yoke github "
