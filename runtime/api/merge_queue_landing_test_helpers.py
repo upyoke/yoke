@@ -9,6 +9,7 @@ from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_landing_wait as wait_mod
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain import merge_queue_admission_gates as admission_gates
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_landing_record_state import LANDED
@@ -232,7 +233,7 @@ def wire_happy_path(
         lambda *args: args[3] if len(args) > 3 and args[3] else args[1],
     )
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "read_queue_members",
         lambda _ctx, base_branch="main": (list(members), None),
     )
@@ -252,7 +253,7 @@ def wire_happy_path(
         lambda _ctx, _pr: (UNARMED, None),
     )
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "unchanged_failed_train_refusal",
         lambda *_a, **_k: None,
     )

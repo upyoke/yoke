@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.merge_queue_landing_test_helpers import LANE_SHA, ctx, dispatch_for
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain import merge_queue_admission_gates as admission_gates
 from yoke_core.domain import merge_queue_route_selection as selection_mod
 from yoke_core.domain.merge_queue_live_drift import LiveDriftReport
 
@@ -47,7 +48,7 @@ def test_landing_compares_gate_without_reading_candidate(
         lambda **kwargs: "",
     )
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "read_queue_members",
         lambda *_args, **_kwargs: (None, "queue lookup after comparison"),
     )

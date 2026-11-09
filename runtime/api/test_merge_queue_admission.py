@@ -1,7 +1,7 @@
 """Train-composition admission classifier behavior."""
 
 from runtime.api.merge_queue_landing_test_helpers import dispatch_for, land
-from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain import merge_queue_admission_gates as admission_gates
 from yoke_core.domain.merge_queue_admission import (
     ADMIT,
     REFUSE_MIGRATION_CARRIER,
@@ -147,7 +147,7 @@ def test_non_carrier_joins_carrier_train():
 
 def _queued_member(monkeypatch):
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "read_queue_members",
         lambda ctx, base_branch="main": (
             [QueueMember(pr_num="9", head_ref="YOK-150")],

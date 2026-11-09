@@ -13,17 +13,10 @@ from yoke_core.domain.github_poll_schedule import (
     PollSchedule,
     STEADY_SCHEDULE,
 )
-from yoke_core.domain.merge_queue_admission import evaluate_admission
-from yoke_core.domain.merge_queue_admission_shape import (
-    candidate_shape,
-    train_context,
-)
+from yoke_core.domain.merge_queue_admission_gates import queue_admission_refusals
 from yoke_core.domain.merge_queue_enqueue_verification import (
     red_entry_checks_refusal,
     verify_landing_admitted,
-)
-from yoke_core.domain.merge_queue_failed_train import (
-    unchanged_failed_train_refusal,
 )
 from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
@@ -47,7 +40,6 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.merge_github_queue import (
     enter_merge_queue,
     read_pr_landing_state,
-    read_queue_members,
 )
 from yoke_core.domain.merge_context import MergeContext
 
@@ -143,30 +135,16 @@ def land_item_through_merge_queue(
         )
     warnings.extend(drift.unreadable)
 
-    members, members_err = read_queue_members(ctx, base_branch=target)
-    if members_err or members is None:
-        return QueueLandingOutcome(
-            ok=False, exit_code=1, error=members_err or "queue unreadable"
-        )
-    member_refs = tuple(
-        member.head_ref
-        for member in members
-        if member.head_ref and member.head_ref != ctx.args.branch
+    admission = queue_admission_refusals(
+        ctx, public_ref=public_ref, target=target, dispatch=dispatch,
     )
-
-    candidate, candidate_err = candidate_shape(dispatch, public_ref)
-    if candidate_err:
-        return QueueLandingOutcome(ok=False, exit_code=1, error=candidate_err)
-    context, context_err = train_context(dispatch, public_ref, member_refs, ctx.project)
-    if context_err:
-        return QueueLandingOutcome(ok=False, exit_code=1, error=context_err)
-    warnings.extend(context.notes)
-    verdict = evaluate_admission(candidate, context)
-    if not verdict.admit:
+    member_refs = admission.member_refs
+    warnings.extend(admission.notes)
+    if admission.unreadable or admission.refusal:
         return QueueLandingOutcome(
             ok=False,
-            exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-            error=verdict.narrative(),
+            exit_code=1 if admission.unreadable else RECOVERABLE_QUEUE_EXIT_CODE,
+            error=admission.unreadable or admission.refusal,
             warnings=tuple(warnings),
         )
 
@@ -202,12 +180,10 @@ def land_item_through_merge_queue(
         )
         if red_checks:
             return fail_landing(pr_num, red_checks, tuple(warnings))
-        refusal = unchanged_failed_train_refusal(
-            ctx,
-            pr_num,
-            lane_head=commit_sha,
-            base_branch=target,
-        )
+        refusal = queue_admission_refusals(
+            ctx, public_ref=public_ref, target=target, gate="failed train",
+            pr_num=pr_num, lane_head=commit_sha,
+        ).refusal
         if refusal:
             return QueueLandingOutcome(
                 ok=False,

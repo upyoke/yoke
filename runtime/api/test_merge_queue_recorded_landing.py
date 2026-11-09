@@ -25,6 +25,7 @@ from yoke_core.domain import standalone_item_merge_landed as merge_landed
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain import merge_queue_admission_gates as admission_gates
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.merge_queue_close_out import QueueCloseOut
@@ -48,7 +49,7 @@ def test_a_recorded_landing_closes_out_without_consulting_the_queue(monkeypatch)
     def forbidden(*_a, **_kw):
         raise AssertionError("a recorded landing never re-enters the queue")
 
-    monkeypatch.setattr(route_mod, "read_queue_members", forbidden)
+    monkeypatch.setattr(admission_gates, "read_queue_members", forbidden)
     monkeypatch.setattr(route_mod, "enter_merge_queue", forbidden)
     monkeypatch.setattr(landing_pr_mod, "find_landable_pull_request", forbidden)
     landed: list[str] = []
@@ -93,7 +94,7 @@ def test_a_later_uncontained_candidate_does_not_close_out_from_the_recorded_pr(
     _cover(monkeypatch, "unlanded")
     consulted: list[str] = []
     monkeypatch.setattr(
-        route_mod,
+        admission_gates,
         "read_queue_members",
         lambda _ctx, base_branch="main": (consulted.append(base_branch) or [], None),
     )
