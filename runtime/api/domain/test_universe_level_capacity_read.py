@@ -50,7 +50,7 @@ def test_owner_only_refuses_the_viewer_even_if_admin(universe, admin):
     result = read(universe, lambda _: authorization(actor_id=2, admin=admin))
     assert result["usable_machines"] == 0
     assert result["levels"][0]["launchable_surfaces"] == []
-    assert reason(result) == f"no machine of yours offers {SURFACE}"
+    assert surface_label(result) == f"no machine of yours offers {SURFACE}"
     assert MACHINE not in str(result)
     # The fleet report remains independent of viewer access.
     assert [
@@ -66,7 +66,7 @@ def test_signed_out_is_visible_and_the_launch_is_refused(universe, reason):
         (json.dumps({SURFACE: unknown_reading(SURFACE, reason, observed_at=NOW)}),),
     )
     result = read(universe)
-    assert reason(result) == f"{SURFACE}: signed out on {MACHINE} — run `claude /login` there"
+    assert surface_label(result) == f"{SURFACE}: signed out on {MACHINE} — run `claude /login` there"
     assert result["usable_machines"] == 0
     preview = preview_launch(
         universe, auth=authorization(), project_id=10, surface=SURFACE, now=NOW
@@ -82,7 +82,7 @@ def test_disconnected_relay_names_the_machine(universe):
         ("2026-08-22T11:59:00.000000Z",),
     )
     assert (
-        f"{SURFACE}: relay disconnected on {MACHINE}" == reason(read(universe))
+        f"{SURFACE}: relay disconnected on {MACHINE}" == surface_label(read(universe))
     )
 
 
@@ -154,7 +154,7 @@ def test_pair_offered_in_another_project_remains_launchable(universe, monkeypatc
 def test_surface_rejections_name_one_reason(universe, column, value, reason):
     universe.execute(f"UPDATE session_relays SET {column} = ?", (value,))
     expected = f"{SURFACE}: {reason} on {MACHINE}" if reason else f"no machine of yours offers {SURFACE}"
-    assert globals()["reason"](read(universe)) == expected
+    assert surface_label(read(universe)) == expected
 
 
 def test_disabled_surface_names_the_machine(universe):
@@ -169,7 +169,7 @@ def test_disabled_surface_names_the_machine(universe):
         session_id="caller",
         now=NOW,
     )
-    assert reason(read(universe)) == f"{SURFACE}: surface disabled on {MACHINE}"
+    assert surface_label(read(universe)) == f"{SURFACE}: surface disabled on {MACHINE}"
 
 
 def test_full_machine_names_capacity_as_the_blocker(universe):
@@ -179,10 +179,10 @@ def test_full_machine_names_capacity_as_the_blocker(universe):
 
     capacity = MachineCapacity(MACHINE, 2, 2, "setting", None, None, None, None, None)
     with patch.object(eligibility, "machine_capacity", return_value=capacity):
-        assert reason(read(universe)) == f"{SURFACE}: at capacity on {MACHINE}"
+        assert surface_label(read(universe)) == f"{SURFACE}: at capacity on {MACHINE}"
 
 
-def reason(result):
+def surface_label(result):
     return next(
         b["label"] for b in result["levels"][0]["options"][0]["now"]["blockers"]
         if b["surface"] == SURFACE
@@ -204,7 +204,7 @@ def test_hidden_machines_never_contribute(universe, excluded, rejected):
     else:
         universe.execute("UPDATE machines SET access = '{}', owner_actor_id = 2")
     result = read(universe)
-    assert reason(result) == f"no machine of yours offers {SURFACE}"
+    assert surface_label(result) == f"no machine of yours offers {SURFACE}"
     assert result["usable_machines"] == 0
     assert MACHINE not in str(result)
 
@@ -217,5 +217,5 @@ def test_freshest_visible_rejection_supplies_the_reason(universe):
         (json.dumps({SURFACE: unknown_reading(SURFACE, "stale_credential", observed_at=NOW)}),),
     )
     result = read(universe)
-    assert "signed out" in reason(result)
+    assert "signed out" in surface_label(result)
     assert MACHINE not in str(result)
