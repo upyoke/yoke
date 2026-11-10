@@ -112,6 +112,19 @@ def test_missing_level_capacity_entry_fails_the_roster_check(monkeypatch):
 
 
 def test_level_capacity_read_passes_through_the_local_ui_proxy(ui_client, test_db):
+    from runtime.api.fixtures.actor_roles import seed_project_role
+    from yoke_core.ui.local_operator_actor import resolve_local_operator_actor
+
+    actor_id = resolve_local_operator_actor()
+    assert actor_id is not None
+    project_id = int(
+        test_db.execute(
+            "SELECT id FROM projects WHERE slug = %s", ("yoke",)
+        ).fetchone()[0]
+    )
+    seed_project_role(
+        test_db, actor_id=actor_id, project_id=project_id, role_name="owner"
+    )
     response = ui_client.post(
         f"/api/functions/call?token={_TOKEN}",
         json={"function": "universe.level_capacity.get", "payload": {}},
