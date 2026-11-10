@@ -16,6 +16,9 @@ from yoke_core.domain.project_renderer_pulumi_stack_types import (
     pulumi_stack_name,
 )
 from yoke_core.domain.project_renderer_pulumi_values import gather_pulumi_values
+from yoke_core.domain.project_renderer_pulumi_vps_targets import (
+    gather_standalone_vps_targets,
+)
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 from yoke_core.domain.pulumi_state_capability import (
     CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY_TYPE,
@@ -66,6 +69,11 @@ def execute_pulumi_stack_init(
         declared_names = {
             pulumi_stack_name(stack_type, settings, values)
             for stack_type in declared_types
+        } | {
+            target.name
+            for target in gather_standalone_vps_targets(
+                settings, stack_name=stack
+            )
         }
     except ValueError as exc:
         raise PulumiExecError(str(exc)) from exc
