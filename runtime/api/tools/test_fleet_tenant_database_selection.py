@@ -247,7 +247,7 @@ def test_the_watcher_surfaces_the_roster_and_the_binding_warning(cluster) -> Non
     # for minutes behind a filter. The roster classifies as motion, reaching
     # the reader inside the run's next digest; a binding it could not read is
     # urgent, because it decides membership.
-    from yoke_core.tools import watch_preflight
+    from yoke_core.domain import fleet_preflight_watch
     from yoke_core.domain.watch_throttle import LineClass
 
     cluster(["yoke_alpha", f"{SCRATCH_DATABASE_PREFIX}87369x7c8be1_template"])
@@ -255,13 +255,13 @@ def test_the_watcher_surfaces_the_roster_and_the_binding_warning(cluster) -> Non
     _select(emit)
 
     for line in lines:
-        assert watch_preflight.classify_preflight_line(line).cls is LineClass.PROGRESS
+        assert fleet_preflight_watch.classify_preflight_line(line).cls is LineClass.PROGRESS
 
     warning = (
         "could not read a database name from validation binding "
         "YOKE_PG_DSN_VALIDATION (/secrets/binding.dsn)"
     )
-    assert watch_preflight.classify_preflight_line(warning).cls is LineClass.URGENT
+    assert fleet_preflight_watch.classify_preflight_line(warning).cls is LineClass.URGENT
 
 
 def test_the_janitor_removes_exactly_what_the_fleet_skips() -> None:

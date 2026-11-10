@@ -54,7 +54,19 @@ settings, the copy's DSN, and its restore point — never the operator's
 credentials, and their failure output has the copy's DSN and password removed.
 
 The admin cluster is the environment's `release.admin_connection` setting on
-the project's own environment. A `named_databases` fleet runs from the
+the project's own environment.
+
+A preflight copies every fleet database to the machine that runs the
+rehearsal kernel. To keep that copy beside the database, declare
+`release.preflight_executor` on the same environment: a command line that
+both `yoke watch preflight` and the release gate run in place of the local
+kernel, with the same arguments, watcher output and exit code. Set it with
+`yoke projects environment-settings merge --project P --environment E --set
+release.preflight_executor=<command>`; set it empty to run the kernel on this
+machine, the normal mode for local and self-hosted projects. A setting this
+machine cannot read refuses as `fleet_preflight_executor_unreadable` rather
+than copying locally; an executor that cannot start or exits non-zero refuses
+as `fleet_preflight_executor_failed`, naming its capture and recovery. A `named_databases` fleet runs from the
 project's checkout registered on this machine (`yoke project register`), so
 the declared commands find the code they converge with. A non-Python schema
 source is digested byte for byte; a Python one by its syntax tree, so comments

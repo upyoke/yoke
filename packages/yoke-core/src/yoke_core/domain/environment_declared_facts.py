@@ -30,6 +30,7 @@ QA_RESTRICT_EXECUTION_PATH = "qa.restrict_execution_to_self"
 QA_HOSTED_RUNTIME_PATH = "qa.hosted_runtime"
 RELEASE_ENVIRONMENT_PATH = "release.environment"
 ADMIN_CONNECTION_PATH = "release.admin_connection"
+PREFLIGHT_EXECUTOR_PATH = "release.preflight_executor"
 SERVING_CONNECTION_PATH = "deploy.serving_connection"
 EMIT_LOG_METRICS_PATH = "observability.emit_log_metrics"
 PRODUCTION_ROLE_PATH = "role.production"
@@ -314,6 +315,7 @@ __all__ = [
     "URL_ENDPOINT_PATHS",
     "endpoint_fact_report",
     "MissingEnvironmentFact",
+    "PREFLIGHT_EXECUTOR_PATH",
     "PRODUCTION_ROLE_PATH",
     "QA_HOSTED_RUNTIME_PATH",
     "QA_RESTRICT_EXECUTION_PATH",
