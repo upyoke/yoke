@@ -130,17 +130,23 @@ def pending_review_requirements(
 
     stopped = " AND e.state IN ('aborted','error')" if stopped_only else ""
     held: dict[int, PendingAgentReview] = {}
-    # One read per presentation: a stage walk asks once per member.
-    rows = presentation_read(
-        conn,
-        ("qa_pending_review_rows", stopped_only),
-        lambda: conn.execute(
+    # Decode each bundle once per presentation, including unmatched bundles.
+    # A stage walk asks separately for every member's requirements.
+    def read():
+        by_requirement: dict[int, Any] = {}
+        rows = conn.execute(
             f"{_PENDING_REVIEW_SQL}{stopped} ORDER BY e.created_at, e.id"
-        ).fetchall(),
+        ).fetchall()
+        for row in rows:
+            for requirement_id in _bundle_requirement_ids(row["bundle_json"]):
+                by_requirement.setdefault(requirement_id, row)
+        return by_requirement
+
+    rows = presentation_read(
+        conn, ("qa_pending_review_index", stopped_only), read
     )
-    for row in rows:
-        for requirement_id in _bundle_requirement_ids(row["bundle_json"]) & wanted:
-            held.setdefault(requirement_id, _pending(conn, row))
+    for requirement_id in wanted & rows.keys():
+        held[requirement_id] = _pending(conn, rows[requirement_id])
     return held
 
 
