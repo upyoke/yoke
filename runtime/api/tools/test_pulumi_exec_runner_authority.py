@@ -62,6 +62,7 @@ def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
         "platform",
         payload["authority"],
         payload,
+        runner_fleet=payload.get("stack_kind") == "runner-fleet",
         aws_env_loader=lambda *args, **kwargs: {"AWS_ACCESS_KEY_ID": "key"},
         github_auth_loader=lambda *args, **kwargs: pytest.fail(
             "consulted the user-token path"
@@ -101,6 +102,7 @@ def test_runner_fleet_normal_local_authority_sets_intent(monkeypatch):
         "platform",
         payload["authority"],
         payload,
+        runner_fleet=payload.get("stack_kind") == "runner-fleet",
         aws_env_loader=lambda *args, **kwargs: {},
         github_auth_loader=lambda *args, **kwargs: type(
             "Auth",
@@ -171,6 +173,7 @@ def test_runner_fleet_actions_uses_hosted_repository_token_broker(
         "platform",
         payload["authority"],
         payload,
+        runner_fleet=payload.get("stack_kind") == "runner-fleet",
         aws_env_loader=lambda *args, **kwargs: {
             "AWS_ACCESS_KEY_ID": "oidc-key",
         },

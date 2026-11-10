@@ -96,6 +96,7 @@ def test_registry_actions_uses_hosted_repository_token_broker(monkeypatch):
         "platform",
         payload["authority"],
         payload,
+        runner_fleet=payload.get("stack_kind") == "runner-fleet",
         aws_env_loader=lambda *args, **kwargs: {
             "AWS_ACCESS_KEY_ID": "oidc-key",
         },
@@ -130,6 +131,7 @@ def test_registry_actions_requires_configured_repository_broker(monkeypatch):
             "platform",
             payload["authority"],
             payload,
+            runner_fleet=payload.get("stack_kind") == "runner-fleet",
             aws_env_loader=lambda *args, **kwargs: {},
             github_auth_loader=lambda *args, **kwargs: None,
         )
@@ -143,6 +145,7 @@ def test_local_bootstrap_refuses_non_runner_stack():
             "yoke",
             payload["authority"],
             payload,
+            runner_fleet=payload.get("stack_kind") == "runner-fleet",
             aws_env_loader=lambda *args, **kwargs: {},
             github_auth_loader=lambda *args, **kwargs: None,
             bootstrap_local_authority=True,

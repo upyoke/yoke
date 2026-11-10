@@ -37,6 +37,12 @@ from yoke_core.domain.project_renderer_settings import (
     _first_mapping,
     _load_project_renderer_settings,
 )
+from yoke_core.domain.pulumi_file_stack_values import (
+    GITHUB_ACCESS_PERMISSIONS,
+    METADATA_ACCESS,
+    RUNNER_FLEET_ACCESS,
+    VARIABLES_ACCESS,
+)
 from yoke_core.domain.pulumi_state_capability import validate_stack_state
 from yoke_core.domain.repository_provider_authority import (
     repository_provider_intent_from_settings,
@@ -44,16 +50,9 @@ from yoke_core.domain.repository_provider_authority import (
 
 
 STACK_CONFIG_SCHEMA = 2
-_GITHUB_METADATA_INTENT = {"metadata": "read"}
-_GITHUB_VARIABLES_INTENT = {
-    "metadata": "read",
-    "actions_variables": "write",
-}
-_RUNNER_FLEET_GITHUB_INTENT = {
-    "metadata": "read",
-    "actions_variables": "write",
-    "repository_hooks": "write",
-}
+_GITHUB_METADATA_INTENT = GITHUB_ACCESS_PERMISSIONS[METADATA_ACCESS]
+_GITHUB_VARIABLES_INTENT = GITHUB_ACCESS_PERMISSIONS[VARIABLES_ACCESS]
+_RUNNER_FLEET_GITHUB_INTENT = GITHUB_ACCESS_PERMISSIONS[RUNNER_FLEET_ACCESS]
 _BASE_STACK_KEYS = frozenset({
     "aws_account_id", "aws_region", "certificate_arn", "deploy_namespace",
     "component_type_aliases_json", "distribution_bucket_name",
