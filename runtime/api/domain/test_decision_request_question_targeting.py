@@ -49,10 +49,9 @@ def test_report_includes_project_less_question_addressed_to_viewer(conn):
     seed_members(conn)
     row = file_target(conn, to=["3"])
     assert row["project_id"] is None and row["org_id"] == 1
-    assert [q.request_id for q in read_questions(conn, [], viewer_actor_id=3)] == [
-        row["id"]
-    ]
-    assert read_questions(conn, [], viewer_actor_id=2) == ()
+    assert read_questions(conn, "steering") == ()
+    conn.execute("UPDATE harness_sessions SET actor_id=3 WHERE session_id='steering'")
+    assert [q.request_id for q in read_questions(conn, "steering")] == [row["id"]]
 
 
 def test_named_audience_question_uses_its_live_members(conn, monkeypatch):

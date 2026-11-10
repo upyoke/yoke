@@ -217,7 +217,7 @@ def claim_report_composition(conn, *, session_id, now, question_change=False):
             old = json.loads(prior) if prior else {}
         except ValueError:
             old = {}
-        questions = read_questions(conn, project_ids)
+        questions = read_questions(conn, session_id)
         if not isinstance(old, dict) or old.get("questions") != digest(
             question_fingerprint(questions)
         ):

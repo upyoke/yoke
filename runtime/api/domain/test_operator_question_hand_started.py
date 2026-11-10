@@ -1,4 +1,4 @@
-"""Steering skips questions from hand-started sessions, except its own.
+"""Steering skips questions from other hand-started sessions, never its own.
 
 A hand-started session's operator answers in that session's chat, so the
 steering report, hook digest and watcher poll leave its questions out. The
@@ -77,7 +77,7 @@ class _Borrowed:
         pass
 
 
-def test_steering_surfaces_skip_only_hand_started_non_steering_questions(
+def test_steering_surfaces_skip_other_hand_started_questions(
     steering_scope, monkeypatch
 ):
     conn = steering_scope
@@ -90,7 +90,7 @@ def test_steering_surfaces_skip_only_hand_started_non_steering_questions(
     for request_id in shown:
         assert f"request {request_id} " in report
 
-    questions = read_questions(conn, [PROJECT_ID])
+    questions = read_questions(conn, STEERING_SESSION)
     assert {row.request_id for row in questions} == shown
     digest = combined_hook_digest(CombinedFleetReport(NOW, (), questions=questions), "")
     assert f"request {ids[HAND]} " not in digest

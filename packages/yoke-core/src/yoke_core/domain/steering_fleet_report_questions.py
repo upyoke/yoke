@@ -21,31 +21,16 @@ class OperatorQuestion:
     delivery_reason: str = ""
     status: str = "pending"
     outcome: str = ""
+    unattended: str = ""
 
 
-# A hand-started session's operator answers in that session's own chat, so
-# steering leaves its questions out — unless the session has held a steering
-# claim, because steering must keep seeing the questions it files.
-_HAND_STARTED_ASKER = (
-    "EXISTS (SELECT 1 FROM harness_sessions hs "
-    "WHERE hs.session_id = decision_requests.requesting_session_id "
-    "AND hs.launch_origin = 'operator' "
-    "AND NOT EXISTS (SELECT 1 FROM work_claims wc "
-    "WHERE wc.session_id = hs.session_id AND wc.target_kind = 'steering'))"
-)
+def _visible(conn, viewer_session_id, previous_ids, include_resolved):
+    """Requests this seat sees, by the seat-coverage rule, with unattended notes."""
+    from yoke_core.domain.steering_fleet_report_question_seats import (
+        visible_questions,
+    )
 
-
-def question_states(
-    conn, project_ids, previous_ids=(), *, include_resolved=False, viewer_actor_id=None
-):
-    """Read open requests and watched departures inside the held projects.
-
-    Questions from hand-started, never-steering sessions are left out; the
-    Inbox and ``decision-requests list`` still show them.
-    """
-    if (not project_ids and viewer_actor_id is None) or not _table_exists(
-        conn, "decision_requests"
-    ):
+    if not viewer_session_id or not _table_exists(conn, "decision_requests"):
         return {}
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     open_status = (
@@ -54,42 +39,57 @@ def question_states(
         else "status='pending' AND consumed_at IS NULL"
     )
     watched = f" OR id IN ({','.join(p for _ in previous_ids)})" if previous_ids else ""
-    from yoke_core.domain.audiences import includes_actor
-
-    project_clause = (
-        f"project_id IN ({','.join(p for _ in project_ids)})" if project_ids else "1=0"
+    columns = ("id", "status", "project_id", "audience_id", "requesting_session_id")
+    rows = [
+        {**dict(zip(columns, row[:5])), "subject_context": row[5]}
+        for row in conn.execute(
+            "SELECT id, CASE WHEN consumed_at IS NOT NULL THEN 'consumed' ELSE status END, "
+            "project_id, audience_id, requesting_session_id, subject_context "
+            "FROM decision_requests WHERE kind='operator_question' "
+            f"AND ({open_status}{watched}) ORDER BY created_at, id",
+            tuple(previous_ids),
+        ).fetchall()
+    ]
+    viewer = conn.execute(
+        f"SELECT actor_id FROM harness_sessions WHERE session_id={p}",
+        (viewer_session_id,),
+    ).fetchone()
+    notes = visible_questions(
+        conn,
+        viewer_session_id,
+        rows,
+        viewer_actor_id=viewer[0] if viewer else None,
     )
     return {
-        int(row[0]): str(row[1])
-        for row in conn.execute(
-            "SELECT id, CASE WHEN consumed_at IS NOT NULL THEN 'consumed' ELSE status END, project_id, audience_id FROM decision_requests WHERE kind='operator_question' "
-            f"AND ({project_clause} OR project_id IS NULL) "
-            f"AND ({open_status}{watched}) AND NOT {_HAND_STARTED_ASKER} "
-            "ORDER BY created_at, id",
-            (*project_ids, *previous_ids),
-        ).fetchall()
-        if row[2] is not None
-        or (
-            viewer_actor_id is not None
-            and includes_actor(conn, row[3], viewer_actor_id)
-        )
+        int(row["id"]): (str(row["status"]), notes[int(row["id"])])
+        for row in rows
+        if int(row["id"]) in notes
     }
 
 
-def read_questions(conn, project_ids, previous_ids=(), *, viewer_actor_id=None):
+def question_states(conn, viewer_session_id, previous_ids=(), *, include_resolved=False):
+    """Open requests and watched departures this steering seat sees.
+
+    Seat coverage decides, as for items and steering mail; the Inbox and
+    ``decision-requests list`` still show every question.
+    """
+    return {
+        request_id: state
+        for request_id, (state, _) in _visible(
+            conn, viewer_session_id, tuple(previous_ids), include_resolved
+        ).items()
+    }
+
+
+def read_questions(conn, viewer_session_id, previous_ids=()):
     from yoke_core.domain.decision_request_rows import request_rows
     from yoke_core.domain.decision_request_operator_answer_delivery import answer_text
     from yoke_core.domain.actor_render import actor_display_labels
     from yoke_core.domain.project_identity import render_item_ref
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    ids = question_states(
-        conn,
-        project_ids,
-        previous_ids,
-        include_resolved=True,
-        viewer_actor_id=viewer_actor_id,
-    )
+    seen = _visible(conn, viewer_session_id, tuple(previous_ids), True)
+    ids = {request_id: state for request_id, (state, _) in seen.items()}
     rows = request_rows(conn, ids)
     result = []
     for request_id in ids:
@@ -126,6 +126,7 @@ def read_questions(conn, project_ids, previous_ids=(), *, viewer_actor_id=None):
                 reason,
                 status,
                 f"answered ({answer_text(row)})" if status == "resolved" else status,
+                seen[request_id][1],
             )
         )
     return tuple(result)
@@ -149,8 +150,9 @@ def question_lines(questions, now):
             if row.delivery_reason
             else ""
         )
+        note = f" · {row.unattended}" if row.unattended else ""
         lines.append(
-            f"  request {row.request_id} · {row.session_label} · {row.item_ref} · {age}m · {excerpt}{failure}"
+            f"  request {row.request_id} · {row.session_label} · {row.item_ref}{note} · {age}m · {excerpt}{failure}"
         )
     return [*lines, ""]
 

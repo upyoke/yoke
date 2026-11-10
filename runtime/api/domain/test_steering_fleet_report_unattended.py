@@ -1,4 +1,4 @@
-"""A linked item without its document seat is visible as unattended."""
+"""A linked item without its document seat waits with the owning project seat."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
     PROJECT_BETA,
     SESSION_ALPHA,
+    SESSION_BETA,
+    SESSION_GAMMA,
     acquire_steering,
     seed_standard_steering_world,
     seed_strategy_doc,
@@ -39,11 +41,14 @@ def test_cross_project_link_is_unattended_until_document_seat_is_held(test_db):
     )
     test_db.commit()
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
-        acquire_steering(test_db, SESSION_ALPHA, PROJECT_BETA)
-    findings = unattended_linked_items(test_db, [PROJECT_BETA])
+        acquire_steering(test_db, SESSION_BETA, PROJECT_BETA)
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA)
+    assert unattended_linked_items(test_db, SESSION_BETA) == ()
+    findings = unattended_linked_items(test_db, SESSION_ALPHA)
     assert len(findings) == 1
     assert "linked to RELEASES in alpha" in findings[0].finding
     assert "--project alpha --doc RELEASES" in findings[0].finding
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
-        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA, document="RELEASES")
-    assert unattended_linked_items(test_db, [PROJECT_BETA]) == ()
+        acquire_steering(test_db, SESSION_GAMMA, PROJECT_ALPHA, document="RELEASES")
+    assert unattended_linked_items(test_db, SESSION_ALPHA) == ()
+    assert unattended_linked_items(test_db, SESSION_GAMMA) == ()

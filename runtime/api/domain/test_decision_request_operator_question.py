@@ -300,14 +300,14 @@ def test_report_orders_questions_drops_answered_and_fingerprints_content(
     second, _ = file_question(
         conn, **filing(subject_key="worker:later", created_at="2026-01-02T00:00:00Z")
     )
-    rows = read_questions(conn, [10])
+    rows = read_questions(conn, "steering")
     assert [q.request_id for q in rows] == [first["id"], second["id"]]
     assert "Questions waiting on you" in "\n".join(
         question_lines(rows, "2026-01-03T00:00:00Z")
     )
     before = question_fingerprint(rows)
-    assert before == question_fingerprint(read_questions(conn, [10]))
+    assert before == question_fingerprint(read_questions(conn, "steering"))
     withdraw_decision_request(
         conn, first["id"], actor_id=1, session_id="worker", reason="Cancelled"
     )
-    assert [q.request_id for q in read_questions(conn, [10])] == [second["id"]]
+    assert [q.request_id for q in read_questions(conn, "steering")] == [second["id"]]
