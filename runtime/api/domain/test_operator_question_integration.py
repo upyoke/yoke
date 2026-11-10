@@ -149,9 +149,7 @@ def test_question_outcomes_are_delivered_once(test_db):
             },
         )
         ids.append(question["id"])
-    before = CombinedFleetReport(
-        NOW, (), questions=read_questions(test_db, session)
-    )
+    before = CombinedFleetReport(NOW, (), questions=read_questions(test_db, session))
     prior = before.fingerprint()
     resolve_decision_request(
         test_db, ids[0], actor_id=1, action="blue", session_id=session

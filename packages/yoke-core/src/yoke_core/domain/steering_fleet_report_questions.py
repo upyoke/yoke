@@ -67,7 +67,9 @@ def _visible(conn, viewer_session_id, previous_ids, include_resolved):
     }
 
 
-def question_states(conn, viewer_session_id, previous_ids=(), *, include_resolved=False):
+def question_states(
+    conn, viewer_session_id, previous_ids=(), *, include_resolved=False
+):
     """Open requests and watched departures this steering seat sees.
 
     Seat coverage decides, as for items and steering mail; the Inbox and

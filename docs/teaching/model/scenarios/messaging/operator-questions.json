@@ -3,7 +3,7 @@
  "title": "Notice an operator question outcome",
  "status": "observed",
  "when": "A worker question is answered, withdrawn or consumed",
- "need": "The shared hook and watcher digest prints the saved outcome once. Question status changes wake steering on the next watcher poll and request a report before its scheduled interval. Failed answer delivery stays visible for manual relay. Steering skips questions from hand-started sessions that never held a steering claim; the Inbox and decision-requests list still show them.",
- "sources": ["docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_questions.py", "runtime/api/domain/test_operator_question_integration.py", "runtime/api/domain/test_operator_question_hand_started.py"],
+ "need": "The shared hook and watcher digest prints the saved outcome once. Question status changes wake steering on the next watcher poll and request a report before its scheduled interval. Failed answer delivery stays visible for manual relay. Questions follow steering seat coverage: the seat covering the question's item, the asker's claimed item, or its project sees it; each seat sees its own questions; other hand-started sessions' questions never show; work with no live seat shows to the owning project seat as unattended. The Inbox and decision-requests list still show every question.",
+ "sources": ["docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_questions.py", "runtime/api/domain/test_operator_question_integration.py", "runtime/api/domain/test_operator_question_hand_started.py", "runtime/api/domain/test_operator_question_seat_coverage.py"],
  "review": "Source regression coverage; post-release Inbox answer and steering wake proof is still owed."
 }

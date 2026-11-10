@@ -118,7 +118,9 @@ def visible_questions(
     work: dict[int, int | None] = {}
     for row in records:
         item = _context(row["subject_context"]).get("item_id")
-        item = item if item is not None else claimed.get(str(row["requesting_session_id"]))
+        item = (
+            item if item is not None else claimed.get(str(row["requesting_session_id"]))
+        )
         work[int(row["id"])] = int(item) if item is not None else None
     item_ids = tuple({value for value in work.values() if value is not None})
     projects = _item_projects(conn, item_ids)

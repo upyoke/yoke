@@ -21,6 +21,8 @@ from runtime.api.domain.steering_claim_test_support import (
     seed_standard_steering_world,
     seed_strategy_doc,
 )
+from runtime.api.fixtures.actor_roles import seed_project_role
+from yoke_core.domain.actor_permissions import ROLE_OWNER, seed_roles_and_permissions
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_question_filing import file_question
 from yoke_core.domain.decision_requests import RoleAuthority
@@ -51,14 +53,17 @@ def _item(conn, item_id, version, now):
 
 
 def _ask(conn, session, item_id=None):
-    context = {"question": f"Which way, {session}?", "options": [{"id": "a", "label": "A"}]}
+    context = {
+        "question": f"Which way, {session}?",
+        "options": [{"id": "a", "label": "A"}],
+    }
     if item_id is not None:
         context["item_id"] = item_id
     question, _ = file_question(
         conn,
         kind="operator_question",
         subject_type="session_question",
-        subject_key=f"{session}:{item_id}",
+        subject_key=f"{session}:ask-{item_id or 0}",
         requesting_session_id=session,
         session_id=session,
         project_id=PROJECT_BETA,
@@ -72,6 +77,10 @@ def _ask(conn, session, item_id=None):
 def _world(conn):
     seed_standard_steering_world(conn)
     seed_strategy_doc(conn, PROJECT_ALPHA, "RELEASES")
+    seed_roles_and_permissions(conn)
+    seed_project_role(
+        conn, actor_id=HUMAN_ACTOR_ID, project_id=PROJECT_BETA, role_name=ROLE_OWNER
+    )
     version = conn.execute(
         "SELECT current_version_id FROM workflows WHERE id = 'dash'"
     ).fetchone()[0]
@@ -126,7 +135,10 @@ def test_unattended_document_question_waits_with_owning_project_seat(test_db):
     assert _seen(test_db, SESSION_GAMMA) == {ids["claimed"]: "", ids["named"]: ""}
     assert _seen(test_db, SESSION_ALPHA) == {}
     assert _seen(test_db, SESSION_BETA) == {ids["plain"]: "", ids["own"]: ""}
-    assert set(question_states(test_db, SESSION_GAMMA)) == {ids["claimed"], ids["named"]}
+    assert set(question_states(test_db, SESSION_GAMMA)) == {
+        ids["claimed"],
+        ids["named"],
+    }
 
 
 def test_other_hand_started_question_never_reaches_a_seat(test_db):

@@ -39,10 +39,8 @@ def conn():
             );
             CREATE TABLE work_claims (
                 id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-                scope TEXT, claimed_at TEXT, released_at TEXT
+                scope TEXT, released_at TEXT
             );
-            INSERT INTO work_claims VALUES
-                (1, 'steering', 'steering', '{"project_id": 10}', 'now', NULL);
             INSERT INTO harness_sessions VALUES ('worker', 10, 1, 'codex', NULL, NULL, 'yoke');
             INSERT INTO harness_sessions VALUES ('other', 10, 1, 'cursor', NULL, NULL, 'yoke');
             INSERT INTO harness_sessions VALUES ('steering', 10, 2, 'claude-code', NULL, NULL, 'operator');
@@ -53,6 +51,11 @@ def conn():
         )
 
         add_holdings_schema(value)
+        value.execute(
+            "INSERT INTO work_claims (id, session_id, target_kind, scope, claimed_at) "
+            "VALUES (900, 'steering', 'steering', '{\"project_id\": 10}', "
+            "'2026-01-01T00:00:00Z')"
+        )
         yield value
 
 
