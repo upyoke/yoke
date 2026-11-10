@@ -34,6 +34,14 @@ class DeployEnvironmentError(ValueError):
     """A deploy environment could not be resolved from DB authority."""
 
 
+# Where an environment's Postgres runs (environments.settings.database.location).
+# "aurora" (the default) is the AWS managed cluster found through Pulumi outputs;
+# "box" is Postgres on the environment's own origin host.
+DATABASE_LOCATION_AURORA = "aurora"
+DATABASE_LOCATION_BOX = "box"
+DATABASE_LOCATIONS = (DATABASE_LOCATION_AURORA, DATABASE_LOCATION_BOX)
+
+
 _CAPABILITY_HINT = (
     "set it via: python3 -m yoke_core.domain.projects "
     "capability-merge-settings {project} {capability} --set <key>=<value> "
@@ -84,6 +92,8 @@ class DeployEnvironment:
     # HTTPS connection serving this environment's Yoke API
     # (environments.settings.deploy.serving_connection). Empty = none declared.
     serving_connection: str = ""
+    # environments.settings.database.location: one of DATABASE_LOCATIONS.
+    database_location: str = DATABASE_LOCATION_AURORA
 
     @property
     def registry_host(self) -> str:
@@ -188,6 +198,14 @@ def deploy_environment_from_settings(
     except GitHubAppDeploymentConfigError as exc:
         raise DeployEnvironmentError(str(exc)) from exc
 
+    database_location = str(database.get("location") or DATABASE_LOCATION_AURORA)
+    if database_location not in DATABASE_LOCATIONS:
+        raise DeployEnvironmentError(
+            f"database.location {database_location!r} of environment "
+            f"'{env_name}' is not one of {list(DATABASE_LOCATIONS)}; set it to "
+            f"one of those in environments.settings, or remove it for aurora"
+        )
+
     ssh = _capability(settings, "ssh")
     ssh_user = ssh.get("user") or ssh.get("default_user") or ""
     # Per-env private-key override: servers[0].ssh_key_path on the
@@ -255,6 +273,7 @@ def deploy_environment_from_settings(
         serving_connection=str(
             _env_mapping(env.settings, "deploy").get("serving_connection") or ""
         ).strip(),
+        database_location=database_location,
     )
 
 

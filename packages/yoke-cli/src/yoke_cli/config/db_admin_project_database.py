@@ -6,7 +6,9 @@ A project declares where each governed database lives in its
 outputs that carry its endpoint and managed-secret ARN. A db-admin profile for
 that database reads the declaration through a named HTTPS control plane and
 pairs it with the deploy environment's stack, bastion, and region, so each
-environment reaches its own copy of the declared database.
+environment reaches its own copy of the declared database. An environment
+whose database runs on its own box needs only ``database_name``; the Pulumi
+output names apply to Aurora environments.
 """
 
 from __future__ import annotations
@@ -58,8 +60,13 @@ def read_declared_database(
     *,
     control_plane_env: str,
     config_path: str | Path | None,
+    require_cloud_outputs: bool = True,
 ) -> DeclaredDatabase:
-    """Read ``models.<model>.authoritative_db`` from the project declaration."""
+    """Read ``models.<model>.authoritative_db`` from the project declaration.
+
+    ``require_cloud_outputs`` is false for a box environment, which reaches
+    the database without Pulumi endpoint or secret outputs.
+    """
     model = _safe_label(model, what="database model")
     teach = (
         f"declare it as settings.models.{model}.authoritative_db "
@@ -96,7 +103,13 @@ def read_declared_database(
             f"database model {model!r} (declared: {available or 'none'}); "
             f"pass --database with a declared model, or {teach}"
         )
-    return _postgres_location(project, model, declared.get("authoritative_db"), teach)
+    return _postgres_location(
+        project,
+        model,
+        declared.get("authoritative_db"),
+        teach,
+        require_cloud_outputs=require_cloud_outputs,
+    )
 
 
 def _postgres_location(
@@ -104,6 +117,8 @@ def _postgres_location(
     model: str,
     authoritative_db: Any,
     teach: str,
+    *,
+    require_cloud_outputs: bool,
 ) -> DeclaredDatabase:
     if not isinstance(authoritative_db, Mapping):
         raise DbAdminSetupError(
@@ -118,7 +133,9 @@ def _postgres_location(
         )
     location = authoritative_db.get("location")
     location = location if isinstance(location, Mapping) else {}
-    fields = ("database_name", "endpoint_output", "secret_arn_output")
+    fields: tuple[str, ...] = ("database_name",)
+    if require_cloud_outputs:
+        fields += ("endpoint_output", "secret_arn_output")
     missing = [key for key in fields if not str(location.get(key) or "").strip()]
     if missing:
         raise DbAdminSetupError(
@@ -128,8 +145,8 @@ def _postgres_location(
     return DeclaredDatabase(
         model=model,
         database_name=str(location["database_name"]).strip(),
-        endpoint_output=str(location["endpoint_output"]).strip(),
-        secret_arn_output=str(location["secret_arn_output"]).strip(),
+        endpoint_output=str(location.get("endpoint_output") or "").strip(),
+        secret_arn_output=str(location.get("secret_arn_output") or "").strip(),
     )
 
 

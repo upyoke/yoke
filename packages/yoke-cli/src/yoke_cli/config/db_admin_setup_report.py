@@ -27,6 +27,19 @@ def render_human(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def environment_summary(env: Any) -> dict[str, str]:
+    return {
+        "project": str(env.project),
+        "name": str(env.env_name),
+        "activation_state": str(env.activation_state),
+        "stack_name": str(env.stack_name),
+        "database_name": str(env.database_name),
+        "origin_host": str(env.origin_host),
+        "ssh_target": str(env.ssh_target),
+        "aws_region": str(env.aws_region),
+    }
+
+
 def _path_ref(path: Path) -> str:
     resolved = path.expanduser()
     default_home = Path.home() / ".yoke"
