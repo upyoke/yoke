@@ -34,7 +34,7 @@ from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
-from yoke_core.domain import deploy_pipeline_environment
+from yoke_core.domain import deploy_pipeline_environment, fleet_preflight_executor
 from yoke_core.domain import deploy_pipeline_fleet_release_source as release_source
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal_sources as sources
 from yoke_core.domain import migration_model_fleet as fleets
@@ -237,6 +237,13 @@ def _rehearse_release_source(
         "--receipt-env",
         receipt_environment,
     ]
+    command = fleet_preflight_executor.resolve(args)
+    if command.refusal:
+        return 1, f"release fleet rehearsal refused: {command.refusal}"
+    if command.executor:
+        # The executor rehearses --product-sha on its own host; the receipt
+        # re-read after this run is what proves the release commit.
+        return _run_preflight(args, command), ""
     try:
         if fleet["kind"] == fleets.FLEET_ENGINE_TENANTS:
             mismatch = release_source.engine_source_mismatch(
@@ -324,7 +331,9 @@ def _release_history(
         )
 
 
-def _run_preflight(args: list[str]) -> int:
+def _run_preflight(
+    args: list[str], command: fleet_preflight_executor.PreflightCommand | None = None
+) -> int:
     """Execute through the same raw/progress watcher operators use directly."""
     from yoke_core.domain import fleet_preflight_watch
 
@@ -332,7 +341,7 @@ def _run_preflight(args: list[str]) -> int:
 
     run_id = current_run_id()
     identity = ["--run-id", run_id] if run_id else []
-    return fleet_preflight_watch.run_preflight([*identity, *args])
+    return fleet_preflight_watch.run_preflight([*identity, *args], command)
 
 
 __all__ = ["ensure_before_dispatch"]

@@ -235,7 +235,7 @@ def _route_timing(
     emitted: list[str],
     raw,
 ):
-    from yoke_core.tools.watch_preflight import classify_preflight_line
+    from yoke_core.domain.fleet_preflight_watch import classify_preflight_line
 
     watch_child_drain._route_line(
         line,

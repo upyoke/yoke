@@ -127,6 +127,12 @@ def _stable_commit(monkeypatch) -> None:
         rehearsal.release_source, "engine_source_mismatch", lambda *_a: ""
     )
     monkeypatch.setattr(rehearsal.release_source, "release_checkout", _release_checkout)
+    # No preflight executor declared: the kernel rehearses on this machine.
+    monkeypatch.setattr(
+        rehearsal.fleet_preflight_executor,
+        "resolve",
+        lambda _args: rehearsal.fleet_preflight_executor.PreflightCommand(),
+    )
 
 
 @contextmanager

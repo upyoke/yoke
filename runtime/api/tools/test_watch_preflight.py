@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
-from yoke_core.domain import fleet_preflight_watch
+from yoke_core.domain import fleet_preflight_executor, fleet_preflight_watch
+from yoke_core.domain.fleet_preflight_executor import PreflightCommand
 from yoke_core.tools import watch_preflight, watch_tail
 from yoke_core.domain.watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
@@ -48,7 +49,7 @@ from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
     ],
 )
 def test_preflight_signal_classes(line: str, expected: LineClass) -> None:
-    assert watch_preflight.classify_preflight_line(line).cls == expected
+    assert fleet_preflight_watch.classify_preflight_line(line).cls == expected
 
 
 def test_union_pattern_matches_every_signal_shape() -> None:
@@ -141,9 +142,11 @@ def test_fake_preflight_streams_stops_tail_and_propagates_failure(
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
     monkeypatch.setattr(
-        watch_preflight,
-        "_preflight_argv",
-        lambda _args: [sys.executable, str(child)],
+        fleet_preflight_watch.fleet_preflight_executor,
+        "resolve",
+        lambda _args: PreflightCommand(
+            executor="fake", words=(sys.executable, str(child))
+        ),
     )
 
     rc = watch_preflight.main(
@@ -171,7 +174,7 @@ def test_fake_preflight_streams_stops_tail_and_propagates_failure(
 
 
 def test_preflight_uses_installed_module():
-    assert watch_preflight._preflight_argv(["--help"]) == [
+    assert fleet_preflight_executor.resolve(["--help"]).argv(["--help"]) == [
         sys.executable,
         "-m",
         "yoke_core.tools.preflight_fleet_migrations",
@@ -182,8 +185,8 @@ def test_preflight_uses_installed_module():
 def test_preflight_diagnoses_import_failure(tmp_path):
     raw = tmp_path / "failure.log"
     raw.write_text("ModuleNotFoundError: No module named 'missing'\n")
-    answer = watch_preflight.preflight_failure(1, raw)
+    answer = fleet_preflight_watch.preflight_failure(1, raw)
     assert "fleet_preflight_import_failed" in answer
     assert str(raw) in answer
     assert "yoke update" in answer
-    assert watch_preflight.preflight_failure(0, raw) == ""
+    assert fleet_preflight_watch.preflight_failure(0, raw) == ""

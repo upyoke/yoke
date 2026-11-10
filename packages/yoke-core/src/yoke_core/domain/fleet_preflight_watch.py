@@ -2,16 +2,12 @@
 from __future__ import annotations
 import json
 import re
-import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
+from yoke_core.domain import fleet_preflight_executor
 from yoke_core.domain.watch_throttle import Classification, LineClass
 
 KIND = "preflight"
-
-
-
-PREFLIGHT_MODULE = "yoke_core.tools.preflight_fleet_migrations"
 
 
 
@@ -83,12 +79,6 @@ def classify_preflight_line(line: str) -> Classification:
 
 
 
-def _preflight_argv(args: Sequence[str]) -> list[str]:
-    """Build the underlying project preflight invocation."""
-    return [sys.executable, "-m", PREFLIGHT_MODULE, *list(args)]
-
-
-
 def preflight_failure(rc: int, raw_capture: Path) -> str:
     """Keep launch/import failures actionable in both watcher captures."""
     if rc == 0:
@@ -112,14 +102,54 @@ def preflight_failure(rc: int, raw_capture: Path) -> str:
 
 
 
-def run_preflight(args: Sequence[str]) -> int:
+def watch_preflight(
+    args: Sequence[str],
+    *,
+    raw_capture: Path,
+    progress_capture: Path,
+    command: fleet_preflight_executor.PreflightCommand | None = None,
+    **watch_options: Any,
+) -> int:
+    """Watch the preflight on the command the environment declares.
+
+    The local kernel runs unless the environment declares
+    ``release.preflight_executor``; either way the watcher, captures and
+    exit code are the same.
+    """
+    from yoke_core.domain.watch_runner import run_watcher
+
+    if command is None:
+        command = fleet_preflight_executor.resolve(args)
+
+    def exit_metadata(rc: int) -> str:
+        if rc == 0:
+            return ""
+        if command.refusal:
+            return command.refusal
+        if command.executor:
+            return fleet_preflight_executor.executor_failure(command, rc, raw_capture)
+        return preflight_failure(rc, raw_capture)
+
+    return run_watcher(
+        argv=command.argv(args),
+        classifier=classify_preflight_line,
+        raw_capture=raw_capture,
+        progress_capture=progress_capture,
+        kind=KIND,
+        exit_metadata=exit_metadata,
+        **watch_options,
+    )
+
+
+def run_preflight(
+    args: Sequence[str],
+    command: fleet_preflight_executor.PreflightCommand | None = None,
+) -> int:
     """Run the fleet rehearsal under the standard capture contract."""
     from yoke_core.domain.watch_capture_binding import mint_cli_capture_paths, stamp_writer
-    from yoke_core.domain.watch_runner import run_watcher
+
     raw, progress = mint_cli_capture_paths(KIND)
     stamp_writer(progress, KIND)
-    return run_watcher(
-        argv=_preflight_argv(args), classifier=classify_preflight_line,
-        raw_capture=raw, progress_capture=progress, kind=KIND,
-        exit_metadata=lambda rc: preflight_failure(rc, raw),
+    return watch_preflight(
+        args, raw_capture=raw, progress_capture=progress, command=command
     )

@@ -17,9 +17,7 @@ from yoke_core.tools import _watch_streaming_pair
 
 from yoke_core.domain.fleet_preflight_watch import (
     KIND,
-    _preflight_argv,
-    classify_preflight_line,
-    preflight_failure,
+    watch_preflight,
 )
 
 import argparse
@@ -91,7 +89,10 @@ named holder or its surviving transfer child finishes. Manual database operation
 outside the rehearsal kernel are not covered.
 
 Pass bare preflight arguments after ``--``. The wrapper supplies
-``python3 -m yoke_core.tools.preflight_fleet_migrations``.
+``python3 -m yoke_core.tools.preflight_fleet_migrations``, unless the
+environment declares ``release.preflight_executor``: then that command runs
+in its place with the same arguments, so the fleet copy happens on a host
+beside the database. Set it empty to run the kernel on this machine.
 
 When a release-surface capability contract blocks a receipt: read the
 stored document with ``yoke projects capability-settings get``, then
@@ -182,13 +183,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
 
-    return _watch_runner.run_watcher(
-        argv=_preflight_argv(passthrough),
-        classifier=classify_preflight_line,
+    return watch_preflight(
+        passthrough,
         raw_capture=raw_path,
         progress_capture=progress_path,
-        kind=KIND,
-        exit_metadata=lambda rc: preflight_failure(rc, raw_path),
         flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
