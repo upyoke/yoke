@@ -25,6 +25,7 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain.project_identity import resolve_project_slug, placeholder
 from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.steering_scope_membership import scope_document
 from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.steering_fleet_report import FleetReport
@@ -137,6 +138,7 @@ class CombinedFleetReport:
         return combined_fingerprint(self)
 
 
+@presentation_operation
 def compose_held_reports(
     conn: Any,
     *,
@@ -152,7 +154,9 @@ def compose_held_reports(
     Every section reads through one :class:`FleetReportReads`, so two seats
     held on the same project compose from one read of that project's facts
     and one read of each repository's merge queue. The request object is
-    created here and dropped with the reply. ``reuse_schedule`` lets a pull
+    created here and dropped with the reply. QA presentation facts also span
+    the whole report, including the landed items' independent delivery checks.
+    ``reuse_schedule`` lets a pull
     take a schedule pass a few seconds old.
     """
     now = parse_instant(now)
