@@ -53,6 +53,8 @@ def surface_reason(surface, rejection):
     if phrase is None:
         phrase = ", ".join(rejection.codes)
     reason = f"{surface}: {phrase} on {rejection.name}"
+    if "harness_signed_out" in rejection.codes and surface == "claude-cli":
+        return reason + " — run `claude /login` there"
     if rejection.recovery:
         reason += " — " + rejection.recovery[0].removesuffix(".").replace("Run ", "run ", 1) + " there"
     return reason
