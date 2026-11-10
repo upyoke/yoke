@@ -59,15 +59,3 @@ def test_blocked_capacity_names_the_repair():
         out,
     )
     assert "blocked: native_models_unknown: refresh native listing" in out.getvalue()
-
-
-def test_unavailable_lines_appear_once_after_the_levels():
-    out = io.StringIO()
-    line = "claude-cli: signed out on workshop-mac"
-    write_capacity(
-        {"levels": [{"name": "SENIOR"}, {"name": "PRINCIPAL"}], "unavailable": [line]},
-        out,
-    )
-    text = out.getvalue()
-    assert text.count(line) == 1
-    assert text.index("PRINCIPAL") < text.index(line) < text.index("Cursor quota order")

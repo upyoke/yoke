@@ -9,6 +9,7 @@ from yoke_contracts.levels import Level
 from yoke_core.domain.level_native_selections import (
     NativeLevelSelection,
     native_selections,
+    catalog_supports,
 )
 from yoke_contracts.session_control.model_billing_pools import (
     pool_for_model,
@@ -143,30 +144,52 @@ def evaluate_level_capacity(
     display: Callable[[str], str],
     native_models: dict,
     records: Sequence,
+    surface_reasons: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Report each base-model row's standing across observed native surfaces."""
     fleet = _Fleet(meters, offered)
+    surface_reasons = surface_reasons or {}
     out = []
     for level in levels:
         options = []
         launchable = set()
         for entry in level.options:
             surfaces, blockers = set(), []
-            for machine, surface in fleet.offered:
-                selections, unavailable = native_selections(
-                    entry,
-                    surface=surface,
-                    reading=native_models.get(machine, {}).get(surface),
-                    records=records,
-                )
-                if unavailable:
-                    blockers.append({"kind": "native", "label": unavailable})
-                for selection in selections:
-                    reading = fleet.read(selection, machine)
-                    if reading.blockers:
-                        blockers.extend(reading.blockers)
-                    else:
-                        surfaces.add(surface)
+            for surface in CLI_PLAN_LIMIT_SURFACES:
+                if not catalog_supports(surface, entry.model, records):
+                    continue
+                surface_blockers = []
+                for machine in fleet.machines_for(surface):
+                    selections, unavailable = native_selections(
+                        entry, surface=surface,
+                        reading=native_models.get(machine, {}).get(surface),
+                        records=records,
+                    )
+                    if unavailable:
+                        surface_blockers.append({"kind": "native", "label": unavailable})
+                    for selection in selections:
+                        reading = fleet.read(selection, machine)
+                        if reading.blockers:
+                            surface_blockers.extend(reading.blockers)
+                        else:
+                            surfaces.add(surface)
+                if surface in surfaces:
+                    continue
+                if surface_blockers:
+                    blocker = surface_blockers[0]
+                    blockers.append({**blocker, "surface": surface,
+                                     "label": f"{surface}: {blocker['label']}"})
+                else:
+                    label = surface_reasons.get(surface)
+                    if label is None:
+                        label = (
+                            f"{surface}: model not offered by your machines"
+                            if fleet.machines_for(surface)
+                            else f"no machine of yours offers {surface}"
+                        )
+                    blockers.append({"kind": "no_machine", "surface": surface,
+                                     "label": label})
+            blockers = list({(b["surface"], b["label"]): b for b in blockers}.values())
             launchable.update(surfaces)
             options.append(
                 {

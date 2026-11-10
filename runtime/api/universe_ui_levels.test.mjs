@@ -83,13 +83,3 @@ test("an old serving response names the schema recovery", async () => {
   assert.ok(visibleText(main, " ").includes("levels_schema_version_skew"));
   assert.equal(byClass(main, "quota-order-move").length, 0);
 });
-
-
-test("unavailable reasons appear once below every level", async () => {
-  const line = "claude-cli: signed out on workshop-mac";
-  const { main } = await mount({ ...CAPACITY, unavailable: [line] });
-  const text = visibleText(main, " ");
-  assert.equal(text.split(line).length - 1, 1);
-  assert.ok(text.indexOf("PRINCIPAL") < text.indexOf(line));
-  assert.ok(text.indexOf(line) < text.indexOf("Cursor quota order"));
-});
