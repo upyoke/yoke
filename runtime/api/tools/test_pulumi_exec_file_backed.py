@@ -62,6 +62,9 @@ def _run(root, command, *, calls, seen=None, **kwargs):
             "stack_text": (cwd / f"Pulumi.{_STACK}.yaml").read_text(),
             "files": sorted(p.name for p in cwd.iterdir()),
             "python_link": (cwd / "venv" / "bin" / "python").is_symlink(),
+            "venv_target": (
+                (cwd / "venv").resolve() if (cwd / "venv").is_symlink() else None
+            ),
             "env": dict(child_kwargs["env"]),
         })
         return _Child(b"preview-ok\n")

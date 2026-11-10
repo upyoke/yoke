@@ -5,6 +5,10 @@ When the selected source tree carries a stack file for the requested stack,
 ``infra/`` directory to a private temp dir, adds Yoke-owned values to the
 copy of that stack file under the reserved ``yoke:`` config namespace, and
 runs Pulumi there. The project's checkout is only read, never written.
+The copy keeps the tree's symlinks (a linked virtualenv keeps working), so
+a stack file that is itself a symlink is refused: Yoke and ``pulumi stack
+init`` write the copied stack file, and a write through the link would
+change its target. Nothing writes the copied ``Pulumi.yaml``.
 
 The stack file is authoritative for every project value, including its
 ``secretsprovider`` and ``encryptedkey`` lines. Yoke inserts its own keys
@@ -96,6 +100,7 @@ def stage_file_backed_infra(
     source = project_root / PULUMI_PROGRAM_SUBDIRECTORY
     infra = destination / PULUMI_PROGRAM_SUBDIRECTORY
     _refuse_yoke_project_name(source / "Pulumi.yaml")
+    _refuse_linked_stack_file(source / f"Pulumi.{stack}.yaml")
     shutil.copytree(source, infra, symlinks=True)
     if yoke_values:
         stack_path = infra / f"Pulumi.{stack}.yaml"
@@ -202,6 +207,16 @@ def _compose(text: str, source: Path) -> yaml.MappingNode | None:
             "repair the stack file and retry"
         )
     return root
+
+
+def _refuse_linked_stack_file(stack_file: Path) -> None:
+    if stack_file.is_symlink():
+        raise PulumiExecError(
+            f"pulumi_stack_file_symlink: {stack_file} is a symlink; Yoke "
+            "writes its own values into the copied stack file and a write "
+            "through the link would change the link target. Replace the "
+            "link with a regular file holding the same content and retry"
+        )
 
 
 def _refuse_yoke_project_name(pulumi_yaml: Path) -> None:
