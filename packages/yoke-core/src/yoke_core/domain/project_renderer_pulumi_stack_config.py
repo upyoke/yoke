@@ -59,9 +59,8 @@ _BASE_STACK_KEYS = frozenset({
     "component_type_aliases_json", "distribution_bucket_name",
     "domain_mx_records_json", "domain_name",
     "domain_txt_records_json", "hosted_zone_id", "kms_key_alias",
-    "origin_host", "origin_id", "vps_availability_zone",
-    "vps_iam_instance_profile_name", "vps_instance_type",
-    "vps_public_ingress", "vps_root_volume_gb", "vps_ssh_key_name",
+    "origin_host", "origin_id", "vps_iam_instance_profile_name",
+    "vps_instance_type", "vps_root_volume_gb", "vps_ssh_key_name",
 })
 _RENDER_KEYS_BY_KIND = {
     "infra": _BASE_STACK_KEYS,

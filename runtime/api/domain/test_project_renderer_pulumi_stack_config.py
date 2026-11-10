@@ -17,7 +17,6 @@ from yoke_core.domain.project_renderer_pulumi_stack_config import (
 from yoke_core.domain.project_renderer_pulumi_scoped import (
     render_scoped_pulumi_config,
 )
-from yoke_core.domain.pack_pulumi_sources import pulumi_generator_source
 from yoke_core.tools.pulumi_exec_init import execute_pulumi_stack_init
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 from runtime.api.domain.pulumi_stack_config_test_support import (
@@ -231,7 +230,7 @@ def test_stack_config_separates_environment_operator_state(monkeypatch):
     assert prod_payload["operator_state"]["encrypted_key"] == ("encrypted-prod")
 
 
-def _box_settings(**server_extra):
+def _box_settings():
     """Acme plus one environment that declares only an extra box stack."""
     settings = _settings()
     box = _environment("box1")
@@ -242,64 +241,9 @@ def _box_settings(**server_extra):
             "instance_type": "t4g.small",
             "root_volume_gb": 30,
             "aws_key_pair_name": "acme-box1",
-            **server_extra,
         }],
     })
     return replace(settings, environments=(*settings.environments, box))
-
-
-def test_box_ingress_and_zone_settings_reach_rendered_config(
-    monkeypatch, tmp_path
-):
-    settings = _box_settings(public_ingress=False, availability_zone="us-east-1b")
-    settings.capabilities["pulumi-state"]["stack_state"]["acme-box1-vps"] = {
-        "secrets_provider": "awskms://alias/acme-box1-vps",
-        "encrypted_key": "encrypted-box1-vps",
-    }
-    _stub_settings(monkeypatch, settings)
-
-    payload = build_pulumi_stack_config(object(), "acme", "acme-box1-vps")
-
-    assert payload["stack_kind"] == "vps"
-    assert payload["render_values"]["vps_public_ingress"] == "false"
-    assert payload["render_values"]["vps_availability_zone"] == "us-east-1b"
-    project_root = _install_pulumi_project_files(tmp_path)
-    template = pulumi_generator_source(project_root, "Pulumi.stack.yaml.tmpl")
-    template.write_text(
-        template.read_text()
-        + '  webapp-infra:vps_public_ingress: "{{vps_public_ingress}}"\n'
-        + '  webapp-infra:vps_availability_zone: "{{vps_availability_zone}}"\n'
-    )
-    rendered = render_scoped_pulumi_config(
-        payload, project_root=project_root, output_dir=tmp_path / "box1"
-    ).read_text()
-    assert 'webapp-infra:vps_public_ingress: "false"' in rendered
-    assert 'webapp-infra:vps_availability_zone: "us-east-1b"' in rendered
-
-
-def test_absent_box_settings_default_open_ingress_and_render_unchanged(
-    monkeypatch, tmp_path
-):
-    _stub_settings(monkeypatch, _settings())
-
-    payload = build_pulumi_stack_config(object(), "acme", "acme-stage-vps")
-
-    assert payload["render_values"]["vps_public_ingress"] == "true"
-    assert payload["render_values"]["vps_availability_zone"] == ""
-    rendered = render_scoped_pulumi_config(
-        payload,
-        project_root=_install_pulumi_project_files(tmp_path),
-        output_dir=tmp_path / "stage",
-    ).read_text()
-    assert "vps_public_ingress" not in rendered
-    assert "vps_availability_zone" not in rendered
-
-
-def test_non_boolean_public_ingress_refuses_with_recipe(monkeypatch):
-    _stub_settings(monkeypatch, _box_settings(public_ingress="no"))
-
-    with pytest.raises(ValueError, match=r"--set servers\.0\.public_ingress="):
-        build_pulumi_stack_config(object(), "acme", "acme-box1-vps")
 
 
 def test_init_accepts_environment_declared_box_stack(tmp_path):

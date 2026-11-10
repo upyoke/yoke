@@ -83,38 +83,12 @@ def _target_from_environment(
         "vps_iam_instance_profile_name": _stringify(
             server.get("iam_instance_profile_name")
         ),
-        "vps_public_ingress": _public_ingress(settings, environment, server),
-        "vps_availability_zone": _stringify(
-            server.get("availability_zone")
-        ).strip(),
     }
     return PulumiStandaloneVpsTarget(
         name=name,
         environment_id=environment.id,
         environment=environment.name,
         config=config,
-    )
-
-
-def _public_ingress(
-    settings: ProjectRendererSettings,
-    environment: RendererEnvironmentSettings,
-    server: Mapping[str, object],
-) -> str:
-    value = server.get("public_ingress", True)
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    path = (
-        "servers.0.public_ingress"
-        if isinstance(environment.settings.get("servers"), list)
-        else "servers.public_ingress"
-    )
-    raise ValueError(
-        f"Environment {environment.name!r} {path} for "
-        f"{settings.project} must be a JSON boolean, got {value!r}; set it "
-        "with `yoke projects environment-settings merge --project "
-        f"{settings.project} --environment {environment.name} "
-        f"--set {path}=false` (or =true)"
     )
 
 
