@@ -60,13 +60,32 @@ A preflight copies every fleet database to the machine that runs the
 rehearsal kernel. To keep that copy beside the database, declare
 `release.preflight_executor` on the same environment: a command line that
 both `yoke watch preflight` and the release gate run in place of the local
-kernel, with the same arguments, watcher output and exit code. Set it with
-`yoke projects environment-settings merge --project P --environment E --set
-release.preflight_executor=<command>`; set it empty to run the kernel on this
-machine, the normal mode for local and self-hosted projects. A setting this
-machine cannot read refuses as `fleet_preflight_executor_unreadable` rather
-than copying locally; an executor that cannot start or exits non-zero refuses
-as `fleet_preflight_executor_failed`, naming its capture and recovery. A `named_databases` fleet runs from the
+kernel. Set it with `yoke projects environment-settings merge --project P
+--environment E --set release.preflight_executor=<command>`; set it empty to
+run the kernel on this machine, the normal mode for local and self-hosted
+projects. The executor contract:
+
+- **Arguments.** The executor receives the kernel's arguments after its own
+  command words: `--project`, `--model`, the environment and any database
+  names, `--record-receipt`, `--receipt-env` and `--run-id`. Paths on the
+  caller's machine cannot reach another host, so `--checkout` and
+  `--engine-wheel` refuse as `fleet_preflight_executor_local_path`;
+  `--instant-census-output` names a directory on the executor host.
+- **Release commit.** `--product-sha` names the commit to rehearse. The
+  executor runs that commit's kernel and fleet commands on its own host.
+  Without it, the executor rehearses its own installed engine, as the local
+  kernel does.
+- **What the caller keeps.** The caller keeps the watcher, its captures and
+  the exit code. For an executor run, the release gate neither compares this
+  machine's engine with the release commit nor makes a local checkout. After
+  the run it still re-reads the environment's receipt. It refuses the
+  dispatch unless that receipt covers the release commit's history entries
+  and schema shape.
+
+A setting this machine cannot read refuses as
+`fleet_preflight_executor_unreadable` rather than copying locally. An
+executor that cannot start or exits non-zero refuses as
+`fleet_preflight_executor_failed`, naming its capture and recovery. A `named_databases` fleet runs from the
 project's checkout registered on this machine (`yoke project register`), so
 the declared commands find the code they converge with. A non-Python schema
 source is digested byte for byte; a Python one by its syntax tree, so comments

@@ -144,7 +144,9 @@ def test_fake_preflight_streams_stops_tail_and_propagates_failure(
     monkeypatch.setattr(
         fleet_preflight_watch.fleet_preflight_executor,
         "resolve",
-        lambda _args: PreflightCommand(argv=[sys.executable, str(child)]),
+        lambda _args: PreflightCommand(
+            executor="fake", words=(sys.executable, str(child))
+        ),
     )
 
     rc = watch_preflight.main(
@@ -172,7 +174,7 @@ def test_fake_preflight_streams_stops_tail_and_propagates_failure(
 
 
 def test_preflight_uses_installed_module():
-    assert fleet_preflight_executor.resolve(["--help"]).argv == [
+    assert fleet_preflight_executor.resolve(["--help"]).argv(["--help"]) == [
         sys.executable,
         "-m",
         "yoke_core.tools.preflight_fleet_migrations",

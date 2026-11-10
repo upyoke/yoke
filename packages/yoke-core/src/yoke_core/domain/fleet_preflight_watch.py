@@ -107,6 +107,7 @@ def watch_preflight(
     *,
     raw_capture: Path,
     progress_capture: Path,
+    command: fleet_preflight_executor.PreflightCommand | None = None,
     **watch_options: Any,
 ) -> int:
     """Watch the preflight on the command the environment declares.
@@ -117,7 +118,8 @@ def watch_preflight(
     """
     from yoke_core.domain.watch_runner import run_watcher
 
-    command = fleet_preflight_executor.resolve(args)
+    if command is None:
+        command = fleet_preflight_executor.resolve(args)
 
     def exit_metadata(rc: int) -> str:
         if rc == 0:
@@ -129,7 +131,7 @@ def watch_preflight(
         return preflight_failure(rc, raw_capture)
 
     return run_watcher(
-        argv=command.argv,
+        argv=command.argv(args),
         classifier=classify_preflight_line,
         raw_capture=raw_capture,
         progress_capture=progress_capture,
@@ -139,10 +141,15 @@ def watch_preflight(
     )
 
 
-def run_preflight(args: Sequence[str]) -> int:
+def run_preflight(
+    args: Sequence[str],
+    command: fleet_preflight_executor.PreflightCommand | None = None,
+) -> int:
     """Run the fleet rehearsal under the standard capture contract."""
     from yoke_core.domain.watch_capture_binding import mint_cli_capture_paths, stamp_writer
 
     raw, progress = mint_cli_capture_paths(KIND)
     stamp_writer(progress, KIND)
-    return watch_preflight(args, raw_capture=raw, progress_capture=progress)
+    return watch_preflight(
+        args, raw_capture=raw, progress_capture=progress, command=command
+    )
