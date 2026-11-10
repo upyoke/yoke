@@ -6,10 +6,14 @@ from collections.abc import Sequence
 from pathlib import Path
 import re
 
+from yoke_core.tools.pulumi_exec_destroy import (
+    validated_destroy_argv,
+    validated_stack_rm_argv,
+)
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 
 
-_ALLOWED_COMMANDS = frozenset({"init", "preview", "refresh", "import", "up", "stack"})
+_ALLOWED_COMMANDS = frozenset({"init", "preview", "refresh", "import", "up", "destroy", "stack"})
 _OUTPUT_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_.-]*")
 _IMPORT_FLAGS = frozenset(
     {"--protect=false", "--generate-code=false", "--yes", "--non-interactive"}
@@ -37,15 +41,20 @@ def validated_command(
     parts = [str(part) for part in command]
     if not parts or parts[0] not in _ALLOWED_COMMANDS:
         raise PulumiExecError(
-            "Pulumi exec allows only init, preview, refresh, import, up, and "
-            "single-name stack output reads"
+            "Pulumi exec allows only init, preview, refresh, import, up, "
+            "destroy, stack rm, and single-name stack output reads"
         )
     operation = parts[0]
     if operation == "init":
         raise PulumiExecError("Pulumi init must use the stack bootstrap boundary")
     args = parts[1:]
     _assert_stack_flag(args, stack)
+    if operation == "destroy":
+        return validated_destroy_argv(stack, _without_stack_flag(args)), None
     if operation == "stack":
+        selected = _without_stack_flag(args)
+        if selected[:1] == ["rm"]:
+            return validated_stack_rm_argv(stack, selected[1:]), None
         return _validated_stack_output(stack, args), None
     json_output: Path | None = None
     if operation == "import":

@@ -133,8 +133,9 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke update": UPDATE_USAGE,
     "yoke uninstall": UNINSTALL_USAGE,
     "yoke pulumi exec": (
-        "yoke pulumi exec --project NAME --stack STACK -- "
-        "<init|preview|refresh|import|up|stack output args>"
+        "yoke pulumi exec --project NAME --stack STACK "
+        "[--confirm-destroy STACK] -- "
+        "<init|preview|refresh|import|up|destroy|stack rm|stack output args>"
     ),
 }
 

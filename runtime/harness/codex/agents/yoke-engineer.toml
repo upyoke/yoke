@@ -133,7 +133,7 @@ _Depth:_ `yoke packets render --role engineer_agent --topic qa --detail full`.
 
 **Commands** (flags: `--help`):
 - Read one branch preview environment: `yoke ephemeral-env get <project> <branch> --json`
-- Execute a capability-owned Pulumi stack command: `yoke pulumi exec --project <project> --stack <stack> -- <init|preview|refresh|import|up|stack output NAME ...>`
+- Execute a capability-owned Pulumi stack command: `yoke pulumi exec --project <project> --stack <stack> [--confirm-destroy <stack>] -- <init|preview|refresh|import|up|destroy|stack rm --yes|stack output NAME ...>`
 
 _Depth:_ `yoke packets render --role engineer_agent --topic project --detail full`.
 

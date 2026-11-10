@@ -31,8 +31,8 @@ from yoke_cli.transport.runner_fleet_token import (
 
 PULUMI_EXEC_USAGE = (
     "yoke pulumi exec --project NAME --stack STACK "
-    "[--bootstrap-local-authority] [--session-id S] -- "
-    "<init|preview|refresh|import|up|stack output args>"
+    "[--bootstrap-local-authority] [--confirm-destroy STACK] [--session-id S] -- "
+    "<init|preview|refresh|import|up|destroy|stack rm|stack output args>"
 )
 
 
@@ -47,7 +47,12 @@ def pulumi_exec(args: List[str]) -> int:
             "`init --secrets-provider <awskms URI>`. Preview and up accept repeated "
             "`--target URN` or `--target=URN` for literal resources in the requested "
             "stack and rendered Pulumi.yaml project. Up still requires operator "
-            "confirmation with `--yes --non-interactive`."
+            "confirmation with `--yes --non-interactive`. Destroy (whole stack, "
+            "`--yes --non-interactive`) and `stack rm --yes` (never --force) "
+            "require `--confirm-destroy <exact stack name>` and refuse while an "
+            "environment stack with operator state uses the stack as its origin "
+            "VPS. Stack rm is a local source-dev/admin boundary that also "
+            "drops the stack's operator state."
         ),
     )
     parser.add_argument(
@@ -62,6 +67,14 @@ def pulumi_exec(args: List[str]) -> int:
         help=(
             "Recovery only: mint the runner-fleet repository token from "
             "capability-owned local AWS authority."
+        ),
+    )
+    parser.add_argument(
+        "--confirm-destroy",
+        metavar="STACK",
+        help=(
+            "Required for destroy and stack rm: the exact stack name, "
+            "confirming its resources or stack record are removed."
         ),
     )
     add_session_arg(parser)
@@ -79,8 +92,10 @@ def pulumi_exec(args: List[str]) -> int:
     if not command:
         print(f"Usage: {PULUMI_EXEC_USAGE}", file=sys.stderr)
         return 2
-    if command[0] == "init":
-        if parsed.bootstrap_local_authority:
+    removes_stack = command[0] == "stack" and _first_stack_subcommand(command) == "rm"
+    if command[0] == "init" or removes_stack:
+        boundary = "stack rm" if removes_stack else "stack init"
+        if command[0] == "init" and parsed.bootstrap_local_authority:
             print(
                 "error: --bootstrap-local-authority is limited to initialized "
                 "runner-fleet stack operations and cannot be combined with init",
@@ -91,14 +106,14 @@ def pulumi_exec(args: List[str]) -> int:
             https_connection = resolve_https_connection()
         except TransportError as exc:
             print(
-                f"error: pulumi stack init could not resolve the active "
+                f"error: pulumi {boundary} could not resolve the active "
                 f"connection: {exc}",
                 file=sys.stderr,
             )
             return 2
         if https_connection is not None:
             print(
-                "error: pulumi stack init is a local source-dev/admin boundary; "
+                f"error: pulumi {boundary} is a local source-dev/admin boundary; "
                 "select a local-postgres connection and retry",
                 file=sys.stderr,
             )
@@ -147,6 +162,7 @@ def pulumi_exec(args: List[str]) -> int:
             ),
             hosted_repository_token_loader=hosted_repository_token_loader,
             bootstrap_local_authority=parsed.bootstrap_local_authority,
+            confirm_destroy=parsed.confirm_destroy,
         )
     except FileNotFoundError as exc:
         print(f"error: Pulumi executable or template not found: {exc}", file=sys.stderr)
@@ -199,6 +215,20 @@ def _project_checkout(
             f"mapping; found {len(matches)}"
         )
     return matches[0]
+
+
+def _first_stack_subcommand(command: List[str]) -> str | None:
+    """Return the `stack` subcommand, skipping any `--stack NAME` selector."""
+    index = 1
+    while index < len(command):
+        value = command[index]
+        if value == "--stack":
+            index += 2
+        elif value.startswith("--stack="):
+            index += 1
+        else:
+            return value
+    return None
 
 
 def _current_git_root() -> Path | None:
