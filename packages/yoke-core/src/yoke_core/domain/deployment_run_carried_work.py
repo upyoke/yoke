@@ -1,15 +1,8 @@
 """Derive and persist the source changes carried by a deployment run.
 
-Run membership answers which items the pipeline owns. Carried work answers a
-different question: which trunk changes exist between the preceding release
-lineage and this run's lineage. The result therefore lives on the run and
-never writes ``deployment_run_items`` or item lifecycle state.
-
-A run ships one commit per project it carries — its own, plus every project
-a stage binds — so the same comparison runs once per project, each against
-that project's own recorded commit and the commit the preceding run recorded
-for it. The bound answers travel under ``bound_projects`` so one record still
-says everything one release carried.
+Carried work records trunk changes between release lineages, independently
+of item membership or lifecycle. Each carried project's commit is compared
+with its preceding release; bound project answers live under ``bound_projects``.
 
 Succeeded completion and composition freeze always record the answer. A
 failed or cancelled transition derives nothing, because it holds the run row;
@@ -97,14 +90,20 @@ def previous_release_run(conn: Any, run_id: str, project_id: int, environment_id
             "FROM deployment_runs WHERE id=%s",
             (projected[2],),
         ).fetchone()
+    # Explicit null/equality predicates preserve nullable identity and let
+    # PostgreSQL constrain the environment column in the release history index.
+    environment = "IS NULL" if environment_id is None else "=%s"
+    params = (project_id, run_id) + (
+        () if environment_id is None else (environment_id,)
+    )
     return conn.execute(
         f"SELECT id,project_id,release_lineage,{BOUND_SOURCES_FIELD},"
         "completed_at "
         "FROM deployment_runs "
         "WHERE project_id=%s AND status='succeeded' AND id<>%s "
-        "AND target_environment_id IS NOT DISTINCT FROM %s "
+        f"AND target_environment_id {environment} "
         "ORDER BY completed_at DESC NULLS LAST,created_at DESC,id DESC LIMIT 1",
-        (project_id, run_id, environment_id),
+        params,
     ).fetchone()
 
 
