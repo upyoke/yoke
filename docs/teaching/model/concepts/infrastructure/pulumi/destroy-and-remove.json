@@ -1,0 +1,8 @@
+{
+ "id": "destroy-and-remove",
+ "title": "Destroy and remove a stack",
+ "status": "draft-copy",
+ "commands": ["yoke pulumi exec"],
+ "page": "infrastructure",
+ "position": 6
+}

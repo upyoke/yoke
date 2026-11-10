@@ -278,7 +278,7 @@ def test_preview_json_output_is_durable_owner_only(tmp_path):
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
 
-@pytest.mark.parametrize("operation", ["destroy", "state-delete", "bash"])
+@pytest.mark.parametrize("operation", ["state-delete", "bash"])
 def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
     called = False
 

@@ -26,8 +26,18 @@ from yoke_core.domain.project_renderer_settings import (
 from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
     import_checkpoint_state,
 )
+from yoke_core.domain.projects_pulumi_state_stack_remove import (
+    remove_stack_state,
+)
 from yoke_core.tools.pulumi_exec_authority import (
     authority_env as _authority_env,
+)
+from yoke_core.tools.pulumi_exec_destroy import (
+    STACK_RM,
+    clear_removed_stack_state,
+    destructive_operation,
+    refuse_consumed_vps_stack,
+    require_destroy_confirmation,
 )
 from yoke_core.tools.pulumi_exec_files import (
     new_owner_only_output as _new_owner_only_output,
@@ -67,6 +77,8 @@ def execute_pulumi_command(
         load_project_renderer_settings
     ),
     state_importer: Callable[..., Mapping[str, Any]] = import_checkpoint_state,
+    confirm_destroy: str | None = None,
+    stack_state_remover: Callable[..., Mapping[str, Any]] = remove_stack_state,
     child_factory: Callable[..., Any] | None = None,
     out: TextIO | None = None,
     err: TextIO | None = None,
@@ -77,6 +89,9 @@ def execute_pulumi_command(
     operation states the tree it renders before producing any result, and a
     caller standing in a different working tree of that same repository is
     refused instead of handed a summary for a tree they did not name.
+
+    ``destroy`` and ``stack rm`` require ``confirm_destroy`` to name the
+    exact stack; a successful ``stack rm`` also drops its operator state.
     """
     selected_project = str(project or "").strip()
     selected_stack = str(stack or "").strip()
@@ -84,6 +99,7 @@ def execute_pulumi_command(
         raise PulumiExecError("project and stack are required")
     announce_render_source(project_root, caller_root=caller_root, err=err or sys.stderr)
     if command and str(command[0]) == "init":
+        require_destroy_confirmation(selected_stack, None, confirm_destroy)
         from yoke_core.tools.pulumi_exec_init import execute_pulumi_stack_init
 
         return execute_pulumi_stack_init(
@@ -99,6 +115,12 @@ def execute_pulumi_command(
             err=err,
         )
     argv, json_output = validated_command(selected_stack, command)
+    operation = destructive_operation(argv)
+    require_destroy_confirmation(selected_stack, operation, confirm_destroy)
+    if operation is not None:
+        refuse_consumed_vps_stack(
+            selected_project, selected_stack, settings_loader(selected_project)
+        )
     payload = dict(config_loader(selected_project, selected_stack))
     _verify_payload_identity(payload, selected_project, selected_stack)
     authority = payload.get("authority")
@@ -167,6 +189,13 @@ def execute_pulumi_command(
                 )
                 if named:
                     raise PulumiExecError(named)
+            elif operation == STACK_RM:
+                clear_removed_stack_state(
+                    selected_project,
+                    selected_stack,
+                    stack_state_remover,
+                    out or sys.stdout,
+                )
             return result.returncode
         finally:
             if json_handle is not None:

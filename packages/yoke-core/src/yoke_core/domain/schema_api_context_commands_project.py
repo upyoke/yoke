@@ -99,8 +99,9 @@ PROJECT_COMMANDS: list[dict] = [
         "topic": "project",
         "purpose": "Execute a capability-owned Pulumi stack command",
         "recipe": (
-            "yoke pulumi exec --project <project> --stack <stack> -- "
-            "<init|preview|refresh|import|up|stack output NAME ...>"
+            "yoke pulumi exec --project <project> --stack <stack> "
+            "[--confirm-destroy <stack>] -- <init|preview|refresh|import|up|"
+            "destroy|stack rm --yes|stack output NAME ...>"
         ),
         "notes": (
             "This is a client-local tool-shaped boundary, not a dispatcher "
@@ -111,7 +112,15 @@ PROJECT_COMMANDS: list[dict] = [
             "guess a sibling `commands/pulumi_exec.py` module. The selected "
             "stack must be declared in the project pulumi-state capability. "
             "Output reads require one exact output name and never expose "
-            "secret values. Every run opens on stderr with a `rendering "
+            "secret values. `destroy` (whole stack, never --target; requires "
+            "--yes --non-interactive) and `stack rm --yes` (never --force, so "
+            "Pulumi refuses a stack still holding resources) both require "
+            "`--confirm-destroy` naming the exact stack, and refuse while an "
+            "environment stack with operator state names the target as its "
+            "pulumi.origin_vps_stack_name; destroy that consumer first. "
+            "`stack rm` is local-only like init and, on exit 0, drops the "
+            "stack's pulumi-state stack_state entry so init can reuse the "
+            "name. Every run opens on stderr with a `rendering "
             "<checkout> @ <revision> (<infra/ state>)` line naming the tree "
             "the program was read from, so read it before trusting an "
             "unchanged count; uncommitted work under `infra/` is rendered "
