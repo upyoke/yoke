@@ -40,8 +40,10 @@ yoke messages acknowledge MESSAGE-ID
 
 Read and acknowledge full messages; act, hold, or surface decisions this pass.
 Reconcile the report's Questions waiting on you against chat each time you
-report. It skips questions from hand-started sessions, whose operator answers in
-that session's chat, except questions steering filed. Withdraw a question that no longer needs an answer
+report. It lists questions about the work your seat covers and the ones you
+filed; questions from other hand-started sessions, whose operator answers in that
+session's chat, never show. A question marked `unattended` waits for its document
+seat. Withdraw a question that no longer needs an answer
 (`decision-requests withdraw ID --reason TEXT`); when facts change, file a
 replacement with `ask --replaces ID`. If resolve is unauthorized, answer on the
 Inbox page. When a worker needs an operator decision, answer from standing

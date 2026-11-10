@@ -149,9 +149,7 @@ def test_question_outcomes_are_delivered_once(test_db):
             },
         )
         ids.append(question["id"])
-    before = CombinedFleetReport(
-        NOW, (), questions=read_questions(test_db, [PROJECT_YOKE])
-    )
+    before = CombinedFleetReport(NOW, (), questions=read_questions(test_db, session))
     prior = before.fingerprint()
     resolve_decision_request(
         test_db, ids[0], actor_id=1, action="blue", session_id=session
@@ -163,7 +161,7 @@ def test_question_outcomes_are_delivered_once(test_db):
         "UPDATE decision_requests SET consumed_at=%s WHERE id=%s", (NOW, ids[2])
     )
     test_db.commit()
-    rows = read_questions(test_db, [PROJECT_YOKE], ids)
+    rows = read_questions(test_db, session, ids)
     after = CombinedFleetReport(NOW + timedelta(minutes=1), (), question_outcomes=rows)
     digest = combined_hook_digest(after, prior)
     for request_id, outcome in zip(ids, ("answered (Blue)", "withdrawn", "consumed")):
@@ -172,7 +170,7 @@ def test_question_outcomes_are_delivered_once(test_db):
         combined_hook_digest(replace(after, question_outcomes=()), after.fingerprint())
         == ""
     )
-    assert read_questions(test_db, [PROJECT_YOKE]) == ()
+    assert read_questions(test_db, session) == ()
 
 
 def _named_question(test_db, monkeypatch, *, project_less):

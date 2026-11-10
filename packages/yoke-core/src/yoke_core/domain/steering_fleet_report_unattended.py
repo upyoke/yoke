@@ -5,13 +5,18 @@ from __future__ import annotations
 from yoke_core.domain.workflow_status_queries import terminal_items_sql
 
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
+from yoke_core.domain.steering_scope_coverage import (
+    DOCUMENT_KEY,
+    PROJECT_KEY,
+    covering_seat,
+    live_steering_claims,
+)
 from yoke_core.domain.steering_scope_membership import item_coverage_target
 
 
@@ -33,10 +38,23 @@ class UnattendedLinkedItem:
 
 
 def unattended_linked_items(
-    conn: Any, held_project_ids: Iterable[int]
+    conn: Any, viewer_session_id: str
 ) -> tuple[UnattendedLinkedItem, ...]:
-    """Find linked work visible to these projects but covered by no seat."""
-    projects = tuple(dict.fromkeys(int(value) for value in held_project_ids))
+    """Linked open work no seat covers, shown to its document's project seat.
+
+    Like an unattended operator question, the item waits with the project
+    seat of the document's owning project, not with every overlapping seat.
+    """
+    claims = live_steering_claims(conn)
+    projects = tuple(
+        dict.fromkeys(
+            int(claim["scope"][PROJECT_KEY])
+            for claim in claims
+            if str(claim["session_id"]) == viewer_session_id
+            and PROJECT_KEY in claim["scope"]
+            and DOCUMENT_KEY not in claim["scope"]
+        )
+    )
     if (
         not projects
         or not _table_exists(conn, "item_strategy_docs")
@@ -49,12 +67,11 @@ def unattended_linked_items(
         "SELECT i.id, i.project_id AS item_project_id, "
         "l.project_id AS document_project_id, l.strategy_doc_slug "
         "FROM items i JOIN item_strategy_docs l ON l.item_id = i.id "
-        f"WHERE (i.project_id IN ({slots}) OR l.project_id IN ({slots})) "
+        f"WHERE l.project_id IN ({slots}) "
         f"AND NOT {terminal_items_sql(conn)} "
         "ORDER BY i.id",
-        (*projects, *projects),
+        projects,
     ).fetchall()
-    claims = live_steering_claims(conn)
     records = [dict(row) for row in rows]
     refs = render_item_refs(conn, [int(row["id"]) for row in records])
     names: dict[int, str] = {}

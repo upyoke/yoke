@@ -170,6 +170,10 @@ def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
         conn, question["id"], actor_id=recipient, action="freeform", note="Blue"
     )
     assert answered["status"] == "resolved"
-    assert read_questions(conn, [], [question["id"]], viewer_actor_id=1) == ()
-    [outcome] = read_questions(conn, [], [question["id"]], viewer_actor_id=recipient)
+    assert read_questions(conn, STEERING_SESSION, [question["id"]]) == ()
+    conn.execute(
+        "UPDATE harness_sessions SET actor_id=%s WHERE session_id=%s",
+        (recipient, STEERING_SESSION),
+    )
+    [outcome] = read_questions(conn, STEERING_SESSION, [question["id"]])
     assert outcome.outcome == "answered (Blue)"

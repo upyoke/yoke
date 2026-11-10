@@ -1,7 +1,8 @@
-"""Steering skips questions from hand-started sessions, except its own.
+"""Steering skips questions from other hand-started sessions, never its own.
 
 A hand-started session's operator answers in that session's chat, so the
-steering report, hook digest and watcher poll leave its questions out. The
+steering report, hook digest and watcher poll leave its questions out, even
+when that session holds a steering seat of its own. The
 Inbox and ``decision-requests list`` still show them.
 """
 
@@ -59,7 +60,8 @@ def _seed_questions(conn):
     seed_session(conn, GONE, PROJECT_ID)
     conn.execute("UPDATE harness_sessions SET actor_id=1")
     ids = {
-        session: _ask(conn, session) for session in (HAND, WORKER, STEERING_SESSION, GONE)
+        session: _ask(conn, session)
+        for session in (HAND, WORKER, STEERING_SESSION, GONE)
     }
     conn.execute("DELETE FROM harness_sessions WHERE session_id=%s", (GONE,))
     conn.commit()
@@ -77,11 +79,18 @@ class _Borrowed:
         pass
 
 
-def test_steering_surfaces_skip_only_hand_started_non_steering_questions(
+def test_steering_surfaces_skip_other_hand_started_questions(
     steering_scope, monkeypatch
 ):
     conn = steering_scope
     ids = _seed_questions(conn)
+    # HAND steers elsewhere; holding a steering seat no longer exempts it.
+    conn.execute(
+        "INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, "
+        "last_heartbeat) VALUES (%s, 'steering', '{\"project_id\": 999}', %s, %s)",
+        (HAND, NOW, NOW),
+    )
+    conn.commit()
     shown = {ids[WORKER], ids[STEERING_SESSION], ids[GONE]}
 
     report = steering_report_for_delivery(conn, session_id=STEERING_SESSION, now=NOW)
@@ -90,7 +99,7 @@ def test_steering_surfaces_skip_only_hand_started_non_steering_questions(
     for request_id in shown:
         assert f"request {request_id} " in report
 
-    questions = read_questions(conn, [PROJECT_ID])
+    questions = read_questions(conn, STEERING_SESSION)
     assert {row.request_id for row in questions} == shown
     digest = combined_hook_digest(CombinedFleetReport(NOW, (), questions=questions), "")
     assert f"request {ids[HAND]} " not in digest

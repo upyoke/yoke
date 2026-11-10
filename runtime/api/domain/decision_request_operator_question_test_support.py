@@ -51,6 +51,11 @@ def conn():
         )
 
         add_holdings_schema(value)
+        value.execute(
+            "INSERT INTO work_claims (id, session_id, target_kind, scope, claimed_at) "
+            "VALUES (900, 'steering', 'steering', '{\"project_id\": 10}', "
+            "'2026-01-01T00:00:00Z')"
+        )
         yield value
 
 
