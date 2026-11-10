@@ -31,6 +31,14 @@ selection.resolve = lambda *a, **kw: (selection.FleetTarget(
 migration_preflight_receipt_store.read_declared_admin_connection = (
     lambda **kw: ('disposable-admin', '')
 )
+# No release.preflight_executor declared: the installed kernel runs locally.
+original_read_coverage = migration_preflight_receipt_store.read_coverage
+def read_coverage(**kw):
+    if list(kw['paths']) == ['release.preflight_executor']:
+        assert (kw['project'], kw['environment']) == ('fixture', 'rehearsal')
+        return {}, ''
+    return original_read_coverage(**kw)
+migration_preflight_receipt_store.read_coverage = read_coverage
 connected_env_readiness.activate_selected_postgres = lambda env: SimpleNamespace(
     dsn='host=controlled.invalid dbname=postgres', environment=env,
 )
