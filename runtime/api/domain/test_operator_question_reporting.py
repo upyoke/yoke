@@ -39,7 +39,7 @@ def test_light_poll_finds_hook_seen_answer_and_forces_one_outcome(
 
     _project(conn)
     worker = "question-worker"
-    seed_session(conn, worker)
+    seed_session(conn, worker, launch_origin="yoke")
     conn.execute("UPDATE harness_sessions SET actor_id=1")
     question, _ = file_question(
         conn,
@@ -134,7 +134,7 @@ def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
     conn = steering_scope
     recipient = seed_human_actor(conn, name="Question reviewer")
     worker = "organization-question-worker"
-    seed_session(conn, worker)
+    seed_session(conn, worker, launch_origin="yoke")
     org = conn.execute(
         "SELECT org_id FROM projects WHERE id=%s", (PROJECT_ID,)
     ).fetchone()[0]

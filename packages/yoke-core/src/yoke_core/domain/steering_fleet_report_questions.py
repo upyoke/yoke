@@ -23,10 +23,26 @@ class OperatorQuestion:
     outcome: str = ""
 
 
+# A hand-started session's operator answers in that session's own chat, so
+# steering leaves its questions out — unless the session has held a steering
+# claim, because steering must keep seeing the questions it files.
+_HAND_STARTED_ASKER = (
+    "EXISTS (SELECT 1 FROM harness_sessions hs "
+    "WHERE hs.session_id = decision_requests.requesting_session_id "
+    "AND hs.launch_origin = 'operator' "
+    "AND NOT EXISTS (SELECT 1 FROM work_claims wc "
+    "WHERE wc.session_id = hs.session_id AND wc.target_kind = 'steering'))"
+)
+
+
 def question_states(
     conn, project_ids, previous_ids=(), *, include_resolved=False, viewer_actor_id=None
 ):
-    """Read open requests and watched departures inside the held projects."""
+    """Read open requests and watched departures inside the held projects.
+
+    Questions from hand-started, never-steering sessions are left out; the
+    Inbox and ``decision-requests list`` still show them.
+    """
     if (not project_ids and viewer_actor_id is None) or not _table_exists(
         conn, "decision_requests"
     ):
@@ -48,7 +64,8 @@ def question_states(
         for row in conn.execute(
             "SELECT id, CASE WHEN consumed_at IS NOT NULL THEN 'consumed' ELSE status END, project_id, audience_id FROM decision_requests WHERE kind='operator_question' "
             f"AND ({project_clause} OR project_id IS NULL) "
-            f"AND ({open_status}{watched}) ORDER BY created_at, id",
+            f"AND ({open_status}{watched}) AND NOT {_HAND_STARTED_ASKER} "
+            "ORDER BY created_at, id",
             (*project_ids, *previous_ids),
         ).fetchall()
         if row[2] is not None

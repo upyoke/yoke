@@ -48,7 +48,13 @@ def _project(conn: Any) -> None:
     )
 
 
-def seed_session(conn: Any, session_id: str, project_id: int = PROJECT_YOKE) -> None:
+def seed_session(
+    conn: Any,
+    session_id: str,
+    project_id: int = PROJECT_YOKE,
+    *,
+    launch_origin: str = "operator",
+) -> None:
     """A session whose route resolves ``messageable`` for real delivery.
 
     ``coordination_claim_test_support.seed_session`` leaves
@@ -62,8 +68,8 @@ def seed_session(conn: Any, session_id: str, project_id: int = PROJECT_YOKE) -> 
     conn.execute(
         "INSERT INTO harness_sessions (session_id,project_id,actor_id,workspace,"
         "executor,provider,executor_surface,executor_version,machine_id,"
-        "execution_level,last_heartbeat,offered_at) VALUES "
-        "(%s,%s,%s,'/tmp',%s,%s,%s,%s,%s,%s,%s,%s)",
+        "execution_level,last_heartbeat,offered_at,launch_origin) VALUES "
+        "(%s,%s,%s,'/tmp',%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             session_id,
             project_id,
@@ -76,6 +82,7 @@ def seed_session(conn: Any, session_id: str, project_id: int = PROJECT_YOKE) -> 
             "direct",
             now,
             now,
+            launch_origin,
         ),
     )
     conn.commit()

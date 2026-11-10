@@ -236,7 +236,11 @@ carry the recovery command and a null `execution_id`.
 ## Questions waiting on you
 
 The report lists pending operator questions oldest first, with the request id,
-requesting session label, held item, age and question excerpt. Answer or withdraw
+requesting session label, held item, age and question excerpt. It skips
+questions from sessions the operator started by hand, who answer them in that
+session's own chat; questions from steering sessions and Yoke-launched workers
+still appear. The Inbox and `yoke decision-requests list` show every question.
+Answer or withdraw
 the question to remove it. The hook update and fleet watcher name each departure
 once: `request N no longer waiting: answered (<option label>)`, `withdrawn`,
 or `consumed`. The watcher checks question status each poll; a change wakes

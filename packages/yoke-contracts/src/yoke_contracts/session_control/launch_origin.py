@@ -1,5 +1,8 @@
 """Who asked for a launch, recorded on the row rather than inferred later.
 
+This covers launch rows (``operator``/``steering``), not the
+``harness_sessions.launch_origin`` column (``yoke``/``operator``).
+
 Every launch is created through the same state machine whatever asked for it,
 so the ``origin`` column is the only place that difference survives — operator
 listings, fleet balance, and audit read it instead of guessing intent from
