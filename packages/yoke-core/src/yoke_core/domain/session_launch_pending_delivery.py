@@ -50,11 +50,14 @@ def _launches(conn: Any) -> list[Any]:
     ).fetchall()
 
 
-def _bindings(conn: Any) -> list[Any]:
+def _bindings(conn: Any, session_ids: tuple[str, ...]) -> list[Any]:
+    p = marker(conn)
+    slots = ",".join(p for _ in session_ids)
     return conn.execute(
         "SELECT launch_id,native_session_id,registered_session_id "
-        "FROM session_launches WHERE native_session_id IS NOT NULL "
-        "OR registered_session_id IS NOT NULL"
+        f"FROM session_launches WHERE native_session_id IN ({slots}) "
+        f"OR registered_session_id IN ({slots})",
+        (*session_ids, *session_ids),
     ).fetchall()
 
 
@@ -71,7 +74,7 @@ def pending_launch_deliveries(
     sessions = _sessions(conn, targets)
     if not sessions:
         return {}
-    all_bindings = _bindings(conn)
+    all_bindings = _bindings(conn, tuple(sessions))
     current = utc_now() if now is None else parse_instant(now)
     matches: dict[str, list[tuple[str, str]]] = {}
     for raw in _launches(conn):

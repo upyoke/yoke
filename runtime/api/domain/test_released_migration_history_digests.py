@@ -5,7 +5,7 @@ from yoke_core.domain.migration_baseline import declared_baseline
 from yoke_core.domain.migration_history import history_dir, ordered_entries
 
 
-def test_packaged_history_has_one_code_declared_baseline_and_no_scripts():
+def test_packaged_history_has_one_baseline_and_only_subsequent_scripts():
     directory = history_dir(migrations)
     baseline = declared_baseline(directory)
     assert baseline.name == "0106_baseline"
@@ -16,7 +16,9 @@ def test_packaged_history_has_one_code_declared_baseline_and_no_scripts():
     assert tuple(
         entry for entry in ordered_entries(directory) if entry.is_baseline
     ) == (baseline,)
-    assert not list(directory.glob("[0-9]*.py"))
+    scripts = [entry for entry in ordered_entries(directory) if not entry.is_baseline]
+    assert all(entry.sequence > baseline.sequence for entry in scripts)
+    assert {entry.path for entry in scripts} == set(directory.glob("[0-9]*.py"))
 
 
 def test_validation_database_ledger_matches_current_history(test_db):

@@ -34,11 +34,25 @@ def manual_notice_rows(
             f"FROM qa_requirements WHERE deployment_run_id IN ({','.join([p] * len(runs))})",
             runs,
         ).fetchall()
-        by_key = {
-            f"{MANUAL_WAIT_PREFIX}{row['id']}:"
-            f"{sha256(row['evidence'].encode('utf-8')).hexdigest()}": dict(row)
-            for row in requirements
-        }
+        by_requirement = {str(row["id"]): dict(row) for row in requirements}
+        if not by_requirement:
+            return []
+        # Recipient ownership is part of existing keys. Discover only notice
+        # keys through the prefix index, then fetch matching messages exactly.
+        keys = conn.execute(
+            f"SELECT idempotency_key FROM session_messages WHERE idempotency_key LIKE {p}",
+            (f"{MANUAL_WAIT_PREFIX}%",),
+        ).fetchall()
+        by_key = {}
+        for key_row in keys:
+            key = str(key_row[0])
+            requirement, _, suffix = key[len(MANUAL_WAIT_PREFIX) :].partition(":")
+            record = by_requirement.get(requirement)
+            if record is None:
+                continue
+            digest = sha256(record["evidence"].encode("utf-8")).hexdigest()
+            if suffix == digest or suffix.endswith(f":{digest}"):
+                by_key[key] = record
         if not by_key:
             return []
         messages = conn.execute(
@@ -54,10 +68,7 @@ def manual_notice_rows(
             "ORDER BY m.created_at DESC, m.message_id",
             tuple(by_key),
         ).fetchall()
-        return [
-            {**dict(row), **by_key[row['idempotency_key']]}
-            for row in messages
-        ]
+        return [{**dict(row), **by_key[row["idempotency_key"]]} for row in messages]
 
     found = []
     for row in presentation_read(conn, ("qa_manual_notices", runs), read):

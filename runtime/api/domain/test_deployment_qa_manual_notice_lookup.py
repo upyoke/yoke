@@ -105,8 +105,10 @@ def test_manual_notice_reads_exact_current_keys(monkeypatch, test_db, backend):
         conn.execute(statement)
     p = marker(conn)
     for requirement, run, stage, evidence in [
-        (1, "a", "qa", "ready"), (2, "b", "qa", "carried"),
-        (3, "a", "other", "other"), (4, "a", "qa", "changed"),
+        (1, "a", "qa", "ready"),
+        (2, "b", "qa", "carried"),
+        (3, "a", "other", "other"),
+        (4, "a", "qa", "changed"),
     ]:
         conn.execute(
             f"INSERT INTO qa_requirements VALUES ({','.join([p] * 5)})",
@@ -115,14 +117,20 @@ def test_manual_notice_reads_exact_current_keys(monkeypatch, test_db, backend):
         digest = sha256(evidence.encode()).hexdigest()
         conn.execute(
             f"INSERT INTO session_messages VALUES ({p},{p},{p},NULL)",
-            (str(requirement), f"{notices.MANUAL_WAIT_PREFIX}{requirement}:{digest}", "now"),
+            (
+                str(requirement),
+                f"{notices.MANUAL_WAIT_PREFIX}{requirement}:s:{digest}",
+                "now",
+            ),
         )
     conn.execute("UPDATE qa_requirements SET wake_evidence='new' WHERE id=4")
     conn.execute(
         f"INSERT INTO session_messages VALUES ({p},{p},{p},NULL)",
         ("old", f"{notices.MANUAL_WAIT_PREFIX}1:stale", "before"),
     )
-    conn.execute("INSERT INTO session_message_recipients VALUES ('1','s','acknowledged','')")
+    conn.execute(
+        "INSERT INTO session_message_recipients VALUES ('1','s','acknowledged','')"
+    )
     conn.execute("INSERT INTO harness_sessions VALUES ('s',NULL)")
     monkeypatch.setattr(notices, "_table_exists", lambda *_: True)
     from yoke_core.domain import deployment_qa_presentation_facts as facts
@@ -138,12 +146,20 @@ def test_manual_notice_reads_exact_current_keys(monkeypatch, test_db, backend):
 
     monkeypatch.setattr(reads, "presentation_read", read)
     result = notices.manual_notice_rows(conn, run_id="a", stage_name="qa")
-    assert result == [{
-        "message_id": "1", "idempotency_key": "deployment-qa-stage-wait:a:qa:9:manual:1",
-        "sent_at": "now", "session_id": "s", "state": "acknowledged", "escalation": "",
-    }]
+    assert result == [
+        {
+            "message_id": "1",
+            "idempotency_key": "deployment-qa-stage-wait:a:qa:9:manual:1",
+            "sent_at": "now",
+            "session_id": "s",
+            "state": "acknowledged",
+            "escalation": "",
+        }
+    ]
     if backend == "sqlite":
         query = next(q for q in queries if "FROM session_messages m" in q)
         assert "LIKE" not in query
-        assert "exact_notice_key" in str([tuple(row) for row in conn.execute("EXPLAIN QUERY PLAN " + query)])
+        assert "exact_notice_key" in str(
+            [tuple(row) for row in conn.execute("EXPLAIN QUERY PLAN " + query)]
+        )
         conn.close()

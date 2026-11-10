@@ -87,17 +87,17 @@ def _actionable_clause(conn: Any, now: Any) -> tuple[str, list[Any]]:
     steering_slots = ",".join(p for _ in STEERING_OPEN_STATES)
     queued, queued_params = queued_message_clause(p, state="pending", now=now)
     return (
-        f"({queued} OR (m.cancelled_at IS NULL AND m.expires_at>{p} AND (EXISTS (SELECT 1 "
+        f"(m.cancelled_at IS NULL AND m.expires_at>{p} AND ({queued} OR EXISTS (SELECT 1 "
         "FROM session_message_recipients ao WHERE ao.message_id=m.message_id "
         f"AND ao.state IN ({session_slots})) OR EXISTS (SELECT 1 FROM "
         "actor_message_recipients aa WHERE aa.message_id=m.message_id "
         f"AND aa.recipient_kind={p} AND aa.state='pending') OR EXISTS "
         "(SELECT 1 FROM actor_message_recipients ast WHERE "
         f"ast.message_id=m.message_id AND ast.recipient_kind={p} "
-        f"AND ast.state IN ({steering_slots})))))",
+        f"AND ast.state IN ({steering_slots}))))",
         [
-            *queued_params,
             now,
+            *queued_params,
             *OPEN_SESSION_STATES,
             ACTOR_KIND,
             STEERING_KIND,
