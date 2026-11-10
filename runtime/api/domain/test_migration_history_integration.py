@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from yoke_core.domain.migration_history import HistoryError
-from yoke_core.domain.migration_content_identity import raw_content_sha256
 from yoke_core.domain.migration_history_integration import (
-    RELEASED_DIGESTS_NAME,
     history_names_at_ref,
     require_merge_history_extension,
     require_rehearsal_history_extension,
@@ -97,49 +94,6 @@ def test_rehearsal_refuses_changed_permanent_bytes(lane: Path) -> None:
         _rehearsal(lane, "0013_existing")
 
 
-def test_rehearsal_refuses_restoration_using_an_untrusted_manifest(
-    lane: Path,
-) -> None:
-    entry = lane / MODULES_DIR / "0013_existing.py"
-    released_bytes = entry.read_bytes()
-    released_digest = raw_content_sha256(released_bytes)
-    _git(lane, "checkout", "main")
-    _entry(lane, "0013_existing", marker="edited-after-release")
-    _git(lane, "add", "-A")
-    _git(lane, "commit", "-q", "-m", "edit released entry")
-    _git(lane, "checkout", "lane")
-    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
-        json.dumps({"0013_existing": released_digest}),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(HistoryError, match="different permanent bytes"):
-        _rehearsal(lane, "0013_existing")
-
-
-def test_target_manifest_cannot_be_rewritten_to_authorize_lane_bytes(
-    lane: Path,
-) -> None:
-    entry = lane / MODULES_DIR / "0013_existing.py"
-    released_digest = raw_content_sha256(entry.read_bytes())
-    _git(lane, "checkout", "main")
-    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
-        json.dumps({"0013_existing": released_digest}),
-        encoding="utf-8",
-    )
-    _git(lane, "add", "-A")
-    _git(lane, "commit", "-q", "-m", "pin released history")
-    _git(lane, "checkout", "lane")
-    rewritten = _entry(lane, "0013_existing", marker="rewritten")
-    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
-        json.dumps({"0013_existing": raw_content_sha256(rewritten.read_bytes())}),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(HistoryError, match="different permanent bytes"):
-        _rehearsal(lane, "0013_existing")
-
-
 def test_merge_requires_the_next_ordinal(lane: Path) -> None:
     _entry(lane, "0015_skipped")
 
@@ -198,42 +152,35 @@ def test_history_names_at_ref_refuses_an_unreadable_revision(lane: Path) -> None
         history_names_at_ref(lane, "no-such-ref", MODULES_DIR)
 
 
-def _collapse_prefix(lane: Path, *, digest_override=None) -> None:
+def _baseline(lane: Path) -> None:
     directory = lane / MODULES_DIR
-    predecessors = {
-        path.stem: raw_content_sha256(path.read_bytes())
-        for path in directory.glob("[0-9]*.py")
-    }
     for path in directory.glob("[0-9]*.py"):
         path.unlink()
-    if digest_override:
-        predecessors["0013_existing"] = digest_override
-    (directory / RELEASED_DIGESTS_NAME).write_text(json.dumps(predecessors))
-    (directory / "__init__.py").write_text("HISTORY_BASELINE = " + repr({
-        "name": "0013_baseline", "content_sha256": "a" * 64,
-        "minimum_serving_version": "next-release",
-        "predecessor_manifest": RELEASED_DIGESTS_NAME,
-        "adoption_evidence_table": "migration_content_adoptions",
-    }))
+    (directory / "__init__.py").write_text(
+        "HISTORY_BASELINE = "
+        + repr(
+            {
+                "name": "0013_baseline",
+                "content_sha256": "a" * 64,
+                "minimum_serving_version": "next-release",
+            }
+        )
+    )
 
 
 @pytest.mark.parametrize("check", [_merge, _rehearsal])
-def test_accepts_exact_baseline_transition_and_next_script(lane, check) -> None:
-    _collapse_prefix(lane)
+def test_accepts_baseline_and_next_script(lane, check) -> None:
+    _baseline(lane)
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "baseline")
+    _git(lane, "branch", "-f", "main", "HEAD")
     _entry(lane, "0014_next")
     check(lane, "0014_next")
 
 
 @pytest.mark.parametrize("check", [_merge, _rehearsal])
-def test_baseline_transition_refuses_changed_predecessor_digest(lane, check) -> None:
-    _collapse_prefix(lane, digest_override="b" * 64)
-    with pytest.raises(HistoryError, match="exact names and digests"):
-        check(lane, "0013_baseline")
-
-
-@pytest.mark.parametrize("check", [_merge, _rehearsal])
 def test_baseline_does_not_authorize_changing_subsequent_script(lane, check) -> None:
-    _collapse_prefix(lane)
+    _baseline(lane)
     _entry(lane, "0014_live")
     _git(lane, "add", "-A")
     _git(lane, "commit", "-q", "-m", "establish baseline and live tail")
@@ -244,7 +191,7 @@ def test_baseline_does_not_authorize_changing_subsequent_script(lane, check) -> 
 
 
 def test_history_names_at_ref_includes_code_baseline(lane) -> None:
-    _collapse_prefix(lane)
+    _baseline(lane)
     _git(lane, "add", "-A")
     _git(lane, "commit", "-q", "-m", "baseline")
     assert history_names_at_ref(lane, "lane", MODULES_DIR) == ("0013_baseline",)

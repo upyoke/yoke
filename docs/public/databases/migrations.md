@@ -41,14 +41,14 @@ with the migration entry tests before submitting a migration change.
 
 Never edit an applied migration, including its imports: the ledger records its
 raw-byte digest. Correct an old invariant with a new ordered entry. Historical
-scripts may be replaced by one code-declared baseline after every known
-installation's predecessor identities have been verified. Boot collapses only
-the exact predecessor names and digests, atomically, and records the carrying
-release as the baseline serving floor. New databases stamp only the baseline.
-The predecessor manifest is temporary transition input; a following release
-removes it and the collapse step after every ledger has converged. Removal is
-not permission to rewrite a retained entry. Remove dedicated tests with their
-retired scripts and retain shared replay and baseline contracts.
+scripts through ordinal 0106 have been replaced by the code-declared
+`0106_baseline`. All known ledgers have converged; boot no longer replaces
+predecessor membership. New databases stamp only the baseline, recording its
+serving floor. Existing databases must already hold baseline membership;
+a missing baseline refuses boot and requires restoring the database with its
+matching release. Subsequent scripts retain their immutable bytes and ordered
+application. Remove dedicated tests with retired scripts and retain shared
+replay and baseline contracts.
 
 After a ledger collapses, rollback below the carrying release is unsupported.
 Recovery pairs a database restore point with its matching older release, or

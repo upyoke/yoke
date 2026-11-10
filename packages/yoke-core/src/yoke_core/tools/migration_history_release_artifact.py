@@ -10,7 +10,6 @@ from typing import Sequence
 from yoke_core.domain.migration_history import ENTRY_NAME_PATTERN
 from yoke_core.domain.migration_baseline import (
     baseline_from_source,
-    RELEASED_DIGESTS_NAME,
 )
 from yoke_core.domain.migration_history import MigrationEntry, ordered_entries
 from yoke_core.domain.migration_history_manifest import (
@@ -191,9 +190,6 @@ def materialize_core_wheel_history(
         package_source = CORE_HISTORY_PREFIX + "__init__.py"
         if package_source in archive.namelist():
             (destination / "__init__.py").write_bytes(archive.read(package_source))
-        manifest = CORE_HISTORY_PREFIX + RELEASED_DIGESTS_NAME
-        if manifest in archive.namelist():
-            (destination / RELEASED_DIGESTS_NAME).write_bytes(archive.read(manifest))
     return ordered_entries(destination)
 
 

@@ -1,6 +1,4 @@
-"""Baseline identity is active history; predecessor pins are transition input."""
-
-import json
+"""The packaged baseline identity matches current ledger evidence."""
 
 from yoke_core.domain import migrations
 from yoke_core.domain.migration_baseline import declared_baseline
@@ -19,13 +17,6 @@ def test_packaged_history_has_one_code_declared_baseline_and_no_scripts():
         entry for entry in ordered_entries(directory) if entry.is_baseline
     ) == (baseline,)
     assert not list(directory.glob("[0-9]*.py"))
-    predecessors = json.loads(baseline.baseline_predecessors.read_text())
-    assert len(predecessors) == 102
-    assert baseline.name not in predecessors
-    assert (
-        predecessors["0035_clear_unproven_onboard_activation_latch"]
-        == "1c6a854577ba890eb69882e58030c9af10f4ffcaa4969929fbd51941eb6e52ef"
-    )
 
 
 def test_validation_database_ledger_matches_current_history(test_db):

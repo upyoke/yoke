@@ -39,7 +39,11 @@ from yoke_core.domain.migration_content_identity import (
     raw_content_sha256,
     require_matching_content_identity,
 )
-from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
+from yoke_core.domain.migration_history import (
+    HistoryError,
+    MigrationEntry,
+    load_migration_module,
+)
 from yoke_core.domain.migration_ledger_contract import LedgerContract
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
 from yoke_core.domain.migration_entry_failure_cause import (
@@ -92,7 +96,7 @@ def stamp_history(
     try:
         for entry in history:
             if entry.is_baseline:
-                from yoke_core.domain.migration_baseline_collapse import (
+                from yoke_core.domain.migration_baseline import (
                     baseline_recorded_floor,
                 )
 
@@ -157,7 +161,7 @@ def apply_pending(
 
     A pending transition requires a named external restore point or a backup
     root and target supplied by composition. The applier owns the transaction:
-    apply and membership commit together, and a baseline collapse is atomic.
+    apply and membership commit together.
 
     ``administering_env`` names the target authority, resolved from ``conn``
     when omitted. ``dump_backup`` is required only for a local backup.
@@ -177,24 +181,20 @@ def apply_pending(
 
     # A permanent name whose recorded non-NULL digest differs is corruption,
     # not pending work. Refuse before the current fast-path or any restore.
-    from yoke_core.domain.migration_baseline_collapse import (
-        baseline_transition_required,
-        collapse_baseline,
-    )
-
-    baseline = next((entry for entry in history if entry.is_baseline), None)
-    transition = baseline is not None and baseline_transition_required(
-        conn, baseline, ledger
-    )
-    if not transition:
-        require_matching_content_identity(conn, history, ledger)
+    require_matching_content_identity(conn, history, ledger)
 
     # Cheap probe first. The overwhelming majority of boots are current, and
     # they should cost two queries and take no lock at all. Attribution and
     # model_name are apply-time obligations: a current database must not
     # refuse because the process cannot name a commit.
-    if not pending_entries(conn, history, ledger):
+    pending = pending_entries(conn, history, ledger)
+    if not pending:
         return ApplyOutcome(applied=(), restore_point=None)
+    if any(entry.is_baseline for entry in pending):
+        raise HistoryError(
+            "migration_baseline_missing: the ledger lacks its declared baseline; "
+            "restore a database with baseline membership and its matching release"
+        )
 
     provenance = require_attribution(attribution)
     model = refuse_level_as_model_name(model_name)
@@ -214,15 +214,6 @@ def apply_pending(
         # *shared* lock, so two of them genuinely do converge at once, and
         # both would otherwise see the same work and race to do it.
         applied: list[str] = []
-        if baseline is not None and collapse_baseline(
-            conn,
-            baseline,
-            ledger,
-            running_version=running_version,
-            applied_by=applied_by,
-        ):
-            conn.commit()
-            applied.append(baseline.name)
         require_matching_content_identity(conn, history, ledger)
         outstanding = pending_entries(conn, history, ledger)
         for entry in outstanding:

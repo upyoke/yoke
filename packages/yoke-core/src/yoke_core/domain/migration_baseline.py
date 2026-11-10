@@ -10,10 +10,8 @@ from yoke_core.domain.migration_content_identity import SHA256_PATTERN
 from yoke_core.domain.migration_serving_version import (
     declared_minimum,
     ServingVersionError,
+    NEXT_RELEASE,
 )
-
-
-RELEASED_DIGESTS_NAME = "released_history_digests.json"
 
 
 def baseline_from_source(raw: bytes, directory: Path):
@@ -40,11 +38,7 @@ def baseline_from_source(raw: bytes, directory: Path):
         required = {"name", "content_sha256", "minimum_serving_version"}
         if not isinstance(value, dict) or not required <= value.keys():
             raise ValueError("missing baseline identity")
-        if (
-            value.keys()
-            - required
-            - {"predecessor_manifest", "adoption_evidence_table"}
-        ):
+        if value.keys() - required:
             raise ValueError("unknown baseline fields")
         name, digest = value["name"], value["content_sha256"]
         if not ENTRY_NAME_PATTERN.fullmatch(name) or not SHA256_PATTERN.fullmatch(
@@ -54,24 +48,12 @@ def baseline_from_source(raw: bytes, directory: Path):
         floor = declared_minimum(
             SimpleNamespace(MINIMUM_SERVING_VERSION=value["minimum_serving_version"])
         )
-        predecessor = value.get("predecessor_manifest")
-        if predecessor is not None and (
-            Path(predecessor).name != predecessor or not predecessor.endswith(".json")
-        ):
-            raise ValueError("predecessor_manifest must be a local JSON filename")
-        evidence = value.get("adoption_evidence_table")
-        if predecessor and (
-            not isinstance(evidence, str) or not evidence.isidentifier()
-        ):
-            raise ValueError("collapse requires its declared adoption_evidence_table")
         return MigrationEntry(
             sequence=int(name.split("_", 1)[0]),
             name=name,
             path=directory / "__init__.py",
             minimum_serving_version=floor,
             baseline_content_sha256=digest,
-            baseline_predecessors=directory / predecessor if predecessor else None,
-            baseline_evidence_table=evidence,
         )
     except (ValueError, TypeError, KeyError, ServingVersionError) as exc:
         raise HistoryError(
@@ -86,3 +68,8 @@ def declared_baseline(directory: Path):
         if source.is_file()
         else None
     )
+
+
+def baseline_recorded_floor(entry, running_version: str) -> str | None:
+    floor = entry.minimum_serving_version
+    return running_version.strip() or None if floor == NEXT_RELEASE else floor

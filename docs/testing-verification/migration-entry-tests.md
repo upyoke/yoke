@@ -33,13 +33,13 @@ references to absent numbered modules and explicit history-loader entry or slug
 selectors. Engine tests may keep historical names as inert fixture data.
 
 The control plane now declares `0106_baseline` without a migration script.
-The temporary `released_history_digests.json` is only an exact-set input to the
-atomic boot ledger collapse. Births write only baseline membership; the shared
-script replay test continues to discover future entries after ordinal 0106.
-Baseline tests cover birth, exact predecessor verification, mismatch refusal,
-rollback after a failed insert, trigger restoration, repeat boot, wheel identity
-and later migration application. Runtime modules cannot import migration
-scripts; the source guard enforces that boundary in both directions.
+All eight hosted ledgers hold only baseline membership, so the temporary
+transition input and boot ledger rewrite have been removed. Births write only
+baseline membership; the shared script replay test continues to discover
+future entries after ordinal 0106. Baseline tests cover birth, missing
+membership refusal, repeat boot, wheel identity and later migration
+application. Runtime modules cannot import migration scripts; the source guard
+enforces that boundary in both directions.
 
 After ledger collapse, rollback below the carrying release is unsupported.
 See [the baseline decision](../archive/decisions/control-plane-ledger-baseline.md)

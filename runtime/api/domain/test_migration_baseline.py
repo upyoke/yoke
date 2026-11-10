@@ -1,6 +1,5 @@
 """Code baseline discovery, birth stamping and release artifact identity."""
 
-import json
 import sqlite3
 import zipfile
 
@@ -37,35 +36,11 @@ def _package(directory, **overrides):
     return raw
 
 
-def test_baseline_survives_removal_of_temporary_predecessor_input(tmp_path):
-    _package(
-        tmp_path,
-        predecessor_manifest="released_history_digests.json",
-        adoption_evidence_table="migration_content_adoptions",
-    )
-    manifest = tmp_path / "released_history_digests.json"
-    manifest.write_text(json.dumps({"0001_old": "b" * 64}))
-    (before,) = ordered_entries(tmp_path)
-    manifest.unlink()
-    _package(tmp_path)
-    (after,) = ordered_entries(tmp_path)
-    assert (before.name, before.content_sha256, before.minimum_serving_version) == (
-        after.name,
-        after.content_sha256,
-        after.minimum_serving_version,
-    )
-    assert not list(tmp_path.glob("[0-9]*.py"))
-
-
 @pytest.mark.parametrize(
     "bad",
     [
         {"content_sha256": "wrong"},
         {"name": "not_numbered"},
-        {
-            "predecessor_manifest": "../unsafe.json",
-            "adoption_evidence_table": "migration_content_adoptions",
-        },
         {"minimum_serving_version": "not-a-version"},
     ],
 )
@@ -111,6 +86,60 @@ def test_newborn_stamps_baseline_floor_and_later_entry_applies(tmp_path):
     )
     assert result.applied == ("0107_tail",)
     assert conn.execute("SELECT count(*) FROM tail_proof").fetchone() == (0,)
+
+
+def test_current_baseline_boot_applies_nothing(tmp_path):
+    _package(tmp_path)
+    conn = sqlite3.connect(":memory:")
+    ensure_yoke_migration_ledger(conn)
+    history = ordered_entries(tmp_path)
+    stamp_history(
+        conn,
+        history,
+        ledger=YOKE_LEDGER_CONTRACT,
+        applied_by="birth",
+        administering_env="",
+        running_version="9.0.0",
+    )
+    result = apply_pending(
+        conn,
+        history=history,
+        ledger=YOKE_LEDGER_CONTRACT,
+        applied_by="boot",
+        administering_env="",
+        running_version="9.0.0",
+        attribution={},
+        model_name="",
+    )
+    assert result.applied == ()
+    assert result.restore_point is None
+
+
+def test_existing_ledger_without_baseline_refuses_before_restore(tmp_path):
+    _package(tmp_path)
+    conn = sqlite3.connect(":memory:")
+    ensure_yoke_migration_ledger(conn)
+    conn.execute(
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by, content_sha256) VALUES (?, ?, ?, ?)",
+        ("0001_old", "2026-01-01T00:00:00.000000Z", "old", "b" * 64),
+    )
+    conn.commit()
+    with pytest.raises(HistoryError, match="migration_baseline_missing:.*restore"):
+        apply_pending(
+            conn,
+            history=ordered_entries(tmp_path),
+            ledger=YOKE_LEDGER_CONTRACT,
+            applied_by="boot",
+            administering_env="",
+            running_version="9.0.0",
+            attribution={},
+            model_name="",
+            dump_backup=lambda *_: pytest.fail("must refuse before restore"),
+        )
+    assert conn.execute("SELECT migration_name FROM applied_migrations").fetchall() == [
+        ("0001_old",)
+    ]
 
 
 def test_wheel_manifest_and_materialization_carry_baseline_without_scripts(tmp_path):
