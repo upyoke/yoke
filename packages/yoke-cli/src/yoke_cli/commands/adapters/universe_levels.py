@@ -113,8 +113,7 @@ def write_capacity(result: Mapping[str, Any], stdout: TextIO) -> None:
                 )
             )
             stdout.write(f"  {index}. {_option_line(entry)} [{state}]\n")
-    for line in result.get("unavailable") or []:
-        stdout.write(f"Unavailable: {line}\n")
+
     stdout.write(
         "Cursor quota order: "
         + " -> ".join(result.get("cursor_quota_order") or [])

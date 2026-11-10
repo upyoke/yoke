@@ -1,7 +1,7 @@
 """Read the viewer's launch standing across projects they can operate.
 
-Machine eligibility and access are shared with launches. Actionable surface
-rejections appear once, outside the per-option quota and native-model blockers.
+Each blocked model names one reason per supported surface using recent,
+non-retired machines the viewer may use.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.universe_level_capacity import Meter, evaluate_level_capacity
-from yoke_core.domain.machine_launch_access import filter_by_machine_access
+from yoke_core.domain.level_capacity_surfaces import viewer_snapshot, surface_reason
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     SessionLaunchError,
@@ -38,14 +38,6 @@ from yoke_core.domain.universe_levels import effective_levels
 
 
 Authorize = Callable[[int], LaunchAuthorization]
-
-UNAVAILABLE_REASONS = {
-    "harness_signed_out": "signed out",
-    "liveness_expired": "relay disconnected",
-    "version_below_floor": "below version floor",
-    "surface_disabled": "surface disabled",
-    "machine_at_capacity": "at capacity",
-}
 
 
 def _now() -> datetime:
@@ -99,8 +91,8 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     universe, source = effective_levels(conn, None)
     projects = _projects(conn)
     meters: dict[tuple, Meter] = {}
-    offered: set[tuple[str, str]] = set()
-    unavailable: dict[tuple[str, str], set[str]] = {}
+    offered = {}
+    freshest = {}
     live_workers = {surface: 0 for surface in CLI_PLAN_LIMIT_SURFACES}
     overrides: list[dict[str, Any]] = []
     for project_id, slug, name in projects:
@@ -113,26 +105,21 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
         for surface, snapshot in surface_eligibility_snapshots(
             conn, project_id=project_id, now=now
         ):
-            narrowed, denials = filter_by_machine_access(
-                conn, snapshot, actor_id=auth.actor_id, project_id=project_id
+            narrowed = viewer_snapshot(
+                conn, snapshot, actor_id=auth.actor_id, project_id=project_id, now=now
             )
-            offered.update((relay.machine_id, surface) for relay in narrowed.relays)
-            names = {
-                relay.machine_id: relay.hostname or relay.machine_id
-                for relay in snapshot.relays
-            }
-            for machine in denials:
-                unavailable.setdefault((machine, surface), set()).add(
-                    f"{surface}: access denied on {names[machine]}"
-                )
+            for relay in narrowed.relays:
+                pair = (relay.machine_id, surface)
+                offered[pair] = max(offered.get(pair, relay.last_seen_at), relay.last_seen_at)
+                prior = freshest.get(surface)
+                if prior is None or relay.last_seen_at >= prior[0]:
+                    freshest[surface] = (relay.last_seen_at, None)
             for rejection in narrowed.machine_rejections:
-                for code in rejection.codes:
-                    if code in UNAVAILABLE_REASONS:
-                        unavailable.setdefault(
-                            (rejection.machine_id, surface), set()
-                        ).add(
-                            f"{surface}: {UNAVAILABLE_REASONS[code]} on {rejection.name}"
-                        )
+                if "surface_absent" in rejection.codes:
+                    continue
+                prior = freshest.get(surface)
+                if prior is None or rejection.last_seen_at > prior[0]:
+                    freshest[surface] = (rejection.last_seen_at, rejection)
         for row in load_plan_limits(conn, project_id=project_id, now=now):
             computed = compute_plan_limit(row, now=now)
             extra = extra_usage_status(
@@ -168,9 +155,14 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     levels = evaluate_level_capacity(
         universe,
         meters=tuple(meters.values()),
-        offered=tuple(offered),
+        offered=tuple(sorted(offered, key=lambda pair: (-offered[pair].timestamp(), pair))),
         display=display,
         records=current_model_records(conn),
+        surface_reasons={
+            surface: surface_reason(surface, rejection)
+            for surface, (_, rejection) in freshest.items()
+            if rejection is not None
+        },
         native_models={
             machine: machine_native_models(conn, machine_id=machine)
             for machine in {machine for machine, _ in offered}
@@ -179,14 +171,6 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     return {
         "read_at": format_instant(now),
         "source": source,
-        "unavailable": sorted(
-            {
-                line
-                for pair, lines in unavailable.items()
-                if pair not in offered
-                for line in lines
-            }
-        ),
         "usable_machines": len({machine for machine, _ in offered}),
         "live_workers": live_workers,
         "levels": levels,

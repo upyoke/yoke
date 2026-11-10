@@ -95,7 +95,7 @@ def test_claude_separate_cap_blocks_an_otherwise_open_model():
     now = result["options"][0]["now"]
     assert now["state"] == "blocked"
     assert any(
-        blocker["label"] == "Claude weekly · Opus" for blocker in now["blockers"]
+        blocker["label"] == "claude-cli: Claude weekly · Opus" for blocker in now["blockers"]
     )
 
 
@@ -103,7 +103,7 @@ def test_unobserved_native_models_are_blocked_with_recovery():
     result = evaluate(native={}, offered=[(MACHINE, "cursor-cli")])
     assert result["launchable_surfaces"] == []
     assert (
-        "native_models_unknown" in result["options"][0]["now"]["blockers"][0]["label"]
+        any("native_models_unknown" in b["label"] for b in result["options"][0]["now"]["blockers"])
     )
 
 
@@ -134,3 +134,24 @@ def test_vendor_pool_labels_preserve_separate_caps():
         pool_label("cursor-cli", "monthly", "Other Models", scoped=True)
         == "Cursor Other Models"
     )
+
+
+def test_duplicate_cursor_tokens_and_signed_out_claude_yield_two_lines():
+    levels = parse_levels([{"name": "SENIOR", "glyph": "🦉", "options": [
+        {"model": "claude-haiku-5-5", "min_effort": "low"}
+    ]}])
+    signed_out = "claude-cli: signed out on my-mac — run `claude /login` there"
+    rows = evaluate_level_capacity(
+        levels, meters=[meter("cursor-cli", "Other Models", 0)],
+        offered=[(MACHINE, "cursor-cli")], display=str, records=RECORDS,
+        surface_reasons={"claude-cli": signed_out},
+        native_models={MACHINE: {"cursor-cli": {"status": "ok", "models": [
+            {"model": token, "reasoning_efforts": ["low"]}
+            for token in ("claude-haiku-5-5-low", "claude-haiku-5-5-thinking-low")
+        ]}}},
+    )
+    assert rows[0]["options"][0]["now"]["blockers"] == [
+        {"kind": "no_machine", "surface": "claude-cli", "label": signed_out},
+        {"kind": "pool", "surface": "cursor-cli", "label": "cursor-cli: Cursor Other Models",
+         "left": 0, "extra": "extra usage disabled (user_disabled)"},
+    ]

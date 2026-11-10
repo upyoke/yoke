@@ -2,7 +2,7 @@
  "id": "no-usable-option",
  "title": "No usable option",
  "status": "observed",
- "text": "level_no_capacity reports every candidate refusal and recovery, one clause per shared reason, with offline machines as a count. Unknown native listings require a probe; unsupported listings require a declared adapter or another observed surface. Unknown quota is not exhausted, and another level is never borrowed.",
+ "text": "level_no_capacity reports every candidate refusal and recovery, one clause per shared reason, with offline machines as a count. Unknown native listings require a probe; unsupported listings require a declared adapter or another observed surface. Unknown quota is not exhausted, and another level is never borrowed. Each blocked model row names one reason per supported surface, using the freshest non-retired machine seen within 24 hours that the viewer may use. Duplicate native selectors never repeat a blocker; a missing machine reads \"no machine of yours offers <surface>\". No separate unavailable-machines list appears.",
  "page": "levels",
  "position": 4
 }

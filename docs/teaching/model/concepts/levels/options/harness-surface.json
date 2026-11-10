@@ -2,8 +2,8 @@
  "id": "harness-surface",
  "title": "Harness surface",
  "status": "observed",
- "text": "Harness surface is not a stored level-row field. Launchable on chips show the viewer's own standing: only projects they may operate and machines they may use contribute eligible surfaces. Missing surfaces appear once below all levels with actionable machine-specific reasons. Native listings and catalog selection still determine which models each eligible surface can launch.",
- "evidence": "Viewer access and unavailable reasons checked in runtime/api/domain/test_universe_level_capacity_read.py and runtime/api/universe_ui_levels.test.mjs. Previous production QA run 45473 / artifact 32323 proves the earlier chips, not viewer-specific access. Production re-verification is attached as viewer-level-standing-prod.",
+ "text": "Harness surface is not a stored level-row field. Launchable on chips show the viewer's own standing: only projects they may operate and machines they may use contribute eligible surfaces. Native listings and catalog selection still determine which models each eligible surface can launch. Each blocked model row names one reason per supported surface, using the freshest non-retired machine seen within 24 hours that the viewer may use. Duplicate native selectors never repeat a blocker; a missing machine reads \"no machine of yours offers <surface>\". No separate unavailable-machines list appears.",
+ "evidence": "Source coverage: runtime/api/domain/test_universe_level_capacity_read.py and runtime/api/domain/test_universe_level_capacity.py. Production page verification remains required after deployment.",
  "page": "levels",
  "position": 0
 }

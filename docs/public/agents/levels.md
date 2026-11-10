@@ -93,10 +93,12 @@ result names its `source` (`project`, `universe`, or `default`).
 reports each model row's native launch surfaces and the viewer's current
 standing. It includes only projects the viewer can operate and machines they
 may use; administrative authority does not grant use of another owner's
-owner_only machine. Missing surfaces appear once below the levels with
-machine-specific reasons: signed out, relay disconnected, below version floor,
-surface disabled, at capacity or access denied. A machine/surface pair
-available through another project has no unavailable line.
+owner_only machine. Only non-retired machines seen within the last 24 hours
+contribute. Each blocked model row names one reason per surface that supports
+its provider. A rejected surface uses the freshest accessible machine's reason
+and sign-in recovery where needed. With no such machine it says
+"no machine of yours offers <surface>". Duplicate native selectors do not repeat
+a surface's blocker. There is no separate unavailable-machines list.
 The harness manifest declares the selection source: Claude uses the active
 researched catalog's Anthropic model ids and published efforts; Codex and
 Cursor use native model listings per machine. Impossible provider pairs are
