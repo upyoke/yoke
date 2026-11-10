@@ -6,12 +6,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable
-import json
 
-from yoke_core.domain.migration_baseline import baseline_from_source, declared_baseline
+from yoke_core.domain.migration_baseline import baseline_from_source
 
 from yoke_core.domain.migration_content_identity import raw_content_sha256
-from yoke_core.domain.migration_baseline import RELEASED_DIGESTS_NAME
 from yoke_core.domain.migration_history import (
     ENTRY_NAME_PATTERN,
     HistoryError,
@@ -213,25 +211,6 @@ def _extension(
     target_ref = resolve_target_ref(worktree_path, integration_target)
     target = _target_history(worktree_path, target_ref, relative_dir)
     lane = _lane_history(worktree_path, relative_dir)
-    baseline = declared_baseline(worktree_path / relative_dir)
-    if baseline is not None and baseline.name not in {entry.name for entry in target}:
-        try:
-            predecessors = json.loads(baseline.baseline_predecessors.read_bytes())
-        except (AttributeError, OSError, ValueError) as exc:
-            raise HistoryError(
-                "baseline transition lacks its exact predecessor manifest"
-            ) from exc
-        if (
-            predecessors != {entry.name: entry.content_sha256 for entry in target}
-            or baseline.sequence != target[-1].sequence
-        ):
-            raise HistoryError(
-                "baseline transition does not preserve the integration target's exact names and digests"
-            )
-        # Validate subsequent entries against the equivalent collapsed prefix.
-        target = (
-            HistoryIdentity(baseline.sequence, baseline.name, baseline.content_sha256),
-        )
     lane_names = {entry.name for entry in lane}
     missing = [name for name in declared if name not in lane_names]
     if missing:
@@ -298,7 +277,6 @@ def require_merge_history_extension(
 
 __all__ = [
     "HistoryIdentity",
-    "RELEASED_DIGESTS_NAME",
     "history_names_at_ref",
     "migration_ordinal",
     "resolve_target_ref",

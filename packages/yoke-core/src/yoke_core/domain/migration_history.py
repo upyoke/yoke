@@ -70,8 +70,6 @@ class MigrationEntry:
 
     minimum_serving_version: str | None = None
     baseline_content_sha256: str | None = None
-    baseline_predecessors: Path | None = None
-    baseline_evidence_table: str | None = None
 
     @property
     def is_baseline(self) -> bool:

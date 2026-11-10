@@ -142,29 +142,6 @@ def _dispatch_governed_module(
             f"(identifier {identifier!r})"
         )
     modules_dir = (repo_path / modules_dir_rel).resolve()
-    from yoke_core.domain.migration_baseline import declared_baseline
-
-    baseline = declared_baseline(modules_dir)
-    if baseline is not None and identifier in {
-        baseline.name,
-        baseline.name.split("_", 1)[1],
-    }:
-        from yoke_core.domain.migration_baseline_collapse import (
-            assert_baseline,
-            collapse_baseline,
-        )
-        from yoke_core.domain.migration_ledger_contract import parse
-
-        ledger = parse(config.get("ledger"))
-        return RunnerHandle(
-            kind=RUNNER_KIND_GOVERNED_MODULE,
-            identifier=identifier,
-            apply=lambda conn: collapse_baseline(
-                conn, baseline, ledger, running_version="", applied_by="rehearsal"
-            ),
-            invariants=lambda conn: assert_baseline(conn, baseline, ledger),
-            source_path=baseline.path,
-        )
     if (model.get("authoritative_db") or {}).get("kind") == "postgres":
         validate_psycopg_migration_sql(modules_dir)
     try:
