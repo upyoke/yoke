@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from dataclasses import dataclass
 from typing import Any
@@ -67,8 +70,16 @@ def abandoned_launches(
               FROM session_launches
              WHERE project_id = {p}
                AND result_code = {p}
+               AND completed_at > {p}
              ORDER BY completed_at DESC, launch_id ASC""",
-        (int(project_id), ABANDONED_RESULT_CODE),
+        (
+            int(project_id),
+            ABANDONED_RESULT_CODE,
+            instant_parameter(
+                conn,
+                parse_instant(now) - timedelta(seconds=ABANDONED_LAUNCH_WINDOW_SECONDS),
+            ),
+        ),
     ).fetchall()
     abandoned = []
     for row in rows:

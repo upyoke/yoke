@@ -27,35 +27,56 @@ def manual_notice_rows(
             conn, "session_messages"
         ):
             return []
-        return [
-            dict(row)
-            for row in conn.execute(
-                "SELECT m.message_id, m.idempotency_key, m.created_at AS sent_at, "
-                "COALESCE(r.session_id,'') AS session_id, "
-                "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
-                "WHEN h.ended_at IS NOT NULL THEN 'ended' ELSE COALESCE(r.state,'') END AS state, "
-                "COALESCE(r.wake_escalation,'') AS escalation, "
-                "q.deployment_member_item_id AS member, COALESCE(q.wake_evidence,'') AS evidence, "
-                "q.deployment_run_id AS run_id,q.deployment_stage AS stage,q.id AS requirement_id "
-                "FROM qa_requirements q JOIN session_messages m ON m.idempotency_key LIKE "
-                f"{p} || CAST(q.id AS TEXT) || {p} "
-                "LEFT JOIN session_message_recipients r ON r.message_id=m.message_id "
-                "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
-                f"WHERE q.deployment_run_id IN ({','.join([p] * len(runs))}) "
-                "ORDER BY m.created_at DESC, m.message_id",
-                (MANUAL_WAIT_PREFIX, ":%", *runs),
-            ).fetchall()
-        ]
+        requirements = conn.execute(
+            "SELECT id, deployment_member_item_id AS member, "
+            "COALESCE(wake_evidence,'') AS evidence, "
+            "deployment_run_id AS run_id, deployment_stage AS stage "
+            f"FROM qa_requirements WHERE deployment_run_id IN ({','.join([p] * len(runs))})",
+            runs,
+        ).fetchall()
+        by_requirement = {str(row["id"]): dict(row) for row in requirements}
+        if not by_requirement:
+            return []
+        # Recipient ownership is part of existing keys. Discover only notice
+        # keys through the prefix index, then fetch matching messages exactly.
+        keys = conn.execute(
+            f"SELECT idempotency_key FROM session_messages WHERE idempotency_key LIKE {p}",
+            (f"{MANUAL_WAIT_PREFIX}%",),
+        ).fetchall()
+        by_key = {}
+        for key_row in keys:
+            key = str(key_row[0])
+            requirement, _, suffix = key[len(MANUAL_WAIT_PREFIX) :].partition(":")
+            record = by_requirement.get(requirement)
+            if record is None:
+                continue
+            digest = sha256(record["evidence"].encode("utf-8")).hexdigest()
+            if suffix == digest or suffix.endswith(f":{digest}"):
+                by_key[key] = record
+        if not by_key:
+            return []
+        messages = conn.execute(
+            "SELECT m.message_id, m.idempotency_key, m.created_at AS sent_at, "
+            "COALESCE(r.session_id,'') AS session_id, "
+            "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
+            "WHEN h.ended_at IS NOT NULL THEN 'ended' ELSE COALESCE(r.state,'') END AS state, "
+            "COALESCE(r.wake_escalation,'') AS escalation "
+            "FROM session_messages m "
+            "LEFT JOIN session_message_recipients r ON r.message_id=m.message_id "
+            "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
+            f"WHERE m.idempotency_key IN ({','.join([p] * len(by_key))}) "
+            "ORDER BY m.created_at DESC, m.message_id",
+            tuple(by_key),
+        ).fetchall()
+        return [{**dict(row), **by_key[row["idempotency_key"]]} for row in messages]
 
     found = []
     for row in presentation_read(conn, ("qa_manual_notices", runs), read):
         record = dict(row)
         if record.pop("run_id") != run_id or record.pop("stage") != stage_name:
             continue
-        digest = sha256(record.pop("evidence").encode("utf-8")).hexdigest()
-        if not record["idempotency_key"].endswith(f":{digest}"):
-            continue
-        member, requirement = record.pop("member"), record.pop("requirement_id")
+        record.pop("evidence")
+        member, requirement = record.pop("member"), record.pop("id")
         record["idempotency_key"] = (
             f"deployment-qa-stage-wait:{run_id}:{stage_name}:{member}:manual:{requirement}"
         )

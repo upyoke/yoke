@@ -27,18 +27,18 @@ def deployment_driver_holds(conn: Any) -> dict[str, str]:
     from .deployment_run_driver_attachment import parse_attachment, is_live
     from .runs import TERMINAL_RUN_STATUSES
 
+    terminal = ",".join(f"'{status}'" for status in sorted(TERMINAL_RUN_STATUSES))
     rows = fetch_optional_rows(
         conn,
         "SELECT id,status,driver_attachment FROM deployment_runs "
-        "WHERE driver_attachment IS NOT NULL AND driver_attachment <> ''",
+        "WHERE driver_attachment IS NOT NULL AND driver_attachment <> '' "
+        f"AND status NOT IN ({terminal})",
         (),
         savepoint="_yoke_idle_deployment_drivers",
     )
     now = utc_now()
     holds = {}
     for row in rows:
-        if row["status"] in TERMINAL_RUN_STATUSES:
-            continue
         driver = parse_attachment(str(row["id"]), row["driver_attachment"])
         if driver is not None and is_live(driver, now=now):
             holds[driver.session_id] = str(row["id"])

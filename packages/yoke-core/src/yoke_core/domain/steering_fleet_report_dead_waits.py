@@ -114,27 +114,17 @@ def _last_questions(
     if not session_ids:
         return found
     p = marker(conn)
-    slots = ",".join(p for _ in session_ids)
+    recent = (
+        "SELECT * FROM (SELECT m.sender_session_id,m.message_id,m.created_at,m.body,"
+        "r.session_id AS answerer_session_id FROM session_messages m "
+        "JOIN session_message_recipients r ON r.message_id=m.message_id "
+        f"WHERE m.sender_session_id={p} ORDER BY m.created_at DESC,m.message_id DESC "
+        f"LIMIT {ASK_SCAN_LIMIT}) recent"
+    )
     rows = conn.execute(
-        f"""SELECT sender_session_id, message_id, created_at, body,
-                   answerer_session_id
-              FROM (
-                    SELECT m.sender_session_id AS sender_session_id,
-                           m.message_id AS message_id,
-                           m.created_at AS created_at,
-                           m.body AS body,
-                           r.session_id AS answerer_session_id,
-                           ROW_NUMBER() OVER (
-                             PARTITION BY m.sender_session_id
-                             ORDER BY m.created_at DESC, m.message_id DESC
-                           ) AS rn
-                      FROM session_messages m
-                      JOIN session_message_recipients r
-                        ON r.message_id = m.message_id
-                     WHERE m.sender_session_id IN ({slots})
-                   ) recent
-             WHERE rn <= {ASK_SCAN_LIMIT}
-             ORDER BY sender_session_id, created_at DESC, message_id DESC""",
+        "SELECT * FROM ("
+        + " UNION ALL ".join(recent for _ in session_ids)
+        + ") recent ORDER BY sender_session_id,created_at DESC,message_id DESC",
         tuple(session_ids),
     ).fetchall()
     for row in rows:
