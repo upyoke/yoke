@@ -107,14 +107,14 @@ class TestGatherPulumiStacks:
             "runner-fleet",
         ]
 
-    def test_rejects_unknown_stack_type(self, tmp_path, monkeypatch):
+    def test_rejects_invalid_stack_type(self, tmp_path, monkeypatch):
         _stub_renderer_settings(
             monkeypatch,
             "yoke",
-            {"projectName": "yoke", "stacks": ["doamin"]},
+            {"projectName": "yoke", "stacks": ["Do_main"]},
         )
         root = _make_project_root(tmp_path, "yoke")
-        with pytest.raises(ValueError, match="Unknown Pulumi stack type"):
+        with pytest.raises(ValueError, match="Invalid Pulumi stack type"):
             project_renderer_pulumi.gather_pulumi_stacks("yoke", root)
 
 

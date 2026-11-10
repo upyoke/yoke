@@ -202,6 +202,26 @@ There is no separate Hosting destination. Hosting shows up as:
 - Environment settings (projected scalar reads only — never dump whole
   settings documents)
 
+### Pulumi stack kinds
+
+The `pulumi-state` capability's `stacks` list names the stack kinds a project
+renders. Yoke ships five: `infra`, `vps`, `domain`, `registry` and
+`runner-fleet`. Any other kind is the project's own and resolves by name:
+kind `public-relay` renders `infra/webapp_public_relay_stack.py` (hyphens
+become underscores) and `infra/Pulumi.public-relay-stack.yaml.tmpl`. Its stack
+is `<deploy namespace>-<kind>`, and `yoke pulumi exec` inits and runs it like
+a built-in kind.
+
+- A kind is a lowercase slug: letters, digits and single hyphens, starting
+  with a letter. `environment` is reserved.
+- Its template receives exactly four keys: `aws_account_id`, `aws_region`,
+  `deploy_namespace` and `kms_key_alias`. Any other `{{key}}` stays
+  unsubstituted, and the stack gets no GitHub authority.
+- A missing program or template refuses the render and names both files; add
+  them to `infra/` or remove the kind from `stacks`.
+- `infra/__main__.py` picks a stack's program by stack-name suffix; add a
+  branch for the new kind there.
+
 ## Disable vs delete
 
 Disable a flow definition to stop new assignments while retaining history.

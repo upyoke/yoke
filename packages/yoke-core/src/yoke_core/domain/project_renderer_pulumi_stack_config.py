@@ -26,7 +26,9 @@ from yoke_core.domain.project_renderer_pulumi_selection import (
     select_pulumi_targets,
 )
 from yoke_core.domain.project_renderer_pulumi_stack_types import (
+    PROJECT_STACK_RENDER_KEYS,
     gather_pulumi_stacks,
+    is_project_stack_type,
 )
 from yoke_core.domain.project_renderer_pulumi_vps_targets import (
     gather_standalone_vps_targets,
@@ -220,6 +222,8 @@ def _selected_render_values(
             key for key in values
             if key.startswith("runner_fleet_")
         ) | {"deploy_namespace", "project_name"}
+    elif is_project_stack_type(stack_kind):
+        keys = PROJECT_STACK_RENDER_KEYS
     else:
         keys = _RENDER_KEYS_BY_KIND.get(stack_kind)
     if keys is None:

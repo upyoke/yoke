@@ -24,7 +24,12 @@ from yoke_core.domain.project_renderer_pulumi_files import (
 from yoke_core.domain.project_renderer_pulumi_stack_config import (
     STACK_CONFIG_SCHEMA,
 )
-from yoke_core.domain.project_renderer_pulumi_stack_types import STACK_TYPE_SPECS
+from yoke_core.domain.project_renderer_pulumi_stack_types import (
+    STACK_TYPE_SPECS,
+    is_project_stack_type,
+    require_project_stack_files,
+    stack_type_files,
+)
 from yoke_core.domain.pulumi_state_capability import validate_stack_state
 
 
@@ -58,6 +63,15 @@ def render_scoped_pulumi_config(
 
     template_name, program_files = _stack_files(stack_kind)
     template = pulumi_generator_source(project_root, template_name)
+    if is_project_stack_type(stack_kind):
+        require_project_stack_files(
+            project_root,
+            stack_kind,
+            program=pulumi_program_source(
+                project_root, stack_type_files(stack_kind)[0]
+            ),
+            template=template,
+        )
     if not template.is_file():
         raise FileNotFoundError(f"Pulumi stack template not found: {template}")
     rendered = render_pack_text(template.read_text(), values)
@@ -94,6 +108,9 @@ def _stack_files(stack_kind: str) -> tuple[str, tuple[str, ...]]:
             files.extend(RUNNER_FLEET_PROGRAM_FILES)
         if stack_kind == "registry":
             files.extend(REGISTRY_PROGRAM_FILES)
+    elif is_project_stack_type(stack_kind):
+        program_file, template_name = stack_type_files(stack_kind)
+        files.append(program_file)
     else:
         raise ValueError(f"unsupported Pulumi stack kind {stack_kind!r}")
     return template_name, tuple(dict.fromkeys(files))

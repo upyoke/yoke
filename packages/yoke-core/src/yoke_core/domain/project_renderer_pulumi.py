@@ -37,9 +37,13 @@ from .project_renderer_pulumi_state import (  # noqa: F401
     _warn_on_config_divergence,
 )
 from .project_renderer_pulumi_stack_types import (
+    PROJECT_STACK_RENDER_KEYS,
     STACK_TYPE_SPECS,
     gather_pulumi_stacks,
+    is_project_stack_type,
     pulumi_stack_name,
+    require_project_stack_files,
+    stack_type_files,
 )
 from .project_renderer_pulumi_vps_targets import (
     gather_standalone_vps_targets,
@@ -173,16 +177,27 @@ def render_pulumi_artifacts(
     program_files: List[str] = list(SHARED_PROGRAM_FILES)
     domain_stack_owns_domain_records = "domain" in declared_stack_types
     for stack_type in stack_types:
-        program_file, config_tmpl_name = STACK_TYPE_SPECS[stack_type]
+        program_file, config_tmpl_name = stack_type_files(stack_type)
         stack_name = pulumi_stack_name(stack_type, settings, values)
         stack_template = pulumi_generator_source(project_root, config_tmpl_name)
+        require_project_stack_files(
+            project_root,
+            stack_type,
+            program=pulumi_program_source(project_root, program_file),
+            template=stack_template,
+        )
         if stack_template.is_file():
             # The domain config template substitutes {{manage_registration}},
             # which is not part of the shared values dict — inject it from the
             # project context (default "false": zone created, registration
             # pending the operator's console purchase step).
             stack_values = values
-            if stack_type == "domain":
+            if is_project_stack_type(stack_type):
+                stack_values = {
+                    key: values[key]
+                    for key in PROJECT_STACK_RENDER_KEYS if key in values
+                }
+            elif stack_type == "domain":
                 stack_values = dict(values)
                 stack_values["import_zone_id"] = str(
                     context.get("importZoneId", "") or ""
