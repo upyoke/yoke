@@ -152,7 +152,7 @@
 | PreviewEnvCreated | lifecycle | preview_env | deployment-runs-db | INFO | Preview deployment environment created for a run lane. |
 | PreviewEnvOverwritten | lifecycle | preview_env | deployment-runs-db | INFO | Occupied preview environment was overwritten by a new run lane claim. |
 | ProjectOnboardingVerificationCompleted | lifecycle | project_onboarding | onboard-skill | INFO | The /yoke onboard skill verified the checklist, accepted strategy, capability bindings and event path for a project. Carries run_id. |
-| ProjectRetirementChanged | lifecycle | project | yoke_core.domain.project_retirement | INFO | Project retired or restored without deleting history; context records the operator reason and retired_at. |
+| ProjectRetirementChanged | lifecycle | project | yoke_core.domain.project_retirement | INFO | Project retired or restored without deleting history; context records the operator reason, retired_at and what retirement switched off. |
 | QARequirementCreated | lifecycle | qa_lifecycle | qa-db | INFO | QA requirement created and attached to item, task, or deployment run |
 | QARequirementRetracted | lifecycle | qa_lifecycle | qa-db | STATUS | QA requirement retired because its item plan attachment was retracted |
 | QARequirementSuperseded | lifecycle | qa_lifecycle | qa-db | STATUS | Frozen deployment-run QA requirement discharged by a corrected case that passed, with rationale |

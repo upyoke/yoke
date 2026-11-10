@@ -175,6 +175,13 @@ New item writes, work claims, launches and deployment runs refuse
 Upkeep, fleet reports and hosted GitHub lifecycle deliveries skip retired projects.
 Retirement itself refuses while open items, active runs or held claims remain.
 
+Retirement deletes nothing, but it switches off what the project leaves running:
+it disables the project's active deployment flows, sets GitHub issue sync to
+`disabled` and marks the GitHub repository binding `unavailable`. It then prints
+what stays attached, stored credentials (secret names only) first, with the
+command that removes each kind or a note that no command does. Unretire does not
+re-enable flows, sync or the binding; it prints the command for each.
+
 ## Checkout GitHub sign-in
 
 `yoke project install ~/path/to/checkout` also converges GitHub sign-in on

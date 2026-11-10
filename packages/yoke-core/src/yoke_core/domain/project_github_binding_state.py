@@ -19,6 +19,10 @@ from yoke_core.domain.project_github_capability_settings import (
 BINDING_ACTIVE = "active"
 BINDING_PENDING = "pending"
 BINDING_UNAVAILABLE = "unavailable"
+# last_error marking a binding that project retirement switched off. Only an
+# operator bind or check clears it; installation refreshes and lifecycle
+# deliveries leave it unavailable.
+BINDING_ERROR_PROJECT_RETIRED = "project_retired"
 BINDING_STATUS_VALUES = frozenset(
     {
         BINDING_ACTIVE,
@@ -88,13 +92,17 @@ def refresh_attached_project_bindings(
     persistence: BindingPersistenceState,
     verified_at: datetime,
 ) -> None:
-    """Apply one installation refresh to every attached project atomically."""
+    """Apply one installation refresh to every attached project atomically.
+
+    A binding that project retirement switched off stays unavailable.
+    """
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
         "UPDATE project_github_repo_bindings SET "
         f"permissions={placeholder}, status={placeholder}, "
         f"last_verified_at={placeholder}, last_error={placeholder}, "
-        f"updated_at={placeholder} WHERE installation_id={placeholder}",
+        f"updated_at={placeholder} WHERE installation_id={placeholder} "
+        f"AND (last_error IS NULL OR last_error <> {placeholder})",
         (
             permissions,
             persistence.binding_status,
@@ -102,6 +110,7 @@ def refresh_attached_project_bindings(
             persistence.binding_error,
             instant_parameter(conn, verified_at),
             installation_id,
+            BINDING_ERROR_PROJECT_RETIRED,
         ),
     )
     _refresh_attached_project_capabilities(
@@ -209,6 +218,7 @@ def _refresh_project_capability(
 
 __all__ = [
     "BINDING_ACTIVE",
+    "BINDING_ERROR_PROJECT_RETIRED",
     "BINDING_PENDING",
     "BINDING_STATUS_VALUES",
     "BINDING_UNAVAILABLE",

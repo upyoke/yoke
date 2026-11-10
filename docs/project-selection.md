@@ -3,9 +3,22 @@
 Project pickers and project inventories show active projects by default.
 Retire a disposable project with `yoke projects retire --project P --reason TEXT`;
 complete open items and deployment runs and release held claims before retrying
-a refusal. Retirement preserves all history. `yoke projects unretire --project P`
-restores visibility, and `yoke projects list --include-retired` includes historical
-projects. Direct reads by slug or id continue to resolve retired projects.
+a refusal. Retirement deletes nothing and preserves all history. It switches off
+what the project leaves running: its active deployment flows become `disabled`,
+`github_sync_mode` becomes `disabled`, and its GitHub repository binding becomes
+`unavailable` (marked `project_retired`, so installation refreshes and hosted
+lifecycle deliveries leave it off). Retire then prints what stays attached:
+stored credentials first (capability secret names, never values), then capability
+settings, the binding, flows, environments, sites, Pack records, QA plans and
+defaults, project roles and Pulumi stack state, each with a count and the
+existing command that removes or changes it, or a plain note that none does.
+`yoke projects unretire --project P` restores visibility only; flows, sync and the
+binding stay off, and it prints the command that re-enables each
+(`yoke deployment-flows set-status FLOW active`,
+`yoke projects github-binding check --project P`, then
+`yoke projects update --slug P --name NAME --github-sync-mode enabled`).
+`yoke projects list --include-retired` includes historical projects. Direct reads
+by slug or id continue to resolve retired projects.
 
 The top navigation remembers All, one project, or a set of projects
 **independently for each destination** — Strategy, Frontier, Shipping,
