@@ -29,6 +29,7 @@ from yoke_core.domain.session_launch_eligibility import (
     derive_launch_eligibility,
     load_relay_eligibility_rows,
 )
+from yoke_core.domain.session_launch_types import EligibilitySnapshot
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -72,26 +73,40 @@ def launchable_surfaces(
     surface the launch plane would refuse and does not re-query
     ``session_relays`` for each surface.
     """
-    current = as_utc(now)
-    ready: set[tuple[str, str]] = set()
-    relay_rows = load_relay_eligibility_rows(conn)
-    for surface in KNOWN_SURFACE_LABELS:
-        capability = capability_for_surface(surface)
-        if capability is None or capability.create == "none":
-            continue
-        snapshot = derive_launch_eligibility(
-            conn,
-            project_id=int(project_id),
-            surface=surface,
-            machine_id=None,
-            now=current,
-            relay_rows=relay_rows,
+    ready = {
+        (relay.machine_id, surface)
+        for surface, snapshot in surface_eligibility_snapshots(
+            conn, project_id=project_id, now=now
         )
-        for relay in snapshot.relays:
-            ready.add((relay.machine_id, surface))
+        for relay in snapshot.relays
+    }
     return tuple(
         SurfaceReadiness(machine_id=machine, surface=surface)
         for machine, surface in sorted(ready)
+    )
+
+
+def surface_eligibility_snapshots(
+    conn: Any, *, project_id: int, now: datetime
+) -> tuple[tuple[str, EligibilitySnapshot], ...]:
+    """Each launch surface's eligibility from one shared relay-row read."""
+    current = as_utc(now)
+    relay_rows = load_relay_eligibility_rows(conn)
+    return tuple(
+        (
+            surface,
+            derive_launch_eligibility(
+                conn,
+                project_id=int(project_id),
+                surface=surface,
+                machine_id=None,
+                now=current,
+                relay_rows=relay_rows,
+            ),
+        )
+        for surface in KNOWN_SURFACE_LABELS
+        if (capability := capability_for_surface(surface)) is not None
+        and capability.create != "none"
     )
 
 
@@ -233,6 +248,7 @@ __all__ = [
     "SurfaceReadiness",
     "capacity_line",
     "launchable_surfaces",
+    "surface_eligibility_snapshots",
     "machine_capacities",
     "live_launch_origin_counts",
     "live_session_counts",

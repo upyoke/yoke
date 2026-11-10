@@ -48,10 +48,13 @@ export async function renderLevelsView(context, main) {
   }
   const result = callResult.envelope.result || {};
   if (!Array.isArray(result.cursor_quota_order) || (result.levels || []).some((level) => level.options.some((entry) => !entry.min_effort))) {
-    panel.renderEnvelope({ status: 409, envelope: { error: { message: "levels_schema_version_skew: serving build predates minimum-effort Levels. Recovery: ask the control-plane operator to serve the release carrying this contract." } } }, renderError);
+    panel.renderEnvelope({ status: 409, envelope: { error: { message: "levels_schema_version_skew: serving build predates minimum-effort Levels; ask the control-plane operator to serve the release carrying this contract." } } }, renderError);
     return;
   }
   panel.setCount(result.levels.length);
   panel.renderEnvelope(null, (body) => result.levels.forEach((level, index) => body.appendChild(levelBlock(documentNode, level, index))));
+  for (const line of result.unavailable || []) {
+    stack.appendChild(el(documentNode, "p", "level-unavailable", line));
+  }
   renderCursorQuotaOrder(context, stack, result.cursor_quota_order, () => renderLevelsView(context, main));
 }

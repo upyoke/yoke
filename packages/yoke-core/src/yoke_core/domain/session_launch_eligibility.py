@@ -8,6 +8,9 @@ import json
 from typing import Any, Sequence
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
+    CREDENTIAL_EXPIRED_REASON,
+)
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
@@ -129,10 +132,14 @@ def derive_launch_eligibility(
         ]
     else:
         rows = list(relay_rows)
-    disabled = {
-        mark["machine_id"]
-        for mark in list_marks(conn, machine_id=machine_id, surface=surface)
-    } if rows else set()
+    disabled = (
+        {
+            mark["machine_id"]
+            for mark in list_marks(conn, machine_id=machine_id, surface=surface)
+        }
+        if rows
+        else set()
+    )
     project_keys = _project_keys(conn, project_id)
     considered: set[str] = set()
     selected_by_machine: dict[str, EligibleRelay] = {}
@@ -161,7 +168,8 @@ def derive_launch_eligibility(
         reading = limits.get(surface, {}) if isinstance(limits, dict) else {}
         windows = reading.get("windows", []) if isinstance(reading, dict) else []
         if isinstance(windows, list) and any(
-            isinstance(window, dict) and window.get("reason") == "stale_credential"
+            isinstance(window, dict)
+            and window.get("reason") in {"stale_credential", CREDENTIAL_EXPIRED_REASON}
             for window in windows
         ):
             codes.append("harness_signed_out")
