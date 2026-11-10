@@ -18,11 +18,37 @@ class UnretireRequest(BaseModel):
     project: str
 
 
+class SwitchedOff(BaseModel):
+    deployment_flows_disabled: list[str]
+    github_sync_disabled: bool
+    github_binding_deactivated: bool
+
+
+class StillOff(BaseModel):
+    disabled_deployment_flows: list[str]
+    github_sync_mode: str
+    github_binding_status: str | None
+
+
+class RemainingAttachment(BaseModel):
+    kind: str
+    label: str
+    count: int
+    names: list[str]
+    commands: list[str]
+    no_command: str | None
+
+
 class RetirementResponse(BaseModel):
     project_id: int
     project: str
     retired_at: str | None
     changed: bool
+    switched_off: SwitchedOff | None = None
+    remaining_attachments: list[RemainingAttachment] | None = None
+    still_off: StillOff | None = None
+    re_enable: list[str] | None = None
+    note: str | None = None
 
 
 def _handle(request, *, retired: bool):

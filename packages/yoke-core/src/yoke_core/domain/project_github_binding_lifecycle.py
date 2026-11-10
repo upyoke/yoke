@@ -12,6 +12,7 @@ from yoke_core.domain.project_github_binding_payload import (
 )
 from yoke_core.domain.project_github_binding_state import (
     BINDING_ACTIVE,
+    BINDING_ERROR_PROJECT_RETIRED,
     BINDING_UNAVAILABLE,
     INSTALLATION_ACTIVE,
     INSTALLATION_DELETED,
@@ -35,10 +36,15 @@ def cmd_apply_project_github_binding_lifecycle(
     installation_status: str,
     repository_available: bool,
     permissions: Mapping[str, Any] | None = None,
+    operator_check: bool = False,
     db_path: Optional[str] = None,
     conn: Optional[Any] = None,
 ) -> dict[str, Any]:
-    """Apply one signature-verified hosted installation/repository event."""
+    """Apply one signature-verified hosted installation/repository event.
+
+    A binding that project retirement switched off stays unavailable until an
+    operator check (``operator_check=True``) re-verifies it.
+    """
     installation_key = str(installation_id or "").strip()
     if not installation_key.isdigit() or int(installation_key) <= 0:
         raise ProjectGithubBindingLifecycleError(
@@ -63,11 +69,11 @@ def cmd_apply_project_github_binding_lifecycle(
         assert ident is not None
         from yoke_core.domain.project_retirement import project_is_retired
 
-        if project_is_retired(conn, ident.id):
-            from yoke_core.domain.project_github_binding import (
-                cmd_project_github_binding_status,
-            )
+        from yoke_core.domain.project_github_binding import (
+            cmd_project_github_binding_status,
+        )
 
+        if project_is_retired(conn, ident.id):
             return {
                 **cmd_project_github_binding_status(project, conn=conn),
                 "skipped": "project_retired",
@@ -84,7 +90,7 @@ def cmd_apply_project_github_binding_lifecycle(
             )
         binding = query_one(
             conn,
-            "SELECT installation_id, repository_id "
+            "SELECT installation_id, repository_id, last_error "
             "FROM project_github_repo_bindings "
             "WHERE project_id=%s FOR UPDATE",
             (ident.id,),
@@ -93,6 +99,11 @@ def cmd_apply_project_github_binding_lifecycle(
             raise ProjectGithubBindingLifecycleError(
                 "project has no GitHub App repository binding"
             )
+        if binding["last_error"] == BINDING_ERROR_PROJECT_RETIRED and not operator_check:
+            return {
+                **cmd_project_github_binding_status(project, conn=conn),
+                "skipped": "binding_switched_off_by_retirement",
+            }
         if (
             str(binding["installation_id"]) != installation_key
             or str(binding["repository_id"]) != repository_key
@@ -150,10 +161,6 @@ def cmd_apply_project_github_binding_lifecycle(
         )
         if owns_conn:
             conn.commit()
-        from yoke_core.domain.project_github_binding import (
-            cmd_project_github_binding_status,
-        )
-
         return cmd_project_github_binding_status(project, conn=conn)
     finally:
         if owns_conn and conn is not None:

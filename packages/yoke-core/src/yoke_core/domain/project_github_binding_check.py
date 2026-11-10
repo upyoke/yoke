@@ -142,6 +142,7 @@ def cmd_check_project_github_binding(
         installation_status=installation.status,
         repository_available=repository_available,
         permissions=dict(installation.permissions),
+        operator_check=True,
         db_path=db_path,
         conn=conn,
     )

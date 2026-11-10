@@ -1,6 +1,8 @@
 """Reversible project retirement and active inventory selection.
 
-Retirement hides inventory entries while retaining every historical row.
+Retirement hides inventory entries and switches off what the project leaves
+running (active deployment flows, GitHub issue sync, the GitHub repository
+binding) while retaining every row. Unretire restores visibility only.
 Pre-convergence readers preserve the existing inventory until boot adds the
 nullable column; writers refuse that window rather than changing schema.
 """
@@ -124,7 +126,13 @@ def _claim_recovery(claim_ids: list[int]) -> str:
 def set_retirement(
     conn: Any, project: str, *, retired: bool, reason: str, session_id: str = ""
 ) -> dict[str, Any]:
-    """Lock, validate, and change the project's visibility without deleting."""
+    """Lock, validate, and change the project's visibility without deleting.
+
+    Retire also switches off flows, sync and the binding in this transaction
+    (idempotently, so a repeat retire finishes a partial earlier one) and
+    reports what stays attached. Unretire re-enables none of them and names
+    the command for each.
+    """
     if not _column_exists(conn, "projects", RETIRED_AT):
         raise ProjectRetirementError(
             "project_retirement_schema_unavailable",
@@ -151,6 +159,9 @@ def set_retirement(
     previous = None if row[RETIRED_AT] is None else parse_instant(row[RETIRED_AT])
     value = (utc_now() if previous is None else previous) if retired else None
     changed = value != previous
+    from yoke_core.domain import project_retirement_switch_off as switch
+
+    switched_off = switch.switch_off(conn, identity.id) if retired else None
     if changed:
         conn.execute(
             f"UPDATE projects SET {RETIRED_AT}={marker} WHERE id={marker}",
@@ -169,11 +180,22 @@ def set_retirement(
             context={
                 "retired_at": format_instant(value) if value is not None else None,
                 "reason": reason,
+                "switched_off": switched_off,
             },
         )
-    return {
+    result: dict[str, Any] = {
         "project_id": identity.id,
         "project": identity.slug,
         "retired_at": value,
         "changed": changed,
     }
+    if retired:
+        result["switched_off"] = switched_off
+        from yoke_core.domain.project_retirement_attachments import (
+            remaining_attachments,
+        )
+
+        result["remaining_attachments"] = remaining_attachments(conn, identity.id)
+    else:
+        result.update(switch.still_off(conn, identity.id))
+    return result
