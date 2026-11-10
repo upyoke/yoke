@@ -39,6 +39,7 @@ from yoke_core.domain.universe_levels import effective_levels
 
 Authorize = Callable[[int], LaunchAuthorization]
 
+
 def _now() -> datetime:
     return utc_now()
 
@@ -90,8 +91,8 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     universe, source = effective_levels(conn, None)
     projects = _projects(conn)
     meters: dict[tuple, Meter] = {}
-    offered: set[tuple[str, str]] = set()
-    rejections = {}
+    offered = {}
+    freshest = {}
     live_workers = {surface: 0 for surface in CLI_PLAN_LIMIT_SURFACES}
     overrides: list[dict[str, Any]] = []
     for project_id, slug, name in projects:
@@ -107,13 +108,18 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
             narrowed = viewer_snapshot(
                 conn, snapshot, actor_id=auth.actor_id, project_id=project_id, now=now
             )
-            offered.update((relay.machine_id, surface) for relay in narrowed.relays)
+            for relay in narrowed.relays:
+                pair = (relay.machine_id, surface)
+                offered[pair] = max(offered.get(pair, relay.last_seen_at), relay.last_seen_at)
+                prior = freshest.get(surface)
+                if prior is None or relay.last_seen_at >= prior[0]:
+                    freshest[surface] = (relay.last_seen_at, None)
             for rejection in narrowed.machine_rejections:
                 if "surface_absent" in rejection.codes:
                     continue
-                prior = rejections.get(surface)
-                if prior is None or rejection.last_seen_at > prior.last_seen_at:
-                    rejections[surface] = rejection
+                prior = freshest.get(surface)
+                if prior is None or rejection.last_seen_at > prior[0]:
+                    freshest[surface] = (rejection.last_seen_at, rejection)
         for row in load_plan_limits(conn, project_id=project_id, now=now):
             computed = compute_plan_limit(row, now=now)
             extra = extra_usage_status(
@@ -149,12 +155,13 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     levels = evaluate_level_capacity(
         universe,
         meters=tuple(meters.values()),
-        offered=tuple(offered),
+        offered=tuple(sorted(offered, key=lambda pair: (-offered[pair].timestamp(), pair))),
         display=display,
         records=current_model_records(conn),
         surface_reasons={
             surface: surface_reason(surface, rejection)
-            for surface, rejection in rejections.items()
+            for surface, (_, rejection) in freshest.items()
+            if rejection is not None
         },
         native_models={
             machine: machine_native_models(conn, machine_id=machine)

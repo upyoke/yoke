@@ -16,6 +16,8 @@ from runtime.api.domain.session_launch_level_test_support import (
     CLAUDE_OPUS,
     CODEX_SOL,
     add_surface,
+    weekly,
+    EXTRA_OFF,
     level_connection,
 )
 from runtime.api.domain.session_launch_test_support import NOW, authorization
@@ -219,3 +221,14 @@ def test_freshest_visible_rejection_supplies_the_reason(universe):
     result = read(universe)
     assert "signed out" in surface_label(result)
     assert MACHINE not in str(result)
+
+
+def test_newer_signed_out_machine_beats_older_quota_blocker(universe):
+    add_surface(universe, MACHINE, SURFACE, [weekly(0)], EXTRA_OFF)
+    universe.execute("UPDATE session_relays SET last_seen_at = '2026-08-22T11:00:00Z'")
+    add_surface(universe, "newer-mac", SURFACE)
+    universe.execute(
+        "UPDATE session_relays SET surface_plan_limits = ? WHERE machine_id = 'newer-mac'",
+        (json.dumps({SURFACE: unknown_reading(SURFACE, "stale_credential", observed_at=NOW)}),),
+    )
+    assert "signed out" in surface_label(read(universe))

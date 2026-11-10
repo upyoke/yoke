@@ -3,10 +3,20 @@
  "title": "Viewer launch standing and Cursor quota order",
  "status": "observed",
  "observed_at": "2026-11-10",
- "evidence_scope": "Previous production QA run 45473 / artifact 32323 proves the earlier four-column page and Cursor order only. Rechecked the changed page against runtime/api/universe_ui_levels.test.mjs and the viewer-access domain and CLI tests: unavailable lines appear once below levels and actor access narrows launch standing. Production re-verification is pending in viewer-level-standing-prod; this record no longer claims those new semantics are verified live.",
- "claim": "Levels rows are model/min_effort. Settings shows #, MODEL, MIN EFFORT, NOW and Launchable on chips for the viewer's own usable machines and operable projects. Machine-specific actionable unavailable reasons appear once below all levels; pairs usable through another project are omitted. Cursor quota order remains two editable monthly-pool rows. Local source and tests establish the new behavior; the production page must be re-verified after delivery.",
- "concepts": ["levels/scheme", "levels/options", "levels/capacity/quota-pools", "workbench/destinations/levels"],
- "scenarios": ["models-levels"],
- "sources": ["docs/public/agents/levels.md", "docs/public/cli/index.md"],
+ "evidence_scope": "Historical production captures prove the earlier four-column page and Cursor order only. Domain tests cover viewer access, retirement, 24-hour recency, freshest-machine reasons and duplicate native tokens. Production verification of per-surface model blockers is pending in levels-surface-reasons-prod.",
+ "claim": "Levels rows are model/min_effort, with Launchable on chips for machines the viewer may use in operable projects. Blocked models show one reason per supported surface, using the freshest accessible, non-retired machine seen within 24 hours; absent machines are named by surface only. No separate unavailable list appears. Cursor quota order remains two editable monthly-pool rows. This changed behavior must be re-verified on Production after delivery.",
+ "concepts": [
+  "levels/scheme",
+  "levels/options",
+  "levels/capacity/quota-pools",
+  "workbench/destinations/levels"
+ ],
+ "scenarios": [
+  "models-levels"
+ ],
+ "sources": [
+  "docs/public/agents/levels.md",
+  "docs/public/cli/index.md"
+ ],
  "position": 16
 }

@@ -88,7 +88,7 @@ class _Fleet:
             self.by_machine.setdefault((meter.machine_id, meter.surface), []).append(
                 meter
             )
-        self.offered = sorted(set(offered))
+        self.offered = list(dict.fromkeys(offered))
 
     def machines_for(self, surface: str) -> list[str]:
         return [machine for machine, offered in self.offered if offered == surface]
@@ -175,7 +175,10 @@ def evaluate_level_capacity(
                             surfaces.add(surface)
                 if surface in surfaces:
                     continue
-                if surface_blockers:
+                if surface in surface_reasons:
+                    blockers.append({"kind": "no_machine", "surface": surface,
+                                     "label": surface_reasons[surface]})
+                elif surface_blockers:
                     blocker = surface_blockers[0]
                     blockers.append({**blocker, "surface": surface,
                                      "label": f"{surface}: {blocker['label']}"})
