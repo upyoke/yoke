@@ -8,6 +8,9 @@ from yoke_core.domain.migration_history import load_migration_module
 def test_polling_indexes_replay_and_serve_selective_reads(test_db):
     conn = test_db
     for statement in (
+        "CREATE TEMP TABLE item_worktrees (id INTEGER, item_id INTEGER, released_at TIMESTAMPTZ)",
+        "INSERT INTO item_worktrees SELECT n,n,CASE WHEN n=1 THEN NULL ELSE now() END "
+        "FROM generate_series(1,4000) n",
         "CREATE TEMP TABLE work_claims (id INTEGER, claimed_at TIMESTAMPTZ, released_at TIMESTAMPTZ)",
         "CREATE TEMP TABLE session_messages (message_id TEXT, sender_session_id TEXT, "
         "selector_snapshot TEXT, cancelled_at TIMESTAMPTZ)",
@@ -28,9 +31,11 @@ def test_polling_indexes_replay_and_serve_selective_reads(test_db):
     module = load_migration_module(path, path.stem)
     module.apply(conn)
     module.apply(conn)
-    for table in ("work_claims", "session_messages", "session_launches"):
+    for table in ("work_claims", "session_messages", "session_launches", "item_worktrees"):
         conn.execute(f"ANALYZE {table}")
     queries = (
+        ("SELECT item_id,id FROM item_worktrees WHERE released_at IS NULL",
+         "idx_item_worktrees_unreleased"),
         ("SELECT id FROM work_claims WHERE released_at IS NULL ORDER BY claimed_at,id",
          "idx_work_claims_active_order"),
         ("SELECT 1 FROM session_messages WHERE sender_session_id='1' LIMIT 1",
