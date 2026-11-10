@@ -27,24 +27,36 @@ def manual_notice_rows(
             conn, "session_messages"
         ):
             return []
+        requirements = conn.execute(
+            "SELECT id, deployment_member_item_id AS member, "
+            "COALESCE(wake_evidence,'') AS evidence, "
+            "deployment_run_id AS run_id, deployment_stage AS stage "
+            f"FROM qa_requirements WHERE deployment_run_id IN ({','.join([p] * len(runs))})",
+            runs,
+        ).fetchall()
+        by_key = {
+            f"{MANUAL_WAIT_PREFIX}{row['id']}:"
+            f"{sha256(row['evidence'].encode('utf-8')).hexdigest()}": dict(row)
+            for row in requirements
+        }
+        if not by_key:
+            return []
+        messages = conn.execute(
+            "SELECT m.message_id, m.idempotency_key, m.created_at AS sent_at, "
+            "COALESCE(r.session_id,'') AS session_id, "
+            "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
+            "WHEN h.ended_at IS NOT NULL THEN 'ended' ELSE COALESCE(r.state,'') END AS state, "
+            "COALESCE(r.wake_escalation,'') AS escalation "
+            "FROM session_messages m "
+            "LEFT JOIN session_message_recipients r ON r.message_id=m.message_id "
+            "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
+            f"WHERE m.idempotency_key IN ({','.join([p] * len(by_key))}) "
+            "ORDER BY m.created_at DESC, m.message_id",
+            tuple(by_key),
+        ).fetchall()
         return [
-            dict(row)
-            for row in conn.execute(
-                "SELECT m.message_id, m.idempotency_key, m.created_at AS sent_at, "
-                "COALESCE(r.session_id,'') AS session_id, "
-                "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
-                "WHEN h.ended_at IS NOT NULL THEN 'ended' ELSE COALESCE(r.state,'') END AS state, "
-                "COALESCE(r.wake_escalation,'') AS escalation, "
-                "q.deployment_member_item_id AS member, COALESCE(q.wake_evidence,'') AS evidence, "
-                "q.deployment_run_id AS run_id,q.deployment_stage AS stage,q.id AS requirement_id "
-                "FROM qa_requirements q JOIN session_messages m ON m.idempotency_key LIKE "
-                f"{p} || CAST(q.id AS TEXT) || {p} "
-                "LEFT JOIN session_message_recipients r ON r.message_id=m.message_id "
-                "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
-                f"WHERE q.deployment_run_id IN ({','.join([p] * len(runs))}) "
-                "ORDER BY m.created_at DESC, m.message_id",
-                (MANUAL_WAIT_PREFIX, ":%", *runs),
-            ).fetchall()
+            {**dict(row), **by_key[row['idempotency_key']]}
+            for row in messages
         ]
 
     found = []
@@ -52,10 +64,8 @@ def manual_notice_rows(
         record = dict(row)
         if record.pop("run_id") != run_id or record.pop("stage") != stage_name:
             continue
-        digest = sha256(record.pop("evidence").encode("utf-8")).hexdigest()
-        if not record["idempotency_key"].endswith(f":{digest}"):
-            continue
-        member, requirement = record.pop("member"), record.pop("requirement_id")
+        record.pop("evidence")
+        member, requirement = record.pop("member"), record.pop("id")
         record["idempotency_key"] = (
             f"deployment-qa-stage-wait:{run_id}:{stage_name}:{member}:manual:{requirement}"
         )
