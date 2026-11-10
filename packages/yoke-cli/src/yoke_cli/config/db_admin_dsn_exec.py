@@ -1,9 +1,10 @@
 """Run one subprocess with a db-admin profile's DSN in a caller-named variable.
 
 The profile is a machine-local ``local-postgres`` connection written by
-``yoke dev db-admin setup``. Its managed secret is read from AWS through the
-project's aws-admin capability at run time and its SSH forward is brought up
-by the connected-env readiness path. The DSN lives only in this process and
+``yoke dev db-admin setup``. An Aurora profile's managed secret is read from
+AWS through the project's aws-admin capability at run time; a box profile
+reads its owner-only ``dsn_file``. Either way the SSH forward is brought up by
+the connected-env readiness path. The DSN lives only in this process and
 in the one child's environment: it is never printed, logged, written to disk,
 or emitted as an event, and every refusal is redacted before it is shown.
 """
