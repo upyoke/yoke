@@ -1,13 +1,7 @@
-"""Load the universe's launch capacity per level, and its project overrides.
+"""Read the viewer's launch standing across projects they can operate.
 
-Capacity is the union of what every live project can reach: the machines a
-launch could land on per surface (the same eligibility the launch plane
-derives), the quota meters those machines publish, and the live workers per
-surface. :mod:`yoke_core.domain.universe_level_capacity` turns that into each
-level's launch standing, and :mod:`yoke_core.domain.universe_level_next_launch`
-previews, per project, where the caller's next launch at each level goes.
-Projects whose ``session-routing`` capability carries a levels override are
-listed with what their override changes.
+Machine eligibility and access are shared with launches. Actionable surface
+rejections appear once, outside the per-option quota and native-model blockers.
 """
 
 from __future__ import annotations
@@ -26,16 +20,32 @@ from yoke_contracts.session_control.plan_limits import CLI_PLAN_LIMIT_SURFACES
 from yoke_core.domain.model_reference_store import revision_at
 from yoke_core.domain.steering_fleet_plan_capacity import compute_plan_limit
 from yoke_core.domain.steering_fleet_report_capacity import (
-    launchable_surfaces,
+    surface_eligibility_snapshots,
     live_session_counts,
 )
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.universe_level_capacity import Meter, evaluate_level_capacity
-from yoke_core.domain.universe_level_next_launch import Authorize
+from yoke_core.domain.machine_launch_access import filter_by_machine_access
+from yoke_core.domain.session_launch_types import (
+    LaunchAuthorization,
+    SessionLaunchError,
+)
+
 from yoke_core.domain.session_launch_machine_models import machine_native_models
 from yoke_core.domain.session_model_catalog import current_model_records
 from yoke_core.domain.quota_pool_order import read_pool_order
 from yoke_core.domain.universe_levels import effective_levels
+
+
+Authorize = Callable[[int], LaunchAuthorization]
+
+UNAVAILABLE_REASONS = {
+    "harness_signed_out": "signed out",
+    "liveness_expired": "relay disconnected",
+    "version_below_floor": "below version floor",
+    "surface_disabled": "surface disabled",
+    "machine_at_capacity": "at capacity",
+}
 
 
 def _now() -> datetime:
@@ -84,18 +94,45 @@ def _override_changes(override: tuple[Level, ...], universe: tuple[Level, ...]):
 
 
 def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
-    """The Levels read: each level's launch standing, the next launch per
-    project as ``authorize``'s caller would place it, and the overrides."""
+    """Each level's caller-accessible launch standing and project overrides."""
     now = _now()
     universe, source = effective_levels(conn, None)
     projects = _projects(conn)
     meters: dict[tuple, Meter] = {}
     offered: set[tuple[str, str]] = set()
+    unavailable: dict[tuple[str, str], set[str]] = {}
     live_workers = {surface: 0 for surface in CLI_PLAN_LIMIT_SURFACES}
     overrides: list[dict[str, Any]] = []
     for project_id, slug, name in projects:
-        for ready in launchable_surfaces(conn, project_id=project_id, now=now):
-            offered.add((ready.machine_id, ready.surface))
+        try:
+            auth = authorize(project_id)
+        except SessionLaunchError:
+            continue
+        if not auth.can_operate_project:
+            continue
+        for surface, snapshot in surface_eligibility_snapshots(
+            conn, project_id=project_id, now=now
+        ):
+            narrowed, denials = filter_by_machine_access(
+                conn, snapshot, actor_id=auth.actor_id, project_id=project_id
+            )
+            offered.update((relay.machine_id, surface) for relay in narrowed.relays)
+            names = {
+                relay.machine_id: relay.hostname or relay.machine_id
+                for relay in snapshot.relays
+            }
+            for machine in denials:
+                unavailable.setdefault((machine, surface), set()).add(
+                    f"{surface}: access denied on {names[machine]}"
+                )
+            for rejection in narrowed.machine_rejections:
+                for code in rejection.codes:
+                    if code in UNAVAILABLE_REASONS:
+                        unavailable.setdefault(
+                            (rejection.machine_id, surface), set()
+                        ).add(
+                            f"{surface}: {UNAVAILABLE_REASONS[code]} on {rejection.name}"
+                        )
         for row in load_plan_limits(conn, project_id=project_id, now=now):
             computed = compute_plan_limit(row, now=now)
             extra = extra_usage_status(
@@ -142,6 +179,14 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     return {
         "read_at": format_instant(now),
         "source": source,
+        "unavailable": sorted(
+            {
+                line
+                for pair, lines in unavailable.items()
+                if pair not in offered
+                for line in lines
+            }
+        ),
         "usable_machines": len({machine for machine, _ in offered}),
         "live_workers": live_workers,
         "levels": levels,

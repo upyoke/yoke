@@ -1,9 +1,9 @@
 {
  "id": "harness-surface",
  "title": "Harness surface",
- "status": "verified-live",
- "text": "Harness surface is not a stored level-row field. Per-machine native listings determine launchable surfaces; Settings shows Launchable on chips. Unsupported listings name the missing adapter and recovery, rather than inventing availability.",
- "evidence": "Settings harness chips: QA run 45473 / artifact 32323. Unsupported Claude listing refusal also present in this session launch receipt; other surface mechanics observed in source.",
+ "status": "observed",
+ "text": "Harness surface is not a stored level-row field. Launchable on chips show the viewer's own standing: only projects they may operate and machines they may use contribute eligible surfaces. Missing surfaces appear once below all levels with actionable machine-specific reasons. Native listings and catalog selection still determine which models each eligible surface can launch.",
+ "evidence": "Viewer access and unavailable reasons checked in runtime/api/domain/test_universe_level_capacity_read.py and runtime/api/universe_ui_levels.test.mjs. Previous production QA run 45473 / artifact 32323 proves the earlier chips, not viewer-specific access. Production re-verification is attached as viewer-level-standing-prod.",
  "page": "levels",
  "position": 0
 }

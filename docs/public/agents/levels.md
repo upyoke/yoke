@@ -90,7 +90,13 @@ result names its `source` (`project`, `universe`, or `default`).
 ## Launch capacity per level
 
 `yoke universe level-capacity get [--json]` (`universe.level_capacity.get`)
-reports each model row's native launch surfaces and current standing.
+reports each model row's native launch surfaces and the viewer's current
+standing. It includes only projects the viewer can operate and machines they
+may use; administrative authority does not grant use of another owner's
+owner_only machine. Missing surfaces appear once below the levels with
+machine-specific reasons: signed out, relay disconnected, below version floor,
+surface disabled, at capacity or access denied. A machine/surface pair
+available through another project has no unavailable line.
 The harness manifest declares the selection source: Claude uses the active
 researched catalog's Anthropic model ids and published efforts; Codex and
 Cursor use native model listings per machine. Impossible provider pairs are

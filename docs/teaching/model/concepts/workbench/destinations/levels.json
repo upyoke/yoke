@@ -1,10 +1,10 @@
 {
  "id": "levels",
  "title": "Levels",
- "status": "verified-live",
+ "status": "observed",
  "related": "levels",
- "text": "Settings → Levels shows four columns: #, MODEL (base ID and display name), MIN EFFORT and NOW, plus Launchable on harness chips. Levels rows are configured through the CLI. A separate Cursor quota order panel has exactly two editable monthly-pool rows; no per-project next-launch summary is shown.",
- "evidence": "Production launch.622: QA run 45473 / artifact 32323, captured 2026-10-13; 4 levels, 18 rows, 16 headers, 2 quota rows and move controls, zero level-next-launch summaries.",
+ "text": "Settings → Levels shows four columns: #, MODEL (base ID and display name), MIN EFFORT and NOW, plus Launchable on harness chips. Levels rows are configured through the CLI. A separate Cursor quota order panel has exactly two editable monthly-pool rows; no per-project next-launch summary is shown. Launchable on and NOW show the viewer's own standing across projects they can operate and machines they can use. Actionable machine/surface rejections appear once below the levels, excluding pairs usable through another project.",
+ "evidence": "Production launch.622: QA run 45473 / artifact 32323, captured 2026-10-13; 4 levels, 18 rows, 16 headers, 2 quota rows and move controls, zero level-next-launch summaries. Viewer access and unavailable reasons are observed in source and focused regression tests; production re-verification is attached as viewer-level-standing-prod.",
  "page": "workbench-destinations",
  "position": 7
 }

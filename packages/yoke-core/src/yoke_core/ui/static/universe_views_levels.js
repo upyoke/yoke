@@ -53,5 +53,8 @@ export async function renderLevelsView(context, main) {
   }
   panel.setCount(result.levels.length);
   panel.renderEnvelope(null, (body) => result.levels.forEach((level, index) => body.appendChild(levelBlock(documentNode, level, index))));
+  for (const line of result.unavailable || []) {
+    stack.appendChild(el(documentNode, "p", "level-unavailable", line));
+  }
   renderCursorQuotaOrder(context, stack, result.cursor_quota_order, () => renderLevelsView(context, main));
 }
