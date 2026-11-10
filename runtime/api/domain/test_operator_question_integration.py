@@ -25,7 +25,7 @@ def test_worker_files_without_steering_and_receives_one_engine_answer(
 ):
     _project(test_db)
     session = "question-worker"
-    seed_session(test_db, session)
+    seed_session(test_db, session, launch_origin="yoke")
     # The handler borrows the fixture while retaining its own context-manager boundary.
     from contextlib import contextmanager
 
@@ -89,7 +89,7 @@ def test_terminal_item_questions_are_disposed(test_db):
 
     _project(test_db)
     session = "question-item-worker"
-    seed_session(test_db, session)
+    seed_session(test_db, session, launch_origin="yoke")
     item_id = 9711
     insert_item(test_db, id=item_id, project_sequence=item_id, workflow_id="issue")
     _claim(
@@ -130,7 +130,7 @@ def test_question_outcomes_are_delivered_once(test_db):
 
     _project(test_db)
     session = "question-worker"
-    seed_session(test_db, session)
+    seed_session(test_db, session, launch_origin="yoke")
     ids = []
     for key in ("answer", "withdraw", "consume"):
         question, _ = file_question(
@@ -181,7 +181,7 @@ def _named_question(test_db, monkeypatch, *, project_less):
 
     _project(test_db)
     session = "named-question-worker"
-    seed_session(test_db, session)
+    seed_session(test_db, session, launch_origin="yoke")
     recipient = seed_human_actor(test_db, name="Question Recipient")
     org = test_db.execute(
         "SELECT org_id FROM projects WHERE id=%s", (PROJECT_YOKE,)
@@ -277,7 +277,7 @@ def test_project_less_question_without_audience_refuses(test_db, monkeypatch):
 
     _project(test_db)
     session = "unscoped-question-worker"
-    seed_session(test_db, session)
+    seed_session(test_db, session, launch_origin="yoke")
     org = test_db.execute(
         "SELECT org_id FROM projects WHERE id=%s", (PROJECT_YOKE,)
     ).fetchone()[0]

@@ -34,15 +34,16 @@ def conn():
         value.executescript("""
             CREATE TABLE harness_sessions (
                 session_id TEXT PRIMARY KEY, project_id INTEGER, actor_id INTEGER,
-                executor TEXT, ended_at TEXT, terminated_at TEXT
+                executor TEXT, ended_at TEXT, terminated_at TEXT,
+                launch_origin TEXT NOT NULL DEFAULT 'operator'
             );
             CREATE TABLE work_claims (
                 id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
                 scope TEXT, released_at TEXT
             );
-            INSERT INTO harness_sessions VALUES ('worker', 10, 1, 'codex', NULL, NULL);
-            INSERT INTO harness_sessions VALUES ('other', 10, 1, 'cursor', NULL, NULL);
-            INSERT INTO harness_sessions VALUES ('steering', 10, 2, 'claude-code', NULL, NULL);
+            INSERT INTO harness_sessions VALUES ('worker', 10, 1, 'codex', NULL, NULL, 'yoke');
+            INSERT INTO harness_sessions VALUES ('other', 10, 1, 'cursor', NULL, NULL, 'yoke');
+            INSERT INTO harness_sessions VALUES ('steering', 10, 2, 'claude-code', NULL, NULL, 'operator');
         """)
         value.execute("INSERT INTO actor_project_roles VALUES (1, 10, 4, 'now')")
         from runtime.api.domain.decision_request_requester_label_test_support import (
