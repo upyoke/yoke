@@ -32,7 +32,14 @@ def authority_env(
     local_github_auth_loader: Callable[..., Any] = (
         resolve_local_runner_fleet_github_auth
     ),
+    runner_fleet: bool,
 ) -> tuple[dict[str, str], tuple[str, ...]]:
+    """Materialize the child env and redaction terms for one stack.
+
+    ``runner_fleet`` selects the runner-fleet GitHub flows: the rendered
+    path's runner-fleet stack kind, or a file-backed stack whose
+    ``yoke:github_access`` is ``runner_fleet``.
+    """
     capability = str(authority.get("aws_capability") or "").strip()
     region = str(authority.get("aws_region") or "").strip()
     backend = str(authority.get("backend_url") or "").strip()
@@ -56,7 +63,7 @@ def authority_env(
     local_redaction_terms: tuple[str, ...] = ()
     runner_fleet_intent = ""
     runner_fleet_values: dict[str, str] = {}
-    if payload.get("stack_kind") == "runner-fleet":
+    if runner_fleet:
         runner_fleet_values, runner_fleet_intent = (
             _runner_fleet_authority_intent(
                 payload,
@@ -67,7 +74,7 @@ def authority_env(
     if str(authority.get("github_repo") or "").strip():
         github_project = str(authority.get("github_project") or project).strip()
         if bootstrap_local_authority:
-            if payload.get("stack_kind") != "runner-fleet":
+            if not runner_fleet:
                 raise PulumiExecError(
                     "local GitHub bootstrap authority is limited to the "
                     "runner-fleet stack"
@@ -93,7 +100,7 @@ def authority_env(
                     "(cause: app_authority_unavailable)."
                 ) from exc
         elif (
-            payload.get("stack_kind") == "runner-fleet"
+            runner_fleet
             and os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
         ):
             if hosted_repository_token_loader is None:

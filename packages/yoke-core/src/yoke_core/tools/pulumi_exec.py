@@ -23,6 +23,12 @@ from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     load_project_renderer_settings,
 )
+from yoke_core.domain.pulumi_file_stack_values import (
+    RUNNER_FLEET_ACCESS,
+    FileStackValuesError,
+    file_stack_authority,
+    file_stack_yoke_values,
+)
 from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
     import_checkpoint_state,
 )
@@ -42,6 +48,11 @@ from yoke_core.tools.pulumi_exec_destroy import (
 from yoke_core.tools.pulumi_exec_files import (
     new_owner_only_output as _new_owner_only_output,
     write_owner_only as _write_owner_only,
+)
+from yoke_core.tools.pulumi_exec_file_backed import (
+    file_backed_stack_path,
+    file_stack_github_access,
+    stage_file_backed_infra,
 )
 from yoke_core.tools.pulumi_exec_github_failure import (
     CaptureTee,
@@ -85,6 +96,11 @@ def execute_pulumi_command(
 ) -> int:
     """Materialize one stack and run a bounded operator operation.
 
+    A stack with a checked-in ``infra/Pulumi.<stack>.yaml`` runs from a copy
+    of that file plus Yoke-owned ``yoke:`` values (see
+    ``pulumi_exec_file_backed``); any other stack is rendered from the
+    project's templates and server-built config.
+
     ``caller_root`` is the git top-level the operator invoked from. Every
     operation states the tree it renders before producing any result, and a
     caller standing in a different working tree of that same repository is
@@ -98,6 +114,7 @@ def execute_pulumi_command(
     if not selected_project or not selected_stack:
         raise PulumiExecError("project and stack are required")
     announce_render_source(project_root, caller_root=caller_root, err=err or sys.stderr)
+    stack_file = file_backed_stack_path(project_root, selected_stack)
     if command and str(command[0]) == "init":
         require_destroy_confirmation(selected_stack, None, confirm_destroy)
         from yoke_core.tools.pulumi_exec_init import execute_pulumi_stack_init
@@ -107,6 +124,7 @@ def execute_pulumi_command(
             selected_stack,
             command,
             project_root=project_root,
+            stack_file=stack_file,
             settings_loader=settings_loader,
             state_importer=state_importer,
             aws_env_loader=aws_env_loader,
@@ -117,32 +135,51 @@ def execute_pulumi_command(
     argv, json_output = validated_command(selected_stack, command)
     operation = destructive_operation(argv)
     require_destroy_confirmation(selected_stack, operation, confirm_destroy)
+    settings = None
+    if operation is not None or stack_file is not None:
+        settings = settings_loader(selected_project)
+        if settings.project != selected_project:
+            raise PulumiExecError(
+                "Pulumi renderer settings do not match the requested project"
+            )
     if operation is not None:
-        refuse_consumed_vps_stack(
-            selected_project, selected_stack, settings_loader(selected_project)
+        refuse_consumed_vps_stack(selected_project, selected_stack, settings)
+    if stack_file is not None:
+        payload, authority, runner_fleet = _file_backed_inputs(
+            selected_project, selected_stack, stack_file, settings
         )
-    payload = dict(config_loader(selected_project, selected_stack))
-    _verify_payload_identity(payload, selected_project, selected_stack)
-    authority = payload.get("authority")
-    if not isinstance(authority, Mapping):
-        raise PulumiExecError("Pulumi stack authority is missing")
+    else:
+        payload = dict(config_loader(selected_project, selected_stack))
+        _verify_payload_identity(payload, selected_project, selected_stack)
+        authority = payload.get("authority")
+        if not isinstance(authority, Mapping):
+            raise PulumiExecError("Pulumi stack authority is missing")
+        runner_fleet = payload.get("stack_kind") == "runner-fleet"
 
     with tempfile.TemporaryDirectory(prefix="yoke-pulumi-exec-") as raw_temp:
         temp_root = Path(raw_temp)
         temp_root.chmod(0o700)
-        config_path = temp_root / "stack-config.json"
-        _write_owner_only(config_path, payload)
         render_root = temp_root / "render"
-        try:
-            render_scoped_pulumi_config(
-                payload, project_root=project_root, output_dir=render_root
+        if stack_file is not None:
+            infra_root = stage_file_backed_infra(
+                project_root,
+                selected_stack,
+                render_root,
+                payload["render_values"],
             )
-        except RenderedProgramIncomplete as exc:
-            raise PulumiExecError(str(exc)) from exc
+        else:
+            _write_owner_only(temp_root / "stack-config.json", payload)
+            try:
+                render_scoped_pulumi_config(
+                    payload, project_root=project_root, output_dir=render_root
+                )
+            except RenderedProgramIncomplete as exc:
+                raise PulumiExecError(str(exc)) from exc
+            infra_root = render_root / "infra"
         if any(arg == "--target" or arg.startswith("--target=") for arg in argv):
             try:
                 declaration = yaml.safe_load(
-                    (render_root / "infra" / "Pulumi.yaml").read_text()
+                    (infra_root / "Pulumi.yaml").read_text()
                 )
             except yaml.YAMLError as exc:
                 raise PulumiExecError(
@@ -165,6 +202,7 @@ def execute_pulumi_command(
             hosted_repository_token_loader=hosted_repository_token_loader,
             bootstrap_local_authority=bootstrap_local_authority,
             local_github_auth_loader=local_github_auth_loader,
+            runner_fleet=runner_fleet,
         )
         child_out = out or sys.stdout
         child_err = CaptureTee(err or sys.stderr)
@@ -178,7 +216,7 @@ def execute_pulumi_command(
                 "redaction_terms": redaction_terms,
                 "out": child_out,
                 "err": child_err,
-                "cwd": render_root / "infra",
+                "cwd": infra_root,
             }
             if child_factory is not None:
                 kwargs["child_factory"] = child_factory
@@ -189,7 +227,7 @@ def execute_pulumi_command(
                 )
                 if named:
                     raise PulumiExecError(named)
-            elif operation == STACK_RM:
+            elif operation == STACK_RM and stack_file is None:
                 clear_removed_stack_state(
                     selected_project,
                     selected_stack,
@@ -200,6 +238,25 @@ def execute_pulumi_command(
         finally:
             if json_handle is not None:
                 json_handle.close()
+
+
+def _file_backed_inputs(
+    project: str, stack: str, stack_file: Path, settings: ProjectRendererSettings
+) -> tuple[dict[str, Any], dict[str, Any], bool]:
+    """Yoke-owned values and authority for a stack run from its own file."""
+    github_access = file_stack_github_access(stack_file)
+    try:
+        values = file_stack_yoke_values(settings, stack, github_access)
+        authority = file_stack_authority(settings, values, github_access)
+    except FileStackValuesError as exc:
+        raise PulumiExecError(str(exc)) from exc
+    payload = {
+        "project_slug": project,
+        "stack_name": stack,
+        "render_values": values,
+        "operator_state": {},
+    }
+    return payload, authority, github_access == RUNNER_FLEET_ACCESS
 
 
 def _verify_payload_identity(

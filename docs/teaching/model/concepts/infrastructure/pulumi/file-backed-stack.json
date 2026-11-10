@@ -1,0 +1,8 @@
+{
+ "id": "file-backed-stack",
+ "title": "Stack settings in the checked-in stack file",
+ "status": "draft-copy",
+ "commands": ["yoke pulumi exec"],
+ "page": "infrastructure",
+ "position": 5
+}

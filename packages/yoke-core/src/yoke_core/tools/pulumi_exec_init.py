@@ -24,6 +24,7 @@ from yoke_core.domain.pulumi_state_capability import (
     CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY_TYPE,
     validate_stack_state,
 )
+from yoke_core.tools.pulumi_exec_file_backed import stage_file_backed_infra
 from yoke_core.tools.pulumi_exec_files import new_owner_only_output
 from yoke_core.tools.pulumi_exec_types import (
     AMBIENT_GITHUB_ENV,
@@ -38,6 +39,7 @@ def execute_pulumi_stack_init(
     command: Sequence[str],
     *,
     project_root: Path,
+    stack_file: Path | None = None,
     settings_loader: Callable[[str], ProjectRendererSettings],
     state_importer: Callable[..., Mapping[str, Any]],
     aws_env_loader: Callable[..., Mapping[str, str]],
@@ -45,7 +47,14 @@ def execute_pulumi_stack_init(
     out: TextIO | None,
     err: TextIO | None,
 ) -> int:
-    """Initialize one declared stack and persist its generated operator state."""
+    """Initialize one stack, pinned to the capability's KMS key.
+
+    A file-backed stack (``stack_file``) is declared by its checked-in file,
+    so any name is accepted; its generated ``secretsprovider`` and
+    ``encryptedkey`` lines are printed for the operator to commit into that
+    file, and Yoke stores nothing. A rendered stack must be declared and
+    gets its generated operator state persisted.
+    """
     requested_provider = _validated_init_provider(command)
     settings = settings_loader(project)
     if settings.project != project:
@@ -55,39 +64,10 @@ def execute_pulumi_stack_init(
     state_settings = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE)
     if not isinstance(state_settings, Mapping):
         raise PulumiExecError(f"project {project!r} has no pulumi-state capability")
-    raw_stack_types = state_settings.get("stacks")
-    if not isinstance(raw_stack_types, list) or not raw_stack_types:
-        raise PulumiExecError(
-            "Pulumi stack init requires an explicit non-empty pulumi-state "
-            "stacks declaration"
-        )
-    try:
-        declared_types = gather_pulumi_stacks(project, project_root, settings)
-        values = gather_pulumi_values(
-            project, project_root, settings, pulumi_stack=stack
-        )
-        declared_names = {
-            pulumi_stack_name(stack_type, settings, values)
-            for stack_type in declared_types
-        } | {
-            target.name
-            for target in gather_standalone_vps_targets(
-                settings, stack_name=stack
-            )
-        }
-    except ValueError as exc:
-        raise PulumiExecError(str(exc)) from exc
-    if stack not in declared_names:
-        raise PulumiExecError(
-            f"Pulumi stack {stack!r} is not an exact declared project stack"
-        )
-    try:
-        operator_state = validate_stack_state(state_settings.get("stack_state", {}))
-    except ValueError as exc:
-        raise PulumiExecError("stored Pulumi operator state is invalid") from exc
-    if stack in operator_state:
-        raise PulumiExecError(
-            f"Pulumi operator state is already registered for stack {stack!r}"
+    values: dict[str, str] = {}
+    if stack_file is None:
+        values = _declared_stack_values(
+            project, stack, project_root, settings, state_settings
         )
 
     aws_settings = settings.capabilities.get(DEFAULT_AWS_CAPABILITY_TYPE)
@@ -108,23 +88,31 @@ def execute_pulumi_stack_init(
             f"expected {expected_provider!r}"
         )
 
+    if stack_file is not None:
+        _refuse_foreign_provider(stack_file, expected_provider)
+
     with tempfile.TemporaryDirectory(prefix="yoke-pulumi-exec-") as raw_temp:
         temp_root = Path(raw_temp)
         temp_root.chmod(0o700)
         render_root = temp_root / "render"
-        try:
-            render_pulumi_artifacts(
-                project,
-                values,
-                project_root,
-                render_root,
-                True,
-                settings,
-                pulumi_stack=stack,
+        if stack_file is not None:
+            infra_root = stage_file_backed_infra(
+                project_root, stack, render_root, None
             )
-        except ValueError as exc:
-            raise PulumiExecError(str(exc)) from exc
-        infra_root = render_root / "infra"
+        else:
+            try:
+                render_pulumi_artifacts(
+                    project,
+                    values,
+                    project_root,
+                    render_root,
+                    True,
+                    settings,
+                    pulumi_stack=stack,
+                )
+            except ValueError as exc:
+                raise PulumiExecError(str(exc)) from exc
+            infra_root = render_root / "infra"
         stack_path = infra_root / f"Pulumi.{stack}.yaml"
         if not stack_path.is_file():
             raise PulumiExecError(
@@ -176,6 +164,10 @@ def execute_pulumi_stack_init(
         if result.returncode:
             return result.returncode
         discovered_provider = str(metadata.get("secretsprovider") or "").strip()
+        if stack_file is not None:
+            return _report_file_stack_lines(
+                stack_file, discovered_provider, encrypted_key, out or sys.stdout
+            )
         if discovered_provider != requested_provider or not encrypted_key:
             raise PulumiExecError(
                 "Pulumi stack was initialized but generated operator-state "
@@ -209,6 +201,91 @@ def execute_pulumi_stack_init(
         )
         sink.flush()
         return 0
+
+
+def _declared_stack_values(
+    project: str,
+    stack: str,
+    project_root: Path,
+    settings: ProjectRendererSettings,
+    state_settings: Mapping[str, Any],
+) -> dict[str, str]:
+    """Refuse an undeclared or already-registered rendered stack."""
+    raw_stack_types = state_settings.get("stacks")
+    if not isinstance(raw_stack_types, list) or not raw_stack_types:
+        raise PulumiExecError(
+            "Pulumi stack init requires an explicit non-empty pulumi-state "
+            "stacks declaration"
+        )
+    try:
+        declared_types = gather_pulumi_stacks(project, project_root, settings)
+        values = gather_pulumi_values(
+            project, project_root, settings, pulumi_stack=stack
+        )
+        declared_names = {
+            pulumi_stack_name(stack_type, settings, values)
+            for stack_type in declared_types
+        } | {
+            target.name
+            for target in gather_standalone_vps_targets(
+                settings, stack_name=stack
+            )
+        }
+    except ValueError as exc:
+        raise PulumiExecError(str(exc)) from exc
+    if stack not in declared_names:
+        raise PulumiExecError(
+            f"Pulumi stack {stack!r} is not an exact declared project stack"
+        )
+    try:
+        operator_state = validate_stack_state(state_settings.get("stack_state", {}))
+    except ValueError as exc:
+        raise PulumiExecError("stored Pulumi operator state is invalid") from exc
+    if stack in operator_state:
+        raise PulumiExecError(
+            f"Pulumi operator state is already registered for stack {stack!r}"
+        )
+
+    return values
+
+
+def _refuse_foreign_provider(stack_file: Path, expected_provider: str) -> None:
+    declared = yaml_helper.read_top_level_scalars(stack_file, ("secretsprovider",))
+    provider = str(declared.get("secretsprovider") or "").strip()
+    if provider and provider != expected_provider:
+        raise PulumiExecError(
+            f"pulumi_secrets_provider_mismatch: {stack_file} declares "
+            f"secretsprovider {provider!r} but the project's pulumi-state "
+            f"capability pins {expected_provider!r}; correct the stack file "
+            "and retry"
+        )
+
+
+def _report_file_stack_lines(
+    stack_file: Path, provider: str, encrypted_key: str, sink: TextIO
+) -> int:
+    if not provider or not encrypted_key:
+        raise PulumiExecError(
+            "Pulumi stack was initialized but Pulumi wrote no secretsprovider "
+            "and encryptedkey; run `pulumi stack export` for the stack and "
+            f"add both lines to {stack_file} before retrying"
+        )
+    declared = yaml_helper.read_top_level_scalars(
+        stack_file, ("secretsprovider", "encryptedkey")
+    )
+    lines = f"secretsprovider: {provider}\nencryptedkey: {encrypted_key}\n"
+    if (
+        str(declared.get("secretsprovider") or "").strip() == provider
+        and str(declared.get("encryptedkey") or "").strip() == encrypted_key
+    ):
+        sink.write(f"Pulumi stack initialized; {stack_file} already carries:\n{lines}")
+    else:
+        sink.write(
+            f"Pulumi stack initialized. Add these top-level lines to {stack_file} "
+            f"and commit them; Yoke stores neither:\n{lines}"
+        )
+    sink.flush()
+    return 0
 
 
 def _validated_init_provider(command: Sequence[str]) -> str:
