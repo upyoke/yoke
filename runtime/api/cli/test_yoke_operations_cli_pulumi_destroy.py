@@ -11,7 +11,9 @@ import pytest
 from yoke_cli.commands.adapters import pulumi
 
 
-def _capture_executor(monkeypatch, *, https: bool) -> dict:
+def _capture_executor(
+    monkeypatch, *, https: bool, file_backed: bool = False
+) -> dict:
     calls: dict = {}
 
     def execute(*args, **kwargs):
@@ -24,6 +26,9 @@ def _capture_executor(monkeypatch, *, https: bool) -> dict:
         {
             "aws_machine_capability_env": object(),
             "execute_pulumi_command": staticmethod(execute),
+            "file_backed_stack_path": staticmethod(
+                lambda root, stack: Path("infra/Pulumi.x.yaml") if file_backed else None
+            ),
         },
     )
     monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
@@ -80,4 +85,17 @@ def test_stack_rm_refuses_https_before_core(monkeypatch, command):
         ])
     assert rc == 2
     assert "execute" not in calls
-    assert "pulumi stack rm is a local source-dev/admin boundary" in stderr.getvalue()
+    assert (
+        "pulumi stack rm of a rendered stack writes its operator state"
+        in stderr.getvalue()
+    )
+
+
+def test_file_backed_stack_rm_runs_over_https(monkeypatch):
+    calls = _capture_executor(monkeypatch, https=True, file_backed=True)
+    rc = pulumi.pulumi_exec([
+        "--project", "app", "--stack", "app-drill-vps",
+        "--confirm-destroy", "app-drill-vps", "--", "stack", "rm", "--yes",
+    ])
+    assert rc == 0
+    assert calls["execute"][0][2] == ["stack", "rm", "--yes"]

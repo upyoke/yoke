@@ -227,7 +227,7 @@ def execute_pulumi_command(
                 )
                 if named:
                     raise PulumiExecError(named)
-            elif operation == STACK_RM:
+            elif operation == STACK_RM and stack_file is None:
                 clear_removed_stack_state(
                     selected_project,
                     selected_stack,

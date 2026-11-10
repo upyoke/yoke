@@ -48,8 +48,9 @@ def pulumi_exec(args: List[str]) -> int:
             "(read them with pulumi.Config(\"yoke\")); the file may set only "
             "yoke:github_access (metadata, the default; variables; "
             "runner_fleet). Any other stack is rendered from project templates. "
-            "Initialization is a local source-dev/admin boundary for a "
-            "file-backed or exact declared stack and requires "
+            "Initialization of a file-backed stack runs over any connection; "
+            "for a rendered stack it is a local source-dev/admin boundary for "
+            "an exact declared stack. Both require "
             "`init --secrets-provider <awskms URI>`; a file-backed init prints "
             "the secretsprovider and encryptedkey lines to commit into the "
             "stack file. Preview and up accept repeated "
@@ -59,8 +60,9 @@ def pulumi_exec(args: List[str]) -> int:
             "`--yes --non-interactive`) and `stack rm --yes` (never --force) "
             "require `--confirm-destroy <exact stack name>` and refuse while an "
             "environment stack with operator state uses the stack as its origin "
-            "VPS. Stack rm is a local source-dev/admin boundary that also "
-            "drops the stack's operator state."
+            "VPS. Stack rm of a rendered stack is a local source-dev/admin "
+            "boundary that also drops the stack's operator state; a "
+            "file-backed stack has none to drop."
         ),
     )
     parser.add_argument(
@@ -101,31 +103,13 @@ def pulumi_exec(args: List[str]) -> int:
         print(f"Usage: {PULUMI_EXEC_USAGE}", file=sys.stderr)
         return 2
     removes_stack = command[0] == "stack" and _first_stack_subcommand(command) == "rm"
-    if command[0] == "init" or removes_stack:
-        boundary = "stack rm" if removes_stack else "stack init"
-        if command[0] == "init" and parsed.bootstrap_local_authority:
-            print(
-                "error: --bootstrap-local-authority is limited to initialized "
-                "runner-fleet stack operations and cannot be combined with init",
-                file=sys.stderr,
-            )
-            return 2
-        try:
-            https_connection = resolve_https_connection()
-        except TransportError as exc:
-            print(
-                f"error: pulumi {boundary} could not resolve the active "
-                f"connection: {exc}",
-                file=sys.stderr,
-            )
-            return 2
-        if https_connection is not None:
-            print(
-                f"error: pulumi {boundary} is a local source-dev/admin boundary; "
-                "select a local-postgres connection and retry",
-                file=sys.stderr,
-            )
-            return 2
+    if command[0] == "init" and parsed.bootstrap_local_authority:
+        print(
+            "error: --bootstrap-local-authority is limited to initialized "
+            "runner-fleet stack operations and cannot be combined with init",
+            file=sys.stderr,
+        )
+        return 2
     ensure_handlers_loaded()
 
     def config_loader(project: str, stack: str):
@@ -157,6 +141,15 @@ def pulumi_exec(args: List[str]) -> int:
             caller_root=caller_root,
         )
         executor = importlib.import_module("yoke_core.tools.pulumi_exec")
+        if (command[0] == "init" or removes_stack) and (
+            executor.file_backed_stack_path(project_root, parsed.stack) is None
+        ):
+            refusal = _rendered_state_boundary_refusal(
+                "stack rm" if removes_stack else "stack init"
+            )
+            if refusal:
+                print(refusal, file=sys.stderr)
+                return 2
         return executor.execute_pulumi_command(
             parsed.project,
             parsed.stack,
@@ -178,6 +171,31 @@ def pulumi_exec(args: List[str]) -> int:
     except Exception as exc:
         print(f"error: pulumi exec failed: {exc}", file=sys.stderr)
         return 1
+
+
+def _rendered_state_boundary_refusal(boundary: str) -> str:
+    """Refuse a rendered stack's state write over an HTTPS connection.
+
+    A rendered stack's init and stack rm write its operator state into the
+    project database, so they run only on a local-postgres connection. A
+    file-backed stack keeps that state in its checked-in file and stores
+    nothing, so it runs over any connection.
+    """
+    try:
+        https_connection = resolve_https_connection()
+    except TransportError as exc:
+        return (
+            f"error: pulumi {boundary} could not resolve the active "
+            f"connection: {exc}"
+        )
+    if https_connection is None:
+        return ""
+    return (
+        f"error: pulumi {boundary} of a rendered stack writes its operator "
+        "state and is a local source-dev/admin boundary; select a "
+        "local-postgres connection and retry, or check in the stack's "
+        "infra/Pulumi.<stack>.yaml to run it from that file"
+    )
 
 
 def _project_checkout(

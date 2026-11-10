@@ -257,3 +257,17 @@ def test_stack_without_a_file_still_renders(tmp_path):
     assert calls[0].startswith(
         "secretsprovider: awskms://alias/yoke-pulumi\n"
     )
+
+
+def test_stack_rm_on_the_file_path_clears_no_stored_state(tmp_path):
+    root = _project(tmp_path)
+    calls: list[dict] = []
+    rc = _run(
+        root,
+        ["stack", "rm", "--yes"],
+        calls=calls,
+        confirm_destroy=_STACK,
+        stack_state_remover=lambda **kw: pytest.fail("cleared stored state"),
+    )
+    assert rc == 0
+    assert calls[0]["argv"] == ["pulumi", "stack", "rm", "--yes", "--stack", _STACK]
