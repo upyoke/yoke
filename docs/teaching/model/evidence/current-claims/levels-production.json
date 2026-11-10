@@ -5,18 +5,8 @@
  "observed_at": "2026-11-10",
  "evidence_scope": "Historical production captures prove the earlier four-column page and Cursor order only. Domain tests cover viewer access, retirement, 24-hour recency, freshest-machine reasons and duplicate native tokens. Production verification of per-surface model blockers is pending in levels-surface-reasons-prod.",
  "claim": "Levels rows are model/min_effort, with Launchable on chips for machines the viewer may use in operable projects. Blocked models show one reason per supported surface, using the freshest accessible, non-retired machine seen within 24 hours; absent machines are named by surface only. No separate unavailable list appears. Cursor quota order remains two editable monthly-pool rows. This changed behavior must be re-verified on Production after delivery.",
- "concepts": [
-  "levels/scheme",
-  "levels/options",
-  "levels/capacity/quota-pools",
-  "workbench/destinations/levels"
- ],
- "scenarios": [
-  "models-levels"
- ],
- "sources": [
-  "docs/public/agents/levels.md",
-  "docs/public/cli/index.md"
- ],
+ "concepts": ["levels/scheme", "levels/options", "levels/capacity/quota-pools", "workbench/destinations/levels"],
+ "scenarios": ["models-levels"],
+ "sources": ["docs/public/agents/levels.md", "docs/public/cli/index.md"],
  "position": 16
 }
