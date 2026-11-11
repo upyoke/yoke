@@ -8,7 +8,7 @@ export interface UniverseHostNavPage {
   /** Lowercase slug, unique across groups and distinct from Yoke view ids. */
   readonly id: string;
   readonly label: string;
-  /** Existing universe_nav_icons.js key; unknown keys leave the icon slot blank. */
+  /** universe_nav_icons.js key: a Yoke view id or named host icon (`leads`); defaults to id; unknown keys leave the slot blank. */
   readonly icon?: string;
   readonly content: Element | ((context: UniverseHostPageContext) => Element | null | undefined);
 }

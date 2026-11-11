@@ -93,8 +93,10 @@ Each group has `{ id, label, pages, collapsible? }`; each page has
 `{ id, label, content, icon? }`. Both new fields are optional; hosts omitting
 them keep their existing behavior. `icon` names an existing key in
 `static/universe_nav_icons.js`: Lucide SVGs keyed by Yoke view ids (for example
-`items`), rather than Lucide icon names or host-supplied SVG. An unknown key
-leaves the icon slot blank and never refuses mounting.
+`items`) plus named host icons (`leads`), rather than Lucide icon names or
+host-supplied SVG. A page without `icon` uses its id as the key, so a page with
+id `leads` shows that icon. An unknown key leaves the icon slot blank and never
+refuses mounting.
 
 Set `collapsible: true` to use the same disclosure control and remembered state
 as Diagnostics. A group never opened starts closed. State persists through
