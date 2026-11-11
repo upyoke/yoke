@@ -233,7 +233,7 @@ def test_user_data_treats_rendered_values_as_data(default_runner_stack):
         github_broker_function="broker$(exit 82)",
     )
     script = base64.b64decode(encoded).decode()
-    assignments = script.split("\napt-get update", 1)[0]
+    assignments = script.split("\napt_get update", 1)[0]
     result = subprocess.run(
         ["bash"],
         input=assignments + '\nprintf "%s" "$PROJECT"',

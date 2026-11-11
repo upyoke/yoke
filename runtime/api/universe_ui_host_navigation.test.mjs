@@ -192,6 +192,16 @@ test("host page icons use existing keys and leave omitted or unknown slots blank
   assert.equal(strategy.children[0].innerHTML, NAV_ICONS.strategy);
 });
 
+test("host pages select the leads icon by key or through the id fallback", async (t) => {
+  const navigation = group(() => null);
+  navigation[0].pages[0].icon = "leads";
+  navigation[0].pages.push({ id: "leads", label: "Leads", content: () => null });
+  const mounted = await mount(t, `${basePath}/reports`, navigation);
+  const links = byClass(mounted.root, "nav-link");
+  assert.match(NAV_ICONS.leads, /stroke-width="1.75"/);
+  assert.deepEqual(links.slice(-3).map(link => link.children[0].innerHTML), [NAV_ICONS.leads, "", NAV_ICONS.leads]);
+});
+
 test("collapsible host groups start closed and remember mouse and keyboard toggles on reload", async (t) => {
   const navigation = group(() => null);
   navigation[0].collapsible = true;

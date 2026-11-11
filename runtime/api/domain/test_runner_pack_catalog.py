@@ -55,7 +55,7 @@ def test_runner_fleet_latest_renders_its_smoke_workflow_and_no_stack_template(
         pack="self-hosted-runners",
         render_values=render_values,
     )
-    assert canonical["version"] == "3.0.0"
+    assert canonical["version"] == "3.0.1"
     assert canonical["superseded_by"] == ""
     files = {row["path"]: row for row in canonical["files"]}
     assert not [path for path in files if path.endswith(".yaml.tmpl")]

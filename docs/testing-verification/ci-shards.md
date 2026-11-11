@@ -13,13 +13,20 @@ smoke jobs remain pinned to Ubuntu 24.04 until their own runner upgrade is
 verified.
 
 The shared `.github/actions/yoke-test-runner` action declares host prerequisites:
-`postgresql-client-16` supplies the PostgreSQL 16 copy-lifetime tools. When
-missing, GitHub-hosted runners install it from the PostgreSQL PGDG apt
-repository; self-hosted runners refuse with `ci_runner_prerequisites_missing`
-and the package list to install before retrying. The Docker PostgreSQL service
-does not supply host clients. CI does not install embedded-engine libraries:
-fresh Ubuntu 26.04 runners exercise the product's embedded PostgreSQL
-portability. Runner upgrades require full CI on both supported Python endpoints.
+PostgreSQL 16 `pg_dump`, `pg_restore`, `psql`, `createdb`, `dropdb` and
+`pg_isready` in `/usr/lib/postgresql/16/bin` supply the copy-lifetime tools. Runner setup makes
+no apt calls, so an Ubuntu or PGDG mirror outage cannot block CI. When the tools
+are missing, GitHub-hosted runners copy them out of the already pulled
+`POSTGRES_IMAGE` (`docker create`, `docker cp -L`, `docker rm -f`); when the
+loader cannot find `libpq.so.5`, the image's copy goes to
+`/usr/lib/postgresql/16/lib`, registered with `ldconfig`. Every step is bounded.
+A failure refuses with a named `ci_runner_pg_client_*` reason (`missing` on
+self-hosted runners, `unsupported_arch`, `loader`, `create`, `copy`,
+`cleanup`, `install`, `unusable` when a copied tool does not report version 16) and its recovery.
+`initdb` and `postgres` are never copied: CI does not install embedded-engine
+libraries or binaries, so fresh Ubuntu 26.04 runners exercise the product's
+embedded PostgreSQL portability. Runner upgrades require full CI on both
+supported Python endpoints.
 
 The shared runner, full-CI contract job and selection plan install uv through
 commit-pinned `astral-sh/setup-uv`, with its download/build cache enabled and
@@ -32,7 +39,8 @@ setuptools-scm package versions, git-based tests and timing-profile lineage;
 the container version job also retains full history.
 
 After interpreter and uv setup, `ci_runner_prepare` overlaps the independent
-host-prerequisite install, locked dependency sync and Docker Postgres startup.
+locked dependency sync and the Docker Postgres task, which pulls the image,
+supplies the client tools from it, then starts the server.
 It imports with `python3 -S` from the checkout before dependencies exist.
 Every task has bounded commands and records its elapsed time; one barrier
 joins all tasks before any later setup or pytest. A failure refuses as
