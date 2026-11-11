@@ -98,6 +98,10 @@ def public_result(node: Any, refs: Mapping[int, str]) -> Any:
 
 
 def public_response(response: FunctionCallResponse) -> FunctionCallResponse:
+    # Pack bundles own content-addressed application source, not operator
+    # prose. Rewriting a literal item example invalidates the file digest.
+    if response.success and response.function in {"packs.bundle.get", "packs.bundle.render"}:
+        return response.model_copy(update={"result": temporal_wire(response.result)})
     error_message = response.error.message if response.error else ""
     ids = (
         collect_item_ids(response.result)

@@ -109,3 +109,46 @@ def test_response_backstop_hides_unresolved_names(monkeypatch):
     public = projection.public_response(response)
     assert "99" not in public.error.message
     assert "unresolved" in public.error.message
+
+
+@pytest.mark.parametrize("function", ["packs.bundle.get", "packs.bundle.render"])
+@pytest.mark.parametrize("version", ["1.1.5", "1.1.6"])
+def test_pack_response_preserves_content_addressed_application_source(
+    monkeypatch, function, version
+):
+    from contextlib import nullcontext
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from yoke_cli.packs.runner_support import _validate_bundle
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain import db_helpers, function_response_refs, pack_catalog
+
+    root = Path(__file__).resolve().parents[3]
+    monkeypatch.setattr(
+        pack_catalog, "resolve_project",
+        lambda *args, **kwargs: SimpleNamespace(id=9, slug="sample"),
+    )
+    calls = []
+    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(object()))
+
+    def resolve(conn, ids):
+        calls.append(ids)
+        return {number: f"APP-{number}" for number in ids}
+
+    monkeypatch.setattr(function_response_refs, "render_item_refs", resolve)
+    bundle = pack_catalog.build_pack_bundle(
+        object(), project="sample", pack="webapp-scaffold", version=version,
+        packs_dir=root / "packs",
+        render_values={
+            "api_port": "8000", "web_port": "3000", "project_slug": "sample",
+            "project_name": "sample", "project_display_name": "Sample App",
+            "project_description": "Sample application.",
+        },
+    )
+    _validate_bundle(bundle)
+    response = FunctionCallResponse(function=function, version="v1", success=True, result=bundle)
+    public = function_response_refs.public_response(response)
+    _validate_bundle(public.result)
+    assert public.result == bundle
+    assert not calls, "Literal examples in application source are not item selectors"
