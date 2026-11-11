@@ -31,10 +31,7 @@ BLOCKER_COMMIT = "d" * 40
 
 
 def _qa_rows(conn: Any, successor: str = "") -> dict[str, list[tuple]]:
-    """Every inherited QA identity, with the owning run left out.
-
-    Member selections and snapshots re-derive on the successor, so they are
-    not identities a takeover keeps."""
+    """Every inherited QA identity (not re-derived snapshots), owner left out."""
     return {
         "requirements": [
             tuple(row)

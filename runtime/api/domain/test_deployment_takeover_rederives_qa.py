@@ -11,9 +11,7 @@ from yoke_core.domain.deployment_qa_plan_ownership import _snapshot, plan_owners
 from yoke_core.domain.deployment_qa_stage_materialization import materialize_deployment_qa_stage
 from yoke_core.domain.deployment_requirement_snapshots import requirement_selection
 from yoke_core.domain.deployment_run_membership_removals import (
-    clear_membership_removal, enrollment_removed_item_ids, membership_removals,
-    record_membership_removals,
-)
+    clear_membership_removal, enrollment_removed_item_ids, membership_removals, record_membership_removals)
 from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
 from yoke_core.domain.deployment_run_stage_entry import set_current_stage
 from yoke_core.domain.qa_plan_management import replace_plan_cases
@@ -23,15 +21,12 @@ REMOVED = 9979
 
 
 def _case(key, position):
-    return {"case_key": key, "position": position, "method_id": "command",
-            "instructions": f"run the {key} command", "expected_outcome": "it passes",
-            "method_config": {"command": "true"}, "target_envs": []}
+    return {"case_key": key, "position": position, "method_id": "command", "target_envs": [],
+            "instructions": f"run {key}", "expected_outcome": "it passes", "method_config": {"command": "true"}}
 
 
 def _keys(pin):
     return sorted(case["case_key"] for case in pin["cases"])
-
-
 def _member_row(conn, run_id):
     return conn.execute(
         "SELECT requirement_selection,requirement_snapshot FROM deployment_run_items "

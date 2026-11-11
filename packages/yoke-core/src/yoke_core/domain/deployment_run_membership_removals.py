@@ -100,8 +100,7 @@ def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
 
 def enrollment_removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
     """This run's removals plus operator removals on the runs it superseded."""
-    inherited = {int(entry["item_id"]) for _, entry in _inherited(conn, run_id)}
-    return removed_item_ids(conn, run_id) | inherited
+    return removed_item_ids(conn, run_id) | {int(e["item_id"]) for _, e in _inherited(conn, run_id)}
 
 
 def _write(conn: Any, run_id: str, entries: list[dict[str, Any]]) -> None:
