@@ -199,7 +199,7 @@ def cmd_bootstrap_project_service(args: argparse.Namespace) -> int:
         created = bootstrap_project_service_token(
             conn,
             system_component=args.system_component,
-            project=args.project,
+            projects=args.project,
             role_name=args.role,
             token_name=args.name,
         )
@@ -267,7 +267,12 @@ def _build_parser() -> argparse.ArgumentParser:
         description=service_help,
     )
     service.add_argument("--system-component", required=True)
-    service.add_argument("--project", required=True)
+    service.add_argument(
+        "--project",
+        action="append",
+        required=True,
+        help="Project the role is granted on; repeat for each project.",
+    )
     service.add_argument(
         "--role",
         required=True,

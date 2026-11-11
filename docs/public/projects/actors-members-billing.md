@@ -101,8 +101,8 @@ role replaces the old one. The change is refused, with the reason named,
 when a non-owner tries to grant owner or change an owner (`owner_protected`),
 or it would remove the last active human owner (`last_owner`; make another person owner first),
 when the role is machine-only (`deployment_ci`, `hosted_service`,
-`infrastructure_ci`, `migration_verification_ci` belong to machine
-credentials), when the role is
+`infrastructure_ci`, `migration_verification_ci`, `preflight_executor`
+belong to machine credentials), when the role is
 not one of the four above, or when the actor is a system actor. An email
 with no linked actor is refused until that person signs in once. Project
 roles use the same four human roles on one project. Org roles carry to every

@@ -28,6 +28,7 @@ Run source commands from a claimed lane through `yoke dev run --`. Read [source-
 - [Hook Parity Map (internal)](hook-parity-map.md)
 - [Hooks Reference](hooks.md)
 - [Hosted Service Identity](hosted-service-identity.md)
+- [Fleet Preflight Box Identity](fleet-preflight-box-identity.md)
 - [Installer Session Registration And Telemetry](installer-session-telemetry.md)
 - [Contributor setup](../CONTRIBUTING.md)
 - [Installation](public/start/install.md)

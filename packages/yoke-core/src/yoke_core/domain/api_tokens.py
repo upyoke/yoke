@@ -7,7 +7,7 @@ import secrets
 import string
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -311,11 +311,11 @@ def bootstrap_project_service_token(
     conn: Any,
     *,
     system_component: str,
-    project: str | int,
+    projects: Sequence[str | int],
     role_name: str,
     token_name: str,
 ) -> CreatedToken:
-    """Compatibility surface for project service-identity bootstrap."""
+    """Bootstrap one project service identity; see :mod:`api_token_bootstrap`."""
     from yoke_core.domain.api_token_bootstrap import (
         bootstrap_project_service_token as run,
     )
@@ -323,7 +323,7 @@ def bootstrap_project_service_token(
     return run(
         conn,
         system_component=system_component,
-        project=project,
+        projects=projects,
         role_name=role_name,
         token_name=token_name,
     )

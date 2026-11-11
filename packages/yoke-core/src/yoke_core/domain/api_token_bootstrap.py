@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
@@ -63,13 +63,13 @@ def _assert_service_actor_scope(
     conn: Any,
     *,
     actor_id: int,
-    project_id: int,
+    project_ids: Sequence[int],
     role_name: str,
     allow_ungranted: bool,
 ) -> None:
     """Refuse minting when a named service actor carries broader authority."""
     project_grants, org_grants = _service_actor_authority(conn, actor_id)
-    expected = {(project_id, role_name)}
+    expected = {(project_id, role_name) for project_id in project_ids}
     if org_grants or (project_grants and project_grants != expected):
         raise ValueError(
             "system_component already belongs to a service actor with "
@@ -131,13 +131,15 @@ def bootstrap_project_service_token(
     conn: Any,
     *,
     system_component: str,
-    project: str | int,
+    projects: Sequence[str | int],
     role_name: str,
     token_name: str,
 ) -> CreatedToken:
-    """Resolve project authority, ensure one service actor/grant, and mint.
+    """Resolve project authority, ensure one service actor/grants, and mint.
 
-    Actor creation and the project-role grant are idempotent. Every invocation
+    The actor holds ``role_name`` on exactly the named projects: a box that
+    records fleet rehearsal receipts for several projects keeps one token.
+    Actor creation and the project-role grants are idempotent. Every invocation
     deliberately mints another active named token; callers install the new
     secret before revoking the superseded token id.
     """
@@ -150,28 +152,31 @@ def bootstrap_project_service_token(
             f"role_name {role!r} is not a project-scoped role; choose one of {accepted}"
         )
 
+    if not projects:
+        raise ValueError("name at least one --project for the service actor")
     # Resolve before creating durable actor state so an unknown or ambiguous
     # project fails without leaving an orphan service identity.
-    project_id = resolve_project_id(conn, project)
+    project_ids = sorted({resolve_project_id(conn, project) for project in projects})
     seed_roles_and_permissions(conn)
     actor_id = seed_system_actor(conn, component)
     _assert_service_actor_scope(
         conn,
         actor_id=actor_id,
-        project_id=project_id,
+        project_ids=project_ids,
         role_name=role,
         allow_ungranted=True,
     )
-    grant_actor_project_role(
-        conn,
-        actor_id=actor_id,
-        project_id=project_id,
-        role_name=role,
-    )
+    for project_id in project_ids:
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=project_id,
+            role_name=role,
+        )
     _assert_service_actor_scope(
         conn,
         actor_id=actor_id,
-        project_id=project_id,
+        project_ids=project_ids,
         role_name=role,
         allow_ungranted=False,
     )

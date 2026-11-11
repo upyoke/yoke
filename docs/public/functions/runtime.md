@@ -290,7 +290,7 @@ before explicitly confirming that retirement.
 
 A person has exactly one role from `yoke_core.domain.actor_role.HUMAN_ORG_ROLES`: owner, admin, operator or
 viewer. Operator works across the org's projects. Machine-only roles are deployment_ci,
-hosted_service, infrastructure_ci and migration_verification_ci; system roles accumulate. Every
+hosted_service, infrastructure_ci, migration_verification_ci and preflight_executor; system roles accumulate. Every
 grant uses the same person-role validator, including invites, sign-in, bootstrap and local seeding.
 Invite-role validation precedes creation, linking or acceptance; refusal names revoke recovery.
 
