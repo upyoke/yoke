@@ -121,10 +121,15 @@ def test_latest_packs_ship_no_pulumi_stack_templates_and_older_ones_say_so(
                 assert not templates, (descriptor["slug"], version, templates)
                 assert "superseded_by" not in record
             elif templates:
-                assert record.get("superseded_by") == latest, (
-                    descriptor["slug"],
-                    version,
-                )
+                replacement = record["superseded_by"]
+                assert replacement != version
+                # Published metadata keeps naming the original replacement.
+                successor = descriptor["versions"][replacement]
+                assert not any(
+                    row["source"].rsplit("/", 1)[-1].startswith("Pulumi.")
+                    and row["source"].endswith(".yaml.tmpl")
+                    for row in successor["files"]
+                ), (descriptor["slug"], version, replacement)
 
 
 def test_bundle_records_only_used_render_values_and_preserves_github_expressions(
