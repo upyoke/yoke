@@ -186,6 +186,8 @@ def deployment_runs_create(args: List[str]) -> int:
     parsed.flow = flows[0]
     if len(flows) > 1 and parsed.environment is not None:
         return usage_error("--environment is refused with multiple flows; each flow owns its target")
+    if len(flows) > 1 and parsed.retry_of:
+        return usage_error("--retry-of retries one run; retry each flow's run on its own")
     if len(set(flows)) != len(flows):
         return usage_error("name each flow once in a release set")
     if parsed.retry_of and parsed.project_repo_path:

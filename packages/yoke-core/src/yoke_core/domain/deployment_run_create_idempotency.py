@@ -33,6 +33,8 @@ KEY_INDEX_SQL = (
     f"WHERE {KEY_COLUMN} IS NOT NULL"
 )
 MAX_KEY_LENGTH = 200
+#: A run cancelled before it ever started, whose key a repeat may reuse.
+_UNSTARTED_CANCELLED = "(status = 'cancelled' AND started_at IS NULL)"
 #: The request fields whose values make two creates the same intended run.
 REQUEST_FIELDS = (
     "project",
@@ -80,15 +82,18 @@ def canonical_request(fields: Mapping[str, Optional[str]]) -> str:
 def existing_run(conn: Any, project_id: int, key: str, request: str) -> Optional[str]:
     """Return the run this key already created for this request.
 
-    Raises :class:`IdempotencyKeyConflict` when the key already names a run
-    created from a different request.
+    A run cancelled before it ever started names nothing: a repeat creates a
+    fresh run (:func:`release_unstarted_key` frees the key under the creation
+    lock). A run cancelled after it started keeps its key, so a deliberate
+    cancel is never silently recreated. Raises :class:`IdempotencyKeyConflict`
+    when the key already names a run created from a different request.
     """
     row = conn.execute(
-        f"SELECT id, {REQUEST_COLUMN} FROM deployment_runs "
+        f"SELECT id, {REQUEST_COLUMN}, {_UNSTARTED_CANCELLED} FROM deployment_runs "
         f"WHERE project_id = %s AND {KEY_COLUMN} = %s",
         (project_id, key),
     ).fetchone()
-    if row is None:
+    if row is None or row[2]:
         return None
     run_id, stored = str(row[0]), row[1]
     if stored == request:
@@ -99,6 +104,19 @@ def existing_run(conn: Any, project_id: int, key: str, request: str) -> Optional
         name for name in REQUEST_FIELDS if before.get(name) != after.get(name)
     )
     raise IdempotencyKeyConflict(key, run_id, differing or ["request"])
+
+
+def release_unstarted_key(conn: Any, project_id: int, key: str) -> None:
+    """Free *key* from a run cancelled before it started, so it can name a new one.
+
+    The partial unique index would otherwise refuse the new run's insert.
+    The cancelled run keeps its recorded request as history.
+    """
+    conn.execute(
+        f"UPDATE deployment_runs SET {KEY_COLUMN} = NULL "
+        f"WHERE project_id = %s AND {KEY_COLUMN} = %s AND {_UNSTARTED_CANCELLED}",
+        (project_id, key),
+    )
 
 
 def replay_run(project: str, key: str, request: str) -> Optional[str]:
@@ -127,6 +145,7 @@ __all__ = [
     "REQUEST_COLUMN",
     "canonical_request",
     "existing_run",
+    "release_unstarted_key",
     "replay_run",
     "validate_key",
 ]

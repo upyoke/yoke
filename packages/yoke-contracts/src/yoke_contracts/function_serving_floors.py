@@ -220,6 +220,13 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         )
         for name in ("yoke_version", "agent")
     },
+    "deployment_runs.create": {
+        "flows": ArgumentFloor(
+            "next-release",
+            "one `yoke deployment-runs create PROJECT FLOW` per flow, each with "
+            "its own --idempotency-key and the same --source-ref",
+        ),
+    },
     "sessions.begin": {
         "machine_scope": ArgumentFloor(
             "next-release", "start the agent inside a registered project folder"

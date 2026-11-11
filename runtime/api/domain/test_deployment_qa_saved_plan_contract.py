@@ -167,7 +167,7 @@ def _release_members(conn):
 
 
 def test_takeover_reads_the_pinned_group_without_writes(test_db, published):
-    from yoke_core.domain.deployment_run_takeover_eligibility import eligible_predecessor
+    from yoke_core.domain.deployment_run_takeover_eligibility import eligible_predecessors
     from yoke_core.domain.deployment_run_target_takeover import (
         _moving_members,
     )
@@ -178,7 +178,7 @@ def test_takeover_reads_the_pinned_group_without_writes(test_db, published):
         test_db.execute("SELECT * FROM deployment_runs WHERE id=%s", (RUN,)).fetchone()
     )
     new_run["id"] = SUCCESSOR
-    waiting = eligible_predecessor(test_db, new_run)
+    waiting = eligible_predecessors(test_db, new_run)[0]
     assert waiting["id"] == RUN
     assert [m["item_id"] for m in _moving_members(test_db, waiting)] == list(MEMBERS)
     assert _group_row(test_db, ids[0]) == before

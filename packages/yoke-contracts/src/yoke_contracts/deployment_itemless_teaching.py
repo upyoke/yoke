@@ -122,8 +122,9 @@ RESOLVE_TARGET_DESCRIPTION = (
 CREATE_DESCRIPTION = (
     "Create one run per flow on one commit, in order. Multiple flows use "
     "KEY:FLOW keys and their own environments (no --environment). "
-    "A refusal cancels earlier runs made by this call; a single flow keeps "
-    "its key. Creation pins bound "
+    "The set is all or nothing: a refusal on any flow creates no run and "
+    "takes over nothing. A key whose run was cancelled before it started "
+    "creates a fresh run. Creation pins bound "
     "source commits and provisionally composes membership from the candidate. "
     "It reports all detectable blockers, including selected member flow "
     "mismatches, before committing a run ID. On a flow that waits for CI, "

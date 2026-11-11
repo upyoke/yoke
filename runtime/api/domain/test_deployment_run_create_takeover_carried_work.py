@@ -197,7 +197,7 @@ def test_exhausted_create_preparation_teaches_creation_recovery(monkeypatch):
     monkeypatch.setattr(create_write, "bounded_run_write", lambda *_: nullcontext())
     monkeypatch.setattr(create_write, "_create_locked", changing_source)
     with pytest.raises(SourcePreparationChanged) as refused:
-        create_write._create_committed(conn, "project", {}, {})
+        create_write._create_committed(conn, "project", [({}, {})])
     assert len(attempts) == 8
     message = str(refused.value)
     assert "deployment_source_preparation_changed" in message
