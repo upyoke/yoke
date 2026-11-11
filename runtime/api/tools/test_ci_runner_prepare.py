@@ -1,4 +1,4 @@
-"""Parallel runner setup retains prerequisite, database and failure contracts."""
+"""Parallel runner setup retains client-tool, database and failure contracts."""
 
 import os
 from pathlib import Path
@@ -12,64 +12,139 @@ from yoke_core.tools import ci_runner_prepare as runner
 from yoke_core.domain.source_pythonpath import source_entries
 
 
-@pytest.mark.parametrize(
-    ("host", "installed", "curl_fails", "reason"),
-    [("self-hosted", False, False, "ci_runner_prerequisites_missing"),
-     ("self-hosted", True, False, None),
-     ("github-hosted", False, False, None),
-     ("github-hosted", True, False, None),
-     ("github-hosted", False, True, "ci_runner_pgdg_key_download_failed")],
-)
-def test_runner_prerequisites_install_only_on_hosted_hosts(
-    monkeypatch, host, installed, curl_fails, reason,
-):
-    calls = []
+class FakeHost:
+    """Answers runner commands; the client tools work once installed."""
 
-    def run(args, **kwargs):
-        calls.append((args, kwargs))
-        if args[0] == "dpkg-query":
+    def __init__(self, *, installed=False, loader_has_libpq=True, fail=None,
+                 usable_after_install=True):
+        self.installed = installed
+        self.loader_has_libpq = loader_has_libpq
+        self.fail = fail
+        self.usable_after_install = usable_after_install
+        self.calls = []
+
+    def __call__(self, args, **kwargs):
+        if args[-1] == "--version":
+            ok = self.installed and (self.usable_after_install or args[0].endswith("x"))
             return subprocess.CompletedProcess(
-                args, 0 if installed else 1,
-                "install ok installed" if installed else "not installed",
+                args, 0 if ok else 127,
+                f"{Path(args[0]).name} (PostgreSQL) 16.13\n" if ok else "",
+                "" if ok else "error while loading shared libraries: libldap.so.2",
             )
-        if args[:2] == ["sudo", "curl"] and curl_fails:
-            raise subprocess.CalledProcessError(55, args)
-        return subprocess.CompletedProcess(args, 0)
+        self.calls.append((args, kwargs))
+        assert kwargs.get("timeout"), f"unbounded command: {args}"
+        if self.fail and args[:2] == self.fail:
+            raise subprocess.CalledProcessError(1, args)
+        if args == ["ldconfig", "-p"]:
+            libpq = "\tlibpq.so.5 (libc6,x86-64) => /lib/x86_64-linux-gnu/libpq.so.5\n"
+            return subprocess.CompletedProcess(
+                args, 0, "3 libs found\n" + (libpq if self.loader_has_libpq else ""), "")
+        if args[:4] == ["sudo", "install", "-m", "0755"]:
+            self.installed = True
+        return subprocess.CompletedProcess(args, 0, "", "")
 
-    monkeypatch.setattr(runner.subprocess, "run", run)
-    monkeypatch.setattr(runner.platform, "freedesktop_os_release",
-                        lambda: {"VERSION_CODENAME": "resolute"})
-    monkeypatch.setenv("RUNNER_ENVIRONMENT", host)
-    if reason:
-        with pytest.raises(runner.PreparationError, match=reason) as refusal:
-            runner.prepare_prerequisites()
-        assert "Recovery:" in str(refusal.value)
+    @property
+    def commands(self):
+        return [args for args, _ in self.calls]
+
+
+@pytest.fixture
+def host(monkeypatch, tmp_path):
+    def make(runner_environment="github-hosted", **kwargs):
+        fake = FakeHost(**kwargs)
+        monkeypatch.setattr(runner.subprocess, "run", fake)
+        monkeypatch.setattr(runner.platform, "machine", lambda: "x86_64")
+        monkeypatch.setattr(runner.tempfile, "mkdtemp", lambda **_: str(tmp_path / "stage"))
+        monkeypatch.setenv("RUNNER_ENVIRONMENT", runner_environment)
+        return fake
+    return make
+
+
+@pytest.mark.parametrize("runner_environment", ["self-hosted", "github-hosted"])
+def test_ready_client_tools_leave_the_host_unchanged(host, runner_environment):
+    fake = host(runner_environment, installed=True)
+    runner.install_pg_client("example.test/postgres:16", "pg")
+    assert fake.commands == []
+
+
+def test_self_hosted_runner_without_client_tools_refuses(host):
+    fake = host("self-hosted")
+    with pytest.raises(runner.PreparationError, match="ci_runner_pg_client_missing") as refusal:
+        runner.install_pg_client("example.test/postgres:16", "pg")
+    assert "Recovery:" in str(refusal.value)
+    assert fake.commands == []
+
+
+@pytest.mark.parametrize("loader_has_libpq", [True, False])
+def test_hosted_runner_copies_client_tools_from_the_image_without_apt(
+    host, tmp_path, loader_has_libpq,
+):
+    fake = host(loader_has_libpq=loader_has_libpq)
+    runner.install_pg_client("example.test/postgres:16", "pg")
+    commands = fake.commands
+    assert not any("apt-get" in args or "apt" in args for args in commands)
+    assert commands[:2] == [
+        ["ldconfig", "-p"],
+        ["docker", "create", "--name", "pg-client", "example.test/postgres:16"],
+    ]
+    copies = [args[3] for args in commands if args[:2] == ["docker", "cp"]]
+    tools = ["pg_dump", "pg_restore", "psql", "createdb", "pg_isready"]
+    expected = [f"pg-client:/usr/lib/postgresql/16/bin/{tool}" for tool in tools]
+    if not loader_has_libpq:
+        expected.append("pg-client:/usr/lib/x86_64-linux-gnu/libpq.so.5")
+    assert copies == expected
+    assert not any(name in " ".join(copies) for name in ("initdb", "/postgres "))
+    assert not any(copy.endswith("/postgres") for copy in copies)
+    removal = commands.index(["docker", "rm", "-f", "pg-client"])
+    assert removal == 2 + len(copies)
+    assert commands[removal + 1] == ["sudo", "install", "-d", "/usr/lib/postgresql/16/bin"]
+    assert commands[removal + 2] == [
+        "sudo", "install", "-m", "0755", *(str(tmp_path / "stage" / t) for t in tools),
+        "/usr/lib/postgresql/16/bin",
+    ]
+    loader = [args for args in commands if "ldconfig" in args and args[0] == "sudo"]
+    if loader_has_libpq:
+        assert len(commands) == removal + 3 and not loader
     else:
-        runner.prepare_prerequisites()
-    commands = [args for args, _ in calls]
-    if installed or host == "self-hosted":
-        assert len(commands) == 1, "prepared and self-hosted hosts stay unchanged"
-        return
-    curl = next(args for args in commands if args[:2] == ["sudo", "curl"])
-    assert "https://www.postgresql.org/media/keys/ACCC4CF8.asc" in curl
-    for option, value in (("--retry", "5"), ("--connect-timeout", "10"),
-                          ("--max-time", "60"), ("--retry-max-time", "300")):
-        assert curl[curl.index(option) + 1] == value
-    assert "--retry-all-errors" in curl
-    apt = [args for args in commands if args[:2] == ["sudo", "apt-get"]]
-    if curl_fails:
-        assert not apt
-        assert "Check PostgreSQL key endpoint connectivity" in str(refusal.value)
-    else:
-        assert apt == [
-            ["sudo", "apt-get", "-o", "Acquire::Retries=3", "update"],
-            ["sudo", "apt-get", "-o", "Acquire::Retries=3", "install", "--yes",
-             "--no-install-recommends", "postgresql-client-16"],
-        ]
-        source = next(kwargs["input"] for args, kwargs in calls
-                      if args[:2] == ["sudo", "tee"])
-        assert "resolute-pgdg main" in source
-        assert "signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc" in source
+        assert commands[removal + 3][-1] == "/usr/lib/postgresql/16/lib/libpq.so.5"
+        conf = commands[removal + 4]
+        assert conf[-2:] == ["/usr/lib/postgresql/16/lib", "/etc/ld.so.conf.d/yoke-ci-pg-client.conf"]
+        assert loader == [["sudo", "flock", "/var/lock/yoke-ci-ldconfig.lock", "ldconfig"]]
+
+
+@pytest.mark.parametrize(
+    ("fail", "reason"),
+    [(["ldconfig", "-p"], "ci_runner_pg_client_loader_failed"),
+     (["docker", "create"], "ci_runner_pg_client_create_failed"),
+     (["docker", "cp"], "ci_runner_pg_client_copy_failed"),
+     (["docker", "rm"], "ci_runner_pg_client_cleanup_failed"),
+     (["sudo", "install"], "ci_runner_pg_client_install_failed")],
+)
+def test_failed_copy_refuses_with_its_named_reason(host, fail, reason):
+    fake = host(fail=fail)
+    with pytest.raises(runner.PreparationError, match=reason) as refusal:
+        runner.install_pg_client("example.test/postgres:16", "pg")
+    assert "Recovery:" in str(refusal.value)
+    assert not fake.installed
+    if fail == ["docker", "cp"]:
+        assert fake.commands[-1] == ["docker", "rm", "-f", "pg-client"]
+        assert not any(args[:2] == ["sudo", "install"] for args in fake.commands)
+
+
+def test_copied_tools_that_cannot_run_refuse_as_unusable(host):
+    host(usable_after_install=False)
+    with pytest.raises(runner.PreparationError, match="ci_runner_pg_client_unusable") as refusal:
+        runner.install_pg_client("example.test/postgres:16", "pg")
+    assert "libldap.so.2" in str(refusal.value)
+    assert "Recovery:" in str(refusal.value)
+
+
+def test_unsupported_architecture_refuses_before_docker(host, monkeypatch):
+    fake = host()
+    monkeypatch.setattr(runner.platform, "machine", lambda: "riscv64")
+    with pytest.raises(runner.PreparationError, match="ci_runner_pg_client_unsupported_arch"):
+        runner.install_pg_client("example.test/postgres:16", "pg")
+    assert fake.commands == []
 
 
 @pytest.fixture
@@ -78,6 +153,7 @@ def postgres(monkeypatch, tmp_path):
     monkeypatch.setenv("POSTGRES_IMAGE", "example.test/postgres:16")
     monkeypatch.setenv("GITHUB_ENV", str(tmp_path / "github-env"))
     monkeypatch.setattr(runner.tempfile, "mkdtemp", lambda **_: str(tmp_path / "socket"))
+    monkeypatch.setattr(runner, "install_pg_client", lambda image, container: None)
     return tmp_path / "github-env"
 
 
@@ -91,6 +167,8 @@ def test_postgres_settings_and_cleanup_publish_before_admission(monkeypatch, pos
         return subprocess.CompletedProcess(args, 0, mapping)
 
     monkeypatch.setattr(runner, "_run", run)
+    monkeypatch.setattr(runner, "install_pg_client",
+                        lambda image, container: calls.append(["install", image, container]))
     if mapping.startswith("0."):
         runner.start_postgres()
         assert "port=32768" in postgres.read_text()
@@ -100,7 +178,8 @@ def test_postgres_settings_and_cleanup_publish_before_admission(monkeypatch, pos
         assert "YOKE_PG_DSN=" not in postgres.read_text()
     docker = next(args for args in calls if args[:2] == ["docker", "run"])
     assert calls[0] == ["docker", "pull", "example.test/postgres:16"]
-    assert calls.index(docker) == 1, "pull must succeed before consuming the image"
+    assert calls[1] == ["install", "example.test/postgres:16", "isolated-test-pg"]
+    assert calls.index(docker) == 2, "pull must succeed before consuming the image"
     assert docker[docker.index("--name") + 1] == "isolated-test-pg"
     assert "timezone=" + dict(runner.DISPOSABLE_SERVER_SETTINGS)["timezone"] in docker
     for value in ("fsync=off", "synchronous_commit=off", "full_page_writes=off",
@@ -197,7 +276,7 @@ def test_start_failure_survives_cleanup_and_diagnostic_failures(monkeypatch, cap
 
 @pytest.mark.parametrize("failure", [False, True])
 def test_all_independent_tasks_start_and_join_even_when_one_fails(monkeypatch, failure):
-    barrier = threading.Barrier(3, timeout=5)
+    barrier = threading.Barrier(2, timeout=5)
     finished = set()
 
     def task(name):
@@ -208,7 +287,7 @@ def test_all_independent_tasks_start_and_join_even_when_one_fails(monkeypatch, f
                 raise runner.PreparationError("lock invalid; regenerate the lock")
         return run
 
-    for name in ("prepare_prerequisites", "install_dependencies", "start_postgres"):
+    for name in ("install_dependencies", "start_postgres"):
         monkeypatch.setattr(runner, name, task(name.split("_")[-1]))
     if failure:
         with pytest.raises(runner.PreparationError, match="ci_runner_setup_failed") as refusal:
@@ -217,7 +296,7 @@ def test_all_independent_tasks_start_and_join_even_when_one_fails(monkeypatch, f
         assert "tests did not start" in str(refusal.value)
     else:
         runner.prepare()
-    assert finished == {"prerequisites", "dependencies", "postgres"}
+    assert finished == {"dependencies", "postgres"}
 
 
 def test_locked_dependency_command_is_unchanged(monkeypatch):
