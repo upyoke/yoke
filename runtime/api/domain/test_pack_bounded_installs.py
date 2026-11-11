@@ -16,7 +16,7 @@ from runtime.api.domain.pack_bounded_install_helpers import ROOT, run_fragment, 
 from runtime.api.domain.webapp_runner_fleet_test_support import default_runner_stack as default_runner_stack
 
 VERSIONS = {
-    "webapp-scaffold": ("1.1.5", "1.1.6"),
+    "webapp-scaffold": ("1.1.6", "1.1.7"),
     "ephemeral-environments": ("1.3.0", "1.3.1"),
     "production-deploy": ("1.1.2", "1.1.3"),
     "smoke-testing": ("1.1.1", "1.1.2"),
@@ -176,3 +176,21 @@ def test_vps_rendered_install_and_download_steps(monkeypatch, tmp_path):
             assert_outcomes(tmp_path, helpers + command, reason)
     assert counts == {"provision-ec2.sh": 8, "provision-tls.sh": 3,
                       "update-firewall.sh": 1}
+
+
+def test_npm_zero_exit_incomplete_install_fails(monkeypatch, tmp_path):
+    """npm10 may exit zero after ENOTFOUND while leaving direct deps missing."""
+    scripts = []
+    for row in bundle(monkeypatch, "webapp-scaffold")["files"]:
+        if row["path"].endswith("ci.yml"):
+            for job in yaml.safe_load(row["content"])["jobs"].values():
+                scripts.extend(step["run"] for step in job["steps"]
+                               if "npm ci" in step.get("run", ""))
+    assert len(scripts) == 2
+    for script in scripts:
+        result, calls = run_fragment(tmp_path, script, "incomplete")
+        assert result.returncode != 0
+        assert "npm_install_failed" in result.stderr
+        assert "re-run" in result.stderr
+        assert "npm ci" in calls
+        assert "npm ls --depth=0" in calls

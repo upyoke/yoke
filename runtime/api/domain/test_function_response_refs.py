@@ -112,7 +112,7 @@ def test_response_backstop_hides_unresolved_names(monkeypatch):
 
 
 @pytest.mark.parametrize("function", ["packs.bundle.get", "packs.bundle.render"])
-@pytest.mark.parametrize("version", ["1.1.5", "1.1.6"])
+@pytest.mark.parametrize("version", ["1.1.5", "1.1.6", "1.1.7"])
 def test_pack_response_preserves_content_addressed_application_source(
     monkeypatch, function, version
 ):

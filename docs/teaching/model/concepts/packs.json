@@ -5,5 +5,5 @@
  "sources": ["docs/public/projects/index.md", "docs/public/guide/configuration.packs.md", "packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py"],
  "page": "packs",
  "position": 27,
- "summary": "Published versions remain immutable. New pack versions bound external installs and downloads, limit retries and report named failures; workflow jobs have time limits. Existing projects explicitly apply updates with yoke packs update PACK --project NAME --apply and resolve merge conflicts; nothing updates automatically. Pack bundle transport preserves content-addressed application source verbatim, including literal item-number examples."
+ "summary": "Published versions remain immutable. New pack versions bound external installs and downloads, limit retries and report named failures; workflow jobs have time limits. Existing projects explicitly apply updates with yoke packs update PACK --project NAME --apply and resolve merge conflicts; nothing updates automatically. Pack bundle transport preserves content-addressed application source verbatim, including literal item-number examples. CI dependency installs verify the installed direct dependencies as well as npm exit status, because an interrupted npm download can report success."
 }

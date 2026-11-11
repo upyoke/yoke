@@ -50,9 +50,11 @@ def run_fragment(tmp_path: Path, script: str, mode: str):
             body = 'exec "$@"\n'
         else:
             body = (
+                ('if [ "$1" = -c ]; then exec /bin/sh "$@"; fi\n' if name == 'sh' else '') +
                 'echo "$0 $*" >> "$CALLS"\n'
                 'case "$FETCH_MODE" in\n'
                 '  success) exit 0;;\n'
+                '  incomplete) if [ "$1" = ci ]; then echo "npm error Exit handler never called!" >&2; exit 0; else exit 1; fi;;\n'
                 '  unreachable) echo "Temporary failure resolving packages.invalid" >&2; exit 6;;\n'
                 '  hung) exec sleep 5;;\n'
                 'esac\n'
