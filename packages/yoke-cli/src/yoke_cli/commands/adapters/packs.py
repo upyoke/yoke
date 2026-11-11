@@ -17,6 +17,8 @@ from yoke_cli.packs import (
     run_pack_operation,
     run_pack_relink,
 )
+from yoke_cli.packs.catalog_source import PackCatalog
+from yoke_cli.packs.runner_support import _fetch_bundle
 
 
 _CATALOG_USAGE = "[--catalog served|lane|commit:SHA] [--yoke-checkout PATH]"
@@ -214,6 +216,12 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
         return 2
     try:
         with machine_config_path(parsed.config_path):
+            catalog = resolve_catalog(
+                parsed.catalog, yoke_checkout=parsed.yoke_checkout
+            )
+            warning = _superseded_warning(operation, parsed, catalog)
+            if warning:
+                print(f"warning: {warning}", file=sys.stderr)
             report = run_pack_operation(
                 parsed.repo_root,
                 project=parsed.project,
@@ -224,15 +232,48 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
                 version=parsed.version,
                 session_id=parsed.session_id,
                 accepted_current_paths=getattr(parsed, "accepted_current_paths", None),
-                catalog=resolve_catalog(
-                    parsed.catalog, yoke_checkout=parsed.yoke_checkout
-                ),
+                catalog=catalog,
             )
     except PackClientError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    if warning:
+        report["warnings"] = [warning]
     _emit_report(report, parsed.json_mode)
     return 1 if report.get("refused") else 0
+
+
+def _superseded_warning(
+    operation: str, parsed: argparse.Namespace, catalog: PackCatalog
+) -> str:
+    """Name the replacement when an explicit --version is superseded.
+
+    A superseded version still installs; the warning only points at the
+    version that replaces it.
+    """
+    if parsed.version is None:
+        return ""
+    if catalog.served:
+        bundle = _fetch_bundle(
+            parsed.project,
+            parsed.pack,
+            version=parsed.version,
+            session_id=parsed.session_id,
+            catalog=catalog,
+        )
+        replacement = str(bundle.get("superseded_by") or "")
+    else:
+        descriptor = catalog.descriptors().get(parsed.pack) or {}
+        record = (descriptor.get("versions") or {}).get(parsed.version) or {}
+        replacement = str(record.get("superseded_by") or "")
+    if not replacement:
+        return ""
+    return (
+        f"Pack {parsed.pack!r} version {parsed.version!r} is superseded by "
+        f"{replacement!r}; install the replacement unless you need this exact "
+        f"version: yoke packs {operation} {parsed.pack} --project "
+        f"{parsed.project} --version {replacement}"
+    )
 
 
 def _emit_report(report, json_mode):

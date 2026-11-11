@@ -81,6 +81,29 @@ def validate_descriptor(descriptor: Mapping[str, Any], path: Path) -> None:
                 f"{root / documentation_path}"
             )
         _validate_version_contract(slug, version, record, root)
+        _validate_superseded_by(slug, version, descriptor, versions)
+
+
+def _validate_superseded_by(
+    slug: str, version: str, descriptor: Mapping[str, Any], versions: Mapping
+) -> None:
+    """A version may name the newer, current version that replaces it."""
+    target = versions[version].get("superseded_by")
+    if target is None:
+        return
+    if (
+        version == descriptor["latest_version"]
+        or not isinstance(target, str)
+        or not VERSION_PATTERN.fullmatch(target)
+        or not isinstance(versions.get(target), dict)
+        or "superseded_by" in versions[target]
+        or tuple(map(int, target.split("."))) <= tuple(map(int, version.split(".")))
+    ):
+        raise PackError(
+            f"Pack {slug!r} version {version!r} superseded_by {target!r} must name "
+            "a newer, unsuperseded version of the same Pack; the latest version "
+            "cannot be superseded"
+        )
 
 
 def _validate_version_contract(
@@ -319,13 +342,7 @@ def validate_target(target: str, source: Path) -> None:
 
 
 __all__ = [
-    "PLACEHOLDER_PATTERN",
-    "SLUG_PATTERN",
-    "PackError",
-    "PackNotFoundError",
-    "required_render_keys",
-    "validate_catalog_graph",
-    "validate_descriptor",
-    "validate_render_values",
-    "validate_target",
+    "PLACEHOLDER_PATTERN", "SLUG_PATTERN", "PackError", "PackNotFoundError",
+    "required_render_keys", "validate_catalog_graph", "validate_descriptor",
+    "validate_render_values", "validate_target",
 ]

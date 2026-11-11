@@ -6,8 +6,9 @@ the statements, and the Sids and action sets were as expected, while the
 resource a statement would actually be evaluated against was never asserted.
 This file renders one realistic project — two environments, each stating its
 own delivery facts beside unrelated settings — through the engine renderer and
-the latest Pack's policy, the way the stack config template and the Pulumi
-entrypoint carry it, and pins the rendered resources literally.
+the latest Pack's policy, the way ``yoke:delivery_authority_json`` and the
+project's stack-file lists reach the Pulumi entrypoint, and pins the resulting
+resources literally.
 """
 
 from __future__ import annotations
@@ -67,8 +68,10 @@ PROD = environment(
 @pytest.fixture(scope="module")
 def rendered() -> list[dict]:
     values = renderer.delivery_ci_values(settings_for(STAGE, PROD))
-    # The stack config template carries each rendered value verbatim, and the
-    # Pulumi entrypoint hands the parsed descriptor to the Pack's policy.
+    # Yoke passes the merged grant as yoke:delivery_authority_json; the bucket,
+    # distribution and App-key lists are the project's own stack-file values,
+    # stated here as the same union. The entrypoint hands the parsed
+    # descriptor to the Pack's policy.
     grant = policy.delivery_authority_from_config(
         json.loads(values["delivery_authority_json"])
     )

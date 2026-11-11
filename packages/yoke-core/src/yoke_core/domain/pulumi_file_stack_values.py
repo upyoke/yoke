@@ -90,6 +90,7 @@ def file_stack_yoke_values(
             values.update(runner_fleet_values(
                 settings, fallback_repo=values["github_repo_slug"], enabled=True
             ))
+            values["runner_fleet_project"] = settings.project
         except ValueError as exc:
             raise FileStackValuesError(
                 f"pulumi_runner_fleet_values_unavailable: {exc}; repair the "

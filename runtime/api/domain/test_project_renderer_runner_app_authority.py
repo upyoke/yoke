@@ -145,3 +145,15 @@ def test_disabled_routing_still_requires_permission_to_delete_variable(
         ValueError, match=r"Variables: write \(actions_variables\)",
     ):
         _values(settings)
+
+
+def test_runner_fleet_stack_file_values_carry_the_project_slug():
+    from yoke_core.domain.pulumi_file_stack_values import file_stack_yoke_values
+
+    settings = _settings(github_app=_app())
+    values = file_stack_yoke_values(settings, "externalwebapp-runner-fleet", "runner_fleet")
+
+    assert values["runner_fleet_project"] == "externalwebapp"
+    assert "runner_fleet_project" not in file_stack_yoke_values(
+        settings, "externalwebapp-runner-fleet", "variables"
+    )

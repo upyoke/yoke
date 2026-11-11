@@ -34,7 +34,7 @@ def test_runner_fleet_patch_keeps_the_published_pack_contract_stable(
         assert latest[key] == previous[key]
 
 
-def test_runner_fleet_latest_renders_its_runtime_template(
+def test_runner_fleet_latest_renders_its_smoke_workflow_and_no_stack_template(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -55,8 +55,27 @@ def test_runner_fleet_latest_renders_its_runtime_template(
         pack="self-hosted-runners",
         render_values=render_values,
     )
-    assert canonical["version"] == "2.0.2"
+    assert canonical["version"] == "3.0.0"
+    assert canonical["superseded_by"] == ""
     files = {row["path"]: row for row in canonical["files"]}
-    runtime_template = files["infra/Pulumi.runner-fleet-stack.yaml.tmpl"]["content"]
-    for key in render_values:
-        assert f"{{{{{key}}}}}" in runtime_template
+    assert not [path for path in files if path.endswith(".yaml.tmpl")]
+    smoke = files[".github/workflows/runner-fleet-smoke.yml"]["content"]
+    assert 'runs-on: ["self-hosted","linux","arm64"]' in smoke
+    assert "vars.YOKE_RUNNER_LABELS" in smoke
+    assert "{{runner_fleet_" not in smoke
+    stack_config = files["infra/webapp_runner_fleet_stack_config.py"]["content"]
+    assert 'pulumi.Config("yoke")' in stack_config
+    assert 'project=text("project")' in stack_config
+
+
+def test_runner_fleet_template_versions_name_their_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
+
+    descriptor = pack_catalog.load_pack_descriptor("self-hosted-runners")
+    for version, record in descriptor["versions"].items():
+        ships_template = any(
+            row["source"].endswith(".yaml.tmpl") for row in record["files"]
+        )
+        assert record.get("superseded_by") == ("3.0.0" if ships_template else None)

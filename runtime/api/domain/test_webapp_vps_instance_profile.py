@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 from runtime.api.domain.webapp_registry_stack_test_support import (
     _load_pack_module,
     _Recorder,
@@ -33,7 +32,8 @@ def test_default_keeps_instance_profile_absent(monkeypatch):
 
 def test_provided_profile_lands_on_instance(monkeypatch):
     recorder, _stack = _vps_stack(
-        monkeypatch, iam_instance_profile_name="origin-profile",
+        monkeypatch,
+        iam_instance_profile_name="origin-profile",
     )
     instance = recorder.single("vpsInstance")
     assert instance.kwargs["iam_instance_profile"] == "origin-profile"
@@ -57,15 +57,11 @@ def test_vps_component_type_aliases_are_project_configured(monkeypatch):
     ]
 
 
-def test_standalone_stack_config_exposes_optional_instance_profile():
-    root = Path(__file__).parents[3]
-    entrypoint = (
-        root / "packs/pulumi-foundation/versions/1.0.0/files/infra/__main__.py"
-    ).read_text()
-    stack_source = (
-        root / "packs/pulumi-foundation/versions/1.0.0/files/infra"
-        / "Pulumi.stack.yaml.tmpl"
-    ).read_text()
+def test_standalone_stack_reads_optional_instance_profile_from_project_config():
+    entrypoint = _pack_program_source("__main__.py").read_text()
+    vps_args = entrypoint[entrypoint.index("def _vps_args_from_config") :]
+    vps_args = vps_args[: vps_args.index("\n\n\ndef ")]
 
-    assert 'config.get("vps_iam_instance_profile_name")' in entrypoint
-    assert "webapp-infra:vps_iam_instance_profile_name:" in stack_source
+    assert "config = pulumi.Config()" in vps_args
+    assert 'config.get("vps_iam_instance_profile_name") or None' in vps_args
+    assert 'pulumi.Config("yoke")' not in vps_args

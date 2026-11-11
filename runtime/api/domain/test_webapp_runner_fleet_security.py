@@ -1,4 +1,4 @@
-"""Security boundaries for the rendered GitHub Actions runner fleet."""
+"""Security boundaries for the GitHub Actions runner fleet Pack program."""
 
 import json
 
@@ -7,9 +7,7 @@ from runtime.api.domain.webapp_runner_fleet_test_support import (
     default_runner_stack as default_runner_stack,
 )
 from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
-from yoke_core.domain.project_renderer_pulumi_files import (
-    RUNNER_FLEET_PROGRAM_FILES,
-)
+from yoke_core.domain.pack_catalog import pack_version_root
 
 
 def test_github_broker_is_only_app_key_reader_and_token_minter(default_runner_stack):
@@ -147,10 +145,12 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     provider_source = _pack_program_source(
         "webapp_github_repository_provider.py"
     ).read_text()
+    runner_program = pack_version_root("self-hosted-runners") / "infra"
     runtime_sources = "\n".join(
-        _pack_program_source(name).read_text()
-        for name in RUNNER_FLEET_PROGRAM_FILES
-        if name
+        path.read_text()
+        for path in sorted(runner_program.iterdir())
+        if path.suffix in {".py", ".mjs"}
+        and path.name
         not in {
             "webapp_runner_fleet_stack.py",
             "webapp_runner_github_webhook.py",

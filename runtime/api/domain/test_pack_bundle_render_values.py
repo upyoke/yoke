@@ -1,6 +1,5 @@
-"""Pack bundles validate only the renderer groups their version consumes."""
+"""Pack bundles validate only the value groups their version consumes."""
 
-from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -34,7 +33,7 @@ def incomplete_settings(monkeypatch):
             ),
         ),
         capabilities={
-            "pulumi-state": {"stacks": ["runner-fleet"]},
+            "github-actions-runner-fleet": {"routing_enabled": True},
             "aws-admin": {"region": "us-east-1"},
         },
     )
@@ -63,16 +62,8 @@ def test_structured_events_ignores_unrelated_incomplete_settings(incomplete_sett
     assert bundle["files"]
 
 
-@pytest.mark.parametrize(
-    "key",
-    [
-        "state_bucket",
-        "pulumi_runner_fleet_stack_name",
-        "github_api_url",
-        "delivery_distribution_bucket_names_json",
-    ],
-)
-def test_other_groups_ignore_unrelated_invalid_settings(
+@pytest.mark.parametrize("key", ["project_name", "web_port", "preview_namespace"])
+def test_project_values_ignore_unrelated_invalid_runner_settings(
     tmp_path,
     incomplete_settings,
     key,
@@ -88,20 +79,14 @@ def test_other_groups_ignore_unrelated_invalid_settings(
     assert bundle["render_values"][key]
 
 
-@pytest.mark.parametrize(
-    ("key", "setting"),
-    [
-        ("runner_fleet_aws_region", "github_capability"),
-        ("delivery_authority_json", "delivery_authority"),
-    ],
-)
-def test_required_invalid_settings_raise_pack_error_with_repair(
+def test_required_invalid_runner_settings_raise_pack_error_with_repair(
     tmp_path,
     incomplete_settings,
-    key,
-    setting,
 ):
-    write_pack(tmp_path, files={"docs/packs/sample/README.md": "{{" + key + "}}"})
+    write_pack(
+        tmp_path,
+        files={"docs/packs/sample/README.md": "{{runner_fleet_aws_region}}"},
+    )
     with pytest.raises(pack_catalog.PackError) as error:
         pack_catalog.build_pack_bundle(
             object(),
@@ -110,46 +95,19 @@ def test_required_invalid_settings_raise_pack_error_with_repair(
             packs_dir=tmp_path / "packs",
         )
     assert "pack_render_settings_invalid" in str(error.value)
-    assert setting in str(error.value)
+    assert "github_capability" in str(error.value)
     assert "yoke projects capability-settings set" in str(error.value)
-    assert "yoke projects environment-settings merge" in str(error.value)
 
 
-def test_required_delivery_authority_renders_valid_settings(
-    tmp_path,
-    monkeypatch,
-    incomplete_settings,
-):
-    settings = replace(
-        incomplete_settings,
-        environments=(
-            RendererEnvironmentSettings(
-                id="1",
-                name="prod",
-                settings={"delivery_authority": {"documents": ["Deploy"]}},
-            ),
-        ),
-    )
-    monkeypatch.setattr(
-        pack_catalog,
-        "_load_project_renderer_settings",
-        lambda *args: settings,
-    )
-    write_pack(
-        tmp_path,
-        files={
-            "docs/packs/sample/README.md": "{{delivery_authority_json}}",
-        },
-    )
-    bundle = pack_catalog.build_pack_bundle(
-        object(),
-        project="sample",
-        pack="sample",
-        packs_dir=tmp_path / "packs",
-    )
-    assert (
-        '"documents":["Deploy"]' in bundle["render_values"]["delivery_authority_json"]
-    )
+def test_retired_pulumi_values_are_not_pack_values(tmp_path, incomplete_settings):
+    write_pack(tmp_path, files={"docs/packs/sample/README.md": "{{state_bucket}}"})
+    with pytest.raises(pack_catalog.PackError, match="unavailable render values"):
+        pack_catalog.build_pack_bundle(
+            object(),
+            project="sample",
+            pack="sample",
+            packs_dir=tmp_path / "packs",
+        )
 
 
 def test_bundle_handler_returns_named_refusal_for_required_runner_settings(
