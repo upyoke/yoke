@@ -40,52 +40,118 @@ def _run(args: list[str], *, capture: bool = False, timeout: int = 180):
         ) from exc
 
 
-def prepare_prerequisites() -> None:
-    query = subprocess.run(
-        ["dpkg-query", "-W", "-f=${Status}", "postgresql-client-16"],
-        capture_output=True, text=True, timeout=10, check=False,
+PG_CLIENT_BIN = Path("/usr/lib/postgresql/16/bin")
+# initdb and postgres stay out: CI installs no embedded engine.
+PG_CLIENT_TOOLS = ("pg_dump", "pg_restore", "psql", "createdb", "dropdb", "pg_isready")
+PG_CLIENT_LIB = PG_CLIENT_BIN.parent / "lib"
+PG_CLIENT_LOADER_CONF = "/etc/ld.so.conf.d/yoke-ci-pg-client.conf"
+LDCONFIG_LOCK = "/var/lock/yoke-ci-ldconfig.lock"
+IMAGE_LIB_TRIPLETS = {"x86_64": "x86_64-linux-gnu", "aarch64": "aarch64-linux-gnu"}
+
+
+def _pg_client_step(stage: str, args: list[str], recovery: str, **kwargs):
+    try:
+        return _run(args, **kwargs)
+    except PreparationError as exc:
+        raise _refuse(f"ci_runner_pg_client_{stage}_failed: {exc}", recovery) from exc
+
+
+def _pg_client_version_problem() -> str | None:
+    """Return why the PostgreSQL 16 client tools are unusable, or None."""
+    for tool in PG_CLIENT_TOOLS:
+        path = PG_CLIENT_BIN / tool
+        try:
+            result = subprocess.run(
+                [str(path), "--version"], capture_output=True, text=True,
+                timeout=10, check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"{path}: {exc}"
+        words = result.stdout.split()
+        if result.returncode != 0 or len(words) < 3 or not words[2].startswith("16."):
+            return f"{path}: {(result.stdout + result.stderr).strip()[:400]}"
+    return None
+
+
+def _loader_finds_libpq() -> bool:
+    cache = _pg_client_step(
+        "loader", ["ldconfig", "-p"],
+        "Repair the runner's loader cache (ldconfig), then retry CI",
+        capture=True, timeout=10,
     )
-    if query.returncode == 0 and query.stdout == "install ok installed":
+    return any(line.split()[:1] == ["libpq.so.5"] for line in cache.stdout.splitlines())
+
+
+def _copy_pg_client(image: str, holder: str, staging: Path) -> bool:
+    """Copy the client tools (and libpq when missing) out of the image."""
+    pull = "Check the pulled image and Docker daemon, then retry CI"
+    triplet = IMAGE_LIB_TRIPLETS.get(platform.machine())
+    if triplet is None:
+        raise _refuse(
+            f"ci_runner_pg_client_unsupported_arch: {platform.machine()}",
+            "Run CI on an x86_64 or aarch64 runner, then retry CI",
+        )
+    sources = [(f"{PG_CLIENT_BIN}/{tool}", staging / tool) for tool in PG_CLIENT_TOOLS]
+    needs_libpq = not _loader_finds_libpq()
+    if needs_libpq:
+        sources.append((f"/usr/lib/{triplet}/libpq.so.5", staging / "libpq.so.5"))
+    _pg_client_step("create", ["docker", "create", "--name", holder, image], pull, timeout=60)
+    try:
+        for source, target in sources:
+            _pg_client_step(
+                "copy", ["docker", "cp", "-L", f"{holder}:{source}", str(target)],
+                pull, timeout=60,
+            )
+    except PreparationError:
+        try:
+            _run(["docker", "rm", "-f", holder], timeout=30)
+        except PreparationError as cleanup:
+            print(str(cleanup), file=sys.stderr, flush=True)
+        raise
+    _pg_client_step(
+        "cleanup", ["docker", "rm", "-f", holder],
+        f"Remove container {holder} with docker rm -f, then retry CI", timeout=30,
+    )
+    return needs_libpq
+
+
+def install_pg_client(image: str, container: str) -> None:
+    """Supply PostgreSQL 16 client tools from the pulled server image, without apt."""
+    if _pg_client_version_problem() is None:
         return
     if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise _refuse(
-            "ci_runner_prerequisites_missing: postgresql-client-16",
-            "Install these packages from PGDG on the runner, then retry CI",
+            "ci_runner_pg_client_missing: PostgreSQL 16 " + ", ".join(PG_CLIENT_TOOLS)
+            + f" in {PG_CLIENT_BIN}",
+            "Install the PostgreSQL 16 client tools on the runner, then retry CI",
         )
-    _run(["sudo", "install", "-d", "/usr/share/postgresql-common/pgdg"])
-    key = "/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc"
-    try:
-        _run([
-            "sudo", "curl", "--fail", "--silent", "--show-error", "--location",
-            "--retry", "5", "--retry-all-errors", "--retry-max-time", "300",
-            "--connect-timeout", "10", "--max-time", "60",
-            "https://www.postgresql.org/media/keys/ACCC4CF8.asc", "-o", key,
-        ], timeout=360)
-    except PreparationError as exc:
+    staging = Path(tempfile.mkdtemp(prefix="yoke-ci-pg-client.", dir="/tmp"))
+    needs_libpq = _copy_pg_client(image, f"{container}-client", staging)
+    install = "Repair sudo access and runner disk space, then retry CI"
+    _pg_client_step("install", ["sudo", "install", "-d", str(PG_CLIENT_BIN)],
+                    install, timeout=30)
+    _pg_client_step("install", [
+        "sudo", "install", "-m", "0755",
+        *(str(staging / tool) for tool in PG_CLIENT_TOOLS), str(PG_CLIENT_BIN),
+    ], install, timeout=30)
+    if needs_libpq:
+        _pg_client_step("install", [
+            "sudo", "install", "-D", "-m", "0644",
+            str(staging / "libpq.so.5"), str(PG_CLIENT_LIB / "libpq.so.5"),
+        ], install, timeout=30)
+        _pg_client_step("install", [
+            "sudo", "sh", "-c", 'printf "%s\\n" "$1" > "$2"', "_",
+            str(PG_CLIENT_LIB), PG_CLIENT_LOADER_CONF,
+        ], install, timeout=10)
+        _pg_client_step("loader", ["sudo", "flock", LDCONFIG_LOCK, "ldconfig"],
+                        "Repair the runner's loader cache (ldconfig), then retry CI",
+                        timeout=60)
+    problem = _pg_client_version_problem()
+    if problem:
         raise _refuse(
-            "ci_runner_pgdg_key_download_failed: bounded download retries exhausted",
-            "Check PostgreSQL key endpoint connectivity, then retry CI",
-        ) from exc
-    codename = platform.freedesktop_os_release()["VERSION_CODENAME"]
-    source = (
-        f"deb [signed-by={key}] https://apt.postgresql.org/pub/repos/apt "
-        f"{codename}-pgdg main\n"
-    )
-    try:
-        subprocess.run(
-            ["sudo", "tee", "/etc/apt/sources.list.d/pgdg.list"], input=source,
-            text=True, stdout=subprocess.DEVNULL, check=True, timeout=10,
+            f"ci_runner_pg_client_unusable: {problem}",
+            "Check the copied tools' shared libraries with ldd, then retry CI",
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise _refuse(
-            "ci_runner_pgdg_source_failed: could not write the PGDG apt source",
-            "Repair sudo access and apt source permissions, then retry CI",
-        ) from exc
-    _run(["sudo", "apt-get", "-o", "Acquire::Retries=3", "update"])
-    _run([
-        "sudo", "apt-get", "-o", "Acquire::Retries=3", "install", "--yes",
-        "--no-install-recommends", "postgresql-client-16",
-    ])
 
 
 def install_dependencies() -> None:
@@ -144,6 +210,7 @@ def start_postgres() -> None:
                 ) from None
             # artifact-fetch-allow: bounded retries for transient GHCR transport faults
             time.sleep(random.randint(5, 30))
+    install_pg_client(image, container)
     timezone = dict(DISPOSABLE_SERVER_SETTINGS)["timezone"]
     _start_container([
         "docker", "run", "-d", "--name", container,
@@ -169,7 +236,6 @@ def start_postgres() -> None:
 
 def prepare() -> None:
     tasks = {
-        "prerequisites": prepare_prerequisites,
         "dependencies": install_dependencies,
         "postgres": start_postgres,
     }
