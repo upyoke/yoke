@@ -3,6 +3,8 @@
 Only closed members retain their original delivery ownership. Unfinished
 members and their private/shared QA move, and run-level QA moves once.
 Requirement and execution identities, state, custody and evidence survive.
+Selections, member snapshots and plan pins are re-derived on the successor
+from live state; only plans whose rows already ran keep their pin.
 Ordinary membership removal remains a separate cancellation operation.
 """
 
@@ -191,17 +193,33 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         new_id=new_run_id,
         moving=set(ids),
     )
-    # Keep established admission and frozen QA; composition checks readiness
-    # only for newly enrolled members, until the successor freezes.
+    # Members keep their QA rows, but their selection is derived from live
+    # obligations exactly as a fresh admission derives it; composition
+    # freezes their snapshot. Readiness is still checked only for members
+    # this takeover did not carry, until the successor freezes.
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        post_deploy_admission_sets,
+    )
+    from yoke_core.domain.deployment_requirement_snapshots import (
+        requirement_selection,
+    )
+
+    derived = post_deploy_admission_sets(conn, run_id=new_run_id, item_ids=ids)
     conn.execute(
         "INSERT INTO deployment_run_items "
-        "(run_id,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot) "
-        "SELECT %s,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot "
-        "FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s) "
+        "(run_id,item_id,added_at,delivery_intent,requirement_selection) "
+        "SELECT %s,dri.item_id,dri.added_at,dri.delivery_intent,m.selection "
+        "FROM deployment_run_items dri JOIN unnest(%s::bigint[],%s::text[]) "
+        "AS m(item_id,selection) ON m.item_id=dri.item_id WHERE dri.run_id=%s "
         "ON CONFLICT (run_id,item_id) DO UPDATE SET "
         "delivery_intent=EXCLUDED.delivery_intent,requirement_selection=EXCLUDED.requirement_selection,"
-        "requirement_snapshot=EXCLUDED.requirement_snapshot",
-        (new_run_id, old_id, ids),
+        "requirement_snapshot=NULL",
+        (
+            new_run_id,
+            ids,
+            [requirement_selection(requirement_ids=derived[i][0]) for i in ids],
+            old_id,
+        ),
     )
     conn.execute(
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",

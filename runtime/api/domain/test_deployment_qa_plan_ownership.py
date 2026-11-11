@@ -1,5 +1,7 @@
 """Single-member plans stay with member QA while shared plans stay with the driver."""
 
+import pytest
+
 from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
@@ -148,7 +150,8 @@ def test_single_member_plan_settles_and_credits_its_item(test_db, monkeypatch):
     assert plan_credit_misses(test_db, MEMBERS[0]) == []
 
 
-def test_takeover_keeps_member_plan_owner_and_frozen_cases(test_db):
+@pytest.mark.parametrize("ran", [False, True])
+def test_takeover_carries_plan_owner_and_pin_only_when_rows_ran(test_db, ran):
     from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _seed_run,
         _stages,
@@ -163,6 +166,18 @@ def test_takeover_keeps_member_plan_owner_and_frozen_cases(test_db):
         deployment_stage="item-qa",
         deployment_member_item_id=MEMBERS[0],
     )
+    if ran:
+        execution = begin_plan_execution(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage="item-qa",
+            deployment_member_item_id=MEMBERS[0],
+            actor_id="2",
+            session_id="single-owner",
+        )
+        _complete_case(test_db, execution)
+    # A later attachment makes the live plan shared; only a plan that already
+    # ran on the predecessor keeps the ownership it ran under.
     _attach(test_db, MEMBERS[1], single)
     successor = "run-member-plan-successor"
     stages = _stages(shared)
@@ -172,10 +187,12 @@ def test_takeover_keeps_member_plan_owner_and_frozen_cases(test_db):
     )
     transfer_qa_on(test_db, old_id=RUN, new_id=successor, moving=set(MEMBERS))
     test_db.commit()
-    assert plan_owners(test_db, successor) == {shared: None, single: MEMBERS[0]}
-    assert (
-        _snapshot(test_db, successor)["plan_groups"][str(single)]
-        == (_snapshot(test_db, RUN)["plan_groups"][str(single)])
-    )
-    ensure_groups(test_db, successor, "item-qa")
-    assert {group.plan_id for group in run_groups(test_db, successor)} == {shared}
+    carried = _snapshot(test_db, successor).get("plan_groups", {})
+    if ran:
+        assert plan_owners(test_db, successor) == {shared: None, single: MEMBERS[0]}
+        assert carried[str(single)] == _snapshot(test_db, RUN)["plan_groups"][
+            str(single)
+        ]
+    else:
+        assert plan_owners(test_db, successor) == {shared: None, single: None}
+        assert str(single) not in carried

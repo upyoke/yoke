@@ -175,21 +175,40 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
     return found
 
 
-def transfer_plan_owners(
-    conn: Any, old_id: str, new_id: str, *, moving: set[int]
-) -> None:
-    """Keep already-pinned ownership and cases with inherited member QA."""
-    old, new = _snapshot(conn, old_id), _snapshot(conn, new_id)
-    from yoke_core.domain.deployment_qa_member_plan_admission import (
-        copy_member_selections,
-    )
+def _ran_plan_ids(conn: Any, requirement_ids: list[int]) -> set[int]:
+    """Plans with a moved row that already ran or holds a verdict."""
+    if not requirement_ids:
+        return set()
+    rows = conn.execute(
+        "SELECT DISTINCT q.plan_id FROM qa_requirements q WHERE q.id=ANY(%s) "
+        "AND q.plan_id IS NOT NULL AND (EXISTS (SELECT 1 FROM qa_runs r "
+        "WHERE r.qa_requirement_id=q.id) OR EXISTS (SELECT 1 FROM "
+        "qa_plan_execution_results x WHERE x.requirement_id=q.id))",
+        (sorted(requirement_ids),),
+    ).fetchall()
+    return {int(row[0]) for row in rows}
 
-    copy_member_selections(old, new, moving)
+
+def transfer_plan_owners(
+    conn: Any, old_id: str, new_id: str, *, requirement_ids: list[int]
+) -> None:
+    """Carry ownership and pinned cases only for plans whose moved rows ran.
+
+    Every other plan is classified and pinned from live state at the
+    successor's item QA entry, exactly as on a fresh run.
+    """
+    ran = _ran_plan_ids(conn, requirement_ids)
+    old = _snapshot(conn, old_id)
+    carried = {str(plan) for plan in ran} & set(old.get(OWNERS, {}))
+    if not carried:
+        return
+    new = _snapshot(conn, new_id)
     owners = new.setdefault(OWNERS, {})
-    for plan, owner in old.get(OWNERS, {}).items():
-        owners.setdefault(plan, owner)
-        if owner is not None and plan in (old.get("plan_groups") or {}):
-            new.setdefault("plan_groups", {}).setdefault(plan, old["plan_groups"][plan])
+    for plan in sorted(carried):
+        owner = owners.setdefault(plan, old[OWNERS][plan])
+        pinned = (old.get("plan_groups") or {}).get(plan)
+        if owner is not None and pinned is not None:
+            new.setdefault("plan_groups", {}).setdefault(plan, pinned)
     conn.execute(
         "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
         (json.dumps(new, sort_keys=True, separators=(",", ":")), str(new_id)),

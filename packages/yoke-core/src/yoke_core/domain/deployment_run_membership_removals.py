@@ -20,6 +20,11 @@ or a replaced candidate at settlement, without closing it.
 Re-attaching while created with ``deployment_runs.add_item`` clears the entry: the
 operator reversed the decision, and a stale exclusion would silently drop the
 item from the run it was just attached to.
+
+A takeover successor inherits the operator removals recorded on the runs it
+supersedes (the ``supersedes_run_id`` chain), so a removal survives takeover;
+a later add-item on any run in that chain clears it there too. Takeover's
+own transfer entries and set-aside entries are not operator removals.
 """
 
 from __future__ import annotations
@@ -73,6 +78,42 @@ def removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
     )
 
 
+def _predecessors(conn: Any, run_id: str) -> list[str]:
+    """The runs *run_id* superseded, nearest first."""
+    if not _column_exists(conn, "deployment_runs", "supersedes_run_id"):
+        return []
+    chain: list[str] = []
+    current = str(run_id)
+    while True:
+        row = conn.execute(
+            "SELECT supersedes_run_id FROM deployment_runs WHERE id=%s", (current,)
+        ).fetchone()
+        previous = _cell(row, "supersedes_run_id", 0) if row is not None else None
+        if not previous or str(previous) in chain or str(previous) == str(run_id):
+            return chain
+        current = str(previous)
+        chain.append(current)
+
+
+def _operator_removal(entry: dict[str, Any]) -> bool:
+    from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASON
+
+    return not entry.get("transferred_to_run_id") and entry.get("reason") != (
+        SET_ASIDE_REASON
+    )
+
+
+def enrollment_removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
+    """This run's removals plus operator removals on the runs it superseded."""
+    inherited = {
+        int(entry["item_id"])
+        for predecessor in _predecessors(conn, run_id)
+        for entry in membership_removals(conn, predecessor)
+        if _operator_removal(entry)
+    }
+    return removed_item_ids(conn, run_id) | inherited
+
+
 def _write(conn: Any, run_id: str, entries: list[dict[str, Any]]) -> None:
     conn.execute(
         f"UPDATE deployment_runs SET {MEMBERSHIP_REMOVALS_FIELD}=%s WHERE id=%s",
@@ -123,18 +164,26 @@ def record_membership_removals(
 
 
 def clear_membership_removal(conn: Any, run_id: str, item_id: int) -> bool:
-    """Drop *item_id*'s removal in the caller's transaction; report whether one existed."""
-    entries = list(membership_removals(conn, run_id))
-    kept = [entry for entry in entries if int(entry["item_id"]) != int(item_id)]
-    if len(kept) == len(entries):
-        return False
-    _write(conn, run_id, kept)
-    return True
+    """Drop *item_id*'s removal here and up the chain; report whether one existed."""
+    cleared = False
+    for index, subject in enumerate((str(run_id), *_predecessors(conn, run_id))):
+        entries = list(membership_removals(conn, subject))
+        kept = [
+            entry
+            for entry in entries
+            if int(entry["item_id"]) != int(item_id)
+            or (index and not _operator_removal(entry))
+        ]
+        if len(kept) != len(entries):
+            _write(conn, subject, kept)
+            cleared = True
+    return cleared
 
 
 __all__ = [
     "MEMBERSHIP_REMOVALS_FIELD",
     "clear_membership_removal",
+    "enrollment_removed_item_ids",
     "membership_removals",
     "record_membership_removals",
     "removed_item_ids",

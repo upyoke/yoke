@@ -8,7 +8,7 @@ A takeover derives fresh composition while retaining inherited QA admissions.
 from __future__ import annotations
 
 from yoke_core.domain.deployment_qa_member_plan_admission import (
-    preserve_member_admissions,
+    keep_carried_plan_pins,
 )
 
 from yoke_core.domain.schema_read_scope import composition_operation
@@ -232,7 +232,7 @@ def freeze_run_composition(
         project_id=int(_cell(row, "project_id", 3)),
         stages=stages,
     )
-    flow_snapshot = preserve_member_admissions(
+    flow_snapshot = keep_carried_plan_pins(
         flow_snapshot, _cell(row, "requirement_snapshot", 5)
     )
     # Attribution must see the recorded source commits.

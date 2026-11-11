@@ -123,7 +123,6 @@ def test_enrollment_reads_each_intake_once_and_refreshes_after_rollback(
 @pytest.mark.parametrize(
     "defect,expected",
     [
-        ("waived", "is waived"),
         ("foreign_item", "is not owned"),
         ("foreign_run", "belongs to deployment run"),
     ],
@@ -134,11 +133,7 @@ def test_shared_inputs_preserve_canonical_refusals(
     plan, requirements = admission_catalog
     member = MEMBERS[0]
     requirement = requirements[member]
-    if defect == "waived":
-        test_db.execute(
-            "UPDATE qa_requirements SET waived_at=NOW() WHERE id=%s", (requirement,)
-        )
-    elif defect == "foreign_item":
+    if defect == "foreign_item":
         test_db.execute(
             "UPDATE qa_requirements SET item_id=%s WHERE id=%s",
             (MEMBERS[1], requirement),
@@ -162,11 +157,12 @@ def test_shared_inputs_preserve_canonical_refusals(
         )
 
 
-def test_retraction_excludes_requirements(test_db, admission_catalog):
+@pytest.mark.parametrize("column", ["retracted_at", "waived_at"])
+def test_retraction_excludes_requirements(test_db, admission_catalog, column):
     plan, requirements = admission_catalog
     member = MEMBERS[0]
     test_db.execute(
-        "UPDATE qa_requirements SET retracted_at=NOW() WHERE id=%s",
+        f"UPDATE qa_requirements SET {column}=NOW() WHERE id=%s",
         (requirements[member],),
     )
     inputs = read_snapshot_inputs(

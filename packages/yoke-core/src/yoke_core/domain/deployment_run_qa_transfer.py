@@ -56,7 +56,8 @@ def transfer_qa_on(
     stays in the run where it passed, which is what its credit names.
     Captures, reviews, leases and queue positions reference the unchanged
     requirement/execution IDs. Historical dispositions and hashed snapshots
-    are deliberately untouched.
+    are deliberately untouched. Plan ownership and pinned cases follow only
+    for plans whose moved rows already ran; the successor derives the rest.
     """
     from yoke_core.domain.deployment_qa_plan_groups import group_marker, run_groups
 
@@ -85,7 +86,7 @@ def transfer_qa_on(
     from yoke_core.domain.deployment_qa_plan_ownership import transfer_plan_owners
 
     with savepoint(conn, "transfer_deployment_qa", owns=False):
-        moved = False
+        moved: list[int] = []
         # Execution first matches result/review writes, which lock their cursor
         # before their requirements. One set read/write per table, not per case.
         for table in ("qa_plan_executions", "qa_requirements"):
@@ -98,11 +99,12 @@ def transfer_qa_on(
             )
             ids = [row["id"] for row in rows if moves(row)]
             if ids:
-                moved = True
                 conn.execute(
                     f"UPDATE {table} SET deployment_run_id=%s "
                     "WHERE deployment_run_id=%s AND id=ANY(%s)",
                     (new_id, old_id, ids),
                 )
-        if include_run_qa or moved:
-            transfer_plan_owners(conn, old_id, new_id, moving=moving)
+            if table == "qa_requirements":
+                moved = [int(value) for value in ids]
+        if moved:
+            transfer_plan_owners(conn, old_id, new_id, requirement_ids=moved)
