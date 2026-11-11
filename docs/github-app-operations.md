@@ -47,14 +47,14 @@ Replace `bootstrap-admin` and all following arguments with these, using distinct
 
 ```text
 bootstrap-project-service --system-component <service-component> \
-  --project <project> --role <deployment_ci-or-infrastructure_ci> \
+  --project <project> [--project <project>] --role <project-service-role> \
   --name <token-name> --raw-token-file <owner-only-secret-path>
 ```
 
 The actor and grant converge idempotently, but every invocation mints another
 active token. File mode atomically replaces a `0600` file and prints only token
 and actor ids; install the new secret, verify it, then use the same entrypoint with `revoke --token-id <id>` to revoke the prior token.
-Without file mode, the raw token appears once in the JSON response for attended use.
+Without file mode, the raw token appears once in the JSON response for attended use. Fleet preflight boxes follow [their recipe](fleet-preflight-box-identity.md).
 
 `YOKE_GITHUB_ACTIONS_RELAY_ENV` selects HTTPS GitHub authority explicitly, independently of `YOKE_ENV`. Without it, deploy reuses the command's own selected connection — active HTTPS directly, or an owner-only `*-db-admin` connection's https sibling — the same resolver every https-relayed surface trusts. Malformed, non-HTTPS, or unresolvable selection fails closed. App keys and installation tokens do not belong in repo secrets, CI, or logs.
 

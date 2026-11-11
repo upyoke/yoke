@@ -141,3 +141,50 @@ def test_post_replace_directory_sync_failure_keeps_stored_token_active(
         (verified.token_id,),
     ).fetchone()
     assert status == "active"
+
+
+def test_preflight_executor_grants_every_named_project_into_one_file(
+    tokendb, capsys, tmp_path
+):
+    token_file = tmp_path / "box-preflight-control-plane-token"
+    args = [
+        "bootstrap-project-service",
+        "--system-component",
+        "platform-stage-box-preflight",
+        "--project",
+        "yoke",
+        "--project",
+        "externalwebapp",
+        "--role",
+        "preflight_executor",
+        "--name",
+        "platform-stage-box-preflight",
+        "--raw-token-file",
+        str(token_file),
+    ]
+    assert api_tokens_cli.main(args) == 0
+    body = json_helper.loads_text(capsys.readouterr().out)
+    assert "raw_token" not in body
+    assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
+    raw_token = token_file.read_text(encoding="utf-8").strip()
+    assert verify_token(tokendb, raw_token).actor_id == body["actor_id"]
+
+    grants = tokendb.execute(
+        "SELECT p.slug, r.name FROM actor_project_roles apr "
+        "JOIN projects p ON p.id = apr.project_id "
+        "JOIN roles r ON r.id = apr.role_id "
+        "WHERE apr.actor_id = %s ORDER BY p.slug",
+        (body["actor_id"],),
+    ).fetchall()
+    assert [tuple(row) for row in grants] == [
+        ("externalwebapp", "preflight_executor"),
+        ("yoke", "preflight_executor"),
+    ]
+
+    # Rotation names the same projects; a narrower list is a different scope.
+    assert api_tokens_cli.main(args) == 0
+    capsys.readouterr()
+    narrowed = args[:5] + args[7:]
+    assert narrowed.count("--project") == 1
+    assert api_tokens_cli.main(narrowed) == 1
+    assert "different or broader authority" in capsys.readouterr().err
