@@ -1,7 +1,7 @@
 """A takeover creation enrolls what its candidate newly carries.
 
-The successor inherits frozen member snapshots and live QA from the run it
-takes over. Those are not a retry's roster: an ordinary create still admits
+The successor inherits live QA from the run it takes over and re-derives its
+members' snapshots. Those are not a retry's roster: an ordinary create still admits
 the delivery-ready work its newer candidate carries, here a merged blocker the
 inherited members depend on, while every inherited QA row keeps its identity.
 """
@@ -31,7 +31,10 @@ BLOCKER_COMMIT = "d" * 40
 
 
 def _qa_rows(conn: Any, successor: str = "") -> dict[str, list[tuple]]:
-    """Every inherited QA identity, with the owning run left out."""
+    """Every inherited QA identity, with the owning run left out.
+
+    Member selections and snapshots re-derive on the successor, so they are
+    not identities a takeover keeps."""
     return {
         "requirements": [
             tuple(row)
@@ -49,14 +52,6 @@ def _qa_rows(conn: Any, successor: str = "") -> dict[str, list[tuple]]:
                 "FROM qa_plan_executions "
                 "WHERE deployment_run_id IN (%s,%s) ORDER BY id",
                 (takeover.OLD, successor),
-            ).fetchall()
-        ],
-        "snapshots": [
-            tuple(row)
-            for row in conn.execute(
-                "SELECT item_id,requirement_selection,requirement_snapshot "
-                "FROM deployment_run_items WHERE item_id IN (%s,%s) ORDER BY item_id",
-                (takeover.PASSED, takeover.WAITING),
             ).fetchall()
         ],
     }
@@ -115,7 +110,6 @@ def test_a_takeover_create_co_enrolls_the_blocker_its_members_need(
 ) -> None:
     execution_id = _seed(test_db, monkeypatch, flow=None)
     before = _qa_rows(test_db)
-    assert all(snapshot for *_, snapshot in before["snapshots"])
 
     created = _create()
 
@@ -126,8 +120,8 @@ def test_a_takeover_create_co_enrolls_the_blocker_its_members_need(
     }
     assert takeover._run(test_db, takeover.OLD)["superseded_by_run_id"] == created
     assert not is_frozen_retry(test_db, created)
-    # Only ownership moved: every requirement, execution and snapshot is the
-    # same row with the same identity, now owned by the successor.
+    # Only ownership moved: every requirement and execution is the same row
+    # with the same identity, now owned by the successor.
     assert _qa_rows(test_db, created) == before
     owner = test_db.execute(
         "SELECT deployment_run_id FROM qa_plan_executions WHERE id=%s",
