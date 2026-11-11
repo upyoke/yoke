@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "workbench",
  "position": 6,
- "summary": "Hosts supply ordered navigation groups and unscoped pages through UniverseAppOptions.navigation; the host owns access and content. Stable base-path routes carry optional detail and preserve host-owned query strings and fragments on open and reload. Content signals abort on navigation or unmount. Optional page icon keys select built-in navigation SVGs; unknown keys leave a blank slot. Optional collapsible groups start closed and remember state by group id (up to 64 characters), sharing state with built-in groups when ids match.",
+ "summary": "Hosts supply ordered navigation groups and unscoped pages through UniverseAppOptions.navigation; the host owns access and content. Stable base-path routes carry optional detail and preserve host-owned query strings and fragments on open and reload. Content signals abort on navigation or unmount. Optional page icon keys select built-in navigation SVGs: Yoke view ids plus named host icons such as leads; a page without an icon falls back to its id, and unknown keys leave a blank slot. Optional collapsible groups start closed and remember state by group id (up to 64 characters), sharing state with built-in groups when ids match.",
  "sources": ["docs/universe-path-routing.md", "packages/yoke-core/src/yoke_core/ui/contracts/universe-host-navigation.ts", "packages/yoke-core/src/yoke_core/ui/static/universe_host_pages.js"]
 }
