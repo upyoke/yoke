@@ -105,7 +105,9 @@ def take_over_waiting_run(
 ) -> Optional[str]:
     """Take over the run waiting on QA on *new_run_id*'s target.
 
-    Returns the superseded run's id, or ``None`` when no run waits. The caller
+    Never-started runs created after it are absorbed: their members and QA
+    move here too and they are cancelled, each marked superseded by the new
+    run. Returns the superseded run's id, or ``None`` when no run waits. The caller
     owns the transaction: a refusal rolls back the new run with everything here.
     ``apply=False`` projects membership in the provisional transaction.
     The caller must roll it back; no removal audit or settlement is emitted.
@@ -119,6 +121,45 @@ def take_over_waiting_run(
 
 
 def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
+    if not takeover_available(conn):
+        return None
+    new_run = query_one(
+        conn,
+        "SELECT id,project_id,flow,target_environment_id,release_lineage "
+        "FROM deployment_runs WHERE id=%s",
+        (new_run_id,),
+    )
+    if (
+        new_run is None
+        or new_run["target_environment_id"] is None
+        or not str(new_run["release_lineage"] or "").strip()
+    ):
+        # A run prepared before its commit exists has no candidate to compare;
+        # its start meets the older run's occupancy instead.
+        return None
+    from yoke_core.domain.deployment_run_takeover_eligibility import (
+        eligible_predecessors,
+    )
+
+    olds = eligible_predecessors(conn, new_run)
+    if not olds:
+        return None
+    # The superseded run first: when it changed under its lock, nothing is
+    # taken. A never-started run absorbed after it that changed is left alone.
+    if not _supersede(conn, new_run, olds[0], session_id, actor_id, apply):
+        return None
+    for absorbed in olds[1:]:
+        _supersede(conn, new_run, absorbed, session_id, actor_id, apply)
+    old_id = str(olds[0]["id"])
+    conn.execute(
+        f"UPDATE deployment_runs SET {SUPERSEDES_COLUMN}=%s WHERE id=%s",
+        (old_id, new_run_id),
+    )
+    return old_id
+
+
+def _supersede(conn, new_run, old, session_id, actor_id, apply) -> bool:
+    """Move *old*'s unfinished members and QA onto *new_run*, then end it."""
     from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
     from yoke_core.domain.deployment_run_membership_removals import (
         record_membership_removals,
@@ -137,27 +178,7 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
-    if not takeover_available(conn):
-        return None
-    new_run = query_one(
-        conn,
-        "SELECT id,project_id,flow,target_environment_id,release_lineage "
-        "FROM deployment_runs WHERE id=%s",
-        (new_run_id,),
-    )
-    if (
-        new_run is None
-        or new_run["target_environment_id"] is None
-        or not str(new_run["release_lineage"] or "").strip()
-    ):
-        # A run prepared before its commit exists has no candidate to compare;
-        # its start meets the older run's occupancy instead.
-        return None
-    from yoke_core.domain.deployment_run_takeover_eligibility import eligible_predecessor
-
-    old = eligible_predecessor(conn, new_run)
-    if old is None:
-        return None
+    new_run_id = str(new_run["id"])
     old_id = str(old["id"])
     shared = has_shared_gates(old["stages"])
     # The comparison and the removal's shared groups are read before the
@@ -166,7 +187,7 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
     if apply:
         status, _held = lock_run_with_stable_membership(conn, old_id)
         if status != old["status"]:
-            return None
+            return False
     moving = _moving_members(conn, old)
     if apply:
         require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
@@ -229,12 +250,8 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",
         (new_run_id, old_id),
     )
-    conn.execute(
-        f"UPDATE deployment_runs SET {SUPERSEDES_COLUMN}=%s WHERE id=%s",
-        (old_id, new_run_id),
-    )
     if not apply:
-        return old_id
+        return True
     if old["status"] == "failed":
         pass  # The failed predecessor keeps its failure evidence and status.
     elif old["status"] == "created" or shared or not _delivered_any(conn, old_id):
@@ -260,7 +277,7 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
             item_ids=ids,
             stages=old["stages"],
         )
-    return old_id
+    return True
 
 
 __all__ = [

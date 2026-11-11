@@ -14,13 +14,9 @@ from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_retry_membership import (
     candidate_mismatch_refusal,
 )
-from yoke_core.domain.deployment_run_carried_work_source import (
-    CarriedWorkSourceUnavailable,
-)
-from yoke_core.domain.deployment_run_target_takeover import TakeoverRefused
-from yoke_core.domain.deployment_flow_state import MergeOnlyRunRefused
-from yoke_core.domain.deployment_run_target_resolution import (
-    EnvironmentRegistryMigrationRequired,
+from yoke_core.domain.handlers.deployment_run_set_creation import (
+    create_refusal,
+    handle_release_set_create,
 )
 from yoke_core.domain.deployment_start_timing import (
     timed_handler,
@@ -32,7 +28,9 @@ from yoke_core.domain.deployment_start_timing import (
 
 class DeploymentRunCreateRequest(BaseModel):
     project: str
-    flow: str
+    flow: Optional[str] = None
+    #: A release set: one run per flow on one commit, created all or nothing.
+    flows: Optional[list[str]] = None
     environment: Optional[str] = None
     release_lineage: Optional[str] = None
     created_by: str = "operator"
@@ -115,9 +113,10 @@ def handle_deployment_run_create(
     artifact_identity = payload.get("artifact_identity")
     created_by = payload.get("created_by") or "operator"
     idempotency_key = payload.get("idempotency_key")
+    is_set = payload.get("flows") is not None
     for key, value, required in (
         ("project", project, True),
-        ("flow", flow, True),
+        ("flow", flow, not is_set),
         ("environment", environment, False),
         ("release_lineage", release_lineage, False),
         ("retry_of", retry_of, False),
@@ -154,6 +153,12 @@ def handle_deployment_run_create(
         artifact_identity = json.dumps(artifact, sort_keys=True, separators=(",", ":"))
 
     clean_project = project.strip()
+    if is_set:
+        return handle_release_set_create(
+            request, project=clean_project, release_lineage=release_lineage,
+            artifact_identity=artifact_identity, created_by=created_by,
+            created_outcome=_created_outcome,
+        )
     clean_flow = flow.strip()
     retry_source = retry_of.strip() if retry_of else ""
 
@@ -250,20 +255,10 @@ def handle_deployment_run_create(
             actor_id=int(actor_id) if str(actor_id or "").isdigit() else None,
             **create_kwargs,
         )
-    except (idempotency.IdempotencyKeyConflict,) as exc:
-        return error(exc.code, str(exc), jsonpath="$.payload.idempotency_key")
-    except EnvironmentRegistryMigrationRequired as exc:
-        return error(exc.code, str(exc))
-    except LookupError as exc:
-        return error("not_found", str(exc), jsonpath="$.payload")
-    except TakeoverRefused as exc:
-        return error(exc.code, str(exc), jsonpath="$.payload")
-    except CarriedWorkSourceUnavailable as exc:
-        return error(exc.reason, f"{exc.reason}: {exc.recovery}", jsonpath="$.payload")
-    except MergeOnlyRunRefused as exc:
-        return error(exc.code, str(exc), jsonpath="$.payload.flow")
-    except ValueError as exc:
-        return error("run_create_rejected", str(exc), jsonpath="$.payload")
+    except Exception as exc:  # noqa: BLE001 - mapped to named refusals
+        if (outcome := create_refusal(exc)) is None:
+            raise
+        return outcome
 
     return _created_outcome(
         created.run_id,

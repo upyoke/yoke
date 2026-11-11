@@ -1,10 +1,8 @@
-"""Allocate and insert one deployment run, with its frozen membership.
+"""Allocate and insert deployment runs, each with its frozen membership.
 
-Creation is a single transaction on purpose. A retry is the same candidate for
-the same items, so its membership is part of the row being created rather than
-a follow-up write: committing the run first would leave a member-less retry
-behind any copy failure, and a member-less item-bound run can never reach its
-own completion gate — which is the defect the retry path exists to remove.
+Creation is one transaction on purpose: a retry's membership is part of the
+row being created, not a follow-up write, and a release set's runs commit
+together or not at all, so no refusal strands an earlier flow's run.
 """
 
 from __future__ import annotations
@@ -104,47 +102,55 @@ def cmd_create_run(
     return created.run_id
 
 
-def create_run(
-    project: str,
+def create_run(project: str, flow: str, **spec) -> CreatedRun:
+    """Create a new deployment run, or return the one a keyed repeat names.
+
+    *spec* takes :func:`create_run_set`'s per-flow keys plus ``db_path``. A
+    keyed repeat with the same ``create_request`` returns the original run
+    (``replayed=True``); a different request raises
+    :class:`~yoke_core.domain.deployment_run_create_idempotency.IdempotencyKeyConflict`.
+    ``environment`` overrides the flow's registered target.
+    ``inherit_members_from`` copies a retry's frozen membership in the same
+    transaction, so a retry is never committed member-less. A run waiting
+    only on item QA on the same flow and target is taken over in that
+    transaction (:mod:`~yoke_core.domain.deployment_run_target_takeover`);
+    *session_id* and *actor_id* are the creator, audited on its removals.
+    """
+    db_path = spec.pop("db_path", None)
+    return create_run_set(project, [{"flow": flow, **spec}], db_path=db_path)[0]
+
+
+def create_run_set(
+    project: str, specs: list[dict], *, db_path: Optional[str] = None
+) -> list[CreatedRun]:
+    """Create one run per spec, all or nothing, in one transaction.
+
+    Each spec names ``flow`` and optionally ``environment``,
+    ``release_lineage``, ``created_by``, ``artifact_identity``,
+    ``inherit_members_from``, ``idempotency_key``, ``create_request``,
+    ``allow_pending_pair_merges``, ``session_id`` and ``actor_id``. Every
+    flow validates before the creation lock; under it each is replayed or
+    created in order, with any takeover, and one commit ends the set. A
+    refusal on any flow rolls back every run and takeover, so no key names
+    a run that did not commit.
+    """
+    entries = [_entry(**spec) for spec in specs]
+    return [created for created, _message in _create(project, db_path, entries)]
+
+
+def _entry(
     flow: str,
     environment: Optional[str] = None,
     release_lineage: Optional[str] = None,
     created_by: str = "operator",
     artifact_identity: Optional[str] = None,
-    db_path: Optional[str] = None,
     inherit_members_from: Optional[str] = None,
     idempotency_key: Optional[str] = None,
     create_request: Optional[str] = None,
     allow_pending_pair_merges: bool = False,
     session_id: Optional[str] = None,
     actor_id: Optional[int] = None,
-) -> CreatedRun:
-    """Create a new deployment run, or return the one a keyed repeat names.
-
-    ``idempotency_key`` with its canonical ``create_request`` makes the create
-    safe to repeat: under the creation lock, a run already created with that key
-    and request is returned with ``replayed=True`` instead of minting another,
-    and the same key with a different request raises
-    :class:`~yoke_core.domain.deployment_run_create_idempotency.IdempotencyKeyConflict`.
-    Before the key columns converge, the key cannot be stored; the same lock
-    instead returns the one never-started run with the identical resolved
-    request, and the result names that basis.
-
-    ``environment`` (a registered name) overrides the flow's registered
-    target; tier and environment otherwise copy from the flow definition.
-
-    ``inherit_members_from`` copies that run's frozen membership onto the new
-    run inside this same transaction. A retry is the same candidate for the
-    same items, so the two facts are one write: committing the run first would
-    leave a member-less retry behind any copy failure, and a member-less
-    item-bound retry is precisely what cannot reach its completion gate.
-
-    An executing run on the same flow and target that waits only on item QA
-    is taken over in this same transaction
-    (:mod:`~yoke_core.domain.deployment_run_target_takeover`); *session_id*
-    and *actor_id* are the creator, audited on that run's removals, and
-    *session_id* is recorded as the run's creating session.
-    """
+) -> tuple[dict, dict]:
     run = {
         "flow": flow,
         "release_lineage": release_lineage,
@@ -161,7 +167,7 @@ def create_run(
         "idempotency_key": idempotency_key,
         "create_request": create_request,
     }
-    return _create(project, db_path, request, run)[0]
+    return request, run
 
 
 def create_item_run(
@@ -193,19 +199,20 @@ def create_item_run(
         enroll_item_id=int(item_id),
     )
     request = dict(environment=environment, idempotency_key=None, create_request=None)
-    return _create(project, None, request, run)
+    return _create(project, None, [(request, run)])[0]
 
 
 def _create(
-    project: str, db_path: Optional[str], request: dict, run: dict
-) -> tuple[CreatedRun, str]:
+    project: str, db_path: Optional[str], entries: list[tuple[dict, dict]]
+) -> list[tuple[CreatedRun, str]]:
     conn = connect(db_path)
     try:
         with composition_reads():
-            created, message = _create_committed(conn, project, request, run)
-            if not created.replayed:
-                _finish_takeover(conn, created.run_id)
-            return created, message
+            results = _create_committed(conn, project, entries)
+            for created, _message in results:
+                if not created.replayed:
+                    _finish_takeover(conn, created.run_id)
+            return results
     finally:
         conn.close()
 
@@ -228,17 +235,18 @@ def _finish_takeover(conn, run_id: str) -> None:
 
 
 def _create_committed(
-    conn, project: str, request: dict, run: dict
-) -> tuple[CreatedRun, str]:
+    conn, project: str, entries: list[tuple[dict, dict]]
+) -> list[tuple[CreatedRun, str]]:
     if db_backend.connection_is_postgres(conn):
-        timed_preparation(
-            "create_provisional_composition",
-            validate_before_lock,
-            conn,
-            project,
-            **request,
-            **run,
-        )
+        for request, run in entries:
+            timed_preparation(
+                "create_provisional_composition",
+                validate_before_lock,
+                conn,
+                project,
+                **request,
+                **run,
+            )
         for attempt in range(8):
             try:
                 with (
@@ -251,7 +259,7 @@ def _create_committed(
                         )
                     ),
                 ):
-                    return _create_locked(conn, project, **request, **run)
+                    return _create_all_locked(conn, project, entries)
             except SourcePreparationChanged as exc:
                 conn.rollback()
                 if attempt == 7:
@@ -259,7 +267,19 @@ def _create_committed(
                 # Answer only the new exact source question with every
                 # write lock released, then revalidate mutable facts.
                 timed_preparation("create_source_refresh", exc.prepare)
-    return _create_locked(conn, project, **request, **run)
+    return _create_all_locked(conn, project, entries)
+
+
+def _create_all_locked(
+    conn, project: str, entries: list[tuple[dict, dict]]
+) -> list[tuple[CreatedRun, str]]:
+    """One transaction for every entry: one commit, or a rollback of all."""
+    results = [_create_locked(conn, project, **request, **run) for request, run in entries]
+    if all(created.replayed for created, _message in results):
+        conn.rollback()
+    else:
+        timed_preparation("create_commit", conn.commit)
+    return results
 
 
 def _create_locked(
@@ -273,6 +293,7 @@ def _create_locked(
 ) -> tuple[CreatedRun, str]:
     """Replay, or allocate and insert, while holding the project's creation lock.
 
+    The caller commits or rolls back; a set shares one transaction.
     Validation repeats here on the real row. Inside the caller's read scope
     the unlocked pass already resolved its repository reads, so this pass
     re-checks the database facts the lock protects.
@@ -286,8 +307,8 @@ def _create_locked(
             conn, project_id, idempotency_key, create_request
         )
         if existing is not None:
-            conn.rollback()
             return CreatedRun(existing, True, basis), ""
+        idempotency.release_unstarted_key(conn, project_id, idempotency_key)
     target = run_target(conn, run["flow"], project_id, environment)
 
     refuse_run_that_cannot_execute(conn, run["flow"], run["release_lineage"])
@@ -316,7 +337,6 @@ def _create_locked(
     )
     if not valid:
         raise CompositionRefused(message)
-    timed_preparation("create_commit", conn.commit)
     return CreatedRun(run_id, False, basis), message
 
 
@@ -326,4 +346,5 @@ __all__ = [
     "cmd_create_run",
     "create_item_run",
     "create_run",
+    "create_run_set",
 ]

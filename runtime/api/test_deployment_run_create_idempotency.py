@@ -121,3 +121,55 @@ def test_merge_only_flow_refuses_before_composition(db_path, environment, monkey
     assert "merge close-out" in str(refused.value)
     assert conn.execute("SELECT COUNT(*) FROM deployment_runs").fetchone()[0] == 0
     conn.close()
+
+
+def test_set_whose_second_flow_refuses_leaves_no_run_or_key(db_path: str) -> None:
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_flow_state import MergeOnlyRunRefused
+    from yoke_core.domain.deployment_run_create_write import create_run_set
+
+    specs = [
+        {"flow": flow, "idempotency_key": f"set:{flow}",
+         "create_request": _request(flow=flow)}
+        for flow in ("flow-main", "flow-preview")
+    ]
+    with pytest.raises(MergeOnlyRunRefused):
+        create_run_set("yoke", specs, db_path=db_path)
+    conn = connect(db_path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM deployment_runs").fetchone()[0] == 0
+    finally:
+        conn.close()
+    # Nothing holds the first flow's key, so it creates fresh.
+    created = create_run_set("yoke", specs[:1], db_path=db_path)
+    assert [run.replayed for run in created] == [False]
+
+
+def _end(db_path: str, run_id: str, *, started: bool) -> None:
+    from yoke_core.domain.db_helpers import connect
+
+    conn = connect(db_path)
+    conn.execute(
+        "UPDATE deployment_runs SET status='cancelled',started_at=%s WHERE id=%s",
+        ("2026-11-10T00:00:00Z" if started else None, run_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_key_of_run_cancelled_before_start_creates_fresh(db_path: str) -> None:
+    first, _ = _create(db_path, "release-1", _request())
+    _end(db_path, first, started=False)
+
+    again, replayed = _create(db_path, "release-1", _request())
+
+    assert replayed is False and again != first
+    assert dr.cmd_get(first, "status", db_path=db_path) == "cancelled"
+    assert _create(db_path, "release-1", _request()) == (again, True)
+
+
+def test_key_of_run_cancelled_after_start_replays_it(db_path: str) -> None:
+    first, _ = _create(db_path, "release-1", _request())
+    _end(db_path, first, started=True)
+
+    assert _create(db_path, "release-1", _request()) == (first, True)
