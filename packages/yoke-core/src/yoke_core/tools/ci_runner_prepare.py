@@ -42,7 +42,7 @@ def _run(args: list[str], *, capture: bool = False, timeout: int = 180):
 
 PG_CLIENT_BIN = Path("/usr/lib/postgresql/16/bin")
 # initdb and postgres stay out: CI installs no embedded engine.
-PG_CLIENT_TOOLS = ("pg_dump", "pg_restore", "psql", "createdb", "pg_isready")
+PG_CLIENT_TOOLS = ("pg_dump", "pg_restore", "psql", "createdb", "dropdb", "pg_isready")
 PG_CLIENT_LIB = PG_CLIENT_BIN.parent / "lib"
 PG_CLIENT_LOADER_CONF = "/etc/ld.so.conf.d/yoke-ci-pg-client.conf"
 LDCONFIG_LOCK = "/var/lock/yoke-ci-ldconfig.lock"

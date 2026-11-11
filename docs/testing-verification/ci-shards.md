@@ -13,8 +13,8 @@ smoke jobs remain pinned to Ubuntu 24.04 until their own runner upgrade is
 verified.
 
 The shared `.github/actions/yoke-test-runner` action declares host prerequisites:
-PostgreSQL 16 `pg_dump`, `pg_restore`, `psql`, `createdb` and `pg_isready` in
-`/usr/lib/postgresql/16/bin` supply the copy-lifetime tools. Runner setup makes
+PostgreSQL 16 `pg_dump`, `pg_restore`, `psql`, `createdb`, `dropdb` and
+`pg_isready` in `/usr/lib/postgresql/16/bin` supply the copy-lifetime tools. Runner setup makes
 no apt calls, so an Ubuntu or PGDG mirror outage cannot block CI. When the tools
 are missing, GitHub-hosted runners copy them out of the already pulled
 `POSTGRES_IMAGE` (`docker create`, `docker cp -L`, `docker rm -f`); when the

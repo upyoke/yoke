@@ -88,7 +88,7 @@ def test_hosted_runner_copies_client_tools_from_the_image_without_apt(
         ["docker", "create", "--name", "pg-client", "example.test/postgres:16"],
     ]
     copies = [args[3] for args in commands if args[:2] == ["docker", "cp"]]
-    tools = ["pg_dump", "pg_restore", "psql", "createdb", "pg_isready"]
+    tools = ["pg_dump", "pg_restore", "psql", "createdb", "dropdb", "pg_isready"]
     expected = [f"pg-client:/usr/lib/postgresql/16/bin/{tool}" for tool in tools]
     if not loader_has_libpq:
         expected.append("pg-client:/usr/lib/x86_64-linux-gnu/libpq.so.5")
