@@ -31,6 +31,10 @@ from yoke_core.domain.function_authz_scope import (
     classify,
     permission_key_for,
 )
+from yoke_core.domain.fleet_rehearsal_record_permission import (
+    effective_permission_key,
+)
+from yoke_core.domain.function_authz_types import AuthzSpec
 from yoke_core.domain.function_target_resolution import (
     resolve_org_context,
     resolve_project_context,
@@ -73,6 +77,11 @@ def check_dispatch_permission(
         entry.function_id,
         side_effects=bool(entry.side_effects),
         project_permission=permission_key_for(entry),
+    )
+    # A receipt-only settings merge needs the narrow fleet rehearsal grant.
+    spec = AuthzSpec(
+        spec.scope,
+        effective_permission_key(entry.function_id, request.payload, spec.permission_key),
     )
     actor_id = numeric_actor_id(request.actor.actor_id)
     if actor_id is not None and not actor_is_active(conn, actor_id):

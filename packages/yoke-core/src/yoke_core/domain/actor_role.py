@@ -25,6 +25,7 @@ from yoke_core.domain.actor_permissions import (
     ROLE_INFRASTRUCTURE_CI,
     ROLE_MIGRATION_VERIFICATION_CI,
     ROLE_OPERATOR,
+    ROLE_PREFLIGHT_EXECUTOR,
     ROLE_VIEWER,
     PermissionDenied,
     role_id_by_name,
@@ -39,6 +40,7 @@ MACHINE_ONLY_ROLES = (
     ROLE_HOSTED_SERVICE,
     ROLE_INFRASTRUCTURE_CI,
     ROLE_MIGRATION_VERIFICATION_CI,
+    ROLE_PREFLIGHT_EXECUTOR,
 )
 # Machine roles granted only by their own bootstrap, never by grants or invites.
 BOOTSTRAP_ONLY_ROLES = (ROLE_HOSTED_SERVICE,)

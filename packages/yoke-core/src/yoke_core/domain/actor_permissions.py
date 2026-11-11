@@ -9,6 +9,12 @@ from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.actor_permission_exports import ACTOR_PERMISSION_EXPORTS
+from yoke_core.domain.fleet_rehearsal_record_authority import (
+    PERM_FLEET_REHEARSAL_RECORD,
+    PERM_FLEET_REHEARSAL_RECORD_DESCRIPTION,
+    ROLE_PREFLIGHT_EXECUTOR,
+    ROLE_PREFLIGHT_EXECUTOR_DESCRIPTION,
+)
 from yoke_core.domain.hosted_service_authority import (
     PERM_HOSTED_SERVICE_DELIVER,
     PERM_HOSTED_SERVICE_DELIVER_DESCRIPTION,
@@ -80,6 +86,7 @@ PROJECT_ROLES = (
     ROLE_VIEWER,
     ROLE_DEPLOYMENT_CI,
     ROLE_INFRASTRUCTURE_CI,
+    ROLE_PREFLIGHT_EXECUTOR,
 )
 ROLE_DESCRIPTIONS = {
     ROLE_OWNER: "Full administration, including protected owner changes.",
@@ -95,6 +102,7 @@ ROLE_DESCRIPTIONS = {
         "Verify candidate migration content against the control-plane ledger."
     ),
     ROLE_HOSTED_SERVICE: ROLE_HOSTED_SERVICE_DESCRIPTION,
+    ROLE_PREFLIGHT_EXECUTOR: ROLE_PREFLIGHT_EXECUTOR_DESCRIPTION,
     ROLE_ADMIN: "Full administration except changing owners.",
 }
 PERMISSION_DESCRIPTIONS = {
@@ -132,6 +140,7 @@ PERMISSION_DESCRIPTIONS = {
     PERM_RELEASE_OUTPUT_RECORD: (
         "Record a commit this deployment run's own release automation produced."
     ),
+    PERM_FLEET_REHEARSAL_RECORD: PERM_FLEET_REHEARSAL_RECORD_DESCRIPTION,
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
     PERM_HOSTED_SERVICE_DELIVER: PERM_HOSTED_SERVICE_DELIVER_DESCRIPTION,
@@ -173,6 +182,9 @@ ROLE_PERMISSION_KEYS = {
     ROLE_INFRASTRUCTURE_CI: (PERM_PROJECT_RENDER_READ,),
     ROLE_MIGRATION_VERIFICATION_CI: (PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,),
     ROLE_HOSTED_SERVICE: (PERM_HOSTED_SERVICE_DELIVER,),
+    # A fleet preflight box reads the covered environment's release settings
+    # and records its receipt there, and does nothing else.
+    ROLE_PREFLIGHT_EXECUTOR: (PERM_ITEMS_READ, PERM_FLEET_REHEARSAL_RECORD),
     # Org role — every permission, incl. org-scoped ones, except service-only.
     ROLE_ADMIN: tuple(
         key for key in PERMISSION_DESCRIPTIONS if key not in SERVICE_ONLY_PERMISSIONS
