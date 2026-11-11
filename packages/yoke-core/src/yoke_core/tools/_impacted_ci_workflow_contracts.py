@@ -19,6 +19,7 @@ CI_WORKFLOW_CONTRACTS = (
         "browser_runtime_workflow_contract",
         frozenset(
             {
+                ".github/actions/install-playwright-deps/action.yml",
                 ".github/workflows/browser-runtime-tests.yml",
                 ".github/workflows/yoke-ci.yml",
             }

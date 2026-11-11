@@ -15,6 +15,8 @@ _REMOTE_USE = re.compile(
     re.MULTILINE,
 )
 _EXPECTED_ACTIONS = {
+    "actions/cache/restore",
+    "actions/cache/save",
     "actions/checkout",
     "actions/setup-node",
     "actions/setup-python",
@@ -29,6 +31,7 @@ _WORKFLOWS = (
     "workflows/yoke-tests-selection.yml",
     "workflows/browser-runtime-tests.yml",
     "actions/yoke-test-runner/action.yml",
+    "actions/install-playwright-deps/action.yml",
 )
 
 

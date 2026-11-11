@@ -1,0 +1,109 @@
+name: Install Playwright OS dependencies
+description: >-
+  Install the OS packages Playwright's Chromium needs from a cache of their
+  .deb files with networking disabled; only on a cache miss download them,
+  from Ubuntu's configured mirror first and one independent mirror second.
+inputs:
+  working-directory:
+    description: Directory whose locked Playwright version names the packages.
+    required: true
+runs:
+  using: composite
+  steps:
+    # An offline apt simulation names what is missing (the ubuntu-24.04 image
+    # lacks several Chromium fonts); the cache key covers that exact set, the
+    # Playwright version and the runner image, so a new image refills it.
+    - id: plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        status=0
+        npx --no-install playwright install-deps --dry-run chromium > "$RUNNER_TEMP/pw-deps.txt" 2>&1 || status=$?
+        cat "$RUNNER_TEMP/pw-deps.txt"
+        if [ "$status" -eq 0 ]; then
+          echo "Every Chromium OS dependency is installed; skipping apt."
+          echo "needed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        packages="$(sed -n 's/^  \([a-z0-9][a-z0-9.+-]*\)$/\1/p' "$RUNNER_TEMP/pw-deps.txt" | sort -u | tr '\n' ' ')"
+        if [ -z "$packages" ]; then
+          echo "::error title=install-playwright-deps plan::Playwright's dry run failed without naming missing packages (exit ${status}); read its output above. The runner image's apt lists may be absent."
+          exit 1
+        fi
+        version="$(node -p 'require("./package-lock.json").packages["node_modules/playwright"].version')"
+        digest="$(printf '%s' "$packages" | sha256sum | cut -c1-16)"
+        {
+          echo "needed=true"
+          echo "packages=$packages"
+          echo "dir=$RUNNER_TEMP/playwright-debs"
+          echo "key=playwright-debs-${ImageOS}-${ImageVersion}-$(dpkg --print-architecture)-${version}-${digest}"
+        } >> "$GITHUB_OUTPUT"
+    - id: cache
+      if: steps.plan.outputs.needed == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.dir }}
+        key: ${{ steps.plan.outputs.key }}
+    # On a miss, download only. A slow or unreachable mirror fails its attempt
+    # in minutes: apt retries and times out each fetch and each call is
+    # bounded. Both attempts use their own sources and lists, so the runner's
+    # apt state stays as is; the fallback trusts only Ubuntu's own signing key.
+    - if: steps.plan.outputs.needed == 'true' && steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        PACKAGES: ${{ steps.plan.outputs.packages }}
+        DEBS: ${{ steps.plan.outputs.dir }}
+      run: |
+        attempt_seconds=120
+        mkdir -p "$DEBS/partial"
+        base=(-o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
+              -o DPkg::Lock::Timeout=60 -o "Dir::Cache::archives=$DEBS")
+        fetch() {
+          local name="$1" status=0; shift
+          echo "Downloading Chromium OS dependencies from $name"
+          sudo timeout --kill-after=10 "$attempt_seconds" apt-get "${base[@]}" "$@" update || status=$?
+          [ "$status" -eq 0 ] && { sudo timeout --kill-after=10 "$attempt_seconds" apt-get "${base[@]}" "$@" \
+            install -y --no-install-recommends --download-only $PACKAGES || status=$?; }
+          [ "$status" -eq 0 ] || echo "::warning title=install-playwright-deps mirror::$name failed (exit ${status}; 124 means it passed ${attempt_seconds}s)."
+          return "$status"
+        }
+        ubuntu=/etc/apt/sources.list.d/ubuntu.sources
+        mkdir -p "$RUNNER_TEMP/ubuntu-lists/partial"
+        if fetch "Ubuntu's configured mirror" -o "Dir::Etc::sourcelist=$ubuntu" -o Dir::Etc::sourceparts=- \
+          -o "Dir::State::Lists=$RUNNER_TEMP/ubuntu-lists" -o APT::Update::Error-Mode=any; then
+          :
+        else
+          codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+          fallback="$RUNNER_TEMP/kernel-mirror.sources"
+          mkdir -p "$RUNNER_TEMP/kernel-mirror-lists/partial"
+          printf '%s\n' "Types: deb" "URIs: https://mirrors.edge.kernel.org/ubuntu" \
+            "Suites: $codename $codename-updates $codename-security" "Components: main universe" \
+            "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" > "$fallback"
+          if ! fetch mirrors.edge.kernel.org -o "Dir::Etc::sourcelist=$fallback" -o Dir::Etc::sourceparts=- \
+            -o "Dir::State::Lists=$RUNNER_TEMP/kernel-mirror-lists" -o APT::Update::Error-Mode=any; then
+            echo "::error title=install-playwright-deps download::Neither Ubuntu's configured mirror nor mirrors.edge.kernel.org served the Chromium OS dependencies; read the apt output above. Re-run the failed job once either mirror is reachable."
+            exit 1
+          fi
+        fi
+        rm -rf "$DEBS/partial" "$DEBS/lock"
+        sudo chown -R "$(id -u):$(id -g)" "$DEBS"
+    # Installation never touches a package server: dpkg runs in a network
+    # namespace with no interfaces, so a warm cache provably makes no request.
+    - if: steps.plan.outputs.needed == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DEBS: ${{ steps.plan.outputs.dir }}
+        HIT: ${{ steps.cache.outputs.cache-hit }}
+      run: |
+        echo "Installing $(ls "$DEBS"/*.deb | wc -l) cached .deb files (cache hit: ${HIT:-false}) with networking disabled"
+        sudo unshare --net -- dpkg -i "$DEBS"/*.deb
+        if ! npx --no-install playwright install-deps --dry-run chromium; then
+          echo "::error title=install-playwright-deps incomplete::The cached .deb files did not satisfy Playwright's Chromium dependencies; the cache key's package set is stale. Delete cache ${{ steps.plan.outputs.key }} and re-run."
+          exit 1
+        fi
+    - if: steps.plan.outputs.needed == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.dir }}
+        key: ${{ steps.plan.outputs.key }}

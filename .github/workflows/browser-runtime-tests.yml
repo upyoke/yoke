@@ -12,7 +12,7 @@ env:
 
 jobs:
   browser-runtime:
-    timeout-minutes: 10
+    timeout-minutes: 20
     name: browser-runtime
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     services:
@@ -48,6 +48,7 @@ jobs:
             packages/yoke-core/src/yoke_core/domain/browser_qa* \
             packages/yoke-core/src/yoke_core/domain/browser_client_owned_page.py \
             runtime/api/domain/test_browser_qa_color_scheme* \
+            .github/actions/install-playwright-deps/action.yml \
             .github/workflows/browser-runtime-tests.yml; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
             echo "Browser runtime unchanged; skipping Node suite."
@@ -72,7 +73,15 @@ jobs:
       - name: Install Chromium
         if: steps.change_scope.outputs.should_run == 'true'
         working-directory: ${{ env.BROWSER_RUNTIME_DIR }}
-        run: npx --no-install playwright install --with-deps chromium
+        run: npx --no-install playwright install chromium
+
+      # OS packages install offline from a cache; a miss downloads them from
+      # Ubuntu's mirror, then one independent mirror, each attempt bounded.
+      - name: Install Chromium OS dependencies
+        if: steps.change_scope.outputs.should_run == 'true'
+        timeout-minutes: 10
+        uses: ./.github/actions/install-playwright-deps
+        with: {working-directory: "${{ env.BROWSER_RUNTIME_DIR }}"}
 
       - name: Provision Chromium sandbox
         if: steps.change_scope.outputs.should_run == 'true'

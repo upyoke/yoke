@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 BROWSER_RUNTIME_WORKFLOW = WORKFLOWS / "browser-runtime-tests.yml"
 YOKE_CI = WORKFLOWS / "yoke-ci.yml"
+DEPS_ACTION = REPO_ROOT / ".github" / "actions" / "install-playwright-deps" / "action.yml"
 
 
 def _step(job: dict, name: str) -> dict:
@@ -56,6 +57,7 @@ def test_browser_runtime_workflow_gates_every_expensive_step_on_its_tree() -> No
         "Set up Node.js",
         "Install browser-runtime dependencies",
         "Install Chromium",
+        "Install Chromium OS dependencies",
         "Provision Chromium sandbox",
         "Run browser-runtime tests",
         "Set up Python for Browser case integration",
@@ -71,7 +73,7 @@ def test_browser_runtime_workflow_provisions_and_runs_the_locked_suite() -> None
     assert checkout["with"]["fetch-depth"] == 0
     assert _step(job, "Install browser-runtime dependencies")["run"] == "npm ci"
     assert _step(job, "Install Chromium")["run"] == (
-        "npx --no-install playwright install --with-deps chromium"
+        "npx --no-install playwright install chromium"
     )
     assert _step(job, "Run browser-runtime tests")["run"] == "npm test"
     provision = _step(job, "Provision Chromium sandbox")
@@ -82,10 +84,67 @@ def test_browser_runtime_workflow_provisions_and_runs_the_locked_suite() -> None
     )
     assert "ensure_chromium_apparmor(" in provision["run"]
     names = [step["name"] for step in job["steps"]]
-    assert names.index("Install Chromium") < names.index("Provision Chromium sandbox")
+    assert names.index("Install Chromium") < names.index(
+        "Install Chromium OS dependencies"
+    )
+    assert names.index("Install Chromium OS dependencies") < names.index(
+        "Provision Chromium sandbox"
+    )
     assert names.index("Provision Chromium sandbox") < names.index(
         "Run browser-runtime tests"
     )
+
+
+def _deps_steps() -> list[dict]:
+    return load_document(DEPS_ACTION)["runs"]["steps"]
+
+
+def test_chromium_os_deps_install_through_the_bounded_action() -> None:
+    # On 2026-11-11 an unresolvable Ubuntu mirror hung Playwright's unbounded
+    # --with-deps apt install; Platform's PLAT-415 action is the shared shape.
+    job = load_document(BROWSER_RUNTIME_WORKFLOW)["jobs"]["browser-runtime"]
+    step = _step(job, "Install Chromium OS dependencies")
+    assert step["uses"] == "./.github/actions/install-playwright-deps"
+    assert step["with"] == {"working-directory": "${{ env.BROWSER_RUNTIME_DIR }}"}
+    assert step["timeout-minutes"] <= 10 < job["timeout-minutes"]
+    assert "run" not in step
+    assert not [s for s in job["steps"] if "--with-deps" in str(s.get("run"))]
+    detect = _step(job, "Detect browser-runtime changes")["run"]
+    assert ".github/actions/install-playwright-deps/action.yml" in detect
+
+
+def test_cache_key_covers_image_playwright_version_and_package_set() -> None:
+    plan = _deps_steps()[0]["run"]
+    assert "npx --no-install playwright install-deps --dry-run chromium" in plan
+    assert "${ImageOS}-${ImageVersion}" in plan and "${version}-${digest}" in plan
+    restore, save = _deps_steps()[1], _deps_steps()[-1]
+    assert restore["uses"].startswith("actions/cache/restore@")
+    assert save["uses"].startswith("actions/cache/save@")
+    assert "cache-hit != 'true'" in save["if"]
+
+
+def test_install_runs_with_networking_disabled() -> None:
+    install = _deps_steps()[3]["run"]
+    assert 'sudo unshare --net -- dpkg -i "$DEBS"/*.deb' in install
+    assert "apt-get" not in install
+
+
+def test_miss_tries_ubuntu_then_one_signed_independent_mirror_bounded() -> None:
+    download = _deps_steps()[2]
+    assert "cache-hit != 'true'" in download["if"]
+    script = download["run"]
+    assert script.index("Ubuntu's configured mirror") < script.index("mirrors.edge.kernel.org")
+    assert 'timeout --kill-after=10 "$attempt_seconds" apt-get' in script
+    # GitHub runs bash -e: each bounded call captures its status so a timeout
+    # reaches the named error instead of ending the step with a bare 124.
+    assert script.count("|| status=$?") == 2
+    assert "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" in script
+    for option in ("Acquire::Retries", "Acquire::http::Timeout", "Acquire::https::Timeout",
+                   "APT::Update::Error-Mode=any", "Dir::State::Lists="):
+        assert option in script
+    for forbidden in ("trusted=yes", "allow-unauthenticated", "AllowInsecureRepositories", "apt-key"):
+        assert forbidden not in script
+    assert "::error title=install-playwright-deps download::" in script
 
 
 @pytest.mark.parametrize("workflow", [BROWSER_RUNTIME_WORKFLOW, YOKE_CI])
