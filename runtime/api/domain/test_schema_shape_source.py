@@ -123,3 +123,57 @@ def test_commit_digest_reads_the_release_tree_not_dirty_checkout(
     (domain / "schema_init.py").write_text("shape = 2\n", encoding="utf-8")
     assert digest_schema_shape(domain) != committed
     assert digest_schema_shape_commit(repo, commit_sha) == committed
+
+
+# Golden digests. A change here orphans every fleet-rehearsal receipt already
+# recorded, and a mismatch on only one CI interpreter means the digest has
+# become Python-version dependent again: the release driver and the on-box
+# preflight executor run different interpreters and must agree.
+_GOLDEN_FIXTURE = '''"""Fixture module."""
+from typing import Optional
+TABLE = "widget"
+WIDTH: int = 12
+COLUMNS = [("id", "INTEGER"), ("name", "TEXT")]
+
+
+def ddl(table: str = TABLE, *cols, check: Optional[str] = None, **opts) -> str:
+    """Build DDL."""
+    body = ", ".join(f"{name} {kind}" for name, kind in COLUMNS)
+    tail = f" CHECK ({check!r:>{WIDTH}})" if check is not None else ""
+    return f"CREATE TABLE {table} ({body}){tail} -- {len(cols):03d} {opts}"
+
+
+class Widget:
+    """A row."""
+    flags = {"a": None, "b": True, "c": ...}
+
+    async def load(self, conn, /, limit=None):
+        match limit:
+            case None:
+                return [row async for row in conn]
+            case int(n) if n > 0:
+                return await conn.fetch(f"SELECT * FROM {TABLE} LIMIT {n}")
+            case [first, *rest]:
+                return {first: rest}
+            case _:
+                raise ValueError(f"bad limit {limit=}")
+'''
+_GOLDEN_FIXTURE_DIGEST = (
+    "f532e45f92fd3bc76b16b41d67f94228d37317aa9317796288c04e16fdfd8736"
+)
+_GOLDEN_COMMIT = "f9f8d0924c77ca0133c00836da1a227952623cd4"
+_GOLDEN_COMMIT_DIGEST = (
+    "87c23c029594de90e4f10bbfdaea7a50aaf0d1466bf1de8eb5c8239d3387f45e"
+)
+
+
+def test_fixture_digest_is_the_same_on_every_python(tmp_path: Path) -> None:
+    (tmp_path / "schema_init.py").write_text(_GOLDEN_FIXTURE, encoding="utf-8")
+    assert digest_schema_shape(tmp_path) == _GOLDEN_FIXTURE_DIGEST
+
+
+def test_real_tree_digest_is_the_same_on_every_python() -> None:
+    repository = Path(__file__).resolve().parents[3]
+    assert digest_schema_shape_commit(repository, _GOLDEN_COMMIT) == (
+        _GOLDEN_COMMIT_DIGEST
+    )

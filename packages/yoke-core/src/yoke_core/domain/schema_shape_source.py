@@ -227,8 +227,33 @@ def _normalized_schema_declarations(name: str, content: bytes) -> bytes:
             "Fix the source syntax or encoding before retrying the release."
         ) from exc
     normalized = _DocstringStripper().visit(tree)
-    return ast.dump(
-        normalized,
-        annotate_fields=True,
-        include_attributes=False,
-    ).encode("utf-8")
+    return _serialize(normalized).encode("utf-8")
+
+
+#: Node types whose ``value`` field is meaningful even when it is ``None``.
+_LITERAL_VALUE_NODES = (ast.Constant, ast.MatchSingleton)
+
+
+def _serialize(node: object) -> str:
+    """Render a parsed tree identically on every supported Python version.
+
+    ``ast.dump`` changes shape between releases: 3.12 added empty
+    ``type_params`` lists and 3.13 began omitting empty and ``None`` fields.
+    This form is node type plus fields with absent, ``None`` and empty-list
+    fields all left out, except a literal's own ``value``. It reproduces the
+    Python 3.13 ``ast.dump`` text, so digests recorded by 3.13 and later
+    drivers stay valid.
+    """
+    if isinstance(node, ast.AST):
+        fields = []
+        for name in node._fields:
+            value = getattr(node, name, None)
+            literal = name == "value" and isinstance(node, _LITERAL_VALUE_NODES)
+            empty = value is None or (isinstance(value, list) and not value)
+            if empty and not literal:
+                continue
+            fields.append(f"{name}={_serialize(value)}")
+        return f"{type(node).__name__}({', '.join(fields)})"
+    if isinstance(node, list):
+        return f"[{', '.join(_serialize(item) for item in node)}]"
+    return repr(node)
