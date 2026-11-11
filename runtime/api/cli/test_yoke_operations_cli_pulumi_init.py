@@ -6,7 +6,6 @@ from contextlib import redirect_stderr
 import io
 from pathlib import Path
 
-import pytest
 
 from yoke_cli.commands.adapters import pulumi
 
