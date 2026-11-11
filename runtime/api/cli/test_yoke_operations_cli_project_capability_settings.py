@@ -61,23 +61,8 @@ def test_get_dispatches_and_prints_exact_cas_base():
     assert calls[0].payload == {"project": "yoke", "cap_type": "docker"}
 
 
-def test_get_help_routes_pulumi_state_to_stack_scoped_reader():
-    rc, out, err, calls = _run(
-        "projects",
-        "capability-settings",
-        "get",
-        "--help",
-    )
-    assert rc == 0
-    help_text = out + err
-    assert "capability-settings merge" in help_text
-    assert "yoke pulumi exec" in help_text
-    assert "projects pulumi-stack-config get" in help_text
-    assert calls == []
-
-
-def test_get_refuses_pulumi_state_and_names_typed_bootstrap_path():
-    rc, out, err, calls = _run(
+def test_get_reads_pulumi_state_like_any_capability():
+    rc, out, _err, calls = _run(
         "projects",
         "capability-settings",
         "get",
@@ -86,13 +71,9 @@ def test_get_refuses_pulumi_state_and_names_typed_bootstrap_path():
         "--cap-type",
         "pulumi-state",
     )
-    assert rc == 2
-    assert out == ""
-    assert calls == []
-    assert "aggregate reads are closed" in err
-    assert "capability-settings merge" in err
-    assert "pulumi exec" in err
-    assert "pulumi-stack-config get" in err
+    assert rc == 0
+    assert '"canonical"' in out
+    assert [call.function for call in calls] == ["projects.capability_settings.get"]
 
 
 def test_set_carries_exact_base_and_document():

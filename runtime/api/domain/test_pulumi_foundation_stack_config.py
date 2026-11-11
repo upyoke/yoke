@@ -298,15 +298,13 @@ def _runner_yoke() -> dict:
         "lifecycle_writers_paused": "false",
         "lifecycle_code_frozen": "false",
         "deployment_ssh_stack_outputs_json": '{"acme-prod": "originElasticIpAddress"}',
+        "project": "acme",
     }
     return {**YOKE, **{f"runner_fleet_{key}": value for key, value in values.items()}}
 
 
-RUNNER_PROJECT = {"project_name": "acme"}
-
-
-def test_runner_fleet_reads_yoke_runner_values_and_project_name(monkeypatch):
-    captured = _run(monkeypatch, "acme-runner-fleet", RUNNER_PROJECT, _runner_yoke())
+def test_runner_fleet_reads_every_input_from_yoke_runner_values(monkeypatch):
+    captured = _run(monkeypatch, "acme-runner-fleet", {}, _runner_yoke())
     _kind, _name, args = captured["stack"]
 
     assert (args.project, args.deploy_namespace) == ("acme", "acme")
@@ -317,11 +315,6 @@ def test_runner_fleet_reads_yoke_runner_values_and_project_name(monkeypatch):
     assert args.deployment_ssh_stack_outputs == {"acme-prod": "originElasticIpAddress"}
 
 
-def test_runner_fleet_requires_the_project_name_in_its_stack_file(monkeypatch):
-    with pytest.raises(_MissingConfig, match="webapp-infra:project_name"):
-        _run(monkeypatch, "acme-runner-fleet", {}, _runner_yoke())
-
-
 def test_runner_fleet_without_runner_fleet_access_fails_naming_the_key(monkeypatch):
-    with pytest.raises(_MissingConfig, match="yoke:runner_fleet_aws_capability"):
-        _run(monkeypatch, "acme-runner-fleet", RUNNER_PROJECT, YOKE)
+    with pytest.raises(_MissingConfig, match="yoke:runner_fleet_project"):
+        _run(monkeypatch, "acme-runner-fleet", {}, YOKE)
