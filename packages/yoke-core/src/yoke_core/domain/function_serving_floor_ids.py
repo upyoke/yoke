@@ -83,7 +83,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'projects.environment_settings.get', 'projects.environment_settings.merge', 'projects.get', 'projects.github_binding.bind',
     'projects.github_binding.lifecycle', 'projects.github_binding.status', 'projects.github_binding.unbind', 'projects.github_state.read',
     'projects.github_sync_mode.repair', 'projects.github_sync_receipt.record', 'projects.infrastructure.list', 'projects.lane_summary.get',
-    'projects.list', 'projects.pulumi_stack_config.get', 'projects.pulumi_state.checkpoint_import', 'projects.pulumi_state.migrate',
+    'projects.list',
     'projects.resolve_by_github_repo', 'projects.site.create', 'projects.update', 'qa.activity.list',
     'qa.artifact.add', 'qa.artifact.presign', 'qa.artifact.read', 'qa.browser_context.get',
     'qa.case.waive', 'qa.case_execution.begin', 'qa.gate_summary.run', 'qa.item_plan.attach',

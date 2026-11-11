@@ -21,11 +21,10 @@ PACK_TABLES: dict[str, dict] = {
             "column (stale guess). `description` is the user-facing explanation, "
             "and `latest_version` names the newest immutable Pack version. "
             "Repository receipts, not this table, are installation authority. "
-            "Bundle rendering calls project_renderer_pulumi.gather_pulumi_values "
-            "with required_keys; this public wrapper must forward that keyword "
-            "to project_renderer_pulumi_values.gather_pulumi_values. Updating only "
-            "the implementation signature leaves the wrapper rejecting the "
-            "keyword (wrong signature guess)."
+            "Bundle rendering takes its values from "
+            "project_renderer_values.pack_render_values(required_keys=...), "
+            "which returns only the keys the Pack version's settings_schema "
+            "requires."
         ),
     },
     "project_pack_reports": {

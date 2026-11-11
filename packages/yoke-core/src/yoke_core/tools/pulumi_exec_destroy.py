@@ -1,23 +1,20 @@
 """Operator-confirmed destruction and removal of one exact declared stack.
 
 ``destroy`` tears down a stack's resources; ``stack rm`` then removes the
-emptied stack and its Yoke operator state.  Both need the outer
+emptied stack.  Both need the outer
 ``--confirm-destroy <exact stack name>``; ``stack rm`` never takes
 ``--force``, so Pulumi itself refuses a stack that still holds resources.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, TextIO
+from collections.abc import Sequence
+from pathlib import Path
 
+from yoke_core.domain.pack_pulumi_sources import pulumi_program_source
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     _first_mapping,
-)
-from yoke_core.domain.pulumi_state_capability import (
-    CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY_TYPE,
-    validate_stack_state,
 )
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 
@@ -98,69 +95,44 @@ def require_destroy_confirmation(
 
 
 def refuse_consumed_vps_stack(
-    project: str, stack: str, settings: ProjectRendererSettings
+    project: str,
+    stack: str,
+    settings: ProjectRendererSettings,
+    project_root: Path,
 ) -> None:
-    """Refuse while an environment stack with operator state uses ``stack``.
+    """Refuse while a checked-in environment stack uses ``stack`` as origin.
 
     An environment stack (one with its own ``pulumi.stack_name``) reads its
-    origin from the VPS stack named by ``pulumi.origin_vps_stack_name``.
-    Standalone VPS stacks are declared through that same key, so only a
-    consumer that still has operator state blocks; it is destroyed first.
+    origin from the VPS stack named by ``pulumi.origin_vps_stack_name``. A
+    consumer whose ``infra/Pulumi.<consumer>.yaml`` is still checked in is
+    live and blocks; it is destroyed, removed and its file deleted first.
     """
     if settings.project != project:
         raise PulumiExecError(
-            "Pulumi renderer settings do not match the requested project"
+            "Pulumi project settings do not match the requested project"
         )
-    state_settings = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
-    try:
-        operator_state = validate_stack_state(state_settings.get("stack_state", {}))
-    except ValueError as exc:
-        raise PulumiExecError("stored Pulumi operator state is invalid") from exc
     for environment in settings.environments:
         pulumi = _first_mapping(environment.settings.get("pulumi"))
         consumer = str(pulumi.get("stack_name") or "").strip()
         origin = str(pulumi.get("origin_vps_stack_name") or "").strip()
         if not consumer or consumer == stack or origin != stack:
             continue
-        legacy_state = str(pulumi.get("encrypted_key") or "").strip()
-        if consumer not in operator_state and not legacy_state:
+        if not pulumi_program_source(project_root, f"Pulumi.{consumer}.yaml").is_file():
             continue
         raise PulumiExecError(
             f"pulumi_stack_consumed: environment {environment.name!r} stack "
-            f"{consumer!r} reads VPS stack {stack!r} as its origin and still "
-            f"has operator state; destroy and remove {consumer!r} first with "
-            f"`yoke pulumi exec --project {project} --stack {consumer} "
-            f"--confirm-destroy {consumer} -- destroy --yes --non-interactive` "
-            "and then `-- stack rm --yes`"
+            f"{consumer!r} reads VPS stack {stack!r} as its origin and its "
+            f"stack file is still checked in; destroy and remove {consumer!r} "
+            f"first with `yoke pulumi exec --project {project} --stack "
+            f"{consumer} --confirm-destroy {consumer} -- destroy --yes "
+            "--non-interactive` and then `-- stack rm --yes`, delete "
+            f"infra/Pulumi.{consumer}.yaml, and retry"
         )
-
-
-def clear_removed_stack_state(
-    project: str,
-    stack: str,
-    remover: Callable[..., Mapping[str, Any]],
-    out: TextIO,
-) -> None:
-    """Drop operator state after ``pulumi stack rm`` exited 0."""
-    try:
-        receipt = dict(remover(project=project, stack_name=stack))
-    except Exception as exc:
-        raise PulumiExecError(
-            f"Pulumi stack {stack!r} was removed but its operator state could "
-            f"not be cleared ({exc}); stack init refuses that name until "
-            "the pulumi-state capability's stack_state entry is removed"
-        ) from exc
-    out.write(
-        f"Pulumi stack removed and operator state {receipt.get('mode')}: "
-        f"{project}|{stack}|{receipt.get('receipt_digest')}\n"
-    )
-    out.flush()
 
 
 __all__ = [
     "DESTROY",
     "STACK_RM",
-    "clear_removed_stack_state",
     "destructive_operation",
     "refuse_consumed_vps_stack",
     "require_destroy_confirmation",

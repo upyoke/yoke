@@ -197,12 +197,7 @@ def authority_env(
         env["GITHUB_TOKEN"] = token
         env["RUNNER_FLEET_GITHUB_TOKEN"] = token
     env["PULUMI_BACKEND_URL"] = backend
-    operator = payload.get("operator_state") or {}
-    secret_terms = [
-        token,
-        str(operator.get("secrets_provider") or ""),
-        str(operator.get("encrypted_key") or ""),
-    ]
+    secret_terms = [token, *(str(term) for term in payload.get("stack_secrets") or ())]
     secret_terms.extend(local_redaction_terms)
     for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
         secret_terms.append(str(env.get(name) or ""))

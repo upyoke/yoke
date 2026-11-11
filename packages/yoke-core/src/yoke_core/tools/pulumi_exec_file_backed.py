@@ -1,7 +1,7 @@
 """Run a Pulumi stack from the project's checked-in ``infra/Pulumi.<stack>.yaml``.
 
-When the selected source tree carries a stack file for the requested stack,
-``yoke pulumi exec`` takes this file-backed path: it copies the whole
+Every stack ``yoke pulumi exec`` runs is an ordinary checked-in stack file:
+it copies the whole
 ``infra/`` directory to a private temp dir, adds Yoke-owned values to the
 copy of that stack file under the reserved ``yoke:`` config namespace, and
 runs Pulumi there. The project's checkout is only read, never written.
@@ -19,9 +19,9 @@ runner_fleet; unset means metadata). Values are never delivered as
 ``--config`` flags (Pulumi persists those into the stack file) or as
 environment variables (programs do not read those as config).
 
-A stack without such a file still takes the rendered path. That dual path
-is temporary: the purge item that follows removes the rendered path, its
-templates, key allowlists and stack-kind table, once consumers have moved.
+A stack without such a file, ``init`` included, is refused with the
+recovery step: check in the stack file, then ``init`` prints the
+``secretsprovider`` and ``encryptedkey`` lines to commit into it.
 """
 
 from __future__ import annotations
@@ -51,12 +51,24 @@ _STACK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 _ACCESS_CONFIG_KEY = f"{YOKE_CONFIG_NAMESPACE}:{GITHUB_ACCESS_KEY}"
 
 
-def file_backed_stack_path(project_root: Path, stack: str) -> Path | None:
-    """Return the checked-in stack file for ``stack``, or None for rendered."""
+def require_stack_file(project_root: Path, stack: str) -> Path:
+    """Return the checked-in stack file for ``stack`` or refuse naming it."""
     if not _STACK_NAME.fullmatch(stack) or ".." in stack:
-        return None
+        raise PulumiExecError(
+            f"pulumi_stack_name_invalid: {stack!r} is not a Pulumi stack name; "
+            "use letters, digits, '.', '_' and '-' and retry"
+        )
     path = pulumi_program_source(project_root, f"Pulumi.{stack}.yaml")
-    return path if path.is_file() else None
+    if not path.is_file():
+        raise PulumiExecError(
+            f"pulumi_stack_file_missing: {path} does not exist in the source "
+            f"tree Yoke runs from; Yoke runs only checked-in stack files. Add "
+            f"{PULUMI_PROGRAM_SUBDIRECTORY}/Pulumi.{stack}.yaml holding the "
+            "stack's own config (for a new stack, then run `-- init "
+            "--secrets-provider <awskms URI>` and commit the lines it prints), "
+            "and retry from that source tree"
+        )
+    return path
 
 
 def file_stack_github_access(stack_file: Path) -> str:
@@ -242,7 +254,7 @@ def _scalar(value: str) -> str:
 
 
 __all__ = [
-    "file_backed_stack_path",
+    "require_stack_file",
     "file_stack_github_access",
     "merge_yoke_config",
     "stage_file_backed_infra",

@@ -171,13 +171,9 @@ def _environment_facts(
             "api_origin_port": _text(hosts.get("origin_port")),
             "origin_vps_stack_name": _text(pulumi.get("origin_vps_stack_name")),
             "database_name": _text(database.get("name")),
-            "database_master_username": _text(database.get("master_username")),
             "distribution_bucket_name": _text(distribution.get("bucket_name")),
             "distribution_origin_id": _text(distribution.get("origin_id")),
             "distribution_base_url": _text(distribution.get("base_url")),
-            "distribution_repository_variable_namespace": _text(
-                distribution.get("repository_variable_namespace")
-            ),
             "github_app_private_key_secret_arn": _text(
                 github_app.get("private_key_secret_arn")
             ),

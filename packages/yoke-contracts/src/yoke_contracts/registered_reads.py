@@ -67,7 +67,7 @@ READ_FUNCTION_IDS = frozenset(
         "projects.github_binding.list projects.github_binding.status "
         "projects.github_state.read projects.infrastructure.list "
         "projects.level_summary.get projects.list "
-        "projects.pulumi_stack_config.get projects.resolve_by_github_repo "
+        "projects.resolve_by_github_repo "
         "qa.activity.list qa.artifact.get qa.artifact.presign qa.artifact.read "
         "qa.browser_context.get qa.case_execution.begin qa.gate_summary.run "
         "qa.method.get qa.method.list qa.plan.get qa.plan.list qa.requirement.get "

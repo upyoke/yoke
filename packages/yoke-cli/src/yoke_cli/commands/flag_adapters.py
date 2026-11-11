@@ -48,13 +48,6 @@ from yoke_cli.commands.adapters.projects_environment_settings import (
     projects_environment_settings_get,
     projects_environment_settings_merge,
 )
-from yoke_cli.commands.adapters.projects_pulumi_state import (
-    projects_pulumi_state_checkpoint_import,
-    projects_pulumi_state_migrate,
-)
-from yoke_cli.commands.adapters.projects_pulumi_stack_config import (
-    projects_pulumi_stack_config_get,
-)
 from yoke_cli.commands.adapters.identity import (
     identity_link_set,
 )

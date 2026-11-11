@@ -15,11 +15,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-from yoke_cli.transport.https import TransportError, resolve_https_connection
 from yoke_contracts.api.function_call import TargetRef
-from yoke_cli.commands.pulumi_stack_config_loader import (
-    load_pulumi_stack_config,
-)
 from yoke_cli.config import existing_project_lookup, machine_config
 from yoke_cli.transport.pulumi_github_authority import (
     build_pulumi_github_auth_loader,
@@ -41,28 +37,24 @@ def pulumi_exec(args: List[str]) -> int:
         prog="yoke pulumi exec",
         description=(
             "Run one stack-bound Pulumi initialization, preview, refresh, "
-            "single-output read, file import, or operator-confirmed update with ephemeral "
-            "capability-owned authority. A stack with a checked-in "
-            "infra/Pulumi.<stack>.yaml runs from a temp copy of infra/ with "
+            "single-output read, file import, or operator-confirmed update with "
+            "ephemeral capability-owned authority. The stack runs from its "
+            "checked-in infra/Pulumi.<stack>.yaml: a temp copy of infra/ with "
             "Yoke-owned values added under the reserved yoke: config namespace "
             "(read them with pulumi.Config(\"yoke\")); the file may set only "
             "yoke:github_access (metadata, the default; variables; "
-            "runner_fleet). Any other stack is rendered from project templates. "
-            "Initialization of a file-backed stack runs over any connection; "
-            "for a rendered stack it is a local source-dev/admin boundary for "
-            "an exact declared stack. Both require "
-            "`init --secrets-provider <awskms URI>`; a file-backed init prints "
-            "the secretsprovider and encryptedkey lines to commit into the "
-            "stack file. Preview and up accept repeated "
-            "`--target URN` or `--target=URN` for literal resources in the requested "
-            "stack and rendered Pulumi.yaml project. Up still requires operator "
-            "confirmation with `--yes --non-interactive`. Destroy (whole stack, "
-            "`--yes --non-interactive`) and `stack rm --yes` (never --force) "
-            "require `--confirm-destroy <exact stack name>` and refuse while an "
-            "environment stack with operator state uses the stack as its origin "
-            "VPS. Stack rm of a rendered stack is a local source-dev/admin "
-            "boundary that also drops the stack's operator state; a "
-            "file-backed stack has none to drop."
+            "runner_fleet). A stack without that file is refused. "
+            "`init --secrets-provider <awskms URI>` (pinned to the project's "
+            "pulumi-state KMS key) prints the secretsprovider and encryptedkey "
+            "lines to commit into the stack file; Yoke stores neither. Preview "
+            "and up accept repeated `--target URN` or `--target=URN` for literal "
+            "resources in the requested stack and the infra/Pulumi.yaml "
+            "project. Up still requires operator confirmation with `--yes "
+            "--non-interactive`. Destroy (whole stack, `--yes "
+            "--non-interactive`) and `stack rm --yes` (never --force) require "
+            "`--confirm-destroy <exact stack name>` and refuse while an "
+            "environment stack whose file is still checked in uses the stack "
+            "as its origin VPS."
         ),
     )
     parser.add_argument(
@@ -102,7 +94,6 @@ def pulumi_exec(args: List[str]) -> int:
     if not command:
         print(f"Usage: {PULUMI_EXEC_USAGE}", file=sys.stderr)
         return 2
-    removes_stack = command[0] == "stack" and _first_stack_subcommand(command) == "rm"
     if command[0] == "init" and parsed.bootstrap_local_authority:
         print(
             "error: --bootstrap-local-authority is limited to initialized "
@@ -111,18 +102,6 @@ def pulumi_exec(args: List[str]) -> int:
         )
         return 2
     ensure_handlers_loaded()
-
-    def config_loader(project: str, stack: str):
-        response = call_dispatcher(
-            function_id="projects.pulumi_stack_config.get",
-            target=TargetRef(kind="global"),
-            payload={"project": project, "stack": stack},
-            actor=build_actor(session_id=parsed.session_id),
-        )
-        if not response.success:
-            message = response.error.message if response.error else "request failed"
-            raise RuntimeError(message)
-        return load_pulumi_stack_config(project, stack)
 
     def hosted_repository_token_loader(
         project: str, authority_intent: str, aws_env: Mapping[str, str]
@@ -141,20 +120,10 @@ def pulumi_exec(args: List[str]) -> int:
             caller_root=caller_root,
         )
         executor = importlib.import_module("yoke_core.tools.pulumi_exec")
-        if (command[0] == "init" or removes_stack) and (
-            executor.file_backed_stack_path(project_root, parsed.stack) is None
-        ):
-            refusal = _rendered_state_boundary_refusal(
-                "stack rm" if removes_stack else "stack init"
-            )
-            if refusal:
-                print(refusal, file=sys.stderr)
-                return 2
         return executor.execute_pulumi_command(
             parsed.project,
             parsed.stack,
             command,
-            config_loader=config_loader,
             project_root=project_root,
             caller_root=caller_root,
             aws_env_loader=executor.aws_machine_capability_env,
@@ -166,36 +135,11 @@ def pulumi_exec(args: List[str]) -> int:
             confirm_destroy=parsed.confirm_destroy,
         )
     except FileNotFoundError as exc:
-        print(f"error: Pulumi executable or template not found: {exc}", file=sys.stderr)
+        print(f"error: Pulumi executable or file not found: {exc}", file=sys.stderr)
         return 127
     except Exception as exc:
         print(f"error: pulumi exec failed: {exc}", file=sys.stderr)
         return 1
-
-
-def _rendered_state_boundary_refusal(boundary: str) -> str:
-    """Refuse a rendered stack's state write over an HTTPS connection.
-
-    A rendered stack's init and stack rm write its operator state into the
-    project database, so they run only on a local-postgres connection. A
-    file-backed stack keeps that state in its checked-in file and stores
-    nothing, so it runs over any connection.
-    """
-    try:
-        https_connection = resolve_https_connection()
-    except TransportError as exc:
-        return (
-            f"error: pulumi {boundary} could not resolve the active "
-            f"connection: {exc}"
-        )
-    if https_connection is None:
-        return ""
-    return (
-        f"error: pulumi {boundary} of a rendered stack writes its operator "
-        "state and is a local source-dev/admin boundary; select a "
-        "local-postgres connection and retry, or check in the stack's "
-        "infra/Pulumi.<stack>.yaml to run it from that file"
-    )
 
 
 def _project_checkout(
@@ -241,20 +185,6 @@ def _project_checkout(
             f"mapping; found {len(matches)}"
         )
     return matches[0]
-
-
-def _first_stack_subcommand(command: List[str]) -> str | None:
-    """Return the `stack` subcommand, skipping any `--stack NAME` selector."""
-    index = 1
-    while index < len(command):
-        value = command[index]
-        if value == "--stack":
-            index += 2
-        elif value.startswith("--stack="):
-            index += 1
-        else:
-            return value
-    return None
 
 
 def _current_git_root() -> Path | None:

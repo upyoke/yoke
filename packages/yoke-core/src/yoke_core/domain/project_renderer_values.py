@@ -1,24 +1,27 @@
-"""Collect project values used by Pack installation and Pulumi execution.
+"""Collect the project values Pack installation renders into Pack files.
 
 Values come from the DB-backed cloud-runtime settings homes: ``projects``,
 ``sites.settings``, ``environments.settings``, and
-``project_capabilities.settings``.
+``project_capabilities.settings``. Pulumi stacks take no values from here:
+they run from the project's checked-in stack files.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Collection, Dict
 
-from yoke_core.domain.project_renderer_settings import (  # noqa: F401
+from yoke_core.domain.project_renderer_pulumi_runner_fleet import (
+    runner_fleet_values,
+)
+from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
-    RendererEnvironmentSettings,
     _first_mapping,
     _stringify,
-    load_project_renderer_settings,
     primary_domain,
-    primary_environment_settings,
     primary_server,
+)
+from yoke_core.domain.pulumi_state_capability import (
+    CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY_TYPE,
 )
 
 
@@ -29,32 +32,35 @@ CONFIGURE_AWS_CREDENTIALS_ACTION = (
 CHECKOUT_ACTION = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0"
 
 
-def _json_field(data: Dict[str, Any], field: str) -> str:
-    """Extract a field from a dict, returning empty string if missing."""
-    val = data.get(field, "")
-    return str(val) if val else ""
-
-
 def _csv(value: Any) -> str:
     if isinstance(value, list):
         return ",".join(str(item) for item in value if str(item))
     return _stringify(value)
 
 
-def _cap_settings_query(
+def pack_render_values(
     project: str,
-    cap_type: str,
-    script_dir: Path | None = None,
-) -> Dict[str, Any]:
-    """Query ``project_capabilities.settings`` directly from the DB."""
-    del script_dir
-    return load_project_renderer_settings(project).capabilities.get(cap_type, {})
+    settings: ProjectRendererSettings,
+    *,
+    required_keys: Collection[str],
+) -> Dict[str, str]:
+    """Return the requested Pack render values the project can supply.
 
-
-def _project_display_name(project: str, script_dir: Path | None = None) -> str:
-    """Query the project display name from the projects table."""
-    del script_dir
-    return load_project_renderer_settings(project).display_name
+    Runner-fleet values are built only when a Pack asks for one, because
+    building them validates the runner-fleet capability.
+    """
+    values = _values_from_settings(project, settings)
+    if any(key.startswith("runner_fleet_") for key in required_keys):
+        github = settings.capabilities.get("github", {})
+        owner = _stringify(github.get("repo_owner"))
+        repo = _stringify(github.get("repo_name"))
+        state = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
+        values.update(runner_fleet_values(
+            settings,
+            fallback_repo=f"{owner}/{repo}" if owner and repo else "",
+            enabled="runner-fleet" in (state.get("stacks") or []),
+        ))
+    return {key: values[key] for key in required_keys if key in values}
 
 
 def _values_from_settings(
@@ -63,8 +69,6 @@ def _values_from_settings(
 ) -> Dict[str, str]:
     domain_entry = primary_domain(settings)
     site_cdn = _first_mapping(settings.site_settings.get("cdn"))
-    env_settings = primary_environment_settings(settings)
-    hosts = _first_mapping(env_settings.get("hosts"))
     server = primary_server(settings)
 
     aws_settings = settings.capabilities.get("aws-admin", {})
@@ -112,19 +116,12 @@ def _values_from_settings(
         "24",
     )
 
-    origin_host = _stringify(hosts.get("origin"))
-    origin_ip = _stringify(server.get("host") or ssh_settings.get("host"), "TODO")
-    ssh_host = origin_ip
+    ssh_host = _stringify(server.get("host") or ssh_settings.get("host"), "TODO")
     ssh_user = _stringify(
         ssh_settings.get("default_user") or ssh_settings.get("user"), "TODO"
     )
     cloudfront_id = _stringify(
         site_cdn.get("distribution_id") or domain_settings.get("distribution_id"),
-        "TODO",
-    )
-    cloudfront_domain = _stringify(
-        site_cdn.get("distribution_domain")
-        or domain_settings.get("distribution_domain"),
         "TODO",
     )
 
@@ -134,21 +131,9 @@ def _values_from_settings(
         "project_description": "",
         "project_name": project_name,
         "project_slug": project_name,
-        # Stable AWS-resource naming input (defaults to the project slug). The
-        # pulumi stacks name every resource under this, NOT the live project
-        # slug, so a re-parent to a differently-named project renames nothing.
-        "deploy_namespace": settings.deploy_namespace,
-        "cloudfront_domain": cloudfront_domain,
         "cloudfront_id": cloudfront_id,
         "checkout_action": CHECKOUT_ACTION,
         "configure_aws_credentials_action": CONFIGURE_AWS_CREDENTIALS_ACTION,
-        "certificate_arn": _stringify(domain_entry.get("certificate_arn"), "TODO"),
-        "hosted_zone_id": _stringify(domain_entry.get("hosted_zone_id"), "TODO"),
-        "aws_account_id": _stringify(aws_settings.get("account_id"), "TODO"),
-        "vps_description": _stringify(server.get("description"), "TODO"),
-        "domain_name": domain_name,
-        "origin_host": origin_host,
-        "origin_ip": origin_ip,
         "ssh_host": ssh_host,
         "aws_region": _stringify(aws_settings.get("region"), "us-east-1"),
         "ssh_user": ssh_user,
@@ -178,7 +163,4 @@ def _values_from_settings(
     }
 
 
-def gather_values(project: str, project_root: Path) -> Dict[str, str]:
-    """Collect all template variables from DB-backed renderer settings."""
-    del project_root
-    return _values_from_settings(project, load_project_renderer_settings(project))
+__all__ = ["CHECKOUT_ACTION", "CONFIGURE_AWS_CREDENTIALS_ACTION", "pack_render_values"]

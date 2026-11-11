@@ -1,4 +1,4 @@
-"""Declared-stack initialization for bounded Pulumi execution."""
+"""Stack initialization for bounded Pulumi execution."""
 
 from __future__ import annotations
 
@@ -10,19 +10,9 @@ from typing import Any, TextIO
 
 from yoke_core.domain import yaml_helper
 from yoke_core.domain.deploy_remote import DEFAULT_AWS_CAPABILITY_TYPE
-from yoke_core.domain.project_renderer_pulumi import render_pulumi_artifacts
-from yoke_core.domain.project_renderer_pulumi_stack_types import (
-    gather_pulumi_stacks,
-    pulumi_stack_name,
-)
-from yoke_core.domain.project_renderer_pulumi_values import gather_pulumi_values
-from yoke_core.domain.project_renderer_pulumi_vps_targets import (
-    gather_standalone_vps_targets,
-)
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 from yoke_core.domain.pulumi_state_capability import (
     CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY_TYPE,
-    validate_stack_state,
 )
 from yoke_core.tools.pulumi_exec_file_backed import stage_file_backed_infra
 from yoke_core.tools.pulumi_exec_files import new_owner_only_output
@@ -39,9 +29,8 @@ def execute_pulumi_stack_init(
     command: Sequence[str],
     *,
     project_root: Path,
-    stack_file: Path | None = None,
+    stack_file: Path,
     settings_loader: Callable[[str], ProjectRendererSettings],
-    state_importer: Callable[..., Mapping[str, Any]],
     aws_env_loader: Callable[..., Mapping[str, str]],
     child_factory: Callable[..., Any] | None,
     out: TextIO | None,
@@ -49,27 +38,19 @@ def execute_pulumi_stack_init(
 ) -> int:
     """Initialize one stack, pinned to the capability's KMS key.
 
-    A file-backed stack (``stack_file``) is declared by its checked-in file,
-    so any name is accepted; its generated ``secretsprovider`` and
-    ``encryptedkey`` lines are printed for the operator to commit into that
-    file, and Yoke stores nothing. A rendered stack must be declared and
-    gets its generated operator state persisted.
+    Any stack name is accepted. ``stack_file`` is the stack's checked-in
+    ``infra/Pulumi.<stack>.yaml``; the generated ``secretsprovider`` and ``encryptedkey`` lines are printed for
+    the operator to commit into that file, and Yoke stores nothing.
     """
     requested_provider = _validated_init_provider(command)
     settings = settings_loader(project)
     if settings.project != project:
         raise PulumiExecError(
-            "Pulumi renderer settings do not match the requested project"
+            "Pulumi project settings do not match the requested project"
         )
     state_settings = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE)
     if not isinstance(state_settings, Mapping):
         raise PulumiExecError(f"project {project!r} has no pulumi-state capability")
-    values: dict[str, str] = {}
-    if stack_file is None:
-        values = _declared_stack_values(
-            project, stack, project_root, settings, state_settings
-        )
-
     aws_settings = settings.capabilities.get(DEFAULT_AWS_CAPABILITY_TYPE)
     if not isinstance(aws_settings, Mapping):
         raise PulumiExecError(f"project {project!r} has no aws-admin capability")
@@ -88,36 +69,14 @@ def execute_pulumi_stack_init(
             f"expected {expected_provider!r}"
         )
 
-    if stack_file is not None:
-        _refuse_foreign_provider(stack_file, expected_provider)
+    _refuse_foreign_provider(stack_file, expected_provider)
 
     with tempfile.TemporaryDirectory(prefix="yoke-pulumi-exec-") as raw_temp:
         temp_root = Path(raw_temp)
         temp_root.chmod(0o700)
         render_root = temp_root / "render"
-        if stack_file is not None:
-            infra_root = stage_file_backed_infra(
-                project_root, stack, render_root, None
-            )
-        else:
-            try:
-                render_pulumi_artifacts(
-                    project,
-                    values,
-                    project_root,
-                    render_root,
-                    True,
-                    settings,
-                    pulumi_stack=stack,
-                )
-            except ValueError as exc:
-                raise PulumiExecError(str(exc)) from exc
-            infra_root = render_root / "infra"
+        infra_root = stage_file_backed_infra(project_root, stack, render_root, None)
         stack_path = infra_root / f"Pulumi.{stack}.yaml"
-        if not stack_path.is_file():
-            raise PulumiExecError(
-                "declared Pulumi stack did not render an exact stack config"
-            )
         child_env, redaction_terms = _bootstrap_authority_env(
             project,
             region=region,
@@ -164,89 +123,9 @@ def execute_pulumi_stack_init(
         if result.returncode:
             return result.returncode
         discovered_provider = str(metadata.get("secretsprovider") or "").strip()
-        if stack_file is not None:
-            return _report_file_stack_lines(
-                stack_file, discovered_provider, encrypted_key, out or sys.stdout
-            )
-        if discovered_provider != requested_provider or not encrypted_key:
-            raise PulumiExecError(
-                "Pulumi stack was initialized but generated operator-state "
-                "metadata is incomplete; export its checkpoint and recover with "
-                "`yoke projects pulumi-state checkpoint-import`"
-            )
-        try:
-            receipt = dict(state_importer(
-                project=project,
-                stack_name=stack,
-                secrets_provider=discovered_provider,
-                encrypted_key=encrypted_key,
-                apply=True,
-            ))
-        except Exception as exc:
-            raise PulumiExecError(
-                "Pulumi stack was initialized but typed operator-state "
-                "persistence failed; export its checkpoint and recover with "
-                "`yoke projects pulumi-state checkpoint-import`"
-            ) from exc
-        receipt_digest = str(receipt.get("receipt_digest") or "").strip()
-        if not receipt_digest:
-            raise PulumiExecError(
-                "Pulumi stack was initialized but operator-state persistence "
-                "returned no receipt digest"
-            )
-        sink = out or sys.stdout
-        sink.write(
-            "Pulumi stack initialized and operator state registered: "
-            f"{project}|{stack}|{receipt_digest}\n"
+        return _report_file_stack_lines(
+            stack_file, discovered_provider, encrypted_key, out or sys.stdout
         )
-        sink.flush()
-        return 0
-
-
-def _declared_stack_values(
-    project: str,
-    stack: str,
-    project_root: Path,
-    settings: ProjectRendererSettings,
-    state_settings: Mapping[str, Any],
-) -> dict[str, str]:
-    """Refuse an undeclared or already-registered rendered stack."""
-    raw_stack_types = state_settings.get("stacks")
-    if not isinstance(raw_stack_types, list) or not raw_stack_types:
-        raise PulumiExecError(
-            "Pulumi stack init requires an explicit non-empty pulumi-state "
-            "stacks declaration"
-        )
-    try:
-        declared_types = gather_pulumi_stacks(project, project_root, settings)
-        values = gather_pulumi_values(
-            project, project_root, settings, pulumi_stack=stack
-        )
-        declared_names = {
-            pulumi_stack_name(stack_type, settings, values)
-            for stack_type in declared_types
-        } | {
-            target.name
-            for target in gather_standalone_vps_targets(
-                settings, stack_name=stack
-            )
-        }
-    except ValueError as exc:
-        raise PulumiExecError(str(exc)) from exc
-    if stack not in declared_names:
-        raise PulumiExecError(
-            f"Pulumi stack {stack!r} is not an exact declared project stack"
-        )
-    try:
-        operator_state = validate_stack_state(state_settings.get("stack_state", {}))
-    except ValueError as exc:
-        raise PulumiExecError("stored Pulumi operator state is invalid") from exc
-    if stack in operator_state:
-        raise PulumiExecError(
-            f"Pulumi operator state is already registered for stack {stack!r}"
-        )
-
-    return values
 
 
 def _refuse_foreign_provider(stack_file: Path, expected_provider: str) -> None:

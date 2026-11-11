@@ -59,8 +59,7 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "Project container-image registry (ECR). One repository per project; "
         "image tags are git SHAs; deploy stages pull from here. "
         "Requires aws-admin.",
-        '[{"key":"repository","description":"Registry repository name (e.g. <project>-core)","secret":false},'
-        '{"key":"manage_platform_image_lifecycle","description":"Allow Yoke to manage the optional platform image lifecycle policy on the registry repository","secret":false}]',
+        '[{"key":"repository","description":"Registry repository name (e.g. <project>-core)","secret":false}]',
         '["aws-admin"]',
     ),
     (
@@ -91,21 +90,13 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "[]",
     ),
     (
-        "aws-route53",
-        "AWS Route53",
-        "DNS management via Route53. Requires aws-admin.",
-        '[{"key":"hosted_zone_id","description":"Route53 Hosted Zone ID","secret":false}]',
-        '["aws-admin"]',
-    ),
-    (
         "github",
         "GitHub Integration",
         "GitHub App repo binding for issue sync, PRs, Actions, and API access",
         '[{"key":"repo_owner","description":"GitHub repo owner","secret":false},'
         '{"key":"repo_name","description":"GitHub repo name","secret":false},'
         '{"key":"installation_id","description":"GitHub App installation id","secret":false},'
-        '{"key":"repository_id","description":"GitHub repository id","secret":false},'
-        '{"key":"ci_oidc_manage_provider","description":"Allow Yoke to manage the optional GitHub Actions OIDC provider","secret":false}]',
+        '{"key":"repository_id","description":"GitHub repository id","secret":false}]',
         "[]",
     ),
     (

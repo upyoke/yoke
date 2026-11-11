@@ -38,7 +38,6 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_ADMIN,
     PERM_PROJECT_CREATE,
     PERM_PROJECT_INSTALL,
-    PERM_PROJECT_RENDER_READ,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.hosted_service_authority import PERM_HOSTED_SERVICE_DELIVER
@@ -123,16 +122,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "projects.pulumi_state.checkpoint_import": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     # Site/environment registration: the install grant, like onboard.checklist.*.
     "projects.site.create": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "projects.environment.create": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "projects.environment.update": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
-    "projects.pulumi_stack_config.get": AuthzSpec(
-        PROJECT,
-        PERM_PROJECT_RENDER_READ,
-    ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     # Project identity metadata is visible to every actor who belongs to the
     # project.  The handler applies the same actor-visible filter as

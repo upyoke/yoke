@@ -20,17 +20,11 @@ from yoke_core.domain.projects_capabilities_settings_cli import (
     register_capability_settings_parsers as register_capability_settings_parsers,
 )
 from yoke_core.domain.project_github_capability_settings import (
-    assert_github_capability_merge_target,
     reject_github_capability_full_settings_write,
     validate_github_capability_merge_assignments,
 )
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
-)
-from yoke_core.domain.pulumi_state_capability import (
-    reject_generic_full_write as reject_pulumi_state_full_write,
-    reject_generic_read as reject_pulumi_state_read,
-    validate_merge_assignments as validate_pulumi_state_merge_assignments,
 )
 from yoke_core.domain.settings_cas import (
     SETTINGS_CONFLICT_TAG,
@@ -128,7 +122,7 @@ def cmd_capability_get_settings(
     The returned text doubles as the CAS base token for
     :func:`cmd_capability_set_settings`.
     """
-    cap_type = reject_pulumi_state_read(cap_type)
+    cap_type = str(cap_type or "").strip()
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)
@@ -212,7 +206,7 @@ def cmd_capability_set_settings(
     no blind-upsert path exists.
     """
     cap_type = reject_github_capability_full_settings_write(cap_type)
-    cap_type = reject_pulumi_state_full_write(cap_type)
+    cap_type = str(cap_type or "").strip()
     has_base = bool(base_settings_json is not None and str(base_settings_json).strip())
     if has_base == bool(create):
         raise ValueError(
@@ -252,7 +246,7 @@ def cmd_capability_remove_settings(
     lifecycles and cannot be removed through this generic settings surface.
     """
     cap_type = reject_github_capability_full_settings_write(cap_type)
-    cap_type = reject_pulumi_state_full_write(cap_type)
+    cap_type = str(cap_type or "").strip()
     if cap_type.startswith("test-machine:"):
         from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -310,17 +304,15 @@ def cmd_capability_merge_settings(
     recipe for both existing and missing rows.
     """
     cap_type = validate_github_capability_merge_assignments(cap_type, assignments)
-    cap_type = validate_pulumi_state_merge_assignments(cap_type, assignments)
+    cap_type = str(cap_type or "").strip()
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)
-        assert_github_capability_merge_target(conn, project_id, cap_type)
 
         def read_current() -> Optional[str]:
             return _read_settings_text(conn, project_id, cap_type)
 
         def cas_write(base: Optional[str], merged_text: str) -> str:
-            assert_github_capability_merge_target(conn, project_id, cap_type)
             merged_text = _canonicalize_capability_settings(cap_type, merged_text)
             if base is None:
                 return _cas_create(conn, project, project_id, cap_type, merged_text)
