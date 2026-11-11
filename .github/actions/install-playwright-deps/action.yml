@@ -36,7 +36,7 @@ runs:
           echo "needed=true"
           echo "packages=$packages"
           echo "dir=$RUNNER_TEMP/playwright-debs"
-          echo "key=playwright-debs-${ImageOS}-${ImageVersion}-$(dpkg --print-architecture)-${version}-${digest}"
+          echo "key=playwright-debs-${ImageOS}-${ImageVersion}-$(dpkg --print-architecture)-${version}-${digest}-qa-miss"
         } >> "$GITHUB_OUTPUT"
     - id: cache
       if: steps.plan.outputs.needed == 'true'
