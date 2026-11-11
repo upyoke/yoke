@@ -104,7 +104,6 @@ def test_binding_projects_current_capability_fields_and_drops_unknowns(
 
         _bind()
         assert _settings(db_name) == {
-            "ci_oidc_manage_provider": False,
             "repo_owner": "Example-Org",
             "repo_name": "ExternalWebapp",
             "installation_id": "12345",

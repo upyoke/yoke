@@ -113,8 +113,8 @@ def _require(conn, cap_type: str) -> None:
 def test_prerequisites_come_from_the_template_row(prereq_db) -> None:
     conn = db_backend.connect()
     try:
-        _template(conn, "aws-route53", ["aws-admin"])
-        assert prereq.declared_prerequisites(conn, "aws-route53") == ["aws-admin"]
+        _template(conn, "aws-example", ["aws-admin"])
+        assert prereq.declared_prerequisites(conn, "aws-example") == ["aws-admin"]
         assert prereq.declared_prerequisites(conn, "no-such-template") == []
     finally:
         conn.close()
@@ -123,9 +123,9 @@ def test_prerequisites_come_from_the_template_row(prereq_db) -> None:
 def test_a_missing_prerequisite_capability_refuses_by_name(prereq_db) -> None:
     conn = db_backend.connect()
     try:
-        _template(conn, "aws-route53", ["aws-admin"])
+        _template(conn, "aws-example", ["aws-admin"])
         with pytest.raises(prereq.CapabilityPrerequisiteError) as excinfo:
-            _require(conn, "aws-route53")
+            _require(conn, "aws-example")
         assert "aws-admin" in str(excinfo.value)
     finally:
         conn.close()
@@ -134,9 +134,9 @@ def test_a_missing_prerequisite_capability_refuses_by_name(prereq_db) -> None:
 def test_a_declared_prerequisite_satisfies_the_gate(prereq_db) -> None:
     conn = db_backend.connect()
     try:
-        _template(conn, "aws-route53", ["aws-admin"])
+        _template(conn, "aws-example", ["aws-admin"])
         _capability(conn, "aws-admin")
-        _require(conn, "aws-route53")
+        _require(conn, "aws-example")
     finally:
         conn.close()
 

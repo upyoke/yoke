@@ -8,16 +8,11 @@ project's own names. Where no command exists the entry says so plainly.
 
 from __future__ import annotations
 
-import json
 import shlex
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_github_auth_models import GITHUB_CAPABILITY_TYPE
-from yoke_core.domain.pulumi_state_capability import (
-    CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY,
-    STACK_STATE_KEY,
-)
 
 NO_SECRET_COMMAND = (
     "No yoke command removes a stored capability secret; "
@@ -33,15 +28,10 @@ NO_PACK_COMMAND = (
     "checkout's Pack receipt."
 )
 NO_ROLE_COMMAND = "No yoke command revokes a project role grant."
-NO_PULUMI_COMMAND = (
-    "No yoke command removes Pulumi stack state; it lives in the pulumi-state "
-    "capability or in site settings."
-)
 
 
-def _entry(kind, count, *, label, commands=(), names=(), no_command=None, partial=False):
-    """``partial`` keeps ``no_command`` when only some records have a command."""
-    shown = bool(count) and (partial or not commands)
+def _entry(kind, count, *, label, commands=(), names=(), no_command=None):
+    shown = bool(count) and not commands
     return {
         "kind": kind,
         "label": label,
@@ -103,8 +93,6 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
             label="capability settings",
             names=capabilities,
             commands=[c for t in capabilities for c in _capability_commands(t, proj)],
-            no_command=NO_PULUMI_COMMAND,
-            partial=PULUMI_STATE_CAPABILITY in capabilities,
         ),
         _entry(
             "github_binding",
@@ -160,12 +148,6 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
             ],
         ),
         _counted(conn, "project_roles", "actor_project_roles", project_id, NO_ROLE_COMMAND),
-        _entry(
-            "pulumi_stack_state",
-            int(_pulumi_stack_state_present(conn, project_id)),
-            label="Pulumi stack state",
-            no_command=NO_PULUMI_COMMAND,
-        ),
     ]
 
 
@@ -173,8 +155,6 @@ def _capability_commands(cap_type: str, proj: str) -> list[str]:
     q = shlex.quote
     if cap_type == GITHUB_CAPABILITY_TYPE:
         return [f"yoke projects github-binding unbind --project {proj}"]
-    if cap_type == PULUMI_STATE_CAPABILITY:
-        return []
     if cap_type.startswith("test-machine:"):
         name = cap_type.split(":", 1)[1]
         return [
@@ -208,33 +188,6 @@ def _count(conn: Any, table: str, project_id: int) -> int:
 
 def _ids(conn: Any, sql: str, project_id: int) -> list[str]:
     return [str(row[0]) for row in conn.execute(sql, (project_id,)).fetchall()]
-
-
-def _pulumi_stack_state_present(conn: Any, project_id: int) -> bool:
-    """Stack state lives in the pulumi-state capability or legacy site settings."""
-    capability = conn.execute(
-        "SELECT settings FROM project_capabilities WHERE project_id=%s AND type=%s",
-        (project_id, PULUMI_STATE_CAPABILITY),
-    ).fetchone()
-    if capability is not None and _json(capability[0]).get(STACK_STATE_KEY):
-        return True
-    for row in conn.execute(
-        "SELECT settings FROM sites WHERE project_id=%s", (project_id,)
-    ).fetchall():
-        pulumi = _json(row[0]).get("pulumi")
-        if isinstance(pulumi, dict) and pulumi.get("stack_state"):
-            return True
-    return False
-
-
-def _json(raw: Any) -> dict[str, Any]:
-    if isinstance(raw, dict):
-        return raw
-    try:
-        value = json.loads(raw or "{}")
-    except (TypeError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
 
 
 __all__ = ["remaining_attachments"]

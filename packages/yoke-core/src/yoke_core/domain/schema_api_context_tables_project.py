@@ -93,12 +93,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "site and environment names without projecting settings through "
             "`yoke projects "
             "infrastructure list --project <slug> --json` "
-            "(`projects.infrastructure.list`). Legacy Pulumi operator state at "
-            "`settings.pulumi.stack_state` moves transactionally through "
-            "registered function `projects.pulumi_state.migrate` / `yoke "
-            "projects pulumi-state migrate --project <slug> --site <name> "
-            "--stack <name> [--apply]`; it dry-runs by default and emits only "
-            "a redacted receipt."
+            "(`projects.infrastructure.list`)."
         ),
     },
     "environments": {

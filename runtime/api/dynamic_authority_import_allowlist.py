@@ -278,14 +278,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.db_helpers",
     ): (
         "local_engine_activation",
-        "local-postgres stack config materialization reads the bound local universe",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
-        "yoke_core.domain.project_renderer_pulumi_stack_config",
-    ): (
-        "local_engine_activation",
-        "local-postgres stack config materialization uses the installed engine renderer",
+        "local-postgres settings snapshot reads the bound local universe",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/project_install/source_dev.py",

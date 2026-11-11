@@ -69,32 +69,6 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": (),
-        "topic": "project",
-        "purpose": "Migrate legacy Pulumi operator state",
-        "recipe": (
-            "yoke projects pulumi-state migrate --project <project> "
-            "--site <site-name> --stack <stack> [--apply]"
-        ),
-        "notes": (
-            "Migration is dry-run-default and exact-set, persists a durable "
-            "retry marker, and returns redacted metadata. Stack-config "
-            "registration is render-authorized and metadata-only; fetch its "
-            "body through the "
-            "no-store boundary with `yoke projects "
-            "pulumi-stack-config get --project <project> --stack <stack> "
-            "--output <file>`; execute it with `yoke pulumi exec --project "
-            "<project> --stack <stack> -- preview` (also allows refresh and "
-            "safe file-form import). Actions keeps AWS OIDC; runner-fleet "
-            "obtains a narrow repository token from its hosted broker, while "
-            "other stacks use repository-bound App authority. Local "
-            "runner-fleet recovery may add `--bootstrap-local-authority`; "
-            "other stacks and Actions refuse it. Local AWS authority comes "
-            "from the machine capability store. Generic capability and "
-            "operator-state surfaces are closed."
-        ),
-    },
-    {
         "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "project",
         "purpose": "Execute a capability-owned Pulumi stack command",
@@ -109,18 +83,22 @@ PROJECT_COMMANDS: list[dict] = [
             "`yoke_cli.commands.adapters.pulumi`; "
             "the execution workhorse is "
             "`yoke_core.tools.pulumi_exec`. Never "
-            "guess a sibling `commands/pulumi_exec.py` module. The selected "
-            "stack must be declared in the project pulumi-state capability. "
+            "guess a sibling `commands/pulumi_exec.py` module. The stack runs "
+            "from its checked-in infra/Pulumi.<stack>.yaml plus Yoke-owned "
+            "`yoke:` values (read with pulumi.Config(\"yoke\")); a stack "
+            "without that file refuses with pulumi_stack_file_missing. "
+            "Every operation, init included, needs the file; init pins the "
+            "pulumi-state KMS key and prints the secretsprovider and "
+            "encryptedkey lines to commit, and Yoke stores neither. "
             "Output reads require one exact output name and never expose "
             "secret values. `destroy` (whole stack, never --target; requires "
             "--yes --non-interactive) and `stack rm --yes` (never --force, so "
             "Pulumi refuses a stack still holding resources) both require "
             "`--confirm-destroy` naming the exact stack, and refuse while an "
-            "environment stack with operator state names the target as its "
-            "pulumi.origin_vps_stack_name; destroy that consumer first. "
-            "`stack rm` is local-only like init and, on exit 0, drops the "
-            "stack's pulumi-state stack_state entry so init can reuse the "
-            "name. Every run opens on stderr with a `rendering "
+            "environment stack whose file is still checked in names the "
+            "target as its pulumi.origin_vps_stack_name; destroy that "
+            "consumer and delete its file first. Every run opens on stderr "
+            "with a `rendering "
             "<checkout> @ <revision> (<infra/ state>)` line naming the tree "
             "the program was read from, so read it before trusting an "
             "unchanged count; uncommitted work under `infra/` is rendered "
@@ -138,23 +116,6 @@ PROJECT_COMMANDS: list[dict] = [
             "and `yoke projects github-binding status --project <project> "
             "--json`; if those are healthy, replace or update the stack "
             "provider so refresh reads the process token."
-        ),
-    },
-    {
-        "startup_roles": (),
-        "topic": "project",
-        "purpose": "Register a live Pulumi checkpoint's operator state",
-        "recipe": (
-            "yoke projects pulumi-state checkpoint-import --project <project> "
-            "--stack <stack> --checkpoint-file <owner-only-export> [--apply]"
-        ),
-        "notes": (
-            "Use this typed dry-run-default boundary when an already-live "
-            "stack has no legacy site settings to migrate. The CLI reads the "
-            "0600 checkpoint locally, extracts only the awskms provider and "
-            "encrypted data key, and returns a redacted receipt. Never copy "
-            "another stack's operator state or write stack_state through raw "
-            "SQL or generic capability-settings surfaces."
         ),
     },
     {

@@ -66,9 +66,6 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `projects.infrastructure.list` | `none` |
 | `projects.level_summary.get` | `none` |
 | `projects.list` | `none` |
-| `projects.pulumi_stack_config.get` | `none` |
-| `projects.pulumi_state.checkpoint_import` | `none` |
-| `projects.pulumi_state.migrate` | `none` |
 | `projects.resolve_by_github_repo` | `none` |
 | `projects.retire` | `none` |
 | `projects.site.create` | `none` |

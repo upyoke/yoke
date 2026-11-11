@@ -25,7 +25,7 @@ from yoke_core.domain.pack_catalog_validation import (
 )
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.pack_render import render_pack_text
-from yoke_core.domain.project_renderer_pulumi import gather_pulumi_values
+from yoke_core.domain.project_renderer_values import pack_render_values
 from yoke_core.domain.project_renderer_settings import _load_project_renderer_settings
 
 
@@ -124,11 +124,8 @@ def build_pack_bundle(
     if render_values is None:
         settings = _load_project_renderer_settings(conn, identity.slug)
         try:
-            available_values = gather_pulumi_values(
-                identity.slug,
-                server_tree_root(),
-                settings,
-                required_keys=required_keys,
+            available_values = pack_render_values(
+                identity.slug, settings, required_keys=required_keys
             )
         except ValueError as exc:
             raise PackError(
@@ -164,6 +161,7 @@ def build_pack_bundle(
         "description": descriptor["description"],
         "version": selected,
         "latest_version": descriptor["latest_version"],
+        "superseded_by": str(version_record.get("superseded_by") or ""),
         "dependencies": list(version_record.get("dependencies") or []),
         "prerequisites": list(version_record["prerequisites"]),
         "documentation": version_record["documentation"],

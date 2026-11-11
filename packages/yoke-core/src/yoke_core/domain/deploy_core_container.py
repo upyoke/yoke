@@ -8,6 +8,7 @@ subprocess environments or SSH stdin; emitted progress is redaction-safe.
 
 from __future__ import annotations
 
+import shutil
 import sys
 import tempfile
 import uuid
@@ -58,12 +59,11 @@ from yoke_core.domain import deploy_core_github_app as github_app_deploy
 from yoke_core.domain.deploy_core_container_source import (
     project_source_root as _project_source_root,
 )
-from yoke_core.domain.pack_render import render_pack_text
-from yoke_core.domain.project_renderer_pulumi import (
-    gather_pulumi_values,
-    render_pulumi_artifacts,
+from yoke_core.domain.pack_pulumi_sources import (
+    PULUMI_PROGRAM_SUBDIRECTORY,
+    pulumi_program_source,
 )
-from yoke_core.domain.project_renderer_settings import load_project_renderer_settings
+from yoke_core.domain.pack_render import render_pack_text
 from yoke_core.domain.yoke_cloud_db_authority import (
     DEFAULT_POSTGRES_PORT,
     PostgresAuthorityLocation,
@@ -105,27 +105,26 @@ def _load_environment_stack_binding(
     repo_path: str | Path = "",
     emit: Callable[[str], None] = _emit,
 ) -> tuple[RuntimeDatabaseBinding, dict]:
-    """Resolve the env's endpoint + secret ARN from stack outputs."""
+    """Resolve the env's endpoint + secret ARN from stack outputs.
+
+    Outputs are read from a private copy of the project's checked-in
+    ``infra/`` directory, which holds the stack's own
+    ``Pulumi.<stack>.yaml``; the checkout itself is never written.
+    """
     source_root = _project_source_root(env.project, repo_path)
-    settings = load_project_renderer_settings(env.project)
-    values = gather_pulumi_values(
-        env.project,
-        source_root,
-        settings,
-        pulumi_stack=env.stack_name,
-    )
-    with tempfile.TemporaryDirectory(prefix="yoke-core-pulumi-") as raw_temp:
-        out_dir = Path(raw_temp)
-        render_pulumi_artifacts(
-            env.project,
-            values,
-            source_root,
-            out_dir,
-            True,
-            settings,
-            pulumi_stack=env.stack_name,
+    stack_file = pulumi_program_source(source_root, f"Pulumi.{env.stack_name}.yaml")
+    if not stack_file.is_file():
+        raise CoreDeployError(
+            f"[core-deploy] pulumi_stack_file_missing: {stack_file} does not "
+            f"exist, so stack {env.stack_name!r} outputs cannot be read; check "
+            f"in {PULUMI_PROGRAM_SUBDIRECTORY}/Pulumi.{env.stack_name}.yaml "
+            "for the environment's stack and retry the deploy"
         )
-        infra_dir = out_dir / "infra"
+    with tempfile.TemporaryDirectory(prefix="yoke-core-pulumi-") as raw_temp:
+        infra_dir = Path(raw_temp) / PULUMI_PROGRAM_SUBDIRECTORY
+        shutil.copytree(
+            source_root / PULUMI_PROGRAM_SUBDIRECTORY, infra_dir, symlinks=True
+        )
         location = PostgresAuthorityLocation(
             stack=env.stack_name,
             database_name=env.database_name,

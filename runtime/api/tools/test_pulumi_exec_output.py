@@ -8,10 +8,12 @@ import pytest
 
 from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
-    _install_pulumi_project_files,
-    _stack_payload,
+    _execute,
+    _file_project,
 )
-from yoke_core.tools.pulumi_exec import PulumiExecError, execute_pulumi_command
+from yoke_core.tools.pulumi_exec import PulumiExecError
+
+_STACK = "externalwebapp-registry"
 
 
 def test_stack_output_reads_one_named_value_from_the_exact_stack(tmp_path) -> None:
@@ -22,16 +24,12 @@ def test_stack_output_reads_one_named_value_from_the_exact_stack(tmp_path) -> No
         return _Child(b"arn:aws:iam::123456789012:role/example\n")
 
     output = StringIO()
-    result = execute_pulumi_command(
-        "externalwebapp",
-        "externalwebapp-registry",
+    result = _execute(
+        _file_project(tmp_path, _STACK),
         ["stack", "output", "githubActionsDeliveryRoleArn"],
-        config_loader=lambda project, stack: _stack_payload(project, stack),
-        project_root=_install_pulumi_project_files(tmp_path),
-        aws_env_loader=lambda *args, **kwargs: {},
+        stack=_STACK,
         child_factory=child_factory,
         out=output,
-        err=StringIO(),
     )
 
     assert result == 0
@@ -64,21 +62,9 @@ def test_stack_output_refuses_broad_or_secret_revealing_commands(
     tmp_path,
 ) -> None:
     with pytest.raises(PulumiExecError, match="stack output|output name"):
-        execute_pulumi_command(
-            "externalwebapp",
-            "externalwebapp-registry",
-            command,
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
+        _execute(_file_project(tmp_path, _STACK), command, stack=_STACK)
 
 
 def test_stack_output_refuses_a_different_child_stack(tmp_path) -> None:
     with pytest.raises(PulumiExecError, match="child --stack"):
-        execute_pulumi_command(
-            "externalwebapp",
-            "externalwebapp-registry",
-            ["stack", "output", "role", "--stack", "other"],
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
+        _execute(_file_project(tmp_path, _STACK), ["stack", "output", "role", "--stack", "other"], stack=_STACK)

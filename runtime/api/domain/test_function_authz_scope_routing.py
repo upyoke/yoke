@@ -73,7 +73,7 @@ def test_projects_list_allows_project_owner_for_actor_visible_handler_filter(con
     )
 
 
-def test_infrastructure_ci_reads_exact_project_render_inputs(conn):
+def test_infrastructure_ci_reads_project_identity_and_binding(conn):
     yoke = resolve_project_id(conn, "yoke")
     actor_id = seed_service_actor(conn)
     grant_actor_project_role(
@@ -89,15 +89,6 @@ def test_infrastructure_ci_reads_exact_project_render_inputs(conn):
         _entry("projects.get", side_effects=False),
         _payload_request(actor_id, "projects.get", {"project": "yoke"}),
     )
-    receipt = check_dispatch_permission(
-        conn,
-        _entry("projects.pulumi_stack_config.get", side_effects=False),
-        _payload_request(
-            actor_id,
-            "projects.pulumi_stack_config.get",
-            {"project": "yoke", "stack": "yoke-registry"},
-        ),
-    )
     binding = check_dispatch_permission(
         conn,
         _entry("projects.github_binding.status", side_effects=False),
@@ -109,8 +100,6 @@ def test_infrastructure_ci_reads_exact_project_render_inputs(conn):
     )
 
     assert identity.error is None
-    assert receipt.error is None
-    assert receipt.project_id == yoke
     assert binding.error is None
 
 

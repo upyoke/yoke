@@ -94,7 +94,7 @@ def test_packaged_cli_gets_and_updates_customized_pack_over_https(
         )
         assert receipt["packs"]["sample-pack"]["version"] == "1.1.0"
         functions = [request["function"] for request in api.requests]
-        assert functions.count("packs.bundle.get") == 6
+        assert functions.count("packs.bundle.get") == 8  # +2: superseded-version checks
         assert functions.count("packs.project.report") == 2
 
 

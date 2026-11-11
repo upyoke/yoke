@@ -8,39 +8,34 @@ import stat
 
 import pytest
 
-from yoke_core.tools.pulumi_exec import (
-    PulumiExecError,
-    execute_pulumi_command,
-)
+from yoke_core.tools.pulumi_exec import PulumiExecError
 from runtime.api.tools.pulumi_exec_support_test_support import (
+    PROVIDER,
+    STACK,
     _Child,
+    _execute,
+    _file_project,
     _init_settings,
-    _install_pulumi_project_files,
-    _stack_payload,
 )
 
+_INIT = ["init", "--secrets-provider", PROVIDER]
 
-def test_init_uses_declared_stack_ephemeral_authority_and_persists_state(tmp_path):
+
+def test_init_is_pinned_to_kms_key_with_ephemeral_authority(tmp_path):
     calls = []
-    imports = []
     encrypted_key = "generated-encrypted-material"
-
-    def config_loader(project, stack):
-        pytest.fail("init fetched initialized stack config")
 
     def child_factory(command, **kwargs):
         cwd = Path(kwargs["cwd"])
-        stack_path = cwd / "Pulumi.externalwebapp-registry.yaml"
+        stack_path = cwd / f"Pulumi.{STACK}.yaml"
         stack_path.write_text(
-            "secretsprovider: "
-            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1\n"
-            f"encryptedkey: {encrypted_key}\n" + stack_path.read_text()
+            f"secretsprovider: {PROVIDER}\nencryptedkey: {encrypted_key}\n"
+            + stack_path.read_text()
         )
         temp_root = cwd.parents[1]
         calls.append(
             {
                 "command": command,
-                "cwd": cwd,
                 "temp_root": temp_root,
                 "temp_mode": stat.S_IMODE(temp_root.stat().st_mode),
                 "env": kwargs["env"],
@@ -48,23 +43,10 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state(tmp_pat
         )
         return _Child(f"initialized {encrypted_key}\n".encode())
 
-    def state_importer(**kwargs):
-        imports.append(kwargs)
-        return {"receipt_digest": "receipt-digest"}
-
     output = StringIO()
-    rc = execute_pulumi_command(
-        "externalwebapp",
-        "externalwebapp-registry",
-        [
-            "init",
-            "--secrets-provider",
-            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
-        ],
-        config_loader=config_loader,
-        project_root=_install_pulumi_project_files(tmp_path),
-        settings_loader=lambda project: _init_settings(),
-        state_importer=state_importer,
+    rc = _execute(
+        _file_project(tmp_path),
+        _INIT,
         aws_env_loader=lambda *args, **kwargs: {
             "AWS_ACCESS_KEY_ID": "access-key",
             "AWS_SECRET_ACCESS_KEY": "secret-key",
@@ -72,18 +54,12 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state(tmp_pat
         },
         child_factory=child_factory,
         out=output,
-        err=StringIO(),
     )
 
     assert rc == 0
     assert calls[0]["command"] == [
-        "pulumi",
-        "stack",
-        "init",
-        "externalwebapp-registry",
-        "--secrets-provider",
-        "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
-        "--non-interactive",
+        "pulumi", "stack", "init", STACK,
+        "--secrets-provider", PROVIDER, "--non-interactive",
     ]
     assert calls[0]["temp_mode"] == 0o700
     assert calls[0]["env"]["PULUMI_BACKEND_URL"] == (
@@ -91,126 +67,76 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state(tmp_pat
     )
     assert "GITHUB_TOKEN" not in calls[0]["env"]
     assert not calls[0]["temp_root"].exists()
-    assert imports == [
-        {
-            "project": "externalwebapp",
-            "stack_name": "externalwebapp-registry",
-            "secrets_provider": (
-                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1"
-            ),
-            "encrypted_key": encrypted_key,
-            "apply": True,
-        }
-    ]
-    assert encrypted_key not in output.getvalue()
-    assert "[REDACTED]" in output.getvalue()
-    assert "receipt-digest" in output.getvalue()
+    printed = output.getvalue()
+    assert "initialized [REDACTED]" in printed
+    assert f"initialized {encrypted_key}" not in printed
+    assert f"secretsprovider: {PROVIDER}\nencryptedkey: {encrypted_key}\n" in printed
+
+
+def _settings_without_state():
+    settings = _init_settings()
+    settings.capabilities.pop("pulumi-state")
+    return settings
 
 
 @pytest.mark.parametrize(
     ("command", "settings", "message"),
     [
-        (
-            ["init", "--secrets-provider=awskms://alias/example"],
-            _init_settings(),
-            "requires exactly",
-        ),
+        (["init", f"--secrets-provider={PROVIDER}"], _init_settings(), "requires exactly"),
+        (["init", "--secrets-provider", "gcpkms://x"], _init_settings(), "awskms://"),
         (
             ["init", "--secrets-provider", "awskms://alias/other"],
             _init_settings(),
             "does not match capability authority",
         ),
-        (
-            [
-                "init",
-                "--secrets-provider",
-                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
-            ],
-            _init_settings(stacks=["infra"]),
-            "not an exact declared project stack",
-        ),
-        (
-            [
-                "init",
-                "--secrets-provider",
-                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
-            ],
-            _init_settings(
-                stack_state={
-                    "externalwebapp-registry": {
-                        "secrets_provider": "awskms://alias/existing",
-                        "encrypted_key": "existing-key",
-                    }
-                }
-            ),
-            "already registered",
-        ),
+        (_INIT, _settings_without_state(), "no pulumi-state capability"),
+        (_INIT, _init_settings(project="other"), "do not match the requested project"),
     ],
 )
-def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
-    command,
-    settings,
-    message,
-    tmp_path,
-):
-    child_called = False
-
-    def child_factory(*args, **kwargs):
-        nonlocal child_called
-        child_called = True
-        return _Child()
-
+def test_init_refuses_unsafe_requests_before_child(command, settings, message, tmp_path):
     with pytest.raises(PulumiExecError, match=message):
-        execute_pulumi_command(
-            "externalwebapp",
-            "externalwebapp-registry",
+        _execute(
+            _file_project(tmp_path),
             command,
-            config_loader=lambda *args: pytest.fail("fetched stack config"),
-            project_root=_install_pulumi_project_files(tmp_path),
             settings_loader=lambda project: settings,
-            aws_env_loader=lambda *args, **kwargs: {},
-            child_factory=child_factory,
+            child_factory=lambda *a, **kw: pytest.fail("child ran"),
         )
-    assert child_called is False
 
 
-def test_init_child_failure_does_not_persist_operator_state(tmp_path):
-    persisted = False
-
+def test_init_child_failure_prints_no_stack_file_lines(tmp_path):
     def child_factory(command, **kwargs):
-        cwd = Path(kwargs["cwd"])
-        stack_path = cwd / "Pulumi.externalwebapp-registry.yaml"
+        stack_path = Path(kwargs["cwd"]) / f"Pulumi.{STACK}.yaml"
         stack_path.write_text(
-            "secretsprovider: "
-            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1\n"
-            "encryptedkey: failed-key\n" + stack_path.read_text()
+            f"secretsprovider: {PROVIDER}\nencryptedkey: failed-key\n"
+            + stack_path.read_text()
         )
         return _Child(returncode=9, stderr=b"init failed\n")
 
-    def state_importer(**kwargs):
-        nonlocal persisted
-        persisted = True
-        return {"receipt_digest": "unexpected"}
-
-    rc = execute_pulumi_command(
-        "externalwebapp",
-        "externalwebapp-registry",
-        [
-            "init",
-            "--secrets-provider",
-            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
-        ],
-        config_loader=lambda *args: pytest.fail("fetched stack config"),
-        project_root=_install_pulumi_project_files(tmp_path),
-        settings_loader=lambda project: _init_settings(),
-        state_importer=state_importer,
-        aws_env_loader=lambda *args, **kwargs: {},
-        child_factory=child_factory,
-        out=StringIO(),
-        err=StringIO(),
+    out, err = StringIO(), StringIO()
+    rc = _execute(
+        _file_project(tmp_path), _INIT, child_factory=child_factory, out=out, err=err
     )
     assert rc == 9
-    assert persisted is False
+    assert "encryptedkey" not in out.getvalue()
+    assert "init failed" in err.getvalue()
+
+
+@pytest.mark.parametrize(
+    "command", [["preview"], _INIT, ["stack", "rm", "--yes"], ["bash"]]
+)
+def test_stack_without_a_checked_in_file_refuses(tmp_path, command):
+    root = _file_project(tmp_path, "other-stack")
+    with pytest.raises(PulumiExecError) as refusal:
+        _execute(
+            root,
+            command,
+            settings_loader=lambda project: pytest.fail("loaded settings"),
+            child_factory=lambda *a, **kw: pytest.fail("child ran"),
+        )
+    message = str(refusal.value)
+    assert message.startswith("pulumi_stack_file_missing:")
+    assert f"infra/Pulumi.{STACK}.yaml" in message
+    assert "init --secrets-provider" in message
 
 
 def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
@@ -218,60 +144,63 @@ def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
 
     def child_factory(command, **kwargs):
         cwd = Path(kwargs["cwd"])
-        config = cwd.parents[1] / "stack-config.json"
+        stack_file = cwd / f"Pulumi.{STACK}.yaml"
         calls.append(
             {
                 "command": command,
-                "cwd": cwd,
                 "root": cwd.parents[1],
-                "config_mode": stat.S_IMODE(config.stat().st_mode),
+                "root_mode": stat.S_IMODE(cwd.parents[1].stat().st_mode),
+                "file_mode": stat.S_IMODE(stack_file.stat().st_mode),
                 "env": kwargs["env"],
             }
         )
         return _Child()
 
     output = StringIO()
-    rc = execute_pulumi_command(
-        "yoke",
-        "yoke-infra",
+    rc = _execute(
+        _file_project(tmp_path),
         ["preview", "--refresh", "--non-interactive"],
-        config_loader=lambda project, stack: _stack_payload(project, stack),
-        project_root=_install_pulumi_project_files(tmp_path),
-        aws_env_loader=lambda *args, **kwargs: {
-            "AWS_ACCESS_KEY_ID": "access-key",
-            "AWS_SECRET_ACCESS_KEY": "secret-key",
-        },
         child_factory=child_factory,
         out=output,
-        err=StringIO(),
     )
     assert rc == 0
     assert calls[0]["command"] == [
-        "pulumi",
-        "preview",
-        "--refresh",
-        "--non-interactive",
-        "--stack",
-        "yoke-infra",
+        "pulumi", "preview", "--refresh", "--non-interactive", "--stack", STACK,
     ]
-    assert calls[0]["config_mode"] == 0o600
-    assert calls[0]["env"]["PULUMI_BACKEND_URL"].startswith("s3://yoke-state")
+    assert calls[0]["root_mode"] == 0o700
+    assert calls[0]["file_mode"] == 0o600
+    assert calls[0]["env"]["PULUMI_BACKEND_URL"].startswith(
+        "s3://externalwebapp-pulumi-state"
+    )
     assert not calls[0]["root"].exists()
     assert output.getvalue() == "preview-ok\n"
 
 
+def test_child_output_redacts_encrypted_key_and_token(tmp_path):
+    root = _file_project(
+        tmp_path,
+        stack_text=f"secretsprovider: {PROVIDER}\nencryptedkey: checked-in-key\n",
+    )
+    out = StringIO()
+    rc = _execute(
+        root,
+        ["preview"],
+        aws_env_loader=lambda *a, **kw: {"AWS_SECRET_ACCESS_KEY": "aws-secret"},
+        child_factory=lambda *a, **kw: _Child(
+            b"key=checked-in-key token=github-token aws=aws-secret\n"
+        ),
+        out=out,
+    )
+    assert rc == 0
+    assert out.getvalue() == "key=[REDACTED] token=[REDACTED] aws=[REDACTED]\n"
+
+
 def test_preview_json_output_is_durable_owner_only(tmp_path):
     output = tmp_path / "preview.json"
-    rc = execute_pulumi_command(
-        "yoke",
-        "yoke-infra",
+    rc = _execute(
+        _file_project(tmp_path),
         ["preview", "--json-output", str(output)],
-        config_loader=lambda project, stack: _stack_payload(project, stack),
-        project_root=_install_pulumi_project_files(tmp_path),
-        aws_env_loader=lambda *args, **kwargs: {},
         child_factory=lambda command, **kwargs: _Child(b'{"steps":[]}\n'),
-        out=StringIO(),
-        err=StringIO(),
     )
     assert rc == 0
     assert output.read_text() == '{"steps":[]}\n'
@@ -279,23 +208,13 @@ def test_preview_json_output_is_durable_owner_only(tmp_path):
 
 
 @pytest.mark.parametrize("operation", ["state-delete", "bash"])
-def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
-    called = False
-
-    def loader(project, stack):
-        nonlocal called
-        called = True
-        return _stack_payload(project, stack)
-
+def test_disallowed_operations_refuse_before_settings_load(operation, tmp_path):
     with pytest.raises(PulumiExecError, match="allows only"):
-        execute_pulumi_command(
-            "yoke",
-            "yoke-infra",
+        _execute(
+            _file_project(tmp_path),
             [operation],
-            config_loader=loader,
-            project_root=tmp_path,
+            settings_loader=lambda project: pytest.fail("loaded settings"),
         )
-    assert called is False
 
 
 @pytest.mark.parametrize(
@@ -309,10 +228,4 @@ def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
 )
 def test_preview_and_refresh_reject_unapproved_arguments(command, tmp_path):
     with pytest.raises(PulumiExecError, match="not allowed"):
-        execute_pulumi_command(
-            "yoke",
-            "yoke-infra",
-            command,
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
+        _execute(_file_project(tmp_path), command)

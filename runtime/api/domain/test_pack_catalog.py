@@ -103,28 +103,28 @@ def test_latest_pack_boundaries_separate_shared_and_application_specific_code(
     assert "infra/webapp_environment_stack.py" in targets(environment)
 
 
-def test_environment_pack_keeps_disabled_preview_domain_an_explicit_string(
+def test_latest_packs_ship_no_pulumi_stack_templates_and_older_ones_say_so(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
 
-    descriptor = pack_catalog.load_pack_descriptor("webapp-environment-infrastructure")
-    latest = descriptor["latest_version"]
-    template = (
-        ROOT
-        / "packs"
-        / descriptor["slug"]
-        / "versions"
-        / latest
-        / "files"
-        / "infra"
-        / "Pulumi.environment-stack.yaml.tmpl"
-    ).read_text(encoding="utf-8")
-
-    assert (
-        'webapp-infra:ephemeral_preview_domain: "{{ephemeral_preview_domain}}"'
-        in template
-    )
+    for descriptor in pack_catalog.list_pack_descriptors():
+        latest = descriptor["latest_version"]
+        for version, record in descriptor["versions"].items():
+            templates = [
+                row["source"]
+                for row in record["files"]
+                if row["source"].rsplit("/", 1)[-1].startswith("Pulumi.")
+                and row["source"].endswith(".yaml.tmpl")
+            ]
+            if version == latest:
+                assert not templates, (descriptor["slug"], version, templates)
+                assert "superseded_by" not in record
+            elif templates:
+                assert record.get("superseded_by") == latest, (
+                    descriptor["slug"],
+                    version,
+                )
 
 
 def test_bundle_records_only_used_render_values_and_preserves_github_expressions(
@@ -152,7 +152,7 @@ def test_bundle_records_only_used_render_values_and_preserves_github_expressions
     )
     monkeypatch.setattr(
         pack_catalog,
-        "gather_pulumi_values",
+        "pack_render_values",
         lambda *args, **kwargs: {
             "project_name": "sample",
             "project_display_name": "Sample App",
@@ -182,9 +182,9 @@ def test_copy_file_remains_project_owned_runtime_template(
         tmp_path,
         files={
             "docs/packs/sample/README.md": "# Sample\n",
-            "infra/Pulumi.stack.yaml.tmpl": "name: {{runtime_name}}\n",
+            "ops/runtime.conf.tmpl": "name: {{runtime_name}}\n",
         },
-        copy_files={"infra/Pulumi.stack.yaml.tmpl"},
+        copy_files={"ops/runtime.conf.tmpl"},
     )
     monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: tmp_path)
     monkeypatch.setattr(
@@ -195,15 +195,11 @@ def test_copy_file_remains_project_owned_runtime_template(
     monkeypatch.setattr(
         pack_catalog, "_load_project_renderer_settings", lambda *args: object()
     )
-    monkeypatch.setattr(
-        pack_catalog, "gather_pulumi_values", lambda *args, **kwargs: {}
-    )
+    monkeypatch.setattr(pack_catalog, "pack_render_values", lambda *args, **kwargs: {})
 
     bundle = pack_catalog.build_pack_bundle(object(), project="sample", pack="sample")
 
-    copied = {row["path"]: row for row in bundle["files"]}[
-        "infra/Pulumi.stack.yaml.tmpl"
-    ]
+    copied = {row["path"]: row for row in bundle["files"]}["ops/runtime.conf.tmpl"]
     assert copied["content"] == "name: {{runtime_name}}\n"
     assert bundle["render_values"] == {}
 

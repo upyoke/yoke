@@ -15,9 +15,9 @@ from yoke_core.domain.pulumi_file_stack_values import (
     file_stack_yoke_values,
 )
 from yoke_core.tools.pulumi_exec_file_backed import (
-    file_backed_stack_path,
     file_stack_github_access,
     merge_yoke_config,
+    require_stack_file,
 )
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 from runtime.api.tools.pulumi_exec_support_test_support import _init_settings
@@ -105,9 +105,19 @@ def test_other_yoke_keys_in_the_file_refuse(tmp_path):
 
 
 @pytest.mark.parametrize("stack", ["../x", "a/b", "", ".hidden"])
-def test_unsafe_stack_names_are_never_file_backed(tmp_path, stack):
+def test_unsafe_stack_names_are_refused(tmp_path, stack):
     (tmp_path / "infra").mkdir()
-    assert file_backed_stack_path(tmp_path, stack) is None
+    with pytest.raises(PulumiExecError, match="pulumi_stack_name_invalid"):
+        require_stack_file(tmp_path, stack)
+
+
+def test_require_stack_file_returns_the_checked_in_file(tmp_path):
+    (tmp_path / "infra").mkdir()
+    with pytest.raises(PulumiExecError, match="pulumi_stack_file_missing"):
+        require_stack_file(tmp_path, "scratch")
+    path = tmp_path / "infra" / "Pulumi.scratch.yaml"
+    path.write_text("config: {}\n")
+    assert require_stack_file(tmp_path, "scratch") == path
 
 
 def test_values_are_yoke_owned_only_with_no_defaults():
@@ -144,7 +154,12 @@ def test_environment_facts_follow_the_matching_environment():
         settings={
             "pulumi": {"stack_name": "prod-box", "origin_vps_stack_name": "vps"},
             "hosts": {"api": "api.example.com", "origin": "o.example.com"},
-            "database": {"name": "app", "min_capacity_acu": 2},
+            "database": {
+                "name": "app",
+                "min_capacity_acu": 2,
+                "master_username": "admin",
+            },
+            "distribution": {"repository_variable_namespace": "APP"},
         },
     )
     settings = dataclasses.replace(settings, environments=(env,))
@@ -154,6 +169,8 @@ def test_environment_facts_follow_the_matching_environment():
     assert values["origin_vps_stack_name"] == "vps"
     assert values["database_name"] == "app"
     assert "database_min_capacity_acu" not in values
+    assert "database_master_username" not in values
+    assert "distribution_repository_variable_namespace" not in values
     assert "environment" not in file_stack_yoke_values(settings, "other", "metadata")
 
 

@@ -124,15 +124,10 @@ class TestCapabilitySettings:
                 db_path=cap_db,
             )
 
-    @pytest.mark.parametrize("cap_type", ["github", "pulumi-state"])
-    def test_remove_respects_dedicated_capability_owners(
-        self,
-        cap_db: str,
-        cap_type: str,
-    ) -> None:
+    def test_remove_respects_the_github_binding_owner(self, cap_db: str) -> None:
         with pytest.raises(ValueError):
             pcs.cmd_capability_remove_settings(
-                "yoke", cap_type, base_settings_json="{}", db_path=cap_db
+                "yoke", "github", base_settings_json="{}", db_path=cap_db
             )
 
 

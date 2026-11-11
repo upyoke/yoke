@@ -10,10 +10,10 @@ import pytest
 
 from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
-    _install_pulumi_project_files,
-    _stack_payload,
+    _execute,
+    _file_project,
 )
-from yoke_core.tools.pulumi_exec import PulumiExecError, execute_pulumi_command
+from yoke_core.tools.pulumi_exec import PulumiExecError
 from yoke_core.tools.pulumi_exec_source import (
     announce_render_source,
     resolve_render_source,
@@ -156,7 +156,7 @@ def test_a_caller_outside_any_working_tree_still_renders(
 def test_preview_states_its_source_alongside_the_child_result(
     tmp_path: Path,
 ) -> None:
-    project_root = _install_pulumi_project_files(tmp_path)
+    project_root = _file_project(tmp_path)
     _git_init(project_root)
     _git(project_root, "add", "--all")
     _git(project_root, "commit", "-m", "installed")
@@ -164,14 +164,10 @@ def test_preview_states_its_source_alongside_the_child_result(
     out = StringIO()
     err = StringIO()
 
-    result = execute_pulumi_command(
-        "externalwebapp",
-        "externalwebapp-registry",
+    result = _execute(
+        project_root,
         ["preview", "--non-interactive"],
-        config_loader=lambda project, stack: _stack_payload(project, stack),
-        project_root=project_root,
         caller_root=project_root,
-        aws_env_loader=lambda *args, **kwargs: {},
         child_factory=lambda command, **kwargs: _Child(b"preview-ok\n"),
         out=out,
         err=err,
@@ -185,7 +181,7 @@ def test_preview_states_its_source_alongside_the_child_result(
 def test_a_stray_working_tree_refuses_before_any_stack_is_read(
     tmp_path: Path,
 ) -> None:
-    project_root = _install_pulumi_project_files(tmp_path)
+    project_root = _file_project(tmp_path)
     _git_init(project_root)
     _git(project_root, "add", "--all")
     _git(project_root, "commit", "-m", "installed")
@@ -193,21 +189,29 @@ def test_a_stray_working_tree_refuses_before_any_stack_is_read(
     lane = tmp_path / "lane"
     _git(project_root, "worktree", "add", "--detach", str(lane), head)
 
-    def refuse_config(project: str, stack: str):
-        raise AssertionError("the stack config must not be read after a refusal")
+    def refuse_settings(project: str):
+        raise AssertionError("project settings must not be read after a refusal")
 
     with pytest.raises(PulumiExecError, match="different working tree"):
-        execute_pulumi_command(
-            "externalwebapp",
-            "externalwebapp-registry",
+        _execute(
+            project_root,
             ["preview", "--non-interactive"],
-            config_loader=refuse_config,
-            project_root=project_root,
+            settings_loader=refuse_settings,
             caller_root=lane,
             child_factory=_unreachable_child,
-            out=StringIO(),
-            err=StringIO(),
         )
+
+
+def test_announcement_precedes_the_missing_stack_file_refusal(
+    tmp_path: Path,
+) -> None:
+    project_root = _file_project(tmp_path, "other-stack")
+    err = StringIO()
+
+    with pytest.raises(PulumiExecError, match="pulumi_stack_file_missing"):
+        _execute(project_root, ["preview"], caller_root=None, err=err)
+
+    assert "yoke pulumi exec: rendering " in err.getvalue()
 
 
 def _unreachable_child(command, **kwargs):

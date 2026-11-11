@@ -59,12 +59,12 @@ def test_assignment_creates_first_array_object_when_missing(
 ) -> None:
     updated = apply_key_path_assignments(
         settings,
-        {"servers.0.iam_instance_profile_name": "api-instance-profile"},
+        {"servers.0.ssh_key_path": "api-instance-profile"},
     )
 
     assert updated == {
         "servers": [
-            {"iam_instance_profile_name": "api-instance-profile"},
+            {"ssh_key_path": "api-instance-profile"},
         ]
     }
     assert settings in ({}, {"servers": []})
@@ -74,5 +74,5 @@ def test_assignment_refuses_sparse_array_creation() -> None:
     with pytest.raises(ValueError, match="array index 1 is out of range"):
         apply_key_path_assignments(
             {"servers": []},
-            {"servers.1.iam_instance_profile_name": "api-instance-profile"},
+            {"servers.1.ssh_key_path": "api-instance-profile"},
         )

@@ -1,4 +1,4 @@
-"""Capability-owned GitHub App authority for runner-fleet rendering."""
+"""Capability-owned GitHub App authority for runner-fleet values."""
 
 from __future__ import annotations
 
@@ -6,11 +6,19 @@ from dataclasses import replace
 
 import pytest
 
-from yoke_core.domain import project_renderer_pulumi
+from yoke_core.domain.project_renderer_pulumi_runner_fleet import (
+    runner_fleet_values,
+)
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
-from runtime.api.domain.project_renderer_pulumi_test_support import (
+from runtime.api.domain.project_settings_test_support import (
     _settings_from_context,
 )
+
+
+def _values(settings: ProjectRendererSettings) -> dict[str, str]:
+    return runner_fleet_values(
+        settings, fallback_repo="acme-org/externalwebapp", enabled=True
+    )
 
 
 _APP_SECRET_ARN = (
@@ -45,7 +53,7 @@ def _settings(
     *, github_app: dict[str, str] | None,
 ) -> ProjectRendererSettings:
     base = _settings_from_context(
-        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
+        "externalwebapp",
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = _github()
@@ -63,17 +71,13 @@ def test_enabled_runner_fleet_requires_explicit_app_authority(tmp_path):
     settings = _settings(github_app=None)
 
     with pytest.raises(ValueError, match="requires github_app"):
-        project_renderer_pulumi.gather_pulumi_values(
-            "externalwebapp", tmp_path, settings,
-        )
+        _values(settings)
 
 
 def test_runner_fleet_uses_capability_owned_app_authority(tmp_path):
     settings = _settings(github_app=_app("Iv1.runner-fleet-app"))
 
-    values = project_renderer_pulumi.gather_pulumi_values(
-        "externalwebapp", tmp_path, settings,
-    )
+    values = _values(settings)
 
     assert values["runner_fleet_github_app_issuer"] == "Iv1.runner-fleet-app"
     assert values["runner_fleet_github_private_key_secret_arn"] == _APP_SECRET_ARN
@@ -89,9 +93,7 @@ def test_enabled_runner_fleet_requires_repository_hooks_write(tmp_path):
     settings = replace(settings, capabilities=capabilities)
 
     with pytest.raises(ValueError, match=r"Webhooks: write \(repository_hooks\)"):
-        project_renderer_pulumi.gather_pulumi_values(
-            "externalwebapp", tmp_path, settings,
-        )
+        _values(settings)
 
 
 def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
@@ -106,9 +108,7 @@ def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
     with pytest.raises(
         ValueError, match=r"Variables: write \(actions_variables\)",
     ):
-        project_renderer_pulumi.gather_pulumi_values(
-            "externalwebapp", tmp_path, settings,
-        )
+        _values(settings)
 
 
 def test_runner_fleet_uses_explicit_privileged_github_capability(tmp_path):
@@ -121,9 +121,7 @@ def test_runner_fleet_uses_explicit_privileged_github_capability(tmp_path):
     capabilities["github-actions-runner-fleet"] = runner
     settings = replace(settings, capabilities=capabilities)
 
-    values = project_renderer_pulumi.gather_pulumi_values(
-        "externalwebapp", tmp_path, settings,
-    )
+    values = _values(settings)
 
     assert values["runner_fleet_github_capability"] == "github-automation"
     assert values["runner_fleet_github_installation_id"] == "123456"
@@ -146,6 +144,16 @@ def test_disabled_routing_still_requires_permission_to_delete_variable(
     with pytest.raises(
         ValueError, match=r"Variables: write \(actions_variables\)",
     ):
-        project_renderer_pulumi.gather_pulumi_values(
-            "externalwebapp", tmp_path, settings,
-        )
+        _values(settings)
+
+
+def test_runner_fleet_stack_file_values_carry_the_project_slug():
+    from yoke_core.domain.pulumi_file_stack_values import file_stack_yoke_values
+
+    settings = _settings(github_app=_app())
+    values = file_stack_yoke_values(settings, "externalwebapp-runner-fleet", "runner_fleet")
+
+    assert values["runner_fleet_project"] == "externalwebapp"
+    assert "runner_fleet_project" not in file_stack_yoke_values(
+        settings, "externalwebapp-runner-fleet", "variables"
+    )

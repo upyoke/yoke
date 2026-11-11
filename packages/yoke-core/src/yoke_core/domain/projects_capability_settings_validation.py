@@ -110,7 +110,7 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
     return raw_json
 
 
-_CONTAINER_REGISTRY_KEYS = frozenset({"repository", "manage_platform_image_lifecycle"})
+_CONTAINER_REGISTRY_KEYS = frozenset({"repository"})
 
 
 def _canonicalize_container_registry(raw_json: str) -> str:
@@ -121,14 +121,7 @@ def _canonicalize_container_registry(raw_json: str) -> str:
     if extra:
         raise ValueError(
             "container-registry settings have unknown keys: "
-            f"{extra}. Allowed keys: repository, "
-            "manage_platform_image_lifecycle."
-        )
-    if "manage_platform_image_lifecycle" in payload and not isinstance(
-        payload["manage_platform_image_lifecycle"], bool
-    ):
-        raise ValueError(
-            "container-registry manage_platform_image_lifecycle must be a boolean"
+            f"{extra}. Allowed keys: repository."
         )
     return json_helper.dumps_compact(payload)
 

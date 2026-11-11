@@ -12,8 +12,6 @@ from yoke_core.tools.pulumi_exec import PulumiExecError, execute_pulumi_command
 from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
     _init_settings,
-    _install_pulumi_project_files,
-    _stack_payload,
 )
 
 
@@ -77,12 +75,8 @@ def _run(root, command, *, calls, seen=None, **kwargs):
         "externalwebapp",
         _STACK,
         command,
-        config_loader=kwargs.pop(
-            "config_loader",
-            lambda *a: pytest.fail("file-backed stack consulted the server config"),
-        ),
         project_root=root,
-        settings_loader=lambda project: _init_settings(stacks=[]),
+        settings_loader=lambda project: _init_settings(),
         aws_env_loader=lambda *a, **kw: {"AWS_ACCESS_KEY_ID": "key"},
         github_auth_loader=github_auth_loader,
         child_factory=child_factory,
@@ -121,7 +115,7 @@ def test_preview_runs_from_copy_with_only_yoke_values_added(tmp_path):
     assert _snapshot(root) == before
 
 
-def test_checked_in_encryption_lines_are_used_not_stack_state(tmp_path):
+def test_checked_in_encryption_lines_are_kept_in_the_copy(tmp_path):
     text = f"secretsprovider: {_PROVIDER}\nencryptedkey: checked-in\n" + _PROJECT_TEXT
     root = _project(tmp_path, text)
     calls: list[dict] = []
@@ -163,7 +157,7 @@ def test_config_flags_stay_refused_on_the_file_path(tmp_path):
         _run(root, ["preview", "--config", "yoke:aws_region=x"], calls=[])
 
 
-def test_init_accepts_any_file_backed_name_and_stores_nothing(tmp_path):
+def test_init_accepts_any_stack_name_and_stores_nothing(tmp_path):
     root = _project(tmp_path)
     before = _snapshot(root)
     calls: list[dict] = []
@@ -183,10 +177,8 @@ def test_init_accepts_any_file_backed_name_and_stores_nothing(tmp_path):
         "externalwebapp",
         _STACK,
         ["init", "--secrets-provider", _PROVIDER],
-        config_loader=lambda *a: pytest.fail("init consulted stack config"),
         project_root=root,
-        settings_loader=lambda project: _init_settings(stacks=[]),
-        state_importer=lambda **kw: pytest.fail("file-backed init stored state"),
+        settings_loader=lambda project: _init_settings(),
         aws_env_loader=lambda *a, **kw: {},
         child_factory=child_factory,
         out=out,
@@ -208,9 +200,8 @@ def test_init_refuses_a_provider_other_than_the_capability_key(tmp_path):
             "externalwebapp",
             _STACK,
             ["init", "--secrets-provider", _PROVIDER],
-            config_loader=lambda *a: {},
             project_root=root,
-            settings_loader=lambda project: _init_settings(stacks=[]),
+            settings_loader=lambda project: _init_settings(),
             aws_env_loader=lambda *a, **kw: {},
             child_factory=lambda *a, **kw: pytest.fail("child ran"),
             out=StringIO(),
@@ -233,36 +224,7 @@ def test_destroy_runs_on_the_file_path(tmp_path):
     ]
 
 
-def test_stack_without_a_file_still_renders(tmp_path):
-    root = _install_pulumi_project_files(tmp_path)
-    loaded = []
-
-    def config_loader(project, stack):
-        loaded.append(stack)
-        return _stack_payload(project, stack)
-
-    calls: list = []
-    rc = execute_pulumi_command(
-        "yoke",
-        "yoke-infra",
-        ["preview"],
-        config_loader=config_loader,
-        project_root=root,
-        aws_env_loader=lambda *a, **kw: {},
-        child_factory=lambda argv, **kw: calls.append(
-            (Path(kw["cwd"]) / "Pulumi.yoke-infra.yaml").read_text()
-        ) or _Child(),
-        out=StringIO(),
-        err=StringIO(),
-    )
-    assert rc == 0
-    assert loaded == ["yoke-infra"]
-    assert calls[0].startswith(
-        "secretsprovider: awskms://alias/yoke-pulumi\n"
-    )
-
-
-def test_stack_rm_on_the_file_path_clears_no_stored_state(tmp_path):
+def test_stack_rm_runs_on_the_file_path(tmp_path):
     root = _project(tmp_path)
     calls: list[dict] = []
     rc = _run(
@@ -270,7 +232,14 @@ def test_stack_rm_on_the_file_path_clears_no_stored_state(tmp_path):
         ["stack", "rm", "--yes"],
         calls=calls,
         confirm_destroy=_STACK,
-        stack_state_remover=lambda **kw: pytest.fail("cleared stored state"),
     )
     assert rc == 0
     assert calls[0]["argv"] == ["pulumi", "stack", "rm", "--yes", "--stack", _STACK]
+
+
+def test_runner_fleet_level_without_its_capability_refuses_before_child(tmp_path):
+    root = _project(tmp_path, _PROJECT_TEXT + "  yoke:github_access: runner_fleet\n")
+    calls: list[dict] = []
+    with pytest.raises(PulumiExecError, match="pulumi_runner_fleet_values_unavailable"):
+        _run(root, ["preview"], calls=calls)
+    assert calls == []
