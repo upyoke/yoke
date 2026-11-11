@@ -7,12 +7,11 @@ together or not at all, so no refusal strands an earlier flow's run.
 
 from __future__ import annotations
 
-from yoke_core.domain.domain_refusal import DomainRefusal
-
 from typing import NamedTuple, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, utc_now
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.deployment_run_id_allocation import next_run_id, reserve_run_id
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_create_composition import (

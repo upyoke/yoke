@@ -175,11 +175,16 @@ To release one commit through several flows, name each flow in one create:
 yoke --env CONTROL-PLANE deployment-runs create PROJECT STAGE-FLOW PRODUCTION-FLOW --idempotency-key RELEASE-KEY
 ```
 
-With no source options, every run binds the same CI-proven gate branch tip.
-To choose a commit, pass `--project-repo-path CHECKOUT --source-ref FULL_SHA`
-once. Each run gets the key `RELEASE-KEY:FLOW` and its own flow's
-environment, so `--environment` is refused. If one create refuses, the runs
-that call already made are cancelled. Name only flows that may start now, and
+With no source options, the set binds one gate branch tip, read from a flow
+that waits for CI: a tip whose only CI ran in the merge queue gets one CI
+dispatch, and every flow releases that commit. To choose a commit, pass
+`--project-repo-path CHECKOUT --source-ref FULL_SHA` once. Each run gets the
+key `RELEASE-KEY:FLOW` and its own flow's environment, so `--environment` and
+`--retry-of` are refused. The set is all or nothing: if any flow refuses, no
+run is created and no older run is taken over, so repeating the same command
+with the same key creates the whole set. A key whose run was cancelled before
+it started creates a fresh run; one cancelled after it started still returns
+that run, so a deliberate cancel is never recreated. Name only flows that may start now, and
 drive each run; your flows and QA gates decide any order. When a
 correction lands, create a new release set on its passing commit; earlier
 Stage proof does not cover the correction.
