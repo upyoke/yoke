@@ -1,4 +1,4 @@
-"""Keep agent-selected member plan contracts scoped and durable through takeover."""
+"""Keep agent-selected member plan contracts scoped to their member."""
 
 import json
 from collections.abc import Mapping
@@ -67,35 +67,10 @@ def freeze_member_plans(conn, subject, snapshots):
         )
 
 
-def copy_member_selections(old, new, moving):
-    """Move complete correction admissions only with the members they belong to."""
-    values = new.setdefault("selections", [])
-    keys = {
-        (value.get("stage"), value.get("member_item_id"), int(value["plan"]["id"]))
-        for value in values
-    }
-    for value in old.get("selections", []):
-        member = value.get("member_item_id")
-        key = (value.get("stage"), member, int(value["plan"]["id"]))
-        if member in moving and key not in keys:
-            values.append(value)
-            keys.add(key)
-
-
-def preserve_member_admissions(flow_snapshot, inherited):
-    """First composition freeze keeps the QA contracts inherited at creation."""
-    old = (
-        dict(inherited)
-        if isinstance(inherited, Mapping)
-        else json.loads(inherited or "{}")
-    )
+def keep_carried_plan_pins(flow_snapshot, existing):
+    """First composition freeze keeps plan pins a takeover carried for run rows."""
+    old = existing if isinstance(existing, Mapping) else json.loads(existing or "{}")
     new = json.loads(flow_snapshot)
-    members = {
-        value["member_item_id"]
-        for value in old.get("selections", [])
-        if value.get("member_item_id") is not None
-    }
-    copy_member_selections(old, new, members)
     for key in ("item_qa_plan_owners", "plan_groups"):
         if old.get(key):
             new[key] = {**old[key], **new.get(key, {})}

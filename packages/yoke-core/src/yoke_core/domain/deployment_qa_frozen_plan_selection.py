@@ -116,16 +116,11 @@ def frozen_stage_plans(
     member = subject.get("member_item_id")
     if member is not None:
         project = int(subject.get("member_project_id") or subject["project_id"])
+        # Own entry pins, or a takeover's for a plan whose rows ran; else live.
+        pins = subject["flow_snapshot"].get("plan_groups") or {}
         for plan_id in sorted(member_plan_ids(conn, str(subject["id"]), int(member))):
-            pinned = (subject["flow_snapshot"].get("plan_groups") or {}).get(
-                str(plan_id)
-            )
-            frozen.append(
-                pinned
-                or _plan_snapshot(
-                    conn, plan_id, project_id=project, lock_plan=lock_plans
-                )
-            )
+            frozen.append(pins.get(str(plan_id)) or _plan_snapshot(
+                conn, plan_id, project_id=project, lock_plan=lock_plans))
     selected_ids = {int(snapshot["plan"]["id"]) for snapshot in frozen}
     project_id = int(subject.get("member_project_id") or subject["project_id"])
     wanted: set[int] = set()

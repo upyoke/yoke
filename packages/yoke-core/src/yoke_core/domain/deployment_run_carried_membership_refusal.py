@@ -36,7 +36,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     requires_release_admission,
 )
 from yoke_core.domain.deployment_run_membership_removals import (
-    removed_item_ids,
+    enrollment_removed_item_ids,
 )
 from yoke_core.domain.deployment_run_dependency_readiness import (
     unshipped_dependency_pairs,
@@ -131,7 +131,7 @@ def carried_membership_refusal(
     eligible = sorted(
         (carried & carried_release_members(conn, carried))
         - held_candidate_ids(conn, run_id, custody=custody)
-        - removed_item_ids(conn, run_id)
+        - enrollment_removed_item_ids(conn, run_id)
     )
     needed = needed_member_ids(conn, run_id=run_id, item_ids=eligible)
     eligible = [item_id for item_id in eligible if item_id in needed]

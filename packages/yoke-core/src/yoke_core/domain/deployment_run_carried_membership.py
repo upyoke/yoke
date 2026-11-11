@@ -60,7 +60,7 @@ from yoke_core.domain.deployment_run_composition_basis import read_composition_b
 from yoke_core.domain.deployment_run_member_admission import insert_run_items
 from yoke_core.domain.deployment_run_project_sources import carried_project_ids
 from yoke_core.domain.deployment_run_membership_removals import (
-    removed_item_ids,
+    enrollment_removed_item_ids,
 )
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
@@ -138,7 +138,7 @@ def plan_carried_enrollment(
     # ships, but this run was told the item is not its to deliver.
     carried = sorted(
         ((range_ids - resolved.held_ids) | set(resolved.enrollable))
-        - removed_item_ids(conn, run_id)
+        - enrollment_removed_item_ids(conn, run_id)
     )
     if not carried:
         return None

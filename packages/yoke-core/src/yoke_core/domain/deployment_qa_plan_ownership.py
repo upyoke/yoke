@@ -176,20 +176,27 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
 
 
 def transfer_plan_owners(
-    conn: Any, old_id: str, new_id: str, *, moving: set[int]
+    conn: Any, old_id: str, new_id: str, *, requirement_ids: list[int]
 ) -> None:
-    """Keep already-pinned ownership and cases with inherited member QA."""
-    old, new = _snapshot(conn, old_id), _snapshot(conn, new_id)
-    from yoke_core.domain.deployment_qa_member_plan_admission import (
-        copy_member_selections,
-    )
-
-    copy_member_selections(old, new, moving)
-    owners = new.setdefault(OWNERS, {})
-    for plan, owner in old.get(OWNERS, {}).items():
-        owners.setdefault(plan, owner)
-        if owner is not None and plan in (old.get("plan_groups") or {}):
-            new.setdefault("plan_groups", {}).setdefault(plan, old["plan_groups"][plan])
+    """Carry ownership and pinned cases only for plans whose moved rows ran;
+    the successor pins every other plan from live state at item QA entry."""
+    ran = conn.execute(
+        "SELECT DISTINCT q.plan_id FROM qa_requirements q WHERE q.id=ANY(%s) "
+        "AND q.plan_id IS NOT NULL AND (EXISTS (SELECT 1 FROM qa_runs r "
+        "WHERE r.qa_requirement_id=q.id) OR EXISTS (SELECT 1 FROM "
+        "qa_plan_execution_results x WHERE x.requirement_id=q.id))",
+        (sorted(requirement_ids),),
+    ).fetchall()
+    old = _snapshot(conn, old_id)
+    carried = {str(row[0]) for row in ran} & set(old.get(OWNERS, {}))
+    if not carried:
+        return
+    new = _snapshot(conn, new_id)
+    for plan in sorted(carried):
+        owner = new.setdefault(OWNERS, {}).setdefault(plan, old[OWNERS][plan])
+        pinned = (old.get("plan_groups") or {}).get(plan)
+        if owner is not None and pinned is not None:
+            new.setdefault("plan_groups", {}).setdefault(plan, pinned)
     conn.execute(
         "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
         (json.dumps(new, sort_keys=True, separators=(",", ":")), str(new_id)),
