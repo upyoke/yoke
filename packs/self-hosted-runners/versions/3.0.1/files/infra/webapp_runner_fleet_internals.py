@@ -20,6 +20,7 @@ import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from webapp_runner_bootstrap import shell_helpers
 from webapp_runner_fleet_config import normalize_runner_architecture
 from webapp_runner_host_cycle import (
     _runner_cycle_script as _host_runner_cycle_script,
@@ -102,7 +103,7 @@ bootstrap_failed() {{
 }}
 trap bootstrap_failed ERR
 
-{Path(__file__).with_name("webapp_runner_bootstrap.sh").read_text()}
+{shell_helpers()}
 apt_get update -o APT::Update::Error-Mode=any
 # python3-venv: nested venv + ensurepip (test_pep503 / installer venv tests);
 # postgresql-client: pg_dump (DB-dump tests); build-essential/python3-dev:

@@ -1,4 +1,8 @@
-fail() { echo "$*" >&2; exit 1; }
+"""Bounded shell helpers embedded in runner EC2 user data."""
+
+
+def shell_helpers() -> str:
+    return r"""fail() { echo "$*" >&2; exit 1; }
 # apt_get ARGS... — a dead or hung package mirror must fail this script in
 # minutes with a named reason instead of stalling a box restore: apt retries
 # and times out each fetch, and every call is bounded. A healthy call takes
@@ -23,3 +27,4 @@ fetch() {
     --max-time 30 "$_fetch_url" "$@" \
     || fail "fetch_failed: could not fetch $_fetch_url within 180s; check DNS and outbound network, then re-run"
 }
+"""
