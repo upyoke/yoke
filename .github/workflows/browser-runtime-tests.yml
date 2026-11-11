@@ -1,4 +1,5 @@
 name: browser-runtime-tests
+# QA disposable (YOK-5200 normal run): do not merge.
 
 on:
   workflow_call:
