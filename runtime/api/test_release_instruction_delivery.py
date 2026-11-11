@@ -118,7 +118,9 @@ def test_cli_prints_release_instructions_once_and_tolerates_older_servers(monkey
     create.write_release_instructions(_created("a").result, older)
     assert older.getvalue() == ""
 
-    responses = iter([_created("a", rule), _created("b", rule)])
+    first, second = _created("a", rule), _created("b", rule)
+    responses = iter([first.model_copy(
+        update={"result": {"runs": [first.result, second.result]}})])
     monkeypatch.setattr(release_set, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(release_set, "build_actor", lambda **k: None)
     monkeypatch.setattr(release_set, "creation_connection_error", lambda *a, **k: None)
