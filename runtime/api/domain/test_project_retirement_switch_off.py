@@ -63,7 +63,7 @@ def conn(tmp_path):
         c.execute(
             "INSERT INTO sites (id, project_id, name, created_at, settings) "
             "VALUES (300, 30, 'web', %s, %s)",
-            (NOW, json.dumps({"pulumi": {"stack_state": {"prod": {}}}})),
+            (NOW, json.dumps({"deploy_namespace": "fixture"})),
         )
         c.execute(
             "INSERT INTO environments (site, project_id, name, created_at) "
@@ -139,14 +139,13 @@ def test_retire_switches_off_and_reports_remaining_attachments(conn):
     assert [e["kind"] for e in report] == [
         "capability_secrets", "capability_settings", "github_binding",
         "deployment_flows", "environments", "sites", "pack_records",
-        "qa_plans", "qa_plan_defaults", "project_roles", "pulumi_stack_state",
+        "qa_plans", "qa_plan_defaults", "project_roles",
     ]
     counts = {kind: entry["count"] for kind, entry in by_kind.items()}
     assert counts == {
         "capability_secrets": 1, "capability_settings": 2, "github_binding": 1,
         "deployment_flows": 2, "environments": 2, "sites": 1, "pack_records": 0,
         "qa_plans": 1, "qa_plan_defaults": 1, "project_roles": 0,
-        "pulumi_stack_state": 1,
     }
     unbind = "yoke projects github-binding unbind --project fixture"
     assert by_kind["capability_settings"]["commands"] == [
@@ -166,7 +165,7 @@ def test_retire_switches_off_and_reports_remaining_attachments(conn):
         "yoke qa project-default unset --project fixture --plan-id 900 "
         "--workflow dash --transition release"
     ]
-    for kind in ("deployment_flows", "environments", "sites", "pulumi_stack_state"):
+    for kind in ("deployment_flows", "environments", "sites"):
         assert by_kind[kind]["commands"] == [] and by_kind[kind]["no_command"]
     for kind in ("pack_records", "project_roles"):
         assert by_kind[kind]["no_command"] is None  # nothing attached

@@ -36,11 +36,6 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             permissions=_FULL_PERMISSIONS,
         )
         projects.cmd_update("yoke", "github_sync_mode", "enabled")
-        projects.cmd_capability_merge_settings(
-            "yoke",
-            "github",
-            {"ci_oidc_manage_provider": False},
-        )
 
         _bind(
             "externalwebapp",
@@ -61,7 +56,6 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             resolve_project_github_auth("yoke")
         assert load_project_renderer_settings("yoke").capabilities["github"] == {
             "api_url": "https://api.github.com",
-            "ci_oidc_manage_provider": False,
             "installation_id": "12345",
             "permissions": {"metadata": "read", "issues": "read"},
             "repo_name": "Yoke",
@@ -107,7 +101,7 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
         assert upgraded_capability["repo_name"] == "Yoke"
         assert upgraded_capability["repository_id"] == "4567"
         assert upgraded_capability["api_url"] == "https://api.github.com"
-        assert upgraded_capability["ci_oidc_manage_provider"] is False
+        assert "ci_oidc_manage_provider" not in upgraded_capability
 
 
 def test_installation_refresh_preserves_intentional_disabled(

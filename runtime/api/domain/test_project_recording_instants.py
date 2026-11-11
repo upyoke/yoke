@@ -14,7 +14,6 @@ from yoke_contracts.path_snapshot_chunks import (
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import project_snapshot_chunk_uploads as staging
 from yoke_core.domain import projects_capabilities_settings as settings
-from yoke_core.domain import projects_pulumi_state_migration_rows as pulumi
 from yoke_core.domain import item_status_transitions as task_history
 
 MOMENT = parse_instant("1969-12-31T05:44:59.123456+05:45")
@@ -43,12 +42,11 @@ def test_snapshot_begin_persists_native_staging_clock(test_db, monkeypatch, zone
 
 
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])
-def test_capability_creation_and_idempotent_pulumi_rows_keep_native_clock(
+def test_capability_creation_keeps_native_clock(
     test_db, monkeypatch, zone
 ):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     monkeypatch.setattr(settings, "utc_now", lambda: MOMENT)
-    monkeypatch.setattr(pulumi, "utc_now", lambda: MOMENT)
     settings._cas_create(
         test_db, "yoke", 1, "clock-proof", '{"evidence":"opaque clock"}'
     )
@@ -57,14 +55,6 @@ def test_capability_creation_and_idempotent_pulumi_rows_keep_native_clock(
     ).fetchone()
     _native(row[0])
     assert row[1] is None and row[2] == '{"evidence":"opaque clock"}'
-    assert pulumi._ensure_capability_row(test_db, 1)
-    assert not pulumi._ensure_capability_row(test_db, 1)
-    _native(
-        test_db.execute(
-            "SELECT created_at FROM project_capabilities WHERE project_id=1 AND type=%s",
-            (pulumi.CAPABILITY_TYPE,),
-        ).fetchone()[0]
-    )
 
 
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])

@@ -9,25 +9,7 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import projects
-from yoke_core.domain.github_app_user_verification import (
-    VerifiedProjectGitHubBinding,
-)
-from yoke_core.domain.project_github_binding import cmd_bind_project_repo
 from yoke_core.domain.projects_seed_data import CAPABILITY_TEMPLATES
-
-
-_PERMISSIONS = {
-    "metadata": "read",
-    "issues": "write",
-    "pull_requests": "write",
-    "contents": "write",
-    "actions": "write",
-    "checks": "read",
-    "statuses": "read",
-    "workflows": "write",
-    "secrets": "write",
-    "actions_variables": "write",
-}
 
 
 @pytest.fixture
@@ -35,29 +17,6 @@ def github_db(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     with pg_testdb.test_database() as database:
         db_name = database.info.dbname
         yield db_name
-
-
-def _bind_yoke() -> None:
-    verified = VerifiedProjectGitHubBinding(
-        installation_id="12345",
-        account_id="9988",
-        account_login="upyoke",
-        account_type="Organization",
-        repository_selection="selected",
-        permissions=_PERMISSIONS,
-        repository_id="4567",
-        github_repo="upyoke/yoke",
-        default_branch="main",
-    )
-    cmd_bind_project_repo(
-        "yoke",
-        installation_id="12345",
-        repository_id="4567",
-        github_repo="upyoke/yoke",
-        expected_api_url="https://api.github.com",
-        github_user_access_token="user-token",
-        verifier=lambda **_kwargs: verified,
-    )
 
 
 def test_github_secret_reads_and_writes_stay_closed_with_retired_rows(
@@ -93,69 +52,14 @@ def test_github_full_settings_writes_are_closed_case_insensitively(
         )
 
 
-def test_github_optional_merge_requires_a_bound_capability(github_db: str) -> None:
-    with pytest.raises(ValueError, match="existing GitHub App repo binding"):
-        projects.cmd_capability_merge_settings(
-            "yoke", "github", {"ci_oidc_manage_provider": True}
-        )
-
-
-def test_github_optional_boolean_merge_preserves_binding_projection(
-    github_db: str,
-) -> None:
-    _bind_yoke()
-
-    projects.cmd_capability_merge_settings(
-        "yoke", " GitHub ", {"ci_oidc_manage_provider": False}
-    )
-
-    stored = json.loads(projects.cmd_capability_get_settings("yoke", "github") or "{}")
-    assert stored == {
-        "api_url": "https://api.github.com",
-        "ci_oidc_manage_provider": False,
-        "installation_id": "12345",
-        "permissions": _PERMISSIONS,
-        "repo_name": "yoke",
-        "repo_owner": "upyoke",
-        "repository_id": "4567",
-    }
-
-
 @pytest.mark.parametrize(
-    "assignments, message",
-    [
-        ({"token": "secret"}, "only ci_oidc_manage_provider"),
-        ({"private_key": "secret"}, "only ci_oidc_manage_provider"),
-        ({"repo_name": "other"}, "only ci_oidc_manage_provider"),
-        ({"ci_oidc_manage_provider": "false"}, "must be a boolean"),
-    ],
+    "assignments",
+    [{"token": "secret"}, {"repo_name": "other"}, {"ci_oidc_manage_provider": True}],
 )
-def test_github_merge_rejects_nonoptional_or_nonboolean_settings(
-    assignments: dict[str, object],
-    message: str,
-) -> None:
+def test_github_merges_are_closed(assignments: dict[str, object]) -> None:
     """Assignment validation refuses before any database read."""
-    with pytest.raises(ValueError, match=message):
-        projects.cmd_capability_merge_settings("yoke", "github", assignments)
-
-
-def test_github_merge_refuses_a_corrupt_existing_projection(github_db: str) -> None:
-    _bind_yoke()
-    conn = pg_testdb.connect_test_database(github_db)
-    try:
-        conn.execute(
-            "UPDATE project_capabilities SET settings=%s "
-            "WHERE project_id=1 AND type='github'",
-            ('{"repo_owner":"upyoke","token":"stranded"}',),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    with pytest.raises(ValueError, match="do not match the verified binding"):
-        projects.cmd_capability_merge_settings(
-            "yoke", "github", {"ci_oidc_manage_provider": True}
-        )
+    with pytest.raises(ValueError, match="binding-owned; merge-settings is refused"):
+        projects.cmd_capability_merge_settings("yoke", " GitHub ", assignments)
 
 
 def test_cli_rejects_github_secret_and_full_settings_writes(
@@ -218,7 +122,7 @@ def test_cli_rejects_github_secret_and_full_settings_writes(
     assert "binding-owned" in capsys.readouterr().err
 
 
-def test_capability_template_documents_optional_oidc_boolean() -> None:
+def test_capability_template_lists_only_binding_fields() -> None:
     github = next(row for row in CAPABILITY_TEMPLATES if row[0] == "github")
-    config = {item["key"]: item for item in json.loads(github[3])}
-    assert config["ci_oidc_manage_provider"]["secret"] is False
+    keys = [item["key"] for item in json.loads(github[3])]
+    assert keys == ["repo_owner", "repo_name", "installation_id", "repository_id"]

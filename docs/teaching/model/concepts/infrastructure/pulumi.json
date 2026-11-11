@@ -2,8 +2,7 @@
  "id": "pulumi",
  "title": "Pulumi infrastructure",
  "status": "draft-copy",
- "commands": ["yoke projects pulumi-stack-config get", "yoke projects pulumi-state checkpoint-import", "yoke projects pulumi-state migrate", "yoke pulumi exec"],
- "functions": ["projects.pulumi_stack_config.get", "projects.pulumi_state.checkpoint_import", "projects.pulumi_state.migrate"],
+ "commands": ["yoke pulumi exec"],
  "page": "infrastructure",
  "position": 2
 }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.domain.deploy_core_container_shared_test_support import (
     _BINDING as _BINDING,
     _HappyRemoteRunner as _HappyRemoteRunner,
@@ -17,77 +19,71 @@ from yoke_core.domain.deploy_core_container import (
 )
 from yoke_core.domain.deploy_remote import CommandResult
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
-from runtime.api.tools.pulumi_exec_support_test_support import (
-    _install_pulumi_project_files,
-)
+
+
+def _checked_in_project(tmp_path, stack: str):
+    root = tmp_path / "project"
+    (root / "infra").mkdir(parents=True)
+    (root / "infra" / "Pulumi.yaml").write_text("name: webapp-infra\n")
+    (root / "infra" / f"Pulumi.{stack}.yaml").write_text(
+        "secretsprovider: awskms://alias/yoke-pulumi-state?region=us-east-1\n"
+    )
+    return root
 
 
 class TestResolveEnvironmentDsn:
-    def test_render_uses_project_owned_pulumi_files(self, tmp_path, monkeypatch):
-        """The render subprocess writes where THIS process will read.
-
-        default_render_output_dir is pid-scoped; without an explicit
-        --output-dir the child renders into its own run dir and the
-        parent reads a path that never existed (live failure 2026-06-09).
-        """
+    def test_outputs_read_from_private_copy_of_checked_in_stack(
+        self, tmp_path, monkeypatch
+    ):
         from yoke_core.domain.deploy_core_container import (
             resolve_environment_dsn,
         )
 
+        env = _env()
+        project_root = _checked_in_project(tmp_path, env.stack_name)
         captured = {}
 
         def fake_outputs(infra_dir, location, env):
             captured["infra_dir"] = infra_dir
+            captured["stack_file"] = (
+                infra_dir / f"Pulumi.{location.stack}.yaml"
+            ).read_text()
             return {"databaseClusterEndpoint": "ep", "databaseSecretArn": "arn"}
 
         monkeypatch.setattr(deploy_core_container, "load_stack_outputs", fake_outputs)
-        settings = object()
-        monkeypatch.setattr(
-            deploy_core_container,
-            "load_project_renderer_settings",
-            lambda project: settings,
-        )
-        monkeypatch.setattr(
-            deploy_core_container,
-            "gather_pulumi_values",
-            lambda project, source_root, loaded_settings, *, pulumi_stack: {},
-        )
-
-        def fake_render(
-            project,
-            values,
-            source_root,
-            output_dir,
-            *_args,
-            **_kwargs,
-        ):
-            captured["source_root"] = source_root
-            (output_dir / "infra").mkdir(parents=True)
-
-        monkeypatch.setattr(
-            deploy_core_container,
-            "render_pulumi_artifacts",
-            fake_render,
-        )
         monkeypatch.setattr(
             deploy_core_container,
             "load_secret_string",
             lambda arn, region, env: '{"username": "u", "password": "p", "port": 5432}',
         )
         runner = FakeRunner([CommandResult(0, "", "")])
-        project_root = _install_pulumi_project_files(tmp_path)
         dsn, outputs = resolve_environment_dsn(
-            runner,
-            _env(),
-            {},
-            repo_path=project_root,
-            emit=lambda _l: None,
+            runner, env, {}, repo_path=project_root, emit=lambda _l: None
         )
         assert captured["infra_dir"].name == "infra"
-        assert captured["source_root"] == project_root
+        assert captured["infra_dir"] != project_root / "infra"
+        assert captured["stack_file"].startswith("secretsprovider: awskms://")
         assert not runner.calls
         assert "host=ep" in dsn and "dbname=yoke_prod" in dsn
         assert outputs["databaseClusterEndpoint"] == "ep"
+
+    def test_missing_stack_file_refuses_with_recovery(self, tmp_path, monkeypatch):
+        from yoke_core.domain.deploy_core_container import (
+            CoreDeployError,
+            resolve_environment_dsn,
+        )
+
+        monkeypatch.setattr(
+            deploy_core_container,
+            "load_stack_outputs",
+            lambda *a, **k: pytest.fail("read outputs without a stack file"),
+        )
+        project_root = _checked_in_project(tmp_path, "some-other-stack")
+        with pytest.raises(CoreDeployError, match="pulumi_stack_file_missing"):
+            resolve_environment_dsn(
+                FakeRunner([]), _env(), {}, repo_path=project_root,
+                emit=lambda _l: None,
+            )
 
 
 class TestExecCoreContainerDeploy:

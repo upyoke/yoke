@@ -31,14 +31,9 @@ def _sample_settings() -> ProjectRendererSettings:
             "pulumi": {
                 "stack_name": "acme-stage",
                 "origin_vps_stack_name": "acme-stage-vps",
-                "secrets_provider": "awskms://alias/acme-pulumi-state",
-                "encrypted_key": "ciphertext==",
             },
-            "servers": [{"instance_type": "t4g.micro", "root_volume_gb": 40,
-                         "aws_key_pair_name": "acme-stage"}],
-            "database": {"name": "acme_stage", "master_username": "acme_admin",
-                         "engine_version": "16.13", "min_capacity_acu": 0,
-                         "max_capacity_acu": 4, "backup_retention_days": 7},
+            "servers": [{"host": "203.0.113.7"}],
+            "database": {"name": "acme_stage", "location": "aurora"},
         },
     )
     return ProjectRendererSettings(
@@ -47,7 +42,7 @@ def _sample_settings() -> ProjectRendererSettings:
         display_name="Acme",
         site_id="301",
         site_settings={
-            "domains": [{"domain_name": "acme.test", "hosted_zone_id": "ZACME"}],
+            "domains": [{"domain_name": "acme.test"}],
         },
         primary_environment=stage,
         environments=(stage,),
@@ -58,7 +53,6 @@ def _sample_settings() -> ProjectRendererSettings:
             "pulumi-state": {
                 "kms_key_alias": "alias/acme-pulumi-state",
                 "state_bucket": "acme-pulumi-state",
-                "stacks": ["registry"],
             },
         },
     )
@@ -96,8 +90,7 @@ def _seeded_conn() -> Any:
         "INSERT INTO sites (id, project_id, name, settings) "
         "VALUES (%s, %s, %s, %s)",
         (301, 7, "Acme API", json.dumps({
-            "domains": [{"domain_name": "acme.test", "hosted_zone_id": "ZACME"}],
-            "pulumi": {"stacks": ["registry"]},
+            "domains": [{"domain_name": "acme.test"}],
         })),
     )
     conn.execute(
@@ -105,8 +98,7 @@ def _seeded_conn() -> Any:
         "VALUES (%s, %s, %s, %s, %s)",
         (401, 301, 7, "stage", json.dumps({
             "hosts": {"api": "api.stage.acme.test"},
-            "pulumi": {"stack_name": "acme-stage",
-                       "secrets_provider": "awskms://alias/acme-pulumi-state"},
+            "pulumi": {"stack_name": "acme-stage"},
         })),
     )
     conn.execute(
@@ -179,7 +171,7 @@ class TestBuildStackConfig:
         assert first["project_slug"] == "acme"
         snapshot = first["renderer_settings"]
         assert snapshot["project"] == "acme"
-        assert snapshot["site_settings"]["pulumi"]["stacks"] == ["registry"]
+        assert snapshot["site_settings"]["domains"] == [{"domain_name": "acme.test"}]
         assert snapshot["environments"][0]["name"] == "stage"
         assert "id" not in snapshot["environments"][0]
         assert snapshot["capabilities"]["github"]["repo_name"] == "acme"

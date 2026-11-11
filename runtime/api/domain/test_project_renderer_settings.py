@@ -96,8 +96,6 @@ class TestProjectRendererSettingsLoader:
                             "domains": [
                                 {
                                     "domain_name": "example.com",
-                                    "hosted_zone_id": "ZEXT",
-                                    "certificate_arn": "arn:aws:acm:cert/externalwebapp",
                                     "dns_provider": "route53",
                                 }
                             ],
@@ -153,9 +151,8 @@ class TestProjectRendererSettingsLoader:
             assert settings.primary_environment.name == "prod"
             assert settings.capabilities["ssh"]["default_user"] == "ubuntu"
             assert values["project_slug"] == "externalwebapp"
-            assert values["domain_name"] == "example.com"
-            assert values["origin_host"] == "origin.externalwebapp.example.com"
-            assert values["origin_ip"] == "203.0.113.50"
+            assert values["domain"] == "example.com"
+            assert values["ssh_host"] == "203.0.113.50"
             assert values["cloudfront_id"] == "EDIST"
             assert values["web_smoke_paths"] == "/login"
             assert values["port_base"] == "4000"
@@ -242,8 +239,7 @@ class TestProjectRendererSettingsLoader:
 
             assert settings.primary_environment is not None
             assert settings.primary_environment.id == "202"
-            assert values["origin_host"] == "origin.externalwebapp.example.com"
-            assert values["origin_ip"] == "203.0.113.50"
+            assert values["ssh_host"] == "203.0.113.50"
         finally:
             conn.close()
 

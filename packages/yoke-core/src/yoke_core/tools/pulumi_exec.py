@@ -141,14 +141,8 @@ def execute_pulumi_command(
             payload["render_values"],
         )
         if any(arg == "--target" or arg.startswith("--target=") for arg in argv):
-            try:
-                declaration = yaml.safe_load(
-                    (infra_root / "Pulumi.yaml").read_text()
-                )
-            except yaml.YAMLError as exc:
-                raise PulumiExecError(
-                    "pulumi_target_project_invalid: infra/Pulumi.yaml is invalid YAML; repair the project declaration and retry"
-                ) from exc
+            # stage_file_backed_infra already refused unparseable YAML.
+            declaration = yaml.safe_load((infra_root / "Pulumi.yaml").read_text())
             project_name = (
                 declaration.get("name") if isinstance(declaration, Mapping) else None
             )

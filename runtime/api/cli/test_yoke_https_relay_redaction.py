@@ -68,11 +68,6 @@ def _assert_scrubbed(value: str) -> None:
             {"key": "DATABASE_URL", "value": USER_TOKEN},
             {USER_TOKEN},
         ),
-        (
-            "projects.pulumi_state.checkpoint_import",
-            {"secrets_provider": USER_TOKEN, "encrypted_key": "encrypted-material"},
-            {USER_TOKEN, "encrypted-material"},
-        ),
         ("projects.capability_secret.set", {"value": None}, set()),
         ("projects.capability_secret.set", {"value": ""}, set()),
         ("projects.capability_secret.set", {}, set()),
@@ -101,8 +96,6 @@ def test_pack_render_values_remain_public_for_checksum_protected_source() -> Non
     [
         ("github_actions.secret.set", "value"),
         ("projects.capability_secret.set", "value"),
-        ("projects.pulumi_state.checkpoint_import", "secrets_provider"),
-        ("projects.pulumi_state.checkpoint_import", "encrypted_key"),
     ],
 )
 def test_typed_declared_secret_echo_is_scrubbed(
@@ -135,8 +128,6 @@ def test_typed_declared_secret_echo_is_scrubbed(
     [
         ("github_actions.secret.set", "value"),
         ("projects.capability_secret.set", "value"),
-        ("projects.pulumi_state.checkpoint_import", "secrets_provider"),
-        ("projects.pulumi_state.checkpoint_import", "encrypted_key"),
     ],
 )
 def test_non_envelope_declared_secret_echo_is_scrubbed(

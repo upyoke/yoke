@@ -11,9 +11,7 @@ import pytest
 from yoke_cli.commands.adapters import pulumi
 
 
-def _capture_executor(
-    monkeypatch, *, https: bool, file_backed: bool = False
-) -> dict:
+def _capture_executor(monkeypatch) -> dict:
     calls: dict = {}
 
     def execute(*args, **kwargs):
@@ -26,15 +24,9 @@ def _capture_executor(
         {
             "aws_machine_capability_env": object(),
             "execute_pulumi_command": staticmethod(execute),
-            "file_backed_stack_path": staticmethod(
-                lambda root, stack: Path("infra/Pulumi.x.yaml") if file_backed else None
-            ),
         },
     )
     monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(
-        pulumi, "resolve_https_connection", lambda: object() if https else None
-    )
     monkeypatch.setattr(pulumi, "_project_checkout", lambda *a, **k: Path("."))
     monkeypatch.setattr(
         pulumi, "build_pulumi_github_auth_loader", lambda **kwargs: object()
@@ -43,9 +35,8 @@ def _capture_executor(
     return calls
 
 
-@pytest.mark.parametrize("https", [False, True])
-def test_destroy_passes_confirmation_to_core_in_every_mode(monkeypatch, https):
-    calls = _capture_executor(monkeypatch, https=https)
+def test_destroy_passes_confirmation_to_core(monkeypatch):
+    calls = _capture_executor(monkeypatch)
     rc = pulumi.pulumi_exec([
         "--project", "app", "--stack", "app-drill-vps",
         "--confirm-destroy", "app-drill-vps",
@@ -57,16 +48,6 @@ def test_destroy_passes_confirmation_to_core_in_every_mode(monkeypatch, https):
     assert kwargs["confirm_destroy"] == "app-drill-vps"
 
 
-def test_stack_rm_is_local_and_reaches_core(monkeypatch):
-    calls = _capture_executor(monkeypatch, https=False)
-    rc = pulumi.pulumi_exec([
-        "--project", "app", "--stack", "app-drill-vps",
-        "--confirm-destroy", "app-drill-vps", "--", "stack", "rm", "--yes",
-    ])
-    assert rc == 0
-    assert calls["execute"][1]["confirm_destroy"] == "app-drill-vps"
-
-
 @pytest.mark.parametrize(
     "command",
     [
@@ -75,27 +56,30 @@ def test_stack_rm_is_local_and_reaches_core(monkeypatch):
         ["stack", "--stack=app-drill-vps", "rm", "--yes"],
     ],
 )
-def test_stack_rm_refuses_https_before_core(monkeypatch, command):
-    calls = _capture_executor(monkeypatch, https=True)
+def test_stack_rm_reaches_core_with_confirmation(monkeypatch, command):
+    calls = _capture_executor(monkeypatch)
+    rc = pulumi.pulumi_exec([
+        "--project", "app", "--stack", "app-drill-vps",
+        "--confirm-destroy", "app-drill-vps", "--", *command,
+    ])
+    assert rc == 0
+    args, kwargs = calls["execute"]
+    assert args[2] == command
+    assert kwargs["confirm_destroy"] == "app-drill-vps"
+
+
+def test_core_refusal_is_reported_as_failure(monkeypatch):
+    _capture_executor(monkeypatch)
+    executor = pulumi.importlib.import_module("yoke_core.tools.pulumi_exec")
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError("pulumi_stack_file_missing: add infra/Pulumi.x.yaml")
+
+    executor.execute_pulumi_command = staticmethod(refuse)
     stderr = io.StringIO()
     with redirect_stderr(stderr):
         rc = pulumi.pulumi_exec([
-            "--project", "app", "--stack", "app-drill-vps",
-            "--confirm-destroy", "app-drill-vps", "--", *command,
+            "--project", "app", "--stack", "app-drill-vps", "--", "preview",
         ])
-    assert rc == 2
-    assert "execute" not in calls
-    assert (
-        "pulumi stack rm of a rendered stack writes its operator state"
-        in stderr.getvalue()
-    )
-
-
-def test_file_backed_stack_rm_runs_over_https(monkeypatch):
-    calls = _capture_executor(monkeypatch, https=True, file_backed=True)
-    rc = pulumi.pulumi_exec([
-        "--project", "app", "--stack", "app-drill-vps",
-        "--confirm-destroy", "app-drill-vps", "--", "stack", "rm", "--yes",
-    ])
-    assert rc == 0
-    assert calls["execute"][0][2] == ["stack", "rm", "--yes"]
+    assert rc == 1
+    assert "pulumi_stack_file_missing" in stderr.getvalue()
