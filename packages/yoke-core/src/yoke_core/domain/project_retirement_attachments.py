@@ -102,7 +102,7 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
             len(capabilities),
             label="capability settings",
             names=capabilities,
-            commands=[c for c in (_capability_command(t, proj) for t in capabilities) if c],
+            commands=[c for t in capabilities for c in _capability_commands(t, proj)],
             no_command=NO_PULUMI_COMMAND,
             partial=PULUMI_STATE_CAPABILITY in capabilities,
         ),
@@ -169,23 +169,25 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
     ]
 
 
-def _capability_command(cap_type: str, proj: str) -> str | None:
+def _capability_commands(cap_type: str, proj: str) -> list[str]:
     q = shlex.quote
     if cap_type == GITHUB_CAPABILITY_TYPE:
-        return f"yoke projects github-binding unbind --project {proj}"
+        return [f"yoke projects github-binding unbind --project {proj}"]
     if cap_type == PULUMI_STATE_CAPABILITY:
-        return None
+        return []
     if cap_type.startswith("test-machine:"):
         name = cap_type.split(":", 1)[1]
-        return (
+        return [
             f"yoke test-machine delete --project {proj} "
             f"--test-machine {q(name)} --confirm"
-        )
-    get = f"yoke projects capability-settings get --project {proj} --cap-type {q(cap_type)}"
-    return (
+        ]
+    # Two steps: Yoke's agent hooks refuse a quoted "$(...)" substitution.
+    return [
+        f"base=$(yoke projects capability-settings get --project {proj} "
+        f"--cap-type {q(cap_type)})",
         f"yoke projects capability-settings remove --project {proj} "
-        f'--cap-type {q(cap_type)} --base "$({get})"'
-    )
+        f'--cap-type {q(cap_type)} --base "$base"',
+    ]
 
 
 def _counted(conn, kind, table, project_id, no_command):

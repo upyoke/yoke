@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import re
+import shlex
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -88,7 +90,23 @@ def _write_result(response, stdout, stderr) -> None:
     if commands:
         print("re-enable:", file=stdout)
         for command in commands:
-            print(f"  {command}", file=stdout)
+            print(f"  {_with_env(command)}", file=stdout)
+
+
+_YOKE_CALL = re.compile(r"(^|\$\()yoke ")
+
+
+def _with_env(command: str) -> str:
+    """Pin printed recipes to the connection this retire ran against."""
+    from yoke_cli.config.machine_config import active_env
+
+    try:
+        env = active_env()
+    except Exception:  # noqa: BLE001 - an unreadable config keeps the bare recipe
+        return command
+    if not env:
+        return command
+    return _YOKE_CALL.sub(lambda m: f"{m.group(1)}yoke --env {shlex.quote(env)} ", command)
 
 
 def _write_attachment(entry, stdout) -> None:
@@ -96,7 +114,7 @@ def _write_attachment(entry, stdout) -> None:
     suffix = f" ({', '.join(names)})" if names else ""
     print(f"  {entry['label']}: {entry['count']}{suffix}", file=stdout)
     for command in entry.get("commands") or []:
-        print(f"    run: {command}", file=stdout)
+        print(f"    run: {_with_env(command)}", file=stdout)
     if entry.get("no_command"):
         print(f"    {entry['no_command']}", file=stdout)
 

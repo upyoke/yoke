@@ -14,7 +14,10 @@ from yoke_core.domain.project_github_binding_state import (
 )
 from yoke_core.domain.project_retirement import set_retirement
 from yoke_core.domain.project_retirement_attachments import NO_SECRET_COMMAND
-from yoke_core.domain.project_retirement_switch_off import UNRETIRE_NOTE
+from yoke_core.domain.project_retirement_switch_off import (
+    FLOW_RE_ENABLE,
+    UNRETIRE_NOTE,
+)
 
 NOW = "2026-01-01T00:00:00Z"
 
@@ -148,10 +151,13 @@ def test_retire_switches_off_and_reports_remaining_attachments(conn):
     unbind = "yoke projects github-binding unbind --project fixture"
     assert by_kind["capability_settings"]["commands"] == [
         unbind,
+        "base=$(yoke projects capability-settings get --project fixture "
+        "--cap-type setup_command)",
         "yoke projects capability-settings remove --project fixture "
-        '--cap-type setup_command --base "$(yoke projects capability-settings '
-        'get --project fixture --cap-type setup_command)"',
+        '--cap-type setup_command --base "$base"',
     ]
+    # Yoke's agent hooks refuse a quoted "$(...)" substitution; no recipe uses one.
+    assert not any('"$(' in c for e in report for c in e["commands"])
     assert by_kind["github_binding"]["commands"] == [unbind]
     assert by_kind["qa_plans"]["commands"] == [
         "yoke qa plan retire smoke --project fixture --reason 'Project retired'"
@@ -196,8 +202,8 @@ def test_unretire_leaves_everything_off_and_names_re_enable_commands(conn):
         "github_binding_status": "unavailable",
     }
     assert restored["re_enable"] == [
-        "yoke deployment-flows set-status fixture-old active",
-        "yoke deployment-flows set-status fixture-release active",
+        # fixture-old was off before retirement: no per-flow re-enable advice.
+        FLOW_RE_ENABLE,
         "yoke projects github-binding check --project fixture",
         "yoke projects update --slug fixture --name Fixture --github-sync-mode enabled",
     ]
@@ -244,11 +250,14 @@ def test_lifecycle_delivery_skips_until_operator_check(conn):
     assert _state(conn, 30)[2][1] != "project_retired"
 
 
-def test_cli_prints_credentials_first_with_commands(conn):
+def test_cli_prints_credentials_first_with_commands(conn, monkeypatch):
     import io
     from types import SimpleNamespace
 
     from yoke_cli.commands.adapters.projects_retirement import _write_result
+    from yoke_cli.config import machine_config
+
+    monkeypatch.setattr(machine_config, "active_env", lambda: "prod")
 
     result = set_retirement(conn, "fixture", retired=True, reason="QA finished")
     out = io.StringIO()
@@ -258,4 +267,5 @@ def test_cli_prints_credentials_first_with_commands(conn):
     first = text.index("stored credentials: 1 (aws-admin.access_key)")
     assert first < text.index("capability settings: 2")
     assert NO_SECRET_COMMAND in text
-    assert "run: yoke projects github-binding unbind --project fixture" in text
+    assert "run: yoke --env prod projects github-binding unbind --project fixture" in text
+    assert "run: base=$(yoke --env prod projects capability-settings get" in text
