@@ -12,7 +12,7 @@ env:
 
 jobs:
   browser-runtime:
-    timeout-minutes: 10
+    timeout-minutes: 20
     name: browser-runtime
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     services:
@@ -48,6 +48,7 @@ jobs:
             packages/yoke-core/src/yoke_core/domain/browser_qa* \
             packages/yoke-core/src/yoke_core/domain/browser_client_owned_page.py \
             runtime/api/domain/test_browser_qa_color_scheme* \
+            .github/actions/install-playwright-deps/action.yml \
             .github/workflows/browser-runtime-tests.yml; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
             echo "Browser runtime unchanged; skipping Node suite."
@@ -74,36 +75,13 @@ jobs:
         working-directory: ${{ env.BROWSER_RUNTIME_DIR }}
         run: npx --no-install playwright install chromium
 
+      # OS packages install offline from a cache; a miss downloads them from
+      # Ubuntu's mirror, then one independent mirror, each attempt bounded.
       - name: Install Chromium OS dependencies
         if: steps.change_scope.outputs.should_run == 'true'
-        timeout-minutes: 5
-        working-directory: ${{ env.BROWSER_RUNTIME_DIR }}
-        # Playwright's --with-deps apt install has no retry or time bound, so an
-        # unreachable Ubuntu mirror hangs the job. Skip apt when the runner
-        # image already has every package; otherwise bound each apt command.
-        run: |
-          set -uo pipefail
-          refuse() {
-            echo "::error title=browser_runtime_os_deps_failed::browser_runtime_os_deps_failed: $1. Recovery: check the runner's Ubuntu apt mirror connectivity, then rerun this job."
-            exit 1
-          }
-          bounded_apt() {
-            local seconds="$1"; shift
-            timeout --kill-after=10 "$seconds" sudo apt-get -o Acquire::Retries=3 "$@"
-            local code=$?
-            [ "$code" -eq 0 ] || refuse "apt-get $1 failed or exceeded ${seconds}s (exit $code)"
-          }
-          missing() { npx --no-install playwright install-deps --dry-run chromium; }
-          if missing; then
-            echo "Chromium OS dependencies already installed; skipping apt."
-            exit 0
-          fi
-          bounded_apt 90 update
-          report="$(missing 2>&1)" && { echo "Chromium OS dependencies already installed."; exit 0; }
-          packages="$(sed -n 's/^  \([^ ][^ ]*\)$/\1/p' <<<"$report")"
-          [ -n "$packages" ] || refuse "Playwright could not list the missing packages: $report"
-          bounded_apt 150 install --yes --no-install-recommends $packages
-          missing || refuse "packages still missing after apt-get install"
+        timeout-minutes: 10
+        uses: ./.github/actions/install-playwright-deps
+        with: {working-directory: "${{ env.BROWSER_RUNTIME_DIR }}"}
 
       - name: Provision Chromium sandbox
         if: steps.change_scope.outputs.should_run == 'true'

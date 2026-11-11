@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
 
 import pytest
 
@@ -15,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 BROWSER_RUNTIME_WORKFLOW = WORKFLOWS / "browser-runtime-tests.yml"
 YOKE_CI = WORKFLOWS / "yoke-ci.yml"
+DEPS_ACTION = REPO_ROOT / ".github" / "actions" / "install-playwright-deps" / "action.yml"
 
 
 def _step(job: dict, name: str) -> dict:
@@ -95,83 +95,56 @@ def test_browser_runtime_workflow_provisions_and_runs_the_locked_suite() -> None
     )
 
 
-_STUBS = {
-    # Playwright reports missing packages until the stubbed install lands.
-    "npx": """#!/bin/bash
-if [ -e "$STATE/installed" ]; then echo "All system dependencies are installed."; exit 0; fi
-printf 'Missing system dependencies (2):\\n  libgbm1\\n  libnss3\\n'; exit 1
-""",
-    # A hung mirror is the bound expiring: GNU timeout exits 124.
-    "timeout": """#!/bin/bash
-echo "timeout $*" >> "$STATE/calls"
-[ -e "$STATE/hang" ] && exit 124
-shift 2; exec "$@"
-""",
-    "sudo": '#!/bin/bash\nexec "$@"\n',
-    "apt-get": """#!/bin/bash
-echo "apt-get $*" >> "$STATE/calls"
-case " $* " in *" install "*) touch "$STATE/installed" ;; esac
-""",
-}
+def _deps_steps() -> list[dict]:
+    return load_document(DEPS_ACTION)["runs"]["steps"]
 
 
-def _run_os_deps_step(tmp_path: Path, *state: str) -> tuple[subprocess.CompletedProcess, str]:
-    job = load_document(BROWSER_RUNTIME_WORKFLOW)["jobs"]["browser-runtime"]
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    for name, body in _STUBS.items():
-        stub = bin_dir / name
-        stub.write_text(body)
-        stub.chmod(0o755)
-    for name in state:
-        (tmp_path / name).touch()
-    result = subprocess.run(
-        ["bash", "-c", _step(job, "Install Chromium OS dependencies")["run"]],
-        env={"PATH": f"{bin_dir}:/usr/bin:/bin", "STATE": str(tmp_path)},
-        capture_output=True, text=True, timeout=30, check=False,
-    )
-    calls = tmp_path / "calls"
-    return result, calls.read_text() if calls.exists() else ""
-
-
-def test_os_deps_step_is_bounded() -> None:
+def test_chromium_os_deps_install_through_the_bounded_action() -> None:
+    # On 2026-11-11 an unresolvable Ubuntu mirror hung Playwright's unbounded
+    # --with-deps apt install; Platform's PLAT-415 action is the shared shape.
     job = load_document(BROWSER_RUNTIME_WORKFLOW)["jobs"]["browser-runtime"]
     step = _step(job, "Install Chromium OS dependencies")
-    assert step["timeout-minutes"] == 5
+    assert step["uses"] == "./.github/actions/install-playwright-deps"
+    assert step["with"] == {"working-directory": "${{ env.BROWSER_RUNTIME_DIR }}"}
+    assert step["timeout-minutes"] <= 10 < job["timeout-minutes"]
+    assert "run" not in step
     assert not [s for s in job["steps"] if "--with-deps" in str(s.get("run"))]
+    detect = _step(job, "Detect browser-runtime changes")["run"]
+    assert ".github/actions/install-playwright-deps/action.yml" in detect
 
 
-def test_os_deps_step_skips_apt_when_the_image_has_every_package(tmp_path: Path) -> None:
-    result, calls = _run_os_deps_step(tmp_path, "installed")
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "skipping apt" in result.stdout
-    assert calls == ""
+def test_cache_key_covers_image_playwright_version_and_package_set() -> None:
+    plan = _deps_steps()[0]["run"]
+    assert "npx --no-install playwright install-deps --dry-run chromium" in plan
+    assert "${ImageOS}-${ImageVersion}" in plan and "${version}-${digest}" in plan
+    restore, save = _deps_steps()[1], _deps_steps()[-1]
+    assert restore["uses"].startswith("actions/cache/restore@")
+    assert save["uses"].startswith("actions/cache/save@")
+    assert "cache-hit != 'true'" in save["if"]
 
 
-def test_os_deps_step_installs_missing_packages_with_bounded_apt(tmp_path: Path) -> None:
-    result, calls = _run_os_deps_step(tmp_path)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert calls.splitlines() == [
-        "timeout --kill-after=10 90 sudo apt-get -o Acquire::Retries=3 update",
-        "apt-get -o Acquire::Retries=3 update",
-        "timeout --kill-after=10 150 sudo apt-get -o Acquire::Retries=3 install"
-        " --yes --no-install-recommends libgbm1 libnss3",
-        "apt-get -o Acquire::Retries=3 install --yes --no-install-recommends"
-        " libgbm1 libnss3",
-    ]
+def test_install_runs_with_networking_disabled() -> None:
+    install = _deps_steps()[3]["run"]
+    assert 'sudo unshare --net -- dpkg -i "$DEBS"/*.deb' in install
+    assert "apt-get" not in install
 
 
-def test_os_deps_step_fails_named_when_the_mirror_hangs(tmp_path: Path) -> None:
-    result, calls = _run_os_deps_step(tmp_path, "hang")
-    assert result.returncode == 1
-    assert result.stdout.strip().endswith(
-        "::error title=browser_runtime_os_deps_failed::browser_runtime_os_deps_failed:"
-        " apt-get update failed or exceeded 90s (exit 124). Recovery: check the"
-        " runner's Ubuntu apt mirror connectivity, then rerun this job."
-    )
-    assert calls.splitlines() == [
-        "timeout --kill-after=10 90 sudo apt-get -o Acquire::Retries=3 update",
-    ]
+def test_miss_tries_ubuntu_then_one_signed_independent_mirror_bounded() -> None:
+    download = _deps_steps()[2]
+    assert "cache-hit != 'true'" in download["if"]
+    script = download["run"]
+    assert script.index("Ubuntu's configured mirror") < script.index("mirrors.edge.kernel.org")
+    assert 'timeout --kill-after=10 "$attempt_seconds" apt-get' in script
+    # GitHub runs bash -e: each bounded call captures its status so a timeout
+    # reaches the named error instead of ending the step with a bare 124.
+    assert script.count("|| status=$?") == 2
+    assert "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" in script
+    for option in ("Acquire::Retries", "Acquire::http::Timeout", "Acquire::https::Timeout",
+                   "APT::Update::Error-Mode=any", "Dir::State::Lists="):
+        assert option in script
+    for forbidden in ("trusted=yes", "allow-unauthenticated", "AllowInsecureRepositories", "apt-key"):
+        assert forbidden not in script
+    assert "::error title=install-playwright-deps download::" in script
 
 
 @pytest.mark.parametrize("workflow", [BROWSER_RUNTIME_WORKFLOW, YOKE_CI])
