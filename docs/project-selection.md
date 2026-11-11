@@ -14,9 +14,12 @@ defaults, project roles and Pulumi stack state, each with a count and the
 existing command that removes or changes it, or a plain note that none does.
 `yoke projects unretire --project P` restores visibility only; flows, sync and the
 binding stay off, and it prints the command that re-enables each
-(`yoke deployment-flows set-status FLOW active`,
+(`yoke deployment-flows set-status FLOW-ID active`,
 `yoke projects github-binding check --project P`, then
 `yoke projects update --slug P --name NAME --github-sync-mode enabled`).
+Unretire lists every disabled flow, including flows that were off before
+retirement, so re-enable only the flows retire reported as switched off.
+Printed recipes carry `--env` for the connection the command ran against.
 `yoke projects list --include-retired` includes historical projects. Direct reads
 by slug or id continue to resolve retired projects.
 

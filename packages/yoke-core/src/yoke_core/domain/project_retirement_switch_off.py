@@ -31,8 +31,11 @@ UNRETIRE_NOTE = (
     "Unretire restored the project to active inventory only; it did not "
     "re-enable deployment flows, GitHub issue sync or the GitHub repository "
     "binding. Run the re_enable commands for the ones this project should "
-    "use again."
+    "use again. disabled_deployment_flows lists every disabled flow, including "
+    "flows that were off before retirement; re-enable only the flows retire "
+    "reported under deployment_flows_disabled."
 )
+FLOW_RE_ENABLE = "yoke deployment-flows set-status FLOW-ID active"
 
 def switch_off(conn: Any, project_id: int) -> dict[str, Any]:
     """Disable flows, sync and the binding; return what this call changed."""
@@ -90,10 +93,9 @@ def still_off(conn: Any, project_id: int) -> dict[str, Any]:
         (project_id,),
     ).fetchone()
     binding_status = None if binding is None else str(binding[0])
-    commands = [
-        f"yoke deployment-flows set-status {shlex.quote(flow)} active"
-        for flow in flows
-    ]
+    # Retire records no durable list of the flows it disabled, so naming each
+    # disabled flow here would also re-enable flows that were off on purpose.
+    commands = [FLOW_RE_ENABLE] if flows else []
     if binding_status is not None and binding_status != BINDING_ACTIVE:
         commands.append(
             f"yoke projects github-binding check --project {shlex.quote(slug)}"
@@ -115,6 +117,7 @@ def still_off(conn: Any, project_id: int) -> dict[str, Any]:
 
 
 __all__ = [
+    "FLOW_RE_ENABLE",
     "UNRETIRE_NOTE",
     "still_off",
     "switch_off",
