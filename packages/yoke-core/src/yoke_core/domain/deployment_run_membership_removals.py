@@ -21,10 +21,8 @@ Re-attaching while created with ``deployment_runs.add_item`` clears the entry: t
 operator reversed the decision, and a stale exclusion would silently drop the
 item from the run it was just attached to.
 
-A takeover successor inherits the operator removals recorded on the runs it
-supersedes (the ``supersedes_run_id`` chain), so a removal survives takeover;
-a later add-item on any run in that chain clears it there too. Takeover's
-own transfer entries and set-aside entries are not operator removals.
+A takeover successor's enrollment also honors operator removals on the runs it
+supersedes (not transfer or set-aside entries); add-item clears them too.
 """
 
 from __future__ import annotations
@@ -78,39 +76,31 @@ def removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
     )
 
 
-def _predecessors(conn: Any, run_id: str) -> list[str]:
-    """The runs *run_id* superseded, nearest first."""
-    if not _column_exists(conn, "deployment_runs", "supersedes_run_id"):
-        return []
-    chain: list[str] = []
-    current = str(run_id)
-    while True:
-        row = conn.execute(
-            "SELECT supersedes_run_id FROM deployment_runs WHERE id=%s", (current,)
-        ).fetchone()
-        previous = _cell(row, "supersedes_run_id", 0) if row is not None else None
-        if not previous or str(previous) in chain or str(previous) == str(run_id):
-            return chain
-        current = str(previous)
-        chain.append(current)
-
-
-def _operator_removal(entry: dict[str, Any]) -> bool:
+def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
+    """Operator removals on the runs *run_id* superseded, with their run."""
     from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASON
 
-    return not entry.get("transferred_to_run_id") and entry.get("reason") != (
-        SET_ASIDE_REASON
-    )
+    if not _column_exists(conn, "deployment_runs", "supersedes_run_id"):
+        return []
+    rows = conn.execute(
+        "WITH RECURSIVE chain(id) AS (SELECT supersedes_run_id FROM deployment_runs "
+        "WHERE id=%s UNION SELECT r.supersedes_run_id FROM deployment_runs r "
+        f"JOIN chain c ON r.id=c.id) SELECT r.id,r.{MEMBERSHIP_REMOVALS_FIELD} "
+        "FROM deployment_runs r JOIN chain c ON r.id=c.id",
+        (run_id,),
+    ).fetchall()
+    return [
+        (str(row[0]), entry)
+        for row in rows
+        for entry in parse_membership_removals(row[1], str(row[0]))
+        if not entry.get("transferred_to_run_id")
+        and entry.get("reason") != SET_ASIDE_REASON
+    ]
 
 
 def enrollment_removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
     """This run's removals plus operator removals on the runs it superseded."""
-    inherited = {
-        int(entry["item_id"])
-        for predecessor in _predecessors(conn, run_id)
-        for entry in membership_removals(conn, predecessor)
-        if _operator_removal(entry)
-    }
+    inherited = {int(entry["item_id"]) for _, entry in _inherited(conn, run_id)}
     return removed_item_ids(conn, run_id) | inherited
 
 
@@ -166,16 +156,13 @@ def record_membership_removals(
 def clear_membership_removal(conn: Any, run_id: str, item_id: int) -> bool:
     """Drop *item_id*'s removal here and up the chain; report whether one existed."""
     cleared = False
-    for index, subject in enumerate((str(run_id), *_predecessors(conn, run_id))):
-        entries = list(membership_removals(conn, subject))
-        kept = [
-            entry
-            for entry in entries
-            if int(entry["item_id"]) != int(item_id)
-            or (index and not _operator_removal(entry))
-        ]
+    for subject in {str(run_id)} | {
+        run for run, entry in _inherited(conn, run_id) if int(entry["item_id"]) == int(item_id)
+    }:
+        entries = membership_removals(conn, subject)
+        kept = [entry for entry in entries if int(entry["item_id"]) != int(item_id)]
         if len(kept) != len(entries):
-            _write(conn, subject, kept)
+            _write(conn, subject, list(kept))
             cleared = True
     return cleared
 

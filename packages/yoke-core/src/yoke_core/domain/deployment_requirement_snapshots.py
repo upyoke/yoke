@@ -184,10 +184,7 @@ def _requirement_snapshot(
             f"QA requirement {requirement_id} is not owned by {render_item_ref(conn, item_id)}"
         )
     # A waived or retracted obligation no longer needs an admitted copy.
-    if (
-        raw_requirement.get("waived_at") is not None
-        or raw_requirement.get("retracted_at") is not None
-    ):
+    if raw_requirement.get("waived_at") or raw_requirement.get("retracted_at"):
         return None
     return requirement
 

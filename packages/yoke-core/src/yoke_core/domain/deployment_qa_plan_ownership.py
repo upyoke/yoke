@@ -175,37 +175,25 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
     return found
 
 
-def _ran_plan_ids(conn: Any, requirement_ids: list[int]) -> set[int]:
-    """Plans with a moved row that already ran or holds a verdict."""
-    if not requirement_ids:
-        return set()
-    rows = conn.execute(
+def transfer_plan_owners(
+    conn: Any, old_id: str, new_id: str, *, requirement_ids: list[int]
+) -> None:
+    """Carry ownership and pinned cases only for plans whose moved rows ran;
+    the successor pins every other plan from live state at item QA entry."""
+    ran = conn.execute(
         "SELECT DISTINCT q.plan_id FROM qa_requirements q WHERE q.id=ANY(%s) "
         "AND q.plan_id IS NOT NULL AND (EXISTS (SELECT 1 FROM qa_runs r "
         "WHERE r.qa_requirement_id=q.id) OR EXISTS (SELECT 1 FROM "
         "qa_plan_execution_results x WHERE x.requirement_id=q.id))",
         (sorted(requirement_ids),),
     ).fetchall()
-    return {int(row[0]) for row in rows}
-
-
-def transfer_plan_owners(
-    conn: Any, old_id: str, new_id: str, *, requirement_ids: list[int]
-) -> None:
-    """Carry ownership and pinned cases only for plans whose moved rows ran.
-
-    Every other plan is classified and pinned from live state at the
-    successor's item QA entry, exactly as on a fresh run.
-    """
-    ran = _ran_plan_ids(conn, requirement_ids)
     old = _snapshot(conn, old_id)
-    carried = {str(plan) for plan in ran} & set(old.get(OWNERS, {}))
+    carried = {str(row[0]) for row in ran} & set(old.get(OWNERS, {}))
     if not carried:
         return
     new = _snapshot(conn, new_id)
-    owners = new.setdefault(OWNERS, {})
     for plan in sorted(carried):
-        owner = owners.setdefault(plan, old[OWNERS][plan])
+        owner = new.setdefault(OWNERS, {}).setdefault(plan, old[OWNERS][plan])
         pinned = (old.get("plan_groups") or {}).get(plan)
         if owner is not None and pinned is not None:
             new.setdefault("plan_groups", {}).setdefault(plan, pinned)

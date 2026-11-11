@@ -69,11 +69,7 @@ def freeze_member_plans(conn, subject, snapshots):
 
 def keep_carried_plan_pins(flow_snapshot, existing):
     """First composition freeze keeps plan pins a takeover carried for run rows."""
-    old = (
-        dict(existing)
-        if isinstance(existing, Mapping)
-        else json.loads(existing or "{}")
-    )
+    old = existing if isinstance(existing, Mapping) else json.loads(existing or "{}")
     new = json.loads(flow_snapshot)
     for key in ("item_qa_plan_owners", "plan_groups"):
         if old.get(key):
