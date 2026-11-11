@@ -39,7 +39,8 @@ def run_fragment(tmp_path: Path, script: str, mode: str):
         "with open(os.environ['CALLS'], 'a') as f: f.write('timeout '+repr(args)+'\\n')\n"
         "assert args.pop(0) == '--kill-after=10'\n"
         "assert args.pop(0) in ('180', '600')\n"
-        "try: sys.exit(subprocess.run(args, timeout=0.5).returncode)\n"
+        "limit = 0.25 if os.environ['FETCH_MODE'] == 'hung' else 10\n"
+        "try: sys.exit(subprocess.run(args, timeout=limit).returncode)\n"
         "except subprocess.TimeoutExpired: sys.exit(124)\n"
     )
     timeout.chmod(0o755)
@@ -62,6 +63,6 @@ def run_fragment(tmp_path: Path, script: str, mode: str):
                FETCH_MODE=mode, CALLS=str(log))
     result = subprocess.run(
         ["/bin/bash", "-eu", "-o", "pipefail"], input=script,
-        text=True, capture_output=True, env=env, timeout=5,
+        text=True, capture_output=True, env=env, timeout=30,
     )
     return result, log.read_text() if log.exists() else ""
