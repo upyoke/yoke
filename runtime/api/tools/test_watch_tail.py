@@ -16,6 +16,10 @@ plus the writer-evidence refusals: a capture no watcher ever claimed,
 a capture whose claiming watcher died before its sentinel, and the two
 non-regressions those must not break -- a claimed but slow-starting run
 and a sentinel written in the instant before the writer exited.
+
+Fleet reports are buffered into one write, but a report that never
+closes -- a malformed end marker, or one cut short by the watcher's
+partial note -- must not hold an inbox or ALARM wake behind it.
 """
 
 from __future__ import annotations
@@ -30,7 +34,11 @@ from pathlib import Path
 
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import watch_capture_binding as binding
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
+from yoke_core.tools._fleet_report_changes import PARTIAL_REPORT_NOTE
 from yoke_core.tools import watch_tail
+
+from runtime.api.tools.watch_fleet_test_harness import RecordingStream
 
 
 def test_exits_when_sentinel_already_present(tmp_path: Path) -> None:
@@ -278,3 +286,25 @@ def test_a_sentinel_written_just_before_the_writer_exited_still_exits_zero(
 
     assert rc == 0
     assert "# watch_pytest exit=0" in out.getvalue()
+
+
+def _deliver(tmp_path: Path, lines: list[str]) -> list[str]:
+    stream = RecordingStream()
+    delivery = watch_tail._Delivery(tmp_path / "progress.log", stream)
+    for line in lines:
+        delivery.forward(line)
+    return stream.writes
+
+
+def test_a_fleet_line_flushes_an_unterminated_report(tmp_path: Path) -> None:
+    opened = [f"{REPORT_BEGIN}\n", "runs:\n", f" (changes only){REPORT_END}\n"]
+    for wake in ("fleet inbox 80cc7794 state=pending\n", "fleet ALARM stuck\n"):
+        writes = _deliver(tmp_path, [*opened, wake])
+        assert writes == ["".join([*opened, wake])]
+    assert _deliver(tmp_path, [*opened, "  row\n"]) == []
+
+
+def test_a_partial_report_does_not_hold_later_lines(tmp_path: Path) -> None:
+    partial = [f"{REPORT_BEGIN}\n", "runs:\n", PARTIAL_REPORT_NOTE]
+    writes = _deliver(tmp_path, [*partial, "after the report\n"])
+    assert writes == ["".join(partial), "after the report\n"]

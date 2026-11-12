@@ -69,9 +69,12 @@ from yoke_core.domain.watch_capture_binding import (
 from yoke_core.domain.watch_digest import ROUTINE_PROGRESS_RE
 from yoke_core.domain.watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
+from yoke_core.tools._fleet_report_changes import PARTIAL_REPORT_NOTE
 
 WRAPPER_MODULE = "yoke_core.tools.watch_tail"
 DEFAULT_POLL_INTERVAL = 0.1
+#: Lines that end a buffered fleet report: whole, or cut short by the watcher.
+_REPORT_CLOSERS = (REPORT_END, PARTIAL_REPORT_NOTE.rstrip("\n"))
 #: Suffix of the sibling file recording how much of a capture its
 #: subscriber has already been handed. Beside the capture, so it shares
 #: the capture's lifetime and no stale marker outlives its run.
@@ -181,9 +184,15 @@ class _Delivery:
             if fresh:
                 self.routine.append(line)
             return False
-        if line.rstrip("\n") == REPORT_BEGIN or self.report:
+        stripped = line.rstrip("\n")
+        if self.report and stripped.startswith("fleet "):
+            # A report body never holds a ``fleet `` line, so one arriving
+            # means the report will not close: hand over what it holds now
+            # rather than keep an inbox or ALARM wake behind it.
+            line, self.report = "".join([*self.report, line]), []
+        elif stripped == REPORT_BEGIN or self.report:
             self.report.append(line)
-            if line.rstrip("\n") != REPORT_END and not sentinel:
+            if stripped not in _REPORT_CLOSERS and not sentinel:
                 return False
             line = "".join(self.report)
             self.report = []

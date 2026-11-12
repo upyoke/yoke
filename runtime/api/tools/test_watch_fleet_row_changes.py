@@ -148,3 +148,23 @@ def test_partial_run_headings_use_the_same_suffix_rules() -> None:
     assert changed_lines(body, seen) == [
         "runs (changes only):", "  run one (changes only)", "    new detail"
     ]
+
+
+def test_a_changes_only_report_keeps_suffixes_inline_and_closes_exactly() -> None:
+    other = "  ! run-20261016-012 executing · stage item-qa for 5m · 1 of 2 outstanding"
+    classify = watch_fleet.make_fleet_classifier()
+    _feed(classify, _report(RUN_ROW.format(age="1h32m"), RED_ROW, other))
+
+    changed = _feed(
+        classify,
+        _report(RUN_ROW.format(age="1h34m"), RED_ROW.replace("47771", "47772"), other),
+    )
+
+    assert changed is not None
+    lines = changed.split("\n")
+    assert lines[-2] == REPORT_END and lines[-1] == ""
+    assert "deployment runs (changes only):" in lines
+    assert not any(line.startswith(" (changes only)") for line in lines)
+    assert changed_lines(["runs:\n", "  a\n", "  b\n"], {"runs:", "  a"}) == [
+        "runs (changes only):\n", "  b\n"
+    ]

@@ -32,7 +32,11 @@ from yoke_core.domain import fleet_delta_probe
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.domain import watch_digest as _watch_digest
 from yoke_core.domain import watch_runner as _watch_runner
-from yoke_core.tools._fleet_report_changes import changed_lines, row_identity
+from yoke_core.tools._fleet_report_changes import (
+    PARTIAL_REPORT_NOTE,
+    changed_lines,
+    row_identity,
+)
 from yoke_core.domain.watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_fleet"
@@ -44,11 +48,6 @@ PROCESS_FAILURE_RE = re.compile(
     r"^(?:[\w.]*Error|[\w.]*Exception):"
     r"|^Traceback \(most recent call last\):"
 )
-
-PARTIAL_REPORT_NOTE = (
-    "# watch_fleet report_partial: the probe ended before the closing marker\n"
-)
-
 
 def _as_line(line: str) -> str:
     """Keep held text in the same newline shape the child wrote."""
