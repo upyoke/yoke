@@ -68,10 +68,13 @@ def read_declared_database(
     the database without Pulumi endpoint or secret outputs.
     """
     model = _safe_label(model, what="database model")
+    location_keys = "database_name"
+    if require_cloud_outputs:
+        location_keys += ", endpoint_output, secret_arn_output"
     teach = (
         f"declare it as settings.models.{model}.authoritative_db "
-        f"(kind postgres, location with database_name, endpoint_output, "
-        f"secret_arn_output) on project {project!r}'s {MIGRATION_MODEL_CAPABILITY} "
+        f"(kind postgres, location with {location_keys}) on project "
+        f"{project!r}'s {MIGRATION_MODEL_CAPABILITY} "
         f"capability; see {DECLARATION_DOC}"
     )
     absent = (

@@ -38,6 +38,17 @@ def test_location_round_trips_to_settings_shape() -> None:
     assert loc.as_settings_location() == raw
 
 
+@pytest.mark.parametrize("stack", [None, "", 42])
+def test_cloud_authority_without_stack_refuses_with_recovery(stack) -> None:
+    with pytest.raises(CloudAuthorityCommandError) as exc:
+        PostgresAuthorityLocation.from_mapping({"database_name": "registry_db", "stack": stack})
+
+    assert exc.value.step == "cloud_postgres_location"
+    assert "stack must be a non-empty string" in exc.value.detail
+    assert "authoritative_db.location.stack" in exc.value.recovery
+    assert "database.location is box" in exc.value.recovery
+
+
 def test_secret_json_requires_username_and_password() -> None:
     secret = PostgresSecret.from_json(
         json.dumps({"username": "admin", "password": "pw", "port": "5433"})

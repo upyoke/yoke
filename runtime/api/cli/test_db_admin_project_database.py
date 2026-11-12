@@ -240,3 +240,30 @@ def test_missing_declared_output_refuses_by_name(setup_env, monkeypatch, capsys)
         "yoke-stage-registry-db-admin"
         not in json.loads(setup_env.config_path.read_text())["connections"]
     )
+
+
+@pytest.mark.parametrize("action", ["--dry-run", "--yes"])
+def test_aurora_model_without_cloud_outputs_refuses_before_cloud_reads(
+    setup_env, monkeypatch, capsys, action
+):
+    from yoke_cli.config import db_admin_setup as config
+    from yoke_core.domain.migration_model_capability import validate
+    from runtime.api.domain.test_migration_model_capability_postgres import _postgres_model
+
+    declaration = validate({
+        "models": {"registry": _postgres_model({"database_name": "registry_db"})},
+    })
+    setup_env.state["response"] = _settings(declaration)
+    monkeypatch.setattr(
+        config, "_resolve_environment_database_binding",
+        lambda *_a, **_kw: pytest.fail("incomplete Aurora declaration reached cloud reads"),
+    )
+    assert _setup(setup_env.config_path, action) == 1
+    err = capsys.readouterr().err
+    assert "no declared database location" in err
+    assert "missing location keys ['endpoint_output', 'secret_arn_output']" in err
+    assert "settings.models.registry.authoritative_db" in err
+    assert "docs/public/databases/migration-model.md" in err
+    assert "yoke-stage-registry-db-admin" not in json.loads(
+        setup_env.config_path.read_text()
+    )["connections"]

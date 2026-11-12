@@ -71,9 +71,31 @@ def test_postgres_authoritative_location_rejects_unknown_keys() -> None:
         })
 
 
-def test_postgres_authoritative_location_requires_stack_outputs() -> None:
-    loc = _location()
-    del loc["secret_arn_output"]
+def test_postgres_authoritative_location_requires_only_database_name() -> None:
+    loc = {"database_name": "registry_db"}
+    out = validate({"models": {"primary": _postgres_model(loc)}})
+    assert out["models"]["primary"]["authoritative_db"]["location"] == loc
 
+
+@pytest.mark.parametrize("value", [None, "", 42, False])
+def test_postgres_authoritative_location_requires_database_name(value) -> None:
     with pytest.raises(MigrationModelCapabilityError, match="missing required"):
-        validate({"models": {"primary": _postgres_model(loc)}})
+        validate({"models": {"primary": _postgres_model({"database_name": value})}})
+
+
+@pytest.mark.parametrize(
+    "key", ["stack", "endpoint_output", "secret_arn_output", "state_backend", "region"]
+)
+@pytest.mark.parametrize("value", [None, "", 42, False])
+def test_optional_postgres_coordinates_must_be_nonempty_strings(key, value) -> None:
+    with pytest.raises(MigrationModelCapabilityError, match=rf"location\.{key} must be"):
+        validate({"models": {"primary": _postgres_model(_location(**{key: value}))}})
+
+
+@pytest.mark.parametrize(
+    "key", ["stack", "endpoint_output", "secret_arn_output", "state_backend", "region"]
+)
+def test_optional_postgres_coordinates_are_preserved(key) -> None:
+    loc = {"database_name": "registry_db", key: "declared-value"}
+    out = validate({"models": {"primary": _postgres_model(loc)}})
+    assert out["models"]["primary"]["authoritative_db"]["location"] == loc

@@ -21,16 +21,6 @@ from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import 
 
 PASSWORD = "box-password-never-shown"
 DSN = f"postgresql://yoke_admin:{PASSWORD}@127.0.0.1:6548/yoke_tenant_4"
-BOX_DECLARATION = {
-    "models": {
-        "registry": {
-            "authoritative_db": {
-                "kind": "postgres",
-                "location": {"database_name": "registry_db"},
-            },
-        },
-    },
-}
 
 
 def _box_env(project: str = "yoke", env_name: str = "stage") -> SimpleNamespace:
@@ -169,20 +159,38 @@ def test_box_secret_name_selects_the_dsn_file(box, capsys) -> None:
     assert source == {"kind": "dsn_file", "path": str(other)}
 
 
-def test_box_declared_database_needs_only_its_name(box, monkeypatch, capsys) -> None:
+@pytest.mark.parametrize("apply", [False, True])
+def test_box_declared_database_needs_only_its_name(box, monkeypatch, capsys, apply) -> None:
     from yoke_cli.config import db_admin_setup as config
+    from yoke_core.domain.migration_model_capability import validate
+    from runtime.api.domain.test_migration_model_capability_postgres import _postgres_model
+
+    declaration = validate({
+        "models": {"registry": _postgres_model({"database_name": "registry_db"})},
+    })
 
     monkeypatch.setattr(
         config.https_transport,
         "relay_https",
-        lambda request, connection: _settings(BOX_DECLARATION),
+        lambda request, connection: _settings(declaration),
     )
     dsn_path = box.home / "secrets" / "yoke-stage-registry-db-admin.dsn"
     _provision(dsn_path, DSN.replace("yoke_tenant_4", "registry_db"))
 
-    assert _setup(box.config_path, "--database", "registry", "--yes") == 0
+    action = "--yes" if apply else "--dry-run"
+    assert _setup(box.config_path, "--database", "registry", action) == 0
 
     report = json.loads(capsys.readouterr().out)
+    assert report["applied"] is apply
+    if not apply:
+        authority = report["plan"]["authority"]
+        assert authority["kind"] == "box_postgres"
+        assert authority["location"]["database_name"] == "registry_db"
+        assert report["plan"]["postgres"]["tunnel"]["remote_host"] == "127.0.0.1"
+        assert "yoke-stage-registry-db-admin" not in json.loads(
+            box.config_path.read_text()
+        )["connections"]
+        return
     entry = report["admin_connection"]["connection"]
     assert report["admin_connection"]["env"] == "yoke-stage-registry-db-admin"
     assert entry["credential_source"] == {"kind": "dsn_file", "path": str(dsn_path)}

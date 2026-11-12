@@ -56,6 +56,14 @@ class PostgresAuthorityLocation:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "PostgresAuthorityLocation":
+        if not isinstance(value.get("stack"), str) or not value["stack"]:
+            raise CloudAuthorityCommandError(
+                "cloud_postgres_location",
+                "stack must be a non-empty string for cloud Postgres authority",
+                "declare authoritative_db.location.stack for the Aurora model; "
+                "for box Postgres use db-admin setup with an environment whose "
+                "database.location is box",
+            )
         return cls(
             stack=_required_str(value, "stack"),
             database_name=_required_str(value, "database_name"),

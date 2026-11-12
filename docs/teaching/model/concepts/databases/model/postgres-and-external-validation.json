@@ -3,5 +3,6 @@
  "title": "Postgres and external validation",
  "status": "draft-copy",
  "page": "databases",
- "position": 1
+ "position": 1,
+ "text": "Postgres models require database_name and external validation with a governed migration module. Cloud coordinates are optional non-empty strings when present. The environment database.location selects box or Aurora: box setup uses the environment host and provisioned DSN file; Aurora setup requires endpoint and secret output names, and Pulumi authority readers require stack."
 }

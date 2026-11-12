@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Before agreeing to governance for an existing database",
- "need": "Current validator supports SQLite/local validation and Postgres/external validation, both with Python governed migration modules. MySQL and external-adapter runners are explicitly unsupported. Postgres requires stack/database/output coordinates, not just any connection string.",
+ "need": "Current validator supports SQLite/local validation and Postgres/external validation, both with Python governed migration modules. MySQL and external-adapter runners are explicitly unsupported. A Postgres model requires only database_name; optional stack/output coordinates must be non-empty strings when present. The environment database.location alone selects box or Aurora. Box db-admin setup uses the declared database and provisioned DSN file; Aurora setup requires endpoint_output and secret_arn_output, while Pulumi authority readers also require stack.",
  "disclosure": "current cue",
  "surface": "Migration model pairing matrix and capability validator.",
  "gap": "Surface these limits before collecting credentials or implying Alembic/Prisma/other migration frameworks can be adopted unchanged. Unsupported is not incomplete install.",
