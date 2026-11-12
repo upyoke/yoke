@@ -108,12 +108,7 @@ def _validate_authoritative_db(value: Any) -> Dict[str, Any]:
                 "authoritative_db.location has unknown keys for postgres: "
                 f"{sorted(extra_loc)}"
             )
-        required = {
-            "stack",
-            "database_name",
-            "endpoint_output",
-            "secret_arn_output",
-        }
+        required = {"database_name"}
         missing = [
             key for key in sorted(required)
             if not isinstance(loc.get(key), str) or not loc.get(key)
@@ -123,15 +118,10 @@ def _validate_authoritative_db(value: Any) -> Dict[str, Any]:
                 "authoritative_db.location missing required postgres keys: "
                 f"{missing}"
             )
-        out = {
-            "stack": loc["stack"],
-            "database_name": loc["database_name"],
-            "endpoint_output": loc["endpoint_output"],
-            "secret_arn_output": loc["secret_arn_output"],
-        }
-        for optional in ("state_backend", "region"):
-            value = loc.get(optional)
-            if value is not None:
+        out = {"database_name": loc["database_name"]}
+        for optional in sorted(allowed - required):
+            if optional in loc:
+                value = loc[optional]
                 if not isinstance(value, str) or not value:
                     raise MigrationModelCapabilityError(
                         f"authoritative_db.location.{optional} must be a "
