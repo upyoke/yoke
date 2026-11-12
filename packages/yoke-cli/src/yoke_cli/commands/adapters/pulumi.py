@@ -53,8 +53,12 @@ def pulumi_exec(args: List[str]) -> int:
             "--non-interactive`. Destroy (whole stack, `--yes "
             "--non-interactive`) and `stack rm --yes` (never --force) require "
             "`--confirm-destroy <exact stack name>` and refuse while an "
-            "environment stack whose file is still checked in uses the stack "
-            "as its origin VPS."
+            "checked-in environment consumer has origin_ip unset or "
+            "database_enabled true. With explicit origin_ip and "
+            "database_enabled false, its VPS name stays a live selector. "
+            "`destroy --preview-only` runs the same guard and prints the "
+            "proposed deletions without confirmation or mutation; it refuses "
+            "--yes and --refresh."
         ),
     )
     parser.add_argument(
@@ -75,7 +79,8 @@ def pulumi_exec(args: List[str]) -> int:
         "--confirm-destroy",
         metavar="STACK",
         help=(
-            "Required for destroy and stack rm: the exact stack name, "
+            "Required for mutating destroy and stack rm (not --preview-only): "
+            "the exact stack name, "
             "confirming its resources or stack record are removed."
         ),
     )

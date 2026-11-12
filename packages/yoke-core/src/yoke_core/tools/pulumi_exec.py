@@ -90,7 +90,7 @@ def execute_pulumi_command(
     refused instead of handed a summary for a tree they did not name.
 
     ``destroy`` and ``stack rm`` require ``confirm_destroy`` to name the
-    exact stack.
+    exact stack. A read-only ``destroy --preview-only`` needs no confirmation.
     """
     selected_project = str(project or "").strip()
     selected_stack = str(stack or "").strip()
@@ -116,16 +116,18 @@ def execute_pulumi_command(
         )
     argv, json_output = validated_command(selected_stack, command)
     operation = destructive_operation(argv)
-    require_destroy_confirmation(selected_stack, operation, confirm_destroy)
+    confirmation_operation = None if "--preview-only" in argv else operation
+    require_destroy_confirmation(selected_stack, confirmation_operation, confirm_destroy)
     settings = settings_loader(selected_project)
     if settings.project != selected_project:
         raise PulumiExecError(
             "Pulumi project settings do not match the requested project"
         )
     if operation is not None:
-        refuse_consumed_vps_stack(
+        verdict = refuse_consumed_vps_stack(
             selected_project, selected_stack, settings, project_root
         )
+        (err or sys.stderr).write(f"{verdict}\n")
     payload, authority, runner_fleet = _file_backed_inputs(
         selected_project, selected_stack, stack_file, settings
     )
