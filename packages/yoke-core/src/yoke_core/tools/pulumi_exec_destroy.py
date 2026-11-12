@@ -1,7 +1,7 @@
 """Operator-confirmed destruction and removal of one exact declared stack.
 
 ``destroy`` tears down a stack's resources; ``stack rm`` then removes the
-emptied stack.  Both need the outer
+emptied stack.  Mutating operations need the outer
 ``--confirm-destroy <exact stack name>``; ``stack rm`` never takes
 ``--force``, so Pulumi itself refuses a stack that still holds resources.
 """
@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+
+import yaml
 
 from yoke_core.domain.pack_pulumi_sources import pulumi_program_source
 from yoke_core.domain.project_renderer_settings import (
@@ -22,7 +24,8 @@ from yoke_core.tools.pulumi_exec_types import PulumiExecError
 DESTROY = "destroy"
 STACK_RM = "stack rm"
 _DESTROY_FLAGS = frozenset(
-    {"--yes", "--non-interactive", "--refresh", "--diff", "--suppress-outputs"}
+    {"--yes", "--non-interactive", "--refresh", "--diff", "--suppress-outputs",
+     "--preview-only"}
 )
 
 
@@ -38,6 +41,13 @@ def validated_destroy_argv(stack: str, args: Sequence[str]) -> list[str]:
             raise PulumiExecError(
                 f"Pulumi argument is not allowed for this operation: {value}"
             )
+    if "--preview-only" in args:
+        if "--yes" in args or "--refresh" in args:
+            raise PulumiExecError(
+                "pulumi_destroy_preview_mutation_refused: destroy --preview-only "
+                "never takes --yes or --refresh; drop them for a read-only preview"
+            )
+        return ["pulumi", "destroy", *args, "--stack", stack]
     if "--yes" not in args or "--non-interactive" not in args:
         raise PulumiExecError(
             "pulumi destroy requires --yes and --non-interactive"
@@ -99,35 +109,65 @@ def refuse_consumed_vps_stack(
     stack: str,
     settings: ProjectRendererSettings,
     project_root: Path,
-) -> None:
-    """Refuse while a checked-in environment stack uses ``stack`` as origin.
-
-    An environment stack (one with its own ``pulumi.stack_name``) reads its
-    origin from the VPS stack named by ``pulumi.origin_vps_stack_name``. A
-    consumer whose ``infra/Pulumi.<consumer>.yaml`` is still checked in is
-    live and blocks; it is destroyed, removed and its file deleted first.
-    """
+) -> str:
+    """Refuse real StackReference consumers; explain selector-only uses."""
     if settings.project != project:
         raise PulumiExecError(
             "Pulumi project settings do not match the requested project"
         )
+    selectors = []
     for environment in settings.environments:
         pulumi = _first_mapping(environment.settings.get("pulumi"))
         consumer = str(pulumi.get("stack_name") or "").strip()
         origin = str(pulumi.get("origin_vps_stack_name") or "").strip()
         if not consumer or consumer == stack or origin != stack:
             continue
-        if not pulumi_program_source(project_root, f"Pulumi.{consumer}.yaml").is_file():
+        consumer_file = pulumi_program_source(project_root, f"Pulumi.{consumer}.yaml")
+        if not consumer_file.is_file():
+            continue
+        origin_ip, database_enabled = _consumer_config(project_root, consumer_file)
+        if origin_ip and not database_enabled:
+            selectors.append(
+                f"{stack!r} stays in use as the live selector for "
+                f"environment {environment.name!r} stack {consumer!r}"
+            )
             continue
         raise PulumiExecError(
             f"pulumi_stack_consumed: environment {environment.name!r} stack "
-            f"{consumer!r} reads VPS stack {stack!r} as its origin and its "
-            f"stack file is still checked in; destroy and remove {consumer!r} "
-            f"first with `yoke pulumi exec --project {project} --stack "
-            f"{consumer} --confirm-destroy {consumer} -- destroy --yes "
-            "--non-interactive` and then `-- stack rm --yes`, delete "
-            f"infra/Pulumi.{consumer}.yaml, and retry"
+            f"{consumer!r} creates a StackReference to VPS stack {stack!r} "
+            "because origin_ip is unset or database_enabled is true; keep "
+            "the VPS stack until the consumer no longer needs its outputs, "
+            "then update its checked-in config and retry"
         )
+    detail = "; ".join(selectors) or "no checked-in StackReference consumers"
+    return f"pulumi_stack_destroy_allowed: {detail}"
+
+
+def _consumer_config(project_root: Path, consumer_file: Path) -> tuple[str, bool]:
+    """Read explicit consumer values under the project's declared namespace."""
+    declaration_file = pulumi_program_source(project_root, "Pulumi.yaml")
+    recovery = (
+        f"pulumi_stack_consumer_config_invalid: cannot determine the "
+        f"StackReference dependency from {consumer_file}; repair infra/Pulumi.yaml "
+        "name and explicit namespaced origin_ip (a string, empty when unset) "
+        "and database_enabled (true or false) in the consumer config, then retry"
+    )
+    try:
+        declaration = yaml.safe_load(declaration_file.read_text(encoding="utf-8"))
+        consumer = yaml.safe_load(consumer_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        raise PulumiExecError(recovery) from exc
+    namespace = declaration.get("name") if isinstance(declaration, dict) else None
+    config = consumer.get("config") if isinstance(consumer, dict) else None
+    if not isinstance(namespace, str) or not namespace.strip() or not isinstance(config, dict):
+        raise PulumiExecError(recovery)
+    origin_ip = config.get(f"{namespace}:origin_ip")
+    database_enabled = config.get(f"{namespace}:database_enabled")
+    if isinstance(database_enabled, str) and database_enabled in {"true", "false"}:
+        database_enabled = database_enabled == "true"
+    if not isinstance(origin_ip, str) or not isinstance(database_enabled, bool):
+        raise PulumiExecError(recovery)
+    return origin_ip.strip(), database_enabled
 
 
 __all__ = [

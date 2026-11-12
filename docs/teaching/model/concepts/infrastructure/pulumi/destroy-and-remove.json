@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "commands": ["yoke pulumi exec"],
  "page": "infrastructure",
- "position": 6
+ "position": 6,
+ "summary": "Use destroy --preview-only for a read-only resource deletion preview without --yes or --confirm-destroy. The same guard protects destroy, its preview and stack rm: a checked-in consumer blocks when origin_ip is empty or database_enabled is true; explicit origin_ip and database_enabled false make the VPS name only a live selector, which stays in use. Read both values under the namespace declared by infra/Pulumi.yaml; missing or invalid values refuse with repair instructions. Mutating destroy and stack rm still require exact stack confirmation."
 }

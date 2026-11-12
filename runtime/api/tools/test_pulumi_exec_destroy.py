@@ -20,6 +20,7 @@ from runtime.api.tools.pulumi_exec_support_test_support import (
 _VPS = "app-drill-vps"
 _DESTROY = ["destroy", "--yes", "--non-interactive"]
 _STACK_RM = ["stack", "rm", "--yes"]
+_PREVIEW = ["destroy", "--preview-only"]
 
 
 def _settings(*environments: tuple[str, dict]):
@@ -135,13 +136,16 @@ _CONSUMER = ("prod", {"stack_name": "app-prod", "origin_vps_stack_name": _VPS})
 _STANDALONE = ("drill", {"origin_vps_stack_name": _VPS})
 
 
-def _with_consumer_file(tmp_path):
+def _with_consumer_file(tmp_path, origin_ip="", database_enabled=True):
     root = _file_project(tmp_path, _VPS)
-    (root / "infra" / "Pulumi.app-prod.yaml").write_text("config: {}\n")
+    (root / "infra" / "Pulumi.app-prod.yaml").write_text(
+        f"config:\n  scratch:origin_ip: {origin_ip!r}\n"
+        f"  scratch:database_enabled: {str(database_enabled).lower()}\n"
+    )
     return root
 
 
-@pytest.mark.parametrize("command", [_DESTROY, _STACK_RM])
+@pytest.mark.parametrize("command", [_DESTROY, _STACK_RM, _PREVIEW])
 def test_vps_stack_consumed_by_checked_in_environment_stack_refuses(
     tmp_path, command
 ):
@@ -151,13 +155,16 @@ def test_vps_stack_consumed_by_checked_in_environment_stack_refuses(
         _run(
             tmp_path,
             command,
+            confirm=None if command == _PREVIEW else _VPS,
             root=_with_consumer_file(tmp_path),
             settings_loader=lambda project: settings,
             calls=calls,
         )
     message = str(raised.value)
     assert "'app-prod'" in message
-    assert "delete infra/Pulumi.app-prod.yaml" in message
+    assert "StackReference" in message
+    assert "destroy and remove" not in message
+    assert "delete infra/" not in message
     assert calls == []
 
 
@@ -189,3 +196,85 @@ def test_standalone_or_retired_consumer_vps_stack_may_be_destroyed(
     )
     assert rc == 0
     assert calls[0][:2] == ["pulumi", "destroy"]
+
+
+@pytest.mark.parametrize("command", [_DESTROY, _STACK_RM, _PREVIEW])
+def test_selector_only_stack_is_allowed_and_explained(tmp_path, command):
+    calls, err = [], StringIO()
+    rc = _run(
+        tmp_path, command, root=_with_consumer_file(tmp_path, "192.0.2.1", False),
+        confirm=None if command == _PREVIEW else _VPS,
+        settings_loader=lambda project: _settings(_CONSUMER), calls=calls, err=err,
+    )
+    assert rc == 0
+    assert len(calls) == 1
+    assert "pulumi_stack_destroy_allowed" in err.getvalue()
+    assert "stays in use as the live selector" in err.getvalue()
+
+
+@pytest.mark.parametrize("origin_ip,database_enabled", [("", False), ("192.0.2.1", True)])
+def test_either_stack_reference_condition_refuses(tmp_path, origin_ip, database_enabled):
+    calls = []
+    with pytest.raises(PulumiExecError, match="pulumi_stack_consumed"):
+        _run(
+            tmp_path, _PREVIEW, confirm=None,
+            root=_with_consumer_file(tmp_path, origin_ip, database_enabled),
+            settings_loader=lambda project: _settings(_CONSUMER), calls=calls,
+        )
+    assert calls == []
+
+
+def test_destroy_preview_needs_no_confirmation_and_cannot_delete(tmp_path):
+    calls, err = [], StringIO()
+    assert _run(tmp_path, _PREVIEW, confirm=None, calls=calls, err=err) == 0
+    assert calls == [["pulumi", "destroy", "--preview-only", "--stack", _VPS]]
+    assert "pulumi_stack_destroy_allowed" in err.getvalue()
+
+
+@pytest.mark.parametrize("flag", ["--yes", "--refresh"])
+def test_destroy_preview_refuses_mutation_flags(tmp_path, flag):
+    calls = []
+    with pytest.raises(PulumiExecError, match="pulumi_destroy_preview_mutation_refused"):
+        _run(tmp_path, [*_PREVIEW, flag], confirm=None, calls=calls)
+    assert calls == []
+
+
+@pytest.mark.parametrize("config", [
+    "{}", "[]", "{scratch:origin_ip: '192.0.2.1'}",
+    "{scratch:database_enabled: false}",
+    "{scratch:origin_ip: null, scratch:database_enabled: false}",
+    "{scratch:origin_ip: '192.0.2.1', scratch:database_enabled: nope}",
+    "{scratch:origin_ip: '192.0.2.1', scratch:database_enabled: 0}",
+    "{scratch:origin_ip: {secure: encrypted}, scratch:database_enabled: false}",
+    "{scratch:origin_ip: '192.0.2.1', scratch:database_enabled: {secure: encrypted}}",
+    "{other:origin_ip: '192.0.2.1', other:database_enabled: false}", "[broken",
+])
+def test_missing_or_unparseable_consumer_values_fail_closed(tmp_path, config):
+    root = _with_consumer_file(tmp_path)
+    (root / "infra" / "Pulumi.app-prod.yaml").write_text(f"config: {config}\n")
+    calls = []
+    with pytest.raises(PulumiExecError, match="pulumi_stack_consumer_config_invalid"):
+        _run(tmp_path, _PREVIEW, confirm=None, root=root,
+             settings_loader=lambda project: _settings(_CONSUMER), calls=calls)
+    assert calls == []
+
+
+@pytest.mark.parametrize("declaration", ["name: custom", "name: ''", "[]", "[broken"])
+def test_guard_uses_declared_namespace_and_refuses_invalid_declaration(tmp_path, declaration):
+    root = _with_consumer_file(tmp_path)
+    (root / "infra" / "Pulumi.yaml").write_text(declaration)
+    calls = []
+    with pytest.raises(PulumiExecError, match="pulumi_stack_consumer_config_invalid"):
+        _run(tmp_path, _PREVIEW, confirm=None, root=root,
+             settings_loader=lambda project: _settings(_CONSUMER), calls=calls)
+    assert calls == []
+
+
+def test_custom_namespace_and_quoted_boolean(tmp_path):
+    root = _with_consumer_file(tmp_path)
+    (root / "infra" / "Pulumi.yaml").write_text("name: custom\nruntime: python\n")
+    (root / "infra" / "Pulumi.app-prod.yaml").write_text(
+        "config: {custom:origin_ip: '192.0.2.1', custom:database_enabled: 'false'}\n"
+    )
+    assert _run(tmp_path, _PREVIEW, confirm=None, root=root,
+                settings_loader=lambda project: _settings(_CONSUMER)) == 0
