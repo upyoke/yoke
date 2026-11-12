@@ -4,12 +4,7 @@
  "status": "draft-copy",
  "form": "Teach",
  "verification": "No delivery proof attached.",
- "topics": [
-  "coordination/path-claims",
-  "approvals/types",
-  "databases/model",
-  "qa-evidence/gates"
- ],
+ "topics": ["coordination/path-claims", "approvals/types", "databases/model", "qa-evidence/gates"],
  "position": 3,
  "text": "An incomplete Aurora declaration refuses as no declared database location and names missing output keys and declaration recovery. A cloud authority reader without stack refuses as cloud_postgres_location. A box model with only database_name is valid; setup targets the environment box."
 }

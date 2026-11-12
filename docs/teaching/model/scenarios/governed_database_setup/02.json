@@ -9,15 +9,8 @@
  "surface": "Migration model pairing matrix and capability validator.",
  "gap": "Surface these limits before collecting credentials or implying Alembic/Prisma/other migration frameworks can be adopted unchanged. Unsupported is not incomplete install.",
  "review": "Pending exact recipe proof.",
- "recipes": [
-  "yoke projects capability-settings get --help"
- ],
- "plan_notes": [
-  "outside both"
- ],
- "sources": [
-  "docs/public/databases/migration-model.md",
-  "packages/yoke-core/src/yoke_core/domain/migration_model_capability_validation.py"
- ],
+ "recipes": ["yoke projects capability-settings get --help"],
+ "plan_notes": ["outside both"],
+ "sources": ["docs/public/databases/migration-model.md", "packages/yoke-core/src/yoke_core/domain/migration_model_capability_validation.py"],
  "position": 1
 }

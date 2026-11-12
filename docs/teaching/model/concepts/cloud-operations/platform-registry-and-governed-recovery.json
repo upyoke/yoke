@@ -3,9 +3,7 @@
  "title": "Platform registry and governed recovery",
  "status": "draft-copy",
  "audience": "Yoke maintainers",
- "private_sources": [
-  "platform"
- ],
+ "private_sources": ["platform"],
  "page": "cloud-operations-services",
  "position": 7,
  "text": "Governed Postgres models can live on an environment box without retired cloud coordinates. The environment database.location owns the box/Aurora switch. Box db-admin setup needs only the model database_name and the provisioned DSN file; Aurora setup requires its output names, and cloud authority readers refuse a missing stack with recovery."
