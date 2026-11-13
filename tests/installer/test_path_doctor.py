@@ -22,7 +22,9 @@ def test_update_shell_failure_names_recovery(tmp_path, monkeypatch):
         raise OSError("permission denied")
 
     monkeypatch.setattr(path_state_contract, "_write_path_file", fail)
-    with pytest.raises(OSError, match="shell_path_write_failed.*yoke path fix"):
+    with pytest.raises(
+        OSError, match="shell_path_write_failed: zsh startup file .*yoke path fix"
+    ):
         doctor.update_shell(env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
 
 

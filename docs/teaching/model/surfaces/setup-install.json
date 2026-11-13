@@ -8,7 +8,7 @@
  "location": "Automatic setup Install checks, recovery view and shell-change receipts",
  "basis": "FIRST-USER automatic Install behavior",
  "note": "Healthy checks advance automatically. Missing optional harnesses do not block setup.",
- "current": "Source and scripted tests cover checks and recovery; deployed campaign proof remains release-bound.",
+ "current": "Source and scripted tests cover checks and recovery; deployed campaign proof remains release-bound. When SHELL is missing or empty, PATH repair selects the account login shell, falling back to zsh if the account shell is empty or the passwd lookup is unavailable. Startup-file write failures name the shell, file and recovery.",
  "desired": "Required tools work in a fresh login shell, with named recovery on failure and visible shell-file changes.",
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_path.py", "runtime/api/cli/test_onboard_install_checks.py", "runtime/api/domain/test_installer_campaign_interaction_rows.py"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_path.py", "runtime/api/cli/test_onboard_install_checks.py", "runtime/api/domain/test_installer_campaign_interaction_rows.py", "packages/yoke-contracts/src/yoke_contracts/shell_path_state.py", "tests/installer/test_current_shell.py"]
 }
