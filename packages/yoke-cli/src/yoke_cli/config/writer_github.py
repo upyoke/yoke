@@ -10,6 +10,7 @@ from yoke_cli.config import machine_config_file
 from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_git_credential_store
+from yoke_cli.config import github_machine_credential_lifecycle
 from yoke_contracts import github_app_tokens
 from yoke_contracts.machine_config.retired_keys import strip_retired_keys
 from yoke_contracts.machine_config import schema as contract
@@ -254,6 +255,7 @@ def _release_owned_credential(
         removed = github_git_credential_file.delete_json_document(path)
     except github_git_credential_file.CredentialFileError:
         return _credential_cleanup_report(released=True, pending=True)
+    github_machine_credential_lifecycle.remove_credential_lock(path)
     return _credential_cleanup_report(released=True, removed=removed)
 
 

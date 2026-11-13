@@ -42,13 +42,14 @@ def _json(data: bytes, name: str) -> dict:
 
 
 def _references(config: dict):
-    for connection in config.get("connections", {}).values():
+    """Yield ``(connection name, owner, key)`` for each referenced file."""
+    for env, connection in config.get("connections", {}).items():
         source = connection.get("credential_source", {})
         if source.get("kind") in {"token_file", "dsn_file"} and source.get("path"):
-            yield source, "path"
+            yield env, source, "path"
         tunnel = connection.get("postgres", {}).get("tunnel", {})
         if tunnel.get("identity_file"):
-            yield tunnel, "identity_file"
+            yield env, tunnel, "identity_file"
 
 
 def _skipped(name: Path) -> bool:
@@ -142,14 +143,18 @@ def backup(folder: Path) -> dict:
                 path = parent / name
                 if not _skipped(path.relative_to(machine)):
                     files[_home_name(path, home)] = path
-    for owner, key in _references(config):
+    for env, owner, key in _references(config):
         path = _reference_path(owner[key], home)
+        # A missing file has nothing to copy, so its location never refuses.
+        if not path.exists() and not path.is_relative_to(home):
+            missing.append(f"{path} (connection {env})")
+            continue
         name = _home_name(path, home)
         references[owner[key]] = name
         if _skipped(Path(name)):
             continue
         if not path.exists():
-            missing.append(name)
+            missing.append(f"{name} (connection {env})")
         else:
             files[name] = path
     entries, changed = [], 0
@@ -239,7 +244,7 @@ def restore(folder: Path, *, replace: bool = False) -> dict:
         if not isinstance(references, dict):
             refuse("machine_backup_invalid_manifest")
         changed = False
-        for owner, key in _references(config):
+        for _env, owner, key in _references(config):
             old = Path(owner[key])
             if old.is_absolute() and owner[key] in references:
                 owner[key] = str(home / relative_name(references[owner[key]]))

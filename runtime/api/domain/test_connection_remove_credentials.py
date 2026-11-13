@@ -7,8 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.cli.github_machine_config_concurrency_test_support import (
+    _seed_connection,
+)
+from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import writer
-from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
 
 
 @pytest.fixture()
@@ -66,22 +69,26 @@ def test_removal_ignores_other_alias_external_credential(
         assert external.read_text() == "external-token\n"
 
 
-def test_removal_refuses_own_external_credential_without_mutating(
-    machine_home, tmp_path
+@pytest.mark.parametrize("external_exists", [True, False])
+def test_removal_keeps_own_external_credential_and_reports_it(
+    machine_home, tmp_path, external_exists
 ):
     external = tmp_path / "external.token"
-    external.write_text("external-token\n")
+    if external_exists:
+        external.write_text("external-token\n")
     before = _set_credential_path(machine_home, "retiring", external)
 
-    with pytest.raises(
-        MachineConfigWriteError,
-        match="refusing to remove a credential outside Yoke-owned machine secrets",
-    ):
-        writer.remove_connection("retiring")
+    report = writer.remove_connection("retiring")
 
-    assert _config(machine_home) == before
-    assert external.read_text() == "external-token\n"
-    assert (machine_home / "secrets" / "retiring.token").exists()
+    assert report["credential_removed"] is False
+    assert report["credential_retained_foreign"] is True
+    assert "retiring" not in _config(machine_home)["connections"]
+    assert set(_config(machine_home)["connections"]) == (
+        set(before["connections"]) - {"retiring"}
+    )
+    assert external.exists() is external_exists
+    if external_exists:
+        assert external.read_text() == "external-token\n"
 
 
 @pytest.mark.parametrize("through_symlink", [True, False])
@@ -112,13 +119,48 @@ def test_removal_retains_owned_secret_shared_with_remaining_alias(
     assert external.read_text() == "external-token\n"
 
 
-def test_connection_removal_preserves_connection_project_checkouts(
-    machine_home, tmp_path
+def test_connection_removal_drops_only_its_project_mappings(
+    machine_home, tmp_path, monkeypatch
 ):
-    checkout = tmp_path / "checkout"
-    checkout.mkdir()
-    writer.register_project(checkout, 7)
+    kept, retired = tmp_path / "kept", tmp_path / "retired"
+    kept.mkdir()
+    retired.mkdir()
+    writer.register_project(kept, 7)
+    monkeypatch.setenv("YOKE_ENV", "retiring")
+    writer.register_project(retired, 8)
+    monkeypatch.delenv("YOKE_ENV")
     before = _config(machine_home)["connection_projects"]
+    assert set(before) == {"primary", "retiring"}
+
     report = writer.remove_connection("retiring")
-    assert report["project_mappings_removed"] == 0
-    assert _config(machine_home)["connection_projects"] == before
+
+    assert report["project_mappings_removed"] == 1
+    assert _config(machine_home)["connection_projects"] == {
+        "primary": before["primary"]
+    }
+
+
+def test_connection_removal_releases_its_github_authorization(machine_home):
+    config = machine_home / "config.json"
+    seeded = {env: _seed_connection(config, env) for env in ("retiring", "primary")}
+    refs = {env: path for env, (_entry, path) in seeded.items()}
+    payload = _config(machine_home)
+    payload["connection_github"] = {
+        env: entry for env, (entry, _path) in seeded.items()
+    }
+    config.write_text(json.dumps(payload))
+
+    report = writer.remove_connection("retiring")
+
+    assert report["github_credential_cleanup"] == {
+        "released": True,
+        "removed": True,
+        "pending": False,
+        "shared": False,
+    }
+    assert _config(machine_home)["connection_github"] == {
+        "primary": seeded["primary"][0]
+    }
+    assert not refs["retiring"].exists()
+    assert not credential_file.lock_path(refs["retiring"]).exists()
+    assert refs["primary"].is_file()

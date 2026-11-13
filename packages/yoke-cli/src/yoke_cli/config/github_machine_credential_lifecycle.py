@@ -9,6 +9,7 @@ from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_git_credential_store
 from yoke_cli.config import machine_config
+from yoke_cli.config import machine_config_file
 from yoke_contracts.machine_config import secret_files as secrets
 
 
@@ -26,10 +27,30 @@ def remove_owned_credential(path: Path) -> bool:
             "refusing to remove a file that is not a Yoke-owned GitHub App "
             "user credential"
         )
+    return _delete_with_lock(selected)
+
+
+def remove_credential_lock(path: Path) -> None:
+    """Remove a deleted credential's idle lock; a busy lock stays for its holder.
+
+    Best effort by design: the credential is already gone, so a lock another
+    process holds (or cannot be removed) never turns the delete into a failure.
+    """
     try:
-        return github_git_credential_file.delete_json_document(selected)
+        machine_config_file.remove_idle_lock_file(
+            github_git_credential_file.lock_path(path)
+        )
+    except machine_config_file.MachineConfigFileError:
+        return
+
+
+def _delete_with_lock(path: Path) -> bool:
+    try:
+        removed = github_git_credential_file.delete_json_document(path)
     except github_git_credential_file.CredentialFileError as exc:
         raise ValueError(str(exc)) from exc
+    remove_credential_lock(path)
+    return removed
 
 
 def is_owned_credential_path(path: Path) -> bool:
@@ -70,10 +91,7 @@ def restore_quarantined_credential(quarantine: Path, original: Path) -> bool:
 
 def remove_quarantined_credential(path: Path) -> bool:
     selected = _validated_owned_path(path, quarantine=True)
-    try:
-        return github_git_credential_file.delete_json_document(selected)
-    except github_git_credential_file.CredentialFileError as exc:
-        raise ValueError(str(exc)) from exc
+    return _delete_with_lock(selected)
 
 
 def cleanup_quarantined_credentials(
