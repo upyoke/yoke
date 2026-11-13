@@ -84,7 +84,7 @@ def test_locked_terminal_worktree_is_preserved_with_the_lock_named(
     assert any("locked (initializing)" in line for line in lines)
 
 
-def test_known_python_and_node_caches_are_removed_before_prune(
+def test_ignored_caches_never_block_the_prune(
     monkeypatch, tmp_path: Path
 ):
     repo, worktree, branch = _repo(tmp_path)
@@ -110,18 +110,17 @@ def test_known_python_and_node_caches_are_removed_before_prune(
     assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
 
 
-def test_unknown_ignored_content_is_preserved(monkeypatch, tmp_path: Path):
+def test_any_ignored_content_goes_with_the_lane(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
-    protected = worktree / ".private" / "operator-note"
-    protected.parent.mkdir(parents=True)
-    protected.write_text("keep me\n", encoding="utf-8")
+    ignored = worktree / ".private" / "operator-note"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_text("generated\n", encoding="utf-8")
     git_io, lines = _install(monkeypatch, repo, _Conn(branch))
 
     prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
-    assert protected.read_text(encoding="utf-8") == "keep me\n"
-    assert worktree.exists()
-    assert any("unknown ignored files present: .private/" in line for line in lines)
+    assert not worktree.exists()
+    assert not any("ignored files present" in line for line in lines)
 
 
 def test_active_claim_preserves_terminal_worktree(monkeypatch, tmp_path: Path):
@@ -261,9 +260,6 @@ def test_a_finished_deploy_run_worktree_is_swept_with_the_item_lanes(
     monkeypatch.setattr(
         _retirement, "_run_status", lambda _run_id: ("succeeded", "")
     )
-    monkeypatch.setattr(
-        _retirement, "declared_disposable_roots", lambda _root: frozenset()
-    )
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
@@ -280,9 +276,6 @@ def test_a_live_deploy_run_worktree_survives_the_sweep(monkeypatch, tmp_path: Pa
     _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
     monkeypatch.setattr(
         _retirement, "_run_status", lambda _run_id: ("executing", "")
-    )
-    monkeypatch.setattr(
-        _retirement, "declared_disposable_roots", lambda _root: frozenset()
     )
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
@@ -326,14 +319,14 @@ def test_a_lane_removed_after_the_registry_read_is_removed(
 
     conn.execute = execute
     git_io, lines = _install(monkeypatch, repo, conn)
-    real_clear = _lane_cleanup.clear_lane_residue
+    real_assess = _lane_cleanup.assess_lane_residue
 
-    def clear_then_gone(run_git, path, declared=frozenset()):
-        if Path(path).resolve() == worktree.resolve():
+    def gone_then_assess(run_git, path):
+        if Path(path).resolve() == worktree.resolve() and worktree.exists():
             shutil.rmtree(path)
-        return real_clear(run_git, path, declared)
+        return real_assess(run_git, path)
 
-    monkeypatch.setattr(_lane_cleanup, "clear_lane_residue", clear_then_gone)
+    monkeypatch.setattr(_lane_cleanup, "assess_lane_residue", gone_then_assess)
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
@@ -341,6 +334,8 @@ def test_a_lane_removed_after_the_registry_read_is_removed(
     assert str(worktree.resolve()) in sweep.removed
     assert str(second.resolve()) in sweep.removed
     assert not second.exists()
-    assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
+    # The registration outlives this sweep's one prune; the next sweep
+    # drops it and retires the branch.
+    assert any("vanished mid-sweep" in line for line in lines)
     assert any("absent worktree" in line for line in lines)
     assert not any("not yet deleted" in line for line in lines)

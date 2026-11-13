@@ -21,7 +21,8 @@ nothing — and the directory by the one residue policy in
 ``merge_worktree_cleanliness``.
 
 Every step fails toward preserving. A branch the target does not retain, a
-lane holding anything but named caches, an ambiguous remote, or a refused
+lane holding tracked changes or
+untracked, non-ignored files, an ambiguous remote, or a refused
 deletion leaves the lane in place with the reason named, because a preserved
 lane costs an operator one sweep while a wrongly deleted one costs the work.
 
@@ -46,11 +47,7 @@ from yoke_core.engines.branch_landed_evidence import (
     assess_branch_landed,
     delete_landed_branch,
 )
-from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
-from yoke_core.engines.merge_worktree_cleanliness import (
-    assess_lane_residue,
-    clear_lane_residue,
-)
+from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 from yoke_core.engines.git_worktree_registry import (
     is_managed_worktree_path,
     registered_worktrees,
@@ -214,9 +211,7 @@ def assess_landed_lane(
     if worktree_path is not None:
         residue = reads.residue(worktree_path) if reads is not None else None
         if residue is None:
-            residue = assess_lane_residue(
-                git, worktree_path, declared_disposable_roots(repo_root)
-            )
+            residue = assess_lane_residue(git, worktree_path)
         if not residue.removable_once_landed:
             return LaneCleanupAssessment(
                 False,
@@ -293,13 +288,6 @@ def prune_landed_lane(
 
     worktree_path = assessment.worktree_path
     if worktree_path is not None:
-        residue = clear_lane_residue(
-            git, worktree_path, declared_disposable_roots(repo_root)
-        )
-        if not residue.removable_once_landed:
-            return (
-                f"lane {branch} preserved: worktree {worktree_path} ({residue.reason})",
-            )
         removal = remove_worktree(repo_root, worktree_path)
         if not removal.removed:
             return (

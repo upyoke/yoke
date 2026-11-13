@@ -87,7 +87,7 @@ def test_a_blocked_finished_run_names_what_survived():
             _lane(
                 "run-20260101-003",
                 LANE_BLOCKED,
-                "unknown ignored files present: operator-scratch.txt",
+                "unignored changes present: operator-scratch.txt",
             )
         ]
     )

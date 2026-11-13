@@ -41,11 +41,7 @@ from yoke_core.engines.deploy_run_worktree_naming import (
     deploy_run_worktree_paths,
     run_id_for_driver_worktree,
 )
-from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
-from yoke_core.engines.merge_worktree_cleanliness import (
-    assess_lane_residue,
-    clear_lane_residue,
-)
+from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 
 
 RUN_STATUS_FUNCTION_ID = "deployment_runs.get"
@@ -176,10 +172,8 @@ def assess_deploy_run_worktrees(
     root = Path(repo_root).resolve()
     candidates = deploy_run_worktree_paths(git, root)
     if not candidates:
-        # None (unreadable) and [] (none here) are both "nothing to say", and
-        # neither is worth a control-plane read for declared paths.
+        # None (unreadable) and [] (none here) are both "nothing to say".
         return ()
-    declared_roots = declared_disposable_roots(root)
     kept = {run.strip() for run in keep_run_ids if run and run.strip()}
 
     found: list[DeployRunLane] = []
@@ -202,7 +196,7 @@ def assess_deploy_run_worktrees(
         if state is not LANE_RETIRABLE:
             found.append(_lane(path, run_id, state, reason))
             continue
-        residue = assess_lane_residue(git, path, declared_roots)
+        residue = assess_lane_residue(git, path)
         if not residue.disposable:
             found.append(_lane(path, run_id, LANE_BLOCKED, residue.reason))
             continue
@@ -229,21 +223,14 @@ def retire_terminal_deploy_run_worktrees(
     )
     if not any(lane.state == LANE_RETIRABLE for lane in found):
         return found
-    declared_roots = declared_disposable_roots(root)
 
     verdicts: list[DeployRunLane] = []
     for lane in found:
         if lane.state != LANE_RETIRABLE:
             verdicts.append(lane)
             continue
-        # Clearing named caches proves the tree holds nothing else: a driver
-        # that executed here left __pycache__ behind, and that is not content.
-        # Anything the shared policy will not name stays, and takes the
-        # directory with it.
-        residue = clear_lane_residue(git, lane.path, declared_roots)
-        if not residue.disposable:
-            verdicts.append(_lane(lane.path, lane.run_id, LANE_BLOCKED, residue.reason))
-            continue
+        # The assessment already proved the tree holds no work; its ignored
+        # files (a driver leaves __pycache__ behind) go with the tombstone.
         removal = remove_worktree(root, lane.path)
         if not removal.removed:
             verdicts.append(

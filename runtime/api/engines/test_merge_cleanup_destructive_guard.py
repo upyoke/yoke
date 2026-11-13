@@ -1,12 +1,11 @@
 """Static guard against destructive merge-lane cleanup primitives.
 
-Two deletions are stronger than the git safety they replace, and each is
-fenced in exactly one module: the forced branch delete in
-``branch_landed_evidence`` runs only behind that module's landing proof,
-which is the reading ``git branch -d`` cannot make, and the recursive
-delete in ``merge_worktree_cleanliness`` only removes paths its named-cache
-allowlist matched. Every other lane path must reach them through those
-modules rather than issuing its own.
+The forced branch delete is stronger than the git safety it replaces, so it
+is fenced in exactly one module: ``branch_landed_evidence`` runs it only
+behind that module's landing proof, which is the reading ``git branch -d``
+cannot make. Lane trees are deleted only through the tombstone removal in
+``worktree_removal``. No merge-lifecycle module issues its own recursive
+delete.
 """
 
 from __future__ import annotations
@@ -57,12 +56,6 @@ def test_merge_lifecycle_has_no_forced_ref_or_worktree_deletion():
                 and isinstance(node.func, ast.Attribute)
                 and node.func.attr == "rmtree"
             ):
-                if path.name == "merge_worktree_cleanliness.py":
-                    # The one permitted recursive delete is fenced by the
-                    # explicit disposable-cache allowlist and followed by a
-                    # second full cleanliness proof. Its focused tests cover
-                    # both known caches and unknown ignored content.
-                    continue
                 violations.append(f"{path.name}:{node.lineno}: rmtree")
 
     assert violations == []

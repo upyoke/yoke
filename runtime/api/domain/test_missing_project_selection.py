@@ -128,16 +128,13 @@ def test_unmapped_tooling_does_not_read_another_projects_declarations(
     monkeypatch, tmp_path
 ):
     from yoke_core.domain import impacted_project_test_roots as roots
-    from yoke_core.engines import lane_residue_declared_paths as residue
 
     monkeypatch.setattr(roots, "default_project_for_directory", lambda _p: None)
-    monkeypatch.setattr(residue, "default_project_for_directory", lambda _p: None)
     monkeypatch.setattr(
         roots, "_try_read", lambda _p: pytest.fail("unmapped project read")
     )
     roots.resolve_test_roots.cache_clear()
     assert roots.resolve_test_roots(str(tmp_path)) == ()
-    assert residue.declared_disposable_roots(tmp_path) == frozenset()
 
 
 @pytest.mark.parametrize("project", [None, "", "  "])

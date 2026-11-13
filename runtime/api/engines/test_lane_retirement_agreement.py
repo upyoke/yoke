@@ -238,13 +238,12 @@ def test_named_caches_are_disposable_to_both_boundaries(rebased_lane):
     assert not rebased_lane.worktree.exists()
 
 
-def test_unknown_ignored_content_survives_both_boundaries(
-    rebased_lane, monkeypatch
-):
-    """Ignored says "do not track", never "delete" — on either boundary."""
-    protected = rebased_lane.worktree / ".private" / "operator-note"
-    protected.parent.mkdir(parents=True)
-    protected.write_text("keep me\n", encoding="utf-8")
+def test_ignored_content_never_blocks_either_boundary(rebased_lane, monkeypatch):
+    """Every ignored file is disposable: the landing retires the lane with it,
+    and the sweep behind it finds nothing left to keep."""
+    ignored = rebased_lane.worktree / ".private" / "operator-note"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_text("generated\n", encoding="utf-8")
 
     preserved = prune_landed_lane(
         repo_root=str(rebased_lane.repo),
@@ -260,11 +259,9 @@ def test_unknown_ignored_content_survives_both_boundaries(
         **git_io, repo_root=str(rebased_lane.repo), target="main"
     )
 
-    assert "unknown ignored files present: .private/" in preserved[0]
-    assert [lane.reason for lane in sweep.preserved] == [
-        "unknown ignored files present: .private/"
-    ]
-    assert protected.read_text(encoding="utf-8") == "keep me\n"
+    assert preserved == ()
+    assert not rebased_lane.worktree.exists()
+    assert sweep.preserved == ()
 
 
 def _item(rebased_lane) -> dict:

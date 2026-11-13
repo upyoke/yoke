@@ -73,18 +73,6 @@ def _driver_worktree(repo: Path, run_id: str) -> Path:
     return path
 
 
-@pytest.fixture(autouse=True)
-def _no_declared_paths(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Answer the project's declared-disposable-paths read locally.
-
-    It is a best-effort control-plane lookup; letting it reach a real relay
-    makes every test here wait out a retry backoff to learn nothing.
-    """
-    monkeypatch.setattr(
-        retirement, "declared_disposable_roots", lambda _root: frozenset()
-    )
-
-
 @pytest.fixture
 def statuses(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     """Answer the run-status read from a dict instead of a control plane."""

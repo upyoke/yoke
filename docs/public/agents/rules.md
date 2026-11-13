@@ -18,6 +18,8 @@ command's `--help` ends with its recipe. Claude-only steps live in
 - Finish the whole item, including files you find it needs on the way. A path
   claim, an overlap or a File Budget never makes a required file optional.
 - When you report a blocker, name who owns it and how it clears.
+- Rewriting your own lane's history is fine; the reflog is the backup. Never
+  make side or backup branches.
 - [Consumer proof](../verification/consumer-proof.md) checks consumer
   compatibility at release time for the exact release pair. A green run in the
   producing project proves only that project. Item merges need no consumer build.

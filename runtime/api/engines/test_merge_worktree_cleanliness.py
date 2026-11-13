@@ -1,257 +1,144 @@
-"""Lane residue classification, including project-declared cache roots.
+"""A finished lane is kept only for work git reports; ignored files never block.
 
-A fake ``run_git`` stands in for ``git status --porcelain --ignored=matching``
-so these tests exercise the pure classification and (for ``clear_lane_residue``)
-real filesystem removal without a real git repository.
+These tests drive real git: a lane holding only ignored files — Yoke's own
+rendered `.yoke/` state, build output, an arbitrary ignored file — is
+disposable and leaves with the tree; a tracked change or an untracked,
+non-ignored file keeps it.
 """
 
 from __future__ import annotations
 
-import shutil
-from pathlib import Path, PurePosixPath
-from typing import Any, Sequence
+import subprocess
+import sys
+from pathlib import Path
 
-from yoke_core.engines.merge_worktree_cleanliness import (
-    assess_lane_residue,
-    clear_lane_residue,
-)
+import pytest
 
-
-class _FakeResult:
-    def __init__(self, stdout: str, returncode: int = 0) -> None:
-        self.stdout = stdout
-        self.stderr = ""
-        self.returncode = returncode
+from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
+from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 
 
-def _porcelain(ignored: Sequence[str] = (), precious: Sequence[str] = ()) -> str:
-    lines = [f"!! {path}" for path in ignored]
-    lines += [f" M {path}" for path in precious]
-    return "\n".join(lines) + ("\n" if lines else "")
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+    ).stdout
 
 
-def _fake_git(stdout: str):
-    def run_git(_args: list[str], cwd: Any = None, capture: bool = True) -> _FakeResult:
-        return _FakeResult(stdout)
-
-    return run_git
-
-
-def test_declared_directory_root_covers_nested_generated_files(tmp_path: Path):
-    (tmp_path / "docs").mkdir()
-    stdout = _porcelain(ignored=["docs/atlas.md", ".yoke/strategy/plan.md"])
-    declared = frozenset(
-        {PurePosixPath("docs/atlas.md"), PurePosixPath(".yoke/strategy")}
+def _run_git(command, *, cwd=None, capture=True):
+    return subprocess.run(
+        ["git", *command], cwd=cwd, capture_output=True, text=True, check=False
     )
 
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path, declared)
 
-    assert assessment.disposable
-    assert set(assessment.cache_roots) == declared
-
-
-def test_absent_declarations_preserve_existing_behavior(tmp_path: Path):
-    """No declared roots means an undeclared ignored path stays unknown."""
-    stdout = _porcelain(ignored=["docs/atlas.md"])
-
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
-
-    assert not assessment.disposable
-    assert "unknown ignored files present" in assessment.reason
-
-
-def test_unsafe_declaration_never_reaches_this_layer(tmp_path: Path):
-    """The write-time validator refuses unsafe entries; this layer only sees
-    already-validated roots, so an ordinary path outside the declared set
-    still classifies as unknown rather than silently matching everything."""
-    stdout = _porcelain(ignored=["docs/atlas.md", "some/other/ignored/file"])
-    declared = frozenset({PurePosixPath("docs/atlas.md")})
-
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path, declared)
-
-    assert not assessment.disposable
-    assert "some/other/ignored/file" in assessment.reason
-
-
-def test_tracked_edit_still_blocks_despite_declared_roots(tmp_path: Path):
-    stdout = _porcelain(
-        ignored=["docs/atlas.md"], precious=["packages/yoke-core/src/thing.py"]
+@pytest.fixture
+def lane(tmp_path: Path) -> tuple[Path, Path]:
+    """A repository ignoring build and Yoke output, with one landed lane."""
+    repo = tmp_path / "repo"
+    subprocess.run(
+        ["git", "init", "--initial-branch=main", str(repo)],
+        check=True,
+        capture_output=True,
     )
-    declared = frozenset({PurePosixPath("docs/atlas.md")})
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    (repo / ".gitignore").write_text(
+        ".yoke/docs/\n.yoke/harness/\nout/\ndeploy/secrets/\n.venv/\n", encoding="utf-8"
+    )
+    (repo / "a.txt").write_text("a\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "base")
+    path = repo / ".worktrees" / "YOK-1"
+    _git(repo, "worktree", "add", "-b", "YOK-1", str(path), "main")
+    return repo, path
 
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path, declared)
 
-    assert not assessment.disposable
-    assert "unignored changes present" in assessment.reason
+def _fill_ignored(path: Path) -> None:
+    for relative in (
+        ".yoke/docs/agents/rules.md",
+        ".yoke/harness/claude/hooks.json",
+        "out/film/frame.png",
+        "deploy/secrets/token",
+    ):
+        target = path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("generated\n", encoding="utf-8")
 
 
-def test_yoke_generated_lane_state_is_disposable(tmp_path: Path):
-    """A finished lane holding only what Yoke itself renders retires.
-
-    These are the exact paths the steering audit saw preserving finished
-    lanes: the strategy render, the operating-layer receipt and the install
-    manifest, none of which a project declares because Yoke generates them
-    in every checkout.
-    """
-    stdout = _porcelain(
-        ignored=[
-            ".yoke/strategy/",
-            ".yoke-operating-layer.json",
-            ".yoke/install-manifest.json",
-        ]
+def _prune(repo: Path) -> tuple[str, ...]:
+    return prune_landed_lane(
+        repo_root=str(repo),
+        branch="YOK-1",
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
 
-    assert assessment.disposable
-    assert {root.as_posix() for root in assessment.cache_roots} == {
-        ".yoke/strategy",
-        ".yoke-operating-layer.json",
-        ".yoke/install-manifest.json",
-    }
+def test_a_lane_holding_only_ignored_files_is_removed(lane):
+    repo, path = lane
+    _fill_ignored(path)
 
+    residue = assess_lane_residue(_run_git, path)
+    assert residue.disposable, residue.reason
 
-def test_unknown_ignored_file_beside_generated_state_still_preserves(tmp_path: Path):
-    """Generated state never launders an unknown neighbour out of the lane."""
-    stdout = _porcelain(ignored=[".yoke/strategy/", ".private/credentials"])
-
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
-
-    assert not assessment.disposable
-    assert assessment.reason == "unknown ignored files present: .private/credentials"
+    assert _prune(repo) == ()
+    assert not path.exists()
+    assert _git(repo, "branch", "--list", "YOK-1").strip() == ""
 
 
-def test_contract_tree_content_outside_the_generated_names_stays_unknown(
-    tmp_path: Path,
-):
-    """``.yoke/`` is a tracked contract tree, not a disposable directory."""
-    stdout = _porcelain(ignored=[".yoke/operator-scratch.md"])
+def test_an_untracked_non_ignored_file_keeps_the_lane(lane):
+    repo, path = lane
+    _fill_ignored(path)
+    (path / "notes.txt").write_text("keep\n", encoding="utf-8")
 
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
+    residue = assess_lane_residue(_run_git, path)
+    assert not residue.disposable
+    assert residue.precious_paths == ("notes.txt",)
 
-    assert not assessment.disposable
-    assert ".yoke/operator-scratch.md" in assessment.reason
-
-
-def test_clear_lane_residue_removes_generated_lane_state(tmp_path: Path):
-    strategy = tmp_path / ".yoke" / "strategy"
-    strategy.mkdir(parents=True)
-    (strategy / "CURRENT-PLAN.md").write_text("render")
-    receipt = tmp_path / ".yoke-operating-layer.json"
-    receipt.write_text("{}")
-
-    calls = {"n": 0}
-
-    def run_git(_args: list[str], cwd: Any = None, capture: bool = True) -> _FakeResult:
-        calls["n"] += 1
-        if calls["n"] == 1:
-            return _FakeResult(
-                _porcelain(ignored=[".yoke/strategy/", ".yoke-operating-layer.json"])
-            )
-        return _FakeResult("")
-
-    assessment = clear_lane_residue(run_git, tmp_path)
-
-    assert assessment.disposable
-    assert not strategy.exists()
-    assert not receipt.exists()
+    preserved = _prune(repo)
+    assert preserved and "notes.txt" in preserved[0]
+    assert (path / "notes.txt").read_text(encoding="utf-8") == "keep\n"
 
 
-def test_clear_lane_residue_removes_declared_nested_content(tmp_path: Path):
-    generated_dir = tmp_path / "nested" / "generated"
-    generated_dir.mkdir(parents=True)
-    (generated_dir / "output.json").write_text("{}")
-    declared = frozenset({PurePosixPath("nested/generated")})
+def test_a_tracked_change_keeps_the_lane(lane):
+    repo, path = lane
+    (path / "a.txt").write_text("edited\n", encoding="utf-8")
 
-    # First status call (inside assess) reports the ignored dir; second call
-    # (post-removal verification inside clear) reports a clean tree.
-    calls = {"n": 0}
+    residue = assess_lane_residue(_run_git, path)
+    assert not residue.disposable
+    assert "unignored changes present: a.txt" in residue.reason
 
-    def run_git(_args: list[str], cwd: Any = None, capture: bool = True) -> _FakeResult:
-        calls["n"] += 1
-        if calls["n"] == 1:
-            return _FakeResult(_porcelain(ignored=["nested/generated/"]))
-        return _FakeResult("")
-
-    assessment = clear_lane_residue(run_git, tmp_path, declared)
-
-    assert assessment.disposable
-    assert not generated_dir.exists()
+    assert _prune(repo)
+    assert path.is_dir()
 
 
-def test_hypothesis_cache_and_declared_teaching_render_clear_a_done_lane(
-    tmp_path: Path,
-):
-    """A lane holding only Hypothesis's database and a declared teaching render
-    is disposable, and clearing removes both."""
-    (tmp_path / ".hypothesis" / "examples").mkdir(parents=True)
-    (tmp_path / ".hypothesis" / "examples" / "abc").write_text("x")
-    (tmp_path / "docs" / "teaching" / "live").mkdir(parents=True)
-    (tmp_path / "docs" / "teaching" / "live" / "index.html").write_text("x")
-    stdout = _porcelain(ignored=[".hypothesis/", "docs/teaching/live/"])
-    declared = frozenset({PurePosixPath("docs/teaching/live")})
-    outputs = iter([stdout, ""])
+def test_status_never_asks_git_for_ignored_files(tmp_path: Path):
+    seen: list[list[str]] = []
 
-    def run_git(_args: list[str], cwd: Any = None, capture: bool = True):
-        return _FakeResult(next(outputs))
+    def run_git(command, *, cwd=None, capture=True):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
 
-    assessment = clear_lane_residue(run_git, tmp_path, declared)
-
-    assert assessment.disposable
-    assert not (tmp_path / ".hypothesis").exists()
-    assert not (tmp_path / "docs" / "teaching" / "live").exists()
+    assert assess_lane_residue(run_git, tmp_path).disposable
+    assert not any(arg.startswith("--ignored") for arg in seen[0])
 
 
-def test_unknown_ignored_file_beside_known_caches_still_preserves(tmp_path: Path):
-    stdout = _porcelain(ignored=[".hypothesis/", "notes/scratch.txt"])
+def test_an_unreadable_status_keeps_the_lane(tmp_path: Path):
+    def run_git(command, *, cwd=None, capture=True):
+        return subprocess.CompletedProcess(command, 128, "", "fatal")
 
-    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
-
-    assert not assessment.disposable
-    assert "notes/scratch.txt" in assessment.reason
-
-
-def test_a_cache_deleted_between_assess_and_delete_is_removed(
-    tmp_path: Path, monkeypatch
-):
-    """Another sweep can delete the cache after assess and before rmtree."""
-    cache = tmp_path / ".hypothesis"
-    cache.mkdir()
-    (cache / "examples").write_text("x", encoding="utf-8")
-    outputs = iter([_porcelain(ignored=[".hypothesis/"]), ""])
-
-    def run_git(_args: list[str], cwd: Any = None, capture: bool = True):
-        return _FakeResult(next(outputs))
-
-    real_rmtree = shutil.rmtree
-
-    def vanish(path, *args, **kwargs):
-        real_rmtree(path)
-        raise FileNotFoundError(path)
-
-    monkeypatch.setattr(
-        "yoke_core.engines.merge_worktree_cleanliness.shutil.rmtree", vanish
-    )
-
-    assessment = clear_lane_residue(run_git, tmp_path)
-
-    assert assessment.disposable
-    assert not cache.exists()
+    residue = assess_lane_residue(run_git, tmp_path)
+    assert not residue.disposable
+    assert residue.reason == "worktree status unreadable"
 
 
-def test_a_cache_removal_refusal_still_keeps_the_lane(tmp_path: Path, monkeypatch):
-    cache = tmp_path / ".hypothesis"
-    cache.mkdir()
-    monkeypatch.setattr(
-        "yoke_core.engines.merge_worktree_cleanliness.shutil.rmtree",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("busy")),
-    )
+def test_a_lane_holding_the_running_interpreter_is_kept(lane, monkeypatch):
+    _repo, path = lane
+    interpreter = path / ".venv" / "bin" / "python"
+    interpreter.parent.mkdir(parents=True)
+    interpreter.write_text("", encoding="utf-8")
+    monkeypatch.setattr(sys, "executable", str(interpreter))
 
-    def run_git(_args: list[str], cwd: Any = None, capture: bool = True):
-        return _FakeResult(_porcelain(ignored=[".hypothesis/"]))
-
-    assessment = clear_lane_residue(run_git, tmp_path)
-
-    assert not assessment.disposable
-    assert "cache removal refused" in assessment.reason
-    assert "busy" in assessment.reason
+    residue = assess_lane_residue(_run_git, path)
+    assert not residue.disposable
+    assert residue.reason == "the lane contains the active interpreter"

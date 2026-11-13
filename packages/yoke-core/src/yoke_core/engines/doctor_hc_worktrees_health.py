@@ -36,8 +36,12 @@ from yoke_core.engines.doctor_worktree_terminal_lanes import (
     stranded_category,
     stranded_summary,
 )
-from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
 from yoke_core.engines.worktree_removal import finish_tombstones, tombstones
+from yoke_core.engines.worktree_stray_folder_prune import assess_stray_folders
+from yoke_core.engines.doctor_hc_unowned_branches import (
+    default_branch,
+    unowned_branch_issues,
+)
 from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 
 import yoke_core.engines.doctor_report as _base
@@ -46,7 +50,6 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
-from yoke_core.engines.doctor_tree_scan import list_directory
 from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 
 _DEPLOY_RUN_RETIRABLE_LABEL = (
@@ -88,7 +91,6 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-worktree-health", "Worktree health", "PASS", "")
         return
     entries = _worktree_entries(r.stdout)
-    registered_paths = {e.get("path", "") for e in entries}
     repo_root = _base._resolve_repo_root()
 
     lanes = lane_inventory(args.project)
@@ -154,13 +156,10 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         and lane.branch in local_branches
         and lane.branch not in live_branches
     ]
-    roots = declared_disposable_roots(repo_root) if repo_root else None
     paths = [e["path"] for e in lane_entries if Path(e["path"]).is_dir()]
 
     def read_residue(path):
-        root = root_for(path)
-        lane_roots = roots if roots is not None else declared_disposable_roots(root)
-        return assess_lane_residue(_git_for_repo(root), path, lane_roots)
+        return assess_lane_residue(_git_for_repo(root_for(path)), path)
 
     residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
     assessor = TerminalLaneAssessor(
@@ -188,8 +187,8 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         branch = entry.get("branch", "")
         root = root_for(wt_path)
 
-        # Named or project-declared ignored caches are disposable; anything
-        # else is lane content.
+        # Ignored files are disposable; tracked changes and untracked,
+        # non-ignored files are lane content.
         residue = None
         if Path(wt_path).is_dir():
             residue = residues.get(wt_path) or read_residue(wt_path)
@@ -258,26 +257,36 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 + (lane.reason or _DEPLOY_RUN_RETIRABLE_LABEL)
             )
 
-    # Directories under .worktrees that git no longer registers.
+    # Folders under the managed roots that git no longer registers. The
+    # relay's lane sweep removes the ones holding only ignored files.
+    for stray in (
+        (assess_stray_folders(repo_root, _git_for_repo(str(repo_root))) or [])
+        if repo_root
+        else []
+    ):
+        for owner in by_path.get(str(stray.path), []):
+            if owner.terminal:
+                stranded.setdefault("unregistered directory", []).append(
+                    owner.public_ref
+                )
+        issues.append(
+            f"- Unregistered worktree folder: {stray.path} — "
+            + (
+                f"kept: holds {stray.first_unignored}, which the checkout does not ignore"
+                if stray.first_unignored
+                else stray.reason or _SWEEP_READY_LABEL
+            )
+        )
     if repo_root:
-        wt_dir = Path(repo_root) / ".worktrees"
-        if wt_dir.is_dir():
-            for child in list_directory(wt_dir):
-                if not child.is_dir():
-                    continue
-                child_str = str(child)
-                if child_str in registered_paths:
-                    continue
-                for owner in by_path.get(child_str, []):
-                    if owner.terminal:
-                        stranded.setdefault("unregistered directory", []).append(
-                            owner.public_ref
-                        )
-                        issues.append(
-                            f"- Stale worktree directory: {child_str} "
-                            f"— {owner.public_ref} is {owner.status} "
-                            "(unregistered directory preserved for inspection)"
-                        )
+        issues.extend(
+            unowned_branch_issues(
+                str(repo_root),
+                local_branches=local_branches,
+                owned_branches=by_branch,
+                checked_out=live_branches,
+                default_branch=default_branch(str(repo_root)),
+            )
+        )
 
     for lane in stale_branches:
         branch = lane.branch

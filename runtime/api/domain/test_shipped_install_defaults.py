@@ -5,9 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_contracts.board.config import BoardConfig
-from yoke_contracts.project_contract.disposable_generated_paths_policy import (
-    DISPOSABLE_GENERATED_PATHS_DEFAULT,
-)
 from yoke_core.domain.project_policy_capabilities import load_project_policy_settings
 from yoke_core.domain.projects_crud import cmd_create
 from yoke_core.domain.shipped_execution_instruction import (
@@ -53,9 +50,7 @@ def test_new_project_receives_shipped_board_and_execution_instruction(
             assert board["timeline_widget"] == "always"
             assert board["dashboard_weather"] is False
             assert board["art_frontier_since"] == 0
-            assert settings["disposable_generated_paths"] == list(
-                DISPOSABLE_GENERATED_PATHS_DEFAULT
-            )
+            assert "disposable_generated_paths" not in settings
 
             resolved = resolve_execution_instructions(
                 conn, workflow_id="dash", project_id=project_id

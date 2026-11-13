@@ -243,9 +243,6 @@ def test_preparation_sweeps_finished_runs_before_taking_a_slot(
     )
     monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
     monkeypatch.setattr(retirement, "_run_status", lambda _run_id: ("succeeded", ""))
-    monkeypatch.setattr(
-        retirement, "declared_disposable_roots", lambda _root: frozenset()
-    )
 
     prepared = pinned.prepare_self_deploy_driver("run-20260101-002")
 
@@ -270,9 +267,6 @@ def test_preparation_never_sweeps_the_run_it_is_preparing(
     )
     monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
     monkeypatch.setattr(retirement, "_run_status", lambda _run_id: ("succeeded", ""))
-    monkeypatch.setattr(
-        retirement, "declared_disposable_roots", lambda _root: frozenset()
-    )
 
     prepared = pinned.prepare_self_deploy_driver("run-20260101-003")
 
