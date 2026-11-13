@@ -4,5 +4,6 @@
  "status": "observed",
  "page": "projects",
  "position": 3,
+ "text": "projects create on a retired project's slug and projects update on a retired project refuse without changing rows or seeding policy capabilities. Restore admission with yoke projects unretire --project PROJECT before retrying.",
  "summary": "Retirement deletes nothing and keeps history readable. It disables the project's active deployment flows, turns GitHub issue sync off and marks its GitHub repository binding unavailable; installation refreshes and lifecycle deliveries leave that binding off until an operator runs github-binding check or bind. Retire prints what stays attached, stored credentials (secret names, never values) first, each kind with the existing command that removes it or a plain statement that none does. Retired projects refuse item writes, claims, launches and deployment creation with project_retired; upkeep and fleet reports skip them. Unretire restores admission only: flows, sync and the binding stay off and it prints the command that re-enables each; because it lists every disabled flow, re-enable only the flows retire reported as switched off. Open items, active runs and held claims block retirement."
 }
