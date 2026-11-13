@@ -170,6 +170,9 @@ Universe-wide settings live under **Universe settings**.
 
 Retired projects are hidden from active listings and pickers. Their historical
 records remain readable under the same project permissions as active projects.
+`yoke projects create` on a retired project's slug and `yoke projects update`
+on a retired project refuse without changing its row or policy capabilities;
+run `yoke projects unretire --project PROJECT` before retrying.
 New item writes, work claims, launches and deployment runs refuse
 `project_retired`; run `yoke projects unretire --project PROJECT` to resume work.
 Upkeep, fleet reports and hosted GitHub lifecycle deliveries skip retired projects.

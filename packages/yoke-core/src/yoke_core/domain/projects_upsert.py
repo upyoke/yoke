@@ -23,6 +23,10 @@ from yoke_core.domain.project_public_prefix import (
     typed_project_field,
 )
 from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
+from yoke_core.domain.project_retirement import (
+    project_is_retired,
+    retired_project_recovery,
+)
 
 
 def cmd_upsert(
@@ -92,6 +96,8 @@ def cmd_upsert(
             )
 
         existing = by_id or by_slug
+        if existing is not None and project_is_retired(conn, int(existing["id"])):
+            raise ValueError(retired_project_recovery(int(existing["id"])))
         created = existing is None
         if existing is not None and target_org_id is not None:
             existing_org_id = existing["org_id"]
