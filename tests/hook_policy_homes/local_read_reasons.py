@@ -19,7 +19,6 @@ AUTHORITY_DATABASE = (
     "the retired YOKE_DB token the DB-command guards pass along. The "
     "authority connects to its own database; no client state is involved.",
     (
-        "yoke_contracts.machine_config.capability_secret_store:read_machine_capability_secret",
         "yoke_contracts.machine_config.directories:create_private_directory",
         "yoke_contracts.machine_config.selection:connection_selection",
         "yoke_contracts.machine_config.selection:checkout_connection",
@@ -41,13 +40,10 @@ AUTHORITY_DATABASE = (
         # The evaluating authority checks its own database's durable source pause.
         _C + "universe_source_pause:is_paused",
         _C + "universe_source_pause:connection_dsn",
-        _C + "deploy_remote:_materialize_aws_env",
-        _C + "deploy_remote:aws_machine_capability_env",
         _C + "lint_db_cmd:evaluate",
         _C + "lint_db_runner:run_hook",
         _C + "observe_db:normalize_observe_db_path",
         _C + "postgres_connection_reuse:track_test_connection",
-        _C + "yoke_cloud_db_authority:_run_cli",
         _C + "yoke_connected_env:ConnectedEnv.repo_root",
         _C + "yoke_connected_env:_credential_path",
         _C + "yoke_connected_env:find_binding",

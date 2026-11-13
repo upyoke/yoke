@@ -24,7 +24,7 @@ def test_canonical_example_is_valid_machine_config() -> None:
         payload["connections"]["source-dev-admin"][contract.PROTECTED_FLAG_KEY] is False
     )
     authority = payload["connections"]["source-dev-admin"]["authority"]
-    assert authority["location"]["stack"] == "app-prod"
+    assert authority["kind"] == "box_postgres"
     assert authority["location"]["database_name"] == "app_prod"
     assert payload["connections"]["stage"]["transport"] == "https"
     assert payload["connections"]["stage"][contract.PROTECTED_FLAG_KEY] is False

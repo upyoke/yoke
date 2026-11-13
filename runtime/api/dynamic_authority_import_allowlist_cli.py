@@ -319,10 +319,6 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ): ("source_dev_admin", "explicit db-admin exec tunnel lease"),
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
-        "yoke_core.domain.deploy_remote",
-    ): ("source_dev_admin", "explicit db-admin exec aws-admin capability precheck"),
-    (
-        "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
         "yoke_core.domain.connected_env_selected_readiness",
     ): (
         "source_dev_admin",
@@ -334,13 +330,6 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ): (
         "source_dev_admin",
         "explicit db-admin exec refusal redaction and tunnel failure type",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
-        "yoke_core.domain.yoke_cloud_db_authority",
-    ): (
-        "source_dev_admin",
-        "explicit db-admin exec AWS secret-read refusal type",
     ),
 }
 

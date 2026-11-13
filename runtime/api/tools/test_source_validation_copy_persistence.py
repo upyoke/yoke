@@ -56,9 +56,7 @@ def test_provisioned_copy_and_binding_survive_the_source_process(
         "yoke_core.tools.source_git_credentials.snapshot_git_helpers",
         lambda env, *_args: dict(env),
     )
-    monkeypatch.setattr(
-        db_admin_dsn_exec, "_profile_credential_source", lambda _env: {}
-    )
+    monkeypatch.setattr(db_admin_dsn_exec, "_require_postgres_profile", lambda _env: None)
     monkeypatch.setattr(db_admin_dsn_exec, "_resolve_dsn", lambda *_args: authority_dsn)
     monkeypatch.setattr(
         coordination,
