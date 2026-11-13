@@ -217,6 +217,9 @@ def test_lane_listing_restates_status_against_lane_versions() -> None:
             "stale_reasons": [],
         }
     ]
+    served.append(
+        {"slug": "removed", "installed_version": "1.0.0", "latest_version": None}
+    )
     descriptors = {
         "sample": {"latest_version": "1.1.0", "versions": {"1.1.0": {"files": []}}},
         "fresh": {"latest_version": "0.1.0", "versions": {"0.1.0": {"files": []}}},
@@ -229,3 +232,35 @@ def test_lane_listing_restates_status_against_lane_versions() -> None:
     assert rows["sample"]["latest_version"] == "1.1.0"
     assert rows["fresh"]["status"] == "available"
     assert rows["fresh"]["in_catalog"] is True
+    assert rows["removed"]["in_catalog"] is False
+    assert rows["removed"]["status"] == "installed"
+    assert rows["removed"]["stale_reasons"] == []
+
+
+@pytest.mark.parametrize("different_catalog", [False, True])
+def test_unavailable_baseline_suggests_only_a_different_catalog(different_catalog):
+    from yoke_cli.packs.catalog_baseline import baseline_bundle
+
+    catalog = (
+        PackCatalog(kind="commit", commit="a" * 40)
+        if different_catalog
+        else PackCatalog(kind="served")
+    )
+    record = {
+        "version": "1.0.0",
+        "source": {"kind": "served"},
+        "render_values": {},
+        "content_digest": "a" * 64,
+    }
+    with pytest.raises(PackClientError) as failure:
+        baseline_bundle(
+            "sample",
+            "old",
+            record,
+            catalog,
+            fetch=lambda *args, **kwargs: {"content_digest": "b" * 64},
+            session_id=None,
+        )
+    message = str(failure.value)
+    assert ("--catalog served" in message) is different_catalog
+    assert "remove or update Pack 'old' first" in message

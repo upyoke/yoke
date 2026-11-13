@@ -179,8 +179,14 @@ def test_remove_forwards_preview_and_names_refusals(monkeypatch, capsys) -> None
 
     monkeypatch.setattr(packs_remove, "run_pack_remove", run_pack_remove)
 
-    assert packs_remove.packs_remove(["old", "/project", "--project", "sample", "--json"]) == 0
-    assert json.loads(capsys.readouterr().out) == {"applied": False, "operation": "remove"}
+    assert (
+        packs_remove.packs_remove(["old", "/project", "--project", "sample", "--json"])
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "applied": False,
+        "operation": "remove",
+    }
     assert captured == {
         "repo_root": "/project",
         "project": "sample",
@@ -196,3 +202,23 @@ def test_remove_forwards_preview_and_names_refusals(monkeypatch, capsys) -> None
     monkeypatch.setattr(packs_remove, "run_pack_remove", refuse)
     assert packs_remove.packs_remove(["old", "--project", "sample", "--apply"]) == 1
     assert "pack-not-installed" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_list_keeps_installed_packs_missing_from_catalog(
+    monkeypatch, capsys, json_mode
+):
+    monkeypatch.setattr(packs, "machine_config_path", lambda path: nullcontext())
+    row = {"slug": "removed", "installed_version": "1.0.0", "in_catalog": False}
+    monkeypatch.setattr(packs, "list_packs", lambda **kwargs: {"packs": [row]})
+    assert (
+        packs.packs_list(["--project", "sample", *(["--json"] if json_mode else [])])
+        == 0
+    )
+    output = capsys.readouterr().out
+    if json_mode:
+        assert json.loads(output)["packs"] == [row]
+    else:
+        assert "removed" in output
+        assert "slug | installed version | in catalog" in output
+        assert "removed | 1.0.0 | no" in output

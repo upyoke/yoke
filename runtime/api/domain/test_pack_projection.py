@@ -218,6 +218,19 @@ def test_convergence_removes_unshipped_packs_without_losing_project_receipts(
         "SELECT pack_slug,installed_version FROM project_pack_report_entries"
     ).fetchall() == [("current", "1.0.0")]
 
+    result = pack_projection.list_project_pack_status(test_db, project="yoke")
+    rows = {row["slug"]: row for row in result["packs"]}
+    assert rows["current"]["installed_version"] == "1.0.0"
+    assert rows["current"]["in_catalog"] is not empty
+    assert rows["current"]["status"] == "installed"
+    assert rows["current"]["stale_reasons"] == []
+    assert rows["current"]["installed_file_count"] == 2
+    if empty:
+        assert rows["current"]["name"] == "current"
+        assert rows["current"]["latest_version"] is None
+        assert rows["current"]["dependencies"] == []
+    assert result["repository_report"]["pack_count"] == 1
+
 
 def test_convergence_accepts_tuple_rows_used_by_restored_universes(
     test_db, monkeypatch

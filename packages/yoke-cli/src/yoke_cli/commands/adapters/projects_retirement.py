@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import re
-import shlex
+from yoke_cli.command_hints import _with_env
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -91,22 +90,6 @@ def _write_result(response, stdout, stderr) -> None:
         print("re-enable:", file=stdout)
         for command in commands:
             print(f"  {_with_env(command)}", file=stdout)
-
-
-_YOKE_CALL = re.compile(r"(^|\$\()yoke ")
-
-
-def _with_env(command: str) -> str:
-    """Pin printed recipes to the connection this retire ran against."""
-    from yoke_cli.config.machine_config import active_env
-
-    try:
-        env = active_env()
-    except Exception:  # noqa: BLE001 - an unreadable config keeps the bare recipe
-        return command
-    if not env:
-        return command
-    return _YOKE_CALL.sub(lambda m: f"{m.group(1)}yoke --env {shlex.quote(env)} ", command)
 
 
 def _write_attachment(entry, stdout) -> None:

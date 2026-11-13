@@ -90,7 +90,11 @@ def overlay_catalog_rows(
             for reason in row.get("stale_reasons") or []
             if reason != "update_available"
         ]
-        if installed and installed != row.get("latest_version"):
+        if (
+            descriptor is not None
+            and installed
+            and installed != row.get("latest_version")
+        ):
             reasons.insert(0, "update_available")
         row["stale_reasons"] = reasons
         row["status"] = (
@@ -118,10 +122,17 @@ def _unavailable(
         if catalog.served and recorded.get("kind") != PACK_CATALOG_SERVED
         else "pack-baseline-unavailable"
     )
+    recorded_spec = catalog_spec(recorded)
+    recovery = (
+        f"rerun with --catalog {recorded_spec}, or "
+        if recorded_spec != catalog.spec()
+        else ""
+    )
     return (
         f"{code}: Pack {slug!r} {version} was installed from {origin}, and the "
-        f"{catalog.label()} cannot reproduce that baseline ({detail}); rerun with "
-        f"--catalog {catalog_spec(recorded)}, or wait for a release that carries "
+        f"{catalog.label()} cannot reproduce that baseline ({detail}); "
+        f"{recovery}remove or update Pack {slug!r} first, or wait for a release "
+        "that carries "
         f"{slug} {version}"
     )
 

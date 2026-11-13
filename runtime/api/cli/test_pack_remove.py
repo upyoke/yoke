@@ -114,7 +114,9 @@ def test_refuses_to_remove_a_dependency_of_an_installed_pack(tmp_path, monkeypat
     _fakes(monkeypatch)
     before = _snapshot(tmp_path)
 
-    with pytest.raises(remove.PackClientError, match="pack-required-by-installed.*'app'"):
+    with pytest.raises(
+        remove.PackClientError, match="pack-required-by-installed.*'app'"
+    ):
         remove.run_pack_remove(tmp_path, project="sample", pack="base", apply=True)
 
     assert _snapshot(tmp_path) == before
@@ -136,7 +138,8 @@ def test_refuses_when_another_pack_version_cannot_be_read(tmp_path, monkeypatch)
     _fakes(monkeypatch, unreadable={"extra"})
 
     with pytest.raises(
-        remove.PackClientError, match="pack-dependencies-unknown: installed Pack 'extra'"
+        remove.PackClientError,
+        match="pack-dependencies-unknown: installed Pack 'extra'",
     ):
         remove.run_pack_remove(tmp_path, project="sample", pack="app", apply=True)
 
@@ -200,3 +203,45 @@ def test_invalid_receipt_refuses_with_a_named_reason(tmp_path):
     (tmp_path / PACK_RECEIPT_REL).write_text(json.dumps({"schema": 99}))
     with pytest.raises(remove.PackClientError, match="pack-receipt-invalid"):
         remove.run_pack_remove(tmp_path, project="sample", pack="app")
+
+
+@pytest.mark.parametrize("env", [None, "stage", "a connection"])
+def test_recovery_commands_keep_the_active_environment(tmp_path, monkeypatch, env):
+    import shlex
+
+    monkeypatch.setattr("yoke_cli.config.machine_config.active_env", lambda: env)
+    prefix = f"yoke --env {shlex.quote(env)}" if env else "yoke"
+    with pytest.raises(remove.PackClientError) as missing:
+        remove.run_pack_remove(tmp_path, project="sample", pack="app")
+    assert f"`{prefix} packs list --project sample`" in str(missing.value)
+
+    _write_project(tmp_path)
+    with pytest.raises(remove.PackClientError) as mismatch:
+        remove.run_pack_remove(tmp_path, project="other", pack="app")
+    assert f"`{prefix} packs remove --project sample PACK`" in str(mismatch.value)
+
+    _fakes(monkeypatch)
+
+    def fail_write(*args):
+        raise OSError("read only")
+
+    monkeypatch.setattr(remove, "write_receipt", fail_write)
+    with pytest.raises(remove.PackClientError) as failed:
+        remove.run_pack_remove(tmp_path, project="sample", pack="app", apply=True)
+    assert f"`{prefix} packs remove app --project sample --apply`" in str(failed.value)
+
+
+@pytest.mark.parametrize("different_catalog", [False, True])
+def test_unknown_dependencies_suggest_only_a_different_catalog(
+    tmp_path, monkeypatch, different_catalog
+):
+    from yoke_cli.packs.catalog_source import PackCatalog
+
+    _write_project(tmp_path)
+    _fakes(monkeypatch, unreadable={"extra"})
+    catalog = PackCatalog(kind="commit", commit="a" * 40) if different_catalog else None
+    with pytest.raises(remove.PackClientError) as failure:
+        remove.run_pack_remove(tmp_path, project="sample", pack="app", catalog=catalog)
+    message = str(failure.value)
+    assert ("--catalog served" in message) is different_catalog
+    assert "remove or update Pack 'extra' first" in message
