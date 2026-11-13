@@ -12,8 +12,10 @@ A path captured before the test started (a module constant built from
 the real home. So a Python audit hook watches every write the test's own
 process makes while the test runs, and fails the test with
 ``real_home_written`` naming each real-home path it created, changed or
-removed. The checkout, its environment and the interpreter are exempt: they
-often live inside the home folder and tests legitimately write them.
+removed. The checkout (pytest's rootpath and the folder it was invoked
+from), its environment and the interpreter are exempt: they often live inside
+the home folder and tests legitimately write them. An exempt root that is or
+holds the home itself is dropped, so pytest run from the home stays guarded.
 
 Any project loads it from its root ``conftest.py``::
 
@@ -32,21 +34,23 @@ import pytest
 #: The variables, besides ``HOME``, that point a home resolver elsewhere.
 HOME_REDIRECT_ENVS = ("XDG_CONFIG_HOME",)
 
-#: Audit events that write the filesystem, with the argument positions that
-#: name the written path. ``open`` is judged separately by its mode.
+#: Audit events that write the filesystem: each written path's argument
+#: position, paired with the position of the ``dir_fd`` it is relative to
+#: (``None`` when the event carries none). ``open`` is judged separately by its
+#: mode; its audit event never carries a ``dir_fd``.
 WRITE_EVENTS = {
-    "os.chmod": (0,),
-    "os.link": (1,),
-    "os.mkdir": (0,),
-    "os.remove": (0,),
-    "os.rename": (0, 1),
-    "os.rmdir": (0,),
-    "os.symlink": (1,),
-    "os.truncate": (0,),
-    "os.utime": (0,),
-    "shutil.copyfile": (1,),
-    "shutil.copytree": (1,),
-    "shutil.rmtree": (0,),
+    "os.chmod": ((0, 2),),
+    "os.link": ((1, 3),),
+    "os.mkdir": ((0, 2),),
+    "os.remove": ((0, 1),),
+    "os.rename": ((0, 2), (1, 3)),
+    "os.rmdir": ((0, 1),),
+    "os.symlink": ((1, 2),),
+    "os.truncate": ((0, None),),
+    "os.utime": ((0, 3),),
+    "shutil.copyfile": ((1, None),),
+    "shutil.copytree": ((1, None),),
+    "shutil.rmtree": ((0, None),),
 }
 _WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND
 
@@ -59,6 +63,10 @@ def _written_by_open(args: Sequence[object]) -> bool:
     return isinstance(flags, int) and bool(flags & _WRITE_FLAGS)
 
 
+def _under(path: str, root: str) -> bool:
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
 class RealHomeWriteGuard:
     """Record the real-home writes one process makes while a test runs."""
 
@@ -68,9 +76,6 @@ class RealHomeWriteGuard:
         self.active = False
         self.writes: List[Tuple[str, str]] = []
 
-    def _under(self, path: str, root: str) -> bool:
-        return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
-
     def _record(self, event: str, target: object) -> None:
         if isinstance(target, int) or target is None:
             return
@@ -78,8 +83,8 @@ class RealHomeWriteGuard:
             path = os.path.abspath(os.fsdecode(os.fspath(target)))
         except (TypeError, ValueError):
             return
-        if self._under(path, self.home) and not any(
-            self._under(path, root) for root in self.exempt
+        if _under(path, self.home) and not any(
+            _under(path, root) for root in self.exempt
         ):
             self.writes.append((event, path))
 
@@ -90,9 +95,16 @@ class RealHomeWriteGuard:
             if args and _written_by_open(args):
                 self._record(event, args[0])
             return
-        for position in WRITE_EVENTS.get(event, ()):
-            if position < len(args):
-                self._record(event, args[position])
+        for position, fd_position in WRITE_EVENTS.get(event, ()):
+            if position >= len(args):
+                continue
+            # A path relative to an open folder is not relative to the cwd.
+            # Only shutil.rmtree's fd walk writes this way, and rmtree itself
+            # is audited with its top-level path, so skipping it hides nothing.
+            if fd_position is not None and fd_position < len(args):
+                if args[fd_position] not in (None, -1):
+                    continue
+            self._record(event, args[position])
 
     def start(self) -> None:
         self.writes = []
@@ -121,10 +133,36 @@ def real_home_violation(writes: Sequence[Tuple[str, str]]) -> str:
     )
 
 
+def exempt_roots(
+    home: str, roots: Iterable["str | os.PathLike[str]"]
+) -> Tuple[str, ...]:
+    """The roots a test may write, minus any that is or holds the real home.
+
+    A root at or above the home (pytest run from ``$HOME``) would exempt the
+    whole home and switch the guard off, so it is dropped.
+    """
+    kept: List[str] = []
+    for root in roots:
+        path = os.path.abspath(os.fspath(root))
+        if not _under(home, path) and path not in kept:
+            kept.append(path)
+    return tuple(kept)
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    # The interpreter may itself live under the home folder (a uv-managed
-    # Python), and a lazy import writes bytecode beside its standard library.
-    GUARD.exempt = (str(config.rootpath), sys.prefix, sys.base_prefix)
+    # The checkout is the folder pytest is invoked from, which need not be its
+    # rootpath (a config file in a service folder). The interpreter may itself
+    # live under the home folder (a uv-managed Python), and a lazy import
+    # writes bytecode beside its standard library.
+    GUARD.exempt = exempt_roots(
+        GUARD.home,
+        (
+            config.rootpath,
+            config.invocation_params.dir,
+            sys.prefix,
+            sys.base_prefix,
+        ),
+    )
 
 
 def isolated_home(tmp_path: Path) -> Path:

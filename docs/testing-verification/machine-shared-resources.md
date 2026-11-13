@@ -18,7 +18,11 @@ real home would hold writes it into that folder itself; never point a test
 back at the real home. A path captured before the test started still names
 the real home, so a Python audit hook watches the writes the test's own
 process makes and fails the test with `real_home_written`, naming each path.
-The checkout, its environment and the interpreter are exempt. Fix the
+The checkout (pytest's rootpath and the folder pytest was invoked from), its
+environment and the interpreter are exempt; an exempt root that is or holds
+the home is dropped, so pytest run from `$HOME` stays guarded. A write named
+relative to an open folder (`dir_fd`, as in `shutil.rmtree`'s walk) is judged
+by rmtree's own top-level path, never against the cwd. Fix the
 reported path by resolving it at call time or pointing the fixture inside
 `tmp_path`. Subprocesses are covered by the inherited `HOME`, not the hook.
 A test that clears `os.environ` (`mock.patch.dict(..., clear=True)`) keeps

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
 import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -79,11 +82,16 @@ def test_the_guard_records_each_kind_of_real_home_write(tmp_path: Path):
     guard.audit("open", (str(real / ".gitconfig"), "r", 0))
     guard.audit("open", (str(real / "checkout/conftest.py"), "w", 0))
     guard.audit("os.remove", (3, None))
+    guard.audit("os.remove", (str(real / ".codex/stale"), -1))
+    guard.audit("os.remove", ("x.dump", 3))
+    guard.audit("os.rename", ("a", str(real / ".codex/moved"), 4, None))
     assert guard.stop() == [
         ("open", str(real / ".claude/settings.json")),
         ("open", str(real / ".cursor/cli-config.json")),
         ("os.rename", str(real / ".codex/config.toml")),
         ("os.mkdir", str(real / ".codex/rules")),
+        ("os.remove", str(real / ".codex/stale")),
+        ("os.rename", str(real / ".codex/moved")),
     ]
 
 
@@ -116,3 +124,72 @@ def test_the_violation_names_every_path_and_the_fix():
     assert message.startswith("real_home_written:")
     assert message.count("/home/dev/.claude/settings.json") == 1
     assert "Resolve the path at call time" in message
+
+
+def _pytest_config(rootpath: Path, invoked_from: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        rootpath=rootpath, invocation_params=SimpleNamespace(dir=invoked_from)
+    )
+
+
+def _guard_real_home(monkeypatch: pytest.MonkeyPatch, real: Path) -> None:
+    monkeypatch.setattr(isolation.GUARD, "home", str(real))
+    monkeypatch.setattr(isolation.GUARD, "exempt", isolation.GUARD.exempt)
+
+
+def test_an_rmtree_from_a_cwd_in_the_real_home_records_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """rmtree's fd walk names entries relative to an open folder, not the cwd."""
+    real = tmp_path / "real-home"
+    real.mkdir()
+    tree = tmp_path / "scratch" / "tree"
+    (tree / "nested").mkdir(parents=True)
+    (tree / "nested" / "x.dump").write_text("x")
+    (tree / "y.dump").write_text("y")
+    _guard_real_home(monkeypatch, real)
+    monkeypatch.chdir(real)
+    isolation.GUARD.writes.clear()
+    shutil.rmtree(tree)
+    assert isolation.GUARD.writes == []
+    assert not tree.exists()
+
+
+def test_bytecode_beside_rootpath_in_the_invocation_folder_records_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The checkout is pytest's invocation folder, even when rootpath is deeper."""
+    real = tmp_path / "real-home"
+    checkout = real / "checkout"
+    sibling = checkout / "ops"
+    sibling.mkdir(parents=True)
+    (checkout / "service").mkdir()
+    module = f"real_home_sibling_{os.getpid()}"
+    (sibling / f"{module}.py").write_text("VALUE = 1\n")
+    _guard_real_home(monkeypatch, real)
+    isolation.pytest_configure(_pytest_config(checkout / "service", checkout))
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
+    monkeypatch.syspath_prepend(str(sibling))
+    monkeypatch.delitem(sys.modules, module, raising=False)
+    isolation.GUARD.writes.clear()
+    importlib.import_module(module)
+    assert list((sibling / "__pycache__").glob(f"{module}.*.pyc"))
+    assert isolation.GUARD.writes == []
+
+
+def test_pytest_invoked_from_the_home_keeps_it_guarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """An exempt root at or above the home would switch the guard off: dropped."""
+    real = tmp_path / "real-home"
+    real.mkdir()
+    _guard_real_home(monkeypatch, real)
+    isolation.pytest_configure(_pytest_config(tmp_path, real))
+    assert not any(
+        str(real).startswith(root.rstrip(os.sep)) for root in isolation.GUARD.exempt
+    )
+    isolation.GUARD.writes.clear()
+    (real / ".gitconfig").write_text("[user]\n")
+    seen = list(isolation.GUARD.writes)
+    isolation.GUARD.writes.clear()
+    assert ("open", str(real / ".gitconfig")) in seen
