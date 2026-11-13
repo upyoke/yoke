@@ -27,7 +27,7 @@ class TestClosedOutConvergence:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
-        """The terminal transition releases the claim; a retry says so."""
+        """A retry reports the completed landing without claim warnings."""
         _wire_merge(monkeypatch, repo, _item(repo, status="done"))
         monkeypatch.setattr(
             sim_cli.recovery,
@@ -57,8 +57,7 @@ class TestClosedOutConvergence:
         assert envelope["merge_sha"] == MERGE_SHA
         assert envelope["touched_files"] == ["feature.txt"]
         assert envelope["status"] == "done"
-        assert any("already closed out" in w for w in envelope["warnings"])
-        assert not any("acquire" in w for w in envelope["warnings"])
+        assert envelope["warnings"] == []
 
     def test_a_released_claim_with_no_evidence_stays_a_refusal(
         self,
