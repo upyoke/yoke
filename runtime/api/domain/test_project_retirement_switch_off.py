@@ -226,6 +226,34 @@ def test_installation_refresh_keeps_retired_binding_off(conn):
     assert _state(conn, 31)[2] == ("active", None)
 
 
+def test_installation_refresh_skips_retired_project_without_marker(conn):
+    """Projects retired before the marker existed stay off on a peer bind."""
+    from datetime import datetime, timezone
+
+    conn.execute("UPDATE projects SET retired_at=%s WHERE id=30", (NOW,))
+    conn.execute(
+        "UPDATE project_github_repo_bindings SET status='unavailable', "
+        "last_error=NULL WHERE project_id=30"
+    )
+    refresh_attached_project_bindings(
+        conn,
+        installation_id="101",
+        permissions="{}",
+        persistence=BindingPersistenceState("active", None, None),
+        verified_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
+    )
+    assert _state(conn, 30)[2] == ("unavailable", None)
+    assert _state(conn, 31)[2] == ("active", None)
+    settings = dict(
+        conn.execute(
+            "SELECT project_id, settings FROM project_capabilities "
+            "WHERE type='github' ORDER BY project_id"
+        ).fetchall()
+    )
+    assert settings[30] == "{}"  # the retired capability is not rebuilt
+    assert json.loads(settings[31])  # the peer's capability is rebuilt
+
+
 def test_lifecycle_delivery_skips_until_operator_check(conn):
     from yoke_core.domain.project_github_binding_lifecycle import (
         cmd_apply_project_github_binding_lifecycle,
