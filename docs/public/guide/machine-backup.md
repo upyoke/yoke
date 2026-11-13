@@ -21,8 +21,9 @@ file's home-relative name, original mode, size, and SHA-256. Keep them together.
 Backup includes `~/.yoke/config.json`, `~/.yoke/secrets/`, and `~/.yoke/ssh/`
 when present. It also includes home-relative copies of connection token/DSN
 files and PostgreSQL tunnel identity files referenced by the configuration.
-Missing referenced files are named and skipped. References outside your home
-must be moved under it and updated in the configuration before backup.
+Missing referenced files, wherever they point, are listed with their connection
+name and skipped. A referenced file that exists outside your home must be moved
+under it and updated in the configuration before backup.
 
 Backup excludes `*.lock`, `*.stale*`, `YOKE_*_DSN_VALIDATION*`,
 `yoke_validation_*.dsn`, `github-app-user-*.json`, browser `profile/` and

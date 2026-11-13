@@ -140,11 +140,12 @@ def connection_remove(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke connection remove",
         description=(
-            "Retire a machine connection alias and its Yoke-owned credential. "
-            "Removing the active authority needs --activate to name the "
-            "replacement, unless the alias is this machine's only connection, "
-            "which simply leaves it unconfigured. Non-owned credential files "
-            "are refused. " + CONFIG_SELECTION_HELP
+            "Retire a machine connection alias with its project mappings, "
+            "GitHub authorization and Yoke-owned credential. Removing the "
+            "active authority needs --activate to name the replacement, unless "
+            "the alias is this machine's only connection, which simply leaves "
+            "it unconfigured. A credential file outside Yoke's machine secrets "
+            "is kept and reported. " + CONFIG_SELECTION_HELP
         ),
     )
     parser.add_argument("env", help="Connection name to remove.")

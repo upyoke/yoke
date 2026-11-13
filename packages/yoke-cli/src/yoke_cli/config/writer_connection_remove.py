@@ -7,13 +7,14 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_cli.config import github_machine_operation, machine_config, writer_github
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError,
     load_payload,
     serialized_mutation,
     write_payload,
 )
+from yoke_contracts import github_app_tokens
 from yoke_contracts.machine_config import schema as contract
 
 
@@ -23,7 +24,7 @@ def remove_connection(
     activate: str | None = None,
     path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Remove one alias and its Yoke-owned credential atomically."""
+    """Remove one alias, its mappings and its Yoke-owned credentials."""
     result = remove_connections((env,), activate=activate, path=path)
     return {
         "removed_env": env,
@@ -32,12 +33,17 @@ def remove_connection(
         "credential_retained_shared": (
             env in result["credential_retained_shared_envs"]
         ),
+        "credential_retained_foreign": (
+            env in result["credential_retained_foreign_envs"]
+        ),
+        "github_credential_cleanup": result["github_credential_cleanup"].get(env),
         "project_mappings_removed": result["project_mappings_removed"],
         "active_env": result["active_env"],
         "config": result["config"],
     }
 
 
+@github_machine_operation.serialized_operation(MachineConfigWriteError)
 @serialized_mutation
 def remove_connections(
     envs: Iterable[str],
@@ -51,6 +57,10 @@ def remove_connections(
     ``activate`` names the replacement; when the alias being removed is the
     machine's last connection there is nothing to choose and the machine is
     left unconfigured, which is the honest end state of a teardown.
+
+    A credential file outside Yoke-owned machine secrets belongs to the
+    operator: the alias is removed and the file is kept and reported. The
+    alias's project mappings and GitHub authorization go with it.
     """
     selected = tuple(
         dict.fromkeys(str(env).strip() for env in envs if str(env).strip())
@@ -83,6 +93,13 @@ def remove_connections(
         env: _owned_connection_secret(entry)
         for env, entry in entries_by_env.items()
         if entry is not None
+    }
+    credential_retained_foreign = {
+        env
+        for env, entry in entries_by_env.items()
+        if entry is not None
+        and secrets_by_env.get(env) is None
+        and _connection_secret(entry) is not None
     }
     remaining = {
         str(env): entry
@@ -135,6 +152,8 @@ def remove_connections(
                 credential_removed.add(env)
         for env in selected:
             connections.pop(env, None)
+        mappings_removed = _remove_project_mappings(payload, selected)
+        github_refs = _remove_github_slots(payload, selected)
         write_payload(payload, cfg_path, allow_unconfigured=unconfigured)
     except BaseException:
         for secret, (tombstone, _env) in reversed(tuple(staged.items())):
@@ -146,6 +165,10 @@ def remove_connections(
         tombstone.unlink()
     for tombstone, _env in recovery_tombstones:
         tombstone.unlink()
+    github_cleanup = {
+        env: writer_github._release_owned_credential(ref, cfg_path, delete=True)
+        for env, ref in github_refs.items()
+    }
     return {
         "removed_envs": [env for env in selected if entries_by_env[env] is not None],
         "already_removed_envs": [
@@ -153,10 +176,41 @@ def remove_connections(
         ],
         "credential_removed_envs": sorted(credential_removed),
         "credential_retained_shared_envs": sorted(credential_retained),
-        "project_mappings_removed": 0,
+        "credential_retained_foreign_envs": sorted(credential_retained_foreign),
+        "github_credential_cleanup": github_cleanup,
+        "project_mappings_removed": mappings_removed,
         "active_env": str(payload.get("active_env") or ""),
         "config": str(cfg_path),
     }
+
+
+def _remove_project_mappings(payload: dict[str, Any], envs: Iterable[str]) -> int:
+    """Drop each retired alias's checkout routing; return the entries removed."""
+    groups = payload.get("connection_projects")
+    if not isinstance(groups, dict):
+        return 0
+    removed = 0
+    for env in envs:
+        entries = groups.pop(env, None)
+        removed += len(entries) if isinstance(entries, list) else 0
+    return removed
+
+
+def _remove_github_slots(
+    payload: dict[str, Any], envs: Iterable[str]
+) -> dict[str, str]:
+    """Drop each retired alias's GitHub slot; return the credential refs to release."""
+    slots = payload.get(github_app_tokens.GITHUB_CONNECTIONS_KEY)
+    if not isinstance(slots, dict):
+        return {}
+    refs: dict[str, str] = {}
+    for env in envs:
+        if env not in slots:
+            continue
+        refs[env] = writer_github._github_credential_ref(slots.pop(env))
+    if not slots:
+        payload.pop(github_app_tokens.GITHUB_CONNECTIONS_KEY, None)
+    return refs
 
 
 def _resolve_active_authority(
@@ -198,11 +252,7 @@ def _owned_connection_secret(entry: Mapping[str, Any]) -> Path | None:
     if selected is None:
         return None
     expected = (machine_config.yoke_home() / contract.SECRETS_DIR_NAME).resolve()
-    if selected.parent != expected:
-        raise MachineConfigWriteError(
-            "refusing to remove a credential outside Yoke-owned machine secrets"
-        )
-    return selected
+    return selected if selected.parent == expected else None
 
 
 def _connection_secret(entry: Mapping[str, Any]) -> Path | None:

@@ -162,7 +162,7 @@ def test_status_uses_cached_access_and_disconnect_removes_only_local_auth(
         "issues": [],
     }
     assert not credential.exists()
-    assert lock_path.is_file()
+    assert not lock_path.exists()
     assert "connection_github" not in json.loads(config.read_text())
 
 

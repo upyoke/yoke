@@ -107,7 +107,9 @@ def test_external_files_and_new_home_paths(machine, tmp_path, monkeypatch):
         }
     }
     (root / "config.json").write_text(json.dumps(config))
-    assert storage.backup(folder)["missing"] == ["credentials/missing"]
+    assert storage.backup(folder)["missing"] == [
+        "credentials/missing (connection absent)"
+    ]
     destination = tmp_path / "new-home"
     destination.mkdir()
     monkeypatch.setenv("HOME", str(destination))
@@ -257,3 +259,41 @@ def test_backup_preserves_unrelated_destination(machine):
     with pytest.raises(MachineBackupError, match="destination_not_backup"):
         storage.backup(folder)
     assert unrelated.read_bytes() == b"unrelated-data"
+
+
+def test_missing_outside_home_reference_is_listed_not_refused(machine, tmp_path):
+    home, root, folder = machine
+    outside = tmp_path / "elsewhere" / "token"
+    config = {
+        "connections": {
+            "self-host": {
+                "credential_source": {"kind": "token_file", "path": str(outside)}
+            }
+        }
+    }
+    (root / "config.json").write_text(json.dumps(config))
+
+    result = storage.backup(folder)
+
+    assert result["missing"] == [f"{outside} (connection self-host)"]
+    manifest = json.loads((folder / "manifest.json").read_text())
+    assert manifest["references"] == {}
+    assert manifest["missing"] == result["missing"]
+
+
+def test_present_outside_home_reference_still_refuses(machine, tmp_path):
+    _, root, folder = machine
+    outside = tmp_path / "elsewhere" / "token"
+    outside.parent.mkdir()
+    outside.write_text("token")
+    config = {
+        "connections": {
+            "self-host": {
+                "credential_source": {"kind": "token_file", "path": str(outside)}
+            }
+        }
+    }
+    (root / "config.json").write_text(json.dumps(config))
+
+    with pytest.raises(MachineBackupError, match="machine_backup_outside_home"):
+        storage.backup(folder)
