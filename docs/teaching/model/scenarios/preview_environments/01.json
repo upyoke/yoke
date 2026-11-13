@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "A browser review needs a temporary deployed target",
- "need": "Check ephemeral-env capability and serving support before offering a preview. The shipped Pack depends on host/routing/deploy Packs and application-specific configuration; it is not provider-neutral instant hosting.",
+ "need": "Check ephemeral-env capability and serving support before offering a preview. The Branch Preview Hosting Pack supplies host routing and cleanup; the project owns its deploy workflow and application-specific configuration. It is not provider-neutral instant hosting.",
  "disclosure": "current cue",
- "surface": "Onboard profile “The delivery box” preview rule; Ephemeral Environments Pack introduction and project-specific work.",
+ "surface": "Onboard profile “The delivery box” preview rule; Branch Preview Hosting Pack introduction and project-specific work.",
  "gap": "Proposed JOURNEYS branch should offer a supported existing target or preview setup, with unsupported/deferred alternatives visible.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke ephemeral-env --help", "yoke deployment-flows validate --help"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS row 13"],
- "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", "packs/ephemeral-environments/pack.json", "packs/ephemeral-environments/versions/1.3.0/files/docs/packs/ephemeral-environments/README.md"],
+ "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", "packs/branch-preview-hosting/pack.json", "packs/branch-preview-hosting/versions/1.1.1/files/docs/packs/branch-preview-hosting/README.md"],
  "position": 0
 }

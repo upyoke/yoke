@@ -6,11 +6,11 @@
  "when": "Using a preview for QA or human release review",
  "need": "A branch preview changes on pushes. A release preview freezes a full candidate commit under a run-owned name; QA consumes the earlier preview receipt. Declare lifetime, data retention and cleanup ownership.",
  "disclosure": "current cue",
- "surface": "Ephemeral Environments Pack release-preview section; preview producer registry.",
+ "surface": "Preview producer registry; the project-owned preview workflow.",
  "gap": "This distinction belongs in the short preview explanation before a URL is accepted as release evidence. Occupancy/teardown refusal must retain the frozen candidate instead of deleting it.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke ephemeral-env get PROJECT BRANCH --json"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS row 13"],
- "sources": ["packs/ephemeral-environments/versions/1.3.0/files/docs/packs/ephemeral-environments/README.md", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_stage_receipt_producers.py"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deploy_pipeline_stage_receipt_producers.py"],
  "position": 1
 }

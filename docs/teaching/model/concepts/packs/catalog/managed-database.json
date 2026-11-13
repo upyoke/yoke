@@ -1,8 +1,0 @@
-{
- "id": "managed-database",
- "title": "Managed Database",
- "status": "draft-copy",
- "sources": ["packs/managed-database/pack.json"],
- "page": "packs",
- "position": 6
-}

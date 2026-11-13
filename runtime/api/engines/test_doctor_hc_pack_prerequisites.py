@@ -19,22 +19,22 @@ def _write_receipt(checkout: Path) -> None:
                 "project_id": 7,
                 "project_slug": "sample",
                 "packs": {
-                    "pulumi-foundation": {
+                    "container-runtime": {
                         "version": "1.0.0",
                         "content_digest": "a" * 64,
                         "render_values": {},
                         "prerequisites": [
                             {
-                                "tool": "pulumi",
-                                "minimum_version": "3.0.0",
+                                "tool": "docker",
+                                "minimum_version": "20.10.0",
                                 "probe": {
-                                    "executable": "pulumi",
-                                    "version_args": ["version"],
+                                    "executable": "docker",
+                                    "version_args": ["--version"],
                                 },
                                 "install": {
-                                    "darwin": "brew install pulumi/tap/pulumi",
-                                    "linux": "install pulumi on linux",
-                                    "windows": "winget install Pulumi.Pulumi",
+                                    "darwin": "brew install --cask docker",
+                                    "linux": "install docker on linux",
+                                    "windows": "winget install Docker.DockerDesktop",
                                 },
                             }
                         ],
@@ -68,8 +68,8 @@ def test_doctor_names_missing_pack_tool_and_recovery(
     [result] = collector.results
     assert result.result == "FAIL"
     assert "pack-prerequisite-missing" in result.detail
-    assert "pulumi-foundation/pulumi" in result.detail
-    assert "brew install pulumi/tap/pulumi" in result.detail
+    assert "container-runtime/docker" in result.detail
+    assert "brew install --cask docker" in result.detail
 
 
 def test_doctor_passes_when_no_pack_receipt_exists(monkeypatch, tmp_path: Path) -> None:

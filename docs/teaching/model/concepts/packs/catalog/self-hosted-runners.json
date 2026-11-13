@@ -1,8 +1,0 @@
-{
- "id": "self-hosted-runners",
- "title": "Self-hosted Runners",
- "status": "draft-copy",
- "sources": ["packs/self-hosted-runners/pack.json"],
- "page": "packs",
- "position": 10
-}

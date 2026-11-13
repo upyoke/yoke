@@ -202,7 +202,7 @@ repeat them. See [execution instructions](../projects/execution-instructions.md)
 
 There is no separate Hosting destination. Hosting shows up as:
 
-- Packs (production-deploy, runners, environment infra, …)
+- Packs (container runtime, host maintenance, smoke testing, …)
 - `/yoke onboard` configures delivery only for first dashes that need managed infrastructure
 - Environment settings (projected scalar reads only — never dump whole
   settings documents)

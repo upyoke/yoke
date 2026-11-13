@@ -17,12 +17,6 @@ RELEASES = [
         "aa8243e5795b031015132c7875f9be227d6d76540f32554e747179499d971411",
     ),
     (
-        "self-hosted-runners",
-        "2.0.1",
-        "infra/webapp_runner_timestamps.py",
-        "f6424b143abf8873069040a8aba82e9c9e349ed3aade6cbd679d51c67ebd9266",
-    ),
-    (
         "webapp-scaffold",
         "1.1.4",
         "app/utils/timestamps.py",

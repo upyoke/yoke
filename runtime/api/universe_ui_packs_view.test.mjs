@@ -78,14 +78,14 @@ test("Packs separates Installed and Available with row-owned previews", async (t
               file_count: 4,
             },
             {
-              slug: "production-deploy",
-              name: "Production deploy",
-              description: "Deploys a reviewed release and supports urgent hotfixes.",
+              slug: "smoke-testing",
+              name: "Smoke testing",
+              description: "Checks a deployed environment after each release.",
               status: "stale",
               installed_version: "1.0.0",
               latest_version: "1.1.0",
-              dependencies: ["container-runtime"],
-              documentation: "docs/packs/production-deploy/README.md",
+              dependencies: [],
+              documentation: "docs/packs/smoke-testing/README.md",
               file_count: 8,
             },
           ],
@@ -93,22 +93,22 @@ test("Packs separates Installed and Available with row-owned previews", async (t
       }
       if (request.function === "packs.bundle.get") {
         assert.deepEqual(request.payload, {
-          project: "7", pack: "production-deploy",
+          project: "7", pack: "smoke-testing",
         });
         return successful({
           bundle_schema: 1,
           project_id: 7,
           project_slug: "",
-          pack: "production-deploy",
-          name: "Production deploy",
-          description: "Deploy and hotfix delivery",
+          pack: "smoke-testing",
+          name: "Smoke testing",
+          description: "Post-deploy smoke checks",
           version: "1.1.0",
           latest_version: "1.1.0",
-          dependencies: ["container-runtime"],
+          dependencies: [],
           render_values: {},
           files: [
-            { path: ".github/workflows/demo-deploy.yml", mode: 420 },
-            { path: "scripts/deploy", mode: 493 },
+            { path: ".github/workflows/demo-smoke.yml", mode: 420 },
+            { path: "scripts/smoke", mode: 493 },
           ],
           content_digest: "digest",
         });
@@ -165,15 +165,15 @@ test("Packs separates Installed and Available with row-owned previews", async (t
   await settle();
   assert.equal(preview.hidden, false);
   assert.equal(documentNode.activeElement, preview);
-  assert.match(preview.attributes.get("aria-label"), /production-deploy · demo/);
+  assert.match(preview.attributes.get("aria-label"), /smoke-testing · demo/);
   const previewText = allNodes(root).map((node) => node.textContent || "").join(" ");
-  assert.ok(previewText.includes(".github/workflows/demo-deploy.yml"));
+  assert.ok(previewText.includes(".github/workflows/demo-smoke.yml"));
   assert.ok(previewText.includes("0644"));
   assert.ok(previewText.includes("0755"));
   assert.ok(!previewText.includes(" 420 "));
   assert.ok(!previewText.includes(" 493 "));
   assert.ok(previewText.includes(
-    "yoke packs update production-deploy . --project demo",
+    "yoke packs update smoke-testing . --project demo",
   ));
   assert.ok(previewText.includes("add --apply only after reviewing that preview"));
   assert.equal(

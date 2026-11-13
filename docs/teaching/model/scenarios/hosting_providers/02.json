@@ -4,12 +4,12 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Agent proposes new hosting or an infrastructure/deploy Pack",
- "need": "Shipped hosting path targets AWS. Production Deploy assumes VPS/Compose/CloudFront; preview templates assume FastAPI/Next.js on a Docker host. Preview actual dependencies, prerequisites and resources before approval.",
+ "need": "Shipped Packs cover container runtime, host maintenance, smoke tests, branch-preview hosting, structured events and the webapp scaffold; production delivery, cloud infrastructure and DNS/CDN are project-owned. Preview actual dependencies, prerequisites and resources before approval.",
  "disclosure": "current cue",
  "surface": "Onboard profile Pack proposal and domain-and-deploy “Step 7”; installed Pack README owns adaptation.",
  "gap": "Public adoption guidance needs these support limits before the user accepts a Pack. Do not present provider prose as an executable adapter.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 12"],
- "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", ".agents/skills/yoke/onboard/domain-and-deploy.md", "packs/production-deploy/versions/1.1.2/files/docs/packs/production-deploy/README.md"],
+ "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", ".agents/skills/yoke/onboard/domain-and-deploy.md"],
  "position": 1
 }

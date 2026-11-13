@@ -290,33 +290,23 @@ def run_setup(ctx: BootstrapContext) -> int:
         return 0
 
     print(f"  Wildcard TLS certificate needed for *.{domain}\n")
-    print(
-        "  The provision-tls.sh script automates certbot DNS-01 wildcard cert issuance."
-    )
-    print("  Run the following on the VPS (or provide to the operator):\n")
-    print("    1. Review the VPS Hosting Pack guidance and project-owned script:")
-    print(f"       {cfg.repo_path}/docs/packs/vps-hosting/README.md")
-    print()
-    print("    2. Copy provision-tls.sh to the VPS:")
-    print(
-        f"       scp {cfg.repo_path}/ops/provision-tls.sh "
-        f"{cfg.ssh_user}@{cfg.ssh_host}:~/provision-tls.sh"
-    )
-    print()
-    print("    3. Create DNS API credentials on the VPS:")
+    print("  Issue it with certbot's DNS-01 challenge on the VPS (or give the operator these steps):\n")
+    print("    1. Install certbot and your DNS provider's plugin:")
     print(f"       ssh {cfg.ssh_user}@{cfg.ssh_host}")
+    print("       sudo apt-get install -y certbot python3-certbot-dns-digitalocean")
+    print()
+    print("    2. Create DNS API credentials on the VPS:")
     print("       sudo mkdir -p /etc/letsencrypt")
     print(
         "       echo 'dns_digitalocean_token = YOUR_DO_API_TOKEN' | sudo tee /etc/letsencrypt/dns-credentials.ini"
     )
     print("       sudo chmod 600 /etc/letsencrypt/dns-credentials.ini")
     print()
-    print("    4. Run the provisioning script:")
-    print("       sudo sh ~/provision-tls.sh")
-    print()
-    print("  The script will:")
-    print("    - Install certbot + DNS plugin if needed")
-    print(f"    - Request a wildcard cert for *.{domain} via DNS-01 challenge")
-    print("    - Configure automatic renewal with nginx reload")
+    print("    3. Request the wildcard certificate; renewal reloads nginx:")
+    print(
+        "       sudo certbot certonly --non-interactive --agree-tos -m ADMIN_EMAIL"
+        " --dns-digitalocean --dns-digitalocean-credentials /etc/letsencrypt/dns-credentials.ini"
+        f" -d {domain} -d '*.{domain}' --deploy-hook 'systemctl reload nginx'"
+    )
     print()
     return 0

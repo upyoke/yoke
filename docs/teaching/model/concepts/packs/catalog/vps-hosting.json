@@ -1,8 +1,0 @@
-{
- "id": "vps-hosting",
- "title": "AWS EC2 Hosting",
- "status": "draft-copy",
- "sources": ["packs/vps-hosting/pack.json"],
- "page": "packs",
- "position": 13
-}

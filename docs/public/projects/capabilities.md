@@ -34,8 +34,8 @@ redacted evidence; never print the value.
 Runner fleets expose the strict boolean `lifecycle.writers_paused`, default
 false. True renders `webapp-infra:lifecycle_writers_paused` and holds webhook,
 bootstrap and reaper Lambda reserved concurrency at zero. The digested
-authority intent includes this value. Adopt matching Self-hosted Runners and
-Pulumi Foundation Pack updates together, snapshot and convert existing SSM
+authority intent includes this value. Change the project's runner and Pulumi
+code together, snapshot and convert existing SSM
 instants while paused, and qualify exact producer hashes before resuming.
 
 An existing fleet's initial pause sets `lifecycle.code_frozen=true` alongside

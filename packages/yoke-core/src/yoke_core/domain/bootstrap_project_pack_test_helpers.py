@@ -31,19 +31,12 @@ def install_fake_pack_operations(monkeypatch) -> list[dict[str, object]]:
             raise AssertionError("bootstrap must apply each requested Pack")
 
         representative_files = {
-            "production-deploy": (
-                ".github/workflows/externalwebapp-deploy.yml",
-                "name: ExternalWebapp Deploy\n",
-            ),
+            "container-runtime": ("compose.yml", "services: {}\n"),
             "smoke-testing": (
                 ".github/workflows/externalwebapp-smoke.yml",
                 "name: ExternalWebapp Smoke Test\n",
             ),
-            "ephemeral-environments": (
-                ".github/workflows/externalwebapp-ephemeral.yml",
-                "name: ExternalWebapp Ephemeral\n",
-            ),
-            "vps-hosting": ("ops/provision-tls.sh", "#!/bin/sh\n"),
+            "host-maintenance": ("ops/docker_image_cleanup.py", "# cleanup\n"),
         }
         relative_path, content = representative_files[pack]
         target = repo_root / relative_path

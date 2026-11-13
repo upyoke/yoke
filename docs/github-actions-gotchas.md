@@ -41,9 +41,9 @@ steps:
     run: aws cloudfront create-invalidation --distribution-id "$CF_ID" --paths "/*"
 ```
 
-The production-deploy Pack owns the reviewed pin, CloudFront discovery,
-bounded diagnostics and fail-closed behavior. Read its capability settings
-rather than invent a credential path.
+The project's own deploy workflow owns the reviewed pin, CloudFront discovery,
+bounded diagnostics and fail-closed behavior. Read the project's capability
+settings rather than invent a credential path.
 
 Yoke enforces the conditional restriction in the shared Python write policy
 `yoke_core.domain.lint_write_path` and the Bash guard `lint_db_cmd`

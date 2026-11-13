@@ -32,7 +32,7 @@ Updates use a three-way comparison so project changes can be reconciled with ups
 
 Use the Pack command's preview and help to inspect the proposed update. Released catalog versions are the normal path; unreleased source versions have separate source-development rules.
 
-New versions of Webapp Scaffold, Ephemeral Environments, Production Deploy, Smoke Testing, Self-hosted Runners and VPS Hosting bound outside package installs and downloads, limit retries, report fetch failures, and set time limits on workflow jobs. Existing projects receive these changes by running `yoke packs update PACK --project NAME --apply` and resolving any merge conflicts. Nothing updates automatically.
+New versions of Webapp Scaffold and Smoke Testing bound outside package installs and downloads, limit retries, report fetch failures, and set time limits on workflow jobs. Existing projects receive these changes by running `yoke packs update PACK --project NAME --apply` and resolving any merge conflicts. Nothing updates automatically.
 
 ## Removing a Pack
 

@@ -9,14 +9,14 @@ from yoke_cli.packs import prerequisites, runner
 from yoke_cli.packs.receipt import load_receipt
 
 
-PULUMI = {
-    "tool": "pulumi",
-    "minimum_version": "3.0.0",
-    "probe": {"executable": "pulumi", "version_args": ["version"]},
+DOCKER = {
+    "tool": "docker",
+    "minimum_version": "20.10.0",
+    "probe": {"executable": "docker", "version_args": ["--version"]},
     "install": {
-        "darwin": "brew install pulumi/tap/pulumi",
-        "linux": "curl -fsSL https://get.pulumi.com | sh",
-        "windows": "winget install Pulumi.Pulumi",
+        "darwin": "brew install --cask docker",
+        "linux": "curl -fsSL https://get.docker.com | sh",
+        "windows": "winget install Docker.DockerDesktop",
     },
 }
 
@@ -27,14 +27,14 @@ def _bundle() -> dict[str, object]:
         "bundle_schema": 2,
         "project_id": 9,
         "project_slug": "sample",
-        "pack": "pulumi-foundation",
-        "name": "Pulumi Foundation",
-        "description": "Pulumi project foundation.",
+        "pack": "container-runtime",
+        "name": "Container Runtime",
+        "description": "Docker container runtime.",
         "version": "1.0.0",
         "latest_version": "1.0.0",
         "dependencies": [],
-        "prerequisites": [PULUMI],
-        "documentation": "docs/packs/pulumi-foundation/README.md",
+        "prerequisites": [DOCKER],
+        "documentation": "docs/packs/container-runtime/README.md",
         "settings_schema": {
             "type": "object",
             "properties": {},
@@ -45,14 +45,14 @@ def _bundle() -> dict[str, object]:
         "render_values": {},
         "files": [
             {
-                "path": "Pulumi.yaml",
+                "path": "compose.yml",
                 "content": content,
                 "encoding": "utf-8",
                 "sha256": hashlib.sha256(content.encode()).hexdigest(),
                 "mode": 0o644,
             }
         ],
-        "content_digest": hashlib.sha256(b"pulumi-foundation").hexdigest(),
+        "content_digest": hashlib.sha256(b"container-runtime").hexdigest(),
     }
 
 
@@ -63,7 +63,7 @@ def pack_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(runner, "_report_receipt", lambda *args, **kwargs: {})
 
 
-def test_missing_pulumi_preview_names_the_tool_and_install_recipe(
+def test_missing_docker_preview_names_the_tool_and_install_recipe(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     pack_transport: None,
@@ -74,7 +74,7 @@ def test_missing_pulumi_preview_names_the_tool_and_install_recipe(
     report = runner.run_pack_operation(
         tmp_path,
         project="sample",
-        pack="pulumi-foundation",
+        pack="container-runtime",
         operation="get",
     )
 
@@ -82,12 +82,12 @@ def test_missing_pulumi_preview_names_the_tool_and_install_recipe(
     assert report["refused"] is False
     assert report["unsatisfied_prerequisite_count"] == 1
     [row] = report["prerequisites"]
-    assert row["tool"] == "pulumi"
+    assert row["tool"] == "docker"
     assert row["code"] == "pack-prerequisite-missing"
-    assert row["install_recipe"] == "brew install pulumi/tap/pulumi"
+    assert row["install_recipe"] == "brew install --cask docker"
 
 
-def test_missing_pulumi_apply_refuses_before_writing(
+def test_missing_docker_apply_refuses_before_writing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     pack_transport: None,
@@ -98,7 +98,7 @@ def test_missing_pulumi_apply_refuses_before_writing(
     report = runner.run_pack_operation(
         tmp_path,
         project="sample",
-        pack="pulumi-foundation",
+        pack="container-runtime",
         operation="get",
         apply=True,
     )
@@ -106,10 +106,10 @@ def test_missing_pulumi_apply_refuses_before_writing(
     assert report["refused"] is True
     assert report["refusal"] == {
         "code": "pack-prerequisites-unsatisfied",
-        "message": "Pack install requires usable local tools: pulumi",
-        "tools": ["pulumi"],
+        "message": "Pack install requires usable local tools: docker",
+        "tools": ["docker"],
     }
-    assert not (tmp_path / "Pulumi.yaml").exists()
+    assert not (tmp_path / "compose.yml").exists()
     assert load_receipt(tmp_path) is None
 
 
@@ -123,7 +123,7 @@ def test_allow_missing_tools_applies_and_records_the_declaration(
     report = runner.run_pack_operation(
         tmp_path,
         project="sample",
-        pack="pulumi-foundation",
+        pack="container-runtime",
         operation="get",
         apply=True,
         allow_missing_tools=True,
@@ -133,4 +133,4 @@ def test_allow_missing_tools_applies_and_records_the_declaration(
     assert report["allow_missing_tools"] is True
     receipt = load_receipt(tmp_path)
     assert receipt is not None
-    assert receipt["packs"]["pulumi-foundation"]["prerequisites"] == [PULUMI]
+    assert receipt["packs"]["container-runtime"]["prerequisites"] == [DOCKER]

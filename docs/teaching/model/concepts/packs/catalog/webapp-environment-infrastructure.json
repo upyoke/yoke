@@ -1,8 +1,0 @@
-{
- "id": "webapp-environment-infrastructure",
- "title": "Web Application Environment Infrastructure",
- "status": "draft-copy",
- "sources": ["packs/webapp-environment-infrastructure/pack.json"],
- "page": "packs",
- "position": 14
-}

@@ -20,12 +20,12 @@ class _Connection:
 def test_machine_report_echoes_current_pack_prerequisite_readiness(monkeypatch) -> None:
     rows = [
         {
-            "pack": "pulumi-foundation",
-            "tool": "pulumi",
+            "pack": "container-runtime",
+            "tool": "docker",
             "status": "missing",
             "code": "pack-prerequisite-missing",
-            "detail": "pulumi is not on PATH",
-            "install_recipe": "brew install pulumi/tap/pulumi",
+            "detail": "docker is not on PATH",
+            "install_recipe": "brew install --cask docker",
         }
     ]
     monkeypatch.setattr(db_helpers, "connect", _Connection)

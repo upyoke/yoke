@@ -162,10 +162,9 @@ def test_run_setup_installs_project_owned_packs(
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
             packs=(
-                "production-deploy",
+                "container-runtime",
                 "smoke-testing",
-                "ephemeral-environments",
-                "vps-hosting",
+                "host-maintenance",
             ),
         )
 
@@ -175,9 +174,7 @@ def test_run_setup_installs_project_owned_packs(
         rest_calls = _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
-        assert (
-            repo_path / ".github" / "workflows" / "externalwebapp-deploy.yml"
-        ).read_text() == "name: ExternalWebapp Deploy\n"
+        assert (repo_path / "compose.yml").read_text() == "services: {}\n"
         assert (
             repo_path / ".github" / "workflows" / "externalwebapp-smoke.yml"
         ).read_text() == "name: ExternalWebapp Smoke Test\n"
@@ -185,10 +182,9 @@ def test_run_setup_installs_project_owned_packs(
         assert "Step 2: Creating GitHub Secrets" in output
         assert "Review and commit the project-owned Pack changes" in output
         assert [call["pack"] for call in pack_calls] == [
-            "production-deploy",
+            "container-runtime",
             "smoke-testing",
-            "ephemeral-environments",
-            "vps-hosting",
+            "host-maintenance",
         ]
         assert all(call["operation"] == "get" for call in pack_calls)
         # The installation token never calls the user-only endpoint, and the
@@ -240,9 +236,10 @@ def test_run_setup_prints_tls_instructions_when_missing(
         assert run_setup(ctx) == 0
         output = capsys.readouterr().out
         assert "Wildcard TLS certificate needed" in output
-        # The TLS guidance references the project-owned file installed by its Pack.
-        assert "provision-tls.sh" in output
-        assert str(repo_path / "ops" / "provision-tls.sh") in output
+        # The TLS guidance is plain certbot DNS-01; a new project has no Pack script.
+        assert "provision-tls.sh" not in output
+        assert "sudo certbot certonly" in output
+        assert "--dns-digitalocean-credentials" in output
 
 
 def test_run_setup_prints_pack_prerequisite_refusal_and_recovery(
@@ -266,14 +263,14 @@ def test_run_setup_prints_pack_prerequisite_refusal_and_recovery(
             "refused": True,
             "refusal": {
                 "code": "pack-prerequisites-unsatisfied",
-                "message": "Pack install requires usable local tools: pulumi",
+                "message": "Pack install requires usable local tools: docker",
             },
             "prerequisites": [
                 {
-                    "tool": "pulumi",
+                    "tool": "docker",
                     "status": "missing",
-                    "detail": "pulumi is not on PATH",
-                    "install_recipe": "brew install pulumi/tap/pulumi",
+                    "detail": "docker is not on PATH",
+                    "install_recipe": "brew install --cask docker",
                 }
             ],
         }
@@ -285,7 +282,7 @@ def test_run_setup_prints_pack_prerequisite_refusal_and_recovery(
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
-            packs=("pulumi-foundation",),
+            packs=("container-runtime",),
         )
         monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
         monkeypatch.setattr(
@@ -301,5 +298,5 @@ def test_run_setup_prints_pack_prerequisite_refusal_and_recovery(
 
     error = capsys.readouterr().err
     assert "pack-prerequisites-unsatisfied" in error
-    assert "pulumi is not on PATH" in error
-    assert "brew install pulumi/tap/pulumi" in error
+    assert "docker is not on PATH" in error
+    assert "brew install --cask docker" in error

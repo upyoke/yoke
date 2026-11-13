@@ -209,22 +209,22 @@ def test_machine_inventory_reports_an_installed_pack_missing_its_tool(
                 "project_id": 7,
                 "project_slug": "sample",
                 "packs": {
-                    "pulumi-foundation": {
+                    "container-runtime": {
                         "version": "1.0.0",
                         "content_digest": "a" * 64,
                         "render_values": {},
                         "prerequisites": [
                             {
-                                "tool": "pulumi",
-                                "minimum_version": "3.0.0",
+                                "tool": "docker",
+                                "minimum_version": "20.10.0",
                                 "probe": {
-                                    "executable": "pulumi",
-                                    "version_args": ["version"],
+                                    "executable": "docker",
+                                    "version_args": ["--version"],
                                 },
                                 "install": {
-                                    "darwin": "brew install pulumi/tap/pulumi",
-                                    "linux": "install pulumi on linux",
-                                    "windows": "winget install Pulumi.Pulumi",
+                                    "darwin": "brew install --cask docker",
+                                    "linux": "install docker on linux",
+                                    "windows": "winget install Docker.DockerDesktop",
                                 },
                             }
                         ],
@@ -240,7 +240,7 @@ def test_machine_inventory_reports_an_installed_pack_missing_its_tool(
 
     [row] = pack_collector(checkout)
 
-    assert row["pack"] == "pulumi-foundation"
-    assert row["tool"] == "pulumi"
+    assert row["pack"] == "container-runtime"
+    assert row["tool"] == "docker"
     assert row["code"] == "pack-prerequisite-missing"
-    assert row["install_recipe"] == "brew install pulumi/tap/pulumi"
+    assert row["install_recipe"] == "brew install --cask docker"

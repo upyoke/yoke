@@ -1,8 +1,0 @@
-{
- "id": "domain-cdn-edge",
- "title": "Domain and CDN Edge",
- "status": "draft-copy",
- "sources": ["packs/domain-cdn-edge/pack.json"],
- "page": "packs",
- "position": 2
-}

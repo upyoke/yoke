@@ -20,7 +20,7 @@ def test_update_handler_delegates_one_previewable_pack_operation(monkeypatch) ->
             "project_id": 7,
             "project_slug": "sample",
             "repo_root": "/tmp/sample",
-            "requested_pack": "registry-oidc",
+            "requested_pack": "smoke-testing",
             "plans": [],
             "prerequisites": [],
             "unsatisfied_prerequisite_count": 0,
@@ -38,9 +38,9 @@ def test_update_handler_delegates_one_previewable_pack_operation(monkeypatch) ->
         target=TargetRef(kind="global"),
         payload={
             "project": "sample",
-            "pack": "registry-oidc",
+            "pack": "smoke-testing",
             "repo_root": "/tmp/sample",
-            "accepted_current_paths": [".github/workflows/deploy.yml"],
+            "accepted_current_paths": [".github/workflows/smoke.yml"],
         },
     )
 
@@ -51,13 +51,13 @@ def test_update_handler_delegates_one_previewable_pack_operation(monkeypatch) ->
     assert observed == {
         "repo_root": "/tmp/sample",
         "project": "sample",
-        "pack": "registry-oidc",
+        "pack": "smoke-testing",
         "operation": "update",
         "apply": False,
         "allow_missing_tools": False,
         "version": None,
         "session_id": "session-1",
-        "accepted_current_paths": [".github/workflows/deploy.yml"],
+        "accepted_current_paths": [".github/workflows/smoke.yml"],
     }
 
 
@@ -71,10 +71,10 @@ def test_relink_handler_delegates_one_previewable_file_move(monkeypatch) -> None
             "project_id": 7,
             "project_slug": "sample",
             "repo_root": "/tmp/sample",
-            "pack": "registry-oidc",
-            "pack_path": "infra/oidc.py",
-            "from_path": "infra/oidc.py",
-            "to_path": "infra/components/oidc.py",
+            "pack": "smoke-testing",
+            "pack_path": ".github/workflows/smoke.yml",
+            "from_path": ".github/workflows/smoke.yml",
+            "to_path": ".github/workflows/smoke-test.yml",
             "destination_matches_baseline": False,
             "destination_is_customized": True,
             "applied": False,
@@ -88,10 +88,10 @@ def test_relink_handler_delegates_one_previewable_file_move(monkeypatch) -> None
         target=TargetRef(kind="global"),
         payload={
             "project": "sample",
-            "pack": "registry-oidc",
+            "pack": "smoke-testing",
             "repo_root": "/tmp/sample",
-            "from_path": "infra/oidc.py",
-            "to_path": "infra/components/oidc.py",
+            "from_path": ".github/workflows/smoke.yml",
+            "to_path": ".github/workflows/smoke-test.yml",
         },
     )
 
@@ -102,9 +102,9 @@ def test_relink_handler_delegates_one_previewable_file_move(monkeypatch) -> None
     assert observed == {
         "repo_root": "/tmp/sample",
         "project": "sample",
-        "pack": "registry-oidc",
-        "from_path": "infra/oidc.py",
-        "to_path": "infra/components/oidc.py",
+        "pack": "smoke-testing",
+        "from_path": ".github/workflows/smoke.yml",
+        "to_path": ".github/workflows/smoke-test.yml",
         "apply": False,
         "session_id": "session-1",
     }

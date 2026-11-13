@@ -1,8 +1,0 @@
-{
- "id": "registry-oidc",
- "title": "Registry and OIDC",
- "status": "draft-copy",
- "sources": ["packs/registry-oidc/pack.json"],
- "page": "packs",
- "position": 9
-}
