@@ -19,6 +19,8 @@ Once setup is complete, open a new agent session in your project folder and run 
 
 Next, run `/yoke steer`. Your agent uses Yoke to organize work, staff it across your available machines and coding agents, and deliver it. It keeps you informed and brings key decisions to you.
 
+When your agent needs your call, it asks in the conversation and in **Inbox**, with options and a recommendation. [More on Decisions and approvals](guide/decisions.md)
+
 [More on Installation and setup](guide/setup.install.md)
 
 [More on Projects](guide/configuration.md)
@@ -223,6 +225,7 @@ Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, iden
 - [Workflows and work items](guide/work.md) — How work is recorded and carried to completion.
 - [Session state glossary](guide/glossary.md) — Presence, activity, intent, custody and next actor.
 - [Steering and fleet control](guide/sessions.md) — Who is working, how work is coordinated and when humans intervene.
+- [Decisions and approvals](guide/decisions.md) — When your agent needs you, and how you answer.
 - [Yoke CLI and relay](guide/cli-relay.md) — The command line and relay connecting agent sessions to Yoke.
 - [Agent guidance](guide/guidance.md) — Where instructions come from and when agents receive them.
 - [Execution instructions](guide/execution-instructions.md) — Reusable agent instructions, which work receives them and when.

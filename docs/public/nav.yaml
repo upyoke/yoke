@@ -20,6 +20,7 @@ root:
   - {title: "Workflows and work items", summary: "How work is recorded and carried to completion.", path: "guide/work.md"}
   - {title: "Session state glossary", summary: "Presence, activity, intent, custody and next actor.", path: "guide/glossary.md"}
   - {title: "Steering and fleet control", summary: "Who is working, how work is coordinated and when humans intervene.", path: "guide/sessions.md"}
+  - {title: "Decisions and approvals", summary: "When your agent needs you, and how you answer.", path: "guide/decisions.md"}
   - {title: "Yoke CLI and relay", summary: "The command line and relay connecting agent sessions to Yoke.", path: "guide/cli-relay.md"}
   - {title: "Agent guidance", summary: "Where instructions come from and when agents receive them.", path: "guide/guidance.md"}
   - {title: "Execution instructions", summary: "Reusable agent instructions, which work receives them and when.", path: "guide/execution-instructions.md"}
@@ -104,6 +105,7 @@ root:
       children:
       - {title: "Audiences and shared posts", summary: "Address live groups and finish shared Inbox work.", path: "sessions/audiences-and-posts.md"}
       - {title: "Inbox and messaging", summary: "Read decisions and send messages to their intended recipients.", path: "sessions/inbox.md"}
+      - {title: "Decision requests", summary: "Ask, answer and withdraw decision requests.", path: "sessions/decision-requests.md"}
       - {title: "Chat titles and session labels", summary: "Recognize chats by title, project and held work.", path: "sessions/session-titles.md"}
       - {title: "Steering report", summary: "Inspect available work, holders and session delivery failures.", path: "sessions/steering-report.md"}
       - {title: "Steering report delivery", summary: "Read deployment waits, shared capacity and report deltas.", path: "sessions/steering-report-delivery.md"}

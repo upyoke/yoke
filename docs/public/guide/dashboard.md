@@ -43,7 +43,7 @@ See [Quality assurance](qa.md) and [Deployments and releases](delivery.md).
 
 ## Respond to messages, questions, and approvals
 
-**Inbox** separates decisions waiting on you from messages sent to you. A decision card states the request, its subject, what approving does, and who may answer it.
+**Inbox** separates decisions waiting on you, questions from your agents and approvals, from messages sent to you. A decision card states the request, its subject, what each answer does, and who may answer it. See [Decisions and approvals](decisions.md).
 
 Approving one decision settles that decision only. Item work approval, QA evidence review, and run approval can be separate requirements. Their evidence and prior answers remain visible for traceability.
 

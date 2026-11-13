@@ -191,82 +191,12 @@ records; framing markers and the lease token survive bounded stub delivery.
 - [Items](../items/index.md)
 - [Sessions](index.md)
 
-## Operator questions
+## Decision requests
 
-Operator questions are decision requests that gate nothing. A worker with a live
-steering seat asks through `yoke say --steering`, including the question, context,
-options and recommendation. Steering answers from standing direction or files it:
-
-```text
-yoke decision-requests ask --session REQUESTING-SESSION-ID --key choose-color --question "Which color?" --option blue=Blue --option green=Green --recommend blue --item PREFIX-N
-yoke decision-requests list --mine
-yoke decision-requests list --requesting-session SESSION-ID --status pending
-```
-
-Without a live steering seat, the worker files directly and omits `--session`.
-Do not wait on a harness prompt tool: continue other in-scope work or end the turn.
-The answer arrives as a Fleet message on every supported harness and machine.
-Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
-Use `--context-file PATH` for Markdown context, repeat `--option ID=LABEL::DETAIL`
-for up to eight choices, and use `--no-freeform` to require a choice. With no
-choices, a freeform answer is required. Write DETAIL as what happens if the user picks this option, in plain words. Add `--attach PATH` for each image or PDF
-(maximum 20 MiB per file, 64 MiB for the encoded attachment manifest). Files use
-the existing QA evidence store and viewer; get and list include their names and count. The optional `--item` names the item
-being discussed; the requester need not hold it. Reusing a key while pending
-returns the existing question.
-
-Repeat `--to PERSON` for actor ids or unique human names in your organization,
-or use `--audience NAME` for a named audience. These replace the default project
-owner/operator audience; only audience members can answer. Named audiences use
-live membership, including people added after filing.
-
-`--project PROJECT` selects a visible project. Without it, `--item` selects its
-project; otherwise an unaddressed question uses the session's project. Explicit
-recipients or a named audience without a project or item create a project-less
-question in one organization shared by the asker and all recipients, or the
-named audience's organization. Multiple possible organizations refuse; choose a
-named organization audience. A question with neither project nor audience refuses
-`operator_question_audience_required`; supply `--to` or `--audience`. A named
-audience must belong to the question's project, or its organization when project-less.
-Do not combine `--to` and `--audience`.
-
-The Inbox shows the question as its heading, then who asked and when, followed
-by attachments, context as text, and choices. Asked by names the person and what
-the asking session holds. The recommended tag sits above its primary button;
-option details line up beneath the buttons. A labelled answer box supports Send or Cmd/Ctrl+Enter. Answered
-cards appear in **Decided**. Steering presents pending questions one at a time
-with context and its recommendation, then records the person's answer:
-
-```text
-yoke decision-requests resolve 17 blue
-yoke decision-requests resolve 17 freeform --note "Use violet"
-```
-
-The same durable decision records the person and answering session for either
-path. If steering lacks authority, answer it on the Inbox page. Delivery goes
-to the requesting session even while it is idle between turns, or to the item's
-current holder if the requesting session is terminated or removed.
-A failed delivery records `operator_question_undelivered` on the request and in
-the steering report; read the saved answer and relay it to the holder.
-
-Filed questions cannot be edited. The requesting session or steering may cancel
-a pending question, or replace it atomically with a new immutable question:
-
-```text
-yoke decision-requests withdraw 17 --reason "Direction changed"
-yoke decision-requests ask --replaces 17 --key choose-color --question "Which shade?"
-```
-
-Replacement requires a pending operator question from the same requesting
-session; the old request's withdrawal reason names its replacement. Withdrawn
-questions leave both waiting lists and remain in session history. `dispose-ended`
-also withdraws questions when their item reaches a terminal stage, or when a
-requesting session without an item is terminated or removed. Being idle between
-turns keeps the question open until someone answers or withdraws it.
-
-Steering raises every pending Inbox decision in chat, reconciles the report
-against chat whenever it reports, withdraws obsolete questions, replaces changed
-facts, and records chat answers through resolve immediately.
+Questions and approvals waiting on you appear in **Inbox**. See
+[Decisions and approvals](../guide/decisions.md) for how to answer them and
+[Decision requests](decision-requests.md) for the commands agents use to ask,
+answer and withdraw them.
 
 ## Audiences and shared posts
 

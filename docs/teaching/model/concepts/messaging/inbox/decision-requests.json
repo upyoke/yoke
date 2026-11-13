@@ -4,5 +4,6 @@
  "status": "observed",
  "page": "messaging",
  "position": 1,
- "summary": "Decision requests include gates and non-gating operator questions. Questions keep immutable text, requesting sessions, options and durable answers; requesting sessions or steering can withdraw or atomically replace stale questions. An unattached question stays pending while its requesting session is idle between turns; only termination or removal ends that session subject. Answers still address an idle requesting session for receipt on resume. Targeting is stored as an audience reference and resolved from live membership; decisions and operator-question history keep their existing owners. These lifetime and routing rules are observed in source; deployed proof is pending."
+ "summary": "Decision requests include gates and non-gating operator questions. Questions keep immutable text, requesting sessions, options and durable answers; requesting sessions or steering can withdraw or atomically replace stale questions. An unattached question stays pending while its requesting session is idle between turns; only termination or removal ends that session subject. Answers still address an idle requesting session for receipt on resume. Targeting is stored as an audience reference and resolved from live membership; decisions and operator-question history keep their existing owners. These lifetime and routing rules are observed in source; deployed proof is pending.",
+ "sources": ["docs/public/sessions/decision-requests.md", "docs/public/guide/decisions.md"]
 }

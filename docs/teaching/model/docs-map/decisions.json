@@ -1,0 +1,23 @@
+{
+ "id": "decisions",
+ "title": "Decisions and approvals",
+ "parent": null,
+ "route": "/docs/guide/decisions",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain when an agent needs a person, the two kinds of decision, and how and by whom they are answered.",
+ "outline": ["Two kinds of decision", "How to answer", "Who answers", "Learn more"],
+ "terms": ["decision", "approval", "inbox", "steering"],
+ "commands": ["command:yoke decision-requests"],
+ "sources": ["doc:docs/public/sessions/decision-requests.md", "doc:docs/public/sessions/inbox.md", "replies:decision-requests"],
+ "deeper_pages": ["work", "delivery", "sessions"],
+ "open_questions": [],
+ "position": 22,
+ "topics": [
+  {
+   "title": "Two kinds of decision",
+   "outline": ["Questions", "Approvals"]
+  }
+ ]
+}

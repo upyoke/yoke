@@ -42,7 +42,7 @@ See the [session reference](../sessions/index.md) and [steering report](../sessi
 
 Fleet messages carry instructions, questions, blockers, and results between sessions. A message receipt records delivery or acknowledgement, not agreement to perform the requested work.
 
-A decision is a separate request whose answer satisfies a configured requirement. Your agent can bring decisions to you in conversation, and **Inbox** shows pending approvals with their evidence and effects.
+A decision is a separate request: a question your agent asks you, or an approval a configured requirement needs. Your agent brings decisions to you in conversation, and **Inbox** shows pending questions and approvals with their evidence and effects. See [Decisions and approvals](decisions.md).
 
 ### Delivery and queued messages
 
@@ -54,7 +54,7 @@ If delivery fails, inspect the recorded reason and recovery. A queued message is
 
 Review the subject and evidence before approving. Different decisions can concern an item's work, QA evidence, or a deployment run. Answering one does not settle the others.
 
-See [Inbox and messaging](../sessions/inbox.md) and [Team collaboration](access.collaboration.md).
+See [Decisions and approvals](decisions.md), [Inbox and messaging](../sessions/inbox.md) and [Team collaboration](access.collaboration.md).
 
 ## Levels and staffing
 
