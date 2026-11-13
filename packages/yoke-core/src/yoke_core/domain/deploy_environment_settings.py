@@ -94,6 +94,9 @@ class DeployEnvironment:
     serving_connection: str = ""
     # environments.settings.database.location: one of DATABASE_LOCATIONS.
     database_location: str = DATABASE_LOCATION_AURORA
+    # ssh login (``user@host``) of the Mac that runs this environment's box VM
+    # (environments.settings.servers[0].mac_host). Empty = none declared.
+    mac_host: str = ""
 
     @property
     def registry_host(self) -> str:
@@ -219,6 +222,7 @@ def deploy_environment_from_settings(
         ssh_key_path = ssh_key_override
     else:
         ssh_key_path = str(_capability_value(settings, "ssh", "key_path"))
+    mac_host = server.get("mac_host")
     aws_region = _capability_value(settings, "aws-admin", "region")
     state_bucket = _capability_value(settings, "pulumi-state", "state_bucket")
 
@@ -274,6 +278,7 @@ def deploy_environment_from_settings(
             _env_mapping(env.settings, "deploy").get("serving_connection") or ""
         ).strip(),
         database_location=database_location,
+        mac_host=mac_host.strip() if isinstance(mac_host, str) else "",
     )
 
 

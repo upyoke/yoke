@@ -1,11 +1,12 @@
 """Box mode for ``yoke dev db-admin setup``: Postgres on the environment's box.
 
 An environment whose ``environments.settings.database.location`` is ``box``
-runs Postgres on its own origin host. Its profile forwards the local port over
-SSH to that host's ``127.0.0.1:5432`` and reads the DSN from an owner-only
-machine-local file the operator provisions from the environment's custody
-files. Nothing is looked up in Pulumi or AWS Secrets Manager, and the DSN is
-never read into a report or printed.
+runs Postgres in its box VM on a Mac host. Its profile forwards the local port
+over the Yoke-owned SSH hop (:mod:`yoke_cli.config.db_admin_box_hop`) to the
+VM's ``127.0.0.1:5432`` and reads the DSN from an owner-only machine-local
+file the operator provisions from the environment's custody files. Nothing is
+looked up in Pulumi or AWS Secrets Manager, and the DSN is never read into a
+report or printed.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from typing import Any
 
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import secret_files as machine_secrets
+from yoke_cli.config import db_admin_box_hop as box_hop
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
 from yoke_cli.config.db_admin_setup_report import _path_ref
 
@@ -46,6 +48,7 @@ def plan(
     dsn_path: Path,
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
     """Point the tunnel at the box's own Postgres; return authority and steps."""
+    postgres["tunnel"].update(box_hop.tunnel_fields(env))
     postgres["tunnel"]["remote_host"] = BOX_REMOTE_HOST
     authority = {
         "kind": BOX_AUTHORITY_KIND,
@@ -59,16 +62,35 @@ def plan(
             "action": "resolve-deploy-environment",
             "target": f"{env.project}/{env.env_name}",
         },
+        *box_hop.plan_steps(env),
         {
             "action": "forward-to-box-postgres",
             "target": (
-                f"{env.ssh_target} -> {BOX_REMOTE_HOST}:"
-                f"{postgres['tunnel']['remote_port']}"
+                f"{box_hop.alias(env.env_name)} via {box_hop.mac_host(env)} -> "
+                f"{BOX_REMOTE_HOST}:{postgres['tunnel']['remote_port']}"
             ),
         },
         {"action": "configure-dsn-file-credential", "target": _path_ref(dsn_path)},
     ]
     return authority, steps
+
+
+def apply(
+    env: Any,
+    dsn_path: Path,
+    *,
+    admin_env: str,
+    local_port: int,
+    database_name: str,
+) -> tuple[dict[str, str], dict[str, Any]]:
+    """Check the DSN file, then make the hop work; return source and hop report."""
+    source = credential_source(
+        dsn_path,
+        admin_env=admin_env,
+        local_port=local_port,
+        database_name=database_name,
+    )
+    return source, box_hop.ensure(env)
 
 
 def credential_source(
@@ -95,6 +117,7 @@ __all__ = [
     "BOX_AUTHORITY_KIND",
     "BOX_LOCATION",
     "BOX_REMOTE_HOST",
+    "apply",
     "credential_source",
     "dsn_file_path",
     "is_box",

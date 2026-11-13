@@ -47,9 +47,19 @@ LEASE_WAIT_POLL_SECONDS = 2.0
 
 
 def _build_ssh_argv(spec: TunnelSpec) -> List[str]:
-    """The ``ssh -N -f -L ...`` argv that (re)establishes the local forward."""
-    argv = ["ssh", "-i", spec.identity_file]
+    """The ``ssh -N -f -L ...`` argv that (re)establishes the local forward.
+
+    A spec with its own ``ssh_config`` reads that file instead of
+    ``~/.ssh/config`` and keeps the host key it pins there: a command-line
+    ``StrictHostKeyChecking=accept-new`` would override the file's ``yes``.
+    """
+    argv = ["ssh"]
+    if spec.ssh_config:
+        argv += ["-F", spec.ssh_config]
+    argv += ["-i", spec.identity_file]
     for key, value in SSH_OPTIONS:
+        if spec.ssh_config and key == "StrictHostKeyChecking":
+            continue
         argv += ["-o", f"{key}={value}"]
     argv += ["-N", "-f", "-L", spec.forward_spec, spec.bastion]
     return argv
