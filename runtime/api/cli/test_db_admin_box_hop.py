@@ -82,7 +82,8 @@ def test_ensure_creates_key_authorizes_pins_and_writes_config(home, monkeypatch)
     assert "limactl" in argv[6] and "shell --workdir / yoke-prod sh -s" in argv[6]
     script = kwargs["input"]
     assert "U=ubuntu" in script
-    assert 'grep -qxF "$K" "$F" ||' in script
+    assert "K='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOperator'\n" in script, "comment dropped"
+    assert 'awk -v k="$K"' in script and "END{exit (f==0)}" in script
     assert "/etc/ssh/ssh_host_ed25519_key.pub" in script
     assert "PRIVATE KEY" not in script
 
@@ -182,3 +183,37 @@ def test_mac_host_key_must_match_the_declared_fingerprint(home, monkeypatch) -> 
     assert "servers[0].mac_host_key_fingerprint" in str(excinfo.value)
     assert not (home / "ssh" / "known_hosts").exists()
     assert not any(argv[0] == "ssh" for argv, _ in calls), "no login before the pin"
+
+
+def test_existing_custody_key_with_a_multi_word_comment_is_reused(home, monkeypatch) -> None:
+    calls = fake_hop(monkeypatch)
+    key = home / "secrets" / "platform-prod-box-operator-ssh-key"
+    key.parent.mkdir(mode=0o700, parents=True)
+    key.write_text("PRIVATE KEY\n")
+    key.chmod(0o600)
+    Path(f"{key}.pub").write_text(
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICustody yoke prod operator (custody, 2026)\n"
+    )
+
+    report = hop.ensure(_env())
+
+    assert report["operator_key_created"] is False
+    assert key.read_text() == "PRIVATE KEY\n", "the custody key is never replaced"
+    script = calls[-1][1]["input"]
+    assert "K='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICustody'\n" in script
+
+
+def test_public_key_that_is_not_ed25519_refuses_without_moving_the_key(home, monkeypatch) -> None:
+    calls = fake_hop(monkeypatch)
+    key = home / "secrets" / "platform-prod-box-operator-ssh-key"
+    key.parent.mkdir(mode=0o700, parents=True)
+    key.write_text("PRIVATE KEY\n")
+    Path(f"{key}.pub").write_text("garbage\n")
+
+    with pytest.raises(DbAdminSetupError) as excinfo:
+        hop.ensure(_env())
+
+    assert str(excinfo.value).startswith("box_operator_key_invalid")
+    assert "ssh-keygen -y -f" in str(excinfo.value)
+    assert "aside" not in str(excinfo.value)
+    assert key.exists() and not any(argv[0] == "ssh" for argv, _ in calls)
