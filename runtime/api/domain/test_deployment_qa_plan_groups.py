@@ -200,7 +200,16 @@ def test_plan_groups_never_answer_a_member_s_own_unrun_cases(test_db):
     )
 
     _seed(test_db, attached=MEMBERS[:2])
-    subject = {"id": RUN, "member_item_id": MEMBERS[0]}
+    environment = test_db.execute(
+        "SELECT e.name FROM deployment_runs r JOIN environments e "
+        "ON e.id=r.target_environment_id WHERE r.id=%s",
+        (RUN,),
+    ).fetchone()
+    subject = {
+        "id": RUN,
+        "member_item_id": MEMBERS[0],
+        "target_environment_name": environment[0] if environment else None,
+    }
     own_case = {"plan_id": None, "qa_phase": "post_deploy", "id": 1}
 
     assert member_post_deploy_answer(test_db, subject).verdict == PLAN_GROUPS
