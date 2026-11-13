@@ -31,11 +31,11 @@ def _run(responses):
         mock.patch(
             "yoke_cli.transport.https.relay_https", side_effect=responses
         ) as relay,
-        mock.patch.object(warm_up.time, "sleep") as sleep,
+        mock.patch.object(warm_up, "time") as clock,
         mock.patch.object(warm_up, "_monotonic", side_effect=[0.0, 27.0]),
     ):
         outcome = warm_up.warm_up_environment("prod")
-    return outcome, relay, sleep
+    return outcome, relay, clock.sleep
 
 
 @pytest.mark.parametrize("code", sorted(READ_RETRY_CODES))
