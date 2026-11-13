@@ -321,7 +321,7 @@ def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
     monkeypatch.setattr(
         route_mod,
         "enter_merge_queue",
-        lambda _ctx, pr_num: entered.append(pr_num) or None,
+        lambda _ctx, pr_num, **_kw: entered.append(pr_num) or None,
     )
     outcome = land()
     assert not outcome.ok

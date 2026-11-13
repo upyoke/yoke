@@ -38,6 +38,7 @@ from yoke_core.domain.merge_queue_landing_wait import (
 from yoke_core.domain.merge_queue_drift_gate import drift_check_before_landing
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.merge_github_queue import (
+    READY_TO_ENQUEUE,
     enter_merge_queue,
     read_pr_landing_state,
 )
@@ -174,6 +175,14 @@ def land_item_through_merge_queue(
         )
         if red_checks:
             return fail_landing(pr_num, red_checks, tuple(warnings))
+        # Arming a ready pull request leaves it with no queue entry; a re-run
+        # of that stuck landing enqueues it ("already queued" is success).
+        if pre_state.merge_state_status in READY_TO_ENQUEUE:
+            entry = enter_merge_queue(ctx, pr_num, expected_head_sha=commit_sha)
+            if not entry.success:
+                return fail_landing(
+                    pr_num, entry.error_detail or "queue entry refused", tuple(warnings)
+                )
     if pre_state is None or not (already_merged or already_armed):
         red_checks = red_entry_checks_refusal(
             ctx, pr_num, sleep=sleep, lane_head=commit_sha
@@ -192,7 +201,7 @@ def land_item_through_merge_queue(
                 error=refusal,
                 warnings=tuple(warnings),
             )
-        entry = enter_merge_queue(ctx, pr_num)
+        entry = enter_merge_queue(ctx, pr_num, expected_head_sha=commit_sha)
         if not entry.success:
             return QueueLandingOutcome(
                 ok=False,

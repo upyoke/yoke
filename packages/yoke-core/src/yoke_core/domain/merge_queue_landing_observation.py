@@ -18,8 +18,11 @@ admission check reads — armed, queued, eligible, entry-gated — and
 reports a stop when admission is lost, including a retained UNMERGEABLE entry.
 An open pull request whose merge state GitHub reports unknown is not a stop:
 GitHub reports that mid-merge, after it clears the entry and the arming.
-An open CLEAN pull request with neither arming nor a queue entry is read
-again after three seconds before it can be reported as stopped.
+An open CLEAN pull request with neither arming nor a queue entry, and an
+armed one GitHub could queue now but holds no entry for, is read again after
+three seconds before it can be reported as stopped. Arming alone does not
+queue a ready pull request, so the second case stops until `yoke merge item`
+enqueues it directly.
 """
 
 from __future__ import annotations
@@ -51,10 +54,11 @@ def confirm_clean_landing(
     readback: LandingReadback,
     reread: Callable[[], LandingReadback],
 ) -> LandingReadback:
-    """Re-read a possible CLEAN mid-merge once before declaring an ejection.
+    """Re-read a possible CLEAN mid-merge or entry-forming once before an ejection.
 
     GitHub can clear arming and queue membership seconds before recording
-    the merge. Use the second read for both the durable record and notice;
+    the merge, and can form an armed pull request's entry seconds after its
+    checks pass. Use the second read for both the durable record and notice;
     a persistent CLEAN absence is still a stop, with no stored retry state.
     """
     state, member = readback.state, readback.membership
@@ -62,8 +66,13 @@ def confirm_clean_landing(
         state is not None
         and not state.merged
         and not state.closed
-        and not state.auto_merge_active
-        and state.merge_state_status.strip().lower() == "clean"
+        and (
+            readback.armed_ready()
+            or (
+                not state.auto_merge_active
+                and state.merge_state_status.strip().lower() == "clean"
+            )
+        )
         and member is not None
         and not member.in_queue
         and member.mergeable != "CONFLICTING"
