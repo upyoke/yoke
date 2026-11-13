@@ -14,6 +14,10 @@ process makes while the test runs, and fails the test with
 ``real_home_written`` naming each real-home path it created, changed or
 removed. The checkout, its environment and the interpreter are exempt: they
 often live inside the home folder and tests legitimately write them.
+
+Any project loads it from its root ``conftest.py``::
+
+    pytest_plugins = ["yoke_contracts.testing.real_home_isolation"]
 """
 
 from __future__ import annotations
