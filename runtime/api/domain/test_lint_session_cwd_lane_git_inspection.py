@@ -258,6 +258,7 @@ COMPOUND_READS = (
     "git -C {lane} status --short; git -C {lane} log -5 --oneline",
     "git -C {lane} status&&git -C {lane} diff",
     "git -C {lane} log | head -5",
+    "git -C {lane} diff > /tmp/lane-inspection.txt",
     "cd {lane} && git status && cat README.md",
     "cat {lane}/README.md; git -C {lane} diff",
     "git -C {lane} status\ngit -C {lane} log -5",
@@ -280,7 +281,7 @@ def test_compound_reads_before_implementation(conn, repo, command, target):
     (
         "git -C {lane} log && git -C {lane} checkout x",
         "git -C {lane} log; rm {lane}/f",
-        "git -C {lane} diff > /tmp/lane-inspection.txt",
+        "git -C {lane} diff > {lane}/lane-inspection.txt",
         'git -C {lane} log "$(touch {lane}/f)"',
         'git -C {lane} log "`touch {lane}/f`"',
     ),

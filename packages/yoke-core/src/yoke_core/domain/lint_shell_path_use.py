@@ -250,7 +250,7 @@ def analyze_shell_path_use(
         mutation = mutation or lane_move
         direct_write = direct_write or state_move
         role = PathRole.READ if _match_simple(command_text) else PathRole.UNKNOWN
-        if base == "cd" and len(tokens) == 2 and not tokens[1].startswith("-"):
+        if base == "cp" and not unresolved_writes:
             role = PathRole.READ
         if state_move:
             role = PathRole.WRITE

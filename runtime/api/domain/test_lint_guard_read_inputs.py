@@ -45,8 +45,8 @@ def test_content_file_is_a_read_even_when_the_adapter_mutates_records(validate, 
     assert validate(command).allow
 
 
-def test_record_adapter_keeps_foreign_lane_occupancy_checks(validate):
-    assert not validate(f"yoke qa artifact add --content-file {FOREIGN}/input.json").allow
+def test_record_adapter_can_read_a_foreign_lane_input(validate):
+    assert validate(f"yoke qa artifact add --content-file {FOREIGN}/input.json").allow
 
 
 def test_unknown_program_in_a_foreign_working_directory_stays_refused(validate):

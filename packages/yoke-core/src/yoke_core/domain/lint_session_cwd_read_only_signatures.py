@@ -138,8 +138,8 @@ def _classify_single_arg_read(tokens: List[str]) -> Optional[str]:
 
 
 def _classify_sed_read(tokens: List[str]) -> Optional[str]:
-    """Accept only ``sed -n`` with a numeric print program and one path."""
-    if len(tokens) == 4 and tokens[:2] == ["sed", "-n"]:
+    """Accept only ``sed -n`` with a numeric print program and an optional path."""
+    if len(tokens) in {3, 4} and tokens[:2] == ["sed", "-n"]:
         if re.fullmatch(r"\d+(?:,\d+)?p", tokens[2]):
             return "sed-read"
     return None
