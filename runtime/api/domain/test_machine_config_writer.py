@@ -176,7 +176,9 @@ class TestRemoveConnection:
         assert "prod" not in _config(home)["connections"]
         assert not secret.exists()
 
-    def test_refuses_active_or_non_owned_authority(self, home, tmp_path):
+    def test_refuses_active_authority_and_keeps_foreign_credential(
+        self, home, tmp_path
+    ):
         _seed_https(home, tmp_path, env="prod")
         _seed_https(home, tmp_path, env="spare")
         with pytest.raises(MachineConfigWriteError, match="active authority"):
@@ -190,8 +192,10 @@ class TestRemoveConnection:
         payload["connections"]["prod"]["credential_source"]["path"] = str(external)
         (home / "config.json").write_text(json.dumps(payload), encoding="utf-8")
         (home / "config.json").chmod(0o600)
-        with pytest.raises(MachineConfigWriteError, match="outside Yoke-owned"):
-            writer.remove_connection("prod")
+        report = writer.remove_connection("prod")
+        assert report["credential_retained_foreign"] is True
+        assert "prod" not in _config(home)["connections"]
+        assert external.read_text() == "secret"
 
     def test_named_replacement_takes_over_the_active_authority(
         self,
