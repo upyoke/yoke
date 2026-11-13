@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 import time
 from typing import Callable, List, Sequence
 
@@ -156,30 +157,41 @@ def _terminate_pids(pids: Sequence[int]) -> None:
 
 
 def _start_tunnel(spec: TunnelSpec) -> None:
-    """Spawn the backgrounded ssh forward; raise on a non-zero start."""
+    """Spawn the backgrounded ssh forward; raise on a non-zero start.
+
+    stderr goes to a temporary file, not a pipe: with ``-f`` ssh backgrounds
+    itself, but a ProxyCommand/ProxyJump child inherits stderr and keeps it
+    open for the tunnel's whole life, so waiting on a pipe would only end at
+    the timeout. A file lets ``run`` return as soon as ssh itself exits.
+    """
     argv = _build_ssh_argv(spec)
-    try:
-        result = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            timeout=TUNNEL_START_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise ConnectedEnvUnavailable(
-            f"ssh tunnel start timed out after {TUNNEL_START_TIMEOUT_SECONDS}s "
-            f"[{spec.redacted}]"
-        ) from exc
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ConnectedEnvUnavailable(
-            f"ssh tunnel start could not run [{spec.redacted}]: {redact(str(exc))}"
-        ) from exc
-    if result.returncode != 0:
-        detail = redact((result.stderr or result.stdout or "").strip())
-        raise ConnectedEnvUnavailable(
-            f"ssh tunnel start failed (rc={result.returncode}) "
-            f"[{spec.redacted}]: {detail}"
-        )
+    with tempfile.TemporaryFile() as stderr_file:
+        try:
+            result = subprocess.run(
+                argv,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_file,
+                timeout=TUNNEL_START_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ConnectedEnvUnavailable(
+                f"ssh tunnel start timed out after {TUNNEL_START_TIMEOUT_SECONDS}s "
+                f"[{spec.redacted}]"
+            ) from exc
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ConnectedEnvUnavailable(
+                f"ssh tunnel start could not run [{spec.redacted}]: {redact(str(exc))}"
+            ) from exc
+        if result.returncode == 0:
+            return
+        stderr_file.seek(0)
+        stderr_text = stderr_file.read().decode("utf-8", errors="replace")
+    detail = redact(stderr_text.strip())
+    raise ConnectedEnvUnavailable(
+        f"ssh tunnel start failed (rc={result.returncode}) "
+        f"[{spec.redacted}]: {detail}"
+    )
 
 
 def _healthy_forward_present(spec: TunnelSpec, probe: Callable[[], bool]) -> bool:
