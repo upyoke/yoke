@@ -123,6 +123,8 @@ def validate_targets(
 
     targets_to_check = governed_targets(targets_to_check, repo_roots, command)
     for raw in targets_to_check:
+        if _is_read_target(raw, tool_name, path_uses):
+            continue
         occupant = occupying_claim(conn, target=raw, session_id=session_id)
         if occupant is not None:
             return ValidationVerdict(
@@ -144,8 +146,7 @@ def validate_targets(
         )
 
     for raw in targets_to_check:
-        roles = {use.role for use in path_uses if use.path == raw}
-        if tool_name.strip() and roles == {PathRole.READ}:
+        if _is_read_target(raw, tool_name, path_uses):
             continue
         if _is_target_authorised(
             raw,
@@ -171,6 +172,11 @@ def validate_targets(
         repo_roots=repo_roots,
         session_id=session_id,
     )
+
+
+def _is_read_target(target: str, tool_name: str, path_uses: tuple[PathUse, ...]) -> bool:
+    roles = {use.role for use in path_uses if use.path == target}
+    return bool(tool_name.strip()) and roles == {PathRole.READ}
 
 
 def _is_read_shaped(tool_name: str, command: str) -> bool:
