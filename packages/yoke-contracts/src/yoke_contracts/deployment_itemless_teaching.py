@@ -162,7 +162,7 @@ CREATE_DESCRIPTION = (
     "Takes over the newest same-flow/target predecessor whose source is contained when created, "
     "failed, or waiting only on item QA; a deploying or settling predecessor "
     "stays live and is named in the receipt "
-    "(deployments/model/run-members.md). "
+    "(deployments/takeover.md). "
     "Whether a memberless item-QA run owes a "
     "delivery is asked by validate-composition and before execution, not "
     "here, so add-item can attach to an itemless run. "

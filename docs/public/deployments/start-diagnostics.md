@@ -4,6 +4,12 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Deployments](index.md) > Start diagnostics
 <!-- /yoke:breadcrumbs -->
 
+Read why a run refuses or waits at start, and how to recover each case.
+Every refusal names its recovery; re-drive the same run, and never use
+`--fresh` to recover a lost answer.
+
+## The release checkout
+
 Every Yoke self-release run — the stage run over HTTPS and the serving-API
 production self-deploy — prepares a detached checkout at the run's release
 lineage before launching its engine. Locating that checkout reads only each
@@ -17,6 +23,8 @@ sync, timeout, or missing interpreter refuses as `DEPLOY-DRIVER-ENVIRONMENT`,
 with the pinned path, repair recipe, and same-run re-drive instructions. Watcher
 failures remain in its raw and progress captures. Every other project's
 delivery keeps the installed engine environment.
+
+## Schema convergence at start
 
 A driver connected straight to the control-plane database runs the
 release's own code against it before that release has booted. Before its
@@ -43,6 +51,8 @@ started skips the phase: its first start converged the schema and its
 candidate is frozen. A driver relaying through HTTPS skips this step,
 because the serving build answers every call.
 
+## Execution context and containment
+
 A normal driver start builds its execution context once. Composition completes
 and validates membership before the driver reads it, and returns that pass’s
 enrolled references. Branch verification and QA seeding use those members.
@@ -67,6 +77,8 @@ yoke deployment-runs execution containment-basis RUN-ID --json
 It refuses while another session is the run's live driver. A serving build below its declared
 minimum version refuses by name; use the same-universe owner’s local authority
 when driving the control plane’s own upgrade. Ordinary projects use HTTPS.
+
+## Shared reads during composition
 
 Coverage resolves member completion flows as a set, with one project/workflow
 default resolution per distinct pair. The flow and source record are shared
@@ -100,63 +112,7 @@ them again after provisional rollback. Membership and takeover still commit
 atomically, and derived selections are still derived again at composition freeze.
 Old runs continue to use their saved QA contracts.
 
-After each member removal, the orphaned plan-group check reads the remaining
-members' live attachments. A group with no attaching member left is retracted;
-its passed rows stay. A removed member cannot keep a group alive through cached
-membership. The outer schema/source cache is a separate scope.
-
-Completion publishes exact run/member/environment/candidate attribution in the
-existing delivery-stamp facts, in the same transaction as the item's done status.
-An independently completed member stays delivered even if its siblings or run
-later fail or cancel. Dependency and dashboard readers consume this durable
-answer. Accepted QA and a preflight stamp alone do not mean the item completed.
-
-The driver raw capture contains `Deployment start timing: ` JSON lines from
-preflight pin reading onward. Each step has a UTC start/end timestamp, monotonic
-elapsed milliseconds, outcome, run ID, source SHA, member count, and transport.
-Failed steps also record `reason_code`: the refusal's code when present,
-otherwise the exception type, so a planned retry remains distinguishable from
-a defect. SHA and member count remain unset until their authoritative reads.
-Pin reading, worktree retirement/ensure, child launch, context substeps, branch
-verification, QA seed, containment attestation, freeze, and executing stamp are
-named separately. HTTPS returns server substeps with its response for the driver
-to flush; local execution collects them through the same contract. The watcher
-preserves preflight lines when it appends child output. Records carry no secrets
-and are never operational authority.
-
-Each run-scoped driver scope (preflight, watched child, pinned re-exec, pipeline)
-also stores its start/end records in `deployment_run_timings` through
-`deployment_runs.timings.record` when it closes; the pipeline also flushes at
-each stage, so a running run's earlier steps are readable. Any machine can read
-them:
-
-```text
-yoke deployment-runs timings RUN-ID [--json]
-```
-
-It prints per-step elapsed totals, then every record; `--json` returns each
-record as the driver wrote it. A write that cannot land never fails the run: the
-driver prints `Deployment timing record refused: ` with the run, the named error
-and the recovery, the capture still holds the lines, and the next flush retries
-them without duplicating any that landed. An empty answer names
-that no timings were recorded.
-
-For a start-gap measurement, subtract the earliest preflight-start timestamp
-from the successful executing-transition end (both on the driver’s clock) in
-that same run’s records. Report the sum of context elapsed time, freeze elapsed
-time, and any refresh attempts alongside the total. Compare matched
-source/transport/member-count conditions; missing markers are incomplete
-evidence, never a zero-time result.
-
-The read-only report computes it from the recorded timings:
-
-```text
-python3 -m yoke_core.tools.deployment_start_report --run-id RUN-ID --baseline-seconds SECONDS
-```
-
-The report refuses incomplete markers or more than one context build, and prints
-the measured total and every step’s elapsed time; a slower start still reports
-its measured difference.
+## Source preparation
 
 
 Source/provider and containment preparation precede item/run locks. The short
@@ -170,30 +126,18 @@ and retries the commit phase, up to eight preparations. After that the start
 refuses as `deployment_source_preparation_changed`, naming the exact source
 key; nothing was dispatched, so re-drive the same run.
 
-Creation prepares
-against the waiting run when its takeover would settle that run succeeded;
-a cancelled takeover keeps the preceding succeeded release as its base. This
-unlocked prediction moves unclosed members into provisional membership so
-validation prepares their source questions too. Rollback restores the waiting
-run without removal audits, notices or settlement; the locked pass rechecks
-and applies the takeover. If creation exhausts source preparation, repeat the original
+If creation exhausts source preparation, repeat the original
 `yoke deployment-runs create` or `yoke deployment-runs start-for-item` command
 with the same arguments and idempotency key, if supplied; no new run was
 created.
+
+## Lost answers and stage interruptions
 
 QA occupancy
 uses the first real blocker and shares peer-plan facts within that evaluation;
 full diagnostic reads still report all blockers. Item/run/target lock contention
 refuses as `deployment_start_lock_busy` after two seconds and names same-run
 recovery. It is not a measured diagnosis of which older transaction held a lock.
-
-An item-QA cursor followed by QA/approval gates and the declared final `auto`
-completion step is eligible for takeover. Any remaining execution step is not.
-Containment, same flow/target and driver ownership still apply. Recreating a run
-alone cannot repair those facts. A delivered run can settle while its member
-still owes manual acceptance or post-deploy QA on another named target; that
-requirement stays unmet and the item stays at release until it is accepted.
-Same-target or untargeted acceptance still blocks completion.
 
 A mutation timeout or connection loss is `deployment_outcome_unknown`, not a
 deployment failure. Bound-source preparation commits its exact request receipt
@@ -250,63 +194,7 @@ Whole-run reads project each stored field directly. Shell pipes, newlines and
 quotes in frozen member instructions remain part of the complete receipt;
 they cannot split its fields or displace source identities and timestamps.
 
-Timing records distinguish `start_source_preparation`, `start_admission_reads`,
-`start_item_run_locks`, `start_admission_recheck`, `start_source_refresh`,
-`target_occupancy`, `composition_freeze`, `bound_source_provider`,
-`bound_source_composition`, `bound_source_enrollment`, `bound_source_judgement`,
-`bound_source_item_run_locks`, `bound_source_recheck`, `bound_source_commit`
-and `executing_stamp`. The `start_admission_reads`, `bound_source_composition`,
-`bound_source_enrollment` and `bound_source_judgement` steps read every member,
-and judge the members enrollment would add, before the run row lock;
-the two `_recheck` steps prove those reads current under it, and a changed
-input repeats the reads while the lock is held. A lock timeout names the phase,
-not an invented blocker; missing response/timing evidence stays unknown. Real-run verification must name
-the exact deployed source and representative members; a small fixture is a
-regression check, not proof of production startup time.
-
-Fleet preparation reports the actual subphase under the declared deployment
-stage: declarations, receipt authority, admin connection, roster, ownership,
-extensions, copy dump/restore, boot convergence, invariants, product readers,
-cleanup and receipt writing. Long subphases emit `phase=running`,
-`outcome=pending` and elapsed milliseconds every thirty seconds. Restored-copy
-reader diagnostics identify sessions, frontier, board, launch pages/details,
-message attempts and items, with `record_count` and `completed_count` for each
-record family. Every copied record still reaches its existing handler or
-decoder. Bounded batches reuse the canonical session projection and item text
-expressions, and fetch launch and attempt rows in sets; no check is sampled or
-skipped. Batch data is discarded on exit and cannot cross copy authorities.
-Connections opened under a bound copy still physically close.
-Every timing line stays in the driver raw capture, which is where preparation
-is identified before any provider dispatch. Outcome-only watchers do not
-forward each line on its own: ordinary lines join the progress digest, at
-most one digest line per flush window, which `yoke watch tail` holds until the
-next urgent line or sentinel rather than waking on it; a line whose outcome is
-failed is urgent and is forwarded immediately. Other watchers still emit timing lines
-as they arrive. They carry run/source identity when supplied and no DSNs.
-A missing end marker is unfinished evidence, never a successful receipt.
-
-Validation reads member workflow pins and skipped-candidate status in sets,
-interprets each distinct pinned workflow version once per set, and resolves
-refusal and rework labels together. Mutable statuses are read again on the
-locked pass; no validation result survives provisional rollback.
-The nested steps `validation_bound_sources`, `validation_custody`,
-`validation_carried_work`, `validation_enrollment_plan` and
-`validation_judgement` show where validation spends its time.
-
-Creation uses the same timing format for `create_source`,
-`create_provisional_composition`, `create_lock`, `create_locked_composition`,
-`create_takeover`, `create_validation`, `enrollment_members`,
-`create_commit`, `create_takeover_settlement` and
-`create_response`. Source refresh attempts have their own marker. Long phases
-emit the same thirty-second pending heartbeat; member validation also reports
-record/completed counts. The creation handler collects these diagnostics and returns them in
-`start_timings` on both local and HTTPS transports. The CLI saves the timing
-records to complete private evidence and prints its path beside the compact
-creation receipt; it does not repeat the records as an inline table. Deployment
-execution keeps its streamed driver timings. Nested phase durations overlap
-and must not be added as independent wall time. A missing response or end marker
-does not authorize another create; keep the request's idempotency key and
-reconcile the existing attempt.
+## QA wait reads
 
 An unchanged fingerprint retains the previous blocker result. A dispatch reads gate facts
 once across the run's members; acceptance writes re-check their own subject
@@ -325,3 +213,5 @@ answers are reused for that dispatch. A newly changed source input refuses as
 its inputs. If a connection drops while handling another error, the driver
 reports both the original error and the rollback loss as a resumable connection
 loss. An idle-in-transaction timeout is named as the original cause.
+
+Timing records and the start-gap report are in [start timings](start-timings.md).

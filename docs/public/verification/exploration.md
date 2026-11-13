@@ -32,6 +32,9 @@ Controller walkers use local tools and browsers. Host walkers use managed
 browsers for named identities or when the walk installed Yoke; otherwise the
 host browser. Host access comes from the `QA_HOST:` lease recorded on
 `qa_plan_executions.test_machine_lease_id`, never an undeclared access path.
+A walk that belongs to a deployment run opens its prompt with that run's ID,
+environment and full commit, labelled "deployment run" apart from the
+capture `--run-id` its commands use.
 
 ## Authoring Shape
 

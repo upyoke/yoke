@@ -9,6 +9,6 @@
  "surface": "Release-batch create, the member-owner role, and the delivery rules",
  "review": "The deployed takeover keeps the live execution; this lesson records that action.",
  "topics": ["deployments/recovery/run-takeover"],
- "sources": ["docs/public/deployments/model/run-members.md", "docs/public/agents/rules.md", ".agents/skills/yoke/steer/release-batches.md"],
+ "sources": ["docs/public/deployments/takeover.md", "docs/public/agents/rules.md", ".agents/skills/yoke/steer/release-batches.md"],
  "position": 6
 }

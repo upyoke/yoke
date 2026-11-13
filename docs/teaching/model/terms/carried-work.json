@@ -3,5 +3,5 @@
  "term": "Carried work",
  "definition": "An item whose code is included in a deployment run without that run necessarily owning the item’s QA and completion obligations.",
  "status": "draft",
- "sources": ["docs/public/deployments/model/run-members.md"]
+ "sources": ["docs/public/deployments/model/runs.md"]
 }

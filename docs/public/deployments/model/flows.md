@@ -189,11 +189,28 @@ flow with a deployment target when the work must deploy.
 Flows with a deployment target create concrete `run-...` ids through
 `/yoke usher`, and each run retains its definition relationship for durable history.
 
-## Deployment run authority
+## Retiring a flow
 
-[Deployment runs](../../deployments/model/runs.md) define lineage, composition and idempotent creation; [stage receipts](../../deployments/model/stage-receipts.md) define executor evidence; [members and QA](../../deployments/model/run-members.md) define custody, settlement, target occupancy, run drivers and blocking QA. Read these before creating or executing a run or interpreting release completion.
+Disable a flow to stop new assignments while keeping its history. A
+definition a run used is immutable, so change one by publishing a successor
+(`yoke deployment-flows version`, which records `supersedes_flow_id`) and
+disabling the predecessor. Items pinned to the retired flow follow its newest
+active successor in the same project that targets the same environment and
+tier (a stage or QA-only successor of a production flow is not followed) for
+admission, completion authority, `deployment-runs start-for-item`, approvals
+and the fleet report; an active run keeps its own flow's stages. A release
+that already delivered them on the retired flow still closes them. Their
+stored pin is kept, and item reads report it as `pinned` beside the
+successor. A retired pin with no active successor refuses as having no active
+completion flow.
 
-Run lifecycle events (`type='deployment_run'`, such as `DeploymentRunStageStarted` or `DeploymentRunWarmedUp`) are written once per run, carry `run_id` in their context, and name no member item. Find a run's members in `deployment_run_items`; the events are telemetry, never the record of what a run carried.
+## Run events are telemetry
+
+Run lifecycle events (`type='deployment_run'`, such as
+`DeploymentRunStageStarted` or `DeploymentRunWarmedUp`) are written once per
+run, carry `run_id` in their context, and name no member item. Find a run's
+members in `deployment_run_items`; the events never record what a run carried.
+Runs themselves are described in the [deployments overview](../index.md).
 
 ## Table: deployment_preview_environments
 

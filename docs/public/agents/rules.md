@@ -156,7 +156,7 @@ variables or pattern matchers. Directory names explain purpose.
   It never runs a member item's own cases and never closes a member item.
 - A member item's owner runs that item's cases for its stage and closes it with
   `yoke merge item`
-  ([run members](../deployments/model/run-members.md)).
+  ([QA dispatch](../deployments/qa-dispatch.md)).
 - Before creating a run, check the members' flows. Use their flow or reconcile
   it openly; never change an item's flow silently. Never delete a flow a run
   references.

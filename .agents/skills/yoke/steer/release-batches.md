@@ -16,9 +16,9 @@ yoke --env CONTROL_PLANE watch deploy -- RUN_ID
 Every run records that commit and key `RELEASE_KEY:FLOW`. A refusal cancels
 runs already made by the call. A correction needs a new set on its passing
 commit; earlier proof does not cover it. For tip binding, see
-`.yoke/docs/deployments/index.md#create-a-release-set`.
+`.yoke/docs/deployments/cutting-runs.md#create-a-release-set`.
 
-Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
+Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/takeover.md`).
 
 CONTROL_PLANE is the project-owning HTTPS connection (`--env`, or checkout routing);
 DB env refuses run creation with `use_https_env`. Both targets use the selected

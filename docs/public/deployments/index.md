@@ -1,252 +1,210 @@
-# Delivery
+# Deployments
 
 <!-- yoke:breadcrumbs -->
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Deployments
 <!-- /yoke:breadcrumbs -->
 
-Web dashboard delivery has three destinations, and **Deployments** carries two
-tabs because a flow definition and a run of it are two readings of one
-subject:
+This page explains how Yoke deploys code and checks it after it ships. Each
+section is short and links to the page with the details.
 
-| Destination | Meaning |
-|---|---|
-| **Deployments → Flows** | Pipeline definitions runs execute. Read-only: create, version and disable them with `yoke deployment-flows create`, `version` and `set-status`. |
-| **Deployments → Runs** | Each execution of a flow against an environment. The run ID opens that run. |
-| **Environments** | Deploy targets |
-| **Databases** | Declared DB models, posture, apply records — see [databases/index.md](../databases/index.md) |
+---
 
-Flows is the tab Deployments opens on. Runs live at `/deployments/runs`, and
-one run at `/deployments/runs/<run id>`.
+## Sites, environments and flows
 
-Commits made outside Yoke ship without an item or attestation. Run pages,
-Shipping cards, Runs tables and release approvals show **Also includes N
-commits made outside Yoke**. Expand it to see each project's short commit SHA,
-subject and author. Optional `yoke merge-receipt commits attest` ties a commit
-to its owning item; installer refresh commits follow the same rule as any hotfix
-or bot commit.
+A **site** is one deployable part of a project, such as a web app or an API.
+An **environment** is a named place where a site runs, such as `stage` or
+`prod`; its URL names the server a deploy lands on. A **flow** is the
+reusable recipe for delivering to one environment, its **target**: an ordered
+list of stages. A flow with no target is merge-only; merging the item
+finishes it, and no run is ever created.
 
-**Flows** lists every definition you can read, grouped by project with the
-projects in the current scope first, and searches names,
-IDs, stages and environments. Disabled definitions stay hidden until **Show
-disabled (N)** is checked; only a flow that is not active carries a status
-pill. The selected flow shows its name and ID, its description, and one facts
-row — project, environment, target tier, on failure, and the flow it
-replaces (`supersedes_flow_id`, linked). Its pipeline is a numbered list in
-stage order, each stage naming what runs it ("GitHub Actions ·
-release.yml", "Warm-up · prod", "Automatic", "Approval"); QA and approval
-stages add their scope, where they run, and who decides, and stages a person
-must decide are marked. Up to five recent runs of the flow link to their run
-pages. On a narrow pane the list comes first and a chosen flow opens alone
-with **‹ All flows** to return. The page has no controls that change a
-definition: flows are created, versioned and disabled only through
-`yoke deployment-flows create | version | set-status`.
+Each item selects a flow, usually its project's default. That flow decides
+which run can finish the item. Flows are changed by publishing a new version,
+never by editing one a run already used.
 
-Selecting a flow updates its shareable URL, survives reload, and supports
-Back. **All flows** returns focus to the list. Action dialogs keep keyboard
-focus inside, return it on dismissal, and prevent duplicate pending actions.
+[More on Sites, environments and flows](model/flows.md)
 
-Packs distinguish a newer available version from an expired repository
-report. Opening an update preview names the selected Pack and project and
-moves focus to that preview. Environments and Databases keep unavailable
-facts explicit and put detailed technical limitations behind disclosure.
+[More on the Deployments dashboard](dashboard.md)
 
-**Runs** titles each row with its flow name and puts the run ID beneath it as
-the link to the run. The QA evidence column holds a few small thumbnails with
-"and N more" beneath; the run page has the rest. The table stacks each row
-into labelled lines whenever its content pane cannot hold every column.
-The run page reads that exact run across every project the viewer can access,
-so its members include work from another project even when opened from a
-project-filtered list. The list itself keeps its chosen project filter; run
-checks and the target environment still belong to the run's owning project.
+---
 
-## Item-bound delivery
+## Release runs and their stages
 
-Frontier item cards show the newest run that named the item in each
-environment, including recorded removals. A removed member reads
-"removed · <recorded reason> · rides a later release", or links the newer run
-holding it. With no recorded reason it reads "removed · rides" and still
-names the later run. Removal changes QA custody, and does not remove the
-code from the build.
-A failed or cancelled deployment keeps that outcome even when its member
-QA cannot be read, with the QA reason available on the same tooltip.
+A **run** is one execution of a flow against one commit, its **candidate**.
+The run's stages go in order: first the deploy stages (CI, GitHub Actions
+workflows, health checks, warm-up), then QA, then gates such as human
+approval. The run's current stage lives on the run, not on its items.
 
-`/yoke usher` and `yoke deployment-runs start-for-item` bind implemented work
-to a run, execute the pipeline, and move members toward done. start-for-item
-binds the CI-proven gate branch tip exactly as `create` does, and returns the
-run already holding or carrying the item (`reused`) rather than starting a
-second one. `bound_release_in_flight` names another project's live release that
-ships this source without the item: let it finish, then run start-for-item
-again ([commit proof](../verification/success-policy.md#commit-proof)). Flow id ≠ run
-id (`run-YYYYMMDD-NNN`).
+The items a run delivers are its **members**. A run enrolls every item that
+has merged and waits at its release stage, when the candidate contains that
+merge. Other code in the candidate ships too; commits made outside Yoke are
+listed, not blocked. A **release** is the run, or the set of runs, that ships
+one commit.
 
-Delivered members require accepted item cases and single-member plans, plus
-a closed group covering each shared post-deploy plan. Failing
-or unanswered requirements still block, and superseded requirements hand the
-obligation to their successors. Re-drive a settling run with
-`yoke deployment-runs update RUN status succeeded`.
+A run is `created` until it starts, `executing` while it works, and then
+`succeeded`, `failed` or `cancelled`. Once its last QA and gate pass, the run
+settles (see below) and only then reads `succeeded`.
 
-Membership is not by itself completion. A member closes only on a succeeded
-run with completion authority for it: a run of the item's own selected flow,
-or another project's run that recorded a bound source commit for the item's
-project. Carried code, a failed run, or a same-project run of another flow
-does not close it. So a final-delivery release refuses, before it executes,
-a same-project member whose selected flow it cannot close. The refusal names
-both repairs: select the run's flow for the item, or cancel the run and
-deliver the item on its own flow. When a release with that authority
-succeeds, it stamps each member's delivery evidence and closes every member
-whose item and shared gates have passed, with no holder re-running a merge.
-The run reads `succeeded` only after those close-outs have happened. Until
-then it stays `executing` and settling (`settling_at`), a durable state that
-counts as delivered for its members' own gates. Settlement then runs in two
-phases. First, each cleared member's prerequisites are committed — its
-delivery evidence stamped and its status preflight run — which closes
-nothing and is safe to repeat. Then every member's terminal status and claim
-release is written in one transaction and committed once, so members close
-together or not at all, even if the process stops part way. One member's
-refusal rolls the whole set back: no member closes, and every claim and lane
-is kept. The refusal names each member — the
-blocked ones with their own reason, the rest as held with the run so nobody
-repairs a member that has nothing wrong. A final member the run could not
-even try to close, such as one whose post-deploy obligations are unanswered
-or whose done gate still has a blocking QA requirement open, holds the run
-the same way; settlement then refuses before writing any member, and the
-refusal names each open requirement. Every such refusal carries the error
-code `run_settlement_blocked`. Repeating the write changes nothing, so the
-deploy driver stops at once with exit 4 (finalization pending) and that
-refusal instead of retrying; it retries only a write that got no answer.
-A re-drive does not stamp `deployed_to` again on members already `done`
-with that delivery. A run settles on its own target: a member whose
-only open obligations target another environment — stage QA beside a
-production release — is delivered by this run, stamped `deployed_to`, and
-stays at its release wait without holding the run. It closes against that
-delivery once a run on the other environment accepts its obligation. A
-member still red or unanswered on the run's own target keeps holding it.
-Holding is per target environment: a production holder never keeps an item
-out of a stage run that still owes it stage QA. Supplemental proof credits
-when the run's recorded item-project commit contains the item's current
-landing, including a bound-project commit. A same-environment holder keeps
-custody on the same commit with covering selection, or once no QA remains
-owed there; failed proof allows a later stage run to enroll it again.
-Re-merging replaces the landing and withdraws proof that lacks that landing.
-Unreadable containment credits nothing and names the reason and recovery.
-This permits Stage and Production commits to differ in surrounding code,
-including later fixes or reverts; Production-target obligations still guard
-Production, and other items carry their own QA. A carried cross-project member whose own
-completion flow declares no item QA and which has no explicit plan or
-post-deploy requirement owes no answer: stage and fleet reports name its
-own flow as the reason, and it closes with the release. Same-project members
-and carried members whose own flow declares item QA still need an answer;
-explicit obligations always run. Second, after that commit, the closed members'
-effects run: GitHub sync, lane cleanup, and ending the holders' now-empty
-sessions. They are idempotent, and a failure among them never reopens a
-closed member. It keeps the run settling, naming the member and the failure,
-until a replay finishes the effects and marks the run `succeeded`.
-Settlement replays by itself when the blocking record is cleared or a
-member's merge close-out commits `done`. The last recovered member therefore
-finishes its settling run without a hand re-drive; remaining gates still
-hold the run open. If the run stays `executing`, `yoke
-deployment-runs update RUN status succeeded` replays it.
+[More on runs and their records](model/runs.md)
 
-Residue is cleared on the way through. A member's own release walk opens an
-item-level QA execution, and when the run scopes that member its own item
-QA, the run-bound execution is the one that produces evidence while the
-older row stays live under a parked holder. An item-level execution whose
-cursor never advanced and that owns no result row has produced nothing, so
-settlement aborts it with `superseded-by-run-scoped-item-qa` and closes the
-member. One that did record a result keeps refusing, and its own walker
-still owns it.
-When a no-change Dash that never opened a lane is left at its release wait,
-its holder closes it with `yoke lifecycle transition PREFIX-N --to done`.
-That transition still requires the succeeded run, QA, and approval.
+[More on how a run picks its members](model/run-composition.md)
 
-Whether final members close one at a time or together depends on the
-selected flow. When it has no run QA and no run approval, each final member
-closes on its own once its delivery lands and its own item QA is accepted or
-discharged with no post-deploy obligation, even while a sibling is still
-waiting. When the flow has either shared gate, every final member keeps its
-claim, lane, and session until all item gates and shared gates pass, and the
-run and its members then close together.
+---
 
-## Create a release set
+## Who cuts runs, and release pairs
 
-To release one commit through several flows, name each flow in one create:
+Runs are cut by an item's own delivery (`/yoke usher` or
+`yoke deployment-runs start-for-item`), or by the project's steering session,
+which cuts one release for a batch of items. Cutting means creating the run; a driver
+(`yoke watch deploy -- RUN-ID`) then executes it.
 
-```sh
-yoke --env CONTROL-PLANE deployment-runs create PROJECT STAGE-FLOW PRODUCTION-FLOW --idempotency-key RELEASE-KEY
-```
+One command can cut a **release set**: one run per named flow, all on one
+commit. Yoke's own project cuts its Stage and Production runs together by
+habit, as a **release pair**. Each run of the pair runs on its own: neither
+waits for the other, and each owes its own QA.
 
-With no source options, the set binds one gate branch tip, read from a flow
-that waits for CI: a tip whose only CI ran in the merge queue gets one CI
-dispatch, and every flow releases that commit. To choose a commit, pass
-`--project-repo-path CHECKOUT --source-ref FULL_SHA` once. Each run gets the
-key `RELEASE-KEY:FLOW` and its own flow's environment, so `--environment` and
-`--retry-of` are refused. The set is all or nothing: if any flow refuses, no
-run is created and no older run is taken over, so repeating the same command
-with the same key creates the whole set. A key whose run was cancelled before
-it started creates a fresh run; one cancelled after it started still returns
-that run, so a deliberate cancel is never recreated. Name only flows that may start now, and
-drive each run; your flows and QA gates decide any order. When a
-correction lands, create a new release set on its passing commit; earlier
-Stage proof does not cover the correction.
+Only one run holds a server at a time. A run holds it from its start until
+its QA has settled or it ends, so a run waiting on QA still holds it. A newer
+run cut behind a run that waits only on QA takes that run over (see
+Takeover). A newer run cut behind a run that is still deploying waits as
+`created`; it is never started over the busy one, and its start refuses with
+`target_occupied`, naming the holder.
 
-### Release policy at creation
+[More on cutting runs and release sets](cutting-runs.md)
 
-`deployment-runs create` prints the project's execution instructions that
-select When creating release, once per call: a release set prints them once,
-not per run, and a replayed create prints them again. Read and obey them
-before you execute the runs. JSON returns them as `execution_instructions`;
-an older server omits the field and prints nothing. `watch deploy` does not
-repeat them. See [execution instructions](../projects/execution-instructions.md).
+---
 
-## Hosting
+## Item QA, run QA and shared QA
 
-There is no separate Hosting destination. Hosting shows up as:
+A flow's QA stage is scoped to items or to the run.
 
-- Packs (container runtime, host maintenance, smoke testing, …)
-- `/yoke onboard` configures delivery only for first dashes that need managed infrastructure
-- Environment settings (projected scalar reads only — never dump whole
-  settings documents)
+- **Item QA** checks one member. Its cases come from that item. The item's
+  owner, the session holding its work claim, runs it and keeps its claim. An
+  agent running a QA mission is **walking** it; the open run of the mission is
+  a **walk**.
+- **Run QA** checks the release as a whole. The run's driver answers it.
+- **Shared QA** is one plan attached by two or more members. It runs once as
+  a plan group, and the driver answers it for all of them.
 
-## Disable vs delete
+When the flow has no run QA and no approval gate, each member closes as soon
+as its own QA passes. When it has either, all members wait and close
+together once every QA and gate has passed.
 
-Disable a flow definition to stop new assignments while retaining history.
-Definitions referenced by runs are immutable, so change one by publishing a
-successor (`yoke deployment-flows version`, which records
-`supersedes_flow_id`) and disabling the predecessor. Items pinned to the
-retired flow follow its newest active successor in the same project that
-targets the same environment and tier — a stage or QA-only successor of a
-production flow is not followed — for admission, completion authority,
-`deployment-runs start-for-item`, approvals (an active run keeps its own
-flow's stages), and the fleet report. A release that already delivered them
-on the retired flow still closes them. Their stored pin is kept, and item
-reads report it as `pinned` beside the successor. A retired pin with no
-active successor still refuses as having no active completion flow.
+[More on QA dispatch and plan groups](qa-dispatch.md)
 
-## Item Delivery card
+[More on release QA authority](model/releases.md)
 
-The item page names the run selected by the same completion-authority read
-as the done gate: **Delivered by** when delivery succeeded, **Delivering**
-while it is in flight, and **Also in** for other carrying runs. A release
-from another project can deliver the item when its recorded bound source
-has completion authority; matching flow names alone do not prove delivery.
-Each run shows its flow → target environment. Terminal runs show **finished**
-(succeeded) or **ended** (failed/cancelled) from `completed_at`; executing
-runs show their current stage and **started** from `started_at` (or
-`created_at` before execution starts). A missing terminal timestamp is
-reported as unavailable rather than substituted with the creation time.
-The **Item’s flow** row is omitted when that flow delivered the item. When
-another flow delivered it, the selected flow says **not used: delivered by
-the run above**.
+---
+
+## Takeover
+
+Takeover happens when a newer run is created on the same flow and target as
+an older run. A run created before its commit is chosen never takes over.
+The newer run takes over, in this order:
+
+1. an executing run whose deploy stages are done, that waits only on QA and
+   gates, and that still owes QA; never-started runs created between the two
+   are taken over with it;
+2. otherwise the newest never-started run;
+3. otherwise the newest started run, if it failed.
+
+The newer candidate must contain the older one. If it does not, creation
+refuses with `takeover_candidate_not_contained` and nothing is created.
+
+Members the older run already closed stay with it. Every unfinished member
+moves to the newer run intact, with its QA executions and the run-level QA.
+Then the older run ends:
+
+- a failed run keeps its failure;
+- a run with no run QA or approval gate that already closed some members is
+  marked `succeeded`, because the members left on it are delivered;
+- every other run is cancelled.
+
+An open walk carries over to the newer run. It keeps its execution, and its
+owner gets no wait notice; nothing restarts it or holds it. If the owner's
+session has ended, Yoke's sweep of ended sessions closes out the walk and
+the member is woken.
+
+[More on takeover](takeover.md)
+
+---
+
+## Removing an item from a run
+
+`yoke deployment-runs remove-item RUN-ID PREFIX-N --reason R` takes an item
+out of a release. Its code still ships; the run just stops owing its QA and
+close-out.
+
+The item stays out of that release, including any run that takes the release
+over. It rejoins the first release cut after that release has ended, meaning
+the run it was removed from and every run that took it over.
+
+[More on removing an item](removal.md)
+
+---
+
+## Settlement and item completion
+
+When the last QA and gate pass, the run **settles**. It stamps each member's
+delivery evidence, closes the members that are ready, and then reads
+`succeeded`. While it settles it counts as delivered for its members' own
+gates. Only a run of the member's own selected flow, or another project's run
+that recorded the member's commit, can close it. Code that merely rides along
+in a candidate never closes an item.
+
+[More on settlement](settlement.md)
+
+---
+
+## Ended runs, stage receipts and release authority
+
+Each deploy stage records a **stage receipt**: what it did, on which target,
+for which commit. QA reads only receipts, never a stage's name or intent.
+When a run ends failed or cancelled, the GitHub workflows it dispatched are
+asked to cancel.
+
+Before an item closes, release authority rechecks its QA acceptance against
+the run. Notices tell people and sessions what the release decided.
+
+[More on stage receipts and ended runs](model/stage-receipts.md)
+
+[More on release authority](model/releases.md)
+
+[More on release notices](model/release-notices.md)
+
+---
+
+## When a run won't start
+
+A start can refuse or wait for a named reason: the server is occupied, a
+source changed while preparing, a lock is busy, or the answer was lost. Each
+refusal names its recovery. Re-drive the same run; never use `--fresh` to
+recover a lost answer.
+
+[More on start diagnostics](start-diagnostics.md)
+
+[More on start timings](start-timings.md)
+
+[More on deployment QA continuity](../verification/deployment-qa-continuity.md)
+
+[More on deployment plan execution](../verification/deployment-plan-execution.md)
+
+[More on failed item QA](../verification/failed-item-qa.md)
 
 <!-- yoke:contents -->
-- [Start diagnostics](start-diagnostics.md) — Diagnose candidate preparation, containment refresh and start timing.
-- [QA dispatch](qa-dispatch.md) — Bound member close-outs and recover HTTPS response timeouts.
-- [Runs](model/runs.md) — Read deployment run composition and carried-work authority.
-- [Ended runs](model/ended-runs.md) — Read how an ended run cancels the GitHub workflows it dispatched.
-- [Stage receipts](model/stage-receipts.md) — Read durable non-QA deployment-stage attempt evidence.
+- [Sites, environments and flows](model/flows.md) — Read deployment targets, flow definitions and supported stage contracts.
+- [Deployments dashboard](dashboard.md) — Read the Flows and Runs tabs and item delivery cards.
+- [Runs](model/runs.md) — Read the run record and the work its candidate carries.
+- [Run composition](model/run-composition.md) — Read how a run enrolls members, asks custody and freezes admission.
+- [Cutting runs](cutting-runs.md) — Create runs and release sets, idempotently, behind a busy server.
 - [Run members and QA](model/run-members.md) — Read member custody, target occupancy and run-bound QA.
-- [Frozen member plans](model/member-plan-snapshots.md) — Match admitted QA attachments and remove incomplete members.
+- [QA dispatch](qa-dispatch.md) — Route item, run and shared QA, and close accepted members.
+- [Takeover](takeover.md) — Read when a newer release takes over a run and what moves.
+- [Removing an item](removal.md) — Take a member out of a release and see when it rejoins.
+- [Settlement](settlement.md) — Read completion authority and how a run closes its members.
+- [Stage receipts and ended runs](model/stage-receipts.md) — Read stage attempt evidence and what ending a run cancels.
 - [Release authorities](model/releases.md) — Read deployed revision checks and release-to-done QA authority.
 - [Release notices](model/release-notices.md) — Read caseless QA, settled-result and owner delivery notices.
-- [Sites, environments and flows](model/flows.md) — Read deployment targets, flow definitions and supported stage contracts.
+- [Start diagnostics](start-diagnostics.md) — Diagnose why a run refuses or waits at start.
+- [Start timings](start-timings.md) — Read driver and creation timing records and measure a slow start.
 <!-- /yoke:contents -->
