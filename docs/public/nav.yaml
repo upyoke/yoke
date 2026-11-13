@@ -129,19 +129,24 @@ root:
       - {title: "Charge frontier", summary: "Understand dependency ranking and frontier data models.", path: "strategy/charge-frontier.md"}
       - {title: "Charge dispatch", summary: "Read the frontier API and dispatch ranked work.", path: "strategy/charge-dispatch.md"}
     - title: "Deployments"
-      summary: "Follow delivery destinations, inspect runs and read release authority."
+      summary: "Learn how runs deploy, take over, settle and check released code."
       path: "deployments/index.md"
       children:
-      - {title: "Start diagnostics", summary: "Diagnose candidate preparation, containment refresh and start timing.", path: "deployments/start-diagnostics.md"}
-      - {title: "QA dispatch", summary: "Bound member close-outs and recover HTTPS response timeouts.", path: "deployments/qa-dispatch.md"}
-      - {title: "Runs", summary: "Read deployment run composition and carried-work authority.", path: "deployments/model/runs.md"}
-      - {title: "Ended runs", summary: "Read how an ended run cancels the GitHub workflows it dispatched.", path: "deployments/model/ended-runs.md"}
-      - {title: "Stage receipts", summary: "Read durable non-QA deployment-stage attempt evidence.", path: "deployments/model/stage-receipts.md"}
+      - {title: "Sites, environments and flows", summary: "Read deployment targets, flow definitions and supported stage contracts.", path: "deployments/model/flows.md"}
+      - {title: "Deployments dashboard", summary: "Read the Flows and Runs tabs and item delivery cards.", path: "deployments/dashboard.md"}
+      - {title: "Runs", summary: "Read the run record and the work its candidate carries.", path: "deployments/model/runs.md"}
+      - {title: "Run composition", summary: "Read how a run enrolls members, asks custody and freezes admission.", path: "deployments/model/run-composition.md"}
+      - {title: "Cutting runs", summary: "Create runs and release sets, idempotently, behind a busy server.", path: "deployments/cutting-runs.md"}
       - {title: "Run members and QA", summary: "Read member custody, target occupancy and run-bound QA.", path: "deployments/model/run-members.md"}
-      - {title: "Frozen member plans", summary: "Match admitted QA attachments and remove incomplete members.", path: "deployments/model/member-plan-snapshots.md"}
+      - {title: "QA dispatch", summary: "Route item, run and shared QA, and close accepted members.", path: "deployments/qa-dispatch.md"}
+      - {title: "Takeover", summary: "Read when a newer release takes over a run and what moves.", path: "deployments/takeover.md"}
+      - {title: "Removing an item", summary: "Take a member out of a release and see when it rejoins.", path: "deployments/removal.md"}
+      - {title: "Settlement", summary: "Read completion authority and how a run closes its members.", path: "deployments/settlement.md"}
+      - {title: "Stage receipts and ended runs", summary: "Read stage attempt evidence and what ending a run cancels.", path: "deployments/model/stage-receipts.md"}
       - {title: "Release authorities", summary: "Read deployed revision checks and release-to-done QA authority.", path: "deployments/model/releases.md"}
       - {title: "Release notices", summary: "Read caseless QA, settled-result and owner delivery notices.", path: "deployments/model/release-notices.md"}
-      - {title: "Sites, environments and flows", summary: "Read deployment targets, flow definitions and supported stage contracts.", path: "deployments/model/flows.md"}
+      - {title: "Start diagnostics", summary: "Diagnose why a run refuses or waits at start.", path: "deployments/start-diagnostics.md"}
+      - {title: "Start timings", summary: "Read driver and creation timing records and measure a slow start.", path: "deployments/start-timings.md"}
     - title: "Databases"
       summary: "Inspect declared models, migration conventions and governed repair."
       path: "databases/index.md"

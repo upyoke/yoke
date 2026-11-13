@@ -97,7 +97,7 @@ Public documentation is authored in the Yoke repository and distributed through 
 - [Sessions](../../sessions/index.md) — Inspect live sessions, ownership, messages and steering reports.
 - [Workflows](../../workflows/index.md) — Choose definitions and follow pinned lifecycle gates and transitions.
 - [Strategy](../../strategy/index.md) — Maintain project direction and select ready work from the frontier.
-- [Deployments](../../deployments/index.md) — Follow delivery destinations, inspect runs and read release authority.
+- [Deployments](../../deployments/index.md) — Learn how runs deploy, take over, settle and check released code.
 - [Databases](../../databases/index.md) — Inspect declared models, migration conventions and governed repair.
 - [Functions](../../functions/index.md) — Discover typed function envelopes and registered operation families.
 - [Verification](../../verification/index.md) — Cases, project plans and evidence for workflow gates.

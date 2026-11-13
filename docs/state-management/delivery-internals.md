@@ -226,10 +226,12 @@ Member settlement counts its private checks and shared plan copies it owns,
 using the same ownership rule as the done gate. Every owned blocking copy
 must pass or be discharged; unrelated shared groups never provide credit.
 Independent member closure is allowed only by its final-delivery and shared
-gate contract. See [deployment runs](../public/deployments/model/runs.md) for
+gate contract. See [run composition](../public/deployments/model/run-composition.md) for
 admission; [stage receipts](../public/deployments/model/stage-receipts.md) for receipt
-ordering; [members and QA](../public/deployments/model/run-members.md) for custody,
-failed-stage policy, removal and settlement; [release authorities](../public/deployments/model/releases.md)
+ordering; [members and QA](../public/deployments/model/run-members.md) for custody
+and failed-stage policy; [takeover](../public/deployments/takeover.md),
+[removal](../public/deployments/removal.md) and
+[settlement](../public/deployments/settlement.md); [release authorities](../public/deployments/model/releases.md)
 and [notices](../public/deployments/model/release-notices.md) for verification and announcements.
 
 ## Answering "did this release contain that merge"

@@ -1,10 +1,10 @@
-# Deployment stage receipts
+# Stage receipts and ended runs
 
 <!-- yoke:breadcrumbs -->
-[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Stage receipts
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Stage receipts and ended runs
 <!-- /yoke:breadcrumbs -->
 
-Inspect durable deployment-stage attempt observations and the evidence required before scoped QA.
+Inspect durable deployment-stage attempt observations, the evidence required before scoped QA, and what ending a run does to the workflows it dispatched.
 
 ## Table: deployment_stage_receipts
 
@@ -84,6 +84,14 @@ outcome TEXT -- end records only: ok | failed
 record TEXT NOT NULL -- the full JSON record as the driver wrote it
 UNIQUE(batch_id, sequence)
 ```
+
+## Ending a run cancels its workflows
+
+When a run ends `failed` or `cancelled` — operator terminalization, a failed stage's status write, a rejected stage approval, or takeover by a newer run — every GitHub workflow it dispatched through a correlated dispatch intent (`github_workflow_dispatch_intents` rows whose `request_id` starts `deploy:<project>:<run>:`) is asked to cancel, newest attempt per stage, strictly after the close commits (`deployment_run_workflow_cancellation`). The cancellation is ordinary, so each workflow's `if: cancelled()` steps still run and can release what it started. A miss never reopens the run: `yoke deployment-runs terminalize` prints each outcome (`cancel_requested`, `already_completed`, `run_unidentified` with the correlation id to find it by, or `cancel_failed` with its recovery `yoke github-actions run cancel REPO RUN-ID --project P`), and every path logs misses with the same recovery. A one-shot dispatch records no intent, so it is not cancelled here.
+
+## A stage ending after cancellation
+
+Before recording a stage failure, the driver re-reads the run. If the run is already `cancelled`, it reports that cancellation and exits without failure events, failure bookkeeping or re-drive advice. Other stage failures keep their normal diagnostics.
 
 ## Related
 

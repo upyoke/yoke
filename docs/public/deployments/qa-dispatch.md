@@ -1,8 +1,21 @@
-# Scoped-QA dispatch and member close-out
+# Release QA dispatch
 
 <!-- yoke:breadcrumbs -->
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Deployments](index.md) > QA dispatch
 <!-- /yoke:breadcrumbs -->
+
+Read how a release's QA stages reach item owners and the driver, how plan
+ownership freezes, how accepted members close, and how dispatch recovers a
+lost answer.
+
+## Item QA, run QA and shared QA
+
+A QA stage is scoped to items or to the run. Item QA checks one member with
+that item's cases, and the member's owner runs it. Run QA checks the release
+as a whole, and only the run's driver answers it. A plan attached by two or
+more members is shared QA: it runs once as a driver-owned plan group.
+
+## Gating and wakes
 
 A scoped-QA stage gates every member and wakes waiting members before closing
 accepted members. A member held by a QA configuration refusal
@@ -14,6 +27,15 @@ Automatic capture also stops when any live case in a plan has a latest `fail`
 or `error` verdict. Repeated dispatch cannot open another review for that failure.
 A declared `--replaces` correction transfers the obligation to its replacement;
 the failed predecessor no longer prevents the corrected case from capturing.
+
+## Frozen member plans
+
+Admission freezes a member's item cases, never its post-deploy plans. A
+single-member plan is pinned at item QA entry and runs as member QA; a plan
+shared by two or more members is pinned at the run's first group of that
+plan ([plan groups](../verification/deployment-plan-execution.md#plan-groups)).
+An incomplete frozen item case blocks QA but not removing the member
+([removal](removal.md)).
 
 Plan ownership freezes at item QA entry. A plan attached by exactly one member
 runs as that member's QA: wake its holder to run `yoke qa plan run --item PREFIX-N
@@ -34,11 +56,15 @@ Run an open group with `yoke qa plan run --deployment-run-id RUN --stage STAGE
 refuses `plan_group_not_open` and names the closed groups. An ambiguous plan
 name refuses with the matching plan ids; select an exact id.
 
+## Notices and redelivery
+
 An unchanged wait reuses its notice while its recipient session remains live.
 A cancelled notice or an ended recipient permits redelivery to the live driver,
 then the run creator, then steering. Closing a group withdraws its old group
 notice. The fleet report names waiting requirements and commands, and flags
 QA waits with no live driver and an undelivered or unanswered notice.
+
+## Closing accepted members
 
 Each dispatch closes accepted members in order and stops starting more work
 after five seconds. A close-out already running finishes; the budget cannot
@@ -51,6 +77,8 @@ callbacks defer close-out and send no acceptance or failure notice; stage
 settlement closes the member after the delivering execution ends.
 A member the budget skipped closes on a later dispatch or at settlement; the
 skip never holds the stage.
+
+## Response timeouts
 
 If the idempotent dispatch exceeds its HTTPS response limit, the client waits
 for the server's existing reservation and recorded result using the identical
