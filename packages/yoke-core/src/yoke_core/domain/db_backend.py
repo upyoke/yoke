@@ -139,14 +139,7 @@ def _managed_secret_is_active_authority() -> bool:
         return False
     from yoke_core.domain.cloud_db_secret_dsn import env_binding_selected
 
-    if env_binding_selected():
-        return True
-    try:
-        from yoke_core.domain import yoke_connected_env
-
-        return yoke_connected_env.managed_secret_selected()
-    except Exception:
-        return False
+    return env_binding_selected()
 
 
 def _open_with_managed_rotation_recovery(opener, current_dsn: str):
@@ -173,12 +166,7 @@ def _open_with_managed_rotation_recovery(opener, current_dsn: str):
             return opener(refreshed_dsn)
         except psycopg.errors.InvalidPassword:
             try:
-                if cloud_db_secret_dsn.env_binding_selected():
-                    previous_dsn = cloud_db_secret_dsn.resolve_previous_dsn_from_env()
-                else:
-                    from yoke_core.domain import yoke_connected_env
-
-                    previous_dsn = yoke_connected_env.resolve_previous_postgres_dsn()
+                previous_dsn = cloud_db_secret_dsn.resolve_previous_dsn_from_env()
             except Exception:
                 raise current_error
             return opener(previous_dsn)
@@ -193,7 +181,7 @@ def connect(path: Optional[str] = None, *, busy_timeout_ms: Optional[int] = None
     Ambient ``close()`` keeps the socket for reuse; :func:`bound_pg_dsn` closes.
 
     Routed through the connected-env readiness layer: when the operator's local
-    Aurora SSH forward is down (e.g. after a WiFi change), the failed connect is
+    SSH forward is down (e.g. after a WiFi change), the failed connect is
     self-healed (tunnel restarted) and retried once before raising a loud,
     redacted :class:`connected_env_readiness.ConnectedEnvUnavailable`. The
     readiness check is at connection acquisition (cache-gated), not per

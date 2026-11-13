@@ -1,4 +1,4 @@
-"""DB-admin setup keys credential snapshot cleanup by canonical project."""
+"""DB-admin setup keys the profile DSN file by canonical project."""
 
 import pytest
 
@@ -9,7 +9,7 @@ from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import 
 
 
 @pytest.mark.parametrize("project", [None, "7", "acme"])
-def test_snapshot_label_uses_resolved_environment_project(monkeypatch, project):
+def test_dsn_file_label_uses_resolved_environment_project(monkeypatch, project):
     monkeypatch.setattr(config, "required_project_context", lambda ref: ref or "7")
     monkeypatch.setattr(
         config, "_resolve_environment", lambda *args: _env(project="acme")
@@ -33,6 +33,6 @@ def test_snapshot_label_uses_resolved_environment_project(monkeypatch, project):
         allow_render_only=False,
     )
     assert report["project"] == "acme"
-    assert report["plan"]["superseded_secret_path"].endswith(
+    assert report["plan"]["dsn_file"].endswith(
         "secrets/acme-prod-db-admin.dsn"
     )

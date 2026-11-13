@@ -35,11 +35,10 @@ class DeployEnvironmentError(ValueError):
 
 
 # Where an environment's Postgres runs (environments.settings.database.location).
-# "aurora" (the default) is the AWS managed cluster found through Pulumi outputs;
-# "box" is Postgres on the environment's own origin host.
-DATABASE_LOCATION_AURORA = "aurora"
+# "box" (the default and only location) is Postgres on the environment's own
+# origin host.
 DATABASE_LOCATION_BOX = "box"
-DATABASE_LOCATIONS = (DATABASE_LOCATION_AURORA, DATABASE_LOCATION_BOX)
+DATABASE_LOCATIONS = (DATABASE_LOCATION_BOX,)
 
 
 _CAPABILITY_HINT = (
@@ -93,7 +92,7 @@ class DeployEnvironment:
     # (environments.settings.deploy.serving_connection). Empty = none declared.
     serving_connection: str = ""
     # environments.settings.database.location: one of DATABASE_LOCATIONS.
-    database_location: str = DATABASE_LOCATION_AURORA
+    database_location: str = DATABASE_LOCATION_BOX
     # The Mac that runs this environment's box VM, from
     # environments.settings.servers[0]: its ssh login (``user@host``), the
     # identity file that login uses, and the SHA256 fingerprint of its ssh
@@ -205,12 +204,12 @@ def deploy_environment_from_settings(
     except GitHubAppDeploymentConfigError as exc:
         raise DeployEnvironmentError(str(exc)) from exc
 
-    database_location = str(database.get("location") or DATABASE_LOCATION_AURORA)
+    database_location = str(database.get("location") or DATABASE_LOCATION_BOX)
     if database_location not in DATABASE_LOCATIONS:
         raise DeployEnvironmentError(
             f"database.location {database_location!r} of environment "
             f"'{env_name}' is not one of {list(DATABASE_LOCATIONS)}; set it to "
-            f"one of those in environments.settings, or remove it for aurora"
+            f"box in environments.settings, or remove it (box is the default)"
         )
 
     ssh = _capability(settings, "ssh")

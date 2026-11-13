@@ -131,7 +131,7 @@ class TunnelSpec:
     local_port: int
     bastion: str  # ``user@host`` ssh target
     identity_file: str  # path to the key file (not its contents)
-    remote_host: str  # Aurora endpoint reached from the bastion
+    remote_host: str  # Postgres host reached from the bastion
     remote_port: int
     # Optional ssh_config file (``ssh -F``) that defines ``bastion`` as a host
     # alias and pins its host key; empty uses the user's own ssh config.

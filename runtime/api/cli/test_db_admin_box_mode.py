@@ -18,20 +18,10 @@ from runtime.api.cli.test_db_admin_project_database import _config, _settings
 from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
     _env,
 )
-from runtime.api.cli.test_db_admin_box_hop import MAC_FINGERPRINT, fake_hop
+from runtime.api.cli.test_db_admin_box_hop import fake_hop
 
 PASSWORD = "box-password-never-shown"
 DSN = f"postgresql://yoke_admin:{PASSWORD}@127.0.0.1:6548/yoke_tenant_4"
-
-
-def _box_env(project: str = "yoke", env_name: str = "stage") -> SimpleNamespace:
-    env = _env(project=project, env_name=env_name)
-    env.database_location = "box"
-    env.mac_host = "testy@mac-mini"
-    env.mac_host_ssh_key_path = "~/.ssh/operator_rsa"
-    env.mac_host_key_fingerprint = MAC_FINGERPRINT
-    env.ssh_user = "ubuntu"
-    return env
 
 
 @pytest.fixture
@@ -40,21 +30,11 @@ def box(tmp_path: Path, monkeypatch):
 
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
     monkeypatch.setattr(
-        config, "_resolve_environment", lambda project, env_name: _box_env(project, env_name)
+        config, "_resolve_environment", lambda project, env_name: _env(project=project, env_name=env_name)
     )
     monkeypatch.setattr(config, "_select_control_plane_env", lambda env_name, **_k: env_name)
     monkeypatch.setattr(
         config, "_resolve_control_plane_database", lambda *_a, **_k: "yoke_tenant_4"
-    )
-    monkeypatch.setattr(
-        config,
-        "_resolve_environment_database_binding",
-        lambda *_a, **_k: pytest.fail("box mode looked up Pulumi outputs"),
-    )
-    monkeypatch.setattr(
-        config,
-        "_managed_credential_source",
-        lambda *_a, **_k: pytest.fail("box mode looked up Secrets Manager"),
     )
     dsn_path = tmp_path / "secrets" / "yoke-stage-db-admin.dsn"
     calls = fake_hop(monkeypatch)
@@ -104,8 +84,6 @@ def test_box_plan_targets_box_postgres_and_keeps_the_dsn_file(box, capsys) -> No
         "configure-dsn-file-credential",
     ]
     assert box.calls == [], "a plan must not touch the key or the Mac host"
-    assert "remove-superseded-dsn-snapshot" not in actions
-    assert "superseded_secret_path" not in report["plan"]
     assert report["plan"]["dsn_file"] == str(box.dsn_path)
 
 
@@ -120,7 +98,6 @@ def test_box_apply_writes_valid_protected_local_postgres_profile(box, capsys) ->
     assert report["applied"] is True
     assert report["box_hop"]["alias"] == "yoke-stage-box"
     assert report["box_hop"]["operator_key_created"] is True
-    assert "superseded_dsn_snapshot_removed" not in report
     assert box.dsn_path.read_text(encoding="utf-8").strip() == DSN
     payload = json.loads(box.config_path.read_text(encoding="utf-8"))
     assert [
@@ -219,12 +196,12 @@ def test_box_declared_database_needs_only_its_name(box, monkeypatch, capsys, app
     assert entry["credential_source"] == {"kind": "dsn_file", "path": str(dsn_path)}
     assert entry["authority"]["location"]["database_name"] == "registry_db"
     assert entry["postgres"]["tunnel"]["remote_host"] == "127.0.0.1"
-    assert report["declared_database"]["endpoint_output"] == ""
+    assert report["declared_database"] == {"model": "registry", "database_name": "registry_db"}
 
 
 @pytest.mark.parametrize(
     ("database", "expected"),
-    [({"name": "yoke_prod"}, "aurora"), ({"name": "yoke_prod", "location": "box"}, "box")],
+    [({"name": "yoke_prod"}, "box"), ({"name": "yoke_prod", "location": "box"}, "box")],
 )
 def test_environment_database_location_setting(database, expected) -> None:
     from yoke_core.domain.deploy_environment_settings import (
@@ -257,10 +234,10 @@ def test_environment_database_location_refuses_unknown_value() -> None:
         _settings as _project_settings,
     )
 
-    with pytest.raises(DeployEnvironmentError, match="database.location 'rds'"):
+    with pytest.raises(DeployEnvironmentError, match="database.location 'aurora'"):
         deploy_environment_from_settings(
             _project_settings(
-                environments=[_prod_env(database={"name": "x", "location": "rds"})],
+                environments=[_prod_env(database={"name": "x", "location": "aurora"})],
                 capabilities=_full_capabilities(),
             ),
             "prod",

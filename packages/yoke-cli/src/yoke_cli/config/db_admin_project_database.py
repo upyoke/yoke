@@ -2,13 +2,11 @@
 
 A project declares where each governed database lives in its
 ``migration_model`` capability: ``models.<MODEL>.authoritative_db`` with
-``kind="postgres"`` and a ``location`` naming the database and the Pulumi
-outputs that carry its endpoint and managed-secret ARN. A db-admin profile for
-that database reads the declaration through a named HTTPS control plane and
-pairs it with the deploy environment's stack, bastion, and region, so each
-environment reaches its own copy of the declared database. An environment
-whose database runs on its own box needs only ``database_name``; the Pulumi
-output names apply to Aurora environments.
+``kind="postgres"`` and a ``location`` naming the database. A db-admin
+profile for that database reads the declaration through a named HTTPS control
+plane and pairs it with the deploy environment's box, so each environment
+reaches its own copy of the declared database. Setup needs only the location's
+``database_name``.
 """
 
 from __future__ import annotations
@@ -32,16 +30,9 @@ class DeclaredDatabase:
 
     model: str
     database_name: str
-    endpoint_output: str
-    secret_arn_output: str
 
     def as_report(self) -> dict[str, str]:
-        return {
-            "model": self.model,
-            "database_name": self.database_name,
-            "endpoint_output": self.endpoint_output,
-            "secret_arn_output": self.secret_arn_output,
-        }
+        return {"model": self.model, "database_name": self.database_name}
 
 
 def declared_admin_env_name(project: str, env_name: str, model: str) -> str:
@@ -60,20 +51,12 @@ def read_declared_database(
     *,
     control_plane_env: str,
     config_path: str | Path | None,
-    require_cloud_outputs: bool = True,
 ) -> DeclaredDatabase:
-    """Read ``models.<model>.authoritative_db`` from the project declaration.
-
-    ``require_cloud_outputs`` is false for a box environment, which reaches
-    the database without Pulumi endpoint or secret outputs.
-    """
+    """Read ``models.<model>.authoritative_db`` from the project declaration."""
     model = _safe_label(model, what="database model")
-    location_keys = "database_name"
-    if require_cloud_outputs:
-        location_keys += ", endpoint_output, secret_arn_output"
     teach = (
         f"declare it as settings.models.{model}.authoritative_db "
-        f"(kind postgres, location with {location_keys}) on project "
+        f"(kind postgres, location with database_name) on project "
         f"{project!r}'s {MIGRATION_MODEL_CAPABILITY} "
         f"capability; see {DECLARATION_DOC}"
     )
@@ -106,13 +89,7 @@ def read_declared_database(
             f"database model {model!r} (declared: {available or 'none'}); "
             f"pass --database with a declared model, or {teach}"
         )
-    return _postgres_location(
-        project,
-        model,
-        declared.get("authoritative_db"),
-        teach,
-        require_cloud_outputs=require_cloud_outputs,
-    )
+    return _postgres_location(project, model, declared.get("authoritative_db"), teach)
 
 
 def _postgres_location(
@@ -120,8 +97,6 @@ def _postgres_location(
     model: str,
     authoritative_db: Any,
     teach: str,
-    *,
-    require_cloud_outputs: bool,
 ) -> DeclaredDatabase:
     if not isinstance(authoritative_db, Mapping):
         raise DbAdminSetupError(
@@ -136,21 +111,13 @@ def _postgres_location(
         )
     location = authoritative_db.get("location")
     location = location if isinstance(location, Mapping) else {}
-    fields: tuple[str, ...] = ("database_name",)
-    if require_cloud_outputs:
-        fields += ("endpoint_output", "secret_arn_output")
-    missing = [key for key in fields if not str(location.get(key) or "").strip()]
-    if missing:
+    database_name = str(location.get("database_name") or "").strip()
+    if not database_name:
         raise DbAdminSetupError(
             f"no declared database location: model {model!r} of project "
-            f"{project!r} is missing location keys {missing}; {teach}"
+            f"{project!r} is missing location keys ['database_name']; {teach}"
         )
-    return DeclaredDatabase(
-        model=model,
-        database_name=str(location["database_name"]).strip(),
-        endpoint_output=str(location.get("endpoint_output") or "").strip(),
-        secret_arn_output=str(location.get("secret_arn_output") or "").strip(),
-    )
+    return DeclaredDatabase(model=model, database_name=database_name)
 
 
 __all__ = [

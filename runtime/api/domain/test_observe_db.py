@@ -20,10 +20,8 @@ def _binding(root: Path) -> Path:
                     "prod-db-admin": {
                         "transport": "local-postgres",
                         "authority": {
-                            "kind": "aws_aurora_postgres",
-                            "infra_dir": "projects/yoke/infra",
+                            "kind": "box_postgres",
                             "location": {
-                                "stack": "yoke-prod",
                                 "database_name": "yoke_prod",
                             },
                         },

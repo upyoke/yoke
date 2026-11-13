@@ -99,10 +99,9 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
             "control-plane database, whose identity is checked through a named "
             "HTTPS control-plane connection. With --database MODEL it reaches "
             "the project's own database declared for that model in its "
-            "migration_model capability. Where the environment's Postgres runs "
-            "follows environments.settings.database.location. aurora (the "
-            "default): the endpoint and managed secret come from Pulumi and the "
-            "secret value is never written out. box: the SSH forward reaches "
+            "migration_model capability. The environment's Postgres runs on its "
+            "box (environments.settings.database.location box, the default): "
+            "the SSH forward reaches "
             "127.0.0.1:5432 in the environment's VM yoke-ENV through the "
             "yoke-ENV-box alias that setup writes to ~/.yoke/ssh/config (it "
             "never edits ~/.ssh). The alias reaches the Mac host through a "
@@ -161,8 +160,7 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="NAME",
         help=(
-            "aurora: managed secret holding the DSN; box: label of the "
-            "~/.yoke/secrets/NAME.dsn file. Default: <project>-<env>-db-admin, "
+            "Label of the ~/.yoke/secrets/NAME.dsn file that holds the DSN. Default: <project>-<env>-db-admin, "
             "or <project>-<env>-MODEL-db-admin with --database."
         ),
     )

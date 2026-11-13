@@ -78,13 +78,7 @@ def test_dev_setup_apply_writes_tunnel_and_authority_metadata(
             "--tunnel-remote-port",
             "5432",
             "--authority-kind",
-            "aws_aurora_postgres",
-            "--authority-infra-dir",
-            "infra/pulumi/yoke-cloud",
-            "--authority-stack",
-            "yoke-prod",
-            "--authority-region",
-            "us-east-1",
+            "box_postgres",
             "--authority-database-name",
             "yoke_prod",
             "--yes",
@@ -109,13 +103,8 @@ def test_dev_setup_apply_writes_tunnel_and_authority_metadata(
         },
     }
     assert entry["authority"] == {
-        "kind": "aws_aurora_postgres",
-        "infra_dir": "infra/pulumi/yoke-cloud",
-        "location": {
-            "stack": "yoke-prod",
-            "region": "us-east-1",
-            "database_name": "yoke_prod",
-        },
+        "kind": "box_postgres",
+        "location": {"database_name": "yoke_prod"},
     }
 
 

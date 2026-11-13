@@ -1,7 +1,7 @@
 """Box mode for ``yoke dev db-admin setup``: Postgres on the environment's box.
 
-An environment whose ``environments.settings.database.location`` is ``box``
-runs Postgres in its box VM on a Mac host. Its profile forwards the local port
+Every environment runs Postgres in its box VM on a Mac host
+(``environments.settings.database.location`` is ``box``). Its profile forwards the local port
 over the Yoke-owned SSH hop (:mod:`yoke_cli.config.db_admin_box_hop`) to the
 VM's ``127.0.0.1:5432`` and reads the DSN from an owner-only machine-local
 file the operator provisions from the environment's custody files. Nothing is
@@ -20,16 +20,8 @@ from yoke_cli.config import db_admin_box_hop as box_hop
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
 from yoke_cli.config.db_admin_setup_report import _path_ref
 
-# Mirrors yoke_core.domain.deploy_environment_settings.DATABASE_LOCATION_BOX;
-# the CLI reads the resolved environment without importing the engine here.
-BOX_LOCATION = "box"
 BOX_AUTHORITY_KIND = "box_postgres"
 BOX_REMOTE_HOST = "127.0.0.1"
-
-
-def is_box(env: Any) -> bool:
-    """True when the environment's Postgres runs on its own box."""
-    return str(getattr(env, "database_location", "")) == BOX_LOCATION
 
 
 def dsn_file_path(label: str) -> Path:
@@ -115,11 +107,9 @@ def credential_source(
 
 __all__ = [
     "BOX_AUTHORITY_KIND",
-    "BOX_LOCATION",
     "BOX_REMOTE_HOST",
     "apply",
     "credential_source",
     "dsn_file_path",
-    "is_box",
     "plan",
 ]

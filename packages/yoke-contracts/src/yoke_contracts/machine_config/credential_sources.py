@@ -12,13 +12,11 @@ from yoke_contracts.machine_config.schema_projects import (
 
 CREDENTIAL_KIND_DSN_FILE = "dsn_file"
 CREDENTIAL_KIND_ENV = "env"
-CREDENTIAL_KIND_AWS_SECRETS_MANAGER = "aws_secrets_manager"
 CREDENTIAL_KIND_TOKEN_FILE = "token_file"
 
 CREDENTIAL_KINDS = frozenset({
     CREDENTIAL_KIND_DSN_FILE,
     CREDENTIAL_KIND_ENV,
-    CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
     CREDENTIAL_KIND_TOKEN_FILE,
 })
 TOKEN_CREDENTIAL_KINDS = frozenset({
@@ -67,7 +65,6 @@ def validate_credential_source(
 
 
 __all__ = [
-    "CREDENTIAL_KIND_AWS_SECRETS_MANAGER",
     "CREDENTIAL_KIND_DSN_FILE",
     "CREDENTIAL_KIND_ENV",
     "CREDENTIAL_KIND_TOKEN_FILE",

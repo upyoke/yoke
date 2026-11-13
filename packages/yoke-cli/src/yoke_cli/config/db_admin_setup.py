@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 
-from yoke_cli.config import machine_config_file
-from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.transport import dispatcher as function_dispatcher  # noqa: F401 - public test injection surface
 from yoke_cli.transport import https as https_transport  # noqa: F401 - public test injection surface
 from yoke_contracts.machine_config import schema as contract
@@ -27,7 +25,6 @@ from yoke_cli.config.db_admin_project_database import (
     read_declared_database,
 )
 from yoke_cli.config.db_admin_profile_write import _write_connection
-from yoke_cli.config import db_admin_aurora_mode as aurora_mode
 from yoke_cli.config import db_admin_box_mode as box_mode
 from yoke_cli.config.db_admin_setup_report import (
     _path_ref,
@@ -42,7 +39,7 @@ DEFAULT_LOCAL_PORTS = {
     "prod": 6547,
     "stage": 6548,
 }
-AUTHORITY_KIND = aurora_mode.AUTHORITY_KIND
+AUTHORITY_KIND = box_mode.BOX_AUTHORITY_KIND
 
 
 def admin_env_name(env_name: str) -> str:
@@ -97,7 +94,6 @@ def build_report(
         control_plane_env=control_plane_env,
         config_path=config_path,
     )
-    box = box_mode.is_box(env)
     declared: DeclaredDatabase | None = None
     if database:
         declared = read_declared_database(
@@ -105,7 +101,6 @@ def build_report(
             database,
             control_plane_env=selected_control_plane_env,
             config_path=config_path,
-            require_cloud_outputs=not box,
         )
         default_label = declared_admin_env_name(project, env_name, declared.model)
         selected_admin_env = admin_env or default_label
@@ -127,20 +122,16 @@ def build_report(
         database_name = declared.database_name
 
     postgres = _postgres_metadata(env, selected_port)
-    dsn_path = box_mode.dsn_file_path(secret_label or default_label) if box else None
-    if dsn_path is not None:
-        authority, steps = box_mode.plan(
-            env, postgres=postgres, database_name=database_name, dsn_path=dsn_path
-        )
-    else:
-        authority, steps = aurora_mode.plan(
-            env, project, env_name, selected_admin_env, database_name
-        )
+    dsn_path = box_mode.dsn_file_path(secret_label or default_label)
+    authority, steps = box_mode.plan(
+        env, postgres=postgres, database_name=database_name, dsn_path=dsn_path
+    )
     plan: dict[str, Any] = {
         "admin_env": selected_admin_env,
         "postgres": postgres,
         "authority": authority,
         "steps": steps,
+        "dsn_file": _path_ref(dsn_path),
     }
     report: dict[str, Any] = {
         "operation": "dev.db_admin.setup",
@@ -152,23 +143,9 @@ def build_report(
         "plan": plan,
         "message": "write plan only; rerun with --yes to apply",
     }
-    superseded_secret_path = None
-    if dsn_path is not None:
-        plan["dsn_file"] = _path_ref(dsn_path)
     if declared is None:
         report["control_plane_database"] = database_name
-    if declared is None and dsn_path is None:
-        superseded_secret_path = machine_secrets.secret_path_no_create(
-            secret_label or default_label, "dsn"
-        )
-        plan["superseded_secret_path"] = _path_ref(superseded_secret_path)
-        steps.append(
-            {
-                "action": "remove-superseded-dsn-snapshot",
-                "target": _path_ref(superseded_secret_path),
-            }
-        )
-    elif declared is not None:
+    else:
         report["declared_database"] = declared.as_report()
         steps.insert(
             1,
@@ -180,16 +157,13 @@ def build_report(
     if not apply:
         return report
 
-    if dsn_path is not None:
-        credential_source, report["box_hop"] = box_mode.apply(
-            env,
-            dsn_path,
-            admin_env=selected_admin_env,
-            local_port=selected_port,
-            database_name=database_name,
-        )
-    else:
-        credential_source = _resolve_cloud_location(env, postgres, declared, emit)
+    credential_source, report["box_hop"] = box_mode.apply(
+        env,
+        dsn_path,
+        admin_env=selected_admin_env,
+        local_port=selected_port,
+        database_name=database_name,
+    )
     configured = _write_connection(
         env_name=selected_admin_env,
         credential_source=credential_source,
@@ -206,10 +180,6 @@ def build_report(
             "message": f"{selected_admin_env} configured",
         }
     )
-    if superseded_secret_path is not None:
-        report["superseded_dsn_snapshot_removed"] = machine_config_file.remove_file(
-            superseded_secret_path
-        )
     return report
 
 
@@ -228,41 +198,6 @@ def _resolve_environment(project: str, env_name: str) -> Any:
         raise DbAdminSetupError(str(exc)) from exc
 
 
-def _resolve_environment_database_binding(
-    env: Any,
-    *,
-    emit: Callable[[str], None] | None,
-) -> tuple[Any, Mapping[str, Any]]:
-    try:
-        deploy_core = importlib.import_module("yoke_core.domain.deploy_core_container")
-        deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
-    except ModuleNotFoundError as exc:
-        raise DbAdminSetupError(
-            "db-admin setup requires the yoke-core engine's deploy modules, "
-            "which are not importable here; reinstall Yoke or run from a "
-            "source checkout"
-        ) from exc
-    try:
-        aws_env = deploy_remote.aws_machine_capability_env(env.project, env.aws_region)
-    except Exception as exc:  # noqa: BLE001 - every failure here is the same refusal
-        raise DbAdminSetupError(
-            f"could not resolve {env.project} aws-admin authority from this "
-            f"machine's capability store: {exc}"
-        ) from exc
-    try:
-        runner = deploy_remote.CommandRunner()
-        return deploy_core.resolve_environment_database_binding(
-            runner,
-            env,
-            aws_env,
-            emit=emit or (lambda _line: None),
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise DbAdminSetupError(
-            f"could not resolve {env.project}/{env.env_name} database binding: {exc}"
-        ) from exc
-
-
 def _postgres_metadata(env: Any, local_port: int) -> dict[str, Any]:
     return {
         "host": DEFAULT_LOCAL_HOST,
@@ -274,52 +209,6 @@ def _postgres_metadata(env: Any, local_port: int) -> dict[str, Any]:
             "remote_host": "",
             "remote_port": 5432,
         },
-    }
-
-
-def _resolve_cloud_location(
-    env: Any,
-    postgres: dict[str, Any],
-    declared: DeclaredDatabase | None,
-    emit: Callable[[str], None] | None,
-) -> dict[str, str]:
-    binding, outputs = _resolve_environment_database_binding(env, emit=emit)
-    if declared is None:
-        remote_host = str(binding.host)
-    else:
-        remote_host = aurora_mode.required_output(env, outputs, declared.endpoint_output)
-    postgres["tunnel"]["remote_host"] = remote_host
-    postgres["tunnel"]["remote_port"] = int(binding.port)
-    return _managed_credential_source(
-        env,
-        outputs,
-        output_name=declared.secret_arn_output if declared else None,
-    )
-
-
-def _managed_credential_source(
-    env: Any,
-    outputs: Mapping[str, Any],
-    *,
-    output_name: str | None = None,
-) -> dict[str, str]:
-    if output_name is None:
-        try:
-            authority = importlib.import_module(
-                "yoke_core.domain.yoke_cloud_db_authority"
-            )
-        except ModuleNotFoundError as exc:
-            raise DbAdminSetupError(
-                "db-admin setup requires the yoke-core cloud database authority "
-                "module, which is not importable here"
-            ) from exc
-        output_name = authority.DEFAULT_SECRET_ARN_OUTPUT
-    secret_arn = aurora_mode.required_output(env, outputs, output_name)
-    return {
-        "kind": contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
-        "secret_arn": secret_arn,
-        "region": str(env.aws_region),
-        "project": str(env.project),
     }
 
 

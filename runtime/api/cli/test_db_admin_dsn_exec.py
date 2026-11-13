@@ -15,7 +15,6 @@ from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import db_admin_dsn_exec as exec_mod
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import connected_env_readiness_connector as connector
-from yoke_core.domain.yoke_cloud_db_authority import CloudAuthorityCommandError
 
 PASSWORD = "hunter2-never-shown"
 DSN = f"host=127.0.0.1 port=6548 user=admin password={PASSWORD} dbname=registry_db"
@@ -54,17 +53,14 @@ def engine(tmp_path: Path, monkeypatch):
                         "transport": "local-postgres",
                         "protected": False,
                         "credential_source": {
-                            "kind": "aws_secrets_manager",
-                            "secret_arn": "arn:aws:secretsmanager:us-east-1:1:secret:r",
-                            "region": "us-east-1",
-                            "project": "yoke",
+                            "kind": "dsn_file",
+                            "path": str(tmp_path / "secrets" / f"{PROFILE}.dsn"),
                         },
                         "postgres": {"host": "127.0.0.1", "port": 6548},
                         "authority": {
-                            "kind": "aws_aurora_postgres",
+                            "kind": "box_postgres",
                             "location": {
-                                "stack": "yoke-stage",
-                                "region": "us-east-1",
+                                "origin_host": "origin.stage.example.com",
                                 "database_name": "registry_db",
                             },
                         },
@@ -78,7 +74,6 @@ def engine(tmp_path: Path, monkeypatch):
         activate=lambda env: SimpleNamespace(
             dsn=DSN, readiness=SimpleNamespace(ok=True, message="ok")
         ),
-        aws_env=lambda project, region: {"AWS_REGION": region},
         activated=[],
     )
 
@@ -93,9 +88,6 @@ def engine(tmp_path: Path, monkeypatch):
     )
     modules = {
         "yoke_core.domain.connected_env_tunnel_coordination": coordination,
-        "yoke_core.domain.deploy_remote": SimpleNamespace(
-            aws_machine_capability_env=lambda p, r: state.aws_env(p, r)
-        ),
         "yoke_core.domain.connected_env_selected_readiness": SimpleNamespace(
             activate_selected_postgres=activate,
             SelectedPostgresError=SelectedPostgresError,
@@ -103,16 +95,8 @@ def engine(tmp_path: Path, monkeypatch):
         "yoke_core.domain.connected_env_readiness_connector": SimpleNamespace(
             redact=_redact, ConnectedEnvUnavailable=ConnectedEnvUnavailable
         ),
-        "yoke_core.domain.yoke_cloud_db_authority": SimpleNamespace(
-            CloudAuthorityCommandError=CloudAuthorityCommandError
-        ),
     }
     monkeypatch.setattr(exec_mod, "import_module", modules.__getitem__)
-    monkeypatch.setattr(
-        exec_mod.aws_cli_prerequisite,
-        "check_aws_cli",
-        lambda: SimpleNamespace(executable="aws", version="aws-cli/2"),
-    )
     return state
 
 
@@ -161,28 +145,14 @@ def test_child_exit_code_passes_through(engine) -> None:
         (
             lambda s: setattr(
                 s,
-                "aws_env",
-                lambda p, r: (_ for _ in ()).throw(RuntimeError("no keys")),
-            ),
-            PROFILE,
-            "aws_admin_capability_unavailable",
-            "--cap-type aws-admin",
-        ),
-        (
-            lambda s: setattr(
-                s,
                 "activate",
                 lambda env: (_ for _ in ()).throw(
-                    CloudAuthorityCommandError(
-                        "aws secretsmanager get-secret-value",
-                        "exit 254: AccessDeniedException",
-                        "rerun once AWS is reachable",
-                    )
+                    SelectedPostgresError(f"credential file missing for {DSN}")
                 ),
             ),
             PROFILE,
-            "secret_unreadable",
-            "secretsmanager describe-secret",
+            "profile_unusable",
+            "yoke dev db-admin setup",
         ),
         (
             lambda s: setattr(

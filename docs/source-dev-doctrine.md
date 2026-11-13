@@ -52,10 +52,10 @@ Repository-only rules; linked owners hold the detail.
   yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
   ```
 
-  An environment with `environments.settings.database.location` `box` runs Postgres on its
-  own host: setup forwards to that host's `127.0.0.1:5432` and reads the DSN from the
+  Every environment runs Postgres on its own box (`environments.settings.database.location`
+  `box`, the default): setup forwards to that host's `127.0.0.1:5432` and reads the DSN from the
   owner-only `~/.yoke/secrets/<secret-name>.dsn` you provision from the environment's custody
-  file first (see `yoke dev db-admin setup --help`). Without the setting it uses Aurora.
+  file first (see `yoke dev db-admin setup --help`).
 - Rehearse migrations from the claimed lane:
   `yoke dev run -- yoke --env CONTROL_PLANE-db-admin migration rehearse PREFIX-N`. With several lanes add
   `--lane <registered-worker-path>` after `dev run`. Keep the fleet-preflight receipt and the

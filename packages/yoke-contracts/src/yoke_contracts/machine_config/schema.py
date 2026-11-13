@@ -33,7 +33,6 @@ from yoke_contracts.machine_config.schema_project_validation import (
     validate_projects,
 )
 from yoke_contracts.machine_config.credential_sources import (
-    CREDENTIAL_KIND_AWS_SECRETS_MANAGER as CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
     CREDENTIAL_KIND_DSN_FILE as CREDENTIAL_KIND_DSN_FILE,
     CREDENTIAL_KIND_ENV as CREDENTIAL_KIND_ENV,
     CREDENTIAL_KIND_TOKEN_FILE as CREDENTIAL_KIND_TOKEN_FILE,

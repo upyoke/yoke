@@ -54,42 +54,6 @@ class PostgresAuthorityLocation:
     state_backend: Optional[str] = None
     region: Optional[str] = None
 
-    @classmethod
-    def from_mapping(cls, value: Mapping[str, Any]) -> "PostgresAuthorityLocation":
-        if not isinstance(value.get("stack"), str) or not value["stack"]:
-            raise CloudAuthorityCommandError(
-                "cloud_postgres_location",
-                "stack must be a non-empty string for cloud Postgres authority",
-                "declare authoritative_db.location.stack for the Aurora model; "
-                "for box Postgres use db-admin setup with an environment whose "
-                "database.location is box",
-            )
-        return cls(
-            stack=_required_str(value, "stack"),
-            database_name=_required_str(value, "database_name"),
-            endpoint_output=str(
-                value.get("endpoint_output") or DEFAULT_ENDPOINT_OUTPUT
-            ),
-            secret_arn_output=str(
-                value.get("secret_arn_output") or DEFAULT_SECRET_ARN_OUTPUT
-            ),
-            state_backend=_optional_str(value, "state_backend"),
-            region=_optional_str(value, "region"),
-        )
-
-    def as_settings_location(self) -> dict:
-        out = {
-            "stack": self.stack,
-            "database_name": self.database_name,
-            "endpoint_output": self.endpoint_output,
-            "secret_arn_output": self.secret_arn_output,
-        }
-        if self.state_backend:
-            out["state_backend"] = self.state_backend
-        if self.region:
-            out["region"] = self.region
-        return out
-
 
 @dataclass(frozen=True)
 class PostgresSecret:
@@ -266,41 +230,6 @@ def redacted_dsn(dsn: str) -> str:
         else:
             parts.append(token)
     return " ".join(parts)
-
-
-def resolve_declared_dsn(
-    *,
-    infra_dir: Path,
-    location: PostgresAuthorityLocation,
-    aws_env: Mapping[str, str],
-    host_override: Optional[str] = None,
-    port_override: Optional[int] = None,
-) -> tuple[str, dict]:
-    """Resolve DSN plus redacted evidence from Pulumi outputs + AWS secret.
-
-    ``aws_env`` is the aws-admin capability environment both reads run under.
-    """
-    outputs = load_stack_outputs(infra_dir, location, env=aws_env)
-    endpoint, secret_arn = endpoint_and_secret_arn(outputs, location)
-    secret = PostgresSecret.from_json(
-        load_secret_string(secret_arn, region=location.region, env=aws_env)
-    )
-    host = host_override or endpoint
-    port = port_override or secret.port or DEFAULT_POSTGRES_PORT
-    dsn = build_libpq_dsn(
-        host=host,
-        port=port,
-        database=location.database_name,
-        secret=secret,
-    )
-    return dsn, {
-        "stack": location.stack,
-        "endpoint_output": location.endpoint_output,
-        "secret_arn_output": location.secret_arn_output,
-        "endpoint": endpoint,
-        "database_name": location.database_name,
-        "dsn": redacted_dsn(dsn),
-    }
 
 
 def _required_str(mapping: Mapping[str, Any], key: str) -> str:

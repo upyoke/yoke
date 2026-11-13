@@ -1,6 +1,6 @@
 """Connected-environment readiness for the local Yoke runtime.
 
-Yoke's active control plane is a cloud Postgres (Aurora). On an operator
+A db-admin profile's Postgres runs on an environment box. On an operator
 machine the runtime reaches it through a local SSH port-forward declared on
 the selected env-keyed connection in ``~/.yoke/config.json``
 (``connections.<env>.postgres`` with a loopback ``host`` + ``port`` and a
@@ -14,7 +14,7 @@ This module is the single readiness abstraction that fixes that bridge without
 teaching every caller about SSH. It is a *connector* abstraction, not a
 Mac-specific tunnel product: today the only connector is
 ``local_ssh_tunnel_postgres``; the future cloud-runtime connector (local CLI -> remote
-Yoke core over HTTPS, remote core owns Aurora) slots in beside it.
+Yoke core over HTTPS, remote core owns the database) slots in beside it.
 
 Contract:
 

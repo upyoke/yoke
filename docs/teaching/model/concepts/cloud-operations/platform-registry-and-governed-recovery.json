@@ -6,5 +6,5 @@
  "private_sources": ["platform"],
  "page": "cloud-operations-services",
  "position": 7,
- "text": "Governed Postgres models can live on an environment box without retired cloud coordinates. The environment database.location owns the box/Aurora switch. Box db-admin setup needs only the model database_name, the provisioned DSN file and the environment's servers[0] mac_host, mac_host_ssh_key_path and mac_host_key_fingerprint: it writes its own SSH hop through that Mac host to ~/.yoke/ssh/config, pinning the Mac host's key only when its fingerprint matches, creates and authorizes the operator key and pins the VM host key, and never edits ~/.ssh/config; Aurora setup requires its output names, and cloud authority readers refuse a missing stack with recovery."
+ "text": "Governed Postgres models live on an environment box without retired cloud coordinates; box is the only environment database.location. Box db-admin setup needs only the model database_name, the provisioned DSN file and the environment's servers[0] mac_host, mac_host_ssh_key_path and mac_host_key_fingerprint: it writes its own SSH hop through that Mac host to ~/.yoke/ssh/config, pinning the Mac host's key only when its fingerprint matches, creates and authorizes the operator key and pins the VM host key, and never edits ~/.ssh/config."
 }

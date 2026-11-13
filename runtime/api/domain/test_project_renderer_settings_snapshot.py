@@ -33,7 +33,7 @@ def _sample_settings() -> ProjectRendererSettings:
                 "origin_vps_stack_name": "acme-stage-vps",
             },
             "servers": [{"host": "203.0.113.7"}],
-            "database": {"name": "acme_stage", "location": "aurora"},
+            "database": {"name": "acme_stage", "location": "box"},
         },
     )
     return ProjectRendererSettings(

@@ -26,7 +26,7 @@ def test_a_remote_postgres_authority_is_not_called_local() -> None:
             {
                 "env": "stage-db-admin",
                 "transport": "local-postgres",
-                "authority_kind": "aws_aurora_postgres",
+                "authority_kind": "box_postgres",
             }
         )
     )
