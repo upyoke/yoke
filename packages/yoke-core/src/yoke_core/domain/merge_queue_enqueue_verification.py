@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from yoke_core.domain.merge_queue_missing_checks import (
+    ActiveWorkflowRun,
     readback_missing_checks_stalled,
     missing_checks_description,
     missing_checks_recovery,
@@ -97,6 +98,7 @@ class LandingReadback:
     checks_error: str = ""
     queue_recovery: dict = field(default_factory=dict)
     missing_checks: tuple[str, ...] | None = None
+    active_run: Optional[ActiveWorkflowRun] = None
 
     @property
     def failed_required(self) -> tuple[LandingCheck, ...]:
@@ -180,7 +182,7 @@ class LandingReadback:
         if state is not None and state.closed:
             return "it is closed — reopen or recreate it and re-run `yoke merge item`"
         if readback_missing_checks_stalled(self):
-            return missing_checks_recovery(self.missing_checks)
+            return missing_checks_recovery(self.missing_checks, self.active_run)
         failed = self.failed_required
         if failed:
             return red_checks_recovery(failed)

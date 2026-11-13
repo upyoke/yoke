@@ -11,7 +11,11 @@ from yoke_core.domain.merge_github_membership import PrQueueMembership
 from yoke_core.domain.merge_landing_state import PrLandingState
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
 from yoke_core.domain.merge_queue_missing_checks import (
+    QUEUED_RUN_WAIT_SECONDS,
+    ActiveWorkflowRun,
+    missing_checks_recovery,
     missing_checks_stalled,
+    read_active_workflow_run,
     read_missing_check_names,
 )
 from yoke_core.domain.merge_queue_readiness import classify_readiness
@@ -159,6 +163,7 @@ def test_observer_sends_one_notice_per_head_without_disarming(monkeypatch):
     monkeypatch.setattr(
         missing, "read_missing_check_names", lambda *_: ("signature-check",)
     )
+    monkeypatch.setattr(missing, "read_active_workflow_run", lambda *_: None)
     conn = observer_connection()
     state = stalled_state()
 
@@ -207,6 +212,7 @@ def test_admission_reuses_the_existing_check_projection_clock(monkeypatch):
 
 
 def test_readiness_only_reads_names_after_detection(monkeypatch):
+    import yoke_core.domain.merge_queue_missing_checks as missing
     import yoke_core.domain.merge_queue_readiness as readiness
 
     state = stalled_state()
@@ -219,7 +225,8 @@ def test_readiness_only_reads_names_after_detection(monkeypatch):
         calls.append("names")
         return ("signature-check",)
 
-    monkeypatch.setattr(readiness, "read_missing_check_names", names)
+    monkeypatch.setattr(missing, "read_missing_check_names", names)
+    monkeypatch.setattr(missing, "read_active_workflow_run", lambda *_: None)
     result = readiness.read_merge_queue_readiness(
         None, pr_number="42", target="main", reads=reads
     )
@@ -239,3 +246,88 @@ def test_grace_boundary_uses_the_arming_clock(offset, expected):
         - timedelta(seconds=LANDING_RECORD_STALE_SECONDS + offset)
     )
     assert missing_checks_stalled(state, (), now=FIXED_NOW) is expected
+
+
+def queued_run(age_seconds, status="queued"):
+    return ActiveWorkflowRun(
+        "signature", status, FIXED_NOW - timedelta(seconds=age_seconds)
+    )
+
+
+@pytest.mark.parametrize("status", ["queued", "in_progress"])
+def test_active_run_says_wait_instead_of_push(status):
+    advice = missing_checks_recovery(("signature-check",), queued_run(600, status))
+    assert f"{status.replace('_', ' ')} since 2026-11-09T11:50:00" in advice
+    assert "wait for signature-check" in advice
+    assert "do not push a new commit" in advice
+    assert "did not start" not in advice
+
+
+def test_run_queued_past_the_wait_falls_back_to_startup_advice():
+    advice = missing_checks_recovery(
+        ("signature-check",), queued_run(QUEUED_RUN_WAIT_SECONDS)
+    )
+    assert "did not start" in advice and "startup_failure" in advice
+
+
+def test_stalled_readback_with_queued_run_reports_queued():
+    readback = LandingReadback(
+        state=stalled_state(),
+        membership=PrQueueMembership(in_queue=False),
+        required_checks=(),
+        missing_checks=("signature-check",),
+        active_run=queued_run(60),
+    )
+    assert not readback.admitted()
+    assert "queued since" in readback.recovery(target="main")
+    readiness = replace(
+        classify_readiness(
+            pr_number="42", target="main", state=stalled_state(), required_checks=()
+        ),
+        active_run=queued_run(60),
+    )
+    assert "queued since" in readiness.describe()
+
+
+def test_active_run_read_by_head_picks_oldest_unfinished(monkeypatch):
+    import yoke_core.domain.merge_github_queue as github
+
+    monkeypatch.setattr(
+        github,
+        "resolve_auth_detail",
+        lambda *_: (SimpleNamespace(repo="o/r", token="test"), None),
+    )
+    seen = []
+
+    def request(req, **_):
+        seen.append((req.path, dict(req.query)))
+        runs = [
+            {"name": "ci", "status": "completed", "created_at": "2026-11-09T10:00:00Z"},
+            {"name": "late", "status": "queued", "created_at": "2026-11-09T11:30:00Z"},
+            {"name": "sig", "status": "queued", "created_at": "2026-11-09T11:00:00Z"},
+            {"name": "bad", "status": "queued", "created_at": "never"},
+        ]
+        return SimpleNamespace(body={"workflow_runs": runs})
+
+    run = read_active_workflow_run(None, "cd" * 20, request=request)
+    assert (run.name, run.status) == ("sig", "queued")
+    assert run.since == datetime(2026, 11, 9, 11, tzinfo=timezone.utc)
+    assert seen == [("/repos/o/r/actions/runs", {"head_sha": "cd" * 20, "per_page": "100"})]
+
+
+def test_unreadable_runs_keep_the_startup_advice(monkeypatch):
+    import yoke_core.domain.merge_github_queue as github
+    from yoke_core.domain.gh_rest_transport import RestTransportError
+
+    monkeypatch.setattr(
+        github,
+        "resolve_auth_detail",
+        lambda *_: (SimpleNamespace(repo="o/r", token="test"), None),
+    )
+
+    def request(*_, **__):
+        raise RestTransportError("outage")
+
+    assert read_active_workflow_run(None, "cd" * 20, request=request) is None
+    monkeypatch.setattr(github, "resolve_auth_detail", lambda *_: (None, "denied"))
+    assert read_active_workflow_run(None, "cd" * 20) is None

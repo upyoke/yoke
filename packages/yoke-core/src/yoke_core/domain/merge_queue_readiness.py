@@ -9,9 +9,10 @@ from yoke_contracts.timestamps import format_instant, parse_instant
 from typing import Optional, Sequence
 
 from yoke_core.domain.merge_queue_missing_checks import (
+    ActiveWorkflowRun,
+    missing_checks_facts,
     missing_checks_stalled,
     missing_checks_recovery,
-    read_missing_check_names,
 )
 from yoke_core.domain.merge_queue_entry_checks import (
     ENTRY_CHECKS_FAILED,
@@ -74,6 +75,7 @@ class MergeQueueReadiness:
     warnings: tuple[str, ...] = field(default=())
     missing_checks: tuple[str, ...] | None = None
     missing_checks_blocked: bool = False
+    active_run: Optional[ActiveWorkflowRun] = None
 
     def __post_init__(self) -> None:
         if self.merged_at is not None:
@@ -119,7 +121,9 @@ class MergeQueueReadiness:
         """Render the facts without treating a consumed arming as cleared."""
         recovery = ""
         if self.missing_checks_blocked:
-            recovery = "; " + missing_checks_recovery(self.missing_checks)
+            recovery = "; " + missing_checks_recovery(
+                self.missing_checks, self.active_run
+            )
         elif self.failed_checks:
             from yoke_core.domain.merge_queue_entry_checks import red_checks_recovery
 
@@ -300,7 +304,7 @@ def read_merge_queue_readiness(
     if readiness.missing_checks_blocked:
         readiness = replace(
             readiness,
-            missing_checks=read_missing_check_names(ctx, target, required_checks),
+            **missing_checks_facts(ctx, target, required_checks, readiness.head_sha),
         )
     return readiness
 
