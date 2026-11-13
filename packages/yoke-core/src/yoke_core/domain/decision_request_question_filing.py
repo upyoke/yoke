@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.decision_request_operator_question import invalid, slug
 
 
@@ -21,7 +22,18 @@ def validate_requester(conn, session_id, project_id, subject_key, context):
         (session_id,),
     ).fetchone()
     if row is None or row[1] is not None or row[2] is not None:
-        raise invalid("requesting session must exist and be live")
+        raise ValueError(
+            compose_refusal(
+                "operator_question_invalid: requesting session must exist and be live",
+                recovery=(
+                    "Run `yoke sessions identity` to check the server's session record. "
+                    "Register this session with `yoke sessions begin` (see `--help` "
+                    "for required identity fields), then retry `yoke decision-requests ask`. "
+                    "For a broader machine and session check, run "
+                    "`yoke doctor run --session` and fix what it names."
+                ),
+            )
+        )
     if project_id is not None and project_id not in actor_visible_project_ids(
         conn, row[0]
     ):
