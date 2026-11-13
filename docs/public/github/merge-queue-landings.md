@@ -87,9 +87,13 @@ reports. After two refresh intervals from `autoMergeRequest.enabledAt`, a
 The readback and stopped notice show `missing-required-checks=<names>` from
 rulesets and classic branch protection, or `missing-required-checks=unknown`
 if those names cannot be read. The alarm does not depend on reading names.
-Merge-when-ready stays armed. Inspect the named workflow's Actions run page
-for why it did not start, fix the cause, then push a new commit to retrigger
-it. GitHub cannot rerun a `startup_failure` run. This occurred on 2026-11-09
+Merge-when-ready stays armed. A queued workflow run has no jobs, so no
+check runs: the stopped readback also lists the head commit's workflow runs,
+and while one is `queued` or `in_progress` for less than two hours its advice
+says the run is queued since a named time and to wait, not to push. Otherwise
+inspect the named workflow's Actions run page for why it did not start, fix
+the cause, then push a new commit to retrigger it. GitHub cannot rerun a
+`startup_failure` run. This occurred on 2026-11-09
 on PRs #3464 and #3467–#3470: GitHub's `pull_request_target` brownout left the
 required `signature-check` absent despite all reported checks being green.
 

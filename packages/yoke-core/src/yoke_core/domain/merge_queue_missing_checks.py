@@ -5,15 +5,31 @@ Rules name a detected stop; they never decide whether to stop a landing.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from datetime import datetime
 from urllib.parse import quote
 
-from yoke_contracts.timestamps import utc_now
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain.merge_queue_entry_checks import (
     failed_required_checks,
     has_pending_required_check,
 )
 from yoke_core.domain.merge_queue_landing_refresh import LANDING_RECORD_STALE_SECONDS
+
+#: How long a queued workflow run for the head is waited on before the advice
+#: returns to finding why the required check's workflow did not start.
+QUEUED_RUN_WAIT_SECONDS = 2 * 60 * 60
+
+_ACTIVE_RUN_STATUSES = frozenset({"queued", "in_progress"})
+
+
+@dataclass(frozen=True)
+class ActiveWorkflowRun:
+    """The oldest workflow run for the head that GitHub has not finished."""
+
+    name: str
+    status: str
+    since: datetime
 
 
 def missing_checks_stalled(state, checks, *, now=None) -> bool:
@@ -50,13 +66,75 @@ def missing_checks_description(readback) -> str:
     return f", missing-required-checks={','.join(readback.missing_checks or ()) or 'unknown'}"
 
 
-def missing_checks_recovery(names) -> str:
+def missing_checks_recovery(names, active_run=None, *, now=None) -> str:
     checks = ", ".join(names or ()) or "the missing required check (names unreadable)"
+    if active_run is not None:
+        age = ((now or utc_now()) - active_run.since).total_seconds()
+        if age < QUEUED_RUN_WAIT_SECONDS:
+            return (
+                f"workflow run {active_run.name or 'for this head'} "
+                f"{active_run.status.replace('_', ' ')} since "
+                f"{format_instant(active_run.since)}; wait for {checks} to "
+                "report. GitHub lands it once the run passes; do not push a new "
+                "commit"
+            )
     return (
         f"find why {checks}'s workflow did not start: inspect the Actions run "
         "page for the reason, fix it, then push a new commit to retrigger it. "
         "A startup_failure run cannot be rerun on GitHub"
     )
+
+
+def read_active_workflow_run(ctx, head_sha, *, request=None):
+    """Best-effort Actions run read by head commit, only after detection.
+
+    A queued run has no jobs yet, so it has no check runs to report.
+    """
+    from yoke_contracts.github_app_installation_permissions import (
+        GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
+    from yoke_core.domain.gh_rest_transport import (
+        RestRequest,
+        RestTransportError,
+        request_with_retry,
+        split_repo,
+    )
+    from yoke_core.domain.merge_github_queue import resolve_auth_detail
+
+    auth, error = resolve_auth_detail(ctx, GITHUB_ACTIONS_READ_PERMISSION_LEVELS)
+    if auth is None or error or not head_sha:
+        return None
+    owner, repo = split_repo(auth.repo)
+    try:
+        response = (request or request_with_retry)(
+            RestRequest(
+                method="GET",
+                path=f"/repos/{owner}/{repo}/actions/runs",
+                query={"head_sha": head_sha, "per_page": "100"},
+            ),
+            token=auth.token,
+        )
+    except RestTransportError:
+        return None
+    body = response.body if isinstance(response.body, dict) else {}
+    active = []
+    for run in body.get("workflow_runs") or ():
+        if not isinstance(run, dict) or run.get("status") not in _ACTIVE_RUN_STATUSES:
+            continue
+        try:
+            since = parse_instant(run.get("created_at"))
+        except (TypeError, ValueError):
+            continue
+        active.append(ActiveWorkflowRun(str(run.get("name") or ""), run["status"], since))
+    return min(active, key=lambda run: run.since, default=None)
+
+
+def missing_checks_facts(ctx, branch, checks, head_sha) -> dict:
+    """The names and active run a detected stall reports, read together."""
+    return {
+        "missing_checks": read_missing_check_names(ctx, branch, checks),
+        "active_run": read_active_workflow_run(ctx, head_sha),
+    }
 
 
 def read_missing_check_names(ctx, branch, checks, *, request=None):
@@ -144,10 +222,11 @@ def name_missing_checks(ctx, readback):
     if readback_missing_checks_stalled(readback):
         return replace(
             readback,
-            missing_checks=read_missing_check_names(
+            **missing_checks_facts(
                 ctx,
                 readback.state.target_branch or ctx.args.target,
                 readback.required_checks,
+                readback.state.head_sha,
             ),
         )
     return readback
