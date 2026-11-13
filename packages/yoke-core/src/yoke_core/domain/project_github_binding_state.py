@@ -92,33 +92,33 @@ def refresh_attached_project_bindings(
     persistence: BindingPersistenceState,
     verified_at: datetime,
 ) -> None:
-    """Apply one installation refresh to every attached project atomically.
+    """Apply one installation refresh to every live attached project atomically.
 
-    A binding that project retirement switched off stays unavailable.
+    A binding that project retirement switched off, or whose project is
+    retired, stays unavailable and keeps its capability projection unchanged.
     """
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    conn.execute(
-        "UPDATE project_github_repo_bindings SET "
-        f"permissions={placeholder}, status={placeholder}, "
-        f"last_verified_at={placeholder}, last_error={placeholder}, "
-        f"updated_at={placeholder} WHERE installation_id={placeholder} "
-        f"AND (last_error IS NULL OR last_error <> {placeholder})",
-        (
-            permissions,
-            persistence.binding_status,
-            instant_parameter(conn, verified_at),
-            persistence.binding_error,
-            instant_parameter(conn, verified_at),
-            installation_id,
-            BINDING_ERROR_PROJECT_RETIRED,
-        ),
-    )
-    _refresh_attached_project_capabilities(
-        conn,
-        installation_id=installation_id,
-        permissions=permissions,
-        verified_at=verified_at,
-    )
+    for binding in _live_attached_bindings(conn, installation_id=installation_id):
+        conn.execute(
+            "UPDATE project_github_repo_bindings SET "
+            f"permissions={placeholder}, status={placeholder}, "
+            f"last_verified_at={placeholder}, last_error={placeholder}, "
+            f"updated_at={placeholder} WHERE project_id={placeholder}",
+            (
+                permissions,
+                persistence.binding_status,
+                instant_parameter(conn, verified_at),
+                persistence.binding_error,
+                instant_parameter(conn, verified_at),
+                int(binding["project_id"]),
+            ),
+        )
+        _refresh_project_capability(
+            conn,
+            binding=binding,
+            permissions=permissions,
+            verified_at=verified_at,
+        )
 
 
 def refresh_project_binding(
@@ -160,28 +160,25 @@ def refresh_project_binding(
         )
 
 
-def _refresh_attached_project_capabilities(
-    conn: Any,
-    *,
-    installation_id: str,
-    permissions: str,
-    verified_at: datetime,
-) -> None:
-    """Rebuild each attached project's binding-owned capability projection."""
+def _live_attached_bindings(conn: Any, *, installation_id: str) -> list[Any]:
+    """Select the installation's bindings that retirement has not switched off."""
+    # project_retirement reaches this module through the GitHub auth chain.
+    from yoke_core.domain.project_retirement import project_is_retired
+
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     bindings = conn.execute(
         "SELECT project_id, installation_id, repository_id, api_url, github_repo "
         "FROM project_github_repo_bindings "
-        f"WHERE installation_id={placeholder} ORDER BY project_id",
-        (installation_id,),
+        f"WHERE installation_id={placeholder} "
+        f"AND (last_error IS NULL OR last_error <> {placeholder}) "
+        "ORDER BY project_id",
+        (installation_id, BINDING_ERROR_PROJECT_RETIRED),
     ).fetchall()
-    for binding in bindings:
-        _refresh_project_capability(
-            conn,
-            binding=binding,
-            permissions=permissions,
-            verified_at=verified_at,
-        )
+    return [
+        binding
+        for binding in bindings
+        if not project_is_retired(conn, int(binding["project_id"]))
+    ]
 
 
 def _refresh_project_capability(
