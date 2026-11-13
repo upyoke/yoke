@@ -68,6 +68,7 @@ NEXT_ADMISSION_NOTICE = (
 #: Refused when a run the item still belongs to holds a copy of the source
 #: and no copy was answered by a passing run case: that run grades the
 #: corrected requirement through the copy, so the copy must be corrected first.
+#: One passing correction on any holding run retires the source.
 SOURCE_RETIREMENT_REFUSAL = (
     "source_retirement_unproven: requirement {source_id} is a post_deploy item source "
     "whose admitted copies {copy_ids} sit on runs the item still belongs to "
@@ -76,11 +77,47 @@ SOURCE_RETIREMENT_REFUSAL = (
     "-- materialize the corrected case with --replaces "
     "CASE_KEY=<failed copy id> on that run's stage and record its passing "
     "current configuration-and-target-qualified verdict on its terminal successor "
-    "-- then re-run this supersede. If the item is leaving that run instead, "
-    "remove it (yoke deployment-runs remove-item RUN-ID ITEM --reason TEXT), then "
-    "re-run this supersede: "
-    "the corrected requirement then owes its own proof on the next release."
+    "-- then re-run this supersede.{exit}"
 )
+
+#: Appended when the item may leave every holding run: removal empties them.
+REMOVAL_EXIT = (
+    " If the item is leaving instead, remove it ({commands}), then re-run "
+    "this supersede: the corrected requirement then owes its own proof on the "
+    "next release."
+)
+
+#: Appended when a holding run refuses removal, so only the correction remains.
+REMOVAL_REFUSED = (
+    " Removing the item is not a way out: yoke deployment-runs remove-item "
+    "refuses on {refusals}."
+)
+
+
+def _removal_exit(conn: Any, item_id: int, run_ids: list[str]) -> str:
+    """Offer remove-item only when it would succeed on every holding run."""
+    from yoke_core.domain.deployment_run_member_removal_read import (
+        member_removal_refusal,
+    )
+    from yoke_core.domain.project_identity import render_item_ref
+
+    refusals = {
+        run_id: refusal
+        for run_id in run_ids
+        if (refusal := member_removal_refusal(conn, run_id, item_id)) is not None
+    }
+    if refusals:
+        return REMOVAL_REFUSED.format(
+            refusals="; ".join(f"{run} ({why})" for run, why in refusals.items())
+        )
+    item_ref = render_item_ref(conn, item_id)
+    return REMOVAL_EXIT.format(
+        commands="; ".join(
+            f"yoke deployment-runs remove-item {run} {item_ref} --reason TEXT"
+            for run in run_ids
+        )
+    )
+
 
 #: Receipt note when no live membership holds a copy of the source.
 PROOF_OWED_NOTICE = (
@@ -182,13 +219,13 @@ def source_retirement_answer(
         return {"run_replacement_requirement_id": answer_id}
     copies = live_member_copies(conn, source)
     if copies:
+        run_ids = list(dict.fromkeys(str(row["deployment_run_id"]) for row in copies))
         return {
             "refusal": SOURCE_RETIREMENT_REFUSAL.format(
                 source_id=int(source["id"]),
                 copy_ids=", ".join(f"#{int(row['id'])}" for row in copies),
-                run_ids=", ".join(
-                    dict.fromkeys(str(row["deployment_run_id"]) for row in copies)
-                ),
+                run_ids=", ".join(run_ids),
+                exit=_removal_exit(conn, int(source["item_id"]), run_ids),
             )
         }
     return {
@@ -275,6 +312,8 @@ def admitted_source_correction(conn: Any, broken: Mapping[str, Any]) -> dict[str
 __all__ = [
     "NEXT_ADMISSION_NOTICE",
     "PROOF_OWED_NOTICE",
+    "REMOVAL_EXIT",
+    "REMOVAL_REFUSED",
     "SOURCE_RETIREMENT_REFUSAL",
     "admitted_source_correction",
     "admitted_source_lineage",

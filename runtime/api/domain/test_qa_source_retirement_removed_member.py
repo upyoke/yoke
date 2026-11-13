@@ -38,6 +38,9 @@ from yoke_core.domain.deployment_qa_source_obligation import (
     unsatisfied_blocking,
 )
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
+from yoke_core.domain.deployment_run_member_removal_read import (
+    member_removal_refusal,
+)
 from yoke_core.domain.qa_requirement_supersession import QaSupersessionError
 
 
@@ -120,7 +123,36 @@ def test_member_still_on_the_run_must_correct_the_copy_first(test_db):
     assert f"#{copy_id}" in message
     assert run_id in message
     assert "--replaces" in message
-    assert "yoke deployment-runs remove-item" in message
+    assert f"yoke deployment-runs remove-item {run_id} " in message
+    assert "is not a way out" not in message
+
+
+def test_contained_reopened_member_is_sent_only_to_the_correction(test_db):
+    """Neither refusal sends the operator to a step the other refuses."""
+    item_id = 2383
+    run_id = "run-member-contained"
+    _insert_dash(test_db, item_id=item_id, status="release")
+    source_id, copy_id, _ = deliver_with_failing_admitted_copy(
+        test_db, item_id=item_id, run_id=run_id, corrected=False
+    )
+    # Reopened, but its merge is still in the frozen candidate (undetermined
+    # here, which the guard treats the same): removal must refuse.
+    test_db.execute("UPDATE items SET status='implementing' WHERE id=%s", (item_id,))
+    test_db.commit()
+    removal = member_removal_refusal(test_db, run_id, item_id)
+    assert removal is not None and "still belongs to this frozen candidate" in removal
+    assert "--replaces CASE_KEY=" in removal
+    corrected_id = _corrected_item_requirement(test_db, source_id=source_id)
+
+    with pytest.raises(QaSupersessionError) as refusal:
+        _retire(test_db, source_id=source_id, corrected_id=corrected_id)
+
+    message = str(refusal.value)
+    assert message.startswith("source_retirement_unproven:")
+    assert f"#{copy_id}" in message
+    assert "--replaces" in message
+    assert "remove it (" not in message
+    assert f"refuses on {run_id} (" in message
 
 
 def test_failed_run_no_longer_holds_the_source(test_db):

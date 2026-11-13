@@ -63,6 +63,15 @@ def read_removal(
     return read
 
 
+def member_removal_refusal(conn: Any, run_id: str, item_id: int) -> str | None:
+    """Why ``yoke deployment-runs remove-item`` would refuse this member, if it would."""
+    try:
+        read = read_removal(conn, run_id=run_id, item_ids=(int(item_id),))
+    except LookupError as exc:
+        return str(exc)
+    return None if read.refusal is None else str(read.refusal)
+
+
 @presentation_operation
 @run_presentation
 def _item_qa_answer(conn: Any, *, run_id: str, **subject: Any) -> Any:
@@ -157,7 +166,11 @@ def _require_removable(
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} still belongs to this frozen "
             "candidate or its containment is undetermined; keep it in the run "
-            "and inspect its current merge and lane head before retrying"
+            "and inspect its current merge and lane head before retrying. If a "
+            "failed item QA copy is what needs it out of this run, correct the "
+            "copy on this run instead: materialize the corrected case with "
+            "--replaces CASE_KEY=<failed copy id> on 'yoke qa plan run' for this "
+            "run's stage and record its passing verdict"
         )
     from yoke_core.domain.qa_plan_management import QaPlanError
 
