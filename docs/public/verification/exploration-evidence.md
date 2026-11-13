@@ -245,11 +245,12 @@ naming `review-begin`. The owner judges each mission recorded before the stop
 from its recorded evidence and submits through the same `review-submit`; a
 docket holding only setup and restore receipts is not product proof.
 
-An execution whose owner has
+An `active` or `walking` execution whose owner has
 stopped reporting progress is reaped into `aborted` with `release_reason`
 `stale-heartbeat` after 30 minutes without a heartbeat — unless its owning
 session is live and parked, which is a declared hold rather than an absence
-(see *Holding a Walk, and Continuing a Settled One*). Reaping is
+(see *Holding a Walk, and Continuing a Settled One*, which also covers
+`waiting` and `awaiting_walk_review` walks, freed only by their owner's end). Reaping is
 deliberately blind to row vintage: a stranded execution written before
 executions carried an execution target still settles, because resolving that
 target is a precondition for *running* an execution, not for abandoning one.

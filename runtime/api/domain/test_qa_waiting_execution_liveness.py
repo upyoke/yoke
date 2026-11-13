@@ -1,4 +1,4 @@
-"""Queued QA walks are abandoned only on durable owner-session end."""
+"""Held QA walks (waiting, awaiting walk review) are abandoned only on owner-session end."""
 
 from __future__ import annotations
 
@@ -39,6 +39,9 @@ def _begin(conn, session=OWNER):
         ("waiting", False, True, False),
         ("waiting", True, True, True),
         ("waiting", True, False, True),
+        ("awaiting_walk_review", False, True, False),
+        ("awaiting_walk_review", True, True, True),
+        ("awaiting_walk_review", True, False, True),
         ("active", False, True, True),
     ],
 )

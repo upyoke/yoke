@@ -12,6 +12,8 @@ from yoke_core.domain import db_backend
 
 
 PLAN_EXECUTION_STALE_SECONDS = 30 * 60
+#: Walks that cannot heartbeat while they wait; only their owner's end frees them.
+HELD_PLAN_EXECUTION_STATES = frozenset({"waiting", "awaiting_walk_review"})
 
 
 def lock_member_admission(conn: Any, run_id: str | None, member: int | None) -> None:
@@ -118,13 +120,14 @@ def plan_execution_is_abandoned(
     *,
     now: datetime | None = None,
 ) -> bool:
-    """Queued walks follow session lifetime; active walks follow progress.
+    """Held walks follow session lifetime; active walks follow progress.
 
-    Waiting cannot heartbeat, and a wake can change the owner's mode. Only
-    an explicit session end abandons a waiting execution. Other states keep
-    the heartbeat rule and the live parked-owner exemption.
+    Nothing heartbeats a walk that is waiting or awaiting walk review, and a
+    wake can change the owner's mode. Only an explicit session end abandons
+    a held execution. Other states keep the heartbeat rule and the live
+    parked-owner exemption.
     """
-    if execution.get("state") == "waiting":
+    if execution.get("state") in HELD_PLAN_EXECUTION_STATES:
         return owning_session_has_ended(conn, execution)
     if not plan_execution_is_stale(execution, now=now):
         return False
@@ -238,7 +241,7 @@ def plan_execution_abort_authority(
 
     ``owner``: the owning session stops its own walk. ``abandon``: nobody is
     holding the execution any more -- its owner stopped heartbeating and did
-    not park, or its queued owner ended -- so a caller may settle it. ``steering``: a
+    not park, or its held owner ended -- so a caller may settle it. ``steering``: a
     live steering seat stops a walk another session still drives; the stop
     goes through the runner, which cleans up its host and settles it.
     """
@@ -265,8 +268,8 @@ def plan_execution_abort_authority(
     holding = (
         "is parked and still holding this walk"
         if parked
-        else "is waiting with a live owner"
-        if execution.get("state") == "waiting"
+        else f"is {str(execution.get('state')).replace('_', ' ')} with a live owner"
+        if execution.get("state") in HELD_PLAN_EXECUTION_STATES
         else "is still reporting progress"
     )
     _fail(
@@ -277,14 +280,15 @@ def plan_execution_abort_authority(
         f"{steering_authority_message(execution_project_id(conn, execution))} "
         "Then rerun this abort: it records a stop that the owning runner obeys "
         "at its next case or heartbeat. Without a seat, ask the owning session "
-        "to abort its own execution. A waiting walk may be abandoned only "
-        "after its owning session ends; other walks may be abandoned after "
+        "to abort its own execution. A walk that is waiting or awaiting walk "
+        "review may be abandoned only after its owning session ends; other walks may be abandoned after "
         f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat "
         "unless its owner is parked"
     )
 
 
 __all__ = [
+    "HELD_PLAN_EXECUTION_STATES",
     "PLAN_EXECUTION_STALE_SECONDS",
     "owning_session_is_parked",
     "plan_execution_abort_authority",

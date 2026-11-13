@@ -270,8 +270,8 @@ copies, attempts or artifacts exist. **Not started** means proof is still owed;
 
 Active releases show current source requirements and attached-plan cases for
 their QA destinations. A matching deployment copy supplies that release's result
-and evidence. Previous releases keep their own attempts; takeover starts with
-pending obligations on the replacement run. Completed releases retain their
+and evidence. Previous releases keep their own attempts; takeover moves open obligations
+and open walks to the replacement run intact. Completed releases retain their
 frozen definitions and results when item sources later change.
 
 An empty obligation list, loading, and a failed read are different states. A

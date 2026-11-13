@@ -16,6 +16,13 @@ and cleanup use the execution ID and current stored owner even before a
 successor deploys. A pass stays a pass and a fail stays a fail; nothing re-checks
 completed results against newer code.
 
+An open walk is never told to wait or restart. Its owner gets no takeover
+notice, and the successor's item QA stage does not wake it with `yoke qa plan
+run` while the walk is live on that stage and its owning session has not
+ended. The carried walk keeps going on its own execution and may pass on the
+newer build. Once the owner ends or the walk settles, the next QA check wakes
+the member as usual.
+
 QA tests whatever is deployed at the authorized destination. A newer build than
 the run delivered is normal, not drift: QA start reports a different served
 commit and proceeds, and each deployment-bound browser case records the commit

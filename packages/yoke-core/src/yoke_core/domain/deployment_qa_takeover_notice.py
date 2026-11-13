@@ -1,4 +1,4 @@
-"""Tell each moved member owner that item QA now waits on the successor."""
+"""Tell each moved member owner with no open walk that item QA now waits on the successor."""
 
 from __future__ import annotations
 
@@ -78,13 +78,20 @@ def notify_moved_member_qa(
     from yoke_contracts.public_ref import format_item_ref
     from yoke_core.domain.merge_queue_landing_notice import addressable_items
 
-    from yoke_core.domain.deployment_qa_plan_ownership import plan_only_members
+    from yoke_core.domain.deployment_qa_plan_ownership import (
+        open_walk_members,
+        plan_only_members,
+    )
 
     stage_name = item_qa_stage_name(stages)
     # A member owing only plans has nothing to run; its plan groups moved whole.
-    plan_only = plan_only_members(conn, new_id, item_ids)
+    # A member mid-walk keeps walking on its carried execution; telling it to
+    # wait would stop a walk that may pass on the newer build.
+    skipped = plan_only_members(conn, new_id, item_ids) | open_walk_members(
+        conn, new_id, item_ids
+    )
     rows = [
-        row for row in _member_rows(conn, item_ids) if int(row["id"]) not in plan_only
+        row for row in _member_rows(conn, item_ids) if int(row["id"]) not in skipped
     ]
     by_project: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
