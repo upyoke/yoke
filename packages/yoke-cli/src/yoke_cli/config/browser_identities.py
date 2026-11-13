@@ -6,7 +6,8 @@ read through the registered ``projects.capability_settings.get`` function, so
 a Test Machine with no checkout of the project reads the same declarations as
 the operator's own machine. A project with no ``browser-control`` capability
 declares nothing and has only the ``default`` identity, which behaves exactly
-as the single per-project profile always did.
+as the single per-project profile always did. When the caller names no
+identity, the settings' ``default_identity`` chooses one.
 """
 
 from __future__ import annotations
@@ -16,18 +17,17 @@ import json
 from yoke_contracts.browser_identity import (
     BrowserIdentity,
     BrowserIdentityError,
-    parse_identity_declarations,
-    select_identity,
+    select_declared_identity,
 )
 from yoke_contracts.machine_config.capability_secrets import (
     BROWSER_CONTROL_CAPABILITY,
 )
 
 
-def declared_identities(
+def declared_settings(
     project_key: str, *, session_id: str | None = None
-) -> dict[str, BrowserIdentity]:
-    """Return every identity the project declares, ``default`` included."""
+) -> dict[str, object]:
+    """Return the project's browser-control settings; none declared is ``{}``."""
     from yoke_contracts.api.function_call import TargetRef
 
     from yoke_cli.commands._helpers import ensure_handlers_loaded
@@ -42,7 +42,7 @@ def declared_identities(
     )
     if not response.success:
         if response.error is not None and response.error.code == "not_found":
-            return parse_identity_declarations({})
+            return {}
         detail = (
             response.error.message
             if response.error is not None
@@ -62,16 +62,16 @@ def declared_identities(
             f"{project_key!r} browser-control settings are not JSON ({exc}). "
             "Repair them with `yoke projects capability-settings set`."
         ) from None
-    return parse_identity_declarations(settings if isinstance(settings, dict) else {})
+    return settings if isinstance(settings, dict) else {}
 
 
 def resolve_identity(
     project_key: str, identity: str | None, *, session_id: str | None = None
 ) -> BrowserIdentity:
     """Return one declared identity, refusing an undeclared name by name."""
-    return select_identity(
-        declared_identities(project_key, session_id=session_id), identity
+    return select_declared_identity(
+        declared_settings(project_key, session_id=session_id), identity
     )
 
 
-__all__ = ["declared_identities", "resolve_identity"]
+__all__ = ["declared_settings", "resolve_identity"]

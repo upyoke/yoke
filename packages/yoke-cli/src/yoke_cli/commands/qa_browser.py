@@ -37,7 +37,8 @@ _PROJECT_FLAG_HELP = (
     "command refuses and lists the projects you can use."
 )
 _IDENTITY_FLAG_HELP = (
-    "Browser identity to use (default: `default`). Each identity has its "
+    "Browser identity to use (default: the identity --check-id recorded, "
+    "else `default`; reads no declarations). Each identity has its "
     "own authoritative sign-in profile. Each check runs on a private copy. "
     "An identity never signed in on this "
     "machine starts signed out; run "

@@ -30,6 +30,7 @@ from yoke_contracts.browser_daemon_profile import profile_scope
 class BrowserCheck:
     check_id: str
     directory: Path
+    identity: str = ""
 
     @property
     def profile(self) -> Path:
@@ -154,12 +155,13 @@ def check_scope(project, identity=None, *, check_id=None, keep_open=False):
     """Copy sign-in once per check, route calls privately, and clean up on exit.
 
     A CLI step sequence retains its opaque check id until its final call. Its
-    daemon owns that copy between calls; an idle exit makes it sweepable.
+    daemon owns that copy between calls; an idle exit makes it sweepable. A
+    call resuming a check without naming an identity uses the check's own.
     """
     from yoke_contracts.browser_identity import DEFAULT_IDENTITY, validate_identity_name
     from yoke_harness import browser_client
 
-    identity = validate_identity_name(identity or DEFAULT_IDENTITY)
+    named = None if identity is None else validate_identity_name(identity)
     project = profile_project_key(project)
     check = None
     retain = False
@@ -178,16 +180,19 @@ def check_scope(project, identity=None, *, check_id=None, keep_open=False):
                     "browser_check_unavailable: this check ended; start a new "
                     "sequence without --check-id."
                 ) from None
+            identity = named or record["identity"]
             if record["project"] != str(project) or record["identity"] != identity:
                 check = None
                 raise RuntimeError(
                     "browser_check_identity_mismatch: use the project's original "
                     "identity or start a new sequence without --check-id."
                 )
+            check.identity = identity
         else:
+            identity = named or DEFAULT_IDENTITY
             source, _ = resolve_authorized_profile(project, identity=identity)
             check_id = str(uuid4())
-            check = BrowserCheck(check_id, _root() / check_id)
+            check = BrowserCheck(check_id, _root() / check_id, identity)
             create_private_directory(check.directory)
             record = {
                 "project": str(project),

@@ -14,15 +14,14 @@ from typing import Any, NamedTuple
 from yoke_contracts.browser_identity import (
     BrowserIdentity,
     BrowserIdentityError,
-    parse_identity_declarations,
-    select_identity,
+    select_declared_identity,
 )
 from yoke_cli import browser_node_toolchain
 
 IDENTITY_FLAG_HELP = (
-    "Identity whose profile to use (default: `default`, the project's original "
-    "single profile). Other names must be declared in the project's "
-    "browser-control capability settings."
+    "Identity whose profile to use (default: the project's default_identity "
+    "setting, else `default`, the project's original single profile). Other "
+    "names must be declared in the project's browser-control capability settings."
 )
 DECLARATIONS_FLAG_HELP = (
     "The project's browser-control settings document as JSON, for a host that "
@@ -69,7 +68,7 @@ def resolve_identity_target(
             "browser_identity_declarations_unreadable: --declarations-json must "
             "be the browser-control settings object."
         )
-    return key, select_identity(parse_identity_declarations(settings), identity)
+    return key, select_declared_identity(settings, identity)
 
 
 def prepare_browser_runtime(script: str) -> BrowserRuntime:

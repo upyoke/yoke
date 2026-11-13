@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "situations": ["First browser QA", "Testing buyer/admin or several accounts", "Personal site session expired", "Browser on an unconnected test host", "Resettable machine must retain live logins"],
  "coverage": "traced",
- "current": "Browser QA defaults an omitted identity to default, allowing anonymous cases even when named identities declare sites. Authorize and verify refuse an omitted --identity when default has no sites and another identity does, naming the choices. Mission dispatch uses explicit case personas or project identities covering the target origin. Source tests cover selection; live sign-in proof remains required.",
+ "current": "Browser QA defaults an omitted identity to default, allowing anonymous cases even when named identities declare sites. Authorize and verify use the project's default_identity for an omitted --identity; without it they refuse when default has no sites and another identity does, naming the choices. Settings naming an undeclared default_identity refuse with browser_identity_undeclared. A --check-id call without --identity inherits the check's identity. Mission dispatch uses explicit case personas or project identities with a site on any target *_url endpoint origin, default_identity first. Source tests cover selection; live sign-in proof remains required.",
  "questions": ["Live identity persistence and individual site probes were not exercised; current docs/CLI contract, not a sign-in guarantee."]
 }

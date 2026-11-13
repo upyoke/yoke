@@ -74,14 +74,18 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
 
         return validate_json_string(raw_json)
     if cap_type == BROWSER_CONTROL_CAPABILITY:
-        from yoke_contracts.browser_identity import parse_identity_declarations
+        from yoke_contracts.browser_identity import (
+            declared_default_identity,
+            parse_identity_declarations,
+        )
 
         payload = json_helper.loads_text(raw_json)
         if not isinstance(payload, dict):
             raise ValueError("browser-control settings must be a JSON object")
-        # Refuse a malformed identity declaration where it is written, not at
-        # the sign-in that would later depend on it.
+        # Refuse a malformed identity declaration, or a default_identity naming
+        # none, where it is written, not at the sign-in that depends on it.
         parse_identity_declarations(payload)
+        declared_default_identity(payload)
         return json_helper.dumps_compact(payload)
     if cap_type == TEST_MACHINE_CAPABILITY:
         raise ValueError(

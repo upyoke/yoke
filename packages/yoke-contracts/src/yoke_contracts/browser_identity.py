@@ -30,7 +30,9 @@ without following redirects, answers that HTTP status).
 
 The ``default`` identity always exists. It is the project's original single
 profile, so a project that declares nothing keeps working unchanged; a
-project may also declare sites for ``default``.
+project may also declare sites for ``default``. An optional top-level
+``default_identity`` names the declared identity a command uses when the
+caller names none.
 """
 
 from __future__ import annotations
@@ -56,6 +58,7 @@ DEFAULT_IDENTITY = "default"
 #: identity's profile path into it (see ``yoke_cli.config.browser_profile``).
 LIVE_IDENTITY_STORE_HOME_ENTRY = ".yoke-browser-identities"
 IDENTITIES_SETTING = "identities"
+DEFAULT_IDENTITY_SETTING = "default_identity"
 IDENTITY_NAME_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
 _SITE_KEYS = frozenset({"site", "origin", "account", "probe", "sign_in"})
 _PROBE_PREDICATES = ("signed_in_selector", "signed_in_status")
@@ -249,16 +252,36 @@ def mission_browser_identities(config: Mapping[str, object] | None) -> list[str]
     return names
 
 
-def select_identity(
-    identities: Mapping[str, BrowserIdentity], name: str | None
-) -> BrowserIdentity:
-    """Return the named identity, or ``default`` when the name is omitted.
+def declared_default_identity(settings: Mapping[str, object] | None) -> str | None:
+    """The settings' ``default_identity``, refused unless it names a declared one."""
+    raw = (settings or {}).get(DEFAULT_IDENTITY_SETTING)
+    if raw is None:
+        return None
+    name = validate_identity_name(raw)
+    declared = parse_identity_declarations(settings)
+    if name not in declared:
+        raise BrowserIdentityError(
+            f"browser_identity_undeclared: default_identity names {name!r}, "
+            f"which this project does not declare; declared: "
+            f"{', '.join(sorted(declared))}. Declare it under identities, or "
+            "set default_identity to a declared name."
+        )
+    return name
 
-    Omission is not an explicit ``default``. When ``default`` declares no
-    sites and another identity does, omission refuses
-    ``browser_identity_required`` and names the choices. Explicit ``default``
-    stays that anonymous profile.
+
+def select_identity(
+    identities: Mapping[str, BrowserIdentity],
+    name: str | None,
+    preferred: str | None = None,
+) -> BrowserIdentity:
+    """Return the named identity, else ``preferred``, else ``default``.
+
+    ``preferred`` is the project's ``default_identity``. Omission without one
+    is not an explicit ``default``: when ``default`` declares no sites and
+    another identity does, it refuses ``browser_identity_required`` and names
+    the choices. Explicit ``default`` stays that anonymous profile.
     """
+    name = name or preferred
     default = identities.get(DEFAULT_IDENTITY)
     default_sites = () if default is None else default.sites
     choices = sorted(key for key, identity in identities.items() if identity.sites)
@@ -267,7 +290,8 @@ def select_identity(
             "browser_identity_required: default declares no sites. Choose "
             + " or ".join(choices)
             + ". Pass --identity NAME to `yoke browser authorize` or "
-            "`yoke browser verify`, or set method_config.browser_identity "
+            "`yoke browser verify`, set default_identity in the project's "
+            "browser-control settings, or set method_config.browser_identity "
             "on the Browser case, then retry."
         )
     selected = validate_identity_name(name or DEFAULT_IDENTITY)
@@ -279,17 +303,29 @@ def select_identity(
     )
 
 
+def select_declared_identity(
+    settings: Mapping[str, object] | None, name: str | None
+) -> BrowserIdentity:
+    """Select ``name`` from browser-control settings, honouring default_identity."""
+    return select_identity(
+        parse_identity_declarations(settings), name, declared_default_identity(settings)
+    )
+
+
 __all__ = [
     "DEFAULT_IDENTITY",
+    "DEFAULT_IDENTITY_SETTING",
     "IDENTITIES_SETTING",
     "LIVE_IDENTITY_STORE_HOME_ENTRY",
     "BrowserIdentity",
     "BrowserIdentityError",
     "SignInCheck",
     "case_browser_identity",
+    "declared_default_identity",
     "live_identity_store_relative_path",
     "mission_browser_identities",
     "parse_identity_declarations",
+    "select_declared_identity",
     "select_identity",
     "validate_identity_name",
 ]

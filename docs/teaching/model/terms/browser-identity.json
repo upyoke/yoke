@@ -1,7 +1,7 @@
 {
  "id": "browser-identity",
  "term": "Browser identity",
- "definition": "A configured account and browser profile named by browser QA cases that need sign-in. Public cases may omit the identity and run without a sign-in requirement.",
+ "definition": "A configured account and browser profile named by browser QA cases that need sign-in. Public cases may omit the identity and run without a sign-in requirement. A project may set default_identity in browser-control settings to name the identity verify, authorize and walker briefs use when none is named.",
  "status": "draft",
  "sources": ["docs/public/verification/browser-identities.md"]
 }
