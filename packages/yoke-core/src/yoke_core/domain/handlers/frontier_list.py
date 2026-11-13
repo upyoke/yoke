@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -34,6 +34,7 @@ class FrontierListResponse(BaseModel):
     frozen_count: int
     wip_cap: int
     wip_active: int
+    diagnostics: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 def _error(

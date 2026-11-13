@@ -282,6 +282,7 @@ def list_frontier(
                 "dependency_edges": list(FRONTIER_EDGE_FIELDS),
                 "dependency_cycles": list(FRONTIER_CYCLE_FIELDS),
             },
+            "diagnostics": schedule.diagnostics,
             "ready_rows": ready_rows,
             "blocked_rows": blocked_rows,
             **frontier_dependency_graph(conn, scope, gate_blocks=gate_blocks),

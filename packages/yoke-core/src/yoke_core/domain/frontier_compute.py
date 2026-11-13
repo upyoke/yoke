@@ -158,6 +158,7 @@ def compute_frontier(
     blocked: List[FrontierItem] = []
     frozen_items: List[FrontierItem] = []
     excluded_routed_ownership: List[Dict[str, Any]] = []
+    diagnostics: List[Dict[str, Any]] = []
     project_labels: Dict[int, str] = {}
 
     def _project_label(project_id: Any) -> str:
@@ -171,7 +172,15 @@ def compute_frontier(
         internal_item_id = int(item["id"])
         status = item["status"]
         workflow = workflow_versions.runtime_for(conn, item)
-        adapter = classify_next_action(workflow, status)
+        try:
+            adapter = classify_next_action(workflow, status)
+        except ValueError as exc:
+            diagnostics.append({
+                "item_id": render_item_ref(conn, internal_item_id),
+                "reason": str(exc),
+                "recovery": "Repair the item's workflow pin or stage before dispatching it.",
+            })
+            continue
         if adapter == AdapterCategory.SKIP:
             continue
         if status in ENGINE_WAIT_STAGE_IDS:
@@ -284,6 +293,7 @@ def compute_frontier(
         wip_active=effective_wip_active,
         wip_active_items=wip_active_items,
         conduct_eligible=conduct_eligible,
+        diagnostics=diagnostics,
     )
 
     if emit_events:
