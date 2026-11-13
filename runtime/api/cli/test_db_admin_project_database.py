@@ -132,6 +132,32 @@ def test_dry_run_plans_declared_database_on_the_box(setup_env, capsys):
     assert actions[-2:] == ["forward-to-box-postgres", "configure-dsn-file-credential"]
 
 
+@pytest.mark.parametrize("json_output", [True, False])
+@pytest.mark.parametrize("admin_env", [None, "custom-registry-admin"])
+def test_applied_database_profile_teaches_release_binding(
+    setup_env, monkeypatch, capsys, json_output, admin_env
+):
+    from yoke_cli.config import db_admin_setup as config
+
+    monkeypatch.setattr(config.box_mode, "apply", lambda *_a, **_kw: ({}, {}))
+    monkeypatch.setattr(config, "_write_connection", lambda **_kw: {})
+    extra = ["--yes"]
+    if json_output:
+        extra.append("--json")
+    if admin_env:
+        extra.extend(["--admin-env", admin_env])
+    assert _setup(setup_env.config_path, *extra) == 0
+    output = capsys.readouterr().out
+    selected = admin_env or "yoke-stage-registry-db-admin"
+    command = (
+        "yoke projects environment-settings merge --project yoke "
+        f"--environment stage --set release.admin_connection={selected}"
+    )
+    assert command in output
+    if json_output:
+        assert json.loads(output)["release_admin_connection_command"] == command
+
+
 def test_missing_capability_refuses_with_declaration_teaching(setup_env, capsys):
     setup_env.state["response"] = FunctionCallResponse(
         success=False,

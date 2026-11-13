@@ -23,6 +23,8 @@ def render_human(report: Mapping[str, Any]) -> str:
         lines.append(f"  - {step['action']}: {step['target']}")
     if not report["applied"]:
         lines.extend(["", "Rerun with --yes to apply this plan."])
+    if command := report.get("release_admin_connection_command"):
+        lines.extend(["", "Bind the release admin connection:", f"  {command}"])
     lines.append("")
     return "\n".join(lines)
 

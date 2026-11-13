@@ -19,7 +19,10 @@ from yoke_core.tools import preflight_fleet_migrations as preflight
 
 
 @pytest.mark.parametrize("record", [True, False])
-def test_empty_fleet_records_no_receipt(monkeypatch, tmp_path, capsys, record):
+@pytest.mark.parametrize("unreachable", [True, False])
+def test_empty_or_unreachable_fleet_records_no_receipt(
+    monkeypatch, tmp_path, capsys, record, unreachable
+):
     recorded: list[dict] = []
     monkeypatch.setenv("YOKE_ENV", "release")
     _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
@@ -52,14 +55,27 @@ def test_empty_fleet_records_no_receipt(monkeypatch, tmp_path, capsys, record):
         local_universe_autostart, "ensure_running", lambda *_a, **_k: None
     )
     monkeypatch.setattr(
-        migration_fleet_preflight, "rehearse_fleet", lambda _dsn_for, **_kw: []
+        migration_fleet_preflight, "rehearse_fleet", lambda _dsn_for, **_kw: [
+            migration_fleet_preflight.Verdict(
+                name, False, "could not read ownership: permission denied for database"
+            ) for name in ("first", "second")
+        ] if unreachable else []
     )
     args = ["--project", "yoke", "stage"]
     if record:
         args += ["--record-receipt", "--product-sha", "abc"]
 
-    assert preflight.main(args) == (1 if record else 0)
+    assert preflight.main(args) == (1 if record or unreachable else 0)
     assert recorded == []
     err = capsys.readouterr().err
-    assert "no database was rehearsed" in err
-    assert "no receipt was recorded" in err
+    if unreachable:
+        command = (
+            "yoke projects environment-settings merge --project yoke "
+            "--environment stage --set release.admin_connection=<profile>"
+        )
+        assert err.count(command) == 1
+        assert "release.admin_connection=stage-db-admin" in err
+    else:
+        assert "no database was rehearsed" in err
+        assert "no receipt was recorded" in err
+        assert "environment-settings merge" not in err
