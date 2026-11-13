@@ -187,7 +187,8 @@ function scopeDocument(claim) {
 }
 
 function steeringScope(claim, projects) {
-  const project = projectSlug(projects, claimProjectId(claim)) || "unknown project";
+  const project = String(claim.project || "").trim()
+    || projectSlug(projects, claimProjectId(claim)) || "unknown project";
   const locked = scopeDocument(claim);
   if (locked === undefined) {
     return { project, wide: false, docs: "scope unknown" };
