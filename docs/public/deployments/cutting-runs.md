@@ -9,7 +9,7 @@ cut behind a busy server does.
 
 ## Who cuts runs
 
-A run is cut, meaning created, in one of two ways:
+A run is cut, meaning created, by either of these:
 
 - **Item delivery.** `/yoke usher PREFIX-N` or
   `yoke deployment-runs start-for-item` delivers one item. It binds the
