@@ -1,10 +1,13 @@
-"""The driver skips a workflow dispatch only when the control plane reuses it."""
+"""The driver skips a workflow dispatch only when the control plane reuses it,
+and never skips the fleet rehearsal that dispatch would have run."""
 
 from __future__ import annotations
 
 import pytest
 
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
+from yoke_core.domain import deploy_pipeline_fleet_rehearsal as fleet_rehearsal
+from yoke_core.domain import deploy_pipeline_step_runners as step_runners
 from yoke_core.domain import deploy_pipeline_stage_receipt as stage_receipt
 
 STAGE = {
@@ -15,8 +18,26 @@ STAGE = {
 }
 
 
+BOUND = {"consumer_sha": "b" * 40}
+UNCOVERED = (1, "fleet rehearsal of platform/production failed before dispatch")
+
+
 @pytest.fixture
-def dispatched(monkeypatch):
+def rehearsals(monkeypatch):
+    """Every fleet rehearsal the stage runs; ``outcome`` is what each returns."""
+    calls: list[dict] = []
+    outcome = {"value": (0, "")}
+
+    def _ensure(bound_inputs, **kwargs):
+        calls.append({"bound_inputs": dict(bound_inputs), **kwargs})
+        return outcome["value"]
+
+    monkeypatch.setattr(fleet_rehearsal, "ensure_before_dispatch", _ensure)
+    return calls, outcome
+
+
+@pytest.fixture
+def dispatched(monkeypatch, rehearsals):
     calls: list[str] = []
     monkeypatch.setattr(stage_receipt, "driver_source_drift_refusal", lambda _l: "")
 
@@ -43,6 +64,8 @@ def _run(stage=STAGE, *, fresh=False):
         fresh=fresh,
         gate_branch="main",
         release_lineage="a" * 40,
+        environment_name="production",
+        bound_inputs=BOUND,
     )
 
 
@@ -106,3 +129,48 @@ def test_fresh_and_unbound_stages_never_ask(monkeypatch, dispatched, stage, fres
     assert _run(stage, fresh=fresh) == (0, "")
     assert asked == []
     assert dispatched == [stage["name"]]
+
+
+def test_reuse_rehearses_the_fleet_before_asking(monkeypatch, dispatched, rehearsals):
+    calls, _ = rehearsals
+    _answer(monkeypatch, {"reused_run_id": "run-served", "reason": ""})
+    assert _run()[0] == 0
+    assert calls == [
+        {
+            "bound_inputs": BOUND,
+            "run_id": "run-reuse",
+            "project": "yoke",
+            "environment": "production",
+            "repository": "/repo",
+            "release_lineage": "a" * 40,
+            "input_bindings": STAGE["input_bindings"],
+        }
+    ]
+    assert dispatched == []
+
+
+def test_uncovered_replaced_box_is_not_reused(monkeypatch, dispatched, rehearsals):
+    """A target with no coverage whose rehearsal fails never reports reuse."""
+    _, outcome = rehearsals
+    outcome["value"] = UNCOVERED
+    asked = _answer(monkeypatch, {"reused_run_id": "run-served", "reason": ""})
+    assert _run() == UNCOVERED
+    assert asked == []
+    assert dispatched == []
+
+
+def test_fresh_dispatch_runs_the_fleet_rehearsal(monkeypatch, rehearsals):
+    """``--fresh`` skips reuse but its workflow dispatch still rehearses first."""
+    calls, _ = rehearsals
+    monkeypatch.setattr(stage_receipt, "driver_source_drift_refusal", lambda _l: "")
+    asked = _answer(monkeypatch, {"reused_run_id": "run-served", "reason": ""})
+
+    def _workflow(config, *, before_dispatch, bound_inputs, **_kwargs):
+        return before_dispatch(bound_inputs)
+
+    monkeypatch.setattr(step_runners, "_dispatch_github_actions_workflow", _workflow)
+    stage = {**STAGE, "config": STAGE}
+    assert _run(stage, fresh=True) == (0, "")
+    assert asked == []
+    assert [call["environment"] for call in calls] == ["production"]
+    assert calls[0]["input_bindings"] == STAGE["input_bindings"]

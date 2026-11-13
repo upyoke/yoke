@@ -48,7 +48,10 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ProducerContext,
     StageObservation,  # noqa: F401 — re-exported so producers import one name
 )
-from yoke_core.domain.deploy_pipeline_step_runners import _dispatch_step_runner
+from yoke_core.domain.deploy_pipeline_step_runners import (
+    _dispatch_step_runner,
+    fleet_rehearsal_gate,
+)
 from yoke_core.domain.deploy_pipeline_delivery_reuse import reused_delivery
 from yoke_core.domain.deployment_target_identity_config import (
     identity_origin_for,
@@ -135,9 +138,22 @@ def dispatch_step_runner_with_receipt(
         return EXIT_DRIVER_SOURCE_DRIFT, drift
 
     def _dispatch(*, dispatch_environment: str) -> tuple[int, str]:
-        reused = reused_delivery(stage, run_id=run_id, fresh=fresh)
-        if reused:
-            return 0, f"stage {stage_name!r} reused the delivery of run {reused}"
+        gate = fleet_rehearsal_gate(
+            stage,
+            run_id=run_id,
+            project=project,
+            environment_name=dispatch_environment,
+            project_repo_path=project_repo_path,
+            release_lineage=release_lineage,
+        )
+        reused = reused_delivery(
+            stage,
+            run_id=run_id,
+            fresh=fresh,
+            rehearse=lambda: gate(dict(bound_inputs or {})),
+        )
+        if reused is not None:
+            return reused
         return _dispatch_step_runner(
             stage,
             run_id=run_id,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from functools import partial
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
@@ -23,6 +23,7 @@ __all__ = [
     "_dispatch_ephemeral_verify",
     "_dispatch_github_actions_workflow",
     "_dispatch_warm_up",
+    "fleet_rehearsal_gate",
 ]
 
 
@@ -170,20 +171,44 @@ def _dispatch_step_runner(
             environment_name=environment_name,
             bound_inputs=bound_inputs,
             preview_slug=release_identity,
-            before_dispatch=partial(
-                deploy_pipeline_fleet_rehearsal.ensure_before_dispatch,
+            before_dispatch=fleet_rehearsal_gate(
+                stage,
                 run_id=run_id,
                 project=project,
-                environment=environment_name,
-                repository=project_repo_path,
+                environment_name=environment_name,
+                project_repo_path=project_repo_path,
                 release_lineage=release_lineage,
-                input_bindings=config.get("input_bindings"),
             ),
         )
 
     print(f"Error: unknown step runner type '{step_runner}'", file=sys.stderr)
     return 1, ""
 
+
+def fleet_rehearsal_gate(
+    stage: Mapping[str, Any],
+    *,
+    run_id: str,
+    project: str,
+    environment_name: str,
+    project_repo_path: str,
+    release_lineage: str,
+) -> Callable[[Mapping[str, str]], tuple[int, str]]:
+    """The fleet rehearsal a workflow stage passes before it ships.
+
+    Called with the commit the run holds for each bound input. A dispatch
+    runs it beside the CI gate; a reused delivery runs it before reuse is
+    asked, so a target with no rehearsal coverage never skips it.
+    """
+    return partial(
+        deploy_pipeline_fleet_rehearsal.ensure_before_dispatch,
+        run_id=run_id,
+        project=project,
+        environment=environment_name,
+        repository=project_repo_path,
+        release_lineage=release_lineage,
+        input_bindings=stage.get("input_bindings"),
+    )
 
 def _resolve_warm_up_connection(
     config: Mapping[str, Any], project: str, environment_name: str
