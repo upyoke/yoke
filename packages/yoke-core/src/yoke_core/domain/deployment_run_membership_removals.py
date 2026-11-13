@@ -21,8 +21,9 @@ Re-attaching while created with ``deployment_runs.add_item`` clears the entry: t
 operator reversed the decision, and a stale exclusion would silently drop the
 item from the run it was just attached to.
 
-A takeover successor's enrollment also honors operator removals on the runs it
-supersedes (not transfer or set-aside entries); add-item clears them too.
+A takeover successor's enrollment also honors operator removals on every run
+it took over -- the run it supersedes and each never-started run it absorbs --
+but not transfer or set-aside entries; add-item clears them too.
 """
 
 from __future__ import annotations
@@ -77,15 +78,20 @@ def removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
 
 
 def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
-    """Operator removals on the runs *run_id* superseded, with their run."""
+    """Operator removals on every run *run_id* took over, with their run.
+
+    A takeover marks both the run it supersedes and each never-started run it
+    absorbs ``superseded_by_run_id`` = *run_id* before enrollment reads this,
+    so walking that column back covers them all and their own predecessors.
+    """
     from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASON
 
-    if not _column_exists(conn, "deployment_runs", "supersedes_run_id"):
+    if not _column_exists(conn, "deployment_runs", "superseded_by_run_id"):
         return []
     rows = conn.execute(
-        "WITH RECURSIVE chain(id) AS (SELECT supersedes_run_id FROM deployment_runs "
-        "WHERE id=%s UNION SELECT r.supersedes_run_id FROM deployment_runs r "
-        f"JOIN chain c ON r.id=c.id) SELECT r.id,r.{MEMBERSHIP_REMOVALS_FIELD} "
+        "WITH RECURSIVE chain(id) AS (SELECT id FROM deployment_runs "
+        "WHERE superseded_by_run_id=%s UNION SELECT r.id FROM deployment_runs r "
+        f"JOIN chain c ON r.superseded_by_run_id=c.id) SELECT r.id,r.{MEMBERSHIP_REMOVALS_FIELD} "
         "FROM deployment_runs r JOIN chain c ON r.id=c.id",
         (run_id,),
     ).fetchall()

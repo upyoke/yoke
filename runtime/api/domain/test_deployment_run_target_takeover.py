@@ -29,7 +29,12 @@ import pytest
 
 from runtime.api.fixtures.deployment_run_driver_fixture import DRIVER_SESSION
 from yoke_core.domain import deployment_run_candidate_containment as containment
-from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_core.domain.deployment_run_membership_removals import (
+    clear_membership_removal,
+    enrollment_removed_item_ids,
+    record_membership_removals,
+    removed_item_ids,
+)
 from yoke_core.domain.deployment_run_target_takeover import (
     NOT_CONTAINED_CODE,
     TakeoverRefused,
@@ -277,3 +282,27 @@ def test_waiting_run_is_superseded_and_newer_never_started_run_absorbed(
     assert (absorbed["status"], absorbed["superseded_by_run_id"]) == ("cancelled", NEW)
     assert WAITING in _members(test_db, NEW)
     assert _run(test_db, "run-cancelled")["superseded_by_run_id"] is None
+
+
+def test_operator_removal_on_an_absorbed_run_survives_the_takeover(
+    test_db, monkeypatch
+):
+    """YOK-5215: a removal on a never-started run the takeover absorbs holds."""
+    removed, absorbed = 9978, "run-never-started"
+    _dated_target(test_db)
+    _dated_copy(test_db, absorbed, status="created", created_at="2026-11-04T00:00:00Z")
+    test_db.execute("UPDATE deployment_runs SET current_stage=NULL WHERE id=%s", (absorbed,))
+    record_membership_removals(test_db, absorbed, [removed], reason="operator removed it",
+                               session_id=None, actor_id=1)
+    test_db.commit()
+    _contains(monkeypatch)
+
+    assert _take_over(test_db) == OLD
+    assert _run(test_db, absorbed)["superseded_by_run_id"] == NEW
+    # Enrollment subtracts this set, so the absorbed run's removal is not undone.
+    assert removed in enrollment_removed_item_ids(test_db, NEW)
+    assert removed not in _members(test_db, NEW)
+    # add-item on the successor reverses the decision on the absorbed run too.
+    assert clear_membership_removal(test_db, NEW, removed)
+    assert removed not in enrollment_removed_item_ids(test_db, NEW)
+    assert removed not in removed_item_ids(test_db, absorbed)
