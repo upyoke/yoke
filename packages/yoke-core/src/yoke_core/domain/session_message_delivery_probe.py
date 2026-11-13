@@ -19,6 +19,7 @@ per hook.
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.wake_delivery import HOOK_SUBAGENT_EXIT_RESULT
 from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.db_helpers import instant_parameter
@@ -44,7 +45,8 @@ DELIVERY_PROBE_ADAPTER_REVISION = "session-message-delivery-probe-v1"
 PROBE_SESSION_NOT_DELIVERABLE = "probe_session_not_deliverable"
 PROBE_NO_LEASABLE_RECEIPT = "probe_no_leasable_receipt"
 PROBE_LEASE_FAILED = "probe_lease_failed"
-PROBE_SUBAGENT_EXIT = "probe_subagent_exit"
+# Owned by the contract: a subagent's decline defers, it does not fail.
+PROBE_SUBAGENT_EXIT = HOOK_SUBAGENT_EXIT_RESULT
 
 PROBE_REASONS = frozenset(
     {
