@@ -3,5 +3,9 @@
  "title": "Ready",
  "status": "draft-copy",
  "page": "frontier",
- "position": 1
+ "position": 1,
+ "current": "Frontier reads exclude items whose pinned stage cannot be classified, while listing healthy items. The frontier.list diagnostics name each skipped public item ref, reason and recovery; other classifier callers still receive the error.",
+ "sources": [
+  "docs/public/strategy/frontier.md"
+ ]
 }

@@ -312,6 +312,7 @@ def compute_schedule(
         wip_active_items=list(raw.wip_active_items),
         conduct_eligible=conduct_eligible,
         frozen_steps=frozen_steps,
+        diagnostics=raw.diagnostics,
     )
 
     # Emit FrontierStepSelected telemetry

@@ -259,3 +259,4 @@ class SchedulerResult:
     frozen_steps: List[ScheduledStep] = field(default_factory=list)
     runnable_elsewhere: List[Dict[str, Any]] = field(default_factory=list)
     workspace_home_project: Optional[str] = None
+    diagnostics: List[Dict[str, Any]] = field(default_factory=list)

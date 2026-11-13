@@ -20,6 +20,12 @@ Frontier rows reflect lifecycle status, blocks, freezes, claims, and
 dependencies. Blocked items stay at their lifecycle stage with a reason;
 frontier routes them to wait until unblocked.
 
+An item with an unknown workflow stage or a skill without a frontier adapter
+is excluded from scheduling without stopping other items from listing.
+`frontier.list` returns it in `diagnostics`, with its public `item_id`,
+`reason` and `recovery`. Repair that item's workflow pin or stage before
+trying to dispatch it.
+
 The Frontier page draws six bands, in order: **Waiting**, **On hold**,
 **Ready**, **In progress**, **Release** and **Done (24h)**. Waiting is a graph of
 unsatisfied dependency edges at the start, merge and close gates

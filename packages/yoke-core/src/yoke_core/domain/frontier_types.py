@@ -73,3 +73,4 @@ class FrontierResult:
     wip_active: int = 0
     wip_active_items: List[int] = field(default_factory=list)
     conduct_eligible: List[FrontierItem] = field(default_factory=list)
+    diagnostics: List[dict[str, Any]] = field(default_factory=list)

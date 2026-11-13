@@ -12,7 +12,7 @@ statuses it would only discard. :func:`skipped_statuses` names, per version,
 exactly the statuses ``frontier_classify.classify_next_action`` maps to
 ``SKIP`` plus the ``failed`` stage the scan drops right after — and nothing
 else, so a status the definition does not recognize still reaches the
-classifier and still raises rather than vanishing from the board.
+classifier and gets a diagnostic rather than vanishing silently.
 
 The dependency kernel's batch gate scan
 (:func:`yoke_core.domain.dependency_planning.evaluate_batch_gates`) reads its
