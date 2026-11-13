@@ -49,6 +49,31 @@ def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
     )
 
 
+def _deployment_run_clause(execution_target: Mapping[str, Any]) -> str:
+    """Name the deployment run, environment and commit a release walk tests.
+
+    Empty unless the walk belongs to a deployment run. The prompt's own
+    ``--run-id`` flags name the capture run, so this one is labelled apart.
+    """
+    deployment = execution_target.get("deployment") or {}
+    run_id = str(deployment.get("run_id") or "").strip()
+    if not run_id:
+        return ""
+    environment = str(
+        (execution_target.get("environment") or {}).get("name") or ""
+    ).strip()
+    commit = str(deployment.get("release_lineage") or "").strip()
+    facts = [f"deployment run {run_id}"]
+    if environment:
+        facts.append(f"environment {environment}")
+    if commit:
+        facts.append(f"commit {commit}")
+    return (
+        f"This walk tests {', '.join(facts)}. The --run-id in the commands "
+        "below is this walk's capture run, not the deployment run. "
+    )
+
+
 def _walker_dispatch(
     case: Mapping[str, Any],
     *,
@@ -115,7 +140,8 @@ def _walker_dispatch(
         "this walk installed it, materialize the target browser with "
     )
     prompt = (
-        f"Before any other host command, run `{walk_start_command}`: it puts "
+        _deployment_run_clause(execution_target)
+        + f"Before any other host command, run `{walk_start_command}`: it puts "
         "the Test Machine in this mission's declared starting state. If it "
         "fails, walk nothing and return its error as your blocker. "
         "Walk this mission atomically. Clean up everything the walk creates "
@@ -236,7 +262,8 @@ def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, 
         "artifact_add_command": artifact_command,
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": (
-            "Explore this mission on the controller, the machine running the main "
+            _deployment_run_clause(execution_target)
+            + "Explore this mission on the controller, the machine running the main "
             "session. It has no Test Machine lease and owes no host reset or restore. "
             f"Use the controller's declared tools and browser; managed setup: `{setup}`, "
             f"then `{step}`. {identity_clause}Pass the setup check_id with --check-id ID --keep-open "
