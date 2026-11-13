@@ -270,9 +270,9 @@ copies, attempts or artifacts exist. **Not started** means proof is still owed;
 
 Active releases show current source requirements and attached-plan cases for
 their QA destinations. A matching deployment copy supplies that release's result
-and evidence. Previous releases keep their own attempts; takeover moves open obligations
-and open walks to the replacement run intact. Completed releases retain their
-frozen definitions and results when item sources later change.
+and evidence. Previous releases keep their own attempts; takeover moves open
+obligations and walks to the replacement run intact. Completed releases retain
+their frozen definitions and results when item sources later change.
 
 An empty obligation list, loading, and a failed read are different states. A
 named Item QA read error includes its recovery: reload the page, then ask the
