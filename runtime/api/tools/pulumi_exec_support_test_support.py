@@ -1,9 +1,7 @@
 """Shared Pulumi execution test settings."""
 
-import json
 from io import BytesIO, StringIO
 from pathlib import Path
-import shutil
 
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -30,30 +28,6 @@ class _Child:
     def wait(self, timeout=None):
         del timeout
         return self.returncode
-
-
-def _install_pulumi_project_files(tmp_path: Path) -> Path:
-    """Materialize the project-owned infra files installed by Pulumi Packs."""
-
-    source_root = Path(__file__).resolve().parents[3]
-    project_root = tmp_path / "installed-project"
-    project_root.mkdir(parents=True, exist_ok=True)
-    for descriptor_path in sorted((source_root / "packs").glob("*/pack.json")):
-        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-        version = descriptor["latest_version"]
-        record = descriptor["versions"][version]
-        version_root = descriptor_path.parent / record["source"]
-        for file_record in record["files"]:
-            target_name = file_record["target"]
-            if not target_name.startswith("infra/"):
-                continue
-            if "{{" in target_name:
-                raise AssertionError(f"unexpected dynamic infra target: {target_name}")
-            target = project_root / target_name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(version_root / file_record["source"], target)
-            target.chmod(int(file_record["mode"], 8))
-    return project_root
 
 
 def _init_settings(

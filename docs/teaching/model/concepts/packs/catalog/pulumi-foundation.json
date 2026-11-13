@@ -1,8 +1,0 @@
-{
- "id": "pulumi-foundation",
- "title": "Pulumi Foundation",
- "status": "draft-copy",
- "sources": ["packs/pulumi-foundation/pack.json"],
- "page": "packs",
- "position": 8
-}

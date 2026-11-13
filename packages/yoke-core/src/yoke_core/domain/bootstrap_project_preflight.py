@@ -228,16 +228,15 @@ def run_preflight(ctx: BootstrapContext) -> int:
                 fail_count += 1
                 _print_fail(
                     f"Wildcard TLS certificate not found on VPS for {domain}",
-                    "Provision a wildcard cert using the VPS Hosting Pack:",
-                    "  1. Get or update vps-hosting in the project checkout:",
-                    f"     yoke packs get vps-hosting /path/to/project --project {project} --apply",
-                    "  2. Copy provision-tls.sh to the VPS:",
-                    "     scp /path/to/project/ops/provision-tls.sh "
-                    f"{ssh_user}@{ssh_host}:~/provision-tls.sh",
-                    "  3. Create DNS credentials on the VPS:",
+                    "Issue a wildcard cert with certbot DNS-01 on the VPS:",
+                    "  1. Install certbot and your DNS provider's plugin:",
+                    f"     ssh {ssh_user}@{ssh_host} 'sudo apt-get install -y certbot python3-certbot-dns-digitalocean'",
+                    "  2. Create DNS credentials on the VPS:",
                     f"     ssh {ssh_user}@{ssh_host} 'sudo mkdir -p /etc/letsencrypt && echo \"dns_digitalocean_token = YOUR_TOKEN\" | sudo tee /etc/letsencrypt/dns-credentials.ini && sudo chmod 600 /etc/letsencrypt/dns-credentials.ini'",
-                    "  4. Run the provisioning script:",
-                    f"     ssh {ssh_user}@{ssh_host} 'sudo sh ~/provision-tls.sh'",
+                    "  3. Request the certificate (renewal reloads nginx):",
+                    f"     ssh {ssh_user}@{ssh_host} \"sudo certbot certonly --non-interactive --agree-tos -m ADMIN_EMAIL "
+                    "--dns-digitalocean --dns-digitalocean-credentials /etc/letsencrypt/dns-credentials.ini "
+                    f"-d {domain} -d '*.{domain}' --deploy-hook 'systemctl reload nginx'\"",
                     f"Re-run: python3 -m yoke_core.domain.bootstrap_project cli {project}",
                 )
             else:

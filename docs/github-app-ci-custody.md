@@ -60,11 +60,4 @@ The base delivery allow matrix contains:
 - exact distribution buckets, read-only CloudFront distribution discovery, and
   CloudFront invalidation.
 
-SSH uses DB-declared hosts and keys. The registry-oidc Pack's optional
-`delivery_authority` adds SSM and artifact permissions only when explicitly
-configured; its default is `None`. The descriptor bounds instance tags,
-documents, artifact buckets and key prefixes; malformed configuration refuses.
-SSM `DescribeInstanceInformation` requires account-wide inventory read, an
-explicit tradeoff of opting in. The App-key deny still applies. See the
-[policy source](../packs/registry-oidc/versions/1.6.0/files/infra/webapp_registry_delivery_ssm_policy.py)
-for the descriptor contract; this reference does not attest a project's opt-in.
+SSH uses DB-declared hosts and keys.

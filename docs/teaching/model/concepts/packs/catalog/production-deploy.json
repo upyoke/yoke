@@ -1,8 +1,0 @@
-{
- "id": "production-deploy",
- "title": "Production Deploy",
- "status": "draft-copy",
- "sources": ["packs/production-deploy/pack.json"],
- "page": "packs",
- "position": 7
-}

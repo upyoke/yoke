@@ -1,8 +1,0 @@
-{
- "id": "ephemeral-environments",
- "title": "Ephemeral Environments",
- "status": "draft-copy",
- "sources": ["packs/ephemeral-environments/pack.json"],
- "page": "packs",
- "position": 3
-}

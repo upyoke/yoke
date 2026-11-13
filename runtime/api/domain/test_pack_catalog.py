@@ -23,18 +23,9 @@ def test_product_catalog_covers_every_pack_with_installed_documentation(
     assert {row["slug"] for row in rows} == {
         "branch-preview-hosting",
         "container-runtime",
-        "domain-cdn-edge",
-        "ephemeral-environments",
         "host-maintenance",
-        "managed-database",
-        "production-deploy",
-        "pulumi-foundation",
-        "registry-oidc",
-        "self-hosted-runners",
         "smoke-testing",
         "structured-events",
-        "vps-hosting",
-        "webapp-environment-infrastructure",
         "webapp-scaffold",
     }
     for row in rows:
@@ -87,49 +78,14 @@ def test_latest_pack_boundaries_separate_shared_and_application_specific_code(
     monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
 
     container = pack_catalog.load_pack_descriptor("container-runtime")
-    previews = pack_catalog.load_pack_descriptor("ephemeral-environments")
     preview_host = pack_catalog.load_pack_descriptor("branch-preview-hosting")
-    foundation = pack_catalog.load_pack_descriptor("pulumi-foundation")
-    environment = pack_catalog.load_pack_descriptor("webapp-environment-infrastructure")
 
     def targets(descriptor):
         latest = descriptor["versions"][descriptor["latest_version"]]
         return {row["target"] for row in latest["files"]}
 
     assert "ops/core-service/docker-compose.yml.tmpl" not in targets(container)
-    assert "ops/ephemeral-cleanup.sh" not in targets(previews)
     assert "ops/ephemeral_cleanup.py" in targets(preview_host)
-    assert "infra/webapp_environment_stack.py" not in targets(foundation)
-    assert "infra/webapp_environment_stack.py" in targets(environment)
-
-
-def test_latest_packs_ship_no_pulumi_stack_templates_and_older_ones_say_so(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
-
-    for descriptor in pack_catalog.list_pack_descriptors():
-        latest = descriptor["latest_version"]
-        for version, record in descriptor["versions"].items():
-            templates = [
-                row["source"]
-                for row in record["files"]
-                if row["source"].rsplit("/", 1)[-1].startswith("Pulumi.")
-                and row["source"].endswith(".yaml.tmpl")
-            ]
-            if version == latest:
-                assert not templates, (descriptor["slug"], version, templates)
-                assert "superseded_by" not in record
-            elif templates:
-                replacement = record["superseded_by"]
-                assert replacement != version
-                # Published metadata keeps naming the original replacement.
-                successor = descriptor["versions"][replacement]
-                assert not any(
-                    row["source"].rsplit("/", 1)[-1].startswith("Pulumi.")
-                    and row["source"].endswith(".yaml.tmpl")
-                    for row in successor["files"]
-                ), (descriptor["slug"], version, replacement)
 
 
 def test_bundle_records_only_used_render_values_and_preserves_github_expressions(

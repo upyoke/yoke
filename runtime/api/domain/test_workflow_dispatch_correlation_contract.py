@@ -6,8 +6,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 PACK_WORKFLOWS = (
-    "packs/production-deploy/versions/1.1.0/files/.github/workflows/{{project_name}}-deploy.yml",
-    "packs/production-deploy/versions/1.1.0/files/.github/workflows/{{project_name}}-hotfix.yml",
     "packs/smoke-testing/versions/1.0.0/files/.github/workflows/{{project_name}}-smoke.yml",
     "packs/smoke-testing/versions/1.1.0/files/.github/workflows/{{project_name}}-smoke.yml",
 )

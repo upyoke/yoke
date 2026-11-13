@@ -22,7 +22,7 @@ from runtime.api.domain.deploy_remote_test_support import FakeRunner
 def install_ephemeral_project_source(tmp_path: Path) -> Path:
     repository_root = Path(__file__).resolve().parents[3]
     project_root = tmp_path / "ephemeral-project"
-    for pack_slug in ("ephemeral-environments", "branch-preview-hosting"):
+    for pack_slug in ("branch-preview-hosting",):
         pack_root = repository_root / "packs" / pack_slug
         descriptor = json.loads((pack_root / "pack.json").read_text(encoding="utf-8"))
         version = descriptor["versions"][descriptor["latest_version"]]

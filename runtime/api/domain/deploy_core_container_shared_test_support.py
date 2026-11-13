@@ -24,10 +24,6 @@ from yoke_core.domain.deploy_remote import CommandResult
 
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
-from runtime.api.tools.pulumi_exec_support_test_support import (
-    _install_pulumi_project_files,
-)
-
 _BINDING = RuntimeDatabaseBinding(
     host="db.internal",
     database_name="yoke_prod",

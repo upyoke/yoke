@@ -26,12 +26,12 @@ def test_list_prints_declared_tool_names(monkeypatch, capsys) -> None:
             "catalog": kwargs["catalog"].describe(),
             "packs": [
                 {
-                    "slug": "pulumi-foundation",
+                    "slug": "container-runtime",
                     "status": "available",
                     "installed_version": None,
                     "latest_version": "1.0.0",
-                    "description": "Pulumi project foundation.",
-                    "prerequisites": [{"tool": "pulumi"}],
+                    "description": "Docker container runtime.",
+                    "prerequisites": [{"tool": "docker"}],
                 }
             ],
         },
@@ -43,7 +43,7 @@ def test_list_prints_declared_tool_names(monkeypatch, capsys) -> None:
     assert out.startswith("catalog:\n  kind: served\n")
     assert "prerequisites:" in out
     assert "tool" in out
-    assert "pulumi" in out
+    assert "docker" in out
 
 
 def test_update_forwards_repeated_accepted_current_paths(

@@ -13,18 +13,9 @@ PACKS = ROOT / "packs"
 EXPECTED_TOOLS = {
     "branch-preview-hosting": {"docker", "node"},
     "container-runtime": {"docker"},
-    "domain-cdn-edge": {"pulumi"},
-    "ephemeral-environments": set(),
     "host-maintenance": {"docker"},
-    "managed-database": {"pulumi"},
-    "production-deploy": {"docker", "ssh"},
-    "pulumi-foundation": {"pulumi"},
-    "registry-oidc": {"pulumi"},
-    "self-hosted-runners": {"pulumi"},
     "smoke-testing": set(),
     "structured-events": {"node"},
-    "vps-hosting": {"pulumi", "ssh"},
-    "webapp-environment-infrastructure": {"pulumi"},
     "webapp-scaffold": {"node", "npm"},
 }
 
