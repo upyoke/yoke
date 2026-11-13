@@ -238,9 +238,9 @@ def test_stack_rm_runs_on_the_file_path(tmp_path):
     assert calls[0]["argv"] == ["pulumi", "stack", "rm", "--yes", "--stack", _STACK]
 
 
-def test_runner_fleet_level_without_its_capability_refuses_before_child(tmp_path):
+def test_retired_runner_access_refuses_before_child(tmp_path):
     root = _project(tmp_path, _PROJECT_TEXT + "  yoke:github_access: runner_fleet\n")
     calls: list[dict] = []
-    with pytest.raises(PulumiExecError, match="pulumi_runner_fleet_values_unavailable"):
+    with pytest.raises(PulumiExecError, match="pulumi_github_access_unknown"):
         _run(root, ["preview"], calls=calls)
     assert calls == []

@@ -2,7 +2,7 @@
 
 The capability names where a project's Pulumi state lives (``state_bucket``),
 the KMS key ``init`` pins (``kms_key_alias``), the resource naming namespace,
-the runner-fleet stack name, and project-owned legacy component type aliases.
+and project-owned legacy component type aliases.
 It holds nothing secret: each stack's ``secretsprovider`` and
 ``encryptedkey`` live in the project's checked-in stack file.
 """
@@ -16,7 +16,7 @@ from typing import Any, Mapping
 CAPABILITY_TYPE = "pulumi-state"
 COMPONENT_TYPE_ALIASES_KEY = "component_type_aliases"
 _STRING_KEYS = frozenset({
-    "deploy_namespace", "kms_key_alias", "runner_fleet_stack_name",
+    "deploy_namespace", "kms_key_alias",
     "state_bucket",
 })
 _ALLOWED_KEYS = _STRING_KEYS | {COMPONENT_TYPE_ALIASES_KEY}

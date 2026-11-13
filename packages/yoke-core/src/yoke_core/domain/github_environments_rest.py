@@ -1,8 +1,6 @@
 """GitHub deployment environment configuration via REST.
 
-Replaces the former host-CLI environment provisioning shellout used by
-bootstrap_project_setup when provisioning the ``production``
-deployment environment. Returns the parsed environment row on success;
+Provides repository deployment-environment operations. Returns the parsed environment row on success;
 raises a typed :class:`RestTransportError` subclass on failure.
 
 The same endpoint covers both initial creation and update — a PUT with
@@ -47,8 +45,6 @@ def put_environment(
 def fetch_authenticated_user(*, token: str) -> Mapping[str, Any]:
     """Return the GitHub user record for the GitHub App auth-authenticated principal.
 
-    Used by bootstrap_project_setup to resolve the operator's login and
-    numeric ID for the ``reviewers`` deployment-protection rule.
     """
     req = RestRequest(method="GET", path="/user")
     resp = request_with_retry(req, token=token)

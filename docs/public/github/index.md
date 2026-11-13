@@ -21,7 +21,7 @@ hunt only in `.github/` or only in the App settings.
 | **CI** | PR and push checks; full-suite authority on protected merge | Repo Actions workflows; branch protection; project `ci_workflow_file` capability naming the **test** workflow — it must be dispatchable with a `yoke_dispatch_id` input, or the binding is refused ([Verification](../verification/index.md)) |
 | **Merge queue** | Item branches land as PRs through one `merge_group` gate | Project `merge_queue` capability — offered only with GitHub bound, `ci_workflow_file` declared, and that workflow carrying a `merge_group` trigger |
 | **Delivery dispatch** | Deployment flows that trigger Actions | Delivery flows + environment protection + Action secrets/vars |
-| **Runners** | Self-hosted runners for Actions | Packs / runner fleet capabilities; GitHub runner registration |
+| **Runners** | Read registered self-hosted runners for Actions | `yoke github-actions runners status`; project GitHub binding |
 | **Permissions** | What the App or tokens may do | [GitHub App permissions](permissions.md) |
 
 Yoke's own git operations — the merge push, the QA lane push, the doctor's

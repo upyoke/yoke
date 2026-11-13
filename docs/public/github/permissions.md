@@ -23,7 +23,7 @@ permissions. Administration and repository Webhooks belong to separately
 selected privileged authority; opting into a feature does not add an optional
 per-repository grant to the Product App. App permissions are registration-wide
 and presented to every installation; use a dedicated privileged binding and
-selected repositories for runner-fleet authority.
+selected repositories when repository access must be restricted.
 
 Authorize through GitHub's device/install ceremonies. Installation and project
 bindings store verified non-secret metadata; machine authorization retains an
@@ -104,14 +104,13 @@ Authoritative source:
 | **Checks** | read | Read a PR's CI results and merge only when green |
 | **Commit statuses** | read | Read required legacy status contexts in the PR's check rollup |
 | **Secrets** | write | Seed the encrypted deploy credentials your generated pipelines need |
-| **Variables** | write | Set non-secret Actions config (CI-enable flags, runner routing) |
+| **Variables** | write | Set non-secret Actions config (project CI variables) |
 
 ### Privileged — separate authority, outside the Product baseline
 
 | Permission | Access | Only if you… |
 | --- | --- | --- |
-| **Administration** | write | …let Yoke create a repo for you, create a deploy environment, apply merge-queue declarations, or run a runner fleet |
-| **Webhooks** (`repository_hooks`) | write | …run your own self-hosted GitHub Actions runner fleet |
+| **Administration** | write | …let Yoke create a repo for you, create a deploy environment, or apply merge-queue declarations |
 
 Merge-queue apply also requires **Contents: read** to fetch the gate branch's
 landed declaration before changing any rule. Preview may use lane content; real
@@ -206,20 +205,18 @@ the webapp/VPS deploy pipeline — a backlog + PR + CI user never writes a secre
 Onboarding treats a missing Secrets grant as non-fatal: the binding still
 records; only the deploy step is gated.
 
-**Variables: write** — Setting non-secret GitHub Actions variables (CI-enable
-flags, the runner-fleet routing variable). This write is only reached through
-the operator CI/runner-fleet arming command; a normal connect-my-repo user
-never triggers it. The read counterpart (runner status) needs only Variables:
-read.
+**Variables: write** — Setting non-secret GitHub Actions variables through
+project infrastructure, including `yoke pulumi exec` with a stack that declares
+`yoke:github_access: variables`. Runner status optionally reads a named
+variable and needs only Variables: read.
 
 ### Privileged (opt-in)
 
-**Administration: write** — Only when you opt into heavier setup, on four
+**Administration: write** — Only when you opt into heavier setup, on explicit
 write paths: creating a brand-new repository for you during onboarding (**off
 by default**, gated behind an explicit allow flag; otherwise Yoke blocks with
 manual instructions), creating the deployment **environment** on your
-repository for automated deploys (silently skipped if not granted), standing
-up a self-hosted runner fleet, and applying the declared merge-queue ruleset
+repository for automated deploys (silently skipped if not granted), and applying the declared merge-queue ruleset
 plus ``allow_auto_merge`` from ``.yoke/merge-queue.json`` via
 ``yoke github merge-queue apply`` (fails closed when Administration is
 absent). Doctor also needs Administration: write to read the full declared
@@ -230,13 +227,6 @@ Without this grant Doctor still checks the readable enforcement and workflow
 with a metadata/contents token. Two other Administration touches —
 reading branch protection, reading runner status — are Administration:
 **read**, and both degrade to a warning when Administration is absent.
-
-**Webhooks (`repository_hooks`): write** — Only if you run your own GitHub
-Actions runner fleet. Your infrastructure code (Pulumi) creates a repository
-webhook on the `workflow_job` event, secured with an HMAC signing secret, so
-your runners know when a job is queued. This is a **repository** webhook,
-distinct from the App's own global webhook. Never touched by issue sync, PRs,
-or deploys.
 
 ## What Yoke deliberately never requests
 
@@ -284,7 +274,7 @@ Each of these is absent from the code, not merely unlisted:
 Review requested and exercised authority separately. Workflows write permits
 workflow-file delivery even where a path currently reads through an App token
 and pushes through machine authorization. Secrets/Variables remain baseline
-registration grants, while their write consumers are deploy and CI/runner
+registration grants, while their write consumers are deploy and project infrastructure
 setup. A permission-tier change requires changing the registration contract
 and affected consumers together; runtime token downscoping does not shrink
 what a compromised registration key could request. The operator runbook owns

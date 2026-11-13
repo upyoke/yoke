@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "page": "infrastructure",
  "position": 0,
- "summary": "Self-hosted runner fleets are project-owned; Yoke ships no runner Pack. The runner-fleet capability settings in docs/public/projects/capabilities.md describe what Yoke reads.",
- "sources": ["docs/public/projects/capabilities.md"]
+ "summary": "Runner infrastructure is project-owned. Yoke reads registered runner status through the project GitHub binding and does not provision runners.",
+ "sources": ["docs/public/github/index.md"]
 }

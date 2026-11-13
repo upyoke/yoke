@@ -12,10 +12,6 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_contracts.github_actions_runner_fleet import (
-    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
-    DEFAULT_RUNS_ON_VARIABLE,
-)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -30,41 +26,21 @@ def github_actions_runners_status(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions runners status",
         description=(
-            "Read registered repository self-hosted runners and the "
-            "Pulumi-owned runner-routing repo variable. Reports the "
-            "capability's routing_enabled intent separately from actual "
-            "scale-to-zero routing and online runner state. "
-            "Read-only; does not mint runner registration tokens and "
-            "does not mutate GitHub repo variables."
+            "Read registered repository self-hosted runners. Optionally inspect "
+            "an Actions variable containing the runs-on labels. Read-only."
         ),
     )
     parser.add_argument(
         "repo", nargs="?",
-        help=(
-            "GitHub repo slug, e.g. upyoke/yoke. Omit to read it from "
-            "the runner fleet capability."
-        ),
+        help="GitHub repo slug; defaults to the project GitHub binding.",
     )
     parser.add_argument(
-        "--required-label",
-        action="append",
-        default=[],
-        dest="required_labels",
-        help=(
-            "Runner label required for the workflow route. Repeatable. "
-            "Defaults to the runner fleet capability labels, or "
-            "self-hosted, Linux, ARM64, yoke-github-actions when the "
-            "capability is absent."
-        ),
+        "--required-label", action="append", default=[], dest="required_labels",
+        help="Required runner label; repeatable. Defaults to self-hosted.",
     )
     parser.add_argument(
-        "--variable-name",
-        default="",
-        help=(
-            "Repo variable to inspect. Defaults to the runner fleet "
-            f"capability value, or {DEFAULT_RUNS_ON_VARIABLE} when the "
-            "capability is absent."
-        ),
+        "--variable-name", default="",
+        help="Optional repository Actions variable to inspect for runs-on labels.",
     )
     parser.add_argument(
         "--project", required=True,
@@ -87,7 +63,6 @@ def github_actions_runners_status(args: List[str]) -> int:
         "required_labels": labels,
         "variable_name": parsed.variable_name,
         "project": parsed.project,
-        "runner_capability": RUNNER_FLEET_CAPABILITY_TYPE,
     }
     return dispatch_and_emit(
         function_id="github_actions.runners.status",

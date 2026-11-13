@@ -41,7 +41,6 @@ from yoke_cli.commands.adapters.source_dev_run import (
     source_dev_run,
 )
 from yoke_cli.commands.adapters.yokepedia import yokepedia
-from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
 from yoke_cli.commands.adapters.pulumi import pulumi_exec
 from yoke_cli.commands.git_hook import AdapterFn
 from yoke_cli.commands.flag_adapters import (
@@ -87,7 +86,6 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("path", "verify"): path_verify,
     ("project", "create"): project_create,
     ("project", "import"): project_import,
-    ("runner-fleet", "exec"): runner_fleet_exec,
     ("pulumi", "exec"): pulumi_exec,
     ("update",): update,
     ("uninstall",): uninstall,
@@ -126,10 +124,6 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke path verify": "yoke path verify [--json]",
     "yoke project create": "yoke project create --slug SLUG --name NAME [--org ORG] --public-item-prefix PREFIX [--github-repo OWNER/REPO]",
     "yoke project import": "yoke project import --repo OWNER/REPO --slug SLUG [--checkout PATH]",
-    "yoke runner-fleet exec": (
-        "yoke runner-fleet exec --project PROJECT "
-        "--settings-file STACK_CONFIG_JSON -- <command...>"
-    ),
     "yoke update": UPDATE_USAGE,
     "yoke uninstall": UNINSTALL_USAGE,
     "yoke pulumi exec": (

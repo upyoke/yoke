@@ -85,13 +85,13 @@ def test_github_access_defaults_to_metadata(tmp_path):
     assert file_stack_github_access(_write(tmp_path, "config:\n  a:b: c\n")) == "metadata"
 
 
-@pytest.mark.parametrize("level", ["metadata", "variables", "runner_fleet"])
+@pytest.mark.parametrize("level", ["metadata", "variables"])
 def test_github_access_follows_the_file(tmp_path, level):
     path = _write(tmp_path, f"config:\n  yoke:github_access: {level}\n")
     assert file_stack_github_access(path) == level
 
 
-@pytest.mark.parametrize("value", ["admin", "true", "[metadata]"])
+@pytest.mark.parametrize("value", ["runner_fleet", "admin", "true", "[metadata]"])
 def test_unknown_github_access_refuses(tmp_path, value):
     path = _write(tmp_path, f"config:\n  yoke:github_access: {value}\n")
     with pytest.raises(PulumiExecError, match="pulumi_github_access_unknown"):

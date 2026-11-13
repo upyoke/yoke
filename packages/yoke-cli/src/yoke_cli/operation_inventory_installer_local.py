@@ -38,7 +38,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke onboard project", "onboard", REASON_TOOL_SHAPED),
     _p("yoke project create", "project", REASON_TOOL_SHAPED),
     _p("yoke project import", "project", REASON_TOOL_SHAPED),
-    _p("yoke runner-fleet exec", "runner_fleet", REASON_TOOL_SHAPED),
     _p(
         "yoke pulumi exec",
         "pulumi",

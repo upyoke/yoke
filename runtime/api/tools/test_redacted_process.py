@@ -1,4 +1,4 @@
-"""Chunk-safe stream redaction for runner-fleet child processes."""
+"""Chunk-safe stream redaction for Operator child processes."""
 
 from __future__ import annotations
 
@@ -7,14 +7,39 @@ import subprocess
 
 import pytest
 
-from yoke_core.tools.runner_fleet_redacted_process import (
+from yoke_core.tools.redacted_process import (
     run_redacted_child,
 )
-from runtime.api.tools.runner_fleet_exec_test_support import (
-    _ChunkedStream,
-    _Process,
-    _TOKEN,
-)
+
+
+_TOKEN = "ghs_repository_scoped_token"
+
+
+class _ChunkedStream:
+    def __init__(self, chunks):
+        self._chunks = [
+            chunk.encode("utf-8") if isinstance(chunk, str) else chunk
+            for chunk in chunks
+        ]
+        self.closed = False
+
+    def read(self, size):
+        del size
+        return self._chunks.pop(0) if self._chunks else b""
+
+    def close(self):
+        self.closed = True
+
+
+class _Process:
+    def __init__(self, *, stdout=(), stderr=(), returncode=0):
+        self.stdout = _ChunkedStream(stdout)
+        self.stderr = _ChunkedStream(stderr)
+        self._returncode = returncode
+
+    def wait(self):
+        return self._returncode
+
 
 
 @pytest.mark.parametrize("split_at", range(1, len(_TOKEN)))

@@ -19,7 +19,6 @@ from yoke_core.domain.project_renderer_settings import (
     load_project_renderer_settings,
 )
 from yoke_core.domain.pulumi_file_stack_values import (
-    RUNNER_FLEET_ACCESS,
     FileStackValuesError,
     file_stack_authority,
     file_stack_yoke_values,
@@ -50,8 +49,7 @@ from yoke_core.tools.pulumi_exec_validation import (
     validate_target_project,
 )
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
-from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
-from yoke_core.tools.runner_fleet_exec import resolve_local_runner_fleet_github_auth
+from yoke_core.tools.redacted_process import run_redacted_child
 
 
 def execute_pulumi_command(
@@ -63,12 +61,6 @@ def execute_pulumi_command(
     caller_root: Path | None = None,
     aws_env_loader: Callable[..., Mapping[str, str]] = aws_machine_capability_env,
     github_auth_loader: Callable[..., Any] = resolve_project_github_auth,
-    hosted_repository_token_loader: Callable[[str, str, Mapping[str, str]], str]
-    | None = None,
-    bootstrap_local_authority: bool = False,
-    local_github_auth_loader: Callable[..., Any] = (
-        resolve_local_runner_fleet_github_auth
-    ),
     settings_loader: Callable[[str], ProjectRendererSettings] = (
         load_project_renderer_settings
     ),
@@ -128,7 +120,7 @@ def execute_pulumi_command(
             selected_project, selected_stack, settings, project_root
         )
         (err or sys.stderr).write(f"{verdict}\n")
-    payload, authority, runner_fleet = _file_backed_inputs(
+    payload, authority = _file_backed_inputs(
         selected_project, selected_stack, stack_file, settings
     )
 
@@ -159,10 +151,6 @@ def execute_pulumi_command(
             payload,
             aws_env_loader=aws_env_loader,
             github_auth_loader=github_auth_loader,
-            hosted_repository_token_loader=hosted_repository_token_loader,
-            bootstrap_local_authority=bootstrap_local_authority,
-            local_github_auth_loader=local_github_auth_loader,
-            runner_fleet=runner_fleet,
         )
         child_out = out or sys.stdout
         child_err = CaptureTee(err or sys.stderr)
@@ -195,7 +183,7 @@ def execute_pulumi_command(
 
 def _file_backed_inputs(
     project: str, stack: str, stack_file: Path, settings: ProjectRendererSettings
-) -> tuple[dict[str, Any], dict[str, Any], bool]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Yoke-owned values and authority for a stack run from its own file."""
     github_access = file_stack_github_access(stack_file)
     try:
@@ -209,7 +197,7 @@ def _file_backed_inputs(
         "render_values": values,
         "stack_secrets": _stack_file_secrets(stack_file),
     }
-    return payload, authority, github_access == RUNNER_FLEET_ACCESS
+    return payload, authority
 
 
 def _stack_file_secrets(stack_file: Path) -> tuple[str, ...]:

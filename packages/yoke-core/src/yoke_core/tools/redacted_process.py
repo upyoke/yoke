@@ -1,4 +1,4 @@
-"""Concurrent secret-redacting process streaming for runner-fleet tools."""
+"""Concurrent secret-redacting process streaming for operator tools."""
 
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ def run_redacted_child(
         raise
     except Exception as exc:
         raise RedactedProcessError(
-            "runner-fleet child command could not be executed"
+            "Operator child command could not be executed"
         ) from exc
 
     stdout_pipe = getattr(process, "stdout", None)
@@ -111,7 +111,7 @@ def run_redacted_child(
     if stdout_pipe is None or stderr_pipe is None:
         _stop_process(process)
         raise RedactedProcessError(
-            "runner-fleet child command streams could not be captured"
+            "Operator child command streams could not be captured"
         )
 
     pump_failures: list[bool] = []
@@ -144,11 +144,11 @@ def run_redacted_child(
             pump.join()
     if wait_failure:
         raise RedactedProcessError(
-            "runner-fleet child command could not be awaited"
+            "Operator child command could not be awaited"
         )
     if pump_failures:
         raise RedactedProcessError(
-            "runner-fleet child output could not be streamed safely"
+            "Operator child output could not be streamed safely"
         )
     return RedactedChildResult(returncode=returncode)
 

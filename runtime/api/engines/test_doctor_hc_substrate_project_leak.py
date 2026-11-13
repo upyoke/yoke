@@ -86,7 +86,7 @@ def test_passes_when_substrate_has_no_project_named_files(
     _seed_projects(conn, ["yoke", "externalwebapp"])
     _seed_substrate(
         tmp_path,
-        ["d/validate_webapp_pipeline.py", "validate_webapp_pipeline_checks_db.py"],
+        ["d/inspect_project.py", "inspect_project_checks.py"],
     )
 
     rec = _run_hc(conn, monkeypatch=monkeypatch, repo_root=tmp_path)
@@ -104,7 +104,7 @@ def test_fails_when_substrate_filename_contains_project_id(
     _seed_projects(conn, ["yoke", "externalwebapp"])
     _seed_substrate(
         tmp_path,
-        [f"d/{old_project_named_file}", "d/validate_webapp_pipeline.py"],
+        [f"d/{old_project_named_file}", "d/inspect_project.py"],
     )
 
     rec = _run_hc(conn, monkeypatch=monkeypatch, repo_root=tmp_path)
@@ -114,7 +114,7 @@ def test_fails_when_substrate_filename_contains_project_id(
     detail = rec.results[0].detail
     assert old_project_named_file in detail
     assert f"'{project_id}'" in detail
-    assert "validate_webapp_pipeline.py" not in detail
+    assert "inspect_project.py" not in detail
 
 
 def test_yoke_named_substrate_files_are_allowed(conn, monkeypatch, tmp_path):
@@ -123,7 +123,7 @@ def test_yoke_named_substrate_files_are_allowed(conn, monkeypatch, tmp_path):
         tmp_path,
         [
             "d/yoke_operations_cli.py",
-            "d/validate_webapp_pipeline.py",
+            "d/inspect_project.py",
         ],
     )
 

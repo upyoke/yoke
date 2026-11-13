@@ -35,14 +35,14 @@ def test_restored_universe_refuses_incompatible_typed_capability_settings():
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) VALUES "
-            "(1, 'github-actions-runner-fleet', "
+            "(1, 'pulumi-state', "
             "'{\"unexpected_field\": \"old\"}', now())"
         )
         conn.commit()
 
         with pytest.raises(
             portability.ArchiveCompatibilityError,
-            match="project 'yoke' capability 'github-actions-runner-fleet'",
+            match="project 'yoke' capability 'pulumi-state'",
         ):
             portability.converge_and_validate_restored_universe(
                 dsn,

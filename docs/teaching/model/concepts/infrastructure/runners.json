@@ -1,9 +1,10 @@
 {
  "id": "runners",
- "title": "CI runner fleet",
+ "title": "CI runner status",
  "status": "draft-copy",
- "commands": ["yoke github-actions runners status", "yoke runner-fleet exec"],
+ "commands": ["yoke github-actions runners status"],
  "functions": ["github_actions.runners.status"],
  "page": "infrastructure",
- "position": 3
+ "position": 3,
+ "summary": "Read registered self-hosted runners through the project GitHub binding, with explicit labels and an optional Actions routing variable."
 }

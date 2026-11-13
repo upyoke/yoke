@@ -22,7 +22,7 @@ from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
-    RETIRED_PROJECT_KEYS,
+    RETIRED_CAPABILITY_KEYS,
     SESSION_ROUTING_CAPABILITY,
 )
 
@@ -175,6 +175,14 @@ def ensure_default_policy_capabilities(
             project_id,
             base_branch=base_branch,
         )
+        for cap_type in RETIRED_CAPABILITY_KEYS.keys() - defaults_by_capability.keys():
+            exists = conn.execute(
+                "SELECT 1 FROM project_capabilities "
+                f"WHERE project_id={_p(conn)} AND type={_p(conn)}",
+                (project_id, cap_type),
+            ).fetchone()
+            if exists is not None:
+                defaults_by_capability[cap_type] = {}
         for cap_type, defaults in defaults_by_capability.items():
             per_project.append(
                 _ensure_capability_settings(conn, project_id, cap_type, defaults)
@@ -255,9 +263,8 @@ def _drop_retired_keys(
     the change is to a settings document this module already owns and
     rewrites, and no build reads what it removes.
     """
-    if cap_type != PROJECT_POLICY_CAPABILITY:
-        return ()
-    dropped = [key for key in RETIRED_PROJECT_KEYS if key in settings]
+    retired = RETIRED_CAPABILITY_KEYS.get(cap_type, {})
+    dropped = [key for key in retired if key in settings]
     for key in dropped:
         settings.pop(key, None)
     return tuple(dropped)

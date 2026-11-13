@@ -5,15 +5,7 @@ ed25519 public key via libsodium's sealed-box construction. This module
 fetches the public key, encrypts the secret value, and PUTs it. List +
 delete are also covered for symmetry with the legacy shellouts.
 
-Used by bootstrap_project_setup to push SSH-key / SSH-host / SSH-user
-secrets during project initialization; by bootstrap_project_verify and
-validate_webapp_pipeline_checks_remote to verify presence of expected
-secrets; and by doctor_hc_worktrees_gh_project to list configured
-secrets for health checks.
 
-Token resolution flows through resolve_project_github_auth — never
-through host gh credentials. PyNaCl provides the libsodium binding;
-pinned at >=1.5.0,<2.0 in pyproject.toml.
 """
 
 from __future__ import annotations

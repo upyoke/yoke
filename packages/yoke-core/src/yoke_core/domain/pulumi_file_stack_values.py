@@ -18,22 +18,13 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.github_actions_runner_fleet_capability import (
-    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
-)
 from yoke_core.domain.project_renderer_pulumi_ci import delivery_ci_values
-from yoke_core.domain.project_renderer_pulumi_runner_fleet import (
-    runner_fleet_values,
-)
 from yoke_core.domain.project_renderer_settings import (
     PULUMI_STATE_CAPABILITY_TYPE,
     ProjectRendererSettings,
     _first_mapping,
 )
 from yoke_core.domain.pulumi_state_capability import COMPONENT_TYPE_ALIASES_KEY
-from yoke_core.domain.repository_provider_authority import (
-    repository_provider_intent_from_settings,
-)
 
 
 #: Reserved Pulumi config namespace for Yoke-owned values.
@@ -42,16 +33,10 @@ YOKE_CONFIG_NAMESPACE = "yoke"
 GITHUB_ACCESS_KEY = "github_access"
 METADATA_ACCESS = "metadata"
 VARIABLES_ACCESS = "variables"
-RUNNER_FLEET_ACCESS = "runner_fleet"
 #: GitHub App permissions each access level grants, least first.
 GITHUB_ACCESS_PERMISSIONS: Mapping[str, Mapping[str, str]] = {
     METADATA_ACCESS: {"metadata": "read"},
     VARIABLES_ACCESS: {"metadata": "read", "actions_variables": "write"},
-    RUNNER_FLEET_ACCESS: {
-        "metadata": "read",
-        "actions_variables": "write",
-        "repository_hooks": "write",
-    },
 }
 AWS_CAPABILITY_TYPE = "aws-admin"
 
@@ -85,18 +70,6 @@ def file_stack_yoke_values(
             state.get(COMPONENT_TYPE_ALIASES_KEY) or {}
         ),
     }
-    if github_access == RUNNER_FLEET_ACCESS:
-        try:
-            values.update(runner_fleet_values(
-                settings, fallback_repo=values["github_repo_slug"], enabled=True
-            ))
-            values["runner_fleet_project"] = settings.project
-        except ValueError as exc:
-            raise FileStackValuesError(
-                f"pulumi_runner_fleet_values_unavailable: {exc}; repair the "
-                "project's runner-fleet capability, or set the stack file's "
-                f"{YOKE_CONFIG_NAMESPACE}:{GITHUB_ACCESS_KEY} to a lower level"
-            ) from exc
     values.update(_environment_facts(settings, stack))
     return {key: value for key, value in sorted(values.items()) if value}
 
@@ -119,11 +92,8 @@ def file_stack_authority(
             f"{PULUMI_STATE_CAPABILITY_TYPE} capability state_bucket; set them "
             "with `yoke projects capability` and retry"
         )
-    runner_fleet = github_access == RUNNER_FLEET_ACCESS
-    repo = _text(values.get("runner_fleet_repo" if runner_fleet else "github_repo_slug"))
-    api_url = _text(
-        values.get("runner_fleet_github_api_url" if runner_fleet else "github_api_url")
-    )
+    repo = _text(values.get("github_repo_slug"))
+    api_url = _text(values.get("github_api_url"))
     authority: dict[str, Any] = {
         "aws_capability": AWS_CAPABILITY_TYPE,
         "aws_region": region,
@@ -133,22 +103,6 @@ def file_stack_authority(
         "github_api_url": api_url if repo else "",
         "github_permissions": dict(permissions),
     }
-    if (
-        repo
-        and github_access == VARIABLES_ACCESS
-        and RUNNER_FLEET_CAPABILITY_TYPE in settings.capabilities
-    ):
-        try:
-            authority["hosted_repository_token_intent"] = (
-                repository_provider_intent_from_settings(
-                    settings, expected_repo=repo
-                )
-            )
-        except ValueError as exc:
-            raise FileStackValuesError(
-                f"pulumi_repository_provider_unavailable: {exc}; repair the "
-                "project's runner-fleet capability and retry"
-            ) from exc
     return authority
 
 
@@ -219,7 +173,6 @@ __all__ = [
     "GITHUB_ACCESS_KEY",
     "GITHUB_ACCESS_PERMISSIONS",
     "METADATA_ACCESS",
-    "RUNNER_FLEET_ACCESS",
     "VARIABLES_ACCESS",
     "YOKE_CONFIG_NAMESPACE",
     "file_stack_authority",
