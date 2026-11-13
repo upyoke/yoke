@@ -24,7 +24,12 @@ def _run(args: list[str], *, restoring: bool) -> int:
     verb = "restore" if restoring else "backup"
     usage = RESTORE_USAGE if restoring else BACKUP_USAGE
     parser = argparse.ArgumentParser(prog=f"yoke machine {verb}", usage=usage)
-    parser.add_argument("--from" if restoring else "--to", dest="folder", required=True)
+    parser.add_argument(
+        "--from" if restoring else "--to",
+        dest="folder",
+        required=True,
+        help="Machine backup folder containing the manifest and home-relative files.",
+    )
     if restoring:
         parser.add_argument(
             "--replace", action="store_true", help="Replace differing existing files."
