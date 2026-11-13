@@ -1,7 +1,9 @@
 {
  "id": "merge-queue-checks",
  "title": "Merge queue checks",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Activation and integration edges order merge-queue admission until their predecessor lands. Closure edges never order admission and never attest shared-path coordination; overlapping paths still require a coordination_only edge.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/merge_queue_admission_shape.py", "runtime/api/test_merge_queue_admission_shape.py"],
  "related": "merging/landing",
  "page": "repositories",
  "position": 3
