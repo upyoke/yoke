@@ -252,8 +252,10 @@ leave all of them, or `--activate ENV` to name a connection for another server
 that takes over as this machine's authority. Idle machine-config lock files
 created by retirement are removed as part of teardown. Single-connection
 retirement remains available on its own as
-`yoke connection remove ENV [--activate ENV]`; removing your last connection
-leaves the machine unconfigured, which `yoke status` then reports.
+`yoke connection remove ENV [--activate ENV]`. It also drops the connection's
+project mappings and GitHub authorization, and keeps (and reports) a token file
+that lives outside `~/.yoke/secrets`. Removing your last connection leaves the
+machine unconfigured, which `yoke status` then reports.
 
 ## You own the operations
 
