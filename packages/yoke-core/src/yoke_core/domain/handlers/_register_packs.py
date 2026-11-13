@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import pack_handlers as h
+from yoke_core.domain.handlers import pack_remove_handlers as r
 from yoke_core.domain.handlers import pack_source_handlers as s
 
 
@@ -83,6 +84,21 @@ def register(registry) -> None:
             claim_required_kind=None,
             ambient_session_required=False,
         )
+    registry.register(
+        "packs.remove.run",
+        r.handle_packs_remove,
+        r.PacksRemoveRequest,
+        r.PacksRemoveResponse,
+        stability="beta",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=["project_repo_file_write", "project_pack_projection_write"],
+        guardrails=["project_receipt_authoritative"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "packs.bundle.render",
         s.handle_packs_bundle_render,

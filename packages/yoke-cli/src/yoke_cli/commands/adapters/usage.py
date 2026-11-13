@@ -186,6 +186,7 @@ from yoke_cli.commands.adapters.packs import (
     PACKS_RELINK_USAGE,
     PACKS_UPDATE_USAGE,
 )
+from yoke_cli.commands.adapters.packs_remove import PACKS_REMOVE_USAGE
 from yoke_cli.commands.adapters import (
     items_flags as _items_flags,
     usage_sessions as _session_usage,
@@ -321,6 +322,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "packs.list": PACKS_LIST_USAGE,
     "packs.get.run": PACKS_GET_USAGE,
     "packs.relink.run": PACKS_RELINK_USAGE,
+    "packs.remove.run": PACKS_REMOVE_USAGE,
     "packs.update.run": PACKS_UPDATE_USAGE,
 }
 extend_adapter_usage(ADAPTER_USAGE)

@@ -216,6 +216,7 @@ FLAG_ADAPTER_EXPORT_NAMES = [
     "packs_list",
     "packs_get",
     "packs_relink",
+    "packs_remove",
     "packs_update",
     "sessions_identity",
     "sessions_begin",

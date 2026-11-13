@@ -90,6 +90,21 @@ def test_update_reports_multiple_conflict_hunks_as_one_file_conflict(
     assert "<<<<<<<" not in (tmp_path / "customized.txt").read_text(encoding="utf-8")
 
 
+def test_update_accepts_a_new_pack_file_already_identical_in_the_project(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "added.txt").write_text("same bytes\n", encoding="utf-8")
+    (tmp_path / "added.txt").chmod(0o644)
+
+    plan = plan_update(tmp_path, [], [_text_entry("added.txt", "same bytes\n")])
+
+    assert plan["conflicts"] == []
+    assert plan["creates"] == []
+    assert plan["updates"] == []
+    assert plan["unchanged"] == ["added.txt"]
+    assert plan["changed"] is False
+
+
 def test_update_keeps_a_file_removed_by_the_new_pack(tmp_path: Path) -> None:
     (tmp_path / "retired.txt").write_text("project keeps this\n", encoding="utf-8")
 

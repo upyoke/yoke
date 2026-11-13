@@ -86,6 +86,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "organizations.create": "next-release",
     "models.revisions.run": "next-release",
     "packs.bundle.render": "next-release",
+    "packs.remove.run": "next-release",
     "projects.environment.list": "next-release",
     "projects.github_binding.check": "next-release",
     "projects.github_binding.list": "next-release",

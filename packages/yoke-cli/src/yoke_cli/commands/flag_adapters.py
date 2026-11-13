@@ -267,6 +267,7 @@ from yoke_cli.commands.adapters.packs import (
     packs_relink,
     packs_update,
 )
+from yoke_cli.commands.adapters.packs_remove import packs_remove
 from yoke_cli.commands.adapters.sessions import (  # noqa: F401
     charge_schedule,
     sessions_begin,

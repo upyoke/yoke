@@ -113,6 +113,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke project git bootstrap", "project", REASON_TOOL_SHAPED),
     _p("yoke packs get", "packs", REASON_TOOL_SHAPED),
     _p("yoke packs relink", "packs", REASON_TOOL_SHAPED),
+    _p("yoke packs remove", "packs", REASON_TOOL_SHAPED),
     _p("yoke packs update", "packs", REASON_TOOL_SHAPED),
     # QA case execution and Browser substrate utilities are client-local.
     # The case runner executes one materialized method requirement.

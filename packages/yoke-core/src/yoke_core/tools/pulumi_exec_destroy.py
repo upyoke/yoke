@@ -125,8 +125,7 @@ def refuse_consumed_vps_stack(
         consumer_file = pulumi_program_source(project_root, f"Pulumi.{consumer}.yaml")
         if not consumer_file.is_file():
             continue
-        origin_ip, database_enabled = _consumer_config(project_root, consumer_file)
-        if origin_ip and not database_enabled:
+        if _consumer_origin_ip(project_root, consumer_file):
             selectors.append(
                 f"{stack!r} stays in use as the live selector for "
                 f"environment {environment.name!r} stack {consumer!r}"
@@ -135,22 +134,27 @@ def refuse_consumed_vps_stack(
         raise PulumiExecError(
             f"pulumi_stack_consumed: environment {environment.name!r} stack "
             f"{consumer!r} creates a StackReference to VPS stack {stack!r} "
-            "because origin_ip is unset or database_enabled is true; keep "
-            "the VPS stack until the consumer no longer needs its outputs, "
-            "then update its checked-in config and retry"
+            "because its origin_ip is empty; keep the VPS stack until the "
+            "consumer no longer needs its outputs, then set origin_ip in its "
+            "checked-in config and retry"
         )
     detail = "; ".join(selectors) or "no checked-in StackReference consumers"
     return f"pulumi_stack_destroy_allowed: {detail}"
 
 
-def _consumer_config(project_root: Path, consumer_file: Path) -> tuple[str, bool]:
-    """Read explicit consumer values under the project's declared namespace."""
+def _consumer_origin_ip(project_root: Path, consumer_file: Path) -> str:
+    """Read the consumer's explicit origin_ip under the declared namespace.
+
+    An empty value means the consumer reads the VPS stack's outputs. A
+    missing or non-string value refuses as invalid config, so the guard
+    stays closed when the dependency cannot be read.
+    """
     declaration_file = pulumi_program_source(project_root, "Pulumi.yaml")
     recovery = (
         f"pulumi_stack_consumer_config_invalid: cannot determine the "
         f"StackReference dependency from {consumer_file}; repair infra/Pulumi.yaml "
-        "name and explicit namespaced origin_ip (a string, empty when unset) "
-        "and database_enabled (true or false) in the consumer config, then retry"
+        "name and an explicit namespaced origin_ip (a string, empty when "
+        "unset) in the consumer config, then retry"
     )
     try:
         declaration = yaml.safe_load(declaration_file.read_text(encoding="utf-8"))
@@ -162,12 +166,9 @@ def _consumer_config(project_root: Path, consumer_file: Path) -> tuple[str, bool
     if not isinstance(namespace, str) or not namespace.strip() or not isinstance(config, dict):
         raise PulumiExecError(recovery)
     origin_ip = config.get(f"{namespace}:origin_ip")
-    database_enabled = config.get(f"{namespace}:database_enabled")
-    if isinstance(database_enabled, str) and database_enabled in {"true", "false"}:
-        database_enabled = database_enabled == "true"
-    if not isinstance(origin_ip, str) or not isinstance(database_enabled, bool):
+    if not isinstance(origin_ip, str):
         raise PulumiExecError(recovery)
-    return origin_ip.strip(), database_enabled
+    return origin_ip.strip()
 
 
 __all__ = [

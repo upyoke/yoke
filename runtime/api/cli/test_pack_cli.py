@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from yoke_cli.commands.adapters import packs
+from yoke_cli.commands.adapters import packs, packs_remove
 from yoke_cli.packs.catalog_source import PackCatalog
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 
@@ -167,3 +167,32 @@ def test_get_defaults_to_the_lane_catalog_under_source_dev_run(
     assert captured["catalog"] == PackCatalog(
         kind="lane", checkout=tmp_path.resolve(), commit="c" * 40
     )
+
+
+def test_remove_forwards_preview_and_names_refusals(monkeypatch, capsys) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(packs_remove, "machine_config_path", lambda path: nullcontext())
+
+    def run_pack_remove(repo_root, **kwargs):
+        captured.update({"repo_root": repo_root, **kwargs})
+        return {"operation": "remove", "applied": False}
+
+    monkeypatch.setattr(packs_remove, "run_pack_remove", run_pack_remove)
+
+    assert packs_remove.packs_remove(["old", "/project", "--project", "sample", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"applied": False, "operation": "remove"}
+    assert captured == {
+        "repo_root": "/project",
+        "project": "sample",
+        "pack": "old",
+        "apply": False,
+        "session_id": None,
+        "catalog": SERVED,
+    }
+
+    def refuse(repo_root, **kwargs):
+        raise packs_remove.PackClientError("pack-not-installed: Pack 'old'")
+
+    monkeypatch.setattr(packs_remove, "run_pack_remove", refuse)
+    assert packs_remove.packs_remove(["old", "--project", "sample", "--apply"]) == 1
+    assert "pack-not-installed" in capsys.readouterr().err

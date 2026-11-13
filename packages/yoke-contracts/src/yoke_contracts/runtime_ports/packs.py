@@ -13,6 +13,7 @@ class Packs(Protocol):
     PackClientError: Any
     run_pack_operation: Any
     run_pack_relink: Any
+    run_pack_remove: Any
 
 
 def get_packs() -> Packs:
