@@ -39,7 +39,8 @@ HOST_KEY_MARK = "@@yoke-box-host-key@@ "
 # Same place ops/mac-host/install.sh keeps its VMs and pinned limactl.
 LIMACTL = 'L=$(ls -d "$HOME"/yoke-boxes/lima-*/bin/limactl | tail -1)'
 LIMA_HOME = 'LIMA_HOME="$HOME/yoke-boxes/lima"'
-_PUBLIC_KEY = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/=]+(?: [A-Za-z0-9@._-]+)?$")
+# Type and key only; the comment may be anything (a custody key's often is).
+_PUBLIC_KEY = re.compile(r"^(ssh-ed25519 [A-Za-z0-9+/]+={0,2})(?:\s.*)?$")
 _HOST_KEY = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/=]+")
 
 
@@ -123,13 +124,15 @@ def ensure(env: Any) -> dict[str, Any]:
     host = mac_host(env)
     key = key_path(env)
     created = _ensure_key(env, key)
-    public = _public_key(key)
-    if not _PUBLIC_KEY.match(public):
+    found = _PUBLIC_KEY.match(_public_key(key))
+    if found is None:
         raise DbAdminSetupError(
-            f"box_operator_key_invalid: {_path_ref(Path(f'{key}.pub'))} is not "
-            "an ssh-ed25519 public key; move the key pair aside, then rerun so "
-            "setup creates a new one"
+            f"box_operator_key_invalid: {_path_ref(Path(f'{key}.pub'))} does "
+            "not start with an ssh-ed25519 type and key; restore that public "
+            f"half from the private key (`ssh-keygen -y -f {_path_ref(key)}`), "
+            "then rerun"
         )
+    public = found.group(1)
     mac_key = mac_leg.pinned_host_key(env, _run)
     create_private_directory(ssh_dir())
     _upsert_known_host(mac_leg.alias(env.env_name), mac_key)
@@ -198,7 +201,9 @@ def _vm_script(user: str, public: str) -> str:
             'sudo -n install -d -m 700 -o "$U" -g "$G" "$H/.ssh"',
             'F="$H/.ssh/authorized_keys"',
             'sudo -n touch "$F"',
-            'sudo -n grep -qxF "$K" "$F" || printf \'%s\\n\' "$K" | sudo -n tee -a "$F" >/dev/null',
+            # A line already carrying this type and key (any comment) counts.
+            'sudo -n awk -v k="$K" \'$1" "$2==k{f=1} END{exit (f==0)}\' "$F" '
+            '|| printf \'%s\\n\' "$K" | sudo -n tee -a "$F" >/dev/null',
             'sudo -n chown "$U:$G" "$F"',
             'sudo -n chmod 600 "$F"',
             f'printf \'{HOST_KEY_MARK}%s\\n\' "$(cat /etc/ssh/ssh_host_ed25519_key.pub)"',
