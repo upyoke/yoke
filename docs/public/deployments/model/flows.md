@@ -191,6 +191,16 @@ flow with a deployment target when the work must deploy.
 Flows with a deployment target create concrete `run-...` ids through
 `/yoke usher`, and each run retains its definition relationship for durable history.
 
+An item whose change only takes effect in one environment pins that
+environment's delivery flow, so that environment's release closes it:
+`yoke items scalar update PREFIX-N --field deployment_flow --value <flow>`.
+A member is owed on a run only the post-deploy cases that run at the run's
+environment: a case naming `target_envs` runs at each one it names, and a case
+naming none runs wherever its plan reaches. When none of a member's plan or
+direct post-deploy cases run there, its item-scoped QA stage answers
+`not_required` ("its post-deploy cases target another environment") rather
+than refusing for missing cases.
+
 ## Retiring a flow
 
 Disable a flow to stop new assignments while keeping its history. A

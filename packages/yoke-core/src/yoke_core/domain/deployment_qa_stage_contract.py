@@ -73,9 +73,10 @@ def _read_run(conn, run_id):
         "o.id AS tenant_id,o.slug AS tenant_slug,o.name AS tenant_name,"
         "dr.flow,dr.status,dr.current_stage,dr.release_lineage,"
         "dr.artifact_identity,dr.composition_frozen_at,dr.requirement_snapshot,"
-        "df.definition_schema_version,df.stages "
+        "df.definition_schema_version,df.stages,e.name AS target_environment_name "
         "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
         "JOIN projects p ON p.id=dr.project_id "
+        "LEFT JOIN environments e ON e.id=dr.target_environment_id "
         "JOIN organizations o ON o.id=p.org_id "
         f"WHERE dr.id={_p(conn)}",
         (str(run_id),),

@@ -10,6 +10,10 @@ yoke qa requirement add --item PREFIX-N --method-id browser-inspection --qa-phas
 yoke items scalar update PREFIX-N --field deployment_flow --value <flow-id>
 ```
 
+An item whose change only takes effect in one environment pins that
+environment's delivery flow, so that environment's release closes it. A run to
+another environment owes none of its cases there and answers `not_required`.
+
 Set `--workflow-transition` to the stage owning that phase; never bind
 `post_deploy` to review. Dash items first run
 `yoke workflows item-posture amend PREFIX-N --verification-method browser-inspection --reason "<request>"`.

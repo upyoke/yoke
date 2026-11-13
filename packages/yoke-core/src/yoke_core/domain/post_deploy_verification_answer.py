@@ -194,15 +194,25 @@ def answer_for_item(conn: Any, item_id: int) -> PostDeployAnswer:
     return classify(attachments=attachments, requirements=requirements)
 
 
-def _own_snapshot_cases(subject: Mapping[str, Any]) -> bool:
+#: Why a member whose post-deploy cases all run elsewhere owes nothing here.
+OTHER_ENVIRONMENT_REASON = "its post-deploy cases target another environment"
+
+
+def _own_snapshot_cases(subject: Mapping[str, Any]) -> tuple[bool, bool]:
+    """Whether the member froze direct post-deploy cases, and any for this run."""
+    from yoke_core.domain.deployment_qa_frozen_plan_selection import requirement_applies
+
     raw = subject.get("member_snapshot")
     snapshot = json.loads(raw) if isinstance(raw, str) and raw else raw or {}
-    return any(
-        isinstance(row, Mapping)
-        and row.get("plan_id") is None
+    rows = [
+        row for row in (snapshot.get("requirements") or ())
+        if isinstance(row, Mapping) and row.get("plan_id") is None
         and row.get("qa_phase") == "post_deploy"
-        for row in (snapshot.get("requirements") or ())
-    )
+    ]
+    if not rows:
+        return False, False
+    here = {"environment": {"name": str(subject["target_environment_name"] or "")}}
+    return True, any(requirement_applies(row, here) for row in rows)
 
 
 def member_post_deploy_answer(
@@ -211,30 +221,30 @@ def member_post_deploy_answer(
     """One deployment QA stage subject's answer.
 
     A run-scoped stage has no member, so no item can have answered for it
-    and the stage keeps its own refusal.
+    and the stage keeps its own refusal. A member owes this run only the
+    cases that run at the run's environment; when none of its plan or direct
+    post-deploy cases do, it is ``not_required`` here.
     """
     member_item_id = subject.get("member_item_id")
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
     from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
 
-    if not _own_snapshot_cases(subject):
-        owed, attached = member_plan_disposition(
-            conn, int(member_item_id), str(subject["id"])
-        )
+    run_id = str(subject["id"])
+    direct, direct_here = _own_snapshot_cases(subject)
+    if not direct_here:
+        owed, attached = member_plan_disposition(conn, int(member_item_id), run_id)
         from yoke_core.domain.deployment_qa_plan_ownership import member_plan_ids
 
-        if member_plan_ids(conn, str(subject["id"]), int(member_item_id)):
+        if member_plan_ids(conn, run_id, int(member_item_id)):
             return PostDeployAnswer(ANSWERED)
         if owed:
             return PostDeployAnswer(
                 PLAN_GROUPS,
                 ("its post-deploy plans run once for the release as plan groups",),
             )
-        if attached:
-            return PostDeployAnswer(
-                NOT_REQUIRED, ("its post-deploy plans target another environment",)
-            )
+        if attached or direct:
+            return PostDeployAnswer(NOT_REQUIRED, (OTHER_ENVIRONMENT_REASON,))
     answer = answer_for_item(conn, int(member_item_id))
     if answer.unanswered:
         from yoke_core.domain.carried_member_qa_obligation import (
@@ -317,6 +327,7 @@ __all__ = [
     "NO_OBLIGATION",
     "NO_OBLIGATION_QA_KIND",
     "NOT_REQUIRED",
+    "OTHER_ENVIRONMENT_REASON",
     "PostDeployAnswer",
     "RUN_SCOPED_NOTE",
     "UNANSWERED",

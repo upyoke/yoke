@@ -207,9 +207,10 @@ def run_facts(conn, run_id):
             "dr.artifact_identity,dr.composition_frozen_at,dr.requirement_snapshot,"
             f"{removals} AS membership_removals,"
             f"{bound_sources_column('dr', include_preparation_receipt=False)},"
-            "df.definition_schema_version,df.stages "
+            "df.definition_schema_version,df.stages,e.name AS target_environment_name "
             "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
             "JOIN projects p ON p.id=dr.project_id JOIN organizations o ON o.id=p.org_id "
+            "LEFT JOIN environments e ON e.id=dr.target_environment_id "
             f"WHERE dr.id IN ({markers})",
             runs,
         )
