@@ -67,8 +67,15 @@ def tool_bin_dir(env: Mapping[str, str] | None = None) -> str:
 
 def current_shell(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
-    name = Path(environ.get("SHELL") or "").name
-    return name or "zsh"
+    shell = environ.get("SHELL")
+    if not shell:
+        try:
+            import pwd
+
+            shell = pwd.getpwuid(os.getuid()).pw_shell
+        except (ImportError, KeyError):
+            shell = ""
+    return Path(shell).name if shell else "zsh"
 
 
 def default_startup_file(shell: str, home: Path) -> Path:
@@ -231,7 +238,7 @@ def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
                 changed.append(str(path))
         except (OSError, UnicodeError) as exc:
             raise OSError(
-                f"shell_path_write_failed: {path}: {exc}; check shell-file "
+                f"shell_path_write_failed: {shell} startup file {path}: {exc}; check shell-file "
                 "permissions and retry `yoke path fix --yes`."
             ) from exc
     return changed
