@@ -30,5 +30,6 @@ def test_pack_handlers_are_registered() -> None:
         "packs.project.report",
         "packs.get.run",
         "packs.relink.run",
+        "packs.remove.run",
         "packs.update.run",
     } <= ids

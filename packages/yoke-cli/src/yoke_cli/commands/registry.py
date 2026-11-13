@@ -226,6 +226,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("packs", "list"): ("packs.list", _adapters.packs_list),
     ("packs", "get"): ("packs.get.run", _adapters.packs_get),
     ("packs", "relink"): ("packs.relink.run", _adapters.packs_relink),
+    ("packs", "remove"): ("packs.remove.run", _adapters.packs_remove),
     ("packs", "update"): ("packs.update.run", _adapters.packs_update),
 }
 

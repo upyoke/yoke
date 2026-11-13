@@ -34,6 +34,12 @@ Use the Pack command's preview and help to inspect the proposed update. Released
 
 New versions of Webapp Scaffold, Ephemeral Environments, Production Deploy, Smoke Testing, Self-hosted Runners and VPS Hosting bound outside package installs and downloads, limit retries, report fetch failures, and set time limits on workflow jobs. Existing projects receive these changes by running `yoke packs update PACK --project NAME --apply` and resolving any merge conflicts. Nothing updates automatically.
 
+## Removing a Pack
+
+`yoke packs remove PACK --project NAME` previews which records it would drop and lists the files the Pack used to own. Add `--apply` to drop the Pack from `.yoke/packs.json` and from the server's install record. No project file is deleted or changed: the former Pack files stay as ordinary project files, and you delete them yourself if you no longer want them.
+
+Removal refuses while another installed Pack depends on the Pack, and when another installed Pack's recorded version cannot be read from the catalog, because its dependencies are then unknown. A Pack that has left the catalog can still be removed.
+
 ## Pack-owned documentation
 
 Read the Pack's documentation for its setup, prerequisites, configuration, and update requirements. General Yoke docs explain the shared mechanisms; a Pack's own docs explain the resources and code it supplies.

@@ -26,6 +26,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `packs.list` | `none` |
 | `packs.project.report` | `none` |
 | `packs.relink.run` | `none` |
+| `packs.remove.run` | `none` |
 | `packs.update.run` | `none` |
 | `project.git.bootstrap` | `none` |
 | `project.install.run` | `none` |

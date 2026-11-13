@@ -26,6 +26,7 @@ CLIENT_LOCAL_BY_ID: dict[str, AuthzSpec] = {
     "project.git.bootstrap": AuthzSpec(CLIENT_LOCAL, None),
     "packs.get.run": AuthzSpec(CLIENT_LOCAL, None),
     "packs.relink.run": AuthzSpec(CLIENT_LOCAL, None),
+    "packs.remove.run": AuthzSpec(CLIENT_LOCAL, None),
     "packs.update.run": AuthzSpec(CLIENT_LOCAL, None),
     "scratch.dispatch_inputs": AuthzSpec(CLIENT_LOCAL, None),
     # Render-into-checkout helpers — local repo writes.

@@ -311,6 +311,7 @@ def test_register_all_handlers_includes_packs_family() -> None:
         "packs.project.report",
         "packs.get.run",
         "packs.relink.run",
+        "packs.remove.run",
         "packs.update.run",
     } <= ids
     from yoke_core.domain.handlers import _register_packs

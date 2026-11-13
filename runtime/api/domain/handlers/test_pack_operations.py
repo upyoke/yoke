@@ -7,7 +7,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers import pack_handlers
+from yoke_core.domain.handlers import pack_handlers, pack_remove_handlers
 
 
 def test_update_handler_delegates_one_previewable_pack_operation(monkeypatch) -> None:
@@ -108,3 +108,51 @@ def test_relink_handler_delegates_one_previewable_file_move(monkeypatch) -> None
         "apply": False,
         "session_id": "session-1",
     }
+
+
+def test_remove_handler_delegates_one_previewable_removal(monkeypatch) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_remove(repo_root, **kwargs):
+        observed.update({"repo_root": repo_root, **kwargs})
+        return {"operation": "remove", "applied": False}
+
+    monkeypatch.setattr("yoke_cli.packs.run_pack_remove", fake_remove)
+    request = FunctionCallRequest(
+        function="packs.remove.run",
+        actor=ActorContext(actor_id="operator", session_id="session-1"),
+        target=TargetRef(kind="global"),
+        payload={"project": "sample", "pack": "old-pack", "repo_root": "/tmp/s"},
+    )
+
+    outcome = pack_remove_handlers.handle_packs_remove(request)
+
+    assert outcome.primary_success is True
+    assert observed == {
+        "repo_root": "/tmp/s",
+        "project": "sample",
+        "pack": "old-pack",
+        "apply": False,
+        "session_id": "session-1",
+    }
+
+
+def test_remove_handler_names_a_refusal(monkeypatch) -> None:
+    from yoke_cli.packs import PackClientError
+
+    def refuse(repo_root, **kwargs):
+        raise PackClientError("pack-required-by-installed: Pack 'base'")
+
+    monkeypatch.setattr("yoke_cli.packs.run_pack_remove", refuse)
+    request = FunctionCallRequest(
+        function="packs.remove.run",
+        actor=ActorContext(actor_id="operator", session_id="session-1"),
+        target=TargetRef(kind="global"),
+        payload={"project": "sample", "pack": "base"},
+    )
+
+    outcome = pack_remove_handlers.handle_packs_remove(request)
+
+    assert outcome.primary_success is False
+    assert outcome.error.code == "pack_remove_failed"
+    assert "pack-required-by-installed" in outcome.error.message
