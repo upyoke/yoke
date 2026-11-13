@@ -131,10 +131,47 @@ def record_execution_evidence(
             return "", ""
         if not evidence.recorded_covers_merge(item_id, outcome.merge_sha):
             return write_error, ""
+        if evidence.authoritative_status_is(item_id, evidence.CLOSED_OUT_STATUS):
+            return "", ""
     return "", (
         f"evidence write reported {write_error!r}, but the record covers "
         "this merge; close-out continued"
     )
+
+
+def already_done_after_landing(
+    *, item: dict[str, Any], outcome: Any, public_ref: str, branch: str,
+) -> Optional[dict[str, Any]]:
+    """A concurrent closer owns terminal evidence and release continuation."""
+    item_id = item["public_ref"]
+    with connected_control_plane():
+        if not evidence.authoritative_status_is(item_id, evidence.CLOSED_OUT_STATUS):
+            return None
+        closed_out = evidence.closed_out_envelope(
+            {**item, "status": evidence.CLOSED_OUT_STATUS},
+            public_ref=public_ref, branch=branch, claim_note="",
+        )
+        covers_merge = evidence.recorded_covers_merge(item_id, outcome.merge_sha)
+    if closed_out is None:
+        closed_out = {
+            "ok": True, "public_ref": public_ref, "branch": branch,
+            "already_merged": True, "status": evidence.CLOSED_OUT_STATUS,
+            "commit_sha": outcome.commit_sha, "merge_sha": outcome.merge_sha,
+            "touched_files": list(outcome.touched_files),
+        }
+    closed_out["evidence_recorded"] = covers_merge
+    closed_out["warnings"] = [] if covers_merge else [
+        f"{public_ref} is already done, but recorded evidence does not cover "
+        f"merge {outcome.merge_sha}; evidence was left unchanged. Inspect "
+        f"`yoke items get {public_ref} body` before relying on this merge's evidence."
+    ]
+    closed_out["prepared_release"] = {
+        "outcome": "skipped_item_already_done",
+        "message": "Prepared release continuation was skipped; an earlier close-out "
+        "may not have continued it. Inspect with "
+        f"`yoke deployment-runs find-by-item {public_ref}`.",
+    }
+    return closed_out
 
 
 def transition_to_done(
@@ -172,6 +209,7 @@ def bound_connected_env() -> Optional[str]:
 
 
 __all__: Sequence[str] = (
+    "already_done_after_landing",
     "bind_connected_control_plane",
     "bound_connected_env",
     "connected_control_plane",

@@ -107,24 +107,21 @@ def run(argv: List[str]) -> int:
 
     branch = readiness.branch
     claim_error = readiness.claim_error
-    if readiness.closed_out:
-        # A claim released by a close-out that already completed is not a
-        # refusal to report; the item's own record says the work landed.
-        closed_out = evidence.closed_out_envelope(
-            item,
-            public_ref=public_ref,
-            branch=branch,
-            claim_note=claim_error,
-        )
+
+    def report_closed(closed_out: dict[str, Any]) -> int:
         record_terminal_lane_close_out(
-            item,
-            closed_out,
-            target_status=status,
-            session_id=str(args.session_id),
+            item, closed_out, target_status="done", session_id=str(args.session_id),
         )
         print(json.dumps(closed_out, indent=2, sort_keys=True))
         announce(closed_out, kind=report.ALREADY_CLOSED, evidence_from_record=True)
         return 0
+
+    if readiness.closed_out:
+        closed_out = evidence.closed_out_envelope(
+            item, public_ref=public_ref, branch=branch, claim_note="",
+        )
+        closed_out["warnings"] = []
+        return report_closed(closed_out)
 
     repo_root, target = readiness.repo_root, readiness.target
     _ensure_usable_cwd(repo_root, lane_path(item))
@@ -231,6 +228,12 @@ def run(argv: List[str]) -> int:
         )
         if restore_error:
             return fail(f"{public_ref}: {restore_error}")
+
+    closed_out = close_out.already_done_after_landing(
+        item=item, outcome=outcome, public_ref=public_ref, branch=branch,
+    )
+    if closed_out is not None:
+        return report_closed(closed_out)
 
     envelope: dict[str, Any] = {
         "ok": True,

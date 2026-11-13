@@ -3,7 +3,7 @@
  "title": "Close an unchanged lane after a later unarmed pull request",
  "status": "observed",
  "trigger": "An item landed, then another PR was opened from its lane without arming; the lane adds no content to the target.",
- "need": "Re-enter yoke merge item with result and verification. Preserve the previous observation while the attempt is unarmed. Close against the newest completed Merge Receipt whose identity is verified on the fetched target, naming the PR that carried it; preserve the lane and name recovery when no valid identity can be proved.",
- "sources": ["docs/public/github/merge-queue-landings.md", "runtime/api/domain/test_standalone_item_merge_prior_landing.py", "runtime/api/domain/test_merge_queue_landing_attempts.py"],
+ "need": "Re-enter yoke merge item with result and verification. Preserve the previous observation while the attempt is unarmed. Close against the newest completed Merge Receipt whose identity is verified on the fetched target, naming the PR that carried it; preserve the lane and name recovery when no valid identity can be proved. If another close-out has already finished the item, report done without evidence writes or prepared-release continuation and without advice to acquire a claim. Confirm that recorded evidence covers the landed merge; warn when it does not, and name the skipped release continuation for inspection.",
+ "sources": ["docs/public/github/merge-queue-landings.md", "runtime/api/domain/test_standalone_item_merge_prior_landing.py", "runtime/api/domain/test_merge_queue_landing_attempts.py", "runtime/api/domain/test_standalone_item_merge_concurrent_done.py"],
  "topics": ["merging/evidence/merge-receipt", "merging/evidence/item-landing-record"]
 }
