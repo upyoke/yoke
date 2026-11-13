@@ -220,4 +220,5 @@ def test_list_keeps_installed_packs_missing_from_catalog(
         assert json.loads(output)["packs"] == [row]
     else:
         assert "removed" in output
-        assert "in_catalog: false" in output
+        assert "slug | installed version | in catalog" in output
+        assert "removed | 1.0.0 | no" in output
