@@ -12,10 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.test_lint_lane_main_write_workdir import (  # noqa: F401
-    _evaluate,
-    lane_repo,
-)
+from runtime.api.domain import test_lint_lane_main_write_workdir as workdir_guard
 from yoke_contracts.hook_runner.command_extract import substitute_bound_variables
 from yoke_contracts.hook_runner.shell_parse import advance_cwd, parse_shell
 from yoke_core.domain.command_workdir import (
@@ -26,6 +23,10 @@ from yoke_core.domain.lint_shell_target_tokens import (
     is_assignment_statement,
     segment_variable_bindings,
 )
+
+# The lane-main-write guard's own lane fixture and evaluator.
+lane_repo = workdir_guard.lane_repo
+_evaluate = workdir_guard._evaluate
 
 
 def _payload(command: str, cwd: str) -> dict:
