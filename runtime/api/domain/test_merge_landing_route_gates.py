@@ -21,6 +21,7 @@ from yoke_core.domain import qa_plan_attachments
 from yoke_core.domain import merge_queue_admission_gates as queue_gates
 from yoke_core.domain.merge_github_discovery import BranchListing
 from yoke_core.domain.merge_github_queue import QueueMember, PrLandingState
+from yoke_core.domain.merge_github_train_run import TrainRunLookupFailure
 from runtime.api.merge_queue_landing_test_helpers import dispatch_for
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers import merge_engine_internal_ops as ops
@@ -300,13 +301,29 @@ def test_check_defers_unreadable_queue_inputs(
     else:
         monkeypatch.setattr(queue_gates, "list_branch_pull_requests", lambda *_a, **_k: BranchListing(rows=({"number": 42},)))
         monkeypatch.setattr(queue_gates, "read_pr_landing_state", lambda *_a: (None, None))
-        monkeypatch.setattr(queue_gates, "read_train_run", lambda *_a: (None, "failed train read failed"))
+        failure = TrainRunLookupFailure("failed train read failed", "", retryable=True)
+        monkeypatch.setattr(queue_gates, "read_train_run", lambda *_a: (None, failure))
 
     assert _run("--check", "--json", *READY) == 0
 
     report = json.loads(capsys.readouterr().out)
     assert report["blockers"] == []
     assert any(f"{source} read failed" in note for note in report["merge_will"])
+    if source == "failed train":
+        assert any("train lookup unavailable for pull request 42" in note for note in report["merge_will"])
+        assert not any("recheck failed train" in note for note in report["merge_will"])
+
+
+def test_check_on_never_queued_pr_says_nothing_about_a_train(merge, monkeypatch, queue_reads, capsys):  # noqa: F811
+    _queue_ready(merge, monkeypatch)
+    absent = TrainRunLookupFailure("no merge_group workflow run identified", "operator decision", retryable=False, no_run_found=True)
+    monkeypatch.setattr(queue_gates, "list_branch_pull_requests", lambda *_a, **_k: BranchListing(rows=({"number": 42, "state": "open"},)))
+    monkeypatch.setattr(queue_gates, "read_pr_landing_state", lambda *_a: (PrLandingState(merged=False, closed=False, auto_merge_active=False), None))
+    monkeypatch.setattr(queue_gates, "read_train_run", lambda *_a: (None, absent))
+    assert _run("--check", "--json", *READY) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["blockers"] == []
+    assert not any("train" in note or "merge_group" in note for note in report["merge_will"])
 
 
 def test_check_without_pr_skips_failed_train_gate(merge, monkeypatch, queue_reads):  # noqa: F811

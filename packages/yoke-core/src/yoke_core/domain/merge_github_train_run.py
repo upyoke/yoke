@@ -69,11 +69,17 @@ class TrainRunLookupFailure:
     minute; an anchored search that completed and found nothing will return
     the identical answer forever, and telling an owner to re-run it is how a
     close-out sends someone around a loop that has no exit.
+
+    ``no_run_found`` marks the one answer that is a completed search rather
+    than a failed read: no run carries this pull request's train. Before
+    landing that is the normal state of a pull request never queued, so a
+    readiness check says nothing; after landing it is missing proof.
     """
 
     reason: str
     recovery: str
     retryable: bool
+    no_run_found: bool = False
 
     def __str__(self) -> str:
         return f"{self.reason}. {self.recovery}" if self.recovery else self.reason
@@ -252,6 +258,7 @@ def read_train_run(
             "an operator decision rather than another close-out attempt."
         ),
         retryable=False,
+        no_run_found=True,
     )
 
 
