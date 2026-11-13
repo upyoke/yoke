@@ -155,8 +155,9 @@ def test_eighty_landed_lanes_are_reported_inside_the_check_budget(
         ]
     ]
     assert not any("merge-base" in cmd for cmd in git_commands)
-    # Lane inventory, then one deploy-driver inventory. Neither repeats per lane.
-    assert sum("worktree" in cmd and "list" in cmd for cmd in git_commands) == 2
+    # Lane inventory, one deploy-driver inventory and one fresh registry read
+    # for stray folders. None repeats per lane.
+    assert sum("worktree" in cmd and "list" in cmd for cmd in git_commands) == 3
 
 
 @pytest.mark.parametrize("landed_lanes", [2], indirect=True)

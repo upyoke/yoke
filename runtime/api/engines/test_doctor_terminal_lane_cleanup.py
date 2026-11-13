@@ -119,6 +119,7 @@ def test_doctor_rolls_up_released_lanes_still_on_disk_with_reasons(
     (lane / "more.txt").write_text("keep\n", encoding="utf-8")
     stray = repo / ".worktrees" / "YOK-21"
     stray.mkdir()
+    (stray / "notes.txt").write_text("keep\n", encoding="utf-8")
     conn = _make_conn()
     _insert_item(conn, 20, "Done", workflow_id="issue", status="done")
     _insert_item(conn, 21, "Done too", workflow_id="issue", status="done")
@@ -138,6 +139,7 @@ def test_doctor_rolls_up_released_lanes_still_on_disk_with_reasons(
         "unregistered directory (YOK-21)"
     )
     assert "worktree is dirty (2 modified files)" in detail
+    assert "kept: holds notes.txt" in detail
     assert stray.exists()
 
 
