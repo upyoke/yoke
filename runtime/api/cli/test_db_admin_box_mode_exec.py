@@ -66,7 +66,8 @@ def test_exec_runs_with_the_box_dsn_through_the_box_forward(box, forwards, capsy
     assert detection.connector_kind == connector.CONNECTOR_LOCAL_SSH_TUNNEL_PG
     assert detection.environment == "stage-db-admin"
     assert (detection.local_host, detection.local_port) == ("127.0.0.1", 6548)
-    assert detection.spec.bastion == "ubuntu@origin.stage.example.com"
+    assert detection.spec.bastion == "yoke-stage-box"
+    assert detection.spec.ssh_config == str(box.home / "ssh" / "config")
     assert (detection.spec.remote_host, detection.spec.remote_port) == (
         "127.0.0.1",
         5432,
