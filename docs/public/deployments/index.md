@@ -13,9 +13,10 @@ section is short and links to the page with the details.
 
 A **site** is one deployable part of a project, such as a web app or an API.
 An **environment** is a named place where a site runs, such as `stage` or
-`prod`. A **flow** is the reusable recipe for delivering to one environment:
-an ordered list of stages. A flow with no target is merge-only; merging the
-item finishes it, and no run is ever created.
+`prod`; its URL names the server a deploy lands on. A **flow** is the
+reusable recipe for delivering to one environment, its **target**: an ordered
+list of stages. A flow with no target is merge-only; merging the item
+finishes it, and no run is ever created.
 
 Each item selects a flow, usually its project's default. That flow decides
 which run can finish the item. Flows are changed by publishing a new version,
@@ -34,13 +35,15 @@ The run's stages go in order: first the deploy stages (CI, GitHub Actions
 workflows, health checks, warm-up), then QA, then gates such as human
 approval. The run's current stage lives on the run, not on its items.
 
-The items a run delivers are its **members**. A run enrolls every
-delivery-ready item whose landed code its candidate contains. Other code in
-the candidate ships too; commits made outside Yoke are listed, not blocked.
+The items a run delivers are its **members**. A run enrolls every item that
+has merged and waits at its release stage, when the candidate contains that
+merge. Other code in the candidate ships too; commits made outside Yoke are
+listed, not blocked. A **release** is the run, or the set of runs, that ships
+one commit.
 
 A run is `created` until it starts, `executing` while it works, and then
-`succeeded`, `failed` or `cancelled`. A run reads `succeeded` only after its
-members have closed.
+`succeeded`, `failed` or `cancelled`. Once its last QA and gate pass, the run
+settles (see below) and only then reads `succeeded`.
 
 [More on runs and their records](model/runs.md)
 
@@ -51,17 +54,21 @@ members have closed.
 ## Who cuts runs, and release pairs
 
 Runs are cut by an item's own delivery (`/yoke usher` or
-`yoke deployment-runs start-for-item`), or by steering, which cuts one release
-for a batch of items. Cutting means creating the run; a driver
+`yoke deployment-runs start-for-item`), or by the project's steering session,
+which cuts one release for a batch of items. Cutting means creating the run; a driver
 (`yoke watch deploy -- RUN-ID`) then executes it.
 
-For Yoke, Stage and Production are cut together by habit, as one **release
-pair** from one command and one commit. Each run of the pair runs on its own:
-neither waits for the other, and each owes its own QA.
+One command can cut a **release set**: one run per named flow, all on one
+commit. Yoke's own project cuts its Stage and Production runs together by
+habit, as a **release pair**. Each run of the pair runs on its own: neither
+waits for the other, and each owes its own QA.
 
-Only one run deploys to a server at a time. A run cut while another run is
-still deploying there waits as `created`; it is never started over the busy
-one. Its start refuses with `target_occupied` and names the holder.
+Only one run holds a server at a time. A run holds it from its start until
+its QA has settled or it ends, so a run waiting on QA still holds it. A newer
+run cut behind a run that waits only on QA takes that run over (see
+Takeover). A newer run cut behind a run that is still deploying waits as
+`created`; it is never started over the busy one, and its start refuses with
+`target_occupied`, naming the holder.
 
 [More on cutting runs and release sets](cutting-runs.md)
 
@@ -72,13 +79,16 @@ one. Its start refuses with `target_occupied` and names the holder.
 A flow's QA stage is scoped to items or to the run.
 
 - **Item QA** checks one member. Its cases come from that item. The item's
-  owner, the session holding its claim, runs it and keeps its claim.
+  owner, the session holding its work claim, runs it and keeps its claim. An
+  agent running a QA mission is **walking** it; the open run of the mission is
+  a **walk**.
 - **Run QA** checks the release as a whole. The run's driver answers it.
 - **Shared QA** is one plan attached by two or more members. It runs once as
   a plan group, and the driver answers it for all of them.
 
-A member closes only when its own QA has passed and, when the flow has run
-QA or an approval gate, when those have passed too.
+When the flow has no run QA and no approval gate, each member closes as soon
+as its own QA passes. When it has either, all members wait and close
+together once every QA and gate has passed.
 
 [More on QA dispatch and plan groups](qa-dispatch.md)
 
@@ -88,27 +98,32 @@ QA or an approval gate, when those have passed too.
 
 ## Takeover
 
-A newer run can take over an older one. Both must be on the same flow and
-target, and the newer run must have a commit. It takes over:
+Takeover happens when a newer run is created on the same flow and target as
+an older run. A run created before its commit is chosen never takes over.
+The newer run takes over, in this order:
 
-- an executing run whose deploy stages are done, that waits only on QA and
-  gates, and that still has open QA lines, together with any never-started
-  runs created after it;
-- otherwise the newest never-started run, or the newest started run if that
-  one failed.
+1. an executing run whose deploy stages are done, that waits only on QA and
+   gates, and that still owes QA; never-started runs created between the two
+   are taken over with it;
+2. otherwise the newest never-started run;
+3. otherwise the newest started run, if it failed.
 
 The newer candidate must contain the older one. If it does not, creation
-refuses with `takeover_candidate_not_contained`.
+refuses with `takeover_candidate_not_contained` and nothing is created.
 
 Members the older run already closed stay with it. Every unfinished member
 moves to the newer run intact, with its QA executions and the run-level QA.
-The older run is cancelled. A failed run keeps its failure. A run that
-already delivered some members, with no run QA or approval gate, is marked
-`succeeded`.
+Then the older run ends:
+
+- a failed run keeps its failure;
+- a run with no run QA or approval gate that already closed some members is
+  marked `succeeded`, because the members left on it are delivered;
+- every other run is cancelled.
 
 An open walk carries over to the newer run. It keeps its execution, and its
 owner gets no wait notice; nothing restarts it or holds it. If the owner's
-session has ended, the session sweep settles the walk and wakes the member.
+session has ended, Yoke's sweep of ended sessions closes out the walk and
+the member is woken.
 
 [More on takeover](takeover.md)
 
@@ -121,7 +136,8 @@ out of a release. Its code still ships; the run just stops owing its QA and
 close-out.
 
 The item stays out of that release, including any run that takes the release
-over. It rejoins the first release cut after that run ends.
+over. It rejoins the first release cut after that release has ended, meaning
+the run it was removed from and every run that took it over.
 
 [More on removing an item](removal.md)
 
@@ -130,9 +146,11 @@ over. It rejoins the first release cut after that run ends.
 ## Settlement and item completion
 
 When the last QA and gate pass, the run **settles**. It stamps each member's
-delivery evidence and closes the members that are ready. A member closes only
-on a succeeded run of its own selected flow, or on another project's run that
-bound its commit. Carried code alone never closes an item.
+delivery evidence, closes the members that are ready, and then reads
+`succeeded`. While it settles it counts as delivered for its members' own
+gates. Only a run of the member's own selected flow, or another project's run
+that recorded the member's commit, can close it. Code that merely rides along
+in a candidate never closes an item.
 
 [More on settlement](settlement.md)
 
