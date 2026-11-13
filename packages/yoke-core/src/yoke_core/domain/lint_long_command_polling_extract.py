@@ -107,39 +107,74 @@ def _has_suppression(command: str) -> bool:
     return SUPPRESSION_TOKEN in command
 
 
-def _is_github_poll_loop(command: str | ShellParse, *, depth: int = 0) -> bool:
-    """Inspect executable shell sources, never ordinary argv or Python text."""
+#: Read-shaped Yoke subcommand words. A loop that retries a Yoke write
+#: (``until yoke items update ...; do sleep 5; done``) is not polling.
+_YOKE_READ_WORDS = frozenset({"get", "list", "read", "report", "status", "messages"})
+
+
+def _read_signal(argv: Sequence[str]) -> Optional[str]:
+    """Classify one command as a polled read, a numeric sleep, or neither."""
+    program = argv[0].rsplit("/", 1)[-1]
+    if program == "gh" and (argv[1:2] == ["api"] or argv[1:3] == ["run", "view"]):
+        return "github"
+    if program == "yoke":
+        words: list[str] = []
+        for token in argv[1:]:
+            if token.startswith("-"):
+                break
+            words.append(token)
+        return "yoke" if _YOKE_READ_WORDS.intersection(words) else None
+    if program == "sleep" and len(argv) > 1 and re.match(r"\d", argv[1]):
+        return "sleep"
+    return None
+
+
+def _segment_signals(segment) -> list[str]:
+    """Signals of a segment's own command and of its command substitutions.
+
+    ``until s=$(yoke items get X); ...`` polls through the substitution,
+    so its body counts toward the enclosing loop.
+    """
+    argv = executable_argv(segment)
+    signals = [_read_signal(argv)] if argv else []
+    if "$(" in segment.text or "`" in segment.text:
+        for body in shell_sources(parse_shell(segment.text)):
+            for inner in parse_shell(body).segments:
+                inner_argv = executable_argv(inner)
+                if inner_argv:
+                    signals.append(_read_signal(inner_argv))
+    return [signal for signal in signals if signal]
+
+
+def _is_poll_loop(command: str | ShellParse, *, depth: int = 0) -> Optional[str]:
+    """Return ``github`` or ``yoke`` when a sleeping loop polls that program.
+
+    Inspects executable shell sources, never ordinary argv or Python text.
+    """
     if depth > 20:
-        return False
+        return None
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
-    if any(_is_github_poll_loop(body, depth=depth + 1) for body in shell_sources(parsed)):
-        return True
+    for body in shell_sources(parsed):
+        found = _is_poll_loop(body, depth=depth + 1)
+        if found:
+            return found
     loops: list[set[str]] = []
     for segment in parsed.segments:
         if re.match(r"(?:while|until)\s", segment.text.lstrip("({")):
             loops.append(set())
         if segment.tokens[0] == "done" and loops:
             loops.pop()
-        argv = executable_argv(segment)
-        if not argv:
-            continue
-        program = argv[0].rsplit("/", 1)[-1]
-        signal = None
-        if program == "gh" and (argv[1:2] == ["api"] or argv[1:3] == ["run", "view"]):
-            signal = "github"
-        elif program == "sleep" and len(argv) > 1 and re.match(r"\d", argv[1]):
-            signal = "sleep"
-        if signal:
+        for signal in _segment_signals(segment):
             for loop in loops:
                 loop.add(signal)
-                if loop == {"github", "sleep"}:
-                    return True
-        if any(
-            _is_github_poll_loop(text, depth=depth + 1)
-            for text in argv_shell_sources(argv)
-        ):
-            return True
-    return False
+                if "sleep" in loop and len(loop) > 1:
+                    return "github" if "github" in loop else "yoke"
+        argv = executable_argv(segment)
+        for text in argv_shell_sources(argv) if argv else ():
+            found = _is_poll_loop(text, depth=depth + 1)
+            if found:
+                return found
+    return None
 
 
 def _has_monitor_duplicate_suppression(command: str) -> bool:

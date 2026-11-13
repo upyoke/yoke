@@ -5,7 +5,8 @@ Sibling of ``lint_long_command_polling`` (the hook entry point) and
 isolates everything that builds output:
 
 - ``_format_sleep_reason`` /
-  ``_format_github_poll_loop_reason`` / ``_format_monitor_duplicate_reason`` — operator-facing ``DENIED`` reason text.
+  ``_format_poll_loop_reason`` (GitHub or Yoke) /
+  ``_format_monitor_duplicate_reason`` — operator-facing ``DENIED`` reason text.
 - ``_build_context`` — the structured context dict returned with the
   verdict.
 
@@ -58,6 +59,27 @@ def _format_github_poll_loop_reason() -> str:
         "  2. To await one run by exact commit in this turn, run "
         "`yoke watch ci-run -- REF`"
     )
+
+
+def _format_yoke_poll_loop_reason() -> str:
+    return (
+        "DENIED: shell loop polling Yoke with sleep.\n\n"
+        "A loop that sleeps around a Yoke read holds the turn, so steering "
+        "messages and wakes cannot reach you. This rule has no override.\n\n"
+        "Options:\n"
+        "  1. To wait for messages or a state change, park with "
+        "`yoke sessions touch --mode parked --reason <why>` and end the "
+        "turn; Yoke wakes you\n"
+        "  2. For a long command, run `yoke watch <wrapper> "
+        "--print-streaming-pair ...` and then the pair it prints"
+    )
+
+
+def _format_poll_loop_reason(program: str) -> str:
+    """Pick the refusal for the polled program ``github`` or ``yoke``."""
+    if program == "github":
+        return _format_github_poll_loop_reason()
+    return _format_yoke_poll_loop_reason()
 
 
 def _format_monitor_duplicate_reason(
