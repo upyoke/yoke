@@ -134,6 +134,9 @@ claims the whole declared fleet, so naming databases is a diagnostic run and
 it records no receipt, and with `--record-receipt` it exits non-zero. A new,
 still-empty environment therefore cannot gain coverage, and its release gate
 keeps refusing until at least one fleet database exists there and passes.
+`migration_fleet` is declared per model, not per environment, so a `none`
+fleet would stop rehearsal on every environment; it is not the recovery for
+one empty environment.
 
 For a read-only census of the restored source, reuse that same copy path:
 
@@ -193,7 +196,8 @@ entries (from the model's `runner.config.modules_dir`) and schema-shape digest,
 and when the target environment's receipts do not cover both it rehearses
 exactly that commit's code before dispatching. The installed Yoke package only
 orchestrates the copy; the candidate commit supplies the history, schema and
-boot it is judged by. The rehearsal runs while
+boot it is judged by. A stage whose delivery the target already serves runs
+the same gate before it is reused, so reuse never skips it. The rehearsal runs while
 the stage's CI gate waits on the same commit, so it adds no wait of its own
 once CI is the longer one; dispatch still needs both the passing gate and the
 covering receipt, and a failed CI gate is the refusal reported. A `named_databases` fleet
