@@ -137,6 +137,18 @@ HOOK_INJECTED_RESULT = "injected"
 #: later hook that starts with a fresh budget. Not a delivery failure.
 HOOK_DEFERRED_FOR_BUDGET_RESULT = "deferred_for_budget"
 
+#: A subagent's hook event passed while its parent had a receipt pending.
+#: The subagent may not read its parent's inbox, so it declined; the
+#: receipt stays pending for the parent's own next hook. Not a delivery
+#: failure. A receipt that truly never arrives is still caught by the
+#: age-based starved-envelope alarm (`fleet_delta_alarms`).
+HOOK_SUBAGENT_EXIT_RESULT = "probe_subagent_exit"
+
+#: Hook outcomes that left the receipt pending on purpose for a later hook.
+HOOK_DEFERRED_RESULTS = frozenset(
+    {HOOK_DEFERRED_FOR_BUDGET_RESULT, HOOK_SUBAGENT_EXIT_RESULT}
+)
+
 #: Every attempt outcome, on either route, that delivered or may still.
 DELIVERY_ATTEMPT_SUCCESS_RESULTS = frozenset(
     {HOOK_INJECTED_RESULT, *WAKE_ATTEMPT_SUCCESS_RESULTS}
@@ -158,7 +170,7 @@ def delivery_attempt_failed(result_code: object) -> bool:
         # wakes it; calling that a failure would report a defect where
         # the relay made the correct decision.
         return False
-    if str(result_code) == HOOK_DEFERRED_FOR_BUDGET_RESULT:
+    if str(result_code) in HOOK_DEFERRED_RESULTS:
         return False
     return str(result_code) not in DELIVERY_ATTEMPT_SUCCESS_RESULTS
 
@@ -218,6 +230,8 @@ TURN_WITHOUT_INJECTION_RECOVERY = (
 __all__ = [
     "DELIVERY_ATTEMPT_SUCCESS_RESULTS",
     "HOOK_DEFERRED_FOR_BUDGET_RESULT",
+    "HOOK_DEFERRED_RESULTS",
+    "HOOK_SUBAGENT_EXIT_RESULT",
     "HOOK_INJECTED_RESULT",
     "NATIVE_RESUME_ACCEPTED_RESULT",
     "NATIVE_TURN_RUNNING_RESULT",
