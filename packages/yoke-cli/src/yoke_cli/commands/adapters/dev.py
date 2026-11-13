@@ -33,8 +33,7 @@ DEV_SETUP_USAGE = (
     "[--postgres-host HOST] [--postgres-port PORT] "
     "[--tunnel-bastion USER@HOST --tunnel-identity-file PATH "
     "--tunnel-remote-host HOST --tunnel-remote-port PORT] "
-    "[--authority-kind KIND --authority-infra-dir DIR --authority-stack STACK "
-    "--authority-region REGION --authority-database-name NAME] "
+    "[--authority-kind KIND --authority-database-name NAME] "
     "[--yes | --dry-run] [--json]"
 )
 DEV_DB_ADMIN_SETUP_USAGE = (

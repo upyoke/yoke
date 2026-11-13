@@ -12,10 +12,9 @@ def _binding(root: Path, dsn_file: Path, *, protected: bool | None = None) -> Pa
     connection = {
         "transport": "local-postgres",
         "authority": {
-            "kind": "aws_aurora_postgres",
-            "infra_dir": "projects/example/infra",
+            "kind": "box_postgres",
             "location": {
-                "stack": "example-prod",
+                "origin_host": "origin.prod.example.com",
                 "database_name": "example_prod",
             },
         },

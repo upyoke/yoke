@@ -105,8 +105,6 @@ def _credential_status(
                     "Set the variable before running Yoke.",
                 )
             )
-    elif kind == "aws_secrets_manager":
-        status["present"] = True
     elif kind:
         issues.append(
             _issue(

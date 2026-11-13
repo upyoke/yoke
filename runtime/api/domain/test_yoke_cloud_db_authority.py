@@ -22,33 +22,6 @@ from yoke_core.domain.yoke_cloud_db_authority import (
 CAPABILITY_ENV = {"AWS_ACCESS_KEY_ID": "AKIACAPABILITY", "AWS_REGION": "us-east-1"}
 
 
-def test_location_round_trips_to_settings_shape() -> None:
-    raw = {
-        "stack": "yoke-prod",
-        "state_backend": "s3://yoke-pulumi-state?region=us-east-1",
-        "region": "us-east-1",
-        "database_name": "yoke_prod",
-        "endpoint_output": "databaseClusterEndpoint",
-        "secret_arn_output": "databaseSecretArn",
-    }
-
-    loc = PostgresAuthorityLocation.from_mapping(raw)
-
-    assert loc.stack == "yoke-prod"
-    assert loc.as_settings_location() == raw
-
-
-@pytest.mark.parametrize("stack", [None, "", 42])
-def test_cloud_authority_without_stack_refuses_with_recovery(stack) -> None:
-    with pytest.raises(CloudAuthorityCommandError) as exc:
-        PostgresAuthorityLocation.from_mapping({"database_name": "registry_db", "stack": stack})
-
-    assert exc.value.step == "cloud_postgres_location"
-    assert "stack must be a non-empty string" in exc.value.detail
-    assert "authoritative_db.location.stack" in exc.value.recovery
-    assert "database.location is box" in exc.value.recovery
-
-
 def test_secret_json_requires_username_and_password() -> None:
     secret = PostgresSecret.from_json(
         json.dumps({"username": "admin", "password": "pw", "port": "5433"})
@@ -63,13 +36,11 @@ def test_secret_json_requires_username_and_password() -> None:
 
 
 def test_endpoint_and_secret_arn_use_declared_output_names() -> None:
-    loc = PostgresAuthorityLocation.from_mapping(
-        {
-            "stack": "prod",
-            "database_name": "db",
-            "endpoint_output": "endpoint",
-            "secret_arn_output": "secret",
-        }
+    loc = PostgresAuthorityLocation(
+        stack="prod",
+        database_name="db",
+        endpoint_output="endpoint",
+        secret_arn_output="secret",
     )
 
     assert endpoint_and_secret_arn(

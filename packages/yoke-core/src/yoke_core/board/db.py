@@ -25,7 +25,7 @@ class BoardDB:
     def __init__(self, _connection_token: Optional[str] = None) -> None:
         # connect_psycopg returns a raw psycopg connection (BoardDB branches on
         # psycopg.errors.*) but routes through the connected-env readiness layer,
-        # so a down local Aurora tunnel is self-healed before the board renders.
+        # so a down local SSH tunnel is self-healed before the board renders.
         self._conn = db_backend.connect_psycopg()
         self._query_cache: dict[Tuple[str, Optional[Tuple[Any, ...]]], List[Tuple]] = {}
         self._scalar_cache: dict[Tuple[str, Optional[Tuple[Any, ...]]], Any] = {}

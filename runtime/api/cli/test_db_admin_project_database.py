@@ -17,19 +17,13 @@ from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import 
     _env,
 )
 
-REGISTRY_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:registry"
 DECLARATION = {
     "default_model": "registry",
     "models": {
         "registry": {
             "authoritative_db": {
                 "kind": "postgres",
-                "location": {
-                    "stack": "yoke-prod",
-                    "database_name": "registry_db",
-                    "endpoint_output": "registryEndpoint",
-                    "secret_arn_output": "registrySecretArn",
-                },
+                "location": {"database_name": "registry_db"},
             },
         },
         "media": {
@@ -100,19 +94,6 @@ def setup_env(tmp_path: Path, monkeypatch):
         "_resolve_control_plane_database",
         lambda *_a, **_k: pytest.fail("declared database read the control plane's"),
     )
-    monkeypatch.setattr(
-        config,
-        "_resolve_environment_database_binding",
-        lambda env, emit=None: (
-            SimpleNamespace(host="yoke.cluster.internal", port=5432),
-            {
-                "databaseClusterEndpoint": "yoke.cluster.internal",
-                "databaseSecretArn": "arn:control-plane",
-                "registryEndpoint": "registry.cluster.internal",
-                "registrySecretArn": REGISTRY_SECRET_ARN,
-            },
-        ),
-    )
     return SimpleNamespace(config_path=_config(tmp_path), relayed=relayed, state=state)
 
 
@@ -132,7 +113,7 @@ def _setup(config_path: Path, *extra: str) -> int:
     )
 
 
-def test_dry_run_plans_declared_database_without_cloud_reads(setup_env, capsys):
+def test_dry_run_plans_declared_database_on_the_box(setup_env, capsys):
     assert _setup(setup_env.config_path, "--dry-run", "--json") == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -142,41 +123,13 @@ def test_dry_run_plans_declared_database_without_cloud_reads(setup_env, capsys):
     assert payload["plan"]["admin_env"] == "yoke-stage-registry-db-admin"
     assert payload["declared_database"]["database_name"] == "registry_db"
     assert "control_plane_database" not in payload
-    assert "superseded_secret_path" not in payload["plan"]
-    assert [step["action"] for step in payload["plan"]["steps"]] == [
+    assert payload["plan"]["authority"]["kind"] == "box_postgres"
+    actions = [step["action"] for step in payload["plan"]["steps"]]
+    assert actions[:2] == [
         "resolve-deploy-environment",
         "resolve-declared-database-location",
-        "resolve-non-secret-cloud-database-binding",
-        "configure-managed-secret-authority",
     ]
-
-
-def test_apply_writes_secretless_profile_from_declared_outputs(
-    setup_env, tmp_path: Path, capsys
-):
-    assert _setup(setup_env.config_path, "--yes", "--json") == 0
-
-    capsys.readouterr()
-    entry = json.loads(setup_env.config_path.read_text(encoding="utf-8"))[
-        "connections"
-    ]["yoke-stage-registry-db-admin"]
-    assert entry["transport"] == "local-postgres"
-    assert entry["credential_source"] == {
-        "kind": "aws_secrets_manager",
-        "secret_arn": REGISTRY_SECRET_ARN,
-        "region": "us-east-1",
-        "project": "yoke",
-    }
-    assert entry["postgres"]["tunnel"]["remote_host"] == "registry.cluster.internal"
-    assert entry["authority"]["location"] == {
-        "stack": "yoke-stage",
-        "region": "us-east-1",
-        "database_name": "registry_db",
-    }
-    # The existing HTTPS control-plane connection is untouched.
-    connections = json.loads(setup_env.config_path.read_text())["connections"]
-    assert connections["stage"]["transport"] == "https"
-    assert not list(tmp_path.rglob("*.dsn"))
+    assert actions[-2:] == ["forward-to-box-postgres", "configure-dsn-file-credential"]
 
 
 def test_missing_capability_refuses_with_declaration_teaching(setup_env, capsys):
@@ -220,48 +173,15 @@ def test_undeclared_or_non_postgres_model_refuses(setup_env, capsys, model, expe
     assert expected in capsys.readouterr().err
 
 
-def test_missing_declared_output_refuses_by_name(setup_env, monkeypatch, capsys):
-    from yoke_cli.config import db_admin_setup as config
-
-    monkeypatch.setattr(
-        config,
-        "_resolve_environment_database_binding",
-        lambda env, emit=None: (
-            SimpleNamespace(host="yoke.cluster.internal", port=5432),
-            {"registryEndpoint": "registry.cluster.internal"},
-        ),
-    )
-
-    assert _setup(setup_env.config_path, "--yes") == 1
-
-    err = capsys.readouterr().err
-    assert "outputs are missing registrySecretArn" in err
-    assert (
-        "yoke-stage-registry-db-admin"
-        not in json.loads(setup_env.config_path.read_text())["connections"]
-    )
-
-
 @pytest.mark.parametrize("action", ["--dry-run", "--yes"])
-def test_aurora_model_without_cloud_outputs_refuses_before_cloud_reads(
-    setup_env, monkeypatch, capsys, action
-):
-    from yoke_cli.config import db_admin_setup as config
-    from yoke_core.domain.migration_model_capability import validate
-    from runtime.api.domain.test_migration_model_capability_postgres import _postgres_model
-
-    declaration = validate({
-        "models": {"registry": _postgres_model({"database_name": "registry_db"})},
-    })
-    setup_env.state["response"] = _settings(declaration)
-    monkeypatch.setattr(
-        config, "_resolve_environment_database_binding",
-        lambda *_a, **_kw: pytest.fail("incomplete Aurora declaration reached cloud reads"),
+def test_model_without_database_name_refuses(setup_env, capsys, action):
+    setup_env.state["response"] = _settings(
+        {"models": {"registry": {"authoritative_db": {"kind": "postgres", "location": {}}}}}
     )
     assert _setup(setup_env.config_path, action) == 1
     err = capsys.readouterr().err
     assert "no declared database location" in err
-    assert "missing location keys ['endpoint_output', 'secret_arn_output']" in err
+    assert "missing location keys ['database_name']" in err
     assert "settings.models.registry.authoritative_db" in err
     assert "docs/public/databases/migration-model.md" in err
     assert "yoke-stage-registry-db-admin" not in json.loads(

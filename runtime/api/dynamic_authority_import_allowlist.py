@@ -159,13 +159,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.tools.pg_testcluster",
     ): ("source_dev_admin", "explicit disposable Postgres setup branch"),
     (
-        "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
-        "yoke_core.domain.yoke_cloud_db_authority",
-    ): (
-        "source_dev_admin",
-        "explicit managed cloud database credential setup branch",
-    ),
-    (
         "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
         "yoke_core.domain.local_universe",
     ): (
@@ -245,16 +238,8 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
-        "yoke_core.domain.deploy_core_container",
-    ): ("source_dev_admin", "explicit db-admin setup cloud binding resolver"),
-    (
-        "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_environment_settings",
     ): ("source_dev_admin", "explicit db-admin setup environment resolver"),
-    (
-        "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
-        "yoke_core.domain.deploy_remote",
-    ): ("source_dev_admin", "explicit db-admin setup AWS command helper"),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/aws.py",
         "yoke_core.domain.deploy_remote",

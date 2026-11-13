@@ -41,8 +41,6 @@ def credential_status(
                 f"credential env var is unset: {name}",
                 "Set the variable before running Yoke.",
             ))
-    elif kind == contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER:
-        status["present"] = True
     elif kind:
         issues.append(_issue(
             "error",

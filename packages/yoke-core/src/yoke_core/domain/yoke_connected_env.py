@@ -185,156 +185,7 @@ def resolve_postgres_dsn(
             },
             process_env={dsn_env: dsn},
         )
-    if kind == "aws_secrets_manager":
-        if str(source.get("secret_arn") or "").strip():
-            return _resolve_direct_managed_secret(env, source, dsn_env=dsn_env)
-        from yoke_core.domain.deploy_remote import aws_machine_capability_env
-        from yoke_core.domain.yoke_cloud_db_authority import (
-            PostgresAuthorityLocation,
-            resolve_declared_dsn,
-        )
-
-        authority = _required_mapping(env.config, "authority")
-        location = PostgresAuthorityLocation.from_mapping(
-            _required_mapping(authority, "location")
-        )
-        connection = env.connection
-        dsn, evidence = resolve_declared_dsn(
-            infra_dir=env.repo_root / _required_str(authority, "infra_dir"),
-            location=location,
-            aws_env=aws_machine_capability_env(
-                _required_str(source, "project"),
-                location.region or _required_str(source, "region"),
-            ),
-            host_override=_optional_str(connection, "host"),
-            port_override=_optional_int(connection, "port"),
-        )
-        return ResolvedDsn(
-            dsn=dsn,
-            redacted_dsn=str(evidence.get("dsn") or _redacted_dsn(dsn)),
-            evidence={
-                "project": env.project,
-                "environment": env.environment,
-                "backend": env.backend,
-                "credential_source": {"kind": kind},
-                "connection": _connection_evidence(connection),
-                **dict(evidence),
-            },
-            process_env={dsn_env: dsn},
-        )
     raise ConnectedEnvError(f"unsupported credential_source.kind: {kind!r}")
-
-
-def managed_secret_selected(start: Optional[Path] = None) -> bool:
-    """Return whether the active connected env resolves a managed DB secret."""
-
-    try:
-        env = load_active(start)
-    except ConnectedEnvError:
-        return False
-    if env is None or env.backend != "postgres":
-        return False
-    source = env.credential_source
-    return source.get("kind") == contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER and bool(
-        str(source.get("secret_arn") or "").strip()
-    )
-
-
-def resolve_previous_postgres_dsn(start: Optional[Path] = None) -> str:
-    """Resolve ``AWSPREVIOUS`` for the active direct managed-secret source."""
-
-    env = load_active(start)
-    if env is None:
-        raise ConnectedEnvError("no connected environment binding found")
-    source = env.credential_source
-    if not managed_secret_selected(start):
-        raise ConnectedEnvError(
-            "active connected environment does not use a direct managed DB secret"
-        )
-    return _resolve_direct_managed_secret(env, source, version_stage="AWSPREVIOUS").dsn
-
-
-def _resolve_direct_managed_secret(
-    env: ConnectedEnv,
-    source: Mapping[str, Any],
-    *,
-    version_stage: str | None = None,
-    dsn_env: str = "YOKE_PG_DSN",
-) -> ResolvedDsn:
-    from yoke_core.domain.cloud_db_secret_dsn import (
-        ManagedSecretBinding,
-        resolve_dsn,
-    )
-    from yoke_core.domain.deploy_remote import aws_machine_capability_env
-    from yoke_core.domain.yoke_cloud_db_authority import (
-        DEFAULT_POSTGRES_PORT,
-        PostgresAuthorityLocation,
-        PostgresSecret,
-        build_libpq_dsn,
-        load_secret_string,
-    )
-
-    secret_arn = _required_str(source, "secret_arn")
-    region = _required_str(source, "region")
-    project_slug = _required_str(source, "project")
-    authority = _required_mapping(env.config, "authority")
-    location = PostgresAuthorityLocation.from_mapping(
-        _required_mapping(authority, "location")
-    )
-    connection = env.connection
-    host = _required_str(connection, "host")
-    port = _optional_int(connection, "port")
-    aws_env = aws_machine_capability_env(project_slug, region)
-    binding = ManagedSecretBinding(
-        secret_arn=secret_arn,
-        region=region,
-        host=host,
-        database=location.database_name,
-        port=port,
-    )
-    if version_stage:
-        secret = PostgresSecret.from_json(
-            load_secret_string(
-                secret_arn,
-                region=region,
-                env=aws_env,
-                version_stage=version_stage,
-            )
-        )
-        dsn = build_libpq_dsn(
-            host=host,
-            database=location.database_name,
-            secret=secret,
-            port=port or secret.port or DEFAULT_POSTGRES_PORT,
-        )
-    else:
-        dsn = resolve_dsn(
-            binding,
-            loader=lambda arn, selected_region: load_secret_string(
-                arn, region=selected_region, env=aws_env
-            ),
-        )
-    redacted = _redacted_dsn(dsn)
-    return ResolvedDsn(
-        dsn=dsn,
-        redacted_dsn=redacted,
-        evidence={
-            "project": env.project,
-            "environment": env.environment,
-            "backend": env.backend,
-            "credential_source": {
-                "kind": contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
-                "project": project_slug,
-                "region": region,
-                "version_stage": version_stage or "AWSCURRENT",
-            },
-            "connection": _connection_evidence(connection),
-            "stack": location.stack,
-            "database_name": location.database_name,
-            "dsn": redacted,
-        },
-        process_env={dsn_env: dsn},
-    )
 
 
 def process_env_overrides(
@@ -398,43 +249,6 @@ def _required_str(mapping: Mapping[str, Any], key: str) -> str:
     return value
 
 
-def _required_mapping(mapping: Mapping[str, Any], key: str) -> Mapping[str, Any]:
-    value = mapping.get(key)
-    if not isinstance(value, Mapping):
-        raise ConnectedEnvError(f"{key} must be an object")
-    return value
-
-
-def _optional_str(mapping: Mapping[str, Any], key: str) -> Optional[str]:
-    value = mapping.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value:
-        raise ConnectedEnvError(f"{key} must be a non-empty string when present")
-    return value
-
-
-def _optional_int(mapping: Mapping[str, Any], key: str) -> Optional[int]:
-    value = mapping.get(key)
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise ConnectedEnvError(f"{key} must be an integer when present") from exc
-
-
-def _connection_evidence(connection: Mapping[str, Any]) -> Mapping[str, Any]:
-    evidence: dict[str, Any] = {}
-    host = _optional_str(connection, "host")
-    port = _optional_int(connection, "port")
-    if host:
-        evidence["host"] = host
-    if port is not None:
-        evidence["port"] = port
-    return evidence
-
-
 __all__ = [
     "BINDING_RELATIVE_PATH",
     "ConnectedEnv",
@@ -445,9 +259,7 @@ __all__ = [
     "connected_backend",
     "find_binding",
     "load_active",
-    "managed_secret_selected",
     "process_env_overrides",
-    "resolve_previous_postgres_dsn",
     "resolve_postgres_dsn",
     "retired_db_guard_message",
     "retired_db_guard_reason",

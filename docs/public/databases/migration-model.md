@@ -47,17 +47,14 @@ A Postgres model requires only `authoritative_db.location.database_name`:
 
 `stack`, `endpoint_output`, `secret_arn_output`, `state_backend` and `region`
 are optional model coordinates. Each must be a non-empty string when present.
-The model adds no hosting mode: the deployment environment's
-`database.location` alone selects `box` or `aurora` (the default).
+The model adds no hosting mode: every deployment environment's Postgres runs on
+its box (`database.location` is `box`, the default and only location).
 
-For `box`, `yoke dev db-admin setup --database <model>` forwards to the
-selected environment box's Postgres and uses the declared database name and
-its provisioned DSN file; no cloud stack or output coordinates are needed.
-For Aurora, setup still requires `endpoint_output` and `secret_arn_output`
-and reads them from the selected environment's stack. Missing output names
-refuse as `no declared database location`, naming the keys to declare.
-Cloud authority readers that resolve Pulumi outputs also require `stack`;
-a model without it refuses as `cloud_postgres_location` with recovery.
+`yoke dev db-admin setup --database <model>` forwards to the selected
+environment box's Postgres and uses the declared database name and its
+provisioned DSN file; no cloud stack or output coordinates are read. A model
+without `database_name` refuses as `no declared database location`, naming the
+key to declare.
 
 ## Validation Recipes
 

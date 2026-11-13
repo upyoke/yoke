@@ -13,6 +13,8 @@ import pytest
 
 from yoke_cli import main as yoke_operations_cli
 
+from runtime.api.cli.test_db_admin_box_hop import MAC_FINGERPRINT
+
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
 )
@@ -59,4 +61,8 @@ def _env(
         ssh_key_path=f"/tmp/yoke-{env_name}.pem",
         ssh_target=f"ubuntu@origin.{env_name}.example.com",
         aws_region="us-east-1",
+        ssh_user="ubuntu",
+        mac_host="testy@mac-mini",
+        mac_host_ssh_key_path="~/.ssh/operator_rsa",
+        mac_host_key_fingerprint=MAC_FINGERPRINT,
     )

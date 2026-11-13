@@ -63,19 +63,10 @@ def _add_authority_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--authority-kind", metavar="KIND",
         default=None,
-        help="Kind of infrastructure that owns the DSN.",
+        help="Kind of infrastructure that owns the database, such as box_postgres.",
     )
     parser.add_argument(
-        "--authority-infra-dir", metavar="DIR", default=None, help="Infrastructure directory to read."
-    )
-    parser.add_argument(
-        "--authority-stack", metavar="STACK", default=None, help="Infrastructure stack name."
-    )
-    parser.add_argument(
-        "--authority-region", metavar="REGION", default=None, help="Cloud region of the stack."
-    )
-    parser.add_argument(
-        "--authority-database-name", metavar="NAME", default=None, help="Database name in the stack."
+        "--authority-database-name", metavar="NAME", default=None, help="Database name it serves."
     )
 
 
@@ -116,9 +107,6 @@ def _tunnel(parsed: argparse.Namespace) -> dict[str, Any]:
 def _authority(parsed: argparse.Namespace) -> dict[str, Any]:
     values = {
         "kind": parsed.authority_kind,
-        "infra_dir": parsed.authority_infra_dir,
-        "stack": parsed.authority_stack,
-        "region": parsed.authority_region,
         "database_name": parsed.authority_database_name,
     }
     if not any(value for value in values.values()):
@@ -131,10 +119,5 @@ def _authority(parsed: argparse.Namespace) -> dict[str, Any]:
         )
     return {
         "kind": values["kind"],
-        "infra_dir": values["infra_dir"],
-        "location": {
-            "stack": values["stack"],
-            "region": values["region"],
-            "database_name": values["database_name"],
-        },
+        "location": {"database_name": values["database_name"]},
     }

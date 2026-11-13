@@ -1,7 +1,7 @@
 """Reusing ambient control-plane Postgres connections within one process.
 
 Opening a control-plane connection is the expensive part of a call: through
-an operator's SSH forward to Aurora, TLS plus password authentication costs
+an operator's SSH forward, TLS plus password authentication costs
 about three seconds, against milliseconds for the statements that follow. A
 process that makes many registered calls or event writes -- the API server,
 a deployment driver on the local-postgres transport -- therefore keeps a
