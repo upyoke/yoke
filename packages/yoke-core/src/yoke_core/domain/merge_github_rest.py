@@ -17,6 +17,7 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 
 from yoke_core.domain import gh_rest_transport
+from yoke_core.domain.control_plane_transport import ControlPlaneRefused
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestNotFoundError,
@@ -38,9 +39,7 @@ from yoke_core.domain.project_github_auth import (
 from yoke_core.domain.merge_context import MergeContext
 
 
-# ---------------------------------------------------------------------------
 # Result shapes
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -75,9 +74,7 @@ class PrMergeResult:
     retryable_signature: Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
 # Auth wiring (shared per-helper)
-# ---------------------------------------------------------------------------
 
 
 class AuthResolutionFailed(Exception):
@@ -101,7 +98,8 @@ def resolve_auth(
     authorized to do is never refused for want of a machine user token.
 
     Raises :class:`AuthResolutionFailed` carrying a repair hint when the
-    project capability / secret / repo metadata is incomplete.
+    project capability / secret / repo metadata is incomplete, or when the
+    relayed read of project GitHub state is refused (timeout, version skew).
     """
     project = ctx.project or ""
     if not project or project == "null":
@@ -116,8 +114,12 @@ def resolve_auth(
         )
     except ProjectGithubAuthError as exc:
         hint = repair_command_hint(exc, project)
+        raise AuthResolutionFailed(f"{exc.code}: {exc}", hint=hint) from exc
+    except ControlPlaneRefused as exc:
         raise AuthResolutionFailed(
-            f"{exc.code}: {exc}", hint=hint
+            f"{exc.code or 'control_plane_refused'}: could not read project "
+            f"GitHub state ({exc})",
+            hint="check `yoke env list`, then retry `yoke merge item`",
         ) from exc
 
 
@@ -153,9 +155,7 @@ def validate_github_auth_for_merge(
     return True, None
 
 
-# ---------------------------------------------------------------------------
 # PR create
-# ---------------------------------------------------------------------------
 
 
 def create_pr(
@@ -227,9 +227,7 @@ def create_pr(
     return PrCreateResult(pr_url=url, pr_num=pr_num)
 
 
-# ---------------------------------------------------------------------------
 # Merge-state + merge call
-# ---------------------------------------------------------------------------
 
 
 def get_pr_merge_state(
