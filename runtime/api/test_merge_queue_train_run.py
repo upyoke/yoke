@@ -201,6 +201,15 @@ def test_completed_search_that_found_nothing_does_not_prescribe_a_retry(monkeypa
     assert note.retryable is False
     assert note.recovery
     assert "operator decision" in note.recovery
+    assert note.no_run_found is True
+
+
+def test_an_unavailable_auth_read_is_not_a_missing_run(monkeypatch):
+    monkeypatch.setattr(train_run_mod, "resolve_auth_detail", lambda ctx, perms: (None, "no Actions read"))
+    run, note = train_run_mod.read_train_run(_ctx(), "42")
+    assert run is None
+    assert note.no_run_found is False
+    assert "no Actions read" in note.reason
 
 
 def test_a_provider_read_that_failed_is_retryable(monkeypatch):

@@ -124,8 +124,11 @@ def check_queue_gates(readiness: Any, *, item: dict[str, Any], head: str) -> Non
     ):
         return
     train, note = read_train_run(ctx, pr_num)
-    if note:
-        readiness.merge_will.append(f"recheck failed train for pull request {pr_num}: {note}")
+    # A pull request that was never queued has no train; that is not news.
+    if note and not note.no_run_found:
+        readiness.merge_will.append(
+            f"train lookup unavailable for pull request {pr_num}: {note}"
+        )
     if train is None:
         return
     result = queue_admission_refusals(
