@@ -3,5 +3,6 @@
  "title": "Catalog and fit",
  "status": "draft-copy",
  "page": "packs",
- "position": 0
+ "position": 0,
+ "summary": "Installed Packs remain in yoke packs list when absent from the selected catalog, labelled in_catalog: false; no update is advertised without a catalog version."
 }

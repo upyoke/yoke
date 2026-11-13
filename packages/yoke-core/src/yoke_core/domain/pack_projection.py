@@ -204,22 +204,27 @@ def list_project_pack_status(conn: Any, *, project: str) -> dict[str, Any]:
         row["slug"]: list(row.get("prerequisites") or []) for row in catalog_rows()
     }
     rows = conn.execute(
-        "SELECT c.slug,c.name,c.description,c.latest_version,c.dependencies_json,"
+        "SELECT s.slug,COALESCE(c.name,s.slug) AS name,c.description,"
+        "c.latest_version,c.dependencies_json,"
         "c.documentation,c.file_count,c.observed_at,r.installed_version,"
         "r.file_count AS installed_file_count,"
-        "h.reported_at,h.receipt_digest,h.pack_count FROM pack_catalog c "
+        "h.reported_at,h.receipt_digest,h.pack_count,"
+        "(c.slug IS NOT NULL) AS in_catalog FROM "
+        "(SELECT slug FROM pack_catalog UNION SELECT pack_slug AS slug "
+        "FROM project_pack_report_entries WHERE project_id=%s) s "
+        "LEFT JOIN pack_catalog c ON c.slug=s.slug "
         "LEFT JOIN project_pack_reports h ON h.project_id=%s "
         "LEFT JOIN project_pack_report_entries r "
-        "ON r.pack_slug=c.slug AND r.project_id=%s ORDER BY c.slug",
-        (identity.id, identity.id),
+        "ON r.pack_slug=s.slug AND r.project_id=%s ORDER BY s.slug",
+        (identity.id, identity.id, identity.id),
     ).fetchall()
     result: list[dict[str, Any]] = []
     for row in rows:
         installed = _row(row, "installed_version")
-        latest = str(_row(row, "latest_version"))
+        latest = _row(row, "latest_version")
         reported_at = _row(row, "reported_at")
         stale_reasons: list[str] = []
-        if installed and installed != latest:
+        if installed and latest and installed != latest:
             stale_reasons.append("update_available")
         if installed and not _report_is_fresh(reported_at):
             stale_reasons.append("repository_report_expired")
@@ -232,6 +237,7 @@ def list_project_pack_status(conn: Any, *, project: str) -> dict[str, Any]:
         result.append(
             {
                 "slug": _row(row, "slug"),
+                "in_catalog": bool(_row(row, "in_catalog")),
                 "name": _row(row, "name"),
                 "description": _row(row, "description"),
                 "status": status,

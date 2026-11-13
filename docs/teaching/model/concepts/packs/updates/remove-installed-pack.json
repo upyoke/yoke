@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "packs",
  "position": 5,
- "summary": "yoke packs remove previews by default; with --apply it drops the Pack's record from .yoke/packs.json and the server's install record. Every file the Pack installed stays in the project. It refuses while another installed Pack depends on it, or when another installed Pack's recorded version cannot be read from the catalog. A Pack that left the catalog still removes."
+ "summary": "yoke packs remove previews by default; with --apply it drops the Pack's record from .yoke/packs.json and the server's install record. Every file the Pack installed stays in the project. It refuses while another installed Pack depends on it, or when another installed Pack's recorded version cannot be read from the catalog. A Pack that left the catalog still removes. Recovery commands preserve the active --env. A catalog override is suggested only when it differs from the selected catalog; otherwise remove or update the unreadable Pack first."
 }

@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_cli.command_hints import _with_env
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.packs.catalog_source import PackCatalog, catalog_spec
 from yoke_cli.packs.errors import PackClientError
@@ -56,7 +57,8 @@ def run_pack_remove(
     if receipt is None or pack not in receipt["packs"]:
         raise PackClientError(
             f"pack-not-installed: Pack {pack!r} is not installed in {root}; "
-            f"run `yoke packs list --project {project}` to see installed Packs"
+            f"run `{_with_env(f'yoke packs list --project {project}')}` "
+            "to see installed Packs"
         )
     _assert_checkout_receipt(root, receipt, project)
     _assert_no_dependents(project, pack, receipt, catalog, session_id=session_id)
@@ -96,7 +98,9 @@ def run_pack_remove(
         raise PackClientError(
             f"pack-receipt-write-failed: the server no longer lists Pack {pack!r} "
             f"but {PACK_RECEIPT_REL} could not be written ({exc}); fix the file "
-            f"permissions and rerun `yoke packs remove {pack} --project {project} --apply`"
+            "permissions and rerun `"
+            + _with_env(f"yoke packs remove {pack} --project {project} --apply")
+            + "`"
         ) from exc
     report["applied"] = True
     return report
@@ -108,8 +112,9 @@ def _assert_checkout_receipt(
     if project not in {receipt["project_slug"], str(receipt["project_id"])}:
         raise PackClientError(
             f"pack-project-mismatch: {PACK_RECEIPT_REL} belongs to project "
-            f"{receipt['project_slug']!r}, not {project!r}; rerun with "
-            f"--project {receipt['project_slug']}"
+            f"{receipt['project_slug']!r}, not {project!r}; rerun `"
+            + _with_env(f"yoke packs remove --project {receipt['project_slug']} PACK")
+            + "` with the installed Pack slug"
         )
     try:
         reference = existing_project_lookup.find_local_project_reference(
@@ -147,11 +152,17 @@ def _assert_no_dependents(
                 catalog=catalog,
             )
         except PackClientError as exc:
+            recorded_spec = catalog_spec(record["source"])
+            recovery = (
+                f"rerun with --catalog {recorded_spec}, or remove or "
+                if recorded_spec != catalog.spec()
+                else "remove or "
+            )
             raise PackClientError(
                 f"pack-dependencies-unknown: installed Pack {slug!r} "
                 f"{record['version']} cannot be read from the {catalog.label()} "
-                f"({exc}), so whether it depends on {pack!r} is unknown; rerun "
-                f"with --catalog {catalog_spec(record['source'])}, or remove or "
+                f"({exc}), so whether it depends on {pack!r} is unknown; "
+                f"{recovery}"
                 f"update Pack {slug!r} first"
             ) from exc
         if pack in bundle["dependencies"]:
