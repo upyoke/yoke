@@ -4,24 +4,7 @@
  "status": "observed",
  "form": "Do",
  "verification": "Source and wheel regressions cover startup outside checkouts and controlled rehearsal/receipt boundaries; dispatch regressions cover bound-project selection, refusals and per-target coverage. Live fleet proof remains a release check. Release-surface regressions cover stored targets after a prior custody release and preservation of outer run and source timing labels.",
- "topics": [
-  "databases/rehearsal/validation-rehearsal"
- ],
- "sources": [
-  "packages/yoke-core/src/yoke_core/tools/watch_preflight.py",
-  "docs/public/databases/migration-fleet.md",
-  "tests/import_graph/wheel_smoke_preflight.py",
-  "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_fleet_rehearsal_sources.py",
-  "runtime/api/domain/test_deploy_pipeline_fleet_bound_sources.py",
-  "packages/yoke-core/src/yoke_core/tools/migration_rehearsal_release_surfaces.py",
-  "runtime/api/tools/test_migration_rehearsal_release_surfaces.py",
-  "docs/fleet-preflight-box-identity.md",
-  "runtime/api/test_api_fleet_rehearsal_record_route.py",
-  "packages/yoke-core/src/yoke_core/tools/preflight_fleet_migrations.py",
-  "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
-  "packages/yoke-cli/src/yoke_cli/config/db_admin_setup_report.py",
-  "runtime/api/tools/test_preflight_fleet_empty_rehearsal.py",
-  "runtime/api/cli/test_db_admin_project_database.py"
- ],
+ "topics": ["databases/rehearsal/validation-rehearsal"],
+ "sources": ["packages/yoke-core/src/yoke_core/tools/watch_preflight.py", "docs/public/databases/migration-fleet.md", "tests/import_graph/wheel_smoke_preflight.py", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_fleet_rehearsal_sources.py", "runtime/api/domain/test_deploy_pipeline_fleet_bound_sources.py", "packages/yoke-core/src/yoke_core/tools/migration_rehearsal_release_surfaces.py", "runtime/api/tools/test_migration_rehearsal_release_surfaces.py", "docs/fleet-preflight-box-identity.md", "runtime/api/test_api_fleet_rehearsal_record_route.py", "packages/yoke-core/src/yoke_core/tools/preflight_fleet_migrations.py", "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py", "packages/yoke-cli/src/yoke_cli/config/db_admin_setup_report.py", "runtime/api/tools/test_preflight_fleet_empty_rehearsal.py", "runtime/api/cli/test_db_admin_project_database.py"],
  "current": "The installed watcher runs in any directory without importing runtime. The declared project boot command still uses its project checkout. Failed subprocesses retain raw output and exit status and name the diagnostic capture and recovery. A missing packaged dependency calls for a complete release reinstall or escalation with the capture. Before a workflow dispatch the release gate runs it for every project the workflow ships, including each project bound through input_bindings at its recorded commit, and refuses an unresolved or inconsistent binding with its recovery. Release-surface rehearsal creates runs without a synthetic lineage, so non-dispatch flows reach stored-target checks without CI or custody probes for an invented commit. Each create collects and discards its own timing records, preserving the outer release timing labels; dispatch flows may still return a named lineage refusal. A box that runs the preflight calls as a machine account holding the machine-only preflight_executor project role on each rehearsed project: it reads release settings and merges only release.fleet_rehearsal.* paths; any other settings write is refused as permission_denied. When a fleet cannot read ownership at its first live connection, the preflight prints the declared release.admin_connection and one environment-settings merge command to select a reachable profile. Successful db-admin setup with --database prints the merge command using the configured profile, in both human and JSON reports."
 }
