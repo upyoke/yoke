@@ -235,12 +235,13 @@ A mission that needs state that must survive — a sign-in, a session opened thr
 
 ## Holding a Walk, and Continuing a Settled One
 
-A queued walk in `waiting` keeps its queue place while its owning session
-has not ended, whatever the session's mode or heartbeat age. Waiting walks
-cannot heartbeat. Only the owner's recorded session end makes one abandoned;
-the sweep settles it with the existing `stale-heartbeat` reason.
+A held walk keeps its place while its owning session has not ended, whatever
+the session's mode or heartbeat age. A walk is held while it is queued in
+`waiting` or finished and in `awaiting_walk_review`; nothing heartbeats either
+state. Only the owner's recorded session end makes one abandoned; the sweep
+settles it with the existing `stale-heartbeat` reason.
 
-Active walks keep the 30-minute heartbeat rule. A walker told to hold can park
+Active and `walking` walks keep the 30-minute heartbeat rule. A walker told to hold can park
 (`yoke sessions touch --mode parked --reason "..."`); a live parked owner
 protects its active walk from the stale sweep. An ended owner provides no
 such protection. Terminal settlement stamps an unreviewed capture with an

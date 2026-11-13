@@ -175,6 +175,32 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
     return found
 
 
+def open_walk_members(
+    conn: Any, run_id: str, item_ids: Any, *, stage: str | None = None
+) -> set[int]:
+    """Members still walking on this run under an owner that has not ended.
+
+    A carried walk keeps going on its own execution, so its owner is never
+    told to wait or rerun. An owner with recorded session end is excluded:
+    its walk is the sweep's to settle, and the member is woken as usual.
+    """
+    from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
+
+    stage_filter = "" if stage is None else "AND e.deployment_stage=%s "
+    rows = query_rows(
+        conn,
+        "SELECT DISTINCT e.deployment_member_item_id AS item_id "
+        "FROM qa_plan_executions e WHERE e.deployment_run_id=%s "
+        f"AND e.deployment_member_item_id=ANY(%s) {stage_filter}"
+        f"AND e.state IN ({LIVE_PLAN_EXECUTION_SQL}) AND NOT EXISTS ("
+        "SELECT 1 FROM harness_sessions s WHERE s.session_id=e.session_id "
+        "AND s.ended_at IS NOT NULL)",
+        (str(run_id), sorted({int(item) for item in item_ids}))
+        + (() if stage is None else (str(stage),)),
+    )
+    return {int(row["item_id"]) for row in rows}
+
+
 def transfer_plan_owners(
     conn: Any, old_id: str, new_id: str, *, requirement_ids: list[int]
 ) -> None:

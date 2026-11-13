@@ -29,8 +29,15 @@ def notify_stage_wait(
     """Wake this waiting subject; notification misses preserve its QA status.
 
     names_cases selects the recovery recipe for existing versus missing cases.
+    A member whose open walk at this run and stage still has a live owner is
+    not woken: that walk carries on. Nothing is recorded, so a later check
+    wakes it once the walk ends or is swept.
     """
     if item_scoped and member is not None:
+        from yoke_core.domain.deployment_qa_plan_ownership import open_walk_members
+
+        if open_walk_members(conn, run_id, (member,), stage=stage_name):
+            return
         no_recipient = "no live claim holder and no covering project steering seat"
         notify = lambda: notify_item_scoped_qa_wait(  # noqa: E731
             conn,

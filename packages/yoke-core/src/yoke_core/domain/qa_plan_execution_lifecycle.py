@@ -278,8 +278,9 @@ def reap_stale_plan_executions(
 ) -> list[dict[str, Any]]:
     """Settle abandoned walks under their state-specific ownership rule.
 
-    Waiting walks require durable owner-session end evidence. Other walks
-    use heartbeat age, except while a live owner is deliberately parked.
+    Waiting and awaiting-review walks require durable owner-session end
+    evidence. Other walks use heartbeat age, except while a live owner is
+    deliberately parked.
     """
     if not _table_exists(conn, "qa_plan_executions"):
         return []
