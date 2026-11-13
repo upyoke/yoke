@@ -159,6 +159,7 @@ def test_a_refused_write_whose_record_landed_warns_instead_of_failing(
         lambda item_id, merge_sha: merge_sha == MERGE_SHA,
     )
 
+    monkeypatch.setattr(merge_evidence, "authoritative_status_is", lambda *_a: False)
     with close_out.bind_connected_control_plane(CONNECTED):
         refusal, warning = close_out.record_execution_evidence(
             item_id=7,
@@ -196,3 +197,24 @@ def test_a_refused_write_with_no_record_fails_the_close_out(monkeypatch):
 
     assert refusal == "evidence refused"
     assert warning == ""
+
+
+def test_done_evidence_record_suppresses_failed_write_claim_advice(monkeypatch):
+    _under_admission_override(monkeypatch)
+    monkeypatch.setattr(merge_evidence, "record", lambda **_k: "no live work claim; acquire one")
+    monkeypatch.setattr(merge_evidence, "recorded_covers_merge", lambda *_a: True)
+    seen = []
+
+    def status(_item_id, expected):
+        seen.append(os.environ.get(ENV_OVERRIDE))
+        return expected == "done"
+
+    monkeypatch.setattr(merge_evidence, "authoritative_status_is", status)
+    with close_out.bind_connected_control_plane(CONNECTED):
+        assert close_out.record_execution_evidence(
+            item_id=7, outcome=OUTCOME, result_summary="landed",
+            verification_summary="passed", verification_status="passed",
+            no_changes=False, tree_root="/repo",
+        ) == ("", "")
+    assert seen == [CONNECTED]
+    assert os.environ[ENV_OVERRIDE] == ADMISSION
