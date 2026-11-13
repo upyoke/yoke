@@ -198,8 +198,8 @@ def answer_for_item(conn: Any, item_id: int) -> PostDeployAnswer:
 OTHER_ENVIRONMENT_REASON = "its post-deploy cases target another environment"
 
 
-def _own_snapshot_cases(subject: Mapping[str, Any], environment: str) -> tuple[bool, bool]:
-    """Whether the member froze direct post-deploy cases, and any for here."""
+def _own_snapshot_cases(subject: Mapping[str, Any]) -> tuple[bool, bool]:
+    """Whether the member froze direct post-deploy cases, and any for this run."""
     from yoke_core.domain.deployment_qa_frozen_plan_selection import requirement_applies
 
     raw = subject.get("member_snapshot")
@@ -209,8 +209,10 @@ def _own_snapshot_cases(subject: Mapping[str, Any], environment: str) -> tuple[b
         if isinstance(row, Mapping) and row.get("plan_id") is None
         and row.get("qa_phase") == "post_deploy"
     ]
-    here = {"environment": {"name": environment}}
-    return bool(rows), any(requirement_applies(row, here) for row in rows)
+    if not rows:
+        return False, False
+    here = {"environment": {"name": str(subject["target_environment_name"] or "")}}
+    return True, any(requirement_applies(row, here) for row in rows)
 
 
 def member_post_deploy_answer(
@@ -226,15 +228,10 @@ def member_post_deploy_answer(
     member_item_id = subject.get("member_item_id")
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
-    from yoke_core.domain.deployment_qa_member_plans import (
-        member_plan_disposition,
-        run_environment_name,
-    )
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
 
     run_id = str(subject["id"])
-    direct, direct_here = _own_snapshot_cases(
-        subject, run_environment_name(conn, run_id)
-    )
+    direct, direct_here = _own_snapshot_cases(subject)
     if not direct_here:
         owed, attached = member_plan_disposition(conn, int(member_item_id), run_id)
         from yoke_core.domain.deployment_qa_plan_ownership import member_plan_ids

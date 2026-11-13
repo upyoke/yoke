@@ -43,11 +43,6 @@ def _run_targets(conn: Any, run_ids: Iterable[str]) -> dict[str, tuple]:
     }
 
 
-def run_environment_name(conn: Any, run_id: str) -> str:
-    """The name of the environment this run deploys to, or empty."""
-    return _run_targets(conn, [run_id]).get(str(run_id), _NO_TARGET)[2]
-
-
 def cases_owed(cases: Iterable[Any], name: str, *, reaches: bool) -> bool:
     """Whether any case runs at the environment ``name`` on this run.
 
@@ -65,10 +60,12 @@ def cases_owed(cases: Iterable[Any], name: str, *, reaches: bool) -> bool:
     return bool(name) and any(name in case_target_envs(case) for case in cases)
 
 
-def _plan_owed(conn: Any, plan_id: int, name: str, reaches: bool) -> bool:
-    from yoke_core.domain.qa_plan_case_definition import plan_cases
+def _with_cases(conn: Any, rows: list[dict]) -> list[dict]:
+    """Give each plan row its plan's cases, one read for every plan."""
+    from yoke_core.domain.qa_plan_case_definition import plans_cases
 
-    return cases_owed(plan_cases(conn, int(plan_id)), name, reaches=reaches)
+    cases = plans_cases(conn, sorted({int(row["plan_id"]) for row in rows}))
+    return [{**row, "cases": cases[int(row["plan_id"])]} for row in rows]
 
 
 def _attached_rows(conn: Any, items: list[int]) -> list[dict]:
@@ -127,8 +124,9 @@ def members_plan_ids(
 
 
 def _plan_rows(conn: Any, items: list[int]) -> list[tuple[dict, bool]]:
-    rows = [(row, True) for row in _attached_rows(conn, items)]
-    return rows + [(row, False) for row in _default_rows(conn, items)]
+    attached = _attached_rows(conn, items)
+    found = _with_cases(conn, attached + _default_rows(conn, items))
+    return [(row, index < len(attached)) for index, row in enumerate(found)]
 
 
 def _owed(
@@ -157,10 +155,7 @@ def _owed(
         reaches = memo[key]
         if not reaches and not attached:
             continue
-        cases_key = ("cases", plan_id, name, reaches)
-        if cases_key not in memo:
-            memo[cases_key] = _plan_owed(conn, plan_id, name, reaches)
-        if memo[cases_key]:
+        if cases_owed(row["cases"], name, reaches=reaches):
             owed[int(row["item_id"])].add(plan_id)
     return owed
 
@@ -245,6 +240,5 @@ __all__ = [
     "default_plan_ids",
     "member_plan_ids",
     "members_plan_ids",
-    "run_environment_name",
     "run_owed_plans",
 ]

@@ -225,16 +225,36 @@ def plan_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
         dict(row)
         for row in query_rows(
             conn,
-            "SELECT c.*, p.slug AS plan_slug, m.name AS method_name, "
-            "m.runner_id, m.required_capability_kinds, m.verdict_path, "
-            "m.config_contract_id "
-            "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
-            "JOIN qa_plans p ON p.id=c.plan_id "
-            f"WHERE c.plan_id={_placeholder(conn)} ORDER BY c.position",
+            f"{_PLAN_CASES_SQL} WHERE c.plan_id={_placeholder(conn)} ORDER BY c.position",
             (int(plan_id),),
         )
     ]
     return materialized_plan_cases(rows, plan_id)
+
+
+_PLAN_CASES_SQL = (
+    "SELECT c.*, p.slug AS plan_slug, m.name AS method_name, "
+    "m.runner_id, m.required_capability_kinds, m.verdict_path, "
+    "m.config_contract_id "
+    "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
+    "JOIN qa_plans p ON p.id=c.plan_id"
+)
+
+
+def plans_cases(conn: Any, plan_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """:func:`plan_cases` for several plans in one read, keyed by plan id."""
+    from yoke_core.domain.db_helpers import query_rows
+
+    found: dict[int, list[dict[str, Any]]] = {int(plan): [] for plan in plan_ids}
+    if not found:
+        return found
+    for row in query_rows(
+        conn,
+        f"{_PLAN_CASES_SQL} WHERE c.plan_id=ANY(%s) ORDER BY c.plan_id,c.position",
+        (sorted(found),),
+    ):
+        found[int(row["plan_id"])].append(dict(row))
+    return {plan: materialized_plan_cases(rows, plan) for plan, rows in found.items()}
 
 
 def materialized_plan_cases(rows: list[dict], plan_id: int) -> list[dict]:
@@ -305,6 +325,7 @@ __all__ = [
     "materialized_definition",
     "materialized_plan_cases",
     "plan_cases",
+    "plans_cases",
     "require_runnable_case",
     "snapshot_fan_out",
 ]

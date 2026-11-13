@@ -15,7 +15,6 @@ from yoke_core.domain import deployment_qa_member_plans as member_plans
 from yoke_core.domain import deployment_qa_plan_ownership as ownership
 from yoke_core.domain import deployment_qa_snapshot_selection as selection
 from yoke_core.domain import post_deploy_verification_answer as answers
-from yoke_core.domain import qa_plan_case_definition as case_definition
 from yoke_core.domain.post_deploy_verification_answer import (
     ANSWERED,
     NOT_REQUIRED,
@@ -47,9 +46,9 @@ PLAN_ROW = {"item_id": 7, "plan_id": 19, "project_id": 3, "target_environment_id
 
 
 def _owed(monkeypatch, cases, run_target, *, attached=True) -> set[int]:
-    monkeypatch.setattr(case_definition, "plan_cases", lambda conn, plan_id: cases)
     monkeypatch.setattr(selection, "plan_matches_target", lambda *a, **k: False)
-    owed = member_plans._owed(_Conn(), [7], run_target, [(PLAN_ROW, attached)], {})
+    row = {**PLAN_ROW, "cases": cases}
+    owed = member_plans._owed(_Conn(), [7], run_target, [(row, attached)], {})
     return owed[7]
 
 
@@ -89,7 +88,6 @@ def test_cases_owed(envs, name, reaches, owed):
 
 def _member(monkeypatch, direct_envs, *, owed=(), attached=False):
     """Answer one prod-run member whose frozen direct cases target ``direct_envs``."""
-    monkeypatch.setattr(member_plans, "run_environment_name", lambda conn, run: "prod")
     monkeypatch.setattr(
         member_plans,
         "member_plan_disposition",
@@ -105,6 +103,7 @@ def _member(monkeypatch, direct_envs, *, owed=(), attached=False):
     ]
     subject = {
         "id": "run-prod",
+        "target_environment_name": "prod",
         "member_item_id": 7,
         "member_snapshot": {"requirements": requirements},
     }
