@@ -128,11 +128,12 @@ def deployment_runs_remove_item(args: List[str]) -> int:
         usage=REMOVE_ITEM_USAGE,
         description=(
             "Take one member out of a created run, an executing item-QA stage, or a run failed at item-qa-failed, recording "
-            "the reason on the run. Composition then never re-enrolls it; its "
-            "landed code still ships with the candidate and a later release "
-            "enrolls it. Re-attaching while created with `add-item` clears the removal. "
-            "Refused while another session is the run's live driver. Use remove-item RUN ITEM "
-            "--reason R to let a run finish while a red member rides the next release. "
+            "the reason on the run. Composition then never re-enrolls it, and the "
+            "removal carries to a run that takes this one over. Its landed code "
+            "still ships with the candidate, so a release that does not take this "
+            "run over can enroll the item again. Re-attaching while created with "
+            "`add-item` clears the removal. "
+            "Refused while another session is the run's live driver. "
             "Item-QA removal refuses shared run QA/approval, settled members, and "
             "any stage other than item QA; every unsettled run-bound requirement of the "
             "member is retracted whatever its verdicts, keeping its run history, while standing plans remain. "
