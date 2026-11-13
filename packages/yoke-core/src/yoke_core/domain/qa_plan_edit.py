@@ -188,9 +188,11 @@ def edit_plan(
         )
 
     submitted_cases = [dict(case) for case in cases if isinstance(case, dict)]
+    # The edit may rebind the target; its default endpoints are checked
+    # against the stored rebinding below, before the edit commits.
     normalized_cases = _validated_plan_cases(
         conn,
-        plan=plan,
+        plan={**dict(plan), "target_environment_id": None},
         cases=cases,
     )
     current_updated_at = parse_instant(plan["updated_at"])
@@ -286,6 +288,9 @@ def edit_plan(
             cases=normalized_cases,
             stamp=stamp,
         )
+        from yoke_core.domain.qa_plan_case_targets import validate_plan_case_targets
+
+        validate_plan_case_targets(conn, plan={**dict(plan), **desired_plan})
         conn.commit()
     except Exception:
         conn.rollback()

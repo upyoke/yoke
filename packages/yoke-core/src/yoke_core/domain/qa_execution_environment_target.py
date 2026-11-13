@@ -309,3 +309,22 @@ def require_case_target(
                 raise QaExecutionTargetError(
                     f"mixed-environment QA endpoint at {path}: {parsed.netloc}"
                 )
+
+
+def require_requirement_target(
+    context: Mapping[str, Any],
+    target: Mapping[str, Any],
+) -> None:
+    """:func:`require_case_target` for a materialized case, naming its owners."""
+    try:
+        require_case_target(context, target)
+    except QaExecutionTargetError as exc:
+        owner = context.get("public_ref") or context.get("deployment_member_ref")
+        run = context.get("deployment_run_id")
+        raise QaExecutionTargetError(
+            f"QA requirement {context['requirement_id']} (case "
+            f"{context.get('case_key')!r}, item {owner or 'none'}"
+            + (f", deployment run {run}" if run else "")
+            + f"): {exc}. Correct the case's endpoints with `yoke qa requirement "
+            "update`, or fix its plan case and rematerialize it."
+        ) from exc

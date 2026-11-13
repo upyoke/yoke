@@ -19,13 +19,10 @@ from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
-    require_case_target,
     target_digest,
 )
-from yoke_core.domain.qa_plan_case_definition import (
-    case_target_subject,
-    materialized_definition,
-)
+from yoke_core.domain.qa_plan_case_definition import materialized_definition
+from yoke_core.domain.qa_plan_case_targets import require_materialized_case_target
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_plan_target_reuse_refusal import (
     different_target_refusal,
@@ -158,8 +155,6 @@ def insert_requirement(
         execution_target=execution_target,
         target_env=target_env,
     )
-    require_case_target(case_target_subject(case, definition), execution_target)
-    stored = definition
     subject = {
         "standalone_execution_id": standalone_execution_id,
         "item_id": item_id,
@@ -167,6 +162,10 @@ def insert_requirement(
         "deployment_stage": deployment_stage,
         "deployment_member_item_id": deployment_member_item_id,
     }
+    require_materialized_case_target(
+        conn, case=case, definition=definition, target=execution_target, owner=subject
+    )
+    stored = definition
     columns = (*subject, *stored, "created_at")
     values = (*subject.values(), *stored.values(), instant_parameter(conn, now))
     row = conn.execute(
@@ -237,7 +236,13 @@ def refresh_requirement(
         execution_target=execution_target,
         target_env=target_env,
     )
-    require_case_target(case_target_subject(case, definition), execution_target)
+    require_materialized_case_target(
+        conn,
+        case=case,
+        definition=definition,
+        target=execution_target,
+        owner={"requirement_id": requirement_id},
+    )
     stored = definition
     assignments = ", ".join(f"{column}={marker}" for column in stored)
     conn.execute(
