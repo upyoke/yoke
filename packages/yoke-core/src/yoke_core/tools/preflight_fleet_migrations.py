@@ -38,8 +38,10 @@ Naming databases limits the run to those, as a diagnostic only: a receipt
 covers the model's whole declared fleet, so ``--record-receipt`` refuses a
 narrowed run.
 
-``--record-receipt`` writes only after the entire fleet passes. Coverage names
-the exact project environment, history, schema-shape digest and source artifact.
+``--record-receipt`` writes only after the entire fleet passes, and never for a
+fleet with no databases: an empty rehearsal records nothing and exits non-zero.
+Coverage names the exact project environment, history, schema-shape digest and
+source artifact.
 A receipt covers one target; one environment's receipt never satisfies another.
 Receipts write to the control plane ``--receipt-env`` (or ``YOKE_ENV``)
 names, independently of the admin connection used to read the covered fleet.
@@ -278,6 +280,17 @@ def _execute(parsed, engine_artifact):
 
     failed = [v for v in verdicts if not v.passed]
     print("\n" + migration_fleet_preflight.format_fleet_summary(verdicts))
+    if not verdicts:
+        # Coverage never expires, so a receipt for zero databases would mark
+        # this history rehearsed for the environment forever on no evidence.
+        print(
+            f"no database was rehearsed: the {covered_env} fleet of migration "
+            f"model {target.model_name} is empty, so no receipt was recorded. "
+            "The release gate keeps refusing until a rehearsal covers at least "
+            f"one database; create one in {covered_env}, then rerun this command.",
+            file=sys.stderr,
+        )
+        return 1 if record else 0
     if failed or not record:
         return 1 if failed else 0
 
