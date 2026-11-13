@@ -7,6 +7,7 @@ as ssh itself has backgrounded and exited 0.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import signal
 import stat
@@ -91,3 +92,20 @@ def test_ssh_that_never_backgrounds_hits_named_timeout(fake_ssh, child_pid_file)
         lifecycle._start_tunnel(_spec())
 
     assert f"timed out after {_TIMEOUT_SECONDS}s" in str(excinfo.value)
+
+
+def test_argv_without_ssh_config_reads_the_users_ssh_config():
+    argv = lifecycle._build_ssh_argv(_spec())
+
+    assert "-F" not in argv
+    assert "StrictHostKeyChecking=accept-new" in argv
+
+
+def test_argv_with_ssh_config_passes_it_and_keeps_its_host_key_pin():
+    spec = dataclasses.replace(_spec(), ssh_config="/home/o/.yoke/ssh/config")
+
+    argv = lifecycle._build_ssh_argv(spec)
+
+    assert argv[:3] == ["ssh", "-F", "/home/o/.yoke/ssh/config"]
+    assert not any(part.startswith("StrictHostKeyChecking") for part in argv)
+    assert argv[-1] == "yoke-prod-box"

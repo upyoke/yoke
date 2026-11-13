@@ -133,6 +133,9 @@ class TunnelSpec:
     identity_file: str  # path to the key file (not its contents)
     remote_host: str  # Aurora endpoint reached from the bastion
     remote_port: int
+    # Optional ssh_config file (``ssh -F``) that defines ``bastion`` as a host
+    # alias and pins its host key; empty uses the user's own ssh config.
+    ssh_config: str = ""
 
     @property
     def forward_spec(self) -> str:
@@ -229,6 +232,7 @@ def _tunnel_spec(
         identity_file=os.path.expanduser(str(tunnel["identity_file"])),
         remote_host=str(tunnel["remote_host"]),
         remote_port=int(tunnel["remote_port"]),
+        ssh_config=os.path.expanduser(str(tunnel.get("ssh_config") or "")),
     )
 
 

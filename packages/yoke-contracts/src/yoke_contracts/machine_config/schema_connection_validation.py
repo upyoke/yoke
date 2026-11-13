@@ -22,6 +22,8 @@ from yoke_contracts.machine_config.schema_transport import (
 
 
 TUNNEL_REQUIRED_KEYS = ("bastion", "identity_file", "remote_host", "remote_port")
+# Optional: an ssh_config file (``ssh -F``) that defines the bastion alias.
+TUNNEL_SSH_CONFIG_KEY = "ssh_config"
 
 
 def validate_connection(
@@ -117,7 +119,19 @@ def _validate_tunnel(tunnel: Any, *, prefix: str) -> list[ValidationIssue]:
                 hint=f"Declare all of: {', '.join(TUNNEL_REQUIRED_KEYS)}.",
             )
         ]
+    if TUNNEL_SSH_CONFIG_KEY in tunnel and not _is_nonempty_str(
+        tunnel.get(TUNNEL_SSH_CONFIG_KEY)
+    ):
+        return [
+            _error(
+                "tunnel_ssh_config_invalid",
+                f"{prefix}.postgres.tunnel.{TUNNEL_SSH_CONFIG_KEY} must be a "
+                "non-empty path when present",
+                path=f"{prefix}.postgres.tunnel.{TUNNEL_SSH_CONFIG_KEY}",
+                hint="Rerun yoke dev db-admin setup, or remove the key.",
+            )
+        ]
     return []
 
 
-__all__ = ["TUNNEL_REQUIRED_KEYS", "validate_connection"]
+__all__ = ["TUNNEL_REQUIRED_KEYS", "TUNNEL_SSH_CONFIG_KEY", "validate_connection"]

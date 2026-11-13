@@ -130,6 +130,16 @@ def test_incomplete_tunnel_block_is_a_validation_error() -> None:
     assert "remote_port" in issue.message
 
 
+@pytest.mark.parametrize(("value", "valid"), [("~/.yoke/ssh/config", True), ("", False)])
+def test_tunnel_ssh_config_is_an_optional_path(value, valid) -> None:
+    payload = contract.canonical_example_payload()
+    payload["connections"]["source-dev-admin"]["postgres"]["tunnel"]["ssh_config"] = value
+
+    codes = [issue.code for issue in contract.validate_payload(payload)]
+
+    assert codes == ([] if valid else ["tunnel_ssh_config_invalid"])
+
+
 def test_absent_tunnel_block_is_valid() -> None:
     payload = contract.canonical_example_payload()
     del payload["connections"]["source-dev-admin"]["postgres"]["tunnel"]

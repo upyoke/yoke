@@ -18,6 +18,7 @@ from runtime.api.cli.test_db_admin_project_database import _config, _settings
 from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
     _env,
 )
+from runtime.api.cli.test_db_admin_box_hop import MAC_FINGERPRINT, fake_hop
 
 PASSWORD = "box-password-never-shown"
 DSN = f"postgresql://yoke_admin:{PASSWORD}@127.0.0.1:6548/yoke_tenant_4"
@@ -26,6 +27,10 @@ DSN = f"postgresql://yoke_admin:{PASSWORD}@127.0.0.1:6548/yoke_tenant_4"
 def _box_env(project: str = "yoke", env_name: str = "stage") -> SimpleNamespace:
     env = _env(project=project, env_name=env_name)
     env.database_location = "box"
+    env.mac_host = "testy@mac-mini"
+    env.mac_host_ssh_key_path = "~/.ssh/operator_rsa"
+    env.mac_host_key_fingerprint = MAC_FINGERPRINT
+    env.ssh_user = "ubuntu"
     return env
 
 
@@ -52,7 +57,10 @@ def box(tmp_path: Path, monkeypatch):
         lambda *_a, **_k: pytest.fail("box mode looked up Secrets Manager"),
     )
     dsn_path = tmp_path / "secrets" / "yoke-stage-db-admin.dsn"
-    return SimpleNamespace(home=tmp_path, config_path=_config(tmp_path), dsn_path=dsn_path)
+    calls = fake_hop(monkeypatch)
+    return SimpleNamespace(
+        home=tmp_path, config_path=_config(tmp_path), dsn_path=dsn_path, calls=calls
+    )
 
 
 def _provision(path: Path, dsn: str = DSN) -> None:
@@ -79,14 +87,23 @@ def test_box_plan_targets_box_postgres_and_keeps_the_dsn_file(box, capsys) -> No
             "database_name": "yoke_tenant_4",
         },
     }
-    assert report["plan"]["postgres"]["tunnel"]["remote_host"] == "127.0.0.1"
-    assert report["plan"]["postgres"]["tunnel"]["remote_port"] == 5432
+    tunnel = report["plan"]["postgres"]["tunnel"]
+    assert tunnel["remote_host"] == "127.0.0.1"
+    assert tunnel["remote_port"] == 5432
+    assert tunnel["bastion"] == "yoke-stage-box"
+    assert tunnel["ssh_config"] == str(box.home / "ssh" / "config")
     actions = [step["action"] for step in report["plan"]["steps"]]
     assert actions == [
         "resolve-deploy-environment",
+        "ensure-box-operator-key",
+        "pin-mac-host-key",
+        "authorize-box-operator-key",
+        "pin-box-host-key",
+        "write-box-ssh-config",
         "forward-to-box-postgres",
         "configure-dsn-file-credential",
     ]
+    assert box.calls == [], "a plan must not touch the key or the Mac host"
     assert "remove-superseded-dsn-snapshot" not in actions
     assert "superseded_secret_path" not in report["plan"]
     assert report["plan"]["dsn_file"] == str(box.dsn_path)
@@ -101,6 +118,8 @@ def test_box_apply_writes_valid_protected_local_postgres_profile(box, capsys) ->
     assert PASSWORD not in captured.out + captured.err
     report = json.loads(captured.out)
     assert report["applied"] is True
+    assert report["box_hop"]["alias"] == "yoke-stage-box"
+    assert report["box_hop"]["operator_key_created"] is True
     assert "superseded_dsn_snapshot_removed" not in report
     assert box.dsn_path.read_text(encoding="utf-8").strip() == DSN
     payload = json.loads(box.config_path.read_text(encoding="utf-8"))
@@ -117,8 +136,11 @@ def test_box_apply_writes_valid_protected_local_postgres_profile(box, capsys) ->
             "port": 6548,
             "tunnel": {
                 "kind": "ssh",
-                "bastion": "ubuntu@origin.stage.example.com",
-                "identity_file": "/tmp/yoke-stage.pem",
+                "bastion": "yoke-stage-box",
+                "identity_file": str(
+                    box.home / "secrets" / "yoke-stage-box-operator-ssh-key"
+                ),
+                "ssh_config": str(box.home / "ssh" / "config"),
                 "remote_host": "127.0.0.1",
                 "remote_port": 5432,
             },
@@ -142,6 +164,7 @@ def test_box_apply_refuses_without_a_provisioned_dsn_file(box, capsys) -> None:
 
     captured = capsys.readouterr()
     assert "box_dsn_file_unavailable" in captured.err
+    assert box.calls == [], "the DSN refusal comes before any key or remote step"
     assert str(box.dsn_path) in captured.err
     assert "127.0.0.1:6548/yoke_tenant_4" in captured.err
     payload = json.loads(box.config_path.read_text(encoding="utf-8"))

@@ -103,10 +103,19 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
             "follows environments.settings.database.location. aurora (the "
             "default): the endpoint and managed secret come from Pulumi and the "
             "secret value is never written out. box: the SSH forward reaches "
-            "127.0.0.1:5432 on the environment's own host, and the DSN is read "
-            "from ~/.yoke/secrets/<secret-name>.dsn, which you provision from "
-            "the environment's custody file before --yes; it addresses "
-            "127.0.0.1 and the local port."
+            "127.0.0.1:5432 in the environment's VM yoke-ENV through the "
+            "yoke-ENV-box alias that setup writes to ~/.yoke/ssh/config (it "
+            "never edits ~/.ssh). The alias reaches the Mac host through a "
+            "yoke-ENV-mac-host stanza built from environments.settings."
+            "servers[0] mac_host (USER@HOST), mac_host_ssh_key_path and "
+            "mac_host_key_fingerprint (the host key is accepted only when its "
+            "SHA256 fingerprint matches); --yes creates the operator key "
+            "~/.yoke/secrets/<project>-ENV-box-operator-ssh-key when missing, "
+            "authorizes it in the VM and pins the VM's host key read over "
+            "that login. The DSN is read from "
+            "~/.yoke/secrets/<secret-name>.dsn, which you provision from the "
+            "environment's custody file before --yes; it addresses 127.0.0.1 "
+            "and the local port."
         ),
     )
     parser.add_argument(

@@ -94,6 +94,13 @@ class DeployEnvironment:
     serving_connection: str = ""
     # environments.settings.database.location: one of DATABASE_LOCATIONS.
     database_location: str = DATABASE_LOCATION_AURORA
+    # The Mac that runs this environment's box VM, from
+    # environments.settings.servers[0]: its ssh login (``user@host``), the
+    # identity file that login uses, and the SHA256 fingerprint of its ssh
+    # host key. Empty = none declared.
+    mac_host: str = ""
+    mac_host_ssh_key_path: str = ""
+    mac_host_key_fingerprint: str = ""
 
     @property
     def registry_host(self) -> str:
@@ -274,7 +281,15 @@ def deploy_environment_from_settings(
             _env_mapping(env.settings, "deploy").get("serving_connection") or ""
         ).strip(),
         database_location=database_location,
+        mac_host=_server_text(server, "mac_host"),
+        mac_host_ssh_key_path=_server_text(server, "mac_host_ssh_key_path"),
+        mac_host_key_fingerprint=_server_text(server, "mac_host_key_fingerprint"),
     )
+
+
+def _server_text(server: Mapping[str, Any], key: str) -> str:
+    value = server.get(key)
+    return value.strip() if isinstance(value, str) else ""
 
 
 def declared_env_branch(project: str, environment: str) -> str:

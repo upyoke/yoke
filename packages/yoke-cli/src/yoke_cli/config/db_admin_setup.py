@@ -181,7 +181,8 @@ def build_report(
         return report
 
     if dsn_path is not None:
-        credential_source = box_mode.credential_source(
+        credential_source, report["box_hop"] = box_mode.apply(
+            env,
             dsn_path,
             admin_env=selected_admin_env,
             local_port=selected_port,
