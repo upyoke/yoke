@@ -11,7 +11,7 @@ import sys
 
 import pytest
 
-from runtime import real_home_isolation as isolation
+from yoke_contracts.testing import real_home_isolation as isolation
 from yoke_contracts import global_skill_install
 from yoke_contracts import harness_unattended_posture as posture
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS

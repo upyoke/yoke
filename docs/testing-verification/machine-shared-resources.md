@@ -9,7 +9,8 @@ everything else on that machine. Four are guarded structurally, because
 per-test discipline had already failed for each.
 
 **The home folder.** The repo-wide pytest plugin
-`runtime/real_home_isolation.py` sets `HOME` to an empty per-test folder and
+`yoke_contracts.testing.real_home_isolation` (shipped in yoke-contracts, so
+any project's root `conftest.py` can list it in `pytest_plugins`) sets `HOME` to an empty per-test folder and
 clears `CODEX_HOME` and `XDG_CONFIG_HOME`, so `Path.home()`, `expanduser`, a
 harness config path imported by name into another module, and every
 subprocess resolve inside the test's `tmp_path`. A test that needs a file a

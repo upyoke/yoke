@@ -44,8 +44,9 @@ def _isolate_engines_from_live_config(_engines_isolated_repo_root, monkeypatch):
     The isolation shares ``monkeypatch``'s undo stack with the test's own
     ``monkeypatch.setenv`` calls, so teardown unwinds them in reverse order and
     no test's temporary environment survives into the next test. ``HOME`` is
-    the repo-wide per-test home from ``runtime.real_home_isolation``. Per-test
-    overrides via ``with patch(...)`` or ``monkeypatch`` still win.
+    the repo-wide per-test home from
+    ``yoke_contracts.testing.real_home_isolation``. Per-test overrides via
+    ``with patch(...)`` or ``monkeypatch`` still win.
     """
     repo_root, config_path = _engines_isolated_repo_root
     monkeypatch.setattr(

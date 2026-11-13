@@ -20,7 +20,7 @@ from yoke_core.domain import verification_tree_binding_pytest_startup as _bindin
 REPO_ROOT = Path(__file__).resolve().parent
 pytest_plugins = [
     "runtime.ci_test_selection",
-    "runtime.real_home_isolation",
+    "yoke_contracts.testing.real_home_isolation",
     "runtime.running_environment_isolation",
     "runtime.sql_calendar_guard",
 ]
