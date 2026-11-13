@@ -1,0 +1,9 @@
+{
+ "id": "retired-project-holdings",
+ "title": "Session holdings retain the name of a retired project.",
+ "status": "observed",
+ "form": "State",
+ "verification": "Source projection and card regressions cover current and released steering and strategy-document holdings after project retirement. The holding's project slug owns the label; older servers use the page roster. Hosted delivery remains unproven.",
+ "topics": ["sessions/lifecycle/heartbeat-and-liveness"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/sessions_holdings_projection.py", "packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js", "packages/yoke-core/src/yoke_core/ui/static/universe_sessions_holdings_disclosure.js", "runtime/api/domain/test_sessions_retired_project_holdings.py", "runtime/api/universe_ui_sessions_retired_projects.test.mjs"]
+}

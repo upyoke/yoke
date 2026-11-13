@@ -92,6 +92,7 @@ def _work_observations(
         if kind == "steering" and facts.get("project_id") is not None:
             document_slugs = list(steering_docs.get(int(claim["id"]), []))
             facts["strategy_docs"] = document_slugs
+            facts["project"] = claim.get("project")
         grouped.setdefault(session_id, []).append(
             {
                 "holding_kind": "work_claim",
@@ -275,6 +276,7 @@ def _strategy_observations(conn: Any) -> dict[str, list[dict[str, Any]]]:
                 "target_key": strategy_document_holding_key(project_id, slug),
                 "target": f"{row['project']} · {slug}",
                 "project_id": project_id,
+                "project": row["project"],
                 "strategy_doc": slug,
                 "released_at": row.get("released_at"),
             }

@@ -67,9 +67,10 @@ function regionId(sessionId, section) {
   }`;
 }
 
-function projectLabel(projects, projectId) {
+function projectLabel(projects, entry) {
+  if (String(entry.project || "").trim()) return String(entry.project).trim();
   const found = (Array.isArray(projects) ? projects : []).find(
-    (row) => String(row.id) === String(projectId),
+    (row) => String(row.id) === String(entry.project_id),
   );
   return String(found?.slug || found?.name || "").trim() || "unknown project";
 }
@@ -85,7 +86,7 @@ export function compactStrategyDocuments(entries, projects = []) {
         group = {
           kind: "documents",
           projectId,
-          project: projectLabel(projects, projectId),
+          project: projectLabel(projects, entry),
           entries: [],
         };
         groups.set(projectId, group);

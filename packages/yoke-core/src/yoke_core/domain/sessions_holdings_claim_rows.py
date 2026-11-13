@@ -16,6 +16,7 @@ def _claim_rows(
 ) -> list[Any]:
     """Read claims with decoded-key aliases needed by roster joins."""
     item_id = scope_int_sql(conn, "wc.scope", "item_id")
+    project_id = scope_int_sql(conn, "wc.scope", "project_id")
     epic_id = scope_int_sql(conn, "wc.scope", "epic_id")
     task_num = scope_int_sql(conn, "wc.scope", "task_num")
     process_key = scope_text_sql(conn, "wc.scope", "process_key")
@@ -37,9 +38,10 @@ def _claim_rows(
         f"SELECT wc.id, wc.session_id, wc.target_kind, wc.scope, "
         f"{item_id} AS item_id, {epic_id} AS epic_id, "
         f"{task_num} AS task_num, {process_key} AS process_key, "
-        "wc.claimed_at, wc.released_at, wc.reason, "
+        "wc.claimed_at, wc.released_at, wc.reason, p.slug AS project, "
         "COALESCE(task_lane.lane_role, item_lane.lane_role) AS lane_role "
         "FROM work_claims wc "
+        f"LEFT JOIN projects p ON wc.target_kind = 'steering' AND p.id = {project_id} "
         "LEFT JOIN epic_tasks et ON wc.target_kind = 'epic_task' "
         f"AND et.epic_id = {epic_id} AND et.task_num = {task_num} "
         "LEFT JOIN item_worktrees task_lane "
