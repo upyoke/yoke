@@ -255,7 +255,7 @@ steering and requests the outcome report immediately, ahead of the usual report
 interval. Failed answer delivery remains visible as
 `operator_question_undelivered`; read the saved answer and relay it to the current
 item holder. Question and delivery state enter the report fingerprint; age does not.
-See [Operator questions](inbox.md#operator-questions) for filing and answering.
+See [Decision requests](decision-requests.md) for filing and answering.
 
 Steering keeps every pending operator decision in both the Inbox and steering
 chat, and reconciles this section against chat whenever it reports. When facts

@@ -62,4 +62,4 @@ audience's organization. Ambiguous organizations refuse; choose a named audience
 A named audience must be owned by that project or organization and have rules.
 Without explicit recipients, the session project and its owner/operator roles
 remain the defaults; a project-less question requires `--to` or `--audience`.
-See [operator questions](inbox.md#operator-questions) for filing and answers.
+See [Decision requests](decision-requests.md) for filing and answers.
