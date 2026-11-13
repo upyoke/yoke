@@ -130,7 +130,10 @@ on the prod release-gate control plane. Coverage is the union of passing runs
 and never ages out; one environment's receipt never satisfies another, and one
 model's never covers a sibling model that shares an entry name. A receipt
 claims the whole declared fleet, so naming databases is a diagnostic run and
-`--record-receipt` refuses it.
+`--record-receipt` refuses it. A run that finds no databases rehearsed nothing:
+it records no receipt, and with `--record-receipt` it exits non-zero. A new,
+still-empty environment therefore cannot gain coverage, and its release gate
+keeps refusing until at least one fleet database exists there and passes.
 
 For a read-only census of the restored source, reuse that same copy path:
 
