@@ -4,6 +4,8 @@
 [Getting started](../index.md) > Deployments and releases
 <!-- /yoke:breadcrumbs -->
 
+## Flows and runs
+
 Work items that require deployment reach Done through a deployment run of
 their assigned flow. The flow names the target environment and the stages a
 delivery passes through: CI, GitHub Actions workflows, deployment steps, QA
@@ -14,6 +16,8 @@ against one commit. A run can deliver several work items together while
 tracking each item's own QA and completion.
 
 <!-- yoke:visual deployment -->
+
+## Deployment evidence
 
 Yoke records the commit each run deployed, what every stage observed, and the
 QA evidence, so you can tell intended code from running software. Follow
