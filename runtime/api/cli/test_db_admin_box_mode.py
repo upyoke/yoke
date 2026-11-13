@@ -18,7 +18,7 @@ from runtime.api.cli.test_db_admin_project_database import _config, _settings
 from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
     _env,
 )
-from runtime.api.cli.test_db_admin_box_hop import fake_hop
+from runtime.api.cli.test_db_admin_box_hop import MAC_FINGERPRINT, fake_hop
 
 PASSWORD = "box-password-never-shown"
 DSN = f"postgresql://yoke_admin:{PASSWORD}@127.0.0.1:6548/yoke_tenant_4"
@@ -28,6 +28,8 @@ def _box_env(project: str = "yoke", env_name: str = "stage") -> SimpleNamespace:
     env = _env(project=project, env_name=env_name)
     env.database_location = "box"
     env.mac_host = "testy@mac-mini"
+    env.mac_host_ssh_key_path = "~/.ssh/operator_rsa"
+    env.mac_host_key_fingerprint = MAC_FINGERPRINT
     env.ssh_user = "ubuntu"
     return env
 
@@ -94,6 +96,7 @@ def test_box_plan_targets_box_postgres_and_keeps_the_dsn_file(box, capsys) -> No
     assert actions == [
         "resolve-deploy-environment",
         "ensure-box-operator-key",
+        "pin-mac-host-key",
         "authorize-box-operator-key",
         "pin-box-host-key",
         "write-box-ssh-config",

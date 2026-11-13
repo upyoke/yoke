@@ -4,8 +4,9 @@ A box environment's Postgres runs in a Lima VM (``yoke-<env>``) on a Mac host
 (``environments.settings.servers[0].mac_host``). ``hosts.origin`` is the
 public relay, not that VM, so the profile tunnels through a Yoke-owned ssh
 config instead: ``~/.yoke/ssh/config`` holds a ``yoke-<env>-box`` alias whose
-ProxyCommand logs in to the Mac host with the operator's own ssh access and
-connects ``nc`` to the VM's ssh port, which Lima picks anew at each VM start
+ProxyCommand logs in to the Mac host through the file's own
+``yoke-<env>-mac-host`` stanza (:mod:`yoke_cli.config.db_admin_box_mac_host`)
+and connects ``nc`` to the VM's ssh port, which Lima picks anew at each VM start
 and so is looked up on every connect.
 
 :func:`ensure` makes the hop work from this machine: it creates the operator
@@ -28,6 +29,7 @@ from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_cli.config import db_admin_box_mac_host as mac_leg
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
 from yoke_cli.config.db_admin_setup_report import _path_ref
 
@@ -39,7 +41,6 @@ LIMACTL = 'L=$(ls -d "$HOME"/yoke-boxes/lima-*/bin/limactl | tail -1)'
 LIMA_HOME = 'LIMA_HOME="$HOME/yoke-boxes/lima"'
 _PUBLIC_KEY = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/=]+(?: [A-Za-z0-9@._-]+)?$")
 _HOST_KEY = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/=]+")
-_MAC_HOST = re.compile(r"^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$|^[A-Za-z0-9._-]+$")
 
 
 def alias(env_name: str) -> str:
@@ -72,34 +73,23 @@ def key_path(env: Any) -> Path:
 
 
 def mac_host(env: Any) -> str:
-    """The environment's Mac host login, or a refusal naming the setting."""
-    value = str(getattr(env, "mac_host", "") or "")
-    setting = (
-        f"environments.settings.servers[0].mac_host of {env.project}/{env.env_name}"
-    )
-    if not value:
-        raise DbAdminSetupError(
-            f"box_mac_host_missing: {setting} is not set, so setup cannot reach "
-            "the box VM; set it to the ssh login of the Mac that runs the VM with "
-            f"`yoke projects environment settings merge --project {env.project} "
-            f"--environment {env.env_name} --set servers.0.mac_host=USER@HOST`, "
-            "then rerun"
-        )
-    if not _MAC_HOST.match(value):
-        raise DbAdminSetupError(
-            f"box_mac_host_invalid: {setting} is {value!r}, not USER@HOST; "
-            "correct it, then rerun"
-        )
-    return value
+    """The Mac host login (``USER@HOST``), or a refusal naming the setting."""
+    user, host = mac_leg.login(env)
+    return f"{user}@{host}"
 
 
 def proxy_command(env: Any) -> str:
-    """ssh to the Mac host, then nc to the VM's current Lima ssh port."""
+    """ssh to the Mac host's Yoke alias, then nc to the VM's current Lima port."""
     lookup = (
         f'{LIMACTL}; exec nc 127.0.0.1 "$({LIMA_HOME} "$L" list '
         f'{vm_name(env.env_name)} --format "{{{{.SSHLocalPort}}}}")"'
     )
-    return f"ssh -o BatchMode=yes {mac_host(env)} {shlex.quote(lookup)}"
+    return _mac_ssh(env, lookup)
+
+
+def _mac_ssh(env: Any, remote: str) -> str:
+    config = shlex.quote(str(config_path()))
+    return f"ssh -F {config} {mac_leg.alias(env.env_name)} {shlex.quote(remote)}"
 
 
 def tunnel_fields(env: Any) -> dict[str, str]:
@@ -115,6 +105,10 @@ def plan_steps(env: Any) -> list[dict[str, str]]:
     return [
         {"action": "ensure-box-operator-key", "target": _path_ref(key_path(env))},
         {
+            "action": "pin-mac-host-key",
+            "target": f"{mac_host(env)} {mac_leg.fingerprint(env)}",
+        },
+        {
             "action": "authorize-box-operator-key",
             "target": f"{mac_host(env)} {vm_name(env.env_name)} {env.ssh_user}",
         },
@@ -125,6 +119,7 @@ def plan_steps(env: Any) -> list[dict[str, str]]:
 
 def ensure(env: Any) -> dict[str, Any]:
     """Make the hop work from this machine; return a report without secrets."""
+    mac_leg.check_settings(env)
     host = mac_host(env)
     key = key_path(env)
     created = _ensure_key(env, key)
@@ -135,14 +130,17 @@ def ensure(env: Any) -> dict[str, Any]:
             "an ssh-ed25519 public key; move the key pair aside, then rerun so "
             "setup creates a new one"
         )
-    host_key = _authorize_and_read_host_key(env, host, public)
+    mac_key = mac_leg.pinned_host_key(env, _run)
     create_private_directory(ssh_dir())
+    _upsert_known_host(mac_leg.alias(env.env_name), mac_key)
+    _upsert_host_blocks(env)
+    host_key = _authorize_and_read_host_key(env, host, public)
     _upsert_known_host(host_key_alias(env.env_name), host_key)
-    _upsert_host_block(env)
     return {
         "ssh_config": _path_ref(config_path()),
         "alias": alias(env.env_name),
         "mac_host": host,
+        "mac_host_alias": mac_leg.alias(env.env_name),
         "operator_key": _path_ref(key),
         "operator_key_created": created,
         "host_key_alias": host_key_alias(env.env_name),
@@ -216,9 +214,10 @@ def _authorize_and_read_host_key(env: Any, host: str, public: str) -> str:
         f'exec "$L" --tty=false shell --workdir / {vm} sh -s'
     )
     setting = f"servers[0].mac_host ({host}) of {env.project}/{env.env_name}"
+    mac_alias = mac_leg.alias(env.env_name)
     try:
         result = _run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host, remote],
+            ["ssh", "-F", str(config_path()), "-o", "ConnectTimeout=15", mac_alias, remote],
             input=_vm_script(str(env.ssh_user), public),
             timeout=REMOTE_TIMEOUT_SECONDS,
         )
@@ -231,9 +230,10 @@ def _authorize_and_read_host_key(env: Any, host: str, public: str) -> str:
     detail = (result.stderr or "").strip()
     if result.returncode == 255:
         raise DbAdminSetupError(
-            f"box_mac_host_unreachable: could not ssh to {setting}: {detail}; "
-            f"make `ssh {host}` work from this machine (or correct "
-            "servers[0].mac_host), then rerun"
+            f"box_mac_host_unreachable: could not ssh to {setting} through "
+            f"{mac_alias} in {_path_ref(config_path())}: {detail}; check "
+            "servers[0].mac_host and servers[0].mac_host_ssh_key_path (the key "
+            "must be authorized on the Mac host), then rerun"
         )
     found = [
         line[len(HOST_KEY_MARK):].strip()
@@ -281,16 +281,17 @@ def _host_block(env: Any) -> str:
     )
 
 
-def _upsert_host_block(env: Any) -> None:
-    """Replace this environment's ``Host`` block; keep every other one."""
+def _upsert_host_blocks(env: Any) -> None:
+    """Replace this environment's two ``Host`` blocks; keep every other one."""
     path = config_path()
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     blocks = [b.strip() for b in re.split(r"(?m)^(?=Host )", text) if b.strip()]
     blocks = [b for b in blocks if b.startswith("Host ")]
-    name = alias(env.env_name)
-    blocks = [b for b in blocks if b.splitlines()[0].split()[1:] != [name]]
+    ours = [mac_leg.host_block(env, str(known_hosts_path())), _host_block(env)]
+    names = {block.splitlines()[0] for block in ours}
+    blocks = [b for b in blocks if b.splitlines()[0] not in names]
     header = "# Written by `yoke dev db-admin setup`; rerun it instead of editing."
-    _write_private(path, "\n\n".join([header, *sorted([*blocks, _host_block(env)])]) + "\n")
+    _write_private(path, "\n\n".join([header, *sorted([*blocks, *ours])]) + "\n")
 
 
 __all__ = [

@@ -21,10 +21,19 @@ def _resolve(**overrides):
 
 def test_mac_host_is_read_next_to_the_server_key_path() -> None:
     env = _resolve(
-        servers=[{"ssh_key_path": "/keys/prod.pem", "mac_host": " testy@testys-mac-mini "}]
+        servers=[
+            {
+                "ssh_key_path": "/keys/prod.pem",
+                "mac_host": " testy@testys-mac-mini ",
+                "mac_host_ssh_key_path": "~/.ssh/operator_rsa",
+                "mac_host_key_fingerprint": "SHA256:K0hk",
+            }
+        ]
     )
 
     assert env.mac_host == "testy@testys-mac-mini"
+    assert env.mac_host_ssh_key_path == "~/.ssh/operator_rsa"
+    assert env.mac_host_key_fingerprint == "SHA256:K0hk"
     assert env.ssh_key_path == "/keys/prod.pem"
     assert env.ssh_target == "ubuntu@origin.example.com", "other callers keep the origin"
 
@@ -33,4 +42,10 @@ def test_mac_host_is_read_next_to_the_server_key_path() -> None:
 def test_mac_host_is_empty_when_not_declared(servers) -> None:
     overrides = {} if servers is None else {"servers": servers}
 
-    assert _resolve(**overrides).mac_host == ""
+    env = _resolve(**overrides)
+
+    assert (env.mac_host, env.mac_host_ssh_key_path, env.mac_host_key_fingerprint) == (
+        "",
+        "",
+        "",
+    )
