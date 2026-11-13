@@ -138,20 +138,18 @@ def dispatch_step_runner_with_receipt(
         return EXIT_DRIVER_SOURCE_DRIFT, drift
 
     def _dispatch(*, dispatch_environment: str) -> tuple[int, str]:
-        gate = fleet_rehearsal_gate(
-            stage,
-            run_id=run_id,
-            project=project,
-            environment_name=dispatch_environment,
-            project_repo_path=project_repo_path,
-            release_lineage=release_lineage,
-        )
-        reused = reused_delivery(
-            stage,
-            run_id=run_id,
-            fresh=fresh,
-            rehearse=lambda: gate(dict(bound_inputs or {})),
-        )
+        def _rehearse() -> tuple[int, str]:
+            gate = fleet_rehearsal_gate(
+                stage,
+                run_id=run_id,
+                project=project,
+                environment_name=dispatch_environment,
+                project_repo_path=project_repo_path,
+                release_lineage=release_lineage,
+            )
+            return gate(dict(bound_inputs or {}))
+
+        reused = reused_delivery(stage, run_id=run_id, fresh=fresh, rehearse=_rehearse)
         if reused is not None:
             return reused
         return _dispatch_step_runner(
