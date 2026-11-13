@@ -1,13 +1,16 @@
 """The post-deploy plans a set of a run's items owes, in one read.
 
 An item owes each live post-deploy plan it attaches and, when its workflow
-uses project testing defaults, each post-deploy project default. A plan bound
-to another environment than the run's is not owed unless it reaches the run's
-environment through the authorized hosted bridge
-(:func:`deployment_qa_snapshot_selection.plan_matches_target`), or is attached
-and has a case that targets the run's environment by name. Reads are per set
-and per distinct plan or workflow version, never per item, so a run's cost does
-not grow with its members.
+uses project testing defaults, each post-deploy project default. A plan is
+owed on a run only when at least one of its cases runs at the run's
+environment, the same test materialization pins cases by. A case naming
+environments runs at each one it names; a case naming none runs wherever its
+plan reaches. A plan reaches the run's environment when it is bound there or
+crosses through the authorized hosted bridge
+(:func:`deployment_qa_snapshot_selection.plan_matches_target`); an attached
+plan that does not reach is owed only when a case names the run's environment.
+Reads are per set and per distinct plan or workflow version, never per item,
+so a run's cost does not grow with its members.
 """
 
 from __future__ import annotations
@@ -40,13 +43,32 @@ def _run_targets(conn: Any, run_ids: Iterable[str]) -> dict[str, tuple]:
     }
 
 
-def _cases_target(conn: Any, plan_id: int, name: str) -> bool:
-    from yoke_core.domain.qa_plan_case_definition import plan_cases
-    from yoke_core.domain.qa_plan_case_targets import case_target_envs
+def run_environment_name(conn: Any, run_id: str) -> str:
+    """The name of the environment this run deploys to, or empty."""
+    return _run_targets(conn, [run_id]).get(str(run_id), _NO_TARGET)[2]
 
-    return bool(name) and any(
-        name in case_target_envs(case) for case in plan_cases(conn, int(plan_id))
+
+def cases_owed(cases: Iterable[Any], name: str, *, reaches: bool) -> bool:
+    """Whether any case runs at the environment ``name`` on this run.
+
+    A case with no ``target_envs`` runs at its plan's own target, so it is
+    owed wherever the plan reaches and nowhere else.
+    """
+    from yoke_core.domain.qa_plan_case_targets import (
+        case_applies_to_target,
+        case_target_envs,
     )
+
+    target = {"environment": {"name": name}}
+    if reaches:
+        return any(case_applies_to_target(case, target) for case in cases)
+    return bool(name) and any(name in case_target_envs(case) for case in cases)
+
+
+def _plan_owed(conn: Any, plan_id: int, name: str, reaches: bool) -> bool:
+    from yoke_core.domain.qa_plan_case_definition import plan_cases
+
+    return cases_owed(plan_cases(conn, int(plan_id)), name, reaches=reaches)
 
 
 def _attached_rows(conn: Any, items: list[int]) -> list[dict]:
@@ -132,14 +154,14 @@ def _owed(
                 env = conn.execute("SELECT name FROM environments WHERE id=%s",
                                    (row["target_environment_id"],)).fetchone()
                 memo[key] = env is not None and str(env[0]) == name
-        if not memo[key]:
-            if not attached:
-                continue
-            if (plan_id, name) not in memo:
-                memo[(plan_id, name)] = _cases_target(conn, plan_id, name)
-            if not memo[(plan_id, name)]:
-                continue
-        owed[int(row["item_id"])].add(plan_id)
+        reaches = memo[key]
+        if not reaches and not attached:
+            continue
+        cases_key = ("cases", plan_id, name, reaches)
+        if cases_key not in memo:
+            memo[cases_key] = _plan_owed(conn, plan_id, name, reaches)
+        if memo[cases_key]:
+            owed[int(row["item_id"])].add(plan_id)
     return owed
 
 
@@ -218,4 +240,11 @@ def member_plan_ids(conn: Any, item_id: int, run_id: str) -> set[int]:
     return members_plan_ids(conn, [item_id], run_id)[int(item_id)]
 
 
-__all__ = ["default_plan_ids", "member_plan_ids", "members_plan_ids", "run_owed_plans"]
+__all__ = [
+    "cases_owed",
+    "default_plan_ids",
+    "member_plan_ids",
+    "members_plan_ids",
+    "run_environment_name",
+    "run_owed_plans",
+]
