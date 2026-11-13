@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from io import StringIO
+import subprocess
 
 import pytest
 
@@ -11,6 +12,7 @@ from yoke_core.domain.project_renderer_settings import RendererEnvironmentSettin
 from yoke_core.tools.pulumi_exec import PulumiExecError
 from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
+    _commit_project,
     _execute,
     _file_project,
     _init_settings,
@@ -37,6 +39,8 @@ def _run(tmp_path, command, *, confirm=_VPS, **kwargs):
     calls = kwargs.pop("calls", [])
     returncode = kwargs.pop("returncode", 0)
     root = kwargs.pop("root", None) or _file_project(tmp_path, _VPS)
+    if kwargs.pop("commit", True):
+        _commit_project(root)
 
     def child_factory(argv, **child_kwargs):
         calls.append(argv)
@@ -288,3 +292,52 @@ def test_custom_namespace(tmp_path):
     )
     assert _run(tmp_path, _PREVIEW, confirm=None, root=root,
                 settings_loader=lambda project: _settings(_CONSUMER)) == 0
+
+
+_EDIT = "config:\n  scratch:origin_ip: '192.0.2.1'\n"
+
+
+@pytest.mark.parametrize("command", [_DESTROY, _STACK_RM, _PREVIEW])
+@pytest.mark.parametrize("change", ["edit", "untracked", "deleted", "declaration"])
+def test_uncommitted_consumer_config_refuses(tmp_path, command, change):
+    root = _with_consumer_file(tmp_path)
+    consumer = root / "infra" / "Pulumi.app-prod.yaml"
+    if change == "untracked":
+        consumer.unlink()
+    _commit_project(root)
+    if change == "deleted":
+        consumer.unlink()
+    elif change == "declaration":
+        (root / "infra" / "Pulumi.yaml").write_text("name: other\n")
+    else:
+        consumer.write_text(_EDIT)
+    calls = []
+    with pytest.raises(PulumiExecError, match="pulumi_stack_consumer_uncommitted") as raised:
+        _run(tmp_path, command, confirm=None if command == _PREVIEW else _VPS,
+             root=root, commit=False, calls=calls,
+             settings_loader=lambda project: _settings(_CONSUMER))
+    assert "commit or revert the change to the named file" in str(raised.value)
+    assert calls == []
+
+
+def test_committed_origin_ip_edit_allows(tmp_path):
+    root = _commit_project(_with_consumer_file(tmp_path))
+    (root / "infra" / "Pulumi.app-prod.yaml").write_text(_EDIT)
+    err = StringIO()
+    assert _run(tmp_path, _DESTROY, root=root, err=err,
+                settings_loader=lambda project: _settings(_CONSUMER)) == 0
+    assert "stays in use as the live selector" in err.getvalue()
+
+
+@pytest.mark.parametrize("command", [_DESTROY, _STACK_RM, _PREVIEW])
+@pytest.mark.parametrize("init", [False, True])
+def test_root_without_commit_refuses_even_without_consumers(tmp_path, command, init):
+    root = _file_project(tmp_path, _VPS)
+    if init:
+        subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+    calls = []
+    with pytest.raises(PulumiExecError, match="pulumi_stack_consumer_uncommitted: .* not a git checkout"):
+        _run(tmp_path, command, confirm=None if command == _PREVIEW else _VPS,
+             root=root, commit=False, calls=calls,
+             settings_loader=lambda project: _settings(_STANDALONE))
+    assert calls == []

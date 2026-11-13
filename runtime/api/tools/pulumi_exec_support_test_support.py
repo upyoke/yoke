@@ -2,6 +2,7 @@
 
 from io import BytesIO, StringIO
 from pathlib import Path
+import subprocess
 
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -72,6 +73,17 @@ def _file_project(
     infra.mkdir(parents=True, exist_ok=True)
     (infra / "Pulumi.yaml").write_text(f"name: {name}\nruntime: python\n")
     (infra / f"Pulumi.{stack}.yaml").write_text(stack_text)
+    return root
+
+
+def _commit_project(root: Path) -> Path:
+    """Make ``root`` a git checkout whose HEAD holds every file in it."""
+    git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t",
+           "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
+    if not (root / ".git").exists():
+        subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "-A"], check=True)
+    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "fixture"], check=True)
     return root
 
 
