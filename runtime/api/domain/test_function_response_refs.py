@@ -55,12 +55,12 @@ def test_containment_protocol_does_not_become_public_item_rows(field):
     }
 
 
-def test_response_backstop_projects_nested_text_and_error_message(monkeypatch):
+def test_response_keeps_result_prose_and_projects_error_message(monkeypatch):
     from contextlib import nullcontext
     from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
     from yoke_core.domain import db_helpers, function_response_refs as projection
 
-    refs = {3973: "PLAT-189", 99: "APP-7"}
+    refs = {99: "APP-7", 100: "YOK-3"}
     calls = []
     monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(object()))
 
@@ -69,28 +69,40 @@ def test_response_backstop_projects_nested_text_and_error_message(monkeypatch):
         return refs
 
     monkeypatch.setattr(projection, "render_item_refs", resolve)
+    prose = {
+        "instructions": "Read prerequisites.md item 8 before the walk.",
+        "rationale": ["item 4 and item 5 hold", "member 3973: requirement #40353"],
+        "note": "item YOK-8 stays as written",
+    }
     response = FunctionCallResponse(
         function="example",
         version="v1",
         success=False,
-        result={
-            "rows": [{"message": "member 3973: requirement #40353 failed"}],
-            "note": "deployment member 99 waits; item APP-7 stays public",
-        },
+        result={**prose, "items": [{"item_id": 100}]},
         error=FunctionError(code="example", message="item 99 is blocked"),
     )
     public = projection.public_response(response)
-    assert calls == [{3973, 99}]
-    assert (
-        public.result["rows"][0]["message"]
-        == f"member {refs[3973]}: requirement #40353 failed"
-    )
-    assert (
-        public.result["note"]
-        == f"deployment member {refs[99]} waits; item APP-7 stays public"
-    )
+    assert calls == [{99, 100}]
+    assert {key: public.result[key] for key in prose} == prose
+    assert public.result["items"][0]["public_ref"] == refs[100]
+    assert "item_id" not in public.result["items"][0]
     assert public.error.message == f"item {refs[99]} is blocked"
     assert public.error.code == "example"
+
+
+def test_result_prose_without_structured_ids_skips_lookup(monkeypatch):
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain import function_response_refs as projection
+
+    def refuse(conn, ids):
+        raise AssertionError("prose is not an item selector")
+
+    monkeypatch.setattr(projection, "render_item_refs", refuse)
+    result = {"body": "item YOK-8 and item 8 and epic 12 stay as written"}
+    response = FunctionCallResponse(
+        function="example", version="v1", success=True, result=result
+    )
+    assert projection.public_response(response).result == result
 
 
 def test_response_backstop_hides_unresolved_names(monkeypatch):
