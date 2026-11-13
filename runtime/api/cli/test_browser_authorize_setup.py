@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts.browser_identity import parse_identity_declarations
 from yoke_cli.commands import browser_authorize as command
 from yoke_cli.commands import browser_sign_in
 from yoke_cli.config import browser_identities, browser_profile
@@ -30,8 +29,8 @@ def setup(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
-        lambda key, **kwargs: parse_identity_declarations({}),
+        "declared_settings",
+        lambda key, **kwargs: {},
     )
     monkeypatch.setattr(
         browser_profile, "ensure_profile_dir", lambda value, **kw: tmp_path / "profile"
@@ -115,8 +114,8 @@ def test_omitted_identity_refuses_before_runtime_or_window(
     declarations = {"identities": {"admin": {"sites": [site]}}}
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
-        lambda *a, **kwargs: parse_identity_declarations(declarations),
+        "declared_settings",
+        lambda *a, **kwargs: declarations,
     )
     args = ["--project", "project", "--json"] + (
         ["--desktop-browser"] if desktop else []
@@ -188,8 +187,8 @@ def test_signed_in_identity_opens_only_for_explicit_url(
     }
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
-        lambda *a, **kw: parse_identity_declarations(declarations),
+        "declared_settings",
+        lambda *a, **kw: declarations,
     )
     monkeypatch.setattr(
         command,
