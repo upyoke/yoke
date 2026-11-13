@@ -155,6 +155,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # client-local file operation gated on DSN possession, not a
     # dispatcher function id.
     _p("yoke universe export", "universe.export", REASON_TOOL_SHAPED),
+    _p("yoke machine backup", "machine.backup", REASON_TOOL_SHAPED),
+    _p("yoke machine restore", "machine.restore", REASON_TOOL_SHAPED),
     _p("yoke universe import", "universe.import", REASON_TOOL_SHAPED),
     _p("yoke universe resume", "universe.resume", REASON_TOOL_SHAPED),
     _p("yoke universe upload", "universe.upload.create", REASON_TOOL_SHAPED),

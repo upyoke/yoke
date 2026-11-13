@@ -17,6 +17,14 @@ import pytest
 from yoke_cli import operation_inventory as inv
 
 
+@pytest.mark.parametrize("verb", ["backup", "restore"])
+def test_machine_portability_is_tool_shaped(verb):
+    entry = inv.lookup(f"yoke machine {verb}")
+    assert entry is not None
+    assert entry.reason == inv.REASON_TOOL_SHAPED
+    assert entry.proposed_function_id is None
+
+
 class TestOperationEntryValidation:
     def test_invalid_status_rejected(self) -> None:
         with pytest.raises(ValueError):

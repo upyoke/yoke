@@ -8,7 +8,7 @@ A portable Universe archive lets you preserve your Yoke records or move them to 
 
 ## What moves with a Universe
 
-The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history. Exports include readable QA artifacts and shared files, with a manifest recording each file's checksum or why it is missing.
+The archive contains the Universe database, a receipt binding its exact contents, and records such as projects, strategy, and work history. Readable QA artifacts and shared files carry checksums or a reason they are missing. For local configuration and credentials, see [Back up and restore this machine](machine-backup.md).
 
 Repository folders, application databases, running agents, and external services are not part of the Universe database. Confirmed absent files remain listed as missing with `artifact_source_absent`; unavailable handles or owners use `artifact_handle_or_owner_unavailable`. The summary prints the missing count and keys. Access, credential and network failures refuse with `archive_artifact_unreadable`; repair file or store access and retry, or use `--exclude-artifacts`. A relative file path needs its project's checkout attached or registered on this machine. Stored files remain exportable even when they exceed the current upload limit; export streams their bytes and records their checksums. The archive total cap still applies. Estimates apply the same rules. Refusals write no new archive. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
 

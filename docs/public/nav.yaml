@@ -12,6 +12,7 @@ root:
   - {title: "People and machines", summary: "Invite teammates and approve personal machines.", path: "self-hosting/people.md"}
   - {title: "Server GitHub App", summary: "Configure a dedicated App and protected server key.", path: "self-hosting/github-app.md"}
   - {title: "Universe portability, backup, and restore", summary: "Moving and protecting a universe across installations and hosting modes.", path: "guide/universe-portability.md"}
+  - {title: "Back up and restore this machine", summary: "Save local Yoke configuration and credentials in one folder.", path: "guide/machine-backup.md"}
   - {title: "Team collaboration", summary: "Solo and team collaboration across machines and agent sessions.", path: "guide/access.collaboration.md"}
   - {title: "Strategy docs", summary: "How direction becomes a plan and actionable work.", path: "guide/strategy.md"}
   - {title: "Yoke web dashboard", summary: "Following and coordinating your work in the web dashboard.", path: "guide/dashboard.md"}

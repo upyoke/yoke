@@ -60,6 +60,9 @@ This is an alternative interface for installation, not a separate way to run you
 
 ## Updates, uninstalling, and retaining data
 
+Use [Back up and restore this machine](machine-backup.md) to save Yoke's local
+configuration and credentials in one folder and restore them on a new Mac.
+
 `yoke update` updates the installed release and reports the next step. Local mode updates the local server with the CLI; a self-hosted server has its own operator-managed update, and hosted servers follow hosted releases. Project guidance is refreshed when the update runs inside an installed project.
 
 Removing the CLI from a machine and removing Yoke's layer from a project are different operations. Before uninstalling a machine that holds a universe, choose whether to export a backup: there is no automatic backup. Hosted client removal does not remove the hosted universe.
