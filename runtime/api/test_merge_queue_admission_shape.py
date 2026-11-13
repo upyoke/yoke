@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.conftest import insert_item
 from runtime.api.merge_queue_landing_test_helpers import dispatch_for, ok_response
 from yoke_contracts.api.function_call import (
@@ -16,6 +18,7 @@ from yoke_core.domain.handlers.item_dependency_reads import ItemDependencyListRe
 from yoke_core.domain.merge_queue_admission import (
     REFUSE_MIGRATION_CARRIER,
     REFUSE_SERIAL_ORDERING,
+    REFUSE_UNATTESTED_OVERLAP,
     TrainCandidate,
     evaluate_admission,
 )
@@ -260,3 +263,28 @@ def test_unrecognized_dependency_direction_refuses_admission_by_name():
     context, err = train_context(dispatch_for(shapes), "YOK-200", ("YOK-150",), "yoke")
     assert context is None
     assert "unrecognized direction 'sideways'" in err
+
+
+@pytest.mark.parametrize("direction", ["depends-on", "blocks"])
+@pytest.mark.parametrize("overlap", [False, True])
+def test_closure_edges_do_not_order_or_attest_queue_admission(direction, overlap):
+    shapes = _correction_shapes(direction, candidate_landed=False, member_landed=False)
+    shapes["YOK-200"]["dependencies"][0]["gate_point"] = "closure"
+    if overlap:
+        for shape in shapes.values():
+            shape["claims"] = [{"state": "active", "target_ids": [42]}]
+    dispatch = dispatch_for(shapes)
+    candidate, err = candidate_shape(dispatch, "YOK-200")
+    assert err is None
+    context, err = train_context(dispatch, "YOK-200", ("YOK-150",), "yoke")
+    assert err is None
+    assert not context.predecessor_refs
+    assert not context.dependent_refs
+    assert not context.coordination_attested_refs
+    verdict = evaluate_admission(candidate, context)
+    if overlap:
+        assert not verdict.admit
+        assert verdict.reason == REFUSE_UNATTESTED_OVERLAP
+        assert verdict.conflicting_members == ("YOK-150",)
+    else:
+        assert verdict.admit

@@ -11,7 +11,7 @@ unit-testable.
 Rules, in refusal-priority order:
 
 1. **Serial ordering** — a candidate linked to a queued member by a
-   non-``coordination_only`` dependency edge (either direction) waits while
+   activation or integration dependency edge (either direction) waits while
    that edge's predecessor has not yet landed; order-dependent items ride
    separate trains. An edge whose predecessor already landed has had its
    order fixed by that landing, so a later correction of either item — a
@@ -88,7 +88,8 @@ class TrainContext:
     ``item_dependencies`` row (authored at planning/refine time).
     ``predecessor_refs`` — members the candidate depends on, and
     ``dependent_refs`` — members that depend on the candidate, each through
-    a non-``coordination_only`` dependency edge.
+    an activation or integration dependency edge. Closure edges do not order
+    admission and do not attest shared-path coordination.
     """
 
     members: tuple[TrainCandidate, ...] = ()

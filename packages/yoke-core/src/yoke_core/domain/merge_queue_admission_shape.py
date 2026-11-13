@@ -208,6 +208,8 @@ def train_context(
         other = str(row.get("other_item") or "")
         if not other or other == candidate_ref:
             continue
+        if str(row.get("gate_point") or "") == "closure":
+            continue
         if str(row.get("gate_point") or "") == "coordination_only":
             attested.add(other)
         elif row.get("direction") == "depends-on":
