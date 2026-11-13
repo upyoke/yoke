@@ -1,9 +1,8 @@
 """DB-backed default project policy capabilities.
 
 Project behavior that must be shared by every checkout lives in
-``project_capabilities.settings``.  This module owns the default rows and
-idempotent repair used by DB init, project upsert, installer refresh, and the
-one-shot migration wrapper for already-running installs.
+``project_capabilities.settings``. This module owns the default rows, their
+idempotent repair, and the boot pass that sheds retired keys from every row.
 
 A stored document freezes every key it already has. Repair adds missing
 shipped keys and leaves present values in place. Replace a present key
@@ -29,6 +28,7 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import row_value
+from yoke_core.domain.schema_common import _table_exists
 
 _PROJECT_POLICY_KEYS = tuple(
     key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS
@@ -38,7 +38,6 @@ _PROJECT_POLICY_KEYS = tuple(
 @dataclass(frozen=True)
 class CapabilityRepairResult:
     """One capability row's repair outcome."""
-
     capability: str
     created: bool
     repaired_keys: tuple[str, ...]
@@ -65,7 +64,6 @@ def project_policy_defaults(
     base_branch: str | None = None,
 ) -> dict[str, Any]:
     """Return default ``project-policy`` settings for a project."""
-
     defaults: dict[str, Any] = {}
     for key in _PROJECT_POLICY_KEYS:
         raw = RECOGNIZED_PROJECT_KEYS[key].default
@@ -94,12 +92,9 @@ def default_project_capability_settings(
     base_branch: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return every out-of-the-box project policy capability."""
-
     return {
         PROJECT_POLICY_CAPABILITY: project_policy_defaults(
-            conn,
-            project_id,
-            base_branch=base_branch,
+            conn, project_id, base_branch=base_branch
         ),
     }
 
@@ -109,13 +104,10 @@ def load_project_policy_settings(
     project_id: int | None,
 ) -> dict[str, Any]:
     """Read the canonical ``project-policy`` capability settings."""
-
     if project_id is None:
         return {}
     return _read_capability_settings(
-        conn,
-        int(project_id),
-        PROJECT_POLICY_CAPABILITY,
+        conn, int(project_id), PROJECT_POLICY_CAPABILITY
     )
 
 
@@ -126,7 +118,6 @@ def project_policy_value(
     default: Any = None,
 ) -> Any:
     """Read one DB-owned project policy key."""
-
     settings = load_project_policy_settings(conn, project_id)
     value = settings.get(key)
     return default if value in (None, "") else value
@@ -139,12 +130,9 @@ def set_project_policy_value(
     value: Any,
 ) -> None:
     """Set one ``project-policy`` key after ensuring the capability exists."""
-
     ensure_default_policy_capabilities(conn, int(project_id))
     current = _read_capability_settings(
-        conn,
-        int(project_id),
-        PROJECT_POLICY_CAPABILITY,
+        conn, int(project_id), PROJECT_POLICY_CAPABILITY
     )
     current[str(key)] = value
     conn.execute(
@@ -171,9 +159,7 @@ def ensure_default_policy_capabilities(
     for project_id in project_id_list:
         per_project: list[CapabilityRepairResult] = []
         defaults_by_capability = default_project_capability_settings(
-            conn,
-            project_id,
-            base_branch=base_branch,
+            conn, project_id, base_branch=base_branch
         )
         for cap_type in RETIRED_CAPABILITY_KEYS.keys() - defaults_by_capability.keys():
             exists = conn.execute(
@@ -257,17 +243,45 @@ def _drop_retired_keys(
     """Remove keys this contract no longer recognizes, in place.
 
     The merge above only ever adds, so a key outlives the code that read it
-    unless something takes it back out. This converge runs wherever the
-    defaults do — DB init, project upsert, installer refresh — so every
-    install sheds a retired key on its next pass without a migration entry:
-    the change is to a settings document this module already owns and
-    rewrites, and no build reads what it removes.
+    unless something takes it back out. Every boot runs this over every
+    stored row, retired projects included (``drop_retired_capability_keys``),
+    so no migration entry is needed: this module owns these documents and no
+    build reads what it removes.
     """
     retired = RETIRED_CAPABILITY_KEYS.get(cap_type, {})
     dropped = [key for key in retired if key in settings]
     for key in dropped:
         settings.pop(key, None)
     return tuple(dropped)
+
+
+def drop_retired_capability_keys(conn: Any) -> None:
+    """Boot pass: shed retired keys from every project's rows, retired too.
+
+    An unparseable document is skipped, never overwritten with ``{}``.
+    """
+    if not _table_exists(conn, "project_capabilities"):
+        return
+    types = sorted(RETIRED_CAPABILITY_KEYS)
+    marks = ", ".join(_p(conn) for _ in types)
+    rows = conn.execute(
+        f"SELECT id, type, settings FROM project_capabilities WHERE type IN ({marks})",
+        tuple(types),
+    ).fetchall()
+    for row in rows:
+        raw = row_value(row, "settings", 2)
+        try:
+            settings = json.loads(raw or "{}") if isinstance(raw, str) else raw
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(settings, dict):
+            continue
+        if _drop_retired_keys(settings, str(row_value(row, "type", 1))):
+            conn.execute(
+                f"UPDATE project_capabilities SET settings={_p(conn)} "
+                f"WHERE id={_p(conn)}",
+                (_settings_json(settings), row_value(row, "id", 0)),
+            )
 
 
 def _read_capability_settings(
@@ -327,6 +341,7 @@ __all__ = [
     "PROJECT_POLICY_CAPABILITY",
     "SESSION_ROUTING_CAPABILITY",
     "default_project_capability_settings",
+    "drop_retired_capability_keys",
     "ensure_default_policy_capabilities",
     "load_project_policy_settings",
     "project_policy_defaults",

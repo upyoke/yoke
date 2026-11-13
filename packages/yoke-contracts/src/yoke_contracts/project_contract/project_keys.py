@@ -81,11 +81,11 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, SettingSpec] = {
 }
 
 
-#: Keys this contract used to recognize, and the reason each one went. The
-#: stored capability documents are converged against this set so a retired
-#: key does not outlive the code that read it: nothing prunes settings
-#: documents on its own, and a key nobody reads still reads to an operator
-#: as configuration that does something.
+#: Keys this contract used to recognize, and the reason each one went. Every
+#: boot strips them from every project's stored capability rows, retired
+#: projects included, so a retired key does not outlive the code that read
+#: it: a key nobody reads still reads to an operator as configuration that
+#: does something.
 RETIRED_PROJECT_KEYS: Dict[str, str] = {
     "steering_backstop_unpicked_minutes": (
         "the steering seat staffs work itself; the fleet report names it"
