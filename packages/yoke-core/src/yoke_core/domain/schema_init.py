@@ -16,6 +16,9 @@ from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.pack_projection import (
     converge_pack_catalog,
 )
+from yoke_core.domain.project_policy_capabilities import (
+    drop_retired_capability_keys,
+)
 from yoke_core.domain.postgres_application_role_settings import (
     converge_application_role_settings,
 )
@@ -58,6 +61,9 @@ def project_code_owned_rows(conn) -> None:
     # capability, and registration happens only once, so without this a
     # project keeps whatever binding it was first given.
     _converge_registered_command_plans(conn)
+    # A retired settings key leaves every project's stored rows, retired
+    # projects included: per-project repair only reaches projects in use.
+    drop_retired_capability_keys(conn)
     conn.commit()
     # Cases authored in this build's code reach source-bound plans here, after
     # the deploy and before its item QA freezes them. Each plan commits or
