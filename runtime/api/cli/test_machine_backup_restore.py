@@ -247,3 +247,13 @@ def test_registered_without_control_plane():
         resolve_tool_shaped(["machine", "restore", "--from", "folder"])[0]
         is cli.machine_restore
     )
+
+
+def test_backup_preserves_unrelated_destination(machine):
+    _, _, folder = machine
+    unrelated = folder / "home/photo"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_bytes(b"unrelated-data")
+    with pytest.raises(MachineBackupError, match="destination_not_backup"):
+        storage.backup(folder)
+    assert unrelated.read_bytes() == b"unrelated-data"

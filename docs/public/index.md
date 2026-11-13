@@ -215,6 +215,7 @@ Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, iden
 - [People and machines](self-hosting/people.md) — Invite teammates and approve personal machines.
 - [Server GitHub App](self-hosting/github-app.md) — Configure a dedicated App and protected server key.
 - [Universe portability, backup, and restore](guide/universe-portability.md) — Moving and protecting a universe across installations and hosting modes.
+- [Back up and restore this machine](guide/machine-backup.md) — Save local Yoke configuration and credentials in one folder.
 - [Team collaboration](guide/access.collaboration.md) — Solo and team collaboration across machines and agent sessions.
 - [Strategy docs](guide/strategy.md) — How direction becomes a plan and actionable work.
 - [Yoke web dashboard](guide/dashboard.md) — Following and coordinating your work in the web dashboard.

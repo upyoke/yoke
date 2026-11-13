@@ -96,6 +96,23 @@ def backup(folder: Path) -> dict:
     folder = folder.expanduser()
     folder = folder.parent.resolve() / folder.name
     no_symlinks(folder)
+    if (folder / "home").exists() and not (folder / MANIFEST).is_file():
+        refuse(
+            "machine_backup_destination_not_backup",
+            "choose an empty folder or an existing machine backup",
+        )
+    previous = set()
+    if (folder / MANIFEST).exists():
+        prior = _json(read_file(folder / MANIFEST, MANIFEST), MANIFEST)
+        if prior.get("version") != 1 or not isinstance(prior.get("files"), list):
+            refuse(
+                "machine_backup_invalid_manifest",
+                "choose an empty backup folder or repair the existing manifest",
+            )
+        for entry in prior["files"]:
+            if not isinstance(entry, dict):
+                refuse("machine_backup_invalid_manifest")
+            previous.add(relative_name(entry.get("name")).as_posix())
     if folder == home or home.is_relative_to(folder) or folder.is_relative_to(machine):
         refuse(
             "machine_backup_overlapping_destination",
@@ -157,9 +174,11 @@ def backup(folder: Path) -> dict:
     }
     # Remove files no longer selected, including credentials newly excluded by policy.
     payload = folder / "home"
-    for path in payload.rglob("*"):
+    for name in previous - files.keys():
+        path = payload / name
         no_symlinks(path)
-        if path.is_file() and path.relative_to(payload).as_posix() not in files:
+        if path.exists():
+            read_file(path, name)
             path.unlink()
     write_changed(
         folder / MANIFEST,

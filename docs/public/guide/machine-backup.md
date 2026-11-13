@@ -1,14 +1,18 @@
 # Back up and restore this machine
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > Back up and restore this machine
+<!-- /yoke:breadcrumbs -->
+
 ## Save a backup folder
 
 Save this machine's Yoke configuration and credentials in one private folder:
 
 ```sh
-yoke machine backup --to "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Secrets/yoke-machine"
+yoke machine backup --to "$HOME/Backups/yoke-machine"
 ```
 
-Choose a folder that only you can access. The backup contains credential files;
+Choose a private folder, such as your iCloud secrets folder. The backup contains credential files;
 it is not encrypted by Yoke. Repeating the command updates changed files and
 removes files no longer included, so keep separate folders for historical copies.
 
@@ -30,7 +34,7 @@ files. Browser passwords stored as capability secrets remain included.
 On a new Mac, install Yoke first, make the folder available, and run:
 
 ```sh
-yoke machine restore --from "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Secrets/yoke-machine"
+yoke machine restore --from "$HOME/Backups/yoke-machine"
 ```
 
 Both commands work without a configured control plane. Restore verifies every
