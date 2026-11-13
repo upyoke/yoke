@@ -16,6 +16,7 @@ STAGE = {
     "workflow": "platform-release-bridge.yml",
     "input_bindings": {"consumer_sha": {"project": "platform", "branch": "main"}},
 }
+STAGE["config"] = STAGE
 
 
 BOUND = {"consumer_sha": "b" * 40}
@@ -121,7 +122,7 @@ def test_other_reuse_refusal_stops_the_stage(monkeypatch, dispatched):
     [
         (STAGE, True),
         ({k: v for k, v in STAGE.items() if k != "input_bindings"}, False),
-        ({"name": "warm-up", "step_runner": "warm-up"}, False),
+        ({"name": "warm-up", "step_runner": "warm-up", "config": {}}, False),
     ],
 )
 def test_fresh_and_unbound_stages_never_ask(monkeypatch, dispatched, stage, fresh):
@@ -169,8 +170,7 @@ def test_fresh_dispatch_runs_the_fleet_rehearsal(monkeypatch, rehearsals):
         return before_dispatch(bound_inputs)
 
     monkeypatch.setattr(step_runners, "_dispatch_github_actions_workflow", _workflow)
-    stage = {**STAGE, "config": STAGE}
-    assert _run(stage, fresh=True) == (0, "")
+    assert _run(STAGE, fresh=True) == (0, "")
     assert asked == []
     assert [call["environment"] for call in calls] == ["production"]
     assert calls[0]["input_bindings"] == STAGE["input_bindings"]

@@ -207,7 +207,7 @@ def fleet_rehearsal_gate(
         environment=environment_name,
         repository=project_repo_path,
         release_lineage=release_lineage,
-        input_bindings=stage.get("input_bindings"),
+        input_bindings=stage["config"].get("input_bindings"),
     )
 
 def _resolve_warm_up_connection(
