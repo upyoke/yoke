@@ -1,0 +1,17 @@
+{
+ "id": "machine-backup",
+ "title": "Back up and restore this machine",
+ "parent": null,
+ "route": "/docs/guide/machine-backup",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People moving Yoke to a new machine",
+ "purpose": "Preserve machine configuration and credentials separately from a Universe archive.",
+ "outline": ["Back up local files", "Restore on a new Mac", "Verify health and authorize again"],
+ "terms": ["backup", "restore", "connection"],
+ "commands": ["command:yoke machine backup", "command:yoke machine restore"],
+ "sources": ["doc:docs/public/guide/universe-portability.md"],
+ "deeper_pages": ["setup.install", "universe-portability"],
+ "open_questions": [],
+ "position": 8
+}

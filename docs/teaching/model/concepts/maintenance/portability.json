@@ -3,7 +3,7 @@
  "title": "Backup and portability",
  "status": "draft-copy",
  "surface_refs": ["setup-tui"],
- "commands": ["yoke self-host import", "yoke universe export", "yoke universe import", "yoke universe resume", "yoke universe upload", "yoke universe validate"],
+ "commands": ["yoke machine backup", "yoke machine restore", "yoke self-host import", "yoke universe export", "yoke universe import", "yoke universe resume", "yoke universe upload", "yoke universe validate"],
  "page": "maintenance",
  "position": 1
 }

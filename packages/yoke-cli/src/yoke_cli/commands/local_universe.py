@@ -26,6 +26,10 @@ import sys
 from typing import Any, Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands.adapters.machine_backup import (
+    TOOL_SHAPED_SUBCOMMANDS as _MACHINE_BACKUP_COMMANDS,
+    TOOL_SHAPED_USAGE as _MACHINE_BACKUP_USAGE,
+)
 from yoke_cli.commands.local_demo_seed_command import DEMO_SEED_USAGE, local_demo_seed
 from yoke_cli.commands.local_universe_import_command import universe_import
 from yoke_cli.commands.local_universe_usage import IMPORT_USAGE
@@ -47,6 +51,7 @@ INIT_USAGE = (
 EXPORT_USAGE = "yoke universe export [--out PATH] [--exclude-artifacts] [--estimate] [--pause-source] [--json]"
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
+    **_MACHINE_BACKUP_USAGE,
     "yoke init": INIT_USAGE,
     "yoke local demo seed": DEMO_SEED_USAGE,
     "yoke local-postgres start": "yoke local-postgres start [--json]",
@@ -320,6 +325,7 @@ def _print_init_summary(report: Dict[str, Any]) -> None:
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
+    **_MACHINE_BACKUP_COMMANDS,
     ("init",): init,
     ("local", "demo", "seed"): local_demo_seed,
     ("local-postgres", "start"): local_postgres_start,
