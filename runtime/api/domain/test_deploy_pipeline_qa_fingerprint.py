@@ -55,7 +55,7 @@ def test_non_qa_stage_reads_nothing(monkeypatch):
     dispatch.assert_not_called()
 
 
-@pytest.mark.parametrize("code", sorted(control_plane._READ_RETRY_CODES))
+@pytest.mark.parametrize("code", sorted(control_plane.READ_RETRY_CODES))
 @pytest.mark.parametrize("recovers", [True, False])
 def test_fingerprint_read_connection_recovery(monkeypatch, code, recovers):
     failed = FunctionCallResponse(
@@ -72,10 +72,10 @@ def test_fingerprint_read_connection_recovery(monkeypatch, code, recovers):
     if recovers:
         assert control_plane.qa_fingerprint(run_id, QA_STAGE) == "restored"
         assert dispatch.call_count == 2
-        assert waited == [control_plane._READ_RETRY_BACKOFF_SECONDS[0]]
+        assert waited == [control_plane.READ_RETRY_BACKOFF_SECONDS[0]]
     else:
         with pytest.raises(control_plane.DeploymentOutcomeUnknown) as raised:
             control_plane.qa_fingerprint(run_id, QA_STAGE)
         assert f"yoke watch deploy -- {run_id}" in str(raised.value)
-        assert dispatch.call_count == len(control_plane._READ_RETRY_BACKOFF_SECONDS) + 1
-        assert waited == list(control_plane._READ_RETRY_BACKOFF_SECONDS)
+        assert dispatch.call_count == len(control_plane.READ_RETRY_BACKOFF_SECONDS) + 1
+        assert waited == list(control_plane.READ_RETRY_BACKOFF_SECONDS)

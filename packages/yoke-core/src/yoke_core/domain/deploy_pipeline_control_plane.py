@@ -48,12 +48,12 @@ _READ_ONLY = frozenset(
 #: Reads change nothing, so deadlines and unavailable connections share one
 #: bounded schedule that rides out a brief outage before returning recovery.
 READ_DEADLINE_CODE = "read_deadline_exceeded"
-_READ_RETRY_CODES = READ_CONNECTION_CODES | {READ_DEADLINE_CODE}
-_READ_RETRY_BACKOFF_SECONDS = (2.0, 5.0, 10.0, 15.0, 30.0)
+READ_RETRY_CODES = READ_CONNECTION_CODES | {READ_DEADLINE_CODE}
+READ_RETRY_BACKOFF_SECONDS = (2.0, 5.0, 10.0, 15.0, 30.0)
 
 
 def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    retries = _READ_RETRY_BACKOFF_SECONDS if function_id in _READ_ONLY else ()
+    retries = READ_RETRY_BACKOFF_SECONDS if function_id in _READ_ONLY else ()
     read_delays = iter(retries)
     # A busy answer wrote nothing, so any call -- write or read -- asks again
     # on the shared schedule; past it the driver stops with the run unchanged.
@@ -80,7 +80,7 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
             )
             time.sleep(delay)
             continue
-        if error is None or error.code not in _READ_RETRY_CODES:
+        if error is None or error.code not in READ_RETRY_CODES:
             break
         delay = next(read_delays, None)
         if delay is None:
@@ -110,7 +110,7 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
             raise DeploymentOutcomeUnknown(
                 run_id, function_id, response.request_id, message
             )
-        if error and error.code in _READ_RETRY_CODES and retries:
+        if error and error.code in READ_RETRY_CODES and retries:
             message = f"{message} The read can be resumed: rerun `yoke watch deploy -- {run_id}`."
         raise DeploymentControlPlaneError(
             f"{function_id} failed: {message}",
@@ -320,6 +320,8 @@ def project_field(project: str, field: str) -> str:
 __all__ = [
     "DeploymentControlPlaneError",
     "READ_DEADLINE_CODE",
+    "READ_RETRY_CODES",
+    "READ_RETRY_BACKOFF_SECONDS",
     "allocate_stage_receipt",
     "complete_stage_receipt",
     "execution_context",

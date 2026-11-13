@@ -203,7 +203,9 @@ ceiling, failing at the caller while the box is healthy and warm steady-state
 latency is a second or two. The `warm-up` stage makes that first call from the
 pipeline, over the same HTTPS relay a client uses, against the
 `connection_env` the stage names. It defaults to `board.data.get` with a 180s
-timeout, records the call and its measured latency on the run as
+timeout per attempt. Transient read errors use the driver’s shared retry codes
+and backoff: six attempts plus 62s backoff, about 212s at the 25s read deadline.
+Other errors fail immediately. It records the total measured latency on the run as
 `DeploymentRunWarmedUp`, and fails the stage with the real error rather than
 letting a run report success over a cold box.
 

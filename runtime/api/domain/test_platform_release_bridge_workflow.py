@@ -96,7 +96,8 @@ def test_bridge_stops_on_failed_factory_without_rerunning() -> None:
         in await_step
     )
     assert "exit 1" in await_step
-    assert "yoke github-actions wait-run" in await_step
+    assert "if ! yoke github-actions wait-run" in await_step
+    assert "gh run view" not in await_step
 
 
 def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None:
