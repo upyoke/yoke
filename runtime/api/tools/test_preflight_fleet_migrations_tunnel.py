@@ -57,7 +57,7 @@ def test_fleet_holds_admin_lease_until_copy_finishes(monkeypatch, tmp_path, outc
         assert coordination.active_leases(6547) == []
         if outcome == "raise":
             raise RuntimeError("copy failed")
-        return [SimpleNamespace(passed=outcome == "pass", line=outcome)]
+        return [migration_fleet_preflight.Verdict("yoke_alpha", outcome == "pass", outcome)]
 
     monkeypatch.setattr(coordination, "detect", detect)
     monkeypatch.setattr(migration_fleet_preflight, "rehearse_fleet", rehearse)

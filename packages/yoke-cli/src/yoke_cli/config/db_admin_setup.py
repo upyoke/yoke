@@ -180,6 +180,11 @@ def build_report(
             "message": f"{selected_admin_env} configured",
         }
     )
+    if declared is not None:
+        report["release_admin_connection_command"] = (
+            f"yoke projects environment-settings merge --project {project} "
+            f"--environment {env_name} --set release.admin_connection={selected_admin_env}"
+        )
     return report
 
 

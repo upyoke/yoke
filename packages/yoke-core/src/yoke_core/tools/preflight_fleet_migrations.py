@@ -280,6 +280,13 @@ def _execute(parsed, engine_artifact):
 
     failed = [v for v in verdicts if not v.passed]
     print("\n" + migration_fleet_preflight.format_fleet_summary(verdicts))
+    if any(v.detail.startswith("could not read ownership:") for v in failed):
+        print(
+            f"Check release.admin_connection={admin_env}: select a profile that can "
+            f"reach this fleet, then run: yoke projects environment-settings merge "
+            f"--project {project} --environment {covered_env} "
+            "--set release.admin_connection=<profile>", file=sys.stderr,
+        )
     if not verdicts:
         # Coverage never expires, so a receipt for zero databases would mark
         # this history rehearsed for the environment forever on no evidence.
