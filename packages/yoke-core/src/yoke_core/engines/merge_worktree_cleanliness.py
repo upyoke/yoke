@@ -1,78 +1,31 @@
-"""The one residue policy every lane retirement path applies.
+"""The one rule every lane retirement path applies to a lane's contents.
 
-A lane directory is disposable when git reports nothing in it except caches
-this module can name — build output, virtualenvs, interpreter and tool
-caches — the operating-layer state Yoke itself renders into every checkout,
-or paths the owning project declared through its
-``disposable_generated_paths`` policy (see
-``yoke_core.engines.lane_residue_declared_paths``). Tracked edits and
-untracked files are work. Ignored content that is *not* a named, generated
-or declared cache is unknown rather than worthless: a local database, a
-credential file, and an operator's scratch notes are all ignored, and none
-of them is the repository's to delete.
+A finished lane holds work only when git reports it: a change to a tracked
+file, or an untracked file the checkout's ignore rules do not cover. Every
+ignored file is disposable — build output, caches, virtualenvs and the
+operating-layer state Yoke renders into each checkout alike — and leaves with
+the tree when :func:`yoke_core.engines.worktree_removal.remove_worktree`
+deletes its tombstone. The status read therefore never asks git for ignored
+content, which also keeps it cheap once a machine holds many lanes.
 
-Landing cleanup, the machine-wide merged-lane sweep, the epic merge
-boundary, and the doctor lane report all read this one classification, so a
+Landing cleanup, the machine-wide merged-lane sweep, deploy-run driver
+retirement and the doctor lane report all read this one classification, so a
 lane is never disposable to one of them and precious to another.
 
-One shape is neither work nor cache: a tree whose only changes are deleted
+One shape is neither work nor empty: a tree whose only changes are deleted
 tracked files. That is what an interrupted ``git worktree remove`` leaves
 behind — git deletes tracked files and drops its admin record last — so the
 assessment names it ``interrupted_removal``. A caller that has also proved the
 branch landed completes that removal: every deleted file is in the landed
-commits, and the ignored files left beside them are what the removal was
-already deleting.
+commits.
 """
 
 from __future__ import annotations
 
-import shutil
 import sys
 from dataclasses import dataclass
-from fnmatch import fnmatchcase
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Callable
-
-from yoke_contracts.doctor_budget import pause_check_budget
-from yoke_contracts.project_contract.install_policy import YOKE_TREE_IGNORED_NAMES
-from yoke_contracts.project_contract.installed_layer import (
-    INSTALLED_LAYER_RECEIPT_REL,
-    PROJECT_CONTRACT_DEST,
-)
-
-
-# Machine-local state Yoke renders into every checkout, and so into every
-# lane it creates: the operating-layer receipt plus each generated name the
-# installer seeds into the contract tree's own ignore policy. Both come from
-# the constants the installer renders them from, so a new generated name is
-# disposable here the moment it is added there — never from a second list
-# that could fall behind. Patterns because a few of those names are globs.
-_GENERATED_PATH_PATTERNS: tuple[str, ...] = tuple(
-    sorted(
-        {INSTALLED_LAYER_RECEIPT_REL}
-        | {
-            f"{PROJECT_CONTRACT_DEST}/{name.rstrip('/')}"
-            for name in YOKE_TREE_IGNORED_NAMES
-        }
-    )
-)
-
-_DISPOSABLE_DIR_NAMES = frozenset(
-    {
-        "__pycache__",
-        ".hypothesis",
-        ".mypy_cache",
-        ".next",
-        ".nox",
-        "node_modules",
-        ".pytest_cache",
-        ".ruff_cache",
-        ".tox",
-        ".venv",
-        ".vite",
-    }
-)
-_DISPOSABLE_FILE_NAMES = frozenset({".coverage", "next-env.d.ts"})
 
 
 @dataclass(frozen=True)
@@ -80,7 +33,6 @@ class LaneResidueAssessment:
     """Read-only classification of everything git reports in a lane."""
 
     disposable: bool
-    cache_roots: tuple[PurePosixPath, ...] = ()
     precious_paths: tuple[str, ...] = ()
     reason: str = ""
     interrupted_removal: bool = False
@@ -91,44 +43,11 @@ class LaneResidueAssessment:
         return self.disposable or self.interrupted_removal
 
 
-def _cache_root(
-    relative_path: str,
-    declared_roots: frozenset[PurePosixPath] = frozenset(),
-) -> PurePosixPath | None:
-    path = PurePosixPath(relative_path.rstrip("/"))
-    if path.is_absolute() or not path.parts or ".." in path.parts:
-        return None
-    for declared in declared_roots:
-        if path == declared or path.is_relative_to(declared):
-            return declared
-    for index in range(len(path.parts)):
-        prefix = PurePosixPath(*path.parts[: index + 1])
-        posix = prefix.as_posix()
-        if any(fnmatchcase(posix, pattern) for pattern in _GENERATED_PATH_PATTERNS):
-            return prefix
-    for index, part in enumerate(path.parts):
-        if part in _DISPOSABLE_DIR_NAMES or part.endswith(".egg-info"):
-            return PurePosixPath(*path.parts[: index + 1])
-        if part == "build" and (index == 0 or path.parts[0] == "packages"):
-            return PurePosixPath(*path.parts[: index + 1])
-    if len(path.parts) == 1 and path.name in _DISPOSABLE_FILE_NAMES:
-        return path
-    return None
-
-
 def _status(run_git: Callable[..., Any], path: Path) -> Any:
-    # ``normal`` reports an ignored or untracked directory as one line. The
-    # classification only needs that root, and listing every file inside it
-    # spends the check budget once a machine holds a full set of lanes.
+    # ``normal`` reports an untracked directory as one line; the verdict only
+    # needs to know that something non-ignored exists there.
     return run_git(
-        [
-            "-C",
-            str(path),
-            "status",
-            "--porcelain",
-            "--ignored=matching",
-            "--untracked-files=normal",
-        ],
+        ["-C", str(path), "status", "--porcelain", "--untracked-files=normal"],
         cwd=str(path),
         capture=True,
     )
@@ -139,36 +58,26 @@ def _kept(reason: str, precious_paths: tuple[str, ...] = ()) -> LaneResidueAsses
 
 
 def assess_lane_residue(
-    run_git: Callable[..., Any],
-    worktree_path: str | Path,
-    declared_roots: frozenset[PurePosixPath] = frozenset(),
+    run_git: Callable[..., Any], worktree_path: str | Path
 ) -> LaneResidueAssessment:
     """Classify a lane without changing it.
 
-    A disposable result means every status entry is a named or
-    project-declared ignored cache, no cache path escapes the lane, and
-    none of them contains the interpreter running the cleanup.
+    Disposable means git reports no tracked change and no untracked,
+    non-ignored file, and the lane does not hold the interpreter running the
+    cleanup.
     """
     root = Path(worktree_path).resolve()
     current = _status(run_git, root)
     if current.returncode != 0:
         return _kept("worktree status unreadable")
 
-    cache_roots: set[PurePosixPath] = set()
     precious: list[str] = []
-    unknown: list[str] = []
     deleted = 0
     for line in (current.stdout or "").splitlines():
-        path = line[3:] if len(line) > 3 else line
-        if not line.startswith("!! "):
-            precious.append(path)
-            deleted += line.startswith(" D ")
+        if not line.strip():
             continue
-        cache_root = _cache_root(path, declared_roots)
-        if cache_root is None:
-            unknown.append(path)
-        else:
-            cache_roots.add(cache_root)
+        precious.append(line[3:] if len(line) > 3 else line)
+        deleted += line.startswith(" D ")
     if precious and deleted == len(precious):
         return LaneResidueAssessment(
             False,
@@ -183,74 +92,13 @@ def assess_lane_residue(
         return _kept(
             "unignored changes present: " + ", ".join(precious), tuple(precious)
         )
-    if unknown:
-        return _kept("unknown ignored files present: " + ", ".join(unknown))
-
     executable = Path(sys.executable).resolve()
-    for relative in cache_roots:
-        resolved = root.joinpath(*relative.parts).resolve(strict=False)
-        if not resolved.is_relative_to(root):
-            return _kept("cache path escapes the worktree")
-        if executable == resolved or executable.is_relative_to(resolved):
-            return _kept("cache path contains the active interpreter")
-    return LaneResidueAssessment(
-        True, tuple(sorted(cache_roots, key=lambda item: item.as_posix()))
-    )
-
-
-def clear_lane_residue(
-    run_git: Callable[..., Any],
-    worktree_path: str | Path,
-    declared_roots: frozenset[PurePosixPath] = frozenset(),
-) -> LaneResidueAssessment:
-    """Remove only named or declared ignored caches, then prove the lane holds nothing.
-
-    The returned assessment is the verdict callers report: disposable means
-    the directory is now empty of everything git can see and may be removed
-    without force. Anything else names what survived and why.
-    """
-    root = Path(worktree_path).resolve()
-    assessment = assess_lane_residue(run_git, root, declared_roots)
-    if not assessment.disposable:
-        return assessment
-    with pause_check_budget():
-        return _delete_disposable_caches(run_git, root, assessment)
-
-
-def _delete_disposable_caches(run_git, root: Path, assessment: LaneResidueAssessment):
-    """Delete named caches off the check clock, then prove the lane is empty."""
-    for relative in sorted(
-        assessment.cache_roots, key=lambda item: len(item.parts), reverse=True
-    ):
-        candidate = root.joinpath(*relative.parts)
-        try:
-            if not candidate.resolve(strict=False).is_relative_to(root):
-                return _kept("cache path escapes the worktree")
-            if candidate.is_symlink() or candidate.is_file():
-                candidate.unlink(missing_ok=True)
-            elif candidate.is_dir():
-                shutil.rmtree(candidate)
-        except OSError as exc:
-            # Another sweep can remove the cache between the assess and this
-            # delete. The path is already gone, so it is not a refusal.
-            if isinstance(exc, FileNotFoundError) and not candidate.exists():
-                continue
-            return _kept(f"cache removal refused for {relative.as_posix()}: {exc}")
-
-    final = _status(run_git, root)
-    if final.returncode != 0:
-        return _kept("worktree status unreadable")
-    remaining = (final.stdout or "").strip()
-    if remaining:
-        return _kept(
-            "content remains after cache removal: "
-            + ", ".join(line[3:] for line in remaining.splitlines())
-        )
-    return LaneResidueAssessment(True, assessment.cache_roots)
+    if executable.is_relative_to(root):
+        return _kept("the lane contains the active interpreter")
+    return LaneResidueAssessment(True)
 
 
 __all__ = [
     "LaneResidueAssessment",
     "assess_lane_residue",
-    "clear_lane_residue",
 ]

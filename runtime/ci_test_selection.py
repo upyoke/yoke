@@ -46,7 +46,6 @@ def version_independent(node_id: str, fixtures=()) -> bool:
             "test_doctor_project_check_execution.py",
             "test_generated_block_render.py",
             "test_atlas_render_docs.py",
-            "test_disposable_generated_paths_policy.py",
             "test_universe_ui_mount_contract.py",
             "test_github_operation_permission_scopes.py",
         }

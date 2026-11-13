@@ -9,8 +9,9 @@ standalone close-out, a merge, and lane creation at the worktree cap run it
 too. Each lane goes through ``prune_landed_lane``, the landing's own proof:
 the control plane must name a terminal owner with no live authority
 (``merge.prune.authority_verdict`` over the active transport), the tree must
-hold nothing but named caches, ``origin/<target>`` must retain every change
-the branch carries, and the remote branch goes before any local ref.
+hold no tracked change and no untracked, non-ignored file (ignored files go
+with it), ``origin/<target>`` must retain every change the branch carries,
+and the remote branch goes before any local ref.
 Unreachable authority, or another sweep holding the checkout's lock, skips
 everything. What was removed and what was kept, each kept lane with its
 reason, comes back as a :class:`WorktreeSweep`.
@@ -22,7 +23,13 @@ cancel reaches every machine other than the one that ran it.
 
 The sweep also retires a self-deploy run's detached driver tree through
 ``deploy_run_worktree_retirement`` once the run is over, before the item
-pass. A driver path has no item owner, so that pass leaves it alone.
+pass; only that pass judges driver trees, so the item pass skips them.
+
+Each sweep first runs ``git worktree prune`` once, so a registration whose
+folder is gone — under a managed root or anywhere else, such as ``/tmp`` —
+is dropped (git keeps locked and still-initializing ones). It then removes
+unregistered folders under the managed roots that hold only ignored files
+(``worktree_stray_folder_prune``), without asking the control plane.
 """
 
 from __future__ import annotations
@@ -34,6 +41,7 @@ from typing import Any, Callable
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.engines.cancelled_lane_discard import discard_and_record
+from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
     retire_terminal_deploy_run_worktrees,
 )
@@ -47,6 +55,7 @@ from yoke_core.engines.merge_landed_lane_cleanup import (
     release_lane_row,
 )
 from yoke_core.engines.worktree_removal import finish_tombstones
+from yoke_core.engines.worktree_stray_folder_prune import prune_stray_folders
 
 
 @dataclass(frozen=True)
@@ -160,6 +169,15 @@ def _sweep(
     entries = registered_worktrees(git, repo_root)
     if entries is None:
         return _skipped(say, "worktree registry unavailable")
+    # One prune drops every registration whose folder is gone; the absent
+    # entries read above still release their lane rows in the item pass.
+    pruned = git(["worktree", "prune"], cwd=repo_root, capture=True)
+    if pruned.returncode:
+        say(
+            "WARNING: git worktree prune failed; registrations whose folder is "
+            f"gone stay until the next sweep: {(pruned.stderr or '').strip()}",
+            err=True,
+        )
 
     removed: list[str] = []
     preserved: list[PreservedLane] = []
@@ -179,15 +197,25 @@ def _sweep(
             removed.append(str(lane.path))
         else:
             keep(lane.path, lane.reason)
+    for stray in prune_stray_folders(repo_root, git):
+        if stray.removed:
+            say(f"Removed unregistered folder holding only ignored files: {stray.path}")
+            removed.append(str(stray.path))
+        else:
+            keep(stray.path, stray.reason)
 
     state = {"unavailable": False}
     checked_out = {entry.branch for entry in entries}
     for entry in entries:
         if not is_managed_worktree_path(entry.path, root):
             continue
+        if run_id_for_driver_worktree(entry.path, root):
+            continue  # judged by the deploy-run pass above
         verdict = _prune_verdict(entry.branch, entry.path, state)
         if state["unavailable"]:
-            return _skipped(say, "DB authority unavailable", tuple(removed), tuple(preserved))
+            return _skipped(
+                say, "DB authority unavailable", tuple(removed), tuple(preserved)
+            )
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             reason = str(verdict.get("reason") or "")
@@ -227,7 +255,6 @@ def _sweep(
         if absent:
             # The branch pass below proves the branch on its own.
             say(f"Pruned registration for an absent worktree: {entry.path}")
-            git(["worktree", "prune"], cwd=repo_root, capture=True)
             release_lane_row(item_ref, entry.branch, emit=say)
             removed.append(str(entry.path))
             checked_out.discard(entry.branch)
@@ -250,7 +277,9 @@ def _sweep(
             continue
         verdict = _prune_verdict(branch, None, state)
         if state["unavailable"]:
-            return _skipped(say, "DB authority unavailable", tuple(removed), tuple(preserved))
+            return _skipped(
+                say, "DB authority unavailable", tuple(removed), tuple(preserved)
+            )
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             continue
@@ -260,7 +289,15 @@ def _sweep(
             )
             continue
         # No worktree here means no lane row to release: pass no item.
-        for reason in _prune_lane(git, say, repo_root, branch, target, None):
+        try:
+            kept = _prune_lane(git, say, repo_root, branch, target, None)
+        except FileNotFoundError:
+            # Its folder vanished after this sweep's one registry prune.
+            kept = (
+                "its worktree folder vanished mid-sweep; the next sweep "
+                "prunes the registration and retires the branch",
+            )
+        for reason in kept:
             say(f"Preserving branch {branch}: {reason}")
     return WorktreeSweep(tuple(removed), tuple(preserved))
 

@@ -17,11 +17,6 @@ from __future__ import annotations
 from typing import Dict
 
 from yoke_contracts.setting_spec import SettingSpec
-from yoke_contracts.project_contract.disposable_generated_paths_policy import (
-    DISPOSABLE_GENERATED_PATHS_DEFAULT,
-)
-
-
 from yoke_contracts.title_policy import (
     DEFAULT_TITLE_MAX_LENGTH,
     TITLE_MAX_LENGTH_MINIMUM,
@@ -86,12 +81,6 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, SettingSpec] = {
 }
 
 
-RECOGNIZED_PROJECT_KEYS["disposable_generated_paths"] = SettingSpec(
-    list(DISPOSABLE_GENERATED_PATHS_DEFAULT),
-    list,
-    "generated paths safe to retire with a landed worktree",
-)
-
 #: Keys this contract used to recognize, and the reason each one went. The
 #: stored capability documents are converged against this set so a retired
 #: key does not outlive the code that read it: nothing prunes settings
@@ -107,6 +96,10 @@ RETIRED_PROJECT_KEYS: Dict[str, str] = {
     ),
     "steering_backstop_worker_budget": (
         "no automatic staffing means no concurrent-worker budget to cap"
+    ),
+    "disposable_generated_paths": (
+        "every gitignored file in a lane is disposable, so there is no list "
+        "of generated paths to declare"
     ),
 }
 

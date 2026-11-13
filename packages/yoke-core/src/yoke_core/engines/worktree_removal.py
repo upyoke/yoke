@@ -31,7 +31,7 @@ TOMBSTONE_PREFIX = ".removing-"
 GIT_TIMEOUT_S = 60.0
 # A doctor check starts a removal only with at least this much budget left.
 REMOVAL_MIN_BUDGET_S = 10.0
-_MANAGED_ROOTS = (Path(".worktrees"), Path(".claude") / "worktrees")
+MANAGED_ROOTS = (Path(".worktrees"), Path(".claude") / "worktrees")
 
 
 @dataclass(frozen=True)
@@ -74,10 +74,35 @@ def remove_worktree(
         return _remove(Path(repo_root), Path(worktree_path))
 
 
+def remove_stray_folder(
+    repo_root: str | Path, folder: str | Path
+) -> WorktreeRemoval:
+    """Retire one unregistered managed folder through a tombstone.
+
+    The caller has proved git registers no worktree there and that every path
+    in it is ignored; the folder is renamed to a tombstone and then finished
+    exactly like an interrupted lane removal.
+    """
+    deferred = removal_deferral()
+    if deferred:
+        return WorktreeRemoval(False, deferred)
+    repo = Path(repo_root)
+    path = Path(folder)
+    name = f"{TOMBSTONE_PREFIX}{path.name}-{uuid.uuid4().hex[:8]}"
+    tombstone = _tombstone_home(repo.resolve(), path.resolve()) / name
+    with pause_check_budget():
+        try:
+            path.rename(tombstone)
+        except OSError as exc:
+            return WorktreeRemoval(False, f"folder rename refused for {path}: {exc}")
+        [result] = _finish(repo, [tombstone])
+    return result
+
+
 def tombstones(repo_root: str | Path) -> list[Path]:
     """Tombstones an interrupted removal left under the managed lane roots."""
     found: list[Path] = []
-    for managed in _MANAGED_ROOTS:
+    for managed in MANAGED_ROOTS:
         root = Path(repo_root) / managed
         if root.is_dir():
             found.extend(
@@ -101,7 +126,7 @@ def finish_tombstones(repo_root: str | Path) -> list[WorktreeRemoval]:
 
 def _tombstone_home(repo_root: Path, path: Path) -> Path:
     """The managed root holding ``path``, where the sweep looks for tombstones."""
-    for managed in _MANAGED_ROOTS:
+    for managed in MANAGED_ROOTS:
         root = repo_root / managed
         if path.is_relative_to(root):
             return root
@@ -211,10 +236,12 @@ def _remove_empty_parent(parent: Path) -> None:
 
 
 __all__ = [
+    "MANAGED_ROOTS",
     "REMOVAL_MIN_BUDGET_S",
     "TOMBSTONE_PREFIX",
     "WorktreeRemoval",
     "finish_tombstones",
+    "remove_stray_folder",
     "remove_worktree",
     "removal_deferral",
     "tombstones",

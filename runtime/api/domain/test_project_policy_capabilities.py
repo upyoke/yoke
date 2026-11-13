@@ -82,7 +82,7 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     policy = _settings(policy_conn, 1, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "stage"
     assert policy["wip_cap"] == 30
-    assert policy["disposable_generated_paths"] == []
+    assert "disposable_generated_paths" not in policy
     # Levels are universe defaults with an opt-in project override, so a
     # project is never seeded with a session-routing capability.
     assert SESSION_ROUTING_CAPABILITY not in report["1"]
@@ -112,12 +112,11 @@ def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> No
 
     repaired = report["2"][PROJECT_POLICY_CAPABILITY]["repaired_keys"]
     assert "default_priority" in repaired
-    assert "disposable_generated_paths" in repaired
     policy = _settings(policy_conn, 2, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "release"
     assert policy["wip_cap"] == 9
     assert policy["default_priority"] == "medium"
-    assert policy["disposable_generated_paths"] == []
+    assert "disposable_generated_paths" not in policy
 
 
 class TestResolveTitleMaxLength:

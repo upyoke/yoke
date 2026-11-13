@@ -46,7 +46,7 @@ trust_level = "trusted"
         ),
     )
     monkeypatch.setattr(
-        cleanup, "clear_lane_residue", lambda *_a: LaneResidueAssessment(True)
+        cleanup, "assess_lane_residue", lambda *_a: LaneResidueAssessment(True)
     )
     monkeypatch.setattr(cleanup, "release_lane_row", lambda *_a, **_kw: None)
     monkeypatch.setattr(cleanup, "remove_worktree", lambda *_a: WorktreeRemoval(True))

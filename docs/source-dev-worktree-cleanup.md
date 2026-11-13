@@ -105,7 +105,7 @@ The sweep prunes only worktrees registered beneath the repository's managed
 proof a landing applies. A candidate must have one exact terminal DB owner
 (a lane several tasks of one epic shared is owned by that epic once every
 task finished and the epic is done or cancelled), no active work claim or
-harness session, a clean status including ignored and untracked files, and a
+harness session, no tracked change and no untracked, non-ignored file, and a
 branch the freshly fetched target retains: by ancestry, by patch
 equivalence, or because its commits net to no change at all. For each lane it first proves and
 deletes the exact remote ref (or proves it already absent) via the shared
@@ -115,7 +115,7 @@ preserves the local worktree and branch for a later safe retry.
 
 Each successfully removed lane also retires its `item_worktrees` row through
 `item_worktrees.release_merged_lane`, including a registered lane whose folder
-is already absent. A lane folder, named cache, or removal tombstone that
+is already absent. A lane folder or removal tombstone that
 disappears after the sweep has read it counts as removed, and the sweep
 continues with the lanes behind it. A finished worker can retire while its parent item stays
 open; released rows cannot compete with the surviving lane as a merge source.
@@ -158,9 +158,9 @@ launches. Git worktree count does not block lane creation. Creation runs the
 same finished-lane sweep against the lane's base branch before adding a lane.
 An old `max_active_worktrees` setting in machine config is ignored.
 
-Unregistered directories, ambiguous owners, dirty or ignored content,
-unavailable claim/DB state, non-ancestor branches, and removal refusals are
-preserved and reported. Automatic cleanup of a done item's lanes never uses
+Unregistered folders holding a non-ignored path, ambiguous owners, tracked
+changes or untracked non-ignored files, unavailable claim/DB state,
+non-ancestor branches, and removal refusals are preserved and reported. Automatic cleanup of a done item's lanes never uses
 forced worktree removal or forced branch deletion, and deletes files only
 inside a tombstone git no longer registers, after the residue proof.
 `--keep-remote` remains the only intentional skip of remote delete (ephemeral
@@ -205,29 +205,33 @@ never an empty branch. If the authority read itself fails, the check names
 the failure and preserves every lane. `--fix` still finishes interrupted
 removals and retires finished deploy-run driver trees.
 
-### Lane residue and project-declared renders
+### Lane residue
 
-A lane directory is disposable only when everything git reports in it is a
-cache the shared residue policy can name — build output, virtualenvs, tool
-caches such as `.hypothesis`, the operating-layer state Yoke renders into every
-checkout — or a path
-the owning project declared through its `project-policy` capability's
-`disposable_generated_paths`. Ignored is not disposable on its own: a local
-database, a credential file, and scratch notes are all ignored and none of them
-is the repository's to delete, so an undeclared ignored path preserves the lane
-and is reported as unknown residue.
+A finished lane or deploy-run driver tree is kept only for real work: a change
+to a tracked file, an untracked file the checkout does not ignore, an active
+claim or session, or a branch the target does not contain. Every gitignored
+file is disposable — build output, caches, virtualenvs, the `.yoke/docs/` and
+`.yoke/harness/` state Yoke renders into every checkout, and anything else the
+ignore rules cover — and is deleted with the tree when the tombstone removal
+finishes. Ignored content you need to keep belongs in the main checkout, which
+cleanup never touches. There is no list of generated paths to declare.
 
-That is why a product surface which renders a gitignored view into every
-checkout must be declared. In this repository the Atlas renderer writes
-`docs/atlas.md` and the teaching build writes `docs/teaching/views/`. These
-generated paths need disposable declarations. The retired `docs/teaching/live/`
-path may remain declared to clean older lanes; the current builder removes it.
-Without declarations, generated residue prevents lane and branch retirement. Add a missing render
-with `yoke projects capability-settings merge --project <slug> --cap-type
-project-policy --set 'disposable_generated_paths=[...]'`, repeating the
-entries already declared. Read the live declaration with
-`yoke projects capability-settings get --project <slug> --cap-type
-project-policy`.
+Each sweep first runs `git worktree prune` once, inside the sweep lock, so a
+registration whose folder is gone is dropped wherever it lived (for example an
+ad-hoc worktree under `/tmp`); git keeps locked and still-initializing
+registrations. The sweep then lists the folders under `.worktrees/` and
+`.claude/worktrees/`, reads the registry fresh, and removes a folder git does
+not register when every path in it is ignored by the main checkout's rules
+(asked through `git check-ignore --no-index`, without entering ignored
+directories). A folder holding a non-ignored path is kept, and both the sweep
+log and `HC-worktree-health` name that first path. Empty folders and
+tombstones are left to their own handling.
+
+`HC-worktree-health` also lists each local branch no lane row records that is
+not the default branch, is not checked out, and whose changes the default
+branch already holds. It never deletes them; branches no item owns are deleted
+by a person. Rewrite your own lane's history instead of making backup branches:
+the reflog is the backup.
 
 ### Deploy-run driver worktrees
 
@@ -247,15 +251,15 @@ yoke watch doctor -- --only HC-worktree-health --fix
 
 Only a status the run-status vocabulary names terminal (`succeeded`, `failed`,
 `cancelled`) releases the directory. A run still `created` or `executing` is not a finding. An empty,
-unrecognised, or unreadable status, a tree holding anything the residue policy
-will not name, and a tree the sweeping process is itself executing from all
+unrecognised, or unreadable status, a tree holding a tracked change or an
+untracked non-ignored file, and a tree the sweeping process is itself executing from all
 keep the directory with the reason named — reclaiming a live run's pinned
 source would pull the ground out from under a driver mid-deploy.
 
-Removal is the same two steps the item lanes use: clear named and declared
-caches (a driver that executed there left `__pycache__` behind) and prove
-nothing else remains, then the resumable tombstone removal. Force is never
-used.
+Removal is the same resumable tombstone removal the item lanes use; ignored
+files such as the `__pycache__` a driver leaves behind go with the tree. Only
+this pass judges driver trees: the item pass of the lane sweep skips them.
+Force is never used.
 
 `HC-worktree-health` lists landed lanes of open items on their own line,
 apart from its findings:

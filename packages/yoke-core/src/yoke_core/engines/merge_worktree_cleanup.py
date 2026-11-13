@@ -166,16 +166,9 @@ def _post_merge_cleanup(
             doomed_root=ctx.worktree_path,
             surviving_root=ctx.repo_root,
         )
-        from yoke_core.engines.lane_residue_declared_paths import (
-            declared_disposable_roots_for_project,
-        )
-        from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
+        from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 
-        residue = clear_lane_residue(
-            _run_git,
-            ctx.worktree_path,
-            declared_disposable_roots_for_project(ctx.project),
-        )
+        residue = assess_lane_residue(_run_git, ctx.worktree_path)
         removal = None
         if not residue.removable_once_landed:
             _print(
