@@ -19,7 +19,7 @@ from yoke_core.domain.lint_long_command_polling_constants import (
 )
 from yoke_core.domain.lint_long_command_polling_decide import (
     _build_context,
-    _format_github_poll_loop_reason,
+    _format_poll_loop_reason,
     _format_sleep_reason,
 )
 from yoke_core.domain.lint_long_command_polling_extract import (
@@ -28,7 +28,7 @@ from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_sleep_cadence,
     _extract_sleep_capture_file,
     _has_suppression,
-    _is_github_poll_loop,
+    _is_poll_loop,
 )
 from yoke_core.domain.lint_long_command_polling_monitor_duplicate import (
     evaluate_duplicate_monitor,
@@ -124,15 +124,17 @@ def evaluate_payload(
         tool_name = raw_tool if isinstance(raw_tool, str) else ""
     command = _extract_command(payload)
 
-    # A GitHub polling loop holds the turn a recorded CI wait would end;
-    # checked before the suppression token, which does not unblock it.
-    if (
-        tool_name in ("", "Bash")
-        and command
-        and _is_github_poll_loop(shell if shell is not None else command)
-    ):
+    # A loop sleeping around a GitHub or Yoke read holds the turn that a
+    # recorded wait or a park would end; checked before the suppression
+    # token, which does not unblock it.
+    polled = (
+        _is_poll_loop(shell if shell is not None else command)
+        if tool_name in ("", "Bash") and command
+        else None
+    )
+    if polled:
         ctx = _build_context(tool_name or "Bash", command, None)
-        return _format_github_poll_loop_reason(), ctx
+        return _format_poll_loop_reason(polled), ctx
 
     if command and _has_suppression(command):
         return None
