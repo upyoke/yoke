@@ -14,7 +14,7 @@ from yoke_contracts.hook_runner.main_commit import (
 )
 from yoke_contracts.hook_runner.shell_parse import ShellParse
 
-from yoke_harness.hooks.local_policy_common import repo_cwd
+from yoke_harness.hooks.local_policy_common import cwd_from_payload, repo_cwd
 
 
 def _git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
@@ -60,17 +60,28 @@ def _modified_and_untracked(cwd: str) -> Optional[list[str]]:
     return paths
 
 
+def _commit_cwd(payload: dict, shell: ShellParse) -> str:
+    """Repository the first ``git commit`` runs in.
+
+    ``git -C`` wins; otherwise a literal ``cd`` earlier in the command moves
+    it. An unreadable ``cd`` keeps the payload directory, so a commit whose
+    directory cannot be read is still judged where the session runs.
+    """
+    base = cwd_from_payload(payload)
+    for segment, segment_cwd in zip(shell.segments, shell.segment_cwds(base)):
+        for args, repo_path in git_invocations(segment.text):
+            if args[:1] == ["commit"]:
+                if repo_path or not segment_cwd:
+                    return repo_cwd(payload, repo_path)
+                return segment_cwd
+    return repo_cwd(payload)
+
+
 def collect_git_commit_facts(payload: dict, shell: ShellParse) -> dict:
     """Return payload-extra facts for a relayed ``git commit`` hook call."""
     if not is_actual_git_commit(shell):
         return {}
-    invocations = [
-        (args, repo_path)
-        for args, repo_path in git_invocations(shell)
-        if args[:1] == ["commit"]
-    ]
-    repo_path = invocations[0][1] if invocations else ""
-    cwd = repo_cwd(payload, repo_path)
+    cwd = _commit_cwd(payload, shell)
     staged = _staged(cwd)
     status_paths = _modified_and_untracked(cwd)
     effective = effective_staged_set(

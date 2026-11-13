@@ -57,28 +57,52 @@ def is_unresolved_command_token(token: str) -> bool:
 
 
 def substitute_bound_variables(command: str) -> str:
-    """Replace bound ``$name`` / ``${name}``; leave unbound names as written."""
-    bindings: dict[str, str] = {}
+    """Replace bound ``$name`` / ``${name}``; leave unbound names as written.
+
+    A reference takes the value of the last assignment written before it,
+    as the shell would: ``cd $S; S=/lane`` keeps ``$S`` unresolved.
+    """
+    assignments: list[tuple[int, str, str]] = []
     for match in _LITERAL_ASSIGNMENT.finditer(command):
-        name = match.group("name")
         value = match.group("value")
         if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
             value = value[1:-1]
-        if value:
-            bindings[name] = value
-        else:
-            bindings.pop(name, None)
-    if not bindings:
+        assignments.append((match.end("value"), match.group("name"), value))
+    if not any(value for _end, _name, value in assignments):
         return command
 
     def _replace(match: re.Match[str]) -> str:
         name = match.group("braced") or match.group("bare")
-        return bindings.get(name, match.group(0))
+        bound = ""
+        for end, assigned, value in assignments:
+            if end > match.start():
+                break
+            if assigned == name:
+                bound = value
+        return bound or match.group(0)
 
     return _VARIABLE_REFERENCE.sub(_replace, command)
 
 
+def expand_variables(token: str, bindings: Mapping[str, str]) -> str | None:
+    """Return ``token`` with its variable references expanded, or ``None``.
+
+    ``None`` means the token carries an expansion ``bindings`` cannot
+    settle, so the caller has no path to act on.
+    """
+    if "$" not in token:
+        return token
+    expanded = token
+    for match in _VARIABLE_REFERENCE.finditer(token):
+        value = bindings.get(match.group("braced") or match.group("bare"))
+        if not value:
+            return None
+        expanded = expanded.replace(match.group(0), value, 1)
+    return None if "$" in expanded else expanded
+
+
 __all__ = [
+    "expand_variables",
     "extract_command",
     "is_unresolved_command_token",
     "raw_command",

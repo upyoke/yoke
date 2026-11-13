@@ -12,7 +12,9 @@ One Codex ``exec`` call may run several ``exec_command`` invocations with
 different workdirs. The stamped workdir belongs to the invocation whose
 ``cmd`` is this hook's command; when that cannot be told apart, nothing is
 stamped and the guards resolve against the session cwd, never a neighbour's
-directory. The call is found by its ``call_id``; a code-mode hook whose id is
+directory. A ``workdir`` written as a bare identifier resolves only from a
+single literal ``const``/``let``/``var`` binding in the same source; two
+bindings or any reassignment stamp nothing. The call is found by its ``call_id``; a code-mode hook whose id is
 the inner item id falls back to the newest recorded ``exec`` that ran this
 exact command.
 """
@@ -34,6 +36,7 @@ from yoke_contracts.executor_labels import canonical_harness_id
 _TRANSCRIPT_TAIL_BYTES = 2 * 1024 * 1024
 _CALL_RE = re.compile(r"\bexec_command\s*\(\s*\{")
 _KEY_RE = re.compile(r"""\s*(?:(["'])(\w+)\1|(\w+))\s*:\s*""")
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_$][\w$]*")
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
 
 
@@ -103,7 +106,9 @@ def exec_command_calls(source: str) -> list[dict[str, Optional[str]]]:
             value, end = _read_string(source, key.end())
             if value is None:
                 end = _skip_value(source, key.end())
-            elif name in fields:
+                if name == "workdir":
+                    value = _bound_literal(source, source[key.end() : end].strip())
+            if value is not None and name in fields:
                 fields[name] = value
             pos = end
             while pos < len(source) and source[pos] in " \t\r\n":
@@ -113,6 +118,27 @@ def exec_command_calls(source: str) -> list[dict[str, Optional[str]]]:
             pos += 1
         calls.append(fields)
     return calls
+
+
+def _bound_literal(source: str, name: str) -> Optional[str]:
+    """String a bare identifier is bound to, when ``source`` binds it once.
+
+    Exactly one ``const``/``let``/``var NAME = "literal"`` and no other
+    assignment to ``NAME``; anything else is ``None``, so nothing is stamped.
+    """
+    if not _IDENTIFIER_RE.fullmatch(name):
+        return None
+    word = rf"(?<![\w$.]){re.escape(name)}(?![\w$])"
+    declarations = list(re.finditer(rf"\b(?:const|let|var)\s+{word}\s*=(?!=)\s*", source))
+    writes = re.findall(
+        rf"{word}\s*(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])?=(?![=>])"
+        rf"|{word}\s*(?:\+\+|--)|(?:\+\+|--)\s*{word}",
+        source,
+    )
+    if len(declarations) != 1 or len(writes) != 1:
+        return None
+    value, _end = _read_string(source, declarations[0].end())
+    return value
 
 
 def workdir_for_command(source: str, command: str) -> str:
