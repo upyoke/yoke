@@ -14,8 +14,9 @@ import re
 import shlex
 import tempfile
 from pathlib import PurePath
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
+from yoke_contracts.hook_runner.command_extract import expand_variables
 from yoke_contracts.hook_runner.shell_word import ShellWord
 
 
@@ -41,9 +42,11 @@ _LITERAL_ASSIGNMENT = re.compile(
     re.MULTILINE,
 )
 
-_VARIABLE_REFERENCE = re.compile(
-    r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}"
-    r"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))"
+# A statement made only of ``NAME=value`` words: it runs no command.
+_ASSIGNMENT_STATEMENT = re.compile(
+    r"\s*(?:[A-Za-z_][A-Za-z0-9_]*="
+    r"(?:\"\$\([^)]*\)\"|\$\([^)]*\)|`[^`]*`|\"[^\"]*\"|'[^']*'|[^\s;&|`$]*)"
+    r"\s*)+"
 )
 
 # ``mktemp`` with no template generates this shape. Only the directory it
@@ -96,7 +99,29 @@ def shell_variable_bindings(command: str) -> Dict[str, str]:
     earlier binding so a reassigned name reports as unresolvable rather
     than keeping a stale path.
     """
+    return _apply_assignments({}, command)
+
+
+def is_assignment_statement(text: str) -> bool:
+    """True when ``text`` only assigns variables, e.g. ``S=$(mktemp -d)``."""
+    return bool(_ASSIGNMENT_STATEMENT.fullmatch(text))
+
+
+def segment_variable_bindings(texts: Sequence[str]) -> List[Dict[str, str]]:
+    """Bindings in effect when each statement in ``texts`` starts.
+
+    Entry ``i`` holds only assignments made by statements before ``i``, so
+    ``cd $S; S=/lane`` leaves ``$S`` unbound at the ``cd``.
+    """
+    out: List[Dict[str, str]] = []
     bindings: Dict[str, str] = {}
+    for text in texts:
+        out.append(bindings)
+        bindings = _apply_assignments(dict(bindings), text)
+    return out
+
+
+def _apply_assignments(bindings: Dict[str, str], command: str) -> Dict[str, str]:
     for _position, name, value in sorted(
         _scan_assignments(command), key=lambda entry: entry[0]
     ):
@@ -105,26 +130,6 @@ def shell_variable_bindings(command: str) -> Dict[str, str]:
         else:
             bindings.pop(name, None)
     return bindings
-
-
-def expand_variables(
-    token: str,
-    bindings: Mapping[str, str],
-) -> Optional[str]:
-    """Return ``token`` with its variable references expanded, or ``None``.
-
-    ``None`` means the token carries an expansion this module cannot settle
-    — the caller has no path to validate and must withhold a verdict.
-    """
-    if "$" not in token:
-        return token
-    expanded = token
-    for match in _VARIABLE_REFERENCE.finditer(token):
-        value = bindings.get(match.group("braced") or match.group("bare"))
-        if not value:
-            return None
-        expanded = expanded.replace(match.group(0), value, 1)
-    return None if "$" in expanded else expanded
 
 
 def path_target_from_token(
@@ -244,9 +249,11 @@ def _safe_split(text: str) -> List[str]:
 
 __all__ = [
     "expand_variables",
+    "is_assignment_statement",
     "is_path_like",
     "path_target_from_token",
     "resolve_path_operands",
+    "segment_variable_bindings",
     "shell_variable_bindings",
     "unwrap_cli_file_param",
 ]

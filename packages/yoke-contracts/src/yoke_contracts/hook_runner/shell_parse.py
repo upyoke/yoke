@@ -15,17 +15,20 @@ guard, so every guard agrees on what the command runs:
   ``NAME=value`` assignments (``_``-prefixed names included) and an ``env``
   prefix with its options (``env -i``, ``env -u NAME``).
 - ``segment_cwds`` follows every plain ``cd DIR`` in order, so a ``cd`` after
-  an earlier command moves later relative paths too. An unreadable hop
-  (``$VAR``, a backtick, ``cd -``) makes later directories unknown.
+  an earlier command moves later relative paths too. A ``$VAR`` hop resolves
+  only through bindings the caller passes for that segment; any other
+  unreadable hop (a backtick, ``cd -``) makes later directories unknown.
 """
 
 from __future__ import annotations
 
 import os
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from yoke_contracts.hook_runner.command_extract import expand_variables
 from yoke_contracts.hook_runner.shell_expansion_scan import Heredoc, scan
 from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
 from yoke_contracts.hook_runner.shell_word import shell_words
@@ -86,15 +89,25 @@ class ShellParse:
     def is_compound(self) -> bool:
         return len(self.segments) + len(self.unparsed) > 1
 
-    def segment_cwds(self, cwd: str, *, home: str | None = None) -> list[str]:
-        """Directory each segment runs in, ``""`` where it cannot be known."""
+    def segment_cwds(
+        self,
+        cwd: str,
+        *,
+        home: str | None = None,
+        bindings: Sequence[Mapping[str, str]] = (),
+    ) -> list[str]:
+        """Directory each segment runs in, ``""`` where it cannot be known.
+
+        ``bindings[i]`` holds the variables set before segment ``i``.
+        """
         base = cwd or ""
         out: list[str] = []
-        for segment in self.segments:
+        for index, segment in enumerate(self.segments):
             out.append(base)
             destination = cd_destination(segment.argv)
             if destination is not None:
-                base = advance_cwd(base, destination, home=home)
+                bound = bindings[index] if index < len(bindings) else None
+                base = advance_cwd(base, destination, home=home, bindings=bound)
         return out
 
 
@@ -174,8 +187,22 @@ def expand_home(path: str, *, home: str | None = None) -> str:
     return path
 
 
-def advance_cwd(base: str, destination: str, *, home: str | None = None) -> str:
-    """Directory after ``cd destination`` from ``base``; ``""`` when unknown."""
+def advance_cwd(
+    base: str,
+    destination: str,
+    *,
+    home: str | None = None,
+    bindings: Mapping[str, str] | None = None,
+) -> str:
+    """Directory after ``cd destination`` from ``base``; ``""`` when unknown.
+
+    ``$NAME`` resolves only through ``bindings``; an unbound one is unknown.
+    """
+    if bindings:
+        expanded_destination = expand_variables(destination, bindings)
+        if expanded_destination is None:
+            return ""
+        destination = expanded_destination
     if "$" in destination or "`" in destination or destination == "-":
         return ""
     expanded = expand_home(destination, home=home)

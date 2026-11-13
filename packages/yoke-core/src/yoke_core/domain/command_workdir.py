@@ -3,20 +3,24 @@
 The call's declared workdir wins — the hook client stamps it onto
 ``tool_input.workdir`` from the source the harness manifest names under
 ``identity.command_workdir_source`` — then the payload cwd. Leading ``cd``
-statements, joined by ``&&``, ``;``, or a newline, then move it exactly as
+statements, joined by ``&&``, ``;``, or a newline (bare ``NAME=value``
+statements between them run nothing), then move it exactly as
 the shell will before any later statement runs. Relative and computed
 write destinations resolve against this one answer, except where a later
 ``cd`` moved the segment that names them (:func:`command_segment_cwds`).
 
-A leading ``cd`` whose destination cannot be read (a variable, ``cd -``,
-a relative hop with no base) stops the walk at the last directory that
-*was* readable, so an unreadable hop never invents a destination.
+A ``cd $NAME`` resolves through assignments written before it (a literal
+or an ``mktemp`` path, :func:`segment_variable_bindings`). A leading
+``cd`` whose destination still cannot be read (an unbound variable,
+``cd -``, a relative hop with no base) stops the walk at the last
+directory that *was* readable, so an unreadable hop never invents a
+destination.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from yoke_contracts.hook_runner.shell_parse import (
     ShellParse,
@@ -27,6 +31,10 @@ from yoke_contracts.hook_runner.shell_parse import (
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_session_cwd_control_plane import resolve_authority_cwd
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
+from yoke_core.domain.lint_shell_target_tokens import (
+    is_assignment_statement,
+    segment_variable_bindings,
+)
 
 
 def _absolute(raw: str, machine_home: str | None = None) -> str:
@@ -41,13 +49,28 @@ def _declared_cwd(payload: Mapping[str, Any], machine_home: str | None) -> str:
     return _absolute(expanded, machine_home)
 
 
-def _leading_cd_cwd(cwd: str, parsed: ShellParse, machine_home: str | None) -> str:
-    for segment in parsed.segments:
+def _bindings(parsed: ShellParse) -> Sequence[Mapping[str, str]]:
+    return segment_variable_bindings([segment.text for segment in parsed.segments])
+
+
+def _leading_cd_cwd(
+    cwd: str,
+    parsed: ShellParse,
+    machine_home: str | None,
+    bindings: Sequence[Mapping[str, str]],
+) -> str:
+    for index, segment in enumerate(parsed.segments):
+        if is_assignment_statement(segment.text):
+            continue  # ``S=...`` runs nothing; a later ``cd $S`` still leads.
         destination = cd_destination(segment.argv)
         if destination is None:
             break
         expanded = expand_machine_home(destination, machine_home=machine_home)
-        moved = "" if expanded.startswith("~") else advance_cwd(cwd, expanded)
+        moved = (
+            ""
+            if expanded.startswith("~")
+            else advance_cwd(cwd, expanded, bindings=bindings[index])
+        )
         if not moved:
             break
         cwd = moved
@@ -59,7 +82,8 @@ def command_execution_cwd(
 ) -> str:
     """Return the absolute directory the payload's command runs in, or ``""``."""
     cwd = _declared_cwd(payload, machine_home)
-    return _leading_cd_cwd(cwd, parse_shell(extract_command(payload)), machine_home)
+    parsed = parse_shell(extract_command(payload))
+    return _leading_cd_cwd(cwd, parsed, machine_home, _bindings(parsed))
 
 
 def command_segment_cwds(
@@ -76,8 +100,9 @@ def command_segment_cwds(
     """
     parsed = shell if shell is not None else parse_shell(extract_command(payload))
     declared = _declared_cwd(payload, machine_home)
-    cwd = _leading_cd_cwd(declared, parsed, machine_home)
-    segment_cwds = parsed.segment_cwds(declared, home=machine_home)
+    bindings = _bindings(parsed)
+    cwd = _leading_cd_cwd(declared, parsed, machine_home, bindings)
+    segment_cwds = parsed.segment_cwds(declared, home=machine_home, bindings=bindings)
     return cwd, [path if path != cwd else "" for path in segment_cwds]
 
 
