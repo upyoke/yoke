@@ -12,7 +12,6 @@ from runtime.api.cli.browser_toolchain_test_support import install_fake_toolchai
 from yoke_contracts.browser_identity import (
     BrowserIdentityError,
     LIVE_IDENTITY_STORE_HOME_ENTRY,
-    parse_identity_declarations,
 )
 from yoke_cli.commands import browser_authorize, browser_verify
 from yoke_cli.config import browser_identities, browser_profile
@@ -144,10 +143,8 @@ def buyer(machine_home, tmp_path, monkeypatch):
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
-        lambda key, **kw: parse_identity_declarations(
-            {"identities": {"buyer": {"sites": list(SITES.values())}}}
-        ),
+        "declared_settings",
+        lambda key, **kw: {"identities": {"buyer": {"sites": list(SITES.values())}}},
     )
     monkeypatch.setattr(
         browser_client.DaemonState, "load", staticmethod(lambda path=None: None)
@@ -249,7 +246,7 @@ def test_a_host_without_the_control_plane_verifies_from_supplied_declarations(
     def unreachable(key, **kwargs):
         raise BrowserIdentityError("browser_identity_declarations_unreadable: offline")
 
-    monkeypatch.setattr(browser_identities, "declared_identities", unreachable)
+    monkeypatch.setattr(browser_identities, "declared_settings", unreachable)
     buyer["states"] = dict.fromkeys(SITES, "signed_in")
     document = json.dumps({"identities": {"buyer": {"sites": list(SITES.values())}}})
     code = browser_verify.browser_verify(
@@ -267,7 +264,7 @@ def test_a_host_without_control_plane_authorizes_from_supplied_declarations(
 ):
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
+        "declared_settings",
         lambda *a, **k: pytest.fail("offline authorization read control plane"),
     )
     buyer["states"] = dict.fromkeys(SITES, "expired")
@@ -328,7 +325,7 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     )
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
+        "declared_settings",
         lambda *a, **k: pytest.fail("remote host read control plane"),
     )
     buyer["states"] = {"google": "signed_in", "yoke": "expired", "paypal": "signed_in"}

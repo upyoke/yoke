@@ -13,7 +13,6 @@ import pytest
 from runtime.api.cli.browser_toolchain_test_support import (
     install_fake_toolchain,
 )
-from yoke_contracts.browser_identity import parse_identity_declarations
 from yoke_cli.config import browser_identities, browser_profile
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
@@ -131,8 +130,8 @@ def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
     monkeypatch.setattr(authorize_command.subprocess, "run", fake_run)
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
-        lambda key, **kwargs: parse_identity_declarations({}),
+        "declared_settings",
+        lambda key, **kwargs: {},
     )
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return calls

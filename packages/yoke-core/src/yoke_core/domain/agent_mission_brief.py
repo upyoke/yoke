@@ -20,6 +20,11 @@ from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 
 
+def _identity_flag(preferred: str | None) -> str:
+    """The setup/step identity flag: the project default when offered."""
+    return f"--identity {preferred}" if preferred else "[--identity NAME]"
+
+
 def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
     """Name the Screen Recording grant when mission preparation proved it absent."""
     degraded = [
@@ -69,19 +74,22 @@ def _walker_dispatch(
         f"yoke qa mission host-copy {mission_flags} --from TARGET_PATH --to LOCAL_PATH"
     )
     host_command = f"{host_command_base} -- ARGV..."
+    identities, browser_verify_commands, identity_clause, preferred = (
+        walker_identity_dispatch(
+            case,
+            host_command_base,
+            browser_settings=browser_settings,
+            execution_target=execution_target,
+        )
+    )
+    flag = _identity_flag(preferred)
     browser_setup_command = (
         f"{host_command_base} [--timeout-seconds N] -- yoke qa browser setup "
-        "--project PROJECT [--identity NAME]"
+        f"--project PROJECT {flag}"
     )
     browser_step_command = (
         f"{host_command_base} -- yoke qa browser step --base-url BASE_URL "
-        "--step-json STEP_JSON [--identity NAME] [--page NAME] [--output-dir PATH] [--check-id ID] [--keep-open]"
-    )
-    identities, browser_verify_commands, identity_clause = walker_identity_dispatch(
-        case,
-        host_command_base,
-        browser_settings=browser_settings,
-        execution_target=execution_target,
+        f"--step-json STEP_JSON {flag} [--page NAME] [--output-dir PATH] [--check-id ID] [--keep-open]"
     )
     artifact_add_command = (
         "yoke qa artifact add "
@@ -200,14 +208,15 @@ def _walker_dispatch(
 
 def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, Any]:
     descriptor = DispatchDescriptor("qa-walker")
-    identities, verify_commands, identity_clause = walker_identity_dispatch(
+    identities, verify_commands, identity_clause, preferred = walker_identity_dispatch(
         case,
         None,
         browser_settings=browser_settings,
         execution_target=execution_target,
     )
-    setup = "yoke qa browser setup --project PROJECT [--identity NAME]"
-    step = "yoke qa browser step --base-url BASE_URL --step-json STEP_JSON [--identity NAME] [--page NAME] [--check-id ID] [--keep-open]"
+    flag = _identity_flag(preferred)
+    setup = f"yoke qa browser setup --project PROJECT {flag}"
+    step = f"yoke qa browser step --base-url BASE_URL --step-json STEP_JSON {flag} [--page NAME] [--check-id ID] [--keep-open]"
     artifact_command = (
         f"yoke qa artifact add --requirement-id {int(case['requirement_id'])} "
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "

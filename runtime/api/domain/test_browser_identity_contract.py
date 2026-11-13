@@ -200,7 +200,7 @@ def test_walker_dispatch_verifies_each_named_identity_before_browsing():
     base = (
         "yoke qa mission host-command --item YOK-1 --execution-id 9 --requirement-id 3"
     )
-    identities, commands, clause = walker_identity_dispatch(
+    identities, commands, clause, preferred = walker_identity_dispatch(
         {"method_config": {"browser_identities": ["member", "admin"]}},
         base,
         browser_settings={},
@@ -214,9 +214,10 @@ def test_walker_dispatch_verifies_each_named_identity_before_browsing():
         "--declarations-json DECLARATIONS_JSON --json",
     ]
     assert "HUMAN_GATE" in clause and "--identity NAME" in clause
+    assert preferred is None
     assert walker_identity_dispatch(
         {"method_config": {}}, base, browser_settings={}, execution_target={}
-    ) == ([], [], "")
+    ) == ([], [], "", None)
 
 
 def test_browser_control_settings_refuse_a_malformed_identity_on_write():

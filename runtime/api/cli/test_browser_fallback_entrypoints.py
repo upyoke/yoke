@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts.browser_identity import parse_identity_declarations
 from yoke_cli.config import browser_executable, browser_identities, browser_profile
 from yoke_cli.commands import browser_authorize, browser_sign_in, qa_browser_lifecycle
 from yoke_core.domain import browser_client, browser_client_lifecycle
@@ -77,8 +76,8 @@ def test_authorize_preserves_setup_selected_environment(fallback, monkeypatch, c
     )
     monkeypatch.setattr(
         browser_identities,
-        "declared_identities",
-        lambda key, **k: parse_identity_declarations({}),
+        "declared_settings",
+        lambda key, **k: {},
     )
     monkeypatch.setattr(browser_authorize, "keep_sign_in_cookies", lambda *a: 0)
     assert not config.exists()

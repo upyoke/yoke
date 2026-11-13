@@ -42,7 +42,7 @@ def _settings():
     ],
 )
 def test_defaults_match_target_origin(url, expected):
-    identities, commands, clause = walker_identity_dispatch(
+    identities, commands, clause, _ = walker_identity_dispatch(
         {"method_config": {}},
         "host-command",
         browser_settings=_settings(),
@@ -57,7 +57,7 @@ def test_defaults_match_target_origin(url, expected):
 
 
 def test_explicit_list_wins_over_project_declarations():
-    identities, commands, _ = walker_identity_dispatch(
+    identities, commands, _, _ = walker_identity_dispatch(
         {"method_config": {"browser_identities": ["other"]}},
         "host-command",
         browser_settings=_settings(),
@@ -68,13 +68,13 @@ def test_explicit_list_wins_over_project_declarations():
 
 
 def test_undeclared_project_has_no_implicit_default():
-    identities, commands, clause = walker_identity_dispatch(
+    identities, commands, clause, preferred = walker_identity_dispatch(
         {},
         "host-command",
         browser_settings={},
         execution_target={"endpoints": {"base_url": "https://shop.example"}},
     )
-    assert (identities, commands, clause) == ([], [], "")
+    assert (identities, commands, clause, preferred) == ([], [], "", None)
 
 
 @pytest.mark.parametrize("raw", ["not JSON", "[]"])

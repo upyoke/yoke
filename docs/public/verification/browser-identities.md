@@ -34,6 +34,11 @@ clicks the account recorded on that identity's `accounts.google.com` site.
 ]}}}
 ```
 
+An optional top-level `"default_identity": "NAME"` names the declared identity
+that `yoke browser verify` and `authorize` use when `--identity` is omitted, and
+that walker briefs offer first. Writing settings whose `default_identity` names
+no declared identity refuses with `browser_identity_undeclared`.
+
 Set it with `yoke projects capability-settings set --project P --cap-type
 browser-control`. Credentials outside the browser (CLI tokens, API keys) stay on
 the capability-secrets surface; an identity holds only browser sessions.
@@ -55,9 +60,10 @@ with a tab per expired human site, naming the identity,
 the site and the account, and checks again after the window closes. A site
 whose check cannot be reached fails by name: no sign-in fixes it.
 
-If `default` declares no sites while other identities do, omitting `--identity`
-refuses with `browser_identity_required` and names the choices before any window
-opens. Choose the declared identity; site, origin and account instructions print
+Omitting `--identity` uses `default_identity` when the project sets it. Without
+it, if `default` declares no sites while other identities do, omitting
+`--identity` refuses with `browser_identity_required` and names the choices
+before any window opens. Choose the declared identity; site, origin and account instructions print
 on the workstation before its viewer opens.
 Linux remote authorization streams progress as it runs. JSON mode keeps stdout
 for the final receipt and sends progress to stderr.
@@ -205,7 +211,7 @@ with a private copy of the `default` profile without requiring a sign-in
 identity, even when the project declares named identities. The runner
 can also select a recorded account if navigation reaches its account chooser.
 `authorize` and `verify` still refuse a missing `--identity` when `default`
-has no sites and another identity does. Each check gets a separate daemon,
+has no sites, another identity does, and no `default_identity` is set. Each check gets a separate daemon,
 including checks using the same identity at the same time. Its copy stays under
 the machine's owner-only Yoke secret directory and is removed when the check
 ends; copies whose owning process has exited are swept on the next browser
@@ -215,7 +221,9 @@ For an interactive step sequence, `qa browser setup --json` returns a
 `check_id`. Pass `--check-id ID --keep-open` on intermediate `qa browser step`
 calls, then omit `--keep-open` on the final call to close and delete the copy.
 A first step with `--keep-open` can also start the sequence and return its id.
-Pass the same `--project` and `--identity` on every call.
+Pass the same `--project` on every call. A call with `--check-id` and no
+`--identity` uses the identity that check recorded; naming a different one
+refuses with `browser_check_identity_mismatch`.
 Use `qa browser stop --check-id ID` to close it early, including after an error.
 Inspect its PID and health with `qa browser status --check-id ID --json`.
 An idle browser exits after ten minutes and its copy becomes sweepable.
@@ -223,9 +231,13 @@ An idle browser exits after ten minutes and its copy becomes sweepable.
 pages merely by choosing the same identity or page name. An
 exploratory mission can select personas with `method_config.browser_identities`,
 for example `["operator"]`; this list wins. With no list, dispatch supplies all
-project-declared identities whose sites cover the target base URL origin,
-including their site checks and accounts through the declarations. The walker
-chooses the account the case needs. An uncovered target supplies no identities.
+project-declared identities with a site on the origin of any of the target's
+`*_url` endpoints (`base_url`, `app_url`, `api_url` and so on), including their
+site checks and accounts through the declarations. When the project's
+`default_identity` is among them, the brief lists it first and its setup and
+step commands pass `--identity` with it; the walker uses it unless the case
+needs another account. Otherwise the walker chooses the account the case needs.
+An uncovered target supplies no identities.
 Any mission with selected identities
 uses the managed browser even when it installs nothing; host-browser access
 is reserved for missions naming none that have not installed Yoke.
