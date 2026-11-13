@@ -98,6 +98,17 @@ field of an existing case and would reset its stored value is refused as
 refuses as `stage_reason_invalid`. Target resolution uses `target_envs`
 independently of this metadata.
 
+A case runs against each environment in `target_envs`, or the plan's bound
+environment when the list is empty. Any Yoke endpoint or environment name the
+case pins must belong to that target. Writing the cases, attaching the plan to
+an item (`yoke qa item-plan attach`) and setting it as a project default all
+refuse a case that names another environment's endpoint as
+`case_target_mismatch`, naming the plan, case and environment. Name only that
+environment's endpoints, or list the environment the endpoint belongs to in
+`target_envs`. A plan with no bound environment has no default endpoints to
+check. If a stored requirement still fails this check when it runs, the
+refusal names the requirement, its case, its item and any deployment run.
+
 When the plan's project declares `qa.restrict_execution_to_self: true` on the
 environment the control plane runs as, that control plane runs only QA that
 targets its own environment; Yoke's hosted Stage and Production declare it. There,

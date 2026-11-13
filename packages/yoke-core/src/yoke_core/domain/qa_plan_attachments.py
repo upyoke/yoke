@@ -27,7 +27,10 @@ from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-from yoke_core.domain.qa_plan_case_targets import case_variants
+from yoke_core.domain.qa_plan_case_targets import (
+    case_variants,
+    validate_plan_case_targets,
+)
 from yoke_core.domain.qa_plan_project_defaults import (
     set_project_default,
     unset_project_default,
@@ -60,6 +63,7 @@ def attach_plan_to_item(
     """Add an item-specific plan attachment after enforcing project scope."""
     plan = _plan_row(conn, plan_id)
     require_plan_cases(conn, plan_id)
+    validate_plan_case_targets(conn, plan=plan)
     if qa_phase == "post_deploy":
         from yoke_core.domain.qa_plan_attachment_validation import refuse_deployment_ci_cases
 

@@ -199,12 +199,17 @@ def case_target_subject(case: Any, definition: Mapping[str, Any]) -> dict[str, A
     reads them from the derivation rather than from the raw case row — the two
     can differ, and the frozen row is the one that matters.
     """
+    method_config = definition["method_config"]
     return {
         "method_id": case["method_id"],
         "instructions": case["instructions"],
         "expected_outcome": case["expected_outcome"],
-        "method_config": json.loads(str(definition["method_config"])),
-        "entry_surface": case["entry_surface"],
+        "method_config": (
+            dict(method_config)
+            if isinstance(method_config, Mapping)
+            else json.loads(str(method_config or "{}"))
+        ),
+        "entry_surface": case.get("entry_surface"),
     }
 
 
