@@ -19,8 +19,14 @@ from __future__ import annotations
 from yoke_contracts.runtime_ports.dispatcher import get_dispatcher
 from yoke_contracts.runtime_ports.https import get_https
 
+import sys
 import time
 from dataclasses import dataclass
+
+from yoke_core.domain.deploy_pipeline_control_plane import (
+    READ_RETRY_BACKOFF_SECONDS,
+    READ_RETRY_CODES,
+)
 
 #: Read that exercises the whole server path — dispatch, engine imports,
 #: connection pool, and a real multi-table query plan — while needing no
@@ -107,7 +113,20 @@ def warm_up_environment(
         intent="deploy warm-up",
     )
     started = _monotonic()
-    response = relay_https(request, connection, timeout_s=timeout_s)
+    delays = iter(READ_RETRY_BACKOFF_SECONDS)
+    while True:
+        response = relay_https(request, connection, timeout_s=timeout_s)
+        error = None if response.success else response.error
+        if error is None or error.code not in READ_RETRY_CODES:
+            break
+        delay = next(delays, None)
+        if delay is None:
+            break
+        print(
+            f"{function_id} answered {error.code}; reading again in {delay:g}s",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
     latency_ms = int((_monotonic() - started) * 1000)
     if response.success:
         return WarmUpOutcome(
@@ -130,7 +149,8 @@ def warm_up_environment(
         latency_ms=latency_ms,
         detail=(
             f"{function_id} failed against {env} after {latency_ms}ms "
-            f"(timeout {timeout_s:g}s) — {reason}"
+            f"(timeout {timeout_s:g}s per attempt) — {reason}. "
+            "Inspect the target connection and server before resuming the deployment run."
         ),
     )
 

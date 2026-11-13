@@ -141,11 +141,13 @@ a changed commit, a newer deploy from another flow, or an earlier run that
 failed or has no receipt. `--fresh` always dispatches, and so does a serving
 build without the function. Owner: `deployment_run_delivery_reuse`.
 
-**`warm-up`:** makes one heavy relayed call against the rolled environment.
+**`warm-up`:** makes a heavy relayed read against the rolled environment.
 Required `connection_env` names its client connection; `function` defaults to
 read-only `board.data.get`; `timeout_s` defaults to 180. Pass requires an actual
 answer. `DeploymentRunWarmedUp` records function, connection and latency;
-transport/function failure fails the stage. Owner: `yoke_core.domain.deploy_warm_up`.
+Transient read errors use the deploy driver’s shared retry codes and backoff:
+six attempts with 62s total backoff, about 212s at the 25s read deadline.
+Other errors fail immediately; exhausted retries fail with the real error. Owner: `yoke_core.domain.deploy_warm_up`.
 
 **`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's referenced environment settings as the declared `hosts.api` URL plus `health_path` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 

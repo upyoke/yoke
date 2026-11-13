@@ -171,23 +171,13 @@ jobs:
               exit 1
             fi
             echo "$workflow run: https://github.com/upyoke/yoke/actions/runs/$run_id"
-            if ! factory_state="$(gh run view "$run_id" \
-              --repo upyoke/yoke \
-              --json status,conclusion \
-              --jq '[.status, .conclusion] | @tsv')"; then
-              echo "factory_run_state_lookup_failed: check GitHub Actions availability and token permissions, then retry the deployment run" >&2
-              exit 1
-            fi
-            IFS=$'\t' read -r factory_status factory_conclusion \
-              <<< "$factory_state"
-            if [ "$factory_status" = "completed" ] && [ "$factory_conclusion" = "failure" ]; then
-              echo "factory_failed: $workflow run $run_id failed; inspect it, fix the cause on main, and start a new deployment run" >&2
-              exit 1
-            fi
-            yoke github-actions wait-run \
+            if ! yoke github-actions wait-run \
               upyoke/yoke "$run_id" \
               --project yoke \
-              --timeout 3600
+              --timeout 3600; then
+              echo "factory_failed: $workflow run $run_id did not succeed; inspect it, fix the cause on main, and start a new deployment run" >&2
+              exit 1
+            fi
           done
 
       - name: Switch to scoped Platform promotion authority

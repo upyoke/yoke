@@ -52,12 +52,12 @@ def test_an_expired_read_is_asked_again_until_it_answers(monkeypatch, sleeps, ca
 
     assert control_plane.unresolved_qa(RUN) == ["requirement #7"]
     assert dispatch.call_count == 2
-    assert sleeps == [control_plane._READ_RETRY_BACKOFF_SECONDS[0]]
+    assert sleeps == [control_plane.READ_RETRY_BACKOFF_SECONDS[0]]
     assert "answered read_deadline_exceeded; reading again" in capsys.readouterr().err
 
 
 def test_a_read_that_keeps_expiring_fails_with_the_driver_recovery(monkeypatch, sleeps):
-    attempts = len(control_plane._READ_RETRY_BACKOFF_SECONDS) + 1
+    attempts = len(control_plane.READ_RETRY_BACKOFF_SECONDS) + 1
     dispatch = Mock(side_effect=[_expired() for _ in range(attempts)])
     monkeypatch.setattr(control_plane, "call_dispatcher", dispatch)
 
@@ -65,7 +65,7 @@ def test_a_read_that_keeps_expiring_fails_with_the_driver_recovery(monkeypatch, 
         control_plane.unresolved_qa(RUN)
 
     assert dispatch.call_count == attempts
-    assert sleeps == list(control_plane._READ_RETRY_BACKOFF_SECONDS)
+    assert sleeps == list(control_plane.READ_RETRY_BACKOFF_SECONDS)
     assert raised.value.code == control_plane.READ_DEADLINE_CODE
     message = str(raised.value)
     assert f"Every one of {attempts} attempts expired" in message
@@ -114,11 +114,11 @@ def test_connection_failure_read_recovers(monkeypatch, sleeps, capsys, code):
 
     assert control_plane.unresolved_qa(RUN) == []
     assert dispatch.call_count == 2
-    assert sleeps == [control_plane._READ_RETRY_BACKOFF_SECONDS[0]]
+    assert sleeps == [control_plane.READ_RETRY_BACKOFF_SECONDS[0]]
     assert f"answered {code}; reading again" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("code", sorted(control_plane._READ_RETRY_CODES))
+@pytest.mark.parametrize("code", sorted(control_plane.READ_RETRY_CODES))
 def test_exhausted_read_has_resume_hint(monkeypatch, sleeps, code):
     response = _expired()
     response.error.code = code
@@ -129,8 +129,8 @@ def test_exhausted_read_has_resume_hint(monkeypatch, sleeps, code):
     with pytest.raises(control_plane.DeploymentControlPlaneError) as raised:
         control_plane.unresolved_qa(RUN)
 
-    assert dispatch.call_count == len(control_plane._READ_RETRY_BACKOFF_SECONDS) + 1
-    assert sleeps == list(control_plane._READ_RETRY_BACKOFF_SECONDS)
+    assert dispatch.call_count == len(control_plane.READ_RETRY_BACKOFF_SECONDS) + 1
+    assert sleeps == list(control_plane.READ_RETRY_BACKOFF_SECONDS)
     assert f"yoke watch deploy -- {RUN}" in str(raised.value)
     assert raised.value.code == code
     if code != control_plane.READ_DEADLINE_CODE:

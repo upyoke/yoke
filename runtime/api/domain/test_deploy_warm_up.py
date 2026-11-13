@@ -108,6 +108,7 @@ class TestWarmUpEnvironment:
                 "yoke_cli.transport.https.relay_https",
                 return_value=_response(False, error),
             ),
+            mock.patch.object(deploy_warm_up.time, "sleep"),
             _clock(0.0, 180.0),
         ):
             outcome = deploy_warm_up.warm_up_environment("prod")
