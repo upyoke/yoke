@@ -63,16 +63,6 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         ephemeral_policy_from_capability("project", payload, deploy_namespace="project")
         return json_helper.dumps_compact(payload)
 
-    from yoke_core.domain.github_actions_runner_fleet_capability import (
-        CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
-    )
-
-    if cap_type == RUNNER_FLEET_CAPABILITY_TYPE:
-        from yoke_core.domain.github_actions_runner_fleet_capability import (
-            validate_json_string,
-        )
-
-        return validate_json_string(raw_json)
     if cap_type == BROWSER_CONTROL_CAPABILITY:
         from yoke_contracts.browser_identity import (
             declared_default_identity,

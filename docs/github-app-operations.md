@@ -9,7 +9,7 @@ Product flows never ask users to paste a GitHub credential; shared [access-chang
 An App owner/manager registers the App; account/organization owners approve
 installations and permission increases. Yoke manages device authorization and
 refresh rotation, verified bindings, scoped installation tokens, external key
-references, and optional Pulumi runner-webhook/HMAC delivery.
+references.
 
 The private-key container and value are external bootstrap authority. Pulumi
 receives only a Secrets Manager ARN: never put the PEM in source, Pulumi
@@ -32,7 +32,7 @@ for deployment reporting. It cannot read the infrastructure render snapshot,
 fetch install bundles, sync snapshots, mutate onboarding/backlog/project
 settings, write repository configuration, administer runners/webhooks, or
 access another project. A separate `infrastructure_ci` actor owns secret-free
-render and runner-token authority; never reuse its token for deploy relay.
+render snapshot authority; never reuse its token for deploy relay.
 Owners and org admins retain their permission wildcards.
 
 Workflow dispatch asks GitHub for the exact run id and disables retries on the
@@ -91,8 +91,6 @@ Set or review these fields:
 | App-level webhook | Hosted Product App: active at its exact Platform origin plus `/api/github/webhooks`, using an environment-owned webhook secret in Platform secret custody. |
 | Optional webhook events | Leave the checklist entirely unchecked. GitHub sends `github_app_authorization`, `installation`, and `installation_repositories` automatically; they are not optional subscriptions, so public App metadata correctly reports `events: []`. |
 
-The runner fleet uses a Pulumi-managed **repository webhook**, separate from the App-level webhook.
-
 Baseline repository permissions are:
 
 - Actions: write
@@ -106,29 +104,21 @@ Baseline repository permissions are:
 - Variables: write
 - Workflows: write
 
-Administration and Webhooks (`repository_hooks`) write belong to the privileged
-runner fleet authority, not the customer-facing Product App. GitHub App
-permissions apply to the registration and are presented to every installation;
-they are not independently optional per repository. Configure the runner fleet
-with an explicit capability selector for a dedicated operator-only App binding,
-limited to the repository that hosts the fleet. Baseline product operations use
-the canonical project `github` binding without Administration or Webhooks;
-runner operations use the selected privileged binding and mint separate,
-repository-scoped tokens with only their required permissions.
+Administration write is reserved for explicit repository and merge-queue setup.
+Baseline product operations use the canonical project `github` binding without
+Administration or repository Webhooks authority.
 
 CLI device authorization uses the public client id without a client secret. Hosted
 OAuth needs a product-owned client secret; store it and the distinct webhook secret
 only in Platform's owner-only custody. Server automation separately signs App JWTs
-with the private key. Leave the Development App's hosted fields unchanged; its
-privileged runner lane uses the separate repository webhook described above.
+with the private key. Leave the Development App's hosted fields unchanged.
 
 ## Installation And Repository Scope
 
 For the product App, choose **All repositories** so new repositories work
 without another settings visit; this grants access to every repository in the
 account. Setup and status recommend switching selected installations through
-their direct settings link. Keep the separate privileged runner App on
-**Only select repositories**; see [public GitHub guidance](public/github/index.md).
+their direct settings link; see [public GitHub guidance](public/github/index.md).
 
 After installation or a permission/repository change:
 
@@ -140,76 +130,6 @@ yoke projects github-binding status --project <project>
 Re-bind the project when the server's verified installation metadata needs to
 be refreshed. The binding stores only non-secret installation, repository,
 origin, permission, and status metadata.
-
-## Existing Runner Variable Adoption
-
-The runner stack owns the configured Actions variable. Before the first apply,
-run `yoke github-actions runners status --project <project>`. An
-`adopt_runner_routing_variable` result means the variable already exists and
-Pulumi must adopt it before changing its value; applying first fails loudly on
-the GitHub name collision.
-
-The imported resource is a child of the runner-fleet component and uses its
-explicit GitHub provider. Both must already exist in stack state. For a new
-runner-fleet stack, leave `routing_enabled=false`, render and apply the base
-stack once, and confirm a zero-change preview. That base apply creates the
-component, provider, webhook, and fleet without managing or changing the
-pre-existing variable. Then set `routing_enabled=true` and render again.
-
-From the rendered `infra/` directory, use the same validated settings envelope
-and short-lived repository authority as every other runner operation. First
-have Pulumi generate the import record from the exact rendered program so the
-record carries the correct parent and provider references:
-
-For local recovery when the machine's App-user session is unavailable, the
-stack-scoped executor can mint the same narrow repository token from the
-capability-owned AWS secret without falling back to ambient credentials:
-
-```bash
-yoke pulumi exec --project <project> --stack <runner-fleet-stack> \
-  --bootstrap-local-authority -- \
-  preview --refresh --diff --non-interactive
-```
-
-The bootstrap flag is accepted only for a runner-fleet stack and is refused in
-GitHub Actions. Normal local operation continues to use the signed-in App-user
-session. In GitHub Actions, `yoke pulumi exec` keeps the workflow's ambient AWS
-OIDC authority and automatically invokes the hosted runner-fleet broker for the
-narrow repository token; the workflow does not need a GitHub App private key or
-repository token of its own.
-
-```bash
-yoke runner-fleet exec --project <project> \
-  --settings-file <stack-config.json> -- \
-  pulumi preview --stack <runner-fleet-stack> --refresh \
-  --import-file <preview-import-file.json> --non-interactive
-
-yoke runner-fleet exec --project <project> \
-  --settings-file <stack-config.json> -- \
-  pulumi import --stack <runner-fleet-stack> \
-  --file <runner-variable-import-file.json> \
-  --protect=false --generate-code=false --yes --non-interactive
-```
-
-The generated preview import file must contain exactly one create after the
-base stack is converged: type
-`github:index/actionsVariable:ActionsVariable`, name
-`runnerFleetRoutingVariable`. Copy only that complete record to
-`<runner-variable-import-file.json>`, preserve its generated `parent` and
-`provider` fields unchanged, and set its `id` to
-`<repository-name>:<variable-name>`. Stop if the candidate is missing, is not
-unique, lacks either relationship, or the preview contains a replacement or
-delete. Do not use a positional `pulumi import` without `--parent` and
-`--provider`; it creates the wrong Pulumi identity for this child resource.
-
-Preview immediately after import and verify the only planned change is the
-compact label array, then apply and require a final zero-change refresh
-preview. If routing is disabled and status reports
-`resolve_runner_routing_variable`, review ownership and deliberately
-delete/rename the nonmatching variable, or follow the base-apply and adoption
-sequence above before any apply that declares the variable. Absence is the
-only clean disabled state. Never repair this path with a direct variable
-write.
 
 ## Hosted Secret Bootstrap
 
@@ -276,8 +196,7 @@ the generated bundle's ignored `secrets/` directory.
 
 Overlap active keys; rotate one registration at a time:
 
-1. Inventory every hosted environment, self-hosted server, and runner fleet
-   using the App and its secret reference.
+1. Inventory every hosted environment and self-hosted server using the App and its secret reference.
 2. Generate a second private key in the GitHub App settings. Keep the old key
    active.
 3. Protect the download as `0600` and verify its fingerprint against GitHub.
@@ -306,8 +225,6 @@ Overlap active keys; rotate one registration at a time:
    ```
 5. Redeploy every hosted core environment that references the ARN. Recreate the
    self-hosted `core` container so its secret mount uses the replacement file.
-   Reconcile each runner-fleet stack through `yoke pulumi exec`; its Lambdas
-   read the current secret version when minting tokens.
 6. Against each control plane, verify a bound project through the server-side
    resolver:
 
@@ -315,8 +232,7 @@ Overlap active keys; rotate one registration at a time:
    yoke doctor run --only HC-project-gh-auth --project <project>
    ```
 
-   Also run the runner-fleet smoke path where that privileged capability is
-   enabled. A machine-only `yoke github status` verifies user authorization,
+   A machine-only `yoke github status` verifies user authorization,
    not the hosted private key, so it is not sufficient rotation evidence.
 7. Delete the old private key in GitHub only after every consumer is green.
    Repeat the server-side checks once more.
@@ -334,9 +250,7 @@ the affected GitHub key once the new path is verified. If risk does not permit a
 window, revoke immediately and accept temporary downtime. Review repository scope and
 permissions; suspend or uninstall affected installations when containment requires it.
 
-Rotate the runner repository-webhook HMAC through Pulumi so GitHub's webhook
-configuration and the Lambda verifier change together. Do not edit only the SSM
-parameter. If a machine refresh credential is exposed, revoke the GitHub user
+If a machine refresh credential is exposed, revoke the GitHub user
 authorization and run `yoke github disconnect` on the machine before
 reconnecting.
 

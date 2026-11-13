@@ -20,14 +20,11 @@ from yoke_cli.config import existing_project_lookup, machine_config
 from yoke_cli.transport.pulumi_github_authority import (
     build_pulumi_github_auth_loader,
 )
-from yoke_cli.transport.runner_fleet_token import (
-    fetch_repository_provider_token,
-)
 
 
 PULUMI_EXEC_USAGE = (
     "yoke pulumi exec --project NAME --stack STACK "
-    "[--bootstrap-local-authority] [--confirm-destroy STACK] [--session-id S] -- "
+    "[--confirm-destroy STACK] [--session-id S] -- "
     "<init|preview|refresh|import|up|destroy|stack rm|stack output args>"
 )
 
@@ -42,8 +39,8 @@ def pulumi_exec(args: List[str]) -> int:
             "checked-in infra/Pulumi.<stack>.yaml: a temp copy of infra/ with "
             "Yoke-owned values added under the reserved yoke: config namespace "
             "(read them with pulumi.Config(\"yoke\")); the file may set only "
-            "yoke:github_access (metadata, the default; variables; "
-            "runner_fleet). A stack without that file is refused. "
+            "yoke:github_access (metadata, the default; variables). "
+            "A stack without that file is refused. "
             "`init --secrets-provider <awskms URI>` (pinned to the project's "
             "pulumi-state KMS key) prints the secretsprovider and encryptedkey "
             "lines to commit into the stack file; Yoke stores neither. Preview "
@@ -72,14 +69,6 @@ def pulumi_exec(args: List[str]) -> int:
     )
     parser.add_argument("--stack", required=True, help="Pulumi stack to run against.")
     parser.add_argument(
-        "--bootstrap-local-authority",
-        action="store_true",
-        help=(
-            "Recovery only: mint the runner-fleet repository token from "
-            "capability-owned local AWS authority."
-        ),
-    )
-    parser.add_argument(
         "--confirm-destroy",
         metavar="STACK",
         help=(
@@ -103,23 +92,7 @@ def pulumi_exec(args: List[str]) -> int:
     if not command:
         print(f"Usage: {PULUMI_EXEC_USAGE}", file=sys.stderr)
         return 2
-    if command[0] == "init" and parsed.bootstrap_local_authority:
-        print(
-            "error: --bootstrap-local-authority is limited to initialized "
-            "runner-fleet stack operations and cannot be combined with init",
-            file=sys.stderr,
-        )
-        return 2
     ensure_handlers_loaded()
-
-    def hosted_repository_token_loader(
-        project: str, authority_intent: str, aws_env: Mapping[str, str]
-    ) -> str:
-        return fetch_repository_provider_token(
-            project=project,
-            authority_intent=authority_intent,
-            aws_env=aws_env,
-        )
 
     try:
         caller_root = _current_git_root()
@@ -139,8 +112,6 @@ def pulumi_exec(args: List[str]) -> int:
             github_auth_loader=build_pulumi_github_auth_loader(
                 session_id=parsed.session_id
             ),
-            hosted_repository_token_loader=hosted_repository_token_loader,
-            bootstrap_local_authority=parsed.bootstrap_local_authority,
             confirm_destroy=parsed.confirm_destroy,
         )
     except FileNotFoundError as exc:

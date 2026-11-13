@@ -103,6 +103,14 @@ RETIRED_PROJECT_KEYS: Dict[str, str] = {
     ),
 }
 
+# Retired keys in opt-in capability documents use the same convergence owner.
+RETIRED_CAPABILITY_KEYS: Dict[str, Dict[str, str]] = {
+    PROJECT_POLICY_CAPABILITY: RETIRED_PROJECT_KEYS,
+    "pulumi-state": {
+        "runner_fleet_stack_name": "runner infrastructure is project-owned",
+    },
+}
+
 # Typed int form of the ``wip_cap`` source default — import this instead of
 # restating the numeric literal at call sites and response-model defaults.
 DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"].default)

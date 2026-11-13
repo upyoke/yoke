@@ -15,7 +15,7 @@ The stack file is authoritative for every project value, including its
 as text, so the file's other entries keep their exact spelling, quoting and
 comments; nothing is defaulted, re-typed or blanked. The only ``yoke:`` key
 the file may set is ``yoke:github_access`` (metadata, variables or
-runner_fleet; unset means metadata). Values are never delivered as
+unset means metadata). Values are never delivered as
 ``--config`` flags (Pulumi persists those into the stack file) or as
 environment variables (programs do not read those as config).
 

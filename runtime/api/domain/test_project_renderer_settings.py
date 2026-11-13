@@ -43,7 +43,7 @@ class TestProjectRendererSettingsLoader:
                     json.dumps(
                         {
                             "deploy_namespace": "yoke",
-                            "stacks": ["registry", "runner-fleet"],
+                            "stacks": ["registry", "jobs"],
                         }
                     ),
                 ),

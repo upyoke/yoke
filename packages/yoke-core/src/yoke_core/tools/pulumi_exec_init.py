@@ -20,7 +20,7 @@ from yoke_core.tools.pulumi_exec_types import (
     AMBIENT_GITHUB_ENV,
     PulumiExecError,
 )
-from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
+from yoke_core.tools.redacted_process import run_redacted_child
 
 
 def execute_pulumi_stack_init(

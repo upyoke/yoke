@@ -10,18 +10,12 @@ from __future__ import annotations
 
 from typing import Any, Collection, Dict
 
-from yoke_core.domain.project_renderer_pulumi_runner_fleet import (
-    runner_fleet_values,
-)
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     _first_mapping,
     _stringify,
     primary_domain,
     primary_server,
-)
-from yoke_core.domain.github_actions_runner_fleet_capability import (
-    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
 )
 
 
@@ -44,21 +38,8 @@ def pack_render_values(
     *,
     required_keys: Collection[str],
 ) -> Dict[str, str]:
-    """Return the requested Pack render values the project can supply.
-
-    Runner-fleet values are built only when a Pack asks for one, and are
-    validated as enabled when the project holds the runner-fleet capability.
-    """
+    """Return the requested Pack render values the project can supply."""
     values = _values_from_settings(project, settings)
-    if any(key.startswith("runner_fleet_") for key in required_keys):
-        github = settings.capabilities.get("github", {})
-        owner = _stringify(github.get("repo_owner"))
-        repo = _stringify(github.get("repo_name"))
-        values.update(runner_fleet_values(
-            settings,
-            fallback_repo=f"{owner}/{repo}" if owner and repo else "",
-            enabled=RUNNER_FLEET_CAPABILITY_TYPE in settings.capabilities,
-        ))
     return {key: values[key] for key in required_keys if key in values}
 
 

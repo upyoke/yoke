@@ -22,9 +22,6 @@ from typing import Optional
 
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
-from yoke_core.domain.github_actions_runner_fleet_capability import (
-    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
-)
 
 
 def _placeholder(conn) -> str:
@@ -98,23 +95,6 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '{"key":"installation_id","description":"GitHub App installation id","secret":false},'
         '{"key":"repository_id","description":"GitHub repository id","secret":false}]',
         "[]",
-    ),
-    (
-        RUNNER_FLEET_CAPABILITY_TYPE,
-        "GitHub Actions Runner Fleet",
-        "Dedicated EC2-backed self-hosted GitHub Actions runner capacity. "
-        "Requires github and aws-admin.",
-        '[{"key":"repo","description":"GitHub repo slug owner/name","secret":false},'
-        '{"key":"github_capability","description":"Explicit canonical GitHub binding selector","secret":false},'
-        '{"key":"github_app","description":"Operator GitHub App issuer, API origin, and private-key secret ARN","secret":false},'
-        '{"key":"runner_labels","description":"Required runs-on labels","secret":false},'
-        '{"key":"variable_name","description":"Actions variable holding the runs-on array","secret":false},'
-        '{"key":"routing_enabled","description":"Reconcile the self-hosted Actions route","secret":false},'
-        '{"key":"desired_runner_count","description":"Runner hosts started for matching queued work","secret":false},'
-        '{"key":"max_runner_count","description":"Maximum isolated runner host count","secret":false},'
-        '{"key":"instance","description":"EC2 instance sizing settings","secret":false},'
-        '{"key":"lifecycle","description":"Start and idle-shutdown settings","secret":false}]',
-        '["github","aws-admin"]',
     ),
     (
         "health-endpoint",

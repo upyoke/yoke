@@ -37,7 +37,7 @@ def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
             "echo": True,
             "ready": False,
             "routing_armed": True,
-            "action": "routing_armed_idle",
+            "action": "register_runner",
         },
     )
 
@@ -77,7 +77,6 @@ def test_default_runner_status_payload() -> None:
         "required_labels": [],
         "variable_name": "",
         "project": "yoke",
-        "runner_capability": "github-actions-runner-fleet",
     }
 
 
@@ -130,7 +129,6 @@ def test_custom_labels_and_project_payload() -> None:
         "required_labels": ["self-hosted", "linux", "gpu"],
         "variable_name": "CUSTOM_RUNS_ON",
         "project": "externalwebapp",
-        "runner_capability": "github-actions-runner-fleet",
     }
 
 
@@ -146,7 +144,7 @@ def test_runner_capability_override_is_not_a_supported_cli_option() -> None:
     assert _CAPTURED_REQUESTS == []
 
 
-def test_repo_can_be_omitted_for_capability_config() -> None:
+def test_repo_can_be_omitted_for_project_binding() -> None:
     rc, _out, _err = _run(
         "github-actions", "runners", "status",
         "--project", "yoke",
@@ -158,7 +156,6 @@ def test_repo_can_be_omitted_for_capability_config() -> None:
         "required_labels": [],
         "variable_name": "",
         "project": "yoke",
-        "runner_capability": "github-actions-runner-fleet",
     }
 
 
@@ -172,7 +169,7 @@ def test_repo_without_slash_returns_two() -> None:
     assert _CAPTURED_REQUESTS == []
 
 
-def test_json_output_preserves_routing_armed_idle_state() -> None:
+def test_json_output_preserves_runner_state() -> None:
     rc, out, err = _run(
         "github-actions", "runners", "status", "upyoke/yoke",
         "--project", "yoke", "--json",
@@ -183,4 +180,4 @@ def test_json_output_preserves_routing_armed_idle_state() -> None:
     payload = json.loads(out)
     assert payload["result"]["ready"] is False
     assert payload["result"]["routing_armed"] is True
-    assert payload["result"]["action"] == "routing_armed_idle"
+    assert payload["result"]["action"] == "register_runner"

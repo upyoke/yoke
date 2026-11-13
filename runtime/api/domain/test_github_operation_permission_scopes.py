@@ -34,11 +34,6 @@ _PRIVILEGED_SCOPE_ALLOWLIST = frozenset({
     ("packages/yoke-core/src/yoke_core/engines/doctor_hc_merge_queue.py",
      "hc_merge_queue_binding", "GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS"),
     (
-        "packages/yoke-core/src/yoke_core/domain/bootstrap_project_setup.py",
-        "run_setup",
-        "GITHUB_ENVIRONMENT_WRITE_PERMISSION_LEVELS",
-    ),
-    (
         "packages/yoke-core/src/yoke_core/domain/handlers/"
         "github_actions_runners.py",
         "handle_runners_status",
@@ -64,9 +59,7 @@ _DIRECT_MINTER_ALLOWLIST = frozenset({
         "get_or_mint",
     ),
 })
-_MINTER_IMPORT_ALLOWLIST = frozenset({
-    "packages/yoke-core/src/yoke_core/tools/runner_fleet_exec.py",
-})
+_MINTER_IMPORT_ALLOWLIST = frozenset()
 
 
 def _call_name(call: ast.Call) -> str:

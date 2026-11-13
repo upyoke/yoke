@@ -58,7 +58,7 @@ _PROJECT_INSTALL = _commands(
     "project install|project refresh|project snapshot sync|project uninstall"
 )
 _SOURCE_DEV = _commands(
-    "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin exec|dev db-admin setup|github-actions runners status|merge audit|packets budget get|packets check|packets render|packets startup-delivery get|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|usher reconcile-github"
+    "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin exec|dev db-admin setup|github-actions runners status|merge audit|packets budget get|packets check|packets render|packets startup-delivery get|resync|schema converge|scratch dispatch-inputs|usher reconcile-github"
 )
 _HOOKS = _commands("hook evaluate") | {
     "yoke " + " ".join(key) for key in TOOL_SHAPED_SUBCOMMANDS if key[0] == "git"
@@ -246,9 +246,6 @@ def _config(command: str, disposition: str) -> str:
             "named HTTPS control-plane env plus project/env deploy settings"
         ),
         "yoke aws exec": "project aws-admin capability settings plus local AWS CLI",
-        "yoke runner-fleet exec": (
-            "versioned project stack-config snapshot plus child command"
-        ),
     }
     if command in _PROJECT_INSTALL:
         return "machine config HTTPS env plus project id or checkout mapping"
@@ -275,8 +272,6 @@ def _capability(command: str, disposition: str) -> str:
         return "named HTTPS db.read.run or migration_model capability read plus project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
     if command == "yoke aws exec":
         return "project aws-admin capability credentials"  # noqa: E701
-    if command == "yoke runner-fleet exec":
-        return "project aws-admin plus repository-bound GitHub App authority"  # noqa: E701
     if disposition == HTTPS_RELAY:
         return "server-registered function id"
     if disposition == OPERATOR_DEBUG_PERMANENT:

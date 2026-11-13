@@ -145,3 +145,19 @@ class TestResolveTitleMaxLength:
     def test_missing_project_falls_back_to_the_default(self, policy_conn: Any) -> None:
         assert resolve_title_max_length(policy_conn, 999999) == DEFAULT_TITLE_MAX_LENGTH
         assert resolve_title_max_length(policy_conn, None) == DEFAULT_TITLE_MAX_LENGTH
+
+
+def test_retired_opt_in_capability_keys_converge_without_creating_rows(policy_conn):
+    policy_conn.execute(
+        "INSERT INTO project_capabilities "
+        "(project_id, type, settings, created_at) VALUES (%s, %s, %s, now())",
+        (1, "pulumi-state", json.dumps({
+            "state_bucket": "keep-state",
+            "runner_fleet_stack_name": "retired-stack",
+        })),
+    )
+    report = ensure_default_policy_capabilities(policy_conn)
+    assert report["1"]["pulumi-state"]["retired_keys"] == ["runner_fleet_stack_name"]
+    assert _settings(policy_conn, 1, "pulumi-state") == {"state_bucket": "keep-state"}
+    assert "pulumi-state" not in report["2"]
+    assert ensure_default_policy_capabilities(policy_conn)["1"]["pulumi-state"]["reused"]

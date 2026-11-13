@@ -4,14 +4,12 @@ import pytest
 
 from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
-    _authority_payload,
     _execute,
     _file_project,
 )
 from yoke_core.domain import deploy_remote
 from yoke_core.tools.pulumi_exec import (
     PulumiExecError,
-    _authority_env,
     aws_machine_capability_env,
 )
 
@@ -56,89 +54,10 @@ def test_github_token_for_another_repository_refuses(tmp_path):
         )
 
 
-def test_registry_actions_uses_hosted_repository_token_broker(monkeypatch):
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
-    payload = _authority_payload("platform", "registry")
-    payload["authority"].update(
-        {
-            "github_project": "platform",
-            "github_repo": "upyoke/platform",
-            "github_permissions": {
-                "metadata": "read",
-                "actions_variables": "write",
-            },
-            "hosted_repository_token_intent": "signed-broker-intent",
-        }
-    )
-    seen = {}
-
-    def hosted_loader(project, authority_intent, aws_env):
-        seen.update(
-            {
-                "project": project,
-                "authority_intent": authority_intent,
-                "aws_env": dict(aws_env),
-            }
-        )
-        return "hosted-registry-token"
-
-    env, redaction = _authority_env(
-        "platform",
-        payload["authority"],
-        payload,
-        runner_fleet=False,
-        aws_env_loader=lambda *args, **kwargs: {
-            "AWS_ACCESS_KEY_ID": "oidc-key",
-        },
-        github_auth_loader=lambda *args, **kwargs: pytest.fail(
-            "consulted the ambient repository-token path"
-        ),
-        hosted_repository_token_loader=hosted_loader,
-    )
-
-    assert seen == {
-        "project": "platform",
-        "authority_intent": "signed-broker-intent",
-        "aws_env": {"AWS_ACCESS_KEY_ID": "oidc-key"},
-    }
-    assert env["GITHUB_TOKEN"] == "hosted-registry-token"
-    assert "hosted-registry-token" in redaction
 
 
-def test_registry_actions_requires_configured_repository_broker(monkeypatch):
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
-    payload = _authority_payload("platform", "registry")
-    payload["authority"].update(
-        {
-            "github_project": "platform",
-            "github_repo": "upyoke/platform",
-            "github_permissions": {"actions_variables": "write"},
-        }
-    )
-    with pytest.raises(PulumiExecError, match="provider-token broker"):
-        _authority_env(
-            "platform",
-            payload["authority"],
-            payload,
-            runner_fleet=False,
-            aws_env_loader=lambda *args, **kwargs: {},
-            github_auth_loader=lambda *args, **kwargs: None,
-        )
 
 
-def test_local_bootstrap_refuses_non_runner_stack():
-    payload = _authority_payload("yoke")
-    payload["authority"]["github_repo"] = "upyoke/yoke"
-    with pytest.raises(PulumiExecError, match="limited to the runner-fleet"):
-        _authority_env(
-            "yoke",
-            payload["authority"],
-            payload,
-            runner_fleet=False,
-            aws_env_loader=lambda *args, **kwargs: {},
-            github_auth_loader=lambda *args, **kwargs: None,
-            bootstrap_local_authority=True,
-        )
 
 
 def test_default_aws_authority_reads_machine_files_without_database(

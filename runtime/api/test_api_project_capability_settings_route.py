@@ -138,61 +138,8 @@ def test_https_merges_compose_independent_paths(client):
     }
 
 
-def test_https_runner_fleet_settings_preserve_typed_app_authority(client):
-    settings = {
-        "repo": "upyoke/platform",
-        "github_app": {
-            "issuer": " Iv1.runner-fleet ",
-            "api_url": "https://api.github.com/",
-            "private_key_secret_arn": (
-                "arn:aws:secretsmanager:us-east-1:123456789012:"
-                "secret:yoke-github-app-AbCdEf"
-            ),
-        },
-        "desired_runner_count": 1,
-        "max_runner_count": 1,
-    }
-    response = _call(
-        client,
-        "projects.capability_settings.set",
-        {
-            "project": "yoke",
-            "cap_type": "github-actions-runner-fleet",
-            "settings_json": json.dumps(settings),
-            "create": True,
-        },
-    )
-    assert response.status_code == 200
-    stored = json.loads(response.json()["result"]["settings_json"])
-    assert stored["github_app"]["issuer"] == "Iv1.runner-fleet"
-    assert stored["github_app"]["api_url"] == "https://api.github.com"
 
 
-@pytest.mark.parametrize(
-    "settings",
-    [
-        {"desired_runner_count": 2, "max_runner_count": 1},
-        {"unknown_selector": "must-refuse"},
-    ],
-)
-def test_https_runner_fleet_invalid_or_unknown_fields_refuse_without_mutation(
-    client,
-    settings,
-):
-    response = _call(
-        client,
-        "projects.capability_settings.set",
-        {
-            "project": "yoke",
-            "cap_type": "github-actions-runner-fleet",
-            "settings_json": json.dumps(settings),
-            "create": True,
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
-    absent = _get(client, "github-actions-runner-fleet").json()["result"]
-    assert absent["settings_json"] is None
 
 
 def test_https_unknown_request_field_is_refused(client):

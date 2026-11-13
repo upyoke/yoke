@@ -3,31 +3,18 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from yoke_core.domain import github_actions_runner_status_readiness as readiness
 from yoke_core.domain import json_helper
 from yoke_core.domain.github_actions_runner_routing import (
-    classify_runner_route,
     routing_matches,
-)
-from yoke_core.domain.github_actions_runner_fleet_capability import (
-    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
-    DEFAULT_RUNNER_LABELS,
-    DEFAULT_RUNS_ON_VARIABLE,
-    RunnerFleetSettings,
-    RunnerFleetSettingsError,
-    load_json_string,
 )
 from yoke_core.domain.handlers.github_actions_set import (
     _bad_request,
     _transport_failed,
     _validate_and_resolve_auth,
-)
-from yoke_core.domain.projects_capabilities_settings import (
-    cmd_capability_get_settings,
 )
 from yoke_contracts.api.function_call import (
     FunctionError,
@@ -40,7 +27,7 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 
 
-DEFAULT_REQUIRED_LABELS = DEFAULT_RUNNER_LABELS
+DEFAULT_REQUIRED_LABELS = ("self-hosted",)
 RUNNERS_STATUS_PERMISSION_LEVELS = MappingProxyType({
     **GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
     **GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
@@ -49,35 +36,19 @@ RUNNERS_STATUS_PERMISSION_LEVELS = MappingProxyType({
 
 class RunnersStatusRequest(BaseModel):
     repo: Optional[str] = Field(
-        None,
-        min_length=3,
-        description=(
-            "GitHub repo slug. When omitted, the runner-fleet capability "
-            "must provide it."
-        ),
+        None, min_length=3,
+        description="GitHub repo slug; defaults to the project GitHub binding.",
     )
     required_labels: List[str] = Field(
         default_factory=list,
-        description=(
-            "Labels that must all be present on a usable runner. When "
-            "empty, the runner-fleet capability supplies them."
-        ),
+        description="Labels required on a usable runner; defaults to self-hosted.",
     )
     variable_name: str = Field(
-        "",
-        description=(
-            "Actions variable that routes workflow runs-on. When omitted, "
-            "the runner-fleet capability supplies it."
-        ),
+        "", description="Optional Actions variable containing the runs-on array.",
     )
     project: str = Field(
-        ...,
-        min_length=1,
+        ..., min_length=1,
         description="Project capability owning the GitHub App repo binding.",
-    )
-    runner_capability: Literal[RUNNER_FLEET_CAPABILITY_TYPE] = Field(
-        RUNNER_FLEET_CAPABILITY_TYPE,
-        description="Canonical project capability holding runner fleet settings.",
     )
 
 
@@ -94,24 +65,12 @@ class RunnersStatusResponse(BaseModel):
     required_labels: List[str]
     recommended_value: str
     variable_name: str
-    runner_capability: str
-    capability_configured: bool
-    capability_render_ready: bool
-    configuration_error: Optional[str] = None
-    github_capability: Optional[str] = None
-    github_app_configured: bool
-    provider: str
-    desired_runner_count: int
-    max_runner_count: int
-    instance_type: str
-    root_volume_gb: int
     variable_exists: bool
     variable_value: Optional[str] = None
     runner_count: int
     matching_count: int
     online_matching_count: int
     idle_matching_count: int
-    routing_enabled: bool
     routing_armed: bool
     ready: bool
     action: str
@@ -146,34 +105,16 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         return permission_error
     token = resolved.token
 
-    settings, capability_configured, err = _resolve_runner_fleet_settings(payload)
-    if err is not None:
-        return err
-    repo = (payload.repo or settings.repo or "").strip()
+    repo = (payload.repo or resolved.repo).strip()
     if "/" not in repo:
-        return _bad_request(
-            "repo must be owner/name, either as an argument or in the "
-            f"{payload.runner_capability!r} capability settings",
-            jsonpath="$.payload.repo",
-        )
+        return _bad_request("repo must be owner/name", jsonpath="$.payload.repo")
     if repo.casefold() != resolved.repo.casefold():
         return _bad_request(
             f"repo must match project binding {resolved.repo!r}",
             jsonpath="$.payload.repo",
         )
-    variable_name = (payload.variable_name or settings.variable_name).strip()
-    required = _clean_labels(payload.required_labels or settings.runner_labels)
-    selectors_configured = bool(
-        settings.github_capability and settings.github_app
-    )
-    configuration_error = None
-    if capability_configured and selectors_configured:
-        configuration_error = readiness.runner_fleet_render_error(payload.project)
-    capability_render_ready = bool(
-        capability_configured
-        and selectors_configured
-        and configuration_error is None
-    )
+    variable_name = payload.variable_name.strip()
+    required = _clean_labels(payload.required_labels)
 
     from yoke_core.domain import github_variables_rest
     from yoke_core.domain.gh_rest_transport import RestTransportError
@@ -185,8 +126,9 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
             query={"per_page": "100"},
             token=token,
         )
-        variable_value = github_variables_rest.get_repo_variable(
-            repo, variable_name, token=token,
+        variable_value = (
+            github_variables_rest.get_repo_variable(repo, variable_name, token=token)
+            if variable_name else None
         )
     except RestTransportError as exc:
         return _transport_failed(f"runners status failed: {exc}")
@@ -197,51 +139,31 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
     matching = [runner for runner in runners if _has_labels(runner, required)]
     online = [runner for runner in matching if runner.status == "online"]
     idle = [runner for runner in online if not runner.busy]
-    action, message = classify_runner_route(
-        matching_count=len(matching),
-        online_count=len(online),
-        variable_exists=variable_value is not None,
-        routing_armed=routing_armed,
-        routing_enabled=settings.routing_enabled,
-        capability_configured=capability_render_ready,
-        autoscaled_ephemeral=(
-            capability_configured
-            and settings.lifecycle.start_mode == "autoscaled"
-            and settings.lifecycle.ephemeral_runners
-        ),
-    )
-    if configuration_error:
-        message += f" Renderer preflight: {configuration_error}"
+    if variable_name and not routing_armed:
+        action = "review_runner_routing"
+        message = (
+            "The selected Actions variable does not name the required labels. "
+            "Review the workflow's runs-on expression and variable before retrying."
+        )
+    elif online:
+        action, message = "ready", "Matching online runner exists."
+    elif matching:
+        action, message = "start_runner", "Matching runners are offline; start a runner and retry."
+    else:
+        action, message = "register_runner", "No matching runner is registered; register a runner and retry."
     response = RunnersStatusResponse(
         repo=repo,
         required_labels=required,
         recommended_value=recommended,
         variable_name=variable_name,
-        runner_capability=payload.runner_capability,
-        capability_configured=capability_configured,
-        capability_render_ready=capability_render_ready,
-        configuration_error=configuration_error,
-        github_capability=settings.github_capability,
-        github_app_configured=settings.github_app is not None,
-        provider=settings.provider,
-        desired_runner_count=settings.desired_runner_count,
-        max_runner_count=settings.max_runner_count,
-        instance_type=settings.instance.instance_type,
-        root_volume_gb=settings.instance.root_volume_gb,
         variable_exists=variable_value is not None,
         variable_value=variable_value,
         runner_count=len(runners),
         matching_count=len(matching),
         online_matching_count=len(online),
         idle_matching_count=len(idle),
-        routing_enabled=settings.routing_enabled,
         routing_armed=routing_armed,
-        ready=bool(
-            online
-            and routing_armed
-            and settings.routing_enabled
-            and capability_render_ready
-        ),
+        ready=bool(online and (not variable_name or routing_armed)),
         action=action,
         message=message,
         runners=runners,
@@ -250,20 +172,6 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload=response.model_dump(),
         primary_success=True,
     )
-
-
-def _resolve_runner_fleet_settings(
-    payload: RunnersStatusRequest,
-) -> tuple[RunnerFleetSettings, bool, Optional[HandlerOutcome]]:
-    try:
-        raw = cmd_capability_get_settings(payload.project, payload.runner_capability)
-        return load_json_string(raw), raw is not None, None
-    except (RunnerFleetSettingsError, ValueError) as exc:
-        return (
-            RunnerFleetSettings(),
-            False,
-            _bad_request(str(exc), jsonpath="$.payload.runner_capability"),
-        )
 
 
 def _runner_summaries(data: object) -> List[RunnerSummary]:
@@ -341,7 +249,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
 
 __all__ = [
     "DEFAULT_REQUIRED_LABELS",
-    "DEFAULT_RUNS_ON_VARIABLE",
     "REGISTRATIONS",
     "RunnersStatusRequest",
     "RunnersStatusResponse",
