@@ -11,6 +11,7 @@ import yaml
 from yoke_core.tools.pulumi_exec import PulumiExecError, execute_pulumi_command
 from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
+    _commit_project,
     _init_settings,
 )
 
@@ -210,7 +211,7 @@ def test_init_refuses_a_provider_other_than_the_capability_key(tmp_path):
 
 
 def test_destroy_runs_on_the_file_path(tmp_path):
-    root = _project(tmp_path)
+    root = _commit_project(_project(tmp_path))
     calls: list[dict] = []
     rc = _run(
         root,
@@ -225,7 +226,7 @@ def test_destroy_runs_on_the_file_path(tmp_path):
 
 
 def test_stack_rm_runs_on_the_file_path(tmp_path):
-    root = _project(tmp_path)
+    root = _commit_project(_project(tmp_path))
     calls: list[dict] = []
     rc = _run(
         root,

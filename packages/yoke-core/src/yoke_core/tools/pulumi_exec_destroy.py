@@ -13,11 +13,15 @@ from pathlib import Path
 
 import yaml
 
-from yoke_core.domain.pack_pulumi_sources import pulumi_program_source
+from yoke_core.domain.pack_pulumi_sources import (
+    PULUMI_PROGRAM_SUBDIRECTORY,
+    pulumi_program_source,
+)
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     _first_mapping,
 )
+from yoke_core.tools.pulumi_exec_source import _git
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 
 
@@ -110,10 +114,23 @@ def refuse_consumed_vps_stack(
     settings: ProjectRendererSettings,
     project_root: Path,
 ) -> str:
-    """Refuse real StackReference consumers; explain selector-only uses."""
+    """Refuse real StackReference consumers; explain selector-only uses.
+
+    The guard reads committed consumer config only: it refuses outside a
+    committed git checkout and refuses any uncommitted change to the files
+    it reads, so the files on disk (which the Pulumi run also copies) are
+    exactly the committed ones.
+    """
     if settings.project != project:
         raise PulumiExecError(
             "Pulumi project settings do not match the requested project"
+        )
+    if not _git(project_root, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"):
+        raise PulumiExecError(
+            f"pulumi_stack_consumer_uncommitted: {project_root} is not a git "
+            "checkout with a commit, so the destroy guard cannot read committed "
+            "consumer config; run from the project's committed checkout, commit "
+            f"{PULUMI_PROGRAM_SUBDIRECTORY}/, then retry"
         )
     selectors = []
     for environment in settings.environments:
@@ -123,6 +140,7 @@ def refuse_consumed_vps_stack(
         if not consumer or consumer == stack or origin != stack:
             continue
         consumer_file = pulumi_program_source(project_root, f"Pulumi.{consumer}.yaml")
+        _require_committed(project_root, ("Pulumi.yaml", consumer_file.name))
         if not consumer_file.is_file():
             continue
         if _consumer_origin_ip(project_root, consumer_file):
@@ -136,10 +154,36 @@ def refuse_consumed_vps_stack(
             f"{consumer!r} creates a StackReference to VPS stack {stack!r} "
             "because its origin_ip is empty; keep the VPS stack until the "
             "consumer no longer needs its outputs, then set origin_ip in its "
-            "checked-in config and retry"
+            "committed config and retry"
         )
-    detail = "; ".join(selectors) or "no checked-in StackReference consumers"
+    detail = "; ".join(selectors) or "no committed StackReference consumers"
     return f"pulumi_stack_destroy_allowed: {detail}"
+
+
+def _require_committed(project_root: Path, filenames: Sequence[str]) -> None:
+    """Refuse unless the named infra files match HEAD, untracked included.
+
+    ``--branch`` always prints a ``##`` header on success, so an empty answer
+    means git itself failed and the guard stays closed.
+    """
+    paths = [f"{PULUMI_PROGRAM_SUBDIRECTORY}/{name}" for name in filenames]
+    status = _git(
+        project_root, "status", "--porcelain", "--branch", "--ignored",
+        "--untracked-files=all", "--", *paths,
+    )
+    lines = status.splitlines()
+    if not lines or not lines[0].startswith("##"):
+        raise PulumiExecError(
+            f"pulumi_stack_consumer_uncommitted: git status failed for "
+            f"{', '.join(paths)} in {project_root}; repair the checkout, then retry"
+        )
+    changed = [line[3:] for line in lines[1:] if line.strip()]
+    if changed:
+        raise PulumiExecError(
+            f"pulumi_stack_consumer_uncommitted: {', '.join(changed)} differs "
+            "from the committed checkout, so the destroy guard cannot trust it; "
+            "commit or revert the change to the named file, then retry"
+        )
 
 
 def _consumer_origin_ip(project_root: Path, consumer_file: Path) -> str:
