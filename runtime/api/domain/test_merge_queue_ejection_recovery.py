@@ -83,9 +83,8 @@ def recovery(
         read_queue=lambda *args, **kwargs: (members, None),
         read_files=read_files or (lambda ctx, pr: (("shared.py",), None)),
         enqueue=enqueue or (lambda *args: pytest.fail("must not re-enqueue")),
-        reread=lambda *args: replace(
-            facts(), state=replace(facts().state, auto_merge_active=True)
-        ),
+        # A ready head is enqueued directly, so the re-read finds its entry.
+        reread=lambda *args: facts(queued=True),
     )
 
 

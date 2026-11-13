@@ -106,7 +106,7 @@ def test_queue_mutations_request_contents_and_pull_requests_write(monkeypatch, o
         return {}, None
 
     monkeypatch.setattr(queue, "resolve_auth_detail", resolve)
-    monkeypatch.setattr(queue, "_pr_node_id", lambda resolved, number: ("pr-node", None))
+    monkeypatch.setattr(queue, "_pr_node_id", lambda resolved, number: ("pr-node", "", None))
     monkeypatch.setattr(queue, "graphql_with_auth", mutate)
     result = operation(_ctx(), "42")
     assert result.success

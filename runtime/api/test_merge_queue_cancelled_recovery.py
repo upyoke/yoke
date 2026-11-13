@@ -37,7 +37,7 @@ def test_retry_recovers_at_real_route_without_duplicate_arming(
     monkeypatch.setattr(
         route,
         "enter_merge_queue",
-        lambda *a: entered.append(a) or type("Entry", (), {"success": True})(),
+        lambda *a, **_kw: entered.append(a) or type("Entry", (), {"success": True})(),
     )
 
     def read_checks(*a):

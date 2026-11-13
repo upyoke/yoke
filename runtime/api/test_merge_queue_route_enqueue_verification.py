@@ -111,7 +111,7 @@ def test_unchanged_failed_train_never_dispatches_or_enters_queue(monkeypatch):
 
     monkeypatch.setattr(admission_gates, "unchanged_failed_train_refusal", guard)
     monkeypatch.setattr(
-        route_mod, "enter_merge_queue", lambda *args: entries.append(args)
+        route_mod, "enter_merge_queue", lambda *args, **_kw: entries.append(args)
     )
     result = land(dispatch=dispatch, wait_for_landing=False)
     assert not result.ok

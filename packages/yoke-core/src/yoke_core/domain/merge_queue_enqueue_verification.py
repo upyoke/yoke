@@ -1,8 +1,9 @@
 """Prove GitHub holds a landing before recording its handoff.
 
-Admission requires a viable queue entry, or an armed eligible PR without red
-required checks. Arming is a request, never evidence that GitHub accepted it.
-A bounded read-back confirms membership, eligibility and required-check state.
+Admission requires a viable queue entry, or an armed eligible PR still waiting
+on its checks. An armed PR that is ready yet holds no entry is not admitted:
+arming does not queue it. A bounded read-back (one re-read after
+``ADMISSION_CONFIRM_SECONDS``) confirms membership, eligibility and checks.
 Cancelled checks recover before admission, independently of duplicate arming.
 """
 
@@ -19,6 +20,10 @@ from yoke_core.domain.merge_queue_missing_checks import (
     missing_checks_recovery,
     complete_missing_checks_readback,
     name_missing_checks,
+)
+from yoke_core.domain.merge_queue_absence_reasons import (
+    ARMED_READY_REASON,
+    absence_reason,
 )
 from yoke_core.domain.merge_queue_entry_check_redispatch import (
     redispatch_no_verdict_checks,
@@ -44,38 +49,15 @@ from yoke_core.domain.merge_github_membership import (
     read_pr_queue_membership,
 )
 from yoke_core.domain.merge_github_queue import (
+    READY_TO_ENQUEUE,
     PrLandingState,
     read_pr_landing_state,
 )
 from yoke_core.domain.merge_context import MergeContext
 
 
-#: One bounded admission confirmation, in seconds.
+#: Grace before an absent queue entry is reported, in seconds.
 ADMISSION_CONFIRM_SECONDS = 10.0
-
-_ABSENCE_REASONS = {
-    "dirty": (
-        "it conflicts with its base branch — rebase the lane onto "
-        "{target}, re-run the verification gate, and re-run `yoke merge item`"
-    ),
-    "behind": (
-        "it is behind its base branch and the queue will not take it — "
-        "rebase the lane onto {target} and re-run `yoke merge item`"
-    ),
-    "blocked": (
-        "a required check, review, or protection rule is not satisfied — "
-        "satisfy it and re-run `yoke merge item`"
-    ),
-    "draft": (
-        "it is still a draft — mark it ready for review and re-run `yoke merge item`"
-    ),
-}
-
-_DEFAULT_ABSENCE_REASON = (
-    "GitHub reports it neither armed nor queued, with nothing in flight for "
-    "it — address what the observation names and re-run `yoke merge item`"
-)
-
 
 def landing_eligible(state: Optional[PrLandingState]) -> bool:
     """False once GitHub cannot create this pull request's merge commit."""
@@ -124,7 +106,16 @@ class LandingReadback:
             return True
         if self.failed_required or readback_missing_checks_stalled(self):
             return False
-        return self.state.auto_merge_active and landing_eligible(self.state)
+        return self.state.auto_merge_active and landing_eligible(self.state) and (
+            not self.armed_ready()
+        )
+
+    def armed_ready(self) -> bool:
+        """Armed and queueable now: arming alone never queues this state."""
+        state = self.state
+        return bool(state and state.auto_merge_active) and (
+            state.merge_state_status in READY_TO_ENQUEUE
+        )
 
     def undetermined(self) -> bool:
         """Open and unrefused, but GitHub has not decided: mid-merge, or an
@@ -186,6 +177,8 @@ class LandingReadback:
         failed = self.failed_required
         if failed:
             return red_checks_recovery(failed)
+        if self.armed_ready():
+            return ARMED_READY_REASON
         from yoke_core.domain.merge_queue_ejection_recovery import recovery_instruction
 
         instruction = recovery_instruction(self, target=target)
@@ -198,8 +191,7 @@ class LandingReadback:
             and merge_state.lower() == "dirty"
         ):
             merge_state = ""
-        template = _ABSENCE_REASONS.get(merge_state.lower(), _DEFAULT_ABSENCE_REASON)
-        return template.format(target=target)
+        return absence_reason(merge_state, target=target)
 
 
 def admission_facts_for_state(

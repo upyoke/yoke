@@ -52,7 +52,7 @@ def test_the_landing_enqueues_the_pull_request_the_gate_opened(monkeypatch):
     monkeypatch.setattr(
         route_mod,
         "enter_merge_queue",
-        lambda _ctx, pr_num: entered.append(pr_num) or QueueEntryResult(success=True),
+        lambda _ctx, pr_num, **_kw: entered.append(pr_num) or QueueEntryResult(success=True),
     )
 
     outcome = land()
@@ -114,7 +114,7 @@ def test_lane_beyond_the_merged_pull_request_lands_freshly(monkeypatch):
     monkeypatch.setattr(
         route_mod,
         "enter_merge_queue",
-        lambda _ctx, pr_num: (
+        lambda _ctx, pr_num, **_kw: (
             entered.append(pr_num) or QueueEntryResult(success=True, pr_num=pr_num)
         ),
     )

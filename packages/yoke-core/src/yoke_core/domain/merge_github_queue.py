@@ -1,7 +1,9 @@
-"""Merge-queue reads and arming.
+"""Merge-queue reads, arming and enqueueing.
 
 GitHub consumes autoMergeRequest when it forms a queue entry. Holding a
 candidate clears both the arming and the entry; membership reads power admission.
+Arming through the API does not queue a pull request that is already ready: it
+stays armed with no entry. A ready pull request is enqueued directly instead.
 """
 
 from __future__ import annotations
@@ -46,6 +48,18 @@ mutation($pullRequestId: ID!, $expectedHeadOid: GitObjectID) {
   }
 }
 """
+
+# Queues only when GitHub can add the pull request now, else refuses by name.
+_ENQUEUE_MUTATION = """
+mutation($pullRequestId: ID!, $expectedHeadOid: GitObjectID) {
+  enqueuePullRequest(input: {pullRequestId: $pullRequestId, expectedHeadOid: $expectedHeadOid}) {
+    mergeQueueEntry { enqueuedAt }
+  }
+}
+"""
+
+#: REST ``mergeable_state`` values GitHub can queue now (the GitHub CLI's set).
+READY_TO_ENQUEUE = frozenset({"clean", "has_hooks", "unstable"})
 
 _DISABLE_AUTO_MERGE_MUTATION = """
 mutation($pullRequestId: ID!) {
@@ -134,8 +148,8 @@ def graphql_with_auth(
 
 def _pr_node_id(
     auth: ProjectGithubAuth, pr_num: str
-) -> tuple[Optional[str], Optional[str]]:
-    """Resolve the PR's GraphQL node id through the REST read."""
+) -> tuple[Optional[str], str, Optional[str]]:
+    """Resolve the PR's node id and ``mergeable_state`` through one REST read."""
     owner, repo = split_repo(auth.repo)
     try:
         response = request_with_retry(
@@ -146,12 +160,12 @@ def _pr_node_id(
             token=auth.token,
         )
     except RestTransportError as exc:
-        return None, f"github pr read failure: {exc}"
+        return None, "", f"github pr read failure: {exc}"
     body = response.body if isinstance(response.body, dict) else {}
     node_id = str(body.get("node_id") or "")
     if not node_id:
-        return None, f"pull request {pr_num} returned no node id"
-    return node_id, None
+        return None, "", f"pull request {pr_num} returned no node id"
+    return node_id, str(body.get("mergeable_state") or "").strip().lower(), None
 
 
 def _mutate_pull_request(
@@ -161,17 +175,24 @@ def _mutate_pull_request(
     *,
     expected_head_sha: str = "",
     required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
+    ready_mutation: str = "",
 ) -> QueueEntryResult:
-    """Mutate one PR with installation authority unless explicitly overridden."""
+    """Mutate one PR with installation authority unless explicitly overridden.
+
+    ``ready_mutation`` replaces ``mutation`` when the PR is ready to enqueue;
+    its "already queued" refusal means GitHub holds the entry, so it succeeds.
+    """
     permissions = {**PR_WRITE, **CONTENTS_WRITE}
     auth, auth_err = resolve_auth_detail(
         ctx, permissions, required_authority=required_authority
     )
     if auth_err or auth is None:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err, rejected=True)
-    node_id, node_err = _pr_node_id(auth, pr_num)
+    node_id, mergeable_state, node_err = _pr_node_id(auth, pr_num)
     if node_err:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=node_err, rejected=True)
+    if ready_mutation and mergeable_state in READY_TO_ENQUEUE:
+        mutation = ready_mutation
     variables = {"pullRequestId": node_id}
     if expected_head_sha:
         variables["expectedHeadOid"] = expected_head_sha
@@ -181,7 +202,9 @@ def _mutate_pull_request(
         variables=variables,
         required_permissions=permissions,
     )
-    if mutation_err:
+    if mutation_err and not (
+        mutation == ready_mutation and _already_queued(mutation_err)
+    ):
         return QueueEntryResult(
             success=False, pr_num=pr_num, error_detail=mutation_err,
             rejected=mutation_err.startswith("github graphql refused:"),
@@ -189,12 +212,23 @@ def _mutate_pull_request(
     return QueueEntryResult(success=True, pr_num=pr_num)
 
 
+def _already_queued(error: str) -> bool:
+    lowered = error.lower()
+    return lowered.startswith("github graphql refused:") and "already" in lowered and (
+        "queue" in lowered
+    )
+
+
 def enter_merge_queue(
     ctx: MergeContext, pr_num: str, *, expected_head_sha: str = ""
 ) -> QueueEntryResult:
-    """Enqueue ``pr_num`` with merge-when-ready; refusals stay named."""
+    """Enqueue a ready ``pr_num``, else arm merge-when-ready; refusals stay named."""
     return _mutate_pull_request(
-        ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION, expected_head_sha=expected_head_sha
+        ctx,
+        pr_num,
+        _ENABLE_AUTO_MERGE_MUTATION,
+        expected_head_sha=expected_head_sha,
+        ready_mutation=_ENQUEUE_MUTATION,
     )
 
 
@@ -299,6 +333,7 @@ def read_queue_members(
 
 
 __all__ = [
+    "READY_TO_ENQUEUE",
     "PrLandingState",
     "QueueEntryResult",
     "QueueMember",

@@ -4,8 +4,10 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [GitHub](index.md) > Merge queue landings
 <!-- /yoke:breadcrumbs -->
 
-`yoke merge item PREFIX-N` verifies the exact candidate and arms its pull
-request. A headless worker receives `landing_pending=true` and waits for the
+`yoke merge item PREFIX-N` verifies the exact candidate and enqueues its pull
+request when GitHub can queue it now (`CLEAN`, `HAS_HOOKS` or `UNSTABLE`), or
+arms merge-when-ready while it still waits on checks. Both name the lane head.
+Arming alone never queues a ready pull request. A headless worker receives `landing_pending=true` and waits for the
 control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
@@ -80,6 +82,10 @@ request with arming cleared and no queue entry can also be mid-merge: the
 observer waits three seconds and reads it once more before sending a stopped
 notice. If the second read still shows that state, it reports the stop; if
 it merged, it receives the normal completion notice.
+An armed pull request GitHub could queue now but holds no entry for gets the
+same one re-read, then is reported stopped, never queued: re-run
+`yoke merge item`, which enqueues it directly. `yoke merge item` likewise
+confirms a new entry for up to ten seconds before refusing.
 
 An armed PR with no queue entry can also stop when a required check never
 reports. After two refresh intervals from `autoMergeRequest.enabledAt`, a
@@ -101,8 +107,8 @@ Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base
 moved, rebase onto the base, re-run verification, and re-enter that command.
 For a snapshotted queue conflict, the observer waits for the entries ahead to
-leave, rechecks base mergeability and required checks, and requests
-merge-when-ready again on the unchanged head if it remains mergeable.
+leave, rechecks base mergeability and required checks, and enqueues or re-arms
+the unchanged head if it remains mergeable.
 `yoke merge item --wait` consumes that recovery through the same server
 record; it returns control to the lane holder when a rebase is needed.
 An unreadable queue or file listing names the failed read and its repair;

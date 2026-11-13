@@ -260,7 +260,7 @@ def wire_happy_path(
     monkeypatch.setattr(
         route_mod,
         "enter_merge_queue",
-        lambda _ctx, pr_num: QueueEntryResult(success=True, pr_num=pr_num),
+        lambda _ctx, pr_num, **_kw: QueueEntryResult(success=True, pr_num=pr_num),
     )
     monkeypatch.setattr(
         route_mod,
