@@ -110,7 +110,10 @@ same item/transition/phase/resolved environment; snapshot digest may differ.
 Neither source executes. While a run the item still belongs to holds an
 admitted source copy, require one replaced or superseded through a chain whose
 terminal case has a current config/target-qualified pass. Receipt names
-run_replacement_requirement_id. That case still answers its run; corrected
+run_replacement_requirement_id. Without one, `source_retirement_unproven`
+names the `--replaces` correction, and offers `yoke deployment-runs remove-item`
+only when removal would succeed on every holding run; otherwise it names each
+run's removal refusal. That case still answers its run; corrected
 source reads retired source's admitted copies at done. When no live membership
 holds a copy (item removed with `yoke deployment-runs remove-item`, run failed
 or cancelled, or never admitted), retirement records the link and the receipt's

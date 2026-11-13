@@ -2,7 +2,7 @@
  "id": "post-deploy-source-retirement",
  "title": "Post-deploy source retirement",
  "status": "observed",
- "summary": "Replacing a direct item case leaves the item's old post_deploy row live until it is retired: superseded by its one successor, or waived when removed. Superseding a run copy never retires its item source; the receipt's next_admission_notice names that source. Attached post-deploy plans have no item rows to retire: the next release's plan group runs the edited plan.",
+ "summary": "Replacing a direct item case leaves the item's old post_deploy row live until it is retired: superseded by its one successor, or waived when removed. Superseding a run copy never retires its item source; the receipt's next_admission_notice names that source. While a run the item still belongs to holds an unanswered copy, source_retirement_unproven names the --replaces correction and offers remove-item only when every holding run would accept the removal; the removal guard's frozen-candidate refusal points back to the same correction. Attached post-deploy plans have no item rows to retire: the next release's plan group runs the edited plan.",
  "commands": ["yoke qa plan materialize", "yoke qa plan rematerialize", "yoke qa requirement supersede"],
  "functions": ["qa.plan.materialize", "qa.plan.rematerialize", "qa.requirement.supersede"],
  "sources": ["docs/public/verification/platform.md", "docs/public/verification/requirement-discharges.md"],
