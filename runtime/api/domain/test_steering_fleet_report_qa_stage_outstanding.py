@@ -90,7 +90,7 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
         conn, requirement_id=9103, member_item_id=GATE_MEMBER, method_id="command"
     )
     # The gate member's owner was woken and acknowledged; the others never
-    # were, and with no live driver nothing will send theirs until re-drive.
+    # were; with no live driver, control-plane upkeep sends theirs.
     seed_message(
         conn,
         "gate-member-wake",
@@ -128,8 +128,8 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     ) in body
     for member in NO_CASES_MEMBERS:
         assert (
-            f"member {render_item_ref(test_db, member)}: 1 blocker — not woken: driver gone or stale; "
-            f"re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` to send it"
+            f"member {render_item_ref(test_db, member)}: 1 blocker — wake pending "
+            "(driver gone; the next control-plane upkeep pass sends it)"
         ) in body
     assert len(run.member_lines) == len(MEMBERS)
     assert run.unresolved == ()

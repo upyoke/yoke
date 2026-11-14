@@ -8,14 +8,15 @@ QA failed. This module reads those stored session messages back, so the
 fleet report can tell a pending wake from a missing one without a parallel
 record.
 
-Three answers, each one line per member:
+Each member gets one line:
 
 * ``wake pending`` — the driver is live and has not sent it yet;
 * ``woken HH:MMZ`` — a notice exists, qualified by whether its recipient
   acknowledged it, has it injected, or has not received it yet;
+* ``wake pending`` with the driver gone — control-plane upkeep sends it
+  (:mod:`yoke_core.domain.deployment_qa_driverless_wake`);
 * ``not woken`` — with the reason: the wake failed, expired, or was
-  cancelled, nobody is addressable, or the driver is gone or stale
-  (re-driving sends it).
+  cancelled, or nobody is addressable.
 
 Reads are bounded per run, not per member: one notice read for the whole
 stage, and at most two addressability reads. Inside a member presentation
@@ -212,6 +213,32 @@ def _addressable(conn: Any, members: list[int], *, project_id: int) -> set[int]:
     )
 
 
+def _unsent(conn: Any, members: list[int], *, run_id: str, stage_name: str) -> list[int]:
+    notices = _latest_notices(conn, run_id=run_id, stage_name=stage_name)
+    return [m for m in members if m not in notices]
+
+
+def driverless_wake_owed(
+    conn: Any,
+    *,
+    run_id: str,
+    stage_name: str,
+    item_ids: Iterable[int],
+    project_id: int,
+) -> list[int]:
+    """Members with no wake of any kind sent yet and an addressable owner.
+
+    With no live driver these are the members control-plane upkeep wakes.
+    """
+    unsent = _unsent(
+        conn, [int(i) for i in item_ids], run_id=run_id, stage_name=stage_name
+    )
+    if not unsent:
+        return []
+    reachable = _addressable(conn, unsent, project_id=project_id)
+    return [member for member in unsent if member in reachable]
+
+
 def member_wake_states(
     conn: Any,
     *,
@@ -229,10 +256,10 @@ def member_wake_states(
     if driver_live:
         states.update({m: "wake pending (driver live, not yet sent)" for m in unsent})
         return states
-    reachable = _addressable(conn, unsent, project_id=project_id)
+    reachable = _addressable(conn, unsent, project_id=project_id) if unsent else set()
     for member in unsent:
         states[member] = (
-            f"not woken: driver gone or stale; re-drive {run_id} with `yoke watch deploy -- {run_id}` to send it"
+            "wake pending (driver gone; the next control-plane upkeep pass sends it)"
             if member in reachable
             else "not woken: no addressable holder (no live claim holder and no "
             "covering steering seat); staff the item"
@@ -240,4 +267,4 @@ def member_wake_states(
     return states
 
 
-__all__ = ["member_wake_states"]
+__all__ = ["driverless_wake_owed", "member_wake_states"]
