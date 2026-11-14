@@ -23,10 +23,6 @@ from yoke_core.domain.deployment_qa_stage_outstanding import (
     qa_stage_outstanding,
 )
 from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states, stalled_qa_notice
-from yoke_core.domain.deployment_run_driver_attachment import (
-    is_live,
-    parse_attachment,
-)
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
     diagnose_red_runs,
@@ -40,6 +36,7 @@ from yoke_core.domain.deployment_qa_presentation_reads import presentation_opera
 from yoke_core.domain.steering_fleet_report_deployment_run_facts import (
     LiveRunFactMaps,
     live_deployment_runs,
+    live_driver_phase,
     load_live_run_facts,
     probe_report_tables,
 )
@@ -170,10 +167,7 @@ def _run_row(
     else:
         outstanding = qa.waiting
         total_blocking = qa.subjects
-    attached = parse_attachment(run_id, run.get("driver_attachment"))
-    driver_phase = (
-        attached.phase if attached is not None and is_live(attached, now=now) and run.get("driver_session_live", True) else ""
-    )
+    driver_phase = live_driver_phase(run, now=now)
     waiting = [
         member
         for member in (qa.waiting_members if qa is not None else ())
@@ -220,7 +214,8 @@ def _run_row(
         manual_wakes=manual,
         qa_notice_stalled=bool(qa is not None and outstanding and not driver_phase
                               and (stalled_qa_notice(conn, run_id, stage)
-                                   or any(state.startswith("not woken:") for state in wakes.values()))),
+                                   or any(state.startswith(("not woken:", "wake pending (driver gone"))
+                                           for state in wakes.values()))),
     )
 
 

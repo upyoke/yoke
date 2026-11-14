@@ -1,8 +1,10 @@
-"""Control-plane upkeep: GitHub observation and owed QA settlement replays.
+"""Control-plane upkeep: GitHub observation, owed QA replays and QA wakes.
 
 Merge-queue landings and session CI waits settle only when someone reads
 GitHub, and a QA waiver leaves its close-out replays owed in
-``qa_settlement_followups``. :func:`run_control_plane_upkeep` does both once.
+``qa_settlement_followups``. A deployment run whose driver exited at an
+item-scoped QA wait leaves members it never woke.
+:func:`run_control_plane_upkeep` does all three once.
 It rides scheduled work that already runs in the one long-lived process each
 install mode has: the API server's health refresh (hosted and self-hosted),
 or each cycle of a machine-local universe's standing relay, which dispatches
@@ -15,6 +17,9 @@ failed step is logged and the next run re-derives the same work from the
 same durable rows. The landing observer records its failure on the project's
 refresh row, where ``landing.observe`` reports it to a waiter; a replay that
 raises keeps its error on its follow-up row, which the steering report lists.
+A QA wake is a stored session message keyed like the driver's own, so a
+failed or repeated pass never sends one twice, and the fleet report shows
+each member's wake state.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ from datetime import datetime
 from typing import Any
 
 from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.deployment_qa_driverless_wake import wake_driverless_qa_waits
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.qa_settlement_followups import replay_settlement_followups
@@ -85,6 +91,7 @@ def run_control_plane_upkeep() -> None:
         for name, step in (
             ("pending GitHub observation", observe_pending_github_work),
             ("QA settlement follow-up replay", replay_settlement_followups),
+            ("driverless item-QA wake", wake_driverless_qa_waits),
         ):
             try:
                 step(conn)

@@ -87,6 +87,22 @@ def live_deployment_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     return [row_dict(row) for row in rows]
 
 
+def live_driver_phase(run: dict[str, Any], *, now: datetime) -> str:
+    """The live driver's phase for one :func:`live_deployment_runs` row, else ``""``.
+
+    A driver is live while its heartbeat is fresh and its session has not ended.
+    """
+    from yoke_core.domain.deployment_run_driver_attachment import (
+        is_live,
+        parse_attachment,
+    )
+
+    attached = parse_attachment(str(run["id"]), run.get("driver_attachment"))
+    if attached is None or not is_live(attached, now=now):
+        return ""
+    return attached.phase if run.get("driver_session_live", True) else ""
+
+
 def load_live_run_facts(
     conn: Any,
     *,
@@ -278,6 +294,7 @@ def _completion_boundary(
 __all__ = [
     "LiveRunFactMaps",
     "live_deployment_runs",
+    "live_driver_phase",
     "load_live_run_facts",
     "probe_report_tables",
 ]
