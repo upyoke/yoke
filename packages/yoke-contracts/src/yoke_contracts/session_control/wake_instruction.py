@@ -15,7 +15,7 @@ WAKE_ACKNOWLEDGE_COMMAND = "yoke messages acknowledge"
 
 
 def native_wake_instruction(message_id: str) -> str:
-    """Name the tool call that delivers the message, then the receipt it owes.
+    """Name the tool call that delivers the message, the action, then the receipt.
 
     A wake exists so a turn takes delivery of a message, and the delivery is
     not the resume: it happens inside a tool call, and the turn has only
@@ -43,6 +43,16 @@ def native_wake_instruction(message_id: str) -> str:
     on it. For the same reason the acknowledgement command is named here
     rather than left to the envelope to carry.
 
+    Reading and acknowledging is not the job, though: the message is. A
+    prompt that named only the read and the receipt let a one-shot resume
+    (``codex exec resume``) read, acknowledge and exit without doing what the
+    message asked, three times in a row. So the instruction says to act on
+    the message, with the same wording the hook's reminder uses, and places
+    the acknowledgement after the action is done or durably underway — or
+    after the turn decides none is needed — and always before it parks,
+    waits or ends, so a re-wake of a message still unacknowledged never
+    repeats an action that already happened.
+
     It still names the one case where acknowledging would be wrong. An
     unconditional "acknowledge now" turns a wake whose message never arrived
     into a receipt that reports delivery which did not happen, and the plane
@@ -56,10 +66,12 @@ def native_wake_instruction(message_id: str) -> str:
         "action and read the message body it returns. The installed Yoke hook "
         "may also inject the same envelope into that call; that is the same "
         "message, not a second one, and the read stands whether or not it "
-        "happens. Then run "
-        f"`{WAKE_ACKNOWLEDGE_COMMAND} {message_id}` before you answer or end "
-        "this turn. If the read reported no such message, do not acknowledge; "
-        "report that instead."
+        "happens. Then act on the message. Run "
+        f"`{WAKE_ACKNOWLEDGE_COMMAND} {message_id}` once the action is done "
+        "or durably underway, or once you decide it needs none — and always "
+        "before you park, wait or end this turn. If you already acted on it, "
+        "acknowledge it now; if not, act on it first. If the read reported no "
+        "such message, do not acknowledge; report that instead."
     )
 
 
