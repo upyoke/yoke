@@ -7,6 +7,8 @@ import json
 import os
 import subprocess
 
+from runtime.api.tools.first_deployment import first_deployment_sql
+
 
 def read(sql: str) -> dict:
     result = subprocess.run(
@@ -23,24 +25,6 @@ def read(sql: str) -> dict:
     return json.loads(result.stdout)
 
 
-def first_deployment_sql(quoted_run: str, plan_id: int) -> str:
-    """Keep the observation clock through a requirement's release takeovers."""
-    return (
-        "(SELECT MIN(delivered_at) FROM (SELECT MAX(r.completed_at) AS delivered_at "
-        "FROM deployment_stage_receipts r JOIN deployment_runs d ON d.id=r.run_id "
-        "WHERE r.status='ready' AND d.target_environment_id="
-        f"(SELECT target_environment_id FROM deployment_runs WHERE id={quoted_run}) "
-        "AND EXISTS (SELECT 1 FROM qa_requirements q "
-        f"WHERE q.deployment_run_id={quoted_run} AND q.plan_id={int(plan_id)} "
-        "AND (EXISTS (SELECT 1 FROM deployment_run_items di WHERE di.run_id=d.id "
-        "AND di.item_id=q.deployment_member_item_id) OR EXISTS (SELECT 1 FROM "
-        "jsonb_array_elements(COALESCE(d.membership_removals,'[]')::jsonb) removed "
-        "WHERE (removed->>'item_id')::bigint=q.deployment_member_item_id "
-        "AND removed->>'transferred_to_run_id' IS NOT NULL))) "
-        "GROUP BY r.run_id) delivered)"
-    )
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan-id", type=int, required=True)
@@ -52,7 +36,7 @@ def main() -> None:
         )
     quoted = "'" + run_id.replace("'", "''") + "'"
     # Receipts are durable deployment facts; telemetry retention proves nothing.
-    start = first_deployment_sql(quoted, args.plan_id)
+    start = first_deployment_sql(quoted, f"q.plan_id={int(args.plan_id)}")
     report = read(
         f"SELECT {start} AS deployed_at, CURRENT_TIMESTAMP AS checked_at, "
         f"CURRENT_TIMESTAMP >= {start} + INTERVAL '1 day' AS day_complete, "

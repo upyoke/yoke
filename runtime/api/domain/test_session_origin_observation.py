@@ -35,6 +35,12 @@ def test_full_day_with_authorized_traffic_passes(monkeypatch):
         assert args[:3] == ["yoke", "db", "read"]
         assert "LEFT JOIN harness_sessions" in args[3]
         assert "INTERVAL '1 day'" in args[3]
+        assert "SELECT MIN(delivered_at)" in args[3]
+        assert "d.target_environment_id=" in args[3]
+        assert "q.deployment_run_id='test-release'" in args[3]
+        assert "runtime.api.tools.verify_session_resume_origin" in args[3]
+        assert "membership_removals" in args[3]
+        assert "target_name='prod'" not in args[3]
         return subprocess.CompletedProcess(args, 0, "1|0|0|12\n", "")
 
     monkeypatch.setattr(proof.subprocess, "run", run)
