@@ -24,7 +24,9 @@ class OperatorQuestion:
     unattended: str = ""
 
 
-def _visible(conn, viewer_session_id, previous_ids, include_resolved):
+def _visible(
+    conn, viewer_session_id, previous_ids, include_resolved, *, presentation=False
+):
     """Requests this seat sees, by the seat-coverage rule, with unattended notes."""
     from yoke_core.domain.steering_fleet_report_question_seats import (
         visible_questions,
@@ -50,6 +52,18 @@ def _visible(conn, viewer_session_id, previous_ids, include_resolved):
             tuple(previous_ids),
         ).fetchall()
     ]
+    if presentation:
+        from yoke_core.domain.steering_fleet_report_question_seats import _context
+
+        # Match read_questions' display rule before describing settled history.
+        rows = [
+            row for row in rows
+            if row["status"] == "pending"
+            or int(row["id"]) in previous_ids
+            or _context(row["subject_context"]).get("answer_delivery", {}).get("reason")
+        ]
+        if not rows:
+            return {}
     viewer = conn.execute(
         f"SELECT actor_id FROM harness_sessions WHERE session_id={p}",
         (viewer_session_id,),
@@ -90,7 +104,9 @@ def read_questions(conn, viewer_session_id, previous_ids=()):
     from yoke_core.domain.project_identity import render_item_ref
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    seen = _visible(conn, viewer_session_id, tuple(previous_ids), True)
+    seen = _visible(
+        conn, viewer_session_id, tuple(previous_ids), True, presentation=True
+    )
     ids = {request_id: state for request_id, (state, _) in seen.items()}
     rows = request_rows(conn, ids)
     result = []

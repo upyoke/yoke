@@ -55,14 +55,21 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
         row["requesting_session_id"] for row in rows
         if row["kind"] == "operator_question" and row["requesting_session_id"]
     ])
-    composed: dict[int, dict[str, Any]] = {}
-    for raw in rows:
-        result = dict(raw)
-        request_id = int(result["id"])
+    from yoke_core.domain.item_ref_render import render_item_ref_lookup
+
+    records = [dict(row) for row in rows]
+    for record in records:
         try:
-            result["subject_context"] = json.loads(result["subject_context"] or "{}")
+            record["subject_context"] = json.loads(record["subject_context"] or "{}")
         except (TypeError, json.JSONDecodeError):
-            result["subject_context"] = {}
+            record["subject_context"] = {}
+    question_refs = render_item_ref_lookup(conn, [
+        row["subject_context"]["item_id"] for row in records
+        if row["kind"] == "operator_question" and row["subject_context"].get("item_id")
+    ])
+    composed: dict[int, dict[str, Any]] = {}
+    for result in records:
+        request_id = int(result["id"])
         if result["status"] == "pending":
             live = live_evidence(
                 conn,
@@ -91,7 +98,7 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
                 describe_question,
             )
 
-            describe_question(conn, result, labels)
+            describe_question(conn, result, labels, item_refs=question_refs)
         result["actions"] = (
             []
             if result["kind"] in RETIRED_DECISION_KINDS
