@@ -6,6 +6,8 @@ import os
 import re
 import subprocess
 
+from runtime.api.tools.first_deployment import first_deployment_sql
+
 
 def main() -> int:
     run_id = os.environ.get("DEPLOYMENT_RUN_ID", "")
@@ -13,10 +15,14 @@ def main() -> int:
         raise SystemExit(
             "release_run_required: run this case through its deployment QA requirement"
         )
+    start = first_deployment_sql(
+        f"'{run_id}'",
+        "q.method_config::jsonb->>'command' LIKE "
+        "'%runtime.api.tools.verify_session_resume_origin%'",
+    )
     query = f"""
         WITH delivery AS (
-            SELECT MAX(completed_at) AS ready_at FROM deployment_stage_receipts
-            WHERE run_id='{run_id}' AND target_name='prod' AND status='ready'
+            SELECT {start} AS ready_at
         ), attempts AS (
             SELECT a.target_session_id, s.launch_origin FROM session_message_attempts a
             LEFT JOIN harness_sessions s ON s.session_id=a.target_session_id
