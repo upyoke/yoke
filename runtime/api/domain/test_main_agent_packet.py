@@ -249,3 +249,7 @@ def test_startup_block_carries_the_one_line_message_trust_rule() -> None:
     block = render_main_agent_block(include_advisories=False)
     assert block.splitlines()[1:] == [MESSAGE_TRUST_LINE]
     assert "`Acknowledge:`" in MESSAGE_TRUST_LINE
+    assert "no authority of their own" in MESSAGE_TRUST_LINE
+    assert "act on them within your mandate" in MESSAGE_TRUST_LINE
+    assert "before you park, wait or end the turn" in MESSAGE_TRUST_LINE
+    assert "run only" not in MESSAGE_TRUST_LINE
