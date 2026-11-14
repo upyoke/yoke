@@ -84,7 +84,7 @@ def list_questions(conn: Any, session_id: str, status: str | None = None):
     return [rows[int(request_id)] for request_id in ids]
 
 
-def describe_question(conn, row, requester_labels):
+def describe_question(conn, row, requester_labels, *, item_refs=None):
     from yoke_core.domain.project_identity import render_item_ref
 
     label = requester_labels.get(row["requesting_session_id"])
@@ -96,8 +96,9 @@ def describe_question(conn, row, requester_labels):
         artifact["metadata"]["filename"] for artifact in artifacts
     ]
     if row["subject_context"].get("item_id"):
-        row["subject_context"]["item_ref"] = render_item_ref(
-            conn, row["subject_context"]["item_id"]
+        item_id = row["subject_context"]["item_id"]
+        row["subject_context"]["item_ref"] = (
+            item_refs(item_id) if item_refs is not None else render_item_ref(conn, item_id)
         )
 
 
