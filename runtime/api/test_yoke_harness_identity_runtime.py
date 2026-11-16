@@ -8,6 +8,8 @@ from yoke_contracts.executor_labels import surface_alias
 from yoke_core.domain.sessions_lifecycle_canonicalize import canonicalize_executor
 from yoke_harness.hooks import identity
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.parametrize(
     ("executor", "expected"),

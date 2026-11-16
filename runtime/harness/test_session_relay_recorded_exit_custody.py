@@ -25,6 +25,8 @@ from yoke_harness.session_relay_native_capture_format import (
     compose_capture,
 )
 
+pytestmark = pytest.mark.windows
+
 
 SESSION = "11111111-1111-4111-8111-111111111111"
 ATTEMPT = "33333333-3333-4333-8333-333333333333"

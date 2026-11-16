@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Mapping
 
@@ -14,6 +14,7 @@ from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.steering_fleet_report_queued_wake import unattempted_explicit_wake
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     NEVER_ATTEMPTED,
+    WAKE_DRAINING,
     RECIPIENT_ENDED,
     RECIPIENT_TERMINATED,
     TURN_IN_FLIGHT,
@@ -40,6 +41,7 @@ class MessageGroup:
     recipient_gone_at: datetime | None = None
     held_native_silent_for_seconds: int | None = None
     held_native_observed_at: datetime | None = None
+    wake_queue_positions: list[tuple[str, int]] = field(default_factory=list)
     queued_wake: bool = False
     wake_releasable_at: datetime | None = None
     failed_attempt_count: int = 0
@@ -62,6 +64,10 @@ class MessageGroup:
         if self.item_id is not None:
             self.public_ref = f"{record['item_prefix']}-{record['project_sequence']}"
             self.item_project = str(record["item_project"])
+        if state == WAKE_DRAINING:
+            self.wake_queue_positions.append(
+                (str(record["message_id"]), int(record["wake_queue_position"]))
+            )
         self.envelope_count += 1
         self.oldest_seconds = max(self.oldest_seconds, waited)
         if len(self.message_ids) < MESSAGE_REFERENCE_LIMIT:

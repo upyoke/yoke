@@ -48,6 +48,7 @@ def _record(process):
     }
 
 
+@pytest.mark.windows
 def test_supervisor_exit_keeps_live_child_identity_and_reaps_group():
     process = _process(
         'import subprocess,sys,time; p=subprocess.Popen([sys.executable,"-c","import time; time.sleep(30)"]); print(p.pid,flush=True); time.sleep(30)'
@@ -71,6 +72,7 @@ def test_supervisor_exit_keeps_live_child_identity_and_reaps_group():
 @pytest.mark.parametrize(
     "error,expected", [(PermissionError, "failed"), (OSError, "outcome_unknown")]
 )
+@pytest.mark.windows
 def test_signal_errors_preserve_custody_and_do_not_claim_exit(
     tmp_path, monkeypatch, error, expected
 ):
@@ -106,6 +108,7 @@ def test_signal_errors_preserve_custody_and_do_not_claim_exit(
         _finish(process)
 
 
+@pytest.mark.windows
 def test_unverified_post_kill_exit_retains_handle(tmp_path, monkeypatch):
     process = _process()
     try:
@@ -133,6 +136,7 @@ def test_unverified_post_kill_exit_retains_handle(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("live,state", [(False, "gone"), (True, "live")])
+@pytest.mark.windows
 def test_captured_incarnation_is_checked_before_stop(monkeypatch, live, state):
     record = {"pid": 123, "process_start_time": "123.5",
               "process_members": {"123": "123.5", "124": "124.5"}}
@@ -144,6 +148,7 @@ def test_captured_incarnation_is_checked_before_stop(monkeypatch, live, state):
         assert custody.terminate_record(record) == "already_exited"
 
 
+@pytest.mark.windows
 def test_failed_adoption_keeps_registered_launch_custody(tmp_path, monkeypatch):
     process = _process()
     try:
@@ -232,6 +237,7 @@ def test_codex_accepted_resume_has_durable_custody_then_terminates(
             platform_process.stop_group(handle, 1)
 
 
+@pytest.mark.windows
 def test_one_explicit_reap_does_not_signal_the_same_group_twice(tmp_path, monkeypatch):
     process = _process(
         'import subprocess,sys,time; p=subprocess.Popen([sys.executable,"-c","import time; time.sleep(30)"]); print(p.pid,flush=True); time.sleep(30)'
@@ -265,6 +271,7 @@ def test_one_explicit_reap_does_not_signal_the_same_group_twice(tmp_path, monkey
         _finish(process)
 
 
+@pytest.mark.windows
 def test_process_observation_failure_keeps_custody(monkeypatch):
     def denied(*args):
         raise OSError("process_access_denied")
@@ -274,6 +281,7 @@ def test_process_observation_failure_keeps_custody(monkeypatch):
     assert custody.terminate_record(record) == "outcome_unknown"
 
 
+@pytest.mark.windows
 def test_persist_failure_prevents_any_signal(monkeypatch):
     record = {"pid": 123, "process_start_time": "123.5"}
     monkeypatch.setattr(custody.platform_process, "pid_alive", lambda *args: True)

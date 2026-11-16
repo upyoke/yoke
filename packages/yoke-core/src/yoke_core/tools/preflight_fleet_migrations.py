@@ -91,6 +91,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         parsed = parse(args)
+        os.environ.setdefault("YOKE_BUILD_SHA", parsed.product_sha)
         engine_artifact = _activate_engine_artifact(parsed.engine_wheel)
     except (EngineArtifactError, ValueError) as exc:
         print(f"preflight arguments refused: {exc}", file=sys.stderr)

@@ -62,7 +62,10 @@ def atomic_replace_bytes(
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.fchmod(descriptor, selected_mode)
+        if os.name == "nt":
+            os.chmod(temporary, selected_mode)
+        else:
+            os.fchmod(descriptor, selected_mode)
         os.fsync(descriptor)
         os.close(descriptor)
         descriptor = -1

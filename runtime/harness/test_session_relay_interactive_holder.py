@@ -10,6 +10,8 @@ from yoke_harness import session_launch_handles, session_relay_runtime as runtim
 from yoke_harness.session_launch_containment import supervision_record_path
 from yoke_harness.session_relay_native_turn_custody import deferral_for_running_native
 
+pytestmark = pytest.mark.windows
+
 SESSION = "11111111-1111-4111-8111-111111111111"
 NATIVE = "22222222-2222-4222-8222-222222222222"
 START = "Mon Aug 24 08:00:00 2026"

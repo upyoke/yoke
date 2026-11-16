@@ -46,7 +46,7 @@ def _age_blind(value: Any) -> Any:
         return {
             key: _age_blind(item)
             for key, item in value.items()
-            if key != "composed_at"
+            if key not in {"composed_at", "wake_queue_positions"}
             and not key.endswith("_seconds")
             and not key.endswith("_at")
         }

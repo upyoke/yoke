@@ -10,6 +10,9 @@ import pytest
 from yoke_contracts import platform_file_lock
 
 
+pytestmark = pytest.mark.windows
+
+
 def _open_lock(path: Path) -> int:
     return os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
 

@@ -23,6 +23,8 @@ from yoke_contracts.process_ancestry import ProcessAnchor
 from yoke_core.domain import session_ambient_identity as ambient
 from yoke_core.domain import session_process_anchors as anchors
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.fixture()
 def machine_home(tmp_path, monkeypatch):

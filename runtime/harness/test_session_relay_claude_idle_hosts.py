@@ -46,6 +46,10 @@ from yoke_harness.session_relay_claude_idle_hosts import (
     start_epoch,
 )
 
+import pytest
+
+pytestmark = pytest.mark.windows
+
 
 def test_plan_names_only_idle_used_hosts_and_keeps_the_newest_spare() -> None:
     processes, record_of, job_of = _fixture()

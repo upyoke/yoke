@@ -21,6 +21,10 @@ from yoke_core.hooks.helpers import (
 )
 from runtime.api.constants_test_support import TEST_MODEL_ID
 
+import pytest
+
+pytestmark = pytest.mark.windows
+
 
 # ---------------------------------------------------------------------------
 # detect_requested_model

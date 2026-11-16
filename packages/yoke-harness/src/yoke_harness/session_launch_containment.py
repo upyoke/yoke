@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from yoke_contracts.owner_private_path import create_owner_private_directory
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import os
 import subprocess
@@ -179,12 +181,51 @@ def release_supervised_native(
         return
 
 
+#: One pass's directory read, keyed by the directory it read; see below.
+_PASS_RECORDS: ContextVar[tuple[Path, tuple[tuple[Path, dict], ...]] | None] = (
+    ContextVar("supervised_records_pass", default=None)
+)
+
+
+@contextmanager
+def supervised_records_pass(state_dir: Path | None = None) -> Iterator[None]:
+    """Serve one directory read to every reader inside this pass.
+
+    The relay's liveness pass asks several custody readers about every dead
+    session, and each reader re-read the whole directory. With a thousand
+    records that was tens of thousands of file reads per poll, all ahead of
+    the next claim. The pass reads once; other threads keep reading live.
+    """
+    try:
+        directory = _directory(state_dir)
+    except OSError:
+        yield
+        return
+    token = _PASS_RECORDS.set((directory, tuple(_read_records(directory))))
+    try:
+        yield
+    finally:
+        _PASS_RECORDS.reset(token)
+
+
 def supervised_records(
     state_dir: Path | None = None,
 ) -> Iterator[tuple[Path, dict[str, object]]]:
     """Yield every supervision record, for each reader to project itself."""
     try:
-        entries = sorted(_directory(state_dir).glob("*.json"))
+        directory = _directory(state_dir)
+    except OSError:
+        return
+    held = _PASS_RECORDS.get()
+    if held is not None and held[0] == directory:
+        yield from ((path, dict(payload)) for path, payload in held[1])
+        return
+    yield from _read_records(directory)
+
+
+def _read_records(directory: Path) -> Iterator[tuple[Path, dict[str, object]]]:
+    try:
+        entries = sorted(directory.glob("*.json"))
     except OSError:
         return
     for path in entries:
@@ -205,6 +246,7 @@ __all__ = [
     "record_supervised_native",
     "release_supervised_native",
     "supervised_records",
+    "supervised_records_pass",
     "touch_supervised_resume",
     "touch_supervised_resume_from_environment",
 ]

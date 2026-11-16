@@ -24,6 +24,10 @@ from yoke_contracts.process_ancestry import (
     process_table,
 )
 
+import pytest
+
+pytestmark = pytest.mark.windows
+
 
 # Synthetic process tree:
 #   1 (launchd) -> 100 (Claude desktop shell) -> 200 (claude agent binary)

@@ -24,6 +24,9 @@ from yoke_core.domain.handlers import machine_desktop_access as handler
 from yoke_harness import desktop_access as desktop
 
 
+pytestmark = pytest.mark.windows
+
+
 SETTINGS = {
     "resource_name": "lab",
     "host": "lab.example",

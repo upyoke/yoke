@@ -35,6 +35,8 @@ jobs:
             os: macOS 26
             architecture: arm64
     steps:
+      - name: Disable Git symlink checkout
+        run: git config --global core.symlinks false
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
@@ -72,6 +74,14 @@ jobs:
             runtime/harness/test_session_relay_native_turn_custody.py \
             runtime/harness/test_session_relay_recorded_exit_custody.py \
             runtime/harness/test_session_relay_liveness_pruning.py
+      - name: Verify contributor checkout collection and tests
+        run: |
+          uv sync --all-packages --locked
+          export YOKE_MACHINE_HOME="$RUNNER_TEMP/contributor-checkout-machine"
+          mkdir -p product-smoke-evidence
+          uv run --frozen yoke local-postgres start --json > product-smoke-evidence/contributor-postgres-start.json
+          uv run --frozen yoke local-postgres stop --json > product-smoke-evidence/contributor-postgres-stop.json
+          uv run --frozen python runtime/api/tools/product_runner_checkout_tests.py --output product-smoke-evidence
       - name: Prepare a missing browser library on the disposable Linux runner
         if: runner.os == 'Linux'
         run: sudo -n apt-get remove -y libatk-bridge2.0-0t64

@@ -8,6 +8,8 @@ from yoke_harness import session_relay_record_pruning as pruning
 from yoke_harness import session_process_custody as custody
 from yoke_harness.session_relay_process_liveness import VerifiedDeadSession
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.parametrize("source", ["launch", "anchor"])
 @pytest.mark.parametrize("current_start", [None, "reused", "recorded", "unresolved"])

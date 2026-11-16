@@ -40,8 +40,13 @@ Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
 
 ### Manual-wake member QA
 
-Staff owners; `yoke qa plan reconcile` ownerless walks. Evidence not available yet: the owner parks only behind
-its own `yoke sessions wake schedule` recheck, so a takeover does not wake it; ask an owner parked without one to schedule it.
+Manual QA evidence selection and scheduled rechecks are by design. Evidence not
+available yet: the owner parks only behind its own `yoke sessions wake schedule`
+recheck, so a takeover does not wake it. A missing automatic notice, resume or
+required recheck is a defect: root-cause it with a subagent and file feedback
+before manual recovery; label that recovery a workaround. Then staff missing
+owners, use `yoke qa plan reconcile` for ownerless walks, or ask an owner parked
+without a required recheck to schedule it.
 
 Driver runs run-scoped QA:
 

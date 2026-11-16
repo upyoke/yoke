@@ -6,6 +6,8 @@ import pytest
 
 from yoke_contracts import platform_process, process_ancestry
 
+pytestmark = pytest.mark.windows
+
 
 def entry(pid, ppid, name, started=123.5):
     return platform_process.ProcessInfo(pid, ppid, (name,), started, name, 10, "owner")
