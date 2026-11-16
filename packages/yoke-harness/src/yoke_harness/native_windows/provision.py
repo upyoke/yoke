@@ -1,6 +1,7 @@
 """Provision an existing Azure Windows lab VM; no resource creation or passwords in argv."""
 
 import argparse
+import os
 import base64
 from pathlib import Path
 import secrets
@@ -8,20 +9,28 @@ import subprocess
 import tempfile
 import sys
 
+from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config.capability_secret_store import (
     machine_capability_secret_path,
     read_machine_capability_secret,
     store_machine_capability_secret,
 )
 from yoke_harness.native_windows.transport import encoded, quote
+from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+
+
+BOOTSTRAP_TIMEOUT_SECONDS = 5400
 
 
 def admin_script(key, host, user, script, *, input_text=None):
     path = r"C:\ProgramData\YokeQaProvision.ps1"
     ssh = [
         "ssh",
+        "-F",
+        os.devnull,
+        *host_key_options({}),
         "-i",
         str(key),
         "-o",
@@ -64,17 +73,25 @@ def provision(project, machine, host, resource_group, admin_user, test_user):
         ["ssh-keygen", "-y", "-f", str(key)], check=True, capture_output=True, text=True
     ).stdout.strip()
     script = r"""$ErrorActionPreference='Stop'
-Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null
+$sshDir=Join-Path $env:WINDIR 'System32\OpenSSH'
+if((Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0).State -ne 'Installed'){
+ $installed=Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+ if($installed.RestartNeeded){throw 'windows_openssh_reboot_required: reboot the lab VM and rerun provisioning'}
+}
 Set-Service sshd -StartupType Automatic
 $config=Join-Path $env:ProgramData 'ssh\sshd_config'
 New-Item -ItemType Directory -Force (Split-Path $config) | Out-Null
 if(!(Test-Path -LiteralPath $config)){
- Copy-Item -LiteralPath "$env:WINDIR\System32\OpenSSH\sshd_config_default" -Destination $config
+ Copy-Item -LiteralPath "$sshDir\sshd_config_default" -Destination $config
 }
 $text=Get-Content -Raw $config
 $text=$text -replace '(?m)^#?PasswordAuthentication\s+.*$','PasswordAuthentication no'
 $text=$text -replace '(?m)^#?PubkeyAuthentication\s+.*$','PubkeyAuthentication yes'
+$text=$text -replace '(?m)^AuthenticationMethods\s+.*$',''
 Set-Content -LiteralPath $config -Value ("AuthenticationMethods publickey`n"+$text)
+& "$sshDir\ssh-keygen.exe" -A
+& "$sshDir\sshd.exe" -t -f $config
+if($LASTEXITCODE){throw 'windows_sshd_config_invalid: repair the key-only configuration before starting SSH'}
 Set-Content -LiteralPath "$env:ProgramData\ssh\administrators_authorized_keys" -Value PUBLIC_KEY
 & icacls.exe "$env:ProgramData\ssh\administrators_authorized_keys" /inheritance:r /grant '*S-1-5-32-544:F' '*S-1-5-18:F' | Out-Null
 if($LASTEXITCODE){throw 'windows_admin_key_acl_failed: repair Administrators/SYSTEM access and retry'}
@@ -86,6 +103,11 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
     with tempfile.TemporaryDirectory(prefix="yoke-windows-provision-") as temporary:
         path = Path(temporary) / "openssh.ps1"
         path.write_text(script)
+        announce_designed_wait(
+            "Azure Windows OpenSSH bootstrap",
+            max_wait_seconds=BOOTSTRAP_TIMEOUT_SECONDS,
+            cadence="Azure guest command completion",
+        )
         result = subprocess.run(
             [
                 "az",
@@ -108,7 +130,7 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
             check=False,
             capture_output=True,
             text=True,
-            timeout=900,
+            timeout=BOOTSTRAP_TIMEOUT_SECONDS,
         )
         if (
             result.returncode

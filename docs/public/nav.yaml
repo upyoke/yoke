@@ -218,7 +218,9 @@ root:
           - {title: "Linux live state", summary: "Preserve live harness installations and recover reset state.", path: "verification/test-machines/linux-live-state.md"}
           - {title: "Codex on Linux", summary: "Configure scoped sandbox posture and recover embedded helpers.", path: "verification/test-machines/codex-on-linux.md"}
           - {title: "Windows host provisioning", summary: "Prepare a Windows test account and the WSL desktop route.", path: "verification/test-machines/windows-host-provisioning.md"}
-          - {title: "WSL browser identities", summary: "Authorize browser identities in the WSL test desktop.", path: "verification/test-machines/windows-browser-identities.md"}
+          - {title: "WSL browser identities", summary: "Authorize browser identities in the WSL test desktop.", path: "verification/test-machines/windows-wsl-browser-identities.md"}
+          - {title: "Native Windows host provisioning", summary: "Prepare a Windows lab profile, native desktop and lease recovery journal.", path: "verification/test-machines/windows-native-host-provisioning.md"}
+          - {title: "Native Windows browser identities", summary: "Authorize browser identities in the native Windows test desktop.", path: "verification/test-machines/windows-browser-identities.md"}
           - {title: "Machine browser identities", summary: "Follow the browser identity procedure for the declared OS.", path: "verification/test-machines/browser-identities.md"}
       - {title: "Test Machine desktop", summary: "View remote desktops and recover cleanup or disk-space refusals.", path: "verification/test-machine-desktop.md"}
       - {title: "Linux golden home", summary: "Read Linux baseline capture, restore and timeout recovery.", path: "verification/linux-golden-home.md"}

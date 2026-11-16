@@ -1,5 +1,9 @@
 # Native Windows Test Machine provisioning
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Native Windows host provisioning
+<!-- /yoke:breadcrumbs -->
+
 This is a lab procedure for native Windows 11, with WSL absent. It does not
 establish a Windows support claim. Follow [setup responsibilities](setup-responsibilities.md).
 Use the project inventory for host names, subscription, accounts and evidence.
@@ -77,10 +81,16 @@ az vm deallocate --resource-group GROUP --name VM
 
 ## 2. Provision OpenSSH and the standard test account
 
-Install Windows OpenSSH Server using Azure `az vm run-command invoke
+Install the signed Microsoft Win32-OpenSSH MSI using Azure `az vm run-command invoke
 --command-id RunPowerShellScript`. Set `sshd` automatic, enable public-key
 authentication and disable password authentication in
-`C:\ProgramData\ssh\sshd_config`. Authorize the project test-machine public
+`C:\ProgramData\ssh\sshd_config`. Fresh Windows images can spend considerable time in Windows Update servicing;
+the provisioner announces and allows up to 90 minutes for the capability
+bootstrap. Let servicing settle after first boot, then retry when necessary.
+Slowness alone is not an installation error. Keep the Microsoft-serviced
+capability; use a pinned, signature-verified Microsoft MSI only after an
+actual capability installation error has been diagnosed.
+Authorize the project test-machine public
 key for the administrator bootstrap in
 `C:\ProgramData\ssh\administrators_authorized_keys`, owned only by
 Administrators/SYSTEM. Validate the effective configuration and restart sshd.

@@ -1,5 +1,11 @@
 # Native Windows browser identities
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Native Windows browser identities
+<!-- /yoke:breadcrumbs -->
+
+For WSL, follow [WSL browser identities](windows-wsl-browser-identities.md).
+
 Return to [native Windows provisioning](windows-native-host-provisioning.md).
 These identities belong to the standard Windows test user and its native
 headed Chromium. WSL browser profiles are separate and prove no native sign-in.

@@ -20,6 +20,7 @@ PRESERVED_DIRECTORIES = (
     "AppData/Roaming/Cursor",
     "AppData/Local/Google",
     "AppData/Local/YokeQa",
+    "AppData/Local/Temp",
 )
 PRESERVED_FILES = (
     ".claude/.credentials.json",
@@ -62,6 +63,20 @@ def profile_script(control, operation, destination):
     ]
     excluded_files = ",".join(quote(value) for value in files)
     preamble = f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
+    preamble += r"""
+$check=$golden
+while($check){
+ if(Test-Path -LiteralPath $check){
+  $entry=Get-Item -LiteralPath $check
+  if($entry.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: remove links from the golden path before capture or restore'}
+ }
+ $parent=Split-Path -Parent $check
+ if($parent -eq $check){break}; $check=$parent
+}
+if(Test-Path -LiteralPath (Join-Path $golden 'profile')){
+ if((Get-Item -LiteralPath (Join-Path $golden 'profile')).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: preserve the golden and remove its linked profile before restore'}
+}
+""".replace("\n+", "\n")
     copy = f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
 & robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
 if($LASTEXITCODE -ge 8){{throw 'windows_profile_copy_failed: close test applications and retry; the golden was not sealed'}}
@@ -97,6 +112,10 @@ foreach($task in $owned){
   Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false
  }
 }
+Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'YokeQa') -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+Get-ChildItem -LiteralPath $env:TEMP -Force | Where-Object {
+ $_.Name -match '^(yoke|playwright|chromium|pip)-' -and $_.FullName -ne $PSCommandPath
+} | Remove-Item -Recurse -Force
 foreach($task in $state.tasks){Register-ScheduledTask -TaskName $task.name -TaskPath $task.path -Xml $task.xml -Force | Out-Null}
 if([Environment]::GetEnvironmentVariable('Path','User') -cne $state.user_path){throw 'windows_path_restore_failed: repair user environment access and reset again'}
 """

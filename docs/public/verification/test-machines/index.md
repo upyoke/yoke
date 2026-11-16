@@ -144,6 +144,8 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 - [Linux live state](linux-live-state.md) — Preserve live harness installations and recover reset state.
 - [Codex on Linux](codex-on-linux.md) — Configure scoped sandbox posture and recover embedded helpers.
 - [Windows host provisioning](windows-host-provisioning.md) — Prepare a Windows test account and the WSL desktop route.
-- [WSL browser identities](windows-browser-identities.md) — Authorize browser identities in the WSL test desktop.
+- [WSL browser identities](windows-wsl-browser-identities.md) — Authorize browser identities in the WSL test desktop.
+- [Native Windows host provisioning](windows-native-host-provisioning.md) — Prepare a Windows lab profile, native desktop and lease recovery journal.
+- [Native Windows browser identities](windows-browser-identities.md) — Authorize browser identities in the native Windows test desktop.
 - [Machine browser identities](browser-identities.md) — Follow the browser identity procedure for the declared OS.
 <!-- /yoke:contents -->

@@ -4,6 +4,8 @@ import json
 import time
 from uuid import uuid4
 
+from yoke_contracts.designed_wait import announce_designed_wait
+
 from yoke_harness.native_windows.transport import quote
 
 ROOT = r"C:\ProgramData\YokeQa"
@@ -120,6 +122,9 @@ def journal_operation(control, action):
         raise RuntimeError(
             "windows_journal_task_unavailable: provision the fixed administrator recovery task and grant the test user start access"
         )
+    announce_designed_wait(
+        "native Windows machine settings " + action, max_wait_seconds=300
+    )
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
         value = control.read_remote_text(ROOT + r"\requests\receipt.json")

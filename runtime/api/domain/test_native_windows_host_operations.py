@@ -72,6 +72,7 @@ def test_profile_copy_failure_does_not_report_restored():
     assert "SetEnvironmentVariable" in scripts[0]
     assert "Unregister-ScheduledTask" in scripts[0]
     assert "AppData\\Roaming\\Claude" in scripts[0]
+    assert not any(line.startswith("+") for line in scripts[0].splitlines())
 
 
 def test_desktop_task_uses_interactive_user_and_is_cleaned():
@@ -208,3 +209,45 @@ def test_azure_script_error_with_exit_zero_is_a_refusal(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="windows_openssh_bootstrap_failed"):
         provision.provision("project", "machine", "host", "group", "admin", "test")
+
+
+def test_registered_native_goldens_are_checked_with_powershell():
+    from yoke_harness.registered_golden_check import check_registered_goldens
+
+    scripts = []
+    path = r"C:\YokeQa\goldens\baseline"
+    registered = [{"project": "project", "test_machine": "machine", "path": path}]
+    check_registered_goldens(
+        lambda script, **kwargs: scripts.append(script) or completed(),
+        registered,
+        os_name="windows",
+    )
+    assert "Get-Item -LiteralPath" in scripts[0]
+    assert path in scripts[0]
+    assert "for path in" not in scripts[0]
+
+
+def test_native_retention_preserves_other_registered_goldens():
+    from yoke_harness.native_windows.retention import retain
+
+    scripts = []
+    replies = iter(
+        [
+            completed(json.dumps(["qa-home-old", "qa-home-kept", "qa-home-new"])),
+            completed(),
+        ]
+    )
+    control = SimpleNamespace(
+        home=r"C:\Users\qa",
+        _user="qa",
+        _run=lambda script, **kwargs: scripts.append(script) or next(replies),
+    )
+    removed = retain(
+        control,
+        r"C:\YokeQa\goldens\qa-home-new",
+        [r"C:\YokeQa\goldens\qa-home-new", r"C:\YokeQa\goldens\qa-home-kept"],
+    )
+    assert removed == ("qa-home-old",)
+    assert "qa-home-kept" not in scripts[1]
+    assert "qa-home-new" not in scripts[1]
+    assert "Remove-Item -LiteralPath" in scripts[1]

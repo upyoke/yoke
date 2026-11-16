@@ -191,6 +191,9 @@ def execute_host_operation_contract(
             "operation; case execution has its own entry point"
         )
     operations = operations_factory(contract)
+    bind = getattr(operations, "bind_qa_lease", None)
+    if bind is not None:
+        bind(contract.lease_id)
     checks, error_code = runner(contract, operations, probes_document)
     artifacts = [
         row.pop("capture_artifact") for row in checks if "capture_artifact" in row

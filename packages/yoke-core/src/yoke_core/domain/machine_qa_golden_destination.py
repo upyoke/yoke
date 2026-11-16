@@ -135,7 +135,8 @@ def kept_golden_fields(
     """
     if not destination:
         return {}
-    parent = PurePosixPath(destination).parent
+    path_type = PureWindowsPath if settings.get("os") == "windows" else PurePosixPath
+    parent = path_type(destination).parent
     try:
         rows = shared_home_registrations(conn, settings)
     except TestMachineCapabilityError as exc:
@@ -151,7 +152,7 @@ def kept_golden_fields(
     kept = {destination}
     for row in rows:
         path = row.settings.get(GOLDEN_BASELINE_PATH_KEY)
-        if path and PurePosixPath(path).parent == parent:
+        if path and path_type(path).parent == parent:
             kept.add(path)
     return {KEPT_GOLDEN_PATHS_KEY: sorted(kept)}
 

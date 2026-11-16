@@ -7,6 +7,8 @@ import subprocess
 import time
 from uuid import uuid4
 
+from yoke_contracts.designed_wait import announce_designed_wait
+
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.transport import quote
@@ -46,6 +48,7 @@ Start-ScheduledTask -TaskName {quote(name)}
                 "",
                 "windows_desktop_task_unavailable: log on and unlock the test user; repair Task Scheduler permissions and retry",
             )
+        announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             text = control.read_remote_text(receipt)

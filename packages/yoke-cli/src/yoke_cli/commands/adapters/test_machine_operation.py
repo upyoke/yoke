@@ -150,7 +150,7 @@ def _execute(
             REGISTERED_GOLDENS_KEY
         ):  # older servers: none
             contract = HostControlExecutionContract.model_validate(execution)
-            check_registered_goldens(host_operations_for(contract)._run, registered)
+            check_registered_goldens(host_operations_for(contract)._run, registered, os_name=contract.settings["os"])
         submission = execute_host_operation_contract(
             execution,
             probes_document=probes_document,
