@@ -26,17 +26,16 @@ Check `id -un`, `scutil --get ComputerName`, `scutil --get LocalHostName`, and
 ## 2. Network, capability and desktop route
 
 Provision infrastructure through the project's IaC or an explicit operator
-exception. Join the private network and register a stable DNS name, not a
-transient address. A rebuild may require the operator to retire the old network
-node before enrollment so the name is not changed to a suffixed variant.
-Restrict remote access to the execution machines; do not expose SSH or VNC by
-router forwarding. Enable Screen Sharing for the dedicated account when needed.
+exception. Register a stable DNS name, not a transient address. Open SSH to any
+address with key-only authentication and keep VNC behind the SSH forward, as
+[network access](host-provisioning.md#network-access) requires; never forward
+VNC through a router. Enable Screen Sharing for the dedicated account when needed.
 
 Register `test-machine:<name>` using `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` before
 an update, which uses the as-read settings token. Declare `resource_name`,
 `os=macos`, `host`, `user`, and an eventual absolute `golden_baseline_path`
-outside that user's home. Desktop settings are `desktop_route`,
+outside that user's home. Desktop settings are `desktop_route=ssh-forward`,
 `desktop_protocol=vnc`, `desktop_port`, and `desktop_user`; optional
 `desktop_host` names a separate endpoint. A relay capacity registration is a
 separate identity; ordinary work must use a different home from test resets.

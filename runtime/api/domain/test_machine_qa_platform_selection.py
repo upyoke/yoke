@@ -193,3 +193,72 @@ def test_machine_capability_name_uses_its_registered_os(field, value):
 def test_method_name_does_not_declare_platform():
     with pytest.raises(CapabilityError, match="test_machine_platform_undeclared"):
         case_platform({"method_id": "linux-terminal-check"})
+
+
+def _windows_hosts():
+    from types import SimpleNamespace
+
+    return [
+        SimpleNamespace(settings={"resource_name": "windows-lab", "os": "wsl"}),
+        SimpleNamespace(settings={"resource_name": "windows-native-lab", "os": "windows"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        {"method_config": {"os": "windows"}},
+        {"method_config": {"command": "powershell -NoProfile -Command Get-Date"}},
+    ],
+)
+def test_native_windows_case_selects_only_the_native_machine(case):
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    selected = matching_platform_hosts(_windows_hosts(), [case])
+    assert [host.settings["resource_name"] for host in selected] == [
+        "windows-native-lab"
+    ]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        {"method_config": {"os": "wsl"}},
+        {"method_config": {"executor": "informed_subagent", "test_machine": "windows-lab"}},
+    ],
+)
+def test_wsl_cases_keep_selecting_windows_lab(case):
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    selected = matching_platform_hosts(_windows_hosts(), [case])
+    assert [host.settings["resource_name"] for host in selected] == ["windows-lab"]
+
+
+def test_native_windows_case_refuses_a_wsl_only_fleet():
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    with pytest.raises(
+        CapabilityError, match=r"requires windows.*windows-lab \(wsl\)"
+    ):
+        matching_platform_hosts(
+            _windows_hosts()[:1], [{"method_config": {"os": "windows"}}]
+        )
+
+
+def test_native_windows_contract_refuses_a_wsl_screenshot_receipt():
+    from types import SimpleNamespace
+    from yoke_core.domain.handlers.machine_qa_operation_result import (
+        validate_operation_result,
+    )
+
+    receipt = SimpleNamespace(
+        operation="screenshot",
+        status="verified",
+        error_code=None,
+        artifacts=[],
+        checks=[{"name": "screenshot", "ok": True, "os": "wsl"}],
+    )
+    with pytest.raises(ValueError, match="screenshot OS differs"):
+        validate_operation_result(
+            receipt, SimpleNamespace(settings={"os": "windows"})
+        )
