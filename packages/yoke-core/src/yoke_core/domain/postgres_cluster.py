@@ -27,6 +27,7 @@ import hashlib
 import os
 import re
 import shlex
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -272,8 +273,21 @@ def ensure_started(spec: ClusterSpec) -> int:
 def _ensure_private_socket_dir(path: Path) -> None:
     """Create and validate the trust-auth socket directory without symlinks."""
     try:
-        create_private_directory(path.parent)
-        create_owner_private_directory(path)
+        if _WINDOWS:
+            create_private_directory(path.parent)
+            create_owner_private_directory(path)
+            return
+        create_private_directory(path)
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, flags)
+        try:
+            info = os.fstat(fd)
+            getuid = getattr(os, "getuid")
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != getuid():
+                raise OSError("socket path must be a directory owned by this user")
+            os.fchmod(fd, 0o700)
+        finally:
+            os.close(fd)
     except OSError as exc:
         raise PostgresClusterError(
             f"Postgres socket path is not a private directory: {path}; "
@@ -314,21 +328,8 @@ def destroy(spec: ClusterSpec) -> int:
 
 
 __all__ = [
-    "ClusterSpec",
-    "PostgresClusterError",
-    "SOCKET_PORT",
-    "binary",
-    "data_dir_major_mismatch",
-    "destroy",
-    "dsn",
-    "ensure_started",
-    "executable",
-    "initdb_if_needed",
-    "is_ready",
-    "log_tail",
-    "psql",
-    "server_options",
-    "socket_dir_for_root",
-    "start_server",
-    "stop",
+    "ClusterSpec", "PostgresClusterError", "SOCKET_PORT", "binary",
+    "data_dir_major_mismatch", "destroy", "dsn", "ensure_started", "executable",
+    "initdb_if_needed", "is_ready", "log_tail", "psql", "server_options",
+    "socket_dir_for_root", "start_server", "stop",
 ]

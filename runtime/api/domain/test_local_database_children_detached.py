@@ -16,10 +16,15 @@ def test_cluster_commands_run_detached_from_the_terminal(monkeypatch):
 
     def run(argv, **kwargs):
         calls.append(kwargs)
+        assert kwargs["stdout"] is not subprocess.PIPE
+        assert kwargs["stderr"] is not subprocess.PIPE
+        kwargs["stdout"].write("ready\n")
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     monkeypatch.setattr(subprocess, "run", run)
-    postgres_cluster._run(["pg_ctl", "status"])
+    result = postgres_cluster._run(["pg_ctl", "status"])
+    assert result.stdout == "ready\n"
     assert calls[0]["stdin"] is subprocess.DEVNULL
     assert calls[0]["start_new_session"] is True
-    assert calls[0]["capture_output"] is True
+    assert not calls[0].get("capture_output")
+    assert calls[0]["timeout"] == 90
