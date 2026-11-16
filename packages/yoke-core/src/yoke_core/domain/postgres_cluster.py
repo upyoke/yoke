@@ -252,7 +252,10 @@ def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
 def ensure_started(spec: ClusterSpec) -> int:
     """Idempotently bring the cluster up: initdb if new, start if down."""
     create_private_directory(spec.root.parent)
-    create_owner_private_directory(spec.root)
+    if _WINDOWS:
+        create_owner_private_directory(spec.root)
+    else:
+        create_private_directory(spec.root)
     _ensure_private_socket_dir(spec.sock_dir)
     rc = initdb_if_needed(spec)
     if rc != 0:

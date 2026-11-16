@@ -184,7 +184,10 @@ def fetch_binaries(
     url = release_asset_url(version, resolved_target, base_url=base_url)
     dest = version_dir(version)
     create_private_directory(dest.parent.parent)
-    create_owner_private_directory(dest.parent)
+    if _WINDOWS:
+        create_owner_private_directory(dest.parent)
+    else:
+        create_private_directory(dest.parent)
     staging = Path(tempfile.mkdtemp(prefix=".fetch-", dir=dest.parent))
     try:
         tarball = staging / release_asset_name(version, resolved_target)

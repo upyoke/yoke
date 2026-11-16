@@ -31,6 +31,7 @@ from yoke_contracts.owner_private_path import (
 from dataclasses import dataclass
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 import secrets
 import socket
@@ -74,7 +75,8 @@ class UiDaemonRecord:
 def state_dir() -> Path:
     directory = machine_config.yoke_home() / UI_STATE_DIR_NAME
     create_private_directory(directory.parent)
-    return create_owner_private_directory(directory)
+    return (create_owner_private_directory(directory) if os.name == "nt"
+            else create_private_directory(directory))
 
 
 def token_path() -> Path:
