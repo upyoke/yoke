@@ -22,9 +22,8 @@ def link(target: str | Path, path: str | Path) -> str:
         destination.symlink_to(source, target_is_directory=source.is_dir())
         return "symlink"
     except OSError:
-        if os.name != "nt":
-            raise
-    if source.is_dir():
+        pass
+    if os.name == "nt" and source.is_dir():
         # cmd is required for its built-in mklink; pass paths through environment
         # expansion so shell metacharacters in paths cannot become commands.
         result = subprocess.run(
@@ -41,7 +40,9 @@ def link(target: str | Path, path: str | Path) -> str:
             shutil.copy2(source, destination)
         return "copy"
     except OSError as exc:
-        raise OSError(f"link_creation_failed: {destination}; enable Windows Developer Mode for symlinks or grant copy access: {exc}") from exc
+        recovery = ("enable Windows Developer Mode for symlinks or grant copy access"
+                    if os.name == "nt" else "grant symlink or copy access")
+        raise OSError(f"link_creation_failed: {destination}; {recovery}, remove any incomplete owned copy, and retry: {exc}") from exc
 
 
 __all__ = ["link"]

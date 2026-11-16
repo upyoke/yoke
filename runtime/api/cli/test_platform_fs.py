@@ -11,6 +11,7 @@ def test_readonly_tree_removed(tmp_path):
     data = root / 'readonly'
     data.write_bytes(b'data')
     data.chmod(stat.S_IREAD)
+    root.chmod(stat.S_IREAD | stat.S_IEXEC)
     platform_fs.remove_tree(root)
     assert not root.exists()
     platform_fs.remove_tree(root)
@@ -29,3 +30,22 @@ def test_locked_path_names_recovery(monkeypatch, tmp_path):
     with pytest.raises(OSError, match='remove_tree_locked: .*locked; close'):
         platform_fs.remove_tree(root)
     assert len(calls) == 4
+
+
+def test_junction_root_is_removed_without_walking_target(monkeypatch, tmp_path):
+    from pathlib import Path
+    from types import SimpleNamespace
+    root = tmp_path / 'junction'
+    root.mkdir()
+    lstat = Path.lstat
+    removed = []
+    def junction_info(path):
+        info = lstat(path)
+        if path == root:
+            return SimpleNamespace(st_mode=info.st_mode, st_file_attributes=0x400)
+        return info
+    monkeypatch.setattr(Path, 'lstat', junction_info)
+    monkeypatch.setattr(Path, 'rmdir', lambda path: removed.append(path))
+    monkeypatch.setattr(platform_fs.shutil, 'rmtree', lambda *a, **k: pytest.fail('must not walk a junction'))
+    platform_fs.remove_tree(root)
+    assert removed == [root]

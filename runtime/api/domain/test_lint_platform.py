@@ -61,6 +61,43 @@ def test_allowance_list_can_only_shrink():
                          capture_output=True, text=True, encoding='utf-8')
     if old.returncode:
         return
-    previous = json.loads(old.stdout)
-    current = json.loads((root / lint.BASELINE).read_text(encoding='utf-8'))
+    previous = {f"{path}|{site}": count for path, sites in json.loads(old.stdout).items()
+                for site, count in sites.items()}
+    current = lint.read_baseline(root / lint.BASELINE)
     assert all(count <= previous.get(key, 0) for key, count in current.items())
+
+
+def test_prune_only_reduces_known_sites(monkeypatch, tmp_path):
+    baseline_path = tmp_path / lint.BASELINE
+    baseline_path.parent.mkdir(parents=True)
+    known = lint.PlatformHit('client.py', 1, 'process', 'known')
+    new = lint.PlatformHit('client.py', 2, 'process', 'new')
+    from collections import Counter
+    lint._write_baseline(baseline_path, Counter({known.key: 2, 'gone.py|tmp|old': 1}))
+    monkeypatch.setattr(lint, 'scan_tree', lambda root: [known, new])
+    findings = lint.ratchet_findings(tmp_path, prune=True)
+    assert lint.read_baseline(baseline_path) == {known.key: 1}
+    assert len(findings) == 1 and 'new_platform_offender' in findings[0]
+    assert new.key in findings[0]
+
+
+def test_fingerprints_ignore_optional_empty_fields_across_python_versions():
+    import ast
+    node = ast.parse('open(path)').body[0].value
+    expected = lint.fingerprint(node)
+    # Older Python dumps []/None; newer Python omits them by default.
+    del node.keywords
+    assert lint.fingerprint(node) == expected
+    literal = ast.Constant(value='hello', kind=None)
+    expected = lint.fingerprint(literal)
+    del literal.kind
+    assert lint.fingerprint(literal) == expected
+
+
+def test_scope_includes_public_installer_and_excludes_server_image(tmp_path):
+    client = tmp_path / 'packaging/public-installer/install.py'
+    server = tmp_path / 'packages/yoke-core/src/yoke_core/api/server.py'
+    for path in (client, server):
+        path.parent.mkdir(parents=True)
+        path.write_text('open(path)', encoding='utf-8')
+    assert [hit.path for hit in lint.scan_tree(tmp_path)] == [client.relative_to(tmp_path).as_posix()]

@@ -9,6 +9,11 @@ import stat
 import time
 
 
+def _is_reparse_point(path: Path) -> bool:
+    # Path.is_junction arrived in Python 3.12; 3.11 remains supported.
+    return bool(getattr(path.lstat(), "st_file_attributes", 0) & 0x400)
+
+
 def remove_tree(path: str | Path) -> None:
     """Remove a tree without following root symlinks or junctions.
 
@@ -19,8 +24,13 @@ def remove_tree(path: str | Path) -> None:
 
     def writable_retry(function, failed, exc_info):
         entry = Path(failed)
-        if entry.is_symlink() or getattr(entry, "is_junction", lambda: False)():
+        if entry.is_symlink() or _is_reparse_point(entry):
             raise exc_info[1]
+        # unlink permission belongs to the containing directory on POSIX.
+        # Repair only directories inside the tree, never its external parent.
+        parent = entry.parent
+        if parent.is_relative_to(selected) and not parent.is_symlink() and not _is_reparse_point(parent):
+            os.chmod(parent, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
         os.chmod(failed, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
         function(failed)
 
@@ -28,7 +38,7 @@ def remove_tree(path: str | Path) -> None:
         try:
             if selected.is_symlink():
                 selected.unlink()
-            elif getattr(selected, "is_junction", lambda: False)():
+            elif _is_reparse_point(selected):
                 selected.rmdir()
             elif selected.exists():
                 shutil.rmtree(selected, onerror=writable_retry)
