@@ -1,0 +1,36 @@
+name: public-installer-platforms
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    name: installer-${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install locked source environment
+        run: |
+          python -m pip install uv==0.12.1
+          uv sync --all-packages --all-groups --locked
+      - name: Verify native installer policy
+        run: uv run python -m pytest tests/installer/test_native_windows_installer.py tests/installer/test_windows_user_path.py tests/installer/test_windows_machine_config_lock.py
+      - name: Install, upgrade twice and report status from native shells
+        run: uv run python -m runtime.api.tools.prove_public_installer

@@ -233,6 +233,53 @@ def make_private_file(path: str | Path) -> None:
         kernel.LocalFree(descriptor)
 
 
+def create_private_file(path: str | Path) -> int:
+    """Create a new owner-private file and return its non-inheritable descriptor.
+
+    Existing paths refuse without changing their ownership or permissions.
+    The handle denies deletion so validation and locking use the same file.
+    """
+    import msvcrt
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    _configure_apis(advapi, kernel)
+    sid = _current_user_sid(advapi, kernel)
+    descriptor = ctypes.c_void_p()
+    convert = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
+    convert.argtypes = [wintypes.LPCWSTR, wintypes.DWORD,
+                        ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+    convert.restype = wintypes.BOOL
+    if not convert(f"O:{sid}D:P(A;;FA;;;{sid})(A;;FA;;;SY)(A;;FA;;;BA)", 1,
+                   ctypes.byref(descriptor), None):
+        raise OSError("owner_private_acl_failed: cannot build DACL; check Windows account policy")
+
+    class SecurityAttributes(ctypes.Structure):
+        _fields_ = [("nLength", wintypes.DWORD), ("lpSecurityDescriptor", ctypes.c_void_p),
+                    ("bInheritHandle", wintypes.BOOL)]
+
+    attributes = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor, False)
+    create = kernel.CreateFileW
+    create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                      ctypes.POINTER(SecurityAttributes), wintypes.DWORD,
+                      wintypes.DWORD, wintypes.HANDLE]
+    create.restype = wintypes.HANDLE
+    try:
+        handle = create(str(path), 0xC0000000, 3, ctypes.byref(attributes), 1, 0x80, None)
+        if handle == ctypes.c_void_p(-1).value:
+            error = ctypes.get_last_error()
+            if error in (80, 183):
+                raise FileExistsError(str(path))
+            raise OSError(error, f"owner_private_file_create_failed: {path}; check parent access")
+        try:
+            return msvcrt.open_osfhandle(handle, os.O_RDWR | os.O_BINARY)
+        except BaseException:
+            kernel.CloseHandle(handle)
+            raise
+    finally:
+        kernel.LocalFree(descriptor)
+
+
 def create_private_directory(path: str | Path) -> None:
     """Create a directory with a protected inheritable DACL from its first instant."""
     advapi = ctypes.WinDLL("advapi32", use_last_error=True)
@@ -269,4 +316,4 @@ def create_private_directory(path: str | Path) -> None:
 
 
 __all__ = ["is_private_directory", "is_private_file", "make_private_file",
-           "create_private_directory"]
+           "create_private_directory", "create_private_file"]

@@ -99,6 +99,14 @@ def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
     return "\n".join(lines)
 
 
+def _diagnose_or_report(json_mode: bool):
+    try:
+        return doctor.diagnose()
+    except OSError as exc:
+        print(json.dumps({"verified": False, "error": str(exc)}) if json_mode else str(exc))
+        return None
+
+
 def path_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke path check",
@@ -108,7 +116,9 @@ def path_check(args: List[str]) -> int:
         "--json", dest="json_mode", action="store_true", help="Print JSON output."
     )
     parsed = parser.parse_args(args)
-    diag = doctor.diagnose()
+    diag = _diagnose_or_report(parsed.json_mode)
+    if diag is None:
+        return 1
     if parsed.json_mode:
         print(json.dumps(_diagnosis_json(diag), indent=2))
     else:
@@ -122,7 +132,7 @@ def path_check(args: List[str]) -> int:
 def path_fix(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke path fix",
-        description="Repair only Yoke-owned blocks; remaining overrides need manual correction.",
+        description="Repair persistent PATH setup for Yoke; preserve unrelated entries.",
     )
     parser.add_argument("--yes", action="store_true", help="Apply without asking first.")
     parser.add_argument(
@@ -130,7 +140,7 @@ def path_fix(args: List[str]) -> int:
     )
     parsed = parser.parse_args(args)
     if not parsed.yes:
-        print("Repair Yoke-owned PATH blocks in supported shell startup files.")
+        print("Repair persistent PATH setup for Yoke.")
         try:
             answer = input("Apply this change? [y/N] ").strip().lower()
         except EOFError:
@@ -147,7 +157,9 @@ def path_fix(args: List[str]) -> int:
             else str(exc)
         )
         return 1
-    diag = doctor.diagnose()
+    diag = _diagnose_or_report(parsed.json_mode)
+    if diag is None:
+        return 1
     verified = not diag.needs_fix
     if parsed.json_mode:
         print(
@@ -163,7 +175,7 @@ def path_fix(args: List[str]) -> int:
             )
         )
     else:
-        print("Yoke-owned PATH block repair:")
+        print("Yoke PATH repair:")
         print(output.strip())
         print(_render_diagnosis(diag))
         if verified:
@@ -186,7 +198,9 @@ def path_verify(args: List[str]) -> int:
         "--json", dest="json_mode", action="store_true", help="Print JSON output."
     )
     parsed = parser.parse_args(args)
-    diag = doctor.diagnose()
+    diag = _diagnose_or_report(parsed.json_mode)
+    if diag is None:
+        return 1
     if parsed.json_mode:
         print(
             json.dumps(

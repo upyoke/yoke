@@ -12,6 +12,8 @@ dynamic = ["version"]
 description = "Yoke CLI — the installable `yoke` command (local client + project-file writer)"
 license = "FSL-1.1-ALv2"
 license-files = ["LICENSE.md"]
+# Native Windows requires Python 3.12+ (enforced by the installer and CLI).
+# PEP 621 cannot express an OS-specific Requires-Python floor.
 requires-python = ">=3.11"
 dependencies = [
     "yoke-contracts",

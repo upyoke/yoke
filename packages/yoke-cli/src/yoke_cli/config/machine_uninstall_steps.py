@@ -12,6 +12,7 @@ from yoke_contracts.github_app_tokens import github_configurations
 
 from collections.abc import Callable
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -78,6 +79,26 @@ def _remove_machine_hooks(emit: Callable[[str], None]) -> None:
     failed = [result.detail for result in results if result.failed]
     if failed:
         raise MachineHooksError("; ".join(failed))
+
+
+def _report_windows_path(emit: Callable[[str], None]) -> None:
+    if sys.platform == "win32":
+        from yoke_contracts.shell_path_state import tool_bin_dir
+        from yoke_contracts.windows_user_path import (
+            USER_PATH_LOCATION,
+            contains,
+            read_user_path,
+        )
+
+        present = contains(read_user_path(), tool_bin_dir(), os.environ)
+        emit(
+            f"Windows user PATH ({USER_PATH_LOCATION}): uv bin entry "
+            + (
+                "retained because uv owns it"
+                if present
+                else "absent; other entries retained"
+            )
+        )
 
 
 def back_up(inventory: Inventory, emit: Callable[[str], None]) -> None:
@@ -183,6 +204,8 @@ def remove(
         attempt("harness settings", lambda: _revert_harness_settings(emit))
     else:
         skipped("harness settings", "none recorded as written by Yoke")
+    if sys.platform == "win32":
+        attempt("Windows user PATH", lambda: _report_windows_path(emit))
     attempt("hook evaluator", stop_resident)
     attempt("local UI", lambda: command(["ui", "down"]))
     if inventory.local_universe:

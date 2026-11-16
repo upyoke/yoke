@@ -14,20 +14,21 @@ class InstallerVerification:
 
 
     def _installed_yoke_candidates(self) -> Iterable[str]:
+        executable = "yoke.cmd" if sys.platform == "win32" else "yoke"
         uv_tool_bin = os.environ.get("UV_TOOL_BIN_DIR")
         if uv_tool_bin:
-            yield os.path.join(uv_tool_bin, "yoke")
+            yield os.path.join(uv_tool_bin, executable)
         xdg_bin = os.environ.get("XDG_BIN_HOME")
         if xdg_bin:
-            yield os.path.join(xdg_bin, "yoke")
+            yield os.path.join(xdg_bin, executable)
         uv_bin = self.capture_runner(["uv", "tool", "dir", "--bin"])
         if uv_bin.returncode == 0:
             directory = uv_bin.stdout.strip()
             if directory and "\n" not in directory and os.path.isabs(directory):
-                yield os.path.join(directory, "yoke")
+                yield os.path.join(directory, executable)
         home = os.path.expanduser("~")
         if home and home != "~":
-            yield os.path.join(home, ".local", "bin", "yoke")
+            yield os.path.join(home, ".local", "bin", executable)
 
 
     def _smoke_yoke(self, yoke_bin: str = "yoke") -> str:
