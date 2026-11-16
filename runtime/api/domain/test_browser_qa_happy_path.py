@@ -188,7 +188,8 @@ class TestHappyPath:
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         row = conn.execute(
-            f"SELECT artifact_handle FROM qa_artifacts WHERE qa_run_id = {p}",
+            f"SELECT artifact_handle FROM qa_artifacts WHERE qa_run_id = {p}"
+            " AND artifact_type = 'screenshot'",
             (captured["run_id"],),
         ).fetchone()
         conn.close()

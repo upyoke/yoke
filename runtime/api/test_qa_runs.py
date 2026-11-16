@@ -267,7 +267,8 @@ class TestRunAdd:
         )
         conn = connect_test_db(db_path)
         art = conn.execute(
-            "SELECT artifact_type, content_type, artifact_handle FROM qa_artifacts WHERE qa_run_id = %s",
+            "SELECT artifact_type, content_type, artifact_handle FROM qa_artifacts"
+            " WHERE qa_run_id = %s AND artifact_type = 'screenshot'",
             (run_id,),
         ).fetchone()
         conn.close()
