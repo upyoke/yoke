@@ -319,11 +319,23 @@ def test_cloud_key_alias_is_shared_by_all_ssh_routes(instance, tmp_path):
         assert not any(option.startswith("HostKeyAlias=192.") for option in argv)
 
 
-@pytest.mark.parametrize(("os_name", "wrapped"), [("wsl", True), ("windows", False)])
-def test_exec_wraps_only_wsl_machines_in_wsl(cli, os_name, wrapped) -> None:
-    assert cli(["--project", "yoke", "--", "uname", "-a"], os_name=os_name) == 0
-
+@pytest.mark.parametrize("os_name", ["wsl", "windows", "linux", "macos"])
+def test_exec_uses_the_declared_os_command_transport(cli, os_name) -> None:
+    assert cli(["--project", "yoke", "--", "tool.exe", "value"], os_name=os_name) == 0
     sent = cli.ran[-1]["command"]
-    from yoke_contracts.windows_wsl_command import windows_wsl_command
+    if os_name == "wsl":
+        from yoke_contracts.windows_wsl_command import windows_wsl_command
 
-    assert sent == ([windows_wsl_command("uname -a")] if wrapped else ["uname", "-a"])
+        assert sent == [windows_wsl_command("tool.exe value")]
+    elif os_name == "windows":
+        import base64
+
+        assert sent[0].startswith(
+            "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
+        )
+        script = base64.b64decode(sent[0].split()[-1]).decode("utf-16-le")
+        assert "$info.FileName='tool.exe'" in script
+        assert "$info.Arguments='value'" in script
+        assert "wsl.exe" not in script
+    else:
+        assert sent == ["tool.exe", "value"]
