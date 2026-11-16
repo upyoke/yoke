@@ -90,6 +90,23 @@ def test_cleanup_keeps_installs_in_progress_and_uninstall_waits_for_them(tmp_pat
     assert not (bin_dir / "yoke").exists()
 
 
+@pytest.mark.skipif(runtime.WINDOWS, reason="the symlink layout never shipped there")
+def test_update_from_the_symlink_layout_replaces_every_link(tmp_path):
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    old = candidate(root, "1.0")
+    (old / "pending").unlink()
+    (root / "current").symlink_to(old, target_is_directory=True)
+    (root / "launcher").write_text("raise SystemExit('old launcher')\n")
+    bin_dir.mkdir()
+    (bin_dir / "yoke").symlink_to(root / "launcher")
+    runtime.activate(root, candidate(root, "2.0"), bin_dir, "2.0")
+    assert not (root / "current").is_symlink()
+    assert not (bin_dir / "yoke").is_symlink()
+    assert (root / "current").read_text() == "2.0\n"
+    assert version(bin_dir) == "2.0"
+    assert not old.exists()
+
+
 def test_python_shim_runs_the_current_release_python(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     runtime.activate(root, candidate(root, "1.0"), bin_dir, "1.0")
