@@ -41,7 +41,7 @@ from typing import Any, Dict
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts import cursor_session_map
 from yoke_contracts.cursor_remount_expect import REMOUNT_REFUSAL_PAYLOAD_FIELD
-from yoke_contracts.cursor_tool_names import payload_tool_name
+from yoke_contracts.hook_tool_names import payload_tool_name
 from yoke_contracts.cursor_shell_timing import (
     CURSOR_SHELL_EVENTS,
     annotate_cursor_shell_payload,
@@ -77,7 +77,7 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     Returns the original payload dict with these normalizations applied:
 
     - ``tool_name`` resolved by
-      :func:`yoke_contracts.cursor_tool_names.payload_tool_name`, the same
+      :func:`yoke_contracts.hook_tool_names.payload_tool_name`, the same
       resolution the client uses to pick the chain whose facts it collects.
     - The shell gate (`beforeShellExecution`) gains ``tool_name="Bash"`` and
       ``tool_input={"command": ...}`` so the Bash chain's matcher resolution

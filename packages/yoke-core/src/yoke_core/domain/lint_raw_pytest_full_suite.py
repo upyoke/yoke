@@ -14,7 +14,7 @@ import sys
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell
 from yoke_core.domain.lint_raw_pytest_invocations import raw_pytest_invocations
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
@@ -187,7 +187,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     """
     if not isinstance(payload, dict):
         return None
-    verdict = _verdict(parse_shell(_extract_command(payload)))
+    verdict = _verdict(parse_payload_shell(payload))
     return None if verdict is None else verdict[1:]
 
 

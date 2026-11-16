@@ -75,6 +75,25 @@ def test_user_path_repair_preserves_other_entries_and_registry_type(monkeypatch)
     assert state["kind"] == 2
 
 
+def test_uninstall_path_report_preserves_registry_and_leaves_removal_to_finisher(
+    monkeypatch
+):
+    from yoke_cli.config import machine_uninstall_steps
+
+    state = registry(monkeypatch, r"C:\Tools\uv;C:\Other")
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shell_path_state, "tool_bin_dir", lambda: r"C:\Tools\uv")
+
+    def premature_removal():
+        pytest.fail("the detached finisher owns PATH removal after parent exit")
+
+    monkeypatch.setattr(shell_path_state, "remove_shell_path", premature_removal)
+    lines = []
+    machine_uninstall_steps._report_windows_path(lines.append)
+    assert "retained because uv owns it" in lines[0]
+    assert not state["writes"]
+
+
 def test_status_and_doctor_report_user_path_without_posix_shells(monkeypatch, tmp_path):
     from yoke_cli.config import path_doctor, path_windows
 

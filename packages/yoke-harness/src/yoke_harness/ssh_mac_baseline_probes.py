@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Callable, Sequence
 
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
@@ -113,7 +113,8 @@ def parse_baseline_probes(document: str) -> tuple[BaselineProbe, ...]:
             or any(not isinstance(value, str) or not value for value in argv)
         ):
             raise BaselineProbeError("probe argv must be 1 to 24 non-empty strings")
-        program = PurePosixPath(argv[0])
+        program = (PureWindowsPath(argv[0]) if PureWindowsPath(argv[0]).drive
+                   else PurePosixPath(argv[0]))
         if not program.is_absolute() or ".." in program.parts:
             raise BaselineProbeError("probe argv must name an absolute program")
         expectation = entry.get("expect_output_contains")

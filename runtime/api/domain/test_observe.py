@@ -21,7 +21,7 @@ from yoke_core.domain.observe import (
 )
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_APPLY_PATCH,
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
     ToolEventRecord,
@@ -232,12 +232,12 @@ class TestToolEventRecordApplyPatch(unittest.TestCase):
         self.assertTrue(rec.patch_body)
 
     def test_TC_tool_event_record_default_changed_paths_is_empty_list(self):
-        rec = ToolEventRecord(tool_kind=TOOL_KIND_BASH)
+        rec = ToolEventRecord(tool_kind=TOOL_KIND_SHELL)
         self.assertEqual(rec.changed_paths, [])
 
     def test_TC_tool_event_record_kinds_are_distinct(self):
         kinds = {
-            TOOL_KIND_BASH,
+            TOOL_KIND_SHELL,
             TOOL_KIND_WRITE,
             TOOL_KIND_EDIT,
             TOOL_KIND_APPLY_PATCH,

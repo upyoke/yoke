@@ -12,7 +12,7 @@ from typing import Dict
 
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_APPLY_PATCH,
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
 )
@@ -197,7 +197,7 @@ class TestWrongCwd:
 
 class TestNoOps:
     def test_bash_kind_skipped(self):
-        record = _record(tool_kind=TOOL_KIND_BASH, changed_paths=())
+        record = _record(tool_kind=TOOL_KIND_SHELL, changed_paths=())
         verdict = evaluate_payload(record, claim=_claim_dict())
         assert verdict.outcome == "allow"
 
@@ -254,7 +254,7 @@ class TestPipelineAdapter:
         assert decide_for_record(record) is None
 
     def test_decide_for_record_skips_bash(self):
-        record = _record(tool_kind=TOOL_KIND_BASH, changed_paths=())
+        record = _record(tool_kind=TOOL_KIND_SHELL, changed_paths=())
         assert decide_for_record(record) is None
 
 

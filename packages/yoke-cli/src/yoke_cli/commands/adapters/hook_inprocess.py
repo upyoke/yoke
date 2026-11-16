@@ -77,6 +77,7 @@ def evaluate_inprocess(
 
     from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
     from yoke_harness.hooks.identity import detect_executor
+    from yoke_harness.hooks.shell_kind_stamp import stamp_shell_kind
 
     if (
         event_name in {"SessionStart", "UserPromptSubmit"}
@@ -101,6 +102,8 @@ def evaluate_inprocess(
     # Every evaluation path — relayed, local universe, local subset — reads
     # the command's workdir from stdin, and only this machine can recover it.
     stdin_data = stamp_command_workdir(stdin_data, detect_executor())
+    # Likewise the shell a command is written for depends on this machine's OS.
+    stdin_data = stamp_shell_kind(stdin_data, detect_executor())
 
     if scope == "unregistered":
         extra_context = _session_orientation(event_name, stdin_data, cursor=cursor_invocation)

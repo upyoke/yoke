@@ -26,7 +26,7 @@ from yoke_core.domain.harness_policy_pipeline import (
 )
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_APPLY_PATCH,
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
     ToolEventRecord,
@@ -35,8 +35,8 @@ from yoke_core.domain.observe_normalization import (
 
 class TestToolKindFor(unittest.TestCase):
     def test_TC_known_tool_names(self):
-        self.assertEqual(tool_kind_for("Bash"), TOOL_KIND_BASH)
-        self.assertEqual(tool_kind_for("shell"), TOOL_KIND_BASH)
+        self.assertEqual(tool_kind_for("Bash"), TOOL_KIND_SHELL)
+        self.assertEqual(tool_kind_for("shell"), TOOL_KIND_SHELL)
         self.assertEqual(tool_kind_for("Write"), TOOL_KIND_WRITE)
         self.assertEqual(tool_kind_for("Edit"), TOOL_KIND_EDIT)
         self.assertEqual(tool_kind_for("apply_patch"), TOOL_KIND_APPLY_PATCH)
@@ -60,7 +60,7 @@ class TestBuildToolEventRecord(unittest.TestCase):
         )
         self.assertIsNotNone(rec)
         assert rec is not None  # for type checkers
-        self.assertEqual(rec.tool_kind, TOOL_KIND_BASH)
+        self.assertEqual(rec.tool_kind, TOOL_KIND_SHELL)
         self.assertEqual(rec.command, "ls")
         self.assertEqual(rec.changed_paths, [])
         self.assertEqual(rec.session_id, "sess_a")
@@ -189,7 +189,7 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(result.decisions, [])
 
     def test_TC_dispatch_walks_chain_in_order(self):
-        rec = ToolEventRecord(tool_kind=TOOL_KIND_BASH)
+        rec = ToolEventRecord(tool_kind=TOOL_KIND_SHELL)
         recorded: list[str] = []
 
         def make_record_decide(label: str):
@@ -221,7 +221,7 @@ class TestDispatch(unittest.TestCase):
         self.assertFalse(result.denied)
 
     def test_TC_dispatch_short_circuits_on_deny(self):
-        rec = ToolEventRecord(tool_kind=TOOL_KIND_BASH)
+        rec = ToolEventRecord(tool_kind=TOOL_KIND_SHELL)
         chain = ["fake.policy.allow", "fake.policy.deny", "fake.policy.never"]
         self._install_fake_module(
             "fake.policy.allow", PolicyDecision(outcome="allow")
@@ -253,7 +253,7 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(invoked, [])  # never_called was never invoked
 
     def test_TC_dispatch_skips_modules_without_hook(self):
-        rec = ToolEventRecord(tool_kind=TOOL_KIND_BASH)
+        rec = ToolEventRecord(tool_kind=TOOL_KIND_SHELL)
         chain = ["fake.policy.no_hook", "fake.policy.has_hook"]
         self._install_fake_module(
             "fake.policy.no_hook", None, no_hook=True
@@ -273,7 +273,7 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(result.decisions[0].module, "fake.policy.has_hook")
 
     def test_TC_dispatch_skips_unimportable_modules(self):
-        rec = ToolEventRecord(tool_kind=TOOL_KIND_BASH)
+        rec = ToolEventRecord(tool_kind=TOOL_KIND_SHELL)
         chain = ["definitely.not.a.real.module"]
 
         with mock.patch.object(
@@ -285,7 +285,7 @@ class TestDispatch(unittest.TestCase):
         self.assertFalse(result.denied)
 
     def test_TC_dispatch_records_error_when_module_raises(self):
-        rec = ToolEventRecord(tool_kind=TOOL_KIND_BASH)
+        rec = ToolEventRecord(tool_kind=TOOL_KIND_SHELL)
         chain = ["fake.policy.raiser", "fake.policy.allows"]
         self._install_fake_module(
             "fake.policy.raiser", None, raises=True

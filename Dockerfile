@@ -69,6 +69,9 @@ RUN --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/__init__
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/selection.py,target=/bootstrap/contracts/yoke_contracts/machine_config/selection.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/unknown_keys.py,target=/bootstrap/contracts/yoke_contracts/machine_config/unknown_keys.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/platform_file_lock.py,target=/bootstrap/contracts/yoke_contracts/platform_file_lock.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/owner_private_path.py,target=/bootstrap/contracts/yoke_contracts/owner_private_path.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/windows_private_directory.py,target=/bootstrap/contracts/yoke_contracts/windows_private_directory.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/platform_fs.py,target=/bootstrap/contracts/yoke_contracts/platform_fs.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/resilient_fetch.py,target=/bootstrap/contracts/yoke_contracts/resilient_fetch.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/terminal_detached_process.py,target=/bootstrap/contracts/yoke_contracts/terminal_detached_process.py \
     --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \

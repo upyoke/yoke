@@ -1,0 +1,43 @@
+name: Windows local PostgreSQL
+on:
+  pull_request:
+    paths:
+      - '**/postgres_cluster*.py'
+      - '**/postgres_binaries.py'
+      - '**/universe_ui_daemon*.py'
+      - '**/universe_archive_output.py'
+      - '**/universe_import_cli.py'
+      - '**/test_postgres_windows.py'
+      - 'runtime/api/tools/verify_windows_local_postgres.py'
+      - '.github/workflows/yoke-windows-local-postgres.yml'
+permissions:
+  contents: read
+jobs:
+  local-engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: {python-version: '3.12'}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --all-packages --locked --python 3.12
+      - name: Local engine lifecycle, owner isolation, and universe round trip
+        run: uv run --frozen python -m runtime.api.tools.verify_windows_local_postgres
+      - name: Portable engine helpers and detached dashboard lifecycle
+        run: >-
+          uv run --frozen python -m pytest --noconftest -q
+          runtime/api/domain/test_postgres_windows.py
+          runtime/api/domain/test_universe_archive_output_windows.py
+          runtime/api/cli/test_yoke_universe_ui_daemon.py
+          runtime/api/cli/test_yoke_universe_ui_restart.py
+          runtime/api/cli/test_universe_ui_daemon_process_identity.py

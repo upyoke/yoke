@@ -245,6 +245,13 @@
       "SessionEnd: codex-cli 0.161.0 fires a SessionEnd hook, but Yoke's Codex project hooks do not wire it; the machine-wide set matches the project set so one Yoke evaluation runs per native event."
     ]
   },
+  "shell_tools": {
+    "source": "yoke_contracts.harness_shell_tools.HARNESS_SHELL_TOOLS",
+    "tools": {
+      "Bash": "os_default",
+      "shell": "os_default"
+    }
+  },
   "worktree_hook_enablement": {
     "config_path": ".codex/hooks.json",
     "operations": [

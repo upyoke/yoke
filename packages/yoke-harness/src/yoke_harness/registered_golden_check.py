@@ -18,7 +18,9 @@ REGISTERED_GOLDEN_CHECK_FAILED = "registered_golden_check_failed"
 PHASE = "registered_golden_check"
 
 
-def check_registered_goldens(run: Any, registered: Sequence[dict[str, str]]) -> None:
+def check_registered_goldens(
+    run: Any, registered: Sequence[dict[str, str]], *, os_name=None
+) -> None:
     """Refuse, naming each project and path, when a registered golden is gone."""
     if not registered:
         return
@@ -29,6 +31,11 @@ def check_registered_goldens(run: Any, registered: Sequence[dict[str, str]]) -> 
         'if [ -L "$path" ] || [ ! -d "$path" ]; then printf "%s\\n" "$path"; fi; '
         "done"
     )
+    if os_name == "windows":
+        from yoke_harness.native_windows.transport import quote
+
+        paths = ",".join(quote(entry["path"]) for entry in registered)
+        script = f"foreach($path in @({paths})){{ $entry=Get-Item -LiteralPath $path -ErrorAction SilentlyContinue; if(!$entry -or !$entry.PSIsContainer -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)){{$path}} }}"
     result = run(script, timeout=60)
     if getattr(result, "returncode", 1) != 0:
         raise HostControlLocalError(
@@ -45,7 +52,8 @@ def check_registered_goldens(run: Any, registered: Sequence[dict[str, str]]) -> 
         return
     named = "; ".join(
         f"project {entry['project']} ({entry['test_machine']}) registers "
-        f"{entry['path']}" for entry in missing
+        f"{entry['path']}"
+        for entry in missing
     )
     first = missing[0]
     raise HostControlLocalError(

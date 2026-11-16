@@ -13,6 +13,7 @@ from yoke_contracts.hook_evaluator_protocol import (
     hook_call_identity_fields,
 )
 from yoke_contracts.hook_runner.chain_registry import chain_for
+from yoke_contracts.hook_tool_names import canonicalize_shell_payload
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_contracts.timestamps import (
@@ -79,11 +80,11 @@ def request_payload(request: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
     if not isinstance(stdin_data, str):
         raise ObservationBatchError("hook request stdin must be a string")
     payload = capability.payload_parser(stdin_data) if stdin_data else {}
-    if not isinstance(payload, dict):
-        payload = {}
+    payload = payload if isinstance(payload, dict) else {}
     extras = request.get("payload_extra")
     if isinstance(extras, Mapping):
         payload.update(extras)
+    canonicalize_shell_payload(payload)
     for field in (
         "agent_type",
         "entrypoint",

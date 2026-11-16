@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.machine_config.test_machine import (
-    TestMachineCapabilityError as CapabilityError,
     validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
@@ -157,10 +156,14 @@ def test_machine_qa_factory_selects_windows_transport(monkeypatch):
     assert isinstance(control, SshWindowsHostControl)
 
 
-def test_native_windows_never_falls_back_to_the_wsl_or_linux_transport():
-    native = {**SETTINGS, "os": "windows"}
-    with pytest.raises(CapabilityError, match="test_machine_os_unimplemented"):
-        host_control_for(SimpleNamespace(settings=native))
+def test_native_windows_never_falls_back_to_the_wsl_or_linux_transport(monkeypatch):
+    from yoke_core.domain.ssh_native_windows_host_control import SshNativeWindowsHostControl
+
+    monkeypatch.setattr(SshNativeWindowsHostControl, '__init__', lambda *args: None)
+    native = {**SETTINGS, 'os':'windows', 'golden_baseline_path':r'C:\YokeQa\goldens\baseline'}
+    control = host_control_for(SimpleNamespace(settings=native))
+    assert isinstance(control,SshNativeWindowsHostControl)
+    assert not isinstance(control,SshWindowsHostControl)
 
 
 def test_windows_golden_command_forwards_private_ssh_log(tmp_path, monkeypatch):
@@ -230,14 +233,15 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
     assert _linux_command(calls[0]["command"][0]) == "exit 7"
 
 
-def test_gui_command_refuses_native_windows_before_any_ssh(monkeypatch, tmp_path):
+def test_gui_command_uses_native_windows_desktop_task(monkeypatch, tmp_path):
     from yoke_harness import machine_gui_command as gui
-    from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
+    from yoke_harness.native_windows import desktop
 
-    monkeypatch.setattr(
-        subprocess, "run", lambda *a, **kw: pytest.fail("no SSH for native Windows")
-    )
-    with pytest.raises(RemoteExecRefusal, match="windows Test Machines"):
-        gui.run_gui_command(
-            settings={**SETTINGS, "os": "windows"}, argv=["yoke"], yoke_home=tmp_path
-        )
+    calls=[]
+    monkeypatch.setenv('SSH_AUTH_SOCK','test-agent')
+    monkeypatch.setattr(gui._GuiSshControl,'_run',lambda *args,**kwargs:subprocess.CompletedProcess([],0,r'C:\Users\qa',''))
+    monkeypatch.setattr(desktop,'desktop_script',lambda control,script,**kwargs:calls.append(script) or subprocess.CompletedProcess([],0,'native',''))
+    result = gui.run_gui_command(settings={**SETTINGS,'os':'windows'},argv=['yoke.cmd'],yoke_home=tmp_path)
+    assert result.stdout == 'native'
+    assert 'yoke.cmd' in calls[0]
+    assert 'wsl.exe' not in calls[0]

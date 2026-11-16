@@ -148,6 +148,9 @@ def run_event(
         payload = {}
     if controls is not None and controls.payload_extra:
         payload = {**payload, **controls.payload_extra}
+    from yoke_contracts.hook_tool_names import canonicalize_shell_payload
+
+    canonicalize_shell_payload(payload)
 
     matcher = _resolve_matcher(event_name, payload)
     if dry_run:
@@ -169,9 +172,13 @@ def run_event(
         remote=controls.remote if controls is not None else False,
     )
     from yoke_contracts.hook_runner.guard_scope import applicable_chain
+    from yoke_contracts.hook_runner.guard_shells import shell_applicable_chain
     from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
 
     try:
+        chain = shell_applicable_chain(
+            chain, context.shell_kind if matcher == "Bash" else None
+        )
         if controls is not None and controls.remote:
             project_id = controls.authorized_project_id
         elif controls is not None and controls.project_scope is not None:

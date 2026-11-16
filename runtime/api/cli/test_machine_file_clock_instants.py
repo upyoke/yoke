@@ -61,6 +61,7 @@ def test_local_core_and_checklist_generate_canonical_clock_without_touching_opaq
     assert record["updated_at"] == WIRE
 
 
+@pytest.mark.windows
 def test_ui_record_ingress_is_native_and_status_formats_only_at_wire(
     machine, monkeypatch
 ):
@@ -75,7 +76,7 @@ def test_ui_record_ingress_is_native_and_status_formats_only_at_wire(
     assert document["started_at"] == WIRE
     document["started_at"] = "2026-10-09T20:00:00.123456+05:00"
     path.write_text(json.dumps(document))
-    monkeypatch.setattr(universe_ui_daemon, "process_alive", lambda pid: True)
+    monkeypatch.setattr(universe_ui_daemon, "process_alive", lambda pid, start_time=None: True)
     monkeypatch.setattr(universe_ui_daemon, "port_accepting", lambda host, port: True)
     assert universe_ui_daemon.status()["started_at"] == WIRE
     assert json.loads(path.read_text())["started_at"] == document["started_at"]
@@ -168,6 +169,7 @@ def test_benchmark_formats_native_microsecond_window_and_query(monkeypatch):
     assert report["phase_coverage"]["missing_phases"]
 
 
+@pytest.mark.windows
 def test_bad_ui_record_clock_returns_named_cli_refusal(machine, capsys):
     universe_ui_daemon_state.write_record(
         pid=123, host="localhost", port=456, env="sample", supervised=False
