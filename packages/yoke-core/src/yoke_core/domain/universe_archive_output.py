@@ -9,6 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
+from yoke_contracts import windows_private_directory
+from yoke_contracts.owner_private_path import is_owner_private_file
+
+_WINDOWS = os.name == "nt"
+
 
 class PrivateArchiveOutputError(RuntimeError):
     """An archive destination cannot be replaced without weakening safety."""
@@ -25,7 +30,8 @@ def _validate_existing_destination(destination: Path) -> None:
         ) from exc
     if (
         not stat.S_ISREG(info.st_mode)
-        or info.st_uid != os.geteuid()
+        or (not is_owner_private_file(destination) if _WINDOWS
+            else info.st_uid != os.geteuid())
         or info.st_nlink != 1
     ):
         raise PrivateArchiveOutputError(
@@ -63,6 +69,10 @@ class PrivateArchiveOutput:
         _validate_existing_destination(self.destination)
         try:
             os.replace(self.temporary, self.destination)
+            if _WINDOWS:
+                # Windows cannot open/fsync a directory; the file was flushed above.
+                self.committed = True
+                return
             directory = os.open(
                 self.destination.parent,
                 os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
@@ -97,7 +107,10 @@ def prepare_private_archive_output(destination: Path) -> PrivateArchiveOutput:
             dir=destination.parent,
         )
         temporary = Path(raw_path)
-        os.fchmod(descriptor, 0o600)
+        if _WINDOWS:
+            windows_private_directory.make_private_file(temporary)
+        else:
+            os.fchmod(descriptor, 0o600)
         stream = os.fdopen(descriptor, "wb")
         descriptor = -1
         return PrivateArchiveOutput(destination, temporary, stream)

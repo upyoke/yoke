@@ -4,17 +4,33 @@ on:
     paths:
       - '**/postgres_cluster*.py'
       - '**/postgres_binaries.py'
+      - '**/universe_ui_daemon*.py'
+      - '**/universe_archive_output.py'
+      - '**/universe_import_cli.py'
       - '**/test_postgres_windows.py'
+      - 'runtime/api/tools/verify_windows_local_postgres.py'
       - 'runtime/api/tools/probe_windows_postgres_socket.py'
       - '.github/workflows/yoke-windows-local-postgres.yml'
 permissions:
   contents: read
 jobs:
-  socket-spike:
-    runs-on: windows-2025
-    timeout-minutes: 10
+  local-engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - run: python -m pip install pefile
-      - name: Probe pinned PostgreSQL Unix socket under a private spaced path
-        run: python runtime/api/tools/probe_windows_postgres_socket.py
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: {python-version: '3.12'}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --all-packages --locked --python 3.12
+      - name: Local engine lifecycle, owner isolation, and universe round trip
+        run: uv run --frozen python -m runtime.api.tools.verify_windows_local_postgres

@@ -20,6 +20,7 @@ fixture releases).
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import create_owner_private_directory
 
 import os
 import platform
@@ -38,6 +39,8 @@ from yoke_contracts.resilient_fetch import FetchError
 from yoke_contracts.resilient_fetch import FetchResult
 from yoke_contracts.resilient_fetch import fetch_bytes
 from yoke_contracts.resilient_fetch import fetch_file
+
+_WINDOWS = os.name == "nt"
 
 POSTGRES_VERSION = "17.11.1"
 
@@ -58,6 +61,8 @@ _FETCH_TIMEOUT_S = 120
 
 #: (sys.platform prefix, platform.machine()) -> release target triple.
 _PLATFORM_TARGETS = {
+    ("windows", "amd64"): "x86_64-pc-windows-msvc",
+    ("windows", "x86_64"): "x86_64-pc-windows-msvc",
     ("darwin", "arm64"): "aarch64-apple-darwin",
     ("darwin", "x86_64"): "x86_64-apple-darwin",
     ("linux", "aarch64"): "aarch64-unknown-linux-gnu",
@@ -139,7 +144,7 @@ def version_dir(version: str = POSTGRES_VERSION) -> Path:
 def installed_bin_dir(version: str = POSTGRES_VERSION) -> Optional[Path]:
     """The fetched bin directory for *version*, or None when absent."""
     candidate = version_dir(version) / "bin"
-    if (candidate / "initdb").is_file():
+    if (candidate / ("initdb.exe" if _WINDOWS else "initdb")).is_file():
         return candidate
     return None
 
@@ -178,7 +183,8 @@ def fetch_binaries(
     resolved_target = target or platform_target()
     url = release_asset_url(version, resolved_target, base_url=base_url)
     dest = version_dir(version)
-    create_private_directory(dest.parent)
+    create_private_directory(dest.parent.parent)
+    create_owner_private_directory(dest.parent)
     staging = Path(tempfile.mkdtemp(prefix=".fetch-", dir=dest.parent))
     try:
         tarball = staging / release_asset_name(version, resolved_target)

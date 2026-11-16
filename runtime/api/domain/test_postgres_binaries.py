@@ -25,6 +25,8 @@ def _isolated_machine_home(monkeypatch, tmp_path):
 
 
 def test_platform_target_mapping():
+    assert pb.platform_target("Windows", "AMD64") == "x86_64-pc-windows-msvc"
+    assert pb.platform_target("Windows", "x86_64") == "x86_64-pc-windows-msvc"
     assert pb.platform_target("Darwin", "arm64") == "aarch64-apple-darwin"
     assert pb.platform_target("Darwin", "x86_64") == "x86_64-apple-darwin"
     assert pb.platform_target("Linux", "x86_64") == "x86_64-unknown-linux-gnu"
@@ -39,6 +41,7 @@ def test_platform_target_unsupported_names_host():
 @pytest.mark.parametrize(
     "target",
     [
+        "x86_64-pc-windows-msvc",
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
         "aarch64-unknown-linux-gnu",

@@ -27,6 +27,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from typing import BinaryIO, Optional, Sequence
 
+from yoke_contracts import windows_private_directory
+
 import psycopg
 
 from yoke_core.domain import (
@@ -54,7 +56,10 @@ def _stage_archive(stream: BinaryIO, *, max_bytes: int) -> Path:
     )
     path = Path(raw_path)
     try:
-        os.fchmod(descriptor, 0o600)
+        if os.name == "nt":
+            windows_private_directory.make_private_file(path)
+        else:
+            os.fchmod(descriptor, 0o600)
         total = 0
         with os.fdopen(descriptor, "wb") as destination:
             descriptor = -1
