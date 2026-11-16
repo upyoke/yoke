@@ -6,6 +6,7 @@ from runtime.api.fixtures.carried_release_candidate import (
     git,
     record_landing_receipt,
     release_repository,
+    serve_no_provider,
     serve_repository,
 )
 from runtime.api.domain.run_settles_plan_on_other_target_test_support import (
@@ -33,6 +34,9 @@ def topology(conn, tmp_path, monkeypatch, item_id):
     git(repo, "commit", "--allow-empty", "-m", "Unrelated candidate")
     unrelated = git(repo, "rev-parse", "HEAD")
     serve_repository(monkeypatch, repo)
+    # The served checkout is this host's only source: a candidate it excludes
+    # stays excluded rather than walking on to a provider.
+    serve_no_provider(monkeypatch)
     from yoke_core.domain.dash_execution import record_dash_evidence
 
     record_dash_evidence(

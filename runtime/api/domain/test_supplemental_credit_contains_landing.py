@@ -62,3 +62,43 @@ def test_credit_and_add_item_use_current_landing(
         ).fetchone()[0]
         == item
     )
+
+
+@pytest.mark.parametrize("carrier", [False, True])
+def test_unrelated_candidate_stays_excluded_when_a_binding_resolves(
+    test_db, tmp_path, monkeypatch, carrier
+):
+    """A checkout's exclusion holds even where project 1 has a binding and token.
+
+    An earlier test once left the provider opener bound to a resolver that
+    returned a token, and the walk past the checkout's "not contained" then
+    reached GitHub. The fixture declares this host has no binding, so the
+    answer comes from the checkout alone and no provider is opened.
+    """
+    from runtime.api.domain.github_actions_rest_test_support import _RESOLVED
+    from yoke_core.domain import (
+        deployment_run_carried_work_repository,
+        project_github_auth,
+    )
+
+    for module in (project_github_auth, deployment_run_carried_work_repository):
+        monkeypatch.setattr(
+            module, "resolve_project_github_auth", lambda project, **_k: _RESOLVED
+        )
+    item = 9790
+    _pair(test_db, item_id=item)
+    commits = topology(test_db, tmp_path, monkeypatch, item)
+    pin(
+        test_db,
+        "run-prod",
+        commits["landing"],
+        carrier=carrier,
+        delivered=commits["prod"],
+    )
+    pin(test_db, "run-stage", commits["unrelated"], carrier=carrier)
+    test_db.execute("UPDATE deployment_runs SET status='succeeded'")
+    test_db.commit()
+
+    assert latest_qa_member_run(test_db, item_id=item, target_env="stage") is None
+    notice = uncredited_supplemental_notice(test_db, run_id="run-stage", item_id=item)
+    assert "supplemental_proof_not_credited" in notice
