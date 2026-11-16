@@ -25,7 +25,7 @@ def main(argv):
         import release_marker
         print(release_marker.VERSION)
     elif argv[:1] == ['github']:
-        print(json.dumps({'configured': False}))
+        print(json.dumps({'checked': True}))
 """
 
 

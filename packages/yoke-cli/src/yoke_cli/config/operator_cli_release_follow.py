@@ -76,7 +76,7 @@ def follow_release(
     except Exception as exc:  # noqa: BLE001 - the relay keeps serving; the record names it
         detail = f"{type(exc).__name__}: {exc}"
     record["after"] = _version(run, yoke, env)
-    if record["after"] == target:
+    if not detail and record["after"] == target:
         record["project_refresh"] = _refresh_checkouts(yoke, run, env)
         return _finish(record, state_dir, "updated")
     record["error"] = detail or "the installer produced no output"

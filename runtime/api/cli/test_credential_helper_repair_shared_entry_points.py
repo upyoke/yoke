@@ -179,3 +179,50 @@ def test_yoke_update_surfaces_a_real_installer_repair_failure(
 
     assert "credential helper repair failed" in str(raised.value)
     assert "disk full" in str(raised.value)
+
+
+@pytest.mark.parametrize("via_update", [False, True])
+def test_missing_release_interpreter_fails_both_entry_points(
+    tmp_path, monkeypatch, via_update
+):
+    repo, config, _, yoke_bin = _fixture(
+        tmp_path, monkeypatch, token="missing-interpreter"
+    )
+    # Model the released helper reference, rather than the fixture's source runtime.
+    from yoke_contracts.git_credential_command import helper_command
+    from runtime.api.cli.github_git_credential_install_test_support import _git
+
+    root = tmp_path / "yoke-cli-releases"
+    helper = (
+        root
+        / "github-credential-helper"
+        / github_git_credentials.STABLE_HELPER_FILE_NAME
+    )
+    _git(
+        repo,
+        "config",
+        "--replace-all",
+        github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY,
+        helper_command(root / "python", helper, config),
+    )
+    before = (repo / ".git/config").read_bytes()
+    missing = tmp_path / "yoke-cli-releases/releases/new/tools/yoke-cli/bin/python3"
+    monkeypatch.setattr(github_git_credentials.sys, "executable", str(missing))
+    if via_update:
+        _stub_update_through_real_installer(
+            monkeypatch=monkeypatch,
+            config=config,
+            yoke_bin=yoke_bin,
+            installer_module_name="missing_interpreter_update",
+        )
+        with pytest.raises(
+            self_update.SelfUpdateError, match="github_helper_interpreter_unavailable"
+        ):
+            self_update.run_update()
+    else:
+        completed = _run_real_installer(
+            config=config, yoke_bin=yoke_bin, name="missing_interpreter_install"
+        )
+        assert completed.returncode != 0
+        assert "github_helper_interpreter_unavailable" in completed.stderr
+    assert (repo / ".git/config").read_bytes() == before

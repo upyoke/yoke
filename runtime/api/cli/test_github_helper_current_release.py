@@ -67,6 +67,8 @@ def test_checkout_helper_survives_release_switch_and_prune(tmp_path, monkeypatch
 
 def test_helper_command_preserves_non_release_runtime(tmp_path, monkeypatch):
     python = tmp_path / "venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
     helper = tmp_path / "site" / credentials.STABLE_HELPER_FILE_NAME
     config = tmp_path / "config.json"
     monkeypatch.setattr(credentials.sys, "executable", str(python))
