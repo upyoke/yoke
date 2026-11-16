@@ -73,6 +73,11 @@ CAPABILITY_TYPE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "verification_model": "repo_binding",
         "used_by": "GitHub · delivery",
     },
+    "azure-admin": {
+        "display_label": "Azure admin",
+        "display_order": 51,
+        "used_by": "Test Machine power",
+    },
     "aws-admin": {
         "display_label": "AWS admin",
         "display_order": 50,

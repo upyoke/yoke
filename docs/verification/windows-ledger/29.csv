@@ -3,6 +3,7 @@ windows-075a7546a156c2fd01a9,hook PostToolUse,codex-vscode,self-hosted-client,mu
 windows-3d1f002095e547e11a29,hook PostToolUseFailure,claude-desktop,local,must-pass,,
 windows-2fb2bf3542a05deaf629,hook beforeShellExecution,cursor-desktop,hosted-client,must-pass,,
 windows-eeaf31d65edc561d9be9,yoke auth set,cli,local,must-pass,,
+windows-1c78b399399071dc7029,yoke azure admin-link,cli,hosted-client,must-pass,,
 windows-117ed5ba40e227db8029,yoke browser authorize,cli,hosted-client,must-pass,,
 windows-f1ea27d27db398e2d0e9,yoke claims work claim release,cli,local,must-pass,,
 windows-46d678c4be495c4868a9,yoke claims work-claim release,cli,local,must-pass,,
