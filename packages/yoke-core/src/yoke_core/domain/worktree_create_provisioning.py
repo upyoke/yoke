@@ -131,12 +131,14 @@ def provision_planned_lanes(
     # Every harness contributes its lane-enablement operations through its
     # manifest. This runs for reused lanes as well as new ones so a lane
     # prepared before an adapter update is repaired on the next preparation.
-    # A Yoke source lane also gets the gitignored installed-layout views its
-    # teaching names; other projects receive those from their install.
+    # A Yoke source lane first gets its gitignored generated views (installed
+    # layout and native harness views such as .codex/hooks.json), because
+    # harness setup trusts those hook files; other projects receive them from
+    # their install.
     for entry in plan.worktrees:
+        refresh_source_installed_views(Path(entry.path))
         provision_worktree_harness_enablement(repo_root, entry.path)
         provision_worktree_harness_setup(entry.path)
-        refresh_source_installed_views(Path(entry.path))
 
     # Step 4 — the blocking readiness proof. A lane is ready when its tests
     # can run in it. This runs for reused lanes too, so a lane prepared

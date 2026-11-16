@@ -60,8 +60,6 @@ class ProjectInstallResponse(BaseModel):
     harness_hook_trust: Optional[List[str]] = None
     created_settings_files: Optional[List[str]] = None
     # Source-link-strategy fields (absent from copy reports).
-    symlinks_created: Optional[int] = None
-    symlinks_ok: Optional[int] = None
     materialized_files_created: Optional[int] = None
     materialized_files_updated: Optional[int] = None
     materialized_files_ok: Optional[int] = None

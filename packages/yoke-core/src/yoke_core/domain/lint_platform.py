@@ -14,6 +14,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
+import subprocess
 
 from yoke_core.domain.lint_project_name_literal import is_exempt_relpath
 
@@ -177,11 +178,42 @@ def scan_tree(root: Path) -> list[PlatformHit]:
     return hits
 
 
-def read_baseline(path: Path) -> Counter:
-    """Read path-grouped sites; fingerprints and counts are line-independent."""
-    grouped = json.loads(path.read_text(encoding="utf-8"))
+def _parse_baseline(text: str) -> Counter:
+    grouped = json.loads(text)
     return Counter({f"{path}|{site}": count
                     for path, sites in grouped.items() for site, count in sites.items()})
+
+
+def read_baseline(path: Path) -> Counter:
+    """Read path-grouped sites; fingerprints and counts are line-independent."""
+    return _parse_baseline(path.read_text(encoding="utf-8"))
+
+
+class BaselineBaseUnavailable(RuntimeError):
+    """The immutable comparison base for the shrink-only check cannot be read."""
+
+
+def _git(root: Path, *args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8")
+    if done.returncode:
+        raise BaselineBaseUnavailable(
+            f"git {' '.join(args)} failed in {root}: {done.stderr.strip()}; fetch the integration "
+            "branch with full history (git fetch origin main) and rerun")
+    return done.stdout
+
+
+def baseline_growth(root: Path, integration_ref: str = "origin/main") -> list[str]:
+    """Allowances the candidate added or raised relative to its merge-base.
+
+    The merge-base is fixed for a candidate, so entries main prunes after the
+    candidate branched never read as growth.
+    """
+    base = _git(root, "merge-base", "HEAD", integration_ref).strip()
+    previous = _parse_baseline(_git(root, "show", f"{base}:{BASELINE}"))
+    current = read_baseline(root / BASELINE)
+    return [f"grown_platform_allowance: {key} ({previous.get(key, 0)} -> {count} since {base[:12]}); "
+            "allowances may only shrink, so fix the call instead"
+            for key, count in sorted(current.items()) if count > previous.get(key, 0)]
 
 
 def _write_baseline(path: Path, counts: Counter) -> None:

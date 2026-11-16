@@ -1,13 +1,16 @@
-"""HC-harness-substrate-drift: every renderer output matches its canonical source.
+"""HC-harness-substrate-drift: every renderer output and native view is current.
 
-Calls into ``yoke_core.domain.agents_render.detect_drift`` to enumerate any
-Claude adapter file (under ``runtime/harness/claude/agents/``) whose content
-differs from what the renderer would produce from the canonical body
-(``runtime/agents/{agent}.md``) plus the per-role spec
-(``runtime/agents/{agent}.claude.json``).
+Calls ``yoke_core.domain.agents_render.detect_substrate_drift``, which names
+every rendered harness file (Claude, Codex and Cursor agents, hooks, settings,
+manifests) that differs from what the renderer would produce from the
+canonical sources, and every native harness view (``.claude/agents``,
+``.claude/rules``, ``.claude/skills/yoke``, ``.codex/hooks.json``,
+``.codex/agents``, ``.cursor/agents``) that is missing or stale. A missing
+``.codex/hooks.json`` means Codex loads no project hooks, so no tool call
+records completion.
 
 PASS — no drift.
-FAIL — at least one rendered file diverges; the detail names each drifted path.
+FAIL — the detail names each drifted path and the repair command.
 """
 
 from __future__ import annotations
@@ -28,54 +31,31 @@ _HC_DESC = "All renderer outputs match canonical source"
 def hc_harness_substrate_drift(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
-    try:
-        from yoke_core.domain import agents_render
-    except ImportError as exc:  # pragma: no cover - defensive
-        rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
-            f"agents_render module unavailable ({exc}); "
-            "renderer surface not provisioned yet",
-        )
-        return
-
-    detect = getattr(agents_render, "detect_drift", None) or getattr(
-        agents_render, "check_drift", None,
-    )
-    if detect is None:
-        rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
-            "agents_render exposes neither detect_drift nor check_drift; "
-            "renderer drift surface not yet provisioned",
-        )
-        return
+    from yoke_core.domain.agents_render import detect_substrate_drift
 
     repo_root = _resolve_repo_root()
-    kwargs = {"target_root": Path(repo_root)} if repo_root else {}
     try:
-        try:
-            drifted = detect(**kwargs)
-        except TypeError:
-            drifted = detect()
+        drifted = detect_substrate_drift(
+            target_root=Path(repo_root) if repo_root else None,
+        )
     except Exception as exc:
         rec.record(
             _HC_NAME, _HC_DESC, "FAIL",
-            f"agents_render drift check raised: {exc}",
+            f"agents_render drift check raised: {exc}. Fix the named cause, "
+            "then run `yoke agents render`.",
         )
         return
 
     if not drifted:
         rec.record(
             _HC_NAME, _HC_DESC, "PASS",
-            "all rendered Claude adapters match canonical source",
+            "all rendered harness outputs and native views match canonical source",
         )
         return
 
-    detail_lines = ["rendered output drifts from canonical source:"]
-    for entry in drifted:
-        detail_lines.append(f"- {entry}")
-    detail_lines.append(
-        "Run `python3 -m yoke_core.domain.agents_render render` to repair.",
-    )
+    detail_lines = ["rendered output or native view drifts from canonical source:"]
+    detail_lines.extend(f"- {entry}" for entry in drifted)
+    detail_lines.append("Run `yoke agents render` to repair.")
     rec.record(_HC_NAME, _HC_DESC, "FAIL", "\n".join(detail_lines))
 
 # Slug and display name are the ones this check has always reported under.

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.native_view_test_support import seed_native_view_sources
+from yoke_contracts.project_contract.source_native_views import NATIVE_AGENT_LINKS
 from yoke_contracts.project_contract.source_installed_views import (
     HARNESS_MANIFEST_SOURCES,
     SourceViewError,
@@ -30,6 +32,7 @@ def _checkout(root: Path) -> Path:
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f'{{"source": "{rel}"}}\n')
+    seed_native_view_sources(root)
     docs = root / "docs/public/guide"
     docs.mkdir(parents=True)
     (root / "docs/public/index.md").write_text("# Home\n")
@@ -51,6 +54,7 @@ def test_views_copy_tracked_docs_and_harness_manifests(tmp_path) -> None:
         ".yoke/harness/claude/manifest.json",
         ".yoke/harness/codex/manifest.json",
         ".yoke/harness/cursor/manifest.json",
+        *(native.as_posix() for native, _source in NATIVE_AGENT_LINKS),
     }
     assert (root / ".yoke/docs/guide/setup.md").read_text() == "# Setup\n"
     assert not (root / ".yoke/docs/scratch.md").exists()
@@ -102,4 +106,43 @@ def test_missing_manifest_source_refuses_with_recovery(tmp_path) -> None:
     (root / HARNESS_MANIFEST_SOURCES[0]).unlink()
 
     with pytest.raises(SourceViewError, match="source_view_source_unreadable"):
+        refresh_source_installed_views(root)
+
+
+def _assert_native_views_point_at_sources(root: Path) -> None:
+    for native, source in NATIVE_AGENT_LINKS:
+        view = root / native
+        assert view.exists(), f"{native} was not recreated"
+        assert view.resolve() == (root / source).resolve(), f"{native} -> {view.resolve()}"
+
+
+def test_deleted_native_views_come_back_on_refresh(tmp_path) -> None:
+    root = _checkout(tmp_path)
+    refresh_source_installed_views(root)
+    for native, _source in NATIVE_AGENT_LINKS:
+        (root / native).unlink()
+
+    changed = refresh_source_installed_views(root)
+
+    assert set(changed) == {native.as_posix() for native, _ in NATIVE_AGENT_LINKS}
+    _assert_native_views_point_at_sources(root)
+    assert refresh_source_installed_views(root) == []
+
+
+def test_post_merge_hook_path_recreates_native_views(tmp_path, monkeypatch) -> None:
+    from yoke_cli.commands import git_hook
+
+    root = _checkout(tmp_path)
+    monkeypatch.chdir(root)
+
+    git_hook._refresh_source_views("post-merge")
+
+    _assert_native_views_point_at_sources(root)
+
+
+def test_missing_native_view_source_refuses_with_recovery(tmp_path) -> None:
+    root = _checkout(tmp_path)
+    (root / "runtime/harness/codex/hooks.json").unlink()
+
+    with pytest.raises(SourceViewError, match="runtime/harness/codex/hooks.json.*yoke agents render"):
         refresh_source_installed_views(root)

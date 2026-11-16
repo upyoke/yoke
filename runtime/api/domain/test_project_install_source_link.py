@@ -22,6 +22,8 @@ import pytest
 from yoke_cli.project_install import runner as project_install
 from yoke_cli.project_install import git_hooks as git_hooks
 from yoke_core.domain import project_install_source_link as source_link
+from runtime.api.domain.native_view_test_support import seed_native_view_sources
+from yoke_contracts.project_contract.source_native_views import NATIVE_AGENT_LINKS
 from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
 from yoke_cli.project_install.files import (
     MANIFEST_REL,
@@ -49,6 +51,7 @@ def _seed_yoke_checkout(root: Path) -> None:
         manifest = root / "runtime" / "harness" / harness / "manifest.json"
         manifest.parent.mkdir(parents=True, exist_ok=True)
         manifest.write_text(f'{{"harness_id": "{harness}"}}\n', encoding="utf-8")
+    seed_native_view_sources(root)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
 
 
@@ -130,35 +133,21 @@ class TestModeResolution:
         )
 
 
-class TestSourceLinkSymlinks:
-    def test_creates_all_symlinks(self, checkout):
+class TestSourceLinkNativeViews:
+    def test_creates_every_native_view(self, checkout):
         report = source_link.install_source_link(checkout)
-        for rel, link_target in source_link.DEV_SYMLINKS:
-            path = checkout / rel
-            assert path.is_symlink(), f"{rel} must be a symlink"
-            assert os.readlink(path) == link_target
-        assert report["symlinks_created"] == len(source_link.DEV_SYMLINKS)
-        assert any("Created: .claude/agents" in a for a in report["actions"])
+        for native, source in NATIVE_AGENT_LINKS:
+            assert (checkout / native).resolve() == (checkout / source).resolve()
+            assert native.as_posix() in report["source_views_refreshed"]
 
-    def test_wrong_target_symlink_left_in_place(self, checkout):
-        path = checkout / ".claude"
-        path.mkdir()
-        (path / "agents").symlink_to("../somewhere/else")
+    def test_stale_native_view_is_replaced(self, checkout):
+        stale = checkout / ".claude" / "agents"
+        stale.mkdir(parents=True)
+        (stale / "old.md").write_text("stale\n", encoding="utf-8")
         report = source_link.install_source_link(checkout)
-        assert any(
-            ".claude/agents is a symlink to ../somewhere/else" in w
-            for w in report["warnings"]
-        )
-        assert os.readlink(checkout / ".claude" / "agents") == "../somewhere/else"
-
-    def test_regular_dir_collision_left_in_place(self, checkout):
-        (checkout / ".claude" / "agents").mkdir(parents=True)
-        report = source_link.install_source_link(checkout)
-        assert any(
-            ".claude/agents exists as a regular file/dir" in w
-            for w in report["warnings"]
-        )
-        assert not (checkout / ".claude" / "agents").is_symlink()
+        assert ".claude/agents" in report["source_views_refreshed"]
+        assert not (stale / "old.md").exists()
+        assert (stale / "entry.md").read_text(encoding="utf-8") == "# rendered\n"
 
 
 class TestSourceLinkGitHooks:
@@ -233,7 +222,7 @@ class TestSourceLinkContractAndManifest:
         report = source_link.install_source_link(checkout)
         manifest = _manifest(checkout)
         assert manifest[MODE_KEY] == MODE_SOURCE_LINK
-        assert manifest["symlinks"] == dict(source_link.DEV_SYMLINKS)
+        assert "symlinks" not in manifest
         assert manifest["materialized_files"] == dict(
             source_link.DEV_MATERIALIZED_FILES
         )

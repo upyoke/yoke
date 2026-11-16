@@ -15,9 +15,13 @@ The substrate renderer expands one canonical body into each harness adapter:
 | Claude | `runtime/harness/claude/agents/yoke-{role}.md` | `.claude/agents` generated link or copy |
 | Codex | `runtime/harness/codex/agents/yoke-{role}.toml` | `.codex/agents` generated link or copy |
 
-Run `yoke agents render` after cloning to create the ignored native views.
-They use a symlink, directory junction, or content-checked copy; Git symlink
-support is not required.
+In a Yoke source checkout the six native views (`.claude/agents`,
+`.claude/rules`, `.claude/skills/yoke`, `.codex/hooks.json`, `.codex/agents`,
+`.cursor/agents`) are gitignored. `yoke dev setup`, lane preparation and the
+checkout's pull, merge, checkout and rebase git hooks recreate any that are
+missing or stale; `yoke agents render` does the same by hand. They use a
+symlink, directory junction, or content-checked copy; Git symlink support is
+not required. `HC-harness-substrate-drift` fails on a missing or stale view.
 
 Claude YAML metadata comes from `runtime/agents/{role}.claude.json`. Codex TOML
 uses `name`, `description`, `developer_instructions`; optional `model` is emitted
