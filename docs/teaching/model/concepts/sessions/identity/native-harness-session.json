@@ -5,9 +5,5 @@
  "page": "session-identity",
  "position": 0,
  "summary": "Ambient identity follows the nearest harness family. The shared platform process owner supplies parentage, executable names and creation epochs. Native Windows .exe names follow the same harness and multiplexed-host rules. A PID plus an exactly matching creation epoch identifies one incarnation; a shared host never anchors a conversation.",
- "sources": [
-  "packages/yoke-contracts/src/yoke_contracts/process_ancestry.py",
-  "packages/yoke-contracts/src/yoke_contracts/harness_family_identity.py",
-  "runtime/api/domain/test_process_ancestry.py"
- ]
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/process_ancestry.py", "packages/yoke-contracts/src/yoke_contracts/harness_family_identity.py", "runtime/api/domain/test_process_ancestry.py"]
 }
