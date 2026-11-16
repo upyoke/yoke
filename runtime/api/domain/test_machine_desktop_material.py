@@ -25,7 +25,7 @@ SETTINGS = {
 
 @pytest.mark.parametrize(
     "os_name,control_class",
-    [("linux", SshLinuxHostControl), ("windows", SshWindowsHostControl)],
+    [("linux", SshLinuxHostControl), ("wsl", SshWindowsHostControl)],
 )
 def test_core_material_contains_exact_machine_password_without_printing_it(
     tmp_path, monkeypatch, os_name, control_class

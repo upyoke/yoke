@@ -65,7 +65,7 @@ def _desktop_command(project, test_machine, settings) -> str:
         route = {}
     viewable = (settings.get("os"), route.get("desktop_protocol")) in {
         ("linux", "rdp"),
-        ("windows", "rdp"),
+        ("wsl", "rdp"),
         # Screen Sharing opens only on a Mac workstation.
         *((("macos", "vnc"),) if sys.platform == "darwin" else ()),
     }
@@ -215,7 +215,7 @@ def authorize_remote(parsed) -> int:
                     test_machine_capability_type(test_machine),
                     "desktop_password",
                 )
-                if detail["settings"].get("os") in {"linux", "windows"}
+                if detail["settings"].get("os") in {"linux", "wsl"}
                 else None
             )
             result = run_gui_command(

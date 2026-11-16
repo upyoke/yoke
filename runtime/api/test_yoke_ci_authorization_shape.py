@@ -145,6 +145,7 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
         "attest-validated-release-provenance",
         "container",
         "browser_runtime / browser-runtime",
+        "windows_smoke / windows-smoke",
     } | {
         f"test-shard ({version}, {shard})"
         for version in versions

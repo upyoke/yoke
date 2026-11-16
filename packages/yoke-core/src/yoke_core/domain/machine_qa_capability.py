@@ -56,7 +56,9 @@ HOST_CONTROL_EXECUTOR_ID = "host_control"
 TEST_MACHINE_FEATURES_BY_OS = {
     "macos": ("Terminal.app", "PTY", "screenshots", "post-install shell"),
     "linux": ("tmux", "PTY", "transcripts", "screenshots", "post-install shell"),
-    "windows": (
+    # Native Windows host operations are not implemented yet.
+    "windows": (),
+    "wsl": (
         "WSL2",
         "tmux",
         "PTY",

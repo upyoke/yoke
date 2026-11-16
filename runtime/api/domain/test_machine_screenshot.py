@@ -191,7 +191,7 @@ def test_untrusted_screenshot_receipt_never_creates_artifact(
     if tamper == "digest":
         result.evidence["sha256"] = "wrong"
     if tamper == "os":
-        result.evidence["os"] = "windows"
+        result.evidence["os"] = "wsl"
     if tamper == "dimensions":
         result.evidence["width"] = 81
     if tamper == "bytes":

@@ -88,7 +88,7 @@ def _prepare_desktop(settings, key_path, password):
     target = f"{settings['user']}@{settings['host']}"
 
     def run(command, *, input_text=None, timeout=60):
-        if settings["os"] == "windows":
+        if settings["os"] == "wsl":
             command, input_text = windows_wsl_input(command, input_text)
             command = windows_wsl_command(command)
         try:
@@ -152,7 +152,7 @@ def _screen_sharing_route(settings, route) -> bool:
     """macOS test machines are viewed in Screen Sharing; Linux and WSL in FreeRDP."""
     if settings.get("os") == "macos" and route["desktop_protocol"] == "vnc":
         return True
-    if settings.get("os") in {"linux", "windows"} and route["desktop_protocol"] == "rdp":
+    if settings.get("os") in {"linux", "wsl"} and route["desktop_protocol"] == "rdp":
         return False
     raise DesktopAccessError(
         "desktop_view_route_unsupported: --view needs an RDP route on Linux or "
@@ -210,7 +210,7 @@ def open_desktop_access(
             "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
         )
     session_evidence = {}
-    if settings.get("os") in {"linux", "windows"}:
+    if settings.get("os") in {"linux", "wsl"}:
         if not key_path.is_file():
             raise DesktopAccessError(
                 "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
