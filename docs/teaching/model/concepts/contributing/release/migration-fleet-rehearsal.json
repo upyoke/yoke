@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "contributing",
- "position": 2
+ "position": 2,
+ "summary": "Git-less release rehearsals seed YOKE_BUILD_SHA from --product-sha when unset. Boot migration attribution prefers the checkout commit, then YOKE_BUILD_SHA, then the engine version; pending work still refuses without source identity."
 }
