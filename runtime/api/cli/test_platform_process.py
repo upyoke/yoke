@@ -73,3 +73,32 @@ def test_reused_member_is_never_signalled(monkeypatch):
     monkeypatch.setattr(processes, 'pid_alive', lambda *args: False)
     monkeypatch.setattr(psutil, 'Process', lambda *args: pytest.fail('must not access reused PID'))
     assert not processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
+
+
+def test_capture_handles_exit_during_descendant_snapshot(monkeypatch):
+    monkeypatch.setattr(processes, 'pid_alive', lambda *args: True)
+    class ExitingProcess:
+        def children(self, recursive):
+            raise psutil.NoSuchProcess(123)
+    monkeypatch.setattr(psutil, 'Process', lambda pid: ExitingProcess())
+    assert processes.handle_from_pid(123, 1) is None
+
+
+def test_windows_adopted_group_never_signals_shared_console(monkeypatch):
+    events = []
+    class Process:
+        pid = 123
+        def create_time(self):
+            return 1
+        def children(self, recursive):
+            return []
+        def send_signal(self, sig):
+            pytest.fail('adopted process may share the controller console')
+        def terminate(self):
+            events.append('terminate')
+    monkeypatch.setattr(processes.os, 'name', 'nt')
+    monkeypatch.setattr(processes, 'pid_alive', lambda *args: True)
+    monkeypatch.setattr(psutil, 'Process', lambda pid: Process())
+    monkeypatch.setattr(psutil, 'wait_procs', lambda procs, timeout: (procs, []))
+    assert processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
+    assert events == ['terminate']

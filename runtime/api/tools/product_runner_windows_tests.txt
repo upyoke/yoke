@@ -15,3 +15,9 @@ runtime/harness/test_session_relay_claude_idle_hosts.py
 runtime/harness/test_session_relay_native_turn_custody.py
 runtime/harness/test_session_relay_recorded_exit_custody.py
 runtime/harness/test_session_relay_liveness_pruning.py
+runtime/api/cli/test_platform_process.py
+runtime/api/cli/test_platform_process_windows.py
+runtime/api/cli/test_platform_links.py
+runtime/api/cli/test_platform_fs.py
+runtime/api/cli/test_owner_private_path.py
+runtime/api/domain/test_lint_platform.py
