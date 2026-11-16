@@ -53,6 +53,7 @@ def reap_detached_children(monkeypatch):
         child = children.get(pid)
         return (child is None or child.poll() is None) and state.process_alive(pid, start_time)
 
+    monkeypatch.setattr(launchd, "remove_agent", lambda: False)
     monkeypatch.setattr(daemon.platform_process, "spawn_group", spawn)
     monkeypatch.setattr(daemon, "process_alive", alive)
     monkeypatch.setattr(daemon, "READY_POLL_INTERVAL_S", 0.01)
