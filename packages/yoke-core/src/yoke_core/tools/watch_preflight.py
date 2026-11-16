@@ -92,7 +92,10 @@ Pass bare preflight arguments after ``--``. The wrapper supplies
 ``python3 -m yoke_core.tools.preflight_fleet_migrations``, unless the
 environment declares ``release.preflight_executor``: then that command runs
 in its place with the same arguments, so the fleet copy happens on a host
-beside the database. Set it empty to run the kernel on this machine.
+beside the database. On macOS and Linux, set it empty to run the kernel
+on this machine. Native Windows requires a declared executor; an empty
+setting refuses before copying a database with the environment-settings merge
+command to declare one.
 
 When a release-surface capability contract blocks a receipt: read the
 stored document with ``yoke projects capability-settings get``, then

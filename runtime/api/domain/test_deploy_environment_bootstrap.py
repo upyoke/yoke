@@ -14,6 +14,10 @@ from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
+import pytest
+
+pytestmark = pytest.mark.windows
+
 _DSN = (
     "host=stage-db.cluster-abc.us-east-1.rds.amazonaws.com port=5432 "
     "user=yoke_admin password=hunter2 dbname=yoke_stage"
@@ -62,25 +66,21 @@ def _patch_resolution(monkeypatch, env=None, outputs=None):
         "resolve_environment_dsn",
         lambda runner, env_, aws_env, emit: (
             _DSN,
-            outputs if outputs is not None
-            else {"databaseClusterEndpoint": _ENDPOINT},
+            outputs if outputs is not None else {"databaseClusterEndpoint": _ENDPOINT},
         ),
     )
     activations = []
     monkeypatch.setattr(
         deploy_environment_bootstrap,
         "ensure_origin_running",
-        lambda runner, env_, aws_env, emit: activations.append("run")
-        or "i-0abc",
+        lambda runner, env_, aws_env, emit: activations.append("run") or "i-0abc",
     )
     monkeypatch.setattr(
         deploy_environment_bootstrap,
         "wait_ssh_reachable",
         lambda runner, env_, emit: activations.append("ssh"),
     )
-    monkeypatch.setattr(
-        deploy_environment_bootstrap, "free_local_port", lambda: 54441
-    )
+    monkeypatch.setattr(deploy_environment_bootstrap, "free_local_port", lambda: 54441)
     return activations
 
 
@@ -128,7 +128,7 @@ class TestExecEnvironmentBootstrap:
             [
                 CommandResult(0, "", ""),  # tunnel open
                 CommandResult(0, "[env-bootstrap] bootstrap complete\n", ""),
-                CommandResult(0, "", ""),  # tunnel close (pkill)
+                CommandResult(0, "", ""),  # tunnel close
             ]
         )
         rc = exec_environment_bootstrap(
@@ -147,14 +147,16 @@ class TestExecEnvironmentBootstrap:
 
         bootstrap = runner.calls[1]
         assert bootstrap["argv"] == [
-            sys.executable, "-m", "yoke_core.domain.environment_bootstrap",
+            sys.executable,
+            "-m",
+            "yoke_core.domain.environment_bootstrap",
         ]
         assert bootstrap["env"]["YOKE_PG_DSN"] == _localize_dsn(_DSN, 54441)
         assert bootstrap["env"]["YOKE_DB_INIT_ALLOW"] == "1"
         assert "YOKE_PG_DSN_FILE" not in bootstrap["env"]
         assert "YOKE_DB_INIT_DONE" not in bootstrap["env"]
 
-        assert runner.calls[2]["argv"][0] == "pkill"
+        assert runner.calls[2]["argv"][0] == "stop-ssh-forward"
         assert forward in " ".join(runner.calls[2]["argv"])
 
     def test_missing_endpoint_output_fails(self, monkeypatch, capsys):
@@ -195,7 +197,7 @@ class TestExecEnvironmentBootstrap:
         )
         assert rc == 1
         assert events == []
-        assert runner.calls[2]["argv"][0] == "pkill"
+        assert runner.calls[2]["argv"][0] == "stop-ssh-forward"
         assert "init module flow" in capsys.readouterr().err
 
     def test_dsn_never_emitted(self, monkeypatch, capsys):

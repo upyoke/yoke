@@ -21,6 +21,8 @@ from yoke_core.domain.deploy_remote import (
     ssh_argv,
 )
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.fixture(autouse=True)
 def _isolate_aws_authority_from_ci(monkeypatch):

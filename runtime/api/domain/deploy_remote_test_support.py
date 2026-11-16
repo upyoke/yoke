@@ -63,3 +63,11 @@ class FakeRunner:
         if self._results:
             return self._results.pop(0)
         return CommandResult(returncode=0, stdout="", stderr="")
+
+    def start_forward(self, argv, *, host, port, timeout):
+        result = self.run(argv, timeout=timeout)
+        if not result.ok:
+            raise RuntimeError(f"ssh tunnel start failed: {result.stderr}")
+
+    def stop_forward(self, forward_spec, *, timeout):
+        self.run(["stop-ssh-forward", forward_spec], timeout=timeout)

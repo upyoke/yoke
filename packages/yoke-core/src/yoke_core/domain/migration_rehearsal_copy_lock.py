@@ -8,7 +8,6 @@ or unlink the lock file; close each user's descriptor after its work stops.
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
@@ -18,6 +17,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Iterator
 
+from yoke_contracts import platform_file_lock
 from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.directories import create_private_directory
@@ -43,7 +43,7 @@ def run_child(argv, *, timeout: float, **kwargs) -> subprocess.CompletedProcess:
         argv,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        pass_fds=child_descriptors(),
+        **({"pass_fds": child_descriptors()} if os.name != "nt" else {}),
         **kwargs,
     ) as process:
         try:
@@ -77,9 +77,11 @@ def lock_path(spec: ClusterSpec, copy_name: str) -> Path:
     return machine_config.yoke_home() / "rehearsal-copy-coordination" / f"{key}.lock"
 
 
-def _holder(descriptor: int) -> str:
+def _holder(path: Path) -> str:
     try:
-        metadata = json.loads(os.pread(descriptor, 4096, 0))
+        metadata = json.loads(
+            path.with_suffix(".holder.json").read_text(encoding="utf-8")
+        )
         pid = int(metadata["pid"])
         elapsed = max(
             0, int((utc_now() - parse_instant(metadata["started_at"])).total_seconds())
@@ -98,13 +100,15 @@ def copy_lock(spec: ClusterSpec, copy_name: str) -> Iterator[None]:
     """Refuse immediately when busy; hold through all operations and cleanup."""
     path = lock_path(spec, copy_name)
     create_private_directory(path.parent)
-    descriptor = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    descriptor = os.open(
+        path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600
+    )
     try:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(descriptor)
         except BlockingIOError:
             raise RehearsalCopyBusy(
-                f"rehearsal_copy_busy: {_holder(descriptor)}; "
+                f"rehearsal_copy_busy: {_holder(path)}; "
                 "keep the holder running and retry preflight after it finishes"
             ) from None
         # Diagnostics cannot decide admission or make an acquired lock fail.
@@ -112,8 +116,7 @@ def copy_lock(spec: ClusterSpec, copy_name: str) -> Iterator[None]:
             metadata = json.dumps(
                 {"pid": os.getpid(), "started_at": format_instant(utc_now())}
             )
-            os.ftruncate(descriptor, 0)
-            os.pwrite(descriptor, metadata.encode(), 0)
+            path.with_suffix(".holder.json").write_text(metadata, encoding="utf-8")
         except OSError:
             pass
         token = _DESCRIPTORS.set((*child_descriptors(), descriptor))

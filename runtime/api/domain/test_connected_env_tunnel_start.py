@@ -1,111 +1,114 @@
-"""Tests for starting the backgrounded ssh forward against a fake ``ssh``.
-
-A ProxyCommand/ProxyJump host leaves a proxy child holding ssh's inherited
-stderr open for the tunnel's whole life; the start must still return as soon
-as ssh itself has backgrounded and exited 0.
-"""
+"""Portable foreground SSH startup and process custody, without a live SSH host."""
 
 from __future__ import annotations
 
 import dataclasses
-import os
-import signal
-import stat
+import socket
+import sys
 import time
-from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import connected_env_readiness as cer
+from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain import connected_env_tunnel_lifecycle as lifecycle
+from yoke_core.domain import ssh_forward_process as forward
 
-_TIMEOUT_SECONDS = 3
+pytestmark = pytest.mark.windows
 
 
-def _spec() -> cer.TunnelSpec:
-    return cer.TunnelSpec(
+def _spec(port=6547):
+    return connector.TunnelSpec(
         local_host="127.0.0.1",
-        local_port=6547,
-        bastion="yoke-prod-box",
-        identity_file="/keys/yoke.pem",
-        remote_host="aurora.example.internal",
+        local_port=port,
+        bastion="database-host",
+        identity_file="/keys/operator.pem",
+        remote_host="database.internal",
         remote_port=5432,
     )
 
 
 @pytest.fixture
-def fake_ssh(tmp_path, monkeypatch):
-    """Install a fake ``ssh`` on PATH; returns a writer for its body."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
-    monkeypatch.setattr(lifecycle, "TUNNEL_START_TIMEOUT_SECONDS", _TIMEOUT_SECONDS)
-    script = bin_dir / "ssh"
+def spawned(monkeypatch):
+    handles = []
+    real_spawn = forward.spawn_group
 
-    def write(body: str) -> Path:
-        script.write_text("#!/bin/sh\n" + body)
-        script.chmod(script.stat().st_mode | stat.S_IXUSR)
-        return script
+    def spawn(*args, **kwargs):
+        handle = real_spawn(*args, **kwargs)
+        handles.append(handle)
+        return handle
 
-    return write
-
-
-@pytest.fixture
-def child_pid_file(tmp_path):
-    """Kill whatever lingering child the fake ssh recorded."""
-    pid_file = tmp_path / "child.pid"
-    yield pid_file
-    if pid_file.exists():
-        try:
-            os.kill(int(pid_file.read_text().strip()), signal.SIGKILL)
-        except (ProcessLookupError, ValueError):
-            pass
+    monkeypatch.setattr(forward, "spawn_group", spawn)
+    yield handles
+    for handle in handles:
+        forward.stop_group(handle, timeout=1.0)
 
 
-def test_start_returns_while_proxy_child_holds_stderr(fake_ssh, child_pid_file):
-    # The child inherits stderr and outlives ssh, like a ProxyCommand does.
-    fake_ssh(f"sleep 30 &\necho $! > '{child_pid_file}'\nexit 0\n")
-
+@pytest.mark.parametrize("launcher", [False, True])
+def test_start_waits_for_listener_and_leaves_the_forward_running(monkeypatch, spawned, launcher):
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+    script = (
+        "import socket,time; time.sleep(0.15); s=socket.socket(); "
+        f"s.bind(('127.0.0.1',{port})); s.listen(); time.sleep(30)"
+    )
+    if launcher:
+        script = (
+            "import subprocess,sys; "
+            f"child=subprocess.Popen([sys.executable, '-c', {script!r}]); "
+            "child.wait()"
+        )
+    monkeypatch.setattr(
+        lifecycle, "_build_ssh_argv", lambda spec: [sys.executable, "-c", script]
+    )
+    monkeypatch.setattr(lifecycle, "TUNNEL_START_TIMEOUT_SECONDS", 3)
     started = time.monotonic()
-    lifecycle._start_tunnel(_spec())
-    elapsed = time.monotonic() - started
-
-    assert elapsed < _TIMEOUT_SECONDS
-    assert child_pid_file.read_text().strip()
+    lifecycle._start_tunnel(_spec(port))
+    assert time.monotonic() - started >= 0.1
+    assert spawned[0].process.poll() is None
 
 
-def test_nonzero_exit_refusal_carries_stderr(fake_ssh):
-    fake_ssh("echo 'Permission denied (publickey).' >&2\nexit 255\n")
-
-    with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
+def test_nonzero_exit_refusal_carries_stderr(monkeypatch, spawned):
+    script = "import sys,time; time.sleep(0.1); print('Permission denied (publickey).',file=sys.stderr); sys.exit(255)"
+    monkeypatch.setattr(
+        lifecycle, "_build_ssh_argv", lambda spec: [sys.executable, "-c", script]
+    )
+    with pytest.raises(
+        connector.ConnectedEnvUnavailable, match="rc=255.*Permission denied"
+    ):
         lifecycle._start_tunnel(_spec())
-
-    message = str(excinfo.value)
-    assert "rc=255" in message
-    assert "Permission denied (publickey)." in message
+    assert spawned[0].process.returncode == 255
 
 
-def test_ssh_that_never_backgrounds_hits_named_timeout(fake_ssh, child_pid_file):
-    fake_ssh(f"echo $$ > '{child_pid_file}'\nexec sleep 30\n")
+def test_non_listening_child_times_out_and_is_reaped(monkeypatch, spawned):
+    monkeypatch.setattr(
+        lifecycle,
+        "_build_ssh_argv",
+        lambda spec: [sys.executable, "-c", "import time; time.sleep(30)"],
+    )
+    monkeypatch.setattr(lifecycle, "TUNNEL_START_TIMEOUT_SECONDS", 0.2)
+    with socket.socket() as unrelated_listener:
+        unrelated_listener.bind(("127.0.0.1", 0))
+        unrelated_listener.listen()
+        port = unrelated_listener.getsockname()[1]
+        with pytest.raises(
+            connector.ConnectedEnvUnavailable, match="timed out after 0.2s.*retry"
+        ):
+            lifecycle._start_tunnel(_spec(port))
+    assert spawned[0].process.returncode is not None
 
-    with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
-        lifecycle._start_tunnel(_spec())
 
-    assert f"timed out after {_TIMEOUT_SECONDS}s" in str(excinfo.value)
-
-
-def test_argv_without_ssh_config_reads_the_users_ssh_config():
+def test_argv_uses_foreground_ssh_on_all_platforms():
     argv = lifecycle._build_ssh_argv(_spec())
-
+    assert "-N" in argv and "-f" not in argv
     assert "-F" not in argv
     assert "StrictHostKeyChecking=accept-new" in argv
 
 
-def test_argv_with_ssh_config_passes_it_and_keeps_its_host_key_pin():
-    spec = dataclasses.replace(_spec(), ssh_config="/home/o/.yoke/ssh/config")
-
-    argv = lifecycle._build_ssh_argv(spec)
-
-    assert argv[:3] == ["ssh", "-F", "/home/o/.yoke/ssh/config"]
+def test_argv_with_ssh_config_keeps_its_host_key_pin():
+    argv = lifecycle._build_ssh_argv(
+        dataclasses.replace(_spec(), ssh_config="operator-ssh.conf")
+    )
+    assert argv[:3] == ["ssh", "-F", "operator-ssh.conf"]
     assert not any(part.startswith("StrictHostKeyChecking") for part in argv)
-    assert argv[-1] == "yoke-prod-box"
+    assert argv[-1] == "database-host"

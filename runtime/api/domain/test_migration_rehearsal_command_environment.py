@@ -13,6 +13,8 @@ from yoke_core.domain import migration_apply_verify
 
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 
+pytestmark = pytest.mark.windows
+
 
 def test_rehearsal_command_replaces_admin_selection_and_keeps_validation_binding(
     monkeypatch: pytest.MonkeyPatch,
