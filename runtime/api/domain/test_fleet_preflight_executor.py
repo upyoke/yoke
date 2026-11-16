@@ -302,3 +302,13 @@ def test_native_windows_accepts_a_declared_executor(monkeypatch):
     command = fleet_preflight_executor.resolve(ARGS)
     assert not command.refusal
     assert command.argv(ARGS) == ["ssh", "db-host", "fleet-preflight", *ARGS]
+
+
+def test_windows_executor_failure_never_recommends_an_empty_setting(monkeypatch):
+    monkeypatch.setattr(fleet_preflight_executor, "_NATIVE_WINDOWS", True)
+    command = fleet_preflight_executor.PreflightCommand(
+        executor="remote-preflight", project="sample", environment="prod",
+    )
+    message = fleet_preflight_executor.executor_failure(command, 1, "capture.log")
+    assert "environment-settings merge" in message
+    assert "set it empty" not in message
