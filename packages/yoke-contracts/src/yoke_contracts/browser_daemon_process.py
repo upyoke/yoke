@@ -20,11 +20,15 @@ def record_group(directory: Path, group) -> None:
 
 def stop_recorded_group(directory: Path, pid: int, *, timeout: float = 5) -> None:
     """Stop only the persisted group, refusing an absent or mismatched identity."""
-    if not platform_process.pid_alive(pid):
-        return
     path = directory / PROCESS_RECORD_NAME
     try:
-        group = platform_process.GroupHandle.from_record(json.loads(path.read_text()))
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            if not platform_process.pid_alive(pid):
+                return
+            raise
+        group = platform_process.GroupHandle.from_record(record)
         if group.pid != pid:
             raise ValueError("daemon pid does not match its process record")
         platform_process.stop_group(group, timeout)

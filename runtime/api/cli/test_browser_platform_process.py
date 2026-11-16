@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -79,3 +80,69 @@ def test_launch_uses_shared_group_and_noninteractive_input(monkeypatch, tmp_path
     )
     assert seen[0][1]["stdin"] == -3
     assert "start_new_session" not in seen[0][1]
+
+
+def test_unavailable_process_observation_names_stop_recovery(monkeypatch, tmp_path):
+    def denied(pid):
+        raise OSError("process query denied")
+
+    monkeypatch.setattr(platform_process, "pid_alive", denied)
+    with pytest.raises(
+        RuntimeError, match="browser_daemon_stop_failed.*local process access"
+    ):
+        custody.stop_recorded_group(tmp_path, 42)
+
+
+def test_unwritable_custody_record_stops_new_daemon_and_names_recovery(
+    monkeypatch, tmp_path
+):
+    group = SimpleNamespace(process=SimpleNamespace(pid=42))
+    stopped = []
+    monkeypatch.setattr(browser_client_readiness, "launch_daemon", lambda *a: group)
+
+    def denied(*args):
+        raise PermissionError("record is unwritable")
+
+    monkeypatch.setattr(browser_client_readiness, "record_group", denied)
+    monkeypatch.setattr(
+        platform_process, "stop_group", lambda handle, timeout: stopped.append(handle)
+    )
+    with pytest.raises(
+        RuntimeError, match="browser_daemon_custody_failed.*restore write access"
+    ):
+        browser_client_readiness.start_daemon(["node"], {}, tmp_path)
+    assert stopped == [group]
+
+
+def test_recorded_descendants_stop_after_the_daemon_leader_exits(tmp_path):
+    ready = tmp_path / "child.pid"
+    release = tmp_path / "exit-leader"
+    script = """
+import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='utf-8')
+while not pathlib.Path(sys.argv[2]).exists():
+    time.sleep(.01)
+"""
+    group = platform_process.spawn_group(
+        [sys.executable, "-c", script, str(ready), str(release)]
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while not ready.exists():
+            if time.monotonic() >= deadline:
+                pytest.fail("child did not publish its pid")
+            time.sleep(0.01)
+        child_pid = int(ready.read_text(encoding="utf-8"))
+        custody.record_group(tmp_path, group)
+        record = json.loads(
+            (tmp_path / custody.PROCESS_RECORD_NAME).read_text(encoding="utf-8")
+        )
+        child_start = dict(record["members"])[child_pid]
+        release.touch()
+        group.process.wait(timeout=10)
+        assert platform_process.pid_alive(child_pid, child_start)
+        custody.stop_recorded_group(tmp_path, group.pid, timeout=2)
+        assert not platform_process.pid_alive(child_pid, child_start)
+    finally:
+        platform_process.stop_group(group, 2)

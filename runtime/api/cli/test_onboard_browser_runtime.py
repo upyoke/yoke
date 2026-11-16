@@ -93,6 +93,7 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
         npm=Path("/bin/npm"),
         npx=Path("/bin/npx"),
         command_env=lambda: {"PLAYWRIGHT_BROWSERS_PATH": "shared-cache"},
+        package_command=lambda name, *args: [f"/bin/{name}", *args],
     )
     monkeypatch.setattr(
         runtime.browser_runtime_home, "ensure_materialized", lambda: home

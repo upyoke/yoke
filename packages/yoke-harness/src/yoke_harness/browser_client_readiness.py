@@ -84,7 +84,7 @@ def start_daemon(
     try:
         record_group(runtime_dir, group)
         record_daemon_owner(profile_dir, proc.pid)
-    except (RuntimeError, OSError):
+    except (RuntimeError, OSError) as exc:
         try:
             platform_process.stop_group(group, 5)
         except (OSError, TimeoutError):
@@ -92,6 +92,11 @@ def start_daemon(
                 "browser_check_cleanup_failed: the newly launched browser could "
                 f"not be stopped; stop process pid {proc.pid} on this machine "
                 "and retry the check."
+            ) from None
+        if isinstance(exc, OSError):
+            raise RuntimeError(
+                f"browser_daemon_custody_failed: {exc}; restore write access "
+                "to the browser runtime directory, then rerun `yoke qa browser setup`."
             ) from None
         raise
     result = wait_for_daemon_ready(group, log_file, **wait_seams)

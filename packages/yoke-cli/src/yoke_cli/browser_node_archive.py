@@ -27,7 +27,7 @@ def unpack_release(
                         raise ValueError(f"unsafe Node archive path: {entry.filename}")
                 handle.extractall(extract_root)
         else:
-            with tarfile.open(archive, "r:gz") as handle:
+            with tarfile.open(archive, "r:gz", encoding="utf-8") as handle:
                 handle.extractall(extract_root, filter="tar")
         entries = list(extract_root.iterdir())
         if len(entries) != 1 or not entries[0].is_dir():
