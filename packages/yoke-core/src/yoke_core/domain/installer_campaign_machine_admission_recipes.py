@@ -54,7 +54,7 @@ APPROVAL_TEXT = ("Sign in and approve your machine.", MATCH_CODE_LABEL)
 LOCAL_NOTICE = "Reachable here only."
 AGENT_REACHED = f"{REACHED} github.machine"
 AGENT_DRIVER = (
-    '"$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" '
+    '"$(uv tool dir)/yoke-cli-releases/python" '
     "-m yoke_core.domain.machine_qa_setup_agent_driver --stop-at github.machine"
 )
 OWNER_STEP = (
