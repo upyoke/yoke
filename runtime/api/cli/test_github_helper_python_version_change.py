@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.cli.cli_release_runtime_test_support import point_current
 from runtime.api.cli.github_stable_helper_test_support import (
     run_git,
     write_github_app_config,
@@ -52,10 +53,7 @@ def _switch_release(monkeypatch, root: Path, name: str, minor: str) -> Path:
     python.parent.mkdir(parents=True)
     python.symlink_to(Path(sys.executable))
     (environment / "lib" / f"python3.{minor}" / "site-packages").mkdir(parents=True)
-    current = root / "current"
-    if current.is_symlink():
-        current.unlink()
-    current.symlink_to(environment.parent.parent, target_is_directory=True)
+    point_current(root, environment.parent.parent)
     monkeypatch.setattr(credentials.sys, "executable", str(python))
     monkeypatch.setattr(credentials.sys, "prefix", str(environment))
     return environment
@@ -64,7 +62,9 @@ def _switch_release(monkeypatch, root: Path, name: str, minor: str) -> Path:
 def _orphaned_value(root: Path, config: Path) -> str:
     environment = root / "current" / "tools" / "yoke-cli"
     helper = (
-        environment / "lib/python3.11/site-packages" / credentials.STABLE_HELPER_FILE_NAME
+        environment
+        / "lib/python3.11/site-packages"
+        / credentials.STABLE_HELPER_FILE_NAME
     )
     return f"!{environment / 'bin/python3'} {helper} --config {config}"
 
@@ -185,7 +185,9 @@ def test_unverified_helper_is_left_untouched(machine, monkeypatch, tmp_path, cas
     result = reconnect.restore_missing_bundle(config)
     expected_configured = False if case == "other-name" else None
     assert result["configured"] is expected_configured
-    with pytest.raises(github_project_setup.GitHubProjectSetupError, match="user-managed"):
+    with pytest.raises(
+        github_project_setup.GitHubProjectSetupError, match="user-managed"
+    ):
         github_project_setup.converge(repo, config_path=config)
 
     assert (repo / ".git/config").read_bytes() == before

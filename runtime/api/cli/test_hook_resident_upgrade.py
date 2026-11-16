@@ -71,6 +71,15 @@ def _wait_revision(address, revision, process):
     pytest.fail(f"resident did not serve revision {revision}")
 
 
+def _leased(generation: Path) -> bool:
+    with (generation / "lease").open("a+") as contender:
+        try:
+            fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+    return False
+
+
 def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
     tmp_path, monkeypatch
 ):
@@ -108,7 +117,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
             )
         try:
             _wait_revision(address, old_revision, process)
-            assert str(old) in runtime._process_commands()
+            assert _leased(old), "the resident leases the release it runs from"
             new = _resident_candidate(root, "2.0", new_revision)
             runtime.activate(root, new, bin_dir, "2.0")
             assert old.exists(), "cleanup must protect the running old interpreter"
@@ -126,7 +135,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
                 "requested_revision": new_revision,
             }
             _wait_revision(address, new_revision, process)
-            assert str(new) in runtime._process_commands()
+            assert _leased(new)
             for _ in range(3):
                 response = _round_trip(
                     str(address),
@@ -145,13 +154,14 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
             with (tmp_path / "start.lock").open("a+") as contender:
                 with pytest.raises(BlockingIOError):
                     fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            # Exec closes the publication lock; process identity protects the
-            # running generation even when current points elsewhere.
+            # The resident's lease protects its release even when current
+            # points elsewhere, and the replaced release's lease did not
+            # survive the exec.
             with runtime.locked(root / "publication.lock", nonblocking=True):
-                runtime._point(root / "current", old)
+                runtime._replace(root / "current", "1.0\n")
                 runtime.collect(root)
                 assert new.exists()
-                runtime._point(root / "current", new)
+                runtime._replace(root / "current", "2.0\n")
                 runtime.collect(root)
                 assert not old.exists()
         finally:
