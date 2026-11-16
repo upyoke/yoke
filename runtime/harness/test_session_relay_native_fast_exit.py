@@ -10,6 +10,7 @@ import pytest
 
 from yoke_contracts.owner_private_path import create_owner_private_directory
 from yoke_harness import session_relay_native_supervisor as supervisor
+from yoke_harness import session_launch_containment as containment
 from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_native_spawn import spawn_supervised_native
 from yoke_harness.session_relay_process_group import spawn_relay_process
@@ -17,13 +18,30 @@ from yoke_harness.session_relay_process_group import spawn_relay_process
 pytestmark = pytest.mark.windows
 
 
-def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path) -> None:
+def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path, monkeypatch) -> None:
     tmp_path = create_owner_private_directory(tmp_path / "private-relay")
     reaped = threading.Event()
     processes = []
+    stages = []
+    errors = tmp_path / "supervisor.stderr"
+    for name in ("process_start_time", "capture_process_tree", "write_record"):
+        original = getattr(containment, name)
+
+        def observed(*args, _name=name, _original=original, **kwargs):
+            try:
+                value = _original(*args, **kwargs)
+            except Exception as exc:
+                stages.append((_name, type(exc).__name__))
+                raise
+            stages.append((_name, bool(value)))
+            return value
+
+        monkeypatch.setattr(containment, name, observed)
 
     def factory(*args, **kwargs):
-        process = spawn_relay_process(*args, **kwargs)
+        with errors.open("wb") as error_stream:
+            kwargs["stderr"] = error_stream
+            process = spawn_relay_process(*args, **kwargs)
         processes.append(process)
         wait = process.wait
 
@@ -47,7 +65,10 @@ def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path) ->
         state_dir=tmp_path,
         process_factory=factory,
     )
-    assert started is not None
+    assert started is not None, (
+        f"supervisor exit={processes[0].returncode if processes else 'not spawned'}; "
+        f"custody={stages}; stderr={errors.read_bytes()[-4096:] if errors.exists() else b''!r}"
+    )
     refusal = immediate_native_refusal(started.capture_path)
     assert refusal is not None
     assert refusal.exit_code == 7
