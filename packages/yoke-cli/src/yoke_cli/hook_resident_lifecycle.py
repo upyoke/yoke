@@ -5,13 +5,11 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import signal
-import subprocess
 import time
 
 from yoke_cli import hook_resident_client as client
+from yoke_cli import hook_resident_start as startup
 from yoke_contracts import platform_file_lock
-from yoke_contracts.process_ancestry import process_command_name, process_start_time
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
 LIFECYCLE_USAGE = "yoke hook resident {restart|stop}"
@@ -40,66 +38,30 @@ def _failure(
     )
 
 
-def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, str]]:
-    # Match both the Python module and exact machine socket, never a substring
-    # in an unrelated command. ps restricts discovery to this OS user's processes.
+def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, float]]:
+    """Match exact argv, retaining PID birth identity for retirement."""
+    from yoke_contracts import platform_process
+
     try:
-        result = subprocess.run(
-            ["ps", "-ww", "-u", str(os.getuid()), "-o", "pid=,args="],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        if result.returncode:
-            raise OSError("process listing failed")
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        processes = platform_process.process_command_lines()
+    except OSError as exc:
         raise _failure("YOKE_HOOK_RESIDENT_STOP_FAILED", str(exc), paths) from None
     residents = []
-    for line in result.stdout.splitlines():
-        fields = line.strip().split(None, 1)
-        if len(fields) != 2 or not fields[0].isdigit():
-            continue
-        pattern = (
-            r".+? -m yoke_harness\.hook_resident --socket "
-            + re.escape(str(paths.socket))
-            + r" --lock-fd \d+"
-        )
-        if not re.fullmatch(pattern, fields[1]):
-            continue
-        pid = int(fields[0])
-        if not re.fullmatch(
-            r"python(?:\d+(?:\.\d+)*)?", process_command_name(pid) or ""
+    for process in processes:
+        argv = process.cmdline
+        if len(argv) != 7 or argv[1:4] != (
+            "-m",
+            "yoke_harness.hook_resident",
+            "--socket",
         ):
             continue
-        started = process_start_time(pid)
-        if started:
-            residents.append((pid, started))
-    return residents
-
-
-def _signal(
-    residents: list[tuple[int, str]], signum: int, paths: client.ResidentPaths
-) -> None:
-    for pid, started in residents:
-        if process_start_time(pid) != started:
+        if argv[4] != str(paths.socket) or argv[5] not in ("--lock-fd", "--lock-path"):
             continue
-        try:
-            os.kill(pid, signum)
-        except ProcessLookupError:
-            pass
-        except OSError as exc:
-            raise _failure("YOKE_HOOK_RESIDENT_STOP_FAILED", str(exc), paths) from None
-
-
-def _wait_for_exit(residents: list[tuple[int, str]], seconds: float) -> list[int]:
-    """The proven residents still running once they exit or the wait ends."""
-    deadline = time.monotonic() + seconds
-    while True:
-        alive = [pid for pid, started in residents if process_start_time(pid) == started]
-        if not alive or time.monotonic() >= deadline:
-            return alive
-        time.sleep(_RETRY_SECONDS)
+        executable = argv[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if not re.fullmatch(r"pythonw?(?:\d+(?:\.\d+)*)?(?:\.exe)?", executable):
+            continue
+        residents.append((process.pid, process.start_time))
+    return residents
 
 
 def stop_resident(
@@ -111,35 +73,41 @@ def stop_resident(
     exit, a resident a live hook launched meanwhile already runs the
     installed build, and its lock must not fail the restart.
     """
+    from yoke_contracts import platform_process
+
     if not client.resident_transport_available():
         return
     paths = paths or client.resident_paths()
     residents = _resident_processes(paths)
-    _signal(residents, signal.SIGTERM, paths)
     if residents:
         announce_designed_wait(
             "hook evaluator exit and lock release",
-            max_wait_seconds=_STOP_SECONDS + 2 * _KILL_SECONDS,
+            max_wait_seconds=len(residents) * _STOP_SECONDS + _KILL_SECONDS,
             cadence=poll_every(_RETRY_SECONDS),
         )
-    alive = _wait_for_exit(residents, _STOP_SECONDS)
-    if alive:
-        _signal(residents, signal.SIGKILL, paths)
-        alive = _wait_for_exit(residents, _KILL_SECONDS)
+    for pid, started in residents:
+        handle = platform_process.handle_from_pid(pid, started)
+        if handle is None:
+            continue
+        try:
+            platform_process.stop_group(handle, timeout=_STOP_SECONDS)
+        except OSError as exc:
+            raise _failure("YOKE_HOOK_RESIDENT_STOP_FAILED", str(exc), paths) from None
+    alive = [
+        pid for pid, started in residents if platform_process.pid_alive(pid, started)
+    ]
     if alive:
         raise _failure(
             "YOKE_HOOK_RESIDENT_STOP_TIMEOUT",
-            f"evaluator process {', '.join(map(str, alive))} is still running "
-            "after SIGKILL",
+            f"evaluator process {', '.join(map(str, alive))} is still running",
             paths,
-            "the process is stuck in the kernel; restart this machine, then "
-            "run yoke hook resident restart",
+            "close hook callers, restart this machine, then run yoke hook resident restart",
         )
     if not require_lock_release:
         return
     deadline = time.monotonic() + _KILL_SECONDS
     while time.monotonic() < deadline:
-        lock_fd = client._open_start_lock(paths.lock)
+        lock_fd = startup._open_start_lock(paths.lock)
         if lock_fd is not None:
             os.close(lock_fd)
             return
@@ -206,7 +174,8 @@ def restart_resident() -> None:
 def resident_lifecycle(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke hook resident")
     parser.add_argument(
-        "action", choices=("restart", "stop"),
+        "action",
+        choices=("restart", "stop"),
         help="Restart or stop the resident hook process.",
     )
     action = parser.parse_args(args).action

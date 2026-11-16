@@ -5,13 +5,13 @@ from __future__ import annotations
 import os
 import socket
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from yoke_cli import hook_resident_paths as _resident_paths
-from yoke_contracts import platform_file_lock
+from yoke_cli.hook_resident_start import _start_resident
+from yoke_contracts.hook_resident_transport import connect_pipe, uses_named_pipe
 from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
@@ -97,6 +97,11 @@ def _request(
 
 def _connect(paths: ResidentPaths, deadline: float) -> socket.socket:
     """One connect attempt that never waits past the budget."""
+    if uses_named_pipe():
+        return connect_pipe(
+            str(paths.socket),
+            min(deadline, time.monotonic() + _CONNECT_ATTEMPT_SECONDS),
+        )
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise socket.timeout("hook budget is exhausted")
@@ -157,58 +162,6 @@ def _round_trip(
         peer.close()
 
 
-def _open_start_lock(path: Path) -> int | None:
-    descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        platform_file_lock.acquire_exclusive_nonblocking(descriptor)
-    except BlockingIOError:
-        os.close(descriptor)
-        return None
-    os.set_inheritable(descriptor, True)
-    return descriptor
-
-
-def _start_resident(
-    paths: ResidentPaths, environment: dict[str, str]
-) -> subprocess.Popen | None:
-    """Launch a resident unless another caller holds the start lock."""
-    lock_fd = _open_start_lock(paths.lock)
-    if lock_fd is None:
-        return None
-    log_fd = -1
-    try:
-        log_fd = os.open(paths.log, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
-        return subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "yoke_harness.hook_resident",
-                "--socket",
-                str(paths.socket),
-                "--lock-fd",
-                str(lock_fd),
-            ],
-            stdin=subprocess.DEVNULL,
-            stdout=log_fd,
-            stderr=log_fd,
-            cwd=str(paths.state_dir),
-            env=environment,
-            close_fds=True,
-            pass_fds=(lock_fd,),
-            start_new_session=True,
-        )
-    except OSError as exc:
-        raise ResidentUnavailable(
-            "YOKE_HOOK_RESIDENT_UNREACHABLE",
-            f"resident start failed ({type(exc).__name__})",
-            log_path=paths.log,
-        ) from None
-    finally:
-        if log_fd >= 0:
-            os.close(log_fd)
-        os.close(lock_fd)
-
-
 def _restart_detail(response: dict) -> str:
     """Name both revisions, so a stuck upgrade is readable from one line."""
     loaded = str(response.get("loaded_revision") or "unknown")[:12]
@@ -267,13 +220,7 @@ def evaluate_with_resident(
     client_timing_id: str = "",
     client_started_monotonic: float | None = None,
 ) -> ResidentEvaluation:
-    """Evaluate through the resident inside the hook budget, or raise why not.
-
-    The resident listens before it loads the evaluator, so a cold one is
-    reachable at once: the caller waits on it rather than loading a second
-    evaluator beside it. A launched resident that exits before listening
-    ends the wait at once.
-    """
+    """Evaluate inside the hook budget, including cold startup and retries."""
     paths = resident_paths()
     refusal = resident_transport_refusal(paths)
     if refusal is not None:
@@ -302,16 +249,20 @@ def evaluate_with_resident(
                 launched = _start_resident(paths, request.environment)
                 start_attempted = True
             elif launched is not None and launched.poll() is not None:
-                raise unavailable(
-                    "YOKE_HOOK_RESIDENT_START_FAILED",
-                    f"resident exited with status {launched.returncode} "
-                    "before it listened",
-                ) from None
+                if uses_named_pipe() and launched.returncode == 0:
+                    launched = None  # Another resident won the startup lock.
+                else:
+                    raise unavailable(
+                        "YOKE_HOOK_RESIDENT_START_FAILED",
+                        f"resident exited with status {launched.returncode} before it listened",
+                    ) from None
         else:
             try:
                 response = _exchange(peer, request, deadline, client_started_monotonic)
             except HookEvaluatorProtocolError as exc:
-                raise unavailable("YOKE_HOOK_RESIDENT_PROTOCOL_ERROR", str(exc)) from None
+                raise unavailable(
+                    "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR", str(exc)
+                ) from None
             except socket.timeout:
                 raise unavailable(
                     "YOKE_HOOK_RESIDENT_TIMEOUT",
@@ -327,6 +278,8 @@ def evaluate_with_resident(
                 return _validated_result(response, paths, waited_ms())
             if response:
                 last_error = _restart_detail(response)
+                if uses_named_pipe():
+                    start_attempted, launched = False, None
         # Every retry is spent inside the budget, so a resident that keeps
         # answering "restart" cannot amplify into an unbounded wait.
         if deadline - time.monotonic() <= _START_RETRY_SECONDS:

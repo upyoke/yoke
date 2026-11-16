@@ -19,6 +19,7 @@ from yoke_harness.hooks.machine_hooks import (
     specs_for,
 )
 from yoke_contracts.machine_hooks_render import is_machine_hook_entry
+from yoke_contracts.hook_shell_command import hook_command_start_problem
 
 STATE_INSTALLED = "installed"
 STATE_MISSING = "missing"
@@ -47,12 +48,27 @@ def inspect_machine_hooks(
             state, detail = STATE_MISSING, "run `yoke setup` to install them"
         elif not is_current(spec, document):
             state, detail = STATE_STALE, "run `yoke setup` to refresh them"
+        elif problem := _start_problem(spec, document):
+            state, detail = STATE_STALE, problem
         elif spec.trust == "codex_trusted_hash" and not _codex_trusted(spec, environ):
             state, detail = STATE_UNTRUSTED, "run `yoke setup` to trust them"
         else:
             state, detail = STATE_INSTALLED, ""
         results.append(MachineHookResult(spec.harness_id, str(path), state, detail))
     return results
+
+
+def _start_problem(spec: HarnessMachineHooks, document: dict) -> str:
+    for entries in document.get("hooks", {}).values():
+        for entry in entries:
+            if not is_machine_hook_entry(entry, spec):
+                continue
+            for handler in entry.get("hooks", [entry]):
+                if problem := hook_command_start_problem(
+                    handler, codex=spec.harness_id == "codex"
+                ):
+                    return problem
+    return ""
 
 
 def _codex_trusted(
