@@ -14,7 +14,10 @@ from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from yoke_core.tools.build_release import build_release
+from yoke_core.tools import package_index
+from yoke_core.tools.build_release import build_product_wheels
+from yoke_core.tools.commit_release_identity import identity
+from yoke_core.tools.release_artifacts import materialize_release_artifacts
 
 
 def run(argv, *, env=None, cwd=None):
@@ -122,12 +125,22 @@ def prove(root: Path):
                 cwd=source,
             )
             sha = run(["git", "rev-parse", "HEAD"], cwd=source)
-            build = build_release(
-                repo_root=source,
+            # Public installation consumes portable product wheels and resolves
+            # dependencies on the target. The separate release factory owns
+            # offline server wheelhouse validation, which runs on Linux.
+            wheels = build_product_wheels(
+                repo_root=source, wheelhouse=root / f"wheels-{number}"
+            )
+            build = materialize_release_artifacts(
+                records=package_index.read_wheel_records(wheels),
                 output_root=root / f"release-{number}",
+                version=identity(source, sha)["release_version"],
                 base_url=origin,
                 source_commit=sha,
                 channel="stable",
+                generated_at=datetime.now(timezone.utc),
+                installer_asset_dir=source / "packaging/public-installer",
+                aws_bootstrap_asset_dir=source / "packaging/aws",
             )
             shutil.copytree(build.paths.output_root, publication, dirs_exist_ok=True)
             yoke = str(bindir / ("yoke.cmd" if sys.platform == "win32" else "yoke"))
@@ -170,24 +183,26 @@ def prove(root: Path):
                 status([yoke, "status", "--json"], env, home)
     finally:
         yoke = bindir / ("yoke.cmd" if sys.platform == "win32" else "yoke")
-        if yoke.exists():
-            run([str(yoke), "hook", "resident", "stop"], env=env, cwd=home)
-        server.shutdown()
-        server.server_close()
-        thread.join()
-        if sys.platform == "win32":
-            import winreg
+        try:
+            if yoke.exists():
+                run([str(yoke), "hook", "resident", "stop"], env=env, cwd=home)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+            if sys.platform == "win32":
+                import winreg
 
-            with winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE
-            ) as key:
-                if old_path is None:
-                    try:
-                        winreg.DeleteValue(key, "Path")
-                    except FileNotFoundError:
-                        pass
-                else:
-                    winreg.SetValueEx(key, "Path", 0, old_path[1], old_path[0])
+                with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE
+                ) as key:
+                    if old_path is None:
+                        try:
+                            winreg.DeleteValue(key, "Path")
+                        except FileNotFoundError:
+                            pass
+                    else:
+                        winreg.SetValueEx(key, "Path", 0, old_path[1], old_path[0])
 
 
 if __name__ == "__main__":
