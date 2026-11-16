@@ -99,7 +99,7 @@ def install_health_cases(command_case):
             position,
             "install-health-" + key,
             YOKE_BIN
-            + ' --version; "$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" -c '
+            + ' --version; "$(uv tool dir)/yoke-cli-releases/python" -c '
             + shlex.quote(
                 "from yoke_core.domain.installer_campaign_install_health_cases import run_failure_probe; import sys; run_failure_probe(sys.argv[1])"
             )

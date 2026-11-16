@@ -33,7 +33,8 @@ def _run_release() -> int:
         launcher = tool_root / "yoke-cli-releases" / "launcher"
         if not launcher.is_file():
             raise FileNotFoundError(f"immutable CLI launcher missing: {launcher}")
-        os.execv(str(launcher), [str(launcher), *sys.argv[1:]])
+        # The launcher is stdlib-only source; any Python 3.11+ runs it.
+        os.execv(sys.executable, [sys.executable, str(launcher), *sys.argv[1:]])
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         recovery = (
             RELEASE_RECOVERY
