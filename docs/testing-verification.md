@@ -322,6 +322,8 @@ Tests of fixture helpers alone add no product coverage.
 Native Windows CI selects tests with `-m windows` across `runtime/api`,
 `runtime/harness` and `tests`. Mark a whole portable test module with
 `pytestmark = pytest.mark.windows`, or individual portable tests with
-`@pytest.mark.windows`. Add coverage in the test file you own; no shared roster
+`@pytest.mark.windows`. Declare this literal marker directly in each module:
+Windows smoke skips unmarked modules before import, then pytest filters tests.
+Add coverage in the test file you own; no shared roster
 needs editing. The required `windows-smoke` job retains collected node IDs and
 refuses an empty selection through pytest's no-tests exit status.
