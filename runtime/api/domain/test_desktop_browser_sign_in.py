@@ -201,7 +201,7 @@ def test_operator_window_uses_native_browser_without_automation_crypto_switches(
     monkeypatch.setattr(desktop, "window_count", lambda _: next(windows))
     monkeypatch.setattr(desktop.time, "sleep", lambda _: None)
     monkeypatch.setattr(
-        desktop.subprocess, "Popen", lambda argv, **kw: spawned.append(argv)
+        desktop.platform_process, "spawn_group", lambda argv, **kw: spawned.append(argv)
     )
     desktop.sign_in_window(kind, ["https://app.example"])
     assert spawned == [[*expected, "https://app.example"]]

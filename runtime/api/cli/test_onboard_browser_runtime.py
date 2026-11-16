@@ -93,6 +93,7 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
         npm=Path("/bin/npm"),
         npx=Path("/bin/npx"),
         command_env=lambda: {"PLAYWRIGHT_BROWSERS_PATH": "shared-cache"},
+        package_command=lambda name, *args: [f"/bin/{name}", *args],
     )
     monkeypatch.setattr(
         runtime.browser_runtime_home, "ensure_materialized", lambda: home
@@ -126,8 +127,11 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
         assert kwargs["env"]["PLAYWRIGHT_BROWSERS_PATH"] == cache
         return process
 
-    monkeypatch.setattr(runtime.subprocess, "Popen", launch)
-    monkeypatch.setattr(runtime.select, "select", lambda *a: ([process.stdout], [], []))
+    monkeypatch.setattr(
+        runtime.platform_process,
+        "spawn_group",
+        lambda *a, **k: SimpleNamespace(process=launch(*a, **k)),
+    )
     runtime.open_runtime_browser(URL)
     first = list(calls)
     # Browser QA invokes exactly this setup path on the same machine home.
@@ -179,8 +183,12 @@ def test_chromium_failure_requires_an_acknowledgement(monkeypatch, tmp_path):
         poll=lambda: 1,
         wait=lambda **k: 1,
     )
-    monkeypatch.setattr(runtime.subprocess, "Popen", lambda *a, **k: process)
-    monkeypatch.setattr(runtime.select, "select", lambda *a: ([process.stdout], [], []))
+    monkeypatch.setattr(
+        runtime.platform_process,
+        "spawn_group",
+        lambda *a, **k: SimpleNamespace(process=process),
+    )
+    monkeypatch.setattr(runtime.platform_process, "stop_group", lambda *a: None)
     with pytest.raises(RuntimeError, match="missing display library"):
         runtime.open_runtime_browser(URL)
 
@@ -222,7 +230,9 @@ def test_missing_desktop_entry_uses_the_snap_chromium_entry(monkeypatch, tmp_pat
     monkeypatch.setattr(
         runtime.shutil,
         "which",
-        lambda name, **k: name if name in {"xdg-settings", "/snap/bin/chromium"} else None,
+        lambda name, **k: (
+            name if name in {"xdg-settings", "/snap/bin/chromium"} else None
+        ),
     )
     assert runtime.default_browser_command({"XDG_DATA_HOME": str(tmp_path)}) == [
         "/snap/bin/chromium"
@@ -231,9 +241,9 @@ def test_missing_desktop_entry_uses_the_snap_chromium_entry(monkeypatch, tmp_pat
 
 def test_system_browser_start_failure_is_not_reported_open(monkeypatch):
     monkeypatch.setattr(
-        runtime.subprocess,
-        "Popen",
-        lambda *a, **k: SimpleNamespace(wait=lambda **k: 127),
+        runtime.platform_process,
+        "spawn_group",
+        lambda *a, **k: SimpleNamespace(process=SimpleNamespace(wait=lambda **k: 127)),
     )
     with pytest.raises(RuntimeError, match="browser exited 127"):
         runtime.open_system_browser(["firefox"], URL, DESKTOP)

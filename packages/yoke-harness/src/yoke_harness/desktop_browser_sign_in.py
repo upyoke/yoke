@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+
+from yoke_contracts import platform_process
 import time
 from urllib.parse import urlsplit
 
@@ -218,12 +220,11 @@ def sign_in_window(kind: str, urls: list[str]) -> None:
         if kind == "Safari"
         else ["/snap/bin/chromium", "--new-window", *urls]
     )
-    subprocess.Popen(
+    platform_process.spawn_group(
         command,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,
     )
     announce_designed_wait(
         "the operator to sign in and close the native browser windows",

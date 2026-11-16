@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import os
 import tarfile
+import subprocess
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -23,7 +25,18 @@ from yoke_cli.browser_node_toolchain import (
 )
 
 
-NODE_SCRIPT = "#!/bin/sh\necho {version}\n"
+pytestmark = pytest.mark.windows
+
+
+NODE_SCRIPT = "{version}\n"
+
+
+@pytest.fixture(autouse=True)
+def node_execution(monkeypatch):
+    def run(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, Path(argv[0]).read_text(), "")
+
+    monkeypatch.setattr(toolchain_module.terminal_detached_process, "run", run)
 
 
 @pytest.fixture(autouse=True)
@@ -44,11 +57,11 @@ def machine_home(tmp_path, monkeypatch):
 def _write_node_bin(bin_dir: Path, version: str) -> None:
     """Write an executable stand-in for node plus its npm and npx siblings."""
     bin_dir.mkdir(parents=True, exist_ok=True)
-    node = bin_dir / "node"
+    node = NodeToolchain(bin_dir, version, "managed").node
     node.write_text(NODE_SCRIPT.format(version=version), encoding="utf-8")
     node.chmod(0o755)
-    for name in ("npm", "npx"):
-        sibling = bin_dir / name
+    chain = NodeToolchain(bin_dir, version, "managed")
+    for sibling in (chain.npm, chain.npx):
         sibling.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         sibling.chmod(0o755)
 
@@ -69,12 +82,20 @@ def _publish_release(
 ) -> str:
     """Build one release archive and pin its digest; return its base URL."""
     staging = releases / f"node-{version}-{slug}"
-    _write_node_bin(staging / "bin", node_version)
+    _write_node_bin(
+        staging if slug.startswith("win-") else staging / "bin", node_version
+    )
     archive_dir = releases / version
     archive_dir.mkdir(parents=True, exist_ok=True)
-    archive = archive_dir / f"node-{version}-{slug}.tar.gz"
-    with tarfile.open(archive, "w:gz") as handle:
-        handle.add(staging, arcname=staging.name)
+    if slug.startswith("win-"):
+        archive = archive_dir / f"node-{version}-{slug}.zip"
+        with zipfile.ZipFile(archive, "w") as handle:
+            for entry in staging.rglob("*"):
+                handle.write(entry, entry.relative_to(releases))
+    else:
+        archive = archive_dir / f"node-{version}-{slug}.tar.gz"
+        with tarfile.open(archive, "w:gz") as handle:
+            handle.add(staging, arcname=staging.name)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     toolchain_module._ARCHIVE_SHA256[slug] = digest
     return releases.as_uri()
@@ -100,14 +121,16 @@ class TestPlatformSelection:
         assert platform_archive_slug("Darwin", "arm64") == "darwin-arm64"
         assert platform_archive_slug("Linux", "x86_64") == "linux-x64"
         assert platform_archive_slug("Linux", "aarch64") == "linux-arm64"
+        assert platform_archive_slug("Windows", "AMD64") == "win-x64"
+        assert platform_archive_slug("Windows", "ARM64") == "win-arm64"
 
     def test_unsupported_host_names_its_code_and_recovery(self):
         with pytest.raises(NodeToolchainError) as raised:
-            platform_archive_slug("Windows", "amd64")
+            platform_archive_slug("FreeBSD", "amd64")
 
         assert raised.value.code == "node_platform_unsupported"
         assert "install Node.js" in raised.value.recovery
-        assert "windows/amd64" in raised.value.reason
+        assert "freebsd/amd64" in raised.value.reason
 
 
 class TestResolution:
@@ -135,13 +158,17 @@ class TestResolution:
         self, tmp_path, monkeypatch
     ):
         _isolate_path(monkeypatch, tmp_path)
-        _write_node_bin(managed_version_dir() / "bin", "v24.20.0")
+        _write_node_bin(
+            toolchain_module._managed_bin_dir(managed_version_dir()), "v24.20.0"
+        )
 
         resolved = resolve_node_toolchain()
 
         assert resolved is not None
         assert resolved.source == "managed"
-        assert resolved.bin_dir == managed_version_dir() / "bin"
+        assert resolved.bin_dir == toolchain_module._managed_bin_dir(
+            managed_version_dir()
+        )
 
     def test_a_clean_host_resolves_nothing_yet(self, tmp_path, monkeypatch):
         _isolate_path(monkeypatch, tmp_path)
@@ -218,9 +245,7 @@ class TestProvisioning:
         assert "nodejs.org/dist" in raised.value.recovery
         assert "yoke qa browser setup" in raised.value.recovery
 
-    def test_an_unexpected_archive_layout_names_its_code(
-        self, tmp_path, monkeypatch
-    ):
+    def test_an_unexpected_archive_layout_names_its_code(self, tmp_path, monkeypatch):
         _isolate_path(monkeypatch, tmp_path)
         slug = platform_archive_slug()
         original = toolchain_module._ARCHIVE_SHA256[slug]
@@ -229,9 +254,14 @@ class TestProvisioning:
         archive_dir.mkdir(parents=True)
         loose = tmp_path / "README"
         loose.write_text("not a release\n", encoding="utf-8")
-        archive = archive_dir / f"node-{MANAGED_NODE_VERSION}-{slug}.tar.gz"
-        with tarfile.open(archive, "w:gz") as handle:
-            handle.add(loose, arcname="README")
+        extension = "zip" if slug.startswith("win-") else "tar.gz"
+        archive = archive_dir / f"node-{MANAGED_NODE_VERSION}-{slug}.{extension}"
+        if extension == "zip":
+            with zipfile.ZipFile(archive, "w") as handle:
+                handle.write(loose, "README")
+        else:
+            with tarfile.open(archive, "w:gz") as handle:
+                handle.add(loose, arcname="README")
         toolchain_module._ARCHIVE_SHA256[slug] = hashlib.sha256(
             archive.read_bytes()
         ).hexdigest()
@@ -250,13 +280,15 @@ class TestCommandEnvironment:
             bin_dir=Path("/machine/node/bin"), version="v24.20.0", source="managed"
         )
 
-        env = toolchain.command_env({"PATH": f"/usr/bin{os.pathsep}/machine/node/bin"})
+        env = toolchain.command_env(
+            {"PATH": f"/usr/bin{os.pathsep}{toolchain.bin_dir}"}
+        )
 
-        assert env["PATH"].split(os.pathsep) == ["/machine/node/bin", "/usr/bin"]
+        assert env["PATH"].split(os.pathsep) == [str(toolchain.bin_dir), "/usr/bin"]
 
     def test_an_empty_path_still_finds_the_toolchain(self):
         toolchain = NodeToolchain(
             bin_dir=Path("/machine/node/bin"), version="v24.20.0", source="managed"
         )
 
-        assert toolchain.command_env({"PATH": ""})["PATH"] == "/machine/node/bin"
+        assert toolchain.command_env({"PATH": ""})["PATH"] == str(toolchain.bin_dir)

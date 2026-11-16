@@ -22,14 +22,15 @@ would bypass the parent's patched names and silently break the test contract.
 from __future__ import annotations
 
 from yoke_contracts.runtime_ports.browser_check_profile import get_browser_check_profile
-from yoke_contracts.runtime_ports.browser_client_readiness import get_browser_client_readiness
+from yoke_contracts.runtime_ports.browser_client_readiness import (
+    get_browser_client_readiness,
+)
 from yoke_contracts.runtime_ports.browser_human_gate import get_browser_human_gate
-from yoke_contracts.runtime_ports.browser_node_toolchain import get_browser_node_toolchain
+from yoke_contracts.runtime_ports.browser_node_toolchain import (
+    get_browser_node_toolchain,
+)
 from yoke_contracts.runtime_ports.browser_setup import get_browser_setup
 
-import os
-import signal
-import sys
 import time
 from typing import Any, Dict, List, Optional
 
@@ -52,6 +53,7 @@ def daemon_start(
     """
     browser_node_toolchain = get_browser_node_toolchain()
     from yoke_core.domain import browser_client as _bc
+
     browser_client_readiness = get_browser_client_readiness()
     browser_setup = get_browser_setup()
     refuse_during_human_gate = get_browser_human_gate().refuse_during_human_gate
@@ -138,12 +140,9 @@ def daemon_stop(
     # Force kill
     if not process_matches_start(state.pid, expected_process_start):
         return "stopped"
-    try:
-        os.kill(
-            state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL
-        )
-    except (OSError, ProcessLookupError):
-        pass
+    from yoke_contracts.browser_daemon_process import stop_recorded_group
+
+    stop_recorded_group(state_path.parent, state.pid)
 
     sf = state_path
     if sf.exists():

@@ -5,10 +5,13 @@ from __future__ import annotations
 import configparser
 import json
 from pathlib import Path
-import select
+from queue import Queue, Empty
+from threading import Thread
 import shlex
 import shutil
 import subprocess
+
+from yoke_contracts import platform_process
 from typing import Mapping
 
 from yoke_cli import browser_node_toolchain
@@ -117,14 +120,15 @@ def _browser_alternative(env: Mapping[str, str]) -> list[str] | None:
 
 
 def open_system_browser(command: list[str], url: str, env: Mapping[str, str]) -> None:
-    process = subprocess.Popen(
+    group = platform_process.spawn_group(
         [*command, url],
         env=dict(env),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,
     )
+    process = group.process
+    assert process is not None
     try:
         code = process.wait(timeout=1)
     except subprocess.TimeoutExpired:
@@ -138,7 +142,7 @@ def open_runtime_browser(url: str) -> None:
     runtime = browser_runtime_home.ensure_materialized()
     toolchain = browser_node_toolchain.ensure_node_toolchain()
     env = browser_setup.ensure_browser_runtime(runtime, toolchain, emit=lambda _: None)
-    process = subprocess.Popen(
+    group = platform_process.spawn_group(
         [str(toolchain.node), "-e", OPEN_CHROMIUM_JS, url],
         cwd=runtime,
         env=env,
@@ -146,24 +150,29 @@ def open_runtime_browser(url: str) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
-        start_new_session=True,
     )
+    process = group.process
+    assert process is not None
     try:
         assert process.stdout is not None
-        ready, _, _ = select.select([process.stdout], [], [], OPEN_TIMEOUT_SECONDS)
-        if not ready:
+        acknowledgement = Queue()
+        Thread(
+            target=lambda: acknowledgement.put(process.stdout.readline()), daemon=True
+        ).start()
+        try:
+            line = acknowledgement.get(timeout=OPEN_TIMEOUT_SECONDS)
+        except Empty:
             raise RuntimeError(
-                "browser_open_timeout: Chromium did not acknowledge the open"
-            )
-        result = json.loads(process.stdout.readline())
+                "browser_open_timeout: Chromium did not acknowledge the open; "
+                "check the desktop and rerun browser setup"
+            ) from None
+        result = json.loads(line)
         if result.get("opened") is not True:
             raise RuntimeError(
                 f"browser_open_failed: {result.get('error', 'no acknowledgement')}"
             )
     except Exception:
-        if process.poll() is None:
-            process.terminate()
-        process.wait(timeout=5)
+        platform_process.stop_group(group, 5)
         raise
     finally:
         if process.stdout is not None:
