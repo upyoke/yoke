@@ -13,6 +13,7 @@ class Job:
     """A job keeps descendants addressable; closing it does not kill detached work."""
 
     def __init__(self):
+        self.handle = None
         self.api = ctypes.WinDLL("kernel32", use_last_error=True)
         self.api.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
         self.api.CreateJobObjectW.restype = wintypes.HANDLE
@@ -34,6 +35,21 @@ class Job:
         if not self.api.TerminateJobObject(self.handle, 1):
             raise OSError("process_job_stop_failed: run as the process owner and retry")
 
+    def has_active_processes(self):
+        class Accounting(ctypes.Structure):
+            _fields_ = [(name, ctypes.c_int64) for name in (
+                "total_user", "total_kernel", "period_user", "period_kernel")]
+            _fields_ += [(name, wintypes.DWORD) for name in (
+                "faults", "total", "active", "terminated")]
+        accounting = Accounting()
+        query = self.api.QueryInformationJobObject
+        query.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+                          wintypes.DWORD, ctypes.c_void_p]
+        query.restype = wintypes.BOOL
+        if not query(self.handle, 1, ctypes.byref(accounting), ctypes.sizeof(accounting), None):
+            raise OSError("process_job_inspection_failed: run as its owner and retry")
+        return bool(accounting.active)
+
     def close(self):
         if self.handle:
             self.api.CloseHandle(self.handle)
@@ -48,8 +64,9 @@ def spawn(argv, kwargs):
 
     job = Job()
     flags = kwargs.pop("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP | 4
-    process = subprocess.Popen(argv, creationflags=flags, **kwargs)
+    process = None
     try:
+        process = subprocess.Popen(argv, creationflags=flags, **kwargs)
         job.assign(process)
         observed = psutil.Process(process.pid)
         stamp = observed.create_time()
@@ -73,7 +90,8 @@ def spawn(argv, kwargs):
                 api.CloseHandle(native)
         return GroupHandle(process.pid, stamp, ((process.pid, stamp),), process, job)
     except BaseException:
-        process.kill()
-        process.wait()
+        if process is not None:
+            process.kill()
+            process.wait()
         job.close()
         raise

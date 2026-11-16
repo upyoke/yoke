@@ -61,6 +61,21 @@ def test_allowance_list_can_only_shrink():
                          capture_output=True, text=True, encoding='utf-8')
     if old.returncode:
         return
-    previous = json.loads(old.stdout)
-    current = json.loads((root / lint.BASELINE).read_text(encoding='utf-8'))
+    previous = {f"{path}|{site}": count for path, sites in json.loads(old.stdout).items()
+                for site, count in sites.items()}
+    current = lint.read_baseline(root / lint.BASELINE)
     assert all(count <= previous.get(key, 0) for key, count in current.items())
+
+
+def test_prune_only_reduces_known_sites(monkeypatch, tmp_path):
+    baseline_path = tmp_path / lint.BASELINE
+    baseline_path.parent.mkdir(parents=True)
+    known = lint.PlatformHit('client.py', 1, 'process', 'known')
+    new = lint.PlatformHit('client.py', 2, 'process', 'new')
+    from collections import Counter
+    lint._write_baseline(baseline_path, Counter({known.key: 2, 'gone.py|tmp|old': 1}))
+    monkeypatch.setattr(lint, 'scan_tree', lambda root: [known, new])
+    findings = lint.ratchet_findings(tmp_path, prune=True)
+    assert lint.read_baseline(baseline_path) == {known.key: 1}
+    assert len(findings) == 1 and 'new_platform_offender' in findings[0]
+    assert new.key in findings[0]
