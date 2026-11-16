@@ -11,6 +11,8 @@ from yoke_core.domain.path_claim_bash_guard import evaluate_payload
 from yoke_core.domain.path_claim_bash_parser import SUPPRESSION_TOKEN, extract_mutations
 from yoke_core.domain.path_claim_powershell_parser import extract_powershell_mutations
 
+pytestmark = pytest.mark.windows
+
 
 def _targets(command: str, cwd: str = "/repo") -> list[tuple[str, str]]:
     return [(m.verb, m.target_path) for m in extract_powershell_mutations(command, cwd)]

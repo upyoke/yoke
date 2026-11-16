@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 
 from yoke_contracts.hook_runner.powershell_parse import parse_powershell
 from yoke_contracts.hook_runner.shell_parse import cd_destination, parse_for_shell
+
+pytestmark = pytest.mark.windows
 
 
 def _argvs(command: str) -> list[tuple[str, ...]]:

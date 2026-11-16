@@ -1,6 +1,7 @@
 """Tests for shared symlink-component and atomic-file safety helpers."""
 
 import stat
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -68,3 +69,16 @@ def test_atomic_replace_preserves_private_mode_from_symlink_target(
     assert materialized.read_bytes() == b"local\n"
     assert stat.S_IMODE(materialized.stat().st_mode) == 0o600
     assert linked_target.read_bytes() == b"shared\n"
+
+
+@pytest.mark.windows
+def test_atomic_replace_on_windows_does_not_require_fchmod(tmp_path, monkeypatch):
+    host_os = filesystem_safety.os
+    native_os = SimpleNamespace(name="nt", **{
+        name: getattr(host_os, name) for name in ("fdopen", "fsync", "close", "replace", "chmod")
+    })
+    monkeypatch.setattr(filesystem_safety, "os", native_os)
+    target = tmp_path / "rendered.md"
+    filesystem_safety.atomic_replace_bytes(target, b"rendered\n")
+    assert target.read_bytes() == b"rendered\n"
+    assert list(tmp_path.glob(".rendered.md.*.tmp")) == []

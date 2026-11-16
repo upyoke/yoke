@@ -7,5 +7,6 @@
  "skills": ["steer"],
  "page": "frontier",
  "position": 4,
+ "current": "Undelivered receipts in an actively draining machine wake queue show their positions in wake claim order. This waiting state requires a connected relay and a wake relay attempt there within three polls; stale or disconnected queues retain overdue delivery findings. Queue positions do not change report fingerprints.",
  "description": "Watcher updates mark a heading (changes only) when any descendant row is omitted. Whole sections keep their headings; no longer listed is the only removal signal. Seen rows use unsuffixed headings."
 }

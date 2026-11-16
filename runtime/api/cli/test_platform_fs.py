@@ -5,6 +5,9 @@ import pytest
 from yoke_contracts import platform_fs
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_readonly_tree_removed(tmp_path):
     root = tmp_path / 'tree'
     root.mkdir()

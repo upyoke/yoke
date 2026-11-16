@@ -7,6 +7,9 @@ from yoke_contracts import platform_links as links
 from yoke_contracts.platform_fs import remove_tree
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_link_and_remove_do_not_follow_target(tmp_path):
     source = tmp_path / 'source'
     source.mkdir()

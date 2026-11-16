@@ -166,8 +166,11 @@ def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path, monkeyp
         home = Path(child["YOKE_MACHINE_HOME"])
         evidence = Path(child["YOKE_SCRATCH_ROOT"])
         assert not evidence.is_relative_to(home)
-        socket = evidence / "yoke-pgtest-cluster/sock/.s.PGSQL.5432"
-        assert len(os.fsencode(socket)) <= 103
+        if sys.platform == "darwin":
+            socket = evidence / "yoke-pgtest-cluster/sock/.s.PGSQL.5432"
+            assert len(os.fsencode(socket)) <= 103
+        else:
+            assert evidence.parent == long_temp
         capture = evidence / "capture.log"
         capture.write_text("fixture proof")
     assert not home.exists()

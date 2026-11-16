@@ -17,6 +17,8 @@ import pytest
 from yoke_contracts.hook_runner.guard_shells import GUARD_SHELLS, shell_applicable_chain
 from yoke_core.hooks.types import HookContext, Outcome
 
+pytestmark = pytest.mark.windows
+
 _D = "yoke_core.domain."
 _MAIN_COMMIT_FACTS = {
     "_yoke_client_git_commit_facts": {

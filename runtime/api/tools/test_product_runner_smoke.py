@@ -180,6 +180,12 @@ def test_native_corpus_has_all_events_without_account_data(harness):
         fixture[key]
         for key in ("session_start", "pre_tool_use_allowed", "pre_tool_use_denied")
     )
+    if harness == "codex":
+        # Neither event may fake a transcript path; registration finds the thread by id.
+        assert fixture["session_start"]["source"] == "startup"
+        assert fixture["session_start"]["transcript_path"] is None
+        assert fixture["user_prompt_submit"]["transcript_path"] is None
+        assert fixture["user_prompt_submit"]["hook_event_name"] == "UserPromptSubmit"
     assert not re.search(
         r"[\w.+-]+@[\w.-]+|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9-]{23}|/Users/|/home/|/var/folders/",
         text,
@@ -191,7 +197,8 @@ def test_native_corpus_has_all_events_without_account_data(harness):
         assert replayed["workspace_roots"] == ["/project"]
 
 
-def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path):
+@pytest.mark.parametrize("failed_selection", ["source", "windows"])
+def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path, failed_selection):
     from runtime.api.tools.product_runner_source_tests import run_source_tests
 
     home = tmp_path / "home"
@@ -202,7 +209,7 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
 
     def run(name, argv, *, cwd):
         seen.append((name, argv))
-        if name == "pytest-subset":
+        if name == f"pytest-subset-{failed_selection}":
             (home / "yoke-pytest.raw.failure.log").write_text("pytest diagnostic")
             (Path(commands.env["YOKE_PG_CLUSTER_ROOT"]) / "server.log").write_text(
                 "server diagnostic"
@@ -220,6 +227,12 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"
     assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
+    assert "runtime/harness/test_hook_runner_decision_render.py" in seen[1][1]
+    assert "tests/import_graph/test_yoke_cli_dev_setup_contract.py" in seen[1][1]
+    if failed_selection == "windows":
+        assert seen[2][1][-8:] == [
+            "--local", "--", "-m", "windows", "runtime/api", "runtime/harness", "tests", "-q"
+        ]
     assert seen[-1][0] == "stop-test-postgres"
 
 
@@ -272,3 +285,34 @@ def test_runner_identity_uses_declared_architecture_names(
     monkeypatch.setattr(runner.platform, "mac_ver", lambda: ("26.0", (), ""))
     monkeypatch.setattr(runner.platform, "release", lambda: "2025Server")
     assert observed_runner() == expected
+
+
+@pytest.mark.parametrize("collect_exit", [0, 2])
+def test_checkout_proof_requires_collection_and_stops_its_cluster(tmp_path, monkeypatch, collect_exit):
+    from runtime.api.tools import product_runner_checkout_tests as checkout
+
+    monkeypatch.setattr(checkout.sys, "argv", ["checkout-proof", "--output", str(tmp_path)])
+    monkeypatch.setattr(checkout, "source_test_selections", lambda: {
+        "source": ["source_test.py"], "windows": ["-m", "windows", "test_windows.py"]
+    })
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        stream = kwargs.get("stdout")
+        if stream is not None:
+            stream.write("collected or executed\n")
+        return SimpleNamespace(returncode=collect_exit if "--collect-only" in argv else 0)
+
+    monkeypatch.setattr(checkout.subprocess, "run", run)
+    assert checkout.main() == collect_exit
+    assert "--collect-only" in calls[0][0]
+    assert calls[-1][0][-2:] == ["yoke_core.tools.pg_testcluster", "stop"]
+    assert calls[-1][1]["env"]["YOKE_PG_CLUSTER_ROOT"] == calls[0][1]["env"]["YOKE_PG_CLUSTER_ROOT"]
+    assert (tmp_path / "contributor-collection-source.txt").is_file()
+    for phase in ("collection", "tests"):
+        assert (tmp_path / f"contributor-{phase}-windows.txt").exists() == (collect_exit == 0)
+    if collect_exit == 0:
+        assert len(calls) == 5
+        assert calls[1][0][-3:] == ["-m", "windows", "test_windows.py"]
+        assert calls[3][0][-3:] == ["-m", "windows", "test_windows.py"]

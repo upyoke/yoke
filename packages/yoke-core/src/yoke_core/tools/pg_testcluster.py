@@ -37,6 +37,8 @@ Typical local proof flow::
     eval "$(yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start)"
     yoke watch pytest -- runtime/api/
 
+On Windows, ``start`` and ``env`` print literal PowerShell environment assignments.
+
 Keep the shared cluster running between invocations. Use an explicit private
 ``YOKE_PG_CLUSTER_ROOT`` when a proof needs to stop or destroy its own cluster.
 """
@@ -105,7 +107,7 @@ def ensure_started() -> int:
     candidate = spec.bin_dir
     missing = (
         f"YOKE_PG_BIN_DIR={candidate} has no initdb"
-        if candidate is not None and not (candidate / "initdb").is_file()
+        if candidate is not None and not (candidate / ("initdb.exe" if os.name == "nt" else "initdb")).is_file()
         else "initdb is unavailable on PATH"
         if candidate is None and shutil.which("initdb") is None
         else None
@@ -182,6 +184,11 @@ def env_block() -> str:
     binaries = postgres_binaries.pinned_bin_dir()
     if binaries is not None:
         values[postgres_binaries.BIN_DIR_ENV] = str(binaries)
+    if os.name == "nt":
+        return "\n".join(
+            f"$env:{key} = '" + value.replace("'", "''") + "'"
+            for key, value in values.items()
+        )
     return "\n".join(
         f"export {key}={shlex.quote(value)}" for key, value in values.items()
     )

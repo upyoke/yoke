@@ -35,7 +35,7 @@ from yoke_harness.session_launch_containment import (
     supervised_records,
 )
 from yoke_harness.session_relay_liveness_batches import deliver_liveness_batches
-from yoke_harness.session_relay_process_liveness import native_account
+from yoke_harness.session_relay_native_account import native_account
 from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
 
 

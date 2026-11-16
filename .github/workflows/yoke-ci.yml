@@ -49,19 +49,16 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-
       - name: Publish shard fan-out
         id: fan_out
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.ci_shards fan-out --write-github-output
-
       - name: Prepare collection runner
         uses: ./.github/actions/yoke-test-runner
         with:
           python-version: ${{ steps.fan_out.outputs.python_latest }}
           pg-container: yoke-ci-collection-pg-${{ github.run_id }}
-
       - name: Build product wheels and collect shard files
         run: |
           uv run python -m yoke_core.tools.ci_shard_groups &
@@ -72,25 +69,24 @@ jobs:
           wait "$grouping_pid" || result=1
           wait "$wheels_pid" || result=1
           exit "$result"
-
       - name: Share exact-commit product wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          overwrite: true
           name: product-wheels
           path: ${{ runner.temp }}/product-wheels
           retention-days: 7
           if-no-files-found: error
-
       - name: Share file groups with every shard
         if: always() # Retain collection diagnostics even when grouping refuses.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          overwrite: true
           name: ci-shard-groups
           path: .yoke/tmp/ci-shard-groups.*
           include-hidden-files: true
           retention-days: 7
           if-no-files-found: error
-
       - name: Stop collection Postgres
         if: always()
         run: |
@@ -159,6 +155,7 @@ jobs:
       - name: Share the timing profile with every shard
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          overwrite: true
           name: ci-test-durations
           path: .test_durations
           include-hidden-files: true
@@ -238,6 +235,7 @@ jobs:
         continue-on-error: true # shard-coverage names missing reports and blocks the run
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          overwrite: true
           name: pytest-output-${{ matrix.python-version }}-${{ matrix.shard }}
           path: |
             .yoke/tmp/ci-shard-files.txt
@@ -293,6 +291,7 @@ jobs:
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          overwrite: true
           name: shard-collection-${{ matrix.python-version }}
           path: |
             expected-tests.json

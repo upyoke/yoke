@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "contributing",
- "position": 1
+ "position": 1,
+ "summary": "Native harness views are ignored render-owned outputs. Rendering uses portable links (symlink, junction or content-checked copy) for Claude, Codex and Cursor; drift detection compares their content. The browser tester reference is a real render-owned file, so a checkout does not depend on Git symlink support."
 }

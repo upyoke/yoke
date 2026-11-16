@@ -18,6 +18,8 @@ from yoke_contracts.harness_shell_tools import (
 from yoke_contracts.hook_tool_names import canonicalize_shell_payload, payload_tool_name
 from yoke_harness.hooks.shell_kind_stamp import stamp_shell_kind
 
+pytestmark = pytest.mark.windows
+
 
 def test_every_harness_declares_its_shell_tools() -> None:
     assert set(HARNESS_SHELL_TOOLS) == set(CANONICAL_HARNESS_IDS)

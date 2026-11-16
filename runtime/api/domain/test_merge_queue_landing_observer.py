@@ -237,7 +237,7 @@ def test_missing_holder_routes_the_landing_to_steering():
     assert delivered["notified"] == 1
 
 
-def test_ended_holder_still_receives_the_landing_push():
+def test_ended_holder_without_a_covering_seat_leaves_landing_unrouted():
     conn = observer_connection()
     conn.execute(
         "UPDATE harness_sessions SET ended_at='2026-08-27T17:02:00Z' "
@@ -246,14 +246,10 @@ def test_ended_holder_still_receives_the_landing_push():
     conn.commit()
 
     queued = observe_pending_landings(conn, [1], now=NOW, read_state=merged)
-    assert queued["unrouted"] == 0
+    assert queued["unrouted"] == 1
     assert queued["notified"] == 0
-    recipient = conn.execute(
-        "SELECT session_id FROM session_message_recipients r "
-        "JOIN session_messages m ON m.message_id=r.message_id "
-        "WHERE m.idempotency_key='merge-queue-landed:101:42'"
-    ).fetchone()
-    assert recipient[0] == "s1"
+    assert message_count(conn) == 0
+    assert read_landing_record(conn, 101) is not None
 
 
 def test_an_armed_landing_the_queue_will_never_admit_reaches_its_holder():

@@ -18,6 +18,8 @@ from yoke_core.domain.harness_policy_pipeline import (
 )
 from yoke_core.domain.observe_tool_event import TOOL_KIND_SHELL
 
+pytestmark = pytest.mark.windows
+
 _SHELL_CHAINS = (("PreToolUse", "Bash"), ("PostToolUse", "Bash"))
 
 
