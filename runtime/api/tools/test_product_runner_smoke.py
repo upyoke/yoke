@@ -219,18 +219,20 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
             raise RuntimeError("cleanup failure")
 
     commands = SimpleNamespace(
-        env={"YOKE_MACHINE_HOME": str(home)}, output=output, run=run
+        env={"YOKE_MACHINE_HOME": str(home)}, output=output, run=run,
+        document=lambda *args, **kwargs: {"project": {"id": 42}},
     )
     with pytest.raises(ValueError, match="primary test failure"):
         run_source_tests(tmp_path, commands)
 
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"
-    assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
-    assert "runtime/harness/test_hook_runner_decision_render.py" in seen[1][1]
-    assert "tests/import_graph/test_yoke_cli_dev_setup_contract.py" in seen[1][1]
+    source_argv = dict(seen)["pytest-subset-source"]
+    assert source_argv[:4] == ["uv", "run", "--frozen", "yoke"]
+    assert "runtime/harness/test_hook_runner_decision_render.py" in source_argv
+    assert "tests/import_graph/test_yoke_cli_dev_setup_contract.py" in source_argv
     if failed_selection == "windows":
-        assert seen[2][1][-8:] == [
+        assert dict(seen)["pytest-subset-windows"][-8:] == [
             "--local", "--", "-m", "windows", "runtime/api", "runtime/harness", "tests", "-q"
         ]
     assert seen[-1][0] == "stop-test-postgres"

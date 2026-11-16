@@ -37,4 +37,4 @@ def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeyp
 
     monkeypatch.setattr("runtime.api.tools.product_runner_commands.subprocess.run", run)
     run_source_tests(root, Commands(tmp_path, {}))
-    assert sum("pytest" in argv for argv in seen) == 1
+    assert sum("pytest" in argv for argv in seen) == 2
