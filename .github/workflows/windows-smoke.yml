@@ -21,6 +21,8 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
     steps:
+      - name: Disable Git symlink checkout
+        run: git config --global core.symlinks false
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -52,13 +54,15 @@ jobs:
           "$bin/pg_ctl" -D "$data" -l "$RUNNER_TEMP\yoke-pg.log" -w start -o \
             "-p 5432 -c max_connections=400 -c timezone=Asia/Kathmandu -c fsync=off -c synchronous_commit=off -c full_page_writes=off"
           echo "YOKE_PG_DSN=host=localhost port=5432 user=yoke dbname=postgres" >> "$GITHUB_ENV"
-      - name: Run the declared Windows tests
+      - name: Collect and run the declared Windows tests
         run: |
           mapfile -t tests < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' runtime/api/tools/product_runner_windows_tests.txt)
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "windows_test_list_empty: add tests to runtime/api/tools/product_runner_windows_tests.txt" >&2
             exit 1
           fi
+          uv run --frozen python -m pytest -p no:cacheprovider --collect-only -q "${tests[@]}" 2>&1 | tee windows-smoke-evidence/pytest-collection.txt
+          test "${PIPESTATUS[0]}" -eq 0
           uv run --frozen python -m pytest -p no:cacheprovider -q "${tests[@]}" 2>&1 | tee windows-smoke-evidence/pytest-output.txt
           exit "${PIPESTATUS[0]}"
       - name: Preserve proof and failure diagnostics
