@@ -63,6 +63,7 @@ def test_provider_clocks_refuse_inference(invalid):
         pending_run_message(
             repo="owner/repo",
             run_id="1",
+            status="pending",
             jobs_count=0,
             updated_at=invalid,
             concurrency_groups=(),
@@ -90,6 +91,7 @@ def test_actions_stall_threshold_and_wire_projection(offset):
         return pending_run_message(
             repo="owner/repo",
             run_id="1",
+            status="pending",
             jobs_count=0,
             updated_at=updated,
             observed_at=now,

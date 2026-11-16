@@ -81,6 +81,67 @@ def latest_intent(request_id: str) -> Optional[DispatchIntent]:
     return None if row is None else _row_to_intent(row)
 
 
+_INTENT_COLUMNS = (
+    "request_id, attempt, actor_id, authorization_scope, payload_checksum, "
+    "correlation_id, state, workflow_run_id, run_url, html_url, inputs"
+)
+
+
+def deploy_stage_scope(request_id: str) -> str:
+    """The ``deploy:<project>:<run>:<stage>`` scope a deploy request id names.
+
+    Every dispatch of one deployment stage — the base request, a ``--fresh``
+    retrigger, a stale-run successor — shares this prefix. Empty when the
+    request id is not a deploy stage dispatch.
+    """
+    parts = request_id.split(":")
+    if len(parts) < 4 or parts[0] != "deploy" or not all(parts[:4]):
+        return ""
+    return ":".join(parts[:4])
+
+
+def intent_by_correlation(correlation_id: str) -> Optional[DispatchIntent]:
+    """Load the one attempt a GitHub-visible correlation token names."""
+    from yoke_core.domain import db_helpers
+
+    try:
+        with db_helpers.connect() as conn:
+            row = conn.execute(
+                f"SELECT {_INTENT_COLUMNS} FROM {INTENT_TABLE} "
+                "WHERE correlation_id = %s",
+                (correlation_id,),
+            ).fetchone()
+    except Exception as exc:
+        raise DispatchIntentStoreError(
+            f"could not read workflow dispatch intent: {exc}"
+        ) from exc
+    return None if row is None else _row_to_intent(row)
+
+
+def newest_scope_intent(scope: str) -> Optional[DispatchIntent]:
+    """The newest unrejected dispatch intent under one deploy stage scope.
+
+    A rejected POST started no run, so it replaces nothing.
+    """
+    from yoke_core.domain import db_helpers
+
+    prefix = f"{scope}:"
+    try:
+        with db_helpers.connect() as conn:
+            row = conn.execute(
+                f"SELECT {_INTENT_COLUMNS} FROM {INTENT_TABLE} "
+                "WHERE (request_id = %s OR substr(request_id, 1, %s) = %s) "
+                "AND state <> 'rejected' "
+                "ORDER BY created_at DESC, attempt DESC LIMIT 1",
+                (scope, len(prefix), prefix),
+            ).fetchone()
+    except Exception as exc:
+        raise DispatchIntentStoreError(
+            f"could not read workflow dispatch intents: {exc}"
+        ) from exc
+    return None if row is None else _row_to_intent(row)
+
+
 def claim_attempt(
     *,
     request_id: str,
@@ -236,6 +297,9 @@ __all__ = [
     "INTENT_TABLE",
     "claim_attempt",
     "complete_intent",
+    "deploy_stage_scope",
+    "intent_by_correlation",
     "latest_intent",
+    "newest_scope_intent",
     "reject_intent",
 ]

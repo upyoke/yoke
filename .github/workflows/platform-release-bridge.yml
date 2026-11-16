@@ -136,8 +136,22 @@ jobs:
           python3 -m runtime.api.tools.require_platform_consumer_compatibility \
             --candidate-sha "$PRODUCT_SHA" --consumer-sha "$CONSUMER_SHA"
 
+      # Immediately before the tag, the first irreversible act. GitHub can
+      # hold a dispatched bridge queued for hours and refuse to cancel it; the
+      # deploy driver then re-drives the stage with --fresh. A replaced bridge
+      # that starts late must not release beside its replacement, so it exits
+      # cleanly here and every later step is skipped.
+      - name: Stop if a newer dispatch replaced this bridge
+        id: dispatch_currency
+        env:
+          YOKE_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
+        run: |
+          python3 -m runtime.api.tools.require_current_bridge_dispatch \
+            --dispatch-id "$YOKE_DISPATCH_ID"
+
       - name: Create or recover the immutable annotated release tag
         id: release
+        if: steps.dispatch_currency.outputs.current == 'true'
         env:
           PRODUCT_SHA: ${{ inputs.product_sha }}
           DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
@@ -151,6 +165,7 @@ jobs:
           echo "Release tag: $release_tag"
 
       - name: Await the wheel and server-image release factories
+        if: steps.dispatch_currency.outputs.current == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PRODUCT_SHA: ${{ inputs.product_sha }}
@@ -181,6 +196,7 @@ jobs:
           done
 
       - name: Switch to scoped Platform promotion authority
+        if: steps.dispatch_currency.outputs.current == 'true'
         run: |
           printf '%s' "$YOKE_PLATFORM_RELEASE_API_TOKEN" | yoke connection set prod \
             --transport https \
@@ -197,6 +213,7 @@ jobs:
       # is retried, bounded, re-reading and re-proving each time.
       - name: Dispatch and await Platform pin promotion and release
         id: promotion
+        if: steps.dispatch_currency.outputs.current == 'true'
         env:
           PRODUCT_SHA: ${{ inputs.product_sha }}
           PRODUCT_REF: ${{ steps.release.outputs.tag }}
@@ -214,6 +231,7 @@ jobs:
             --started-runs-file "$RUNNER_TEMP/platform-promotion-runs.txt"
 
       - name: Record desired pin after successful Platform release
+        if: steps.dispatch_currency.outputs.current == 'true'
         env:
           PRODUCT_REF: ${{ steps.release.outputs.tag }}
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
@@ -235,6 +253,7 @@ jobs:
       # after the pin receipt, before the record — because a Platform-scoped
       # token asked for a permission on Yoke is refused, and rightly.
       - name: Restore Yoke release authority for this run's own project
+        if: steps.dispatch_currency.outputs.current == 'true'
         run: |
           printf '%s' "$YOKE_RELEASE_API_TOKEN" | yoke connection set prod \
             --transport https \
@@ -246,6 +265,7 @@ jobs:
       # A refused record fails the bridge while preserving the shipped result;
       # recovery records that exact receipt without repeating deployment.
       - name: Record the pin commit this release produced
+        if: steps.dispatch_currency.outputs.current == 'true'
         env:
           DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
           PROMOTION_RUN_ID: ${{ steps.promotion.outputs.run_id }}

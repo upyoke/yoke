@@ -1,4 +1,10 @@
-"""Name GitHub Actions runs that are pending without any jobs."""
+"""Name GitHub Actions runs that are queued or pending without any jobs.
+
+GitHub can leave a dispatched run ``queued`` or ``pending`` with zero jobs
+indefinitely (an incident, a lost admission) and then refuse both cancel and
+force-cancel. A waiter that keeps polling such a run burns its whole budget,
+so a run that stays jobless past the stall threshold fails as never started.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +24,7 @@ def pending_run_message(
     *,
     repo: str,
     run_id: str,
+    status: str,
     jobs_count: int,
     updated_at: datetime | str | None,
     observed_at: Optional[datetime] = None,
@@ -28,7 +35,7 @@ def pending_run_message(
     updated = None if updated_at is None else parse_instant(updated_at)
     updated_text = "unknown" if updated is None else format_instant(updated)
     age_seconds = (now - updated).total_seconds() if updated is not None else -1
-    detail = f"pending run={run_id} jobs={jobs_count} updated_at={updated_text}"
+    detail = f"{status} run={run_id} jobs={jobs_count} updated_at={updated_text}"
     if concurrency_groups is None:
         return detail
     if concurrency_groups:
@@ -39,10 +46,14 @@ def pending_run_message(
         f"{STALLED_DISPATCH_TOKEN} "
         f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON} "
         f"failure_reason={CI_RUN_NEVER_STARTED_REASON} "
-        f"run={run_id} status=pending jobs=0 updated_at={updated_text}; "
+        f"repo={repo} run={run_id} status={status} jobs=0 "
+        f"updated_at={updated_text}; "
         "the QA case gate force-cancels a run that never starts and "
-        "redispatches it; otherwise cancel with "
-        f"`yoke github-actions run cancel {repo} {run_id} --project <project>`"
+        "redispatches it; a deploy stage re-drives with "
+        "`yoke --env <plane> watch deploy -- <RUN> --from-stage <STAGE> --fresh` "
+        "(without --fresh the re-drive reattaches to this stuck run; GitHub "
+        "may refuse to cancel it, and a superseded release bridge exits "
+        "before its tag)"
     )
 
 

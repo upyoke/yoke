@@ -24,6 +24,7 @@ def _stalled_line() -> str:
     message = pending_run_message(
         repo="upyoke/yoke",
         run_id="88",
+        status="pending",
         jobs_count=0,
         updated_at=updated.isoformat(),
         observed_at=observed,
@@ -32,14 +33,14 @@ def _stalled_line() -> str:
     return f"  Workflow status: {message}\n"
 
 
-def test_pending_zero_jobs_stall_is_urgent_with_registered_cancel_recovery() -> None:
+def test_pending_zero_jobs_stall_is_urgent_with_fresh_redrive_recovery() -> None:
     line = _stalled_line()
 
     classification = watch_qa_case.QaCaseLineClassifier()(line)
 
     assert classification.cls is LineClass.URGENT
     assert f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON}" in line
-    assert "yoke github-actions run cancel" in line
+    assert "watch deploy -- <RUN> --from-stage <STAGE> --fresh" in line
     assert "force-cancels a run that never starts" in line
 
 

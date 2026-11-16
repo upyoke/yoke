@@ -33,6 +33,7 @@ from yoke_cli.commands.adapters.github_actions_run_cancel import (
 
 
 from yoke_cli.commands.adapters.github_actions_dispatch_receipt import (
+    github_actions_dispatch_currency_get,
     github_actions_dispatch_receipt_get,
 )
 
@@ -41,6 +42,10 @@ AdapterFn = Callable[[List[str]], int]
 
 
 GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("github-actions", "dispatch-intent", "current"): (
+        "github_actions.dispatch_intent.current",
+        github_actions_dispatch_currency_get,
+    ),
     ("github-actions", "dispatch-receipt", "get"): (
         "github_actions.dispatch_receipt.get",
         github_actions_dispatch_receipt_get,

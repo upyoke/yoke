@@ -66,6 +66,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "github.branch.head": "next-release",
     "github.open_work.list": "next-release",
     "github.release.create_commit_tag": "next-release",
+    "github_actions.dispatch_intent.current": "next-release",
     "github_actions.dispatch_receipt.get": "next-release",
     "github_actions.dispatch_tag.ensure": "next-release",
     "github_actions.run.cancel": "next-release",

@@ -40,6 +40,11 @@ from yoke_contracts.api.function_call import (
 )
 
 
+#: Statuses GitHub holds a run in before any job starts. A run sitting in
+#: either with zero jobs past the stall threshold never started.
+_JOBLESS_STALL_STATUSES = frozenset({"queued", "pending"})
+
+
 class RunGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     run_id: WorkflowRunId = Field(..., description="GitHub Actions run id.")
@@ -94,10 +99,11 @@ def _classify(
                 message = f"{message} — {not_started_message(data)}"
     elif status in {"queued", "pending", "waiting"}:
         state, message = "waiting", "waiting"
-        if status == "pending" and jobs_count is not None:
+        if status in _JOBLESS_STALL_STATUSES and jobs_count is not None:
             message = pending_run_message(
                 repo=payload.repo,
                 run_id=run_id,
+                status=status,
                 jobs_count=jobs_count,
                 updated_at=data.get("updated_at"),
                 concurrency_groups=concurrency_groups,
@@ -169,7 +175,8 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     jobs_count = None
     concurrency_groups = None
-    if str(data.get("status") or "").strip() == "pending":
+    status = str(data.get("status") or "").strip()
+    if status in _JOBLESS_STALL_STATUSES:
         attempt = data.get("run_attempt") or 1
         try:
             jobs = rest_get(
@@ -178,15 +185,16 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                 token=token,
             )
         except RestTransportError as exc:
-            return _transport_failed(f"pending run jobs lookup failed: {exc}")
+            return _transport_failed(f"{status} run jobs lookup failed: {exc}")
         jobs_count = _jobs_count(jobs)
         if jobs_count is None:
             return _transport_failed(
-                "pending workflow jobs response omitted a valid total_count"
+                f"{status} workflow jobs response omitted a valid total_count"
             )
         candidate = pending_run_message(
             repo=payload.repo,
             run_id=str(payload.run_id),
+            status=status,
             jobs_count=jobs_count,
             updated_at=data.get("updated_at"),
             concurrency_groups=(),
@@ -202,7 +210,7 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                 concurrency_groups = run_concurrency_groups(groups)
             except (RestTransportError, ValueError) as exc:
                 return _transport_failed(
-                    f"pending run concurrency lookup failed: {exc}; "
+                    f"{status} run concurrency lookup failed: {exc}; "
                     "restore Actions read access and retry the wait; "
                     "missing queue evidence is not a stalled dispatch"
                 )

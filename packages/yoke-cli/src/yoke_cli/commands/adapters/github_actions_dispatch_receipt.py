@@ -1,4 +1,4 @@
-"""Read a workflow dispatch's durable inputs and run identity."""
+"""Read a workflow dispatch's durable inputs, run identity and currency."""
 
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
 )
 from yoke_cli.transport.dispatcher import emit_response
 
+GITHUB_ACTIONS_DISPATCH_CURRENCY_USAGE = (
+    "yoke github-actions dispatch-intent current CORRELATION-ID "
+    "--project P [--session-id S] [--json]"
+)
 GITHUB_ACTIONS_DISPATCH_RECEIPT_USAGE = (
     "yoke github-actions dispatch-receipt get REQUEST-ID "
     "--project P [--session-id S] [--json]"
@@ -43,6 +47,38 @@ def github_actions_dispatch_receipt_get(args: List[str]) -> int:
     response = _call(
         "github_actions.dispatch_receipt.get",
         {"project": parsed.project, "dispatch_request_id": parsed.request_id},
+        session_id=parsed.session_id,
+    )
+    if not response.success:
+        return _emit_operation_error(response, json_mode=parsed.json_mode)
+    emit_response(response, json_mode=parsed.json_mode)
+    return 0
+
+
+def github_actions_dispatch_currency_get(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke github-actions dispatch-intent current",
+        description=(
+            "Answer whether one deploy stage dispatch is still that stage's "
+            "newest dispatch intent. current=false means a newer dispatch "
+            "(a --fresh re-drive) replaced it and its run must not release. "
+            "An unknown correlation id returns found=false."
+        ),
+    )
+    parser.add_argument(
+        "correlation_id", help="The run's yoke_dispatch_id correlation token."
+    )
+    parser.add_argument(
+        "--project", required=True, help="Project that made the dispatch request."
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_DISPATCH_CURRENCY_USAGE)
+    if parsed is None:
+        return 2
+    response = _call(
+        "github_actions.dispatch_intent.current",
+        {"project": parsed.project, "correlation_id": parsed.correlation_id},
         session_id=parsed.session_id,
     )
     if not response.success:

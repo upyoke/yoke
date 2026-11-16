@@ -88,6 +88,7 @@
 | `github.release.create_commit_tag` | `none` |
 | `github_actions.check_ci` | `none` |
 | `github_actions.commit_runs.list` | `none` |
+| `github_actions.dispatch_intent.current` | `none` |
 | `github_actions.dispatch_receipt.get` | `none` |
 | `github_actions.dispatch_tag.ensure` | `none` |
 | `github_actions.failed_log` | `none` |

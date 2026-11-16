@@ -78,6 +78,13 @@ RELEASE_CI_AUTHZ_BY_ID = {
         PROJECT,
         PERM_GITHUB_ACTIONS_RUN_READ,
     ),
+    # The release bridge asks, before its tag, whether a newer dispatch has
+    # replaced it. The answer names only that stage's newest run, which a
+    # run read already reveals.
+    "github_actions.dispatch_intent.current": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
     "github_actions.run.jobs_count": AuthzSpec(
         PROJECT,
         PERM_GITHUB_ACTIONS_RUN_READ,
