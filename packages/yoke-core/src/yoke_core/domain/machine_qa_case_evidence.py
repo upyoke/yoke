@@ -58,11 +58,14 @@ def record_machine_case_result(
         "waiting": None,
     }[result.verdict]
     waiting = result.case_outcome == "waiting"
+    from yoke_contracts.windows_ledger_receipt import tag_receipt
+
+    evidence = tag_receipt(case.get("method_config") or {}, result.evidence)
     rejections = reply_rejections(result.evidence)
     now = utc_now()
     raw_result = json.dumps(
         {
-            "evidence": result.evidence,
+            "evidence": evidence,
             "error_code": result.error_code,
             "capture_degraded_reason": result.capture_degraded_reason,
         },

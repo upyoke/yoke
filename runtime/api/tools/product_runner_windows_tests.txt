@@ -19,3 +19,4 @@ runtime/api/cli/test_platform_links.py
 runtime/api/cli/test_platform_fs.py
 runtime/api/cli/test_owner_private_path.py
 runtime/api/domain/test_lint_platform.py
+runtime/api/cli/test_windows_evidence_ledger.py
