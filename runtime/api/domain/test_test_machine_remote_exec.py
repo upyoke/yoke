@@ -317,3 +317,12 @@ def test_cloud_key_alias_is_shared_by_all_ssh_routes(instance, tmp_path):
     for argv in argvs:
         assert (f"HostKeyAlias={instance}" in argv) is bool(instance)
         assert not any(option.startswith("HostKeyAlias=192.") for option in argv)
+
+
+@pytest.mark.parametrize(("os_name", "wrapped"), [("wsl", True), ("windows", False)])
+def test_exec_wraps_only_wsl_machines_in_wsl(cli, os_name, wrapped) -> None:
+    assert cli(["--project", "yoke", "--", "uname", "-a"], os_name=os_name) == 0
+
+    sent = cli.ran[-1]["command"]
+    assert sent[0].startswith("powershell.exe ") is wrapped
+    assert ("wsl.exe" in sent[0]) is wrapped

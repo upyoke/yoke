@@ -130,7 +130,7 @@ def test_native_nonzero_through_sealed_probe_and_receipt(
     assert declared.evidence["probes"][0]["cause"] == "probe_harness_exit_nonzero"
 
 
-@pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("os_name", ["macos", "linux", "wsl"])
 def test_capture_does_not_seal_quota_failure_and_qa_retains_recovery(os_name):
     record = harness_request(["/bin/claude"]).reply_rejection(
         _event("Claude", "rate_limit", "You've hit your weekly limit"), exit_code=1
