@@ -11,7 +11,12 @@ import urllib.request
 
 
 def run(argv, *, check=True):
-    result = subprocess.run(argv, capture_output=True, text=True, timeout=90)
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as out, \
+            tempfile.TemporaryFile(mode="w+", encoding="utf-8") as err:
+        result = subprocess.run(argv, stdout=out, stderr=err, text=True, timeout=90)
+        out.seek(0)
+        err.seek(0)
+        result.stdout, result.stderr = out.read(), err.read()
     print(result.stdout, result.stderr, flush=True)
     if check:
         result.check_returncode()
