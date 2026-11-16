@@ -23,3 +23,4 @@ runtime/api/cli/test_cli_release_runtime.py::test_publication_failure_preserves_
 runtime/api/cli/test_cli_release_runtime.py::test_standalone_bootstrap_activates_wheel_without_runtime_module
 runtime/api/cli/test_cli_release_runtime_platform.py
 runtime/api/domain/test_lint_platform.py
+runtime/api/cli/test_self_host_native_windows.py
