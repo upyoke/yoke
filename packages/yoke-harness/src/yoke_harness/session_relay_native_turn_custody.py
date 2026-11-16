@@ -136,7 +136,7 @@ def _turn_running(record: Mapping[str, Any], start_time_of: StartTimeOf) -> bool
     capture = _capture(record)
     if capture is not None and capture.exited:
         return False
-    if record.get("process_group_id"):
+    if record.get("process_members"):
         return custody_state(record) != "gone"
     return start_time_of(int(record["pid"])) == record.get("process_start_time")
 

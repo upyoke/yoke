@@ -34,16 +34,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import logging
-import os
-import signal
-import time
 from typing import Any, Callable, Mapping
 
+from yoke_contracts import platform_process
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.process_ancestry import (
     CLAUDE_BACKGROUND_SPARE_PROCESS_NAME,
-    process_start_time,
-    ps_lines,
 )
 from yoke_contracts.session_control.function_ids import RELAY_IDLE_HOSTS_FUNCTION_ID
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
@@ -74,13 +70,12 @@ CLAUDE_BACKGROUND_SESSION_KIND = "bg"
 # A session record written this many seconds before its process started
 # still names that process: the two clocks are stamped by different writers.
 _RECORD_START_SLACK_SECONDS = 5
-_PS_START_FORMAT = "%a %b %d %H:%M:%S %Y"
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class HostProcess:
-    """One live process as ``ps`` reports it, with its start as an epoch."""
+    """One live process from the shared snapshot, with its start as an epoch."""
 
     pid: int
     ppid: int
@@ -116,32 +111,21 @@ class IdleHost:
         }
 
 
-def start_epoch(lstart: str | None) -> float | None:
-    """Parse a ``ps -o lstart`` stamp into a local epoch, or nothing."""
-    if not lstart:
-        return None
+def start_epoch(token: str | None) -> float | None:
+    """Read the platform creation epoch used by identity records."""
     try:
-        return time.mktime(time.strptime(lstart.strip(), _PS_START_FORMAT))
-    except ValueError:
+        return float(token) if token else None
+    except (TypeError, ValueError):
         return None
 
 
 def process_inventory() -> dict[int, HostProcess]:
-    """Return every live process with parent, title, start, and resident size."""
-    table: dict[int, HostProcess] = {}
-    for line in ps_lines(["-axo", "pid=,ppid=,rss=,lstart=,comm="]):
-        fields = line.split(None, 8)
-        if len(fields) < 9:
-            continue
-        started = start_epoch(" ".join(fields[3:8]))
-        try:
-            pid, ppid, rss = int(fields[0]), int(fields[1]), int(fields[2])
-        except ValueError:
-            continue
-        if started is None:
-            continue
-        table[pid] = HostProcess(pid, ppid, fields[8].strip(), started, rss)
-    return table
+    """Read parent, title, start and resident size through the shared owner."""
+    return {
+        entry.pid: HostProcess(entry.pid, entry.ppid, entry.name,
+                               entry.start_time, entry.rss_kb)
+        for entry in platform_process.process_command_lines()
+    }
 
 
 def plan_idle_hosts(
@@ -212,25 +196,19 @@ def plan_idle_hosts(
 
 
 def signal_exited_host(host: IdleHost) -> str:
-    """SIGTERM, then SIGKILL, the one process the host record still names."""
-    if start_epoch(process_start_time(host.pid)) != host.start_epoch:
-        return "already_exited"
+    """Stop the verified process tree only after Claude reports its job exited."""
     try:
-        os.kill(host.pid, signal.SIGTERM)
-    except OSError:
-        return "already_exited"
-    deadline = time.monotonic() + TERMINATE_WAIT_SECONDS
-    while time.monotonic() < deadline:
-        try:
-            os.kill(host.pid, 0)
-        except OSError:
-            return "terminated"
-        time.sleep(0.1)
-    try:
-        os.kill(host.pid, signal.SIGKILL)
-    except OSError:
-        return "terminated"
-    return "killed"
+        if not platform_process.pid_alive(host.pid, host.start_epoch):
+            return "already_exited"
+        handle = platform_process.handle_from_pid(host.pid, host.start_epoch)
+        platform_process.stop_group(handle, TERMINATE_WAIT_SECONDS)
+        return "terminated" if not platform_process.pid_alive(
+            host.pid, host.start_epoch
+        ) else "outcome_unknown"
+    except PermissionError:
+        return "failed"
+    except (OSError, TimeoutError):
+        return "outcome_unknown"
 
 
 def _report(

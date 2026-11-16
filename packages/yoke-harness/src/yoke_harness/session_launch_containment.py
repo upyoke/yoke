@@ -32,7 +32,7 @@ from uuid import UUID
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_process_custody import (
     MAX_RECORD_BYTES,
-    capture_group,
+    capture_process_tree,
     custody_state,
     write_record,
 )
@@ -96,7 +96,7 @@ def record_supervised_native(
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
-        payload.update(capture_group(pid, start_time))
+        payload.update(capture_process_tree(pid, start_time))
         path = supervision_record_path(launch_id, state_dir)
         return write_record(path, payload)
     except (OSError, ValueError, subprocess.SubprocessError):
@@ -121,7 +121,7 @@ def touch_supervised_resume(
         if custody_state(payload) == "live":
             try:
                 payload.update(
-                    capture_group(payload["pid"], payload["process_start_time"])
+                    capture_process_tree(payload["pid"], payload["process_start_time"])
                 )
             except OSError:
                 pass

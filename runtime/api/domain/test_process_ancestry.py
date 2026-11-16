@@ -120,22 +120,16 @@ class TestAnchorCandidatePids(unittest.TestCase):
             [300, 200, 100, 1],
         )
 
-    def test_both_process_facts_come_from_one_ps_call(self):
-        rows = [
-            "  400   300 python3",
-            "  300   200 zsh",
-            "  200     1 cursor-agent",
-        ]
-        with (
-            patch.object(process_ancestry.sys, "platform", "darwin"),
-            patch.object(
-                process_ancestry,
-                "ps_lines",
-                return_value=rows,
-            ) as ps_lines,
-        ):
+    def test_both_process_facts_come_from_one_snapshot(self):
+        from types import SimpleNamespace
+        rows = [SimpleNamespace(pid=p, ppid=pp, name=n) for p, pp, n in [
+            (400, 300, "python.exe"), (300, 200, "pwsh.exe"),
+            (200, 1, "cursor-agent.exe"),
+        ]]
+        with patch.object(process_ancestry.platform_process, "process_command_lines",
+                          return_value=rows) as snapshot:
             self.assertEqual(anchor_candidate_pids(400), [300])
-        self.assertEqual(ps_lines.call_count, 1)
+        self.assertEqual(snapshot.call_count, 1)
 
 
 class TestFindNearestHarnessAnchor(unittest.TestCase):
@@ -257,65 +251,34 @@ class TestFindNearestNamedProcessAnchor(unittest.TestCase):
         self.assertEqual(anchor.process_name, "claude")
 
 
-@patch.object(process_ancestry.sys, "platform", "darwin")
-class TestPsParsing(unittest.TestCase):
-    def test_parent_map_parses_pid_ppid_pairs(self):
-        with patch.object(
-            process_ancestry,
-            "ps_lines",
-            return_value=["    1     0", "  338     1", "garbage line x"],
-        ):
-            parents = parent_map()
-        self.assertEqual(parents, {1: 0, 338: 1})
+class TestPlatformProcessFacts(unittest.TestCase):
+    def test_creation_epoch_is_the_identity_token(self):
+        from types import SimpleNamespace
+        entry = SimpleNamespace(pid=200, ppid=1, name="claude.exe", start_time=123.5)
+        with (patch.object(process_ancestry.platform_process, "process_command_lines",
+                           return_value=[entry]),
+              patch.object(process_ancestry.platform_process, "pid_alive", return_value=True)):
+            self.assertEqual(process_start_time(200), "123.5")
+            self.assertIsNone(process_start_time(201))
+            self.assertEqual(parent_map(), {200: 1})
+            self.assertEqual(process_table(), {200: (1, "claude.exe")})
 
-    def test_process_table_keeps_a_path_with_spaces_whole(self):
-        rows = ["  200     1 /Applications/My App/Contents/MacOS/claude"]
-        with patch.object(process_ancestry, "ps_lines", return_value=rows):
-            self.assertEqual(process_table(), {200: (1, "claude")})
+    def test_windows_executable_path_keeps_family_and_anchor_rules(self):
+        for name in (r"C:\Program Files\Claude\claude.exe", "CLAUDE.EXE"):
+            self.assertTrue(is_harness_process_name(name))
+        self.assertTrue(is_multiplexed_process_name("cursor-agent.exe"))
+        anchor = find_nearest_harness_anchor(
+            400, parents=_TREE, name_of={300: "claude.exe"}.get,
+            start_time_of=_STARTS.get,
+        )
+        self.assertEqual(anchor.process_name, "claude")
+        self.assertEqual(anchor_candidate_pids(
+            400, parents=_TREE,
+            name_of={300: "pwsh.exe", 200: "cursor-agent.exe", 100: "claude.exe"}.get,
+        ), [300])
 
-    def test_process_table_tolerates_a_missing_command_name(self):
-        # A nameless process must still carry its parent link, or the walk
-        # breaks at it and every ancestor above becomes unreachable.
-        with patch.object(
-            process_ancestry,
-            "ps_lines",
-            return_value=["  338     1"],
-        ):
-            self.assertEqual(process_table(), {338: (1, "")})
-
-    def test_a_running_process_reports_only_its_start_time(self):
-        with patch.object(
-            process_ancestry,
-            "ps_lines",
-            return_value=["Ss   Wed Sep  9 10:40:45 2026   "],
-        ):
-            self.assertEqual(process_start_time(200), "Wed Sep  9 10:40:45 2026")
-
-    def test_a_defunct_process_reads_as_gone(self):
-        # A zombie keeps its pid and its original start time until its parent
-        # reaps it, so both halves of the recorded-process comparison still
-        # match. Reading them alone called an exited native a live turn.
-        with patch.object(
-            process_ancestry,
-            "ps_lines",
-            return_value=["Z+   Wed Sep  9 10:20:28 2026"],
-        ):
-            self.assertIsNone(process_start_time(62801))
-
-    def test_a_pid_ps_does_not_know_reads_as_gone(self):
-        with patch.object(process_ancestry, "ps_lines", return_value=[]):
-            self.assertIsNone(process_start_time(999999))
-
-    def test_ps_failure_degrades_to_empty(self):
-        with patch.object(process_ancestry, "ps_lines", return_value=[]):
-            self.assertEqual(parent_map(), {})
-            self.assertEqual(ancestor_pids(123), [])
-
-    def test_anchor_dataclass_is_frozen(self):
-        anchor = ProcessAnchor(pid=1, start_time="t", process_name="claude")
-        with self.assertRaises(Exception):
-            anchor.pid = 2  # type: ignore[misc]
-
-
-if __name__ == "__main__":  # pragma: no cover - manual run
-    unittest.main()
+    def test_live_ancestry_delegates_to_platform(self):
+        from types import SimpleNamespace
+        with patch.object(process_ancestry.platform_process, "ancestors",
+                          return_value=[SimpleNamespace(pid=2), SimpleNamespace(pid=1)]):
+            self.assertEqual(ancestor_pids(3), [2, 1])

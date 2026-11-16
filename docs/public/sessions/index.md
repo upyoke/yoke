@@ -112,8 +112,9 @@ steering seat on any project may terminate a session on any project, and
 termination releases every claim the target holds, steering seats and their
 paired document locks included. Logical termination cancels
 messages immediately and queues one physical reap. The relay retains
-identity-bound process/group custody until verified exit: TERM has a 2-second
-grace, followed by KILL and a bounded 2-second exit check. Missing custody,
+PID and creation-time custody for the native and its captured descendants
+until verified exit. Graceful termination has a 2-second grace, followed by
+forced termination and a bounded 2-second exit check. Missing custody,
 signal denial, and unverified exit remain unresolved. Inspect machine custody
 and permissions, then explicitly repeat `yoke sessions terminate SESSION-ID
 --reason R` to retry a failed reap; prior failed evidence is retained in the

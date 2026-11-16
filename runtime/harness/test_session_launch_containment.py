@@ -179,7 +179,7 @@ def test_a_reused_pid_is_reported_exited_rather_than_signalled(
     )
     payload = json.loads(_record_file(tmp_path).read_text())
     payload["process_start_time"] = "a start time this process never had"
-    payload["group_members"] = {str(os.getpid()): "different incarnation"}
+    payload["process_members"] = {str(os.getpid()): "different incarnation"}
     _record_file(tmp_path).write_text(json.dumps(payload))
 
     outcomes = contain_stranded_launch_natives(state_dir=tmp_path)

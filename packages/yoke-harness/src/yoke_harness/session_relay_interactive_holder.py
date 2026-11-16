@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from yoke_contracts import platform_process
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
@@ -19,17 +19,22 @@ if TYPE_CHECKING:
     from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
-def _owned_groups(state_dir: Path | None) -> set[int]:
+def _owned_processes(state_dir: Path | None) -> set[tuple[int, str]]:
     records = [record for _, record in supervised_records(state_dir)]
     for path in session_launch_handles.native_handle_directory().glob("*.json"):
         record = read_local_record(path)
         if record is not None:
             records.append(record)
     return {
-        group
+        (int(pid), str(started))
         for record in records
-        if isinstance(group := record.get("process_group_id"), int) and group > 0
+        for pid, started in dict(record.get("process_members") or {}).items()
+    } | {
+        (record["pid"], record["process_start_time"])
+        for record in records
+        if isinstance(record.get("pid"), int) and record.get("process_start_time")
     }
+
 
 
 def running_interactive_holder(
@@ -42,8 +47,8 @@ def running_interactive_holder(
 ) -> RunningNative | None:
     """Find a live anchor outside relay custody, including contended anchors.
 
-    Start-time equality excludes dead and reused pids. Compare process groups,
-    not supervisor pids: Claude and Cursor's native runs under a supervisor.
+    Start-time equality excludes dead and reused pids. Exclude recorded descendants
+    and live supervisor ancestry belonging to relay custody.
     The message remains pending for the holder's next hook, even between turns.
     """
     from yoke_harness.session_relay_native_turn_custody import RunningNative
@@ -59,7 +64,7 @@ def running_interactive_holder(
     if not wanted:
         return None
     start_time_of = start_time_of or process_start_time
-    owned_groups = _owned_groups(custody_state_dir)
+    owned_processes = _owned_processes(custody_state_dir)
     directory = anchors_dir or machine_config.yoke_home() / ANCHORS_DIR_NAME
     for path in sorted(directory.glob("*.json")):
         record = read_local_record(path)
@@ -76,14 +81,11 @@ def running_interactive_holder(
             continue
         if start_time_of(pid) != started:
             continue
-        try:
-            group = os.getpgid(pid)
-        except ProcessLookupError:
+        if (pid, str(started)) in owned_processes:
             continue
-        except OSError:
-            # A live identity without readable group ownership is still a holder.
-            group = None
-        if group in owned_groups:
+        ancestry = platform_process.ancestors(pid)
+        if any((entry.pid, str(entry.start_time)) in owned_processes
+               for entry in ancestry):
             continue
         return RunningNative(
             session_id,

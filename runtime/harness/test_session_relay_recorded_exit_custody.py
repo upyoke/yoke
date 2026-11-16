@@ -28,7 +28,7 @@ from yoke_harness.session_relay_native_capture_format import (
 
 SESSION = "11111111-1111-4111-8111-111111111111"
 ATTEMPT = "33333333-3333-4333-8333-333333333333"
-RECORDED_START = "Mon Aug 24 08:00:00 2026"
+RECORDED_START = "123.5"
 
 
 def _group_resume(
@@ -52,8 +52,7 @@ def _group_resume(
                 "launch_id": ATTEMPT,
                 "pid": 4001,
                 "process_start_time": RECORDED_START,
-                "process_group_id": 4001,
-                "group_members": {"4001": RECORDED_START},
+                "process_members": {"4001": RECORDED_START},
                 "native_session_id": SESSION,
                 "supervision_kind": "resume",
                 "lease_id": "lease-1",
@@ -138,7 +137,7 @@ def test_a_group_led_by_a_reused_pid_lets_the_wake_proceed(
 ) -> None:
     """The pid was reissued, so the recorded group no longer exists."""
     monkeypatch.setattr(
-        group_custody, "group_members", lambda group: {"4001": "Fri Oct 23 16:58:11"}
+        group_custody.platform_process, "pid_alive", lambda pid, stamp: False
     )
     _group_resume(tmp_path, capture_state=None)
     context = session_relay_runtime.execution_context(_wake("claude-cli", tmp_path))
@@ -160,9 +159,9 @@ def test_a_live_matching_group_member_still_defers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        group_custody,
-        "group_members",
-        lambda group: {"4001": RECORDED_START, "4002": "Mon Aug 24 08:00:05 2026"},
+        group_custody.platform_process,
+        "pid_alive",
+        lambda pid, stamp: pid == 4001 and stamp == float(RECORDED_START),
     )
     _group_resume(tmp_path, capture_state=None, containment_result="outcome_unknown")
     context = session_relay_runtime.execution_context(_wake("cursor-cli", tmp_path))
