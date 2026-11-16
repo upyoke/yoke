@@ -41,7 +41,8 @@ def spawned(monkeypatch):
         forward.stop_group(handle, timeout=1.0)
 
 
-def test_start_waits_for_listener_and_leaves_the_forward_running(monkeypatch, spawned):
+@pytest.mark.parametrize("launcher", [False, True])
+def test_start_waits_for_listener_and_leaves_the_forward_running(monkeypatch, spawned, launcher):
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
@@ -49,6 +50,12 @@ def test_start_waits_for_listener_and_leaves_the_forward_running(monkeypatch, sp
         "import socket,time; time.sleep(0.15); s=socket.socket(); "
         f"s.bind(('127.0.0.1',{port})); s.listen(); time.sleep(30)"
     )
+    if launcher:
+        script = (
+            "import subprocess,sys; "
+            f"child=subprocess.Popen([sys.executable, '-c', {script!r}]); "
+            "child.wait()"
+        )
     monkeypatch.setattr(
         lifecycle, "_build_ssh_argv", lambda spec: [sys.executable, "-c", script]
     )
@@ -78,10 +85,14 @@ def test_non_listening_child_times_out_and_is_reaped(monkeypatch, spawned):
         lambda spec: [sys.executable, "-c", "import time; time.sleep(30)"],
     )
     monkeypatch.setattr(lifecycle, "TUNNEL_START_TIMEOUT_SECONDS", 0.2)
-    with pytest.raises(
-        connector.ConnectedEnvUnavailable, match="timed out after 0.2s.*retry"
-    ):
-        lifecycle._start_tunnel(_spec())
+    with socket.socket() as unrelated_listener:
+        unrelated_listener.bind(("127.0.0.1", 0))
+        unrelated_listener.listen()
+        port = unrelated_listener.getsockname()[1]
+        with pytest.raises(
+            connector.ConnectedEnvUnavailable, match="timed out after 0.2s.*retry"
+        ):
+            lifecycle._start_tunnel(_spec(port))
     assert spawned[0].process.returncode is not None
 
 

@@ -20,3 +20,4 @@ runtime/api/domain/test_deploy_remote.py
 runtime/api/domain/test_deploy_core_container_pack_source.py
 runtime/api/domain/test_migration_apply.py
 runtime/api/domain/test_deploy_core_container.py
+runtime/api/domain/test_migration_fleet_preflight_credentials.py

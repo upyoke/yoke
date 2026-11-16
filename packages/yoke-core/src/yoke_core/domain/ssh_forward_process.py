@@ -48,12 +48,20 @@ def start_forward(argv: Sequence[str], *, host: str, port: int, timeout: float) 
                         "check SSH authentication and forwarding settings, then retry"
                     )
                 try:
-                    listeners = psutil.Process(handle.pid).net_connections(kind="tcp")
-                    if any(entry.status == psutil.CONN_LISTEN and entry.laddr.port == port
-                           and entry.laddr.ip in {host, "0.0.0.0", "::"} for entry in listeners):
+                    root = psutil.Process(handle.pid)
+                    # Windows executable launchers can delegate to a child.
+                    # Only this live process tree may establish readiness.
+                    processes = [root, *root.children(recursive=True)]
+                    if any(
+                        entry.status == psutil.CONN_LISTEN
+                        and entry.laddr.port == port
+                        and entry.laddr.ip in {host, "0.0.0.0", "::"}
+                        for child in processes
+                        for entry in child.net_connections(kind="tcp")
+                    ):
                         return
                 except psutil.NoSuchProcess:
-                    continue
+                    pass
                 except psutil.AccessDenied as exc:
                     raise RuntimeError(
                         "ssh_tunnel_inspection_failed: cannot inspect the spawned "
