@@ -30,13 +30,13 @@ checkout. JSON goes to stdout, errors to stderr. Exit codes: success 0, failure
 from __future__ import annotations
 
 import json
-import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from yoke_contracts import platform_process
 from yoke_contracts.timestamps import parse_instant
 from urllib.request import Request, urlopen  # patched by tests; see module docstring
 
@@ -74,8 +74,8 @@ from yoke_core.domain.browser_client_snapshot import (
 # ---------------------------------------------------------------------------
 
 
-
 browser_runtime_home = get_browser_runtime_home()
+
 
 def _browser_dir() -> Path:
     """Return the machine-level browser runtime dir, materializing it."""
@@ -137,15 +137,7 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
     st = state or DaemonState.load()
     if st is None or st.pid <= 0:
         return False
-    if sys.platform == "win32":
-        from yoke_contracts.process_ancestry import process_start_time
-
-        return process_start_time(st.pid) is not None
-    try:
-        os.kill(st.pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+    return platform_process.pid_alive(st.pid)
 
 
 # ---------------------------------------------------------------------------

@@ -26,7 +26,11 @@ def test_browser_bootstrap_timeout_names_step_and_recovery(
     if command != "npm":
         (browser / "node_modules/playwright").mkdir(parents=True)
     toolchain = SimpleNamespace(
-        node="node", npm="npm", npx="npx", command_env=lambda: {}
+        node="node",
+        npm="npm",
+        npx="npx",
+        package_command=lambda name, *args: [name, *args],
+        command_env=lambda: {},
     )
 
     def run(argv, **kwargs):

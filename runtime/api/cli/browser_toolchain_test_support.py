@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import subprocess
 
-from yoke_harness import browser_client, browser_setup
+from yoke_harness import browser_client, browser_setup, browser_client_readiness
+from types import SimpleNamespace
 
 from pathlib import Path
 
@@ -85,8 +86,22 @@ def stub_profile_daemon_start(monkeypatch, tmp_path, state_loads):
 
     def fake_popen(command, **_kwargs):
         launched.append(list(command))
-        return FakeProcess()
+        return SimpleNamespace(
+            process=FakeProcess(),
+            pid=4242,
+            start_time=1,
+            to_record=lambda: {"pid": 4242, "start_time": 1, "members": [[4242, 1]]},
+        )
 
-    monkeypatch.setattr(browser_setup.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(
+        browser_client_readiness.platform_process, "spawn_group", fake_popen
+    )
+    monkeypatch.setattr(
+        browser_client_readiness.platform_process,
+        "handle_from_pid",
+        lambda *a: SimpleNamespace(
+            to_record=lambda: {"pid": 4242, "start_time": 1, "members": [[4242, 1]]}
+        ),
+    )
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return launched

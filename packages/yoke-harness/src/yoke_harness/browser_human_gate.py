@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from yoke_contracts import platform_process
 from yoke_contracts.timestamps import (
     InvalidInstant,
     format_instant,
@@ -39,15 +40,7 @@ def _gate_path(runtime_dir: Path) -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    return platform_process.pid_alive(pid)
 
 
 def active_human_gate(runtime_dir: Path) -> dict | None:

@@ -12,12 +12,13 @@ so a cold start is judged by one deadline and one log everywhere.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from yoke_contracts import platform_process
+from yoke_contracts.browser_daemon_process import record_group
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -44,23 +45,14 @@ def launch_daemon(command: list[str], env: dict[str, str], log_file: Path):
     Short-lived command shells may tear down their entire process group on
     exit, after the daemon has already answered its first health request.
     """
-    isolation = (
-        {
-            "creationflags": subprocess.DETACHED_PROCESS
-            | subprocess.CREATE_NEW_PROCESS_GROUP
-        }
-        if os.name == "nt"
-        else {"start_new_session": True}
-    )
     try:
         with log_file.open("w", encoding="utf-8") as daemon_log:
-            return subprocess.Popen(
+            return platform_process.spawn_group(
                 command,
                 stdin=subprocess.DEVNULL,
                 stdout=daemon_log,
                 stderr=subprocess.STDOUT,
                 env=env,
-                **isolation,
             )
     except OSError as exc:
         raise RuntimeError(
@@ -84,23 +76,37 @@ def start_daemon(
     """
     runtime_dir.mkdir(parents=True, exist_ok=True)
     log_file = runtime_dir / DAEMON_LOG_NAME
-    proc = launch_daemon(command, env, log_file)
+    group = launch_daemon(command, env, log_file)
+    proc = group.process
+    assert proc is not None
     from yoke_harness.browser_check_profile import record_daemon_owner
 
     try:
+        record_group(runtime_dir, group)
         record_daemon_owner(profile_dir, proc.pid)
-    except RuntimeError:
+    except (RuntimeError, OSError):
         try:
-            proc.kill()
-            proc.wait(timeout=5)
-        except (OSError, subprocess.TimeoutExpired):
+            platform_process.stop_group(group, 5)
+        except (OSError, TimeoutError):
             raise RuntimeError(
                 "browser_check_cleanup_failed: the newly launched browser could "
                 f"not be stopped; stop process pid {proc.pid} on this machine "
                 "and retry the check."
             ) from None
         raise
-    return wait_for_daemon_ready(proc, log_file, **wait_seams)
+    result = wait_for_daemon_ready(group, log_file, **wait_seams)
+    try:
+        captured = platform_process.handle_from_pid(group.pid, group.start_time)
+        if captured is None:
+            raise OSError("daemon exited after reporting healthy")
+        record_group(runtime_dir, captured)
+    except OSError as exc:
+        platform_process.stop_group(group, 5)
+        raise RuntimeError(
+            f"browser_daemon_custody_failed: {exc}; inspect its log and process "
+            "record permissions, then rerun `yoke qa browser setup`."
+        ) from None
+    return result
 
 
 def _client():
@@ -112,7 +118,7 @@ def _client():
 
 
 def wait_for_daemon_ready(
-    proc,
+    group,
     log_file: Path,
     *,
     load_state: Optional[Callable[[], Any]] = None,
@@ -125,6 +131,8 @@ def wait_for_daemon_ready(
     ``load_state`` and ``probe_health`` default to the harness client's; the
     core client passes its own so its state-file seam stays its own.
     """
+    proc = group.process
+    assert proc is not None
     if load_state is None or probe_health is None or sleep is None:
         client = _client()
         load_state = load_state or client.DaemonState.load
@@ -170,8 +178,7 @@ def wait_for_daemon_ready(
             break
         sleep(READINESS_POLL_SECONDS)
 
-    proc.kill()
-    proc.wait()
+    platform_process.stop_group(group, 5)
     log_content = _daemon_log(log_file)
     raise RuntimeError(
         compose_refusal(
