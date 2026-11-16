@@ -59,6 +59,10 @@ def verify() -> None:
     os.environ[postgres_binaries.BIN_DIR_ENV] = str(binary)
     # Standalone pg_dump/restore and the impersonated client need bundled DLLs too.
     os.environ["PATH"] = os.pathsep.join([str(binary), str(binary / "DLLs"), os.environ["PATH"]])
+    if os.name == "nt":
+        for path in [work, home, binary.parent.parent, binary.parent, binary, binary / "initdb.exe"]:
+            subprocess.run(["icacls", str(path)], check=True)
+        subprocess.run([str(binary / "initdb.exe"), "--version"], check=True)
     spec = local_universe.cluster_spec(bin_dir=binary)
     try:
         assert postgres_cluster.ensure_started(spec) == 0
