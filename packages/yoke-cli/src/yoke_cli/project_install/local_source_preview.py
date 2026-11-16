@@ -107,7 +107,7 @@ def preview_report(
         "skill_discovery_would_create": [
             rel
             for rel in skill_discovery.SKILL_DISCOVERY_LINKS
-            if not (root / rel).is_symlink()
+            if skill_discovery.entry_state(root, rel) != skill_discovery.LINKED
         ],
         "files_would_write": would_write,
         "files_would_prune": would_prune,

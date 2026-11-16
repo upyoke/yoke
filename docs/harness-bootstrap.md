@@ -300,7 +300,8 @@ Repeat authorized calls plainly; do not weaken a gate to hide a prompt.
 Canonical skills are `.agents/skills/yoke/`: root/direct `SKILL.md` bodies,
 nested internal bodies and phase/support files. Phase files and support
 directories are not standalone skills. Hidden-path discovery must explicitly
-include hidden files. `.claude/skills/yoke` is a native discovery symlink;
+include hidden files. `.claude/skills/yoke` is a local, gitignored discovery entry
+(symlink, junction or copy);
 wrapper/tooling paths remain canonical `.agents/...` paths. Native harness
 loaders use their declared discovery; no parallel mirror is needed for symmetry.
 

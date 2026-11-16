@@ -10,6 +10,7 @@ from yoke_cli.project_install.files import (
     assert_resolved_targets_within,
     sha256_text,
 )
+from yoke_cli.project_install.line_endings import fold_newlines
 from yoke_contracts.project_contract.strategy_docs_header import (
     StrategyHeaderError,
     content_sha256,
@@ -61,7 +62,7 @@ def apply_strategy_files(
         target = repo_root / rel
         if target.is_file():
             try:
-                current = target.read_bytes().decode("utf-8")
+                current = fold_newlines(target.read_bytes().decode("utf-8"))
             except (OSError, UnicodeDecodeError):
                 current = None
             if current is not None and current == content:

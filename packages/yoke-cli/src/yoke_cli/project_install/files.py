@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
+from yoke_cli.project_install.line_endings import fold_newlines
 from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
 from yoke_contracts.project_contract.install_policy import (
     FORBIDDEN_CONTRACT_RELATIVE_PATHS,
@@ -19,10 +20,8 @@ from yoke_contracts.project_contract.install_policy import (
 MANIFEST_SCHEMA = 1
 MANIFEST_REL = ".yoke/install-manifest.json"
 
-# Delivery strategy, recorded in the manifest under MODE_KEY. ``copy``
-# applies a rendered bundle (external project repos); ``source-link``
-# wires the Yoke source checkout's tracked symlinks + git hooks.
-# Manifests without the key are copy manifests (pre-mode state).
+# Delivery strategy under MODE_KEY: ``copy`` applies a rendered bundle;
+# ``source-link`` wires the Yoke source checkout. No key means copy.
 MODE_KEY = "mode"
 MODE_COPY = "copy"
 MODE_SOURCE_LINK = "source-link"
@@ -52,7 +51,8 @@ def resolve_repo_root(repo_root) -> Path:
 
 
 def sha256_text(content: str) -> str:
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+    """Digest of managed text, stable under Git line-ending conversion."""
+    return hashlib.sha256(fold_newlines(content).encode("utf-8")).hexdigest()
 
 
 def manifest_path(repo_root: Path) -> Path:

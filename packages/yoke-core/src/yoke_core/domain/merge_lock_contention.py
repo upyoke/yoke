@@ -9,9 +9,10 @@ relayed read over an https control plane.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
+
+from yoke_contracts.platform_process import pid_alive
 
 
 class MergeLockHeld(RuntimeError):
@@ -67,11 +68,8 @@ def holder_is_alive(session_id: str) -> bool:
     if pid <= 0:
         return True
     try:
-        os.kill(pid, 0)
-        return True
-    except (ProcessLookupError, PermissionError):
-        return False
-    except (OSError, ValueError):
+        return pid_alive(pid)
+    except OSError:
         return False
 
 

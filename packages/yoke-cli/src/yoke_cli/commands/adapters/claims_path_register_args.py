@@ -16,6 +16,10 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.claim_path_syntax import claim_path_refusal
+from yoke_cli.commands.adapters.repo_path_input import (
+    RepoPathInputError,
+    normalize_repo_paths,
+)
 from yoke_cli.commands.adapters.claims_path_unmaterialized import (
     UNMATERIALIZED_PATH_REFUSAL,
     unmaterialized_paths,
@@ -103,8 +107,17 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
     if parsed is None:
         return 2
 
-    paths = split_comma(parsed.paths or "")
-    tentative_paths = split_comma(parsed.tentative_paths or "")
+    try:
+        paths = normalize_repo_paths(split_comma(parsed.paths or ""))
+        tentative_paths = normalize_repo_paths(
+            split_comma(parsed.tentative_paths or "")
+        )
+    except RepoPathInputError as exc:
+        print(
+            json.dumps({"success": False, "code": exc.code, "message": str(exc)}),
+            file=sys.stderr,
+        )
+        return 2
     if parsed.mode == "exclusive" and not paths:
         return usage_error("--paths is required in exclusive mode")
     if parsed.mode == "exclusive" and parsed.exception_reason:

@@ -262,7 +262,9 @@ def test_interrupted_native_link_apply_preserves_canonical_edits(tmp_path):
             {
                 "files": {},
                 "checkout": {
-                    native: ["link:../../.agents/skills/yoke"],
+                    native: [
+                        "link:" + str((tmp_path / ".agents/skills/yoke").resolve())
+                    ],
                     canonical: [sha256_text("new installed skill\n")],
                 },
             }

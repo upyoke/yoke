@@ -14,6 +14,8 @@ import pytest
 from yoke_core.domain import merge_lock
 from yoke_core.domain import merge_lock_contention as contention
 
+pytestmark = pytest.mark.windows
+
 
 class RelayLog(list):
     """The relayed calls, with the rows the control plane should serve."""
@@ -295,3 +297,9 @@ def test_relay_acquisition_race_becomes_held(relayed, monkeypatch):
     monkeypatch.setattr(merge_lock, "_relay", refuse)
     with pytest.raises(merge_lock.MergeLockHeld, match="held"):
         merge_lock.acquire("ITEM-1")
+
+
+def test_holder_liveness_uses_this_machine_process_table() -> None:
+    assert contention.holder_is_alive(f"{os.getpid()}-1") is True
+    assert contention.holder_is_alive(f"{2**31 - 1}-1") is False
+    assert contention.holder_is_alive("not-a-pid") is True

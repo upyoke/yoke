@@ -12,6 +12,11 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
+    usage_error,
+)
+from yoke_cli.commands.adapters.repo_path_input import (
+    RepoPathInputError,
+    normalize_repo_paths,
 )
 
 BLITZ_SURVEY_USAGE = (
@@ -45,6 +50,11 @@ def blitz_survey(args: List[str]) -> int:
     if parsed is None:
         return 2
 
+    try:
+        paths = normalize_repo_paths(parsed.paths)
+    except RepoPathInputError as exc:
+        return usage_error(f"{exc.code}: {exc}")
+
     def _human(response, stdout, stderr) -> None:
         write_human(response.result or {}, stdout)
 
@@ -52,7 +62,7 @@ def blitz_survey(args: List[str]) -> int:
         function_id="direct_workflow.blitz.survey",
         target=item_target("item", parsed.item, parsed.project),
         payload={
-            "paths": parsed.paths,
+            "paths": paths,
             "integration_target": parsed.integration_target,
         },
         session_id=parsed.session_id,

@@ -168,6 +168,11 @@ def uninstall(
             owned_git_hooks,
         )
     )
+    discovery_unignored = (
+        []
+        if shared_scope
+        else skill_discovery.unignore(root, manifest.get("skill_discovery_links"))
+    )
     worktrees_ignore = (
         project_worktrees_ignore.remove_owned_entry(
             root,
@@ -209,6 +214,7 @@ def uninstall(
         "repo_root": str(root),
         "files_removed": removed,
         "skill_discovery_removed": discovery_removed,
+        "skill_discovery_unignored": discovery_unignored,
         "files_skipped_modified": skipped,
         "files_already_absent": absent,
         "contract_files_removed": contract_removed,

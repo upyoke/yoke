@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import subprocess
 
@@ -145,8 +144,8 @@ def test_failed_clone_preserves_path_replaced_during_child_run(
     original = tmp_path / "widgets-original"
 
     def replace_target(command, **kwargs):
-        assert os.fstat(kwargs["cwd_fd"])[:2] == target.stat()[:2]
-        assert kwargs["pass_fds"]
+        assert kwargs["cwd"].stat()[:2] == target.stat()[:2]
+        assert "pass_fds" not in kwargs
         target.rename(original)
         target.mkdir()
         (target / "user-marker").write_text("keep", encoding="utf-8")
@@ -180,7 +179,7 @@ def test_existing_option_shaped_clone_target_is_never_a_git_argument(
 
     def run(command, **kwargs):
         seen.append(command)
-        assert os.fstat(kwargs["cwd_fd"])[:2] == target.stat()[:2]
+        assert kwargs["cwd"] == target
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(clone, "run_network_git", run)
@@ -223,7 +222,7 @@ def test_connected_token_clone_runs_once_and_never_invokes_helpers(
             helper_sentinel.append("general")
         if ("credential.https://github.com.helper", "") not in entries:
             helper_sentinel.append("origin")
-        os.mkdir(".git", dir_fd=kwargs["cwd_fd"])
+        (kwargs["cwd"] / ".git").mkdir()
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(clone, "run_network_git", run)
@@ -265,7 +264,7 @@ def test_preexisting_empty_clone_target_is_never_marked_owned(
     )
 
     def run(command, **kwargs):
-        os.mkdir(".git", dir_fd=kwargs["cwd_fd"])
+        (kwargs["cwd"] / ".git").mkdir()
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(clone, "run_network_git", run)

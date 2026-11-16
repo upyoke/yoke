@@ -118,7 +118,9 @@ def apply_bundle(
         preflight["install_recovery"]["prior_files"],
         hashes,
     )
-    discovery_written = skill_discovery.apply(repo_root)
+    discovery_written = skill_discovery.apply(
+        repo_root, old_manifest.get("skill_discovery_links")
+    )
     contract_map, contract_written, contract_existing, contract_adopted = (
         files_layer.apply_contract_files(
             repo_root,
@@ -206,6 +208,7 @@ def apply_bundle(
     )
     warnings.extend(git_hooks.warnings)
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=True)
+    discovery_ignored = skill_discovery.ignore(repo_root)
     git_hook_hashes = git_hooks_layer.managed_git_hook_hashes(
         repo_root,
         preflight["git_hook_specs"],
@@ -305,6 +308,7 @@ def apply_bundle(
         "files_unchanged": len(hashes) - len(written),
         "files_pruned": pruned,
         "skill_discovery_written": discovery_written,
+        "skill_discovery_ignored": discovery_ignored,
         "files_skipped_modified": skipped,
         "files_preserved_unrendered": sorted(preserved_files),
         "contract_files_written": contract_written,

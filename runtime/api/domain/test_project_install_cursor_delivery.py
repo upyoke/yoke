@@ -50,7 +50,12 @@ def machine_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _hosted_bundle() -> dict:
     root = install_bundle.server_tree_root()
-    bundle = make_bundle(files=install_bundle._agent_files(root))
+    bundle = make_bundle(
+        files=[
+            *install_bundle._agent_files(root),
+            {"path": ".agents/skills/yoke/SKILL.md", "content": "# yoke\n"},
+        ]
+    )
     bundle["hooks"] = install_bundle._hooks_block()
     bundle.update(install_bundle_managed.managed_bundle_keys(root))
     return bundle

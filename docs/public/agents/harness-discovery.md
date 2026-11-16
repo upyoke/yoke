@@ -13,7 +13,7 @@ metadata at discovery and its body when invoked.
 | --- | --- | --- |
 | Codex CLI, desktop, editor (engine >=0.161.0) | Root and nested `AGENTS.md` | Native `.agents/skills`; no `.codex/skills` copy |
 | Cursor Agent CLI (>=2026.10.01), IDE (>=3.14) | Root and nested `AGENTS.md` | Native `.agents/skills`; no `.cursor/skills` copy |
-| Claude Code CLI, desktop Code, editor | Native `AGENTS.md` on embedded engine >=2.1.281, with the built-in plugin enabled | Required `.claude/skills/yoke` symlink to `../../.agents/skills/yoke` |
+| Claude Code CLI, desktop Code, editor | Native `AGENTS.md` on embedded engine >=2.1.281, with the built-in plugin enabled | Required local `.claude/skills/yoke` entry onto `.agents/skills/yoke` |
 
 The supported surface versions remain declared in each product harness
 manifest's `session_control.surfaces`. The manifest's `cli.project_discovery`
@@ -63,10 +63,11 @@ serve a matching release, then retry refresh. Source previews, local/self-hosted
 servers and hosted servers render the same canonical tree and discovery
 contract; wheels carry the same authored inputs.
 
-Refresh uses one canonical skill tree and Claude discovery link. An
-unexpected entry at `.claude/skills/yoke` refuses as
-`skill_discovery_entry_conflict`; preserve its contents outside that path and
-rerun refresh. Codex and Cursor discover the canonical tree directly.
+Each checkout gets a local, gitignored `.claude/skills/yoke` entry onto
+`.agents/skills/yoke` (symlink, else junction or copy); a fresh clone needs
+`yoke project refresh` before Claude finds the skill. An unexpected entry there
+refuses as `skill_discovery_entry_conflict`; preserve its contents elsewhere
+and rerun refresh. Codex and Cursor discover the canonical tree directly.
 
 Install and refresh report `install_drift.missing`, `changed`, and `interrupted`.
 Missing recorded files are restored. Changed files require the recorded digest,
@@ -83,11 +84,9 @@ installer-owned local commit. Publication proves current installer-owned paths.
 
 Yoke source repo only: regenerate packaged release hashes from fetched annotated tags with `yoke dev run -- python3 -m runtime.api.tools.released_install_hashes --source-checkout /absolute/claimed/checkout` and commit the catalogue.
 
-Native symlink support is required for the Claude skill entry. On Windows,
-enable Developer Mode or administrator symlink permission and ensure Git
-checks links out as links (`core.symlinks=true`). A filesystem without native
-links receives `skill_discovery_link_unavailable` with recovery; Yoke does not
-copy a second discoverable tree. Hooks, subagent adapters, and intra-skill
+If no link or copy can be created, refresh refuses as
+`skill_discovery_link_unavailable` with recovery; a missing canonical tree
+refuses as `skill_discovery_target_missing`. Hooks, subagent adapters, and intra-skill
 references retain their separate owners and canonical relative paths.
 
 ## Read installed capabilities

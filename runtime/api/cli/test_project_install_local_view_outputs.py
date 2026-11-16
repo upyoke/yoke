@@ -145,5 +145,7 @@ def test_install_applies_on_a_checkout_that_ignores_strategy_views(
     tracked = _git(root, "ls-files")
     assert STRATEGY_VIEW_REL not in tracked
     assert ".agents/skills/yoke/SKILL.md" in tracked
-    assert ".claude/skills/yoke" in tracked
+    # The discovery entry is local machine state: ignored, never committed.
+    assert ".claude/skills/yoke" not in tracked
+    assert (root / ".claude/skills/yoke/SKILL.md").is_file()
     assert _git(root, "status", "--porcelain", "--untracked-files=all").strip() == ""

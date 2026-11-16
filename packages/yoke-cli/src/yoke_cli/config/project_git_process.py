@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import os
 import selectors
-import signal
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from yoke_contracts.platform_process import GroupHandle, spawn_group, stop_group
+
 
 NETWORK_GIT_TIMEOUT_SECONDS = 600.0
 NETWORK_GIT_OUTPUT_MAX_BYTES = 4 * 1024 * 1024
+_STOP_GRACE_SECONDS = 2.0
 _READ_CHUNK_BYTES = 64 * 1024
 
 
@@ -38,41 +39,25 @@ def run_network_git(
     timeout_seconds: float = NETWORK_GIT_TIMEOUT_SECONDS,
     maximum_output_bytes: int = NETWORK_GIT_OUTPUT_MAX_BYTES,
     monotonic: Callable[[], float] = time.monotonic,
-    pass_fds: Sequence[int] = (),
-    cwd_fd: int | None = None,
 ) -> NetworkGitResult:
     """Run one network Git command with bounded pipes and group termination."""
 
     if timeout_seconds <= 0 or maximum_output_bytes <= 0:
         raise ValueError("network Git boundaries must be positive")
     selected = tuple(str(part) for part in command)
-    launched = selected
-    inherited = tuple(pass_fds)
-    if cwd_fd is not None:
-        if cwd is not None or cwd_fd < 0:
-            raise ValueError("descriptor cwd cannot be combined with a path cwd")
-        launched = (
-            sys.executable,
-            "-m",
-            "yoke_cli.config.project_git_fd_exec",
-            str(cwd_fd),
-            "--",
-            *selected,
-        )
-        inherited = tuple(dict.fromkeys((*inherited, cwd_fd)))
     try:
-        process = subprocess.Popen(
-            launched,
+        group = spawn_group(
+            selected,
             cwd=cwd,
             env=dict(env) if env is not None else None,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            start_new_session=True,
-            pass_fds=inherited,
         )
     except OSError as exc:
         raise NetworkGitBoundaryError("network Git could not be started") from exc
+    process = group.process
+    assert process is not None
     assert process.stdout is not None
     assert process.stderr is not None
     streams = {process.stdout: bytearray(), process.stderr: bytearray()}
@@ -109,7 +94,7 @@ def run_network_git(
                 "network Git exceeded its operation deadline"
             ) from exc
     except NetworkGitBoundaryError:
-        _terminate_process_group(process)
+        _terminate_group(group)
         raise
     finally:
         if selector is not None:
@@ -183,19 +168,15 @@ def _capture(captured: bytearray, chunk: bytes, maximum_output_bytes: int) -> No
     captured.extend(chunk)
 
 
-def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is None:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except (OSError, ProcessLookupError):
-            try:
-                process.kill()
-            except OSError:
-                pass
+def _terminate_group(group: GroupHandle) -> None:
+    """Stop Git and every helper it started; a stop failure keeps the cause."""
     try:
-        process.wait(timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+        stop_group(group, _STOP_GRACE_SECONDS)
+    except (OSError, TimeoutError) as exc:
+        raise NetworkGitBoundaryError(
+            f"network Git crossed its boundary and could not be stopped ({exc}); "
+            "end the listed git processes, then retry"
+        ) from exc
 
 
 def _decode(value: bytearray) -> str:

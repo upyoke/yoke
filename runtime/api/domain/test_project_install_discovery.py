@@ -1,5 +1,6 @@
 """Native discovery, baseline-owned cleanup, and instruction suppression."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,8 @@ from yoke_cli.project_install import instruction_discovery as instructions
 from yoke_cli.project_install import skill_discovery as skills
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_contracts.project_contract.managed_block import render_block
+
+pytestmark = pytest.mark.windows
 
 
 def _skill(root: Path, rel: str, content: str = "# skill\n") -> Path:
@@ -30,17 +33,64 @@ def test_fresh_discovery_link_and_repeated_refresh_share_one_source(tmp_path):
     assert not (tmp_path / ".codex/skills/yoke").exists()
 
 
-def test_symlink_failure_names_native_recovery_before_cleanup(tmp_path, monkeypatch):
-    def refused(*args, **kwargs):
-        raise OSError("symlinks disabled")
+def test_link_failure_names_native_recovery(tmp_path, monkeypatch):
+    _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
 
-    monkeypatch.setattr(Path, "symlink_to", refused)
+    def refused(*args, **kwargs):
+        raise OSError("link_creation_failed: enable Windows Developer Mode")
+
+    monkeypatch.setattr(skills, "link", refused)
     with pytest.raises(
         ProjectInstallError,
         match="skill_discovery_link_unavailable.*Windows Developer Mode",
     ):
+        skills.apply(tmp_path)
+    assert not os.path.lexists(tmp_path / ".claude/skills/yoke")
+
+
+def test_missing_skill_tree_is_a_named_refusal(tmp_path):
+    with pytest.raises(ProjectInstallError, match="skill_discovery_target_missing"):
+        skills.apply(tmp_path)
+
+
+def test_git_placeholder_for_committed_link_is_replaced(tmp_path):
+    _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
+    placeholder = tmp_path / ".claude/skills/yoke"
+    placeholder.parent.mkdir(parents=True)
+    placeholder.write_text("../../.agents/skills/yoke", encoding="utf-8")
+
+    skills.preflight(tmp_path)
+    assert skills.apply(tmp_path) == [".claude/skills/yoke"]
+    assert skills.entry_state(tmp_path, ".claude/skills/yoke") == skills.LINKED
+
+
+def test_recorded_copy_is_refreshed_and_unrecorded_directory_refused(tmp_path):
+    _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
+    copy = tmp_path / ".claude/skills/yoke"
+    copy.mkdir(parents=True)
+    (copy / "SKILL.md").write_text("stale\n", encoding="utf-8")
+
+    with pytest.raises(ProjectInstallError, match="skill_discovery_entry_conflict"):
         skills.preflight(tmp_path)
-    assert list(tmp_path.iterdir()) == []
+    records = dict(skills.SKILL_DISCOVERY_LINKS)
+    skills.preflight(tmp_path, records)
+    assert skills.apply(tmp_path, records) == [".claude/skills/yoke"]
+    assert skills.entry_state(tmp_path, ".claude/skills/yoke") == skills.LINKED
+
+
+def test_install_ignores_the_local_entry_and_uninstall_removes_the_line(tmp_path):
+    _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
+    (tmp_path / ".gitignore").write_text("dist/\n", encoding="utf-8")
+
+    assert skills.ignore(tmp_path) == ["/.claude/skills/yoke"]
+    assert skills.ignore(tmp_path) == []
+    skills.apply(tmp_path)
+    skills.remove(tmp_path, skills.SKILL_DISCOVERY_LINKS)
+    assert skills.unignore(tmp_path, skills.SKILL_DISCOVERY_LINKS) == [
+        "/.claude/skills/yoke"
+    ]
+
+    assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == "dist/\n"
 
 
 def test_discovery_uninstall_only_unlinks_its_recorded_entry(tmp_path):

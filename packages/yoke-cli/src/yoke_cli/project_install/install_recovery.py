@@ -49,7 +49,7 @@ def pending_record(root: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(value, dict) or set(value) != {"files", "checkout"}:
             raise ValueError("invalid recovery record")
         files = value["files"]
@@ -160,25 +160,19 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
                 f"install_drift_unreadable: {rel} cannot be compared. "
                 "Restore its recorded UTF-8 content, then rerun project refresh."
             ) from exc
-        from yoke_cli.project_install.recovery_checkout import text_digests
-
-        digests = text_digests(content)
-        if baseline in digests:
+        digest = sha256_text(content)
+        if baseline == digest:
             continue
         changed.append(rel)
-        installer_digests = {incoming.get(rel), interrupted.get(rel)}
-        matched = next(
-            (digest for digest in digests if digest in installer_digests), None
-        )
-        if matched is not None:
-            previous[rel] = matched
+        if digest in {incoming.get(rel), interrupted.get(rel)}:
+            previous[rel] = digest
             continue
         if proof is None:
             proof = GitOwnership(root)
-        if any(proof.proves(rel, digest) for digest in digests) or archives.proves(
+        if proof.proves(rel, digest) or archives.proves(
             rel, target.read_text(encoding="utf-8")
         ):
-            previous[rel] = sha256_text(content)
+            previous[rel] = digest
             continue
         raise ProjectInstallError(
             f"install_drift_local_edits: {rel} differs from the install record "
@@ -209,7 +203,7 @@ def begin(root: Path, plan: dict[str, Any]) -> None:
         exclude = Path(result.stdout.strip())
         if not exclude.is_absolute():
             exclude = root / exclude
-        text = exclude.read_text() if exclude.is_file() else ""
+        text = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
         entry = "/" + PENDING_REL
         if entry not in text.splitlines():
             atomic_text(

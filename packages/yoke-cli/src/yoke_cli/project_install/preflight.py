@@ -34,7 +34,7 @@ def preflight_apply(
     if old_manifest:
         files_layer.validate_manifest(old_manifest, source="prior install manifest")
     skill_discovery.validate_links(bundle.get("skill_discovery_links"))
-    skill_discovery.preflight(repo_root)
+    skill_discovery.preflight(repo_root, old_manifest.get("skill_discovery_links"))
     files_layer.validate_manifest(
         {"manifest_schema": files_layer.MANIFEST_SCHEMA, "files": preserved_files},
         source="preserved manifest files",
