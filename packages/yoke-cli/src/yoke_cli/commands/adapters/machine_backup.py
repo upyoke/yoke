@@ -64,6 +64,10 @@ def _run(args: list[str], *, restoring: bool) -> int:
         "Browser profiles were excluded: run `yoke browser authorize --help` to sign in again."
     )
     print(
+        "Personal SSH keys were excluded: if a database admin route reaches a Mac mini, "
+        "re-enroll its login (docs: guide/machine-backup, Verify health and authorize again)."
+    )
+    print(
         "Running `yoke doctor run --only connections`; diagnostic contents are kept out of restore output.",
         flush=True,
     )

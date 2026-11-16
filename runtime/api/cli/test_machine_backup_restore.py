@@ -199,6 +199,8 @@ def test_cli_no_secret_output_and_doctor_failure(machine, monkeypatch, capsys):
     assert "never-print-this-token" not in output.out + output.err
     assert "doctor_failed" in output.err
     assert "yoke github connect" in output.out
+    assert "Personal SSH keys were excluded" in output.out
+    assert "Verify health and authorize again" in output.out
     assert calls[0][0] == ["yoke", "doctor", "run", "--only", "connections"]
     monkeypatch.setattr(
         cli.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0)
