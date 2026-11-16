@@ -5,28 +5,27 @@ Launch handles, process anchors and supervised resumes all name processes.
 A reused pid reads as gone; absent records prove nothing. Resume records
 must participate even when the session never wrote a handle or anchor.
 
-A record only ever proves its own process gone, never the session's silence.
-A session whose first launch exited and was later woken has a spent launch
-handle beside a live resume-custody record, so the scan below also asks the
-custody reader whether this machine is still running a native for it.
+A record proves only its own process gone, never the session's silence. A
+session whose launch exited and was later woken has a spent launch handle
+beside a live resume-custody record, so the scan also asks custody.
 
 Custody is read from ``state_dir`` (the machine cache, where the wake's own
-custody check reads it); captures from ``diagnostic_state_dir``. Records are
-pruned once custody is gone and the control plane accounts for them.
-Reports carry the launch id and native's last line.
+custody check reads it); captures from ``diagnostic_state_dir``. One pass
+reads one process-table snapshot: a ``ps`` per record held the relay's next
+claim behind a minute-long scan. Records are pruned once custody is gone and
+the control plane accounts for them; reports carry launch id and last line.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from yoke_contracts.timestamps import format_instant
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_contracts.session_control.evidence import native_stderr_excerpt
-from yoke_harness.session_process_custody import custody_state
+from yoke_contracts.process_start_snapshot import process_start_reader
+from yoke_harness.session_process_custody import observed_custody_state
 from yoke_harness.session_relay_record_pruning import prune_dead_session_records
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.cursor_native_result_usage import (
@@ -38,15 +37,13 @@ from yoke_harness.session_relay_liveness_batches import (
     deliver_liveness_batches,
     prunable_session_ids,
 )
-from yoke_harness.session_relay_native_diagnostics import (
-    NativeDiagnosticError,
-    diagnostic_reference,
-    native_diagnostic_path,
-    read_native_capture,
-)
+from yoke_harness.session_relay_native_account import native_account
 from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
 from yoke_harness.session_relay_termination import read_local_record
-from yoke_harness.session_launch_containment import supervised_records
+from yoke_harness.session_launch_containment import (
+    supervised_records,
+    supervised_records_pass,
+)
 
 
 LAUNCH_HANDLE_SOURCE = "launch_handle"
@@ -180,10 +177,11 @@ def verified_dead_sessions(
     state_dir: Path | None = None,
     diagnostic_state_dir: Path | None = None,
     anchors_dir: Path | None = None,
-    start_time_of: StartTimeOf = process_start_time,
+    start_time_of: StartTimeOf | None = None,
 ) -> tuple[VerifiedDeadSession, ...]:
     """Return the sessions whose every recorded process is verifiably gone."""
     diagnostic_state_dir = diagnostic_state_dir or state_dir
+    start_time_of = start_time_of or process_start_reader()
     # Custody readers also import process-record vocabulary from this module.
     from yoke_harness.session_relay_native_turn_custody import (
         overlay_finished_resume_evidence,
@@ -192,90 +190,68 @@ def verified_dead_sessions(
 
     from yoke_harness.session_relay_interactive_holder import running_interactive_holder
 
-    by_session: dict[str, list[SessionProcessRecord]] = {}
-    for record in session_process_records(
-        state_dir=state_dir,
-        anchors_dir=anchors_dir,
-        start_time_of=start_time_of,
-    ):
-        by_session.setdefault(record.session_id, []).append(record)
-    dead: list[VerifiedDeadSession] = []
-    for session_id, records in sorted(by_session.items()):
-        if any(record.running for record in records):
-            continue
-        if running_native_for_session(
-            session_id,
-            custody_state_dir=state_dir,
-            start_time_of=start_time_of,
-        ) or running_interactive_holder(
-            session_id,
-            custody_state_dir=state_dir,
+    with supervised_records_pass(state_dir):
+        by_session: dict[str, list[SessionProcessRecord]] = {}
+        for record in session_process_records(
+            state_dir=state_dir,
             anchors_dir=anchors_dir,
             start_time_of=start_time_of,
         ):
-            continue
-        evidence: dict[str, Any] = {
-            "records_considered": len(records),
-            "sources": sorted({record.source for record in records}),
-            "pids": sorted({record.pid for record in records}),
-            "process_start_times": {
-                str(record.pid): record.process_start_time
-                for record in records
-                if record.process_start_time
-            },
-        }
-        resume_id = overlay_finished_resume_evidence(
-            evidence,
-            session_id,
-            custody_state_dir=state_dir,
-            start_time_of=start_time_of,
-        )
-        launch_id = next(
-            (record.launch_id for record in records if record.launch_id), None
-        )
-        measured = ""
-        if launch_id:
-            evidence["launch_id"] = launch_id
-        capture_id = resume_id or launch_id
-        if capture_id:
-            evidence.update(native_account(capture_id, state_dir=diagnostic_state_dir))
-            measured = fold_launch_native_result(
-                capture_id, state_dir=diagnostic_state_dir
-            )
-        dead.append(
-            VerifiedDeadSession(
+            by_session.setdefault(record.session_id, []).append(record)
+        dead: list[VerifiedDeadSession] = []
+        for session_id, records in sorted(by_session.items()):
+            if any(record.running for record in records):
+                continue
+            if running_native_for_session(
                 session_id,
+                custody_state_dir=state_dir,
+                start_time_of=start_time_of,
+            ) or running_interactive_holder(
+                session_id,
+                custody_state_dir=state_dir,
+                anchors_dir=anchors_dir,
+                start_time_of=start_time_of,
+            ):
+                continue
+            evidence: dict[str, Any] = {
+                "records_considered": len(records),
+                "sources": sorted({record.source for record in records}),
+                "pids": sorted({record.pid for record in records}),
+                "process_start_times": {
+                    str(record.pid): record.process_start_time
+                    for record in records
+                    if record.process_start_time
+                },
+            }
+            resume_id = overlay_finished_resume_evidence(
                 evidence,
-                tuple(record.path for record in records),
-                usage_totals=measured or session_usage_document(session_id),
+                session_id,
+                custody_state_dir=state_dir,
+                start_time_of=start_time_of,
             )
-        )
-    return tuple(dead)
-
-
-def native_account(launch_id: str, *, state_dir: Path | None) -> dict[str, Any]:
-    """Read bounded native diagnostics for remote readers."""
-    try:
-        reference = diagnostic_reference(launch_id)
-        capture = read_native_capture(
-            native_diagnostic_path(reference, state_dir=state_dir, create=False)
-        )
-    except NativeDiagnosticError:
-        return {}
-    if capture is None:
-        return {}
-    account: dict[str, Any] = {"native_diagnostic_ref": reference}
-    if capture.exit_code is not None:
-        account["exit_code"] = capture.exit_code
-    if capture.exit_at is not None:
-        account["native_exit_at"] = format_instant(capture.exit_at)
-    tail = capture.tail
-    if tail:
-        account["native_stderr_tail"] = tail
-    excerpt = native_stderr_excerpt(capture.stderr.decode("utf-8", errors="replace"))
-    if excerpt:
-        account["native_stderr_excerpt"] = excerpt
-    return account
+            launch_id = next(
+                (record.launch_id for record in records if record.launch_id), None
+            )
+            measured = ""
+            if launch_id:
+                evidence["launch_id"] = launch_id
+            capture_id = resume_id or launch_id
+            if capture_id:
+                evidence.update(
+                    native_account(capture_id, state_dir=diagnostic_state_dir)
+                )
+                measured = fold_launch_native_result(
+                    capture_id, state_dir=diagnostic_state_dir
+                )
+            dead.append(
+                VerifiedDeadSession(
+                    session_id,
+                    evidence,
+                    tuple(record.path for record in records),
+                    usage_totals=measured or session_usage_document(session_id),
+                )
+            )
+        return tuple(dead)
 
 
 def report_verified_dead_sessions(
@@ -286,7 +262,7 @@ def report_verified_dead_sessions(
     diagnostic_state_dir: Path | None = None,
     anchors_dir: Path | None = None,
     timeout_s: int = RELAY_REPORT_TIMEOUT_SECONDS,
-    start_time_of: StartTimeOf = process_start_time,
+    start_time_of: StartTimeOf | None = None,
 ) -> tuple[str, ...]:
     """Report this machine's dead-process sessions and return those ended.
 
@@ -296,6 +272,7 @@ def report_verified_dead_sessions(
     logged and skipped — the poll it rides along with keeps working, and
     every record it did not acknowledge stays for the next one.
     """
+    start_time_of = start_time_of or process_start_reader()
     dead = verified_dead_sessions(
         state_dir=state_dir,
         diagnostic_state_dir=diagnostic_state_dir,
@@ -330,14 +307,13 @@ def report_verified_dead_sessions(
     prune_dead_session_records(
         (entry for entry in dead if entry.session_id in prune_ids),
         start_time_of=start_time_of,
-        custody_state_of=custody_state,
+        custody_state_of=observed_custody_state,
     )
     return tuple(ended_ids)
 
 
 __all__ = [
     "LAUNCH_HANDLE_SOURCE",
-    "native_account",
     "PROCESS_ANCHOR_SOURCE",
     "SessionProcessRecord",
     "VerifiedDeadSession",

@@ -310,7 +310,7 @@ def test_ineligible_records_skip_inspection_while_leased_resume_settles(
         return "gone"
 
     monkeypatch.setattr(settlement, "supervised_records", lambda _state: records)
-    monkeypatch.setattr(settlement, "custody_state", observe)
+    monkeypatch.setattr(settlement, "observed_custody_state", observe)
 
     finished = finished_native_resumes(state_dir=tmp_path)
 

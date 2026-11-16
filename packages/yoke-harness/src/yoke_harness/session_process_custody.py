@@ -110,6 +110,28 @@ def custody_state(
         return "unresolved"
 
 
+def observed_custody_state(
+    record: Mapping[str, Any],
+    *,
+    start_time_of: Callable[[int], str | None] | None = None,
+) -> str:
+    """:func:`custody_state` for readers that never signal what they read.
+
+    A process group with no process left is gone, and ``killpg(group, 0)``
+    proves that without reading the process table. Relay passes ask this of
+    every long-gone resume they still hold, once per poll.
+    """
+    group = record.get("process_group_id")
+    if isinstance(group, int) and group > 0 and hasattr(os, "killpg"):
+        try:
+            os.killpg(group, 0)
+        except ProcessLookupError:
+            return "gone"
+        except OSError:
+            pass
+    return custody_state(record, start_time_of=start_time_of)
+
+
 def write_record(path: Path, record: Mapping[str, Any]) -> bool:
     temporary = path.with_suffix(f".{os.getpid()}.tmp")
     try:

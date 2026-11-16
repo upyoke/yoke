@@ -68,7 +68,7 @@ def _group_resume(
 @pytest.fixture
 def group_survives(monkeypatch: pytest.MonkeyPatch) -> None:
     """A background command the turn started still lives in its group."""
-    monkeypatch.setattr(custody, "custody_state", lambda record: "live")
+    monkeypatch.setattr(custody, "observed_custody_state", lambda record: "live")
 
 
 def _wake(surface: str, workspace: Path) -> dict:
