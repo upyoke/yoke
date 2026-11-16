@@ -46,11 +46,13 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
 
 
 from yoke_cli.commands.adapters.github_actions_dispatch_receipt import (
+    GITHUB_ACTIONS_DISPATCH_CURRENCY_USAGE,
     GITHUB_ACTIONS_DISPATCH_RECEIPT_USAGE,
 )
 
 
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {
+    "github_actions.dispatch_intent.current": GITHUB_ACTIONS_DISPATCH_CURRENCY_USAGE,
     "github_actions.dispatch_receipt.get": GITHUB_ACTIONS_DISPATCH_RECEIPT_USAGE,
     "github_actions.run.cancel": GITHUB_ACTIONS_RUN_CANCEL_USAGE,
     "github_actions.run.rerun_failed": GITHUB_ACTIONS_RERUN_FAILED_USAGE,

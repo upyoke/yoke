@@ -3,6 +3,8 @@
   "github-actions check-ci": "Show the latest run of a workflow on a branch.",
   "github-actions commit-runs": "Read workflow runs for one commit.",
   "github-actions commit-runs list": "List every workflow run for one commit.",
+  "github-actions dispatch-intent": "Ask whether a deploy dispatch is still current.",
+  "github-actions dispatch-intent current": "Show whether a newer dispatch replaced this one.",
   "github-actions dispatch-receipt": "Read records of workflow dispatch requests.",
   "github-actions dispatch-receipt get": "Show the inputs and run for one dispatch request.",
   "github-actions dispatch-tag": "Manage tags that deployment runs dispatch at.",

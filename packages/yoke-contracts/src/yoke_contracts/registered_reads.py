@@ -35,6 +35,7 @@ READ_FUNCTION_IDS = frozenset(
         "events.query.run events.tail.run feedback.provenance.get frontier.list "
         "github.branch.head github.merge_queue.readiness github.open_work.list "
         "github_actions.check_ci github_actions.commit_runs.list "
+        "github_actions.dispatch_intent.current "
         "github_actions.dispatch_receipt.get github_actions.failed_log "
         "github_actions.run.jobs_count github_actions.runners.status "
         "github_actions.variable.get github_actions.wait_run "

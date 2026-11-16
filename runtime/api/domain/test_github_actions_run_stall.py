@@ -16,6 +16,7 @@ def test_old_pending_waits_with_configured_or_unknown_concurrency(groups):
     message = pending_run_message(
         repo="owner/repo",
         run_id="10",
+        status="pending",
         jobs_count=0,
         updated_at="2000-01-01T00:00:00Z",
         concurrency_groups=groups,
@@ -58,6 +59,7 @@ def test_unqueued_run_needs_stale_zero_job_evidence_to_stall(jobs, updated):
     message = pending_run_message(
         repo="owner/repo",
         run_id="10",
+        status="pending",
         jobs_count=jobs,
         updated_at=updated,
         concurrency_groups=(),

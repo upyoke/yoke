@@ -83,13 +83,15 @@ class TestClassify:
         assert _classify(payload, {"status": "waiting"}).state == "waiting"
         assert _classify(payload, {"status": "in_progress"}).state == "running"
 
-    def test_stale_pending_zero_jobs_names_the_stall_and_recovery(self):
+    @pytest.mark.parametrize("status", ["pending", "queued"])
+    def test_stale_jobless_run_names_the_stall_and_fresh_recovery(self, status):
         observed = datetime(2026, 8, 31, 12, tzinfo=timezone.utc)
         updated = observed - timedelta(seconds=PENDING_ZERO_JOBS_STALL_SECONDS + 1)
 
         message = pending_run_message(
             repo="upyoke/yoke",
             run_id="123",
+            status=status,
             jobs_count=0,
             updated_at=updated.isoformat(),
             observed_at=observed,
@@ -99,10 +101,12 @@ class TestClassify:
         assert STALLED_DISPATCH_TOKEN in message
         assert f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON}" in message
         assert f"failure_reason={CI_RUN_NEVER_STARTED_REASON}" in message
+        assert f"run=123 status={status} jobs=0" in message
         assert (
-            "yoke github-actions run cancel upyoke/yoke 123 --project <project>"
+            "`yoke --env <plane> watch deploy -- <RUN> --from-stage <STAGE> --fresh`"
             in message
         )
+        assert "run cancel" not in message
         assert "gh api" not in message
 
     def test_stale_pending_zero_jobs_is_terminal_for_the_polling_client(self):
@@ -208,11 +212,13 @@ class TestHandleRunGet:
         assert outcome.primary_success is False
         assert outcome.error.code == "invalid_payload"
 
+    @pytest.mark.parametrize("status", ["pending", "queued"])
     @pytest.mark.parametrize("configured", [True, False])
-    def test_stale_pending_checks_concurrency_before_declaring_stall(
+    def test_stale_jobless_run_checks_concurrency_before_declaring_stall(
         self,
         monkeypatch,
         configured,
+        status,
     ):
         calls = []
 
@@ -228,7 +234,7 @@ class TestHandleRunGet:
                 }
             return {
                 "id": 123,
-                "status": "pending",
+                "status": status,
                 "updated_at": "2000-01-01T00:00:00Z",
             }
 
@@ -237,6 +243,9 @@ class TestHandleRunGet:
             fake_rest_get,
         )
         result = handle_run_get(_make_request()).result_payload
+        assert result["status"] == status
+        if not configured:
+            assert f"status={status} jobs=0" in result["message"]
 
         assert result["state"] == ("waiting" if configured else "failed")
         assert (CI_RUN_NEVER_STARTED_REASON in result["message"]) is not configured

@@ -220,6 +220,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             "github_actions.run.cancel": True,
             "github_actions.dispatch_tag.ensure": True,
             "github_actions.workflow.find_run": False,
+            "github_actions.dispatch_intent.current": False,
             "github_actions.dispatch_receipt.get": False,
             "github_actions.run.jobs_count": False,
             "github_actions.wait_run": False,
