@@ -10,6 +10,7 @@ import pytest
 
 from runtime.api.cli.browser_toolchain_test_support import (
     install_fake_toolchain,
+    stub_process_groups,
 )
 from yoke_harness import browser_client, browser_setup
 from yoke_harness.browser_qa_daemon import ensure_daemon_running
@@ -57,11 +58,7 @@ def _prepare_daemon_launch(tmp_path, monkeypatch):
         staticmethod(lambda path=None: next(loads)),
     )
     monkeypatch.setattr(browser_setup.subprocess, "run", fake_run)
-    monkeypatch.setattr(
-        browser_setup.subprocess,
-        "Popen",
-        lambda *_args, **_kwargs: FakeProcess(),
-    )
+    stub_process_groups(monkeypatch, lambda *_args, **_kwargs: FakeProcess())
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(
         browser_setup, "ensure_system_dependencies", lambda *args, **kwargs: None

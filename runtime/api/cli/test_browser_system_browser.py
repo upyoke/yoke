@@ -24,6 +24,7 @@ def runtime(tmp_path, monkeypatch):
         node=Path("node"),
         npm=Path("npm"),
         npx=Path("npx"),
+        package_command=lambda name, *args: [name, *args],
         command_env=lambda: {browser_executable.EXECUTABLE_ENV: "untrusted-ambient"},
     )
     monkeypatch.setattr(

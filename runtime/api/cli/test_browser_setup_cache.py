@@ -23,6 +23,7 @@ def setup_host(tmp_path, monkeypatch):
         node="node",
         npm="npm",
         npx="npx",
+        package_command=lambda name, *args: [name, *args],
         command_env=lambda: dict(browser_setup.os.environ),
     )
     monkeypatch.setattr(

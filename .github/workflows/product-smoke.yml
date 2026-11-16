@@ -4,6 +4,11 @@ run-name: product-smoke [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]
 on:
   workflow_dispatch:
     inputs:
+      browser_unit_tests:
+        description: Run browser unit tests on macOS
+        type: boolean
+        required: false
+        default: false
       yoke_dispatch_id:
         description: Yoke standalone QA correlation id
         required: false
@@ -18,6 +23,7 @@ concurrency:
 
 jobs:
   smoke:
+    if: ${{ !inputs.browser_unit_tests }}
     name: ${{ matrix.os }} ${{ matrix.architecture }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -113,3 +119,36 @@ jobs:
           path: product-smoke-evidence
           if-no-files-found: error
           retention-days: 14
+  browser-platform:
+    if: ${{ inputs.browser_unit_tests }}
+    name: browser-unit-tests (macOS)
+    timeout-minutes: 15
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install test dependencies
+        run: uv sync --all-packages --locked
+      - name: Prepare native PostgreSQL for pytest fixtures
+        shell: bash
+        run: |
+          brew install postgresql@16
+          echo "YOKE_PG_BIN_DIR=$(brew --prefix postgresql@16)/bin" >> "$GITHUB_ENV"
+      - name: Verify browser toolchain and process custody
+        run: >-
+          uv run --frozen python -m pytest -p no:cacheprovider -q
+          runtime/api/cli/test_browser_node_toolchain.py
+          runtime/api/cli/test_browser_windows_toolchain.py
+          runtime/api/cli/test_browser_platform_process.py

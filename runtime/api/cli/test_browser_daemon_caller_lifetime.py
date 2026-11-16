@@ -168,39 +168,27 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
                 pass
 
 
-def test_windows_launch_uses_detached_process_group(tmp_path: Path) -> None:
-    with (
-        patch.object(browser_client_readiness.os, "name", "nt"),
-        patch.object(
-            browser_client_readiness.subprocess,
-            "DETACHED_PROCESS",
-            8,
-            create=True,
-        ),
-        patch.object(
-            browser_client_readiness.subprocess,
-            "CREATE_NEW_PROCESS_GROUP",
-            512,
-            create=True,
-        ),
-        patch.object(browser_client_readiness.subprocess, "Popen") as launch,
-    ):
-        browser_client_readiness.launch_daemon(
+def test_launch_delegates_process_isolation(tmp_path: Path) -> None:
+    with patch.object(
+        browser_client_readiness.platform_process, "spawn_group"
+    ) as launch:
+        group = browser_client_readiness.launch_daemon(
             ["node", "daemon.js"],
             {},
             tmp_path / "daemon.log",
         )
-
-    assert launch.call_args.kwargs["creationflags"] == 520
-    assert "start_new_session" not in launch.call_args.kwargs
+    assert group is launch.return_value
+    assert launch.call_args.args == (["node", "daemon.js"],)
     assert launch.call_args.kwargs["stdin"] == subprocess.DEVNULL
+    assert "start_new_session" not in launch.call_args.kwargs
+    assert "creationflags" not in launch.call_args.kwargs
 
 
 def test_launch_refusal_names_recovery(tmp_path: Path) -> None:
     with (
         patch.object(
-            browser_client_readiness.subprocess,
-            "Popen",
+            browser_client_readiness.platform_process,
+            "spawn_group",
             side_effect=OSError("permission denied"),
         ),
         pytest.raises(RuntimeError, match="run `yoke qa browser setup` again"),

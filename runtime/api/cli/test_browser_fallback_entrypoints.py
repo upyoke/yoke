@@ -26,7 +26,11 @@ def fallback(tmp_path, monkeypatch):
     executable = tmp_path / "chromium"
     executable.write_text("fixture browser")
     toolchain = SimpleNamespace(
-        node="node", npm="npm", npx="npx", command_env=lambda: {"DISPLAY": ":10"}
+        node="node",
+        npm="npm",
+        npx="npx",
+        package_command=lambda name, *args: [name, *args],
+        command_env=lambda: {"DISPLAY": ":10"},
     )
     calls = []
 

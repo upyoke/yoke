@@ -26,18 +26,22 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-import tarfile
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Optional
 
 from yoke_contracts import terminal_detached_process
+from yoke_cli.browser_node_archive import unpack_release
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.config import machine_config
-from yoke_contracts.resilient_fetch import FetchError, FetchVerificationError, fetch_file
+from yoke_contracts.resilient_fetch import (
+    FetchError,
+    FetchVerificationError,
+    fetch_file,
+)
 
 #: The one pinned Node.js release this product provisions when a host has no
 #: usable Node. Bumping it means replacing the digests below in the same
@@ -66,10 +70,15 @@ _PLATFORM_ARCHIVES = {
     ("linux", "aarch64"): "linux-arm64",
     ("linux", "arm64"): "linux-arm64",
     ("linux", "x86_64"): "linux-x64",
+    ("windows", "amd64"): "win-x64",
+    ("windows", "x86_64"): "win-x64",
+    ("windows", "arm64"): "win-arm64",
 }
 
-#: Published sha256 of each ``node-<version>-<slug>.tar.gz`` archive.
+#: Published sha256 of each Node distribution archive.
 _ARCHIVE_SHA256 = {
+    "win-x64": "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba",
+    "win-arm64": "31c6799744de8a54601643098040c68c3697e56c94e407d61d0e5fa5f34191d7",
     "darwin-arm64": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
     "darwin-x64": "9e5b2644cf107befb6aefca676b96d3296bc10138096f022ed378d6233ed81f4",
     "linux-arm64": "3515603e2487879a39bc75716f1a2affd027500c64ba50e845cf72cb33219013",
@@ -103,15 +112,22 @@ class NodeToolchain:
 
     @property
     def node(self) -> Path:
-        return self.bin_dir / "node"
+        return self.bin_dir / ("node.exe" if platform.system() == "Windows" else "node")
 
     @property
     def npm(self) -> Path:
-        return self.bin_dir / "npm"
+        return self.bin_dir / ("npm.cmd" if platform.system() == "Windows" else "npm")
 
     @property
     def npx(self) -> Path:
-        return self.bin_dir / "npx"
+        return self.bin_dir / ("npx.cmd" if platform.system() == "Windows" else "npx")
+
+    def package_command(self, name: str, *args: str) -> list[str]:
+        """Invoke npm/npx without a command-shell quoting boundary on Windows."""
+        if platform.system() == "Windows":
+            script = self.bin_dir / "node_modules" / "npm" / "bin" / f"{name}-cli.js"
+            return [str(self.node), str(script), *args]
+        return [str(getattr(self, name)), *args]
 
     def command_env(self, base: Optional[Mapping[str, str]] = None) -> dict[str, str]:
         """Environment whose ``PATH`` finds this toolchain first.
@@ -168,7 +184,7 @@ def resolve_node_toolchain(
     host = _host_toolchain()
     if host is not None:
         return host
-    return _toolchain_at(managed_version_dir(version) / "bin", MANAGED_SOURCE)
+    return _toolchain_at(_managed_bin_dir(managed_version_dir(version)), MANAGED_SOURCE)
 
 
 def ensure_node_toolchain(
@@ -192,7 +208,8 @@ def provision_managed_toolchain(
 ) -> NodeToolchain:
     """Download, verify, and unpack one pinned Node release for this host."""
     slug = platform_archive_slug()
-    name = f"node-{version}-{slug}.tar.gz"
+    extension = "zip" if slug.startswith("win-") else "tar.gz"
+    name = f"node-{version}-{slug}.{extension}"
     url = f"{base_url}/{version}/{name}"
     destination = managed_version_dir(version)
     create_private_directory(destination.parent)
@@ -202,10 +219,10 @@ def provision_managed_toolchain(
         emit(f"  [browser-node] fetching {url}")
         _download(url, archive, expected_sha256=_ARCHIVE_SHA256[slug])
         emit("  [browser-node] checksum verified; unpacking")
-        _unpack(archive, staging, destination)
+        unpack_release(archive, staging, destination, error_type=NodeToolchainError)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-    toolchain = _toolchain_at(destination / "bin", MANAGED_SOURCE)
+    toolchain = _toolchain_at(_managed_bin_dir(destination), MANAGED_SOURCE)
     if toolchain is None:
         raise NodeToolchainError(
             f"the unpacked Node {version} release under {destination} did not "
@@ -234,6 +251,10 @@ def toolchain_status(version: str = MANAGED_NODE_VERSION) -> dict[str, object]:
     }
 
 
+def _managed_bin_dir(directory: Path) -> Path:
+    return directory if platform.system() == "Windows" else directory / "bin"
+
+
 def _host_toolchain() -> Optional[NodeToolchain]:
     """A Node 18+ with npm already on ``PATH``, or None."""
     node = shutil.which("node")
@@ -244,8 +265,9 @@ def _host_toolchain() -> Optional[NodeToolchain]:
 
 def _toolchain_at(bin_dir: Path, source: str) -> Optional[NodeToolchain]:
     """Report the toolchain in *bin_dir* when its node and npm both work."""
-    node = bin_dir / "node"
-    if not node.is_file() or not (bin_dir / "npm").exists():
+    candidate = NodeToolchain(bin_dir=bin_dir, version="", source=source)
+    node = candidate.node
+    if not node.is_file() or not candidate.npm.exists():
         return None
     version = _node_version(node)
     if version is None:
@@ -298,41 +320,6 @@ def _download(url: str, destination: Path, *, expected_sha256: str) -> None:
                 f"{MINIMUM_NODE_MAJOR}+ and npm installed by hand"
             ),
         ) from exc
-
-
-def _unpack(archive: Path, staging: Path, destination: Path) -> None:
-    """Extract the release and move its single top-level directory into place."""
-    extract_root = staging / "extracted"
-    extract_root.mkdir()
-    try:
-        with tarfile.open(archive, "r:gz") as handle:
-            # "tar" filter: blocks absolute paths and parent escapes while
-            # preserving the executable modes node and npm need.
-            handle.extractall(extract_root, filter="tar")
-    except (tarfile.TarError, OSError) as exc:
-        raise NodeToolchainError(
-            f"the downloaded Node.js archive could not be unpacked: {exc}",
-            code=ARCHIVE_UNUSABLE_CODE,
-            recovery=(
-                "confirm there is free space and write access under "
-                f"{destination.parent}, then rerun `yoke qa browser setup`"
-            ),
-        ) from exc
-    entries = list(extract_root.iterdir())
-    if len(entries) != 1 or not entries[0].is_dir():
-        raise NodeToolchainError(
-            f"the downloaded Node.js archive held {[e.name for e in entries]} "
-            "instead of one top-level directory.",
-            code=ARCHIVE_UNUSABLE_CODE,
-            recovery=(
-                "rerun `yoke qa browser setup` to fetch the release again; a "
-                "persistent mismatch means the pinned release changed shape "
-                "and this product needs a new pin"
-            ),
-        )
-    if destination.exists():
-        shutil.rmtree(destination)
-    entries[0].replace(destination)
 
 
 __all__ = [

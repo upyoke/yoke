@@ -107,7 +107,7 @@ captures/A001/<scenario-id>/000-initial.txt
 screenshots/A001/<scenario-id>/000-initial.png
 ```
 
-If screenshots are blocked, keep the text capture or bridge log and record why
+If screenshots are blocked, keep the text capture or SSH transcript and record why
 image evidence is absent in the report.
 
 ## Scenario Catalog
@@ -342,7 +342,6 @@ Screen Recording.
 | `MAC-003` | test Mac | No Command Line Tools, no Homebrew | Apple Tools handoff screen; Check again works |
 | `MAC-004` | test Mac | No Command Line Tools with sudo session | `softwareupdate` path installs tools and continues |
 | `MAC-005` | test Mac | Homebrew present | Git recovery chooses `brew install git` |
-| `MAC-006` | test Mac | Visible Terminal PTY bridge | Log captures TUI while child sees real terminal size; per-screen region screenshots through Terminal.app succeed |
 | `MAC-007` | test Mac | One-shot SSH PATH after full onboard | `command -v uv; command -v uvx; command -v yoke` works once the wizard wrote `.zprofile` and `.zshenv` |
 | `MAC-008` | test Mac | Stage + prod credentials | Env switching works without reinstalling project |
 | `MAC-009` | test Mac | Edit Yoke source by cloning a fork into fresh `~/code/yoke` | Post-apply: real clone and checkout-backed editable/source-link activation work without official Yoke access |
@@ -725,7 +724,7 @@ yoke board rebuild --print --no-pager
 ```
 
 Capture the live TTY after each major step. For the installer and any visible TUI
-step, use the region screenshot procedure below; the bridge log or SSH transcript
+step, use the region screenshot procedure below; the SSH transcript
 is the fallback when macOS blocks image capture.
 
 Then prove the local dashboard:
@@ -994,114 +993,6 @@ For each visual run, retain:
 - Every Terminal-window screenshot under `screenshots/<assignment>/<scenario>/`.
 - The apply report JSON under `reports/`.
 - Any product bug field-note ids and the screenshot step that proves them.
-
-### Visible Terminal Capture
-
-This is the fallback/debug path when the operator needs machine-readable screen
-text, FIFO-driven input, or an unattended run. For user-facing visual testing,
-prefer the real Terminal.app recipe above. SSH TTY output is authoritative.
-Screenshots depend on macOS Screen Recording and Automation permissions; if
-direct SSH `screencapture` fails, ask the logged-in Terminal.app to run it
-through `osascript`. For visible TUI probes, keep the TUI attached to the
-Terminal TTY; redirecting stdout through `tee` before Textual starts can make
-Textual paint a smaller rectangle.
-
-For visible TUI runs after Yoke is installed, use the packaged bridge so the TUI
-sees the real terminal size while input comes from a FIFO:
-
-```bash
-"$MAC_HOME/.local/share/uv/tools/yoke-cli/bin/python" \
-  -m yoke_cli.config.visible_terminal_pty_bridge \
-  --fifo /tmp/yoke-visible-tui.fifo --log /tmp/yoke-visible-tui-pty.log \
-  --status /tmp/yoke-visible-tui.status -- \
-  /usr/bin/env TERM=xterm-256color YOKE_ENV=stage \
-"$MAC_HOME/.local/bin/yoke" setup --post-install
-```
-
-To run `yoke setup` from the operator machine with no human at the keyboard
-while seeing each rendered screen:
-
-1. Install non-interactively so no consent prompt blocks the run:
-   `curl -fsSL https://api.stage.upyoke.com/install | bash -s -- --yes --no-setup`.
-   Then invoke `yoke` by absolute path because `--no-setup` skips PATH repair.
-2. Run `yoke setup` under the bridge above inside a Terminal.app window. Input
-   comes from the FIFO, not the keyboard. Create the wizard window, set its final
-   bounds, and only then launch the bridge in that existing window:
-
-   ```bash
-   osascript <<'OSA'
-   tell application "Terminal"
-     activate
-     set wizardTab to do script "printf wizard-ready"
-     delay 1
-     set wizardWindow to front window
-     set bounds of wizardWindow to {40, 60, 1540, 980}
-     set wizardWindowId to id of wizardWindow
-
-     set helperTab to do script "printf helper-ready"
-     delay 1
-     set helperWindow to front window
-     set bounds of helperWindow to {40, 1000, 1540, 1220}
-     set helperWindowId to id of helperWindow
-
-     do script "zsh /tmp/launch.sh" in window id wizardWindowId
-     return (wizardWindowId as string) & "," & (helperWindowId as string)
-   end tell
-   OSA
-   ```
-
-   Do not launch the bridge and resize the window afterward: Textual may keep the
-   initial short terminal height for the active screen and leave the previous
-   screen visible below it.
-3. Send keystrokes by writing raw bytes to the FIFO: `printf '\r' >
-   /tmp/yoke-visible-tui.fifo` for Enter, `printf '\033[B' >
-   /tmp/yoke-visible-tui.fifo` for Down, and plain text for input fields.
-4. Screenshot each screen after a brief render wait.
-
-Screenshot rules:
-
-- SSH TTY output is authoritative; screenshots are optional when macOS
-  permissions block them.
-- The Mac must be unlocked and the display awake. A locked Mac captures only the
-  lock screen; an asleep display can produce a black frame or `could not create
-  image`. Wake it with `caffeinate -u -t 1`; a locked Mac needs a human to unlock
-  it once.
-- Do not use `screencapture -l <window-id>` with Terminal AppleScript ids.
-  Terminal's AppleScript window id is not a CoreGraphics window number.
-- Do not use `-R` either. At least one Test Mac answers "could not create image
-  from display with rect" for every rectangle that intersects its display,
-  however small, while the whole-display form succeeds on the same host in the
-  same second. Capture the display and crop instead: run
-  `screencapture -x -D 1 -o /tmp/full.png` through Terminal.app, read the
-  window's `left,top,right,bottom` bounds through AppleScript, subtract that
-  display's own corner from them, and crop with `sips -c <height> <width>
-  --cropOffset <top> <left> /tmp/full.png --out /tmp/shot.png`. Crop numbers are
-  image pixels, so multiply by the display's backing scale factor on a Retina
-  Mac. Run the capture through Terminal.app either way: Terminal.app holds
-  Screen Recording permission; direct SSH often does not.
-- Place the window before capturing its region, and derive the placement from
-  the display rather than from remembered coordinates. Terminal restores the
-  last window frame for every new window, so a window can open wholly outside
-  the visible area while AppleScript launch, keystrokes, and transcript reads
-  all keep working — only the region capture comes back empty or unchanged. Ask
-  the host for its menu-bar display's visible frame, set the window's bounds
-  inside it, un-minimize it, then read the bounds back before computing the
-  capture rectangle. Keep any helper window that issues the capture out of the
-  captured rectangle, because the region records whatever is composited there.
-- Downscale with `sips -Z 1500 /tmp/shot.png`, then `scp` the image back.
-- The bridge log is the authoritative fallback when screenshots are blocked.
-  Strip ANSI to read the current screen as text:
-
-  ```bash
-  tr -d '\000' < /tmp/yoke-visible-tui-pty.log | perl -pe 's/\x1b\[[0-9;?]*[A-Za-z]//g'
-  ```
-
-- Wait for the next screen before typing into input fields; network checks can
-  drop early keystrokes. Read the bridge log to confirm the expected screen is
-  up before typing.
-- In the Claude harness, a short sleep before capture may trip the long-command
-  polling guard. Use `# lint:no-polling-check` on those per-screen capture
-  commands; they are interactive render waits, not background-command polling.
 
 ### Source-Dev Post-Apply
 
