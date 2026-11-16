@@ -5,11 +5,5 @@
  "page": "browser-qa",
  "position": 0,
  "summary": "Managed browser steps select --page NAME within one identity. A named page retains its route, DOM and form state between calls until the daemon stops after 10 idle minutes; the default page is exploratory. Blank names refuse before daemon startup. Browser setup provisions a checksum-verified Node distribution when no usable Node is on PATH; Windows distributions use ZIP archives and node.exe with npm/npx JavaScript entry points.",
- "sources": [
-  "packages/yoke-cli/src/yoke_cli/commands/qa_browser.py",
-  "docs/public/verification/exploration-evidence.md",
-  "runtime/agents/qa-walker.md",
-  "packages/yoke-cli/src/yoke_cli/browser_node_toolchain.py",
-  "packages/yoke-cli/src/yoke_cli/browser_node_archive.py"
- ]
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/qa_browser.py", "docs/public/verification/exploration-evidence.md", "runtime/agents/qa-walker.md", "packages/yoke-cli/src/yoke_cli/browser_node_toolchain.py", "packages/yoke-cli/src/yoke_cli/browser_node_archive.py"]
 }
