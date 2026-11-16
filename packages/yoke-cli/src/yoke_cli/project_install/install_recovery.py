@@ -49,7 +49,7 @@ def pending_record(root: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(value, dict) or set(value) != {"files", "checkout"}:
             raise ValueError("invalid recovery record")
         files = value["files"]
@@ -203,7 +203,7 @@ def begin(root: Path, plan: dict[str, Any]) -> None:
         exclude = Path(result.stdout.strip())
         if not exclude.is_absolute():
             exclude = root / exclude
-        text = exclude.read_text() if exclude.is_file() else ""
+        text = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
         entry = "/" + PENDING_REL
         if entry not in text.splitlines():
             atomic_text(
