@@ -3,11 +3,14 @@
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.tools.product_runner_commands import Commands
 from runtime.api.tools.product_runner_source_tests import run_source_tests
 
 
-def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeypatch):
+@pytest.mark.parametrize("previous_cluster", [None, "/existing-cluster"])
+def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeypatch, previous_cluster):
     root = tmp_path / "checkout"
     root.mkdir()
     seen = []
@@ -36,5 +39,8 @@ def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeyp
         return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
 
     monkeypatch.setattr("runtime.api.tools.product_runner_commands.subprocess.run", run)
-    run_source_tests(root, Commands(tmp_path, {}))
+    original_env = {} if previous_cluster is None else {"YOKE_PG_CLUSTER_ROOT": previous_cluster}
+    commands = Commands(tmp_path, original_env.copy())
+    run_source_tests(root, commands)
+    assert commands.env == original_env
     assert sum("pytest" in argv for argv in seen) == 2

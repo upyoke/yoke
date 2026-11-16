@@ -227,6 +227,7 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
 
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"
+    assert "YOKE_PG_CLUSTER_ROOT" not in commands.env
     source_argv = dict(seen)["pytest-subset-source"]
     assert source_argv[:4] == ["uv", "run", "--frozen", "yoke"]
     assert "runtime/harness/test_hook_runner_decision_render.py" in source_argv

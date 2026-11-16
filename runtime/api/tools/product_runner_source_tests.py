@@ -41,6 +41,7 @@ def run_source_tests(root: Path, commands) -> None:
     )
     # The socket must fit even when macOS's ordinary temp root is very long.
     with tempfile.TemporaryDirectory(prefix="yoke-pg-smoke-", dir="/tmp" if sys.platform == "darwin" else None) as cluster:
+        previous_cluster = commands.env.get("YOKE_PG_CLUSTER_ROOT")
         commands.env["YOKE_PG_CLUSTER_ROOT"] = cluster
         try:
             for selection, tests in source_test_selections().items():
@@ -89,3 +90,8 @@ def run_source_tests(root: Path, commands) -> None:
             except Exception:
                 if not primary_failure:
                     raise
+            finally:
+                if previous_cluster is None:
+                    commands.env.pop("YOKE_PG_CLUSTER_ROOT", None)
+                else:
+                    commands.env["YOKE_PG_CLUSTER_ROOT"] = previous_cluster
