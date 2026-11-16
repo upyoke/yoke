@@ -92,8 +92,11 @@ least 44 members exists after this release". Missing evidence refuses
 wake_evidence_required; evidence on an automatic case refuses
 wake_evidence_without_manual_wake. Method, runner and verdict path are
 unchanged. The stage driver wakes the owner once per open manual case to
-check its evidence: run the case if it exists. Evidence not available on this
-release yet: stay parked; use `yoke sessions wake schedule --at INSTANT --reason TEXT` for the earliest evidence can exist. A takeover alone does not wake the holder. The fleet report lists open cases under "waiting on manual wake".
+check its evidence: run the case if it exists. Evidence not available yet: schedule
+the next recheck with `yoke sessions wake schedule --at INSTANT --reason TEXT`
+for whenever the evidence could plausibly exist, and again after every recheck
+that still finds none; parking refuses without one. A takeover alone does not
+wake a holder that holds a scheduled recheck. The fleet report lists open cases under "waiting on manual wake".
 
 What a Command case's shell is handed
 -------------------------------------

@@ -6,13 +6,17 @@ production traffic exists. Its stage waits on it, and the stage driver wakes
 the member's owner with one notice per open manual requirement instead of the
 ordinary stage-wait notice. Each notice names the evidence: the owner checks
 it with a registered read, runs the member's cases if it exists, and otherwise
-sets a timed recheck for the earliest evidence can exist. Delivery is :func:`push_notice`, so a parked
-holder is woken and a member with no live holder reaches its project's
-steering seat.
+schedules its next recheck for whenever the evidence could plausibly exist,
+again after every recheck that still finds none; the holder cannot park
+without one (:mod:`session_park_recheck_guard`), and a release takeover skips
+a manual-only holder that holds one. Delivery is :func:`push_notice`, so a
+parked holder is woken and a member with no live holder reaches its
+project's steering seat.
 
 A manual requirement is open until something records a run against it, or it
 is waived, superseded or retracted. Nothing here schedules, polls or times
-out; the fleet report shows each open row until it settles.
+out on its own; the owner's scheduled recheck is the timer, and the fleet
+report shows each open row until it settles.
 """
 
 from __future__ import annotations
@@ -88,11 +92,15 @@ class ManualWakeRequirement:
             "('yoke deployment-runs get', 'yoke qa requirement list', 'yoke db "
             f"read'): {self.wake_evidence} If it exists, run the member's cases: "
             f"'{self.run_command()}'. {holder_instruction}"
-            "Evidence not available on this release yet: stay parked; "
-            "set a timed recheck with `yoke sessions wake schedule --at UTC_INSTANT "
-            '--reason "check the required evidence"` for the earliest evidence '
-            "can exist. A takeover alone does not wake you. Check 'yoke deployment-runs get "
-            f"{self.run_id}' for the current state."
+            "Evidence not available yet: before you park, schedule your next "
+            "recheck for whenever the evidence could plausibly exist (a date for "
+            "time-based evidence, a sensible interval for event-based evidence) "
+            "with `yoke sessions wake schedule --at UTC_INSTANT "
+            '--reason "check the required evidence"`, and schedule the next one '
+            "after every recheck that still finds none; parking refuses without "
+            "one. A takeover alone does not wake you once you hold a scheduled "
+            f"recheck. Check 'yoke deployment-runs get {self.run_id}' for the "
+            "current state."
         )
 
     def owner(self) -> str:

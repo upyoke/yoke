@@ -9,7 +9,6 @@ on:
       - '**/universe_import_cli.py'
       - '**/test_postgres_windows.py'
       - 'runtime/api/tools/verify_windows_local_postgres.py'
-      - 'runtime/api/tools/probe_windows_postgres_socket.py'
       - '.github/workflows/yoke-windows-local-postgres.yml'
 permissions:
   contents: read
