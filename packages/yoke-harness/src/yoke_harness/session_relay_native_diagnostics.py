@@ -13,7 +13,7 @@ from yoke_contracts.owner_private_path import (
 )
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import hashlib
 import os
 from pathlib import Path
@@ -34,6 +34,7 @@ from yoke_harness.session_relay_native_capture_format import (
     compose_capture,
     parse_capture,
     utc_stamp,
+    utc_instant,
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
 
@@ -260,7 +261,7 @@ def store_native_diagnostic(
     return NativeDiagnosticReceipt(
         reference,
         hashlib.sha256(payload).hexdigest(),
-        datetime.fromtimestamp(current, timezone.utc)
+        utc_instant(current)
         + timedelta(seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS),
     )
 

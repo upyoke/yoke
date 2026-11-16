@@ -191,12 +191,16 @@ def test_a_reference_needs_a_launch_or_attempt_identifier(tmp_path: Path) -> Non
         diagnostic_reference("../../escape")
 
 
-@pytest.mark.parametrize("clock", [-1000000.0, -1000000.876544, 1000.123456])
-def test_diagnostic_receipt_deadline_retains_native_utc_microseconds(tmp_path, clock):
+@pytest.mark.parametrize("clock,instant", [
+    (-1000000.0, "1969-12-20T10:13:20+00:00"),
+    (-1000000.876544, "1969-12-20T10:13:19.123456+00:00"),
+    (1000.123456, "1970-01-01T00:16:40.123456+00:00"),
+])
+def test_diagnostic_receipt_deadline_retains_native_utc_microseconds(tmp_path, clock, instant):
     receipt = store_native_diagnostic(
         b"out", b"err", reference=_reference(5), state_dir=tmp_path, now=clock
     )
-    expected = datetime.fromtimestamp(clock, timezone.utc) + timedelta(
+    expected = datetime.fromisoformat(instant) + timedelta(
         seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS
     )
     assert receipt.expires_at == expected
