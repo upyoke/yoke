@@ -13,6 +13,8 @@ from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain import connected_env_tunnel_lifecycle as lifecycle
 from yoke_core.domain import ssh_forward_process as forward
 
+pytestmark = pytest.mark.windows
+
 
 def _spec(port=6547):
     return connector.TunnelSpec(

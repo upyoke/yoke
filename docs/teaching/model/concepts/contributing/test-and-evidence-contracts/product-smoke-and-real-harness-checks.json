@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "test-and-evidence-contracts",
- "position": 6
+ "position": 6,
+ "summary": "Native Windows smoke collects runtime/api, runtime/harness and tests with -m windows. Contributors declare pytest.mark.windows directly in their own modules, at module level or on individual tests. The collection hook skips unmarked modules before import so Unix-only tests cannot break Windows collection; pytest still filters individual tests. Collection and execution logs are retained, and an empty selection fails. No shared roster is edited.",
+ "sources": ["docs/testing-verification.md", ".github/workflows/windows-smoke.yml", "runtime/windows_test_selection.py"]
 }

@@ -88,6 +88,8 @@ def bound_child_command(
     if not args:
         return args
     name = Path(args[0]).name
+    if os.name == "nt" and name.lower().endswith(".exe"):
+        name = name[:-4].lower()
     if name in AMBIENT_PYTHON_NAMES:
         return [python, *args[1:]]
     if name == YOKE_LAUNCHER_NAME:

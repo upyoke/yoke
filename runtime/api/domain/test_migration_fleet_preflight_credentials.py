@@ -10,6 +10,8 @@ import pytest
 
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.parametrize(
     "dsn",

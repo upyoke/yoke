@@ -16,6 +16,8 @@ from yoke_core.domain import migration_apply_targets as targets
 from yoke_core.domain.migration_apply_contract import STATE_REHEARSED
 from yoke_core.domain.migration_apply_runners import RUNNER_KIND_GOVERNED_MODULE
 
+pytestmark = pytest.mark.windows
+
 
 def test_rehearsal_applies_sqlite_only_to_worktree_validation(tmp_path, monkeypatch):
     modules = tmp_path / "migrations"

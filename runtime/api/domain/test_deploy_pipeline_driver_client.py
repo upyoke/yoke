@@ -15,6 +15,8 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     ROW_LOCK_BUSY_CODE,
 )
 
+pytestmark = pytest.mark.windows
+
 
 def _refusal(
     code: str, message: str = "attachment refused", result: dict | None = None

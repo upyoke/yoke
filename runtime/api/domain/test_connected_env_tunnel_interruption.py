@@ -14,6 +14,8 @@ from yoke_core.domain import connected_env_tunnel_lifecycle as lifecycle
 from yoke_core.domain import machine_config
 from yoke_contracts.platform_process import ancestors, spawn_group, stop_group
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.parametrize("launcher", [False, True])
 def test_reaped_preflight_releases_replacement_guard(tmp_path, monkeypatch, launcher):

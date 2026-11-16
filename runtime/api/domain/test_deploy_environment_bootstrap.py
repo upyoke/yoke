@@ -14,6 +14,10 @@ from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
+import pytest
+
+pytestmark = pytest.mark.windows
+
 _DSN = (
     "host=stage-db.cluster-abc.us-east-1.rds.amazonaws.com port=5432 "
     "user=yoke_admin password=hunter2 dbname=yoke_stage"

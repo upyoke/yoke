@@ -8,6 +8,8 @@ from yoke_core.domain import deploy_database_tunnel as tunnels
 from yoke_core.domain import deploy_remote, ssh_identity
 from runtime.api.domain.deploy_remote_test_support import FakeRunner, _env
 
+pytestmark = pytest.mark.windows
+
 
 def test_deploy_tunnel_preserves_bind_host_and_ipv6_destination():
     runner = FakeRunner()

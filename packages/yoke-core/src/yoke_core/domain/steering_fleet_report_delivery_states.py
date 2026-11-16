@@ -1,4 +1,4 @@
-"""Which of eight reasons an envelope has not been read yet.
+"""Which of nine reasons an envelope has not been read yet.
 
 A message that has not landed is one symptom with unrelated causes, and the
 responses to them are opposite. A plane that never tried needs a wake. An
@@ -47,6 +47,8 @@ from yoke_core.domain.session_wake_hold_recovery import held_native_is_gone
 ATTEMPT_FAILED = "attempt_failed"
 #: The plane owed an attempt, its window passed, and it made none.
 NEVER_ATTEMPTED = "never_attempted"
+#: A connected machine is actively draining the eligible wake queue.
+WAKE_DRAINING = "wake_draining"
 #: An attempt is accepted and has not settled either way yet.
 ATTEMPT_IN_FLIGHT = "attempt_in_flight"
 #: No attempt yet and none owed: the recipient's next hook attaches it.
@@ -75,7 +77,7 @@ SEAT_ACTION_STATES = frozenset({ATTEMPT_FAILED, NEVER_ATTEMPTED})
 #: every ordinary send passes through one of them, and letting that churn
 #: the fingerprint would turn routine fleet traffic into changed-report
 #: wakes for mail that is about to land on its own.
-IN_DELIVERY_STATES = frozenset({ATTEMPT_IN_FLIGHT, AWAITING_ATTEMPT})
+IN_DELIVERY_STATES = frozenset({ATTEMPT_IN_FLIGHT, AWAITING_ATTEMPT, WAKE_DRAINING})
 
 #: A held wake is deliberately not one of those. It was read as an attempt in
 #: flight for as long as the state existed, which made it the one shape the
@@ -95,6 +97,7 @@ DELIVERY_STATES = (
     RECIPIENT_TERMINATED,
     RECIPIENT_ENDED,
     ATTEMPT_IN_FLIGHT,
+    WAKE_DRAINING,
     TURN_IN_FLIGHT,
     AWAITING_ATTEMPT,
 )
@@ -191,6 +194,8 @@ def delivery_state(
                 return NEVER_ATTEMPTED
             return WAKE_HELD_FOR_NATIVE_TURN
         return ATTEMPT_IN_FLIGHT
+    if record.get("wake_queue_position") is not None:
+        return WAKE_DRAINING
     if _attempt_owed(record, sent_at=sent_at, grace=grace, sla=sla, current=current):
         return NEVER_ATTEMPTED
     return AWAITING_ATTEMPT
@@ -209,6 +214,7 @@ __all__ = [
     "SEAT_ACTION_STATES",
     "TURN_IN_FLIGHT",
     "WAKE_HELD_FOR_NATIVE_TURN",
+    "WAKE_DRAINING",
     "delivery_state",
     "deliverable_receipt",
 ]

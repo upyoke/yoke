@@ -2,6 +2,7 @@
  "id": "render-and-ingest",
  "title": "Render and ingest",
  "status": "draft-copy",
+ "summary": "Default ingest reads every active doc and rendered archived docs, skipping only absent archives. Explicit slugs require a rendered file; the refusal names a slug-specific render command. Project identity and compare-and-swap checks protect write-back.",
  "page": "strategy",
  "position": 1
 }

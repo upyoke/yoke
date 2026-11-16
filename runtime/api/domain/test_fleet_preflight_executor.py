@@ -25,6 +25,8 @@ from yoke_core.domain import (
 from yoke_core.domain.environment_declared_facts import PREFLIGHT_EXECUTOR_PATH
 from yoke_core.tools import watch_preflight
 
+pytestmark = pytest.mark.windows
+
 SHA = "c" * 40
 # Exactly the arguments the release rehearsal builds for a release commit.
 ARGS = [

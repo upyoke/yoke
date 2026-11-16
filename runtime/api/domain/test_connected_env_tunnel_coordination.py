@@ -15,6 +15,8 @@ from yoke_core.domain import connected_env_readiness_connector as cer_c
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import machine_config
 
+pytestmark = pytest.mark.windows
+
 PORT = 6547
 
 

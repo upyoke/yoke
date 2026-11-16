@@ -14,6 +14,8 @@ from yoke_core.domain import migration_rehearsal_copy_lock as admission
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
+pytestmark = pytest.mark.windows
+
 
 def _hold(spec, home, entered, release):
     admission.machine_config.yoke_home = lambda: home

@@ -20,6 +20,8 @@ from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import connected_env_tunnel_lifecycle as lifecycle
 from yoke_core.domain import machine_config
 
+pytestmark = pytest.mark.windows
+
 
 def _spec() -> cer.TunnelSpec:
     return cer.TunnelSpec(
