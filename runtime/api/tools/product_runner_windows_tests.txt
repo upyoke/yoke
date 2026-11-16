@@ -1,6 +1,6 @@
 # Tests the required windows-smoke job runs on native Windows (yoke-ci.yml).
 # One pytest path or node id per line; blank lines and # comments are ignored.
-# NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
+# Insert new test paths alphabetically; preserve every existing entry.
 runtime/api/cli/test_browser_node_toolchain.py
 runtime/api/cli/test_browser_platform_process.py
 runtime/api/cli/test_browser_windows_toolchain.py
