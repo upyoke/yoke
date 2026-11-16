@@ -32,8 +32,6 @@
   "packages/yoke-cli/src/yoke_cli/config/writer_connection_remove.py": {"getuid|bde9d6f7d756a86f": 2},
   "packages/yoke-cli/src/yoke_cli/feedback_reporter.py": {"encoding|57ae9fefc025ee5c": 1, "encoding|8bc9f4830240f11e": 1, "encoding|fe6da009723e0294": 1},
   "packages/yoke-cli/src/yoke_cli/hook_latency_benchmark_report.py": {"encoding|5abf52001bc928a3": 1},
-  "packages/yoke-cli/src/yoke_cli/hook_resident_client.py": {"process|bb5c2c73b2fc5f34": 1},
-  "packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py": {"getuid|bde9d6f7d756a86f": 1, "process|2b8c07d87877f108": 1},
   "packages/yoke-cli/src/yoke_cli/packs/catalog_source.py": {"encoding|4d6df32901b9d684": 1},
   "packages/yoke-cli/src/yoke_cli/project_install/harness_inventory.py": {"encoding|26dd096c7667ef49": 1},
   "packages/yoke-cli/src/yoke_cli/project_install/install_recovery.py": {"encoding|5abf52001bc928a3": 1, "encoding|afe30f5c7025a6b7": 1},
