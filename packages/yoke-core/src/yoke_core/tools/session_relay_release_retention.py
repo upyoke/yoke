@@ -42,7 +42,7 @@ def prune_relay_releases(state_dir: Path) -> None:
             if path.is_symlink() or not path.is_dir() or path.resolve() == current:
                 continue
             try:
-                prior = json.loads((path / RELAY_RELEASE_RECEIPT_NAME).read_text())
+                prior = json.loads((path / RELAY_RELEASE_RECEIPT_NAME).read_text(encoding="utf-8"))
             except (FileNotFoundError, ValueError):
                 continue
             if isinstance(prior, dict) and prior.get("installed_at"):
@@ -82,7 +82,7 @@ def prune_relay_releases(state_dir: Path) -> None:
         # Stable launchers hold a shared file lock for their full lifetime.
         # Taking the pin lock before resolving the active pointer prevents a
         # launcher from selecting a tree while it is being removed.
-        with (candidate / ".relay-use.lock").open("a+b") as handle:
+        with (candidate / ".relay-use.lock").open(mode="a+b") as handle:
             try:
                 locks.acquire_exclusive_nonblocking(handle.fileno())
             except BlockingIOError:
@@ -106,7 +106,7 @@ def _launcher_release_roots(state_dir, releases, processes):
         if not path.is_dir() or path.is_symlink():
             continue
         try:
-            receipt = json.loads((path / RELAY_RELEASE_RECEIPT_NAME).read_text())
+            receipt = json.loads((path / RELAY_RELEASE_RECEIPT_NAME).read_text(encoding="utf-8"))
             stamp = parse_instant(receipt["installed_at"]).timestamp()
             installed.append((stamp, path.resolve()))
         except (OSError, ValueError, KeyError, TypeError):
@@ -126,7 +126,7 @@ def _launcher_release_roots(state_dir, releases, processes):
 @contextmanager
 def release_install_lock(state_dir: Path) -> Iterator[None]:
     """Serialize package installs against launchers selecting their release."""
-    with (state_dir / RELAY_RELEASE_LOCK_NAME).open("a+b") as handle:
+    with (state_dir / RELAY_RELEASE_LOCK_NAME).open(mode="a+b") as handle:
         locks.acquire_exclusive(handle.fileno())
         try:
             yield

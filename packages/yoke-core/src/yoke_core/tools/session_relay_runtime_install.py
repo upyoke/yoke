@@ -143,8 +143,8 @@ def _validate_runtime(runtime: Path) -> None:
 
 def _install_runtime_entrypoint(runtime: Path, *, state_dir: Path) -> None:
     target = runtime / ("Scripts/yoke.py" if sys.platform == "win32" else "bin/yoke")
-    (runtime / ".yoke-runtime-target").write_text(str((state_dir / "runtime").resolve()))
-    (runtime / "relay_file_lock.py").write_text(Path(platform_file_lock.__file__).read_text(), encoding="utf-8")
+    (runtime / ".yoke-runtime-target").write_text(str((state_dir / "runtime").resolve()), encoding="utf-8")
+    (runtime / "relay_file_lock.py").write_text(Path(platform_file_lock.__file__).read_text(encoding="utf-8"), encoding="utf-8")
     if sys.platform == "win32":
         command = subprocess.list2cmdline([str(relay_runtime_python(state_dir)), "-I", str(state_dir / "runtime" / "Scripts" / "yoke.py")])
         (runtime / "Scripts" / "yoke.cmd").write_text("@echo off\n" + command + " %*\n", encoding="utf-8")

@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import stat
 
 import pytest
 from yoke_contracts.owner_private_path import (

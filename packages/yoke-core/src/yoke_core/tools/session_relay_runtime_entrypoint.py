@@ -24,15 +24,15 @@ def _select_release_packages() -> None:
     )
     locks = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(locks)
-    with (state_dir / "__YOKE_RELEASE_LOCK__").open("a+b") as pin_lock:
+    with (state_dir / "__YOKE_RELEASE_LOCK__").open(mode="a+b") as pin_lock:
         locks.acquire_shared(pin_lock.fileno())
         try:
             active = state_dir / "__YOKE_ACTIVE_RELEASE__"
-            receipt = json.loads((active / ".yoke-relay-release.json").read_text())
+            receipt = json.loads((active / ".yoke-relay-release.json").read_text(encoding="utf-8"))
             release_root = Path(receipt["physical_root"]).resolve(strict=True)
             if release_root.parent != (state_dir / "releases").resolve():
                 raise RuntimeError("selected release is outside the owned releases directory")
-            _RELEASE_HANDLE = (release_root / ".relay-use.lock").open("a+b")
+            _RELEASE_HANDLE = (release_root / ".relay-use.lock").open(mode="a+b")
             locks.acquire_shared(_RELEASE_HANDLE.fileno())
         finally:
             locks.release_exclusive(pin_lock.fileno())

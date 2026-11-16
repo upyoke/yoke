@@ -21,6 +21,7 @@ from yoke_core.tools.session_relay_release import (
     write_release_json,
 )
 from yoke_core.tools.session_relay_release_install import pin_relay_release
+from yoke_core.tools.session_relay_links import create_relay_directory
 from yoke_harness import session_relay_native_spawn
 from yoke_harness.session_relay_environment import native_session_environment
 
@@ -30,6 +31,7 @@ SECOND_RELEASE = "0.2.0.202610140942"
 
 
 def _fake_release(path: Path, release: str) -> None:
+    create_relay_directory(path)
     binary = path / "bin"
     binary.mkdir(parents=True)
     (binary / "python").touch()

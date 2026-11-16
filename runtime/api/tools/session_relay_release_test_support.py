@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 
 from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
+from yoke_core.tools.session_relay_links import create_relay_directory
 from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
 
 
@@ -62,6 +63,7 @@ def relay_instance(tmp_path: Path, api_url: str = DEFAULT_API_URL) -> RelayInsta
 
 
 def fake_venv(path: Path) -> None:
+    create_relay_directory(path)
     python = relay_venv_python(path)
     python.parent.mkdir(parents=True)
     python.touch()

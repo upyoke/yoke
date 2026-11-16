@@ -74,12 +74,12 @@ def _describe(path: Path, kind: EvidenceKind, name: str) -> EvidenceFile | None:
         return None
     if not stat.S_ISREG(details.st_mode) or stat.S_ISLNK(details.st_mode):
         return None
-    if os.name == "nt":
+    if os.name != "nt":
+        owned = details.st_uid == os.getuid()
+    else:
         from yoke_contracts.owner_private_path import is_owner_private_file
 
         owned = is_owner_private_file(path)
-    else:
-        owned = details.st_uid == os.getuid()
     if not owned:
         return None
     return EvidenceFile(

@@ -90,7 +90,7 @@ def relay_runtime_python(state_dir: Path) -> Path:
 def relay_launch_targets_runtime(state_dir: Path) -> bool:
     launch = relay_launch_path(state_dir)
     try:
-        return (launch / ".yoke-runtime-target").read_text() == str(relay_runtime_path(state_dir).resolve())
+        return (launch / ".yoke-runtime-target").read_text(encoding="utf-8") == str(relay_runtime_path(state_dir).resolve())
     except OSError:
         return False
 

@@ -163,8 +163,8 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
         },
     )()
     monkeypatch.setattr(
-        cli_module.subprocess,
-        "Popen",
+        cli_module,
+        "spawn_relay_process",
         lambda command, **options: calls.append((command, options)) or child,
     )
     monkeypatch.setattr(
