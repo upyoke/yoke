@@ -197,12 +197,10 @@ def test_native_corpus_has_all_events_without_account_data(harness):
         assert replayed["workspace_roots"] == ["/project"]
 
 
-def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path):
+@pytest.mark.parametrize("failed_selection", ["source", "windows"])
+def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path, failed_selection):
     from runtime.api.tools.product_runner_source_tests import run_source_tests
 
-    roster = tmp_path / "runtime/api/tools/product_runner_windows_tests.txt"
-    roster.parent.mkdir(parents=True)
-    roster.write_text("# portable subset\nruntime/api/tools/test_windows_source_checkout.py\n")
     home = tmp_path / "home"
     home.mkdir()
     output = tmp_path / "evidence"
@@ -211,7 +209,7 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
 
     def run(name, argv, *, cwd):
         seen.append((name, argv))
-        if name == "pytest-subset":
+        if name == f"pytest-subset-{failed_selection}":
             (home / "yoke-pytest.raw.failure.log").write_text("pytest diagnostic")
             (Path(commands.env["YOKE_PG_CLUSTER_ROOT"]) / "server.log").write_text(
                 "server diagnostic"
@@ -229,7 +227,12 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"
     assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
-    assert "runtime/api/tools/test_windows_source_checkout.py" in seen[1][1]
+    assert "runtime/harness/test_hook_runner_decision_render.py" in seen[1][1]
+    assert "tests/import_graph/test_yoke_cli_dev_setup_contract.py" in seen[1][1]
+    if failed_selection == "windows":
+        assert seen[2][1][-8:] == [
+            "--local", "--", "-m", "windows", "runtime/api", "runtime/harness", "tests", "-q"
+        ]
     assert seen[-1][0] == "stop-test-postgres"
 
 
@@ -289,7 +292,9 @@ def test_checkout_proof_requires_collection_and_stops_its_cluster(tmp_path, monk
     from runtime.api.tools import product_runner_checkout_tests as checkout
 
     monkeypatch.setattr(checkout.sys, "argv", ["checkout-proof", "--output", str(tmp_path)])
-    monkeypatch.setattr(checkout, "declared_source_tests", lambda root: ["declared_test.py"])
+    monkeypatch.setattr(checkout, "source_test_selections", lambda: {
+        "source": ["source_test.py"], "windows": ["-m", "windows", "test_windows.py"]
+    })
     calls = []
 
     def run(argv, **kwargs):
@@ -304,5 +309,10 @@ def test_checkout_proof_requires_collection_and_stops_its_cluster(tmp_path, monk
     assert "--collect-only" in calls[0][0]
     assert calls[-1][0][-2:] == ["yoke_core.tools.pg_testcluster", "stop"]
     assert calls[-1][1]["env"]["YOKE_PG_CLUSTER_ROOT"] == calls[0][1]["env"]["YOKE_PG_CLUSTER_ROOT"]
-    assert (tmp_path / "contributor-collection.txt").is_file()
-    assert (tmp_path / "contributor-tests.txt").exists() == (collect_exit == 0)
+    assert (tmp_path / "contributor-collection-source.txt").is_file()
+    for phase in ("collection", "tests"):
+        assert (tmp_path / f"contributor-{phase}-windows.txt").exists() == (collect_exit == 0)
+    if collect_exit == 0:
+        assert len(calls) == 5
+        assert calls[1][0][-3:] == ["-m", "windows", "test_windows.py"]
+        assert calls[3][0][-3:] == ["-m", "windows", "test_windows.py"]

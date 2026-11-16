@@ -15,6 +15,9 @@ from yoke_core.domain.ec2_instance_power import (
 )
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
+
+pytestmark = pytest.mark.windows
+
 OK = CommandResult(0, "", "")
 
 

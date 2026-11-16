@@ -10,6 +10,9 @@ from yoke_contracts import harness_cli_manifest as registry
 from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_windows_manifests_name_native_install_and_bundle_routes():
     for manifest in HARNESS_CLI_MANIFESTS:
         assert manifest.install_for_platform(windows=True)

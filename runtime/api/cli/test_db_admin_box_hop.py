@@ -14,6 +14,9 @@ from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_cli.config import db_admin_box_hop as hop
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
 
+
+pytestmark = pytest.mark.windows
+
 HOST_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHostKeyFromTheVm"
 MAC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMacHostKey"
 MAC_FINGERPRINT = "SHA256:" + "K" * 43

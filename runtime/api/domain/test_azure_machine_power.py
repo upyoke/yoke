@@ -21,6 +21,9 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.api.function_call import FunctionCallResponse
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
+
+pytestmark = pytest.mark.windows
+
 ID = "/subscriptions/sub/resourceGroups/lab/providers/Microsoft.Compute/virtualMachines/vm"
 SETTINGS = {
     "resource_name": "azure-lab",

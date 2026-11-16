@@ -8,6 +8,9 @@ import pytest
 from yoke_core.domain import agents_render_native_links as native
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.fixture
 def owned(monkeypatch):
     monkeypatch.setattr(native, "assert_target_under_session_work_authority", lambda _path: None)

@@ -15,6 +15,9 @@ import pytest
 from yoke_cli.config import native_windows_terminal as terminal
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_non_utf8_streams_become_utf8_without_color(monkeypatch):
     buffers = (io.BytesIO(), io.BytesIO())
     streams = tuple(

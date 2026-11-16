@@ -10,6 +10,9 @@ from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.self_host import native_windows
 
 
+pytestmark = pytest.mark.windows
+
+
 COMMANDS = [
     (self_host.self_host_init, ["--admin-name", "Ada"]),
     (self_host.self_host_init, ["--admin-name", "Ada", "--start"]),

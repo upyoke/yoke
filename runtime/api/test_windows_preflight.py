@@ -13,6 +13,9 @@ from yoke_contracts.windows_preflight import verdicts
 from yoke_contracts.windows_preflight_facts import collect_facts, name_facts
 
 
+pytestmark = pytest.mark.windows
+
+
 def facts(**overrides):
     return {
         "system": "Windows",

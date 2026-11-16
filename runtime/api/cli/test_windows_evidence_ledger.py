@@ -13,6 +13,9 @@ from yoke_cli.windows_evidence_report import report
 from yoke_contracts.windows_ledger_receipt import tag_receipt
 from runtime.api.tools.windows_evidence import main
 
+
+pytestmark = pytest.mark.windows
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
