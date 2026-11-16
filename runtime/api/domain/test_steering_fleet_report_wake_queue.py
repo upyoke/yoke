@@ -191,6 +191,11 @@ def test_queue_positions_do_not_enter_report_identity(fleet):
             for row in report.undelivered
         ),
     )
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
+    from yoke_core.domain.steering_fleet_report_read import _age_blind
+
+    assert report_dict(report)["undelivered"][0]["wake_queue_positions"]
+    assert _age_blind(report_dict(moved)) == _age_blind(report_dict(report))
     assert moved.fingerprint() == report.fingerprint()
     assert (
         replace(report, undelivered=()).fingerprint() == report.fingerprint()
