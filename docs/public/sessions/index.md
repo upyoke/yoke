@@ -198,12 +198,24 @@ intentional wait. A prompt or a turn that only reads or acknowledges messages
 keeps that park and reason. Successful work or an explicit `--mode wait` ends
 it. Capacity recovery skips parked sessions.
 
-For time or traffic evidence, schedule the earliest useful recheck before parking:
+For time or traffic evidence, schedule your next recheck before parking:
 `yoke sessions wake schedule --at 2026-12-01T12:00:00Z --reason "check traffic evidence"`.
-The instant must include a UTC offset and be in the future. The durable message
-cannot arrive early through another prompt; when due it follows the surface's
-existing message wake route. A new message or dependency change can still wake
-the holder. A release takeover alone does not repeat an unchanged manual QA notice.
+Pick whenever the evidence could plausibly exist: a date for time-based
+evidence, a sensible interval for event-based evidence. After a recheck that
+still finds none, schedule the next one. The instant must include a UTC offset
+and be in the future. The durable message cannot arrive early through another
+prompt; when due it follows the surface's existing message wake route. A new
+message or dependency change can still wake the holder.
+
+A holder that was sent a manual-wake QA notice for a requirement that is still
+open, on a run executing that requirement's stage, cannot park without a future
+scheduled recheck: `yoke sessions touch --mode parked` (and the merge-time
+release-wait park) refuses with `park_recheck_required` and names the exact
+`yoke sessions wake schedule` command. Parks before the stage opens are not
+affected. Because successful work ends a park, every re-park after a recheck
+needs a fresh scheduled wake. A release takeover does not wake a holder whose
+moved open requirements are all manual-wake and who holds a future scheduled
+recheck; everyone else still gets the takeover notice.
 
 
 ## Timed rechecks
