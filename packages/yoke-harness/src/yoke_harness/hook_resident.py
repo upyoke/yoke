@@ -138,6 +138,7 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
         started = time.monotonic()
         self.http_opener.begin_hook_request()
         from yoke_cli.transport.http_request_context import use_http_opener
+
         context = activate_process_context(process)
         with context as capture, use_http_opener(self.http_opener):
             from yoke_cli.commands.adapters.hook_config_dedup import (
@@ -327,11 +328,12 @@ def main() -> int:
         return 2
     os.set_inheritable(args.lock_fd, True)
     create_private_directory(socket_path.parent)
+    from yoke_cli.config.cli_release_runtime import exec_current_python, hold_release
+
+    hold_release()  # An update keeps this release until the resident exits.
     if not _serve(socket_path, args.lock_fd):
         os.close(args.lock_fd)
         return 0
-    from yoke_cli.config.cli_release_runtime import exec_current_python
-
     return exec_current_python(
         [
             "-m",

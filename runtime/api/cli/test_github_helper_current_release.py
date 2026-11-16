@@ -5,6 +5,7 @@ import shlex
 import shutil
 import sys
 
+from runtime.api.cli.cli_release_runtime_test_support import point_current
 from runtime.api.cli.github_stable_helper_test_support import (
     run_git,
     write_github_app_config,
@@ -25,37 +26,30 @@ def test_checkout_helper_survives_release_switch_and_prune(tmp_path, monkeypatch
     root = tmp_path / "install with spaces" / "yoke-cli-releases"
     original_python = Path(sys.executable)
 
-    def runtime(name):
+    def release(name):
         generation = root / "releases" / name
         environment = generation / "tools" / "yoke-cli"
         python = environment / "bin" / "python3"
         python.parent.mkdir(parents=True)
         python.symlink_to(original_python)
-        site = environment / "lib" / "python3.14" / "site-packages"
-        credentials.install_stable_helper(site)
-        return generation, python, site
+        point_current(root, generation)
+        monkeypatch.setattr(credentials.sys, "executable", str(python))
+        monkeypatch.setattr(credentials.sys, "prefix", str(environment))
+        return generation
 
-    old, old_python, old_site = runtime("old")
-    current = root / "current"
-    current.symlink_to(old, target_is_directory=True)
-    monkeypatch.setattr(credentials.sys, "executable", str(old_python))
-    monkeypatch.setattr(credentials, "_helper_dir", lambda: old_site)
+    old = release("old")
     report = credentials.configure_repo_helper(repo, config_path=config)
     command = run_git(repo, "config", "--get", report["key"]).strip()
-    argv = shlex.split(command[1:])
-    assert argv == [
-        str(current / old_python.relative_to(old)),
-        str(current / old_site.relative_to(old) / credentials.STABLE_HELPER_FILE_NAME),
+    helper_dir = root / "github-credential-helper"
+    assert shlex.split(command[1:]) == [
+        str(root / "python"),
+        str(helper_dir / credentials.STABLE_HELPER_FILE_NAME),
         "--config",
         str(config),
     ]
 
-    new, new_python, new_site = runtime("new")
-    current.unlink()
-    current.symlink_to(new, target_is_directory=True)
+    release("new")
     shutil.rmtree(old)
-    monkeypatch.setattr(credentials.sys, "executable", str(new_python))
-    monkeypatch.setattr(credentials, "_helper_dir", lambda: new_site)
     hooks = tmp_path / "python-hooks"
     _write_refresh_sitecustomize(hooks, "release-test-token")
     monkeypatch.setenv("PYTHONPATH", str(hooks))
