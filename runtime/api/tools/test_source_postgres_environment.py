@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
+from types import SimpleNamespace
 
 import pytest
 
@@ -174,7 +176,7 @@ def test_cleanup_reclaims_only_its_own_evidence_cluster(tmp_path, monkeypatch):
 
     def destroy(pid, spec):
         destroyed.append(spec.root)
-        reclaim.shutil.rmtree(spec.root)
+        shutil.rmtree(spec.root)
 
     monkeypatch.setattr(reclaim, "_destroy", destroy)
     reclaim.destroy_evidence_clusters(evidence)
@@ -202,12 +204,14 @@ def test_failed_stop_never_removes_live_data(tmp_path, monkeypatch):
 def test_postmaster_inventory_excludes_foreign_users_and_background_workers(
     monkeypatch,
 ):
-    listing = f"{os.getuid()} 12 /pg/bin/postgres -D /tmp/old/yoke-pgtest-cluster/data\n{os.getuid()} 13 /pg/bin/postgres -D /home/local-universe/data\n{os.getuid() + 1} 14 /pg/bin/postgres -D /tmp/foreign/yoke-pgtest-cluster/data\n{os.getuid()} 15 postgres: checkpointer\n"
-    monkeypatch.setattr(
-        reclaim.subprocess,
-        "run",
-        lambda *args, **kwargs: reclaim.subprocess.CompletedProcess([], 0, listing, ""),
-    )
+    processes = [
+        SimpleNamespace(pid=os.getpid(), username="owner", cmdline=("python",)),
+        SimpleNamespace(pid=12, username="owner", cmdline=("/pg/bin/postgres", "-D", "/tmp/old/yoke-pgtest-cluster/data")),
+        SimpleNamespace(pid=13, username="owner", cmdline=("/pg/bin/postgres", "-D", "/home/local-universe/data")),
+        SimpleNamespace(pid=14, username="foreign", cmdline=("/pg/bin/postgres", "-D", "/tmp/foreign/data")),
+        SimpleNamespace(pid=15, username="owner", cmdline=("postgres: checkpointer",)),
+    ]
+    monkeypatch.setattr("yoke_contracts.platform_process.process_command_lines", lambda: processes)
     assert reclaim._postmasters() == [
         (12, Path("/tmp/old/yoke-pgtest-cluster"), Path("/pg/bin")),
         (13, Path("/home/local-universe"), Path("/pg/bin")),
@@ -283,12 +287,13 @@ def test_unknown_postmaster_identity_refuses_instead_of_leaking_silently(
 
 
 def test_postmaster_inventory_preserves_spaces_in_owned_paths(monkeypatch):
-    listing = f"{os.getuid()} 12 /embedded engine/bin/postgres -D /tmp/evidence/private cluster/data -k /tmp/socket -p 5432\n"
-    monkeypatch.setattr(
-        reclaim.subprocess,
-        "run",
-        lambda *a, **kw: reclaim.subprocess.CompletedProcess([], 0, listing, ""),
-    )
+    processes = [
+        SimpleNamespace(pid=os.getpid(), username="owner", cmdline=("python",)),
+        SimpleNamespace(pid=12, username="owner", cmdline=(
+            "/embedded engine/bin/postgres", "-D", "/tmp/evidence/private cluster/data", "-k", "/tmp/socket", "-p", "5432",
+        )),
+    ]
+    monkeypatch.setattr("yoke_contracts.platform_process.process_command_lines", lambda: processes)
     assert reclaim._postmasters() == [
         (12, Path("/tmp/evidence/private cluster"), Path("/embedded engine/bin"))
     ]

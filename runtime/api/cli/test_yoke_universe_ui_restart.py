@@ -16,6 +16,9 @@ from runtime.api.cli.yoke_universe_ui_daemon_test_support import (
 )
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.fixture(autouse=True)
 def isolated_machine(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))

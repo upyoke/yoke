@@ -146,7 +146,7 @@ def render_agent_prompt_body(
 
 def rendered_reference_outputs(canonical_dir: Path) -> list[tuple[Path, str]]:
     """Return relative output paths and text for on-demand reference files."""
-    return [
+    outputs = [
         (
             reference_output_path(path, canonical_dir),
             render_reference_text(
@@ -157,6 +157,11 @@ def rendered_reference_outputs(canonical_dir: Path) -> list[tuple[Path, str]]:
         )
         for path in conditional_reference_paths(canonical_dir)
     ]
+    # This standalone role reference is consumed literally, including markers.
+    browser = canonical_dir / "tester-browser.md"
+    if browser.is_file():
+        outputs.append((CLAUDE_REFERENCE_DIR / browser.name.replace("tester-browser", "yoke-tester-browser"), browser.read_text(encoding="utf-8")))
+    return outputs
 
 
 __all__ = (

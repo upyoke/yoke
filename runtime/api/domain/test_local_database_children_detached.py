@@ -6,9 +6,14 @@ terminal; initdb, pg_ctl, psql and pg_dump must run without it.
 
 from __future__ import annotations
 
+import pytest
+
 import subprocess
 
 from yoke_core.domain import postgres_cluster
+
+
+pytestmark = pytest.mark.windows
 
 
 def test_cluster_commands_run_detached_from_the_terminal(monkeypatch):

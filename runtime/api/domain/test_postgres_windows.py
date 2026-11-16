@@ -1,10 +1,15 @@
 """Native Windows engine resolution and helper process regressions."""
 from __future__ import annotations
 
+import pytest
+
 import subprocess
 import sys
 
 from yoke_core.domain import postgres_binaries, postgres_cluster_process
+
+
+pytestmark = pytest.mark.windows
 
 
 def test_windows_executables_and_installed_engine(monkeypatch, tmp_path):

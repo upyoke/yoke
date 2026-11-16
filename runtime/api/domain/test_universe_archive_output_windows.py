@@ -1,7 +1,12 @@
 """Private archive output uses the shared Windows file custody boundary."""
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import universe_archive_output as output
+
+
+pytestmark = pytest.mark.windows
 
 
 def test_windows_commit_does_not_try_to_open_directory(monkeypatch, tmp_path):

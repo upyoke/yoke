@@ -17,6 +17,9 @@ import pytest
 from runtime.api.cli.cli_release_runtime_test_support import candidate, point_current
 from yoke_cli.config import cli_release_runtime as runtime
 
+
+pytestmark = pytest.mark.windows
+
 POSIX_ONLY = pytest.mark.skipif(runtime.WINDOWS, reason="POSIX process facts")
 
 

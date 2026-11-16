@@ -8,10 +8,8 @@ from pathlib import Path
 from yoke_harness.session_relay_native_capture_format import compose_capture
 from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
 from yoke_harness.session_launch_handles import native_handle_path
-from yoke_harness.session_relay_process_liveness import (
-    native_account,
-    verified_dead_sessions,
-)
+from yoke_harness.session_relay_native_account import native_account
+from yoke_harness.session_relay_process_liveness import verified_dead_sessions
 
 
 LAUNCH_ID = "11111111-1111-4111-8111-111111111111"

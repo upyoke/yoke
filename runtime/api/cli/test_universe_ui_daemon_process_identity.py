@@ -10,6 +10,9 @@ from yoke_cli.config import universe_ui_daemon as daemon
 from yoke_cli.config import universe_ui_daemon_state as state
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_reused_pid_is_neither_reported_nor_stopped(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "profile with spaces"))
     state.write_record(pid=os.getpid(), host="127.0.0.1", port=8688,

@@ -15,6 +15,9 @@ import pytest
 from yoke_contracts import windows_preflight_facts as collector
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_nul_git_paths_are_utf8_not_utf16(monkeypatch):
     monkeypatch.setattr(
         collector.subprocess,

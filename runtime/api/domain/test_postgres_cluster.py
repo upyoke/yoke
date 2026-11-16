@@ -296,6 +296,7 @@ def test_uninitialized_data_dir_is_never_a_mismatch(tmp_path):
     assert postgres_cluster.data_dir_major_mismatch(_spec(tmp_path)) is None
 
 
+@pytest.mark.windows
 def test_destroy_keeps_data_when_server_cannot_stop(monkeypatch, tmp_path):
     spec = _spec(tmp_path)
     spec.data_dir.mkdir(parents=True)

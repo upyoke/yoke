@@ -1,11 +1,4 @@
-"""``yoke strategy render|ingest`` adapters.
-
-``render`` -> ``strategy.render.run`` (needed/changed file texts).
-``ingest`` -> ``strategy.ingest.run`` (CAS write-back of edited files).
-File I/O is client-side; handlers never touch a checkout path.
-Project-aware destination checks live in
-:mod:`yoke_cli.commands.adapters.strategy_target_project`.
-"""
+"""Strategy render/ingest adapters; checkout file I/O stays client-side."""
 
 from __future__ import annotations
 
@@ -45,18 +38,11 @@ from yoke_cli.commands.adapters.strategy_target_project import (
 )
 from yoke_cli.commands.text_file import resolve_text_file
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.project_contract.strategy_docs_io import (
     StrategyIngestFileMissingError,
     read_ingest_files,
 )
-
-
-__all__ = [
-    "strategy_render",
-    "strategy_ingest",
-    "STRATEGY_RENDER_USAGE",
-    "STRATEGY_INGEST_USAGE",
-]
 
 
 STRATEGY_INGEST_USAGE = (
@@ -70,12 +56,10 @@ def strategy_ingest(args: List[str]) -> int:
         prog="yoke strategy ingest",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Write edited rendered strategy files back into the DB "
-            "authority via compare-and-swap on each file's render-header "
-            "base updated_at (lost-update protection), then re-render the "
-            "written docs so their headers advance. Refuses files whose "
-            "YOKE:STRATEGY-DOC header is missing or mangled; skips files "
-            "whose body still matches the header hash."
+            "Save edited strategy renders to the DB via compare-and-swap "
+            "on each header's base updated_at (lost-update protection), then "
+            "advance written headers. Refuses missing or mangled "
+            "YOKE:STRATEGY-DOC headers; skips bodies matching the header hash."
         ),
         epilog=(
             fields_recipe() + "\n\n" + "Example:\n"
@@ -90,7 +74,10 @@ def strategy_ingest(args: List[str]) -> int:
         "slugs",
         nargs="*",
         metavar="SLUG",
-        help="Doc slugs to ingest; default is the project's full corpus.",
+        help=(
+            "Doc slugs to ingest; default is the project's active corpus "
+            "plus archived docs with rendered files."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -150,10 +137,6 @@ def strategy_ingest(args: List[str]) -> int:
             }
         ]
     else:
-        # Reading from target_root: resolve project identity and reject a
-        # KNOWN mismatch before reading any file or dispatching the
-        # mutation — never redirect the read location itself, since the
-        # operator's edits live wherever target_root already points.
         identity_response = call_dispatcher(
             function_id="strategy.doc.list",
             target=target,
@@ -172,8 +155,12 @@ def strategy_ingest(args: List[str]) -> int:
         except StrategyTargetRootMismatchError as exc:
             return usage_error(str(exc))
 
+        skip_missing = []
         if not slugs:
             slugs = [str(d["slug"]) for d in identity.get("docs", [])]
+            skip_missing = [
+                str(d["slug"]) for d in identity.get("docs", []) if d.get("archived")
+            ]
             if not slugs:
                 print(
                     "error (doc_not_seeded): the project has no strategy docs; "
@@ -182,10 +169,28 @@ def strategy_ingest(args: List[str]) -> int:
                 )
                 return 1
         try:
-            files = read_ingest_files(target_root, slugs)
+            files = read_ingest_files(
+                target_root, slugs, skip_missing_slugs=skip_missing
+            )
         except StrategyIngestFileMissingError as exc:
             print(f"error (ingest_file_missing): {exc}", file=sys.stderr)
             return 1
+        if not files:
+            return emit_response(
+                FunctionCallResponse(
+                    success=True,
+                    function="strategy.ingest.run",
+                    version=identity_response.version,
+                    result={
+                        "docs": [],
+                        "written": 0,
+                        "unchanged": 0,
+                        "conflicts": 0,
+                        "dry_run": bool(parsed.dry_run),
+                    },
+                ),
+                json_mode=parsed.json_mode,
+            )
 
     response = call_dispatcher(
         function_id="strategy.ingest.run",
@@ -197,9 +202,7 @@ def strategy_ingest(args: List[str]) -> int:
         },
         actor=actor,
     )
-    # Advance the written docs' headers on disk whatever the overall
-    # outcome — on a partial conflict the docs written before it stay
-    # written, and rewriting their headers makes a retry no-op them.
+    # Advance written headers even on partial conflict so retries no-op them.
     render_report = _write_returned_files(
         target_root,
         response,
@@ -217,7 +220,7 @@ def strategy_ingest(args: List[str]) -> int:
                 file=stdout,
             )
 
-    rc = emit_response(
+    return emit_response(
         compact_file_text_response(
             response,
             target_root=target_root,
@@ -226,7 +229,6 @@ def strategy_ingest(args: List[str]) -> int:
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
-    return rc
 
 
 STRATEGY_RENDER_USAGE = (
@@ -313,14 +315,13 @@ def strategy_render(args: List[str]) -> int:
     report: Optional[Any] = None
     conflicts: List[str] = []
     if response.success:
-        actor_ref, target_ref = actor, target
 
         def _fetch_missing(slugs: List[str]):
             follow = call_dispatcher(
                 function_id="strategy.render.run",
-                target=target_ref,
+                target=target,
                 payload={"slugs": list(slugs)},
-                actor=actor_ref,
+                actor=actor,
             )
             return (follow.result or {}).get("docs") or []
 

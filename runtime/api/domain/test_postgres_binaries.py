@@ -24,6 +24,7 @@ def _isolated_machine_home(monkeypatch, tmp_path):
     monkeypatch.setattr(pb.platform, "mac_ver", lambda: ("26.0", ("", "", ""), ""))
 
 
+@pytest.mark.windows
 def test_platform_target_mapping():
     assert pb.platform_target("Windows", "AMD64") == "x86_64-pc-windows-msvc"
     assert pb.platform_target("Windows", "x86_64") == "x86_64-pc-windows-msvc"

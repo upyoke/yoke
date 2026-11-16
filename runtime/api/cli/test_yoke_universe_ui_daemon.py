@@ -29,6 +29,9 @@ from yoke_cli.config import universe_ui_launchd as launchd
 from yoke_cli.config import universe_ui_daemon_state as state
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.fixture()
 def machine_home(monkeypatch, tmp_path) -> Path:
     home = tmp_path / "machine-home"

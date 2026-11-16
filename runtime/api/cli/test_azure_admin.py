@@ -17,6 +17,9 @@ from yoke_contracts.machine_config.capability_secret_store import (
 )
 from yoke_cli.commands.adapters import azure
 
+
+pytestmark = pytest.mark.windows
+
 SETTINGS = {
     "tenant_id": "tenant",
     "client_id": "client",

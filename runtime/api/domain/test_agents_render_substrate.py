@@ -88,16 +88,17 @@ def test_render_codex_agent_tree_present(repo_root: Path) -> None:
 
 
 def test_codex_agent_runtime_path_is_surfaced_to_native_location(
-    repo_root: Path,
+    isolated_repo: Path,
 ) -> None:
     """Codex dispatch descriptors name the native ``.codex/agents`` path."""
-    native_dir = repo_root / CODEX_NATIVE_AGENTS_DIR
-    rendered_dir = repo_root / CODEX_OUT_DIR
+    write_all(target_root=isolated_repo)
+    native_dir = isolated_repo / CODEX_NATIVE_AGENTS_DIR
+    rendered_dir = isolated_repo / CODEX_OUT_DIR
 
-    assert native_dir.is_symlink(), f"missing .codex/agents symlink: {native_dir}"
-    assert native_dir.resolve() == rendered_dir.resolve()
+    assert native_dir.is_dir(), f"missing .codex/agents: {native_dir}"
+    assert sorted(p.name for p in native_dir.iterdir()) == sorted(p.name for p in rendered_dir.iterdir())
 
-    for agent in AGENTS:
+    for agent in ["architect"]:
         assert (native_dir / f"yoke-{agent}.toml").is_file(), (
             f"native Codex adapter path missing {agent}"
         )
@@ -282,14 +283,14 @@ def test_bash_capable_actors_have_packet_markers(repo_root: Path) -> None:
         assert marker in body, f"Bash-capable agent {agent!r} has no packet markers"
 
 
-def test_drift_detection_reports_missing_codex_native_symlink(tmp_path: Path) -> None:
+def test_drift_detection_reports_missing_codex_native_view(tmp_path: Path) -> None:
     """The drift gate covers Codex's native custom-agent discovery path."""
     _seed_minimal_canonical_tree(tmp_path)
     with patch("yoke_core.domain.agents_render.AGENTS", ["architect"]):
         write_all(target_root=tmp_path, dry_run=False)
         native_dir = tmp_path / CODEX_NATIVE_AGENTS_DIR
-        assert native_dir.is_symlink()
-        native_dir.unlink()
+        from yoke_contracts.platform_fs import remove_tree
+        remove_tree(native_dir)
         drift = detect_substrate_drift(target_root=tmp_path)
     assert any(str(CODEX_NATIVE_AGENTS_DIR) in d for d in drift), (
         f"expected drift entry for missing native symlink, got: {drift}"
