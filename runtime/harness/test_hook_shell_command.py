@@ -122,6 +122,7 @@ def test_codex_trust_remints_when_the_windows_command_changes(tmp_path):
     )
     mint_installed_checkout_trust(tmp_path, config_path=config)
     assert inspect_hook_file_trust(hooks, config_path=config).approved
+
     handler["commandWindows"] = windows_hook_command("codex", "Stop", None)
     hooks.write_text(
         json.dumps({"hooks": {"Stop": [{"hooks": [handler]}]}}), encoding="utf-8"
@@ -130,10 +131,67 @@ def test_codex_trust_remints_when_the_windows_command_changes(tmp_path):
     assert inspect_hook_file_trust(hooks, config_path=config).approved
 
 
+def test_windows_install_renders_linux_server_bundle_without_changing_policy(
+    monkeypatch,
+):
+    from copy import deepcopy
+    from yoke_cli.project_install import hook_platform
+    from yoke_core.domain.install_bundle import _hooks_block
+    from yoke_contracts.hook_shell_command import hook_command_source
+
+    bundle = {"hooks": _hooks_block(), "files": [{"path": "unchanged"}]}
+    original = deepcopy(bundle)
+    monkeypatch.setattr(hook_platform.os, "name", "nt")
+    native = hook_platform.native_bundle_hooks(bundle)
+    assert bundle == original
+    assert native["files"] == bundle["files"]
+    for key, events in native["hooks"].items():
+        assert events.keys() == bundle["hooks"][key].keys()
+        for event, entries in events.items():
+            for index, entry in enumerate(entries):
+                old = bundle["hooks"][key][event][index]
+                assert entry.get("matcher") == old.get("matcher")
+                for handler in entry.get("hooks", [entry]):
+                    command = (
+                        handler["commandWindows"]
+                        if key == "codex_hooks"
+                        else handler["command"]
+                    )
+                    assert command.startswith("powershell.exe")
+                    assert "yoke hook evaluate" in hook_command_source(command)
+
+
+def test_refresh_replaces_codex_entry_when_only_windows_command_changes(tmp_path):
+    import json
+    from copy import deepcopy
+    from yoke_cli.project_install import hooks
+    from yoke_cli.project_install.hook_entries import provided_records
+
+    old = {"Stop": [{"hooks": [{"type": "command", "command": "echo posix"}]}]}
+    target = tmp_path / ".codex" / "hooks.json"
+    target.parent.mkdir()
+    target.write_text(json.dumps({"hooks": old}), encoding="utf-8")
+    updated = deepcopy(old)
+    updated["Stop"][0]["hooks"][0]["commandWindows"] = "echo windows"
+    result = hooks.plan_hooks_file(
+        tmp_path,
+        ".codex/hooks.json",
+        updated,
+        provided_records(old),
+        created_by_install=True,
+    )
+    assert result["payload"]["hooks"] == updated
+    assert result["changed"]
+
+
 @pytest.mark.skipif(os.name != "nt", reason="executes native Windows PowerShell")
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
-def test_native_windows_command_keeps_stdin_paths_and_exit_status(tmp_path, harness):
+@pytest.mark.parametrize("shell", ["native", "git-bash"])
+def test_native_windows_command_keeps_stdin_paths_and_exit_status(
+    tmp_path, harness, shell
+):
     import json
+    import shutil
     import sys
     from yoke_contracts.hook_shell_command import windows_hook_command
 
@@ -155,8 +213,15 @@ def test_native_windows_command_keeps_stdin_paths_and_exit_status(tmp_path, harn
     command = windows_hook_command(
         harness, "PreToolUse", "machine", resilient=harness == "cursor"
     )
+    argv = command.split()
+    if shell == "git-bash":
+        git = shutil.which("git")
+        bash = Path(git).resolve().parent.parent / "bin" / "bash.exe" if git else None
+        if bash is None or not bash.is_file():
+            pytest.skip("Git Bash is not installed on this Windows machine")
+        argv = [str(bash), "--noprofile", "--norc", "-c", command]
     result = subprocess.run(
-        command.split(),
+        argv,
         input='{"hook":"input"}',
         capture_output=True,
         text=True,
