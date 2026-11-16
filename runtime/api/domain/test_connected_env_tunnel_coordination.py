@@ -183,3 +183,32 @@ def test_held_lease_with_unreadable_metadata_still_protects_tunnel():
         assert len(leases) == 1
         assert "holder metadata unavailable" in leases[0].reason
     assert coordination.active_leases(PORT) == []
+
+
+def test_peer_can_read_live_lease_metadata_and_observe_release():
+    script = (
+        "import json; "
+        "from yoke_core.domain.connected_env_tunnel_coordination import active_leases; "
+        f"print(json.dumps([{{'pid': lease.pid, 'reason': lease.reason}} for lease in active_leases({PORT})]))"
+    )
+    def peer_leases():
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True,
+            text=True, check=True, timeout=15,
+        )
+        return json.loads(result.stdout)
+
+    with coordination.use_lease(PORT, "peer-visible transfer"):
+        assert peer_leases() == [
+            {"pid": os.getpid(), "reason": "peer-visible transfer"}
+        ]
+    assert peer_leases() == []
+
+
+def test_empty_stale_lease_is_removed_with_writable_lock_probe():
+    directory = coordination.coordination_dir(PORT) / coordination.LEASE_DIR_NAME
+    directory.mkdir(parents=True, exist_ok=True)
+    stale = directory / "empty.json"
+    stale.touch()
+    assert coordination.active_leases(PORT) == []
+    assert not stale.exists()
