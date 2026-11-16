@@ -51,7 +51,7 @@ import time
 from typing import Any, Callable, Iterator, Mapping
 
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_harness.session_process_custody import SUCCESS_RESULTS, observed_custody_state
+from yoke_harness.session_process_custody import SUCCESS_RESULTS, custody_state
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_harness.session_relay_native_capture_format import (
     NativeCapture,
@@ -137,7 +137,7 @@ def _turn_running(record: Mapping[str, Any], start_time_of: StartTimeOf) -> bool
     if capture is not None and capture.exited:
         return False
     if record.get("process_group_id"):
-        return observed_custody_state(record) != "gone"
+        return custody_state(record) != "gone"
     return start_time_of(int(record["pid"])) == record.get("process_start_time")
 
 
@@ -331,7 +331,7 @@ def deferral_for_running_native(
         from yoke_harness.session_relay_interactive_holder import interactive_holder
 
         running = interactive_holder(
-            context, custody_state_dir=custody_state_dir, start_time_of=start_time_of
+            context, custody_state_dir=custody_state_dir, start_time_of=start_time_of,
         )
     if running is None:
         return None

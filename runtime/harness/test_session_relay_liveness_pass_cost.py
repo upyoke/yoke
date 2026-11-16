@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from yoke_contracts import process_start_snapshot
-from yoke_harness import session_launch_containment, session_process_custody
+from yoke_harness import session_launch_containment
 from yoke_harness.session_launch_containment import (
     supervised_records,
     supervised_records_pass,
@@ -127,35 +129,18 @@ def test_record_pass_reads_the_directory_once(tmp_path, monkeypatch) -> None:
     assert len(list(supervised_records(tmp_path))) == 2
 
 
-def test_gone_process_group_is_proved_without_a_process_table(monkeypatch) -> None:
-    def no_ps(*args, **kwargs):
-        raise AssertionError("ps ran for a group with no processes")
+def test_reader_tokens_match_the_per_pid_probe_on_this_platform() -> None:
+    """Records hold process_start_time tokens; the reader must produce the same.
 
-    monkeypatch.setattr(session_process_custody.subprocess, "run", no_ps)
-    record = {
-        "pid": ABSENT_PID,
-        "process_group_id": ABSENT_PID,
-        "process_start_time": START,
-    }
-    assert session_process_custody.observed_custody_state(record) == "gone"
-
-
-def test_populated_group_still_reads_the_process_table(monkeypatch) -> None:
-    group = os.getpgrp()
-    seen: list[dict] = []
-
-    def custody_state(record, *, start_time_of=None):
-        seen.append(dict(record))
-        return "live"
-
-    monkeypatch.setattr(session_process_custody, "custody_state", custody_state)
-    record = {
-        "pid": os.getpid(),
-        "process_group_id": group,
-        "process_start_time": START,
-    }
-    assert session_process_custody.observed_custody_state(record) == "live"
-    assert seen == [record]
+    A reader whose tokens drifted from the probe that wrote the records would
+    read every live native as gone and report its session dead.
+    """
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    reader = process_start_snapshot.process_start_reader()
+    for pid in (os.getpid(), os.getppid(), child.pid):
+        assert reader(pid) == process_start_snapshot.process_start_time(pid)
+    assert reader(os.getpid()) is not None
 
 
 def test_liveness_pass_over_many_records_reads_ps_once(tmp_path, monkeypatch) -> None:

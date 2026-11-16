@@ -25,7 +25,7 @@ from typing import Any, Callable, Iterator, Mapping
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.process_start_snapshot import process_start_reader
-from yoke_harness.session_process_custody import observed_custody_state
+from yoke_harness.session_process_custody import custody_state
 from yoke_harness.session_relay_record_pruning import prune_dead_session_records
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.cursor_native_result_usage import (
@@ -307,7 +307,7 @@ def report_verified_dead_sessions(
     prune_dead_session_records(
         (entry for entry in dead if entry.session_id in prune_ids),
         start_time_of=start_time_of,
-        custody_state_of=observed_custody_state,
+        custody_state_of=custody_state,
     )
     return tuple(ended_ids)
 

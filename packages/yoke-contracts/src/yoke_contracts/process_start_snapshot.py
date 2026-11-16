@@ -8,8 +8,8 @@ wakes for different sessions ran one after another instead of in parallel.
 
 :func:`process_start_reader` reads the table once and answers each pid from
 it with the same token :func:`process_start_time` returns. A pid missing from
-the snapshot is either gone or started after the read: ``os.kill(pid, 0)``
-tells those apart without a subprocess, and a pid that still exists is asked
+the snapshot is either gone or started after the read: an in-process
+liveness check tells those apart without a subprocess; a pid that exists is asked
 directly, so a process recorded after the snapshot never reads as gone. A
 table that could not be read answers every pid directly. Linux and Windows
 already read start times in-process and keep the per-pid reader.
@@ -17,10 +17,10 @@ already read start times in-process and keep the per-pid reader.
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import Callable, Dict, Optional
 
+from yoke_contracts import platform_process
 from yoke_contracts.process_ancestry import process_start_time, ps_lines
 
 #: A process that exited unreaped; it answers as gone, as in process_start_time.
@@ -47,13 +47,10 @@ def _start_time_table() -> Dict[int, Optional[str]]:
 
 def _pid_exists(pid: int) -> bool:
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
+        return platform_process.pid_alive(pid)
     except OSError:
-        # Permission refused or anything else: the pid may exist, so ask.
+        # Access refused: the pid exists, so ask it directly.
         return True
-    return True
 
 
 def process_start_reader() -> StartTimeOf:

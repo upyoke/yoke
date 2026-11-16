@@ -26,7 +26,7 @@ from yoke_contracts.session_control.resume import (
     RESUMED_COMPLETED_RESULT,
     RESUMED_DIED_RESULT,
 )
-from yoke_harness.session_process_custody import observed_custody_state
+from yoke_harness.session_process_custody import custody_state
 from yoke_harness.session_launch_containment import (
     release_supervised_native,
     supervised_records,
@@ -150,7 +150,7 @@ def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume,
                 lease_id=lease_id,
                 capture_path=Path(capture) if isinstance(capture, str) else None,
                 diagnostic_ref=reference if isinstance(reference, str) else None,
-                running=observed_custody_state(payload) != "gone",
+                running=custody_state(payload) != "gone",
                 process_start_time=str(recorded_start or ""),
                 containment_reason=(
                     str(reason).strip() if isinstance(reason, str) else ""

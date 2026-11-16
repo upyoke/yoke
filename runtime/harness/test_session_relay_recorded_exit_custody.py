@@ -68,7 +68,7 @@ def _group_resume(
 @pytest.fixture
 def group_survives(monkeypatch: pytest.MonkeyPatch) -> None:
     """A background command the turn started still lives in its group."""
-    monkeypatch.setattr(custody, "observed_custody_state", lambda record: "live")
+    monkeypatch.setattr(custody, "custody_state", lambda record: "live")
 
 
 def _wake(surface: str, workspace: Path) -> dict:
@@ -164,8 +164,6 @@ def test_a_live_matching_group_member_still_defers(
         "group_members",
         lambda group: {"4001": RECORDED_START, "4002": "Mon Aug 24 08:00:05 2026"},
     )
-    # The faked group is populated, so the empty-group shortcut must not fire.
-    monkeypatch.setattr(group_custody.os, "killpg", lambda group, sig: None)
     _group_resume(tmp_path, capture_state=None, containment_result="outcome_unknown")
     context = session_relay_runtime.execution_context(_wake("cursor-cli", tmp_path))
     deferred = custody.deferral_for_running_native(context)
