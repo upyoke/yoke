@@ -3,3 +3,15 @@
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
 runtime/api/tools/test_product_runner_stages.py
 runtime/api/cli/test_platform_file_lock.py
+# Embedded engine, archive custody, and detached dashboard lifecycle.
+runtime/api/domain/test_postgres_windows.py
+runtime/api/domain/test_postgres_binaries.py::test_platform_target_mapping
+runtime/api/domain/test_postgres_cluster.py::test_destroy_keeps_data_when_server_cannot_stop
+runtime/api/domain/test_universe_archive_output_windows.py
+runtime/api/domain/test_local_database_children_detached.py
+runtime/api/domain/test_migration_fleet_preflight_credentials.py
+runtime/api/cli/test_yoke_universe_ui_daemon.py
+runtime/api/cli/test_yoke_universe_ui_restart.py
+runtime/api/cli/test_universe_ui_daemon_process_identity.py
+runtime/api/cli/test_machine_file_clock_instants.py::test_ui_record_ingress_is_native_and_status_formats_only_at_wire
+runtime/api/cli/test_machine_file_clock_instants.py::test_bad_ui_record_clock_returns_named_cli_refusal

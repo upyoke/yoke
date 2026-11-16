@@ -82,6 +82,8 @@ def verify() -> None:
         assert postgres_cluster.ensure_started(spec) == 0
         if os.name == "nt":
             _second_user_denied(spec)
+            assert postgres_cluster.is_ready(spec)
+            assert postgres_cluster.psql(spec, "SELECT 1").stdout.strip() == "1"
         result = local_universe.birth(org_name="local-ci", admin_name="CI owner", emit=print)
         assert result["verified"]
         from yoke_core.domain import universe_export, universe_archive_validation
