@@ -3,3 +3,15 @@
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
 runtime/api/tools/test_product_runner_stages.py
 runtime/api/cli/test_platform_file_lock.py
+runtime/api/domain/test_process_ancestry.py
+runtime/api/domain/test_process_ancestry_platform.py
+runtime/api/domain/test_harness_family_identity.py
+runtime/api/domain/test_session_ambient_identity.py
+runtime/api/test_yoke_harness_identity_runtime.py
+runtime/harness/test_hook_helpers_model.py
+runtime/harness/test_session_process_custody.py
+runtime/harness/test_session_relay_interactive_holder.py
+runtime/harness/test_session_relay_claude_idle_hosts.py
+runtime/harness/test_session_relay_native_turn_custody.py
+runtime/harness/test_session_relay_recorded_exit_custody.py
+runtime/harness/test_session_relay_liveness_pruning.py
