@@ -215,6 +215,7 @@ class ToolEventRecord:
 
 
 _PATCH_TOOL_KINDS = {
+    "Bash": "shell",
     "apply_patch": "apply_patch",
     "Write": "write",
     "Edit": "edit",

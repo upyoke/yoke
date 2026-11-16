@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 import re
 import shlex
+import tempfile
 from typing import Any, Sequence
 
 from yoke_harness.baseline_native_failures import NATIVE_FAILURES, native_failure_cause
 
 PROBE_REPLY = "OK"
 PROBE_PROMPT = f"Reply exactly {PROBE_REPLY}. Do not use any tools."
-REQUEST_WORKSPACE = "/tmp"
+REQUEST_WORKSPACE = tempfile.gettempdir()
 REJECTION_EVENT_TYPE_LIMIT = 40
 #: Cursor ask mode has no flag that disables tools. These inspection calls
 #: may precede an exact OK reply; write and shell calls still reject.
@@ -276,7 +277,10 @@ def read_rejection_record(stdout: str) -> dict[str, Any] | None:
 def harness_request(argv: Sequence[str]) -> HarnessRequest | None:
     """The declared absolute executable selects a thin native CLI adapter."""
     program = argv[0]
-    executable = PurePosixPath(program).name
+    native = PureWindowsPath(program)
+    executable = (native if native.drive else PurePosixPath(program)).name
+    if native.drive or executable.lower().endswith((".exe", ".cmd")):
+        executable = executable.lower().removesuffix(".exe").removesuffix(".cmd")
     if executable == "claude":
         return HarnessRequest(
             "Claude",

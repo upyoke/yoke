@@ -28,6 +28,10 @@ PROVISIONING_DOC = ".yoke/docs/verification/test-machines/host-provisioning.md"
 
 
 def _host_program(control: Any, action: str, payload: Any, timeout: int) -> Any:
+    if getattr(control, "os", None) == "windows":
+        from yoke_harness.native_windows.harness_clis import host_program
+
+        return host_program(control, action, payload, timeout, VERSION_TOKEN_PATTERN)
     gui = getattr(control, "os", None) == "macos"
     result = control.run_command(
         [

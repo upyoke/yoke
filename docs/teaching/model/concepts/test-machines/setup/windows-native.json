@@ -1,0 +1,7 @@
+{
+ "id": "windows-native",
+ "title": "Native Windows lab provisioning",
+ "status": "observed",
+ "summary": "The native Windows lab adapter uses Windows OpenSSH and PowerShell, an interactive scheduled task for desktop screenshots and console checks, profile goldens that preserve live identities, and a lease-bound machine-settings recovery journal. SSH is key-only from any address; human RDP uses an SSH forward. Provisioning and live restoration require separate machine receipts before readiness is claimed.",
+ "sources": ["docs/public/verification/test-machines/windows-native-host-provisioning.md", "docs/public/verification/test-machines/windows-browser-identities.md"]
+}

@@ -26,7 +26,7 @@ from yoke_contracts.machine_config.directories import (
 import hashlib
 import os
 import re
-import shutil
+import shlex
 import stat
 import subprocess
 import sys
@@ -35,6 +35,10 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_core.domain.postgres_cluster_process import _env, _run, executable
+from yoke_contracts.owner_private_path import create_owner_private_directory
+from yoke_contracts.platform_fs import remove_tree
+
+_WINDOWS = os.name == "nt"
 
 #: The in-socket-directory port suffix Postgres uses to name the socket
 #: file (``.s.PGSQL.<port>``). With ``listen_addresses=''`` no TCP socket
@@ -77,6 +81,10 @@ class ClusterSpec:
         return self.socket_dir if self.socket_dir is not None else self.root / "sock"
 
     @property
+    def socket_host(self) -> str:
+        return self.sock_dir.as_posix() if _WINDOWS else str(self.sock_dir)
+
+    @property
     def log_file(self) -> Path:
         return self.root / "server.log"
 
@@ -110,7 +118,8 @@ def binary(spec: ClusterSpec, name: str) -> str:
 
 def dsn(spec: ClusterSpec, dbname: str = "postgres") -> str:
     """Key/value DSN for the cluster over its unix socket."""
-    return f"host={spec.sock_dir} user={spec.superuser} dbname={dbname}"
+    from psycopg.conninfo import make_conninfo
+    return make_conninfo(host=spec.socket_host, user=spec.superuser, dbname=dbname)
 
 
 def psql(
@@ -134,7 +143,7 @@ def psql(
         [
             binary(spec, "psql"),
             "-h",
-            str(spec.sock_dir),
+            spec.socket_host,
             "-U",
             spec.superuser,
             "-d",
@@ -153,7 +162,7 @@ def is_ready(spec: ClusterSpec) -> bool:
         [
             binary(spec, "pg_isready"),
             "-h",
-            str(spec.sock_dir),
+            spec.socket_host,
             "-U",
             spec.superuser,
         ]
@@ -164,7 +173,7 @@ def is_ready(spec: ClusterSpec) -> bool:
 def log_tail(spec: ClusterSpec, max_lines: int = 80) -> str:
     if not spec.log_file.exists():
         return ""
-    lines = spec.log_file.read_text(errors="replace").splitlines()
+    lines = spec.log_file.read_text(encoding="utf-8", errors="replace").splitlines()
     return "\n".join(lines[-max_lines:]) + "\n"
 
 
@@ -174,7 +183,7 @@ def initdb_if_needed(spec: ClusterSpec) -> int:
     if (data_dir / "PG_VERSION").exists():
         return 0
     if data_dir.exists():
-        shutil.rmtree(data_dir, ignore_errors=True)
+        remove_tree(data_dir)
     res = _run(
         [
             binary(spec, "initdb"),
@@ -201,7 +210,7 @@ def data_dir_major_mismatch(spec: ClusterSpec) -> Optional[str]:
     marker = spec.data_dir / "PG_VERSION"
     if not marker.is_file():
         return None
-    data_major = marker.read_text(errors="replace").strip()
+    data_major = marker.read_text(encoding="utf-8", errors="replace").strip()
     try:
         res = _run([binary(spec, "pg_ctl"), "--version"])
     except FileNotFoundError:
@@ -216,9 +225,10 @@ def data_dir_major_mismatch(spec: ClusterSpec) -> Optional[str]:
 def server_options(spec: ClusterSpec) -> str:
     """The ``pg_ctl -o`` option string: socket-only plus spec settings."""
     parts = [
-        f"-k {spec.sock_dir}",
+        "-k " + (subprocess.list2cmdline([spec.sock_dir.as_posix()])
+                  if _WINDOWS else shlex.quote(str(spec.sock_dir))),
         f"-p {SOCKET_PORT}",
-        "-c listen_addresses=''",
+        "-c listen_addresses=" if _WINDOWS else "-c listen_addresses=''",
     ]
     parts.extend(f"-c {name}={value}" for name, value in spec.server_settings)
     return " ".join(parts)
@@ -242,6 +252,11 @@ def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
 
 def ensure_started(spec: ClusterSpec) -> int:
     """Idempotently bring the cluster up: initdb if new, start if down."""
+    create_private_directory(spec.root.parent)
+    if _WINDOWS:
+        create_owner_private_directory(spec.root)
+    else:
+        create_private_directory(spec.root)
     _ensure_private_socket_dir(spec.sock_dir)
     rc = initdb_if_needed(spec)
     if rc != 0:
@@ -258,28 +273,26 @@ def ensure_started(spec: ClusterSpec) -> int:
 def _ensure_private_socket_dir(path: Path) -> None:
     """Create and validate the trust-auth socket directory without symlinks."""
     try:
+        if _WINDOWS:
+            create_private_directory(path.parent)
+            create_owner_private_directory(path)
+            return
         create_private_directory(path)
-        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-        flags |= getattr(os, "O_NOFOLLOW", 0)
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         fd = os.open(path, flags)
+        try:
+            info = os.fstat(fd)
+            getuid = getattr(os, "getuid")
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != getuid():
+                raise OSError("socket path must be a directory owned by this user")
+            os.fchmod(fd, 0o700)
+        finally:
+            os.close(fd)
     except OSError as exc:
         raise PostgresClusterError(
-            f"Postgres socket path is not a private directory: {path}"
+            f"Postgres socket path is not a private directory: {path}; "
+            "choose an owner-only directory and retry local Postgres startup."
         ) from exc
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISDIR(info.st_mode):
-            raise PostgresClusterError(
-                f"Postgres socket path is not a directory: {path}"
-            )
-        getuid = getattr(os, "getuid", None)
-        if getuid is not None and info.st_uid != getuid():
-            raise PostgresClusterError(
-                f"Postgres socket directory is not owned by this user: {path}"
-            )
-        os.fchmod(fd, 0o700)
-    finally:
-        os.close(fd)
 
 
 def stop(spec: ClusterSpec) -> int:
@@ -301,9 +314,11 @@ def stop(spec: ClusterSpec) -> int:
 
 def destroy(spec: ClusterSpec) -> int:
     """Stop the server and remove the whole cluster root."""
-    stop(spec)
+    rc = stop(spec)
+    if rc != 0:
+        return rc
     if spec.root.exists():
-        shutil.rmtree(spec.root, ignore_errors=True)
+        remove_tree(spec.root)
     if spec.socket_dir is not None:
         try:
             spec.socket_dir.rmdir()
@@ -313,21 +328,8 @@ def destroy(spec: ClusterSpec) -> int:
 
 
 __all__ = [
-    "ClusterSpec",
-    "PostgresClusterError",
-    "SOCKET_PORT",
-    "binary",
-    "data_dir_major_mismatch",
-    "destroy",
-    "dsn",
-    "ensure_started",
-    "executable",
-    "initdb_if_needed",
-    "is_ready",
-    "log_tail",
-    "psql",
-    "server_options",
-    "socket_dir_for_root",
-    "start_server",
-    "stop",
+    "ClusterSpec", "PostgresClusterError", "SOCKET_PORT", "binary",
+    "data_dir_major_mismatch", "destroy", "dsn", "ensure_started", "executable",
+    "initdb_if_needed", "is_ready", "log_tail", "psql", "server_options",
+    "socket_dir_for_root", "start_server", "stop",
 ]

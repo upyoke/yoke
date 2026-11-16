@@ -23,6 +23,10 @@ from yoke_contracts.timestamps import (
 )
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts import platform_process
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory, write_owner_private,
+)
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,6 +35,7 @@ import os
 from pathlib import Path
 import secrets
 import socket
+import time
 from typing import Optional
 
 from yoke_cli.config import machine_config
@@ -46,6 +51,7 @@ SESSION_TOKEN_BYTES = 32
 
 PORT_PROBE_TIMEOUT_S = 0.5
 LOG_TAIL_LINES = 20
+_RECORD_READ_ATTEMPTS = 4 if os.name == "nt" else 1
 
 
 class UiDaemonError(RuntimeError):
@@ -62,6 +68,7 @@ class UiDaemonRecord:
     env: str
     started_at: datetime
     supervised: bool
+    process_start_time: float
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "started_at", parse_instant(self.started_at))
@@ -69,8 +76,15 @@ class UiDaemonRecord:
 
 def state_dir() -> Path:
     directory = machine_config.yoke_home() / UI_STATE_DIR_NAME
-    create_private_directory(directory)
-    return directory
+    try:
+        create_private_directory(directory.parent)
+        return (create_owner_private_directory(directory) if os.name == "nt"
+                else create_private_directory(directory))
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_state_unavailable: cannot prepare private dashboard state at "
+            f"{directory} ({exc}); repair owner access, then retry `yoke ui up`."
+        ) from exc
 
 
 def token_path() -> Path:
@@ -108,11 +122,29 @@ def stable_session_token() -> str:
     return minted
 
 
+def _read_record_text(path: Path) -> str:
+    # Windows can briefly deny opens while an atomic rename is completing.
+    # Retry only this read; persistent access failures remain named refusals.
+    for attempt in range(_RECORD_READ_ATTEMPTS):
+        try:
+            return path.read_text(encoding="utf-8")
+        except PermissionError:
+            if attempt == _RECORD_READ_ATTEMPTS - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))
+    raise AssertionError("record read attempts must be positive")
+
+
 def read_record() -> Optional[UiDaemonRecord]:
     try:
-        document = json.loads(record_path().read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError, OSError):
+        document = json.loads(_read_record_text(record_path()))
+    except (FileNotFoundError, ValueError):
         return None
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_record_unreadable: cannot read {record_path()} ({exc}); "
+            "repair owner access, then retry `yoke ui status`."
+        ) from exc
     if not isinstance(document, dict):
         return None
     try:
@@ -123,9 +155,16 @@ def read_record() -> Optional[UiDaemonRecord]:
             env=str(document.get("env") or ""),
             started_at=document.get("started_at"),
             supervised=bool(document.get("supervised")),
+            process_start_time=float(document["process_start_time"]),
         )
     except InvalidInstant:
         raise
+    except KeyError as exc:
+        raise UiDaemonError(
+            f"ui_process_identity_missing: dashboard record {record_path()} lacks "
+            f"process creation time for PID {document.get('pid')}; inspect and "
+            "stop that process, remove the record, then run `yoke ui up`."
+        ) from exc
     except (TypeError, ValueError):
         return None
 
@@ -137,8 +176,14 @@ def write_record(
     port: int,
     env: str,
     supervised: bool,
+    process_start_time: float | None = None,
 ) -> None:
     """Publish the serving process's own identity. Never carries the token."""
+    if process_start_time is None:
+        process_start_time = next(
+            (info.start_time for info in platform_process.process_command_lines()
+             if info.pid == pid), 0.0,
+        )
     _write_private(
         record_path(),
         json.dumps(
@@ -149,6 +194,7 @@ def write_record(
                 "env": env,
                 "started_at": _now_iso(),
                 "supervised": bool(supervised),
+                "process_start_time": process_start_time,
             },
             sort_keys=True,
         ),
@@ -159,18 +205,27 @@ def clear_record() -> None:
     record_path().unlink(missing_ok=True)
 
 
-def process_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
+def process_alive(pid: int, start_time: float | None = None) -> bool:
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
+        return platform_process.pid_alive(pid, start_time=start_time)
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_process_inspection_failed: cannot inspect PID {pid} ({exc}); "
+            "run as its owner, then retry `yoke ui status`."
+        ) from exc
+
+
+def require_available_port(host: str, port: int) -> None:
+    """Refuse occupied and Windows-reserved ports before spawning a daemon."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind((host, port))
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_port_unavailable: cannot bind {host}:{port} ({exc}); "
+            "the port may be occupied or reserved by Windows/Hyper-V. "
+            "Choose another port with `yoke ui up --port PORT`."
+        ) from exc
 
 
 def port_accepting(host: str, port: int) -> bool:
@@ -197,10 +252,13 @@ def log_tail() -> str:
 
 
 def _write_private(path: Path, content: str) -> None:
-    temporary = path.with_name(f"{path.name}.tmp")
-    temporary.write_text(content, encoding="utf-8")
-    temporary.chmod(0o600)
-    temporary.replace(path)
+    try:
+        write_owner_private(path, content)
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_private_write_failed: cannot write {path} ({exc}); "
+            "repair owner access and close open file handles, then retry `yoke ui up`."
+        ) from exc
 
 
 __all__ = [

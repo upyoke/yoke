@@ -39,7 +39,7 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -66,12 +66,26 @@ def _command_targets_yoke_api(command: str | ShellParse) -> bool:
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     for segment in parsed.segments:
         tokens = segment.tokens
+        clients = _POWERSHELL_HTTP_CLIENTS if segment.shell == "powershell" else {"curl"}
         for i, tok in enumerate(tokens):
-            if os.path.basename(tok) == "curl" and any(
+            if _client_name(tok, segment.shell) in clients and any(
                 _arg_targets_yoke_api(arg) for arg in tokens[i + 1 :]
             ):
                 return True
     return False
+
+
+# PowerShell spells the same request ``curl.exe`` or with its web cmdlets.
+_POWERSHELL_HTTP_CLIENTS = frozenset(
+    {"curl", "invoke-webrequest", "iwr", "invoke-restmethod", "irm"}
+)
+
+
+def _client_name(token: str, shell: str) -> str:
+    if shell != "powershell":
+        return os.path.basename(token)
+    name = token.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    return name[:-4] if name.endswith(".exe") else name
 
 
 def _format_reason(suppression_seen: bool) -> str:
@@ -115,7 +129,7 @@ def evaluate_payload(
     """
     if not isinstance(payload, dict):
         return None
-    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    parsed = shell if shell is not None else parse_payload_shell(payload)
     if not parsed.command:
         return None
     if not _command_targets_yoke_api(parsed):

@@ -19,7 +19,7 @@ from typing import Optional, Tuple
 from yoke_contracts.hook_runner import destructive_git_messages as messages
 from yoke_contracts.hook_runner import destructive_git_rules as rules
 from yoke_contracts.hook_runner import recursive_rm_guard
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell
 from yoke_core.domain import lint_config
 from yoke_core.domain import lint_destructive_git_commands as command_checks
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
@@ -100,7 +100,7 @@ def evaluate_payload(
     """
     if not isinstance(payload, dict):
         return None
-    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    parsed = shell if shell is not None else parse_payload_shell(payload)
     if not parsed.command:
         return None
     suppression_seen = SUPPRESSION_TOKEN in parsed.command

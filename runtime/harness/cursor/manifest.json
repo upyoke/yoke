@@ -230,6 +230,14 @@
     "hook_timeout_seconds": 30,
     "deferrals": []
   },
+  "shell_tools": {
+    "source": "yoke_contracts.harness_shell_tools.HARNESS_SHELL_TOOLS",
+    "tools": {
+      "Shell": "os_default",
+      "Bash": "os_default",
+      "(shell gate)": "os_default"
+    }
+  },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",
     "operations": [

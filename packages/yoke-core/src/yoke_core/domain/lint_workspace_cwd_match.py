@@ -33,7 +33,8 @@ from pathlib import PurePath
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.harness_shell_tools import payload_shell_kind
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_for_shell
 from yoke_core.domain.command_workdir import command_segment_cwds
 from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
@@ -127,7 +128,7 @@ def evaluate_payload(
     command = _extract_command(payload)
     if not command:
         return None
-    parsed = shell if shell is not None else parse_shell(command)
+    parsed = shell if shell is not None else parse_for_shell(command, payload_shell_kind(payload))
     # The call's declared workdir and every ``cd`` before a writer decide
     # where it runs, exactly as the shell will. Heredoc bodies are data and
     # a quoted pattern is one operand, so only a command word names a writer.
