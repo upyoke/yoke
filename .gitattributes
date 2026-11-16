@@ -1,2 +1,3 @@
 * text=auto eol=lf
 .git_archival.txt export-subst
+runtime/api/tools/product_runner_windows_tests.txt merge=union

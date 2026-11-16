@@ -54,7 +54,7 @@ jobs:
           echo "YOKE_PG_DSN=host=localhost port=5432 user=yoke dbname=postgres" >> "$GITHUB_ENV"
       - name: Run the declared Windows tests
         run: |
-          mapfile -t tests < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' runtime/api/tools/product_runner_windows_tests.txt)
+          mapfile -t tests < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' runtime/api/tools/product_runner_windows_tests.txt | awk '!seen[$0]++')
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "windows_test_list_empty: add tests to runtime/api/tools/product_runner_windows_tests.txt" >&2
             exit 1

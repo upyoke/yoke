@@ -1,6 +1,7 @@
 # Tests the required windows-smoke job runs on native Windows (yoke-ci.yml).
 # One pytest path or node id per line; blank lines and # comments are ignored.
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
+# Order and duplicates do not matter: .gitattributes union-merges this file and CI dedupes it.
 runtime/api/cli/test_native_windows_terminal.py
 runtime/api/cli/test_onboard_native_preflight.py
 runtime/api/test_windows_harness_cli_manifest.py
