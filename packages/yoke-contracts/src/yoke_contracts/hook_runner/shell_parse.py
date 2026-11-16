@@ -1,7 +1,9 @@
-"""One shell-command parse shared by every Bash hook guard.
+"""One shell-command parse shared by every shell hook guard.
 
-The hook runner parses a Bash command once and hands the result to each
-guard, so every guard agrees on what the command runs:
+The hook runner parses a command once, with the parser for the shell that
+runs it (:func:`parse_for_shell`), and hands the result to each guard, so
+every guard agrees on what the command runs. PowerShell commands go through
+``powershell_parse``; Bash (Git Bash included) through :func:`parse_shell`:
 
 - Heredoc bodies are input, not commands. They are lifted out first and kept
   on ``ShellParse.heredocs`` with whether the shell expands them.
@@ -18,6 +20,8 @@ guard, so every guard agrees on what the command runs:
   an earlier command moves later relative paths too. A ``$VAR`` hop resolves
   only through bindings the caller passes for that segment; any other
   unreadable hop (a backtick, ``cd -``) makes later directories unknown.
+  PowerShell's ``Set-Location``/``sl``/``chdir``/``Push-Location`` and
+  ``pushd`` count as ``cd``.
 """
 
 from __future__ import annotations
@@ -36,6 +40,11 @@ from yoke_contracts.hook_runner.shell_word import shell_words
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ENV_OPTIONS_WITH_ARG = frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"})
 CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@", "--"})
+# Commands that change directory, compared case-insensitively.
+CD_COMMANDS = frozenset({"cd", "pushd", "set-location", "sl", "chdir", "push-location"})
+# PowerShell's directory parameters; the operand follows the flag.
+CD_PATH_PARAMETERS = frozenset({"-path", "-literalpath"})
+BASH = "bash"
 
 # Reserved words that open or punctuate a compound statement. None of them
 # is the command being run, so they are dropped before the command word.
@@ -59,11 +68,21 @@ class ShellSegment:
     argv: tuple[str, ...]
     pipeline: int = 0
     stage: int = 0
+    shell: str = BASH
 
     @property
     def program(self) -> str:
-        """Basename of the command word, or ``""`` when nothing runs."""
-        return self.argv[0].rsplit("/", 1)[-1] if self.argv else ""
+        """Basename of the command word, or ``""`` when nothing runs.
+
+        PowerShell names are lowercased without ``\\`` directories or
+        ``.exe``, because Windows command lookup ignores both.
+        """
+        if not self.argv:
+            return ""
+        if self.shell == BASH:
+            return self.argv[0].rsplit("/", 1)[-1]
+        name = self.argv[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
+        return name[:-4] if name.endswith(".exe") else name
 
     def assignment(self, name: str) -> str | None:
         """Value of the last leading ``name=value`` assignment, if any."""
@@ -77,13 +96,14 @@ class ShellSegment:
 
 @dataclass(frozen=True)
 class ShellParse:
-    """A Bash command split into the segments the shell would run."""
+    """A command split into the segments its shell would run."""
 
     command: str
     code: str
     heredocs: tuple[Heredoc, ...]
     segments: tuple[ShellSegment, ...]
     unparsed: tuple[str, ...]
+    shell: str = BASH
 
     @property
     def is_compound(self) -> bool:
@@ -111,8 +131,29 @@ class ShellParse:
         return out
 
 
+def parse_for_shell(command: str, shell: str) -> ShellParse:
+    """Parse ``command`` with the parser for ``shell`` (``bash``/``powershell``)."""
+    if shell == BASH:
+        return parse_shell(command)
+    if shell == "powershell":
+        from yoke_contracts.hook_runner.powershell_parse import parse_powershell
+
+        return parse_powershell(command)
+    raise ValueError(
+        f"unknown shell kind {shell!r}; declare it in yoke_contracts.harness_shell_tools"
+    )
+
+
+def parse_payload_shell(payload: Mapping[str, object]) -> ShellParse:
+    """Parse a hook payload's command with the shell the payload names."""
+    from yoke_contracts.harness_shell_tools import payload_shell_kind
+    from yoke_contracts.hook_runner.command_extract import extract_command
+
+    return parse_for_shell(extract_command(payload), payload_shell_kind(payload))
+
+
 def parse_shell(command: str) -> ShellParse:
-    """Parse ``command`` once for every guard; never raises."""
+    """Parse a Bash ``command`` once for every guard; never raises."""
     text = command or ""
     scanned = scan(text)
     segments: list[ShellSegment] = []
@@ -164,10 +205,18 @@ def strip_env_prefix(tokens: list[str] | tuple[str, ...]) -> list[str]:
 
 
 def cd_destination(argv: tuple[str, ...] | list[str]) -> str | None:
-    """Operand of a plain ``cd DIR``, ignoring ``-L``/``-P``/``-e``/``-@``/``--``."""
-    if not argv or argv[0] != "cd":
+    """Operand of a plain ``cd DIR`` (or ``Set-Location -Path DIR``).
+
+    ``-L``/``-P``/``-e``/``-@``/``--`` and PowerShell's ``-Path`` and
+    ``-LiteralPath`` flags are not operands.
+    """
+    if not argv or argv[0].lower() not in CD_COMMANDS:
         return None
-    operands = [token for token in argv[1:] if token not in CD_OPTIONS]
+    operands = [
+        token
+        for token in argv[1:]
+        if token not in CD_OPTIONS and token.lower() not in CD_PATH_PARAMETERS
+    ]
     return operands[0] if len(operands) == 1 else None
 
 
@@ -220,6 +269,8 @@ def advance_cwd(
 
 __all__ = [
     "ASSIGNMENT",
+    "BASH",
+    "CD_COMMANDS",
     "CD_OPTIONS",
     "COMPOUND_STATEMENT_KEYWORDS",
     "ENV_OPTIONS_WITH_ARG",
@@ -229,6 +280,8 @@ __all__ = [
     "advance_cwd",
     "cd_destination",
     "expand_home",
+    "parse_for_shell",
+    "parse_payload_shell",
     "parse_shell",
     "strip_env_prefix",
 ]

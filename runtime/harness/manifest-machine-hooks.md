@@ -4,7 +4,8 @@ The `machine_hooks` object of [`manifest.json`](manifest-schema.md) is rendered
 from `yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS`. It names
 where the harness reads user-level hooks and which events Yoke installs there,
 so a session opened outside any Yoke project stays local and receives
-messages and runs the machine-scope Bash guards.
+messages and runs the machine-scope shell guards (Claude Code matches both its
+`Bash` and `PowerShell` tools; see `shell_tools` in the schema).
 
 Setup and project install or refresh write these entries; every Yoke hook
 re-checks its own harness's file and rewrites it only when it differs;

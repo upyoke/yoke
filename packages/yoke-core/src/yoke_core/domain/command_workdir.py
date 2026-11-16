@@ -26,8 +26,9 @@ from yoke_contracts.hook_runner.shell_parse import (
     ShellParse,
     advance_cwd,
     cd_destination,
-    parse_shell,
+    parse_for_shell,
 )
+from yoke_contracts.harness_shell_tools import payload_shell_kind
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_session_cwd_control_plane import resolve_authority_cwd
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
@@ -60,7 +61,9 @@ def _leading_cd_cwd(
     bindings: Sequence[Mapping[str, str]],
 ) -> str:
     for index, segment in enumerate(parsed.segments):
-        if is_assignment_statement(segment.text):
+        if is_assignment_statement(segment.text) or (
+            segment.assignments and not segment.argv
+        ):
             continue  # ``S=...`` runs nothing; a later ``cd $S`` still leads.
         destination = cd_destination(segment.argv)
         if destination is None:
@@ -77,12 +80,16 @@ def _leading_cd_cwd(
     return cwd
 
 
+def _parse(payload: Mapping[str, Any]) -> ShellParse:
+    return parse_for_shell(extract_command(payload), payload_shell_kind(payload))
+
+
 def command_execution_cwd(
     payload: Mapping[str, Any], *, machine_home: str | None = None
 ) -> str:
     """Return the absolute directory the payload's command runs in, or ``""``."""
     cwd = _declared_cwd(payload, machine_home)
-    parsed = parse_shell(extract_command(payload))
+    parsed = _parse(payload)
     return _leading_cd_cwd(cwd, parsed, machine_home, _bindings(parsed))
 
 
@@ -98,7 +105,7 @@ def command_segment_cwds(
     the segment runs in the execution cwd or where an unreadable ``cd``
     hides its directory; both resolve against the execution cwd.
     """
-    parsed = shell if shell is not None else parse_shell(extract_command(payload))
+    parsed = shell if shell is not None else _parse(payload)
     declared = _declared_cwd(payload, machine_home)
     bindings = _bindings(parsed)
     cwd = _leading_cd_cwd(declared, parsed, machine_home, bindings)

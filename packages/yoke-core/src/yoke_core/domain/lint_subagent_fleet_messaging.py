@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.hook_runner.shell_parse import parse_shell
+from yoke_contracts.hook_runner.shell_parse import parse_for_shell
 from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -21,9 +21,12 @@ _BLOCKED_PATHS = (
 )
 
 
-def _command_uses_fleet_mutation(command: str) -> bool:
-    for segment in parse_shell(command).segments:
+def _command_uses_fleet_mutation(command: str, shell_kind: str) -> bool:
+    for segment in parse_for_shell(command, shell_kind).segments:
+        # A PowerShell command word may be a path such as ``C:\\...\\yoke.exe``.
         tokens = segment.tokens
+        if segment.shell != "bash" and segment.argv:
+            tokens = (segment.program, *segment.argv[1:])
         for index, token in enumerate(tokens):
             if token != "yoke":
                 continue
@@ -39,7 +42,7 @@ def evaluate(context: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     # The raw tool-input command, not the shared parse's variable-substituted
     # text: this guard has always read ``command_body``.
-    if not _command_uses_fleet_mutation(context.command_body or ""):
+    if not _command_uses_fleet_mutation(context.command_body or "", context.shell_kind):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     return HookDecision(
         outcome=Outcome.DENY,

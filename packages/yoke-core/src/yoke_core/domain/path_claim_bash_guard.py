@@ -1,8 +1,9 @@
-"""Bash file-mutation / ambiguous-shell path-claim guard.
+"""Shell file-mutation / ambiguous-shell path-claim guard.
 
-PreToolUse policy for Bash commands. It shares target resolution with
-``path_claim_pre_edit_guard`` so Bash and Edit/Write agree on
-``out-of-claim`` and ``wrong-cwd`` failures, both rendered with the
+PreToolUse policy for Bash and PowerShell commands (the record's
+``shell_kind`` picks the parser; both yield the same mutations). It shares
+target resolution with ``path_claim_pre_edit_guard`` so shell and Edit/Write
+agree on ``out-of-claim`` and ``wrong-cwd`` failures, both rendered with the
 canonical ``yoke claims path widen`` template. Parser-ambiguous shell idioms
 fail closed unless the audit-only suppression token is present. Read-only
 inspection commands are allowed so path claims do not blind agents during
@@ -26,7 +27,7 @@ from yoke_contracts.hook_runner.session_cwd import (
 from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.observe_normalization import (
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     ToolEventRecord,
 )
 from yoke_core.domain.path_claim_task_active_scope import (
@@ -42,6 +43,8 @@ from yoke_core.domain.path_claim_bash_parser import (
     extract_mutations,
 )
 from yoke_core.domain.path_claim_bash_client_home import expand_client_home
+from yoke_core.domain.path_claim_powershell_parser import extract_powershell_mutations
+from yoke_contracts.harness_shell_tools import SHELL_KIND_POWERSHELL, payload_shell_kind
 from yoke_core.domain.path_claim_bash_parser_planning_phase import (
     drop_planning_scratch_mutations,
 )
@@ -91,7 +94,7 @@ def evaluate_payload(
     call this directly.
     """
     record = _coerce_record(payload)
-    if record is None or record.tool_kind != TOOL_KIND_BASH:
+    if record is None or record.tool_kind != TOOL_KIND_SHELL:
         return BashGuardVerdict(outcome="allow")
 
     command = record.command or ""
@@ -99,7 +102,9 @@ def evaluate_payload(
         return BashGuardVerdict(outcome="allow")
 
     home = client_machine_home(payload) if isinstance(payload, dict) else ""
-    mutations: List[Mutation] = extract_mutations(command, _resolve_cwd(record), home)
+    powershell = record.shell_kind == SHELL_KIND_POWERSHELL
+    extract = extract_powershell_mutations if powershell else extract_mutations
+    mutations: List[Mutation] = extract(command, _resolve_cwd(record), home)
     if not mutations:
         return BashGuardVerdict(outcome="allow")
 
@@ -187,7 +192,7 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
     if not isinstance(payload, dict):
         return None
     return ToolEventRecord(
-        tool_kind=TOOL_KIND_BASH,
+        tool_kind=TOOL_KIND_SHELL,
         changed_paths=[],
         command=extract_command(payload),
         patch_body="",
@@ -198,6 +203,7 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
         # The client's home, never this process's: "" leaves ``~`` as written.
         cwd=command_execution_cwd(payload, machine_home=client_machine_home(payload)),
         project_dir=str(payload.get("cwd") or payload.get("project_dir") or ""),
+        shell_kind=payload_shell_kind(payload),
     )
 
 
@@ -257,7 +263,7 @@ def _emit_denial(
 
 def decide_for_record(record: ToolEventRecord):
     """Pipeline adapter — see :mod:`harness_policy_pipeline`."""
-    if record.tool_kind != TOOL_KIND_BASH:
+    if record.tool_kind != TOOL_KIND_SHELL:
         return None
     verdict = evaluate_payload(record)
     if verdict.outcome == "allow":

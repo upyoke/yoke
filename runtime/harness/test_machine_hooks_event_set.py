@@ -57,8 +57,12 @@ def test_every_machine_guard_chain_is_installed(harness_id):
     for verb, matcher in pairs:
         events = [event for event in spec.events if event.verb == verb]
         assert events, f"{harness_id} installs no {verb} hook for machine guards"
-        # Claude and Codex filter by tool name; Cursor's shell event is Bash-only.
-        assert all(event.matcher in (None, matcher) for event in events)
+        # Claude and Codex filter by tool name (Claude's matcher names every
+        # shell tool it declares); Cursor's shell event is shell-only.
+        assert all(
+            event.matcher is None or matcher in event.matcher.split("|")
+            for event in events
+        )
 
 
 @pytest.mark.parametrize("harness_id", sorted(HARNESS_MACHINE_HOOKS))

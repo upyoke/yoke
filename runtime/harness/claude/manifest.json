@@ -231,7 +231,7 @@
       {
         "native_event": "PreToolUse",
         "verb": "PreToolUse",
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "native_event": "Stop",
@@ -245,6 +245,13 @@
     "trust": "none",
     "hook_timeout_seconds": 600,
     "deferrals": []
+  },
+  "shell_tools": {
+    "source": "yoke_contracts.harness_shell_tools.HARNESS_SHELL_TOOLS",
+    "tools": {
+      "Bash": "bash",
+      "PowerShell": "powershell"
+    }
   },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",

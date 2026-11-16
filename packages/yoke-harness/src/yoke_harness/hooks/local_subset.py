@@ -29,7 +29,9 @@ from yoke_contracts.hook_runner.shell_guard_repairs import (
     NOTHING_RAN,
     RIPGREP_REPLACE_CHECK_ID,
 )
-from yoke_contracts.hook_runner.shell_parse import parse_shell
+from yoke_contracts.harness_shell_tools import payload_shell_kind
+from yoke_contracts.hook_tool_names import canonicalize_shell_payload
+from yoke_contracts.hook_runner.shell_parse import parse_for_shell
 from yoke_contracts.hook_runner.degraded import infrastructure_reply
 
 from yoke_harness.hooks.client_facts import (
@@ -102,7 +104,7 @@ def _parse_payload(stdin_data: str) -> dict:
         payload = json.loads(stdin_data) if stdin_data else None
     except (json.JSONDecodeError, TypeError):
         return {}
-    return payload if isinstance(payload, dict) else {}
+    return canonicalize_shell_payload(payload) if isinstance(payload, dict) else {}
 
 
 def _local_modules(chain: list[str]) -> list[str]:
@@ -174,8 +176,8 @@ def evaluate_local_subset(
     # the harness hook child that ran. Rides to the server in payload_extra.
     payload_extra: dict[str, object] = {DRIVER_PAYLOAD_KEY: collect_driver_process()}
     contexts: list[str] = []
-    # One parse of the Bash command, shared by every policy and fact below.
-    shell = parse_shell(command_from_payload(payload))
+    # One parse of the shell command, shared by every policy and fact below.
+    shell = parse_for_shell(command_from_payload(payload), payload_shell_kind(payload))
     try:
         chain = event_chain(event_name, payload, project_scope)
     except (ValueError, OSError, RuntimeError) as exc:

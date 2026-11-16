@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-TOOL_KIND_BASH = "bash"
+# Any shell tool; ``ToolEventRecord.shell_kind`` names which shell.
+TOOL_KIND_SHELL = "shell"
 TOOL_KIND_WRITE = "write"
 TOOL_KIND_EDIT = "edit"
 TOOL_KIND_APPLY_PATCH = "apply_patch"
 TOOL_KINDS: Tuple[str, ...] = (
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_WRITE,
     TOOL_KIND_EDIT,
     TOOL_KIND_APPLY_PATCH,
@@ -31,12 +32,14 @@ class ToolEventRecord:
     turn_id: Optional[str] = None
     cwd: str = ""
     project_dir: str = ""
+    # ``bash`` or ``powershell`` for a shell record (see harness_shell_tools).
+    shell_kind: str = "bash"
 
 
 __all__ = [
     "TOOL_KIND_APPLY_PATCH",
-    "TOOL_KIND_BASH",
     "TOOL_KIND_EDIT",
+    "TOOL_KIND_SHELL",
     "TOOL_KIND_WRITE",
     "TOOL_KINDS",
     "ToolEventRecord",
