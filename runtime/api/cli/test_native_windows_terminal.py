@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -102,3 +103,12 @@ def test_native_shell_output_capture(tmp_path, shell, surface):
     output = result.stdout.decode("utf-8-sig")
     assert "José 東京" in output and "\x1b[" not in output
     print(f"WINDOWS_SHELL_CAPTURE {shell} {surface}: {output.strip()}")
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(os.environ["GITHUB_STEP_SUMMARY"]).open(
+            "a", encoding="utf-8"
+        ) as summary:
+            summary.write(
+                f"\n### Native shell capture: {shell} / {surface}\n```text\n"
+                + output.strip()
+                + "\n```\nUTF-8 decoded successfully; no ANSI color escapes.\n"
+            )
