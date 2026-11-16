@@ -119,6 +119,11 @@ def test_workflow_collects_once_alongside_wheels_before_shards():
     upload = next(step for step in jobs["repo_contracts"]["steps"]
                   if step["name"] == "Share file groups with every shard")
     assert upload["if"] == "always()"
+    uploads = [step for job in jobs.values() for step in job.get("steps", [])
+               if step.get("uses", "").startswith("actions/upload-artifact@")]
+    assert len(uploads) == 6
+    for artifact in uploads:
+        assert artifact["with"].get("overwrite") is True, artifact["name"]
     downloads = [step.get("with", {}).get("name") for step in jobs["test_shard"]["steps"]]
     assert "ci-shard-groups" in downloads
 
