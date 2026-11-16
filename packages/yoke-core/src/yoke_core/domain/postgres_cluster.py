@@ -26,7 +26,6 @@ from yoke_contracts.machine_config.directories import (
 import hashlib
 import os
 import re
-import shutil
 import shlex
 import subprocess
 import sys
@@ -36,6 +35,7 @@ from typing import Optional, Tuple
 
 from yoke_core.domain.postgres_cluster_process import _env, _run, executable
 from yoke_contracts.owner_private_path import create_owner_private_directory
+from yoke_contracts.platform_fs import remove_tree
 
 _WINDOWS = os.name == "nt"
 
@@ -182,7 +182,7 @@ def initdb_if_needed(spec: ClusterSpec) -> int:
     if (data_dir / "PG_VERSION").exists():
         return 0
     if data_dir.exists():
-        shutil.rmtree(data_dir, ignore_errors=True)
+        remove_tree(data_dir)
     res = _run(
         [
             binary(spec, "initdb"),
@@ -300,9 +300,11 @@ def stop(spec: ClusterSpec) -> int:
 
 def destroy(spec: ClusterSpec) -> int:
     """Stop the server and remove the whole cluster root."""
-    stop(spec)
+    rc = stop(spec)
+    if rc != 0:
+        return rc
     if spec.root.exists():
-        shutil.rmtree(spec.root, ignore_errors=True)
+        remove_tree(spec.root)
     if spec.socket_dir is not None:
         try:
             spec.socket_dir.rmdir()

@@ -51,7 +51,6 @@ from yoke_cli.config.universe_ui_daemon_state import (
 READY_TIMEOUT_S = 20.0
 READY_POLL_INTERVAL_S = 0.2
 STOP_TIMEOUT_S = 10.0
-STOP_POLL_INTERVAL_S = 0.2
 
 
 def status() -> Dict[str, Any]:

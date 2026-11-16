@@ -21,10 +21,10 @@ from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.owner_private_path import create_owner_private_directory
+from yoke_contracts.platform_fs import remove_tree
 
 import os
 import platform
-import shutil
 import tarfile
 import secrets
 from pathlib import Path
@@ -202,7 +202,10 @@ def fetch_binaries(
         )
         _unpack_release(tarball, staging, dest)
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        try:
+            remove_tree(staging)
+        except OSError as exc:
+            raise PostgresBinariesError(str(exc)) from exc
     bin_dir = installed_bin_dir(version)
     if bin_dir is None:
         raise PostgresBinariesError(
@@ -285,7 +288,7 @@ def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
             f"top-level directory, found {[e.name for e in entries]}"
         )
     if dest.exists():
-        shutil.rmtree(dest)
+        remove_tree(dest)
     entries[0].replace(dest)
 
 

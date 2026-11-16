@@ -57,7 +57,6 @@ def reap_detached_children(monkeypatch):
     monkeypatch.setattr(daemon.platform_process, "spawn_group", spawn)
     monkeypatch.setattr(daemon, "process_alive", alive)
     monkeypatch.setattr(daemon, "READY_POLL_INTERVAL_S", 0.01)
-    monkeypatch.setattr(daemon, "STOP_POLL_INTERVAL_S", 0.01)
     yield
     for child in children.values():
         if child.poll() is None:
