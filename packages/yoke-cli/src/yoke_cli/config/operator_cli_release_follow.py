@@ -70,13 +70,13 @@ def follow_release(
         self_update.install_release(
             self_update.resolve_target(version=target), str(yoke), env=env
         )
-        detail = ""
+        detail = None
     except self_update.SelfUpdateError as exc:
-        detail = str(exc)
+        detail = str(exc) or type(exc).__name__
     except Exception as exc:  # noqa: BLE001 - the relay keeps serving; the record names it
         detail = f"{type(exc).__name__}: {exc}"
     record["after"] = _version(run, yoke, env)
-    if not detail and record["after"] == target:
+    if detail is None and record["after"] == target:
         record["project_refresh"] = _refresh_checkouts(yoke, run, env)
         return _finish(record, state_dir, "updated")
     record["error"] = detail or "the installer produced no output"

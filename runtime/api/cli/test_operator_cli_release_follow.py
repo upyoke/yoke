@@ -283,15 +283,16 @@ def test_current_cli_does_not_warn(monkeypatch) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "diagnostic", ["github_helper_interpreter_unavailable: reinstall CLI", ""]
+)
 def test_installer_failure_wins_over_matching_after_version(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, diagnostic
 ):
     yoke, _, run = _cli(tmp_path, monkeypatch, ["old", "target"])
 
     def fail_after_switch(*_args, **_kwargs):
-        raise self_update.SelfUpdateError(
-            "github_helper_interpreter_unavailable: reinstall CLI"
-        )
+        raise self_update.SelfUpdateError(diagnostic)
 
     monkeypatch.setattr(self_update, "install_release", fail_after_switch)
     versions = iter(["old", "target"])
@@ -305,6 +306,6 @@ def test_installer_failure_wins_over_matching_after_version(
     record = follow.follow_release("target", tmp_path, run=probe, executable=yoke)
     assert record["after"] == "target"
     assert record["outcome"] == "update_failed"
-    assert "github_helper_interpreter_unavailable" in record["error"]
+    assert record["error"] == (diagnostic or "SelfUpdateError")
     assert "OPERATOR-CLI-FOLLOW-FAILED" in capsys.readouterr().err
     assert json.loads((tmp_path / follow.FOLLOW_RECORD_NAME).read_text()) == record
