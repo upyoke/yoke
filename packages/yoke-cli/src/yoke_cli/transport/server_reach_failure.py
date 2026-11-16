@@ -15,16 +15,18 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_contracts.bounded_json_http import (
-    NETWORK_NAME_UNRESOLVED,
-    NETWORK_NOT_HTTP,
-    NETWORK_REFUSED,
-    NETWORK_TIMED_OUT,
-    NETWORK_TLS,
     BoundedJsonHttpBodyError,
     BoundedJsonHttpDeadlineError,
     BoundedJsonHttpError,
     BoundedJsonHttpNetworkError,
     BoundedJsonHttpStatusError,
+)
+from yoke_contracts.network_failure_reason import (
+    NETWORK_NAME_UNRESOLVED,
+    NETWORK_NOT_HTTP,
+    NETWORK_REFUSED,
+    NETWORK_TIMED_OUT,
+    NETWORK_TLS,
 )
 
 SERVER_NAME_UNRESOLVED = "server_name_unresolved"

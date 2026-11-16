@@ -14,7 +14,7 @@ from yoke_cli.config.machine_config_mutation import (
     serialized_mutation,
     write_payload,
 )
-from yoke_contracts import github_app_tokens
+from yoke_contracts import github_app_tokens, owner_private_path
 from yoke_contracts.machine_config import schema as contract
 
 
@@ -72,10 +72,10 @@ def remove_connections(
     payload, cfg_path = load_payload(path)
     if not cfg_path.is_file():
         raise MachineConfigWriteError(f"machine config is missing: {cfg_path}")
-    stat = cfg_path.stat()
-    if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+    if not owner_private_path.is_owner_private_file(cfg_path):
         raise MachineConfigWriteError(
-            "machine config retirement requires an owner-only config file"
+            "machine config retirement requires an owner-only config file: "
+            f"{cfg_path}; let only your account access it, then retry"
         )
     connections = payload.get("connections")
     connections = connections if isinstance(connections, dict) else {}
@@ -292,10 +292,10 @@ def _retirement_tombstone(env: str) -> Path:
 
 
 def _require_owner_only(path: Path, *, env: str) -> None:
-    stat = path.stat()
-    if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+    if not owner_private_path.is_owner_private_file(path):
         raise MachineConfigWriteError(
-            f"refusing to remove non-owner credential for {env!r}"
+            f"refusing to remove non-owner credential for {env!r}: {path}; "
+            "remove it yourself if it is yours, then retry"
         )
 
 

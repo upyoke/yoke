@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import http.client
 import json
-import socket
-import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping
@@ -25,6 +23,7 @@ from yoke_contracts.bounded_http_open_policy import (
     require_requested_final_url,
 )
 from yoke_contracts.certificate_diagnostic import certificate_diagnostic
+from yoke_contracts.network_failure_reason import NETWORK_UNREACHABLE, network_reason
 from yoke_contracts.json_error_safety import (
     decode_error_payload,
     error_detail,
@@ -54,15 +53,6 @@ class BoundedJsonHttpConfigurationError(BoundedJsonHttpError):
 
 class BoundedJsonHttpDeadlineError(BoundedJsonHttpError):
     """The DNS/open/body operation exceeded its one absolute deadline."""
-
-
-#: How a network failure happened, as ``BoundedJsonHttpNetworkError.reason``.
-NETWORK_NAME_UNRESOLVED = "name_unresolved"
-NETWORK_REFUSED = "refused"
-NETWORK_TIMED_OUT = "timed_out"
-NETWORK_TLS = "tls"
-NETWORK_NOT_HTTP = "not_http"
-NETWORK_UNREACHABLE = "unreachable"
 
 
 class BoundedJsonHttpNetworkError(BoundedJsonHttpError):
@@ -211,7 +201,7 @@ def request_json(
         if certificate is not None:
             detail = " ".join(certificate)
         raise BoundedJsonHttpNetworkError(
-            detail, reason=_network_reason(cause)
+            detail, reason=network_reason(cause)
         ) from None
 
     if status < 200 or status >= 300:
@@ -225,20 +215,6 @@ def request_json(
         status=status,
         headers=headers,
     )
-
-
-def _network_reason(cause: BaseException) -> str:
-    if isinstance(cause, socket.gaierror):
-        return NETWORK_NAME_UNRESOLVED
-    if isinstance(cause, ConnectionRefusedError):
-        return NETWORK_REFUSED
-    if isinstance(cause, TimeoutError):
-        return NETWORK_TIMED_OUT
-    if isinstance(cause, ssl.SSLError):
-        return NETWORK_TLS
-    if isinstance(cause, http.client.HTTPException):
-        return NETWORK_NOT_HTTP
-    return NETWORK_UNREACHABLE
 
 
 def _read_bounded_body(
@@ -329,12 +305,6 @@ __all__ = [
     "BoundedJsonHttpNetworkError",
     "BoundedJsonHttpResponse",
     "BoundedJsonHttpStatusError",
-    "NETWORK_NAME_UNRESOLVED",
-    "NETWORK_NOT_HTTP",
-    "NETWORK_REFUSED",
-    "NETWORK_TIMED_OUT",
-    "NETWORK_TLS",
-    "NETWORK_UNREACHABLE",
     "error_detail",
     "request_json",
     "safe_diagnostic_text",
