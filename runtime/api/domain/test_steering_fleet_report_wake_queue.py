@@ -34,8 +34,7 @@ def fleet(test_db):
     seed_session(test_db, ASKER, last_tool_call_at=BEFORE_THAT)
     seed_session(test_db, ANSWERER, last_tool_call_at=BEFORE_THAT)
     seed_relay(test_db)
-    # Seed deliberately out of claim order, including another project on
-    # the same machine: queue positions must precede report scope filtering.
+    # Seed deliberately out of claim order on one machine.
     for message, recipient in (
         ("msg-c", ANSWERER),
         ("msg-b", ASKER),
@@ -200,3 +199,13 @@ def test_queue_positions_do_not_enter_report_identity(fleet):
     assert (
         replace(report, undelivered=()).fingerprint() == report.fingerprint()
     )
+
+
+def test_positions_name_each_receipt_when_wake_and_send_order_differ(fleet):
+    fleet.execute(
+        "UPDATE session_message_recipients SET wake_after=%s WHERE message_id='msg-c'",
+        (BEFORE_THAT,),
+    )
+    row = next(entry for entry in _rows(fleet) if entry.session_id == ANSWERER)
+    assert row.wake_queue_positions == (("msg-c", 1), ("msg-a", 2))
+    assert "positions msg-c: 1, msg-a: 2" in undelivered_line(row)

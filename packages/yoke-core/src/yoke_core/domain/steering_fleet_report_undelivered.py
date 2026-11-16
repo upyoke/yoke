@@ -292,7 +292,9 @@ def undelivered_messages(
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
             recipient_gone_at=group.recipient_gone_at,
-            wake_queue_positions=tuple(sorted(group.wake_queue_positions)),
+            wake_queue_positions=tuple(
+                sorted(group.wake_queue_positions, key=lambda pair: pair[1])
+            ),
             queued_wake=group.queued_wake,
             wake_releasable_at=group.wake_releasable_at,
         )
