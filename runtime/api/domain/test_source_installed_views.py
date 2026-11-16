@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.native_view_test_support import seed_native_view_sources
 from yoke_contracts.project_contract.source_native_views import NATIVE_AGENT_LINKS
 from yoke_contracts.project_contract.source_installed_views import (
     HARNESS_MANIFEST_SOURCES,
@@ -31,14 +32,7 @@ def _checkout(root: Path) -> Path:
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f'{{"source": "{rel}"}}\n')
-    for _native, source in NATIVE_AGENT_LINKS:
-        path = root / source
-        if path.suffix == ".json":
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('{"hooks": {}}\n')
-        else:
-            path.mkdir(parents=True, exist_ok=True)
-            (path / "entry.md").write_text(f"# {source.as_posix()}\n")
+    seed_native_view_sources(root)
     docs = root / "docs/public/guide"
     docs.mkdir(parents=True)
     (root / "docs/public/index.md").write_text("# Home\n")

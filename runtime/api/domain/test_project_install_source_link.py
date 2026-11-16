@@ -22,6 +22,7 @@ import pytest
 from yoke_cli.project_install import runner as project_install
 from yoke_cli.project_install import git_hooks as git_hooks
 from yoke_core.domain import project_install_source_link as source_link
+from runtime.api.domain.native_view_test_support import seed_native_view_sources
 from yoke_contracts.project_contract.source_native_views import NATIVE_AGENT_LINKS
 from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
 from yoke_cli.project_install.files import (
@@ -50,13 +51,7 @@ def _seed_yoke_checkout(root: Path) -> None:
         manifest = root / "runtime" / "harness" / harness / "manifest.json"
         manifest.parent.mkdir(parents=True, exist_ok=True)
         manifest.write_text(f'{{"harness_id": "{harness}"}}\n', encoding="utf-8")
-    for _native, source in NATIVE_AGENT_LINKS:
-        path = root / source
-        if path.suffix == ".json":
-            path.write_text('{"hooks": {}}\n', encoding="utf-8")
-        else:
-            path.mkdir(parents=True, exist_ok=True)
-            (path / "entry.md").write_text("# rendered\n", encoding="utf-8")
+    seed_native_view_sources(root)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
 
 
