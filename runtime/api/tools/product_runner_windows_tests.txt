@@ -1,9 +1,15 @@
 # Tests the required windows-smoke job runs on native Windows (yoke-ci.yml).
 # One pytest path or node id per line; blank lines and # comments are ignored.
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
+runtime/api/cli/test_azure_admin.py
 runtime/api/cli/test_native_windows_terminal.py
 runtime/api/cli/test_onboard_native_preflight.py
 runtime/api/cli/test_onboard_session_relay_windows.py
+runtime/api/domain/test_azure_machine_power.py
+runtime/api/domain/test_cloud_machine_power.py
+runtime/api/domain/test_cloud_machine_power_stop.py
+runtime/api/domain/test_ec2_instance_power.py
+runtime/api/domain/test_machine_desktop_access.py
 runtime/api/test_windows_harness_cli_manifest.py
 runtime/api/test_windows_preflight.py
 runtime/api/test_windows_preflight_facts.py
@@ -24,6 +30,7 @@ runtime/api/cli/test_cli_release_runtime.py::test_publication_failure_preserves_
 runtime/api/cli/test_cli_release_runtime.py::test_standalone_bootstrap_activates_wheel_without_runtime_module
 runtime/api/cli/test_cli_release_runtime_platform.py
 runtime/api/domain/test_lint_platform.py
+runtime/api/cli/test_self_host_native_windows.py
 runtime/api/tools/test_session_relay_portable_runtime.py
 runtime/api/tools/test_session_relay_release_retention.py
 runtime/api/tools/test_session_relay_task_scheduler.py

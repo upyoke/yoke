@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.qa_plan_case_document import unknown_case_field_refusal
 from yoke_core.domain.handlers.qa_plan_materialize import (
     MaterializeRequest,
     RematerializeRequest,
@@ -200,20 +201,15 @@ def handle_plan_cases_replace(
     )
     if error is not None:
         return error
+    if refusal := unknown_case_field_refusal(payload.cases):
+        return _error("payload_invalid", refusal, "$.payload.cases")
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_plan_case_currency import plan_drift_report
-    from yoke_core.domain.qa_plan_management import (
-        QaPlanError,
-        replace_plan_cases,
-    )
+    from yoke_core.domain.qa_plan_management import QaPlanError, replace_plan_cases
 
     try:
         with connect() as conn:
-            _project_matches(
-                conn,
-                plan_id=payload.plan_id,
-                project=payload.project,
-            )
+            _project_matches(conn, plan_id=payload.plan_id, project=payload.project)
             result = replace_plan_cases(
                 conn,
                 plan_id=payload.plan_id,

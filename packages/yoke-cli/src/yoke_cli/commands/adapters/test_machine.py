@@ -92,15 +92,38 @@ def _dispatch(
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         response_recovery=(
-            (
-                lambda response, _actor: _attest_secret_presence(
-                    response, parsed.project, function_id
+            (lambda response, _actor: _cloud_provider_floor(response))
+            if function_id == "test_machine.settings_replace"
+            and "cloud_provider" in payload.get("settings", {})
+            else (
+                (
+                    lambda response, _actor: _attest_secret_presence(
+                        response, parsed.project, function_id
+                    )
                 )
+                if attest_local_secrets
+                else None
             )
-            if attest_local_secrets
-            else None
         ),
     )
+
+
+def _cloud_provider_floor(response):
+    """An older serving validator rejects this nested settings key before writing."""
+    if response.success or response.error is None:
+        return response
+    message = response.error.message
+    if "unknown" not in message or "cloud_provider" not in message:
+        return response
+    error = response.error.model_copy(
+        update={
+            "code": "test_machine_cloud_provider_serving_floor_required",
+            "message": "cloud_provider requires minimum serving version next-release; "
+            "use the CLI release that the server serves for existing AWS settings, "
+            "or ask the operator to deploy the provider-capable serving build before registering Azure",
+        }
+    )
+    return response.model_copy(update={"error": error})
 
 
 def _attest_secret_presence(

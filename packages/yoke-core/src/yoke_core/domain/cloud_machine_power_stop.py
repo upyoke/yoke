@@ -15,11 +15,9 @@ from contextvars import ContextVar
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.deploy_remote import CommandRunner
-from yoke_core.domain.ec2_instance_power import (
-    Ec2InstancePowerError,
-    instance_state,
-    stop_instance,
-)
+from yoke_core.domain.ec2_instance_power import Ec2InstancePowerError
+from yoke_contracts.azure_admin import AzureAdminError
+from yoke_contracts.azure_cli_prerequisite import AzureCliPrerequisiteError
 from yoke_core.domain import cloud_machine_power as power
 
 # Set while stop_released runs, so releasing its own hold does not re-enter it.
@@ -30,24 +28,22 @@ def _stop_if_running(
     runner: CommandRunner,
     project: str,
     settings: Mapping[str, str],
-    aws_env: dict[str, str],
     emit: Callable[[str], None],
 ) -> None:
     name = settings["resource_name"]
-    instance_id = settings["cloud_instance_id"]
+    recovery = (
+        f"yoke {settings.get('cloud_provider', 'aws')} admin-status --project {project}"
+    )
     try:
-        if instance_state(runner, instance_id, aws_env) not in ("pending", "running"):
-            return
-        emit(f"  Test Machine {name} has no lease")
-        stop_instance(runner, instance_id, aws_env, emit)
-    except Ec2InstancePowerError as exc:
+        with power.machine_power(project, settings, runner, emit) as provider:
+            recovery = provider.stop_command
+            emit(f"  Test Machine {name} has no lease")
+            provider.stop()
+    except (Ec2InstancePowerError, AzureAdminError, AzureCliPrerequisiteError) as exc:
         emit(
             compose_refusal(
-                f"test_machine_power_stop_failed: idle Test Machine {name} "
-                f"is still running: {exc}",
-                recovery="fix the named cause; its next lease release retries, or "
-                f"run `yoke aws exec --project {project} -- ec2 stop-instances "
-                f"--instance-ids {instance_id}`",
+                f"test_machine_power_stop_failed: idle Test Machine {name} may still be allocated: {exc}",
+                recovery=f"fix the named cause; its next lease release retries, or run `{recovery}`",
             )
         )
 
@@ -121,7 +117,6 @@ def _stop_one(
                     runner or CommandRunner(),
                     project,
                     settings,
-                    power._aws_env(project),
                     emit,
                 )
         finally:

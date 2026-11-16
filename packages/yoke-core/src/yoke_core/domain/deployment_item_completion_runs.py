@@ -169,16 +169,19 @@ def uncredited_supplemental_notice(conn: Any, *, run_id: str, item_id: int) -> s
 
 __all__ = [
     "completion_runs",
+    "latest_qa_member_run",
+    "owing_stage_run",
+    "qa_member_runs",
     "supplemental_run_carries_landing",
     "succeeded_completion_runs",
     "uncredited_supplemental_notice",
 ]
 
 
-def latest_qa_member_run(
+def qa_member_runs(
     conn: Any, *, item_id: int, target_env: str
-) -> dict[str, Any] | None:
-    """Newest live or delivered member capable of answering this source target.
+) -> list[dict[str, Any]]:
+    """Newest-first live or delivered members capable of answering this target.
 
     An explicit target can be answered by a supplemental member whose recorded
     item-project commit contains the current landing. Untargeted
@@ -190,6 +193,7 @@ def latest_qa_member_run(
         stage_target_admits,
     )
 
+    capable: list[dict[str, Any]] = []
     for run in completion_runs(conn, item_id, include_qa=bool(target_env)):
         if (
             supplemental_qa_run(conn, run_id=run["id"], item_id=item_id)
@@ -199,9 +203,54 @@ def latest_qa_member_run(
             continue
         if run["status"] in {"failed", "cancelled"}:
             continue
-        if not target_env:
-            return run
-        environments, dynamic = run_qa_stage_targets(conn, run["id"])
-        if stage_target_admits(target_env, environments=environments, dynamic=dynamic):
-            return run
-    return None
+        if target_env:
+            environments, dynamic = run_qa_stage_targets(conn, run["id"])
+            if not stage_target_admits(
+                target_env, environments=environments, dynamic=dynamic
+            ):
+                continue
+        capable.append(run)
+    return capable
+
+
+def latest_qa_member_run(
+    conn: Any, *, item_id: int, target_env: str
+) -> dict[str, Any] | None:
+    """The newest of :func:`qa_member_runs`."""
+    return next(iter(qa_member_runs(conn, item_id=item_id, target_env=target_env)), None)
+
+
+def owing_stage_run(
+    conn: Any, *, item_id: int, stage: str, runs: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """The member run at *stage* that still owes this item's QA.
+
+    *runs* are newest-first memberships. Among those executing at *stage*,
+    a run whose item QA is not yet accepted owes it; when several owe (a
+    Stage and Production pair at item QA together), the oldest answers first.
+    When none owes, the newest run at the stage answers, as with one run.
+    """
+    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
+
+    at_stage = [
+        run
+        for run in runs
+        if run["status"] == "executing" and run["current_stage"] == stage
+    ]
+    owing = [
+        run
+        for run in at_stage
+        if (
+            standing := current_item_qa(
+                conn,
+                run_id=str(run["id"]),
+                item_id=int(item_id),
+                current_stage=stage,
+            )
+        )
+        is None
+        or not standing.accepted
+    ]
+    if owing:
+        return owing[-1]
+    return at_stage[0] if at_stage else None

@@ -10,6 +10,8 @@ dispatch through until the described server is running. These resolve after
 
 from __future__ import annotations
 
+from yoke_cli.self_host import native_windows
+
 import argparse
 import ipaddress
 import json
@@ -48,6 +50,11 @@ _INPUT = input
 
 
 def self_host_init(args: List[str]) -> int:
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host init",
         description=(
@@ -213,6 +220,11 @@ def _warn_network_publish(publish_spec: str) -> None:
 
 
 def self_host_upgrade(args: List[str]) -> int:
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host upgrade",
         description=(
