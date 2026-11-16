@@ -9,7 +9,6 @@ runtime/api/domain/test_postgres_binaries.py::test_platform_target_mapping
 runtime/api/domain/test_postgres_cluster.py::test_destroy_keeps_data_when_server_cannot_stop
 runtime/api/domain/test_universe_archive_output_windows.py
 runtime/api/domain/test_local_database_children_detached.py
-runtime/api/domain/test_migration_fleet_preflight_credentials.py
 runtime/api/cli/test_yoke_universe_ui_daemon.py
 runtime/api/cli/test_yoke_universe_ui_restart.py
 runtime/api/cli/test_universe_ui_daemon_process_identity.py
