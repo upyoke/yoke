@@ -35,6 +35,7 @@ import os
 from pathlib import Path
 import secrets
 import socket
+import time
 from typing import Optional
 
 from yoke_cli.config import machine_config
@@ -50,6 +51,7 @@ SESSION_TOKEN_BYTES = 32
 
 PORT_PROBE_TIMEOUT_S = 0.5
 LOG_TAIL_LINES = 20
+_RECORD_READ_ATTEMPTS = 4 if os.name == "nt" else 1
 
 
 class UiDaemonError(RuntimeError):
@@ -120,9 +122,22 @@ def stable_session_token() -> str:
     return minted
 
 
+def _read_record_text(path: Path) -> str:
+    # Windows can briefly deny opens while an atomic rename is completing.
+    # Retry only this read; persistent access failures remain named refusals.
+    for attempt in range(_RECORD_READ_ATTEMPTS):
+        try:
+            return path.read_text(encoding="utf-8")
+        except PermissionError:
+            if attempt == _RECORD_READ_ATTEMPTS - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))
+    raise AssertionError("record read attempts must be positive")
+
+
 def read_record() -> Optional[UiDaemonRecord]:
     try:
-        document = json.loads(record_path().read_text(encoding="utf-8"))
+        document = json.loads(_read_record_text(record_path()))
     except (FileNotFoundError, ValueError):
         return None
     except OSError as exc:

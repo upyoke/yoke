@@ -78,3 +78,48 @@ def test_startup_cleanup_refusal_never_claims_nothing_is_running(monkeypatch):
     monkeypatch.setattr(daemon.platform_process, "stop_group", denied)
     with pytest.raises(state.UiDaemonError, match="ui_start_cleanup_failed.*42"):
         daemon._tear_down(supervised=False, child=SimpleNamespace(pid=42))
+
+
+@pytest.mark.parametrize("failures", [1, 4])
+def test_record_read_retries_transient_windows_denial_but_refuses_persistent(
+    monkeypatch, tmp_path, failures,
+):
+    from pathlib import Path
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    state.write_record(pid=os.getpid(), host="127.0.0.1", port=8688,
+                       env="local", supervised=False, process_start_time=1.0)
+    read = Path.read_text
+    attempts = []
+    def sharing_conflict(path, *args, **kwargs):
+        attempts.append(path)
+        if len(attempts) <= failures:
+            raise PermissionError("atomic replacement sharing conflict")
+        return read(path, *args, **kwargs)
+    monkeypatch.setattr(state, "_RECORD_READ_ATTEMPTS", 4)
+    monkeypatch.setattr(state.time, "sleep", lambda _: None)
+    monkeypatch.setattr(Path, "read_text", sharing_conflict)
+    if failures == 1:
+        assert state.read_record().pid == os.getpid()
+        assert len(attempts) == 2
+    else:
+        with pytest.raises(state.UiDaemonError, match="ui_record_unreadable.*owner access"):
+            state.read_record()
+        assert len(attempts) == 4
+
+
+def test_readiness_error_stops_the_child(monkeypatch):
+    from types import SimpleNamespace
+    child = SimpleNamespace(pid=42)
+    monkeypatch.setattr(daemon, "status", lambda: {"running": False})
+    monkeypatch.setattr(daemon, "require_available_port", lambda *args: None)
+    monkeypatch.setattr(daemon, "stable_session_token", lambda: "unused")
+    monkeypatch.setattr(daemon, "log_path", lambda: None)
+    monkeypatch.setattr(daemon, "_start_supervisor", lambda **kwargs: (False, None, child))
+    def denied(**kwargs):
+        raise state.UiDaemonError("ui_record_unreadable")
+    monkeypatch.setattr(daemon, "_await_ready", denied)
+    stopped = []
+    monkeypatch.setattr(daemon, "_tear_down", lambda **kwargs: stopped.append(kwargs))
+    with pytest.raises(state.UiDaemonError, match="ui_record_unreadable"):
+        daemon.up(host="127.0.0.1", port=8688, env="local")
+    assert stopped == [{"supervised": False, "child": child}]

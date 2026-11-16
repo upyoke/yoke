@@ -98,7 +98,12 @@ def up(*, host: str, port: int, env: str) -> Dict[str, Any]:
     log = log_path()
     supervised, note, child = _start_supervisor(host=host, port=port, env=env, log=log)
 
-    if _await_ready(host=host, port=port) is None:
+    try:
+        ready = _await_ready(host=host, port=port)
+    except UiDaemonError:
+        _tear_down(supervised=supervised, child=child)
+        raise
+    if ready is None:
         _tear_down(supervised=supervised, child=child)
         tail = log_tail()
         raise UiDaemonError(
