@@ -17,7 +17,9 @@ from pathlib import Path
 
 from yoke_core.domain.lint_project_name_literal import is_exempt_relpath
 
-ROOTS = tuple(f"packages/yoke-{name}/src" for name in ("contracts", "cli", "harness", "core"))
+ROOTS = tuple(f"packages/yoke-{name}/src" for name in ("contracts", "cli", "harness", "core")) + (
+    "packaging/public-installer",
+)
 EXCLUDED = ("/build/", "/install_bundle_tree/", "/frontend_events/", "/migrations/",
             "/yoke_core/api/", "/yoke_core/ui/", "/yoke_core/db/")
 OWNERS = {
@@ -41,6 +43,22 @@ class PlatformHit:
     @property
     def key(self):
         return f"{self.path}|{self.rule}|{self.fingerprint}"
+
+
+def fingerprint(node: ast.AST) -> str:
+    """Normalize optional AST fields; ast.dump formatting changes by Python version."""
+    def normalized(value):
+        if isinstance(value, ast.AST):
+            fields = []
+            for name, child in ast.iter_fields(value):
+                if child is None or (isinstance(child, list) and not child):
+                    continue
+                fields.append(name + "=" + normalized(child))
+            return type(value).__name__ + "(" + ",".join(fields) + ")"
+        if isinstance(value, list):
+            return "[" + ",".join(normalized(child) for child in value) + "]"
+        return repr(value)
+    return hashlib.sha256(normalized(node).encode("utf-8")).hexdigest()[:16]
 
 
 def _name(node):
@@ -144,8 +162,7 @@ def scan_source(source: str, path: str) -> list[PlatformHit]:
             matches = rules[rule]
             if filename in OWNERS.get(rule, ()) or not matches(node):
                 continue
-            fingerprint = hashlib.sha256(ast.dump(node).encode("utf-8")).hexdigest()[:16]
-            hits.append(PlatformHit(path, node.lineno, rule, fingerprint))
+            hits.append(PlatformHit(path, node.lineno, rule, fingerprint(node)))
     return hits
 
 
