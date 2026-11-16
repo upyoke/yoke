@@ -15,13 +15,9 @@ from runtime.api.tools.product_runner_hooks import (
     require_dispatch,
     require_wire,
 )
-from runtime.api.tools.product_runner_smoke import (
-    Commands,
-    SmokeFailure,
-    isolated_environment,
-    observed_runner,
-    require_browser_installation,
-)
+from runtime.api.tools.product_runner_commands import Commands, SmokeFailure
+from runtime.api.tools.product_runner_smoke import isolated_environment, observed_runner
+from runtime.api.tools.product_runner_stages import require_browser_installation
 
 
 @pytest.mark.parametrize("stdout", ["", "initialization noise\n{}", "[]"])
@@ -29,7 +25,7 @@ def test_document_failure_names_the_step_and_existing_capture(
     tmp_path, monkeypatch, stdout
 ):
     monkeypatch.setattr(
-        "runtime.api.tools.product_runner_smoke.subprocess.run",
+        "runtime.api.tools.product_runner_commands.subprocess.run",
         lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=stdout, stderr=""),
     )
     commands = Commands(tmp_path, {})
@@ -45,7 +41,7 @@ def test_command_start_failure_is_captured_and_named(tmp_path, monkeypatch):
         raise FileNotFoundError("executable missing")
 
     monkeypatch.setattr(
-        "runtime.api.tools.product_runner_smoke.subprocess.run", missing
+        "runtime.api.tools.product_runner_commands.subprocess.run", missing
     )
     commands = Commands(tmp_path, {})
     with pytest.raises(SmokeFailure, match="command_start_failed: step=onboard") as exc:
@@ -258,6 +254,7 @@ def test_product_smoke_accepts_recorded_passwordless_installation(tmp_path):
         ("linux", "aarch64", {"os": "Ubuntu 24.04", "architecture": "arm64"}),
         ("darwin", "arm64", {"os": "macOS 26", "architecture": "arm64"}),
         ("linux", "riscv64", {"os": "Ubuntu 24.04", "architecture": "riscv64"}),
+        ("win32", "AMD64", {"os": "Windows 2025Server", "architecture": "x86_64"}),
     ],
 )
 def test_runner_identity_uses_declared_architecture_names(
@@ -273,4 +270,5 @@ def test_runner_identity_uses_declared_architecture_names(
         lambda: {"NAME": "Ubuntu", "VERSION_ID": "24.04"},
     )
     monkeypatch.setattr(runner.platform, "mac_ver", lambda: ("26.0", (), ""))
+    monkeypatch.setattr(runner.platform, "release", lambda: "2025Server")
     assert observed_runner() == expected
