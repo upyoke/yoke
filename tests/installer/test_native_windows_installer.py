@@ -1,9 +1,12 @@
 """Windows bootstrap policy, including refusals before network or writes."""
 
 import io
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -107,6 +110,30 @@ def test_bootstrap_creates_pending_generation_under_shared_publication_lock(
     assert (generation / "pending").is_file()
     # The failure has closed its lease so later shared-runtime cleanup can retire it.
     generation.rename(generation.with_name("retired"))
+
+
+def test_windows_helper_permission_refusal_never_requests_posix_cache_repair(
+    monkeypatch, tmp_path, capsys
+):
+    from yoke_cli.config import github_git_credential_bundle as bundle
+
+    source = tmp_path / "helper.py"
+    source.write_text("# helper\n")
+    source.chmod(0o666)
+    monkeypatch.setattr(bundle, "_bundle_sources", lambda: [(source, "helper.py")])
+
+    def refuse(_path):
+        raise bundle.GitHubCredentialBundleError("Windows source ACL refused")
+
+    monkeypatch.setattr(bundle, "_safe_read_source", refuse)
+    check = load_installer().HELPER_SOURCE_CHECK
+    monkeypatch.setitem(
+        sys.modules, "os", SimpleNamespace(name="nt", lstat=os.lstat, path=os.path)
+    )
+    exec(check, {})
+    verdict = json.loads(capsys.readouterr().out)
+    assert verdict["unsafe_permissions"] == []
+    assert "Windows source ACL refused" in verdict["refusal"]
 
 
 @pytest.mark.skipif(

@@ -740,7 +740,8 @@ for path in paths:
         info = os.lstat(path) if os.path.lexists(path) else None
         mode = stat.S_IMODE(info.st_mode) if info else 0
         if (
-            info
+            os.name != "nt"
+            and info
             and stat.S_ISREG(info.st_mode)
             and info.st_size <= bundle.MAX_HELPER_SOURCE_BYTES
             and mode & 0o022
