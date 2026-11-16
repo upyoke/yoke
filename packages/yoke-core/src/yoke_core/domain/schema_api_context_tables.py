@@ -5,8 +5,7 @@ Pure data sibling of :mod:`schema_api_context_seed`. Holds the curated
 renderer in :mod:`yoke_core.domain.schema_api_context` reconciles
 each entry against live catalog introspection at packet-build time.
 
-Topic-scoped siblings (added 2026-05-14 to keep this module under the
-350-line authored-file cap while preserving the ``CANONICAL_TABLES``
+Topic-scoped siblings (added 2026-05-14 to keep this module under the authored-file line limit while preserving the ``CANONICAL_TABLES``
 public export):
 
 - :mod:`schema_api_context_tables_core` — items, epic_tasks,

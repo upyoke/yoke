@@ -3,7 +3,7 @@
 Run `yoke dev run -- python3 packaging/public-installer/build.py` after editing
 `source/*.py.inc`, then run it again with `--check`. Commit the fragments and
 the generated `install.py` together. Each fragment has one concern and stays
-under 350 lines; the generated download remains one standalone Python program.
+within the repository's `file_line_limit`; the generated download remains one standalone Python program.
 
 The installer uses uv to resolve one exact product release into a private tool
 environment. The build embeds the shared `cli_release_runtime` source so bootstrap

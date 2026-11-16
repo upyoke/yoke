@@ -1,7 +1,7 @@
 """Integration-head SHA + local-checkout lookup helpers for ambient siblings.
 
 Split out of :mod:`path_claim_ambient_siblings` after the parent grew
-past the 350-line gate. Owns the small surface that resolves the
+past the authored-file line limit. Owns the small surface that resolves the
 current integration-target head SHA and this machine's checkout for a
 project referenced by a non-terminal claim on that target.
 

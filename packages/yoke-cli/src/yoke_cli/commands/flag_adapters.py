@@ -1,8 +1,7 @@
 # ruff: noqa: F401 -- this module re-exports the explicit adapter-name inventory.
 """Per-family flag adapters for the ``yoke`` operations CLI.
 
-This facade imports family adapters from sibling modules to stay within the
-350-line cap; the import list below is authoritative. Shared
+This facade imports family adapters from sibling modules to stay within the authored-file line limit; the import list below is authoritative. Shared
 argparse/dispatch plumbing lives in :mod:`yoke_cli.commands._helpers`; the
 function-id -> usage-line map
 lives in :mod:`yoke_cli.commands.adapters.usage`).

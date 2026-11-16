@@ -15,7 +15,7 @@ Function ids registered here:
   :func:`detect_seed_drift`. No claim required.
 
 Sibling module ``orchestration_agents`` hosts ``agents.render.run`` /
-``agents.render.check`` so each file stays under the 350-line budget.
+``agents.render.check`` so each file stays under the authored-file line limit.
 """
 
 from __future__ import annotations

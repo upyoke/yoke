@@ -11,7 +11,7 @@ domain call -> typed :class:`HandlerOutcome`. The domain owners
 
 Pydantic boundary models and ``REGISTRATIONS`` live in the sibling
 :mod:`items_structured_field_models` module to keep this file under
-the 350-line authored-file budget.
+the authored-file line limit.
 
 """
 

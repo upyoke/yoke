@@ -24,8 +24,10 @@ def _path_pattern(path: str) -> re.Pattern:
 def apply_stale_count_replacements(
     spec_text: str,
     repairs: List[RepairedPath],
+    limit: int,
 ) -> Tuple[str, List[Dict[str, Any]]]:
-    """Apply each repair's new count; refuse missing or duplicate matches."""
+    """Apply each repair's new count against ``limit``; refuse missing or
+    duplicate matches."""
     refused: List[Dict[str, Any]] = []
     text = spec_text or ""
     for r in repairs:
@@ -58,11 +60,30 @@ def apply_stale_count_replacements(
             lambda match, count=r.actual: replacement_for_current_size(
                 match,
                 count,
+                limit,
             ),
             text,
             count=1,
         )
     return text, refused
+
+
+def stale_issue_limit(issues: List[Dict[str, Any]]) -> Optional[int]:
+    """The line limit the readiness check sized these stale counts against.
+
+    Clients released before the limit rode the issue context sized every
+    count against the default, so an issue without one means the default.
+    ``None`` means the issues disagree or carry an unusable limit.
+    """
+    from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
+
+    limits = {
+        (issue.get("context") or {}).get("limit", DEFAULT_LIMIT) for issue in issues
+    }
+    if len(limits) != 1:
+        return None
+    (limit,) = limits
+    return limit if isinstance(limit, int) and limit > 0 else None
 
 
 def resolve_repairs(

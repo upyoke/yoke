@@ -2,7 +2,7 @@
 
 Sibling of :mod:`service_client_backlog_update`. Owns the build-request
 + dispatch + envelope-to-legacy-shape translation, so the
-parent CLI module stays under the 350-line file budget.
+parent CLI module stays under the authored-file line limit.
 
 The structured-field write path of ``items update YOK-N <field> --stdin``
 routes through :func:`yoke_core.domain.yoke_function_dispatch.dispatch`

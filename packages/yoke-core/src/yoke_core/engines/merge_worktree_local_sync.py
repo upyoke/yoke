@@ -1,7 +1,7 @@
 """Local target-branch sync after a successful PR merge.
 
 Extracted from ``merge_worktree_post_helpers`` so the post-helpers file
-stays under the 350-line cap and so the sync primitive has a focused
+stays under the authored-file line limit and so the sync primitive has a focused
 home.
 
 Two strategies, picked at runtime based on which branch is currently

@@ -1,4 +1,4 @@
-"""Tests for HC-file-line-limit (authored file 350-line limit guardrail).
+"""Tests for HC-file-line-limit (authored-file line limit guardrail).
 
 Uses a per-test temp git repo so ``file_line_check.inventory()`` has a real
 ``git ls-files`` surface to walk. ``_resolve_repo_root`` is patched to point
@@ -225,3 +225,18 @@ def test_hc_file_line_limit_records_excluded_counts(
     assert "generated=" in detail
     assert "vendored=" in detail
     assert "data_asset=" in detail
+
+
+def test_hc_file_line_limit_uses_and_names_the_project_limit(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``file_line_limit=200`` moves both the threshold and the label."""
+    _init_git_repo(tmp_path)
+    _commit_file(tmp_path, ".yoke/project.config", "file_line_limit=200\n")
+    _commit_file(tmp_path, "pkg/over.py", _lines(201))
+
+    rec = _run_hc(tmp_path)
+
+    assert rec.results[0].result == "FAIL"
+    assert rec.results[0].check_name == "Authored file 200-line limit"
+    assert "Authored over 200 (1):" in rec.results[0].detail

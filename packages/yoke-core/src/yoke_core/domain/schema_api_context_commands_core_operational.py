@@ -268,8 +268,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "recipe": "yoke check file-line --staged",
         "notes": (
             "Sanctioned local lint tool (not function-call backed). The "
-            "default cap is 350 lines and a project overrides it with a "
-            "`file_line_limit=N` key in `.yoke/project.config` "
+            "limit is the `file_line_limit=N` key in `.yoke/project.config` "
             "(checked in, read off disk, so the offline hook agrees); "
             "comparison "
             "is `new <= limit` (so the limit itself is allowed). Rules: "

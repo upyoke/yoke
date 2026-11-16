@@ -5,7 +5,7 @@ including every generated copy:
 
 ```markdown
 ## File Budget
-- `src/consumer.py` — current 120 lines; remaining headroom 230; at-or-over-limit: false; responsibility: validate requests.
+- `src/consumer.py` — current 120 lines; remaining headroom <limit minus 120>; at-or-over-limit: false; responsibility: validate requests.
 ```
 
-Every row carries all three sizing fields; readiness refuses a row without them. A new file is `current 0 lines; remaining headroom 350; at-or-over-limit: false`. At 330+ lines name the extraction sibling.
+The limit is the project's `file_line_limit` in `.yoke/project.config`; `yoke direct-workflow dash survey` prints it per path. Every row carries all three sizing fields; readiness refuses a row without them. A new file is `current 0 lines; remaining headroom <limit>; at-or-over-limit: false`. Within 20 lines of the limit, name the extraction sibling.

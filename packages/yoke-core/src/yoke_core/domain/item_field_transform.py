@@ -13,7 +13,7 @@ Empty new content is refused before any write. Shrinkage/freeze/empty
 guards on ``execute_structured_write`` are preserved -- the helper never
 provides a silent bypass. Section-scoped operations live in
 :mod:`yoke_core.domain.item_field_transform_sections`, keeping this
-dispatcher under the 350-line file budget while exposing one CLI surface
+dispatcher under the authored-file line limit while exposing one CLI surface
 to operators.
 
 CLI::
@@ -217,7 +217,7 @@ def _read_field(item_id: int, field: str) -> Optional[str]:
 
 # ---------------------------------------------------------------------------
 # Section operations live in the sibling module to keep this dispatcher
-# under the 350-line file budget. They're re-exported here so callers can
+# under the authored-file line limit. They're re-exported here so callers can
 # continue to use ``item_field_transform.section_upsert`` /
 # ``item_field_transform.section_append`` without learning a new import
 # path. The sibling imports ``TransformResult``, ``_NullSink``, and
@@ -234,7 +234,7 @@ from yoke_core.domain.item_field_transform_sections import (  # noqa: E402
 # ---------------------------------------------------------------------------
 # CLI dispatch — implementation lives in the sibling ``item_field_transform_cli``
 # module so the top-level CLI can route through the function dispatcher
-# while this module stays under the 350-line file budget.
+# while this module stays under the authored-file line limit.
 # ---------------------------------------------------------------------------
 
 

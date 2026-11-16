@@ -1,7 +1,7 @@
 """Coordination-lease health-check bundle.
 
 Sibling registry slice carved out of :mod:`doctor_registry` so the parent file
-stays under the 350-line authored-file limit, following the same pattern as
+stays under the authored-file line limit, following the same pattern as
 :mod:`doctor_registry_harness`. Owns the shared-operation lease + audit
 provenance checks.
 

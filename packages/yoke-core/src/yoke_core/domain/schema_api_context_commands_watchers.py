@@ -36,8 +36,7 @@ continued rather than read as finished. Recipe text therefore avoids naming any 
 in both ``main_agent`` and cross-harness packets).
 
 Splitting these into a dedicated topic-sibling keeps the parent
-:mod:`schema_api_context_commands_core` under the 350-line authored-file
-cap while preserving the merged ``WRAPPER_COMMANDS`` export the renderer
+:mod:`schema_api_context_commands_core` under the authored-file line limit while preserving the merged ``WRAPPER_COMMANDS`` export the renderer
 consumes via :mod:`schema_api_context_commands`.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.

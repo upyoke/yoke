@@ -2,7 +2,7 @@
 
 Sibling of :mod:`yoke_core.domain.path_claims_events`. Carries the
 two symlink-canonicalization event names so the parent events module
-stays under its 350-line cap.
+stays under the authored-file line limit.
 
 Required event names:
 

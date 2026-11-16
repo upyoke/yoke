@@ -1,6 +1,6 @@
 """Content-quality doctor HC bundle.
 
-Sibling sub-registry that keeps `doctor_registry.py` under its 350-line cap.
+Sibling sub-registry that keeps `doctor_registry.py` under the authored-file line limit.
 Holds health checks that scan stored content — item content, stored
 presentation values, and item workflow pins — for drift every project can be
 held to.

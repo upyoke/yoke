@@ -7,7 +7,7 @@
  "encounter": "A summary or exact pointer leads here",
  "location": "Canonical nested topic pages under docs/public; matching installed .yoke/docs paths",
  "basis": "Inspected topic homes and shared navigation contract",
- "note": "Concept, procedure, tutorial and reference can be distinct pages within a concept branch. Split by reader need before the 350-line authored-file ceiling.",
+ "note": "Concept, procedure, tutorial and reference can be distinct pages within a concept branch. Split by reader need before the file_line_limit authored-file ceiling.",
  "current": "Public topic homes now live in meaningful branches such as verification, projects, sessions and agents/rules. The navigation contract owns parentage, routes and heading fragments; verification owns exact candidate publication proof. Private operations retain their own authorized owner. Mapping a parent never proves child teaching.",
  "desired": "One owner per rule or recipe, meaningful nesting and breadcrumbs, valid release-matched pointers.",
  "plan_notes": ["New documentation organization proposal"],

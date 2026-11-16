@@ -63,7 +63,7 @@ files_touched: PASS | SKIP - <verified coverage or why absent>
 edited_tests: PASS | SKIP - <edited files run or none>
 clean_worktree: PASS - git -C {worktree-path} status --porcelain is empty
 progress_notes: PASS | SKIP - <epic note evidence or allowed skip>
-file_budget: PASS | SKIP - <authored files <=350 lines or no created/grown code>
+file_budget: PASS | SKIP - <authored files within file_line_limit or no created/grown code>
 ---SUBMISSION-CHECKS-END---
 ```
 

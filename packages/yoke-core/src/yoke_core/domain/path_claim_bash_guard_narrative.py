@@ -1,7 +1,7 @@
 """Narrative text builders for the path-claim Bash guard.
 
 Extracted from :mod:`path_claim_bash_guard` to keep the guard module
-under the 350-line cap. All builders are pure: input dataclasses →
+under the authored-file line limit. All builders are pure: input dataclasses →
 output strings. No DB, no side effects, no ``BashGuardVerdict``
 construction (the guard owns that to avoid a circular import).
 

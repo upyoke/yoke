@@ -3,8 +3,7 @@
 Houses the multi-worktree vocabulary the unified creator uses to handle both
 single-lane and task-lane items through one provisioning loop.
 
-Why this module exists: ``worktree_create.py`` already approaches the
-350-line hard limit owned by ``yoke_core.domain.file_line_check``.
+Why this module exists: ``worktree_create.py`` already approaches the authored-file line limit owned by ``yoke_core.domain.file_line_check``.
 Worktree planning and idempotency classification live
 here so the orchestrator stays small and the creator's per-worktree
 provisioning loop reads top-to-bottom.

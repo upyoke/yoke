@@ -1,7 +1,7 @@
 """Snapshot pre-warm helper for the done-transition engine.
 
 Extracted from :mod:`yoke_core.engines.done_transition_runner` to keep
-that module under its 350-line file-line cap. The single responsibility
+that module under the authored-file line limit. The single responsibility
 is: after a commit lands, build (or look up) the ``path_snapshots`` row
 for the project's new HEAD so subsequent activate / boundary callers do
 not hit a cold-start miss before the global ``post-commit`` hook has

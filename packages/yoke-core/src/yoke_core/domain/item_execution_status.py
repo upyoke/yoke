@@ -30,7 +30,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_one
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_execution_status_helpers import (
-    LINE_LIMIT,
     NEAR_CAP_THRESHOLD,
     collect_latest_transition,
     collect_file_budget,
@@ -90,7 +89,7 @@ def _collect_warnings(
     if file_budget["over_cap_count"]:
         out.append(
             f"{_counted_noun(file_budget['over_cap_count'], 'File Budget path')} over "
-            f"the {LINE_LIMIT}-line cap"
+            f"the {file_budget['limit']}-line cap"
         )
     elif file_budget["near_cap_count"]:
         out.append(

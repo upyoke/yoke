@@ -1,7 +1,6 @@
 """Yoke function handlers for path-claim activation + coordination decision.
 
-Separated from :mod:`claims_path` so each handler module stays under the
-350-line file budget. Operations:
+Separated from :mod:`claims_path` so each handler module stays under the authored-file line limit. Operations:
 
 - ``claims.path.required_gate`` — evaluate the idea/refine coverage gate.
 - ``claims.path.activation_run`` — run the activation phase for an item.

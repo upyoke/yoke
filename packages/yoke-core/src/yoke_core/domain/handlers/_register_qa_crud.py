@@ -3,8 +3,7 @@ qa.requirement.{list,get,add,add_batch}, qa.run.{list,get},
 qa.gate_summary.run.
 
 Sibling of :mod:`_register_qa_reads` (which holds the earlier qa.* +
-reads/checks/renders block); split out so each registrar stays under the
-350-line authored cap.
+reads/checks/renders block); split out so each registrar stays under the authored-file line limit.
 """
 
 from __future__ import annotations

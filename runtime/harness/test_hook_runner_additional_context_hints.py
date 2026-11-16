@@ -8,7 +8,7 @@ from typing import Any, Iterable
 import pytest
 from runtime.harness.hook_project_scope_test_support import project_map as project_map
 
-from yoke_core.domain.file_line_check import LIMIT as FILE_LINE_LIMIT
+from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.decision_render import (
@@ -68,7 +68,7 @@ def test_file_line_limit_through_runner_reaches_claude_output(
     project_map["connection_projects"]["local"] = [
         {"checkout": str(tmp_path), "project_id": 1}
     ]
-    over_cap = "x = 1\n" * (FILE_LINE_LIMIT + 5)
+    over_cap = "x = 1\n" * (DEFAULT_LIMIT + 5)
     target = tmp_path / "module_under_test.py"
     payload = json.dumps(
         {
@@ -88,4 +88,4 @@ def test_file_line_limit_through_runner_reaches_claude_output(
     envelope = json.loads(text)
     hook = envelope["hookSpecificOutput"]
     assert hook["hookEventName"] == "PreToolUse"
-    assert "350-line authored-file cap" in hook["additionalContext"]
+    assert f"{DEFAULT_LIMIT}-line authored-file cap" in hook["additionalContext"]

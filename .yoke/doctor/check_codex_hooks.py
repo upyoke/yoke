@@ -12,7 +12,7 @@ and the SMOKE-TEST + parity-map docs):
   parity map's Codex sections) name the live matcher set.
 
 The ``HC-apply-patch-*`` smoke checks live in ``doctor_hc_apply_patch`` to keep
-each module comfortably below the 350-line cap.
+each module comfortably below the authored-file line limit.
 """
 
 from __future__ import annotations

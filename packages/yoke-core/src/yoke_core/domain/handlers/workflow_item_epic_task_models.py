@@ -1,7 +1,7 @@
 """Pydantic request/response models for ``workflow_item.epic_task.*``.
 
 Split out of :mod:`workflow_item_epic_task` to keep the handler module
-under the 350-line authored-file budget. The handler module imports
+under the authored-file line limit. The handler module imports
 every model from here. New handlers in the family register one model
 pair (request + response) below alongside the existing six.
 """

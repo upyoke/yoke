@@ -11,8 +11,8 @@ Two axes are budgeted, and the byte axis is the one that matters for
 delivery. A line budget bounds nothing a harness truncates on: a packet can
 sit under a 438-line cap while spending 107,818 bytes, because nothing stops
 one line from carrying two thousand of them. Worse, a line-only cap rewards
-exactly that shape — the observed root rules file reached 350 lines and
-113,502 bytes with a single 6,981-byte line. Lines remain budgeted because
+exactly that shape — the observed root rules file stayed inside its line
+budget yet reached 113,502 bytes with a single 6,981-byte line. Lines remain budgeted because
 they keep a packet readable; bytes are budgeted because they decide whether
 the packet arrives.
 

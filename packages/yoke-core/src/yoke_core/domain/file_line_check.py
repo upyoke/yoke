@@ -48,7 +48,6 @@ from yoke_core.domain.file_line_check_helpers import (
     staged_new_count,
 )
 from yoke_contracts.project_contract.file_line_policy import (
-    DEFAULT_LIMIT,
     default_exception_globs,
     resolve_file_line_policy,
     generated_path_globs,
@@ -69,8 +68,6 @@ from yoke_core.domain.file_line_check_helpers import EMPTY_TREE as _EMPTY_TREE
 from yoke_core.domain.strategy_docs_paths import is_strategy_view_path
 
 
-LIMIT: int = DEFAULT_LIMIT
-
 # Built-in exceptions live in yoke_contracts so this source-dev checker and
 # the product-safe checker share one default set. Project-local additions live
 # in .yoke/project.config and are resolved per repo_root at run time.
@@ -82,7 +79,6 @@ ARCHIVE_EXCEPTIONS: tuple[str, ...] = ("docs/archive/**",)
 
 
 __all__ = (
-    "LIMIT",
     "TEMPORARY_EXCEPTIONS",
     "ARCHIVE_EXCEPTIONS",
     "Classification",
@@ -311,7 +307,7 @@ def changed_files_check(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser(LIMIT)
+    parser = build_parser()
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:

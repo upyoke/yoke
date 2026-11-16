@@ -19,6 +19,11 @@ from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_comman
 from yoke_contracts.hook_runner.main_commit import git_invocations
 from yoke_contracts.hook_runner.shell_expansion_scan import double_quoted_spans
 from yoke_contracts.hook_runner.shell_parse import ShellParse
+from yoke_contracts.project_contract.file_line_policy import (
+    DEFAULT_LIMIT,
+    PROJECT_CONFIG_REL,
+    project_limit,
+)
 from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
     LIVE_DENY,
@@ -155,18 +160,34 @@ def lint_tmp_runtime_import(payload: dict, shell: ShellParse) -> PolicyResult:
     )
 
 
+def _target_line_limit(file_path: str, cwd: object) -> int:
+    """Resolve ``file_line_limit`` for the repo that holds ``file_path``.
+
+    The nearest ancestor carrying ``.yoke/project.config`` owns the limit;
+    with no such repo the default applies.
+    """
+    target = Path(file_path)
+    if not target.is_absolute():
+        target = Path(cwd if isinstance(cwd, str) and cwd else os.getcwd()) / target
+    for parent in target.parents:
+        if (parent / PROJECT_CONFIG_REL).is_file():
+            return project_limit(parent)
+    return DEFAULT_LIMIT
+
+
 def hint_file_line(payload: dict, shell: ShellParse) -> PolicyResult:
     file_path, content = write_fields(payload)
     if not file_path:
         return PolicyResult(NOOP)
     lines = content.count("\n") if content.endswith("\n") else content.count("\n") + 1
-    if lines <= 350:
+    limit = _target_line_limit(file_path, payload.get("cwd"))
+    if lines <= limit:
         return PolicyResult(NOOP)
     return PolicyResult(
         ADVISORY,
         additional_context=(
             f"This Write would land `{file_path}` at {lines} lines, over the "
-            "350-line authored-file cap. Split or compress before committing."
+            f"{limit}-line authored-file cap. Split or compress before committing."
         ),
     )
 

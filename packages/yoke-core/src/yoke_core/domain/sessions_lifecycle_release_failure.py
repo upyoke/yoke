@@ -1,7 +1,7 @@
 """Failure-mode disambiguation + event emission for claim release.
 
 Split out of ``sessions_lifecycle_release.py`` to keep the parent module
-under the 350-line hard limit. Owns:
+under the authored-file line limit. Owns:
 
 - The ``RELEASE_FAILURE_*`` failure-tag constants.
 - ``diagnose_target_release_miss`` — typed-target variant: distinguishes

@@ -1,11 +1,11 @@
-"""PreToolUse Write hint: warn before a Write pushes a file over the 350-line cap.
+"""PreToolUse Write hint: warn before a Write pushes a file over the authored-file line limit.
 
 The commit-time gate (``file_line_check``) catches over-cap writes but
 only at ``git commit`` — by then the agent has invested several tool
 calls drafting content that won't ship. This hint fires earlier: on
 ``PreToolUse(Write)``, it counts the would-be lines and emits a
 passive ``additionalContext`` reminder when the new file would land
-over the 350-line cap (matching the same three rules
+over the project's ``file_line_limit`` (matching the same three rules
 ``file_line_check`` applies: new over-cap file, growth past cap, or
 further growth of an already-over-cap file).
 
@@ -26,8 +26,8 @@ import pathlib
 import sys
 from typing import Optional
 
+from yoke_contracts.project_contract.file_line_policy import project_limit
 from yoke_core.domain.file_line_check import (
-    LIMIT,
     Classification,
     classify_path,
 )
@@ -78,13 +78,13 @@ def _read_existing_count(abs_path: pathlib.Path) -> int:
         return 0
 
 
-def _build_hint(file_path: str, old: int, new: int) -> str:
+def _build_hint(file_path: str, old: int, new: int, limit: int) -> str:
     """Build the additionalContext reminder string."""
     delta = "new file" if old == 0 else f"{old} -> {new}"
     return (
         "<system-reminder>\n"
         f"This Write would land `{file_path}` at {new} lines, over the "
-        f"{LIMIT}-line authored-file cap ({delta}).\n"
+        f"{limit}-line authored-file cap ({delta}).\n"
         "\n"
         "The commit-time gate (`file_line_check`) will refuse the "
         "commit. Cheap options to bring the file under cap, in "
@@ -111,7 +111,7 @@ def evaluate_fields(
     content: str,
     existing_line_count: int,
     classification: Classification,
-    limit: int = LIMIT,
+    limit: int,
 ) -> Optional[str]:
     """Return the hint string when the Write would put the file over cap.
 
@@ -131,7 +131,7 @@ def evaluate_fields(
         return None
     if new <= limit:
         return None
-    return _build_hint(file_path, existing_line_count, new)
+    return _build_hint(file_path, existing_line_count, new, limit)
 
 
 def evaluate(record: HookContext) -> HookDecision:
@@ -153,7 +153,9 @@ def evaluate(record: HookContext) -> HookDecision:
         existing = _read_existing_count(abs_path)
     except (ValueError, OSError):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    hint = evaluate_fields(file_path, content, existing, classification)
+    hint = evaluate_fields(
+        file_path, content, existing, classification, project_limit(repo_root)
+    )
     if hint is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     return HookDecision(

@@ -2,8 +2,7 @@
 
 Sibling modules carry the remaining read families (``reads_misc`` for
 path_claims.conflicts.list / doctor.run.run / projects.capability.has;
-``events_reads`` for the events.* reads) so each file stays under the
-350-line budget.
+``events_reads`` for the events.* reads) so each file stays under the authored-file line limit.
 
 All function ids registered from these modules carry
 ``claim_required_kind=None`` (reads do not require an active claim).

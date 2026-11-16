@@ -3,7 +3,7 @@
 Tiny module — extracted from
 :mod:`yoke_cli.commands.flag_adapters` so per-family adapter
 modules can import the same primitives without forcing the parent
-file over the 350-line authored cap. Pure plumbing — no per-family
+file over the authored-file line limit. Pure plumbing — no per-family
 flag logic lives here.
 """
 

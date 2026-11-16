@@ -13,7 +13,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from yoke_core.domain.file_budget_sizing import FILE_BUDGET_REMEDIATION
+from yoke_contracts.project_contract.file_line_policy import project_limit
+from yoke_core.domain.file_budget_sizing import file_budget_remediation
 from yoke_core.domain.file_budget_paths import (
     extract_file_budget_paths_set,
     has_unresolved_file_budget,
@@ -209,6 +210,7 @@ def run_all_checks(
     unavailable: List[UnavailableValidation] = []
     advisories: List[Any] = []
     budget_gate = evaluate_file_budget(conn, item_id)
+    checkout = item_project_checkout(conn, item_id)
     if budget_gate["verdict"] != "pass" and not _missing_file_budget_allowed(
         conn, item_id, spec_text
     ):
@@ -216,10 +218,11 @@ def run_all_checks(
             Issue(
                 code="MISSING_FILE_BUDGET",
                 message=str(budget_gate["reason"]),
-                remediation=FILE_BUDGET_REMEDIATION,
+                remediation=file_budget_remediation(
+                    project_limit(checkout) if checkout is not None else None
+                ),
             )
         )
-    checkout = item_project_checkout(conn, item_id)
     if checkout is None:
         observed, advisories, unavailable = checkout_absent_findings(
             conn,

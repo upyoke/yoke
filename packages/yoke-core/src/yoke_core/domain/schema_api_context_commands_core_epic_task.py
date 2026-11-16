@@ -1,7 +1,7 @@
 """``core`` topic — epic-task-scoped recipes for the agent-context packet.
 
 Extracted from :mod:`schema_api_context_commands_core` to keep that
-module under the 350-line authored-file cap. Merged into the canonical
+module under the authored-file line limit. Merged into the canonical
 ``CORE_COMMANDS`` export from the parent module.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.

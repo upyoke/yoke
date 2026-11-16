@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
 from yoke_core.domain.idea_readiness_observation_admission import admit_issues
 from yoke_core.domain.idea_readiness_results import Issue
 from yoke_core.domain.idea_readiness_scope_budget import (
@@ -45,7 +46,7 @@ def _check(spec: str, repo: Path) -> list[Issue]:
 
 def test_missing_scoped_row_blocks_with_count_and_row(tmp_path):
     repo = _repo(tmp_path)
-    spec = _spec("Change", budget_rows=[budget_row(_LISTED, 10)])
+    spec = _spec("Change", budget_rows=[budget_row(_LISTED, 10, DEFAULT_LIMIT)])
 
     issues = _check(spec, repo)
 
@@ -58,11 +59,22 @@ def test_missing_scoped_row_blocks_with_count_and_row(tmp_path):
     assert row in issues[0].remediation
 
 
+def test_missing_row_is_sized_against_project_limit(tmp_path):
+    repo = _repo(tmp_path)
+    (repo / ".yoke").mkdir()
+    (repo / ".yoke/project.config").write_text("file_line_limit=200\n")
+    spec = _spec("Change", budget_rows=[budget_row(_LISTED, 10, 200)])
+
+    issues = _check(spec, repo)
+
+    assert "remaining headroom 188;" in issues[0].context["row"]
+
+
 def test_every_scope_row_present_passes(tmp_path):
     repo = _repo(tmp_path)
     spec = _spec(
         "Fix",
-        budget_rows=[budget_row(_LISTED, 10), budget_row(_MISSING, 12)],
+        budget_rows=[budget_row(_LISTED, 10, DEFAULT_LIMIT), budget_row(_MISSING, 12, DEFAULT_LIMIT)],
     )
 
     assert _check(spec, repo) == []
@@ -71,7 +83,7 @@ def test_every_scope_row_present_passes(tmp_path):
 def test_context_sections_are_not_scope(tmp_path):
     repo = _repo(tmp_path)
     for section in ("Cause", "Tests"):
-        spec = _spec(section, budget_rows=[budget_row(_LISTED, 10)])
+        spec = _spec(section, budget_rows=[budget_row(_LISTED, 10, DEFAULT_LIMIT)])
         assert _check(spec, repo) == []
 
 
@@ -83,7 +95,7 @@ def test_spec_without_file_budget_is_not_checked(tmp_path):
 
 def test_host_without_checkout_admits_reported_issue(tmp_path):
     repo = _repo(tmp_path)
-    spec = _spec("Scope", budget_rows=[budget_row(_LISTED, 10)])
+    spec = _spec("Scope", budget_rows=[budget_row(_LISTED, 10, DEFAULT_LIMIT)])
     payloads = [
         {"code": i.code, "message": i.message,
          "remediation": i.remediation, "context": i.context}
@@ -97,7 +109,7 @@ def test_host_without_checkout_admits_reported_issue(tmp_path):
 
 
 def test_host_without_checkout_rejects_path_outside_scope(tmp_path):
-    spec = _spec("Change", budget_rows=[budget_row(_LISTED, 10)])
+    spec = _spec("Change", budget_rows=[budget_row(_LISTED, 10, DEFAULT_LIMIT)])
     payload = {
         "code": SCOPED_PATH_NOT_IN_FILE_BUDGET, "message": "m",
         "remediation": "r", "context": {"path": "pkg/other.py"},

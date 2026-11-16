@@ -2,7 +2,7 @@
 
 Used by owner verification in
 :mod:`yoke_core.domain.idea_readiness_check`. Lives in a sibling
-module so the readiness-check file stays under the 350-line cap and so
+module so the readiness-check file stays under the authored-file line limit and so
 tests have a stable monkeypatch target for missing-rg scenarios.
 """
 

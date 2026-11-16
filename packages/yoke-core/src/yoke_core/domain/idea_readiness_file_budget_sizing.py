@@ -6,10 +6,10 @@ import re
 from pathlib import Path
 from typing import Any, Callable
 
-from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
+from yoke_contracts.project_contract.file_line_policy import project_limit
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
 from yoke_core.domain.file_budget_sizing import (
-    FILE_BUDGET_REMEDIATION, parse_file_budget_sizing,
+    file_budget_remediation, parse_file_budget_sizing,
 )
 from yoke_core.domain.idea_readiness_results import (
     MISSING_FILE_BUDGET_SIZING,
@@ -18,7 +18,8 @@ from yoke_core.domain.idea_readiness_results import (
     STALE_LINE_COUNT,
 )
 
-SIBLING_REQUIRED_THRESHOLD = 330
+# A file within this many lines of the limit needs a sibling plan.
+SIBLING_PLAN_MARGIN = 20
 _SIBLING_PATTERN = re.compile(
     r"\bsibling\b|\bextract\b|\bnew sibling\b|\bsibling module\b",
     re.IGNORECASE,
@@ -32,6 +33,9 @@ def verify_file_budget_sizing(
     issue_type: Callable[..., Any],
 ) -> list[Any]:
     issues: list[Any] = []
+    limit = project_limit(repo_root)
+    sibling_threshold = limit - SIBLING_PLAN_MARGIN
+    remediation = file_budget_remediation(limit)
     entries = {entry.path: entry for entry in parse_file_budget_sizing(spec_text)}
     for rel in extract_file_budget_paths(spec_text):
         entry = entries.get(rel)
@@ -39,7 +43,7 @@ def verify_file_budget_sizing(
             issues.append(issue_type(
                 code=MISSING_FILE_BUDGET_SIZING,
                 message=f"File Budget path {rel} has no complete sizing fields",
-                remediation=FILE_BUDGET_REMEDIATION,
+                remediation=remediation,
                 context={"path": rel},
             ))
             continue
@@ -57,21 +61,21 @@ def verify_file_budget_sizing(
                     remediation=f"refresh the File Budget sizing for {rel}",
                     context={
                         "path": rel, "recorded": entry.current_line_count,
-                        "actual": actual,
+                        "actual": actual, "limit": limit,
                     },
                 ))
-            if actual >= SIBLING_REQUIRED_THRESHOLD and not _SIBLING_PATTERN.search(spec_text):
+            if actual >= sibling_threshold and not _SIBLING_PATTERN.search(spec_text):
                 issues.append(issue_type(
                     code=MISSING_SIBLING_PLAN,
                     message=(
                         f"{rel} is at {actual} lines (>= "
-                        f"{SIBLING_REQUIRED_THRESHOLD}) but has no sibling plan"
+                        f"{sibling_threshold}) but has no sibling plan"
                     ),
                     remediation="declare an explicit sibling-module extraction plan",
                     context={"path": rel, "lines": actual},
                 ))
-        expected_headroom = DEFAULT_LIMIT - entry.current_line_count
-        expected_flag = entry.current_line_count >= DEFAULT_LIMIT
+        expected_headroom = limit - entry.current_line_count
+        expected_flag = entry.current_line_count >= limit
         if (
             entry.remaining_headroom != expected_headroom
             or entry.at_or_over_limit != expected_flag
@@ -79,7 +83,7 @@ def verify_file_budget_sizing(
             issues.append(issue_type(
                 code=STALE_FILE_BUDGET_SIZING,
                 message=f"File Budget sizing facts disagree for {rel}",
-                remediation=FILE_BUDGET_REMEDIATION,
+                remediation=remediation,
                 context={
                     "path": rel, "recorded": entry.current_line_count,
                     "expected_headroom": expected_headroom,
@@ -89,4 +93,4 @@ def verify_file_budget_sizing(
     return issues
 
 
-__all__ = ["SIBLING_REQUIRED_THRESHOLD", "verify_file_budget_sizing"]
+__all__ = ["SIBLING_PLAN_MARGIN", "verify_file_budget_sizing"]

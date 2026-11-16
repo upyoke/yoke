@@ -1,7 +1,6 @@
 """Architecture-impact body-section renderer.
 
-Sibling of :mod:`render_body` so the parent module stays under the
-350-line authored-file cap. Owns the formatting of the
+Sibling of :mod:`render_body` so the parent module stays under the authored-file line limit. Owns the formatting of the
 ``## Architecture Impact`` section, which surfaces the item's
 :mod:`yoke_core.domain.architecture_impact` enum classification for
 human review on the rendered body.

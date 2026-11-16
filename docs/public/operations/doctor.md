@@ -229,8 +229,8 @@ mismatch and an unreadable authority retain their own failure reasons.
 
 ## Authored-file exceptions
 
-The pre-commit checker and every governed landing enforce the project limit
-(default 350 lines). An oversized authored file, including a
+The pre-commit checker and every governed landing enforce the project's
+`file_line_limit`. An oversized authored file, including a
 `file_line_exception` entry in `.yoke/project.config`, can only stay the same
 size or shrink. Split the file by responsibility before adding more lines.
 Use repeated `file_line_grow_allowed` globs only for generated or data

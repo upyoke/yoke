@@ -1,6 +1,6 @@
 """Pre-relay identity refusal, replay gating, and client-anchor bookkeeping.
 
-Extracted from the relay module so ``relay.py`` stays at the 350-line cap
+Extracted from the relay module so ``relay.py`` stays at the authored-file line limit
 while the refusal, conversation-shaped rejection, and replay skips live
 in one place.
 """

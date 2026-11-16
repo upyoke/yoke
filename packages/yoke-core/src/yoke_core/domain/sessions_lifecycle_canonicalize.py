@@ -3,7 +3,7 @@
 Splits an inbound executor argument (and optional entrypoint) into the
 ``(canonical_executor, executor_surface)`` pair persisted by
 ``register_session``. Lives in a sibling module so
-``sessions_lifecycle_registry.py`` stays under the 350-line cap.
+``sessions_lifecycle_registry.py`` stays under the authored-file line limit.
 """
 
 from __future__ import annotations

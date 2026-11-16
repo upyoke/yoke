@@ -9,6 +9,7 @@ import posixpath
 import tempfile
 from urllib.parse import quote
 
+from yoke_core.domain.documentation_line_limit import documentation_line_limit
 from yoke_core.domain.documentation_markdown import parse_markdown
 from yoke_contracts.response_evidence import wrapped_lines
 
@@ -123,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             failures = 0
+            limit = documentation_line_limit()
             for path in pages:
                 original = path.read_text(encoding="utf-8")
                 count = wrapped_lines(original)
@@ -132,9 +134,9 @@ def main(argv: list[str] | None = None) -> int:
                     print(
                         f"REVIEW {page}: above the advisory 20,000 characters; review readability and coherent topic boundaries"
                     )
-                if count > 350:
+                if count > limit:
                     print(
-                        f"LINE_LIMIT {page}: above 350 wrapped lines. Repair: split at meaningful topic boundaries"
+                        f"LINE_LIMIT {page}: above {limit} wrapped lines. Repair: split at meaningful topic boundaries"
                     )
                     failures += 1
             return int(bool(failures))

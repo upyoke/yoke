@@ -21,6 +21,7 @@ from contextlib import redirect_stdout
 
 import pytest
 
+from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
 from yoke_core.domain import file_line_check as flc
 
 
@@ -186,7 +187,7 @@ def test_report_json_shape(repo: pathlib.Path) -> None:
         rc = flc.main(["report", "--json", "--repo", str(repo)])
     assert rc == 0
     payload = json.loads(buf.getvalue())
-    assert payload["limit"] == flc.LIMIT
+    assert payload["limit"] == DEFAULT_LIMIT
     assert isinstance(payload["entries"], list)
     first = payload["entries"][0]
     assert set(first.keys()) == {"path", "line_count", "classification"}

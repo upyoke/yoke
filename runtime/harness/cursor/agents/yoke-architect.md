@@ -142,8 +142,8 @@ _Depth:_ `yoke packets render --role architect_agent --topic claims --detail ful
 
 <!-- YOKE:DB-PACKET end -->
 
-Run Yoke operations through `yoke <subcommand>`, and keep each authored file at
-350 lines or fewer. When a command refuses, follow the fix it names.
+Run Yoke operations through `yoke <subcommand>`, and keep each authored file
+within the project's `file_line_limit`. When a command refuses, follow the fix it names.
 Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
 yoke feedback --to universe --category observation --evidence 'Project finding: ...'
