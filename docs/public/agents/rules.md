@@ -26,11 +26,9 @@ command's `--help` ends with its recipe. Claude-only steps live in
 
 ## Failures
 
-- A verification failure in this item belongs to this item. A future item or a
-  planned path claim is not a waiver. Fix it here unless a live conflict or an
-  explicit operator waiver applies.
-- Update a test your change made stale. Never weaken a behavior assertion to
-  make it pass.
+- A future item or a planned path claim is not a verification waiver. Fix it
+  here unless a live conflict or an explicit operator waiver applies.
+- Update a test your change made stale.
 - A flaky test is a defect. If this item caused it, or it lives in a file this
   item touches, fix it here. Otherwise file it and wait on the fix:
 
@@ -121,8 +119,7 @@ variables or pattern matchers. Directory names explain purpose.
 - A dependency gate holds only its step. Activation: do not start or staff yet.
   Integration: work, test and open the pull request now; merge after it clears.
   Closure: work and merge now; close after it clears. Park only at the held step.
-- Never discard changes, stashes or files you did not create without the
-  user's authority. Commit or stash with a message first.
+- Before an authorized discard, commit or stash with a message first.
 - A command you moved to the background is still running. Wait for it to
   exit; never start it again beside itself.
 - Before you report a session dead, check its current process. Newer activity
@@ -130,8 +127,6 @@ variables or pattern matchers. Directory names explain purpose.
 
 ## Sessions
 
-- A failure the system should have handled is a system gap. Before any manual
-  recovery, find its root cause and file feedback or `/yoke idea`.
 - On a watcher wake, tell the user in one sentence what changed (an item, a
   pull request, a failing test), or nothing. Use Fleet mail only for blockers,
   conflicts, red gates, decisions and results.

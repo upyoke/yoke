@@ -3,7 +3,9 @@
 Answer every row the same turn: act, or write one line saying why the wait is
 still sound. Live rows win over remembered plans. A row that should clear itself
 (unmergeable queue entry, missing notice, refused worker command) is a
-[system gap](../../../../.yoke/docs/agents/rules.md#sessions).
+system gap: before manual recovery, root-cause it with a subagent and file
+feedback. Never report the workaround as routine. Apply that rule before any
+wake, retry or close-out recovery below; expected waits need no recovery.
 
 - **Available / `unstaffed-ready`**: recheck the holder, then launch.
 - **Deadlock / waiting chains**: staff a `!` blocker, or narrow or remove the
@@ -16,7 +18,8 @@ yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-p
 - **Waiting to land / in flight**: do not staff; quiet is expected. Leave an
   unmergeable queue entry to its holder and observer; never message it.
 - **Unattended linked work / mail awaiting a seat**: take the named seat.
-- **Idle holder**: message it; `native_process_gone` means wake, not terminate.
+- **Idle holder**: inspect the evidence; after root-cause-and-file,
+  `native_process_gone` means wake, not terminate. Message a live quiet holder.
 - **Undelivered message**: wake only if no attempt is moving. An ended
   recipient: handle or re-address its work, then `yoke messages cancel MESSAGE-ID`.
 - **Unregistered or abandoned launch**: read its failure, then reconcile or
@@ -25,6 +28,8 @@ yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-p
 - **Landed without close-out**: holder reruns `yoke merge item PREFIX-N`; never
   merge twice.
 - **Dead wait**: answer for the ended session.
+
+After root-cause-and-file, use the supported recovery and label it a workaround:
 
 ```text
 yoke session-control evidence get --session SESSION-ID
