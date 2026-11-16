@@ -62,7 +62,7 @@ ENTRY = ["-I", "-c", RELEASE_ENTRY, RECOVERY]
 @contextmanager
 def locked(path: Path, *, nonblocking: bool = False):
     """Hold an exclusive lock on ``path``, waiting up to 30 seconds."""
-    with path.open("a+") as handle:
+    with path.open("a+", encoding="utf-8") as handle:
         handle.seek(0)  # Windows locks a byte range from the file position.
         deadline = time.monotonic() + 30
         if not _try_lock(handle):
@@ -108,7 +108,7 @@ def _generation(root: Path) -> Path:
 
 def _lease(generation: Path):
     """Open a release's lease for as long as this process uses the release."""
-    lease = (generation / "lease").open("r")
+    lease = (generation / "lease").open("r", encoding="utf-8")
     if not WINDOWS:  # Cleanup may have retired it while the lock waited.
         fcntl.flock(lease, fcntl.LOCK_SH)
         if os.fstat(lease.fileno()).st_ino != (generation / "lease").stat().st_ino:
@@ -327,7 +327,7 @@ def uninstall(root: Path, bin_dir: Path) -> None:
                 raise BlockingIOError(f"CLI release still running: {release}")
         launcher = root / "launcher"
         for shim in (bin_dir / "yoke", bin_dir / "yoke.cmd"):
-            text = shim.read_text(errors="replace") if shim.is_file() else ""
+            text = shim.read_text(encoding="utf-8", errors="replace") if shim.is_file() else ""
             if launcher.as_posix() in text or str(launcher) in text:
                 shim.unlink()
     _remove_tree(root)
