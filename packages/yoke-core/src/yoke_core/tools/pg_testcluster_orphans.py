@@ -81,7 +81,7 @@ def _single_sweeper():
     root = _frontend()._root()
     try:
         root.mkdir(parents=True, exist_ok=True)
-        handle = (root / _SWEEP_LOCK_FILENAME).open("a+b")
+        handle = (root / _SWEEP_LOCK_FILENAME).open(mode="a+b")
     except OSError as exc:
         sys.stderr.write(f"pgtest_sweep_lock_unavailable: {exc}; repair the cluster root and retry prune\n")
         yield False
