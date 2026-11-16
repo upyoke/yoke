@@ -45,6 +45,13 @@ SUPERVISION_DIRECTORY_NAME = "session-launch-supervision"
 
 def _directory(state_dir: Path | None = None) -> Path:
     root = state_dir or machine_config.cache_dir()
+    missing = []
+    ancestor = root
+    while not ancestor.exists():
+        missing.append(ancestor)
+        ancestor = ancestor.parent
+    for ancestor in reversed(missing):
+        create_owner_private_directory(ancestor)
     directory = root / SUPERVISION_DIRECTORY_NAME
     create_owner_private_directory(directory)
     return directory
