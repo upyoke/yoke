@@ -27,6 +27,7 @@ BUNDLE_DESIGNED_WAIT_NAME = "_yoke_designed_wait.py"
 BUNDLE_PLATFORM_FILE_LOCK_NAME = "_yoke_platform_file_lock.py"
 BUNDLE_PLATFORM_FILE_SYNC_NAME = "_yoke_platform_file_sync.py"
 BUNDLE_WINDOWS_PRIVATE_DIRECTORY_NAME = "_yoke_windows_private_directory.py"
+BUNDLE_OWNER_PRIVATE_PATH_NAME = "_yoke_owner_private_path.py"
 BUNDLE_FILE_PERMISSIONS_NAME = "_yoke_github_git_credential_permissions.py"
 BUNDLE_FILE_IO_NAME = "_yoke_github_git_credential_file.py"
 BUNDLE_DOCUMENT_NAME = "_yoke_github_git_credential_document.py"
@@ -45,6 +46,7 @@ BUNDLE_MODULE_NAMES = (
     BUNDLE_PLATFORM_FILE_LOCK_NAME,
     BUNDLE_PLATFORM_FILE_SYNC_NAME,
     BUNDLE_WINDOWS_PRIVATE_DIRECTORY_NAME,
+    BUNDLE_OWNER_PRIVATE_PATH_NAME,
     BUNDLE_FILE_PERMISSIONS_NAME,
     BUNDLE_FILE_IO_NAME,
     BUNDLE_DOCUMENT_NAME,
@@ -191,8 +193,28 @@ def _verified_bundle_sources(
     return sources
 
 
+def _writable_by_others(info: os.stat_result) -> bool:
+    """Return whether POSIX mode bits let group or others write the file.
+
+    Windows mode bits carry only the read-only attribute, so they say
+    nothing about other accounts. There the helper relies on the per-user
+    install directory's ACL and on the bundle's content hash.
+    """
+    return os.name != "nt" and bool(stat.S_IMODE(info.st_mode) & 0o022)
+
+
+#: Read flags for helper sources: binary on Windows (``os.open`` defaults to
+#: text mode there, which would rewrite line endings and break the hash).
+_READ_FLAGS = (
+    os.O_RDONLY
+    | getattr(os, "O_BINARY", 0)
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_NONBLOCK", 0)
+)
+
+
 def _read_regular(path: Path, *, maximum: int) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    flags = _READ_FLAGS
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:
@@ -203,7 +225,7 @@ def _read_regular(path: Path, *, maximum: int) -> bytes:
         info = os.fstat(descriptor)
         if (
             not stat.S_ISREG(info.st_mode)
-            or stat.S_IMODE(info.st_mode) & 0o022
+            or _writable_by_others(info)
             or info.st_size > maximum
         ):
             raise GitHubCredentialLauncherError(
@@ -254,6 +276,7 @@ __all__ = [
     "BUNDLE_MODULE_NAMES",
     "BUNDLE_OAUTH_TRANSPORT_NAME",
     "BUNDLE_ORIGIN_NAME",
+    "BUNDLE_OWNER_PRIVATE_PATH_NAME",
     "BUNDLE_PLATFORM_FILE_LOCK_NAME",
     "BUNDLE_PLATFORM_FILE_SYNC_NAME",
     "BUNDLE_WINDOWS_PRIVATE_DIRECTORY_NAME",

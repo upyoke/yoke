@@ -140,8 +140,9 @@ def test_check_covers_every_bundle_source_and_launcher():
         [sys.executable, "-c", installer.HELPER_SOURCE_CHECK],
         capture_output=True, text=True, check=True,
     )
-    assert json.loads(result.stdout)["checked"] == 19
-    assert len(github_git_credential_bundle._bundle_sources()) + 1 == 19
+    # Every bundled module plus the launcher; tracks the bundle as it grows.
+    expected = len(github_git_credential_bundle._bundle_sources()) + 1
+    assert json.loads(result.stdout)["checked"] == expected
 
 
 def test_permissive_parent_umask_installs_safe_helpers_and_reuses_warm_cache(
