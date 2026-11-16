@@ -93,8 +93,9 @@ def check_authored_file_limit(
     )
     # Each failure names its file and the limit it broke, so the CI line
     # alone says what to split or shorten.
+    limit = flc.resolved_policy(repo_root).limit
     failures = [
-        f"{change.path}: {change.new_line_count} lines, limit {flc.LIMIT}"
+        f"{change.path}: {change.new_line_count} lines, limit {limit}"
         for change in verdict.hard_fails
     ]
     return verdict.ok, "; ".join([verdict.summary, *failures])

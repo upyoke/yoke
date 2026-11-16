@@ -12,10 +12,10 @@ from yoke_contracts.timestamps import as_utc, format_instant, parse_instant
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.project_contract.file_line_policy import project_limit
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
-from yoke_core.domain.file_line_check import LIMIT as LINE_LIMIT
 from yoke_core.domain.file_line_check_helpers import line_count_file
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_summary import render_gate_summary
@@ -246,12 +246,13 @@ def collect_file_budget(spec_text: str, *, repo_root: Path) -> Dict[str, Any]:
     paths = extract_file_budget_paths(spec_text or "")
     entries: List[Dict[str, Any]] = []
     near_cap = over_cap = missing = 0
+    limit = project_limit(repo_root)
     for rel in paths:
         abs_path = repo_root / rel
         exists = abs_path.is_file()
         line_count = line_count_file(abs_path) if exists else 0
         is_near = bool(exists and line_count > NEAR_CAP_THRESHOLD)
-        is_over = bool(exists and line_count > LINE_LIMIT)
+        is_over = bool(exists and line_count > limit)
         missing += 0 if exists else 1
         near_cap += int(is_near)
         over_cap += int(is_over)
@@ -270,7 +271,7 @@ def collect_file_budget(spec_text: str, *, repo_root: Path) -> Dict[str, Any]:
         "over_cap_count": over_cap,
         "missing_count": missing,
         "near_cap_threshold": NEAR_CAP_THRESHOLD,
-        "limit": LINE_LIMIT,
+        "limit": limit,
         "paths": entries,
     }
 

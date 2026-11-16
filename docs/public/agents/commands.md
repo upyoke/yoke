@@ -14,7 +14,7 @@ Target harness manifests own available tools/hooks. Source maintainers use
 Invoke the installed `yoke` skill with `/yoke`, for example `/yoke onboard`.
 Select `yoke` in the skill picker; onboarding is a route within that skill.
 
-The universal authored-file limit is 350 lines, enforced where files are
+The authored-file limit is the project's `file_line_limit`, enforced where files are
 readable by pre-commit, survey and Doctor. Active work-claim rows authorize
 registered lanes. File Budget and path claims are
 independent effective workflow policies; parity applies only when both are

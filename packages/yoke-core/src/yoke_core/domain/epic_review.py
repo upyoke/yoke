@@ -1,7 +1,6 @@
 """Review orchestration, progress notes, and proceed triage handoff.
 
-Split from ``yoke_core.domain.epic`` to keep that file under the
-350-line limit.  All public names remain callable on the ``epic`` module object
+Split from ``yoke_core.domain.epic`` to keep that file under the authored-file line limit.  All public names remain callable on the ``epic`` module object
 via lazy wrapper re-exports so that existing callers (``epic_cli.py``) and
 ``mock.patch("yoke_core.domain.epic.X")`` tests are unaffected.
 

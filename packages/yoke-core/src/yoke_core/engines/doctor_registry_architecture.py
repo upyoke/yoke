@@ -1,7 +1,7 @@
 """Architecture-fitness HC bundle for the Doctor registry.
 
 Sibling registry slice carved out of :mod:`doctor_registry` so the
-parent file stays under the 350-line authored-file limit, following the
+parent file stays under the authored-file line limit, following the
 same pattern as :mod:`doctor_registry_coordination` and
 :mod:`doctor_registry_harness`. Owns the architecture-fitness health
 checks that hold for every project: path classification, item impact

@@ -297,8 +297,8 @@ CORE_COMMANDS: list[dict] = [
 
 # Operational primitives (session id, function-call dispatch, script
 # location, render reminder, file-cap discovery) and epic-task recipes
-# live in siblings to keep this module under the 350-line authored-file
-# cap. Merged into the canonical ``CORE_COMMANDS`` export so the
+# live in siblings to keep this module under the authored-file line
+# limit. Merged into the canonical ``CORE_COMMANDS`` export so the
 # renderer sees one list.
 from yoke_core.domain.schema_api_context_commands_core_epic_task import (  # noqa: E402
     EPIC_TASK_COMMANDS,

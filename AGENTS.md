@@ -17,7 +17,7 @@ the judgment rules no command can check are in `.yoke/docs/agents/rules.md`.
 - When a command refuses, follow the fix it names.
 - Work in the lane your work claim covers. Do not implement on main or use `--no-worktree`
   unless the user asks.
-- Keep each authored file at 350 lines or fewer.
+- Keep each authored file within the project's `file_line_limit` (`.yoke/project.config`).
 - Write items only through typed `yoke` item commands.
 - When the user names a plan (e.g. `MASTER-PLAN`), read it with `yoke strategy doc get SLUG`; it is not an item.
 - Iterate with `yoke watch pytest --impacted main --bounded`; the item's attached QA case owns

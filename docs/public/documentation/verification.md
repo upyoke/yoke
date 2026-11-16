@@ -19,7 +19,7 @@ python3 -m yoke_core.domain.documentation_residue --root <lane>
 
 Edit `nav.yaml` and authored pages, then regenerate their navigation. The corpus
 check verifies the complete nav tree, links and fragments, current derived
-blocks, privacy, visual text fallbacks and the hard 350-line maximum after
+blocks, privacy, visual text fallbacks and the hard `file_line_limit` maximum after
 wrapping at 80 columns. Every `yoke:visual` marker needs explanatory prose,
 a list or a table in the same heading section, before or after the marker.
 Headings, comments, code, images and link-only paragraphs do not count.

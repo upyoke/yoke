@@ -1,7 +1,7 @@
 """HCs covering the Codex ``apply_patch`` smoke surface.
 
 Split out of ``doctor_hc_codex_hooks`` so each module stays well under the
-350-line cap. These two checks share a dependency on the (not-yet-provisioned)
+authored-file line limit. These two checks share a dependency on the (not-yet-provisioned)
 ``runtime.harness.codex.apply_patch_smoke`` module:
 
 * ``HC-apply-patch-deny-smoke`` — the offline deny smoke still exits zero.

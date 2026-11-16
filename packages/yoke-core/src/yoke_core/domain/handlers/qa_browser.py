@@ -21,7 +21,7 @@ routes through registered function ids:
 - ``qa.run.add`` / ``qa.run.complete`` / ``qa.artifact.add`` — the write
   half, hosted in the companion module
   :mod:`yoke_core.domain.handlers.qa_browser_writes` so each file stays
-  under the 350-line cap (the ``qa.py`` / ``qa_run.py`` convention).
+  under the authored-file line limit (the ``qa.py`` / ``qa_run.py`` convention).
 
 Write handlers carry ``claim_required_kind="qa_subject"`` exactly like
 ``qa.run.record_verdict``; this read carries no claim and tolerates absent

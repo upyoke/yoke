@@ -290,17 +290,17 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
         )
 
 
-def _cli_description(limit: int) -> str:
+def _cli_description() -> str:
     return compose_refusal(
-        f"Enforce the {limit}-line authored-file limit.\n\nSubcommands:\n  report   Print per-file inventory (all tracked files).\n  check    Diff-based hard-fail check (branch-vs-base OR staged).\n\nHard-fail rules (apply to authored files only):\n  1. New authored file > {limit} lines.\n  2. Existing oversized authored file grows.\n  3. Authored file crosses the {limit}-line limit upward.\nAuthored exceptions are shrink-only above the limit; generated/data exceptions may grow.",
+        "Enforce the authored-file line limit (`file_line_limit` in .yoke/project.config).\n\nSubcommands:\n  report   Print per-file inventory (all tracked files).\n  check    Diff-based hard-fail check (branch-vs-base OR staged).\n\nHard-fail rules (apply to authored files only):\n  1. New authored file over the limit.\n  2. Existing oversized authored file grows.\n  3. Authored file crosses the limit upward.\nAuthored exceptions are shrink-only above the limit; generated/data exceptions may grow.",
         recovery="split an oversized file by responsibility, or shorten it.",
     )
 
 
-def build_parser(limit: int) -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python3 -m yoke_core.domain.file_line_check",
-        description=_cli_description(limit),
+        description=_cli_description(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="cmd", required=True)

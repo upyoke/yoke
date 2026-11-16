@@ -11,8 +11,11 @@ from __future__ import annotations
 import unittest
 
 from yoke_core.domain import hint_file_line_limit_approach as hint
-from yoke_core.domain.file_line_check import Classification, LIMIT
+from yoke_core.domain.file_line_check import Classification
 from yoke_core.hooks.types import Outcome
+
+# A non-default limit proves the hint uses the limit it is given.
+LIMIT = 200
 
 
 def _content(n: int) -> str:
@@ -37,6 +40,7 @@ class TestEvaluateFields(unittest.TestCase):
             _content(LIMIT + 5),
             existing_line_count=0,
             classification=Classification.AUTHORED,
+            limit=LIMIT,
         )
         self.assertIsNotNone(result)
         self.assertIn(str(LIMIT), result)
@@ -48,6 +52,7 @@ class TestEvaluateFields(unittest.TestCase):
             _content(LIMIT + 1),
             existing_line_count=LIMIT - 10,
             classification=Classification.AUTHORED,
+            limit=LIMIT,
         )
         self.assertIsNotNone(result)
 
@@ -58,6 +63,7 @@ class TestEvaluateFields(unittest.TestCase):
             _content(LIMIT + 20),
             existing_line_count=LIMIT + 5,
             classification=Classification.AUTHORED,
+            limit=LIMIT,
         )
         self.assertIsNotNone(result)
 
@@ -68,6 +74,7 @@ class TestEvaluateFields(unittest.TestCase):
             _content(100),
             existing_line_count=50,
             classification=Classification.AUTHORED,
+            limit=LIMIT,
         )
         self.assertIsNone(result)
 
@@ -78,6 +85,7 @@ class TestEvaluateFields(unittest.TestCase):
             _content(LIMIT),
             existing_line_count=LIMIT - 5,
             classification=Classification.AUTHORED,
+            limit=LIMIT,
         )
         self.assertIsNone(result)
 
@@ -89,6 +97,7 @@ class TestEvaluateFields(unittest.TestCase):
             _content(LIMIT + 3),
             existing_line_count=LIMIT + 20,
             classification=Classification.AUTHORED,
+            limit=LIMIT,
         )
         self.assertIsNone(result)
 
@@ -99,12 +108,13 @@ class TestEvaluateFields(unittest.TestCase):
             _content(1000),
             existing_line_count=500,
             classification=Classification.GENERATED,
+            limit=LIMIT,
         )
         self.assertIsNone(result)
 
     def test_missing_file_path_no_hint(self) -> None:
         result = hint.evaluate_fields(
-            "", _content(1000), 0, Classification.AUTHORED,
+            "", _content(1000), 0, Classification.AUTHORED, LIMIT,
         )
         self.assertIsNone(result)
 
@@ -117,6 +127,22 @@ class TestTypedEntry(unittest.TestCase):
         decision = hint.evaluate(hint._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertNotIn("additionalContext", decision.audit_fields or {})
+
+    def test_write_hint_uses_project_file_line_limit(self) -> None:
+        import os
+        import pathlib
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / ".yoke").mkdir()
+            (root / ".yoke/project.config").write_text("file_line_limit=200\n")
+            payload = _payload(str(root / "src/new.py"), _content(201))
+            with mock.patch.dict(os.environ, {"YOKE_TARGET_REPO_ROOT": tmp}):
+                decision = hint.evaluate(hint._build_context_from_payload(payload))
+        context = (decision.audit_fields or {}).get("additionalContext", "")
+        self.assertIn("over the 200-line authored-file cap", context)
 
     def test_missing_payload_fields_noop(self) -> None:
         payload = {"tool_name": "Write"}  # no tool_input

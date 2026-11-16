@@ -176,8 +176,8 @@ Fix the named records, rebuild, then run `--check`:
 | `GUIDE_ASSET_UNSAFE` | Build the named closing-tag or comment text in `tools/` from parts |
 | `VIEWS_WRITE_FAILED` | Make `docs/teaching/views` writable; the last good page is kept |
 
-Every authored file here obeys the shared 350-line hard limit, counted at 80
-columns; 300 is the design target. The generated page is exempt from line limits
+Every authored file here obeys the Yoke repository's `file_line_limit`, counted
+at 80 columns. The generated page is exempt from line limits
 but privacy-scanned: its shell, every node and build data. Embedded document and
 record text are verbatim copies of tracked files that their owners check.
 `--check` validates the model and builds the page in memory, checking links,

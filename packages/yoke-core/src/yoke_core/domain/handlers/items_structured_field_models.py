@@ -2,7 +2,7 @@
 
 Sibling of :mod:`yoke_core.domain.handlers.items_structured_field`.
 Owns the typed boundary contracts so the handler dispatch module stays
-under the 350-line file budget.
+under the authored-file line limit.
 """
 
 from __future__ import annotations

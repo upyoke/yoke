@@ -9,9 +9,11 @@ the files project-owned the moment they land.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
+
 def render_project_config(display_name: str) -> str:
     del display_name  # policy text carries no project-specific content
-    return """# Project config (key=value).
+    return f"""# Project config (key=value).
 #
 # The on-disk home for project settings that must be readable without a
 # database or a network — anything a git hook, a fresh clone, or an
@@ -23,8 +25,8 @@ def render_project_config(display_name: str) -> str:
 # after a value is documentation, not part of the value.
 #
 # Authored-file line limit, enforced by the pre-commit hook and
-# `yoke check file-line`. Unset means 350.
-# file_line_limit=350
+# `yoke check file-line`. Unset means {DEFAULT_LIMIT}.
+# file_line_limit={DEFAULT_LIMIT}
 #
 # Authored exceptions remain shrink-only above the limit.
 # file_line_exception=src/oversized.py

@@ -27,6 +27,7 @@ from yoke_core.domain.idea_readiness_count_replacements import (
     RepairedPath,
     apply_stale_count_replacements,
     resolve_repairs,
+    stale_issue_limit,
 )
 from yoke_core.domain.backlog_structured_write_op import execute_structured_write
 from yoke_core.domain.idea_readiness_checkout import item_project_checkout
@@ -177,7 +178,13 @@ def attempt_stale_count_repair(
         return RepairOutcome(
             success=False, **base, error="no repairable stale-count issues found"
         )
-    updated_text, write_refusals = apply_stale_count_replacements(spec_text, repairs)
+    limit = stale_issue_limit(stale_issues)
+    if limit is None:
+        return RepairOutcome(success=False, **base, error=(
+            "stale counts carry no single file_line_limit; rerun the check"))
+    updated_text, write_refusals = apply_stale_count_replacements(
+        spec_text, repairs, limit,
+    )
     if write_refusals:
         return RepairOutcome(
             success=False,

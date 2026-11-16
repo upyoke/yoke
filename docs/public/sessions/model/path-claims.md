@@ -100,7 +100,7 @@ yoke claims path register --item PREFIX-N --task-num <task-number> --paths <path
 there. Readiness compares the File Budget with the claimed paths only when
 both are required. When only path claims are required, register claims for
 every file the item changes. When only the File Budget is required, register
-no claim. The 350-line limit on authored files applies in every case.
+no claim. The `file_line_limit` on authored files applies in every case.
 
 A claim covers physical files: claiming a symlink inside the repository
 covers the file it points to.

@@ -13,7 +13,7 @@ _FILE_LINE_HELP = """\
 usage: yoke check file-line [--base REF | --staged] [--repo PATH] [--json]
        yoke check file-line report [--repo PATH] [--json]
 
-Enforce Yoke's 350-line authored-file limit from a sanctioned local
+Enforce the authored-file line limit from a sanctioned local
 CLI surface. The default mode checks branch-vs-base changes; use
 --staged for the pre-commit shape. The report mode prints the tracked
 file inventory.

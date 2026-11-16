@@ -2,7 +2,7 @@
 
 Activation + coordination_decision handlers live in
 :mod:`claims_path_activation` (sibling module) to keep both files under
-the 350-line budget.
+the authored-file line limit.
 
 Reuse: routes through :mod:`yoke_core.domain.path_claims`,
 :mod:`yoke_core.domain.path_claims_register`,

@@ -215,7 +215,7 @@ def _validate_payload(family: str, payload: Any) -> Dict[str, Any]:
             )
     elif family == "architecture_model":
         # Sibling module owns the per-key validation tree to keep this
-        # file under the 350-line cap.
+        # file under the authored-file line limit.
         from yoke_core.domain.architecture_model import (
             validate_payload as _validate_architecture_model_payload,
         )

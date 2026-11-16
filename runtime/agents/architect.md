@@ -96,7 +96,7 @@ handling.
 <!-- YOKE:DB-PACKET end -->
 
 <!-- YOKE:HARNESS cursor start -->
-Run Yoke operations through `yoke <subcommand>`, and keep each authored file at
-350 lines or fewer. When a command refuses, follow the fix it names.
+Run Yoke operations through `yoke <subcommand>`, and keep each authored file
+within the project's `file_line_limit`. When a command refuses, follow the fix it names.
 <!-- YOKE:FIELD-NOTE -->
 <!-- YOKE:HARNESS end -->

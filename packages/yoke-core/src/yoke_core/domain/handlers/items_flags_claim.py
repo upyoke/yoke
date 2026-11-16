@@ -1,7 +1,6 @@
 """Implicit work-claim scoping for the item coordination-flag verbs.
 
-Sibling of :mod:`items_flags` so the handler module stays under the
-350-line authored cap. Owns the acquire-on-behalf-of-the-caller
+Sibling of :mod:`items_flags` so the handler module stays under the authored-file line limit. Owns the acquire-on-behalf-of-the-caller
 mechanics and nothing else: the handlers turn a refusal into the
 outcome envelope themselves.
 """

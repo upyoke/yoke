@@ -9,7 +9,7 @@ Architect resolution. ``none``, ``path_context_only``, and
 
 This module is a sibling of
 :mod:`yoke_core.domain.idea_readiness_check` so the main module stays
-under the 350-line file cap; the parent composes this check into
+under the authored-file line limit; the parent composes this check into
 ``run_all_checks``.
 """
 

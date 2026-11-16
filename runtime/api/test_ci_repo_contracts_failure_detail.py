@@ -24,10 +24,13 @@ def test_authored_file_limit_failure_names_each_file_and_limit(
             hard_fails=[grown],
         ),
     )
+    monkeypatch.setattr(
+        flc, "resolved_policy", lambda _root: SimpleNamespace(limit=352),
+    )
     scope = crc.ChangedPathScope(base_sha="0" * 40, paths=())
 
     ok, detail = crc.check_authored_file_limit(Path("."), scope)
 
     assert ok is False
-    assert f"runtime/big.py: 353 lines, limit {flc.LIMIT}" in detail
+    assert "runtime/big.py: 353 lines, limit 352" in detail
 

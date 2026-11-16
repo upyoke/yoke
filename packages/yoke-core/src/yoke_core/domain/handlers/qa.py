@@ -2,7 +2,7 @@
 
 Both require ``claim_required_kind="item"`` so the dispatcher rejects calls
 that lack an active claim on the target item. Companion module ``qa_run``
-hosts ``qa.run.record_verdict`` so each file stays under the 350-line cap.
+hosts ``qa.run.record_verdict`` so each file stays under the authored-file line limit.
 
 Domain reuse:
 

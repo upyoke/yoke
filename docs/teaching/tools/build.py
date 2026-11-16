@@ -34,7 +34,7 @@ from model import (
     model_files,
     validate,
 )
-from limits import LINE_LIMIT, wrapped_lines
+from limits import line_limit, wrapped_lines
 from guide_data import GuideData
 from render_explorer import build_explorer
 
@@ -175,13 +175,14 @@ def limits_and_privacy(model, generated: dict[str, str]) -> None:
             and rel not in texts
         ):
             texts[rel] = path.read_text(encoding="utf-8", errors="replace")
+    limit = line_limit()
     for rel, text in sorted(texts.items()):
         lines = wrapped_lines(text)
-        if lines > LINE_LIMIT and not rel.startswith("views/"):
+        if lines > limit and not rel.startswith("views/"):
             model.problem(
                 "LINE_LIMIT",
                 f"docs/teaching/{rel}",
-                f"{lines} lines at 80 columns exceeds {LINE_LIMIT}; {FILE_SPLIT}",
+                f"{lines} lines at 80 columns exceeds {limit}; {FILE_SPLIT}",
             )
         for number, line in enumerate(text.splitlines(), start=1):
             for label, pattern in privacy.PATTERNS:

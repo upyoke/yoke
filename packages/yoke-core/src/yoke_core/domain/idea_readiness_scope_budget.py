@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 from typing import Any, Callable, List, Set
 
-from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
+from yoke_contracts.project_contract.file_line_policy import project_limit
 from yoke_core.domain.file_budget_paths import (
     extract_file_budget_paths_set,
     has_resolved_file_budget,
@@ -66,12 +66,12 @@ def scoped_paths(spec_text: str) -> List[str]:
     return paths
 
 
-def budget_row(path: str, lines: int) -> str:
-    """A File Budget row the sizing check accepts, ready to paste."""
-    flag = str(lines >= DEFAULT_LIMIT).lower()
+def budget_row(path: str, lines: int, limit: int) -> str:
+    """A File Budget row the sizing check accepts against ``limit``."""
+    flag = str(lines >= limit).lower()
     return (
         f"- `{path}` — current {lines} lines; remaining headroom "
-        f"{DEFAULT_LIMIT - lines}; at-or-over-limit: {flag}; "
+        f"{limit - lines}; at-or-over-limit: {flag}; "
         "responsibility: <what this item changes here>."
     )
 
@@ -86,6 +86,7 @@ def verify_scoped_paths_in_file_budget(
     if not has_resolved_file_budget(spec_text):
         return []
     budget = extract_file_budget_paths_set(spec_text)
+    limit = project_limit(repo_root)
     issues: List[Any] = []
     for rel in scoped_paths(spec_text):
         if rel in budget:
@@ -95,7 +96,7 @@ def verify_scoped_paths_in_file_budget(
             continue
         with candidate.open(encoding="utf-8", errors="replace") as handle:
             lines = sum(1 for _ in handle)
-        row = budget_row(rel, lines)
+        row = budget_row(rel, lines, limit)
         issues.append(issue_type(
             code=SCOPED_PATH_NOT_IN_FILE_BUDGET,
             message=(

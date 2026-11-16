@@ -1,7 +1,6 @@
 """Step helpers for :mod:`yoke_core.domain.worktree_preflight`.
 
-Sibling-extracted to keep the orchestrator + CLI under the 350-line
-authored-file cap. Each helper does one thing and either reports a
+Sibling-extracted to keep the orchestrator + CLI under the authored-file line limit. Each helper does one thing and either reports a
 boolean / pair / triple back to the orchestrator. The block-kind
 string constants and the cwd-mode string constants live here too so
 both modules import from one place.

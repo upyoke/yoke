@@ -6,8 +6,7 @@ per-topic siblings. The packet renderer in
 :mod:`yoke_core.domain.schema_api_context` groups entries by topic
 when expanding a marker pair.
 
-Topic-scoped siblings (added 2026-05-14 to keep this module under the
-350-line authored-file cap while preserving the
+Topic-scoped siblings (added 2026-05-14 to keep this module under the authored-file line limit while preserving the
 ``WRAPPER_COMMANDS`` public export):
 
 - :mod:`schema_api_context_commands_core` — structured-field reads /

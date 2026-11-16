@@ -15,7 +15,6 @@ from enum import Enum
 from typing import Optional
 
 from yoke_contracts.project_contract.file_line_policy import (
-    DEFAULT_LIMIT,
     default_exception_globs,
     generated_path_globs,
     resolve_file_line_policy,
@@ -38,7 +37,6 @@ from yoke_contracts.project_contract.file_line_git_scope import (
 from yoke_contracts import terminal_detached_process
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-LIMIT = DEFAULT_LIMIT
 
 # Built-in exceptions are shared with the source-dev checker. Project-local
 # additions live in .yoke/project.config and are resolved per repo_root.
@@ -329,7 +327,6 @@ __all__ = [
     "ChangedFile",
     "Classification",
     "FileEntry",
-    "LIMIT",
     "TEMPORARY_EXCEPTIONS",
     "changed_files_check",
     "classify_path",

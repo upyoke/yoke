@@ -16,6 +16,7 @@ from yoke_contracts.project_contract.docs_corpus_files import (
 )
 from yoke_core.domain import documentation_links as links
 from yoke_core.domain import documentation_navigation as nav
+from yoke_core.domain.documentation_line_limit import documentation_line_limit
 from yoke_core.domain.documentation_render import render_page
 from yoke_core.domain.documentation_markdown import markdown_analysis_scope
 from yoke_core.domain.documentation_visuals import validate_visual_fallbacks
@@ -44,16 +45,17 @@ _PROOF_REPAIR = (
 
 def _size(path: Path, text: str) -> list[CorpusRefusal]:
     count = wrapped_lines(text)
+    limit = documentation_line_limit()
     return (
         [
             CorpusRefusal(
                 "OVERSIZED_PAGE",
                 str(path),
-                f"{count} wrapped lines exceeds 350",
+                f"{count} wrapped lines exceeds {limit}",
                 "split the page at meaningful topic boundaries and regenerate its copies",
             )
         ]
-        if count > 350
+        if count > limit
         else []
     )
 

@@ -20,7 +20,7 @@ local, and laneless work refuses on a branch that is behind.
 
 Step helpers live in :mod:`yoke_core.domain.worktree_preflight_steps` and
 the envelope in :mod:`yoke_core.domain.worktree_preflight_outcome`, so the
-orchestrator + CLI stay under the 350-line authored-file cap.
+orchestrator + CLI stay under the authored-file line limit.
 """
 
 from __future__ import annotations

@@ -305,7 +305,7 @@ HEALTH_CHECKS: list[HealthCheck] = [
     # Doc / quality / meta-consistency
     HealthCheck("config-validation", "Config file validation", hc_config_validation),
     HealthCheck("size-bloat", "Size/bloat monitor", hc_size_bloat),
-    HealthCheck("file-line-limit", "Authored file 350-line limit", hc_file_line_limit),
+    HealthCheck("file-line-limit", "Authored file line limit", hc_file_line_limit),
     HealthCheck("stray-project-files", "Stray project output directories", hc_stray_project_files),
     HealthCheck("test-command-validity", "Test command validity", hc_test_command_validity),
     HealthCheck("path-integrity", "Path-integrity verifier surface (shadow-mode)", hc_path_integrity),

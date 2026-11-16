@@ -32,7 +32,7 @@ installers and dashboard guidance.
 6. **Teaching must work.** Verify examples, reachable destinations and release
    compatibility in the receiving context. Refusals preserve their actual cause,
    necessary facts and supported recovery.
-7. **350 lines is the hard maximum for every teaching file.** Command
+7. **Yoke's `file_line_limit` is the hard maximum for every teaching file.** Command
    reads use concise projections and the human-read safety net in [help and replies](../cli/help.md). The smaller targets below are advisory, not gates. Count displayed
    lines after wrapping at 80 columns; character counts include spaces and code.
 8. **Preserve complete, coherent teaching.** Either advisory target prompts
@@ -47,7 +47,7 @@ installers and dashboard guidance.
 
 | Surface | Suggested lines | Suggested characters |
 |---|---:|---:|
-| Teaching file | No separate target; 350 hard maximum | 20,000 |
+| Teaching file | No separate target; `file_line_limit` hard maximum | 20,000 |
 | Root help | 40 | 2,400 |
 | Category help | 80 | 4,800 |
 | Command help | 120 | 7,200 |
@@ -69,7 +69,7 @@ python3 -m yoke_core.domain.documentation_render measure --root docs/public
 In Yoke source development, run these through `yoke dev run --lane <lane> --`.
 Navigation checks enforce schema, ownership, routes and listed pages; link
 checks enforce targets and heading fragments; render checks enforce derived
-blocks. Measurement enforces the 350 wrapped-line limit and reports advisory
+blocks. Measurement enforces the `file_line_limit` wrapped-line limit and reports advisory
 readability notes. The [complete publication gate](verification.md) validates privacy, copies and
 exact candidate identity. Scenario evidence must also prove discovery, usable recipes
 and delivered context; passing structural checks alone cannot prove teaching.

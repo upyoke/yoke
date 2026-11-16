@@ -16,7 +16,6 @@ class FileLineCheck(Protocol):
     CheckVerdict: type[Any]
     Classification: type[Any]
     FileEntry: type[Any]
-    LIMIT: Any
     TEMPORARY_EXCEPTIONS: Any
     changed_files_check: Callable[..., Any]
     classify_path: Callable[..., Any]

@@ -1,7 +1,7 @@
 """``yoke workflow-item epic-progress-note ...`` + ``yoke epic-tasks list``.
 
 Three adapters split out of :mod:`yoke_cli.commands.adapters.epic_task` to
-keep each authored file under the 350-line cap:
+keep each authored file under the authored-file line limit:
 
 * ``workflow_item.epic_progress_note.append``
 * ``workflow_item.epic_progress_note.list``

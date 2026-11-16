@@ -1,7 +1,7 @@
 """Reason formatter for the subagent-background lint.
 
 Split from :mod:`yoke_core.domain.lint_subagent_background` so the
-entry-point stays under the 350-line file cap (mirroring the
+entry-point stays under the authored-file line limit (mirroring the
 ``lint_long_command_polling_decide`` split). Pure command/payload
 introspection helpers live alongside the entry point; this module owns
 the rendered-output side of the lint.

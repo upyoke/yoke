@@ -1,7 +1,7 @@
 """Events-ledger health checks — split into focused sibling modules.
 
 The original monolithic events-ledger HC module exceeded the authored
-350-line limit, so its checks were split into three focused siblings:
+the authored-file line limit, so its checks were split into three focused siblings:
 
 - ``doctor_hc_db_events_ledger`` — synthetic contamination, historical
   coverage collapse, and destructive maintenance audit.

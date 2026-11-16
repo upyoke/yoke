@@ -176,7 +176,7 @@ def verify_attestation_rehearsal_commands(
     """Thin facade that returns ``Issue`` rows for the readiness check.
 
     Lives here (not in :mod:`idea_readiness_check`) to keep the
-    readiness file under its 350-line cap, which takes precedence
+    readiness file under the authored-file line limit, which takes precedence
     over surface locality.
     Re-exported from :mod:`idea_readiness_check` for callers that
     expect the wrapper at its named location.

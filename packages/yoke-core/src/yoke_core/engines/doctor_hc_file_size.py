@@ -1,8 +1,8 @@
 """HC-file-line-limit: authored file line-limit health check.
 
 Reports authored violations as FAIL, temporary exceptions over limit
-as WARN, and exclusion counts as informational context. The default limit
-is 350; ``.yoke/project.config`` carries both the ``file_line_limit`` key
+as WARN, and exclusion counts as informational context.
+``.yoke/project.config`` carries both the ``file_line_limit`` key
 and the ``file_line_exception`` globs — the same checked-in policy the
 pre-commit hook reads, so this check and the hook always agree.
 """
@@ -21,10 +21,11 @@ def hc_file_line_limit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     repo_root = _base._resolve_repo_root()
     if not repo_root:
-        rec.record("HC-file-line-limit", "Authored file 350-line limit", "PASS", "")
+        rec.record("HC-file-line-limit", "Authored file line limit", "PASS", "")
         return
 
     policy = file_line_check.resolved_policy(Path(repo_root))
+    label = f"Authored file {policy.limit}-line limit"
     entries = file_line_check.inventory(
         repo_root=Path(repo_root), read_map=bounded_read_map
     )
@@ -100,8 +101,8 @@ def hc_file_line_limit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     detail = "\n".join(detail_lines)
 
     if authored_violations:
-        rec.record("HC-file-line-limit", "Authored file 350-line limit", "FAIL", detail)
+        rec.record("HC-file-line-limit", label, "FAIL", detail)
     elif exception_violations:
-        rec.record("HC-file-line-limit", "Authored file 350-line limit", "WARN", detail)
+        rec.record("HC-file-line-limit", label, "WARN", detail)
     else:
-        rec.record("HC-file-line-limit", "Authored file 350-line limit", "PASS", detail)
+        rec.record("HC-file-line-limit", label, "PASS", detail)

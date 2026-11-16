@@ -1,6 +1,6 @@
 """Session/claims schema slice for fresh-install initialization.
 
-Sibling of :mod:`schema_init_tables` (350-cap split): owns the
+Sibling of :mod:`schema_init_tables` (line-limit split): owns the
 ``harness_sessions`` + ``session_tool_calls`` + ``work_claims`` DDL.
 Called from ``create_core_tables`` so install order is unchanged.
 """

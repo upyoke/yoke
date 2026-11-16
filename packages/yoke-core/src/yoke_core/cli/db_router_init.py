@@ -8,7 +8,7 @@ emitting ``CREATE TABLE`` as a side effect.
 
 Also owns the small ``items get ... body --section "## Heading"``
 dispatch helper. Sibling-file placement keeps :mod:`db_router` under
-the 350-line authored-file cap.
+the authored-file line limit.
 """
 
 from __future__ import annotations

@@ -10,7 +10,7 @@ The split mirrors the ``backlog_github_*`` and ``epic_task_sync_github_*``
 file families: one umbrella defining shared dataclasses and the
 per-project ``resolve_target`` helper, and per-resource submodules
 hosting the typed functions for each REST endpoint family. Each file
-stays under the 350-line cap.
+stays under the authored-file line limit.
 
 Re-exports the per-resource public functions so callers can write a
 single ``from yoke_core.domain.github_rest import create_issue,

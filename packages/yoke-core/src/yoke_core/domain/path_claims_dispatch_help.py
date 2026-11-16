@@ -1,7 +1,7 @@
 """Canonical ``--help`` descriptions for the path-claim dispatch parsers.
 
 Extracted from the dispatch siblings so the dispatch modules stay
-within the 350-line authored cap. Consumed under
+within the authored-file line limit. Consumed under
 ``argparse.RawTextHelpFormatter`` — each constant includes a worked
 example with a concrete ``YOK-N`` value.
 """

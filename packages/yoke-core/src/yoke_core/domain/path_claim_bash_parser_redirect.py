@@ -2,7 +2,7 @@
 
 Sibling of :mod:`path_claim_bash_parser`. Owns the redirect-target
 resolution for compound heredoc / command-substitution shapes so the
-parent module stays under the 350-line authored-file cap.
+parent module stays under the authored-file line limit.
 
 The single public function :func:`extract_heredoc_redirect_target`
 inspects a segment that contains an unquoted ``<<`` heredoc opener

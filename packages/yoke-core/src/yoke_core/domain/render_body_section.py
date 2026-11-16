@@ -9,8 +9,7 @@ Sibling of :mod:`render_body`. Owns:
 * :func:`strip_duplicate_heading`, :func:`strip_spec_h1`,
   :func:`render_section_block`, :func:`section_has_content` — small
   heading-trim helpers used by the parent body renderer. Lifted here
-  from :mod:`render_body` so the parent stays under the 350-line
-  authored-file cap when the ``--section`` mode wires in.
+  from :mod:`render_body` so the parent stays under the authored-file line limit when the ``--section`` mode wires in.
 
 Public API surface kept tight: agents reach for the CLI wiring
 (``items get YOK-N body --section "## File Budget"``), which calls

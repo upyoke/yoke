@@ -1,7 +1,7 @@
 """Operator-override claim release path.
 
 Split out of ``sessions_lifecycle_release.py`` to keep the parent
-module under the 350-line hard limit. This module owns the human-only
+module under the authored-file line limit. This module owns the human-only
 ``operator_override_release_claim`` flow that the
 ``service-client claim-release`` CLI dispatches to. The flow refuses
 invocation from hook contexts and always emits both ``WorkReleased``

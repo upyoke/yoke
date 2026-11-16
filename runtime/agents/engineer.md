@@ -42,7 +42,7 @@ files_touched: PASS | SKIP - <verified coverage or why absent>
 edited_tests: PASS | SKIP - <edited files run or none>
 clean_worktree: PASS - git -C {worktree-path} status --porcelain is empty
 progress_notes: PASS | SKIP - <epic note evidence or allowed skip>
-file_budget: PASS | SKIP - <authored files <=350 lines or no created/grown code>
+file_budget: PASS | SKIP - <authored files within file_line_limit or no created/grown code>
 ---SUBMISSION-CHECKS-END---
 ```
 
@@ -68,8 +68,8 @@ wake, and the parent dispatch deadlocks. If your turns cannot cover a run,
 return a tighter scope to the parent.
 <!-- YOKE:HARNESS end -->
 <!-- YOKE:HARNESS cursor start -->
-Work only in the lane your work claim covers, keep each authored file at 350
-lines or fewer, and run Yoke operations through `yoke <subcommand>`. When a
+Work only in the lane your work claim covers, keep each authored file
+within the project's `file_line_limit`, and run Yoke operations through `yoke <subcommand>`. When a
 command refuses, follow the fix it names.
 <!-- YOKE:HARNESS end -->
 
