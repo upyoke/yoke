@@ -5,10 +5,5 @@
  "page": "universes",
  "position": 1,
  "text": "The local engine uses the pinned embedded PostgreSQL binaries and an owner-private Unix socket on macOS, Linux and the native Windows candidate. It opens no TCP port. Windows selects .exe tools and pg_ctl drops admin privileges; extracted binaries must grant the user access directly. Helper output goes to files so a detached postmaster cannot hold captured pipes open. Spaced profile paths use quoted DSNs and server options, with a short private socket directory when needed. Native Windows support awaits the integrated acceptance proof.",
- "sources": [
-  "packages/yoke-core/src/yoke_core/domain/postgres_cluster.py",
-  "packages/yoke-core/src/yoke_core/domain/postgres_cluster_process.py",
-  "packages/yoke-core/src/yoke_core/domain/postgres_binaries.py",
-  "runtime/api/tools/verify_windows_local_postgres.py"
- ]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_cluster.py", "packages/yoke-core/src/yoke_core/domain/postgres_cluster_process.py", "packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "runtime/api/tools/verify_windows_local_postgres.py"]
 }

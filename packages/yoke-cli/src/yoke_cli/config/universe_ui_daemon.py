@@ -230,6 +230,7 @@ def _stopped_report() -> Dict[str, Any]:
 def _spawn_detached(*, host: str, port: int, env: str):
     command = launchd.child_command(host=host, port=port, env=env)
     try:
+        detached = {"creationflags": subprocess.DETACHED_PROCESS} if os.name == "nt" else {}
         write_owner_private(log_path(), "")
         with open(log_path(), "a", encoding="utf-8") as log:
             return platform_process.spawn_group(
@@ -238,6 +239,7 @@ def _spawn_detached(*, host: str, port: int, env: str):
                 stdout=subprocess.DEVNULL,
                 stderr=log,
                 env=launchd.child_environment(env),
+                **detached,
             )
     except OSError as exc:
         raise UiDaemonError(

@@ -33,6 +33,8 @@ def test_port_in_use_names_port_and_recovery():
 
 def test_hyper_v_reserved_port_names_cause(monkeypatch):
     class ReservedSocket:
+        def __init__(self, *args):
+            pass
         def __enter__(self):
             return self
         def __exit__(self, *args):

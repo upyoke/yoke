@@ -172,7 +172,7 @@ def is_ready(spec: ClusterSpec) -> bool:
 def log_tail(spec: ClusterSpec, max_lines: int = 80) -> str:
     if not spec.log_file.exists():
         return ""
-    lines = spec.log_file.read_text(errors="replace").splitlines()
+    lines = spec.log_file.read_text(encoding="utf-8", errors="replace").splitlines()
     return "\n".join(lines[-max_lines:]) + "\n"
 
 
@@ -209,7 +209,7 @@ def data_dir_major_mismatch(spec: ClusterSpec) -> Optional[str]:
     marker = spec.data_dir / "PG_VERSION"
     if not marker.is_file():
         return None
-    data_major = marker.read_text(errors="replace").strip()
+    data_major = marker.read_text(encoding="utf-8", errors="replace").strip()
     try:
         res = _run([binary(spec, "pg_ctl"), "--version"])
     except FileNotFoundError:
