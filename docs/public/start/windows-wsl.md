@@ -23,6 +23,18 @@ Avoid `/mnt/c` and other Windows drive mounts: Linux file operations and
 permissions work best when the checkout stays in Linux. Run your agent CLIs
 (Claude Code, Codex, or Cursor CLI) from that Ubuntu checkout.
 
+## Hosting a server requires WSL2
+
+Host-side `yoke self-host init` (including `--start`), `upgrade`, `import` and
+`teardown`, and setup's **Host a server here**, refuse on native Windows before
+writing host files. From Windows PowerShell run `wsl --install -d Ubuntu`, then
+open Ubuntu and install Yoke inside that distribution as above. Make Docker
+Engine with Compose available inside Ubuntu and follow [Self-host Yoke](../self-hosting/install.md)
+there. Keep the bundle and secrets in the Linux filesystem.
+
+A native client on the same PC should reach that server through `localhost`,
+which WSL2 forwards by default. This is not a verified support claim.
+
 ## systemd, idle shutdown, and the relay
 
 The installer checks WSL's PID 1. When systemd is off, it enables

@@ -7,6 +7,8 @@ and the three commands only share a subcommand table.
 
 from __future__ import annotations
 
+from yoke_cli.self_host import native_windows
+
 import argparse
 import json
 import sys
@@ -31,6 +33,11 @@ _INPUT = input
 
 
 def self_host_teardown(args: List[str]) -> int:
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host teardown",
         description=(
