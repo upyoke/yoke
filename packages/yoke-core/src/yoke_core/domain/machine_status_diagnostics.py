@@ -117,11 +117,15 @@ def _credential_status(
     return status
 
 
-def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
+def _runtime_status(connection: Mapping[str, Any], *, home=None, repo=None) -> dict[str, Any]:
+    from yoke_contracts.windows_preflight import verdicts
+    from yoke_contracts.windows_preflight_facts import collect_facts
+
+    native_facts = collect_facts(home=home, repo=repo)
     imports = {name: _import_status(name) for name in REQUIRED_IMPORTS}
     if connection.get("transport") in contract.POSTGRES_TRANSPORTS:
         imports["psycopg"] = _import_status("psycopg")
-    issues = []
+    issues = verdicts(native_facts)
     for name, item in imports.items():
         if not item["available"]:
             issues.append(
@@ -141,6 +145,7 @@ def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
             origin_spec.origin if origin_spec and origin_spec.origin else ""
         ),
         "imports": imports,
+        "native_preflight": native_facts,
         "issues": issues,
     }
 

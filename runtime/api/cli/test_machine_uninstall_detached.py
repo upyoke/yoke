@@ -88,9 +88,9 @@ def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
     generation = root / "releases/1.0"
     generation.mkdir(parents=True)
     (generation / "lease").touch()
-    (root / "current").symlink_to(generation)
+    (root / "current").write_text("1.0\n")
     (root / "launcher").touch()
-    (bin_dir / "yoke").symlink_to(root / "launcher")
+    (bin_dir / "yoke").write_text(f'#!/bin/sh\nexec python3 {root / "launcher"} "$@"\n')
     uv.write_text(
         f"#!{sys.executable}\nimport sys\n"
         f"print({str(bin_dir)!r} if '--bin' in sys.argv else {str(root.parent)!r})\n"
@@ -127,6 +127,7 @@ def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
                 break
             time.sleep(0.05)
         assert not root.exists()
+        assert not (bin_dir / "yoke").exists()
         assert "CLI: done" in log.read_text()
     finally:
         if parent.poll() is None:

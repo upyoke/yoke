@@ -133,9 +133,17 @@ def question_fields(prompt: SetupPrompt) -> dict[str, Any]:
 
 
 def _guidance(prompt: SetupPrompt) -> str:
-    if not prompt.secret:
-        return prompt.guidance
-    return " ".join(text for text in (prompt.guidance, SECRET_GUIDANCE) if text)
+    from yoke_cli.config.onboard_native_preflight import NATIVE_GUIDANCE
+
+    return " ".join(
+        text
+        for text in (
+            prompt.guidance,
+            SECRET_GUIDANCE if prompt.secret else "",
+            NATIVE_GUIDANCE if sys.platform == "win32" else "",
+        )
+        if text
+    )
 
 
 def response(state: str, **fields: Any) -> dict[str, Any]:
