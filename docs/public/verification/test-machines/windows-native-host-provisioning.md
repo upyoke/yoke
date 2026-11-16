@@ -93,17 +93,21 @@ capability; use a pinned, signature-verified Microsoft MSI only after an
 actual capability installation error has been diagnosed.
 If Azure repeatedly refuses a new invocation with “Run command extension
 execution is in progress” after the bounded wait, stop the controller retry
-loop and record the stuck invocation. Remove the stuck **action Run Command**
-extension before starting a new provisioning attempt:
+loop and record the stuck invocation. Check the VM agent and the invocation's
+status before recovery. A stopped controller does not cancel the guest script.
+Use Microsoft's special removal command for a stuck **action Run Command**:
 
 ```text
-az vm extension delete --resource-group GROUP --vm-name VM --name RunCommandWindows
-az vm start --resource-group GROUP --name VM
+az vm run-command invoke --command-id RemoveRunCommandWindowsExtension --resource-group GROUP --name VM
 ```
 
 For a **managed Run Command**, delete its named resource with
 `az vm run-command delete --resource-group GROUP --vm-name VM --name COMMAND_NAME`
 instead. These are different Azure resources; select the one actually used.
+Action Run Command can have no resource in the VM's ARM extension list;
+an empty list does not prove that its guest handler or invocation is absent.
+Do not try to delete a nonexistent ARM extension. Wait for the single removal
+action to settle; a controller timeout does not prove removal completed.
 Let first-boot Windows servicing finish, then rerun the capability provisioner
 with its 90-minute bound. Removing the extension does not prove that Windows
 servicing stopped or OpenSSH installed; require the readiness receipt and SSH
