@@ -17,6 +17,12 @@ def exec_relay_release(
     """Replace this process; return only if the operating-system exec fails."""
     target = str(executable or sys.argv[0])
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if sys.platform == "win32":
+        root = Path(target).parent.parent
+        runtime = Path((root / ".yoke-runtime-target").read_text())
+        python = str(runtime / "Scripts" / "python.exe")
+        exec_call(python, [python, "-I", str(runtime / "Scripts" / "yoke.py"), *arguments])
+        return
     exec_call(target, [target, *arguments])
 
 

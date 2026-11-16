@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_pipe_reader import PipeReader
+
+from yoke_harness.session_relay_process_group import spawn_relay_process, stop_relay_process
+
 from yoke_harness.session_launch_admission import spawn_admitted_process
 
 import json
-import os
 from pathlib import Path
-import selectors
 import subprocess
 import sys
 import threading
@@ -23,14 +25,7 @@ ProcessFactory = Callable[..., subprocess.Popen[bytes]]
 
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
-    process.terminate()
-    try:
-        process.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait(timeout=2)
+    stop_relay_process(process)
 
 
 def reap_in_background(process: subprocess.Popen[bytes]) -> None:
@@ -45,15 +40,15 @@ def reap_in_background(process: subprocess.Popen[bytes]) -> None:
 def _read_json(process: subprocess.Popen[bytes], timeout: float) -> object | None:
     if process.stdout is None:
         return None
-    selector = selectors.DefaultSelector()
-    selector.register(process.stdout, selectors.EVENT_READ)
+    reader = PipeReader(process.stdout)
     deadline = time.monotonic() + timeout
     buffer = bytearray()
     try:
         while time.monotonic() < deadline:
-            if not selector.select(max(0.0, deadline - time.monotonic())):
+            try:
+                chunk = reader.read(timeout=max(0, deadline - time.monotonic()))
+            except TimeoutError:
                 break
-            chunk = os.read(process.stdout.fileno(), MAX_HANDOFF_BYTES + 1)
             if not chunk:
                 break
             buffer.extend(chunk)
@@ -65,7 +60,7 @@ def _read_json(process: subprocess.Popen[bytes], timeout: float) -> object | Non
                 except (UnicodeDecodeError, json.JSONDecodeError):
                     return None
     finally:
-        selector.close()
+        reader.close()
     return None
 
 
@@ -79,7 +74,7 @@ def run_detached_json_worker(
     initial_failure: T,
     uncertain_failure: T,
     executable: str = sys.executable,
-    process_factory: ProcessFactory = subprocess.Popen,
+    process_factory: ProcessFactory = spawn_relay_process,
     timeout: float = START_TIMEOUT_SECONDS,
 ) -> T:
     """Return one bounded outcome while the detached child retains native pipes."""
@@ -92,7 +87,6 @@ def run_detached_json_worker(
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,
         )
     except OSError:
         return initial_failure

@@ -38,6 +38,15 @@ def read_stop_settlement_seconds() -> float:
     launchd's effective default are included. An unavailable or unbounded
     timeout retains a bounded drain and names the diagnostic recovery.
     """
+    if sys.platform == "win32":
+        # Interactive tasks have no promised shutdown grace period: /End and
+        # sign-out can terminate the process tree immediately. Durable custody
+        # is reconciled on the next login instead of promising an in-process drain.
+        _LOGGER.info(
+            "relay_task_stop_has_no_grace: Task Scheduler may terminate immediately; "
+            "durable native custody is reconciled when the relay next starts"
+        )
+        return 0.0
     timeout = DEFAULT_STOP_TIMEOUT_SECONDS
     try:
         instance = resolve_relay_instance()

@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import json
-import fcntl
-import os
+from yoke_contracts import platform_file_lock as locks
 from pathlib import Path
 import subprocess
 import sys
@@ -99,7 +98,7 @@ def test_running_release_stays_until_a_later_install(tmp_path):
     assert set((instance.state_dir / "releases").iterdir()) == {previous, current}
 
 
-def test_directory_lease_preserves_packages_without_release_in_command(tmp_path):
+def test_file_lease_preserves_packages_without_release_in_command(tmp_path):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
     # Pass the root on stdin so ps cannot identify it; the directory lease must.
@@ -107,8 +106,9 @@ def test_directory_lease_preserves_packages_without_release_in_command(tmp_path)
         [
             sys.executable,
             "-c",
-            "import fcntl, os, sys; fd=os.open(sys.stdin.readline().strip(), os.O_RDONLY); "
-            "fcntl.flock(fd, fcntl.LOCK_SH); print('ready', flush=True); sys.stdin.read()",
+            "from yoke_contracts import platform_file_lock as locks; import pathlib, sys; "
+            "h=(pathlib.Path(sys.stdin.readline().strip()) / ' .relay-use.lock'.strip()).open('a+b'); "
+            "locks.acquire_shared(h.fileno()); print('ready', flush=True); sys.stdin.read()",
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -131,10 +131,10 @@ def test_process_snapshot_failure_records_cleanup_recovery(tmp_path, monkeypatch
     install(instance, NEXT_RELEASE)
 
     def unavailable(*args, **kwargs):
-        return subprocess.CompletedProcess(args[0], 1, "", "unavailable")
+        raise OSError("process snapshot unavailable")
 
     with monkeypatch.context() as scoped:
-        scoped.setattr(retention.subprocess, "run", unavailable)
+        scoped.setattr(retention, "process_command_lines", unavailable)
         with pytest.raises(RelayReleaseError, match="relay_release_prune_failed"):
             install(instance, THIRD_RELEASE)
     assert oldest.exists()
@@ -153,7 +153,12 @@ def test_symlink_in_releases_never_removes_its_target(tmp_path):
     outside.mkdir()
     (outside / "keep").touch()
     link = instance.state_dir / "releases" / "not-owned"
-    link.symlink_to(outside, target_is_directory=True)
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        if sys.platform == "win32":
+            pytest.skip("symlink-specific test requires Developer Mode; copies are tested separately")
+        raise
     install(instance, NEXT_RELEASE)
     install(instance, THIRD_RELEASE)
     assert (outside / "keep").exists()
@@ -178,22 +183,22 @@ def test_installed_launcher_holds_selected_release_until_exit(tmp_path):
         "    return 0\n"
     )
     process = subprocess.Popen(
-        [sys.executable, str(instance.state_dir / "runtime" / "bin" / "yoke")],
+        [sys.executable, str(instance.state_dir / "runtime" / ("Scripts/yoke.py" if sys.platform == "win32" else "bin/yoke"))],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         text=True,
     )
-    descriptor = os.open(oldest, os.O_RDONLY)
+    handle = (oldest / ".relay-use.lock").open("a+b")
     try:
         assert process.stdout.readline().strip() == "ready"
         with pytest.raises(BlockingIOError):
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            locks.acquire_exclusive_nonblocking(handle.fileno())
         install(instance, NEXT_RELEASE)
         install(instance, THIRD_RELEASE)
         assert oldest.is_dir()
     finally:
         process.communicate(timeout=5)
-        os.close(descriptor)
+        handle.close()
     install(instance, THIRD_RELEASE)
     assert not oldest.exists()
 

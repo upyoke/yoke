@@ -19,11 +19,11 @@ different readers of the one custody record.
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_process_group import spawn_relay_process, stop_relay_process
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-import os
-import signal
 import subprocess
 import sys
 import time
@@ -110,21 +110,7 @@ class SupervisedNative:
 
 
 def _stop_uncontained(process: subprocess.Popen[bytes]) -> None:
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except OSError:
-        try:
-            process.terminate()
-        except OSError:
-            return
-    try:
-        process.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except OSError:
-            process.kill()
-        process.wait()
+    stop_relay_process(process)
 
 
 def spawn_supervised_native(
@@ -139,7 +125,7 @@ def spawn_supervised_native(
     lease_id: str = "",
     extra_evidence: Mapping[str, str] | None = None,
     state_dir: Path | None = None,
-    process_factory: ProcessFactory = subprocess.Popen,
+    process_factory: ProcessFactory = spawn_relay_process,
     clock: Callable[[], float] = time.time,
 ) -> SupervisedNative | None:
     """Spawn one supervised native in its own process group and return at once.
@@ -181,7 +167,6 @@ def spawn_supervised_native(
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                start_new_session=True,
             )
     except NativeCapacityRefusal:
         capture_path.unlink(missing_ok=True)

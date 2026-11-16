@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_pipe_reader import PipeReader
+
+from yoke_harness.session_relay_process_group import spawn_relay_process, stop_relay_process
+
 from yoke_harness.session_launch_admission import spawn_admitted_process
 
 import json
 import os
 from pathlib import Path
-import selectors
 import subprocess
 import tempfile
 import threading
@@ -72,13 +75,13 @@ class _Client:
         try:
             self.process = spawn_admitted_process(
                 [resolved, "app-server", "--stdio"],
+                process_factory=spawn_relay_process,
                 cwd=checkout,
                 env=strip_relay_owned_python_state(env),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=self.stderr_file or subprocess.DEVNULL,
                 bufsize=0,
-                start_new_session=True,
             )
         except OSError as exc:
             raise CodexAppServerError(
@@ -89,8 +92,7 @@ class _Client:
                 raise CodexAppServerError(
                     "app-server pipes unavailable", "spawn", code="pipes"
                 )
-            self.selector = selectors.DefaultSelector()
-            self.selector.register(self.process.stdout, selectors.EVENT_READ)
+            self.reader = PipeReader(self.process.stdout)
             self.request(
                 "initialize",
                 {"clientInfo": {"name": "yoke_session_relay", "version": "1"}},
@@ -128,15 +130,10 @@ class _Client:
                     "app-server response exceeded limit", code="response_oversize"
                 )
             remaining = deadline - time.monotonic()
-            if remaining <= 0 or not self.selector.select(remaining):
-                raise CodexAppServerError(
-                    "app-server response timed out", code="timeout"
-                )
-            if self.process.stdout is None:
-                raise CodexAppServerError(
-                    "app-server response unavailable", code="stdout_unavailable"
-                )
-            chunk = os.read(self.process.stdout.fileno(), 65_536)
+            try:
+                chunk = self.reader.read(timeout=max(0, remaining))
+            except TimeoutError:
+                raise CodexAppServerError("app-server response timed out", code="timeout") from None
             if not chunk:
                 raise CodexAppServerError(
                     "app-server exited before replying", code="eof"
@@ -227,7 +224,7 @@ class _Client:
 
     def close(self) -> None:
         try:
-            self.selector.close()
+            self.reader.close()
         except Exception:
             pass
         if self.process.stdin is not None:
@@ -235,13 +232,7 @@ class _Client:
                 self.process.stdin.close()
             except OSError:
                 pass
-        if self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=2)
+        stop_relay_process(self.process)
         if self.stderr_file is not None:
             try:
                 self.stderr_file.close()

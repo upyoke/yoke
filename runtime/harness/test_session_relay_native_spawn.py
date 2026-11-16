@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 import os
-import signal
 import sys
 import threading
 
 import pytest
+from yoke_contracts.owner_private_path import create_owner_private_directory
 
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness import session_relay_claude_native as native_module
@@ -33,6 +33,10 @@ from yoke_harness.session_relay_native_diagnostics import (
 )
 from yoke_harness.session_relay_native_spawn import spawn_supervised_native
 from yoke_harness.session_relay_runtime import RelayExecutionContext
+
+
+@pytest.fixture
+def tmp_path(tmp_path): return create_owner_private_directory(tmp_path / "private-relay")
 
 
 ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
@@ -94,16 +98,12 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     )
     assert result.evidence["native_started_at"].endswith(".123456Z")
     argv, kwargs = calls[0]
-    # The relay starts the supervisor, which starts the native and stays to
-    # collect the exit status the relay poll will never be around to see.
     assert argv[:3] == [sys.executable, "-m", supervisor.__name__]
     assert argv[3:5] == ["--capture", str(result.capture_path)]
     assert argv[5:] == ["--", "/opt/claude", "-p", "--resume", SESSION_ID]
     assert kwargs["cwd"] == tmp_path
     assert kwargs["env"] == {"SAFE": "1", RESUME_ATTEMPT_ENV: ATTEMPT_ID}
-    assert kwargs["start_new_session"] is True
-    # The spawner initializes the capture before the supervisor starts writing,
-    # and its attempt-derived name lets any reader holding that id find it.
+    assert "start_new_session" not in kwargs
     assert result.diagnostic_ref == f"nd-{ATTEMPT_ID}"
     assert result.capture_path.name == f"nd-{ATTEMPT_ID}.capture"
     assert custody[0][0] == (ATTEMPT_ID, process.pid)
@@ -210,9 +210,9 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
         lambda *args, **kwargs: False,
     )
     monkeypatch.setattr(
-        spawn_module.os,
-        "killpg",
-        lambda pid, sent: group_signals.append((pid, sent)),
+        spawn_module,
+        "stop_relay_process",
+        lambda child: group_signals.append(child),
     )
 
     result = spawn_supervised_native(
@@ -227,7 +227,7 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
     )
 
     assert result is None
-    assert group_signals == [(process.pid, signal.SIGTERM)]
+    assert group_signals == [process]
     assert not process.terminated
     assert not tuple((tmp_path / "native-diagnostics").glob("*.capture"))
 

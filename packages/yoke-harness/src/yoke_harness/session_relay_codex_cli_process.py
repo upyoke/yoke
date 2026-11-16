@@ -53,7 +53,7 @@ def _retain_and_reap(
 
     def own() -> None:
         drains = [
-            start_drain(process.stdout, streams, STDOUT),
+            start_drain(getattr(process, "_yoke_stdout_reader", process.stdout), streams, STDOUT),
             getattr(process, "_yoke_stderr_thread", None),
         ]
         retain_native_capture(
@@ -85,14 +85,9 @@ def _retain(
 
 
 def stop_native(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
-    process.terminate()
-    try:
-        process.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait(timeout=2)
+    from yoke_harness.session_relay_process_group import stop_relay_process
+
+    stop_relay_process(process)
 
 
 def run_detached_operation(

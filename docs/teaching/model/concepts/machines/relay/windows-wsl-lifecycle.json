@@ -1,7 +1,9 @@
 {
  "id": "windows-wsl-lifecycle",
- "title": "Windows / WSL lifecycle",
- "status": "draft-copy",
+ "title": "Windows relay login lifecycle",
+ "status": "observed",
  "page": "machines",
- "position": 5
+ "position": 5,
+ "summary": "The native Windows relay uses an interactive per-user scheduled task. Sign-out stops it; reboot leaves it unavailable before login; the next login starts it. Desktop lock leaves it running. Battery use does not stop it. Task Scheduler restrictions report the reason and recovery. There is no guaranteed shutdown grace period; durable custody is reconciled at the next start.",
+ "source_paths": ["packages/yoke-core/src/yoke_core/tools/session_relay_task_scheduler.py", "packages/yoke-harness/src/yoke_harness/session_relay_stop_deadline.py"]
 }

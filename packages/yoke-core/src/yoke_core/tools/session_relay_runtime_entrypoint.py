@@ -3,24 +3,39 @@
 
 from __future__ import annotations
 
-import fcntl
+import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
 import sysconfig
 
 
-_RELEASE_HANDLE: int | None = None
+_RELEASE_HANDLE = None
 
 
 def _select_release_packages() -> None:
     global _RELEASE_HANDLE
     state_dir = Path(__file__).resolve().parents[2]
-    with (state_dir / "__YOKE_RELEASE_LOCK__").open("a") as pin_lock:
-        fcntl.flock(pin_lock.fileno(), fcntl.LOCK_SH)
-        release_root = (state_dir / "__YOKE_ACTIVE_RELEASE__").resolve(strict=True)
-        _RELEASE_HANDLE = os.open(release_root, os.O_RDONLY)
-        fcntl.flock(_RELEASE_HANDLE, fcntl.LOCK_SH)
+    # The stable runtime has no product packages yet. The installer bundles
+    # the shared lock owner beside this entrypoint; do not copy its algorithm.
+    spec = importlib.util.spec_from_file_location(
+        "relay_file_lock", state_dir / "runtime" / "relay_file_lock.py"
+    )
+    locks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(locks)
+    with (state_dir / "__YOKE_RELEASE_LOCK__").open("a+b") as pin_lock:
+        locks.acquire_shared(pin_lock.fileno())
+        try:
+            active = state_dir / "__YOKE_ACTIVE_RELEASE__"
+            receipt = json.loads((active / ".yoke-relay-release.json").read_text())
+            release_root = Path(receipt["physical_root"]).resolve(strict=True)
+            if release_root.parent != (state_dir / "releases").resolve():
+                raise RuntimeError("selected release is outside the owned releases directory")
+            _RELEASE_HANDLE = (release_root / ".relay-use.lock").open("a+b")
+            locks.acquire_shared(_RELEASE_HANDLE.fileno())
+        finally:
+            locks.release_exclusive(pin_lock.fileno())
     runtime_root = Path(sys.prefix).resolve()
     runtime_packages = Path(sysconfig.get_path("purelib")).resolve()
     package_relative = runtime_packages.relative_to(runtime_root)

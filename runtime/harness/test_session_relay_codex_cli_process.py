@@ -88,7 +88,7 @@ def test_detached_cli_owner_retains_process_after_parent_result(tmp_path: Path) 
     assert outcome == CodexNativeOutcome("accepted", "native-1", True)
     command, options = calls[0]
     assert command == ["/opt/python", "-m", process_module._MODULE]
-    assert options["start_new_session"] is True
+    assert "start_new_session" not in options
     assert SECRET in options["env"][LAUNCH_CONTEXT_ENV]
     assert SECRET not in repr(command)
     assert INSTRUCTION not in repr(command)

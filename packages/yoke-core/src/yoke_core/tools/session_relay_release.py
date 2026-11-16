@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from yoke_core.domain.relay_release_path import (
-    relay_launch_executable,
+    relay_launch_executable, relay_venv_python, relay_venv_executable,
 )
 
 import json
 import os
+import sys
 import subprocess
 import uuid
 from collections.abc import Callable, Mapping
@@ -79,19 +80,17 @@ def relay_runtime_path(state_dir: Path) -> Path:
 
 
 def relay_runtime_executable(state_dir: Path) -> Path:
-    return relay_runtime_path(state_dir) / "bin" / "yoke"
+    return relay_runtime_path(state_dir) / ("Scripts/yoke.cmd" if sys.platform == "win32" else "bin/yoke")
 
 
 def relay_runtime_python(state_dir: Path) -> Path:
-    return relay_runtime_path(state_dir) / "bin" / "python"
+    return relay_venv_python(relay_runtime_path(state_dir))
 
 
 def relay_launch_targets_runtime(state_dir: Path) -> bool:
     launch = relay_launch_path(state_dir)
     try:
-        return launch.is_symlink() and launch.resolve(
-            strict=True
-        ) == relay_runtime_path(state_dir).resolve(strict=True)
+        return (launch / ".yoke-runtime-target").read_text() == str(relay_runtime_path(state_dir).resolve())
     except OSError:
         return False
 
@@ -102,11 +101,11 @@ def relay_release_receipt(state_dir: Path) -> dict[str, Any]:
 
 
 def relay_package_executable(state_dir: Path) -> Path:
-    return relay_active_release_path(state_dir) / "bin" / "yoke"
+    return relay_venv_executable(relay_active_release_path(state_dir))
 
 
 def relay_package_python(state_dir: Path) -> Path:
-    return relay_active_release_path(state_dir) / "bin" / "python"
+    return relay_venv_python(relay_active_release_path(state_dir))
 
 
 def release_version_from_build(build: str) -> str:
