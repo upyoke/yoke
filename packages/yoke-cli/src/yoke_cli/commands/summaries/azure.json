@@ -1,6 +1,6 @@
 {
   "azure": "Run Azure commands with a project's service principal.",
-  "azure admin-link": "Show Azure service-principal setup and secret storage commands.",
+  "azure admin-link": "Show Azure service principal setup commands.",
   "azure admin-status": "Check Azure credentials and verify the selected identity.",
   "azure exec": "Run the Azure CLI with the project's service principal."
 }

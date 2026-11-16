@@ -29,6 +29,7 @@ from yoke_contracts.machine_config.capability_secret_store import (
     MachineCapabilitySecretError,
 )
 from yoke_contracts.project_defaults import MissingProjectError
+from yoke_contracts.refusal_recovery import compose_refusal
 
 USAGES = {
     "admin-link": "yoke azure admin-link [--project PROJECT]",
@@ -159,8 +160,10 @@ def azure_admin_status(args):
             + (
                 "  ready: yes"
                 if report["ready"]
-                else f"  ready: no · {report.get('reason') or 'missing ' + ', '.join(missing)}\n"
-                f"  Recovery: yoke azure admin-link --project {project}"
+                else compose_refusal(
+                    f"  ready: no · {report.get('reason') or 'missing ' + ', '.join(missing)}",
+                    recovery=f"yoke azure admin-link --project {project}",
+                )
             )
         )
         return 0
@@ -171,7 +174,12 @@ def azure_admin_status(args):
         ProjectSlugLookupError,
         ValueError,
     ) as exc:
-        print(f"error: {exc}; run `yoke azure admin-link` and retry", file=sys.stderr)
+        print(
+            compose_refusal(
+                f"error: {exc}", recovery="run `yoke azure admin-link` and retry"
+            ),
+            file=sys.stderr,
+        )
         return 1
 
 
@@ -199,5 +207,10 @@ def azure_exec(args):
         OSError,
         ValueError,
     ) as exc:
-        print(f"error: {exc}; run `yoke azure admin-status` and retry", file=sys.stderr)
+        print(
+            compose_refusal(
+                f"error: {exc}", recovery="run `yoke azure admin-status` and retry"
+            ),
+            file=sys.stderr,
+        )
         return 1
