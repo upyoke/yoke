@@ -4,7 +4,8 @@ A fleet preflight copies every live database of a fleet to the machine that
 runs the kernel. An environment may declare ``release.preflight_executor``, a
 command line that runs in place of the local kernel so the copy happens on a
 host beside the database. When the setting is unset (or empty) the kernel runs
-on this machine; that is the normal mode for local and self-hosted projects.
+on this machine on macOS and Linux, the normal local and self-hosted mode.
+Native Windows refuses an unset executor before any local fleet copy.
 
 Executor contract:
 
@@ -205,7 +206,7 @@ def executor_failure(command: PreflightCommand, rc: int, raw_capture: object) ->
             "then retry yoke watch preflight with the same arguments. To "
             "correct the declaration: "
             + _set_recovery(command.project, command.environment)
-            + " (set it empty to run the kernel on this machine)"
+            + ("" if _NATIVE_WINDOWS else " (set it empty to run the kernel on this machine)")
         ),
     )
 
