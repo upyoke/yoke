@@ -4,9 +4,9 @@ The harness manifest's ``shell_tools`` says which shell each shell tool runs;
 ``os_default`` tools (Codex, Cursor) run PowerShell on Windows and Bash
 elsewhere. Only this machine knows its operating system, so the client
 resolves the kind here and writes it to the payload before any evaluation,
-local or relayed. The native tool name is canonicalized to the ``Bash`` chain
-at the same time, so every guard reads one tool vocabulary and one shell
-field instead of re-deriving the shell from a harness-specific name.
+local or relayed. The native tool name stays as sent: the evaluating side
+canonicalizes it (``hook_tool_names.canonicalize_shell_payload``), so a server
+older than the stamp keeps its own behavior for a tool it does not know.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from yoke_contracts.harness_shell_tools import (
     is_windows,
     shell_kind_for,
 )
-from yoke_contracts.hook_tool_names import canonical_tool_name
 
 
 def stamp_shell_kind(stdin_data: str, executor: str, *, windows: bool | None = None) -> str:
@@ -45,8 +44,6 @@ def stamp_shell_kind(stdin_data: str, executor: str, *, windows: bool | None = N
     if kind is None:
         return stdin_data
     payload[SHELL_KIND_PAYLOAD_KEY] = kind
-    if tool_name:
-        payload["tool_name"] = canonical_tool_name(tool_name)
     return json.dumps(payload)
 
 

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
 from yoke_contracts.codex_shell_timing import command_duration_ms
-from yoke_contracts.hook_tool_names import payload_tool_name
+from yoke_contracts.hook_tool_names import canonicalize_shell_payload, payload_tool_name
 from yoke_contracts.harness_shell_tools import payload_shell_kind
 from yoke_contracts.hook_runner.guard_shells import shell_applicable_chain
 from yoke_contracts.fleet_watcher_observation import (
@@ -190,6 +190,7 @@ def collect_client_facts(
 
     A caller that already parsed the payload's command passes *shell*.
     """
+    payload = canonicalize_shell_payload(dict(payload))
     if shell is None:
         shell = parse_payload_shell(payload)
     obs = Observation(event_name, payload, executor, shell)

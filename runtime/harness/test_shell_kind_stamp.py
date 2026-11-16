@@ -15,7 +15,7 @@ from yoke_contracts.harness_shell_tools import (
     shell_kind_for,
     shell_tools,
 )
-from yoke_contracts.hook_tool_names import payload_tool_name
+from yoke_contracts.hook_tool_names import canonicalize_shell_payload, payload_tool_name
 from yoke_harness.hooks.shell_kind_stamp import stamp_shell_kind
 
 
@@ -46,15 +46,27 @@ def _stamped(payload: dict, executor: str, *, windows: bool) -> dict:
     return json.loads(stamp_shell_kind(json.dumps(payload), executor, windows=windows))
 
 
-def test_claude_powershell_is_stamped_and_runs_the_bash_chain() -> None:
+def test_claude_powershell_is_stamped_and_canonicalized_where_evaluated() -> None:
     out = _stamped(
         {"tool_name": "PowerShell", "tool_input": {"command": "git status"}},
         "claude",
         windows=True,
     )
+    # The client keeps the native name: an older server keeps its own routing.
     assert out[SHELL_KIND_PAYLOAD_KEY] == "powershell"
-    assert out["tool_name"] == "Bash"
-    assert payload_shell_kind(out) == "powershell"
+    assert out["tool_name"] == "PowerShell"
+    assert payload_tool_name(out) == "Bash"
+    canonical = canonicalize_shell_payload(dict(out))
+    assert canonical["tool_name"] == "Bash"
+    assert payload_shell_kind(canonical) == "powershell"
+
+
+def test_evaluator_canonicalizes_an_unstamped_shell_payload() -> None:
+    claude = canonicalize_shell_payload({"tool_name": "PowerShell"})
+    assert claude == {"tool_name": "Bash", SHELL_KIND_PAYLOAD_KEY: "powershell"}
+    cursor = canonicalize_shell_payload({"tool_name": "Shell"})
+    assert cursor == {"tool_name": "Bash", SHELL_KIND_PAYLOAD_KEY: "bash"}
+    assert canonicalize_shell_payload({"tool_name": "Edit"}) == {"tool_name": "Edit"}
 
 
 def test_codex_and_cursor_shells_follow_the_client_os() -> None:

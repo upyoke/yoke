@@ -30,6 +30,7 @@ from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
 )
 from yoke_contracts.harness_shell_tools import payload_shell_kind
+from yoke_contracts.hook_tool_names import canonicalize_shell_payload
 from yoke_contracts.hook_runner.shell_parse import parse_for_shell
 from yoke_contracts.hook_runner.degraded import infrastructure_reply
 
@@ -103,7 +104,7 @@ def _parse_payload(stdin_data: str) -> dict:
         payload = json.loads(stdin_data) if stdin_data else None
     except (json.JSONDecodeError, TypeError):
         return {}
-    return payload if isinstance(payload, dict) else {}
+    return canonicalize_shell_payload(payload) if isinstance(payload, dict) else {}
 
 
 def _local_modules(chain: list[str]) -> list[str]:

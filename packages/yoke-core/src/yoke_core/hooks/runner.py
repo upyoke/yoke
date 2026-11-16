@@ -59,9 +59,7 @@ def _resolve_matcher(event_name: str, payload: dict[str, Any]) -> Optional[str]:
     if event_name in {"PreToolUse", "PostToolUse"}:
         tool_name = payload.get("tool_name")
         if isinstance(tool_name, str) and tool_name:
-            from yoke_contracts.hook_tool_names import canonical_tool_name
-
-            return canonical_tool_name(tool_name)
+            return tool_name
     if event_name == "apply_patch":
         return "apply_patch"
     return None
@@ -150,6 +148,9 @@ def run_event(
         payload = {}
     if controls is not None and controls.payload_extra:
         payload = {**payload, **controls.payload_extra}
+    from yoke_contracts.hook_tool_names import canonicalize_shell_payload
+
+    canonicalize_shell_payload(payload)
 
     matcher = _resolve_matcher(event_name, payload)
     if dry_run:

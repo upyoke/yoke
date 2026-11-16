@@ -18,7 +18,12 @@ from __future__ import annotations
 from typing import Mapping
 
 from yoke_contracts.cursor_shell_timing import CURSOR_SHELL_EVENTS
-from yoke_contracts.harness_shell_tools import SHELL_CHAIN_MATCHER, SHELL_TOOL_NAMES
+from yoke_contracts.harness_shell_tools import (
+    SHELL_CHAIN_MATCHER,
+    SHELL_KIND_PAYLOAD_KEY,
+    SHELL_TOOL_NAMES,
+    payload_shell_kind,
+)
 
 
 # Only names that differ are listed; others pass through unchanged.
@@ -46,4 +51,25 @@ def payload_tool_name(payload: Mapping[str, object]) -> str | None:
     return None
 
 
-__all__ = ["TOOL_NAME_CANONICAL", "canonical_tool_name", "payload_tool_name"]
+def canonicalize_shell_payload(payload: dict) -> dict:
+    """Name a shell tool's payload ``Bash`` and record its shell; returns it.
+
+    The evaluating side calls this, never the client: a server older than
+    the shell kind must keep seeing the native name (Claude ``PowerShell``
+    then runs no shell guard, as before) rather than Bash rules on
+    PowerShell text. The client's ``yoke_shell_kind`` stamp wins; without
+    one the native name decides.
+    """
+    tool_name = payload.get("tool_name")
+    if tool_name in SHELL_TOOL_NAMES and tool_name != SHELL_CHAIN_MATCHER:
+        payload.setdefault(SHELL_KIND_PAYLOAD_KEY, payload_shell_kind(payload))
+        payload["tool_name"] = SHELL_CHAIN_MATCHER
+    return payload
+
+
+__all__ = [
+    "TOOL_NAME_CANONICAL",
+    "canonical_tool_name",
+    "canonicalize_shell_payload",
+    "payload_tool_name",
+]
