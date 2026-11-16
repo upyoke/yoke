@@ -70,8 +70,8 @@ def test_install_status_and_uninstall_roundtrip(tmp_path, monkeypatch):
     payload = service.relay_service_payload(status)
     assert payload["supervisor"] == "Task Scheduler"
     assert "sign-out" in payload["logout_behavior"]
-    body = (instance.state_dir / "task-runner.py").read_text()
-    assert str(instance.config_path) in body
+    body = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
+    assert repr(str(instance.config_path)) in body
     assert "subprocess.call" in body and "-I" in body
     runner.commands.clear()
     tasks.install_relay_task(instance=instance, runner=runner)
@@ -156,7 +156,7 @@ def test_task_owner_recycles_relay_without_finishing_scheduled_action(tmp_path, 
     runner = Scheduler(instance)
     monkeypatch.setattr(tasks.relay_install, "converge_relay_launcher", lambda *a, **k: tmp_path / "yoke.cmd")
     tasks.install_relay_task(instance=instance, runner=runner)
-    source = (instance.state_dir / "task-runner.py").read_text()
+    source = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
     results = iter([tasks.WINDOWS_RELAY_RESTART_CODE, 0])
     calls = []
     monkeypatch.setattr(tasks.os, "environ", {})
@@ -189,5 +189,5 @@ def test_local_task_keeps_a_stable_interpreter_across_operator_cli_updates(tmp_p
     assert runtimes == [instance.state_dir]
     root = ET.fromstring(runner.xml)
     assert root.findtext("t:Actions/t:Exec/t:Command", namespaces=NS) == str(tasks.relay_runtime_python(instance.state_dir))
-    body = (instance.state_dir / "task-runner.py").read_text()
-    assert str(launcher) in body
+    body = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
+    assert repr(str(launcher)) in body

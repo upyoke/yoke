@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import pytest
 
-from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
+from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV, WINDOWS_RELAY_RUNNER_ENV
 from yoke_harness import session_relay_codex_app_server_client as app_server_module
 from yoke_harness import session_relay_codex_cli as codex_cli_module
 from yoke_harness import session_relay_native_models as native_models_module
@@ -210,6 +210,7 @@ def _relay_daemon_environment(monkeypatch: pytest.MonkeyPatch, state_dir: Path) 
     monkeypatch.setenv("VIRTUAL_ENV", str(state_dir / "releases" / "deadbeef"))
     monkeypatch.setenv("PYTHONPATH", str(state_dir / "releases" / "deadbeef" / "lib"))
     monkeypatch.setenv(RELAY_STATE_DIR_ENV, str(state_dir))
+    monkeypatch.setenv(WINDOWS_RELAY_RUNNER_ENV, "1")
     monkeypatch.setenv(
         "PATH",
         os.pathsep.join([str(state_dir / "venv" / "bin"), PROJECT_BIN, "/usr/bin"]),
@@ -220,6 +221,7 @@ def _assert_relay_python_absent(environment: dict[str, str]) -> None:
     assert "VIRTUAL_ENV" not in environment
     assert "PYTHONPATH" not in environment
     assert RELAY_STATE_DIR_ENV not in environment
+    assert WINDOWS_RELAY_RUNNER_ENV not in environment
     assert environment["PATH"].split(os.pathsep) == [PROJECT_BIN, "/usr/bin"]
 
 

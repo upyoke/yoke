@@ -7,9 +7,7 @@ from pathlib import Path
 import sys
 import subprocess
 from typing import Callable, Sequence
-
-WINDOWS_RELAY_RUNNER_ENV = "YOKE_RELAY_TASK_RUNNER"
-WINDOWS_RELAY_RESTART_CODE = 75
+from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
 
 
 def exec_relay_release(

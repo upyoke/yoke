@@ -45,7 +45,7 @@ def test_failed_link_activation_keeps_previous_selection(tmp_path, monkeypatch):
     monkeypatch.setattr(links, "link", lambda *a: (_ for _ in ()).throw(OSError("denied")))
     with pytest.raises(OSError, match="denied"):
         links.activate_link(target, active)
-    assert (active / "keep").read_text() == "previous"
+    assert (active / "keep").read_text(encoding="utf-8") == "previous"
 
 
 def test_windows_runtime_launches_python_explicitly_and_bundles_shared_lock(tmp_path, monkeypatch):
@@ -55,10 +55,10 @@ def test_windows_runtime_launches_python_explicitly_and_bundles_shared_lock(tmp_
     scripts.mkdir(parents=True)
     (scripts / "python.exe").touch()
     runtime._install_runtime_entrypoint(root, state_dir=tmp_path)
-    command = (scripts / "yoke.cmd").read_text()
+    command = (scripts / "yoke.cmd").read_text(encoding="utf-8")
     assert "python.exe" in command and "-I" in command and "yoke.py" in command
-    assert (root / "relay_file_lock.py").read_text() == Path(runtime.platform_file_lock.__file__).read_text()
-    assert "import fcntl" not in (scripts / "yoke.py").read_text()
+    assert (root / "relay_file_lock.py").read_text(encoding="utf-8") == Path(runtime.platform_file_lock.__file__).read_text(encoding="utf-8")
+    assert "import fcntl" not in (scripts / "yoke.py").read_text(encoding="utf-8")
     assert release.relay_runtime_python(tmp_path) == scripts / "python.exe"
     calls = []
     results = iter([restart.WINDOWS_RELAY_RESTART_CODE, 0])

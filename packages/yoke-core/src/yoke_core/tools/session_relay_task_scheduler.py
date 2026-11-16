@@ -23,7 +23,7 @@ from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError, relay_runtime_python
 from yoke_core.tools.session_relay_runtime_install import ensure_relay_runtime
 from yoke_core.tools.session_relay_release_retention import release_install_lock
-from yoke_harness.session_relay_process_restart import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
+from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.refusal_recovery import compose_refusal
 
