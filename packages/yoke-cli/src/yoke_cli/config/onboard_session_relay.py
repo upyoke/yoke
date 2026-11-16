@@ -70,7 +70,7 @@ def is_supported(
     """Whether this machine can run a relay for the chosen destination."""
     resolved_platform = sys.platform if platform is None else platform
     del local_destination
-    return resolved_platform in {"darwin", "linux"}
+    return resolved_platform in {"darwin", "linux", "win32"}
 
 
 def plan_steps(

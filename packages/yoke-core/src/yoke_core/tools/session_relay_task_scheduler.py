@@ -21,16 +21,14 @@ from yoke_contracts.machine_config.relay_instance import (
 from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError, relay_runtime_python
+from yoke_core.tools.session_relay_runtime_install import ensure_relay_runtime
+from yoke_core.tools.session_relay_release_retention import release_install_lock
 from yoke_harness.session_relay_process_restart import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.refusal_recovery import compose_refusal
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
-LOGIN_BEHAVIOR = (
-    "Stops at sign-out; unavailable after reboot until this user logs in; "
-    "starts at the next login. Locking the desktop keeps the relay running."
-)
 
 
 @dataclass(frozen=True)
@@ -43,6 +41,7 @@ class RelayTaskStatus:
     environment: str
     state_dir: Path
     reason: str = ""
+    enabled: bool = False
 
 
 def _run(argv: list[str], runner: Runner) -> subprocess.CompletedProcess[str]:
@@ -120,8 +119,7 @@ def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
     node(restart, "Interval", "PT1M")
     node(restart, "Count", "999")
     action = node(node(root, "Actions", Context="RelayUser"), "Exec")
-    python = relay_runtime_python(instance.state_dir) if instance.follows_served_release else Path(os.sys.executable)
-    node(action, "Command", str(python))
+    node(action, "Command", str(relay_runtime_python(instance.state_dir)))
     node(action, "Arguments", subprocess.list2cmdline(["-I", str(instance.state_dir / "task-runner.py")]))
     node(action, "WorkingDirectory", str(instance.state_dir))
     return ET.tostring(root, encoding="unicode")
@@ -144,7 +142,7 @@ def _current(observed: str, expected: str) -> bool:
 
 def relay_task_status(*, instance=None, home=None, environ=None, runner= subprocess.run) -> RelayTaskStatus:
     selected = instance or resolve_relay_instance()
-    present = current = loaded = False
+    present = current = loaded = enabled = False
     reason = ""
     available = True
     try:
@@ -163,15 +161,16 @@ def relay_task_status(*, instance=None, home=None, environ=None, runner= subproc
                 f"[int]$s.GetFolder('\\').GetTask('{name}').State",
             ], runner)
             loaded = state == "4"
+            enabled = state in {"2", "3", "4"}
             if state == "1":
                 reason = "relay_task_disabled: enable the task with `yoke relay install`"
-        if present and not current:
+        if present and not current and not reason:
             reason = "relay_task_outdated: retry `yoke relay install` to restore the task settings"
     except RelayInstallError as exc:
         available = False
         reason = str(exc)
     return RelayTaskStatus(available, present, current, loaded, selected.label,
-                           selected.environment, selected.state_dir, reason)
+                           selected.environment, selected.state_dir, reason, enabled)
 
 
 def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] | None = None,
@@ -181,11 +180,19 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
         raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
     sid = _user(runner)
     _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
+    prior = relay_task_status(instance=selected, runner=runner)
+    if not prior.supported:
+        raise _unavailable(prior.reason)
     try:
         launcher = relay_install.converge_relay_launcher(selected, pin_release=pin_release)
     except RelayReleaseError as exc:
         raise RelayInstallError(str(exc), code=exc.code) from exc
     create_private_directory(selected.state_dir)
+    if not selected.follows_served_release:
+        # A versioned operator CLI can be retired after an update. The task's
+        # interpreter must remain physical and stable, even for local universes.
+        with release_install_lock(selected.state_dir):
+            ensure_relay_runtime(selected.state_dir)
     source_env = os.environ if environ is None else environ
     environment = {
         machine_paths.CONFIG_FILE_ENV: str(selected.config_path),
@@ -211,6 +218,8 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     path = selected.state_dir / "task.xml"
     write_owner_private(path, relay_task_document(selected, user_sid=sid).encode("utf-16"))
     _checked(["schtasks", "/Create", "/TN", selected.label, "/XML", str(path), "/F"], runner)
+    if prior.loaded:
+        _checked(["schtasks", "/End", "/TN", selected.label], runner)
     _checked(["schtasks", "/Run", "/TN", selected.label], runner)
     status = relay_task_status(instance=selected, runner=runner)
     deadline = time.monotonic() + 5

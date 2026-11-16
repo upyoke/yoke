@@ -12,16 +12,16 @@ def relay_status_fields(payload: Mapping[str, Any]) -> list[tuple[str, Any]]:
     poll = poll if isinstance(poll, Mapping) else {}
     fields = [
         ("Environment", payload.get("environment")),
-        ("User service", payload.get("unit_name") or payload.get("launchd_label")),
+        ("User service", payload.get("task_name") or payload.get("unit_name") or payload.get("launchd_label")),
         ("Supported", bool(payload.get("supported"))),
         ("Service loaded", bool(payload.get("loaded"))),
         (
             "Configuration present",
-            bool(payload.get("unit_present", payload.get("plist_present"))),
+            bool(payload.get("task_present", payload.get("unit_present", payload.get("plist_present")))),
         ),
         (
             "Configuration current",
-            bool(payload.get("unit_current", payload.get("plist_current"))),
+            bool(payload.get("task_current", payload.get("unit_current", payload.get("plist_current")))),
         ),
         ("Service file", payload.get("unit_path") or payload.get("plist_path")),
         ("State directory", payload.get("state_dir")),
@@ -41,7 +41,7 @@ def relay_status_fields(payload: Mapping[str, Any]) -> list[tuple[str, Any]]:
         ("Quarantined reports", health.get("quarantine_count")),
         ("Recovery", payload.get("relay_health_recovery")),
     ]
-    if "unit_name" in payload:
+    if "unit_name" in payload or "task_name" in payload:
         fields.extend(
             [
                 ("Enabled at login", payload.get("enabled")),

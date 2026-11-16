@@ -1,6 +1,7 @@
 """Windows relay supervision contract; no scheduler or administrator needed."""
 
 import subprocess
+from dataclasses import replace
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -72,6 +73,10 @@ def test_install_status_and_uninstall_roundtrip(tmp_path, monkeypatch):
     body = (instance.state_dir / "task-runner.py").read_text()
     assert str(instance.config_path) in body
     assert "subprocess.call" in body and "-I" in body
+    runner.commands.clear()
+    tasks.install_relay_task(instance=instance, runner=runner)
+    lifecycle = [argv[1] for argv in runner.commands if argv[0] == "schtasks" and argv[1] in {"/Create", "/End", "/Run"}]
+    assert lifecycle == ["/Create", "/End", "/Run"]
     status = tasks.uninstall_relay_task(instance=instance, runner=runner)
     assert not status.task_present and not status.loaded
     assert any("/End" in argv for argv in runner.commands)
@@ -171,3 +176,18 @@ def test_supervisor_filesystem_failure_has_reason_and_recovery(monkeypatch):
     with pytest.raises(tasks.RelayInstallError, match="state path is locked.*Recovery") as raised:
         service.relay_service_operation("install")
     assert raised.value.code == "relay_service_filesystem_failed"
+
+
+def test_local_task_keeps_a_stable_interpreter_across_operator_cli_updates(tmp_path, monkeypatch):
+    instance = replace(relay_instance(tmp_path), follows_served_release=False)
+    runner = Scheduler(instance)
+    launcher = tmp_path / "installed" / "yoke.cmd"
+    monkeypatch.setattr(tasks.relay_install, "converge_relay_launcher", lambda *a, **k: launcher)
+    runtimes = []
+    monkeypatch.setattr(tasks, "ensure_relay_runtime", lambda state: runtimes.append(state))
+    tasks.install_relay_task(instance=instance, runner=runner)
+    assert runtimes == [instance.state_dir]
+    root = ET.fromstring(runner.xml)
+    assert root.findtext("t:Actions/t:Exec/t:Command", namespaces=NS) == str(tasks.relay_runtime_python(instance.state_dir))
+    body = (instance.state_dir / "task-runner.py").read_text()
+    assert str(launcher) in body

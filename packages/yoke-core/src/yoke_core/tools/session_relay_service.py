@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from yoke_contracts.machine_config.relay_instance import RELAY_LOGOUT_BEHAVIOR
+from yoke_contracts.machine_config.relay_instance import RELAY_LOGOUT_BEHAVIOR, WINDOWS_RELAY_LOGOUT_BEHAVIOR
 from typing import Any
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -79,8 +79,9 @@ def relay_service_payload(status: Any) -> dict[str, Any]:
             "task_name": status.task_name,
             "task_present": status.task_present,
             "task_current": status.task_current,
+            "enabled": status.enabled,
             "supervision_reason": status.reason or None,
-            "logout_behavior": session_relay_task_scheduler.LOGIN_BEHAVIOR,
+            "logout_behavior": WINDOWS_RELAY_LOGOUT_BEHAVIOR,
         }
     elif isinstance(status, session_relay_systemd.RelaySystemdStatus):
         document = {

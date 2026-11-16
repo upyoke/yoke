@@ -15,6 +15,10 @@ from yoke_contracts.machine_config import schema as machine_schema
 RELAY_LOGOUT_BEHAVIOR = (
     "The relay stops after the last login session logs out; linger is disabled."
 )
+WINDOWS_RELAY_LOGOUT_BEHAVIOR = (
+    "Stops at sign-out; unavailable after reboot until this user logs in; "
+    "starts at the next login. Locking the desktop keeps the relay running."
+)
 
 RELAY_BASE_LABEL = "com.upyoke.relay"
 RELAY_LABEL_PREFIX = f"{RELAY_BASE_LABEL}."
@@ -235,6 +239,7 @@ __all__ = [
     "SHARED_RELAY_STATE_DIR_NAME",
     "RELAY_STATE_DIR_ENV",
     "RELAY_LOGOUT_BEHAVIOR",
+    "WINDOWS_RELAY_LOGOUT_BEHAVIOR",
     "RelayInstance",
     "door_relay_refusal",
     "RelayInstanceError",
