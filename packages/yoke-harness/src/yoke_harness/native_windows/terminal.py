@@ -47,7 +47,7 @@ class WindowsTerminal:
         self.pid = None
         self.root = control.home + "\\AppData\\Local\\YokeQa\\" + self.token
 
-    def open(self, entry_surface, size=(120, 40)):
+    def launch(self, entry_surface, size=(120, 40)):
         if not all(1 <= n <= 500 for n in size):
             raise ValueError("terminal size is outside registered bounds")
         script = (
@@ -169,7 +169,7 @@ def run_native_terminal_case(
     terminal = WindowsTerminal(control)
     rows = []
     try:
-        if not terminal.open(entry_surface, size):
+        if not terminal.launch(entry_surface, size):
             return HostActionResult(
                 False,
                 {

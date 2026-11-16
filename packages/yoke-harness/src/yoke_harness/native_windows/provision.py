@@ -103,7 +103,7 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
 """.replace("PUBLIC_KEY", quote(public))
     with tempfile.TemporaryDirectory(prefix="yoke-windows-provision-") as temporary:
         path = Path(temporary) / "openssh.ps1"
-        path.write_text(script)
+        path.write_text(script, encoding="utf-8")
         announce_designed_wait(
             "Azure Windows OpenSSH bootstrap",
             max_wait_seconds=BOOTSTRAP_TIMEOUT_SECONDS,

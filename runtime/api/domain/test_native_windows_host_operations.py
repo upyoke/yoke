@@ -164,7 +164,7 @@ def test_native_console_task_outlives_open_and_is_owned_until_close(monkeypatch)
         _run=lambda script, **kwargs: calls.append(script) or completed(),
     )
     terminal = WindowsTerminal(control)
-    assert terminal.open("Write-Host native")
+    assert terminal.launch("Write-Host native")
     assert terminal.pid == 456
     assert not any("Stop-ScheduledTask" in script for script in calls)
     assert terminal.close()

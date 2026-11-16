@@ -80,7 +80,7 @@ def _interactive(terminal, entry, required, config, progress, secrets, size):
     deadline = time.monotonic() + float(config["max_wall_seconds"])
     rows = []
     try:
-        if not terminal.open(entry, size):
+        if not terminal.launch(entry, size):
             raise RuntimeError(
                 "windows_terminal_unavailable: unlock the test desktop and verify its native console"
             )
@@ -97,7 +97,7 @@ def _interactive(terminal, entry, required, config, progress, secrets, size):
             for key in action["keys"]:
                 if key.startswith("paste_file:"):
                     key = (
-                        terminal.control.read_text(key.removeprefix("paste_file:"))
+                        terminal.control.read_remote_text(key.removeprefix("paste_file:"))
                         or ""
                     )
                 if not terminal.send(key, submit=False):
