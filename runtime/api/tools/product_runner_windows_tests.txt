@@ -1,0 +1,7 @@
+# Tests the required windows-smoke job runs on native Windows (yoke-ci.yml).
+# One pytest path or node id per line; blank lines and # comments are ignored.
+# NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
+runtime/api/tools/test_product_runner_stages.py
+runtime/api/cli/test_platform_file_lock.py
+tests/installer/test_native_windows_installer.py
+tests/installer/test_windows_user_path.py
