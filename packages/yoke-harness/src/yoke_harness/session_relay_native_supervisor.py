@@ -67,6 +67,7 @@ _RELEASE_LEASE = hold_running_release(__file__)
 FLUSH_INTERVAL_SECONDS = 2.0
 _DRAIN_JOIN_SECONDS = 2.0
 _TERMINATE_WAIT_SECONDS = 5.0
+CUSTODY_READY = b"yoke-native-custody-recorded\n"
 
 
 def _write(
@@ -201,6 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Supervise one native named on the command line."""
     parser = argparse.ArgumentParser(prog="yoke-native-supervisor")
     parser.add_argument("--capture", required=True)
+    parser.add_argument("--await-custody", action="store_true")
     parser.add_argument("native", nargs=argparse.REMAINDER)
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     native = [str(value) for value in parsed.native]
@@ -212,6 +214,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         streams.append(STDERR, b"supervisor was given no native to run")
         _write(capture, streams, state=STATE_EXITED, exit_code=None)
         return 2
+    # Stay alive through identity capture, and never create an unrecorded native
+    # if the parent exits before it can persist custody and release this pipe.
+    if parsed.await_custody and sys.stdin.buffer.readline(len(CUSTODY_READY) + 1) != CUSTODY_READY:
+        return 1
     return supervise(capture, native)
 
 

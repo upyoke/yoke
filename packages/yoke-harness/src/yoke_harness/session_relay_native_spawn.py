@@ -151,6 +151,7 @@ def spawn_supervised_native(
         session_relay_native_supervisor.__name__,
         "--capture",
         str(capture_path),
+        "--await-custody",
         "--",
         *(str(value) for value in argv),
     ]
@@ -164,7 +165,7 @@ def spawn_supervised_native(
                     supervision_kind=supervision_kind,
                     attempt_id=attempt_id,
                 ),
-                stdin=subprocess.DEVNULL,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -185,6 +186,18 @@ def spawn_supervised_native(
         state_dir=state_dir,
         now=now,
     ):
+        _stop_uncontained(process)
+        if process.stdin is not None:
+            process.stdin.close()
+        capture_path.unlink(missing_ok=True)
+        return None
+    try:
+        if process.stdin is None:
+            raise OSError("native supervisor custody pipe unavailable")
+        with process.stdin as gate:
+            gate.write(session_relay_native_supervisor.CUSTODY_READY)
+            gate.flush()
+    except (OSError, subprocess.SubprocessError):
         _stop_uncontained(process)
         capture_path.unlink(missing_ok=True)
         return None
