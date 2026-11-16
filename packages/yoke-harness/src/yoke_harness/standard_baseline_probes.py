@@ -67,7 +67,7 @@ def _probe(name: str, program: str) -> dict:
 
 def standard_probes(os_name: str) -> list[dict]:
     """Run harnesses without tools; only an exit code and a sanitized rejection leave the host."""
-    if os_name not in {"macos", "linux", "windows"}:
+    if os_name not in {"macos", "linux", "wsl", "windows"}:
         raise ValueError("baseline_probe_os_unsupported")
     source = (
         Path(baseline_harness_requests.__file__)

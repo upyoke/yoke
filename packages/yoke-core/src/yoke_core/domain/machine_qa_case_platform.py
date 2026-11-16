@@ -6,10 +6,14 @@ from collections.abc import Mapping, Sequence
 import re
 from typing import Any
 
-from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
+from yoke_contracts.machine_config.test_machine import (
+    TEST_MACHINE_OSES,
+    TestMachineCapabilityError,
+)
 
 # Only execution inputs participate; expected screen text and outcomes can
-# mention other operating systems without requiring those hosts.
+# mention other operating systems without requiring those hosts. Windows words
+# mean native Windows; a WSL case declares os ``wsl`` or pins a WSL machine.
 _PLATFORM_WORDS = {
     "linux": r"\b(?:linux|ubuntu|debian|xfce|xfce4-terminal)\b",
     "macos": r"\b(?:macos|darwin|osascript|safari|terminal\.app)\b|\bmac os\b",
@@ -56,12 +60,12 @@ def platform_config(config: Mapping[str, Any]) -> dict[str, str]:
     """Validate the platform metadata shared by machine method contracts."""
     result = {key: config[key] for key in ("os", "platform") if key in config}
     if any(
-        not isinstance(value, str) or value not in _PLATFORM_WORDS
+        not isinstance(value, str) or value not in TEST_MACHINE_OSES
         for value in result.values()
     ):
         raise TestMachineCapabilityError(
             "test_machine_platform_invalid: set method_config.os or "
-            "method_config.platform to linux, macos or windows"
+            "method_config.platform to linux, macos, windows (native) or wsl"
         )
     if len(set(result.values())) > 1:
         raise TestMachineCapabilityError(
@@ -80,7 +84,7 @@ def case_platform(
     if case.get("runner_id") == "agent_mission" and not needs_test_machine(case):
         return None
     config = case.get("method_config") or {}
-    platform_config(config)
+    declared_os = set(platform_config(config).values())
     from yoke_core.domain.qa_method_capabilities import capability_kinds
 
     required = tuple(
@@ -96,17 +100,10 @@ def case_platform(
             ),
         ]
     )
-    platforms = {
+    platforms = declared_os | {
         os for os, pattern in _PLATFORM_WORDS.items() if re.search(pattern, text, re.I)
     }
-    identifiers = _execution_text(
-        [
-            required,
-            config.get("os"),
-            config.get("platform"),
-        ]
-    )
-    if re.search(r"\bwindows\b", identifiers, re.I):
+    if re.search(r"\bwindows\b", _execution_text(required), re.I):
         platforms.add("windows")
     # GNU stat's mode option is used by Linux machine-state assertions.
     if re.search(r"\bstat\s+-c\b", text):
@@ -132,7 +129,8 @@ def case_platform(
     raise TestMachineCapabilityError(
         "test_machine_platform_undeclared: case "
         f"{case.get('case_key') or case.get('requirement_id') or 'unknown'} "
-        "has no declared platform; set method_config.os to linux, macos or windows, "
+        "has no declared platform; set method_config.os to linux, macos, windows "
+        "(native) or wsl, "
         "or set method_config.test_machine to a registered Test Machine with an os"
     )
 

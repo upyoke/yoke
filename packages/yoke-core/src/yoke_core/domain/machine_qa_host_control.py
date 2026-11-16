@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.test_machine import validate_test_machine_os
+from yoke_contracts.machine_config.test_machine import (
+    validate_test_machine_os,
+)
 from yoke_core.domain.host_control_runner import (
     register_host_control_factory,
     TestMachineMaterial,
@@ -16,9 +18,16 @@ def host_control_for(material: TestMachineMaterial):
 
         return SshMacHostControl(material)
     if os_name == "windows":
-        from yoke_core.domain.ssh_native_windows_host_control import SshNativeWindowsHostControl
+        from yoke_core.domain.ssh_native_windows_host_control import (
+            SshNativeWindowsHostControl,
+        )
 
         return SshNativeWindowsHostControl(material)
+    if os_name == "wsl":
+        from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
+
+        return SshWindowsHostControl(material)
+
     from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
 
     return SshLinuxHostControl(material)

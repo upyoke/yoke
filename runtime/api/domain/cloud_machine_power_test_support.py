@@ -28,7 +28,7 @@ CLOUD = {
     "resource_name": "windows-lab",
     "host": "54.0.0.1",
     "user": "Administrator",
-    "os": "windows",
+    "os": "wsl",
     "cloud_instance_id": "i-1",
 }
 

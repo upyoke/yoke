@@ -82,19 +82,23 @@ def _read_prefix(connection: socket.socket) -> bytes:
 def _prepare_desktop(settings, key_path, password):
     """Use the same framed WSL transport and XFCE helper as GUI operations."""
     from types import SimpleNamespace
-    if settings['os'] == 'windows':
-        return {'desktop_session':'native'}, None
-    if settings['os'] == 'windows':
+
+    if settings["os"] == "windows":
+        return {"desktop_session": "native"}, None
+    if settings["os"] == "windows":
         # Windows owns its RDP listener and autologon session. Captures use
         # Task Scheduler; a human viewer uses the returned SSH-forward address.
-        return {'desktop_session':'native'}, None
+        return {"desktop_session": "native"}, None
     from yoke_harness.linux_desktop_session import ensure_desktop
-    from yoke_contracts.windows_wsl_command import windows_wsl_command, windows_wsl_input
+    from yoke_contracts.windows_wsl_command import (
+        windows_wsl_command,
+        windows_wsl_input,
+    )
 
     target = f"{settings['user']}@{settings['host']}"
 
     def run(command, *, input_text=None, timeout=60):
-        if settings["os"] == "windows":
+        if settings["os"] == "wsl":
             command, input_text = windows_wsl_input(command, input_text)
             command = windows_wsl_command(command)
         try:
@@ -156,13 +160,13 @@ def _desktop_password(project, test_machine):
 
 def _screen_sharing_route(settings, route) -> bool:
     """macOS test machines are viewed in Screen Sharing; Linux and WSL in FreeRDP."""
-    if settings.get('os') == 'windows':
-        raise DesktopAccessError('windows_desktop_view_requires_rdp: run desktop-access without --view and open its SSH-forward address in your Windows RDP client')
-    if settings.get('os') == 'windows':
-        raise DesktopAccessError('windows_native_view_requires_rdp: run desktop-access without --view and open its SSH-forward address in your Windows RDP application')
+    if settings.get("os") == "windows":
+        raise DesktopAccessError(
+            "windows_desktop_view_requires_rdp: run desktop-access without --view and open its SSH-forward address in your Windows RDP client"
+        )
     if settings.get("os") == "macos" and route["desktop_protocol"] == "vnc":
         return True
-    if settings.get("os") in {"linux", "windows"} and route["desktop_protocol"] == "rdp":
+    if settings.get("os") in {"linux", "wsl"} and route["desktop_protocol"] == "rdp":
         return False
     raise DesktopAccessError(
         "desktop_view_route_unsupported: --view needs an RDP route on Linux or "
@@ -220,7 +224,7 @@ def open_desktop_access(
             "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
         )
     session_evidence = {}
-    if settings.get("os") in {"linux", "windows"}:
+    if settings.get("os") in {"linux", "wsl"}:
         if not key_path.is_file():
             raise DesktopAccessError(
                 "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"

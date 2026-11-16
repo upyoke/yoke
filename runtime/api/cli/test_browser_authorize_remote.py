@@ -227,7 +227,7 @@ def test_control_plane_refusal_keeps_named_recovery(route, monkeypatch, capsys):
     assert not route["argv"]
 
 
-@pytest.mark.parametrize("kind", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("kind", ["macos", "linux", "wsl"])
 def test_os_gui_route_preserves_argv_and_uses_existing_helper(
     monkeypatch, tmp_path, kind
 ):
@@ -271,7 +271,7 @@ def test_ssh_agent_is_required(monkeypatch, tmp_path):
         gui.run_gui_command(settings=SETTINGS, argv=["yoke"], yoke_home=tmp_path)
 
 
-@pytest.mark.parametrize("kind", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("kind", ["macos", "linux", "wsl"])
 def test_gui_transport_quotes_commands_and_pins_ssh_keys(monkeypatch, tmp_path, kind):
     seen = []
     monkeypatch.setattr(
@@ -297,7 +297,7 @@ def test_gui_transport_quotes_commands_and_pins_ssh_keys(monkeypatch, tmp_path, 
     assert "-F" in seen[0][0] and "IdentityFile=none" in seen[0][0]
     assert "StrictHostKeyChecking=accept-new" in seen[0][0]
     assert seen[0][1]["timeout"] == 10
-    if kind == "windows":
+    if kind == "wsl":
         assert seen[0][0][-1].startswith("powershell.exe ")
     else:
         assert seen[0][0][-1] == command

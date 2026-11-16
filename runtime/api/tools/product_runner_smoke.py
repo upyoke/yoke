@@ -1,4 +1,7 @@
-"""Manual disposable-runner product smoke; no harness login or hosted universe."""
+"""Disposable-runner product smoke; no harness login or hosted universe.
+
+Stages run in order up to ``--through`` (see :mod:`product_runner_stages`).
+"""
 
 from __future__ import annotations
 
@@ -8,116 +11,55 @@ import os
 from pathlib import Path
 import platform
 import shutil
-import subprocess
 import sys
 import tempfile
 
 try:
-    from .product_runner_hooks import replay_hooks
-    from .product_runner_source_tests import run_source_tests
+    from .product_runner_commands import Commands, SmokeFailure, venv_executable
+    from .product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 except ImportError:
-    from product_runner_hooks import replay_hooks
-    from product_runner_source_tests import run_source_tests
+    from product_runner_commands import Commands, SmokeFailure, venv_executable
+    from product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 
-
-class SmokeFailure(RuntimeError):
-    """A smoke assertion failed; its named capture carries recovery evidence."""
-
-
-class Commands:
-    def __init__(self, output: Path, env: dict[str, str]):
-        self.output, self.env = output, env
-        self.sequence = 0
-        self.step = "runner-identity"
-        self.capture = output / "report.json"
-
-    def failure(self, reason, detail):
-        return SmokeFailure(
-            f"{reason}: step={self.step}: {detail}; inspect {self.capture}, "
-            "correct the named step and rerun the plan"
-        )
-
-    def run(self, name, command, *, cwd, stdin=None, accepted=(0,), shell=False):
-        self.sequence += 1
-        capture = self.output / f"{self.sequence:02d}-{name}.txt"
-        self.step, self.capture = name, capture
-        print(f"product-smoke step={name} capture={capture}", flush=True)
-        try:
-            result = subprocess.run(
-                command,
-                cwd=cwd,
-                env=self.env,
-                input=stdin,
-                text=True,
-                capture_output=True,
-                timeout=900,
-                shell=shell,
-                check=False,
-            )
-        except (subprocess.TimeoutExpired, OSError) as exc:
-            capture.write_text(str(exc), encoding="utf-8")
-            reason = (
-                "command_timeout"
-                if isinstance(exc, subprocess.TimeoutExpired)
-                else "command_start_failed"
-            )
-            raise self.failure(reason, str(exc)) from exc
-        capture.write_text(
-            f"command={command!r}\nexit_code={result.returncode}\n"
-            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}",
-            encoding="utf-8",
-        )
-        if result.returncode not in accepted:
-            raise self.failure("command_failed", f"exit={result.returncode}")
-        return result
-
-    def document(self, name, command, *, cwd):
-        result = self.run(name, command, cwd=cwd)
-        try:
-            payload = json.loads(result.stdout)
-            if not isinstance(payload, dict):
-                raise ValueError("expected a JSON object")
-        except ValueError as exc:
-            raise self.failure("command_json_invalid", str(exc)) from exc
-        if payload.get("success") is False:
-            raise self.failure("command_refused", payload.get("error"))
-        return payload.get("result", payload)
-
-
-def require_browser_installation(onboard: dict, capture: Path) -> None:
-    """An already-provisioned runner cannot prove unattended package installation."""
-    output = capture.read_text(encoding="utf-8")
-    if onboard.get("browser_setup", {}).get("status") != "ready" or not all(
-        proof in output
-        for proof in (
-            "installing missing Linux system libraries via passwordless sudo",
-            "Linux system libraries verified",
-        )
-    ):
-        raise SmokeFailure(
-            "browser_installation_unproven: onboarding did not install and verify "
-            "missing libraries through passwordless sudo. Run the product-smoke "
-            "workflow with its disposable-runner missing-package fixture; "
-            f"inspect {capture}."
-        )
+# Windows needs these to start Python, Git and uv at all; none carries authority.
+WINDOWS = os.name == "nt"
+WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
 
 
 def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     """Explicit child environment: no tokens, DSNs, session identity, or API URLs."""
     home = scratch / "home"
     home.mkdir()
-    return {
+    scripts = venv_executable(venv, "yoke").parent
+    tools = [scripts, *(Path(found).parent for found in map(shutil.which, ("uv", "git")) if found)]
+    env = {
         "HOME": str(home),
         "YOKE_MACHINE_HOME": str(home / ".yoke"),
-        "XDG_BIN_HOME": str(venv / "bin"),
-        "PATH": f"{venv / 'bin'}:{Path(shutil.which('uv') or '').parent}:{os.defpath}:/usr/local/bin:/opt/homebrew/bin",
-        "SHELL": "/bin/bash",
+        "XDG_BIN_HOME": str(scripts),
         "LANG": "en_US.UTF-8",
         "PYTHONNOUSERSITE": "1",
         "YOKE_PYTEST_LOCAL": "1",
         "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
         "GIT_CONFIG_NOSYSTEM": "1",
     }
+    if WINDOWS:
+        temp = home / "AppData" / "Local" / "Temp"
+        temp.mkdir(parents=True)
+        env |= {name: os.environ[name] for name in WINDOWS_SYSTEM_VARIABLES if name in os.environ}
+        env |= {
+            "USERPROFILE": str(home),
+            "APPDATA": str(home / "AppData" / "Roaming"),
+            "LOCALAPPDATA": str(home / "AppData" / "Local"),
+            "TEMP": str(temp),
+            "TMP": str(temp),
+        }
+        system = Path(env.get("SYSTEMROOT", r"C:\Windows")) / "System32"
+        env["PATH"] = os.pathsep.join(str(path) for path in (*tools, system))
+    else:
+        defaults = (os.defpath, "/usr/local/bin", "/opt/homebrew/bin")
+        env["PATH"] = os.pathsep.join([*(str(path) for path in tools), *defaults])
+        env["SHELL"] = "/bin/bash"
+    return env
 
 
 def observed_runner() -> dict[str, str]:
@@ -126,16 +68,71 @@ def observed_runner() -> dict[str, str]:
     elif sys.platform == "linux":
         release = platform.freedesktop_os_release()
         os_name = f"{release['NAME']} {release['VERSION_ID']}"
+    elif sys.platform == "win32":
+        os_name = f"Windows {platform.release()}"
     else:
         os_name = platform.system()
     architecture = platform.machine()
-    if architecture == "aarch64":
-        architecture = "arm64"
+    architecture = {"aarch64": "arm64", "ARM64": "arm64", "AMD64": "x86_64"}.get(
+        architecture, architecture
+    )
     return {"os": os_name, "architecture": architecture}
 
 
-def smoke(root: Path, output: Path) -> None:
-    report = {"ok": False}
+def selected_stages(through: str):
+    return STAGES[: STAGE_NAMES.index(through) + 1]
+
+
+def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
+    """Stop what onboarding started; a cleanup failure never hides the primary one."""
+    try:
+        if sys.platform == "darwin":
+            run.commands.run(
+                "uninstall-local-relay",
+                [run.yoke, "relay", "uninstall", "--json"],
+                cwd=run.project,
+            )
+        run.commands.run(
+            "stop-local-postgres",
+            [run.yoke, "local-postgres", "stop", "--json"],
+            cwd=run.project,
+        )
+    except SmokeFailure:
+        if not primary_failure:
+            raise
+
+
+def run_stages(run: SmokeRun, through: str) -> None:
+    failed = True
+    try:
+        for name, stage in selected_stages(through):
+            run.report["stage"] = name
+            stage(run)
+        run.report["ok"] = True
+        failed = False
+    except Exception as exc:
+        failure = (
+            exc
+            if isinstance(exc, SmokeFailure) and "step=" in str(exc)
+            else run.commands.failure("smoke_assertion_failed", str(exc))
+        )
+        if run.onboarded:
+            try:
+                run.commands.run(
+                    "failure-events",
+                    [run.yoke, "events", "query", "--limit", "50", "--json"],
+                    cwd=run.project,
+                )
+            except SmokeFailure:
+                pass  # The diagnostic capture cannot replace the primary failure.
+        raise failure from exc
+    finally:
+        if run.onboarded:
+            cleanup(run, primary_failure=failed)
+
+
+def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
+    report = {"ok": False, "through": through}
     report_path = output / "report.json"
     commands = None
     try:
@@ -151,153 +148,8 @@ def smoke(root: Path, output: Path) -> None:
             )
         with tempfile.TemporaryDirectory(prefix="yoke-product-smoke-") as raw:
             scratch = Path(raw).resolve()
-            venv, wheels, project = (
-                scratch / part for part in ("venv", "wheels", "project")
-            )
-            commands = Commands(output, isolated_environment(scratch, venv))
-            commands.run(
-                "build-wheels",
-                ["uv", "build", "--all-packages", "--wheel", "--out-dir", str(wheels)],
-                cwd=root,
-            )
-            commands.run(
-                "create-venv",
-                ["uv", "venv", "--python", sys.executable, str(venv)],
-                cwd=scratch,
-            )
-            built = sorted(str(path) for path in wheels.glob("*.whl"))
-            if not built:
-                raise SmokeFailure(
-                    "wheel_build_empty: no wheels; inspect build-wheels capture"
-                )
-            commands.run(
-                "install-product",
-                ["uv", "pip", "install", "--python", str(venv / "bin/python3"), *built],
-                cwd=scratch,
-            )
-            project.mkdir()
-            commands.run(
-                "git-identity-name",
-                ["git", "config", "--global", "user.name", "Yoke Smoke"],
-                cwd=project,
-            )
-            commands.run(
-                "git-identity-email",
-                ["git", "config", "--global", "user.email", "smoke@yoke.local"],
-                cwd=project,
-            )
-            commands.run(
-                "git-init", ["git", "init", "--initial-branch=main"], cwd=project
-            )
-            (project / "README.md").write_text(
-                "# Disposable smoke project\n", encoding="utf-8"
-            )
-            commands.run("git-add", ["git", "add", "README.md"], cwd=project)
-            commands.run(
-                "git-commit",
-                ["git", "commit", "-m", "Initialize disposable project"],
-                cwd=project,
-            )
-            yoke = str(venv / "bin/yoke")
-            try:
-                onboard = commands.document(
-                    "onboard",
-                    [
-                        yoke,
-                        "setup",
-                        "--local",
-                        "--non-interactive",
-                        "--yes",
-                        "--json",
-                        "--machine-github",
-                        "disabled",
-                        "--github-adoption",
-                        "disabled",
-                        "--project-mode",
-                        "local-checkout",
-                        "--checkout",
-                        str(project),
-                        "--project-slug",
-                        "smoke",
-                        "--project-name",
-                        "Smoke",
-                        "--default-branch",
-                        "main",
-                        "--public-item-prefix",
-                        "SMK",
-                    ],
-                    cwd=project,
-                )
-                if not onboard.get("applied") or not onboard.get(
-                    "local_universe", {}
-                ).get("born"):
-                    raise SmokeFailure(
-                        "onboard_not_born: fresh local onboarding did not apply and birth the universe; inspect onboard capture"
-                    )
-                if sys.platform.startswith("linux"):
-                    require_browser_installation(onboard, commands.capture)
-                    report["browser_install_authority"] = "passwordless sudo"
-                # The destructive guard refuses threatened state. Give the
-                # denied clean probe an untracked file; never execute it.
-                (project / "untracked-probe.txt").write_text(
-                    "Preserve this probe.\n", encoding="utf-8"
-                )
-                report["hooks"] = replay_hooks(root, project, commands, yoke)
-                dev = commands.document(
-                    "dev-setup",
-                    [
-                        yoke,
-                        "dev",
-                        "setup",
-                        str(root),
-                        "--editable-install",
-                        "--yes",
-                        "--json",
-                    ],
-                    cwd=root,
-                )
-                if not dev.get("applied"):
-                    raise SmokeFailure(
-                        "dev_setup_not_applied: inspect dev-setup capture and rerun"
-                    )
-                if not dev.get("editable_install", {}).get("ok"):
-                    raise SmokeFailure(
-                        "editable_install_failed: inspect dev-setup capture and repair its named dependency"
-                    )
-                run_source_tests(root, commands)
-                report["ok"] = True
-            except Exception as exc:
-                failure = (
-                    exc
-                    if isinstance(exc, SmokeFailure) and "step=" in str(exc)
-                    else commands.failure("smoke_assertion_failed", str(exc))
-                )
-                try:
-                    commands.run(
-                        "failure-events",
-                        [yoke, "events", "query", "--limit", "50", "--json"],
-                        cwd=project,
-                    )
-                except SmokeFailure:
-                    pass  # The diagnostic capture cannot replace the primary failure.
-                raise failure from exc
-            finally:
-                primary_failure = sys.exc_info()[0] is not None
-                try:
-                    if sys.platform == "darwin":
-                        commands.run(
-                            "uninstall-local-relay",
-                            [yoke, "relay", "uninstall", "--json"],
-                            cwd=project,
-                        )
-                    commands.run(
-                        "stop-local-postgres",
-                        [yoke, "local-postgres", "stop", "--json"],
-                        cwd=project,
-                    )
-                except SmokeFailure:
-                    if not primary_failure:
-                        raise
+            commands = Commands(output, isolated_environment(scratch, scratch / "venv"))
+            run_stages(SmokeRun(root, scratch, commands, report), through)
     except Exception as exc:
         report["ok"] = False
         failure = str(exc)
@@ -318,16 +170,22 @@ def smoke(root: Path, output: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--through",
+        choices=STAGE_NAMES,
+        default=STAGE_NAMES[-1],
+        help="last stage to run; earlier stages always run first",
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     root = Path(__file__).resolve().parents[3]
     try:
-        smoke(root, output)
+        smoke(root, output, args.through)
     except SmokeFailure as exc:
         print(f"product-smoke failed: {exc}", file=sys.stderr)
         return 1
-    print(f"product-smoke passed: {output / 'report.json'}")
+    print(f"product-smoke passed through {args.through}: {output / 'report.json'}")
     return 0
 
 
