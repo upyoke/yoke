@@ -335,6 +335,7 @@ def uninstall(root: Path, bin_dir: Path) -> None:
     _remove_tree(root)
 
 def main() -> int:
+    """Frozen interface: installers run ``-m`` this with root generation bin_dir version."""
     if INSTALL_ROOT is not None:
         return launch(Path(INSTALL_ROOT), sys.argv[1:])
     try:

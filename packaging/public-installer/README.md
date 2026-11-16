@@ -10,10 +10,13 @@ primitive to exclude release collection during generation creation and lease
 acquisition. It keeps the lease file open through installation and activation.
 
 The installer uses uv to resolve one exact product release into a private tool
-environment. The build embeds the shared `cli_release_runtime` source so bootstrap
-also works when a selected wheel does not carry that module. Its standalone copy
-verifies the candidate and atomically
-publishes the stable launcher. Before activation, `helper_sources` runs uv with
+environment, then runs that candidate's own `yoke_cli.config.cli_release_runtime`
+with the candidate's Python, so the release being installed, not the installer
+version, decides the on-disk layout. That module verifies the candidate and
+atomically publishes the stable launcher. Its `main` takes exactly
+`root generation bin_dir version`; installers already in use depend on that
+interface, so keep it unchanged. Serving a release before the matching installer
+is therefore harmless. Before activation, `helper_sources` runs uv with
 umask `022`, checks every credential-helper source with the candidate's own
 bundle guard, and on group- or other-writable files cleans only the
 `yoke-cli` and `yoke-contracts` cache entries and reinstalls once. Commands lease their selected environment before

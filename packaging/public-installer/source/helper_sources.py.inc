@@ -43,10 +43,9 @@ def _run_candidate_uv(command: list[str], env: dict[str, str]):
 
 def _unsafe_helper_source_permissions(generation: Path, env: dict[str, str]) -> list[str]:
     """Return helper sources unsafe only by permissions; refuse anything else."""
-    python = candidate_python(generation)
     try:
         result = subprocess.run(
-            [str(python), "-I", "-c", HELPER_SOURCE_CHECK],
+            [str(candidate_python(generation)), "-I", "-c", HELPER_SOURCE_CHECK],
             env=env, capture_output=True, text=True, check=False, timeout=120,
         )
     except (OSError, subprocess.SubprocessError) as exc:

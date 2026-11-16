@@ -52,6 +52,8 @@ def candidate(root: Path, version: str) -> Path:
         "def detect(): return {'kind': 'packaged_wheel', 'version': '1.0'}\n"
     )
     (package / "main.py").write_text(MAIN)
+    runtime_source = Path(runtime.__file__).read_text()
+    (package / "config/cli_release_runtime.py").write_text(runtime_source)
     (generation / "lease").touch()
     (generation / "pending").touch()
     return generation

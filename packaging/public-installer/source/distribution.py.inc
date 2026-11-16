@@ -141,6 +141,9 @@ def fetch_url(url: str) -> bytes:
         ) from exc
 
 
+CANDIDATE_RUNTIME = "yoke_cli.config.cli_release_runtime"
+
+
 def _install_candidate(command: list[str], env: dict[str, str], root: Path, generation: Path, version: str):
     """uv owns each private tool environment; only publication changes PATH."""
     require_windows_path(candidate_python(generation))
@@ -154,11 +157,9 @@ def _install_candidate(command: list[str], env: dict[str, str], root: Path, gene
     ).stdout.strip()
     if not Path(bin_dir).is_absolute():
         raise InstallError("cli_launcher_directory_unavailable: repair uv tool dir --bin and retry")
-    python = candidate_python(generation)
-    runtime_script = generation / "runtime.py"
-    runtime_script.write_text(CLI_RUNTIME_SOURCE, encoding="utf-8")
+    # The candidate's own runtime builds its layout, whichever installer runs it.
     activation = subprocess.run(
-        [str(python), "-I", str(runtime_script), str(root), str(generation), bin_dir, version],
+        [str(candidate_python(generation)), "-I", "-m", CANDIDATE_RUNTIME, str(root), str(generation), bin_dir, version],
         env=env, capture_output=True, text=True, check=False,
     )
     return subprocess.CompletedProcess(command, activation.returncode, result.stdout + activation.stdout, result.stderr + activation.stderr)
