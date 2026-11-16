@@ -25,6 +25,7 @@ OWNERS = {
     "process": {"platform_process.py", "platform_process_windows.py"},
     "getuid": {"owner_private_path.py"},
     "symlink": {"platform_links.py"},
+    "tmp": {"lint_platform.py"},
 }
 BASELINE = "packages/yoke-core/src/yoke_core/domain/lint_platform_offenders.json"
 RECOVERY = "Use the shared platform_* helper or explicit UTF-8 encoding; remove the fixed offender entry. Never grow the baseline."
@@ -159,9 +160,29 @@ def scan_tree(root: Path) -> list[PlatformHit]:
     return hits
 
 
-def ratchet_findings(root: Path) -> list[str]:
-    baseline = Counter(json.loads((root / BASELINE).read_text(encoding="utf-8")))
+def read_baseline(path: Path) -> Counter:
+    """Read path-grouped sites; fingerprints and counts are line-independent."""
+    grouped = json.loads(path.read_text(encoding="utf-8"))
+    return Counter({f"{path}|{site}": count
+                    for path, sites in grouped.items() for site, count in sites.items()})
+
+
+def _write_baseline(path: Path, counts: Counter) -> None:
+    grouped = {}
+    for key, count in sorted(counts.items()):
+        relative, site = key.split("|", 1)
+        grouped.setdefault(relative, {})[site] = count
+    rows = ["  " + json.dumps(relative) + ": " + json.dumps(sites, sort_keys=True)
+            for relative, sites in grouped.items()]
+    path.write_text("{\n" + ",\n".join(rows) + "\n}\n", encoding="utf-8")
+
+
+def ratchet_findings(root: Path, *, prune: bool = False) -> list[str]:
+    baseline = read_baseline(root / BASELINE)
     current = Counter(hit.key for hit in scan_tree(root))
+    if prune:
+        baseline &= current  # This operation can only remove sites or lower counts.
+        _write_baseline(root / BASELINE, baseline)
     new = current - baseline
     stale = baseline - current
     return ([f"new_platform_offender: {key} ({count}); {RECOVERY}" for key, count in sorted(new.items())]
@@ -169,12 +190,13 @@ def ratchet_findings(root: Path) -> list[str]:
 
 
 def main() -> int:
-    """Run the portability ratchet from a source checkout."""
+    """Run the ratchet; --prune removes fixed entries and can never add any."""
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.cwd())
+    parser.add_argument('--prune', action='store_true', help='Remove fixed allowances; never add new ones')
     arguments = parser.parse_args()
-    findings = ratchet_findings(arguments.root)
+    findings = ratchet_findings(arguments.root, prune=arguments.prune)
     for finding in findings:
         print(finding)
     return int(bool(findings))
