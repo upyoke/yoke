@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts import owner_private_path
 from yoke_contracts import platform_file_lock
 from yoke_contracts import platform_file_sync
-from yoke_contracts import windows_private_directory
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from contextlib import contextmanager
@@ -12,8 +12,9 @@ import os
 from pathlib import Path
 import shlex
 import stat
-import tempfile
 from typing import Iterator
+
+_WINDOWS = os.name == "nt"
 
 
 class MachineConfigFileError(RuntimeError):
@@ -28,24 +29,28 @@ def ensure_owner_only_directory(path: str | Path) -> Path:
     so those children cannot leave it group- or world-writable.
     """
     selected = Path(path).expanduser()
-    descriptor = -1
     try:
         create_private_directory(selected)
-        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-        flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(selected, flags)
-        info = os.fstat(descriptor)
+        if owner_private_path.is_owner_private_directory(selected):
+            return selected
+        info = selected.lstat()
         if not stat.S_ISDIR(info.st_mode):
             raise MachineConfigFileError(
                 f"machine-state path must be a directory: {selected}"
             )
+        if _WINDOWS:
+            raise MachineConfigFileError(
+                f"machine-state directory is not owner-only: {selected}; "
+                f"{_REPAIR_WINDOWS_ACCESS}, then retry"
+            )
+        # POSIX only: tighten an own directory left at the umask, never a
+        # foreign one (root's chmod would otherwise succeed).
         if hasattr(os, "getuid") and info.st_uid != os.getuid():
             raise MachineConfigFileError(
                 f"machine-state directory is not owned by the current user: {selected}"
             )
-        os.fchmod(descriptor, 0o700)
-        current = selected.lstat()
-        if (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino):
+        selected.chmod(0o700)
+        if not owner_private_path.is_owner_private_directory(selected):
             raise MachineConfigFileError(
                 f"machine-state directory changed while being secured: {selected}"
             )
@@ -53,11 +58,9 @@ def ensure_owner_only_directory(path: str | Path) -> Path:
         raise
     except OSError as exc:
         raise MachineConfigFileError(
-            f"machine-state directory could not be secured: {selected}"
+            f"machine-state directory could not be secured: {selected}; "
+            "make sure your account owns it, then retry"
         ) from exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
     return selected
 
 
@@ -75,12 +78,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
         create_private_directory(selected.parent)
         _assert_secure_parent(selected.parent)
         lock_path = config_lock_path(selected)
-        flags = (
-            os.O_RDWR
-            | os.O_CREAT
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
+        flags = os.O_RDWR | os.O_CREAT | _OPEN_FLAGS
         descriptor = os.open(lock_path, flags, 0o600)
     except OSError as exc:
         raise MachineConfigFileError(
@@ -88,9 +86,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
         ) from exc
     locked = False
     try:
-        info = os.fstat(descriptor)
-        _assert_owned_regular_file(info, lock_path)
-        os.fchmod(descriptor, 0o600)
+        _secure_lock_descriptor(descriptor, lock_path)
         platform_file_lock.acquire_exclusive(descriptor)
         locked = True
         _assert_stable_lock(descriptor, lock_path)
@@ -118,14 +114,11 @@ def remove_idle_lock_file(lock_path: str | Path) -> bool:
     locked = False
     try:
         _assert_secure_parent(selected.parent)
-        flags = os.O_RDWR | getattr(os, "O_CLOEXEC", 0)
-        flags |= getattr(os, "O_NOFOLLOW", 0)
         try:
-            descriptor = os.open(selected, flags)
+            descriptor = os.open(selected, os.O_RDWR | _OPEN_FLAGS)
         except FileNotFoundError:
             return False
-        _assert_owned_regular_file(os.fstat(descriptor), selected)
-        os.fchmod(descriptor, 0o600)
+        _secure_lock_descriptor(descriptor, selected)
         try:
             platform_file_lock.acquire_exclusive_nonblocking(descriptor)
         except BlockingIOError as exc:
@@ -135,7 +128,23 @@ def remove_idle_lock_file(lock_path: str | Path) -> bool:
             ) from exc
         locked = True
         _assert_stable_lock(descriptor, selected)
-        selected.unlink()
+        if _WINDOWS:
+            # Windows cannot unlink an open file. Close first; a waiter that
+            # opens it meanwhile makes the unlink a sharing violation, which
+            # is reported as busy and leaves the lock with that waiter.
+            platform_file_lock.release_exclusive(descriptor)
+            locked = False
+            os.close(descriptor)
+            descriptor = -1
+            try:
+                selected.unlink()
+            except PermissionError as exc:
+                raise MachineConfigFileError(
+                    f"machine-state lock is busy: {selected}; wait for the "
+                    "other Yoke operation to finish, then re-run teardown"
+                ) from exc
+        else:
+            selected.unlink()
         platform_file_sync.sync_directory(selected.parent)
         return True
     except MachineConfigFileError:
@@ -157,35 +166,14 @@ def remove_idle_lock_file(lock_path: str | Path) -> bool:
 def atomic_write_text(path: str | Path, content: str) -> None:
     """Replace ``path`` durably with an owner-only UTF-8 document."""
     selected = Path(path).expanduser()
-    descriptor = -1
-    tmp_path: Path | None = None
     try:
-        descriptor, raw_tmp = tempfile.mkstemp(
-            prefix=f".{selected.name}.",
-            suffix=".tmp",
-            dir=selected.parent,
-        )
-        tmp_path = Path(raw_tmp)
-        os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            descriptor = -1
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(tmp_path, selected)
+        owner_private_path.write_owner_private(selected, content)
         platform_file_sync.sync_directory(selected.parent)
     except OSError as exc:
         raise MachineConfigFileError(
-            f"machine config could not be written: {selected}"
+            f"machine config could not be written: {selected}; check free "
+            "space and that only you can write its directory, then retry"
         ) from exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        if tmp_path is not None:
-            try:
-                tmp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
 
 
 def remove_file(path: str | Path) -> bool:
@@ -208,44 +196,58 @@ def remove_file(path: str | Path) -> bool:
     return True
 
 
+_OPEN_FLAGS = (
+    getattr(os, "O_BINARY", 0)
+    | getattr(os, "O_CLOEXEC", 0)
+    | getattr(os, "O_NOFOLLOW", 0)
+)
+_REPAIR_WINDOWS_ACCESS = (
+    "remove other users' access so only your Windows account, SYSTEM and "
+    "Administrators remain"
+)
+
+
 def _assert_secure_parent(path: Path) -> None:
     info = path.lstat()
     if not stat.S_ISDIR(info.st_mode):
         raise MachineConfigFileError(
             f"machine-config parent must be a directory: {path}"
         )
+    if owner_private_path.is_owner_private_directory(path):
+        return
+    if _WINDOWS:
+        raise MachineConfigFileError(
+            f"machine-config parent is not owner-only: {path}; "
+            f"{_REPAIR_WINDOWS_ACCESS}, then retry"
+        )
+    # POSIX admits a parent others may read but not write (for example a
+    # chosen YOKE_CONFIG_FILE under ~/.config); no shared helper owns that.
     if hasattr(os, "getuid") and info.st_uid != os.getuid():
         raise MachineConfigFileError(
             f"machine-config parent is not owned by the current user: {path}"
         )
-    if os.name == "nt" and not windows_private_directory.is_private_directory(path):
-        raise MachineConfigFileError(
-            f"machine-config parent Windows permissions are unsafe: {path}"
-        )
-    if os.name != "nt" and stat.S_IMODE(info.st_mode) & 0o022:
+    if stat.S_IMODE(info.st_mode) & 0o022:
         raise MachineConfigFileError(
             f"machine-config parent must not be group- or world-writable: {path}; "
             f"run chmod 700 {shlex.quote(str(path))}, then retry"
         )
 
 
-def _assert_owned_regular_file(info: os.stat_result, path: Path) -> None:
+def _secure_lock_descriptor(descriptor: int, path: Path) -> None:
+    """Tighten (POSIX) and verify an opened lock before it is used."""
+    if not _WINDOWS:
+        # fchmod fails for a non-owner, so a foreign lock refuses here.
+        os.fchmod(descriptor, 0o600)
+    info = os.fstat(descriptor)
     if not stat.S_ISREG(info.st_mode):
         raise MachineConfigFileError(
             f"machine-config lock must be a regular file: {path}"
-        )
-    if hasattr(os, "getuid") and info.st_uid != os.getuid():
-        raise MachineConfigFileError(
-            f"machine-config lock is not owned by the current user: {path}"
-        )
-    if os.name == "nt" and not windows_private_directory.is_private_file(path):
-        raise MachineConfigFileError(
-            f"machine-config lock Windows permissions are unsafe: {path}"
         )
     if info.st_nlink != 1:
         raise MachineConfigFileError(
             f"machine-config lock must not have hard links: {path}"
         )
+    _assert_owner_private(path, "machine-config lock")
 
 
 def _assert_config_target(path: Path) -> None:
@@ -255,10 +257,23 @@ def _assert_config_target(path: Path) -> None:
         return
     if not stat.S_ISREG(info.st_mode):
         raise MachineConfigFileError(f"machine config must be a regular file: {path}")
+    # Ownership only: the next write replaces the file owner-only, and
+    # `yoke status` reports looser permissions as config_permissions.
     if hasattr(os, "getuid") and info.st_uid != os.getuid():
         raise MachineConfigFileError(
             f"machine config is not owned by the current user: {path}"
         )
+
+
+def _assert_owner_private(path: Path, label: str) -> None:
+    if owner_private_path.is_owner_private_file(path):
+        return
+    repair = (
+        _REPAIR_WINDOWS_ACCESS
+        if _WINDOWS
+        else f"run chmod 600 {shlex.quote(str(path))} as its owner"
+    )
+    raise MachineConfigFileError(f"{label} is not owner-only: {path}; {repair}, then retry")
 
 
 def _assert_stable_lock(descriptor: int, path: Path) -> None:
@@ -268,10 +283,7 @@ def _assert_stable_lock(descriptor: int, path: Path) -> None:
         raise MachineConfigFileError(
             f"machine-config lock changed while being acquired: {path}"
         )
-    if os.name != "nt" and stat.S_IMODE(opened.st_mode) & 0o077:
-        raise MachineConfigFileError(
-            f"machine-config lock permissions must be 0600: {path}"
-        )
+    _assert_owner_private(path, "machine-config lock")
 
 
 __all__ = [

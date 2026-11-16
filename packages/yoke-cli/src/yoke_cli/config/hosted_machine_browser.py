@@ -41,6 +41,7 @@ class BrowserOpenResult:
 # ``webbrowser`` module's controller probing, which can fail inside a full-screen
 # terminal app without reporting why.
 MACOS_PLATFORM = "darwin"
+WINDOWS_PLATFORM = "win32"
 _BROWSER_OPEN_TIMEOUT_SECONDS = 10.0
 
 
@@ -75,6 +76,8 @@ def open_url(
     """Hand *url* to a browser, recording why each attempt failed.
 
     Linux verifies the default browser or opens QA's shared Chromium runtime.
+    Windows over SSH has no desktop and opens nothing, so the printed link
+    and code carry the sign-in.
     macOS runs ``open``; WSL tries ``wslview`` and ``explorer.exe`` to reach
     the Windows browser; other platforms use ``webbrowser.open``. Every
     failed attempt is retained for the caller's diagnostics.
@@ -92,6 +95,11 @@ def open_url(
     )
     if platform == "linux" and not is_wsl and browser_open is None:
         return _open_linux_url(url, env)
+    if platform == WINDOWS_PLATFORM and browser_open is None:
+        if not windows_desktop_available(env):
+            return BrowserOpenResult(
+                opened=False, reason="browser_display_unavailable"
+            )
     attempts: list[str] = []
     native_fallback = browser_open is None
     if browser_open is not None or not (is_wsl or platform == MACOS_PLATFORM):
@@ -146,6 +154,16 @@ def open_url(
     return BrowserOpenResult(opened=False, reason="; ".join(attempts))
 
 
+def windows_desktop_available(env: Mapping[str, str]) -> bool:
+    """Return whether a Windows browser opened now would reach this person.
+
+    An OpenSSH session has no interactive desktop: a browser started there
+    runs where nobody sees it while ``os.startfile`` reports success. The
+    printed link and code are then the only way through.
+    """
+    return not any(env.get(key) for key in ("SSH_CONNECTION", "SSH_CLIENT"))
+
+
 def _open_linux_url(url: str, env: Mapping[str, str]) -> BrowserOpenResult:
     from yoke_cli.config import onboard_browser_runtime as runtime
 
@@ -184,4 +202,11 @@ def _run_macos_open(url: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-__all__ = ["BrowserOpenResult", "MACOS_PLATFORM", "open_browser", "open_url"]
+__all__ = [
+    "BrowserOpenResult",
+    "MACOS_PLATFORM",
+    "WINDOWS_PLATFORM",
+    "open_browser",
+    "open_url",
+    "windows_desktop_available",
+]

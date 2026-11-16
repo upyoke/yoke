@@ -31,11 +31,14 @@ from yoke_contracts import (
     designed_wait,
     github_app_tokens,
     github_origin,
+    owner_private_path,
     timestamps,
     platform_file_lock,
     platform_file_sync,
     windows_private_directory,
 )
+
+_WINDOWS = os.name == "nt"
 
 
 STABLE_HELPER_FILE_NAME = github_git_credential_launcher.BUNDLE_HELPER_NAME
@@ -110,6 +113,10 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
         (
             Path(windows_private_directory.__file__),
             github_git_credential_launcher.BUNDLE_WINDOWS_PRIVATE_DIRECTORY_NAME,
+        ),
+        (
+            Path(owner_private_path.__file__),
+            github_git_credential_launcher.BUNDLE_OWNER_PRIVATE_PATH_NAME,
         ),
         (
             Path(github_git_credential_permissions.__file__),
@@ -189,7 +196,8 @@ def _verify_bundle(
 
 def _write_unpublished_source(source: Path, target: Path) -> None:
     payload = _safe_read_source(source)
-    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    descriptor = os.open(target, flags, 0o644)
     try:
         with os.fdopen(descriptor, "wb") as stream:
             descriptor = -1
@@ -216,7 +224,10 @@ def _publish_launcher(helper_path: Path) -> None:
 
 
 def _safe_read_source(path: Path) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    # Self-contained: the public installer runs this function's source alone.
+    # Binary on Windows, where os.open defaults to text mode.
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:
@@ -227,7 +238,9 @@ def _safe_read_source(path: Path) -> bytes:
         info = os.fstat(descriptor)
         if (
             not stat.S_ISREG(info.st_mode)
-            or stat.S_IMODE(info.st_mode) & 0o022
+            # Windows mode bits hold only the read-only flag; the per-user
+            # install directory's ACL protects the sources there.
+            or (os.name != "nt" and stat.S_IMODE(info.st_mode) & 0o022)
             or info.st_size > MAX_HELPER_SOURCE_BYTES
         ):
             raise GitHubCredentialBundleError("GitHub helper bundle source is unsafe")
@@ -258,7 +271,7 @@ def _bundle_install_lock(target_dir: Path) -> Iterator[None]:
         0o600,
     )
     try:
-        os.fchmod(descriptor, 0o600)
+        _posix_fchmod(descriptor, 0o600)
         platform_file_lock.acquire_exclusive(descriptor)
         yield
     finally:
@@ -274,7 +287,7 @@ def _atomic_replace_bytes(payload: bytes, target: Path) -> None:
     )
     tmp_path = Path(raw_tmp)
     try:
-        os.fchmod(descriptor, 0o644)
+        _posix_fchmod(descriptor, 0o644)
         with os.fdopen(descriptor, "wb") as stream:
             descriptor = -1
             stream.write(payload)
@@ -287,6 +300,12 @@ def _atomic_replace_bytes(payload: bytes, target: Path) -> None:
             os.close(descriptor)
         tmp_path.unlink(missing_ok=True)
         raise
+
+
+def _posix_fchmod(descriptor: int, mode: int) -> None:
+    """Set POSIX mode bits; Windows files take their directory's ACL instead."""
+    if not _WINDOWS:
+        os.fchmod(descriptor, mode)
 
 
 __all__ = [

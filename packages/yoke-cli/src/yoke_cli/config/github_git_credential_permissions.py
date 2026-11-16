@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 if __package__:
-    from yoke_contracts import windows_private_directory
+    from yoke_contracts import owner_private_path
 else:
-    import _yoke_windows_private_directory as windows_private_directory
+    import _yoke_owner_private_path as owner_private_path
 
 import os
 from pathlib import Path
 import stat
+
+_WINDOWS = os.name == "nt"
 
 
 def assert_secure_parent(
@@ -18,22 +20,32 @@ def assert_secure_parent(
     *,
     require_private: bool = True,
 ) -> None:
+    """Refuse a credential directory others can write (or read, when private).
+
+    ``require_private=False`` admits a POSIX directory that others may read
+    but not write. Windows has no such middle ground in Yoke's directory
+    check, so both modes require the owner-private DACL there.
+    """
     try:
         info = path.lstat()
     except OSError as exc:
         raise error_type(f"GitHub App credential directory is missing: {path}") from exc
     if not stat.S_ISDIR(info.st_mode):
         raise error_type(f"GitHub App credential parent must be a directory: {path}")
+    if require_private or _WINDOWS:
+        if not owner_private_path.is_owner_private_directory(path):
+            raise error_type(
+                f"GitHub App credential directory is not owner-only: {path}; "
+                f"{_directory_repair(path)}, then retry"
+            )
+        return
+    # POSIX-only middle ground (owner-writable, others may read): no shared
+    # helper owns this policy, so it stays here.
     if hasattr(os, "getuid") and info.st_uid != os.getuid():
         raise error_type(
             f"GitHub App credential directory is not owned by the current user: {path}"
         )
-    forbidden_mode = 0o077 if require_private else 0o022
-    if os.name == "nt" and not windows_private_directory.is_private_directory(path):
-        raise error_type(
-            f"GitHub App credential directory Windows permissions are unsafe: {path}"
-        )
-    if os.name != "nt" and stat.S_IMODE(info.st_mode) & forbidden_mode:
+    if stat.S_IMODE(info.st_mode) & 0o022:
         raise error_type(
             f"GitHub App credential directory permissions are unsafe: {path}; "
             "set directory permissions to 700, then retry"
@@ -45,20 +57,32 @@ def assert_owner_only_file(
     path: Path,
     error_type: type[RuntimeError],
 ) -> None:
+    """Refuse an opened credential file unless it is a private regular file."""
     if not stat.S_ISREG(info.st_mode):
         raise error_type(f"GitHub App credential must be a regular file: {path}")
-    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+    if not owner_private_path.is_owner_private_file(path):
         raise error_type(
-            f"GitHub App credential is not owned by the current user: {path}"
+            f"GitHub App credential is not owner-only: {path}; "
+            f"{_file_repair(path)}, then retry"
         )
-    if os.name == "nt" and not windows_private_directory.is_private_file(path):
-        raise error_type(
-            f"GitHub App credential Windows permissions are unsafe: {path}"
+
+
+def _directory_repair(path: Path) -> str:
+    if _WINDOWS:
+        return (
+            "remove inherited and other users' access so only your Windows "
+            "account, SYSTEM and Administrators remain"
         )
-    if os.name != "nt" and stat.S_IMODE(info.st_mode) & 0o077:
-        raise error_type(
-            f"GitHub App credential permissions must be 0600: {path}"
+    return f"run chmod 700 {path} as its owner"
+
+
+def _file_repair(path: Path) -> str:
+    if _WINDOWS:
+        return (
+            "remove other users' access so only your Windows account, SYSTEM "
+            "and Administrators remain"
         )
+    return f"run chmod 600 {path} as its owner"
 
 
 __all__ = ["assert_owner_only_file", "assert_secure_parent"]
