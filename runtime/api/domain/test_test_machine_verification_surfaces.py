@@ -96,8 +96,8 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
     assert verification["surfaces"]["terminal_bridge"]["status"] == SURFACE_FAILED
 
 
-def test_linux_and_windows_recovery_names_the_xrdp_desktop():
-    for os in ("linux", "windows"):
+def test_linux_and_wsl_recovery_names_the_xrdp_desktop():
+    for os in ("linux", "wsl"):
         surfaces = verification_surfaces(
             [{"name": "terminal_bridge", "ok": False}],
             project="yoke",

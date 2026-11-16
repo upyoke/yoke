@@ -23,7 +23,7 @@ from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 CHECK_UNMET_EXIT = PROBE_EXIT_CODES["probe_check_unmet"]
 
 
-@pytest.mark.parametrize("os_name,count", [("macos", 6), ("linux", 5), ("windows", 4)])
+@pytest.mark.parametrize("os_name,count", [("macos", 6), ("linux", 5), ("wsl", 4)])
 def test_defaults_and_supplied_names_cannot_weaken_the_standard_set(os_name, count):
     document, refusal = capture_probes_document(os_name, None)
     assert refusal is None
@@ -38,7 +38,7 @@ def test_defaults_and_supplied_names_cannot_weaken_the_standard_set(os_name, cou
     assert json.loads(document)["probes"] == [*standard, weakened[-1]]
 
 
-@pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("os_name", ["macos", "linux", "wsl"])
 def test_missing_checks_refuse_by_name(os_name):
     probes = standard_probes(os_name)
     document, refusal = capture_probes_document(
@@ -179,7 +179,7 @@ def test_linux_input_check_distinguishes_headless_and_desktop(
     assert exit_info.value.code == (0 if passes else CHECK_UNMET_EXIT)
 
 
-@pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("os_name", ["macos", "linux", "wsl"])
 @pytest.mark.parametrize("failure_index", range(6))
 def test_default_capture_stops_before_archive_on_each_failed_standard_check(
     os_name, failure_index
@@ -220,7 +220,7 @@ def test_default_capture_stops_before_archive_on_each_failed_standard_check(
 
 
 @pytest.mark.usefixtures("recorded_harness_clis")
-@pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("os_name", ["macos", "linux", "wsl"])
 def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name):
     from yoke_harness import ssh_linux_baseline, ssh_mac_golden_capture
     from yoke_contracts.test_machine_types import HostActionResult

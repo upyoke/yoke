@@ -39,7 +39,7 @@ from yoke_core.domain.machine_qa_local_execution import (
 )
 
 
-@pytest.mark.parametrize("os", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("os", ["macos", "linux", "wsl"])
 def test_bridge_diagnosis_accepts_only_its_os_capability_sequence(os):
     from yoke_contracts.machine_qa_host_control import PERSISTENT_TERMINAL_BRIDGE_CHECKS
     from yoke_core.domain.handlers.machine_qa_operation_result import (

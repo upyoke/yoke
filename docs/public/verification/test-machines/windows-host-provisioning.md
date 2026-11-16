@@ -49,7 +49,7 @@ port, including RDP.
 
 Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` for
-updates with the as-read settings token. Declare `resource_name`, `os=windows`,
+updates with the as-read settings token. Declare `resource_name`, `os=wsl`,
 Windows `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
 `desktop_route=ssh-forward`, the provisioned

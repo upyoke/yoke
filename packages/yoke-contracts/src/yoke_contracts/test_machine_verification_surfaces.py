@@ -38,7 +38,7 @@ def _failed_recovery(surface: str, *, project: str, test_machine: str, os: str) 
             f"`yoke test-machine exec {selector} -- /usr/bin/true` proves "
             "the route."
         )
-    if os in {"linux", "windows"}:
+    if os in {"linux", "wsl"}:
         return (
             "SSH still works, so remote exec, resets, and machine assertions do; "
             "the XFCE/Xorg desktop capture failed. Inspect ~/.xsession-errors and "

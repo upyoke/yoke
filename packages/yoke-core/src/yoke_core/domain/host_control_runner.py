@@ -252,7 +252,7 @@ def materialize_test_machine_contract(
                 "--cap-type test-machine --key KEY --value-stdin`, then retry."
             ),
         )
-    if normalized.settings.get("os") in {"linux", "windows"}:
+    if normalized.settings.get("os") in {"linux", "wsl"}:
         from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
         password = read_machine_capability_secret(
