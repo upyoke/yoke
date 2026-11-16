@@ -98,6 +98,9 @@ def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
     assert f"--setenv={account.ACCOUNT_HOME}={home}" in login
     # PAM's user manager supplies the bus; the launcher never fabricates it.
     assert not any("XDG_RUNTIME_DIR" in arg or "DBUS_SESSION" in arg for arg in login)
+    # pam_env rewrites PATH, so the tool path is set by env after PAM runs.
+    assert not any(arg.startswith("--setenv=PATH") for arg in login)
+    assert login[login.index("/usr/bin/env") + 1].startswith("PATH=/tools:")
     assert (home / "checkout" / ".git").is_dir()
     assert (output / "report.json").read_text() == "{}"
     assert ["chown", "-R", "yksmoke99:", str(scratch)] in calls

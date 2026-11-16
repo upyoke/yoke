@@ -115,9 +115,12 @@ def run_account(root: Path, output: Path, uv: Path, expected_os: str, architectu
                 f"--unit=yoke-smoke-{uid}", f"--uid={user}", "--property=PAMName=login",
                 f"--working-directory={checkout}",
                 f"--setenv={ACCOUNT_HOME}={home}",
-                f"--setenv=PATH={uv.parent}{os.pathsep}{Path(sys.executable).parent}{os.pathsep}{os.defpath}",
                 f"--setenv=SMOKE_EXPECTED_OS={expected_os}",
                 f"--setenv=SMOKE_EXPECTED_ARCHITECTURE={architecture}",
+                # pam_env replaces any --setenv PATH from /etc/environment, so
+                # set the tool path after PAM has run.
+                "/usr/bin/env",
+                f"PATH={uv.parent}{os.pathsep}{Path(sys.executable).parent}{os.pathsep}{os.defpath}",
                 sys.executable, str(checkout / "runtime/api/tools/product_runner_smoke.py"),
                 "--output", str(evidence),
             ], check=False)  # fmt: skip
