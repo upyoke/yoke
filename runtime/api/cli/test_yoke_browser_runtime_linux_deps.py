@@ -8,6 +8,7 @@ import pytest
 
 from runtime.api.cli.browser_toolchain_test_support import (
     install_fake_toolchain,
+    stub_process_groups,
 )
 from yoke_cli.browser_node_toolchain import NodeToolchainError
 from yoke_harness import browser_client, browser_setup
@@ -67,9 +68,7 @@ def _prepare_browser_start(tmp_path, monkeypatch):
             "data": {"health": "healthy"},
         },
     )
-    monkeypatch.setattr(
-        browser_setup.subprocess, "Popen", lambda *args, **kwargs: FakeProcess()
-    )
+    stub_process_groups(monkeypatch, lambda *args, **kwargs: FakeProcess())
     toolchain = install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return browser, fake_run, toolchain
 

@@ -30,6 +30,27 @@ def install_fake_toolchain(monkeypatch, bin_dir: Path) -> NodeToolchain:
     return toolchain
 
 
+def stub_process_groups(monkeypatch, launch) -> None:
+    """Patch the process-custody boundary without querying fake operating-system PIDs."""
+
+    def restored(pid, start_time):
+        record = {"pid": pid, "start_time": start_time, "members": [[pid, start_time]]}
+        return SimpleNamespace(
+            pid=pid, start_time=start_time, process=None, to_record=lambda: record
+        )
+
+    def spawn(command, **kwargs):
+        process = launch(command, **kwargs)
+        handle = restored(process.pid, 1.0)
+        handle.process = process
+        return handle
+
+    monkeypatch.setattr(browser_client_readiness.platform_process, "spawn_group", spawn)
+    monkeypatch.setattr(
+        browser_client_readiness.platform_process, "handle_from_pid", restored
+    )
+
+
 __all__ = ["install_fake_toolchain"]
 
 
@@ -86,22 +107,8 @@ def stub_profile_daemon_start(monkeypatch, tmp_path, state_loads):
 
     def fake_popen(command, **_kwargs):
         launched.append(list(command))
-        return SimpleNamespace(
-            process=FakeProcess(),
-            pid=4242,
-            start_time=1,
-            to_record=lambda: {"pid": 4242, "start_time": 1, "members": [[4242, 1]]},
-        )
+        return FakeProcess()
 
-    monkeypatch.setattr(
-        browser_client_readiness.platform_process, "spawn_group", fake_popen
-    )
-    monkeypatch.setattr(
-        browser_client_readiness.platform_process,
-        "handle_from_pid",
-        lambda *a: SimpleNamespace(
-            to_record=lambda: {"pid": 4242, "start_time": 1, "members": [[4242, 1]]}
-        ),
-    )
+    stub_process_groups(monkeypatch, fake_popen)
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return launched

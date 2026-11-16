@@ -12,6 +12,7 @@ import pytest
 
 from runtime.api.cli.browser_toolchain_test_support import (
     install_fake_toolchain,
+    stub_process_groups,
 )
 from yoke_cli.config import browser_identities, browser_profile
 from yoke_cli.config.browser_profile_cookies import (
@@ -340,5 +341,5 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
         order.append("launched")
         return FakeProcess()
 
-    monkeypatch.setattr(browser_setup.subprocess, "Popen", fake_popen)
+    stub_process_groups(monkeypatch, fake_popen)
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
