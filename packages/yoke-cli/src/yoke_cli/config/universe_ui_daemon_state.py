@@ -24,7 +24,9 @@ from yoke_contracts.timestamps import (
 
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts import platform_process
-from yoke_contracts.owner_private_path import write_owner_private
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory, write_owner_private,
+)
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -71,8 +73,8 @@ class UiDaemonRecord:
 
 def state_dir() -> Path:
     directory = machine_config.yoke_home() / UI_STATE_DIR_NAME
-    create_private_directory(directory)
-    return directory
+    create_private_directory(directory.parent)
+    return create_owner_private_directory(directory)
 
 
 def token_path() -> Path:
@@ -129,7 +131,13 @@ def read_record() -> Optional[UiDaemonRecord]:
         )
     except InvalidInstant:
         raise
-    except (KeyError, TypeError, ValueError):
+    except KeyError as exc:
+        raise UiDaemonError(
+            f"ui_process_identity_missing: dashboard record {record_path()} lacks "
+            f"process creation time for PID {document.get('pid')}; inspect and "
+            "stop that process, remove the record, then run `yoke ui up`."
+        ) from exc
+    except (TypeError, ValueError):
         return None
 
 

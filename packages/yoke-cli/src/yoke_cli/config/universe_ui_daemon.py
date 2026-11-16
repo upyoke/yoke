@@ -97,10 +97,10 @@ def up(*, host: str, port: int, env: str) -> Dict[str, Any]:
     require_available_port(host, port)
     stable_session_token()
     log = log_path()
-    supervised, note = _start_supervisor(host=host, port=port, env=env, log=log)
+    supervised, note, child = _start_supervisor(host=host, port=port, env=env, log=log)
 
     if _await_ready(host=host, port=port) is None:
-        _tear_down(supervised=supervised)
+        _tear_down(supervised=supervised, child=child)
         tail = log_tail()
         raise UiDaemonError(
             f"the UI daemon did not begin serving {host}:{port} within "
@@ -196,7 +196,7 @@ def _start_supervisor(
     port: int,
     env: str,
     log: Path,
-) -> Tuple[bool, str]:
+) -> Tuple[bool, str, Any]:
     """Bring the serving child up, and report who is supervising it.
 
     The launch agent is preferred on macOS because it is what survives a
@@ -208,16 +208,15 @@ def _start_supervisor(
         try:
             launchd.install_agent(host=host, port=port, env=env, log_path=log)
         except UiLaunchdError as exc:
-            _spawn_detached(host=host, port=port, env=env)
+            child = _spawn_detached(host=host, port=port, env=env)
             return False, (
                 f"launchd would not supervise this view ({exc}), so it is "
                 "running as a detached process instead: it survives this "
                 "terminal, but not a reboot. Run `yoke ui up` again from a "
                 "logged-in desktop session to register the launch agent."
-            )
-        return True, ""
-    _spawn_detached(host=host, port=port, env=env)
-    return False, ""
+            ), child
+        return True, "", None
+    return False, "", _spawn_detached(host=host, port=port, env=env)
 
 
 def _stopped_report() -> Dict[str, Any]:
@@ -228,12 +227,12 @@ def _stopped_report() -> Dict[str, Any]:
     }
 
 
-def _spawn_detached(*, host: str, port: int, env: str) -> None:
+def _spawn_detached(*, host: str, port: int, env: str):
     command = launchd.child_command(host=host, port=port, env=env)
     try:
         write_owner_private(log_path(), "")
         with open(log_path(), "a", encoding="utf-8") as log:
-            platform_process.spawn_group(
+            return platform_process.spawn_group(
                 command,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
@@ -266,9 +265,11 @@ def _await_ready(*, host: str, port: int) -> Optional[UiDaemonRecord]:
     return None
 
 
-def _tear_down(*, supervised: bool) -> None:
+def _tear_down(*, supervised: bool, child=None) -> None:
     if supervised:
         launchd.remove_agent()
+    if child is not None:
+        platform_process.stop_group(child, STOP_TIMEOUT_S)
     record = read_record()
     if record is not None and process_alive(record.pid, record.process_start_time):
         _terminate(record)
@@ -281,11 +282,10 @@ def _terminate(record: UiDaemonRecord) -> None:
         if handle is not None:
             platform_process.stop_group(handle, STOP_TIMEOUT_S)
     except (OSError, TimeoutError) as exc:
-        if process_alive(record.pid, record.process_start_time):
-            raise UiDaemonError(
-                f"ui_stop_failed: could not stop dashboard process {record.pid} "
-                f"({exc}); inspect that process, stop it, then retry `yoke ui down`."
-            ) from exc
+        raise UiDaemonError(
+            f"ui_stop_failed: could not stop dashboard process {record.pid} "
+            f"({exc}); inspect that process, stop it, then retry `yoke ui down`."
+        ) from exc
 
 
 __all__ = [
