@@ -17,9 +17,15 @@ AUTHORITY_DATABASE = (
     "Opens the evaluating process's own control-plane database: DSN, managed "
     "secret, cloud authority, connected-environment binding and tunnel, and "
     "the retired YOKE_DB token the DB-command guards pass along. The "
-    "authority connects to its own database; no client state is involved.",
+    "authority connects to its own database; no client state is involved. "
+    "Its portable tunnel helpers validate that authority's private SSH key "
+    "and launch the forward on that authority's OS, including Windows.",
     (
         "yoke_contracts.machine_config.directories:create_private_directory",
+        "yoke_contracts.owner_private_path:_is_private",
+        "yoke_contracts.platform_process:spawn_group",
+        "yoke_contracts.platform_process_windows:spawn",
+        _C + "ssh_identity:validate_identity",
         "yoke_contracts.machine_config.selection:connection_selection",
         "yoke_contracts.machine_config.selection:checkout_connection",
         _C + "cloud_db_secret_dsn:env_binding_selected",
@@ -28,13 +34,8 @@ AUTHORITY_DATABASE = (
         _C + "connected_env_readiness_connector:_tunnel_spec",
         _C + "connected_env_readiness_connector:explicit_dsn_pinned",
         _C + "connected_env_tunnel_coordination:_lock_holder",
-        _C + "connected_env_tunnel_coordination:_process_command",
         _C + "connected_env_tunnel_coordination:_read_lease",
         _C + "connected_env_tunnel_coordination:active_leases",
-        _C + "connected_env_tunnel_lifecycle:_find_tunnel_pids",
-        _C + "connected_env_tunnel_lifecycle:_listening_pids",
-        _C + "connected_env_tunnel_lifecycle:_process_command",
-        _C + "connected_env_tunnel_lifecycle:_start_tunnel",
         _C + "db_backend:_managed_secret_is_active_authority",
         _C + "db_backend:resolve_pg_dsn",
         # The evaluating authority checks its own database's durable source pause.
