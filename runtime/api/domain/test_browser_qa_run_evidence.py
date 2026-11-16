@@ -169,7 +169,8 @@ def test_assert_only_evidence_persists_and_settles_without_manual_attach(tmp_pat
         try:
             marker = _placeholder(conn)
             row = conn.execute(
-                f"SELECT artifact_type,content_type FROM qa_artifacts WHERE qa_run_id={marker}",
+                f"SELECT artifact_type,content_type FROM qa_artifacts WHERE qa_run_id={marker}"
+                " AND artifact_type='evidence'",
                 (run.qa_run_id,),
             ).fetchone()
             assert tuple(row) == ("evidence", "application/json")
