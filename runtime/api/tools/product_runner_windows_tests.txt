@@ -4,6 +4,7 @@
 runtime/api/cli/test_onboard_session_relay_windows.py
 runtime/api/tools/test_product_runner_stages.py
 runtime/api/cli/test_platform_file_lock.py
+runtime/api/cli/test_windows_evidence_ledger.py
 runtime/api/cli/test_platform_process.py
 runtime/api/cli/test_platform_process_windows.py
 runtime/api/cli/test_platform_links.py
