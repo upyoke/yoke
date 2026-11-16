@@ -10,6 +10,9 @@ from yoke_cli import browser_node_toolchain as node
 from yoke_cli.browser_node_archive import unpack_release
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.mark.parametrize("machine,slug", [("AMD64", "win-x64"), ("ARM64", "win-arm64")])
 def test_windows_clean_host_installs_and_reuses_zip(
     tmp_path, monkeypatch, machine, slug

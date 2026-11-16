@@ -157,7 +157,7 @@ def test_rendered_cursor_adapter_body_carries_footer(repo_root: Path) -> None:
 def test_tester_browser_canonical_body_carries_marker_without_ouroboros(
     repo_root: Path,
 ) -> None:
-    # tester-browser is served via symlink (no marker expansion at run
+    # tester-browser is served as a literal file (no marker expansion at run
     # time), so the canonical body itself is what the agent reads. The
     # contract is the marker is present at the documented insertion
     # target — the absence of an Ouroboros section is why ``## Important

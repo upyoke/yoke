@@ -14,6 +14,11 @@ from yoke_core.domain import pg_test_db_namespace
 from yoke_core.domain.db_backend import POSTGRES_TEST_DB_PREFIX
 from yoke_core.tools import pg_testcluster, pg_testcluster_orphans
 
+import pytest
+
+
+pytestmark = pytest.mark.windows
+
 
 def _completed(stdout: str = '', returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout=stdout, stderr='')
@@ -74,7 +79,7 @@ def test_detached_sweep_outlives_its_launcher(monkeypatch):
         spawned["kwargs"] = kwargs
         return object()
 
-    monkeypatch.setattr(pg_testcluster_orphans.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr("yoke_contracts.platform_process.spawn_group", fake_popen)
 
     pg_testcluster_orphans.start_detached_orphan_sweep()
 
@@ -83,14 +88,15 @@ def test_detached_sweep_outlives_its_launcher(monkeypatch):
     ]
     # A new session keeps the sweep alive past the run that started it, and
     # detached streams keep it from holding the launcher's pipes open.
-    assert spawned["kwargs"]["start_new_session"] is True
+    assert all(spawned["kwargs"][stream] == subprocess.DEVNULL
+               for stream in ("stdin", "stdout", "stderr"))
 
 
 def test_detached_sweep_never_fails_the_run(monkeypatch):
     def refuse(argv, **kwargs):
         raise OSError("cannot fork")
 
-    monkeypatch.setattr(pg_testcluster_orphans.subprocess, "Popen", refuse)
+    monkeypatch.setattr("yoke_contracts.platform_process.spawn_group", refuse)
 
     pg_testcluster_orphans.start_detached_orphan_sweep()  # must not raise
 
@@ -162,7 +168,7 @@ def test_detached_sweep_command_is_actually_runnable(tmp_path, monkeypatch):
         spawned["argv"] = argv
         return object()
 
-    monkeypatch.setattr(pg_testcluster_orphans.subprocess, "Popen", capture)
+    monkeypatch.setattr("yoke_contracts.platform_process.spawn_group", capture)
     pg_testcluster_orphans.start_detached_orphan_sweep()
     # `subprocess` is one shared module object, so the patch above would
     # also intercept this test's own run() call. Drop it before executing.

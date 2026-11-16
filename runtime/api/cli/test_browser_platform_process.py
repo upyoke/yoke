@@ -13,6 +13,9 @@ from yoke_harness import browser_client, browser_client_readiness, browser_human
 from yoke_core.domain import browser_client as core_client
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_daemon_process_record_survives_caller_and_stops_tree(tmp_path):
     group = platform_process.spawn_group(
         [sys.executable, "-c", "import time; time.sleep(60)"]

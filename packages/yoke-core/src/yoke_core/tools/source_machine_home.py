@@ -178,7 +178,7 @@ def isolated_machine_home(
             if identity:
                 resolved["YOKE_SESSION_ID"] = identity
         # macOS TMPDIR can exceed PostgreSQL's Unix socket path limit.
-        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-", dir="/tmp"))
+        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-", dir="/tmp" if sys.platform == "darwin" else None))
         resolved["YOKE_SCRATCH_ROOT"] = str(evidence)
         print(f"source machine home: disposable {destination}", file=sys.stderr)
         print(f"source evidence root: {evidence}", file=sys.stderr)

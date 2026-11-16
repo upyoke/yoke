@@ -45,7 +45,7 @@ def test_all_acceptance_surfaces_retain_message_hook_coverage() -> None:
 
     root = Path(__file__).resolve().parents[3]
     claude = json.loads((root / ".claude/settings.json").read_text(encoding="utf-8"))
-    codex = json.loads((root / ".codex/hooks.json").read_text(encoding="utf-8"))
+    codex = json.loads((root / "runtime/harness/codex/hooks.json").read_text(encoding="utf-8"))
     cursor = json.loads((root / ".cursor/hooks.json").read_text(encoding="utf-8"))
     claude_post = claude["hooks"]["PostToolUse"]
     assert len(claude_post) == 1

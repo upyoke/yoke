@@ -89,8 +89,8 @@ def proxy_command(env: Any) -> str:
 
 
 def _mac_ssh(env: Any, remote: str) -> str:
-    config = shlex.quote(str(config_path()))
-    return f"ssh -F {config} {mac_leg.alias(env.env_name)} {shlex.quote(remote)}"
+    argv = ["ssh", "-F", str(config_path()), mac_leg.alias(env.env_name), remote]
+    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
 
 
 def tunnel_fields(env: Any) -> dict[str, str]:
@@ -168,7 +168,9 @@ def _ensure_key(env: Any, key: Path) -> bool:
             f"{_path_ref(key)} (rc={result.returncode}): "
             f"{(result.stderr or '').strip()}; fix ssh-keygen, then rerun"
         )
-    key.chmod(0o600)
+    from yoke_contracts.owner_private_path import write_owner_private
+
+    write_owner_private(key, key.read_bytes())
     return True
 
 
@@ -257,11 +259,10 @@ def _authorize_and_read_host_key(env: Any, host: str, public: str) -> str:
 
 
 def _write_private(path: Path, text: str) -> None:
+    from yoke_contracts.owner_private_path import write_owner_private
+
     machine_secrets._refuse_unisolated_test_write(path)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.chmod(0o600)
-    os.replace(tmp, path)
+    write_owner_private(path, text.encode("utf-8"))
 
 
 def _upsert_known_host(name: str, host_key: str) -> None:
@@ -276,10 +277,10 @@ def _host_block(env: Any) -> str:
         [
             f"Host {alias(env.env_name)}",
             f"  User {env.ssh_user}",
-            f'  IdentityFile "{key_path(env)}"',
+            f'  IdentityFile "{key_path(env).as_posix()}"',
             "  IdentitiesOnly yes",
             f"  HostKeyAlias {host_key_alias(env.env_name)}",
-            f'  UserKnownHostsFile "{known_hosts_path()}"',
+            f'  UserKnownHostsFile "{known_hosts_path().as_posix()}"',
             "  StrictHostKeyChecking yes",
             f"  ProxyCommand {proxy_command(env)}",
         ]

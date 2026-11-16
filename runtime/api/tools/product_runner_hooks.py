@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import uuid
 
+# (config, start event, tool-call event, executor[, first-prompt event]).
+# A harness with a first-prompt event registers on its first saved prompt,
+# not at start: Codex skips registration for a startup without a transcript.
 HARNESS_CONFIGS = {
     "claude": (".claude/settings.json", "SessionStart", "PreToolUse", "claude-code"),
-    "codex": (".codex/hooks.json", "SessionStart", "PreToolUse", "codex"),
+    "codex": (
+        ".codex/hooks.json",
+        "SessionStart",
+        "PreToolUse",
+        "codex",
+        "UserPromptSubmit",
+    ),
     "cursor": (".cursor/hooks.json", "sessionStart", "beforeShellExecution", "cursor"),
 }
 
@@ -121,10 +131,69 @@ def require_wire(result, *, harness: str, outcome: str) -> None:
         )
 
 
+def write_codex_transcript(home: Path, project: Path, session: str) -> Path:
+    """Save the thread the way Codex does, under the scratch HOME's ~/.codex.
+
+    The first prompt finds it by thread id (``*<thread>.jsonl`` under
+    ``~/.codex/sessions``); HOME is scratch outside the project, so the
+    project's git status stays clean.
+    """
+    now = datetime.now(timezone.utc)
+    transcript = (
+        home
+        / ".codex/sessions"
+        / now.strftime("%Y/%m/%d")
+        / f"rollout-{now.strftime('%Y-%m-%dT%H-%M-%S')}-{session}.jsonl"
+    )
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "timestamp": now.isoformat(),
+        "type": "session_meta",
+        "payload": {"id": session, "cwd": str(project), "originator": "codex_exec"},
+    }
+    transcript.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    return transcript
+
+
+def require_registration(
+    commands, yoke: str, project: Path, harness: str, session: str, executor: str,
+    *, expected: int,
+) -> list[dict]:
+    step = "registration" if expected else "start-unregistered"
+    rows = commands.document(
+        f"{harness}-{step}",
+        [yoke, "sessions", "list", "--session", session, "--full", "--json"],
+        cwd=project,
+    )["rows"]
+    if not expected:
+        if rows:
+            raise ValueError(
+                f"session_registered_at_start: {harness} startup without a saved "
+                "transcript registered; registration belongs to the first prompt. "
+                "Inspect the start capture and the codex start gate in hook_inprocess.py"
+            )
+        return rows
+    if (
+        len(rows) != 1
+        or rows[0]["executor"] != executor
+        or rows[0]["workspace"] != str(project)
+    ):
+        raise ValueError(
+            f"session_registration_missing: {harness} native startup did not register the expected session; inspect startup/registration captures"
+        )
+    return rows
+
+
 def replay_hooks(root: Path, project: Path, commands, yoke: str) -> list[dict]:
     proofs = []
     corpus = root / "tests/fixtures/harness-sessions"
-    for harness, (config, start_event, call_event, executor) in HARNESS_CONFIGS.items():
+    for harness, (
+        config,
+        start_event,
+        call_event,
+        executor,
+        *prompt_event,
+    ) in HARNESS_CONFIGS.items():
         recording = corpus / f"{harness}.json"
         if not recording.is_file():
             raise ValueError(
@@ -148,19 +217,25 @@ def replay_hooks(root: Path, project: Path, commands, yoke: str) -> list[dict]:
             ),
             shell=True,
         )
-        rows = commands.document(
-            f"{harness}-registration",
-            [yoke, "sessions", "list", "--session", session, "--json"],
-            cwd=project,
-        )["rows"]
-        if (
-            len(rows) != 1
-            or rows[0]["executor"] != executor
-            or rows[0]["workspace"] != str(project)
-        ):
-            raise ValueError(
-                f"session_registration_missing: {harness} native startup did not register the expected session; inspect startup/registration captures"
+        if prompt_event:
+            require_registration(
+                commands, yoke, project, harness, session, executor, expected=0
             )
+            write_codex_transcript(Path(commands.env["HOME"]), project, session)
+            commands.run(
+                f"{harness}-first-prompt",
+                rendered_command(project, config, prompt_event[0]),
+                cwd=project,
+                stdin=json.dumps(
+                    remap_recording(
+                        fixture["user_prompt_submit"], project=project, session=session
+                    )
+                ),
+                shell=True,
+            )
+        rows = require_registration(
+            commands, yoke, project, harness, session, executor, expected=1
+        )
         proof = {
             "harness": harness,
             "session_id": session,

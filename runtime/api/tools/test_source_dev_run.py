@@ -11,6 +11,9 @@ from yoke_core.domain import source_pythonpath as _source_pythonpath
 from yoke_core.tools import source_dev_run
 
 
+pytestmark = pytest.mark.windows
+
+
 def _make_source_lane(path: Path) -> Path:
     (path / "packages/yoke-core/src/yoke_core").mkdir(parents=True)
     (path / "pyproject.toml").touch()

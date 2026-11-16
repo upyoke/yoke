@@ -25,6 +25,9 @@ from yoke_cli.browser_node_toolchain import (
 )
 
 
+pytestmark = pytest.mark.windows
+
+
 NODE_SCRIPT = "{version}\n"
 
 

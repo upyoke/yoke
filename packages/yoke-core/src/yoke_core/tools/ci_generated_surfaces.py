@@ -31,7 +31,7 @@ def check_harness_capability(repo_root: Path, _scope: object) -> tuple[bool, str
 def check_agent_render(repo_root: Path, _scope: object) -> tuple[bool, str]:
     from yoke_core.domain.agents_render import detect_substrate_drift
 
-    drift = detect_substrate_drift(target_root=repo_root)
+    drift = detect_substrate_drift(target_root=repo_root, include_native_views=False)
     if not drift:
         return True, "rendered harness adapters match canonical sources"
     return False, (

@@ -11,6 +11,9 @@ import pytest
 from yoke_contracts import platform_process as processes
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_snapshot_and_ancestry_observe_current_process():
     own = next(p for p in processes.process_command_lines() if p.pid == os.getpid())
     assert own.cmdline and own.start_time > 0 and own.rss_kb > 0 and own.username

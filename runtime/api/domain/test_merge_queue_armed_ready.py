@@ -157,6 +157,7 @@ def test_ejection_recovery_closes_the_arming_episode_of_a_stuck_landing():
         now=NOW,
         read_queue=lambda *_a, **_kw: pytest.fail("no queue read is owed"),
         enqueue=lambda *_a, **_kw: pytest.fail("the observer must not enqueue"),
+        reread=lambda *_a: pytest.fail("no re-read is owed"),
     )
     assert not readback.admitted()
     assert read_open_attempt(conn, 101)["enqueued_at"] is None

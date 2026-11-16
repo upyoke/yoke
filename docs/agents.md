@@ -12,8 +12,12 @@ The substrate renderer expands one canonical body into each harness adapter:
 
 | Harness | Rendered adapter | Native discovery |
 |---|---|---|
-| Claude | `runtime/harness/claude/agents/yoke-{role}.md` | `.claude/agents` symlink |
-| Codex | `runtime/harness/codex/agents/yoke-{role}.toml` | `.codex/agents` symlink |
+| Claude | `runtime/harness/claude/agents/yoke-{role}.md` | `.claude/agents` generated link or copy |
+| Codex | `runtime/harness/codex/agents/yoke-{role}.toml` | `.codex/agents` generated link or copy |
+
+Run `yoke agents render` after cloning to create the ignored native views.
+They use a symlink, directory junction, or content-checked copy; Git symlink
+support is not required.
 
 Claude YAML metadata comes from `runtime/agents/{role}.claude.json`. Codex TOML
 uses `name`, `description`, `developer_instructions`; optional `model` is emitted
