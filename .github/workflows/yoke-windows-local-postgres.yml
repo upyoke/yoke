@@ -1,0 +1,19 @@
+name: Windows local PostgreSQL
+on:
+  pull_request:
+    paths:
+      - '**/postgres_cluster*.py'
+      - '**/postgres_binaries.py'
+      - '**/test_postgres_windows.py'
+      - 'runtime/api/tools/probe_windows_postgres_socket.py'
+      - '.github/workflows/yoke-windows-local-postgres.yml'
+permissions:
+  contents: read
+jobs:
+  socket-spike:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Probe pinned PostgreSQL Unix socket under a private spaced path
+        run: python runtime/api/tools/probe_windows_postgres_socket.py
