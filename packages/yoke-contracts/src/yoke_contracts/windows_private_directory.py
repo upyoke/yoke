@@ -261,6 +261,8 @@ def create_private_directory(path: str | Path) -> None:
             error = ctypes.get_last_error()
             if error == 183:
                 raise FileExistsError(str(path))
+            if error in (2, 3):
+                raise FileNotFoundError(str(path))
             raise OSError(error, f"owner_private_directory_create_failed: {path}; check parent access")
     finally:
         kernel.LocalFree(descriptor)
