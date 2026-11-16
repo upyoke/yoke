@@ -13,6 +13,8 @@ import pytest
 from yoke_contracts import hook_resident_transport as transport
 from yoke_contracts.hook_evaluator_protocol import receive_frame, send_frame
 
+pytestmark = pytest.mark.windows
+
 
 def test_pipe_peer_keeps_json_framing_and_bounds_reads():
     left, right = Pipe()

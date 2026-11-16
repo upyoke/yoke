@@ -8,8 +8,8 @@ contract the runtime depends on but cannot repair at run time:
 * the dispatch resolves its target environment from the run's typed
   environment reference rather than a hardcoded label, so the same
   definition serves every environment it is pointed at;
-* the dispatch neither reuses an older CI result for the same commit nor
-  re-waits on CI the verification gate already proved; and
+* normal production dispatches wait for per-commit CI; Stage relies on
+  the paired production gate and hotfix routes may skip it deliberately; and
 * the route warms the box it just rolled, after it rolls it, so the first
   heavy call after a release is not the operator's.
 
@@ -24,8 +24,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from yoke_core.domain.db_helpers import query_rows
-import yoke_core.engines.doctor_report as _base
+from yoke_core.domain.control_plane_transport import relay
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -38,29 +38,48 @@ CORRELATION_INPUT = "yoke_dispatch_id"
 TARGET_ENVIRONMENT_PLACEHOLDER = "{target_environment}"
 
 
-def _active_flow_stages(conn, project: str) -> Dict[str, List[Any]]:
-    """Return ``{flow_id: stages}`` for the project's active flows."""
-    rows = query_rows(
-        conn,
-        "SELECT f.id, f.stages FROM deployment_flows f "
-        "JOIN projects p ON p.id = f.project_id "
-        "WHERE p.slug=%s AND f.status='active'",
-        (project,),
-    )
-    flows: Dict[str, List[Any]] = {}
+def _active_flows(project: str) -> List[dict]:
+    """Use the CLI's registered read on both HTTPS and database clients."""
+    result = relay("deployment_flows.list", {"project": project})
+    rows = result.get("rows")
+    if not isinstance(rows, list):
+        raise ValueError("deployment_flows.list returned no rows list")
+    flows = []
     for row in rows:
-        flow_id = str(row["id"] if hasattr(row, "keys") else row[0])
-        raw = row["stages"] if hasattr(row, "keys") else row[1]
-        try:
-            stages = json.loads(raw) if isinstance(raw, str) else raw
-        except ValueError:
-            stages = None
-        if isinstance(stages, list):
-            flows[flow_id] = stages
+        flow = dict(row)
+        raw = flow["stages"]
+        stages = json.loads(raw) if isinstance(raw, str) else raw
+        if not isinstance(stages, list):
+            raise ValueError(f"flow {flow['id']!r} stages are not a list")
+        flow["stages"] = stages
+        flows.append(flow)
     return flows
 
 
-def _route_violations(flow_id: str, stages: List[Any]) -> List[str]:
+def _production_environments(project: str, flows: List[dict]) -> Dict[str, bool]:
+    roles = {}
+    for flow in flows:
+        environment = flow.get("target_environment")
+        if not environment:
+            raise ValueError(f"dispatching flow {flow['id']!r} has no target_environment")
+        if environment in roles:
+            continue
+        result = relay("projects.environment_settings.get", {
+            "project": project, "environment": environment,
+            "paths": ["role.production"],
+        })
+        production = result.get("values", {}).get("role.production")
+        if not isinstance(production, bool):
+            raise ValueError(
+                f"environment {environment!r} has no boolean role.production"
+            )
+        roles[environment] = production
+    return roles
+
+
+def _route_violations(
+    flow_id: str, stages: List[Any], *, production: bool,
+) -> List[str]:
     runners = [
         str(stage.get("step_runner", ""))
         for stage in stages
@@ -85,11 +104,14 @@ def _route_violations(flow_id: str, stages: List[Any]) -> List[str]:
                 f"stage '{name}' may reuse an older run for the same commit "
                 "(reconcile_by_head_sha is not false)"
             )
-        if stage.get("wait_for_ci") is not False:
+        hotfix = (stage.get("inputs") or {}).get("release_mode") == "hotfix"
+        if production and not hotfix and stage.get("wait_for_ci") is not True:
             problems.append(
-                f"stage '{name}' waits on CI for a commit the gate already "
-                "proved (wait_for_ci is not false)"
+                f"stage '{name}' omits the production per-commit CI gate "
+                "(wait_for_ci is not true)"
             )
+        elif not isinstance(stage.get("wait_for_ci"), bool):
+            problems.append(f"stage '{name}' must declare boolean wait_for_ci")
         target = (stage.get("inputs") or {}).get("target_environment")
         if target != TARGET_ENVIRONMENT_PLACEHOLDER:
             problems.append(
@@ -109,22 +131,27 @@ def hc_hosted_route_stage_contract(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     """HC-hosted-route-stage-contract: hosted routes carry their contract."""
-    if not _base._table_exists(conn, "deployment_flows"):
-        rec.record(
-            HC_NAME, HC_DESC, "PASS",
-            "deployment_flows table not present, skipping",
-        )
+    try:
+        flows = _active_flows(args.project)
+        dispatching = [
+            flow for flow in flows
+            if any(
+                isinstance(stage, dict)
+                and stage.get("step_runner") == DISPATCH_RUNNER
+                for stage in flow["stages"]
+            )
+        ]
+        production = _production_environments(args.project, dispatching)
+    except Exception as exc:  # noqa: BLE001 - unreadable authority is a failure
+        rec.record(HC_NAME, HC_DESC, "FAIL", compose_refusal(
+            f"Hosted-route contract cannot be evaluated: {exc}",
+            recovery=("Run `yoke deployment-flows list --project "
+                      f"{args.project}` and `yoke projects environment-settings "
+                      f"get --project {args.project} --environment NAME "
+                      "--path role.production`; repair the named read or declaration, "
+                      "then rerun this check."),
+        ))
         return
-    flows = _active_flow_stages(conn, args.project)
-    dispatching = {
-        flow_id: stages
-        for flow_id, stages in flows.items()
-        if any(
-            isinstance(stage, dict)
-            and stage.get("step_runner") == DISPATCH_RUNNER
-            for stage in stages
-        )
-    }
     if not dispatching:
         rec.record(
             HC_NAME, HC_DESC, "PASS",
@@ -132,8 +159,11 @@ def hc_hosted_route_stage_contract(
         )
         return
     findings: List[str] = []
-    for flow_id in sorted(dispatching):
-        findings.extend(_route_violations(flow_id, dispatching[flow_id]))
+    for flow in sorted(dispatching, key=lambda flow: flow["id"]):
+        findings.extend(_route_violations(
+            flow["id"], flow["stages"],
+            production=production[flow["target_environment"]],
+        ))
     if findings:
         head = (
             f"- {len(findings)} hosted-route contract violation(s) across "
@@ -148,8 +178,8 @@ def hc_hosted_route_stage_contract(
     rec.record(
         HC_NAME, HC_DESC, "PASS",
         f"{len(dispatching)} active dispatching route(s) carry the "
-        "correlation marker, the target-environment placeholder, fresh CI "
-        "reconciliation, and a warm-up after the roll",
+        "correlation marker, the target-environment placeholder, the production "
+        "per-commit CI gate (with Stage/hotfix exceptions), and warm-up after the roll",
     )
 
 

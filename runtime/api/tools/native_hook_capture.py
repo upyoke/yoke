@@ -41,10 +41,12 @@ def command(event):
     import shlex
     return shlex.join(["/usr/bin/python3", str(recorder), str(capture), harness, event])
 start, pre = ("sessionStart", "beforeShellExecution") if harness == "cursor" else ("SessionStart", "PreToolUse")
+# Codex registers a session on its first saved prompt, so the replay needs that event too.
+events = (start, "UserPromptSubmit", pre) if harness == "codex" else (start, pre)
 if harness == "cursor":
-    document = {"version": 1, "hooks": {event: [{"command": command(event)}] for event in (start, pre)}}
+    document = {"version": 1, "hooks": {event: [{"command": command(event)}] for event in events}}
 else:
-    document = {"hooks": {event: [{"hooks": [{"type": "command", "command": command(event)}]}] for event in (start, pre)}}
+    document = {"hooks": {event: [{"hooks": [{"type": "command", "command": command(event)}]}] for event in events}}
     document["hooks"][pre][0]["matcher"] = "Bash"
 config = root / (".claude/settings.json" if harness == "claude" else f".{harness}/hooks.json")
 config.parent.mkdir()
@@ -77,8 +79,9 @@ rows = [json.loads(line) for line in capture.read_text().splitlines()] if captur
 starts = [row for row in rows if row["event"] == start]
 allows = [row for row in rows if row["event"] == pre and not row["denied"]]
 denials = [row for row in rows if row["event"] == pre and row["denied"]]
-if not starts or not allows or not denials:
-    print("native_capture_incomplete:", {"start": len(starts), "allow": len(allows), "deny": len(denials), "exit": result.returncode}, "scratch:", root)
+prompts = [row for row in rows if row["event"] == "UserPromptSubmit"]
+if not starts or not allows or not denials or (harness == "codex" and not prompts):
+    print("native_capture_incomplete:", {"start": len(starts), "prompt": len(prompts), "allow": len(allows), "deny": len(denials), "exit": result.returncode}, "scratch:", root)
     print(result.stderr[-3000:])
     print(result.stdout[-3000:])
     sys.exit(1)
@@ -98,6 +101,8 @@ def redact(value, key=""):
     return value
 fixture = {"provenance": {"capture_source": "Native CLI hook stdin on a leased test host", "harness_version": version.stdout.strip(), "prompt": prompt},
     "session_start": redact(starts[0]["payload"]), "pre_tool_use_allowed": redact(allows[0]["payload"]), "pre_tool_use_denied": redact(denials[0]["payload"])}
+if prompts:
+    fixture["user_prompt_submit"] = redact(prompts[0]["payload"])
 print("YOKE_NATIVE_FIXTURE=" + json.dumps(fixture))
 '''
 

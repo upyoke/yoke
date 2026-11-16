@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import subprocess
+import os
+import shlex
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_cli.config import db_admin_box_hop as hop
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
+
+
+pytestmark = pytest.mark.windows
 
 HOST_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHostKeyFromTheVm"
 MAC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMacHostKey"
@@ -72,7 +78,7 @@ def test_ensure_creates_key_authorizes_pins_and_writes_config(home, monkeypatch)
     key = home / "secrets" / "platform-prod-box-operator-ssh-key"
     assert report["operator_key_created"] is True
     assert report["alias"] == "yoke-prod-box"
-    assert key.stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(key)
     keygen = calls[0]
     assert keygen[0][:4] == ["ssh-keygen", "-q", "-t", "ed25519"]
     assert calls[1][0][:2] == ["ssh-keyscan", "-T"] and calls[1][0][-1] == "mac-mini"
@@ -92,19 +98,21 @@ def test_ensure_creates_key_authorizes_pins_and_writes_config(home, monkeypatch)
     config = (home / "ssh" / "config").read_text()
     mac_block = (
         "Host yoke-prod-mac-host\n  HostName mac-mini\n  User testy\n"
-        f'  IdentityFile "{Path("~/.ssh/operator_rsa").expanduser()}"\n'
+        f'  IdentityFile "{Path("~/.ssh/operator_rsa").expanduser().as_posix()}"\n'
         "  IdentitiesOnly yes\n  HostKeyAlias yoke-prod-mac-host\n"
     )
     assert mac_block in config
     assert "Host yoke-prod-box\n  User ubuntu\n" in config
-    assert f'IdentityFile "{key}"' in config
+    assert f'IdentityFile "{key.as_posix()}"' in config
     assert "HostKeyAlias yoke-prod-mini-vm" in config
-    assert f'UserKnownHostsFile "{home / "ssh" / "known_hosts"}"' in config
+    assert f'UserKnownHostsFile "{(home / "ssh" / "known_hosts").as_posix()}"' in config
     assert "StrictHostKeyChecking yes" in config
-    assert f"ProxyCommand ssh -F {home / 'ssh' / 'config'} yoke-prod-mac-host " in config
-    assert "list yoke-prod --format \"{{.SSHLocalPort}}\"" in config
+    argv = ["ssh", "-F", str(home / "ssh" / "config"), "yoke-prod-mac-host"]
+    prefix = subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+    assert f"ProxyCommand {prefix} " in config
+    assert "list yoke-prod --format " in config and "{{.SSHLocalPort}}" in config
     assert "lima-*/bin/limactl" in config
-    assert (home / "ssh" / "config").stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(home / "ssh" / "config")
 
 
 def test_ensure_is_idempotent_and_keeps_other_environments(home, monkeypatch) -> None:

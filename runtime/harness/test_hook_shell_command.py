@@ -10,6 +10,8 @@ from pathlib import Path
 from yoke_contracts.hook_shell_command import hook_shell_command
 import pytest
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX shell execution")
 def test_hook_shell_avoids_startup_files_and_sets_launcher_path(tmp_path: Path) -> None:

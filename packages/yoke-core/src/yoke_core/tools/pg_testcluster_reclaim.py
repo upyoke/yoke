@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import re
-import shutil
 import subprocess
 import sys
 import time
@@ -17,43 +15,43 @@ MIN_IDLE_AGE_SECONDS = 15 * 60
 
 
 def _postmasters() -> list[tuple[int, Path, Path]]:
-    result = subprocess.run(
-        ["ps", "-axo", "uid=,pid=,command="],
-        text=True,
-        capture_output=True,
-        check=True,
-        timeout=10,
-    )
+    from yoke_contracts.platform_process import process_command_lines
+
+    processes = process_command_lines()
+    owner = next((p.username for p in processes if p.pid == os.getpid()), None)
+    if not owner:
+        raise OSError("pgtest_owner_unknown: cannot observe this process's owner; restore process inspection")
     found = []
-    for line in result.stdout.splitlines():
-        fields = line.strip().split(None, 2)
-        if len(fields) != 3 or fields[0] != str(os.getuid()):
+    for process in processes:
+        argv = process.cmdline
+        if process.username != owner or not argv or "-D" not in argv:
             continue
-        try:
-            match = re.match(r"^(.*?)\s+-D\s+(.+?/data)(?=\s+-|$)", fields[2])
-            if match is None:
-                continue
-            executable, directory = match.groups()
-            binary = Path(executable)
-            if binary.name not in {"postgres", "postmaster"}:
-                continue
-            data = Path(directory)
-            if not binary.is_absolute():
-                binary = Path(shutil.which(executable) or executable)
-            found.append((int(fields[1]), data.parent, binary.parent))
-        except (ValueError, IndexError):
+        binary = Path(argv[0])
+        if binary.name.lower() not in {"postgres", "postmaster", "postgres.exe", "postmaster.exe"}:
             continue
+        index = argv.index("-D") + 1
+        if index >= len(argv) or not binary.is_absolute():
+            continue
+        data = Path(argv[index])
+        if data.name == "data" and data.is_absolute():
+            found.append((process.pid, data.parent, binary.parent))
     return found
 
 
 def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
     from yoke_core.domain.pytest_cluster_identity import PGUSER
 
-    if root.is_symlink() or root.stat().st_uid != os.getuid():
-        raise ValueError("cluster root is not an owned real directory")
     data = root / "data"
-    if data.is_symlink() or data.stat().st_uid != os.getuid():
-        raise ValueError("cluster data is not an owned real directory")
+    for path in (root, data):
+        if path.is_symlink() or getattr(path.lstat(), "st_file_attributes", 0) & 0x400:
+            raise ValueError("cluster path is not a real directory")
+        if os.name != "nt" and path.stat().st_uid != os.getuid():
+            raise ValueError("cluster directory is not owned by this user")
+    if os.name == "nt":
+        from yoke_contracts.owner_private_path import is_owner_private_file
+
+        if not is_owner_private_file(data / "postmaster.pid"):
+            raise ValueError("cluster postmaster identity is not owner-private")
     lines = (data / "postmaster.pid").read_text().splitlines()
     if int(lines[0]) != pid or Path(lines[1]).resolve() != data.resolve():
         raise ValueError("postmaster identity changed")
@@ -104,8 +102,10 @@ def _stop(pid: int, spec: ClusterSpec) -> None:
 
 
 def _destroy(pid: int, spec: ClusterSpec) -> None:
+    from yoke_contracts.platform_fs import remove_tree
+
     _stop(pid, spec)
-    shutil.rmtree(spec.root)
+    remove_tree(spec.root)
     if not spec.sock_dir.is_relative_to(spec.root):
         try:
             spec.sock_dir.rmdir()
@@ -114,12 +114,14 @@ def _destroy(pid: int, spec: ClusterSpec) -> None:
 
 
 def _reclaim(shared_root: Path | None, evidence: Path | None) -> int:
+    from yoke_contracts.platform_fs import remove_tree
+
     failures = 0
     try:
         candidates = _postmasters()
     except (OSError, subprocess.SubprocessError) as exc:
         print(
-            f"pgtest_prune_unavailable: {exc}; restore ps access and retry prune-clusters",
+            f"pgtest_prune_unavailable: {exc}; restore process inspection and retry prune-clusters",
             file=sys.stderr,
         )
         return 1
@@ -139,7 +141,7 @@ def _reclaim(shared_root: Path | None, evidence: Path | None) -> int:
                 continue
             if evidence is not None and canonical == evidence.resolve():
                 _stop(pid, spec)
-                shutil.rmtree(spec.data_dir)
+                remove_tree(spec.data_dir)
                 try:
                     spec.sock_dir.rmdir()
                 except OSError:
@@ -167,6 +169,8 @@ def destroy_evidence_clusters(evidence: Path) -> None:
     markers = list(evidence.glob("**/data/PG_VERSION"))
     if not markers:
         return
+    from yoke_contracts.platform_fs import remove_tree
+
     failed = (
         _reclaim(None, evidence)
         if any((marker.parent / "postmaster.pid").exists() for marker in markers)
@@ -187,7 +191,7 @@ def destroy_evidence_clusters(evidence: Path) -> None:
                 file=sys.stderr,
             )
         else:
-            shutil.rmtree(marker.parent if root == evidence else root)
+            remove_tree(marker.parent if root == evidence else root)
     if failed:
         raise OSError(
             f"pgtest_evidence_cleanup_failed: {evidence}; inspect the refusal above "

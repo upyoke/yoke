@@ -13,6 +13,8 @@ from yoke_cli import hook_resident_client as client
 from yoke_cli import hook_resident_lifecycle as lifecycle
 from yoke_cli import hook_resident_paths as resident_paths
 
+pytestmark = pytest.mark.windows
+
 
 def test_restart_warms_a_real_evaluator_and_replaces_same_version(
     monkeypatch, tmp_path
