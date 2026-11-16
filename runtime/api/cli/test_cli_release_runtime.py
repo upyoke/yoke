@@ -125,11 +125,14 @@ def test_python_shim_runs_the_current_release_python(tmp_path):
 
 
 @pytest.mark.windows
-def test_publication_failure_preserves_prior_release(tmp_path, monkeypatch):
+@pytest.mark.parametrize("failed_name", ["yoke", "current"])
+def test_publication_failure_preserves_prior_release(tmp_path, monkeypatch, failed_name):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old = candidate(root, "1.0")
     runtime.activate(root, old, bin_dir, "1.0")
     new = candidate(root, "2.0")
+    launcher = root / "launcher"
+    launcher.write_text(launcher.read_text() + "# previous release launcher\n")
     paths = [root / "current", root / "launcher", root / "python", bin_dir / "yoke"]
     if runtime.WINDOWS:
         paths.append(bin_dir / "yoke.cmd")
@@ -138,7 +141,7 @@ def test_publication_failure_preserves_prior_release(tmp_path, monkeypatch):
     replace = runtime._replace
 
     def refuse_launcher(path, content, **options):
-        if path.parent == bin_dir:
+        if path.name == failed_name:
             raise PermissionError("launcher is read-only")
         replace(path, content, **options)
 

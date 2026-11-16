@@ -5,7 +5,7 @@ Pointer files and shims select current; leases retain running releases.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import json
 import os
 from pathlib import Path
@@ -243,20 +243,23 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
     source = Path(__file__).read_text(encoding="utf-8")
     source = source.replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)
     bin_dir.mkdir(parents=True, exist_ok=True)
-    with locked(root / "publication.lock"):
+    with locked(root / "publication.lock"), ExitStack() as cleanup:
         publication = {
             root / "launcher": source,
             **_shims(root, python, bin_dir),
             root / "current": generation.name + "\n",
         }
-        previous = {
-            path: (path.readlink(), None)
-            if path.is_symlink()
-            else (path.read_bytes().decode("utf-8"), path.stat().st_mode)
-            if path.exists()
-            else None
-            for path in publication
-        }
+        previous = {}
+        for path in publication:
+            previous[path] = None
+            if path.exists() or path.is_symlink():
+                descriptor, name = tempfile.mkstemp(prefix=".publication-", dir=path.parent)
+                os.close(descriptor)
+                backup = Path(name)
+                backup.unlink()
+                cleanup.callback(backup.unlink, missing_ok=True)
+                shutil.copy2(path, backup, follow_symlinks=False)
+                previous[path] = backup
         written = []
         try:
             for path, content in publication.items():
@@ -272,12 +275,8 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
                 old = previous[path]
                 if old is None:
                     path.unlink(missing_ok=True)
-                elif old[1] is None:
-                    path.unlink(missing_ok=True)
-                    path.symlink_to(old[0])
                 else:
-                    _replace(path, old[0])
-                    path.chmod(old[1])
+                    os.replace(old, path)
             raise
         try:
             collect(root, pending_safe=True)
