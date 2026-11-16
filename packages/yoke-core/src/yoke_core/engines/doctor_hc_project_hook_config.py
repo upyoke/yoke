@@ -13,6 +13,7 @@ import stat
 from typing import Any
 
 from yoke_contracts.filesystem_safety import first_symlink_component
+from yoke_contracts.hook_shell_command import hook_command_start_problem
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_cli.project_install.hook_entries import hook_entry_format
 from yoke_cli.project_install.hook_schema import validate_hooks_subtree
@@ -99,6 +100,15 @@ def _validate_payload(
         )
     except ProjectInstallError as exc:
         issues.append(f"- {exc}")
+        return
+    for entries in payload.get("hooks", {}).values():
+        for entry in entries:
+            for handler in entry.get("hooks", [entry]):
+                problem = hook_command_start_problem(
+                    handler, codex=relative == Path(".codex/hooks.json")
+                )
+                if problem:
+                    issues.append(f"- {relative}: {problem}")
 
 
 def hc_project_hook_config_validity(

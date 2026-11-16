@@ -1,8 +1,9 @@
 {
  "id": "resident-transport-and-deadlines",
  "title": "Resident transport and deadlines",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 1
+ "position": 1,
+ "summary": "The machine-local evaluator uses Unix-domain sockets on POSIX and stdlib named pipes on Windows. Connection and exchange waits stay inside the hook budget; doctor checks the installed resident revision. Native Windows end-to-end acceptance remains separate from unit and CI proof."
 }

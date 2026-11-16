@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
-
-import argparse
 import os
 import signal
 import socket
@@ -31,6 +28,7 @@ from yoke_contracts.hook_process_context import (
     install_process_context,
 )
 from yoke_harness.hook_resident_probe import receive_request, same_revision
+from yoke_contracts.hook_resident_transport import uses_named_pipe
 from yoke_contracts.hook_resident_routing import (
     is_read_only_tool_event,
     message_probe_key,
@@ -43,7 +41,15 @@ RESTART_FOR_INSTALLED_REVISION = "restart"
 RETIRED_WHILE_IDLE = "idle"
 
 
-class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+if uses_named_pipe():
+    from yoke_contracts.hook_resident_pipe_server import PipeServer as _TransportServer
+else:
+
+    class _TransportServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+        pass
+
+
+class _ResidentServer(_TransportServer):
     # Shutdown drains in-flight evaluations for a bounded time; any still
     # running then end with the process instead of holding it open.
     daemon_threads = True
@@ -257,13 +263,6 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
             self.server.end_request()
 
 
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Yoke resident hook evaluator")
-    parser.add_argument("--socket", required=True)
-    parser.add_argument("--lock-fd", required=True, type=int)
-    return parser.parse_args()
-
-
 def _exit_reason(server: _ResidentServer) -> str | None:
     """Why this accept loop should stop, or ``None`` to keep serving.
 
@@ -280,13 +279,15 @@ def _exit_reason(server: _ResidentServer) -> str | None:
 
 
 def _unlink_socket(path: Path) -> None:
-    path.unlink(missing_ok=True)
+    if not uses_named_pipe():
+        path.unlink(missing_ok=True)
 
 
 def _serve(socket_path: Path, lock_fd: int) -> bool:
     _unlink_socket(socket_path)
     server = _ResidentServer(str(socket_path), lock_fd)
-    socket_path.chmod(0o600)
+    if not uses_named_pipe():
+        socket_path.chmod(0o600)
 
     restart = False
     try:
@@ -316,35 +317,7 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
     return restart
 
 
-def main() -> int:
-    args = _parse_args()
-    socket_path = Path(args.socket)
-    try:
-        os.fstat(args.lock_fd)
-    except OSError:
-        from yoke_harness.hook_observation_delivery import lock_invalid_error
-
-        sys.stderr.write(lock_invalid_error())
-        return 2
-    os.set_inheritable(args.lock_fd, True)
-    create_private_directory(socket_path.parent)
-    from yoke_cli.config.cli_release_runtime import exec_current_python, hold_release
-
-    hold_release()  # An update keeps this release until the resident exits.
-    if not _serve(socket_path, args.lock_fd):
-        os.close(args.lock_fd)
-        return 0
-    return exec_current_python(
-        [
-            "-m",
-            "yoke_harness.hook_resident",
-            "--socket",
-            str(socket_path),
-            "--lock-fd",
-            str(args.lock_fd),
-        ],
-    )
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from yoke_harness.hook_resident_entry import main
+
+    raise SystemExit(main(_serve))
