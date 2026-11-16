@@ -34,6 +34,11 @@ def ensure_owner_only_directory(path: str | Path) -> Path:
         if owner_private_path.is_owner_private_directory(selected):
             return selected
         info = selected.lstat()
+        if stat.S_ISLNK(info.st_mode):
+            raise MachineConfigFileError(
+                f"machine-state directory could not be secured: {selected} is a "
+                "symbolic link; replace it with a real directory, then retry"
+            )
         if not stat.S_ISDIR(info.st_mode):
             raise MachineConfigFileError(
                 f"machine-state path must be a directory: {selected}"

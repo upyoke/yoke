@@ -148,16 +148,21 @@ def _repo_lock(root: Path) -> Iterator[None]:
         )
     except OSError as exc:
         raise GitHubRepoConfigError("checkout helper lock is unavailable") from exc
+    locked = False
     try:
         opened = os.fstat(descriptor)
         if not stat.S_ISREG(opened.st_mode):
             raise GitHubRepoConfigError("checkout helper lock is unsafe")
-        os.fchmod(descriptor, 0o600)
+        if os.name != "nt":
+            # Windows has no fchmod before Python 3.13; the lock sits in .git.
+            os.fchmod(descriptor, 0o600)
         platform_file_lock.acquire_exclusive(descriptor)
+        locked = True
         yield
     finally:
         try:
-            platform_file_lock.release_exclusive(descriptor)
+            if locked:
+                platform_file_lock.release_exclusive(descriptor)
         finally:
             os.close(descriptor)
 

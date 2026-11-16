@@ -66,7 +66,8 @@ def test_credential_directory_follows_the_shared_acl_check(
     if private:
         check()
         return
-    with pytest.raises(_Refused, match="is not owner-only.*chmod 700"):
+    repair = "Windows account" if os.name == "nt" else "chmod 700"
+    with pytest.raises(_Refused, match=f"is not owner-only.*{repair}"):
         check()
 
 
