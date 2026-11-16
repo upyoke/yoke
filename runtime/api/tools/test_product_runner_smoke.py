@@ -276,3 +276,27 @@ def test_runner_identity_uses_declared_architecture_names(
     monkeypatch.setattr(runner.platform, "mac_ver", lambda: ("26.0", (), ""))
     monkeypatch.setattr(runner.platform, "release", lambda: "2025Server")
     assert observed_runner() == expected
+
+
+@pytest.mark.parametrize("collect_exit", [0, 2])
+def test_checkout_proof_requires_collection_and_stops_its_cluster(tmp_path, monkeypatch, collect_exit):
+    from runtime.api.tools import product_runner_checkout_tests as checkout
+
+    monkeypatch.setattr(checkout.sys, "argv", ["checkout-proof", "--output", str(tmp_path)])
+    monkeypatch.setattr(checkout, "declared_source_tests", lambda root: ["declared_test.py"])
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        stream = kwargs.get("stdout")
+        if stream is not None:
+            stream.write("collected or executed\n")
+        return SimpleNamespace(returncode=collect_exit if "--collect-only" in argv else 0)
+
+    monkeypatch.setattr(checkout.subprocess, "run", run)
+    assert checkout.main() == collect_exit
+    assert "--collect-only" in calls[0][0]
+    assert calls[-1][0][-2:] == ["yoke_core.tools.pg_testcluster", "stop"]
+    assert calls[-1][1]["env"]["YOKE_PG_CLUSTER_ROOT"] == calls[0][1]["env"]["YOKE_PG_CLUSTER_ROOT"]
+    assert (tmp_path / "contributor-collection.txt").is_file()
+    assert (tmp_path / "contributor-tests.txt").exists() == (collect_exit == 0)

@@ -6,19 +6,23 @@ import sys
 import tempfile
 
 
+def declared_source_tests(root: Path) -> list[str]:
+    roster = root / "runtime/api/tools/product_runner_windows_tests.txt"
+    declared = [line.split("#", 1)[0].strip() for line in roster.read_text().splitlines()]
+    return list(dict.fromkeys([
+        "runtime/harness/test_hook_runner_decision_render.py",
+        "tests/import_graph/test_yoke_cli_dev_setup_contract.py",
+        *(line for line in declared if line),
+    ]))
+
+
 def run_source_tests(root: Path, commands) -> None:
     commands.run(
         "install-test-dependencies",
         ["uv", "sync", "--all-packages", "--locked"],
         cwd=root,
     )
-    roster = root / "runtime/api/tools/product_runner_windows_tests.txt"
-    declared = [line.split("#", 1)[0].strip() for line in roster.read_text().splitlines()]
-    tests = list(dict.fromkeys([
-        "runtime/harness/test_hook_runner_decision_render.py",
-        "tests/import_graph/test_yoke_cli_dev_setup_contract.py",
-        *(line for line in declared if line),
-    ]))
+    tests = declared_source_tests(root)
     # The socket must fit even when macOS's ordinary temp root is very long.
     with tempfile.TemporaryDirectory(prefix="yoke-pg-smoke-", dir="/tmp" if sys.platform == "darwin" else None) as cluster:
         commands.env["YOKE_PG_CLUSTER_ROOT"] = cluster
