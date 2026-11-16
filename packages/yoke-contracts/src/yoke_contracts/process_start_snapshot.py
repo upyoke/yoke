@@ -11,12 +11,14 @@ it with the same token :func:`process_start_time` returns. A pid missing from
 the snapshot is either gone or started after the read: an in-process
 liveness check tells those apart without a subprocess; a pid that exists is asked
 directly, so a process recorded after the snapshot never reads as gone. A
-table that could not be read answers every pid directly. Linux and Windows
-already read start times in-process and keep the per-pid reader.
+table that could not be read, or whose token for this process differs from
+the per-pid probe's, answers every pid directly. Linux and Windows already
+read start times in-process and keep the per-pid reader.
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Callable, Dict, Optional
 
@@ -58,7 +60,11 @@ def process_start_reader() -> StartTimeOf:
     if sys.platform in {"linux", "win32"}:
         return process_start_time
     table = _start_time_table()
-    if not table:
+    # Records hold process_start_time tokens. A table whose token for this
+    # very process differs would read every live native as gone, so it is
+    # not used; the per-pid probe is slower but agrees with the records.
+    own = os.getpid()
+    if not table or table.get(own) != process_start_time(own):
         return process_start_time
 
     def start_time_of(pid: int) -> Optional[str]:
