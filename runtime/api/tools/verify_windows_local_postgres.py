@@ -45,6 +45,8 @@ try {
     Write-Output 'SECOND_USER_CONNECTION_REFUSED'
 } finally { Remove-LocalUser -Name $user }
 '''
+    # PowerShell 7 exports a module path incompatible with Windows PowerShell 5.
+    env = {key: value for key, value in env.items() if key.upper() != "PSMODULEPATH"}
     subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], env=env, check=True, timeout=120)
 
 

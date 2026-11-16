@@ -272,7 +272,7 @@ def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
         extract_root.mkdir()
     archive_type = _OwnerPrivateTarFile if _WINDOWS else tarfile.TarFile
     try:
-        with archive_type.open(tarball, "r:gz") as archive:
+        with archive_type.open(tarball, "r:gz", encoding="utf-8") as archive:
             # "tar" filter: blocks absolute paths / parent escapes while
             # preserving the executable modes the engine binaries need.
             archive.extractall(extract_root, filter="tar")
