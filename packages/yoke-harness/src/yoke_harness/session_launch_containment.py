@@ -19,7 +19,7 @@ launch handle's job, in :mod:`session_relay_termination`.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import create_owner_private_directory
 
 import json
 import os
@@ -46,7 +46,7 @@ SUPERVISION_DIRECTORY_NAME = "session-launch-supervision"
 def _directory(state_dir: Path | None = None) -> Path:
     root = state_dir or machine_config.cache_dir()
     directory = root / SUPERVISION_DIRECTORY_NAME
-    create_private_directory(directory)
+    create_owner_private_directory(directory)
     return directory
 
 
