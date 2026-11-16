@@ -132,7 +132,7 @@ Start-ScheduledTask -TaskName {quote(self.token)}
         result = self.control.capture_screenshot()
         if not result.ok:
             raise RuntimeError(str(result.evidence))
-        return result.evidence
+        return {key:value for key,value in result.evidence.items() if key != 'capture_artifact'}
 
     def close(self):
         result = self.control._run(f"""
