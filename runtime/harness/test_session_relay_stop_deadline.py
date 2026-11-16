@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import session_relay_stop_deadline as deadline
-
+pytestmark = pytest.mark.windows
 
 @pytest.mark.parametrize(
     "platform,output,expected",
@@ -20,6 +20,7 @@ def test_loaded_manager_deadline_reserves_small_margin(
     monkeypatch, platform, output, expected
 ):
     monkeypatch.setattr(deadline.sys, "platform", platform)
+    monkeypatch.setattr(deadline.os, "getuid", lambda: 501, raising=False)
     monkeypatch.setattr(
         deadline,
         "resolve_relay_instance",
@@ -60,13 +61,13 @@ def test_loaded_manager_deadline_reserves_small_margin(
         ("linux", "0s", 0),
         ("darwin", "no exit timeout", 0),
         ("darwin", "exit timeout = 0", 0),
-        ("win32", "", 0),
     ],
 )
 def test_unreadable_deadline_uses_named_conservative_fallback(
     monkeypatch, caplog, platform, output, returncode
 ):
     monkeypatch.setattr(deadline.sys, "platform", platform)
+    monkeypatch.setattr(deadline.os, "getuid", lambda: 501, raising=False)
     monkeypatch.setattr(
         deadline,
         "resolve_relay_instance",
@@ -95,3 +96,12 @@ def test_manager_query_failure_uses_fallback(monkeypatch):
 
     monkeypatch.setattr(deadline.subprocess, "run", unavailable)
     assert deadline.read_stop_settlement_seconds() == 4.5
+
+
+def test_windows_tasks_promise_no_shutdown_grace(monkeypatch, caplog):
+    monkeypatch.setattr(deadline.sys, "platform", "win32")
+    monkeypatch.setattr(deadline.subprocess, "run", lambda *a, **k: pytest.fail("no manager query"))
+    with caplog.at_level("INFO"):
+        assert deadline.read_stop_settlement_seconds() == 0
+    assert "relay_task_stop_has_no_grace" in caplog.text
+    assert "reconciled" in caplog.text

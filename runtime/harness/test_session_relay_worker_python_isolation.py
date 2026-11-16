@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import pytest
 
-from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
+from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV, WINDOWS_RELAY_RUNNER_ENV
 from yoke_harness import session_relay_codex_app_server_client as app_server_module
 from yoke_harness import session_relay_codex_cli as codex_cli_module
 from yoke_harness import session_relay_native_models as native_models_module
@@ -32,6 +32,7 @@ from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_inventory import ResolvedNativeCli
 from yoke_harness.session_relay_native_streams import BoundedStreams
 from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
+from yoke_contracts.owner_private_path import create_owner_private_directory
 
 
 PROJECT_BIN = "/Users/example/project/.venv/bin"
@@ -40,7 +41,7 @@ MACHINE_LAUNCHER_BIN = "/Users/example/.local/bin"
 
 def _relay_state_dir(tmp_path: Path) -> Path:
     """A relay tree shaped like an installed one, with packages to lose."""
-    state_dir = tmp_path / "relay-instance"
+    state_dir = create_owner_private_directory(tmp_path / "relay-instance")
     (state_dir / "runtime" / "bin").mkdir(parents=True)
     (state_dir / "venv").symlink_to(state_dir / "runtime", target_is_directory=True)
     packages = state_dir / "releases" / "deadbeef" / "lib" / "python" / "yoke_cli"
@@ -209,6 +210,7 @@ def _relay_daemon_environment(monkeypatch: pytest.MonkeyPatch, state_dir: Path) 
     monkeypatch.setenv("VIRTUAL_ENV", str(state_dir / "releases" / "deadbeef"))
     monkeypatch.setenv("PYTHONPATH", str(state_dir / "releases" / "deadbeef" / "lib"))
     monkeypatch.setenv(RELAY_STATE_DIR_ENV, str(state_dir))
+    monkeypatch.setenv(WINDOWS_RELAY_RUNNER_ENV, "1")
     monkeypatch.setenv(
         "PATH",
         os.pathsep.join([str(state_dir / "venv" / "bin"), PROJECT_BIN, "/usr/bin"]),
@@ -219,6 +221,7 @@ def _assert_relay_python_absent(environment: dict[str, str]) -> None:
     assert "VIRTUAL_ENV" not in environment
     assert "PYTHONPATH" not in environment
     assert RELAY_STATE_DIR_ENV not in environment
+    assert WINDOWS_RELAY_RUNNER_ENV not in environment
     assert environment["PATH"].split(os.pathsep) == [PROJECT_BIN, "/usr/bin"]
 
 
@@ -229,7 +232,7 @@ def test_the_codex_turn_binary_starts_without_the_relay_python(
     state_dir = _relay_state_dir(tmp_path)
     _relay_daemon_environment(monkeypatch, state_dir)
     recorder = _SpawnRecorder()
-    monkeypatch.setattr(codex_cli_module.subprocess, "Popen", recorder)
+    monkeypatch.setattr(codex_cli_module, "spawn_relay_process", recorder)
     monkeypatch.setattr(
         codex_cli_module,
         "native_diagnostic_path",
@@ -274,7 +277,7 @@ def test_the_codex_app_server_binary_starts_without_the_relay_python(
     state_dir = _relay_state_dir(tmp_path)
     _relay_daemon_environment(monkeypatch, state_dir)
     recorder = _SpawnRecorder()
-    monkeypatch.setattr(app_server_module.subprocess, "Popen", recorder)
+    monkeypatch.setattr(app_server_module, "spawn_relay_process", recorder)
     monkeypatch.setattr(
         app_server_module, "resolve_native_cli", lambda _name: "/opt/codex/bin/codex"
     )

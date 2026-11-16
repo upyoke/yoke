@@ -6,16 +6,17 @@ from yoke_core.domain.relay_launcher_path import (
     relay_launcher_path,
 )
 
-import os
-import shutil
 import subprocess
 import uuid
 from collections.abc import Callable
 from pathlib import Path
 
+from yoke_contracts.platform_fs import remove_tree
+from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
+from yoke_core.tools.session_relay_links import activate_link, remove_link
 from yoke_cli import manifest
 from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
-from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_core.tools.session_relay_links import create_relay_directory as create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now
 
@@ -171,11 +172,11 @@ def _install_candidate(
     token = uuid.uuid4().hex
     candidate = releases / token
     link = instance.state_dir / f".{RELAY_ACTIVE_RELEASE_NAME}-{token}"
-    previous = relay_active_release_path(instance.state_dir).resolve()
+    previous = Path(str(relay_release_receipt(instance.state_dir).get("physical_root") or relay_active_release_path(instance.state_dir).resolve()))
     activated = False
     try:
         create_venv(candidate)
-        python = candidate / "bin" / "python"
+        python = relay_venv_python(candidate)
         # Explicit product roots keep same-version public-index packages from
         # replacing the environment's bytes. PyPI supplies third-party dependencies.
         result = runner(
@@ -224,7 +225,7 @@ def _install_candidate(
                 RELAY_RELEASE_INSTALL_FAILED,
                 f"installed relay release did not verify as {release}: {broken_reason}",
             )
-        executable = candidate / "bin" / "yoke"
+        executable = relay_venv_executable(candidate)
         if not executable.is_file():
             raise RelayReleaseError(
                 RELAY_RELEASE_INSTALL_FAILED,
@@ -234,6 +235,7 @@ def _install_candidate(
             candidate / RELAY_RELEASE_RECEIPT_NAME,
             {
                 "schema": 1,
+                "physical_root": str(candidate.resolve()),
                 "previous_release": str(previous) if previous.is_dir() else None,
                 "pinned_release": release,
                 "served_build": served_build,
@@ -241,17 +243,13 @@ def _install_candidate(
                 "installed_at": iso8601_now(),
             },
         )
-        link.symlink_to(candidate, target_is_directory=True)
-        os.replace(link, relay_active_release_path(instance.state_dir))
+        activate_link(candidate, relay_active_release_path(instance.state_dir))
         activated = True
     finally:
         if not activated:
-            try:
-                link.unlink()
-            except OSError:
-                pass
+            remove_link(link)
             if candidate.exists():
-                shutil.rmtree(candidate, ignore_errors=True)
+                remove_tree(candidate)
 
 
 def _with_recovery(

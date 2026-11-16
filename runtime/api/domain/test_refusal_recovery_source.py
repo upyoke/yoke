@@ -14,11 +14,8 @@ HOOK_GUARD_MESSAGES = {
     "packages/yoke-contracts/src/yoke_contracts/hook_runner/local_privacy_messages.py",
 }
 # Permanent migration history cannot gain a dependency on the current runtime.
-# The standalone relay entrypoint diagnoses failure before packages are bound.
 # Freeze these exact source versions: this is no allowance for new literals.
 FROZEN_SOURCES = {
-    'packages/yoke-core/src/yoke_core/tools/session_relay_runtime_entrypoint.py':
-        '354609e83ce5e9d26f5f2a1df29c271f1be3bf702528d3418a8feab9f1259f9b',
     'packages/yoke-core/src/yoke_core/domain/migrations/0053_retire_advance_skill.py':
         '934f51effddc4856d35d38dd2d606028f08092bf2fe556f1f8f1f2604c8841c4',
     'packages/yoke-core/src/yoke_core/domain/migrations/0054_remove_lane_allowlists.py':

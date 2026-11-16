@@ -311,7 +311,7 @@ def test_relay_is_unsupported_off_native_platforms_for_every_destination(
     monkeypatch,
 ) -> None:
     """The destination does not determine whether a native supervisor exists."""
-    monkeypatch.setattr(onboard_session_relay.sys, "platform", "win32")
+    monkeypatch.setattr(onboard_session_relay.sys, "platform", "freebsd13")
 
     for local_destination in (False, True):
         assert not onboard_session_relay.is_supported(

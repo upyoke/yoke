@@ -8,10 +8,12 @@ nothing has to record a second mapping to find it again.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory, is_owner_private_directory, is_owner_private_file,
+)
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import hashlib
 import os
 from pathlib import Path
@@ -32,6 +34,7 @@ from yoke_harness.session_relay_native_capture_format import (
     compose_capture,
     parse_capture,
     utc_stamp,
+    utc_instant,
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
 
@@ -119,24 +122,16 @@ def model_combo_rejection_detail(output: bytes) -> str | None:
 
 
 def _require_private_directory(path: Path, *, create: bool) -> Path:
-    if create:
-        try:
-            create_private_directory(path)
-        except OSError as exc:
-            raise NativeDiagnosticError("diagnostic directory is unavailable") from exc
     try:
-        details = path.lstat()
-    except OSError as exc:
-        raise NativeDiagnosticError("diagnostic directory is unavailable") from exc
-    if not stat.S_ISDIR(details.st_mode) or stat.S_ISLNK(details.st_mode):
-        raise NativeDiagnosticError("diagnostic directory is not a real directory")
-    if details.st_uid != os.getuid():
-        raise NativeDiagnosticError("diagnostic directory has a different owner")
-    try:
-        path.chmod(0o700)
+        if create:
+            if not path.parent.exists():
+                _require_private_directory(path.parent, create=True)
+            create_owner_private_directory(path)
+        elif not is_owner_private_directory(path):
+            raise OSError("directory ownership or access is unsafe")
     except OSError as exc:
         raise NativeDiagnosticError(
-            "diagnostic directory cannot be made private"
+            "diagnostic directory is unavailable or not private; repair ownership and access, then retry"
         ) from exc
     return path
 
@@ -155,13 +150,16 @@ def _reference_path(directory: Path, reference: str) -> Path:
     return directory / f"{reference}{_FILE_SUFFIX}"
 
 
-def _require_private_file(details: os.stat_result) -> None:
+def _require_private_file(path: Path, details: os.stat_result) -> None:
     if not stat.S_ISREG(details.st_mode) or stat.S_ISLNK(details.st_mode):
         raise NativeDiagnosticError("diagnostic is not a regular file")
-    if details.st_uid != os.getuid():
+    observed = path.lstat()
+    if details.st_uid != observed.st_uid:
         raise NativeDiagnosticError("diagnostic has a different owner")
-    if stat.S_IMODE(details.st_mode) != 0o600:
-        raise NativeDiagnosticError("diagnostic permissions are not private")
+    if (details.st_dev, details.st_ino) != (observed.st_dev, observed.st_ino):
+        raise NativeDiagnosticError("diagnostic changed while opening; retry the read")
+    if not is_owner_private_file(path):
+        raise NativeDiagnosticError("diagnostic permissions or ownership are not private")
 
 
 def _known_files(directory: Path) -> list[tuple[Path, os.stat_result]]:
@@ -184,7 +182,7 @@ def _known_files(directory: Path) -> list[tuple[Path, os.stat_result]]:
         if (
             stat.S_ISREG(details.st_mode)
             and not stat.S_ISLNK(details.st_mode)
-            and details.st_uid == os.getuid()
+            and is_owner_private_file(child)
         ):
             retained.append((child, details))
     return retained
@@ -263,7 +261,7 @@ def store_native_diagnostic(
     return NativeDiagnosticReceipt(
         reference,
         hashlib.sha256(payload).hexdigest(),
-        datetime.fromtimestamp(current, timezone.utc)
+        utc_instant(current)
         + timedelta(seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS),
     )
 
@@ -277,14 +275,14 @@ def read_native_diagnostic(
     """Read an unexpired capture after OS-user, type, and symlink checks."""
     directory = _diagnostic_directory(state_dir, create=False)
     path = _reference_path(directory, reference)
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:
         raise NativeDiagnosticError("diagnostic is unavailable") from exc
     try:
         details = os.fstat(descriptor)
-        _require_private_file(details)
+        _require_private_file(path, details)
         if details.st_size > NATIVE_DIAGNOSTIC_MAX_BYTES:
             raise NativeDiagnosticError("diagnostic exceeds the retention limit")
         current = time.time() if now is None else now

@@ -223,7 +223,7 @@ def test_state_directory_failure_is_named_with_recovery(tmp_path: Path) -> None:
         pin_relay_release(instance=instance, served_build=RELEASE)
 
     assert raised.value.code == RELAY_RELEASE_INSTALL_FAILED
-    assert "FileExistsError" in str(raised.value)
+    assert "owner_private_directory_unsafe" in str(raised.value)
     assert "relay install" in str(raised.value)
 
 

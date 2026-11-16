@@ -25,7 +25,7 @@ own stdout and stderr stay raw: they are vendor words, not Yoke diagnostics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 import re
@@ -79,9 +79,14 @@ class NativeCapture:
         return capture_tail(self.stderr) or capture_tail(self.stdout)
 
 
+def utc_instant(now: float) -> datetime:
+    """Convert epoch seconds without platform C runtime timestamp restrictions."""
+    return datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=now)
+
+
 def utc_stamp(now: float) -> str:
     """Format the operating system's epoch-seconds clock at the capture boundary."""
-    return format_instant(datetime.fromtimestamp(now, timezone.utc))
+    return format_instant(utc_instant(now))
 
 
 def capture_tail(stream: bytes) -> str:
@@ -198,4 +203,5 @@ __all__ = [
     "compose_capture",
     "parse_capture",
     "utc_stamp",
+    "utc_instant",
 ]

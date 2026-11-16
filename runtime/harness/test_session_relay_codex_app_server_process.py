@@ -120,7 +120,7 @@ def test_parent_reports_identity_while_worker_retains_turn(
     assert command == ["/opt/python", "-m", process_module._MODULE]
     assert INSTRUCTION not in repr(command)
     assert SECRET not in repr(command)
-    assert options["start_new_session"] is True
+    assert "start_new_session" not in options
     assert options["env"]["SHELL"] == "/bin/sh"
     assert SECRET in options["env"][LAUNCH_CONTEXT_ENV]
     assert process.terminated is False
@@ -207,8 +207,8 @@ def test_worker_rejects_unbound_launch_context(monkeypatch, tmp_path: Path) -> N
     assert calls == []
 
 
-class _Selector:
-    def register(self, *_args) -> None:
+class _Reader:
+    def __init__(self, stream) -> None:
         pass
 
     def close(self) -> None:
@@ -260,8 +260,9 @@ def test_app_server_process_receives_rehydrated_context(
     monkeypatch.setattr(
         client_module, "resolve_native_cli", lambda _binary: "/opt/codex"
     )
-    monkeypatch.setattr(client_module.subprocess, "Popen", spawn)
-    monkeypatch.setattr(client_module.selectors, "DefaultSelector", _Selector)
+    monkeypatch.setattr(client_module, "spawn_relay_process", spawn)
+    monkeypatch.setattr(client_module, "PipeReader", _Reader)
+    monkeypatch.setattr(client_module, "stop_relay_process", lambda child: None)
     monkeypatch.setattr(client_module._Client, "request", lambda *_args: {})
     monkeypatch.setattr(client_module._Client, "notify", lambda *_args: None)
 

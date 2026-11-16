@@ -3,24 +3,42 @@
 
 from __future__ import annotations
 
-import fcntl
+import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
 import sysconfig
+from yoke_contracts.refusal_recovery import compose_refusal
+
+# __YOKE_REFUSAL_COMPOSER__
 
 
-_RELEASE_HANDLE: int | None = None
+_RELEASE_HANDLE = None
 
 
 def _select_release_packages() -> None:
     global _RELEASE_HANDLE
     state_dir = Path(__file__).resolve().parents[2]
-    with (state_dir / "__YOKE_RELEASE_LOCK__").open("a") as pin_lock:
-        fcntl.flock(pin_lock.fileno(), fcntl.LOCK_SH)
-        release_root = (state_dir / "__YOKE_ACTIVE_RELEASE__").resolve(strict=True)
-        _RELEASE_HANDLE = os.open(release_root, os.O_RDONLY)
-        fcntl.flock(_RELEASE_HANDLE, fcntl.LOCK_SH)
+    # The stable runtime has no product packages yet. The installer bundles
+    # the shared lock owner beside this entrypoint; do not copy its algorithm.
+    spec = importlib.util.spec_from_file_location(
+        "relay_file_lock", state_dir / "runtime" / "relay_file_lock.py"
+    )
+    locks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(locks)
+    with (state_dir / "__YOKE_RELEASE_LOCK__").open(mode="a+b") as pin_lock:
+        locks.acquire_shared(pin_lock.fileno())
+        try:
+            active = state_dir / "__YOKE_ACTIVE_RELEASE__"
+            receipt = json.loads((active / "__YOKE_RELEASE_RECEIPT__").read_text(encoding="utf-8"))
+            release_root = Path(receipt["physical_root"]).resolve(strict=True)
+            if release_root.parent != (state_dir / "releases").resolve():
+                raise RuntimeError("selected release is outside the owned releases directory")
+            _RELEASE_HANDLE = (release_root / "__YOKE_RELEASE_USE_LOCK__").open(mode="a+b")
+            locks.acquire_shared(_RELEASE_HANDLE.fileno())
+        finally:
+            locks.release_exclusive(pin_lock.fileno())
     runtime_root = Path(sys.prefix).resolve()
     runtime_packages = Path(sysconfig.get_path("purelib")).resolve()
     package_relative = runtime_packages.relative_to(runtime_root)
@@ -49,9 +67,10 @@ def main() -> int:
         return int(cli_main(sys.argv[1:]) or 0)
     except Exception as exc:  # noqa: BLE001 - emit an operator-facing refusal
         print(
-            "relay_runtime_start_failed: "
-            f"{type(exc).__name__}: {exc}. Recovery: retry `yoke relay install` "
-            "for this environment.",
+            compose_refusal(
+                f"relay_runtime_start_failed: {type(exc).__name__}: {exc}",
+                recovery="retry `yoke relay install` for this environment",
+            ),
             file=sys.stderr,
         )
         return 1

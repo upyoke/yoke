@@ -15,6 +15,10 @@ from yoke_contracts.machine_config import schema as machine_schema
 RELAY_LOGOUT_BEHAVIOR = (
     "The relay stops after the last login session logs out; linger is disabled."
 )
+WINDOWS_RELAY_LOGOUT_BEHAVIOR = (
+    "Stops at sign-out; unavailable after reboot until this user logs in; "
+    "starts at the next login. Locking the desktop keeps the relay running."
+)
 
 RELAY_BASE_LABEL = "com.upyoke.relay"
 RELAY_LABEL_PREFIX = f"{RELAY_BASE_LABEL}."
@@ -36,13 +40,15 @@ RELAY_STATE_ROOT_NAME = "relay-instances"
 #: what the relay owns instead of inferring that root from the shape of a
 #: release path. A relay that exports no activation state exports no root.
 RELAY_STATE_DIR_ENV = "YOKE_RELAY_STATE_DIR"
+WINDOWS_RELAY_RUNNER_ENV = "YOKE_RELAY_TASK_RUNNER"
+WINDOWS_RELAY_RESTART_CODE = 75
 #: What the relay exports so its own imports resolve to the release it
 #: selected. A relay-internal Python process needs them; a foreign CLI it
 #: starts must not have them, or that CLI's project tooling (`uv run
 #: --active` is the observed case) treats the relay's release as the
 #: environment of the project it is working in, and the installed `yoke`
 #: reports the relay's release as its own version.
-_RELAY_PYTHON_ACTIVATION_ENV = ("VIRTUAL_ENV", "PYTHONPATH")
+_RELAY_OWNED_ENV = ("VIRTUAL_ENV", "PYTHONPATH", WINDOWS_RELAY_RUNNER_ENV)
 _INSTANCE_DIGEST_LENGTH = 16
 
 
@@ -112,12 +118,12 @@ def strip_relay_owned_python_state(
     breaks the process rather than the leak.
 
     The relay names the tree it owns rather than leaving it to be inferred:
-    the activation variables always go, and the search path is filtered
+    the activation variables and supervisor marker always go, and the search path is filtered
     only when the relay declared its own root. That declaration is dropped
     too, so a worker never reads it as an invitation to write there.
     """
     result = dict(os.environ if env is None else env)
-    for name in _RELAY_PYTHON_ACTIVATION_ENV:
+    for name in _RELAY_OWNED_ENV:
         result.pop(name, None)
     state_dir = result.pop(RELAY_STATE_DIR_ENV, "").strip()
     search_path = result.get("PATH", "")
@@ -235,6 +241,9 @@ __all__ = [
     "SHARED_RELAY_STATE_DIR_NAME",
     "RELAY_STATE_DIR_ENV",
     "RELAY_LOGOUT_BEHAVIOR",
+    "WINDOWS_RELAY_LOGOUT_BEHAVIOR",
+    "WINDOWS_RELAY_RUNNER_ENV",
+    "WINDOWS_RELAY_RESTART_CODE",
     "RelayInstance",
     "door_relay_refusal",
     "RelayInstanceError",

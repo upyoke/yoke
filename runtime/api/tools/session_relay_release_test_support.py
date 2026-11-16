@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
+from yoke_core.tools.session_relay_links import create_relay_directory
 from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
 
 
@@ -61,10 +63,11 @@ def relay_instance(tmp_path: Path, api_url: str = DEFAULT_API_URL) -> RelayInsta
 
 
 def fake_venv(path: Path) -> None:
-    binary = path / "bin"
-    binary.mkdir(parents=True)
-    (binary / "python").touch()
-    (binary / "yoke").write_text(f"#!{binary / 'python'}\n", encoding="utf-8")
+    create_relay_directory(path)
+    python = relay_venv_python(path)
+    python.parent.mkdir(parents=True)
+    python.touch()
+    relay_venv_executable(path).write_text(f"#!{python}\n", encoding="utf-8")
 
 
 def runner_for(release: str, calls: list[list[str]]):

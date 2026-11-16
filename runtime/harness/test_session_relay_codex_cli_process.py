@@ -22,7 +22,8 @@ from yoke_harness.session_relay_codex import CodexNativeOutcome
 from yoke_harness.session_relay_codex_invocation import codex_base_command
 from yoke_harness.session_relay_inventory import ResolvedNativeCli
 from yoke_harness.session_relay_codex_worker_protocol import request_payload
-
+import pytest
+pytestmark = pytest.mark.windows
 
 class _Input:
     def __init__(self, on_close) -> None:
@@ -88,7 +89,7 @@ def test_detached_cli_owner_retains_process_after_parent_result(tmp_path: Path) 
     assert outcome == CodexNativeOutcome("accepted", "native-1", True)
     command, options = calls[0]
     assert command == ["/opt/python", "-m", process_module._MODULE]
-    assert options["start_new_session"] is True
+    assert "start_new_session" not in options
     assert SECRET in options["env"][LAUNCH_CONTEXT_ENV]
     assert SECRET not in repr(command)
     assert INSTRUCTION not in repr(command)
@@ -163,8 +164,8 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
         },
     )()
     monkeypatch.setattr(
-        cli_module.subprocess,
-        "Popen",
+        cli_module,
+        "spawn_relay_process",
         lambda command, **options: calls.append((command, options)) or child,
     )
     monkeypatch.setattr(

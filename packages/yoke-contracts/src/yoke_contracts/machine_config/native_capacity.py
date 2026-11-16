@@ -1,8 +1,7 @@
 """Live memory and swap headroom required before a machine starts a native."""
 
 from dataclasses import dataclass
-from pathlib import Path
-import sys
+import psutil
 
 from yoke_contracts.machine_config.machine_capacity import (
     MEMORY_PER_LANE_BYTES,
@@ -59,19 +58,11 @@ class NativeCapacity:
 
 
 def swap_headroom() -> tuple[int | None, int | None]:
-    if sys.platform == "darwin":
-        return 0, 0
-    if sys.platform.startswith("linux"):
-        try:
-            fields = {}
-            for line in Path("/proc/meminfo").read_text().splitlines():
-                key, _, value = line.partition(":")
-                if key in {"SwapTotal", "SwapFree"}:
-                    fields[key] = int(value.split()[0]) * 1024
-            return fields.get("SwapTotal"), fields.get("SwapFree")
-        except (OSError, ValueError, IndexError):
-            return None, None
-    return None, None
+    try:
+        swap = psutil.swap_memory()
+        return int(swap.total), int(swap.free)
+    except (OSError, psutil.Error, AttributeError, TypeError, ValueError):
+        return None, None
 
 
 def observe_native_capacity() -> NativeCapacity:

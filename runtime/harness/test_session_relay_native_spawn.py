@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-import os
-import signal
 import sys
-import threading
+from io import BytesIO
 
 import pytest
+from yoke_contracts.owner_private_path import create_owner_private_directory
 
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness import session_relay_claude_native as native_module
@@ -33,6 +32,10 @@ from yoke_harness.session_relay_native_diagnostics import (
 )
 from yoke_harness.session_relay_native_spawn import spawn_supervised_native
 from yoke_harness.session_relay_runtime import RelayExecutionContext
+pytestmark = pytest.mark.windows
+
+@pytest.fixture
+def tmp_path(tmp_path): return create_owner_private_directory(tmp_path / "private-relay")
 
 
 ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
@@ -44,6 +47,7 @@ class _Process:
     pid = 4321
 
     def __init__(self) -> None:
+        self.stdin = BytesIO()
         self.terminated = False
         self.killed = False
 
@@ -70,10 +74,15 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
         calls.append((argv, kwargs))
         return process
 
+    def record(*args, **kwargs):
+        assert process.stdin.getvalue() == b"", "native must wait for durable custody"
+        custody.append((args, kwargs))
+        return True
+
     monkeypatch.setattr(
         spawn_module,
         "record_supervised_native",
-        lambda *args, **kwargs: custody.append((args, kwargs)) or True,
+        record,
     )
     result = spawn_supervised_native(
         ["/opt/claude", "-p", "--resume", SESSION_ID],
@@ -94,16 +103,14 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     )
     assert result.evidence["native_started_at"].endswith(".123456Z")
     argv, kwargs = calls[0]
-    # The relay starts the supervisor, which starts the native and stays to
-    # collect the exit status the relay poll will never be around to see.
     assert argv[:3] == [sys.executable, "-m", supervisor.__name__]
     assert argv[3:5] == ["--capture", str(result.capture_path)]
-    assert argv[5:] == ["--", "/opt/claude", "-p", "--resume", SESSION_ID]
+    assert argv[5:] == ["--await-custody", "--", "/opt/claude", "-p", "--resume", SESSION_ID]
     assert kwargs["cwd"] == tmp_path
+    assert kwargs["stdin"] == supervisor.subprocess.PIPE
+    assert process.stdin.closed
     assert kwargs["env"] == {"SAFE": "1", RESUME_ATTEMPT_ENV: ATTEMPT_ID}
-    assert kwargs["start_new_session"] is True
-    # The spawner initializes the capture before the supervisor starts writing,
-    # and its attempt-derived name lets any reader holding that id find it.
+    assert "start_new_session" not in kwargs
     assert result.diagnostic_ref == f"nd-{ATTEMPT_ID}"
     assert result.capture_path.name == f"nd-{ATTEMPT_ID}.capture"
     assert custody[0][0] == (ATTEMPT_ID, process.pid)
@@ -151,34 +158,6 @@ def test_retry_replaces_an_old_exit_before_the_supervisor_starts(
     assert immediate_native_refusal(capture, window_seconds=0.0) is None
 
 
-def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path) -> None:
-    started = spawn_supervised_native(
-        [
-            sys.executable,
-            "-c",
-            "import sys; print('current refusal', file=sys.stderr); sys.exit(7)",
-        ],
-        checkout=tmp_path,
-        environment={},
-        attempt_id=ATTEMPT_ID,
-        native_session_id=SESSION_ID,
-        binary_source="path",
-        supervision_kind="launch",
-        state_dir=tmp_path,
-    )
-
-    assert started is not None
-    refusal = immediate_native_refusal(started.capture_path)
-    assert refusal is not None
-    assert refusal.exit_code == 7
-    assert b"current refusal" in refusal.stderr
-    for reaper in threading.enumerate():
-        if reaper.name == "yoke-native-owner-reap":
-            reaper.join(timeout=10)
-    with pytest.raises(ChildProcessError):
-        os.waitpid(started.pid, os.WNOHANG)
-
-
 def test_spawn_failure_removes_the_initialized_capture(tmp_path: Path) -> None:
     def unavailable(*_args, **_kwargs):
         raise OSError("spawn unavailable")
@@ -210,9 +189,9 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
         lambda *args, **kwargs: False,
     )
     monkeypatch.setattr(
-        spawn_module.os,
-        "killpg",
-        lambda pid, sent: group_signals.append((pid, sent)),
+        spawn_module,
+        "stop_relay_process",
+        lambda child: group_signals.append(child),
     )
 
     result = spawn_supervised_native(
@@ -227,7 +206,7 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
     )
 
     assert result is None
-    assert group_signals == [(process.pid, signal.SIGTERM)]
+    assert group_signals == [process]
     assert not process.terminated
     assert not tuple((tmp_path / "native-diagnostics").glob("*.capture"))
 

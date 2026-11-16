@@ -122,6 +122,7 @@ def _pinned_relay(tmp_path: Path, release: str = RELEASE):
         {
             "schema": 1,
             "pinned_release": release,
+            "physical_root": str(active.resolve()),
             "served_build": f"v{release}",
             "distribution_index": "https://relay.example.test/simple/",
         },

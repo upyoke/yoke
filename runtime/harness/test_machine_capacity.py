@@ -14,7 +14,8 @@ from yoke_contracts.machine_config.machine_capacity import (
     observe_machine_capacity,
     sanitize_machine_capacity,
 )
-
+import pytest
+pytestmark = pytest.mark.windows
 GIB = 1024**3
 
 

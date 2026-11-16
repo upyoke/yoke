@@ -1,39 +1,28 @@
 """Replace a private capture atomically so readers see one complete envelope."""
 
-import os
 from pathlib import Path
+import os
 import stat
-import tempfile
+
+from yoke_contracts.owner_private_path import (
+    is_owner_private_directory, is_owner_private_file, write_owner_private,
+)
 
 
 def replace_private_capture(path: Path, payload: bytes) -> None:
-    """Validate the target before writing, then publish one owner-only snapshot."""
+    """Validate the target before publishing one owner-only snapshot."""
     from yoke_harness.session_relay_native_diagnostics import NativeDiagnosticError
 
-    temporary: Path | None = None
-    descriptor = -1
-    try:
-        try:
-            details = path.lstat()
-        except FileNotFoundError:
-            details = None
-        if details is not None and (
-            not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid()
-        ):
+    if path.exists() or path.is_symlink():
+        details = path.lstat()
+        owned = is_owner_private_file(path)
+        if os.name != "nt" and is_owner_private_directory(path.parent):
+            owned = details.st_uid == path.parent.stat().st_uid
+        if not stat.S_ISREG(details.st_mode) or not owned:
             raise NativeDiagnosticError("diagnostic target is unsafe")
-        descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-        temporary = Path(name)
-        os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "wb", closefd=True) as stream:
-            descriptor = -1
-            stream.write(payload)
-        os.replace(temporary, path)
+    try:
+        write_owner_private(path, payload)
     except OSError as exc:
         raise NativeDiagnosticError(
             "diagnostic could not be replaced; inspect capture directory permissions and retry"
         ) from exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)

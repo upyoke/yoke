@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 import os
 from pathlib import Path
 
@@ -32,6 +33,9 @@ class _Process:
     # This process's own pid, so custody records a start time that really
     # resolves; a pid nothing owns fails custody and is reaped instead.
     pid = os.getpid()
+
+    def __init__(self):
+        self.stdin = BytesIO()
 
     def terminate(self) -> None:
         return None

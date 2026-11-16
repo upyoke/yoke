@@ -151,9 +151,12 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
 def _cursor_access_token() -> str | None:
     if sys.platform == "darwin":
         return _keychain_password("cursor-access-token")
-    if sys.platform != "linux":
+    if sys.platform == "win32":
+        root = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    elif sys.platform == "linux":
+        root = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    else:
         return None
-    root = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     try:
         credentials = json.loads(
             (root / "cursor" / "auth.json").read_text(encoding="utf-8")

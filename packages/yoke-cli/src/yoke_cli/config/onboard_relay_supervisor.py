@@ -8,6 +8,7 @@ from typing import Mapping
 
 from yoke_contracts.machine_config.relay_instance import (
     RELAY_LOGOUT_BEHAVIOR,
+    WINDOWS_RELAY_LOGOUT_BEHAVIOR,
     relay_instance_label,
 )
 
@@ -27,6 +28,11 @@ def lifecycle_steps(
             (UNIT_INSTALL_ACTION, f"~/.config/systemd/user/{label}.service"),
             (UNIT_ENABLE_ACTION, "systemd --user"),
         )
+    if sys.platform == "win32":
+        return (
+            ("install-session-relay-task", label),
+            ("run-session-relay-task", "Task Scheduler"),
+        )
     return (
         ("install-session-relay-plist", f"~/Library/LaunchAgents/{label}.plist"),
         ("load-session-relay-login-item", label),
@@ -34,6 +40,12 @@ def lifecycle_steps(
 
 
 def complete_lines(document: Mapping[str, object]) -> tuple[str, ...]:
+    if document.get("task"):
+        return (
+            f"Machine relay scheduled task: {document['task']}",
+            "Machine relay starts at login and runs on battery power.",
+            WINDOWS_RELAY_LOGOUT_BEHAVIOR,
+        )
     if document.get("unit"):
         return (
             f"Machine relay user unit: {document['unit']}",
@@ -48,7 +60,7 @@ def complete_lines(document: Mapping[str, object]) -> tuple[str, ...]:
 def report_document(
     *, planned: bool, config_path: str | Path, environment: str
 ) -> dict[str, str | None]:
-    key = "unit" if sys.platform == "linux" else "plist"
+    key = {"linux": "unit", "win32": "task"}.get(sys.platform, "plist")
     target = (
         lifecycle_steps(config_path=config_path, environment=environment)[0][1]
         if planned

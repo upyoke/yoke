@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_pipe_reader import PipeReader
+
+from yoke_harness.session_relay_process_group import spawn_relay_process
+
 from yoke_harness.session_launch_admission import spawn_admitted_process
 from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_codex_cli_process import (
@@ -11,8 +15,6 @@ from yoke_harness.session_relay_codex_cli_process import (
 )
 
 import json
-import os
-import selectors
 import subprocess
 import time
 
@@ -136,12 +138,12 @@ class CodexCliTransport:
             )
             process = spawn_admitted_process(
                 command,
+                process_factory=spawn_relay_process,
                 cwd=request.checkout,
                 env=strip_relay_owned_python_state(codex_launch_environment(request)),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                start_new_session=True,
             )
             if not record_supervised_native(
                 request.job_id,
@@ -203,40 +205,35 @@ class CodexCliTransport:
                 binary_source=binary_source,
                 pid=process.pid,
             )
-        selector = selectors.DefaultSelector()
-        selector.register(process.stdout, selectors.EVENT_READ)
+        reader = PipeReader(process.stdout)
+        process._yoke_stdout_reader = reader
         deadline = time.monotonic() + self.startup_timeout
         buffer = bytearray()
         captured = 0
         found: str | None = None
-        try:
-            while time.monotonic() < deadline and found is None:
-                if process.poll() is not None and not selector.select(0):
+        while time.monotonic() < deadline and found is None:
+            try:
+                chunk = reader.read(timeout=max(0, deadline - time.monotonic()))
+            except TimeoutError:
+                break
+            if not chunk:
+                break
+            captured += len(chunk)
+            streams.append(STDOUT, chunk)
+            if captured > _MAX_CAPTURE_BYTES:
+                break
+            buffer.extend(chunk)
+            while b"\n" in buffer:
+                raw, _, remainder = buffer.partition(b"\n")
+                buffer = bytearray(remainder)
+                if len(raw) > _MAX_LINE_BYTES:
+                    continue
+                try:
+                    found = _thread_id(json.loads(raw))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    continue
+                if found:
                     break
-                ready = selector.select(max(0.0, deadline - time.monotonic()))
-                if not ready:
-                    break
-                chunk = os.read(process.stdout.fileno(), 65_536)
-                if not chunk:
-                    break
-                captured += len(chunk)
-                streams.append(STDOUT, chunk)
-                if captured > _MAX_CAPTURE_BYTES:
-                    break
-                buffer.extend(chunk)
-                while b"\n" in buffer:
-                    raw, _, remainder = buffer.partition(b"\n")
-                    buffer = bytearray(remainder)
-                    if len(raw) > _MAX_LINE_BYTES:
-                        continue
-                    try:
-                        found = _thread_id(json.loads(raw))
-                    except (UnicodeDecodeError, json.JSONDecodeError):
-                        continue
-                    if found:
-                        break
-        finally:
-            selector.close()
         if not found:
             exit_code = process.poll()
             _stop(process)

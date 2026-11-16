@@ -169,6 +169,7 @@ def test_failed_adoption_keeps_registered_launch_custody(tmp_path, monkeypatch):
         _finish(process)
 
 
+@pytest.mark.windows
 def test_codex_accepted_resume_has_durable_custody_then_terminates(
     tmp_path, monkeypatch
 ):

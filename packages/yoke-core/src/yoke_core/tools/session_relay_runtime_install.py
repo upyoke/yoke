@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 import uuid
@@ -11,6 +10,12 @@ import venv
 from collections.abc import Callable
 from pathlib import Path
 
+from yoke_contracts import platform_file_lock
+from yoke_contracts import refusal_recovery
+from yoke_contracts.relay_release_layout import RELAY_RELEASE_USE_LOCK_NAME, RELAY_RELEASE_RECEIPT_NAME
+from yoke_contracts.platform_fs import remove_tree
+from yoke_core.domain.relay_release_path import relay_venv_python
+from yoke_core.tools.session_relay_links import activate_link
 from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.python_venv_dependencies import ensure_venv_support
@@ -46,7 +51,7 @@ def ensure_relay_runtime(
             candidate.replace(runtime)
         finally:
             if candidate.exists():
-                shutil.rmtree(candidate, ignore_errors=True)
+                remove_tree(candidate)
     _validate_runtime(runtime)
     _install_runtime_entrypoint(runtime, state_dir=state_dir)
     return relay_runtime_python(state_dir)
@@ -101,8 +106,7 @@ def _preserve_active_release(state_dir: Path, release: Path) -> None:
         return
     temporary = state_dir / f".{RELAY_ACTIVE_RELEASE_NAME}-{uuid.uuid4().hex}"
     try:
-        temporary.symlink_to(release, target_is_directory=True)
-        os.replace(temporary, active)
+        activate_link(release, active)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -113,14 +117,13 @@ def _activate_launch_link(state_dir: Path) -> None:
     launch = relay_launch_path(state_dir)
     temporary = state_dir / f".{RELAY_LAUNCH_LINK_NAME}-{uuid.uuid4().hex}"
     try:
-        temporary.symlink_to(relay_runtime_path(state_dir), target_is_directory=True)
-        os.replace(temporary, launch)
+        activate_link(relay_runtime_path(state_dir), launch)
     finally:
         temporary.unlink(missing_ok=True)
 
 
 def _validate_runtime(runtime: Path) -> None:
-    python = runtime / "bin" / "python"
+    python = relay_venv_python(runtime)
     try:
         owned = python.resolve(strict=True).is_relative_to(runtime.resolve(strict=True))
     except OSError:
@@ -141,10 +144,23 @@ def _validate_runtime(runtime: Path) -> None:
 
 
 def _install_runtime_entrypoint(runtime: Path, *, state_dir: Path) -> None:
-    target = runtime / "bin" / "yoke"
+    target = runtime / ("Scripts/yoke.py" if sys.platform == "win32" else "bin/yoke")
+    (runtime / ".yoke-runtime-target").write_text(str((state_dir / "runtime").resolve()), encoding="utf-8")
+    (runtime / "relay_file_lock.py").write_text(Path(platform_file_lock.__file__).read_text(encoding="utf-8"), encoding="utf-8")
+    if sys.platform == "win32":
+        command = subprocess.list2cmdline([str(relay_runtime_python(state_dir)), "-I", str(state_dir / "runtime" / "Scripts" / "yoke.py")])
+        (runtime / "Scripts" / "yoke.cmd").write_text("@echo off\n" + command + " %*\n", encoding="utf-8")
     source = RUNTIME_ENTRYPOINT_SOURCE.read_text(encoding="utf-8")
+    # The standalone launcher must diagnose failures before any product
+    # packages bind. Inline the shared composer from its single source owner.
+    composer = Path(refusal_recovery.__file__).read_text(encoding="utf-8")
+    composer = composer.replace("from __future__ import annotations\n", "")
+    source = source.replace("from yoke_contracts.refusal_recovery import compose_refusal\n", "")
+    source = source.replace("# __YOKE_REFUSAL_COMPOSER__", composer)
     source = source.replace("__YOKE_ACTIVE_RELEASE__", RELAY_ACTIVE_RELEASE_NAME)
     source = source.replace("__YOKE_RELEASE_LOCK__", RELAY_RELEASE_LOCK_NAME)
+    source = source.replace("__YOKE_RELEASE_USE_LOCK__", RELAY_RELEASE_USE_LOCK_NAME)
+    source = source.replace("__YOKE_RELEASE_RECEIPT__", RELAY_RELEASE_RECEIPT_NAME)
     source = source.replace("__YOKE_RELAY_STATE_DIR_ENV__", RELAY_STATE_DIR_ENV)
     body = source[source.index("\n") :]
     content = f"#!{relay_runtime_python(state_dir)} {PYTHON_ISOLATION_FLAG}{body}"

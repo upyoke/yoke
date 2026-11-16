@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import stat
 
 import pytest
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory, is_owner_private_directory, is_owner_private_file,
+)
 from yoke_contracts.timestamps import InvalidInstant
 
 from yoke_harness.session_relay_native_capture_format import parse_capture
@@ -23,9 +25,14 @@ from yoke_harness.session_relay_native_diagnostics import (
     read_native_diagnostic,
     store_native_diagnostic,
 )
-
+pytestmark = pytest.mark.windows
 
 ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
+
+
+@pytest.fixture
+def tmp_path(tmp_path):
+    return create_owner_private_directory(tmp_path / "private-relay")
 
 
 def _reference(index: int = 0) -> str:
@@ -50,9 +57,8 @@ def test_private_capture_is_bounded_owner_only_and_round_trips(
     capture = directory / f"{receipt.reference}.capture"
     payload = read_native_diagnostic(receipt.reference, state_dir=tmp_path, now=1001)
 
-    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
-    assert stat.S_IMODE(capture.stat().st_mode) == 0o600
-    assert capture.stat().st_uid == os.getuid()
+    assert is_owner_private_directory(directory)
+    assert is_owner_private_file(capture)
     assert len(payload) <= NATIVE_DIAGNOSTIC_MAX_BYTES
     assert b"--- stdout ---" in payload
     assert b"--- stderr ---" in payload
@@ -72,14 +78,18 @@ def test_reader_refuses_traversal_symlinks_wrong_owner_and_open_permissions(
     monkeypatch,
 ) -> None:
     directory = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME
-    directory.mkdir(mode=0o700)
+    create_owner_private_directory(directory)
     outside = tmp_path / "outside"
     outside.write_bytes(b"private")
     symlink_ref = _reference(1)
-    (directory / f"{symlink_ref}.capture").symlink_to(outside)
-
-    with pytest.raises(NativeDiagnosticError, match="unavailable|regular file"):
-        read_native_diagnostic(symlink_ref, state_dir=tmp_path, now=1)
+    try:
+        (directory / f"{symlink_ref}.capture").symlink_to(outside)
+    except OSError:
+        if os.name != "nt":
+            raise
+    else:
+        with pytest.raises(NativeDiagnosticError, match="unavailable|regular file|changed"):
+            read_native_diagnostic(symlink_ref, state_dir=tmp_path, now=1)
     with pytest.raises(NativeDiagnosticError, match="reference is invalid"):
         read_native_diagnostic("../outside", state_dir=tmp_path, now=1)
 
@@ -87,16 +97,18 @@ def test_reader_refuses_traversal_symlinks_wrong_owner_and_open_permissions(
         b"out", b"err", reference=_reference(2), state_dir=tmp_path, now=2
     )
     capture = directory / f"{receipt.reference}.capture"
-    capture.chmod(0o644)
-    with pytest.raises(NativeDiagnosticError, match="permissions"):
-        read_native_diagnostic(receipt.reference, state_dir=tmp_path, now=3)
+    from yoke_harness import session_relay_native_diagnostics as diagnostics
+    with monkeypatch.context() as scoped:
+        scoped.setattr(diagnostics, "is_owner_private_file", lambda path: False)
+        with pytest.raises(NativeDiagnosticError, match="permissions"):
+            read_native_diagnostic(receipt.reference, state_dir=tmp_path, now=3)
 
     capture.chmod(0o600)
     real_fstat = os.fstat
 
     def wrong_owner(descriptor: int):
         values = list(real_fstat(descriptor))
-        values[4] = os.getuid() + 1
+        values[4] += 1
         return os.stat_result(values)
 
     monkeypatch.setattr(os, "fstat", wrong_owner)
@@ -108,12 +120,16 @@ def test_cleanup_enforces_ttl_and_count_without_following_unknown_entries(
     tmp_path: Path,
 ) -> None:
     directory = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME
-    directory.mkdir(mode=0o700)
+    create_owner_private_directory(directory)
     unknown = directory / "operator-note"
     unknown.write_text("keep", encoding="utf-8")
     outside = tmp_path / "outside"
     outside.write_text("keep", encoding="utf-8")
-    (directory / f"{_reference(9)}.capture").symlink_to(outside)
+    try:
+        (directory / f"{_reference(9)}.capture").symlink_to(outside)
+    except OSError:
+        if os.name != "nt":
+            raise
 
     for index in range(NATIVE_DIAGNOSTIC_MAX_FILES + 4):
         receipt = store_native_diagnostic(
@@ -175,12 +191,16 @@ def test_a_reference_needs_a_launch_or_attempt_identifier(tmp_path: Path) -> Non
         diagnostic_reference("../../escape")
 
 
-@pytest.mark.parametrize("clock", [-1000000.0, -1000000.876544, 1000.123456])
-def test_diagnostic_receipt_deadline_retains_native_utc_microseconds(tmp_path, clock):
+@pytest.mark.parametrize("clock,instant", [
+    (-1000000.0, "1969-12-20T10:13:20+00:00"),
+    (-1000000.876544, "1969-12-20T10:13:19.123456+00:00"),
+    (1000.123456, "1970-01-01T00:16:40.123456+00:00"),
+])
+def test_diagnostic_receipt_deadline_retains_native_utc_microseconds(tmp_path, clock, instant):
     receipt = store_native_diagnostic(
         b"out", b"err", reference=_reference(5), state_dir=tmp_path, now=clock
     )
-    expected = datetime.fromtimestamp(clock, timezone.utc) + timedelta(
+    expected = datetime.fromisoformat(instant) + timedelta(
         seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS
     )
     assert receipt.expires_at == expected

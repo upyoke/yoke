@@ -8,6 +8,7 @@ both inside their own tree rather than the operator's home.
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
@@ -23,6 +24,9 @@ ATTEMPT_ID = "33333333-3333-4333-8333-333333333333"
 
 class RunningProcess:
     pid = 4321
+
+    def __init__(self):
+        self.stdin = BytesIO()
 
     def wait(self, timeout=None):
         del timeout

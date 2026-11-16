@@ -1,6 +1,7 @@
 """A healthy burst is staggered briefly; unsafe capacity starts no native."""
 
 import pytest
+from types import SimpleNamespace
 
 from yoke_contracts.machine_config import native_capacity as capacity
 from yoke_harness import session_launch_admission as admission
@@ -149,12 +150,11 @@ def test_claude_spawner_preserves_capacity_refusal(
     assert result.evidence["result_code"] == "native_memory_headroom_low"
 
 
-def test_linux_swap_probe(monkeypatch):
-    monkeypatch.setattr(capacity.sys, "platform", "linux")
+def test_shared_swap_probe(monkeypatch):
     monkeypatch.setattr(
-        capacity.Path,
-        "read_text",
-        lambda _: "SwapTotal: 1048576 kB\nSwapFree: 524288 kB\n",
+        capacity.psutil,
+        "swap_memory",
+        lambda: SimpleNamespace(total=1024**3, free=512 * 1024**2),
     )
     assert capacity.swap_headroom() == (1024**3, 512 * 1024**2)
 

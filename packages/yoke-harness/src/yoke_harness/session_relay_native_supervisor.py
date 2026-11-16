@@ -26,6 +26,8 @@ contents; the unconditional write only changes the clock.
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_release_lease import hold_running_release
+
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -54,6 +56,8 @@ from yoke_harness.session_relay_native_streams import (
     start_drain,
 )
 
+_RELEASE_LEASE = hold_running_release(__file__)
+
 
 #: How often a running native's words -- and, when it has none, the bare fact
 #: that this supervisor is still waiting on it -- reach the file. Long enough
@@ -63,6 +67,7 @@ from yoke_harness.session_relay_native_streams import (
 FLUSH_INTERVAL_SECONDS = 2.0
 _DRAIN_JOIN_SECONDS = 2.0
 _TERMINATE_WAIT_SECONDS = 5.0
+CUSTODY_READY = b"yoke-native-custody-recorded\n"
 
 
 def _write(
@@ -197,6 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Supervise one native named on the command line."""
     parser = argparse.ArgumentParser(prog="yoke-native-supervisor")
     parser.add_argument("--capture", required=True)
+    parser.add_argument("--await-custody", action="store_true")
     parser.add_argument("native", nargs=argparse.REMAINDER)
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     native = [str(value) for value in parsed.native]
@@ -208,6 +214,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         streams.append(STDERR, b"supervisor was given no native to run")
         _write(capture, streams, state=STATE_EXITED, exit_code=None)
         return 2
+    # Stay alive through identity capture, and never create an unrecorded native
+    # if the parent exits before it can persist custody and release this pipe.
+    if parsed.await_custody and sys.stdin.buffer.readline(len(CUSTODY_READY) + 1) != CUSTODY_READY:
+        return 1
     return supervise(capture, native)
 
 
