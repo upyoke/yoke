@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import locale
 import os
 from pathlib import Path
 import subprocess
+import time
 from typing import Callable, Mapping
 import xml.etree.ElementTree as ET
 
@@ -18,7 +20,7 @@ from yoke_contracts.machine_config.relay_instance import (
 )
 from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.tools import session_relay_release_install as relay_install
-from yoke_core.tools.session_relay_release import relay_runtime_python
+from yoke_core.tools.session_relay_release import RelayReleaseError, relay_runtime_python
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
@@ -42,7 +44,17 @@ class RelayTaskStatus:
 
 def _run(argv: list[str], runner: Runner) -> subprocess.CompletedProcess[str]:
     try:
-        return runner(argv, check=False, capture_output=True, text=True, timeout=15)
+        result = runner(argv, check=False, capture_output=True, timeout=15)
+        def decode(value):
+            if not isinstance(value, bytes):
+                return value or ""
+            if value.startswith((b"\xff\xfe", b"\xfe\xff")):
+                return value.decode("utf-16")
+            try:
+                return value.decode("utf-8")
+            except UnicodeDecodeError:
+                return value.decode(locale.getpreferredencoding(False), errors="replace")
+        return subprocess.CompletedProcess(argv, result.returncode, decode(result.stdout), decode(result.stderr))
     except (OSError, subprocess.SubprocessError) as exc:
         raise _unavailable(str(exc)) from exc
 
@@ -163,7 +175,10 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
         raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
     sid = _user(runner)
     _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
-    launcher = relay_install.converge_relay_launcher(selected, pin_release=pin_release)
+    try:
+        launcher = relay_install.converge_relay_launcher(selected, pin_release=pin_release)
+    except RelayReleaseError as exc:
+        raise RelayInstallError(str(exc), code=exc.code) from exc
     create_private_directory(selected.state_dir)
     source_env = os.environ if environ is None else environ
     environment = {
@@ -187,6 +202,10 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     _checked(["schtasks", "/Create", "/TN", selected.label, "/XML", str(path), "/F"], runner)
     _checked(["schtasks", "/Run", "/TN", selected.label], runner)
     status = relay_task_status(instance=selected, runner=runner)
+    deadline = time.monotonic() + 5
+    while status.task_current and not status.reason and not status.loaded and time.monotonic() < deadline:
+        time.sleep(0.1)
+        status = relay_task_status(instance=selected, runner=runner)
     if status.reason or not (status.task_current and status.loaded):
         raise _unavailable(status.reason or "the task did not enter the running state; inspect its history")
     return status

@@ -124,3 +124,23 @@ def test_windows_dispatch_and_unknown_os_refusal(monkeypatch):
     monkeypatch.setattr(service.sys, "platform", "unknown-os")
     with pytest.raises(tasks.RelayInstallError, match="relay_os_unsupported.*Recovery"):
         service.relay_service_operation("install")
+
+
+def test_scheduler_xml_decodes_utf16_export(tmp_path):
+    instance = relay_instance(tmp_path)
+    xml = tasks.relay_task_document(instance, user_sid=SID)
+    def run(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, xml.encode("utf-16"), b"")
+    result = tasks._run(["schtasks", "/Query", "/XML"], run)
+    assert result.stdout == xml
+
+
+def test_release_refusal_remains_a_named_installer_error(tmp_path, monkeypatch):
+    instance = relay_instance(tmp_path)
+    runner = Scheduler(instance)
+    def fail(*args, **kwargs):
+        raise tasks.RelayReleaseError("release_unavailable", "release unavailable; retry the install")
+    monkeypatch.setattr(tasks.relay_install, "converge_relay_launcher", fail)
+    with pytest.raises(tasks.RelayInstallError) as raised:
+        tasks.install_relay_task(instance=instance, runner=runner)
+    assert raised.value.code == "release_unavailable"
