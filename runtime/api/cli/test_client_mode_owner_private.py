@@ -40,6 +40,11 @@ def _fake_acl(monkeypatch, *, files: bool = True, directories: bool = True) -> N
 def _as_windows(monkeypatch, *modules) -> None:
     for module in modules:
         monkeypatch.setattr(module, "_WINDOWS", True)
+    if os.name != "nt" and machine_config_file in modules:
+        monkeypatch.setattr(
+            machine_config_file.windows_private_directory, "create_private_file",
+            lambda path: os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600),
+        )
     monkeypatch.setattr(
         os, "fchmod", _raise("Windows has no fchmod before Python 3.13"), raising=False
     )

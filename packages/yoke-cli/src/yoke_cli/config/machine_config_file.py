@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_contracts import owner_private_path
 from yoke_contracts import platform_file_lock
 from yoke_contracts import platform_file_sync
+from yoke_contracts import windows_private_directory
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from contextlib import contextmanager
@@ -83,8 +84,14 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
         create_private_directory(selected.parent)
         _assert_secure_parent(selected.parent)
         lock_path = config_lock_path(selected)
-        flags = os.O_RDWR | os.O_CREAT | _OPEN_FLAGS
-        descriptor = os.open(lock_path, flags, 0o600)
+        if _WINDOWS:
+            try:
+                descriptor = windows_private_directory.create_private_file(lock_path)
+            except FileExistsError:
+                # Never repair an existing lock: validate its original ACL below.
+                descriptor = os.open(lock_path, os.O_RDWR | _OPEN_FLAGS)
+        else:
+            descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT | _OPEN_FLAGS, 0o600)
     except OSError as exc:
         raise MachineConfigFileError(
             f"machine-config lock could not be opened: {selected}"

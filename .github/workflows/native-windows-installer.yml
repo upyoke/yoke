@@ -31,6 +31,6 @@ jobs:
           python -m pip install uv==0.12.1
           uv sync --all-packages --all-groups --locked
       - name: Verify native installer policy
-        run: uv run python -m pytest tests/installer/test_native_windows_installer.py tests/installer/test_windows_user_path.py
+        run: uv run python -m pytest tests/installer/test_native_windows_installer.py tests/installer/test_windows_user_path.py tests/installer/test_windows_machine_config_lock.py
       - name: Install, upgrade twice and report status from native shells
         run: uv run python -m runtime.api.tools.prove_public_installer
