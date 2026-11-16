@@ -46,6 +46,7 @@
             {"context": "attest-validated-release-provenance"},
             {"context": "container"},
             {"context": "browser_runtime / browser-runtime"},
+            {"context": "windows_smoke / windows-smoke"},
             {"context": "test-shard (3.11, 1)"},
             {"context": "test-shard (3.11, 2)"},
             {"context": "test-shard (3.11, 3)"},

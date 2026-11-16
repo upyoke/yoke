@@ -27,7 +27,11 @@ executable steps, capability requirements, or the registered `os` of declared
 `method_config.test_machine` / `test_machines`. Instructions never choose a platform:
 "Do not use linux-lab" does not require Linux. Cases without these declarations
 refuse with `test_machine_platform_undeclared`; set `method_config.os` to `linux`,
-`macos` or `windows`, or declare a registered machine with an `os`.
+`macos`, `windows` or `wsl`, or declare a registered machine with an `os`.
+`windows` means native Windows and `wsl` a Windows host whose commands run in
+WSL2, so a native case never selects a WSL machine or accepts its receipts.
+PowerShell and `cmd.exe` steps imply native `windows`; a WSL case declares
+`os=wsl` or names its WSL machine.
 
 Simultaneous machine-QA cases keep their declared driver and check platforms
 across the full host set; see [host-set authoring](exploration.md#authoring-shape).

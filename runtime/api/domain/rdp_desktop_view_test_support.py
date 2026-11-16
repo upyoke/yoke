@@ -25,7 +25,7 @@ PASSWORD = "fixture-secret"
 
 SETTINGS = {
     "resource_name": "lab",
-    "os": "windows",
+    "os": "wsl",
     "host": "host.example",
     "user": "Administrator",
     "desktop_route": "ssh-forward",

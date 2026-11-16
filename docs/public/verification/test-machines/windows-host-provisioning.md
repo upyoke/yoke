@@ -27,8 +27,9 @@ by hand to satisfy a documentation audit without authorization.
 Create/use the dedicated Windows SSH account. WSL distributions are per Windows
 user: installing under a service or another administrator account does not
 prepare the test account. Separate operator users/homes remain outside capture,
-restore, inspection and logout. Restrict SSH and RDP ingress to approved
-execution machines or private-network routes.
+restore, inspection and logout. Open SSH to any address with key-only
+authentication and keep RDP behind the SSH forward, as
+[network access](host-provisioning.md#network-access) requires.
 Each lease start re-reads the instance public IPv4 and updates `host` before
 SSH; its last lease release stops the cloud host.
 
@@ -43,15 +44,15 @@ effective config. Keep private keys out of user data, settings and evidence.
 
 Check Windows network profile and firewall together: the default OpenSSH rule
 can be Private-only while the cloud interface is Public. Scope the rule to
-the applicable profile while retaining restricted source access; do not open
-the network broadly as a connectivity workaround.
+the applicable profile and allow any source address; open no other inbound
+port, including RDP.
 
 Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` for
-updates with the as-read settings token. Declare `resource_name`, `os=windows`,
+updates with the as-read settings token. Declare `resource_name`, `os=wsl`,
 Windows `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
-`desktop_route=ssh-forward` (or an approved direct route), the provisioned
+`desktop_route=ssh-forward`, the provisioned
 WSL xrdp port (default3390), and the dedicated WSL `desktop_user`. Optional `cloud_instance_id` (the
 EC2 instance id; leases power the host by it) and operating notes record local
 infrastructure facts. Capacity registration is independent.

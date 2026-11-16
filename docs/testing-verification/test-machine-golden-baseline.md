@@ -17,7 +17,7 @@ Generic Yoke/Machine QA registers, captures, restores and verifies declared
 state; it does not install this project's baseline for other projects. Yoke
 recipes supply reusable OS steps, not a universal Docker or fixture policy.
 Read registered settings and leases before acting; never operate a peer's host.
-Substitute the dedicated account, private endpoint and approved paths from that
+Substitute the dedicated account, registered host and approved paths from that
 record. A fixture home must differ from ordinary worker and operator homes.
 
 | Required Yoke state | Owner and proof |
@@ -204,8 +204,8 @@ listener addresses. No host mount is needed. Preserve command/output/config
 hashes; remove only the exact owned labeled container IDs. A dead HTTP service
 is not a passing isolation control. Repeat after both baselines and final reset.
 
-For example, in the Mac server's native shell, substitute an approved address
-and unused ports; choose unique names and keep returned IDs privately:
+For example, in the Mac server's native shell, substitute the Mac's private
+address and unused ports; choose unique names and keep returned IDs privately:
 
 ```sh
 mac_ip=MAC_PRIVATE_IP

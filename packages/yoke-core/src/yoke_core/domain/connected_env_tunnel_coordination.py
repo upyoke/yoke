@@ -29,9 +29,9 @@ not have been enough, are recorded in
 
 from __future__ import annotations
 
+from yoke_contracts import platform_file_lock
 from yoke_contracts.machine_config.directories import create_private_directory
 
-import fcntl
 import json
 import os
 import subprocess
@@ -103,7 +103,7 @@ def lifecycle_lock(
     try:
         while True:
             try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                platform_file_lock.acquire_exclusive_nonblocking(descriptor)
                 break
             except OSError:
                 if time.monotonic() >= deadline:
@@ -210,7 +210,7 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
         create_private_directory(directory)
         descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            platform_file_lock.acquire_exclusive(descriptor)
             os.ftruncate(descriptor, 0)
             os.write(descriptor, json.dumps(payload).encode("utf-8"))
         except BaseException:
@@ -264,7 +264,7 @@ def active_leases(
             continue
         try:
             try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                platform_file_lock.acquire_exclusive_nonblocking(descriptor)
             except BlockingIOError:
                 lease = _read_lease(entry)
             else:

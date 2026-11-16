@@ -110,12 +110,12 @@ def _aws_env(project: str) -> dict[str, str]:
 
 
 def _readiness_command(os_name: str) -> tuple[str, str | None]:
-    """The login probe and its stdin: on Windows, the WSL Python host facts use.
+    """The login probe and its stdin: on a WSL host, the WSL Python host facts use.
 
     A freshly booted Windows host accepts a login long before WSL can start
     Python inside the 20 seconds host control allows its first command.
     """
-    if os_name != "windows":
+    if os_name != "wsl":
         return "exit", None
     from yoke_contracts.windows_wsl_command import (
         windows_wsl_command,
