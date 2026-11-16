@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shlex
+import os
 import sys
 from pathlib import Path
 from yoke_contracts.git_credential_command import (
@@ -244,11 +245,17 @@ def helper_command(
     helper_path: str | Path | None = None,
 ) -> str:
     """Return a helper command that follows the installed CLI's current release."""
+    python = stable_python(Path(sys.executable))
+    if not python.is_file() or not os.access(python, os.X_OK):
+        raise GitHubCredentialBundleError(
+            f"github_helper_interpreter_unavailable: {python} is missing or not executable; "
+            "rerun the public installer or yoke update to repair the CLI"
+        )
     selected_helper = (
         Path(helper_path) if helper_path is not None else install_stable_helper()
     )
     return render_helper_command(
-        stable_python(Path(sys.executable)),
+        python,
         selected_helper,
         machine_config.config_path(config_path),
     )

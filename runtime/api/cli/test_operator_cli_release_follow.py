@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import io
+import pytest
 import json
 import subprocess
 import sys
@@ -280,3 +281,31 @@ def test_current_cli_does_not_warn(monkeypatch) -> None:
         server_version="0.2.0.202610140941",
         local_version="0.2.0.202610140941",
     )
+
+
+@pytest.mark.parametrize(
+    "diagnostic", ["github_helper_interpreter_unavailable: reinstall CLI", ""]
+)
+def test_installer_failure_wins_over_matching_after_version(
+    tmp_path, monkeypatch, capsys, diagnostic
+):
+    yoke, _, run = _cli(tmp_path, monkeypatch, ["old", "target"])
+
+    def fail_after_switch(*_args, **_kwargs):
+        raise self_update.SelfUpdateError(diagnostic)
+
+    monkeypatch.setattr(self_update, "install_release", fail_after_switch)
+    versions = iter(["old", "target"])
+
+    def probe(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, 0, stdout=next(versions))
+
+    monkeypatch.setattr(
+        follow, "_refresh_checkouts", lambda *_: pytest.fail("refreshed after failure")
+    )
+    record = follow.follow_release("target", tmp_path, run=probe, executable=yoke)
+    assert record["after"] == "target"
+    assert record["outcome"] == "update_failed"
+    assert record["error"] == (diagnostic or "SelfUpdateError")
+    assert "OPERATOR-CLI-FOLLOW-FAILED" in capsys.readouterr().err
+    assert json.loads((tmp_path / follow.FOLLOW_RECORD_NAME).read_text()) == record

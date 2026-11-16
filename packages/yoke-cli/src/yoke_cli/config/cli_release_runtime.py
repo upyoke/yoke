@@ -1,16 +1,11 @@
-"""Publish immutable CLI releases and keep each running command's release.
+"""Publish immutable CLI releases with a standalone stdlib launcher.
 
-One layout on every OS, no symlinks: ``current`` is a pointer file naming the
-active folder in ``releases``; ``launcher`` is a copy of this stdlib-only file
-run by uv's base Python; ``python``, ``yoke`` and Windows' ``yoke.cmd`` are
-shims that run it. Cleanup renames a release before deleting it. Every user
-holds the release's ``lease`` file open, which makes Windows refuse that rename
-(a running python.exe alone does not); POSIX users also hold it locked shared.
+Pointer files and shims select current; leases retain running releases.
 """
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import json
 import os
 from pathlib import Path
@@ -30,7 +25,7 @@ else:
 
 INSTALL_ROOT = None
 RECOVERY = "rerun the public installer or yoke update to repair the CLI"
-PROBES = (["--version"], ["--help"], "github credential-helper refresh --json".split())
+PROBES = (["--version"], ["--help"], "github credential-helper refresh --check-only --json".split())
 WAIT_NOTICE = "Waiting by design: CLI publication lock; checking every 50ms; gives up after 30 seconds."
 BUSY = "cli_publication_busy: let the active update finish, then retry"
 RESTART = f"{RECOVERY}, then run yoke hook resident restart from your own terminal; read this evaluator log"
@@ -204,38 +199,19 @@ def collect(root: Path, *, pending_safe: bool = False) -> None:
         _remove_tree(retired)
 
 
-def hold_release(*, current: bool = False) -> Path | None:
-    """Lease this Python's release, or the current one, until exit and across an
-    exec (an inheritable descriptor); None when this Python runs from none."""
-    environment = Path(sys.executable).parent.parent.resolve()
-    generation = environment.parent.parent
-    released = environment.parts[-2:] == ("tools", "yoke-cli")
-    if not released or generation.parent.name != "releases":
-        return None
-    if current:
-        generation = _generation(generation.parent.parent)
-    lease = _lease(generation)
-    os.set_inheritable(lease.fileno(), True)
-    HELD.append(lease)
-    return generation
+def hold_release(*, current: bool = False):
+    from yoke_cli.config.cli_release_resident import hold_release as run
+
+    return run(current=current)
 
 
-def exec_current_python(arguments: list[str]) -> int:
-    """Replace a resident with the current release's Python, keeping its lease."""
-    try:
-        while HELD:  # The replaced release's lease must not survive the exec.
-            HELD.pop().close()
-        generation = hold_release(current=True)
-        python = sys.executable if generation is None else release_python(generation)
-        os.execv(str(python), [str(python), *arguments])
-    except (OSError, RuntimeError) as exc:
-        print(f"hook_resident_restart_failed: {exc}; {RESTART}", file=sys.stderr)
-        return 2
-    return 0
+def exec_current_python(arguments: list[str]):
+    from yoke_cli.config.cli_release_resident import exec_current_python as run
+
+    return run(arguments)
 
 
 def _probe(generation: Path, version: str) -> None:
-    """Run the candidate before the pointer moves; a broken one never goes live."""
     command = [str(release_python(generation)), *ENTRY]
     for arguments in PROBES:
         with _launcher_pipe(None) as (token, options):
@@ -250,9 +226,9 @@ def _probe(generation: Path, version: str) -> None:
         if arguments[0] == "github":
             receipt = json.loads(result.stdout)
             failed = not isinstance(receipt, dict) or receipt.get("error")
-            if failed or "configured" not in receipt:
+            if failed or receipt.get("checked") is not True:
                 raise RuntimeError(
-                    "cli_candidate_helper_repair_failed: no successful credential-helper receipt"
+                    f"cli_candidate_helper_check_failed: no successful credential-helper check; {RECOVERY}"
                 )
 
 
@@ -263,22 +239,49 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
         raise RuntimeError("cli_release_target_invalid: candidate outside releases")
     _probe(generation, version)
     (generation / "lease").touch()
-    # Resolve the base interpreter, not the version-owned virtualenv's Python.
     python = Path(sys._base_executable).resolve()
     source = Path(__file__).read_text(encoding="utf-8")
     source = source.replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)
     bin_dir.mkdir(parents=True, exist_ok=True)
-    with locked(root / "publication.lock"):
-        _replace(root / "launcher", source)
-        for path, content in _shims(root, python, bin_dir).items():
-            _replace(path, content, executable=True)
-        _replace(root / "current", generation.name + "\n")
-        (generation / "pending").unlink(missing_ok=True)
+    with locked(root / "publication.lock"), ExitStack() as cleanup:
+        publication = {
+            root / "launcher": source,
+            **_shims(root, python, bin_dir),
+            root / "current": generation.name + "\n",
+        }
+        previous = {}
+        for path in publication:
+            previous[path] = None
+            if path.exists() or path.is_symlink():
+                descriptor, name = tempfile.mkstemp(prefix=".publication-", dir=path.parent)
+                os.close(descriptor)
+                backup = Path(name)
+                backup.unlink()
+                cleanup.callback(backup.unlink, missing_ok=True)
+                shutil.copy2(path, backup, follow_symlinks=False)
+                previous[path] = backup
+        written = []
+        try:
+            for path, content in publication.items():
+                _replace(
+                    path,
+                    content,
+                    executable=path not in (root / "launcher", root / "current"),
+                )
+                written.append(path)
+            (generation / "pending").unlink(missing_ok=True)
+        except OSError:
+            for path in reversed(written):
+                old = previous[path]
+                if old is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    os.replace(old, path)
+            raise
         try:
             collect(root, pending_safe=True)
         except OSError as exc:
             print(f"cli_cleanup_deferred: {exc}; {CLEANUP_RETRY}", file=sys.stderr)
-
 
 def launch(root: Path, arguments: list[str]) -> int:
     """Run a command, or with ``--python`` the release's Python, in the current release."""
@@ -315,7 +318,6 @@ def launch(root: Path, arguments: list[str]) -> int:
         except (OSError, RuntimeError) as exc:
             print(f"cli_cleanup_deferred: {exc}; {CLEANUP_RETRY}", file=sys.stderr)
 
-
 def uninstall(root: Path, bin_dir: Path) -> None:
     """Remove this install's shims and releases; BlockingIOError while one runs."""
     root = root.resolve()
@@ -332,7 +334,6 @@ def uninstall(root: Path, bin_dir: Path) -> None:
                 shim.unlink()
     _remove_tree(root)
 
-
 def main() -> int:
     if INSTALL_ROOT is not None:
         return launch(Path(INSTALL_ROOT), sys.argv[1:])
@@ -343,7 +344,6 @@ def main() -> int:
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
         print(f"cli_release_activation_failed: {exc}; {RECOVERY}", file=sys.stderr)
         return 2
-
 
 if __name__ == "__main__":
     sys.exit(main())
