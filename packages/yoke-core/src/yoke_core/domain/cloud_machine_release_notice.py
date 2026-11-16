@@ -1,6 +1,6 @@
 """Tell the calling client which cloud Test Machines its call left unleased.
 
-Starting and stopping a cloud Test Machine needs the project's aws-admin key,
+Starting and stopping a cloud Test Machine needs the project's provider admin credential,
 which lives only on executing machines, so the control plane cannot stop a
 host itself. Instead, every release of a host lease that leaves the host
 free (no waiter's turn reserved) is noted during the call, and the response
@@ -77,9 +77,7 @@ def released_hosts_response(response: Any, hosts: set[str]) -> Any:
             f"cloud_instance_id ({type(exc).__name__}: {exc}); a cloud host "
             "among them stays running until its next lease ends",
         )
-        return response.model_copy(
-            update={"warnings": [*response.warnings, warning]}
-        )
+        return response.model_copy(update={"warnings": [*response.warnings, warning]})
     if not machines:
         return response
     return response.model_copy(update={"released_test_machines": machines})
