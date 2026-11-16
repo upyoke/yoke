@@ -16,7 +16,14 @@ def create_private_directory(path: str | Path) -> Path:
     """
     selected = Path(path).expanduser()
     try:
-        selected.mkdir(mode=0o700)
+        if os.name == "nt":
+            if __package__:
+                from yoke_contracts.windows_private_directory import create_private_directory as create_windows
+            else:
+                from _yoke_windows_private_directory import create_private_directory as create_windows
+            create_windows(selected)
+        else:
+            selected.mkdir(mode=0o700)
     except FileNotFoundError:
         create_private_directory(selected.parent)
         return create_private_directory(selected)
@@ -24,7 +31,8 @@ def create_private_directory(path: str | Path) -> Path:
         if not selected.is_dir():
             raise
     else:
-        selected.chmod(0o700, follow_symlinks=False)
+        if os.name != "nt":
+            selected.chmod(0o700, follow_symlinks=False)
     return selected
 
 
