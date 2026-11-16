@@ -8,6 +8,9 @@ from yoke_core.tools import source_dev_run
 from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.fixture(autouse=True)
 def environment(monkeypatch):
     monkeypatch.setattr(

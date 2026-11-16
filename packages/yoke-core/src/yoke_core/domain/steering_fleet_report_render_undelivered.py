@@ -38,6 +38,7 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     RECIPIENT_TERMINATED,
     TURN_IN_FLIGHT,
     WAKE_HELD_FOR_NATIVE_TURN,
+    WAKE_DRAINING,
 )
 
 #: What each state is, in the seat's terms. The two waiting shapes say so
@@ -88,6 +89,13 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
             "never injected, wake queued but unattempted — releasable at "
             f"{format_instant(entry.wake_releasable_at)}"
         )
+    if entry.delivery_state == WAKE_DRAINING:
+        positions = ", ".join(
+            f"{message_id}: {position}"
+            for message_id, position in entry.wake_queue_positions
+        )
+        label = "positions" if len(entry.wake_queue_positions) > 1 else "position"
+        return f"queued in machine wake queue, {label} {positions} — waiting"
     if entry.delivery_state == TURN_IN_FLIGHT:
         return (
             f"recipient turn in flight since {format_instant(entry.turn_in_flight_since)} — "

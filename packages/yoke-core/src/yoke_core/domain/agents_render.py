@@ -203,11 +203,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
 def write_all(
     *, target_root: Path, dry_run: bool = False
 ) -> dict[str, tuple[str, str]]:
-    """Render every substrate output. Returns ``{relpath: (action, rendered)}``.
-
-    ``target_root`` is required and keyword-only — there is no implicit cwd
-    fallback inside the writer hot path. Pass an explicit checkout root.
-    """
+    """Render substrate outputs into the explicit checkout root."""
     results: dict[str, tuple[str, str]] = {}
     root = Path(target_root)
     assert_renderer_seed(root)
@@ -242,6 +238,8 @@ def write_all(
         _atomic_write(out_path, rendered, target_root=root)
         results[rel] = ("write", rendered)
     for native_dir, out_dir in _NATIVE_AGENT_LINKS:
+        if not (root / out_dir).exists():
+            continue
         link_action, link_target = ensure_native_agents_link(
             root, out_dir, native_dir, dry_run=dry_run
         )
@@ -249,14 +247,20 @@ def write_all(
     return results
 
 
-# Harnesses that consume rendered adapters through a repo-root symlink.
+# Render-owned native paths; platform_links chooses symlink, junction or copy.
 _NATIVE_AGENT_LINKS: tuple[tuple[Path, Path], ...] = (
+    (Path(".claude/agents"), CLAUDE_OUT_DIR),
+    (Path(".claude/rules"), Path("runtime/harness/claude/rules")),
+    (Path(".claude/skills/yoke"), Path(".agents/skills/yoke")),
+    (Path(".codex/hooks.json"), CODEX_HOOKS_PATH),
     (CODEX_NATIVE_AGENTS_DIR, CODEX_OUT_DIR),
     (CURSOR_NATIVE_AGENTS_DIR, CURSOR_OUT_DIR),
 )
 
 
-def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
+def detect_substrate_drift(
+    *, target_root: Optional[Path] = None, include_native_views: bool = True,
+) -> list[str]:
     """Compare every rendered substrate output to on-disk content.
 
     Returns a list of human-readable drift descriptions. Empty list means
@@ -302,8 +306,9 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
             continue
         if out_path.read_text(encoding="utf-8") != rendered:
             drift.append(f"drift: {rel_path}")
-    for native_dir, out_dir in _NATIVE_AGENT_LINKS:
-        drift.extend(native_agents_link_drift(root, out_dir, native_dir))
+    for native_dir, out_dir in _NATIVE_AGENT_LINKS if include_native_views else ():
+        if (root / out_dir).exists():
+            drift.extend(native_agents_link_drift(root, out_dir, native_dir))
     return drift
 
 

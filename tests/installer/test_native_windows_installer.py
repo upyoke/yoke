@@ -12,6 +12,8 @@ import pytest
 
 from public_installer_helpers import load_installer
 
+pytestmark = pytest.mark.windows
+
 
 def test_native_python_floor_refuses_before_resolution(monkeypatch):
     module = load_installer()

@@ -8,6 +8,8 @@ import pytest
 
 from yoke_contracts import shell_path_state, windows_user_path
 
+pytestmark = pytest.mark.windows
+
 
 class RegistryKey:
     def __enter__(self):
