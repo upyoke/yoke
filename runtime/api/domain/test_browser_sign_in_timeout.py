@@ -52,7 +52,7 @@ def test_desktop_timeout_quits_browser_before_reporting_failure(monkeypatch, kin
     monkeypatch.setattr(desktop.time, "monotonic", lambda: next(times))
     monkeypatch.setattr(desktop.time, "sleep", lambda _: None)
     monkeypatch.setattr(desktop, "window_count", lambda _: 1)
-    monkeypatch.setattr(desktop.subprocess, "Popen", lambda *a, **kw: None)
+    monkeypatch.setattr(desktop.platform_process, "spawn_group", lambda *a, **kw: None)
     monkeypatch.setattr(
         desktop, "quit_browser", lambda selected: calls.append(selected)
     )

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import signal
 import sys
 import time
 from dataclasses import dataclass
@@ -12,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from yoke_contracts import platform_process
 from yoke_contracts.timestamps import parse_instant
 from urllib.request import Request, urlopen
 
@@ -88,15 +87,7 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
     selected = state or DaemonState.load()
     if selected is None or selected.pid <= 0:
         return False
-    if sys.platform == "win32":
-        from yoke_contracts.process_ancestry import process_start_time
-
-        return process_start_time(selected.pid) is not None
-    try:
-        os.kill(selected.pid, 0)
-    except (OSError, ProcessLookupError):
-        return False
-    return True
+    return platform_process.pid_alive(selected.pid)
 
 
 def daemon_request(
@@ -274,12 +265,9 @@ def daemon_stop(
         time.sleep(1)
     if not process_matches_start(state.pid, expected_process_start):
         return "stopped"
-    try:
-        os.kill(
-            state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL
-        )
-    except (OSError, ProcessLookupError):
-        pass
+    from yoke_contracts.browser_daemon_process import stop_recorded_group
+
+    stop_recorded_group(state_path.parent, state.pid)
     state_path.unlink(missing_ok=True)
     return "stopped"
 
