@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "contributing",
- "position": 1
+ "position": 1,
+ "summary": "Claimed source commands bind the checkout interpreter, including native Windows python.exe and yoke.exe invocations. Disposable evidence uses the native temporary directory on Windows and Linux; macOS uses the short /tmp path needed by PostgreSQL sockets. Contributor tooling changes do not establish a Windows product support claim."
 }
