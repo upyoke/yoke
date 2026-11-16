@@ -97,7 +97,7 @@ def test_unsafe_home_refuses(tmp_path, kind):
 
 
 def test_inventory_is_read_only(machine):
-    machine.chmod(0o750)
+    machine.chmod(0o700)
     before = machine.stat().st_mode
     inventory.inspect()
     assert machine.stat().st_mode == before
@@ -184,7 +184,7 @@ def test_home_permissions_come_from_the_owner_check(machine, monkeypatch):
     checked = []
     monkeypatch.setattr(
         inventory.owner_private_path,
-        "is_owner_controlled_directory",
+        "is_owner_private_directory",
         lambda path: checked.append(path) or False,
     )
     with pytest.raises(inventory.UninstallError, match="uninstall_home_permissions"):

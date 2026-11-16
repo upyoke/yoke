@@ -166,11 +166,11 @@ def _assert_safe_home(home: Path, checkouts: list[Path]) -> None:
             raise UninstallError(
                 f"uninstall_home_not_directory: {home}; repair the machine home before retrying."
             )
-        if not owner_private_path.is_owner_controlled_directory(home):
+        if not owner_private_path.is_owner_private_directory(home):
             raise UninstallError(
                 f"uninstall_home_permissions: {home} must be owned by you and "
-                "writable by no other user. Repair its ownership and permissions "
-                "before retrying."
+                "private to you (chmod 700 on macOS and Linux; the owner-only ACL "
+                "Yoke sets on Windows). Repair it before retrying."
             )
 
 
