@@ -85,7 +85,7 @@ def build_status(
     project = _project_status(selected_repo, selected_path)
     project["hooks_disabled_by"] = disabled_folder(selected_repo, payload)
     issues.extend(project.pop("issues"))
-    runtime = _runtime_status(connection)
+    runtime = _runtime_status(connection, home=selected_path.parent, repo=selected_repo)
     issues.extend(runtime.pop("issues"))
     db = _db_status(connection, check_reachability=check_reachability)
     issues.extend(db.pop("issues"))

@@ -24,7 +24,7 @@ from yoke_core.domain.machine_qa_fixture_runtime import (
 from yoke_core.domain.machine_qa_fixture_validation_admission import PREPARE
 
 HOST_MODULE = "yoke_core.domain.machine_qa_admission_host"
-RELEASE_PYTHON = ".local/share/uv/tools/yoke-cli-releases/current/tools/yoke-cli/bin/python3"
+RELEASE_PYTHON = ".local/share/uv/tools/yoke-cli-releases/python"
 _START_TIMEOUT_SECONDS = 420
 _STOP_TIMEOUT_SECONDS = 120
 

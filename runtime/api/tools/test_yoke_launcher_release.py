@@ -53,14 +53,12 @@ def released_launcher(tmp_path):
         "    return 7 if '--exit-seven' in argv else 0\n"
     )
     (generation / "lease").touch()
-    (root / "current").symlink_to(generation)
+    (root / "current").write_text("1.2.3\n")
     (root / "launcher").write_text(
-        f"#!{sys._base_executable}\n"
-        + Path(cli_release_runtime.__file__)
+        Path(cli_release_runtime.__file__)
         .read_text()
         .replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)
     )
-    (root / "launcher").chmod(0o755)
     bindir = tmp_path / "bin"
     bindir.mkdir()
     uv = bindir / "uv"

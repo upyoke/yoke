@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 import shlex
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
@@ -27,13 +28,27 @@ class HarnessCliManifest:
     login_args: tuple[str, ...] = ("login",)
     launch_environment: tuple[tuple[str, str], ...] = ()
     background_time_limit: str = ""
+    windows_install_command: str = ""
+    windows_bundled_candidates: tuple[str, ...] = ()
+    windows_bundled_patterns: tuple[str, ...] = ()
+
+    def install_for_platform(self, *, windows: bool | None = None) -> str:
+        native = os.name == "nt" if windows is None else windows
+        return self.windows_install_command if native else self.install_command
+
+    def bundles_for_platform(self, *, windows: bool | None = None):
+        native = os.name == "nt" if windows is None else windows
+        if native:
+            return self.windows_bundled_candidates, self.windows_bundled_patterns
+        return self.bundled_candidates, self.bundled_patterns
 
     def missing_cli_recovery(self) -> str:
-        bundles = (*self.bundled_candidates, *self.bundled_patterns)
+        candidates, patterns = self.bundles_for_platform()
+        bundles = (*candidates, *patterns)
         bundled = (
             f" Check the bundled CLI at {' or '.join(bundles)}." if bundles else ""
         )
-        return f"{bundled} Install with `{self.install_command}` if needed.".strip()
+        return f"{bundled} Install with `{self.install_for_platform()}` if needed.".strip()
 
     def sign_in_recovery(self, executable: str | None = None) -> str:
         return f"Run `{shlex.join((executable or self.executable, *self.login_args))}`."
@@ -49,6 +64,11 @@ class HarnessCliManifest:
             "bundled_candidates": list(self.bundled_candidates),
             "bundled_patterns": list(self.bundled_patterns),
             "install_command": self.install_command,
+            "windows": {
+                "install_command": self.windows_install_command,
+                "bundled_candidates": list(self.windows_bundled_candidates),
+                "bundled_patterns": list(self.windows_bundled_patterns),
+            },
             "authentication": {
                 "status_args": list(self.auth_args),
                 "signed_in_key": self.auth_signed_in_key,
@@ -80,6 +100,11 @@ HARNESS_CLI_MANIFESTS = (
             "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude",
         ),
         install_command="curl -fsSL https://claude.ai/install.sh | bash",
+        windows_install_command="winget install --id Anthropic.ClaudeCode -e",
+        windows_bundled_candidates=("~/.local/bin/claude.exe",),
+        windows_bundled_patterns=(
+            "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude.exe",
+        ),
         auth_args=("auth", "status", "--json"),
         auth_signed_in_key="loggedIn",
         login_args=("auth", "login"),
@@ -108,6 +133,11 @@ HARNESS_CLI_MANIFESTS = (
             "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
         ),
         install_command="npm install -g @openai/codex",
+        windows_install_command="npm.cmd install -g @openai/codex",
+        windows_bundled_candidates=("%APPDATA%/npm/codex.cmd",),
+        windows_bundled_patterns=(
+            "%APPDATA%/npm/node_modules/@openai/codex/node_modules/@openai/codex-win32-*/vendor/*/codex/codex.exe",
+        ),
         auth_args=("login", "status"),
         background_time_limit=(
             "Designed deferral: no equivalent unattended background time limit "
@@ -124,6 +154,14 @@ HARNESS_CLI_MANIFESTS = (
         "cursor_dashboard_usage",
         "2026.10.01",
         install_command="curl https://cursor.com/install -fsS | bash",
+        windows_install_command="irm 'https://cursor.com/install?win32=true' | iex",
+        windows_bundled_candidates=(
+            "%LOCALAPPDATA%/cursor-agent/cursor-agent.exe",
+            "%LOCALAPPDATA%/cursor-agent/cursor-agent.cmd",
+        ),
+        windows_bundled_patterns=(
+            "%LOCALAPPDATA%/cursor-agent/versions/{version}*/cursor-agent.exe",
+        ),
         auth_args=("status", "--format", "json"),
         auth_signed_in_key="isAuthenticated",
         background_time_limit=(

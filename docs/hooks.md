@@ -87,8 +87,8 @@ and prove it with a dry evaluation, so a first session meets a warm evaluator;
 otherwise the client starts it on demand. It binds its socket before importing
 the evaluator, so callers during a cold start queue and are answered once it
 loads. It retires after ten idle minutes; a request for a different installed
-revision closes acceptance and re-execs into the current immutable CLI generation
-under its publication lock, retaining the resident start lock. Source development
+revision closes acceptance and re-execs into the current immutable CLI release,
+retaining the start lock; it holds its release's lease, so updates never delete it. Source development
 keeps its interpreter. Shutdown drains evaluations for five seconds and observations
 for two seconds, warns on timeout, and continues. Pre-fix residents need one
 `yoke hook resident restart` from the operator after installing the corrected CLI.

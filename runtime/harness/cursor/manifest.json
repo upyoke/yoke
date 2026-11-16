@@ -13,6 +13,16 @@
     "bundled_candidates": [],
     "bundled_patterns": [],
     "install_command": "curl https://cursor.com/install -fsS | bash",
+    "windows": {
+      "install_command": "irm 'https://cursor.com/install?win32=true' | iex",
+      "bundled_candidates": [
+        "%LOCALAPPDATA%/cursor-agent/cursor-agent.exe",
+        "%LOCALAPPDATA%/cursor-agent/cursor-agent.cmd"
+      ],
+      "bundled_patterns": [
+        "%LOCALAPPDATA%/cursor-agent/versions/{version}*/cursor-agent.exe"
+      ]
+    },
     "authentication": {
       "status_args": [
         "status",
