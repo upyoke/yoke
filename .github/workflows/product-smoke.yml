@@ -53,6 +53,12 @@ jobs:
       - name: Verify native process identity, reactivation and stop custody
         run: |
           uv sync --all-packages --locked
+          export YOKE_MACHINE_HOME="$RUNNER_TEMP/native-custody-machine"
+          export YOKE_PG_CLUSTER_ROOT="/tmp/yoke-native-custody-${GITHUB_RUN_ID}"
+          mkdir -p product-smoke-evidence
+          env -u YOKE_PG_CLUSTER_ROOT uv run --frozen yoke local-postgres start --json > product-smoke-evidence/native-postgres-setup.json
+          env -u YOKE_PG_CLUSTER_ROOT uv run --frozen yoke local-postgres stop --json > product-smoke-evidence/native-postgres-stop.json
+          trap 'uv run --frozen python -m yoke_core.tools.pg_testcluster stop' EXIT
           uv run --frozen python -m pytest -q \
             runtime/api/domain/test_process_ancestry.py \
             runtime/api/domain/test_process_ancestry_platform.py \
