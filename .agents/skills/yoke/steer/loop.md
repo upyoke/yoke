@@ -25,7 +25,8 @@ yoke steering report get
   from the DB. Handle every finding per [fleet-findings.md](fleet-findings.md).
 - Hold work with `yoke items freeze PREFIX-N`; abandon with
   `yoke items cancel PREFIX-N --reason TEXT`.
-- An `activation` edge sends no go-signal; after its blocker clears, send
+- Activation `GO` is a steering instruction, manual by design, not a missing
+  automatic wake. An `activation` edge sends no go-signal; after its blocker clears, send
   `GO PREFIX-N` with `yoke say --item PREFIX-N --stdin`.
 - If the doc's last curation date is absent or 7+ days old, ask the operator
   to run `/yoke curate`.
