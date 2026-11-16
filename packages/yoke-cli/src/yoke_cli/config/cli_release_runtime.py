@@ -3,13 +3,14 @@
 One layout on every OS, no symlinks: ``current`` is a pointer file naming the
 active folder in ``releases``; ``launcher`` is a copy of this stdlib-only file
 run by uv's base Python; ``python``, ``yoke`` and Windows' ``yoke.cmd`` are
-shims that run it. Cleanup renames a release before deleting it: Windows refuses
-while a process holds a file in it open; on POSIX it also needs the lease lock.
+shims that run it. Cleanup renames a release before deleting it. Every user
+holds the release's ``lease`` file open, which makes Windows refuse that rename
+(a running python.exe alone does not); POSIX users also hold it locked shared.
 """
 
 from __future__ import annotations
 
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -106,14 +107,13 @@ def _generation(root: Path) -> Path:
 
 
 def _lease(generation: Path):
-    """Hold a release's lease shared on POSIX; Windows needs none (see above)."""
-    if WINDOWS:
-        return None
+    """Open a release's lease for as long as this process uses the release."""
     lease = (generation / "lease").open("r")
-    fcntl.flock(lease, fcntl.LOCK_SH)
-    if os.fstat(lease.fileno()).st_ino != (generation / "lease").stat().st_ino:
-        lease.close()
-        raise FileNotFoundError(f"release retired while starting: {generation}")
+    if not WINDOWS:  # Cleanup may have retired it while the lock waited.
+        fcntl.flock(lease, fcntl.LOCK_SH)
+        if os.fstat(lease.fileno()).st_ino != (generation / "lease").stat().st_ino:
+            lease.close()
+            raise FileNotFoundError(f"release retired while starting: {generation}")
     return lease
 
 
@@ -215,9 +215,8 @@ def hold_release(*, current: bool = False) -> Path | None:
     if current:
         generation = _generation(generation.parent.parent)
     lease = _lease(generation)
-    if lease is not None:
-        os.set_inheritable(lease.fileno(), True)
-        HELD.append(lease)
+    os.set_inheritable(lease.fileno(), True)
+    HELD.append(lease)
     return generation
 
 
@@ -290,7 +289,7 @@ def launch(root: Path, arguments: list[str]) -> int:
             python = str(release_python(generation))
             try:
                 lease = _lease(generation)
-                with _launcher_pipe(lease) as (token, options), lease or nullcontext():
+                with _launcher_pipe(lease) as (token, options), lease:
                     command = [python, *arguments[1:]]
                     if arguments[:1] != ["--python"]:
                         command = [python, *ENTRY, token, *arguments]
