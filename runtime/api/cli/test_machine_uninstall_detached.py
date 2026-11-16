@@ -24,6 +24,7 @@ def _finish(handoff_files, tmp_path):
     return detached.finish(*handoff_files, tmp_path / "tools", tmp_path / "bin")
 
 
+@pytest.mark.windows
 def test_finish_waits_for_the_parent_lock_before_removing(
     handoff_files, tmp_path, monkeypatch, capsys
 ):
@@ -54,6 +55,7 @@ def test_finish_waits_for_the_parent_lock_before_removing(
     assert "CLI: done" in output and "shell PATH: done" in output
 
 
+@pytest.mark.windows
 def test_unarmed_worker_never_removes_cli(handoff_files, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(
         cli_release_runtime,
@@ -64,6 +66,7 @@ def test_unarmed_worker_never_removes_cli(handoff_files, tmp_path, monkeypatch, 
     assert "CLI: skipped" in capsys.readouterr().out
 
 
+@pytest.mark.windows
 def test_cli_removal_failure_keeps_path_and_names_recovery(
     handoff_files, tmp_path, monkeypatch, capsys
 ):
@@ -83,6 +86,7 @@ def test_cli_removal_failure_keeps_path_and_names_recovery(
     assert "uninstall_cli_failed" in output and "retry yoke uninstall" in output
 
 
+@pytest.mark.windows
 def test_temp_directory_inside_home_refuses(tmp_path, monkeypatch):
     monkeypatch.setattr(detached.tempfile, "gettempdir", lambda: str(tmp_path / "t"))
     with pytest.raises(RuntimeError, match="uninstall_temp_inside_home"):
@@ -90,6 +94,7 @@ def test_temp_directory_inside_home_refuses(tmp_path, monkeypatch):
     assert detached.temp_root(tmp_path / "home") == tmp_path.resolve() / "t"
 
 
+@pytest.mark.windows
 def test_windows_detaches_without_a_posix_session(monkeypatch):
     monkeypatch.setattr(detached.os, "name", "nt")
     monkeypatch.setattr(detached.subprocess, "DETACHED_PROCESS", 0x8, raising=False)
@@ -99,6 +104,7 @@ def test_windows_detaches_without_a_posix_session(monkeypatch):
     assert detached._detached() == {"creationflags": 0x208}
 
 
+@pytest.mark.windows
 def test_finisher_runs_isolated_base_python_with_pure_package_roots(
     tmp_path, monkeypatch
 ):

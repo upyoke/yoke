@@ -164,6 +164,7 @@ def test_docker_inventory_uses_self_host_marker_and_compose_path(tmp_path, monke
         inventory._bundle_directories((str(tmp_path / "gone"),))
 
 
+@pytest.mark.windows
 def test_native_windows_reports_docker_bundles_as_wsl_hosted(machine, monkeypatch):
     monkeypatch.setattr(inventory, "_NATIVE_WINDOWS", True)
     monkeypatch.setattr(
@@ -180,6 +181,7 @@ def test_native_windows_reports_docker_bundles_as_wsl_hosted(machine, monkeypatc
     assert not result.owns_data
 
 
+@pytest.mark.windows
 def test_home_permissions_come_from_the_owner_check(machine, monkeypatch):
     checked = []
     monkeypatch.setattr(
@@ -192,6 +194,7 @@ def test_home_permissions_come_from_the_owner_check(machine, monkeypatch):
     assert checked == [machine]
 
 
+@pytest.mark.windows
 def test_temp_directory_inside_home_refuses_before_removal(machine, monkeypatch):
     monkeypatch.setattr(
         inventory.machine_uninstall_detached.tempfile,

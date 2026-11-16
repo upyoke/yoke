@@ -151,6 +151,7 @@ def test_docker_discovery_failure_keeps_recovery_state(machine):
     assert not handoff
 
 
+@pytest.mark.windows
 def test_windows_reports_wsl_hosted_server_and_still_completes(machine):
     value, calls, handoff = machine
     value = replace(value, bundles=(), wsl_bundles=("/home/ada/yoke-server",))
@@ -166,6 +167,7 @@ def test_windows_reports_wsl_hosted_server_and_still_completes(machine):
     assert handoff == ["armed"]
 
 
+@pytest.mark.windows
 def test_home_removal_uses_the_platform_tree_remover(machine, monkeypatch):
     value, _calls, handoff = machine
     removed = []
@@ -175,6 +177,7 @@ def test_home_removal_uses_the_platform_tree_remover(machine, monkeypatch):
     assert handoff == ["armed"]
 
 
+@pytest.mark.windows
 def test_locked_home_file_keeps_cli_for_recovery(machine, monkeypatch):
     value, _calls, handoff = machine
 
