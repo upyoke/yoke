@@ -24,6 +24,9 @@ from yoke_core.domain.cloud_machine_power import (
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 
+pytestmark = pytest.mark.windows
+
+
 def _json(value) -> CommandResult:
     return CommandResult(0, json.dumps(value), "")
 

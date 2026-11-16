@@ -5,6 +5,9 @@ import pytest
 from yoke_contracts import platform_process_windows as windows
 
 
+pytestmark = pytest.mark.windows
+
+
 class Function:
     def __init__(self, callback):
         self.callback = callback

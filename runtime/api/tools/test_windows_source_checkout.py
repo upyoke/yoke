@@ -14,6 +14,9 @@ from yoke_core.tools import pg_testcluster, pg_testcluster_reclaim as reclaim
 from yoke_cli.config import db_admin_box_hop as hop, db_admin_box_mac_host as mac_leg
 
 
+pytestmark = pytest.mark.windows
+
+
 def test_windows_executable_commands_keep_source_binding(monkeypatch):
     monkeypatch.setattr(source_pythonpath, "os", SimpleNamespace(name="nt"))
     assert source_pythonpath.bound_child_command(["python.exe", "-V"], python="bound") == ["bound", "-V"]

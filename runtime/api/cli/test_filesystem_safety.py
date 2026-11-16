@@ -71,6 +71,7 @@ def test_atomic_replace_preserves_private_mode_from_symlink_target(
     assert linked_target.read_bytes() == b"shared\n"
 
 
+@pytest.mark.windows
 def test_atomic_replace_on_windows_does_not_require_fchmod(tmp_path, monkeypatch):
     host_os = filesystem_safety.os
     native_os = SimpleNamespace(name="nt", **{

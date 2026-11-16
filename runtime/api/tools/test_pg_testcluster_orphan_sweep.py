@@ -15,6 +15,11 @@ from yoke_core.domain import pg_test_db_namespace
 from yoke_core.domain.db_backend import POSTGRES_TEST_DB_PREFIX
 from yoke_core.tools import pg_testcluster, pg_testcluster_orphans
 
+import pytest
+
+
+pytestmark = pytest.mark.windows
+
 
 def _completed(stdout: str = '', returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout=stdout, stderr='')

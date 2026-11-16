@@ -13,6 +13,9 @@ from runtime.api.tools import product_runner_stages as stages
 from runtime.api.tools.product_runner_commands import Commands, SmokeFailure
 
 
+pytestmark = pytest.mark.windows
+
+
 def _run(tmp_path: Path, monkeypatch, stdout: str, returncode: int = 1):
     monkeypatch.setattr(
         "runtime.api.tools.product_runner_commands.subprocess.run",

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from argparse import Namespace
 
+import pytest
+
 from yoke_cli.config import onboard_native_preflight as preflight
+
+
+pytestmark = pytest.mark.windows
 
 
 def test_setup_refuses_before_selecting_shell(monkeypatch, capsys):
