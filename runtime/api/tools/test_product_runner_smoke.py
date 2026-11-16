@@ -180,6 +180,12 @@ def test_native_corpus_has_all_events_without_account_data(harness):
         fixture[key]
         for key in ("session_start", "pre_tool_use_allowed", "pre_tool_use_denied")
     )
+    if harness == "codex":
+        # Neither event may fake a transcript path; registration finds the thread by id.
+        assert fixture["session_start"]["source"] == "startup"
+        assert fixture["session_start"]["transcript_path"] is None
+        assert fixture["user_prompt_submit"]["transcript_path"] is None
+        assert fixture["user_prompt_submit"]["hook_event_name"] == "UserPromptSubmit"
     assert not re.search(
         r"[\w.+-]+@[\w.-]+|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9-]{23}|/Users/|/home/|/var/folders/",
         text,
