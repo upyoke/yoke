@@ -74,7 +74,7 @@ def _undelivered_dict(entry: UndeliveredMessages) -> dict[str, Any]:
         "public_ref": entry.public_ref,
         "item_project": entry.item_project,
         "delivery_state": entry.delivery_state,
-        "wake_queue_positions": list(entry.wake_queue_positions),
+        "wake_queue_positions": dict(entry.wake_queue_positions),
         "needs_seat_action": entry.needs_seat_action,
         "envelope_count": entry.envelope_count,
         "oldest_seconds": entry.oldest_seconds,

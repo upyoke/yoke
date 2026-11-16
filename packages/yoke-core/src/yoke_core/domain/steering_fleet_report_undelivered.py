@@ -92,7 +92,7 @@ class UndeliveredMessages:
     held_native_silent_for_seconds: int | None = None
     held_native_observed_at: datetime | None = None
     #: Positions in the actively draining machine queue, in claim order.
-    wake_queue_positions: tuple[int, ...] = ()
+    wake_queue_positions: tuple[tuple[str, int], ...] = ()
     #: True when an explicit wake was requested for this recipient, the
     #: delivery plane has still made no attempt on it, and every such receipt
     #: has waited out the wake grace. The row then names a queued wake and

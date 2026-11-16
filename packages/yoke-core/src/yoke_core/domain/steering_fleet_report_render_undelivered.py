@@ -90,7 +90,10 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
             f"{format_instant(entry.wake_releasable_at)}"
         )
     if entry.delivery_state == WAKE_DRAINING:
-        positions = ", ".join(str(value) for value in entry.wake_queue_positions)
+        positions = ", ".join(
+            f"{message_id}: {position}"
+            for message_id, position in entry.wake_queue_positions
+        )
         label = "positions" if len(entry.wake_queue_positions) > 1 else "position"
         return f"queued in machine wake queue, {label} {positions} — waiting"
     if entry.delivery_state == TURN_IN_FLIGHT:

@@ -83,15 +83,15 @@ def test_queue_reports_positions_in_claim_order_without_a_false_alarm(fleet):
     rows = _rows(fleet)
     assert {row.delivery_state for row in rows} == {WAKE_DRAINING}
     by_session = {row.session_id: row for row in rows}
-    assert by_session[ANSWERER].wake_queue_positions == (1, 3)
-    assert by_session[ASKER].wake_queue_positions == (2,)
+    assert by_session[ANSWERER].wake_queue_positions == (("msg-a", 1), ("msg-c", 3))
+    assert by_session[ASKER].wake_queue_positions == (("msg-b", 2),)
     for row in rows:
         assert row.in_delivery and not row.needs_seat_action
         line = undelivered_line(row)
         assert "queued in machine wake queue" in line
         assert "no delivery attempted" not in line
         assert "session wake" not in line
-    assert "positions 1, 3" in undelivered_line(by_session[ANSWERER])
+    assert "positions msg-a: 1, msg-c: 3" in undelivered_line(by_session[ANSWERER])
     assert _positions(fleet) == {
         ("msg-a", ANSWERER): 1,
         ("msg-b", ASKER): 2,
@@ -187,7 +187,7 @@ def test_queue_positions_do_not_enter_report_identity(fleet):
     moved = replace(
         report,
         undelivered=tuple(
-            replace(row, wake_queue_positions=(99,))
+            replace(row, wake_queue_positions=(("msg-a", 99),))
             for row in report.undelivered
         ),
     )

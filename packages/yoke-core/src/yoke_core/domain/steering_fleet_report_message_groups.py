@@ -41,7 +41,7 @@ class MessageGroup:
     recipient_gone_at: datetime | None = None
     held_native_silent_for_seconds: int | None = None
     held_native_observed_at: datetime | None = None
-    wake_queue_positions: list[int] = field(default_factory=list)
+    wake_queue_positions: list[tuple[str, int]] = field(default_factory=list)
     queued_wake: bool = False
     wake_releasable_at: datetime | None = None
     failed_attempt_count: int = 0
@@ -65,7 +65,9 @@ class MessageGroup:
             self.public_ref = f"{record['item_prefix']}-{record['project_sequence']}"
             self.item_project = str(record["item_project"])
         if state == WAKE_DRAINING:
-            self.wake_queue_positions.append(int(record["wake_queue_position"]))
+            self.wake_queue_positions.append(
+                (str(record["message_id"]), int(record["wake_queue_position"]))
+            )
         self.envelope_count += 1
         self.oldest_seconds = max(self.oldest_seconds, waited)
         if len(self.message_ids) < MESSAGE_REFERENCE_LIMIT:
