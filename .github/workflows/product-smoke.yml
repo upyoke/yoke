@@ -52,7 +52,9 @@ jobs:
           env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
       - name: Prepare a missing browser library on the disposable Linux runner
         if: runner.os == 'Linux'
-        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64
+        # Remove Firefox too: otherwise apt swaps the image's Firefox for the
+        # snap transitional package, whose install fails on the runner.
+        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64 firefox
       - name: Install, onboard, replay hooks, and check source development
         if: runner.os != 'Linux'
         env:
