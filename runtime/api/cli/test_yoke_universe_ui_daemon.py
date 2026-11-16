@@ -282,7 +282,7 @@ class TestLaunchdSupervision:
         assert document["RunAtLoad"] is True
         assert document["KeepAlive"] is True
         assert document["ProgramArguments"] == [
-            "/usr/local/bin/yoke", "--env", "local",
+            str(Path("/usr/local/bin/yoke")), "--env", "local",
             "ui", "serve-process", "--host", "127.0.0.1", "--port", "8688",
         ]
 
