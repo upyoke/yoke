@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 
 from yoke_core.domain.path_claim_bash_guard import evaluate_payload
@@ -62,7 +65,7 @@ def test_suppression_token_is_audited() -> None:
 
 def test_set_location_after_a_command_moves_later_targets() -> None:
     assert _targets("git status; Set-Location sub; Remove-Item a.txt") == [
-        ("remove-item", "/repo/sub/a.txt")
+        ("remove-item", os.path.join(str(Path("/repo/sub").resolve()), "a.txt"))
     ]
 
 

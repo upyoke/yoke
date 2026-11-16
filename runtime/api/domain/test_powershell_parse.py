@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from yoke_contracts.hook_runner.powershell_parse import parse_powershell
 from yoke_contracts.hook_runner.shell_parse import cd_destination, parse_for_shell
 
@@ -96,7 +98,8 @@ def test_unbalanced_quote_is_unparsed_not_a_crash() -> None:
 def test_set_location_moves_later_segments() -> None:
     parsed = parse_powershell("Set-Location -Path /lane; sl sub; git status")
     assert cd_destination(parsed.segments[0].argv) == "/lane"
-    assert parsed.segment_cwds("/main")[1:] == ["/lane", "/lane/sub"]
+    lane = Path("/lane").resolve()
+    assert parsed.segment_cwds("/main")[1:] == [str(lane), str(lane / "sub")]
 
 
 def test_parse_for_shell_dispatches_and_bash_keeps_its_parser() -> None:

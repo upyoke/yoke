@@ -164,16 +164,18 @@ def test_session_cwd_and_lane_write_read_the_same_targets(bash, powershell) -> N
     assert not is_write_operation("Bash", _payload("Get-Content src/a.py", "powershell"))
 
 
-def test_workspace_cwd_match_refuses_a_writer_outside_the_lane_in_both_shells() -> None:
+def test_workspace_cwd_match_refuses_a_writer_outside_the_lane_in_both_shells(tmp_path) -> None:
     from yoke_core.domain import lint_workspace_cwd_match as rule
 
-    with mock.patch.object(rule, "resolve_session_worktree_paths", return_value=["/lane"]):
+    lane, main = (tmp_path / "lane").resolve(), (tmp_path / "main").resolve()
+    with mock.patch.object(rule, "resolve_session_worktree_paths", return_value=[str(lane)]):
         for command, shell in (
-            ("cd /main && pytest tests/test_x.py", "bash"),
-            ("Set-Location /main; pytest tests/test_x.py", "powershell"),
+            (f"cd {main.as_posix()} && pytest tests/test_x.py", "bash"),
+            (f"Set-Location '{main}'; pytest tests/test_x.py", "powershell"),
         ):
-            assert rule.evaluate_payload(_payload(command, shell, cwd="/lane")), shell
-        assert rule.evaluate_payload(_payload("pytest tests/test_x.py", "powershell", cwd="/lane")) is None
+            assert rule.evaluate_payload(_payload(command, shell, cwd=str(lane))), shell
+        writer = _payload("pytest tests/test_x.py", "powershell", cwd=str(lane))
+        assert rule.evaluate_payload(writer) is None
 
 
 def test_path_claim_guard_reads_both_shells() -> None:
