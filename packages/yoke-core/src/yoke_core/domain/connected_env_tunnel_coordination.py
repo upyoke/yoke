@@ -191,19 +191,24 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
     payload = {"pid": os.getpid(), "reason": redact(reason), "started_at": time.time()}
     with lifecycle_lock(local_port):
         create_private_directory(directory)
-        descriptor = os.open(path.with_suffix(".lock"), os.O_RDWR | os.O_CREAT, 0o600)
+        descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
         try:
             platform_file_lock.acquire_exclusive(descriptor)
-            path.write_text(json.dumps(payload), encoding="utf-8")
+            if os.name == "nt":
+                _lease_metadata(path).write_text(json.dumps(payload), encoding="utf-8")
+            else:
+                os.ftruncate(descriptor, 0)
+                os.write(descriptor, json.dumps(payload).encode("utf-8"))
         except BaseException:
             os.close(descriptor)
             raise
     try:
-        yield path
+        yield _lease_metadata(path)
     finally:
         os.close(descriptor)
         path.unlink(missing_ok=True)
-        path.with_suffix(".lock").unlink(missing_ok=True)
+        if os.name == "nt":
+            _lease_metadata(path).unlink(missing_ok=True)
 
 
 @contextmanager
@@ -242,23 +247,26 @@ def active_leases(
     leases: List[UseLease] = []
     for entry in entries:
         try:
-            descriptor = os.open(
-                entry.with_suffix(".lock"), os.O_RDWR | os.O_CREAT, 0o600
-            )
+            descriptor = os.open(entry, os.O_RDWR)
         except FileNotFoundError:
             continue
         try:
             try:
                 platform_file_lock.acquire_exclusive_nonblocking(descriptor)
             except BlockingIOError:
-                lease = _read_lease(entry)
+                lease = _read_lease(entry) or UseLease(
+                    0,
+                    "holder metadata unavailable; wait for the operation to finish",
+                    time.time(),
+                )
             else:
                 lease = None
         finally:
             os.close(descriptor)
         if lease is None:
             entry.unlink(missing_ok=True)
-            entry.with_suffix(".lock").unlink(missing_ok=True)
+            if os.name == "nt":
+                _lease_metadata(entry).unlink(missing_ok=True)
             continue
         if exclude_pid is not None and lease.pid == exclude_pid:
             continue
@@ -266,9 +274,15 @@ def active_leases(
     return leases
 
 
+def _lease_metadata(path: Path) -> Path:
+    # Windows byte-range locks forbid reads through a second handle. Keep the
+    # same lock authority as POSIX; diagnostics live beside it on Windows.
+    return path.with_suffix(".holder") if os.name == "nt" else path
+
+
 def _read_lease(path: Path) -> Optional[UseLease]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(_lease_metadata(path).read_text(encoding="utf-8"))
         return UseLease(
             pid=int(payload["pid"]),
             reason=str(payload.get("reason", "") or "unnamed operation"),

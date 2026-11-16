@@ -174,3 +174,12 @@ def test_selected_detection_restores_ambient_environment_on_failure(monkeypatch)
         ):
             pytest.fail("detection failed")
     assert os.environ["YOKE_ENV"] == "unrelated"
+
+
+def test_held_lease_with_unreadable_metadata_still_protects_tunnel():
+    with coordination.use_lease(PORT, "active transfer") as metadata:
+        metadata.write_text("broken metadata", encoding="utf-8")
+        leases = coordination.active_leases(PORT)
+        assert len(leases) == 1
+        assert "holder metadata unavailable" in leases[0].reason
+    assert coordination.active_leases(PORT) == []
