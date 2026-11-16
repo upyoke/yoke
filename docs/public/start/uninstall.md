@@ -34,11 +34,15 @@ trust, and the folder-trust settings it wrote into
 Claude Code, Codex and Cursor. It restores approval modes replaced during setup
 and removes approval keys setup added. It stops the hook evaluator, local UI and embedded Postgres,
 tears down local self-host stacks and their universe volumes, and deletes the
-machine home (`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
+machine home (`~/.yoke` or `YOKE_MACHINE_HOME`). The system temporary directory
+must be outside that home; uninstall refuses before removing anything when it
+is not. A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
 worker removes the immutable CLI releases and launcher after commands release
-their environments. Its result log is printed by the command.
+their environments, then Yoke's PATH blocks, so a failed run keeps `yoke`
+reachable for the retry. Its result log, in the system temporary directory, is
+printed by the command.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
 Independent cleanup continues after a failure; the machine home and CLI stay
@@ -55,8 +59,8 @@ yoke uninstall --no-backup --projects ~/work/app --yes
 
 `--projects` accepts all, none, or comma-separated registered checkout paths.
 `--yes` never selects data loss or a project choice for you.
-Yoke removes its marked PATH blocks from all supported startup files, including
-`.zshenv` and `.bashrc`, and preserves unrelated shell text. It leaves
+The detached worker removes Yoke's marked PATH blocks from all supported startup
+files, including `.zshenv` and `.bashrc`, and preserves unrelated shell text. It leaves
 uv, user-owned PATH entries, and the GitHub App installed; remove
 the App in GitHub settings if desired. Push the removal commits made in the
 chosen checkouts. Project-owned edits and strategy documents are preserved by

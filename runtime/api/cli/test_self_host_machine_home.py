@@ -44,7 +44,7 @@ def test_default_bundle_ignores_project_directory(tmp_path, monkeypatch, overrid
         ),
     )
     directories, error = inventory._self_host_directories()
-    assert directories == (expected.resolve(),)
+    assert inventory._bundle_directories(directories) == (expected.resolve(),)
     assert not error
 
     calls = []
