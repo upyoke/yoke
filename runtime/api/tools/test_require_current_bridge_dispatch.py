@@ -33,8 +33,12 @@ def _steps() -> List[Dict[str, Any]]:
 def _run(monkeypatch, tmp_path, stdout: str, code: int = 0):
     output = tmp_path / "github_output"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
-    monkeypatch.setattr(gate, "_read", lambda _id: (code, stdout, ""))
-    rc = gate.main(["--dispatch-id", "stuck"])
+    seen = []
+    monkeypatch.setattr(
+        gate, "_read", lambda project, _id: seen.append(project) or (code, stdout, "")
+    )
+    rc = gate.main(["--project", "yoke", "--dispatch-id", "stuck"])
+    assert seen == ["yoke"]
     return rc, output.read_text() if output.exists() else ""
 
 
@@ -109,6 +113,7 @@ def test_the_gate_runs_right_before_the_tag_on_this_bridges_dispatch_id() -> Non
     assert gate_step["id"] == "dispatch_currency"
     assert gate_step["env"]["YOKE_DISPATCH_ID"] == "${{ inputs.yoke_dispatch_id }}"
     assert "if" not in gate_step
+    assert "--project yoke" in gate_step["run"]
 
 
 def test_a_superseded_bridge_skips_every_later_step_but_cleanup() -> None:

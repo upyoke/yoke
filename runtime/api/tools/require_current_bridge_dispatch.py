@@ -24,13 +24,12 @@ import subprocess
 import sys
 from typing import List, Optional, Sequence, Tuple
 
-PROJECT = "yoke"
 UNAVAILABLE = 2
 _TIMEOUT_SECONDS = 120
 _UNSERVED_CODES = frozenset({"function_version_skew", "function_not_registered"})
 
 
-def _read(correlation_id: str) -> Tuple[int, str, str]:
+def _read(project: str, correlation_id: str) -> Tuple[int, str, str]:
     try:
         completed = subprocess.run(
             [
@@ -40,7 +39,7 @@ def _read(correlation_id: str) -> Tuple[int, str, str]:
                 "current",
                 correlation_id,
                 "--project",
-                PROJECT,
+                project,
                 "--json",
             ],
             capture_output=True,
@@ -109,9 +108,10 @@ def _write_output(current: bool) -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--project", required=True, help="Project that dispatched this run.")
     parser.add_argument("--dispatch-id", required=True)
     args = parser.parse_args(list(argv) if argv is not None else None)
-    code, current, line = decide(args.dispatch_id, *_read(args.dispatch_id))
+    code, current, line = decide(args.dispatch_id, *_read(args.project, args.dispatch_id))
     print(line, file=sys.stderr if code else sys.stdout)
     if code == 0:
         _write_output(current)

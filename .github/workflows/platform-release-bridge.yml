@@ -147,7 +147,7 @@ jobs:
           YOKE_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
         run: |
           python3 -m runtime.api.tools.require_current_bridge_dispatch \
-            --dispatch-id "$YOKE_DISPATCH_ID"
+            --project yoke --dispatch-id "$YOKE_DISPATCH_ID"
 
       - name: Create or recover the immutable annotated release tag
         id: release
