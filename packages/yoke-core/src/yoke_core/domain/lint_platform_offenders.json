@@ -85,7 +85,6 @@
   "packages/yoke-core/src/yoke_core/domain/path_claim_bash_parser.py": {"tmp|51fb04965cc3e01d": 1},
   "packages/yoke-core/src/yoke_core/domain/postgres_dump_restore_point.py": {"encoding|153f2d56fbc345fa": 1},
   "packages/yoke-core/src/yoke_core/domain/process_group_reaping.py": {"process|cb3ffef22d76cfc0": 1, "process|fd66ffae40a866b6": 1},
-  "packages/yoke-core/src/yoke_core/domain/project_install_source_link.py": {"symlink|45b72036f8f49618": 1},
   "packages/yoke-core/src/yoke_core/domain/qa_case_ci_runtime.py": {"encoding|4753a089f4ddabe8": 1, "encoding|b0d09c9cb9aca18b": 1},
   "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_checkin.py": {"encoding|520824c407217a6a": 1, "encoding|6ff1f944c26a025e": 1, "encoding|a5406f6d0e035fe7": 1},
   "packages/yoke-core/src/yoke_core/domain/qa_requirement_batch.py": {"encoding|d8784d965f93b338": 1},
