@@ -6,17 +6,21 @@ from dataclasses import dataclass
 import ipaddress
 import os
 import shutil
-import stat
 import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from yoke_cli.config import install_binding, local_universe_setup, machine_config
 from yoke_cli.config.local_universe_connection import stored_dsn
-from yoke_cli.config.machine_uninstall_detached import DETACHED_TEMP_ROOT
+from yoke_cli.config import machine_uninstall_detached
 from yoke_cli.project_install.files import MANIFEST_REL
 from yoke_cli.self_host import bundle, teardown
+from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema
+
+
+# Native Windows hosts no self-host server: one Docker shows here runs in WSL2.
+_NATIVE_WINDOWS = os.name == "nt"
 
 
 class UninstallError(RuntimeError):
@@ -33,6 +37,8 @@ class Inventory:
     local_env: str | None
     bundles: tuple[tuple[Path, str | None], ...]
     discovery_error: str = ""
+    # Seen from native Windows, a self-host server runs in WSL2 and is torn down there.
+    wsl_bundles: tuple[str, ...] = ()
 
     @property
     def owns_data(self) -> bool:
@@ -97,6 +103,11 @@ def inspect() -> Inventory:
         # reaches its own server on loopback; without one, a stopped or broken
         # Docker cannot be hiding a Yoke install.
         error = ""
+    wsl_bundles: tuple[str, ...] = ()
+    if _NATIVE_WINDOWS:
+        wsl_bundles, directories = directories, ()
+    else:
+        directories = _bundle_directories(directories)
     bundles = []
     for directory in directories:
         url = teardown.bundle_connect_url(directory)
@@ -111,7 +122,15 @@ def inspect() -> Inventory:
         )
         bundles.append((directory, env))
     return Inventory(
-        home, config, projects, relay_envs, local, local_env, tuple(bundles), error
+        home,
+        config,
+        projects,
+        relay_envs,
+        local,
+        local_env,
+        tuple(bundles),
+        error,
+        wsl_bundles,
     )
 
 
@@ -127,12 +146,7 @@ def _is_loopback_url(value: object) -> bool:
 
 def _assert_safe_home(home: Path, checkouts: list[Path]) -> None:
     resolved = home.resolve()
-    forbidden = (
-        Path("/"),
-        Path.home().resolve(),
-        DETACHED_TEMP_ROOT.resolve(),
-        *checkouts,
-    )
+    forbidden = (Path(resolved.anchor), Path.home().resolve(), *checkouts)
     if any(resolved == p or resolved in p.parents for p in forbidden):
         raise UninstallError(
             f"uninstall_unsafe_home: {home} contains a home or registered checkout. "
@@ -143,20 +157,38 @@ def _assert_safe_home(home: Path, checkouts: list[Path]) -> None:
             f"uninstall_home_symlink: {home} is a symlink. Set YOKE_MACHINE_HOME "
             "to the dedicated real directory before retrying."
         )
+    try:
+        machine_uninstall_detached.temp_root(home)
+    except RuntimeError as exc:
+        raise UninstallError(str(exc)) from None
     if home.exists():
-        info = home.stat()
-        if not stat.S_ISDIR(info.st_mode):
+        if not home.is_dir():
             raise UninstallError(
                 f"uninstall_home_not_directory: {home}; repair the machine home before retrying."
             )
-        if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o022:
+        if not owner_private_path.is_owner_controlled_directory(home):
             raise UninstallError(
-                f"uninstall_home_permissions: {home} must be owned by you and not "
-                "group/world writable. Repair its ownership and permissions before retrying."
+                f"uninstall_home_permissions: {home} must be owned by you and "
+                "writable by no other user. Repair its ownership and permissions "
+                "before retrying."
             )
 
 
-def _self_host_directories() -> tuple[tuple[Path, ...], str]:
+def _bundle_directories(listed: tuple[str, ...]) -> tuple[Path, ...]:
+    directories = tuple(
+        dict.fromkeys(Path(line).expanduser().resolve() for line in listed)
+    )
+    for directory in directories:
+        if not (directory / bundle.COMPOSE_FILE_NAME).is_file():
+            raise UninstallError(
+                f"uninstall_bundle_missing: Docker owns a Yoke server at {directory}, "
+                "but its Compose file is missing. Restore the bundle before uninstalling."
+            )
+    return directories
+
+
+def _self_host_directories() -> tuple[tuple[str, ...], str]:
+    """Bundle paths as Docker reports them, plus a discovery failure."""
     docker = shutil.which("docker")
     if not docker:
         return (), ""
@@ -202,20 +234,8 @@ def _self_host_directories() -> tuple[tuple[Path, ...], str]:
                 (),
                 "uninstall_docker_inventory_failed: repair Docker inspection and retry.",
             )
-        directories = tuple(
-            dict.fromkeys(
-                Path(line).expanduser().resolve()
-                for line in inspected.stdout.splitlines()
-                if line.strip()
-            )
-        )
-        for directory in directories:
-            if not (directory / bundle.COMPOSE_FILE_NAME).is_file():
-                raise UninstallError(
-                    f"uninstall_bundle_missing: Docker owns a Yoke server at {directory}, "
-                    "but its Compose file is missing. Restore the bundle before uninstalling."
-                )
-        return directories, ""
+        listed = (line.strip() for line in inspected.stdout.splitlines())
+        return tuple(dict.fromkeys(line for line in listed if line)), ""
     except (OSError, subprocess.TimeoutExpired) as exc:
         return (
             (),

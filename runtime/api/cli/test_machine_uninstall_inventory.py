@@ -155,10 +155,51 @@ def test_docker_inventory_uses_self_host_marker_and_compose_path(tmp_path, monke
 
     monkeypatch.setattr(inventory.subprocess, "run", run)
     directories, error = inventory._self_host_directories()
-    assert directories == (directory,)
+    assert directories == (str(directory),)
     assert not error
     assert "YOKE_SERVER_MODE=self-host" in calls[1][3]
     assert "com.docker.compose.project.working_dir" in calls[1][3]
+    assert inventory._bundle_directories(directories) == (directory,)
+    with pytest.raises(inventory.UninstallError, match="uninstall_bundle_missing"):
+        inventory._bundle_directories((str(tmp_path / "gone"),))
+
+
+def test_native_windows_reports_docker_bundles_as_wsl_hosted(machine, monkeypatch):
+    monkeypatch.setattr(inventory, "_NATIVE_WINDOWS", True)
+    monkeypatch.setattr(
+        inventory, "_self_host_directories", lambda: (("/home/ada/server",), "")
+    )
+    monkeypatch.setattr(
+        inventory.teardown,
+        "bundle_connect_url",
+        lambda directory: pytest.fail("a WSL bundle path is not readable here"),
+    )
+    result = inventory.inspect()
+    assert result.wsl_bundles == ("/home/ada/server",)
+    assert result.bundles == ()
+    assert not result.owns_data
+
+
+def test_home_permissions_come_from_the_owner_check(machine, monkeypatch):
+    checked = []
+    monkeypatch.setattr(
+        inventory.owner_private_path,
+        "is_owner_controlled_directory",
+        lambda path: checked.append(path) or False,
+    )
+    with pytest.raises(inventory.UninstallError, match="uninstall_home_permissions"):
+        inventory._assert_safe_home(machine, [])
+    assert checked == [machine]
+
+
+def test_temp_directory_inside_home_refuses_before_removal(machine, monkeypatch):
+    monkeypatch.setattr(
+        inventory.machine_uninstall_detached.tempfile,
+        "gettempdir",
+        lambda: str(machine / "tmp"),
+    )
+    with pytest.raises(inventory.UninstallError, match="uninstall_temp_inside_home"):
+        inventory._assert_safe_home(machine, [])
 
 
 def test_docker_failure_is_named_without_dumping_secret_streams(monkeypatch):
