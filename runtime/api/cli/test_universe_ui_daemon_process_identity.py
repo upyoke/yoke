@@ -44,3 +44,37 @@ def test_hyper_v_reserved_port_names_cause(monkeypatch):
     monkeypatch.setattr(state.socket, "socket", ReservedSocket)
     with pytest.raises(state.UiDaemonError, match="reserved by Windows/Hyper-V"):
         state.require_available_port("127.0.0.1", 8688)
+
+
+def test_process_access_refusal_is_a_named_dashboard_error(monkeypatch):
+    def denied(*args, **kwargs):
+        raise PermissionError("process access denied")
+    monkeypatch.setattr(state.platform_process, "pid_alive", denied)
+    with pytest.raises(state.UiDaemonError, match="ui_process_inspection_failed.*owner"):
+        state.process_alive(42, 1.0)
+
+
+def test_private_write_refusal_names_recovery(monkeypatch, tmp_path):
+    def denied(*args):
+        raise PermissionError("file locked")
+    monkeypatch.setattr(state, "write_owner_private", denied)
+    with pytest.raises(state.UiDaemonError, match="ui_private_write_failed.*handles"):
+        state._write_private(tmp_path / "session-token", "not-a-live-token")
+
+
+def test_state_directory_refusal_is_not_reported_as_stopped(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    def denied(*args):
+        raise PermissionError("directory access denied")
+    monkeypatch.setattr(state, "create_private_directory", denied)
+    with pytest.raises(state.UiDaemonError, match="ui_state_unavailable.*owner access"):
+        daemon.status()
+
+
+def test_startup_cleanup_refusal_never_claims_nothing_is_running(monkeypatch):
+    from types import SimpleNamespace
+    def denied(*args):
+        raise PermissionError("cannot stop child")
+    monkeypatch.setattr(daemon.platform_process, "stop_group", denied)
+    with pytest.raises(state.UiDaemonError, match="ui_start_cleanup_failed.*42"):
+        daemon._tear_down(supervised=False, child=SimpleNamespace(pid=42))

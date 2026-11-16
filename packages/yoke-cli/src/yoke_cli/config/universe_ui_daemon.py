@@ -270,7 +270,13 @@ def _tear_down(*, supervised: bool, child=None) -> None:
     if supervised:
         launchd.remove_agent()
     if child is not None:
-        platform_process.stop_group(child, STOP_TIMEOUT_S)
+        try:
+            platform_process.stop_group(child, STOP_TIMEOUT_S)
+        except (OSError, TimeoutError) as exc:
+            raise UiDaemonError(
+                f"ui_start_cleanup_failed: could not stop starting PID {child.pid} "
+                f"({exc}); inspect and stop it as its owner, then retry `yoke ui up`."
+            ) from exc
     record = read_record()
     if record is not None and process_alive(record.pid, record.process_start_time):
         _terminate(record)

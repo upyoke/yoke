@@ -74,9 +74,15 @@ class UiDaemonRecord:
 
 def state_dir() -> Path:
     directory = machine_config.yoke_home() / UI_STATE_DIR_NAME
-    create_private_directory(directory.parent)
-    return (create_owner_private_directory(directory) if os.name == "nt"
-            else create_private_directory(directory))
+    try:
+        create_private_directory(directory.parent)
+        return (create_owner_private_directory(directory) if os.name == "nt"
+                else create_private_directory(directory))
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_state_unavailable: cannot prepare private dashboard state at "
+            f"{directory} ({exc}); repair owner access, then retry `yoke ui up`."
+        ) from exc
 
 
 def token_path() -> Path:
@@ -117,8 +123,13 @@ def stable_session_token() -> str:
 def read_record() -> Optional[UiDaemonRecord]:
     try:
         document = json.loads(record_path().read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError, OSError):
+    except (FileNotFoundError, ValueError):
         return None
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_record_unreadable: cannot read {record_path()} ({exc}); "
+            "repair owner access, then retry `yoke ui status`."
+        ) from exc
     if not isinstance(document, dict):
         return None
     try:
@@ -180,7 +191,13 @@ def clear_record() -> None:
 
 
 def process_alive(pid: int, start_time: float | None = None) -> bool:
-    return platform_process.pid_alive(pid, start_time=start_time)
+    try:
+        return platform_process.pid_alive(pid, start_time=start_time)
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_process_inspection_failed: cannot inspect PID {pid} ({exc}); "
+            "run as its owner, then retry `yoke ui status`."
+        ) from exc
 
 
 def require_available_port(host: str, port: int) -> None:
@@ -220,7 +237,13 @@ def log_tail() -> str:
 
 
 def _write_private(path: Path, content: str) -> None:
-    write_owner_private(path, content)
+    try:
+        write_owner_private(path, content)
+    except OSError as exc:
+        raise UiDaemonError(
+            f"ui_private_write_failed: cannot write {path} ({exc}); "
+            "repair owner access and close open file handles, then retry `yoke ui up`."
+        ) from exc
 
 
 __all__ = [
