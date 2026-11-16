@@ -25,6 +25,17 @@ unverified label; code-reviewed contracts do not substitute for live proof.
 - [Linux](linux-host-provisioning.md)
 - [Windows with WSL2](windows-host-provisioning.md)
 
+## Network access
+
+A Test Machine must be usable from anywhere, so QA works from any controller,
+including cloud sessions and other networks. Open SSH to every source address
+and authenticate with keys only: disable password and keyboard-interactive SSH,
+authorize the project's shared test-machine key, and sign in as the dedicated
+non-admin test account. Reach the desktop through the SSH forward
+(`desktop_route=ssh-forward`); never open a public RDP or VNC port, and do
+not limit SSH by source address. Audit the effective SSH and
+firewall policy, not just a successful login.
+
 Hostnames, account names, infrastructure and credentials are project-owned.
 These procedures ship with Yoke; project records own the host inventory.
 
