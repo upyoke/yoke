@@ -13,8 +13,6 @@
   "packages/yoke-cli/src/yoke_cli/config/github_git_credential_helper.py": {"encoding|21763f91004810da": 1, "encoding|f3a16e05a89e1025": 1},
   "packages/yoke-cli/src/yoke_cli/config/github_git_credential_permissions.py": {"getuid|bde9d6f7d756a86f": 2},
   "packages/yoke-cli/src/yoke_cli/config/machine_config_file.py": {"getuid|bde9d6f7d756a86f": 4},
-  "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_detached.py": {"process|22be8c0dad328d37": 1, "process|27b14f60d25d3b6f": 1, "tmp|51fb04965cc3e01d": 1},
-  "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_inventory.py": {"getuid|bde9d6f7d756a86f": 1},
   "packages/yoke-cli/src/yoke_cli/config/onboard_apply_lock.py": {"process|dfbc5d07dbf56168": 1},
   "packages/yoke-cli/src/yoke_cli/config/onboard_browser_runtime.py": {"process|a726848ccaf95e20": 1, "process|be22311cfad22e95": 1},
   "packages/yoke-cli/src/yoke_cli/config/onboard_checklist.py": {"encoding|561d459d1324c37d": 1},
