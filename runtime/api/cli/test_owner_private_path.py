@@ -113,3 +113,19 @@ def test_windows_private_creation_explicitly_sets_token_user_owner(monkeypatch, 
     windows.make_private_file(tmp_path / 'file')
     assert all(sddl.startswith('O:S-1-5-21-123D:P') for sddl in descriptors)
     assert masks[0] & windows._OWNER_SECURITY_INFORMATION
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows directory ACL contract")
+def test_machine_private_directory_recurses_and_preserves_existing(tmp_path):
+    from yoke_contracts.machine_config.directories import create_private_directory
+    parent = tmp_path / 'new'
+    target = parent / 'nested'
+    assert create_private_directory(target) == target
+    assert owner_private_path.is_owner_private_directory(parent)
+    assert owner_private_path.is_owner_private_directory(target)
+    # Existing directories retain their descriptor, even when not owner-private.
+    existing = tmp_path / 'existing'
+    existing.mkdir()
+    before = owner_private_path.is_owner_private_directory(existing)
+    assert create_private_directory(existing) == existing
+    assert owner_private_path.is_owner_private_directory(existing) == before

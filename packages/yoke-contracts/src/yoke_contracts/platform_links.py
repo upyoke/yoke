@@ -21,6 +21,8 @@ def link(target: str | Path, path: str | Path) -> str:
     try:
         destination.symlink_to(source, target_is_directory=source.is_dir())
         return "symlink"
+    except FileExistsError as exc:
+        raise FileExistsError(f"link_destination_exists: {destination}; remove the owned destination first") from exc
     except OSError:
         pass
     if os.name == "nt" and source.is_dir():
@@ -37,8 +39,14 @@ def link(target: str | Path, path: str | Path) -> str:
         if source.is_dir():
             shutil.copytree(source, destination)
         else:
-            shutil.copy2(source, destination)
+            # Copy2 overwrites a file created by another caller after our initial
+            # existence check. Exclusive creation preserves the no-overwrite API.
+            with open(source, "rb") as original, open(destination, "xb") as copied:
+                shutil.copyfileobj(original, copied)
+            shutil.copystat(source, destination)
         return "copy"
+    except FileExistsError as exc:
+        raise FileExistsError(f"link_destination_exists: {destination}; remove the owned destination first") from exc
     except OSError as exc:
         recovery = ("enable Windows Developer Mode for symlinks or grant copy access"
                     if os.name == "nt" else "grant symlink or copy access")
