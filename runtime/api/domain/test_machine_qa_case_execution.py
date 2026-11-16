@@ -186,6 +186,7 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
         requirement_id=requirement_id,
     )
     assert "lane_commit_sha" not in case
+    case["method_config"]["windows_ledger_row_ids"] = ["windows-persistence-test"]
     screenshot = tmp_path / "welcome.png"
     screenshot.write_bytes(b"png-evidence")
     result = MachineCaseResult(
@@ -220,6 +221,9 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
     ).fetchone()
     assert (run["verdict"], run["case_outcome"]) == (None, "needs_review")
     assert json.loads(run["raw_result"])["evidence"]["test_machine"] == "mac-mini-lab"
+    assert json.loads(run["raw_result"])["evidence"]["windows_ledger"]["row_ids"] == [
+        "windows-persistence-test"
+    ]
     artifacts = test_db.execute(
         "SELECT artifact_type,artifact_handle FROM qa_artifacts "
         "WHERE qa_run_id=%s ORDER BY artifact_type",
