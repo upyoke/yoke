@@ -26,6 +26,11 @@ def remove_tree(path: str | Path) -> None:
         entry = Path(failed)
         if entry.is_symlink() or _is_reparse_point(entry):
             raise exc_info[1]
+        # unlink permission belongs to the containing directory on POSIX.
+        # Repair only directories inside the tree, never its external parent.
+        parent = entry.parent
+        if parent.is_relative_to(selected) and not parent.is_symlink() and not _is_reparse_point(parent):
+            os.chmod(parent, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
         os.chmod(failed, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
         function(failed)
 
