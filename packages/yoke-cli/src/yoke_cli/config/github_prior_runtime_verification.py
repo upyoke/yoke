@@ -11,12 +11,20 @@ from yoke_cli.config import github_git_credential_launcher
 RELEASES_ROOT_NAME = "yoke-cli-releases"
 
 
-def current_release_path(path: Path) -> Path:
-    """Map a path inside a release generation onto the ``current`` alias."""
+def release_install_root(path: Path) -> Path | None:
+    """The released CLI install root holding ``path``, or None outside one."""
     generation = _release_generation(path)
-    if generation is None:
-        return path
-    return generation.parent.parent / "current" / path.relative_to(generation)
+    return None if generation is None else generation.parent.parent
+
+
+def stable_python(python: Path) -> Path:
+    """Map a release's interpreter onto its install's ``python`` shim.
+
+    The shim runs whichever release is current, so a saved helper command keeps
+    working after the release that wrote it is pruned.
+    """
+    root = release_install_root(python)
+    return python if root is None else root / "python"
 
 
 def orphaned_release_helper(

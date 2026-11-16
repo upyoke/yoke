@@ -43,15 +43,15 @@ def test_stale_folder_warns_and_candidate_activates(tmp_path, monkeypatch, with_
 
     root = tmp_path / "runtime"
     generation = candidate(root, "1.0")
-    main = generation / "tools/yoke-cli/lib"
-    module = next(main.glob("python*/site-packages/yoke_cli/main.py"))
+    environment = generation / "tools/yoke-cli"
+    module = next(environment.glob("[Ll]ib/**/site-packages/yoke_cli/main.py"))
     module.write_text(
         module.read_text().replace(
             "json.dumps({'configured': False})", f"json.dumps({receipt!r})"
         )
     )
     cli_release_runtime.activate(root, generation, tmp_path / "bin", "1.0")
-    assert (root / "current").resolve() == generation
+    assert (root / "current").read_text() == "1.0\n"
 
 
 def test_valid_repository_with_broken_config_still_refuses(tmp_path, monkeypatch):
