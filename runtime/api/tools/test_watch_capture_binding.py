@@ -17,6 +17,8 @@ import pytest
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import watch_capture_binding as binding
 
+pytestmark = pytest.mark.windows
+
 
 def _namespace(raw: Path | None, progress: Path | None) -> argparse.Namespace:
     return argparse.Namespace(raw_capture=raw, progress_capture=progress)

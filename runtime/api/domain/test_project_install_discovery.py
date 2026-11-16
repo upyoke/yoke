@@ -10,6 +10,8 @@ from yoke_cli.project_install import skill_discovery as skills
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_contracts.project_contract.managed_block import render_block
 
+pytestmark = pytest.mark.windows
+
 
 def _skill(root: Path, rel: str, content: str = "# skill\n") -> Path:
     path = root / rel

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from yoke_cli.project_install.contract_files import (
     apply_contract_files,
     reconcile_gitignore,
@@ -12,6 +14,8 @@ from yoke_cli.project_install.files import apply_files, prune_files, sha256_text
 from yoke_cli.project_install.managed_markdown import (
     apply_managed_markdown,
 )
+
+pytestmark = pytest.mark.windows
 
 CONTENT = "# Settings\n\nline one\nline two\n"
 

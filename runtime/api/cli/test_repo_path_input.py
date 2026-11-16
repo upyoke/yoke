@@ -13,6 +13,8 @@ from yoke_cli.commands.adapters.claims_path_register_args import (
     parse_path_register_args,
 )
 
+pytestmark = pytest.mark.windows
+
 
 def _repo(tmp_path: Path) -> Path:
     root = tmp_path / "Repo"

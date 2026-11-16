@@ -14,6 +14,8 @@ import pytest
 from yoke_core.domain import merge_lock
 from yoke_core.domain import merge_lock_contention as contention
 
+pytestmark = pytest.mark.windows
+
 
 class RelayLog(list):
     """The relayed calls, with the rows the control plane should serve."""

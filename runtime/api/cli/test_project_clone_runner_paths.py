@@ -13,6 +13,8 @@ from yoke_cli.config import onboard_checkout_ownership
 from yoke_cli.config import project_clone_runner as runner
 from yoke_cli.config.project_git_process import run_network_git
 
+pytestmark = pytest.mark.windows
+
 
 class CloneError(RuntimeError):
     pass

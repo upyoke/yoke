@@ -10,6 +10,8 @@ import pytest
 
 from yoke_cli.config import project_git_process
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows pipe implementation")
 def test_network_git_captures_stdout_and_stderr() -> None:
