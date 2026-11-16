@@ -49,7 +49,12 @@ def read_test_machines(conn: Any, project_id: int) -> tuple[tuple[str, str], ...
         result.append(
             (
                 str(row[0]).split(":", 1)[1],
-                str(settings.get("os") or "requires next-release serving build"),
+                str(settings.get("os") or "requires next-release serving build")
+                + (
+                    f" · {settings.get('cloud_provider', 'aws')}"
+                    if settings.get("cloud_instance_id")
+                    else ""
+                ),
             )
         )
     return tuple(result)
