@@ -16,13 +16,14 @@ The shared `.github/actions/yoke-test-runner` action declares host prerequisites
 PostgreSQL 16 `pg_dump`, `pg_restore`, `psql`, `createdb`, `dropdb` and
 `pg_isready` in `/usr/lib/postgresql/16/bin` supply the copy-lifetime tools. Runner setup makes
 no apt calls, so an Ubuntu or PGDG mirror outage cannot block CI. When the tools
-are missing, GitHub-hosted runners copy them out of the already pulled
-`POSTGRES_IMAGE` (`docker create`, `docker cp -L`, `docker rm -f`); when the
+are missing, GitHub-hosted runners copy them with `docker cp -L` out of the
+running Postgres server container, which runs `POSTGRES_IMAGE`; no separate
+holder container is created. When the
 loader cannot find `libpq.so.5`, the image's copy goes to
 `/usr/lib/postgresql/16/lib`, registered with `ldconfig`. Every step is bounded.
 A failure refuses with a named `ci_runner_pg_client_*` reason (`missing` on
-self-hosted runners, `unsupported_arch`, `loader`, `create`, `copy`,
-`cleanup`, `install`, `unusable` when a copied tool does not report version 16) and its recovery.
+self-hosted runners, `unsupported_arch`, `loader`, `copy`, `install`,
+`unusable` when a copied tool does not report version 16) and its recovery.
 `initdb` and `postgres` are never copied: CI does not install embedded-engine
 libraries or binaries, so fresh Ubuntu 26.04 runners exercise the product's
 embedded PostgreSQL portability. Runner upgrades require full CI on both
@@ -40,7 +41,7 @@ the container version job also retains full history.
 
 After interpreter and uv setup, `ci_runner_prepare` overlaps the independent
 locked dependency sync and the Docker Postgres task, which pulls the image,
-supplies the client tools from it, then starts the server.
+starts the server, then copies the client tools out of the running server.
 It imports with `python3 -S` from the checkout before dependencies exist.
 Every task has bounded commands and records its elapsed time; one barrier
 joins all tasks before any later setup or pytest. A failure refuses as
@@ -50,6 +51,10 @@ Docker container start gets 120 seconds per attempt, with one bounded
 `docker ps -a --filter name=<container>`, `docker logs --tail 50 <container>`
 and `docker info`, each limited to 10 seconds and 8,000 characters per stream,
 then raises `ci_runner_setup_command_failed`; it never prints container env.
+Every Docker step logs `CI Postgres step: <command>; outcome=...; elapsed=...`
+on every run. When the Postgres task fails it also logs `cat /proc/pressure/io`,
+`df -h /var/lib/docker` and the last 100 `journalctl -u docker` lines from the
+past five minutes, each limited to 10 seconds, so a Docker stall shows its cause.
 The socket cleanup path is published before Docker starts, so the caller's
 always-cleanup still removes resources on failure. Database readiness and
 CREATEDB checks remain required after the barrier.

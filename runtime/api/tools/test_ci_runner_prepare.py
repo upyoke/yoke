@@ -63,14 +63,14 @@ def host(monkeypatch, tmp_path):
 @pytest.mark.parametrize("runner_environment", ["self-hosted", "github-hosted"])
 def test_ready_client_tools_leave_the_host_unchanged(host, runner_environment):
     fake = host(runner_environment, installed=True)
-    runner.install_pg_client("example.test/postgres:16", "pg")
+    runner.install_pg_client("pg")
     assert fake.commands == []
 
 
 def test_self_hosted_runner_without_client_tools_refuses(host):
     fake = host("self-hosted")
     with pytest.raises(runner.PreparationError, match="ci_runner_pg_client_missing") as refusal:
-        runner.install_pg_client("example.test/postgres:16", "pg")
+        runner.install_pg_client("pg")
     assert "Recovery:" in str(refusal.value)
     assert fake.commands == []
 
@@ -80,34 +80,31 @@ def test_hosted_runner_copies_client_tools_from_the_image_without_apt(
     host, tmp_path, loader_has_libpq,
 ):
     fake = host(loader_has_libpq=loader_has_libpq)
-    runner.install_pg_client("example.test/postgres:16", "pg")
+    runner.install_pg_client("pg")
     commands = fake.commands
     assert not any("apt-get" in args or "apt" in args for args in commands)
-    assert commands[:2] == [
-        ["ldconfig", "-p"],
-        ["docker", "create", "--name", "pg-client", "example.test/postgres:16"],
-    ]
+    assert not any(args[:2] in (["docker", "create"], ["docker", "rm"]) for args in commands)
     copies = [args[3] for args in commands if args[:2] == ["docker", "cp"]]
     tools = ["pg_dump", "pg_restore", "psql", "createdb", "dropdb", "pg_isready"]
-    expected = [f"pg-client:/usr/lib/postgresql/16/bin/{tool}" for tool in tools]
+    expected = [f"pg:/usr/lib/postgresql/16/bin/{tool}" for tool in tools]
     if not loader_has_libpq:
-        expected.append("pg-client:/usr/lib/x86_64-linux-gnu/libpq.so.5")
+        expected.append("pg:/usr/lib/x86_64-linux-gnu/libpq.so.5")
+    assert commands[0] == ["ldconfig", "-p"]
     assert copies == expected
     assert not any(name in " ".join(copies) for name in ("initdb", "/postgres "))
     assert not any(copy.endswith("/postgres") for copy in copies)
-    removal = commands.index(["docker", "rm", "-f", "pg-client"])
-    assert removal == 2 + len(copies)
-    assert commands[removal + 1] == ["sudo", "install", "-d", "/usr/lib/postgresql/16/bin"]
-    assert commands[removal + 2] == [
+    installed = 1 + len(copies)
+    assert commands[installed] == ["sudo", "install", "-d", "/usr/lib/postgresql/16/bin"]
+    assert commands[installed + 1] == [
         "sudo", "install", "-m", "0755", *(str(tmp_path / "stage" / t) for t in tools),
         "/usr/lib/postgresql/16/bin",
     ]
     loader = [args for args in commands if "ldconfig" in args and args[0] == "sudo"]
     if loader_has_libpq:
-        assert len(commands) == removal + 3 and not loader
+        assert len(commands) == installed + 2 and not loader
     else:
-        assert commands[removal + 3][-1] == "/usr/lib/postgresql/16/lib/libpq.so.5"
-        conf = commands[removal + 4]
+        assert commands[installed + 2][-1] == "/usr/lib/postgresql/16/lib/libpq.so.5"
+        conf = commands[installed + 3]
         assert conf[-2:] == ["/usr/lib/postgresql/16/lib", "/etc/ld.so.conf.d/yoke-ci-pg-client.conf"]
         assert loader == [["sudo", "flock", "/var/lock/yoke-ci-ldconfig.lock", "ldconfig"]]
 
@@ -115,26 +112,23 @@ def test_hosted_runner_copies_client_tools_from_the_image_without_apt(
 @pytest.mark.parametrize(
     ("fail", "reason"),
     [(["ldconfig", "-p"], "ci_runner_pg_client_loader_failed"),
-     (["docker", "create"], "ci_runner_pg_client_create_failed"),
      (["docker", "cp"], "ci_runner_pg_client_copy_failed"),
-     (["docker", "rm"], "ci_runner_pg_client_cleanup_failed"),
      (["sudo", "install"], "ci_runner_pg_client_install_failed")],
 )
 def test_failed_copy_refuses_with_its_named_reason(host, fail, reason):
     fake = host(fail=fail)
     with pytest.raises(runner.PreparationError, match=reason) as refusal:
-        runner.install_pg_client("example.test/postgres:16", "pg")
+        runner.install_pg_client("pg")
     assert "Recovery:" in str(refusal.value)
     assert not fake.installed
     if fail == ["docker", "cp"]:
-        assert fake.commands[-1] == ["docker", "rm", "-f", "pg-client"]
-        assert not any(args[:2] == ["sudo", "install"] for args in fake.commands)
+        assert fake.commands[-1][:2] == ["docker", "cp"]
 
 
 def test_copied_tools_that_cannot_run_refuse_as_unusable(host):
     host(usable_after_install=False)
     with pytest.raises(runner.PreparationError, match="ci_runner_pg_client_unusable") as refusal:
-        runner.install_pg_client("example.test/postgres:16", "pg")
+        runner.install_pg_client("pg")
     assert "libldap.so.2" in str(refusal.value)
     assert "Recovery:" in str(refusal.value)
 
@@ -143,7 +137,7 @@ def test_unsupported_architecture_refuses_before_docker(host, monkeypatch):
     fake = host()
     monkeypatch.setattr(runner.platform, "machine", lambda: "riscv64")
     with pytest.raises(runner.PreparationError, match="ci_runner_pg_client_unsupported_arch"):
-        runner.install_pg_client("example.test/postgres:16", "pg")
+        runner.install_pg_client("pg")
     assert fake.commands == []
 
 
@@ -153,7 +147,7 @@ def postgres(monkeypatch, tmp_path):
     monkeypatch.setenv("POSTGRES_IMAGE", "example.test/postgres:16")
     monkeypatch.setenv("GITHUB_ENV", str(tmp_path / "github-env"))
     monkeypatch.setattr(runner.tempfile, "mkdtemp", lambda **_: str(tmp_path / "socket"))
-    monkeypatch.setattr(runner, "install_pg_client", lambda image, container: None)
+    monkeypatch.setattr(runner, "install_pg_client", lambda container: None)
     return tmp_path / "github-env"
 
 
@@ -168,7 +162,7 @@ def test_postgres_settings_and_cleanup_publish_before_admission(monkeypatch, pos
 
     monkeypatch.setattr(runner, "_run", run)
     monkeypatch.setattr(runner, "install_pg_client",
-                        lambda image, container: calls.append(["install", image, container]))
+                        lambda container: calls.append(["install", container]))
     if mapping.startswith("0."):
         runner.start_postgres()
         assert "port=32768" in postgres.read_text()
@@ -178,8 +172,9 @@ def test_postgres_settings_and_cleanup_publish_before_admission(monkeypatch, pos
         assert "YOKE_PG_DSN=" not in postgres.read_text()
     docker = next(args for args in calls if args[:2] == ["docker", "run"])
     assert calls[0] == ["docker", "pull", "example.test/postgres:16"]
-    assert calls[1] == ["install", "example.test/postgres:16", "isolated-test-pg"]
-    assert calls.index(docker) == 2, "pull must succeed before consuming the image"
+    assert calls.index(docker) == 1, "pull must succeed before consuming the image"
+    assert calls[2] == ["install", "isolated-test-pg"], "copy from the running server"
+    assert not any(args[:2] == ["docker", "create"] for args in calls)
     assert docker[docker.index("--name") + 1] == "isolated-test-pg"
     assert "timezone=" + dict(runner.DISPOSABLE_SERVER_SETTINGS)["timezone"] in docker
     for value in ("fsync=off", "synchronous_commit=off", "full_page_writes=off",
@@ -198,8 +193,9 @@ def test_postgres_pull_retries_are_bounded_and_keep_cleanup(monkeypatch, postgre
     monkeypatch.setattr(runner.time, "sleep", delays.append)
     with pytest.raises(runner.PreparationError, match="ci_runner_postgres_pull_failed"):
         runner.start_postgres()
-    assert len(attempts) == 5 and len(delays) == 4
-    assert all(args[:2] == ["docker", "pull"] for args in attempts)
+    assert len(delays) == 4
+    assert all(args[:2] == ["docker", "pull"] for args in attempts[:5])
+    assert attempts[5:] == list(map(list, runner.HOST_DIAGNOSTICS))
     assert all(5 <= seconds <= 30 for seconds in delays)
     assert "YOKE_PG_SOCKET_DIR=" in postgres.read_text()
 
@@ -246,14 +242,24 @@ def test_postgres_start_budget_retry_and_diagnostics(
         ["docker", "ps", "-a", "--filter", "name=isolated-test-pg"],
         ["docker", "logs", "--tail", "50", "isolated-test-pg"],
         ["docker", "info"],
+        *map(list, runner.HOST_DIAGNOSTICS),
     ]
-    output = capsys.readouterr().err
+    captured = capsys.readouterr()
+    output = captured.err
+    steps = [line for line in captured.out.splitlines() if line.startswith("CI Postgres step: ")]
+    expected_steps = ["docker pull"] + ["docker run", "docker rm"] * min(failures, 1)
+    expected_steps += ["docker run", "docker port"] if failures < 2 else ["docker run"]
+    assert [line.split(";")[0].removeprefix("CI Postgres step: ") for line in steps] \
+        == expected_steps
+    assert all("elapsed=" in line for line in steps)
     if failures == 2:
-        assert commands[-3:] == diagnostics
+        assert commands[-6:] == diagnostics
         assert all(kwargs["timeout"] == 10 and kwargs["capture_output"]
-                   for _, kwargs in calls[-3:])
-        assert output.count("diagnostic stdout") == 3
-        assert output.count("diagnostic stderr") == 3
+                   for _, kwargs in calls[-6:])
+        assert ["journalctl", "-u", "docker", "--since", "-5min", "-n", "100",
+                "--no-pager"] in diagnostics
+        assert output.count("diagnostic stdout") == 6
+        assert output.count("diagnostic stderr") == 6
         assert all(" ".join(command) in output for command in diagnostics)
     else:
         assert not output

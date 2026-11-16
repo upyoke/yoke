@@ -17,7 +17,7 @@ from yoke_cli.config.onboard_docker_prerequisites import (
     preparation_guidance,
     check_docker_prerequisites as _check_docker_prerequisites,
 )
-from yoke_cli.self_host import bundle, first_boot_token, runtime
+from yoke_cli.self_host import bundle, first_boot_token, native_windows, runtime
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 from yoke_contracts import terminal_detached_process
 
@@ -70,6 +70,7 @@ class SelfHostSetupError(RuntimeError):
 
 
 def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetup:
+    native_windows.refuse()
     target = Path(directory) if directory else bundle.default_bundle_dir()
     target = target.expanduser().resolve()
     return SelfHostSetup(
@@ -81,12 +82,7 @@ def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetu
 
 
 def existing_bundle(directory: Path) -> bool:
-    """Whether a bundle this host already runs sits at the planned location.
-
-    Rerunning setup on the host adopts it — restart, then reconnect with the
-    first-boot admin token its owner-only file still holds — rather than
-    refusing, so the host can always restore its own admin access.
-    """
+    """Adopt an existing bundle and reuse its first-boot admin token."""
     return all(
         (directory / name).is_file()
         for name in (bundle.COMPOSE_FILE_NAME, bundle.ENV_FILE_NAME)
@@ -109,6 +105,10 @@ def provision(
     health_wait_seconds: float = HEALTH_WAIT_SECONDS,
 ) -> SelfHostSetup:
     """Create/start this run's bundle, capture its token, and connect locally."""
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        raise SelfHostSetupError(exc.code, str(exc), exc.detail_lines) from exc
     if setup.raw_token:
         return retry_connection(setup, health_wait_seconds=health_wait_seconds)
     _ensure_wizard_bundle(setup)
@@ -227,11 +227,7 @@ def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
 
 
 def _wait_for_first_boot_token(setup: SelfHostSetup, *, timeout_s: float) -> str:
-    """Watch the bundle's owner-only token file the server writes at birth.
-
-    Reading the file rather than the service log is what keeps the wizard
-    honest about where the credential lives: the log never carries it.
-    """
+    """Watch the owner-only token file; the service log never carries it."""
     deadline = _MONOTONIC() + max(0.0, timeout_s)
     while True:
         token = first_boot_token.read_first_boot_token(setup.directory)

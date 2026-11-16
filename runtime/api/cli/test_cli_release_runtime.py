@@ -21,6 +21,7 @@ from runtime.api.cli.cli_release_runtime_test_support import (
 from yoke_cli.config import cli_release_runtime as runtime
 
 
+@pytest.mark.windows
 def test_two_commands_across_an_update_and_cleanup_after_the_old_one_exits(
     tmp_path,
 ):
@@ -55,6 +56,7 @@ def test_two_commands_across_an_update_and_cleanup_after_the_old_one_exits(
             first.communicate()
 
 
+@pytest.mark.windows
 def test_failed_candidate_preserves_public_command_and_is_cleaned_later(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old = candidate(root, "1.0")
@@ -70,6 +72,7 @@ def test_failed_candidate_preserves_public_command_and_is_cleaned_later(tmp_path
     assert version(bin_dir) == "4.0"
 
 
+@pytest.mark.windows
 def test_cleanup_keeps_installs_in_progress_and_uninstall_waits_for_them(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     runtime.activate(root, candidate(root, "1.0"), bin_dir, "1.0")
@@ -107,6 +110,7 @@ def test_update_from_the_symlink_layout_replaces_every_link(tmp_path):
     assert not old.exists()
 
 
+@pytest.mark.windows
 def test_python_shim_runs_the_current_release_python(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     runtime.activate(root, candidate(root, "1.0"), bin_dir, "1.0")
@@ -120,6 +124,7 @@ def test_python_shim_runs_the_current_release_python(tmp_path):
     assert result.stdout.strip() == "2.0 ['a b']"
 
 
+@pytest.mark.windows
 def test_publication_failure_preserves_prior_release(tmp_path, monkeypatch):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old = candidate(root, "1.0")
@@ -144,6 +149,7 @@ def test_publication_failure_preserves_prior_release(tmp_path, monkeypatch):
     assert not (new / "pending").exists()
 
 
+@pytest.mark.windows
 def test_standalone_bootstrap_activates_wheel_without_runtime_module(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     generation = candidate(root, "1.0")

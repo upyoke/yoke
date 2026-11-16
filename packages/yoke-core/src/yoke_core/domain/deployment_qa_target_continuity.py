@@ -76,13 +76,16 @@ def _resolve_settlement_target(conn, subject, target):
 
 
 def evidence_cases(conn, *, run_id, stage_name, member_item_id, digest, target=None):
+    """Every materialized case of this subject under *digest*, of any mode.
+
+    Callers that grade or gate on cases choose the ``blocking_mode`` they
+    need; a member whose only cases are non_blocking still has cases.
+    """
     rows = subject_rows(conn, run_id, stage_name, member_item_id)
     return [
         dict(row)
         for row in rows
-        if row["method_id"] is not None
-        and row["blocking_mode"] == "blocking"
-        and row["execution_target_digest"] == digest
+        if row["method_id"] is not None and row["execution_target_digest"] == digest
     ]
 
 

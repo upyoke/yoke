@@ -16,6 +16,12 @@ from typing import Dict, Tuple
 from yoke_cli.commands.adapters.wsl import WSL_SETUP_USAGE, wsl_setup
 from yoke_cli.hook_resident_lifecycle import LIFECYCLE_USAGE, resident_lifecycle
 
+from yoke_cli.commands.adapters.azure import (
+    azure_admin_link,
+    azure_admin_status,
+    azure_exec,
+    USAGES as AZURE_USAGES,
+)
 from yoke_cli.commands.adapters.aws import (
     aws_admin_link,
     aws_admin_status,
@@ -63,6 +69,9 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("settings", "get"): settings.get,
     ("settings", "set"): settings.set_value,
     ("settings", "unset"): settings.unset,
+    ("azure", "admin-link"): azure_admin_link,
+    ("azure", "admin-status"): azure_admin_status,
+    ("azure", "exec"): azure_exec,
     ("aws", "admin-link"): aws_admin_link,
     ("aws", "admin-status"): aws_admin_status,
     ("aws", "exec"): aws_exec,
@@ -92,6 +101,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
+    **{f"yoke azure {verb}": usage for verb, usage in AZURE_USAGES.items()},
     "yoke hook resident": LIFECYCLE_USAGE,
     "yoke wsl setup": WSL_SETUP_USAGE,
     **{f"yoke settings {verb}": usage for verb, usage in settings.USAGES.items()},

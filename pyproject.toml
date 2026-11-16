@@ -108,6 +108,7 @@ testpaths = ["runtime/api", "tests"]
 # versus 46.14s across 32,637 profiled tests, well below the 35-minute job limit.
 faulthandler_timeout = 600
 markers = [
+    "windows: runs in the required native Windows smoke suite",
     "launchd_integration: loads a real launchd job through the real_launchd_agent fixture",
 ]
 # Package split: the four packages/yoke-*/src packages must be on

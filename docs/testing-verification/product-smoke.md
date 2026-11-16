@@ -44,7 +44,12 @@ payloads through the exact commands in its installed `.claude/settings.json`,
 never executed. It creates a disposable untracked file so the denied
 `git clean -fd` probe threatens real state the guard must preserve. It asserts
 a stored session with the correct executor and canonical workspace path,
-the harness's denial wire format, and affirmative allow/deny evaluation receipts
+registered the way each harness really registers: Codex startup carries no
+transcript, so the replay asserts SessionStart registered nothing, saves the
+thread under the scratch HOME's `~/.codex/sessions/`, and asserts the first
+UserPromptSubmit registered exactly one session (captures
+`codex-start-unregistered` and `codex-registration`). It also asserts
+the harness's denial wire format and affirmative allow/deny evaluation receipts
 from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
 Claude denial uses exit 2 with the blocking reason on stderr; Codex and Cursor
 return their structured denial decisions on stdout.
@@ -104,7 +109,8 @@ yoke dev run -- python3 runtime/api/tools/native_hook_capture.py --test-machine 
 Repeat for `codex` and `cursor`, then release the host claim. The helper copies
 locally authored recorder code to an isolated remote scratch Git project and
 opens exactly one native session. Its recorder allows a harmless shell call
-and denies the second call; it does not execute the denied command. Codex trusts
+and denies the second call; it does not execute the denied command. For Codex
+it also records the first UserPromptSubmit. Codex trusts
 only the two known recorder handlers for that invocation using the existing
 hook hash implementation. No sandbox/permission bypass flags are used.
 

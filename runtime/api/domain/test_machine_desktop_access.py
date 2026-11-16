@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import stat
+import tempfile
 import subprocess
 from types import SimpleNamespace
 
@@ -19,8 +19,12 @@ from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_test_machine_settings,
 )
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_core.domain.handlers import machine_desktop_access as handler
 from yoke_harness import desktop_access as desktop
+
+
+pytestmark = pytest.mark.windows
 
 
 SETTINGS = {
@@ -53,7 +57,7 @@ def test_passwords_are_machine_owned_and_private(credentials):
     path = store_machine_capability_secret(
         "project", "test-machine:other", "desktop_password", "other-secret"
     )
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert is_owner_private_file(path)
     assert (
         read_machine_capability_secret(
             "project", "test-machine:lab", "desktop_password"
@@ -116,9 +120,9 @@ def test_forward_printable_result_has_no_secret_and_leaves_a_private_copy(
     try:
         assert set(result) == {"address", "user", "password_file"}
         assert PASSWORD not in json.dumps(result) + repr(calls)
-        assert path.parent == Path("/tmp")
+        assert path.parent == Path(tempfile.gettempdir())
         assert path.read_text().strip() == PASSWORD
-        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert is_owner_private_file(path)
         assert result["user"] == "Administrator"
         assert result["address"].startswith("rdp://127.0.0.1:")
         assert probes[0][0] == "127.0.0.1"

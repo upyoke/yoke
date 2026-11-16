@@ -2,7 +2,10 @@
   "provenance": {
     "capture_source": "Native CLI hook stdin on a leased test host",
     "harness_version": "codex-cli 0.156.1",
-    "prompt": "Use the shell tool exactly twice in sequence: first printf smoke-allowed, then git clean -fd. The second tool is intentionally denied by a recording hook; do not retry it, and stop."
+    "prompt": "Use the shell tool exactly twice in sequence: first printf smoke-allowed, then git clean -fd. The second tool is intentionally denied by a recording hook; do not retry it, and stop.",
+    "derived_events": {
+      "user_prompt_submit": "Derived, not natively recorded: the PreToolUse recording's shared fields from the same codex-cli 0.156.1 session plus the documented UserPromptSubmit prompt field. transcript_path stays null as Codex sends it, so Yoke finds the saved thread by id under ~/.codex/sessions."
+    }
   },
   "session_start": {
     "session_id": "<session>",
@@ -12,6 +15,16 @@
     "model": "gpt-6-astra",
     "permission_mode": "bypassPermissions",
     "source": "startup"
+  },
+  "user_prompt_submit": {
+    "session_id": "<session>",
+    "turn_id": "<session>",
+    "transcript_path": null,
+    "cwd": "<workspace>",
+    "hook_event_name": "UserPromptSubmit",
+    "model": "gpt-6-astra",
+    "permission_mode": "bypassPermissions",
+    "prompt": "Use the shell tool exactly twice in sequence: first printf smoke-allowed, then git clean -fd. The second tool is intentionally denied by a recording hook; do not retry it, and stop."
   },
   "pre_tool_use_allowed": {
     "session_id": "<session>",

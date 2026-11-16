@@ -14,6 +14,7 @@ shares a name with the sentinel without the column becoming a level dump.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional
@@ -93,7 +94,7 @@ def collect_boot_attribution(
 
     The process identity is ``applied_by`` (typically ``boot-converge``).
     Branch and commit come from the checkout when git is there, otherwise
-    the running artifact version and a boot branch marker. Validation belongs
+    the build commit, running artifact version and a boot branch marker. Validation belongs
     to ``apply_pending`` after it knows there is pending work — a source tree
     with no artifact version and no resolvable commit must still boot a
     current database.
@@ -104,7 +105,12 @@ def collect_boot_attribution(
         "session_id": actor,
         "actor_id": actor,
         "source_branch": branch or BOOT_BRANCH_WHEN_UNRESOLVED,
-        "source_commit": commit or (running_version or "").strip() or None,
+        "source_commit": (
+            commit
+            or os.environ.get("YOKE_BUILD_SHA", "").strip()
+            or (running_version or "").strip()
+            or None
+        ),
     }
 
 
