@@ -19,7 +19,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_contracts.cursor_tool_names import payload_tool_name
+from yoke_contracts.hook_tool_names import payload_tool_name
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.project_scope import HookProjectScope

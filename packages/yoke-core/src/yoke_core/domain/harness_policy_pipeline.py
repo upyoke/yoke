@@ -25,6 +25,8 @@ Public surface:
 - :func:`dispatch` — run a record through its ordered chain.
 - :func:`build_tool_event_record` — adapter helper to construct a
   record from raw PreToolUse hook fields.
+- :func:`shell_kind_for_tool` — the shell (``bash``/``powershell``) a
+  harness's shell tool runs on this OS.
 - :func:`tool_kind_for` — translate a native tool name to the
   harness-neutral ``tool_kind``.
 """
@@ -35,25 +37,33 @@ import importlib
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from yoke_contracts.harness_shell_tools import (
+    SHELL_KIND_BASH,
+    SHELL_TOOL_NAMES,
+    is_windows,
+    shell_kind_for,
+)
+from yoke_contracts.hook_runner.guard_shells import shell_applicable_chain
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_core.domain.observe_apply_patch_parser import parse_patch
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_APPLY_PATCH,
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
     ToolEventRecord,
 )
 
 
-# Native tool name -> harness-neutral ``tool_kind`` mapping. Both Claude
-# (``Bash``/``Edit``/``Write``) and Codex (``shell``/``apply_patch``)
-# tool names are covered. Unknown tools (Read, Monitor, etc.) return
-# ``None`` and the pipeline treats them as a no-op.
+# Native tool name -> harness-neutral ``tool_kind`` mapping. Every shell
+# tool a harness declares in ``yoke_contracts.harness_shell_tools`` (Claude
+# ``Bash``/``PowerShell``, Codex ``shell``, Cursor ``Shell``) is the
+# ``shell`` kind; which shell it runs is the record's ``shell_kind``.
+# Unknown tools (Read, Monitor, etc.) return ``None`` and the pipeline
+# treats them as a no-op.
 _TOOL_NAME_TO_KIND: Dict[str, str] = {
-    "Bash": TOOL_KIND_BASH,
-    "bash": TOOL_KIND_BASH,
-    "shell": TOOL_KIND_BASH,
+    **{name: TOOL_KIND_SHELL for name in SHELL_TOOL_NAMES},
+    "bash": TOOL_KIND_SHELL,
     "Write": TOOL_KIND_WRITE,
     "write": TOOL_KIND_WRITE,
     "Edit": TOOL_KIND_EDIT,
@@ -68,7 +78,7 @@ _TOOL_NAME_TO_KIND: Dict[str, str] = {
 # both feed a write-shaped chain; ``apply_patch`` has its own matcher
 # because Codex emits a multi-file diff.
 _TOOL_KIND_TO_MATCHER: Dict[str, str] = {
-    TOOL_KIND_BASH: "Bash",
+    TOOL_KIND_SHELL: "Bash",
     TOOL_KIND_EDIT: "Edit",
     TOOL_KIND_WRITE: "Write",
     TOOL_KIND_APPLY_PATCH: "apply_patch",
@@ -129,12 +139,16 @@ def build_tool_event_record(
     turn_id: Optional[str] = None,
     cwd: str = "",
     project_dir: str = "",
+    harness_id: str = "",
+    windows: Optional[bool] = None,
 ) -> Optional[ToolEventRecord]:
     """Build a :class:`ToolEventRecord` from raw PreToolUse hook fields.
 
     Returns ``None`` when the tool is not modelled. Tolerant of
     malformed ``tool_input`` shapes — missing keys bottom out as empty
-    strings or empty lists rather than raising.
+    strings or empty lists rather than raising. A shell record's
+    ``shell_kind`` comes from ``harness_id``'s declared shell tools on this
+    OS (``windows`` overrides the detected one).
     """
     kind = tool_kind_for(tool_name)
     if kind is None:
@@ -145,8 +159,10 @@ def build_tool_event_record(
     patch_body = ""
     changed: List[str] = []
 
-    if kind == TOOL_KIND_BASH:
+    shell_kind = SHELL_KIND_BASH
+    if kind == TOOL_KIND_SHELL:
         command = str(inputs.get("command", "") or "")
+        shell_kind = shell_kind_for_tool(harness_id, tool_name, windows=windows)
     elif kind in (TOOL_KIND_WRITE, TOOL_KIND_EDIT):
         path = str(inputs.get("file_path", "") or "")
         if path:
@@ -175,7 +191,23 @@ def build_tool_event_record(
         turn_id=turn_id,
         cwd=cwd,
         project_dir=project_dir,
+        shell_kind=shell_kind,
     )
+
+
+def shell_kind_for_tool(
+    harness_id: str, tool_name: str, *, windows: Optional[bool] = None
+) -> str:
+    """Return the shell a harness's shell tool runs on this (or the given) OS.
+
+    Claude's ``PowerShell`` is PowerShell everywhere; Codex ``shell`` and
+    Cursor ``Shell`` run PowerShell on Windows. An undeclared pairing is Bash.
+    """
+    on_windows = is_windows() if windows is None else windows
+    kind = shell_kind_for(harness_id, tool_name, windows=on_windows)
+    if kind is None and tool_name == "PowerShell":
+        return "powershell"
+    return kind or SHELL_KIND_BASH
 
 
 # ---------------------------------------------------------------------
@@ -213,7 +245,8 @@ def dispatch(record: ToolEventRecord) -> PipelineResult:
     The chain is selected from :mod:`harness_hook_ordering` keyed on
     ``record.tool_kind``. For each module in the chain, if it exposes a
     ``decide_for_record`` callable, the dispatcher invokes it with the
-    record. The first ``deny`` short-circuits the rest of the chain;
+    record, skipping rules that do not cover a shell record's
+    ``shell_kind``. The first ``deny`` short-circuits the rest of the chain;
     ``allow`` and ``warn`` decisions accumulate.
 
     A module that raises is recorded as an ``error`` decision but does
@@ -225,7 +258,10 @@ def dispatch(record: ToolEventRecord) -> PipelineResult:
     if matcher is None:
         return result
 
-    chain = ordered_pipeline_for("PreToolUse", matcher)
+    chain = shell_applicable_chain(
+        ordered_pipeline_for("PreToolUse", matcher),
+        record.shell_kind if record.tool_kind == TOOL_KIND_SHELL else None,
+    )
     for module_id in chain:
         callable_ = _resolve_policy_callable(module_id)
         if callable_ is None:

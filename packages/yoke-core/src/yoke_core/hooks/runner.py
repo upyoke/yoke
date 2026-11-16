@@ -59,7 +59,9 @@ def _resolve_matcher(event_name: str, payload: dict[str, Any]) -> Optional[str]:
     if event_name in {"PreToolUse", "PostToolUse"}:
         tool_name = payload.get("tool_name")
         if isinstance(tool_name, str) and tool_name:
-            return tool_name
+            from yoke_contracts.hook_tool_names import canonical_tool_name
+
+            return canonical_tool_name(tool_name)
     if event_name == "apply_patch":
         return "apply_patch"
     return None
@@ -169,9 +171,13 @@ def run_event(
         remote=controls.remote if controls is not None else False,
     )
     from yoke_contracts.hook_runner.guard_scope import applicable_chain
+    from yoke_contracts.hook_runner.guard_shells import shell_applicable_chain
     from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
 
     try:
+        chain = shell_applicable_chain(
+            chain, context.shell_kind if matcher == "Bash" else None
+        )
         if controls is not None and controls.remote:
             project_id = controls.authorized_project_id
         elif controls is not None and controls.project_scope is not None:

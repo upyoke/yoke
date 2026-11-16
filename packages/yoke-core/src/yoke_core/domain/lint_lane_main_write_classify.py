@@ -9,7 +9,8 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.hook_runner.client_facts import live_worktrees, write_target
 from yoke_contracts.hook_runner.session_cwd import client_machine_home
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.harness_shell_tools import payload_shell_kind
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_for_shell, parse_shell
 
 from yoke_core.domain import lint_lane_main_write_derivation as derivation
 from yoke_contracts.project_contract.file_line_policy import (
@@ -163,7 +164,9 @@ def is_write_operation(
     command = extract_payload_command(payload)
     if not command:
         return False
-    parsed = shell if shell is not None else parse_shell(command)
+    parsed = (
+        shell if shell is not None else parse_for_shell(command, payload_shell_kind(payload))
+    )
     if payload_has_embedded_python_write(payload, parsed):
         return True
     analysis = analyze_payload_write_targets(payload, shell=parsed)

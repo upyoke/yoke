@@ -13,8 +13,9 @@ from enum import Enum
 from functools import cached_property
 from typing import Any
 
+from yoke_contracts.harness_shell_tools import ShellKind, payload_shell_kind
 from yoke_contracts.hook_runner.command_extract import extract_command
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_for_shell
 
 
 class Outcome(str, Enum):
@@ -41,8 +42,8 @@ class HookContext:
 
     The context is intentionally minimal. Anything else a policy needs is read
     on demand via `yoke_core.hooks.helpers_*` or `yoke_core.domain.*`.
-    `shell` is the one shared parse of the Bash command, built on first use
-    and reused by every later policy in the chain.
+    `shell` is the one shared parse of the shell command, built on first use
+    with the parser for `shell_kind` and reused by every later policy.
     """
 
     event_name: str
@@ -62,8 +63,13 @@ class HookContext:
     remote: bool = False
 
     @cached_property
+    def shell_kind(self) -> ShellKind:
+        """The shell the command is written for (``bash`` or ``powershell``)."""
+        return payload_shell_kind(self.payload)
+
+    @cached_property
     def shell(self) -> ShellParse:
-        return parse_shell(extract_command(self.payload))
+        return parse_for_shell(extract_command(self.payload), self.shell_kind)
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_for_shell
+from yoke_contracts.harness_shell_tools import payload_shell_kind
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
     SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
@@ -81,7 +82,7 @@ def evaluate_pre_tool_use(
     """
     session_id = session_id_from_hook_payload(payload)
     tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
-    write_operation = is_write_operation(tool_name, dict(payload))
+    write_operation = is_write_operation(tool_name, dict(payload), shell)
     if not session_id and not write_operation:
         return Verdict(allow=True)
     if not session_id:
@@ -100,7 +101,7 @@ def evaluate_pre_tool_use(
     parsed = (
         shell
         if shell is not None and shell.command == command
-        else parse_shell(command)
+        else parse_for_shell(command, payload_shell_kind(payload))
     )
     fallback_cwd = resolve_authority_cwd(payload, shell=parsed)
 

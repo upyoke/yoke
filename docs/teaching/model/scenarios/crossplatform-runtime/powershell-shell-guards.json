@@ -1,0 +1,13 @@
+{
+ "id": "powershell-shell-guards",
+ "title": "Shell guards read PowerShell as PowerShell",
+ "status": "observed",
+ "audience": "agent",
+ "when": "An agent runs a command through Claude Code's PowerShell tool, or through Codex or Cursor shell tools on native Windows.",
+ "need": "The guard refuses what the command does (git commit on main, writes outside the path claim, raw full-suite pytest, a foreign --session-id) exactly as it would in Bash, reading Set-Location, Remove-Item, Set-Content, Out-File and redirects. It never refuses a Bash syntax idiom PowerShell cannot have: backtick substitution, $() inside double quotes, unmatched globs, | head, 2>/dev/null, if-then status capture, sleep loops and temp-file transforms apply only to Bash. Claude Code's Bash tool on Windows is Git Bash and keeps the Bash rules.",
+ "disclosure": "current cue",
+ "surface": "Every PreToolUse shell refusal; harness manifest shell_tools.",
+ "review": "Source unit cases cover the PowerShell tokenizer, each rule's shell declaration and dispatch, the client shell stamp per harness and OS, and PowerShell path-claim targets. Live proof on a native Windows 11 machine belongs to the NATIVE-WINDOWS acceptance pass.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/harness_shell_tools.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/powershell_parse.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/guard_shells.py", "packages/yoke-core/src/yoke_core/domain/path_claim_powershell_parser.py", "runtime/api/domain/test_guard_shells.py", "runtime/api/domain/test_powershell_parse.py"],
+ "position": 3
+}

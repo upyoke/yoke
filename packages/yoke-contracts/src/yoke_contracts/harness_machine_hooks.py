@@ -2,7 +2,7 @@
 
 Yoke's machine-wide hooks live in each harness's user config so a session
 opened outside any Yoke project still registers, receives messages and runs
-the machine-scope Bash guards. Inside a project the project's own hooks own
+the machine-scope shell guards. Inside a project the project's own hooks own
 the event, and the user-level invocation steps aside (``yoke hook evaluate``
 reads ``project_configs`` before evaluating anything).
 
@@ -139,7 +139,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         events=(
             MachineHookEvent("SessionStart", "SessionStart"),
             MachineHookEvent("UserPromptSubmit", "UserPromptSubmit"),
-            MachineHookEvent("PreToolUse", "PreToolUse", "Bash"),
+            # Both shell tools (harness_shell_tools) carry the machine guards.
+            MachineHookEvent("PreToolUse", "PreToolUse", "Bash|PowerShell"),
             MachineHookEvent("Stop", "Stop"),
             MachineHookEvent("SessionEnd", "SessionEnd"),
         ),

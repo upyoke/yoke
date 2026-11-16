@@ -22,7 +22,9 @@ from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
 from yoke_contracts.codex_shell_timing import command_duration_ms
-from yoke_contracts.cursor_tool_names import payload_tool_name
+from yoke_contracts.hook_tool_names import payload_tool_name
+from yoke_contracts.harness_shell_tools import payload_shell_kind
+from yoke_contracts.hook_runner.guard_shells import shell_applicable_chain
 from yoke_contracts.fleet_watcher_observation import (
     FLEET_WATCHER_OBSERVATION_KEY,
     observe_fleet_watcher,
@@ -36,7 +38,7 @@ from yoke_contracts.hook_runner.guard_scope import applicable_chain
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.policy_home import client_facts_for
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell
 from yoke_contracts.hook_runner.session_cwd import (
     CLIENT_MACHINE_HOME_KEY,
     CLIENT_SCRATCH_ROOT_KEY,
@@ -168,6 +170,9 @@ def event_chain(
         event_name,
         matcher == "Bash" and is_help_only_command(extract_command(payload)),
     )
+    chain = shell_applicable_chain(
+        chain, payload_shell_kind(payload) if matcher == "Bash" else None
+    )
     if project_scope is not None:
         chain = applicable_chain(chain, project_scope.require_project_id())
     return chain
@@ -186,7 +191,7 @@ def collect_client_facts(
     A caller that already parsed the payload's command passes *shell*.
     """
     if shell is None:
-        shell = parse_shell(extract_command(payload))
+        shell = parse_payload_shell(payload)
     obs = Observation(event_name, payload, executor, shell)
     # Every chain policy's mode resolves through the session checkout's
     # lint-config, so its snapshot rides with every chain (empty when the

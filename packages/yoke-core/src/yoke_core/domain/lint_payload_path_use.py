@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 from typing import Any, Mapping
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
-from yoke_core.domain.lint_command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell
 from yoke_core.domain.lint_session_cwd_target_extract import (
     APPLY_PATCH_TOOL_NAMES,
     _is_apply_patch_payload,
@@ -37,7 +36,7 @@ def extract_payload_path_uses(
     if not isinstance(payload, Mapping):
         return ()
     command = extract_payload_command(payload)
-    parsed = shell if shell is not None else parse_shell(extract_command(payload))
+    parsed = shell if shell is not None else parse_payload_shell(payload)
     cwd, segment_cwds = command_segment_cwds(
         payload, machine_home=machine_home, shell=parsed
     )
