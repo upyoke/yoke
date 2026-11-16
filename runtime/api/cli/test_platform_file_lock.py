@@ -36,4 +36,28 @@ def test_platform_lock_module_exports_only_portable_operations() -> None:
         "acquire_exclusive",
         "acquire_exclusive_nonblocking",
         "release_exclusive",
+        "acquire_shared",
+        "acquire_shared_nonblocking",
+        "release_shared",
     ]
+
+
+def test_shared_readers_exclude_writer(tmp_path):
+    descriptors = [_open_lock(tmp_path / "shared.lock") for _ in range(3)]
+    first, second, writer = descriptors
+    try:
+        platform_file_lock.acquire_shared_nonblocking(first)
+        platform_file_lock.acquire_shared_nonblocking(second)
+        with pytest.raises(BlockingIOError):
+            platform_file_lock.acquire_exclusive_nonblocking(writer)
+        platform_file_lock.release_shared(first)
+        with pytest.raises(BlockingIOError):
+            platform_file_lock.acquire_exclusive_nonblocking(writer)
+        platform_file_lock.release_shared(second)
+        platform_file_lock.acquire_exclusive_nonblocking(writer)
+        with pytest.raises(BlockingIOError):
+            platform_file_lock.acquire_shared_nonblocking(first)
+        platform_file_lock.release_exclusive(writer)
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
