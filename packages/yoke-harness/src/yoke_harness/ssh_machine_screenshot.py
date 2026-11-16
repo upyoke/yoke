@@ -111,7 +111,7 @@ def capture_desktop(control, *, focused_window: bool = False) -> HostActionResul
                 argv=["/usr/sbin/screencapture", "-x", "-D", "1", remote],
                 timeout=30,
             )
-        elif control.os in {"linux", "windows"}:
+        elif control.os in {"linux", "wsl"}:
             scrot = ["scrot", "--overwrite", remote]
             if focused_window:
                 scrot.insert(1, "--focused")
@@ -119,7 +119,7 @@ def capture_desktop(control, *, focused_window: bool = False) -> HostActionResul
             session_evidence = {"desktop_session": captured.desktop_session}
         else:
             raise ValueError(
-                "test_machine_os_unsupported: choose macos, linux or windows"
+                "test_machine_os_unsupported: choose macos, linux or wsl"
             )
         if captured.returncode:
             return HostActionResult(

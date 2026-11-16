@@ -194,7 +194,7 @@ def test_declared_package_is_restored_after_interrupted_fixture(monkeypatch, tmp
     assert inventory == {"tmux": "1", "ambient": "2"}
 
 
-@pytest.mark.parametrize("host_os", ["linux", "windows"])
+@pytest.mark.parametrize("host_os", ["linux", "wsl"])
 def test_supported_hosts_share_restore_attribution_script(host_os):
     commands = []
 

@@ -72,7 +72,7 @@ def test_foreign_owner_refuses_before_deleting_any_candidate(tmp_path, monkeypat
     assert (candidate / "data").read_text() == "owned"
 
 
-@pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
+@pytest.mark.parametrize("os_name", ["macos", "linux", "wsl"])
 def test_shared_baseline_receipt_includes_cleanup_and_protects_declared_paths(os_name):
     calls = []
 

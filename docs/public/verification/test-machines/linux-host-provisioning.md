@@ -99,9 +99,10 @@ denial or unavailable helper is a provisioning blocker; stop and report it.
 
 Authorize the project's shared public SSH key in the test account's
 `~/.ssh/authorized_keys` (directory0700, file0600, both test-user-owned).
-Disable password/keyboard-interactive SSH; retain public-key access. Restrict
-network ingress to approved execution machines; audit the effective SSH and
-firewall policy, not just successful login.
+Disable password/keyboard-interactive SSH; retain public-key access. Open SSH
+to any address and keep RDP behind the SSH forward, as
+[network access](host-provisioning.md#network-access) requires; audit the
+effective SSH and firewall policy, not just successful login.
 
 Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`. Read `--help`; updates

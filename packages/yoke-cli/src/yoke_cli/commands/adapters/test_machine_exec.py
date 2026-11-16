@@ -136,7 +136,7 @@ def test_machine_exec(args: List[str]) -> int:
                 ),
                 os_name=settings["os"],
             )
-        if settings["os"] == "windows":
+        if settings["os"] == "wsl":
             from yoke_contracts.windows_wsl_command import windows_wsl_command
 
             command = [windows_wsl_command(" ".join(command))]

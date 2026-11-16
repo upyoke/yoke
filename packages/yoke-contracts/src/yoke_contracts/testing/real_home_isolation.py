@@ -13,8 +13,10 @@ the real home. So a Python audit hook watches every write the test's own
 process makes while the test runs, and fails the test with
 ``real_home_written`` naming each real-home path it created, changed or
 removed. The checkout (pytest's rootpath and the folder it was invoked
-from), its environment and the interpreter are exempt: they often live inside
-the home folder and tests legitimately write them. An exempt root that is or
+from), its environment, the interpreter and the system temp folder that holds
+pytest's ``tmp_path`` are exempt: they often live inside the home folder (on
+Windows the temp folder is ``%LOCALAPPDATA%\\Temp``) and tests legitimately
+write them. An exempt root that is or
 holds the home itself is dropped, so pytest run from the home stays guarded.
 
 Any project loads it from its root ``conftest.py``::
@@ -27,6 +29,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import sys
+import tempfile
 from typing import Iterable, List, Sequence, Tuple
 
 import pytest
@@ -64,6 +67,8 @@ def _written_by_open(args: Sequence[object]) -> bool:
 
 
 def _under(path: str, root: str) -> bool:
+    # normcase folds case and separators where the OS does (Windows only).
+    path, root = os.path.normcase(path), os.path.normcase(root)
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
 
 
@@ -143,9 +148,12 @@ def exempt_roots(
     """
     kept: List[str] = []
     for root in roots:
-        path = os.path.abspath(os.fspath(root))
-        if not _under(home, path) and path not in kept:
-            kept.append(path)
+        given = os.path.abspath(os.fspath(root))
+        # Keep the resolved form too: Windows may name the temp folder by its
+        # 8.3 short name (RUNNER~1) while writes arrive under the long one.
+        for path in (given, os.path.realpath(given)):
+            if not _under(home, path) and path not in kept:
+                kept.append(path)
     return tuple(kept)
 
 
@@ -153,7 +161,8 @@ def pytest_configure(config: pytest.Config) -> None:
     # The checkout is the folder pytest is invoked from, which need not be its
     # rootpath (a config file in a service folder). The interpreter may itself
     # live under the home folder (a uv-managed Python), and a lazy import
-    # writes bytecode beside its standard library.
+    # writes bytecode beside its standard library. pytest's tmp_path lives in
+    # the system temp folder, which Windows keeps inside the user profile.
     GUARD.exempt = exempt_roots(
         GUARD.home,
         (
@@ -161,6 +170,7 @@ def pytest_configure(config: pytest.Config) -> None:
             config.invocation_params.dir,
             sys.prefix,
             sys.base_prefix,
+            tempfile.gettempdir(),
         ),
     )
 

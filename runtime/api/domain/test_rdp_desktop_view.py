@@ -210,7 +210,7 @@ def test_missing_client_refuses_before_host_or_forward(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("os_name", ["linux", "windows"])
+@pytest.mark.parametrize("os_name", ["linux", "wsl"])
 def test_prepare_uses_registered_xfce_user_port_and_wsl_stdin_frame(
     tmp_path, monkeypatch, os_name
 ):
@@ -221,7 +221,7 @@ def test_prepare_uses_registered_xfce_user_port_and_wsl_stdin_frame(
         calls.append((argv, kw))
         command = argv[-1]
         supplied = kw["input"]
-        if os_name == "windows":
+        if os_name == "wsl":
             assert command.startswith("powershell.exe -NoLogo")
             command, supplied = supplied.split("\n", 1)
             command = base64.b64decode(command).decode()
