@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 import re
 import shlex
 import tempfile
@@ -277,7 +277,10 @@ def read_rejection_record(stdout: str) -> dict[str, Any] | None:
 def harness_request(argv: Sequence[str]) -> HarnessRequest | None:
     """The declared absolute executable selects a thin native CLI adapter."""
     program = argv[0]
-    executable = PurePosixPath(program).name
+    native = PureWindowsPath(program)
+    executable = (native if native.drive else PurePosixPath(program)).name
+    if native.drive or executable.lower().endswith((".exe", ".cmd")):
+        executable = executable.lower().removesuffix(".exe").removesuffix(".cmd")
     if executable == "claude":
         return HarnessRequest(
             "Claude",

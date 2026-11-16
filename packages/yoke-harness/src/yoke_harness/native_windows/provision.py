@@ -8,6 +8,7 @@ import secrets
 import subprocess
 import tempfile
 import sys
+import time
 
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config.capability_secret_store import (
@@ -108,30 +109,45 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
             max_wait_seconds=BOOTSTRAP_TIMEOUT_SECONDS,
             cadence="Azure guest command completion",
         )
-        result = subprocess.run(
-            [
-                "az",
-                "vm",
-                "run-command",
-                "invoke",
-                "--resource-group",
-                resource_group,
-                "--name",
-                machine,
-                "--command-id",
-                "RunPowerShellScript",
-                "--scripts",
-                "@" + str(path),
-                "--query",
-                "value[].message",
-                "-o",
-                "tsv",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=BOOTSTRAP_TIMEOUT_SECONDS,
-        )
+        deadline = time.monotonic() + BOOTSTRAP_TIMEOUT_SECONDS
+        while True:
+            result = subprocess.run(
+                [
+                    "az",
+                    "vm",
+                    "run-command",
+                    "invoke",
+                    "--resource-group",
+                    resource_group,
+                    "--name",
+                    machine,
+                    "--command-id",
+                    "RunPowerShellScript",
+                    "--scripts",
+                    "@" + str(path),
+                    "--query",
+                    "value[].message",
+                    "-o",
+                    "tsv",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=max(1, deadline - time.monotonic()),
+            )
+            if "Run command extension execution is in progress" not in result.stderr:
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError(
+                    "windows_openssh_bootstrap_busy: Azure still owns the previous guest command; wait for its completion before provisioning again"
+                )
+            print(
+                "windows_openssh_bootstrap_busy: waiting for the existing Azure guest command before retrying readiness.",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(min(30, remaining))
         if (
             result.returncode
             or "Native OpenSSH ready; password authentication disabled."

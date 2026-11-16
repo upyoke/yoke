@@ -251,3 +251,36 @@ def test_native_retention_preserves_other_registered_goldens():
     assert "qa-home-kept" not in scripts[1]
     assert "qa-home-new" not in scripts[1]
     assert "Remove-Item -LiteralPath" in scripts[1]
+
+
+def test_bootstrap_waits_for_an_existing_guest_command(monkeypatch):
+    from yoke_harness.native_windows import provision
+
+    sleeps = []
+    replies = iter(
+        [
+            completed("ssh-ed25519 PUBLIC"),
+            completed(
+                returncode=1, stderr="Run command extension execution is in progress"
+            ),
+            completed("ParserError: diagnosed guest failure"),
+        ]
+    )
+    monkeypatch.setattr(
+        provision.subprocess, "run", lambda *args, **kwargs: next(replies)
+    )
+    monkeypatch.setattr(
+        provision, "machine_capability_secret_path", lambda *args: "private-key"
+    )
+    monkeypatch.setattr(provision.time, "sleep", lambda seconds: sleeps.append(seconds))
+    with pytest.raises(RuntimeError, match="windows_openssh_bootstrap_failed"):
+        provision.provision("project", "machine", "host", "group", "admin", "test")
+    assert sleeps == [30]
+
+
+def test_native_harness_requests_recognize_windows_launcher_paths():
+    from yoke_harness.baseline_harness_requests import harness_request
+
+    request = harness_request([r"C:\Users\qa\.local\bin\codex.cmd"])
+    assert request.name == "Codex"
+    assert request.argv[0].endswith("codex.cmd")
