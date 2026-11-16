@@ -26,7 +26,7 @@ import os
 import platform
 import shutil
 import tarfile
-import tempfile
+import secrets
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -188,7 +188,9 @@ def fetch_binaries(
         create_owner_private_directory(dest.parent)
     else:
         create_private_directory(dest.parent)
-    staging = Path(tempfile.mkdtemp(prefix=".fetch-", dir=dest.parent))
+    staging = create_owner_private_directory(
+        dest.parent / (".fetch-" + secrets.token_hex(12))
+    )
     try:
         tarball = staging / release_asset_name(version, resolved_target)
         emit(f"  [postgres-binaries] fetching {url}")

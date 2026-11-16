@@ -49,7 +49,9 @@ try {
 
 
 def verify() -> None:
-    work = Path(tempfile.mkdtemp(prefix="Yoke profile with spaces "))
+    work = create_owner_private_directory(
+        Path(tempfile.gettempdir()) / ("Yoke profile with spaces " + secrets.token_hex(8))
+    )
     home = create_owner_private_directory(work / "machine home")
     os.environ["YOKE_MACHINE_HOME"] = str(home)
     os.environ.pop("YOKE_MACHINE_CONFIG_FILE", None)
