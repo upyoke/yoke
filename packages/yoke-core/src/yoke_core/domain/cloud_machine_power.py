@@ -297,8 +297,8 @@ def machine_power(
             raise AzureAdminError(
                 "VM resource id names a different subscription; correct azure-admin or the VM id and retry"
             )
-        with azure_session(project, config, run=runner.run) as (executable, env):
-            yield AzureMachinePower(runner, executable, env, instance_id, project, emit)
+        with azure_session(project, config, run=runner.run) as (command, env):
+            yield AzureMachinePower(runner, command, env, instance_id, project, emit)
     else:
         raise _refused(
             "test_machine_cloud_provider_unsupported",

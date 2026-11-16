@@ -12,9 +12,12 @@ from typing import Any
 from yoke_contracts.azure_cli_prerequisite import check_azure_cli
 from yoke_contracts.machine_config.capability_secret_store import (
     read_machine_capability_secret,
+    MachineCapabilitySecretError,
 )
 
-CAPABILITY = "azure-admin"
+from yoke_contracts.machine_config.capability_secrets import AZURE_ADMIN_CAPABILITY
+
+CAPABILITY = AZURE_ADMIN_CAPABILITY
 SETTING_KEYS = ("tenant_id", "client_id", "subscription_id")
 SECRET_KEY = "client_secret"
 
@@ -60,9 +63,15 @@ def run_checked(
 @contextmanager
 def azure_session(
     project: str, settings: Mapping[str, Any], *, run: Callable[..., Any] = _run
-) -> Iterator[tuple[str, dict[str, str]]]:
+) -> Iterator[tuple[tuple[str, ...], dict[str, str]]]:
     missing = [key for key in SETTING_KEYS if not str(settings.get(key) or "").strip()]
-    secret = read_machine_capability_secret(project, CAPABILITY, SECRET_KEY)
+    try:
+        secret = read_machine_capability_secret(project, CAPABILITY, SECRET_KEY)
+    except MachineCapabilitySecretError as exc:
+        raise AzureAdminError(
+            f"{exc}; restore the local client_secret with "
+            f"`yoke azure admin-link --project {project}` and retry"
+        ) from exc
     if missing or not secret:
         raise AzureAdminError(
             f"azure-admin is incomplete (missing {', '.join(missing + ([] if secret else [SECRET_KEY]))}); "
@@ -83,7 +92,7 @@ def azure_session(
         run_checked(
             run,
             [
-                cli.executable,
+                *cli.command,
                 "login",
                 "--service-principal",
                 "--username",
@@ -101,7 +110,7 @@ def azure_session(
         run_checked(
             run,
             [
-                cli.executable,
+                *cli.command,
                 "account",
                 "set",
                 "--subscription",
@@ -111,4 +120,4 @@ def azure_session(
             action="subscription selection",
             secret=secret,
         )
-        yield cli.executable, env
+        yield cli.command, env

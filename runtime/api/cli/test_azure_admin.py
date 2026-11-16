@@ -31,7 +31,7 @@ def credentials(monkeypatch, tmp_path):
         "project", "azure-admin", "client_secret", "test-secret"
     )
     monkeypatch.setattr(
-        admin, "check_azure_cli", lambda: prerequisite.AzureCli("az", "test")
+        admin, "check_azure_cli", lambda: prerequisite.AzureCli(("az",), "test")
     )
     return path
 
@@ -46,10 +46,10 @@ def test_session_uses_private_cache_and_removes_it(credentials, monkeypatch):
         assert "ARM_CLIENT_SECRET" not in kwargs["env"]
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    with admin.azure_session("project", SETTINGS, run=run) as (executable, env):
+    with admin.azure_session("project", SETTINGS, run=run) as (command, env):
         cache = Path(env["AZURE_CONFIG_DIR"])
         assert cache.is_dir() and str(cache) != "ambient-account-cache"
-        assert executable == "az"
+        assert command == ("az",)
         assert calls[0][0] == [
             "az",
             "login",
@@ -186,3 +186,22 @@ def test_old_serving_validator_names_provider_floor():
     assert error.code == "test_machine_cloud_provider_serving_floor_required"
     assert "minimum serving version next-release" in error.message
     assert "provider-capable serving build" in error.message
+
+
+def test_windows_azure_cli_bypasses_batch_reparsing(monkeypatch, tmp_path):
+    cli = tmp_path / "CLI2" / "wbin" / "az.cmd"
+    cli.parent.mkdir(parents=True)
+    cli.write_text("batch shim")
+    python = cli.parent.parent / "python.exe"
+    python.write_text("bundled interpreter")
+    monkeypatch.setattr(prerequisite.shutil, "which", lambda _: str(cli))
+    monkeypatch.setattr(prerequisite.platform, "system", lambda: "Windows")
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        return SimpleNamespace(returncode=0, stdout="azure-cli test")
+
+    monkeypatch.setattr(prerequisite.subprocess, "run", run)
+    assert prerequisite.check_azure_cli().command == (str(python), "-IBm", "azure.cli")
+    assert calls == [[str(python), "-IBm", "azure.cli", "--version"]]

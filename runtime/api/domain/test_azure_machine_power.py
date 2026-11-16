@@ -55,7 +55,7 @@ def controller(monkeypatch):
 
     @contextmanager
     def session(project, settings, **kwargs):
-        yield "az", {"AZURE_CONFIG_DIR": "private-test-cache"}
+        yield ("az",), {"AZURE_CONFIG_DIR": "private-test-cache"}
 
     monkeypatch.setattr(power, "_dispatch", dispatch)
     monkeypatch.setattr(power, "azure_session", session)
@@ -140,7 +140,7 @@ def test_waits_for_an_inflight_deallocation_before_start():
             details(),
         ]
     )
-    provider = AzureMachinePower(runner, "az", {}, ID, "project", lambda _: None)
+    provider = AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None)
     assert provider.start() == "VM deallocating"
     assert provider.address() == SETTINGS["host"]
 
@@ -149,7 +149,7 @@ def test_power_transition_timeout_names_recovery():
     runner = FakeRunner([details("VM starting")])
     clock = iter([0, 601])
     provider = AzureMachinePower(
-        runner, "az", {}, ID, "project", lambda _: None, clock=lambda: next(clock)
+        runner, ("az",), {}, ID, "project", lambda _: None, clock=lambda: next(clock)
     )
     with pytest.raises(AzureAdminError, match="600s.*azure exec"):
         provider.start()

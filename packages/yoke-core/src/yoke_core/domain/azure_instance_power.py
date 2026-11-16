@@ -16,7 +16,7 @@ from yoke_core.domain.deploy_remote import CommandRunner
 @dataclass
 class AzureMachinePower:
     runner: CommandRunner
-    executable: str
+    command: tuple[str, ...]
     env: dict[str, str]
     instance_id: str
     project: str
@@ -36,7 +36,7 @@ class AzureMachinePower:
         return run_checked(
             self.runner.run,
             [
-                self.executable,
+                *self.command,
                 "vm",
                 action,
                 "--ids",

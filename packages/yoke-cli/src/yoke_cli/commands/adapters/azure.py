@@ -26,6 +26,7 @@ from yoke_contracts.azure_admin import (
 from yoke_contracts.azure_cli_prerequisite import AzureCliPrerequisiteError
 from yoke_contracts.machine_config.capability_secret_store import (
     read_machine_capability_secret,
+    MachineCapabilitySecretError,
 )
 from yoke_contracts.project_defaults import MissingProjectError
 
@@ -65,7 +66,12 @@ def _settings(project):
         actor=build_actor(),
     )
     if response.success:
-        return json.loads(str((response.result or {}).get("settings_json") or "{}"))
+        settings = json.loads(str((response.result or {}).get("settings_json") or "{}"))
+        if not isinstance(settings, dict):
+            raise AzureAdminError(
+                "azure-admin settings must be an object; run Azure admin-link and repair settings"
+            )
+        return settings
     if response.error and response.error.code == "not_found":
         return {}
     raise AzureAdminError(
@@ -119,12 +125,12 @@ def azure_admin_status(args):
         }
         if not missing:
             try:
-                with azure_session(project, settings) as (executable, env):
+                with azure_session(project, settings) as (command, env):
                     identity = run_checked(
                         lambda argv, **kw: subprocess.run(
                             argv, capture_output=True, text=True, **kw
                         ),
-                        [executable, "account", "show", "--output", "json"],
+                        [*command, "account", "show", "--output", "json"],
                         env,
                         action="identity check",
                     )
@@ -160,11 +166,12 @@ def azure_admin_status(args):
         return 0
     except (
         AzureAdminError,
+        MachineCapabilitySecretError,
         MissingProjectError,
         ProjectSlugLookupError,
         ValueError,
     ) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {exc}; run `yoke azure admin-link` and retry", file=sys.stderr)
         return 1
 
 
@@ -181,10 +188,11 @@ def azure_exec(args):
         return 2
     try:
         project = _project(parsed)
-        with azure_session(project, _settings(project)) as (executable, env):
-            return subprocess.run([executable, *argv], env=env, check=False).returncode
+        with azure_session(project, _settings(project)) as (command, env):
+            return subprocess.run([*command, *argv], env=env, check=False).returncode
     except (
         AzureAdminError,
+        MachineCapabilitySecretError,
         AzureCliPrerequisiteError,
         MissingProjectError,
         ProjectSlugLookupError,

@@ -14,7 +14,7 @@ INSTALL_DOCS = "https://learn.microsoft.com/cli/azure/install-azure-cli"
 
 @dataclass(frozen=True)
 class AzureCli:
-    executable: str
+    command: tuple[str, ...]
     version: str
 
 
@@ -51,9 +51,22 @@ def check_azure_cli() -> AzureCli:
             if installed
             else "Azure CLI is not installed",
         )
+    command = (executable,)
+    if platform.system() == "Windows" and Path(executable).suffix.lower() in (
+        ".cmd",
+        ".bat",
+    ):
+        # The official MSI shim invokes this bundled interpreter. Bypass cmd.exe:
+        # it reparses secret characters (&, %, quotes) even with shell=False.
+        python = Path(executable).parent.parent / "python.exe"
+        if not python.is_file():
+            raise AzureCliPrerequisiteError(
+                "azure-cli-unusable", "Azure CLI's bundled python.exe is missing"
+            )
+        command = (str(python), "-IBm", "azure.cli")
     try:
         result = subprocess.run(
-            [executable, "--version"],
+            [*command, "--version"],
             capture_output=True,
             text=True,
             timeout=15,
@@ -66,6 +79,6 @@ def check_azure_cli() -> AzureCli:
     if result.returncode:
         raise AzureCliPrerequisiteError("azure-cli-unusable", "az --version failed")
     return AzureCli(
-        executable,
+        command,
         result.stdout.strip().splitlines()[0] if result.stdout.strip() else "",
     )
