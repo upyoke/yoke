@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Any, List, Mapping, Sequence, Tuple
 
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.harness_shell_tools import payload_shell_kind
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_for_shell, parse_shell
 from yoke_contracts.hook_runner.shell_parse import strip_env_prefix
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_python_write_target_extract import (
@@ -206,7 +207,7 @@ def analyze_payload_write_targets(
         out.extend(parse_patch(command).all_paths())
         return PayloadWriteTargets(_dedupe_paths(out), False)
 
-    parsed = shell if shell is not None else parse_shell(command)
+    parsed = shell if shell is not None else parse_for_shell(command, payload_shell_kind(payload))
     shell_targets, unresolved = _extract_shell_write_targets(parsed, segment_cwds)
     out.extend(shell_targets)
     python_writes = analyze_python_heredoc_writes(
@@ -253,6 +254,10 @@ def resolve_shell_write_operands(
 ) -> Tuple[List[str], bool]:
     """Resolve existing write positions using bindings from the whole body."""
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    if parsed.shell == "powershell":
+        from yoke_core.domain.path_claim_powershell_parser import powershell_write_operands
+
+        return powershell_write_operands(parsed, segment_cwds)
     if bindings is None:
         bindings = shell_variable_bindings(parsed.command)
     out: List[str] = []

@@ -2,9 +2,7 @@
 
 """Tests for the two-unit apply contract — rehearsal unit.
 
-Original module covered every flavor of the apply contract. It is now split
-across sibling files so each authored file stays under the 350-line limit:
-this file covers the rehearsal happy path and rehearsal failure branches.
+This file covers rehearsal happy paths and failure branches.
 Profile gating lives in ``test_migration_apply_failure``, and the
 migration-territory lease rehearsal takes lives in
 ``test_migration_rehearsal_lease``. Heavy fixture/helper code lives in
@@ -40,6 +38,8 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — 
     apply_env,  # noqa: F401 — fixture registration
 )
 from runtime.api.backlog_test_support import _conn, tmp_db  # noqa: F401 — reused fixtures
+
+pytestmark = pytest.mark.windows
 
 
 class TestDbTargets:

@@ -21,7 +21,7 @@ from yoke_core.domain.observe_db_reads import (
 from yoke_core.domain.observe_function_call_refs import extract_function_call_item_id
 from yoke_core.domain.observe_tool_event import (
     TOOL_KIND_APPLY_PATCH,
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
     TOOL_KINDS,
@@ -319,7 +319,7 @@ def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
 
 __all__ = [
     "TOOL_KIND_APPLY_PATCH",
-    "TOOL_KIND_BASH",
+    "TOOL_KIND_SHELL",
     "TOOL_KIND_EDIT",
     "TOOL_KIND_WRITE",
     "TOOL_KINDS",

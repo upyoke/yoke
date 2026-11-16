@@ -16,7 +16,7 @@ under, and no descendant can inherit or stale that fact. This module
 answers that question and owns the per-family identity vocabulary that
 :mod:`yoke_contracts.session_identity` composes into the ambient chain.
 
-Pure standard library, so both sides of the identity contract share one
+Shared platform process facts let both sides of the identity contract share one
 body: the engine core through its ``yoke_core.domain`` re-export shims,
 and the product CLI client, which must resolve identity locally because
 an https server cannot inspect the caller's process tree.
@@ -36,6 +36,7 @@ from yoke_contracts.process_ancestry import (
     MULTIPLEXED_PROCESS_BASENAMES,
     ancestor_pids,
     process_table,
+    process_basename,
 )
 
 
@@ -129,7 +130,7 @@ def harness_family_of_process_name(name: Optional[str]) -> Optional[str]:
     belong to even though it can never anchor one session. Any other
     process name is not a harness and returns ``None``.
     """
-    basename = os.path.basename((name or "").strip()).lower()
+    basename = process_basename(name or "")
     if basename not in _HARNESS_BASENAMES:
         return None
     try:

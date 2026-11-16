@@ -176,12 +176,12 @@ class TestReadOnlyInspection:
 class TestPipelineAdapter:
     def test_decide_for_record_routes_to_evaluate(self):
         from yoke_core.domain.observe_normalization import (
-            TOOL_KIND_BASH,
+            TOOL_KIND_SHELL,
             ToolEventRecord,
         )
 
         record = ToolEventRecord(
-            tool_kind=TOOL_KIND_BASH,
+            tool_kind=TOOL_KIND_SHELL,
             command="ls",
             session_id="sess-A",
             cwd="/tmp/somewhere",

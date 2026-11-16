@@ -259,7 +259,7 @@ def test_the_adopted_handle_carries_the_native_reading_to_the_relay(
     )
 
     monkeypatch.setattr(
-        "yoke_harness.session_process_custody.group_members", lambda group: {}
+        "yoke_harness.session_process_custody.platform_process.pid_alive", lambda *args: False
     )
 
     def one_poll() -> dict:

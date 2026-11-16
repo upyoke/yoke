@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from yoke_contracts import platform_file_lock
+from yoke_contracts.hook_resident_transport import connect_pipe, uses_named_pipe
 
 
 WARNING_INTERVAL_SECONDS = 300
@@ -49,7 +50,7 @@ def claim_fallback_warning(state_dir: Path) -> bool:
 
 def resident_revision_problem(socket_path: Path, expected: str) -> str:
     """Read loaded identity without evaluating hooks or restarting the process."""
-    if not hasattr(socket, "AF_UNIX"):
+    if not uses_named_pipe() and not hasattr(socket, "AF_UNIX"):
         return "YOKE_HOOK_RESIDENT_UNSUPPORTED: Unix-domain sockets unavailable"
     from yoke_contracts.hook_evaluator_protocol import receive_frame, send_frame
     from yoke_contracts.hook_evaluator_protocol import HookEvaluatorProtocolError
@@ -58,9 +59,15 @@ def resident_revision_problem(socket_path: Path, expected: str) -> str:
 
     version = installed_engine_version()
     try:
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as peer:
+        peer = (
+            connect_pipe(str(socket_path), time.monotonic() + 1.0)
+            if uses_named_pipe()
+            else socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        )
+        with peer:
             peer.settimeout(1.0)
-            peer.connect(str(socket_path))
+            if not uses_named_pipe():
+                peer.connect(str(socket_path))
             send_frame(peer, {"kind": "health"})
             response = receive_frame(peer)
     except (OSError, HookEvaluatorProtocolError) as exc:

@@ -40,7 +40,9 @@ def machine(tmp_path, monkeypatch):
     monkeypatch.setattr(
         steps.machine_uninstall_workers, "stop", lambda envs: calls.append(["workers"])
     )
-    monkeypatch.setattr(steps.machine_uninstall_detached, "prepare", lambda: handoff)
+    monkeypatch.setattr(
+        steps.machine_uninstall_detached, "prepare", lambda home: handoff
+    )
     return value, calls, handoff_events
 
 
@@ -101,7 +103,7 @@ def test_cli_spawn_failure_keeps_machine_home(machine, monkeypatch):
     monkeypatch.setattr(
         steps.machine_uninstall_detached,
         "prepare",
-        lambda: steps._fail("spawn refused"),
+        lambda home: steps._fail("spawn refused"),
     )
     assert steps.remove(value, (), lambda line: None) == 1
     assert value.config.is_file()
@@ -147,6 +149,49 @@ def test_docker_discovery_failure_keeps_recovery_state(machine):
     assert value.config.is_file()
     assert ["ui", "down"] in calls
     assert not handoff
+
+
+@pytest.mark.windows
+def test_windows_reports_wsl_hosted_server_and_still_completes(machine):
+    value, calls, handoff = machine
+    value = replace(value, bundles=(), wsl_bundles=("/home/ada/yoke-server",))
+    output = []
+    assert steps.remove(value, (), output.append) == 0
+    assert not any(args[:2] == ["self-host", "teardown"] for args in calls)
+    assert (
+        "self-host /home/ada/yoke-server: skipped (hosted in WSL; tear it down "
+        "from WSL with `yoke self-host teardown --dir /home/ada/yoke-server`)"
+    ) in output
+    assert not any(line.startswith("self-host: skipped") for line in output)
+    assert not value.home.exists()
+    assert handoff == ["armed"]
+
+
+@pytest.mark.windows
+def test_home_removal_uses_the_platform_tree_remover(machine, monkeypatch):
+    value, _calls, handoff = machine
+    removed = []
+    monkeypatch.setattr(steps, "remove_tree", removed.append)
+    assert steps.remove(value, value.projects, lambda line: None) == 0
+    assert removed == [value.home]
+    assert handoff == ["armed"]
+
+
+@pytest.mark.windows
+def test_locked_home_file_keeps_cli_for_recovery(machine, monkeypatch):
+    value, _calls, handoff = machine
+
+    def locked(path):
+        raise OSError(
+            f"remove_tree_locked: {path / 'yoke.db'} is open in another process"
+        )
+
+    monkeypatch.setattr(steps, "remove_tree", locked)
+    output = []
+    assert steps.remove(value, value.projects, output.append) == 1
+    assert handoff == ["cancelled"]
+    assert any("machine home: failed" in line and "yoke.db" in line for line in output)
+    assert "CLI: skipped (machine home removal failed)" in output
 
 
 @pytest.mark.parametrize(

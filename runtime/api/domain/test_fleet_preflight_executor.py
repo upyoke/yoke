@@ -25,6 +25,8 @@ from yoke_core.domain import (
 from yoke_core.domain.environment_declared_facts import PREFLIGHT_EXECUTOR_PATH
 from yoke_core.tools import watch_preflight
 
+pytestmark = pytest.mark.windows
+
 SHA = "c" * 40
 # Exactly the arguments the release rehearsal builds for a release commit.
 ARGS = [
@@ -163,6 +165,7 @@ def test_unset_executor_runs_the_local_kernel_unchanged(
 ) -> None:
     monkeypatch.delenv("DEPLOYMENT_RUN_ID", raising=False)
     _declare(monkeypatch, declared)
+    monkeypatch.setattr(fleet_preflight_executor, "_NATIVE_WINDOWS", False)
     watched: list[list[str]] = []
 
     def run_watcher(*, argv, exit_metadata, **_kwargs):
@@ -270,3 +273,44 @@ def test_release_rehearsal_reports_an_unreadable_declaration(
     assert refusal.startswith("release fleet rehearsal refused: ")
     assert "fleet_preflight_executor_unreadable" in refusal
     assert engine_checks == []
+
+
+@pytest.mark.parametrize("caller", ["operator", "release"])
+@pytest.mark.parametrize("declared", [None, "", "   "])
+def test_native_windows_requires_executor_before_copy(
+    caller, declared, tmp_path, monkeypatch, capsys
+):
+    _declare(monkeypatch, declared)
+    monkeypatch.setattr(fleet_preflight_executor, "_NATIVE_WINDOWS", True)
+    engine_checks = _local_engine_matches(monkeypatch)
+    if caller == "operator":
+        assert _operator_run(tmp_path, ARGS) == 2
+        diagnostic = capsys.readouterr().out
+        assert "fleet_preflight_executor_required" in (tmp_path / "raw.log").read_text(
+            encoding="utf-8"
+        )
+    else:
+        rc, diagnostic = _release_run(tmp_path, monkeypatch)
+        assert rc == 1
+    assert "fleet_preflight_executor_required" in diagnostic
+    assert "yoke projects environment-settings merge" in diagnostic
+    assert "--set release.preflight_executor=<command>" in diagnostic
+    assert engine_checks == []
+
+
+def test_native_windows_accepts_a_declared_executor(monkeypatch):
+    _declare(monkeypatch, "ssh db-host fleet-preflight")
+    monkeypatch.setattr(fleet_preflight_executor, "_NATIVE_WINDOWS", True)
+    command = fleet_preflight_executor.resolve(ARGS)
+    assert not command.refusal
+    assert command.argv(ARGS) == ["ssh", "db-host", "fleet-preflight", *ARGS]
+
+
+def test_windows_executor_failure_never_recommends_an_empty_setting(monkeypatch):
+    monkeypatch.setattr(fleet_preflight_executor, "_NATIVE_WINDOWS", True)
+    command = fleet_preflight_executor.PreflightCommand(
+        executor="remote-preflight", project="sample", environment="prod",
+    )
+    message = fleet_preflight_executor.executor_failure(command, 1, "capture.log")
+    assert "environment-settings merge" in message
+    assert "set it empty" not in message

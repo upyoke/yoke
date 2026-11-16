@@ -256,9 +256,11 @@ class TestDataEnvelopeUnwrapping:
         assert result.runs[0].execution_status == "captured"
         assert result.runs[0].recorded_screenshots == 1
         check = connect_test_db(db_path)
-        stored = check.execute("SELECT metadata FROM qa_artifacts").fetchone()
+        stored = check.execute(
+            "SELECT metadata FROM qa_artifacts WHERE artifact_type='screenshot'"
+        ).fetchall()
         check.close()
-        assert json.loads(stored[0])["label"] == "wrapped"
+        assert [json.loads(row[0])["label"] for row in stored] == ["wrapped"]
 
     def test_flat_response_still_works(self, tmp_path: Path, db_path: str) -> None:
         """Flat response shape (no data key) continues to work."""

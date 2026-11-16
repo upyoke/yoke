@@ -38,9 +38,8 @@ from typing import Any, Mapping, Optional
 
 from yoke_contracts.hook_runner.session_cwd import client_machine_home
 from yoke_core.domain import lint_config
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell
 from yoke_core.domain.command_workdir import command_segment_cwds
-from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
     command_has_suppression_token,
@@ -125,7 +124,7 @@ def evaluate_pre_tool_use(
 
     payload_dict = dict(payload)
     if shell is None:
-        shell = parse_shell(extract_command(payload))
+        shell = parse_payload_shell(payload)
     try:
         with _open_conn() as conn:
             claims = claimed_worktrees(conn, session_id=session_id)

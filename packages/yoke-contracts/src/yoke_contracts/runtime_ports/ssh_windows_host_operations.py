@@ -11,6 +11,9 @@ class SshWindowsHostOperations(Protocol):
     """Operations and values supplied by the executing adapter."""
 
     SshWindowsHostOperations: type[Any]
+    SshNativeWindowsHostOperations: type[Any]
+    run_native_terminal_case: Any
+    WindowsTerminal: type[Any]
 
 
 def get_ssh_windows_host_operations() -> SshWindowsHostOperations:

@@ -18,7 +18,7 @@ from typing import Optional, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -79,7 +79,7 @@ def evaluate_payload(
     """
     if not isinstance(payload, dict):
         return None
-    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    parsed = shell if shell is not None else parse_payload_shell(payload)
     forms = _legacy_forms(parsed)
     if not forms:
         return None

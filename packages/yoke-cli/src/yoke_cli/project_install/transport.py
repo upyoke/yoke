@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterator, Mapping, Optional, Tuple
 
 from yoke_cli.config import machine_config
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -53,7 +54,9 @@ def resolve_bundle(
 
     if str(connection.get("transport") or "") in POSTGRES_TRANSPORTS:
         return (
-            _fetch_bundle_local_postgres(project_id, connection, config_path),
+            native_bundle_hooks(
+                _fetch_bundle_local_postgres(project_id, connection, config_path)
+            ),
             f"local-postgres:{connection.get('env') or '<env>'}",
         )
 
@@ -70,7 +73,9 @@ def resolve_bundle(
             "run `yoke status`, switch with `yoke env use <https-env>`, "
             "or use the explicit Yoke source-dev/admin setup branch"
         )
-    return _fetch_bundle_https(connection, project_id), connection.api_url
+    return native_bundle_hooks(
+        _fetch_bundle_https(connection, project_id)
+    ), connection.api_url
 
 
 def _fetch_bundle_local_postgres(

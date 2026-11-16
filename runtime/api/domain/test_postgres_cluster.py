@@ -294,3 +294,14 @@ def test_data_dir_major_mismatch_names_both_majors(
 
 def test_uninitialized_data_dir_is_never_a_mismatch(tmp_path):
     assert postgres_cluster.data_dir_major_mismatch(_spec(tmp_path)) is None
+
+
+@pytest.mark.windows
+def test_destroy_keeps_data_when_server_cannot_stop(monkeypatch, tmp_path):
+    spec = _spec(tmp_path)
+    spec.data_dir.mkdir(parents=True)
+    marker = spec.data_dir / "PG_VERSION"
+    marker.write_text("17\n", encoding="utf-8")
+    monkeypatch.setattr(postgres_cluster, "stop", lambda selected: 1)
+    assert postgres_cluster.destroy(spec) == 1
+    assert marker.read_text(encoding="utf-8") == "17\n"

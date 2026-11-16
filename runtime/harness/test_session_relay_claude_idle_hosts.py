@@ -23,7 +23,6 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-import time
 
 from yoke_contracts.process_ancestry import (
     process_start_time,
@@ -46,6 +45,10 @@ from yoke_harness.session_relay_claude_idle_hosts import (
     signal_exited_host,
     start_epoch,
 )
+
+import pytest
+
+pytestmark = pytest.mark.windows
 
 
 def test_plan_names_only_idle_used_hosts_and_keeps_the_newest_spare() -> None:
@@ -177,21 +180,16 @@ def test_signal_exited_host_terminates_the_recorded_process(monkeypatch) -> None
             process.wait()
 
 
-def test_process_inventory_reads_titles_and_starts_from_one_ps_call(monkeypatch):
-    stamp = "Thu Sep  3 15:51:11 2026"
-    rows = [
-        f"12817 12749 464384 {stamp} {SPARE}",
-        f"12749 24033 113488 {stamp} claude bg-pty-host",
-        "bad line",
-    ]
-    monkeypatch.setattr(idle_hosts, "ps_lines", lambda args: rows)
+def test_process_inventory_reads_platform_titles_and_creation_epochs(monkeypatch):
+    from yoke_contracts.platform_process import ProcessInfo
+    rows = [ProcessInfo(12817, 12749, (SPARE,), 123.5, SPARE, 464384, "owner"),
+            ProcessInfo(12749, 24033, ("claude",), 120.0, "claude bg-pty-host", 113488, "owner")]
+    monkeypatch.setattr(idle_hosts.platform_process, "process_command_lines", lambda: rows)
     table = process_inventory()
     assert set(table) == {12817, 12749}
     spare = table[12817]
     assert (spare.ppid, spare.name, spare.rss_kb) == (12749, SPARE, 464384)
-    assert spare.start_epoch == time.mktime(
-        time.strptime(stamp, "%a %b %d %H:%M:%S %Y")
-    )
+    assert spare.start_epoch == 123.5
 
 
 def test_claude_records_are_read_bounded_and_normalised(tmp_path: Path) -> None:

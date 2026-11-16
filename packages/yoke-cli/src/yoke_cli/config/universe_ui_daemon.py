@@ -20,10 +20,11 @@ from __future__ import annotations
 
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.timestamps import format_instant
+from yoke_contracts import platform_process
+from yoke_contracts.owner_private_path import write_owner_private
 
 import os
 from pathlib import Path
-import signal
 import subprocess
 import time
 from typing import Any, Dict, Optional, Tuple
@@ -40,6 +41,7 @@ from yoke_cli.config.universe_ui_daemon_state import (
     private_url,
     process_alive,
     read_record,
+    require_available_port,
     record_path,
     stable_session_token,
     state_dir,
@@ -49,7 +51,6 @@ from yoke_cli.config.universe_ui_daemon_state import (
 READY_TIMEOUT_S = 20.0
 READY_POLL_INTERVAL_S = 0.2
 STOP_TIMEOUT_S = 10.0
-STOP_POLL_INTERVAL_S = 0.2
 
 
 def status() -> Dict[str, Any]:
@@ -62,7 +63,7 @@ def status() -> Dict[str, Any]:
     record = read_record()
     if record is None:
         return _stopped_report()
-    if not process_alive(record.pid):
+    if not process_alive(record.pid, record.process_start_time):
         clear_record()
         return {
             **_stopped_report(),
@@ -92,17 +93,23 @@ def up(*, host: str, port: int, env: str) -> Dict[str, Any]:
     if current.get("running"):
         return {**current, "started": False}
 
+    require_available_port(host, port)
     stable_session_token()
     log = log_path()
-    supervised, note = _start_supervisor(host=host, port=port, env=env, log=log)
+    supervised, note, child = _start_supervisor(host=host, port=port, env=env, log=log)
 
-    if _await_ready(host=host, port=port) is None:
-        _tear_down(supervised=supervised)
+    try:
+        ready = _await_ready(host=host, port=port)
+    except UiDaemonError:
+        _tear_down(supervised=supervised, child=child)
+        raise
+    if ready is None:
+        _tear_down(supervised=supervised, child=child)
         tail = log_tail()
         raise UiDaemonError(
             f"the UI daemon did not begin serving {host}:{port} within "
             f"{READY_TIMEOUT_S:.0f}s, so nothing is left running. Its log "
-            f"is {log}" + (f"; last lines:\n{tail}" if tail else "")
+            f"is {log}; inspect it and retry `yoke ui up --port PORT`" + (f"; last lines:\n{tail}" if tail else "")
         )
     report = {**status(), "started": True}
     if note:
@@ -115,8 +122,8 @@ def down() -> Dict[str, Any]:
     removed_agent = launchd.remove_agent()
     record = read_record()
     stopped_pid: Optional[int] = None
-    if record is not None and process_alive(record.pid):
-        _terminate(record.pid)
+    if record is not None and process_alive(record.pid, record.process_start_time):
+        _terminate(record)
         stopped_pid = record.pid
     clear_record()
     report: Dict[str, Any] = {
@@ -141,17 +148,18 @@ def restart_running() -> Dict[str, Any]:
                 "`yoke ui down` and `yoke ui up --no-browser`, then rerun the installer."
             )
         return {"restarted": False}
-    if not process_alive(record.pid):
+    if not process_alive(record.pid, record.process_start_time):
         clear_record()
         return {"restarted": False}
     down()
-    if process_alive(record.pid):
+    if process_alive(record.pid, record.process_start_time):
         write_record(
             pid=record.pid,
             host=record.host,
             port=record.port,
             env=record.env,
             supervised=False,
+            process_start_time=record.process_start_time,
         )
         raise UiDaemonError(
             "ui_restart_stop_failed: the previous dashboard process is still alive; "
@@ -192,7 +200,7 @@ def _start_supervisor(
     port: int,
     env: str,
     log: Path,
-) -> Tuple[bool, str]:
+) -> Tuple[bool, str, Any]:
     """Bring the serving child up, and report who is supervising it.
 
     The launch agent is preferred on macOS because it is what survives a
@@ -204,16 +212,15 @@ def _start_supervisor(
         try:
             launchd.install_agent(host=host, port=port, env=env, log_path=log)
         except UiLaunchdError as exc:
-            _spawn_detached(host=host, port=port, env=env)
+            child = _spawn_detached(host=host, port=port, env=env)
             return False, (
                 f"launchd would not supervise this view ({exc}), so it is "
                 "running as a detached process instead: it survives this "
                 "terminal, but not a reboot. Run `yoke ui up` again from a "
                 "logged-in desktop session to register the launch agent."
-            )
-        return True, ""
-    _spawn_detached(host=host, port=port, env=env)
-    return False, ""
+            ), child
+        return True, "", None
+    return False, "", _spawn_detached(host=host, port=port, env=env)
 
 
 def _stopped_report() -> Dict[str, Any]:
@@ -224,17 +231,19 @@ def _stopped_report() -> Dict[str, Any]:
     }
 
 
-def _spawn_detached(*, host: str, port: int, env: str) -> None:
+def _spawn_detached(*, host: str, port: int, env: str):
     command = launchd.child_command(host=host, port=port, env=env)
     try:
-        with open(log_path(), "w", encoding="utf-8") as log:
-            subprocess.Popen(
+        detached = {"creationflags": subprocess.DETACHED_PROCESS} if os.name == "nt" else {}
+        write_owner_private(log_path(), "")
+        with open(log_path(), "a", encoding="utf-8") as log:
+            return platform_process.spawn_group(
                 command,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=log,
-                start_new_session=True,
                 env=launchd.child_environment(env),
+                **detached,
             )
     except OSError as exc:
         raise UiDaemonError(
@@ -254,7 +263,7 @@ def _await_ready(*, host: str, port: int) -> Optional[UiDaemonRecord]:
         record = read_record()
         if (
             record is not None
-            and process_alive(record.pid)
+            and process_alive(record.pid, record.process_start_time)
             and port_accepting(host, port)
         ):
             return record
@@ -262,29 +271,33 @@ def _await_ready(*, host: str, port: int) -> Optional[UiDaemonRecord]:
     return None
 
 
-def _tear_down(*, supervised: bool) -> None:
+def _tear_down(*, supervised: bool, child=None) -> None:
     if supervised:
         launchd.remove_agent()
+    if child is not None:
+        try:
+            platform_process.stop_group(child, STOP_TIMEOUT_S)
+        except (OSError, TimeoutError) as exc:
+            raise UiDaemonError(
+                f"ui_start_cleanup_failed: could not stop starting PID {child.pid} "
+                f"({exc}); inspect and stop it as its owner, then retry `yoke ui up`."
+            ) from exc
     record = read_record()
-    if record is not None and process_alive(record.pid):
-        _terminate(record.pid)
+    if record is not None and process_alive(record.pid, record.process_start_time):
+        _terminate(record)
     clear_record()
 
 
-def _terminate(pid: int) -> None:
+def _terminate(record: UiDaemonRecord) -> None:
     try:
-        os.kill(pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError, OSError):
-        return
-    deadline = time.monotonic() + STOP_TIMEOUT_S
-    while time.monotonic() < deadline:
-        if not process_alive(pid):
-            return
-        time.sleep(STOP_POLL_INTERVAL_S)
-    try:
-        os.kill(pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError, OSError):
-        pass
+        handle = platform_process.handle_from_pid(record.pid, record.process_start_time)
+        if handle is not None:
+            platform_process.stop_group(handle, STOP_TIMEOUT_S)
+    except (OSError, TimeoutError) as exc:
+        raise UiDaemonError(
+            f"ui_stop_failed: could not stop dashboard process {record.pid} "
+            f"({exc}); inspect that process, stop it, then retry `yoke ui down`."
+        ) from exc
 
 
 __all__ = [

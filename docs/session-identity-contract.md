@@ -175,7 +175,8 @@ Resolution runs one canonical chain, owned by
    process; with no harness ancestor the chain is family-blind. Why:
    [`nested-harness-identity.md`](archive/decisions/nested-harness-identity.md).
 2. Ancestry walk: each ancestor pid of the calling process is tested
-   against the registry; a record is trusted only when the live start
+   against the registry; the shared `platform_process` owner supplies native
+   ancestry and creation epochs on each OS. A record is trusted only when the live start
    time matches (stale records are pruned best-effort).
 3. `None` → mutations whose registry entry requires a session reject with
    `actor_session_missing`: inside a harness an infrastructure-bug signal
@@ -333,7 +334,7 @@ second call for an already-owned item returns `(already owned)` and exits 0.
 | `runtime/harness/test_hook_runner.py` | Shared hook-runner: session lifecycle, identity propagation, and cleanup behavior across both harnesses |
 | `runtime/harness/test_hook_runner_register_ensure.py` | Ensure-register-on-first-sight: row probe on the flush connection, register-if-missing, runner arming (non-remote only), crash isolation |
 | `runtime/harness/test_hook_runner_register_anchor.py` | Process-anchor recording inside `_register_from_hook` (transcript propagation, DB-failure independence) |
-| `runtime/api/domain/test_process_ancestry.py` | Portable ancestry walk: parent-map parsing, nearest-harness matcher, pid-reuse start times |
+| `runtime/api/domain/test_process_ancestry.py` | Shared process ancestry, Windows executable names, nearest-harness matcher, PID-reuse start times |
 | `runtime/api/domain/test_session_process_anchors.py` | Anchor registry: atomic writes, ancestry resolution, pid-reuse rejection + pruning, parallel-session separation |
 | `runtime/api/domain/test_session_ambient_identity.py` | Canonical ambient chain order (owning family → its variables → ancestry → None) + nested-spawn regressions + CLI chokepoint delegation |
 | `runtime/api/domain/test_harness_family_identity.py` | Process-tree family classification, per-family env vocabulary, and the nested-spawn chain scoping |

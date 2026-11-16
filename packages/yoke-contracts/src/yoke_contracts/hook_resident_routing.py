@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
-from yoke_contracts.cursor_tool_names import payload_tool_name
+from yoke_contracts.hook_tool_names import payload_tool_name
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 
 

@@ -30,6 +30,7 @@ from yoke_cli.project_install.files import (
     ProjectInstallError,
 )
 from yoke_cli.project_install.preflight import preflight_apply
+from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_cli.project_install import hook_trust_report
 from yoke_cli.project_install.contract_files import follow_installer_edit
@@ -79,6 +80,7 @@ def apply_bundle(
 ) -> Dict[str, Any]:
     """Apply a resolved bundle to ``repo_root`` (the network-free core)."""
     _validate_bundle(bundle)
+    bundle = native_bundle_hooks(bundle)
     git_hooks_layer.assert_pre_commit_runtime_available()
     old_manifest = (
         prior_manifest

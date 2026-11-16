@@ -12,17 +12,16 @@ from yoke_contracts.github_app_tokens import github_configurations
 
 from collections.abc import Callable
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
-from yoke_contracts.shell_path_state import remove_shell_path
 from yoke_cli.config import machine_config
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
 from yoke_contracts import harness_settings_ledger, harness_settings_revert
+from yoke_contracts.platform_fs import remove_tree
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 from yoke_cli.hook_resident_lifecycle import stop_resident
 
@@ -184,7 +183,6 @@ def remove(
         attempt("harness settings", lambda: _revert_harness_settings(emit))
     else:
         skipped("harness settings", "none recorded as written by Yoke")
-    attempt("shell PATH", remove_shell_path)
     attempt("hook evaluator", stop_resident)
     attempt("local UI", lambda: command(["ui", "down"]))
     if inventory.local_universe:
@@ -208,9 +206,15 @@ def remove(
                 ]
             ),
         )
+    for directory in inventory.wsl_bundles:
+        skipped(
+            f"self-host {directory}",
+            "hosted in WSL; tear it down from WSL with "
+            f"`yoke self-host teardown --dir {directory}`",
+        )
     if inventory.discovery_error:
         attempt("self-host discovery", lambda: _fail(inventory.discovery_error))
-    elif not inventory.bundles:
+    elif not inventory.bundles and not inventory.wsl_bundles:
         skipped("self-host", "no local self-host server")
     if counts["failed"]:
         skipped("machine home", "retained for recovery from failed cleanup")
@@ -219,7 +223,7 @@ def remove(
         # Prepare the detached worker before deleting anything it needs; a failed
         # spawn must leave the installed CLI and its config available for recovery.
         try:
-            finish = machine_uninstall_detached.prepare()
+            finish = machine_uninstall_detached.prepare(inventory.home)
         except Exception as exc:
             diagnostic = str(exc)
             attempt("CLI handoff", lambda: _fail(diagnostic))
@@ -247,7 +251,7 @@ def remove(
                         finish.cancel()
                     else:
                         emit(
-                            f"CLI: handed off (removes yoke-cli after this process exits; log: {finish.log})"
+                            f"CLI: handed off (removes yoke-cli and its PATH blocks after this process exits; log: {finish.log})"
                         )
     emit(
         f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."
@@ -286,4 +290,4 @@ def _github_skip_reason(config: Path) -> str | None:
 
 def _remove_home(home: Path) -> None:
     if home.exists():
-        shutil.rmtree(home)
+        remove_tree(home)

@@ -19,11 +19,17 @@ to fail on.
 from __future__ import annotations
 
 import os
-import subprocess
-import tempfile
+
+import psutil
+from yoke_contracts.platform_process import (
+    handle_from_pid,
+    process_command_lines,
+    stop_group,
+)
 import time
 from typing import Callable, List, Sequence
 
+from yoke_core.domain.ssh_forward_process import start_forward
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_core.domain.connected_env_readiness_connector import (
     ACTION_ADOPTED,
@@ -47,7 +53,7 @@ LEASE_WAIT_POLL_SECONDS = 2.0
 
 
 def _build_ssh_argv(spec: TunnelSpec) -> List[str]:
-    """The ``ssh -N -f -L ...`` argv that (re)establishes the local forward.
+    """The ``ssh -N -L ...`` argv that (re)establishes the local forward.
 
     A spec with its own ``ssh_config`` reads that file instead of
     ``~/.ssh/config`` and keeps the host key it pins there: a command-line
@@ -61,83 +67,52 @@ def _build_ssh_argv(spec: TunnelSpec) -> List[str]:
         if spec.ssh_config and key == "StrictHostKeyChecking":
             continue
         argv += ["-o", f"{key}={value}"]
-    argv += ["-N", "-f", "-L", spec.forward_spec, spec.bastion]
+    argv += ["-N", "-L", spec.forward_spec, spec.bastion]
     return argv
 
 
 def _find_tunnel_pids(spec: TunnelSpec) -> List[int]:
-    """PIDs of existing ssh forwards matching this spec.
+    """PIDs whose SSH argv names exactly this forward and destination."""
+    return [
+        info.pid
+        for info in process_command_lines()
+        if _matches_tunnel(info.cmdline, spec)
+    ]
 
-    The match pattern starts with ``-L``; the ``--`` prevents BSD/macOS
-    ``pgrep`` from reading it as an option. Return code 1 means no matches, but
-    return code 2+ is a search failure and must surface before we try to start
-    a colliding tunnel.
-    """
-    pattern = f"-L {spec.forward_spec}"
-    try:
-        result = subprocess.run(
-            ["pgrep", "-f", "--", pattern],
-            capture_output=True,
-            text=True,
-            timeout=5,
+
+def _matches_tunnel(argv: Sequence[str], spec: TunnelSpec) -> bool:
+    if not argv or os.path.basename(argv[0]).lower() not in {"ssh", "ssh.exe"}:
+        return False
+    return (
+        any(
+            word == "-L"
+            and index + 1 < len(argv)
+            and argv[index + 1] == spec.forward_spec
+            or word == "-L" + spec.forward_spec
+            for index, word in enumerate(argv)
         )
-    except (OSError, subprocess.SubprocessError):
-        return []
-    if result.returncode >= 2:
-        detail = redact((result.stderr or result.stdout or "").strip())
-        raise ConnectedEnvUnavailable(
-            f"could not enumerate tunnel pids (pgrep rc={result.returncode}) "
-            f"[{spec.redacted}]: {detail}"
-        )
-    pids = _parse_pids(result.stdout)
-    for pid in _listening_pids(spec.local_port):
-        if pid not in pids and _pid_matches_tunnel(pid, spec):
-            pids.append(pid)
-    return pids
-
-
-def _parse_pids(text: str) -> List[int]:
-    pids: List[int] = []
-    for line in text.split():
-        try:
-            pids.append(int(line))
-        except ValueError:
-            continue
-    return pids
+        and spec.bastion in argv
+    )
 
 
 def _listening_pids(port: int) -> List[int]:
-    """PIDs listening on *port* (best-effort, used for occupied-port clarity)."""
-    try:
-        result = subprocess.run(
-            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return []
-    return _parse_pids(result.stdout)
+    """Visible listeners, used to name occupied-port owners on every OS."""
+    found = set()
+    for process in psutil.process_iter():
+        try:
+            for entry in process.net_connections(kind="tcp"):
+                if entry.status == psutil.CONN_LISTEN and entry.laddr.port == port:
+                    found.add(process.pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return sorted(found)
 
 
 def _process_command(pid: int) -> str:
-    try:
-        result = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return result.stdout.strip()
-
-
-def _pid_matches_tunnel(pid: int, spec: TunnelSpec) -> bool:
-    command = _process_command(pid)
-    if not command:
-        return False
-    return "ssh" in command and spec.forward_spec in command and spec.bastion in command
+    return next(
+        (" ".join(info.cmdline) for info in process_command_lines() if info.pid == pid),
+        "",
+    )
 
 
 def _port_blocker_detail(spec: TunnelSpec) -> str:
@@ -151,57 +126,28 @@ def _port_blocker_detail(spec: TunnelSpec) -> str:
     return "; ".join(parts)
 
 
-def _terminate_pids(pids: Sequence[int]) -> None:
-    for pid in pids:
-        try:
-            os.kill(pid, 15)  # SIGTERM
-        except (ProcessLookupError, PermissionError, OSError):
-            continue
-    if pids:
-        time.sleep(TUNNEL_STOP_GRACE_SECONDS)
-    for pid in pids:
-        try:
-            os.kill(pid, 9)  # SIGKILL any survivor
-        except (ProcessLookupError, PermissionError, OSError):
-            continue
+def _terminate_pids(
+    pids: Sequence[int], *, timeout: float = TUNNEL_STOP_GRACE_SECONDS
+) -> None:
+    wanted = set(pids)
+    for info in process_command_lines():
+        if info.pid in wanted:
+            handle = handle_from_pid(info.pid, info.start_time)
+            if handle is not None:
+                stop_group(handle, timeout=timeout)
 
 
 def _start_tunnel(spec: TunnelSpec) -> None:
-    """Spawn the backgrounded ssh forward; raise on a non-zero start.
-
-    stderr goes to a temporary file, not a pipe: with ``-f`` ssh backgrounds
-    itself, but a ProxyCommand/ProxyJump child inherits stderr and keeps it
-    open for the tunnel's whole life, so waiting on a pipe would only end at
-    the timeout. A file lets ``run`` return as soon as ssh itself exits.
-    """
-    argv = _build_ssh_argv(spec)
-    with tempfile.TemporaryFile() as stderr_file:
-        try:
-            result = subprocess.run(
-                argv,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=stderr_file,
-                timeout=TUNNEL_START_TIMEOUT_SECONDS,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ConnectedEnvUnavailable(
-                f"ssh tunnel start timed out after {TUNNEL_START_TIMEOUT_SECONDS}s "
-                f"[{spec.redacted}]"
-            ) from exc
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise ConnectedEnvUnavailable(
-                f"ssh tunnel start could not run [{spec.redacted}]: {redact(str(exc))}"
-            ) from exc
-        if result.returncode == 0:
-            return
-        stderr_file.seek(0)
-        stderr_text = stderr_file.read().decode("utf-8", errors="replace")
-    detail = redact(stderr_text.strip())
-    raise ConnectedEnvUnavailable(
-        f"ssh tunnel start failed (rc={result.returncode}) "
-        f"[{spec.redacted}]: {detail}"
-    )
+    """Start OpenSSH in a separate group and await its local listener."""
+    try:
+        start_forward(
+            _build_ssh_argv(spec),
+            host=spec.local_host,
+            port=spec.local_port,
+            timeout=TUNNEL_START_TIMEOUT_SECONDS,
+        )
+    except RuntimeError as exc:
+        raise ConnectedEnvUnavailable(f"{redact(str(exc))} [{spec.redacted}]") from exc
 
 
 def _healthy_forward_present(spec: TunnelSpec, probe: Callable[[], bool]) -> bool:

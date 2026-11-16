@@ -104,6 +104,8 @@ def test_hook_evaluate_https_posts_contract_and_relays(
         session_id="sid-stamped",
         identity_stamped=True,
         subagent_execution=True,
+        # The client names the shell the command is written for.
+        yoke_shell_kind="bash",
     )
     assert body["executor"] == "claude-code"
     assert body["agent_type"] == "engineer"

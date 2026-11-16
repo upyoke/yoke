@@ -17,6 +17,11 @@ from yoke_harness.test_machine_remote_exec import (
     remote_exec_argv,
     _stream_command,
 )
+from yoke_harness.native_windows.transport import (
+    WindowsTransport,
+    encoded,
+    process_script,
+)
 
 
 class _Progress:
@@ -46,7 +51,7 @@ class _Progress:
         self.destination.flush()
 
 
-class _GuiSshControl:
+class _GuiSshControl(WindowsTransport):
     """Adapt ssh-agent execution to the existing OS GUI command helpers."""
 
     secret_values = ()
@@ -75,6 +80,12 @@ class _GuiSshControl:
             from yoke_contracts.windows_wsl_command import windows_wsl_command
 
             command = windows_wsl_command(command)
+        elif self.settings["os"] == "windows":
+            command = (
+                "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
+                + encoded("$ErrorActionPreference='Stop'; " + command)
+            )
+
         argv = remote_exec_argv(
             host=self.settings["host"],
             user=self.settings["user"],
@@ -148,7 +159,7 @@ def run_gui_command(
     """Run on the declared OS desktop, preserving argv and its exit status."""
     settings = validate_test_machine_settings(settings)
     kind = settings["os"]
-    if kind not in {"macos", "linux", "wsl"}:
+    if kind not in {"macos", "linux", "wsl", "windows"}:
         raise RemoteExecRefusal(
             "test_machine_os_unimplemented",
             f"{kind} Test Machines have no desktop command support on this Yoke version",
@@ -168,6 +179,20 @@ def run_gui_command(
     # The browser itself settles within 30 minutes; leave time for its cleanup
     # and verification before the outer GUI bridge reaches its bound.
     timeout = 1920
+    if kind == "windows":
+        from yoke_harness.native_windows.desktop import desktop_script
+
+        home = control._run("$env:USERPROFILE", timeout=20)
+        if home.returncode or not home.stdout.strip():
+            raise RemoteExecRefusal(
+                "windows_profile_unavailable",
+                home.stderr,
+                "Repair the native SSH user profile and retry.",
+            )
+        control.home = home.stdout.strip()
+        result = desktop_script(control, process_script(argv), timeout=timeout)
+        result.output_streamed = False
+        return result
     if kind == "macos":
         from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
 

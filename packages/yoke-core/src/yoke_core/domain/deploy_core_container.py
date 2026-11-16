@@ -82,7 +82,9 @@ def _emit(line: str) -> None:
 def _render_service_template(project_root: Path, name: str, values: dict) -> str:
     template = project_root / "ops" / "core-service" / name
     if not template.is_file():
-        raise CoreDeployError(f"[core-deploy] project-owned Pack file missing: {template}")
+        raise CoreDeployError(
+            f"[core-deploy] project-owned Pack file missing: {template}"
+        )
     return render_pack_text(template.read_text(), values)
 
 
@@ -123,7 +125,7 @@ def _load_environment_stack_binding(
     with tempfile.TemporaryDirectory(prefix="yoke-core-pulumi-") as raw_temp:
         infra_dir = Path(raw_temp) / PULUMI_PROGRAM_SUBDIRECTORY
         shutil.copytree(
-            source_root / PULUMI_PROGRAM_SUBDIRECTORY, infra_dir, symlinks=True
+            source_root / PULUMI_PROGRAM_SUBDIRECTORY, infra_dir, symlinks=False
         )
         location = PostgresAuthorityLocation(
             stack=env.stack_name,
@@ -229,9 +231,7 @@ def render_service_files(
     compose_yaml = _render_service_template(
         project_root, "docker-compose.yml.tmpl", values
     )
-    nginx_site = _render_service_template(
-        project_root, "nginx-site.conf.tmpl", values
-    )
+    nginx_site = _render_service_template(project_root, "nginx-site.conf.tmpl", values)
     env_lines = [
         f"{DB_SECRET_ARN_ENV}={database.secret_arn}",
         f"{DB_SECRET_REGION_ENV}={database.region}",

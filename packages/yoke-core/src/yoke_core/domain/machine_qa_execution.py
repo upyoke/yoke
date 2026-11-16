@@ -61,6 +61,11 @@ class MachineQaLease:
     baseline: HostBaselineResult | None = None
     closed: bool = False
 
+    def __post_init__(self):
+        bind = getattr(self.control, 'bind_qa_lease', None)
+        if bind is not None:
+            bind(self.lease.id)
+
     def reach_baseline(self, name: str) -> HostBaselineResult:
         if self.closed:
             raise MachineQaExecutionError(

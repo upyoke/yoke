@@ -20,12 +20,13 @@ fixture releases).
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import create_owner_private_directory
+from yoke_contracts.platform_fs import remove_tree
 
 import os
 import platform
-import shutil
 import tarfile
-import tempfile
+import secrets
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -38,6 +39,8 @@ from yoke_contracts.resilient_fetch import FetchError
 from yoke_contracts.resilient_fetch import FetchResult
 from yoke_contracts.resilient_fetch import fetch_bytes
 from yoke_contracts.resilient_fetch import fetch_file
+
+_WINDOWS = os.name == "nt"
 
 POSTGRES_VERSION = "17.11.1"
 
@@ -58,6 +61,8 @@ _FETCH_TIMEOUT_S = 120
 
 #: (sys.platform prefix, platform.machine()) -> release target triple.
 _PLATFORM_TARGETS = {
+    ("windows", "amd64"): "x86_64-pc-windows-msvc",
+    ("windows", "x86_64"): "x86_64-pc-windows-msvc",
     ("darwin", "arm64"): "aarch64-apple-darwin",
     ("darwin", "x86_64"): "x86_64-apple-darwin",
     ("linux", "aarch64"): "aarch64-unknown-linux-gnu",
@@ -139,7 +144,7 @@ def version_dir(version: str = POSTGRES_VERSION) -> Path:
 def installed_bin_dir(version: str = POSTGRES_VERSION) -> Optional[Path]:
     """The fetched bin directory for *version*, or None when absent."""
     candidate = version_dir(version) / "bin"
-    if (candidate / "initdb").is_file():
+    if (candidate / ("initdb.exe" if _WINDOWS else "initdb")).is_file():
         return candidate
     return None
 
@@ -178,8 +183,14 @@ def fetch_binaries(
     resolved_target = target or platform_target()
     url = release_asset_url(version, resolved_target, base_url=base_url)
     dest = version_dir(version)
-    create_private_directory(dest.parent)
-    staging = Path(tempfile.mkdtemp(prefix=".fetch-", dir=dest.parent))
+    create_private_directory(dest.parent.parent)
+    if _WINDOWS:
+        create_owner_private_directory(dest.parent)
+    else:
+        create_private_directory(dest.parent)
+    staging = create_owner_private_directory(
+        dest.parent / (".fetch-" + secrets.token_hex(12))
+    )
     try:
         tarball = staging / release_asset_name(version, resolved_target)
         emit(f"  [postgres-binaries] fetching {url}")
@@ -191,7 +202,10 @@ def fetch_binaries(
         )
         _unpack_release(tarball, staging, dest)
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        try:
+            remove_tree(staging)
+        except OSError as exc:
+            raise PostgresBinariesError(str(exc)) from exc
     bin_dir = installed_bin_dir(version)
     if bin_dir is None:
         raise PostgresBinariesError(
@@ -237,12 +251,31 @@ def _fetch_published_sha256(url: str) -> str:
     return published
 
 
+class _OwnerPrivateTarFile(tarfile.TarFile):
+    """Keep the token user on extracted directories before pg_ctl drops admin rights.
+
+    TarFile.makedir uses mkdir(mode=0700), which on Windows grants OWNER RIGHTS;
+    an elevated process defaults the owner to Administrators. Its restricted
+    PostgreSQL child then cannot load DLLs from that tree.
+    """
+
+    def makedir(self, tarinfo, targetpath):
+        selected = Path(targetpath)
+        if not selected.parent.exists():
+            self.makedir(tarinfo, str(selected.parent))
+        create_owner_private_directory(selected)
+
+
 def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
     """Extract the release and move its single top-level dir into place."""
     extract_root = staging / "extracted"
-    extract_root.mkdir()
+    if _WINDOWS:
+        create_owner_private_directory(extract_root)
+    else:
+        extract_root.mkdir()
+    archive_type = _OwnerPrivateTarFile if _WINDOWS else tarfile.TarFile
     try:
-        with tarfile.open(tarball, "r:gz") as archive:
+        with archive_type.open(tarball, "r:gz", encoding="utf-8") as archive:
             # "tar" filter: blocks absolute paths / parent escapes while
             # preserving the executable modes the engine binaries need.
             archive.extractall(extract_root, filter="tar")
@@ -255,7 +288,7 @@ def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
             f"top-level directory, found {[e.name for e in entries]}"
         )
     if dest.exists():
-        shutil.rmtree(dest)
+        remove_tree(dest)
     entries[0].replace(dest)
 
 

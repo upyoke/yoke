@@ -25,7 +25,12 @@ from yoke_contracts.harness_machine_hooks import (
     MachineHookEvent,
 )
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
-from yoke_contracts.hook_shell_command import hook_shell_command
+from yoke_contracts.hook_shell_command import (
+    hook_shell_command,
+    windows_hook_command,
+    hook_command_for_os,
+    hook_command_source,
+)
 
 YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 ROOT_VARIABLE = "YOKE_ROOT"
@@ -70,7 +75,12 @@ def evaluate_hook_command(
         _owner_env(config_owner),
         f"{YOKE_HOOK_EVALUATE} {verb}",
     ]
-    return hook_shell_command("env " + " ".join(part for part in parts if part))
+    command = hook_shell_command("env " + " ".join(part for part in parts if part))
+    if harness_id == "codex":
+        return command  # Codex selects its separate commandWindows field.
+    return hook_command_for_os(
+        command, windows_hook_command(harness_id, verb, config_owner)
+    )
 
 
 def cwd_resilient_hook_command(verb: str, *, config_owner: str) -> str:
@@ -107,7 +117,10 @@ def cwd_resilient_hook_command(verb: str, *, config_owner: str) -> str:
         f'env {ROOT_VARIABLE}="$root" {_IDENTITY_ENV["cursor"]} '
         f"{_owner_env(config_owner)} {YOKE_HOOK_EVALUATE} {verb}"
     )
-    return hook_shell_command(body)
+    return hook_command_for_os(
+        hook_shell_command(body),
+        windows_hook_command("cursor", verb, config_owner, resilient=True),
+    )
 
 
 def _user_command(spec: HarnessMachineHooks, event: MachineHookEvent) -> str:
@@ -126,7 +139,12 @@ def _user_entry(spec: HarnessMachineHooks, event: MachineHookEvent) -> dict[str,
     entry: dict[str, Any] = {}
     if event.matcher is not None:
         entry["matcher"] = event.matcher
-    entry["hooks"] = [{"type": "command", "command": command}]
+    handler = {"type": "command", "command": command}
+    if spec.harness_id == "codex":
+        handler["commandWindows"] = windows_hook_command(
+            "codex", event.verb, spec.config_owner
+        )
+    entry["hooks"] = [handler]
     return entry
 
 
@@ -142,7 +160,8 @@ def is_machine_hook_entry(entry: object, spec: HarnessMachineHooks) -> bool:
     """True for an entry Yoke wrote into this harness's user config."""
     marker = _owner_env(spec.config_owner)
     return any(
-        marker in command or any(retired in command for retired in RETIRED_USER_HOOK_MARKERS)
+        marker in hook_command_source(command).replace("'", "")
+        or any(retired in command for retired in RETIRED_USER_HOOK_MARKERS)
         for command in entry_commands(entry)
     )
 

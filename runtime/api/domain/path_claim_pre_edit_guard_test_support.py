@@ -11,7 +11,7 @@ from typing import Dict
 
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_APPLY_PATCH,
-    TOOL_KIND_BASH,
+    TOOL_KIND_SHELL,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
     ToolEventRecord,

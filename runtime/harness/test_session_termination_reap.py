@@ -100,7 +100,7 @@ def test_reused_pid_is_treated_as_an_already_exited_native(tmp_path: Path) -> No
                 "launch_id": LAUNCH_ID,
                 "target_session_id": SESSION_ID,
                 "pid": os.getpid(),
-                "process_start_time": "not-this-process-start",
+                "process_start_time": str(float(process_start_time(os.getpid())) + 1),
             }
         )
     )
