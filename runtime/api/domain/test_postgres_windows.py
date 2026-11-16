@@ -48,3 +48,27 @@ def test_helper_timeout_names_recovery(monkeypatch):
     assert result.returncode != 0
     assert "postgres_process_timeout" in result.stderr
     assert "server.log" in result.stderr
+
+
+def test_windows_archive_directories_use_owner_private_creation(monkeypatch, tmp_path):
+    import tarfile
+    from pathlib import Path
+    payload = tmp_path / "payload"
+    (payload / "bin").mkdir(parents=True)
+    (payload / "bin" / "initdb.exe").touch()
+    archive = tmp_path / "engine.tar.gz"
+    with tarfile.open(archive, "w:gz") as stream:
+        stream.add(payload, arcname="postgresql")
+    created = []
+    real_create = postgres_binaries.create_owner_private_directory
+    def create(path):
+        created.append(Path(path).name)
+        return real_create(path)
+    monkeypatch.setattr(postgres_binaries, "_WINDOWS", True)
+    monkeypatch.setattr(postgres_binaries, "create_owner_private_directory", create)
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    dest = tmp_path / "installed"
+    postgres_binaries._unpack_release(archive, staging, dest)
+    assert (dest / "bin" / "initdb.exe").is_file()
+    assert {"extracted", "postgresql", "bin"} <= set(created)

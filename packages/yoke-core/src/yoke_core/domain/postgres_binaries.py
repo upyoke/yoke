@@ -248,12 +248,31 @@ def _fetch_published_sha256(url: str) -> str:
     return published
 
 
+class _OwnerPrivateTarFile(tarfile.TarFile):
+    """Keep the token user on extracted directories before pg_ctl drops admin rights.
+
+    TarFile.makedir uses mkdir(mode=0700), which on Windows grants OWNER RIGHTS;
+    an elevated process defaults the owner to Administrators. Its restricted
+    PostgreSQL child then cannot load DLLs from that tree.
+    """
+
+    def makedir(self, tarinfo, targetpath):
+        selected = Path(targetpath)
+        if not selected.parent.exists():
+            self.makedir(tarinfo, str(selected.parent))
+        create_owner_private_directory(selected)
+
+
 def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
     """Extract the release and move its single top-level dir into place."""
     extract_root = staging / "extracted"
-    extract_root.mkdir()
+    if _WINDOWS:
+        create_owner_private_directory(extract_root)
+    else:
+        extract_root.mkdir()
+    archive_type = _OwnerPrivateTarFile if _WINDOWS else tarfile.TarFile
     try:
-        with tarfile.open(tarball, "r:gz") as archive:
+        with archive_type.open(tarball, "r:gz") as archive:
             # "tar" filter: blocks absolute paths / parent escapes while
             # preserving the executable modes the engine binaries need.
             archive.extractall(extract_root, filter="tar")
