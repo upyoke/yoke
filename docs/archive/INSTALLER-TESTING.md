@@ -107,7 +107,7 @@ captures/A001/<scenario-id>/000-initial.txt
 screenshots/A001/<scenario-id>/000-initial.png
 ```
 
-If screenshots are blocked, keep the text capture or bridge log and record why
+If screenshots are blocked, keep the text capture or SSH transcript and record why
 image evidence is absent in the report.
 
 ## Scenario Catalog
@@ -342,7 +342,6 @@ Screen Recording.
 | `MAC-003` | test Mac | No Command Line Tools, no Homebrew | Apple Tools handoff screen; Check again works |
 | `MAC-004` | test Mac | No Command Line Tools with sudo session | `softwareupdate` path installs tools and continues |
 | `MAC-005` | test Mac | Homebrew present | Git recovery chooses `brew install git` |
-| `MAC-006` | test Mac | Visible Terminal PTY bridge | Log captures TUI while child sees real terminal size; per-screen region screenshots through Terminal.app succeed |
 | `MAC-007` | test Mac | One-shot SSH PATH after full onboard | `command -v uv; command -v uvx; command -v yoke` works once the wizard wrote `.zprofile` and `.zshenv` |
 | `MAC-008` | test Mac | Stage + prod credentials | Env switching works without reinstalling project |
 | `MAC-009` | test Mac | Edit Yoke source by cloning a fork into fresh `~/code/yoke` | Post-apply: real clone and checkout-backed editable/source-link activation work without official Yoke access |
@@ -725,7 +724,7 @@ yoke board rebuild --print --no-pager
 ```
 
 Capture the live TTY after each major step. For the installer and any visible TUI
-step, use the region screenshot procedure below; the bridge log or SSH transcript
+step, use the region screenshot procedure below; the SSH transcript
 is the fallback when macOS blocks image capture.
 
 Then prove the local dashboard:
