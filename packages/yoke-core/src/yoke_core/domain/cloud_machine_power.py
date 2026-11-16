@@ -120,6 +120,11 @@ def _readiness_command(os_name: str) -> tuple[str, str | None]:
     A freshly booted Windows host accepts a login long before WSL can start
     Python inside the 20 seconds host control allows its first command.
     """
+    if os_name == "windows":
+        return (
+            'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "exit 0"',
+            None,
+        )
     if os_name != "wsl":
         return "exit", None
     from yoke_contracts.windows_wsl_command import (
