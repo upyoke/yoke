@@ -10,6 +10,11 @@ The holder runs item cases and single-member plans with their pinned stage:
 yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
+With or without `--plan`, the item form reaches the member run executing that
+stage whose item QA is still owed. When a Stage and Production run both stand
+at item QA and both owe it, the older run (Stage) answers first. A member whose
+cases at a stage are all `non_blocking`, waived or not, owes that stage nothing.
+
 A post-deploy plan shared by two or more release members at item QA entry runs
 once per release as one driver-owned
 [plan group](#plan-groups):
