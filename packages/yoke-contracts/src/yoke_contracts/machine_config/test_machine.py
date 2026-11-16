@@ -25,7 +25,8 @@ _SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_not
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
 _OPTIONAL_SETTING_KEYS = (
-    frozenset({"golden_baseline_path", "cloud_instance_id"}) | DESKTOP_SETTING_KEYS
+    frozenset({"golden_baseline_path", "cloud_instance_id", "cloud_provider"})
+    | DESKTOP_SETTING_KEYS
 )
 TEST_MACHINE_CAPABILITY_PREFIX = f"{TEST_MACHINE_CAPABILITY}:"
 
@@ -133,7 +134,7 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
         raise TestMachineCapabilityError(
             "test-machine settings require exactly resource_name, host, user, "
             "os, and operating_notes, and optionally "
-            "golden_baseline_path, cloud_instance_id "
+            "golden_baseline_path, cloud_instance_id, cloud_provider "
             "and a complete desktop route (" + "; ".join(detail) + ")"
         )
     values = {key: str(payload[key] or "").strip() for key in present}
@@ -144,11 +145,26 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
     else:
         values.pop("golden_baseline_path", None)
     values.update(validate_desktop_settings(values))
-    if "cloud_instance_id" in values and not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,511}", values["cloud_instance_id"]
-    ):
+    provider = values.get("cloud_provider", "aws")
+    if provider not in ("aws", "azure"):
         raise TestMachineCapabilityError(
-            "cloud_instance_id must be a non-empty provider instance identifier"
+            "cloud_provider must be aws or azure; correct the settings and retry"
+        )
+    if "cloud_instance_id" in values:
+        pattern = (
+            r"/subscriptions/[A-Za-z0-9-]+/resourceGroups/[^/\s]+/providers/"
+            r"Microsoft\.Compute/virtualMachines/[^/\s]+"
+            if provider == "azure"
+            else r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,511}"
+        )
+        if not re.fullmatch(pattern, values["cloud_instance_id"], flags=re.IGNORECASE):
+            raise TestMachineCapabilityError(
+                "cloud_instance_id must be a full Azure VM resource id for azure, "
+                "or a non-empty provider instance identifier for aws; correct it and retry"
+            )
+    elif "cloud_provider" in values:
+        raise TestMachineCapabilityError(
+            "cloud_provider requires cloud_instance_id; declare the VM id and retry"
         )
     values["resource_name"] = validate_test_machine_resource_name(
         values["resource_name"]

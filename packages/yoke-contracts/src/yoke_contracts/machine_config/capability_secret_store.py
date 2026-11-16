@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import write_owner_private
 
 import os
-import tempfile
 from pathlib import Path
 
 from yoke_contracts.machine_config import capability_secrets as contract
@@ -122,14 +122,7 @@ def ensure_private_capability_dir(directory: Path) -> Path:
 
 def _write_secret(path: Path, secret: str) -> None:
     ensure_private_capability_dir(path.parent)
-    descriptor, name = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
-    tmp_path = Path(name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(secret + "\n")
-        os.replace(tmp_path, path)
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    write_owner_private(path, secret + "\n")
 
 
 def _chmod_private_dirs(directory: Path) -> None:

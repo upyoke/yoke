@@ -77,7 +77,9 @@ def test_assert_only_pass_retains_counts_and_settles_item_qa(tmp_path):
     assert not completion.get("capture_degraded_reason")
     assert outcome.run_result.artifact_ids == [41]
     with (
-        patch.object(settlement, "scoped_cases", return_value=[{"id": 7, "plan_case_key": "assertion"}]),
+        patch.object(settlement, "subject_cases", return_value=[
+            {"id": 7, "plan_case_key": "assertion", "blocking_mode": "blocking"}
+        ]),
         patch.object(settlement, "obligation_settled", return_value=False),
         patch.object(settlement, "_latest_verdicts", return_value={7: (11, "pass")}),
         patch.object(settlement, "qa_artifact_counts_by_run", return_value={11: {"evidence": len(artifacts)}}),
@@ -177,8 +179,9 @@ def test_assert_only_evidence_persists_and_settles_without_manual_attach(tmp_pat
             ).fetchone()
             assert row[0] is None
             with (
-                patch.object(settlement, "scoped_cases", return_value=[{
+                patch.object(settlement, "subject_cases", return_value=[{
                     "id": requirement_id, "plan_case_key": "assertion",
+                    "blocking_mode": "blocking",
                 }]),
                 patch.object(settlement, "obligation_settled", return_value=False),
                 patch.object(settlement, "_latest_verdicts", return_value={

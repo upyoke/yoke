@@ -2,7 +2,8 @@
  "id": "components",
  "title": "Hosting components",
  "status": "draft-copy",
- "commands": ["yoke aws admin-link", "yoke aws admin-status", "yoke aws exec", "yoke aws preflight"],
+ "commands": ["yoke aws admin-link", "yoke aws admin-status", "yoke aws exec", "yoke aws preflight", "yoke azure admin-link", "yoke azure admin-status", "yoke azure exec"],
  "page": "infrastructure",
- "position": 1
+ "position": 1,
+ "summary": "AWS and Azure admin commands use project-owned credentials on the executing machine. Azure uses a service principal, a local client_secret and an isolated disposable Azure CLI login; admin-status verifies its tenant, client and subscription."
 }
