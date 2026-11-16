@@ -191,5 +191,5 @@ def prove(root: Path):
 
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory(prefix="yoke-installer-proof-") as directory:
+    with tempfile.TemporaryDirectory(prefix="yoke-installer-proof-", dir=os.environ.get("RUNNER_TEMP")) as directory:
         prove(Path(directory))

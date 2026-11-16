@@ -22,10 +22,12 @@ _HOOK_EVALUATE_COMMAND = ["hook", "evaluate"]
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the ``yoke`` CLI for one invocation. Returns the exit code."""
     if sys.platform == "win32" and sys.version_info < (3, 12):
+        from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
+
         print(
             "windows_python_floor: native Windows requires Python 3.12+ for "
             "non-blocking process pipes. Reinstall with "
-            "irm https://upyoke.com/install.ps1 | iex; uv supplies Python 3.12.",
+            f"irm {DISTRIBUTION_PROD_URL}/install.ps1 | iex; uv supplies Python 3.12.",
             file=sys.stderr,
         )
         return 1
