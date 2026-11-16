@@ -17,6 +17,23 @@ def source_test_selections() -> dict[str, list[str]]:
 
 
 def run_source_tests(root: Path, commands) -> None:
+    project = commands.document(
+        "create-source-project",
+        [
+            "yoke", "projects", "create", "--slug", "yoke-source",
+            "--name", "Yoke source", "--public-item-prefix", "SRC",
+            "--default-branch", "main", "--github-sync-mode", "disabled", "--json",
+        ],
+        cwd=root,
+    )
+    commands.run(
+        "register-source-checkout",
+        [
+            "yoke", "project", "register", str(root),
+            "--project-id", str(project["project"]["id"]), "--json",
+        ],
+        cwd=root,
+    )
     commands.run(
         "install-test-dependencies",
         ["uv", "sync", "--all-packages", "--locked"],
