@@ -30,6 +30,8 @@ def main():
     with tarfile.open(archive) as stream:
         stream.extractall(work / "engine", filter="tar")
     binary = next((work / "engine").rglob("initdb.exe")).parent
+    print("DLLs:", [str(p.relative_to(binary.parent)) for p in binary.parent.rglob("*.dll")], flush=True)
+    os.environ["PATH"] = str(binary) + os.pathsep + str(binary.parent / "lib") + os.pathsep + os.environ["PATH"]
     root = work / "private cluster"
     root.mkdir()
     owner = run(["whoami"]).stdout.strip()
