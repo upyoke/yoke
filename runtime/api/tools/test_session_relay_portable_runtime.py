@@ -61,10 +61,23 @@ def test_windows_runtime_launches_python_explicitly_and_bundles_shared_lock(tmp_
     assert "import fcntl" not in (scripts / "yoke.py").read_text()
     assert release.relay_runtime_python(tmp_path) == scripts / "python.exe"
     calls = []
-    restart.exec_relay_release(["relay", "serve"], executable=scripts / "yoke.cmd",
-                               exec_call=lambda *a: calls.append(a))
-    assert calls == [(str(scripts / "python.exe"),
-                      [str(scripts / "python.exe"), "-I", str(scripts / "yoke.py"), "relay", "serve"])]
+    results = iter([restart.WINDOWS_RELAY_RESTART_CODE, 0])
+    monkeypatch.delenv(restart.WINDOWS_RELAY_RUNNER_ENV, raising=False)
+    monkeypatch.setattr(restart.subprocess, "call", lambda argv, **kw: calls.append((argv, kw)) or next(results))
+    with pytest.raises(SystemExit) as exited:
+        restart.exec_relay_release(["relay", "serve"], executable=scripts / "yoke.cmd")
+    assert exited.value.code == 0 and len(calls) == 2
+    assert calls[0][0] == [str(scripts / "python.exe"), "-I", str(scripts / "yoke.py"), "relay", "serve"]
+    assert calls[0][1]["env"][restart.WINDOWS_RELAY_RUNNER_ENV] == "1"
+
+
+def test_windows_managed_relay_requests_recycle_without_losing_its_supervisor(monkeypatch):
+    monkeypatch.setattr(restart.sys, "platform", "win32")
+    monkeypatch.setenv(restart.WINDOWS_RELAY_RUNNER_ENV, "1")
+    monkeypatch.setattr(restart.subprocess, "call", lambda *a, **k: pytest.fail("runner owns restart"))
+    with pytest.raises(SystemExit) as exited:
+        restart.exec_relay_release(["relay", "serve"])
+    assert exited.value.code == restart.WINDOWS_RELAY_RESTART_CODE
 
 
 def test_windows_release_installs_scripts_layout_without_symlinks(tmp_path, monkeypatch):

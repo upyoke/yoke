@@ -144,3 +144,20 @@ def test_release_refusal_remains_a_named_installer_error(tmp_path, monkeypatch):
     with pytest.raises(tasks.RelayInstallError) as raised:
         tasks.install_relay_task(instance=instance, runner=runner)
     assert raised.value.code == "release_unavailable"
+
+
+def test_task_owner_recycles_relay_without_finishing_scheduled_action(tmp_path, monkeypatch):
+    instance = relay_instance(tmp_path)
+    runner = Scheduler(instance)
+    monkeypatch.setattr(tasks.relay_install, "converge_relay_launcher", lambda *a, **k: tmp_path / "yoke.cmd")
+    tasks.install_relay_task(instance=instance, runner=runner)
+    source = (instance.state_dir / "task-runner.py").read_text()
+    results = iter([tasks.WINDOWS_RELAY_RESTART_CODE, 0])
+    calls = []
+    monkeypatch.setattr(tasks.os, "environ", {})
+    monkeypatch.setattr(tasks.subprocess, "call", lambda argv, **kw: calls.append(argv) or next(results))
+    with pytest.raises(SystemExit) as exited:
+        exec(compile(source, "task-runner.py", "exec"), {})
+    assert exited.value.code == 0
+    assert len(calls) == 2 and calls[0] == calls[1]
+    assert tasks.os.environ[tasks.WINDOWS_RELAY_RUNNER_ENV] == "1"

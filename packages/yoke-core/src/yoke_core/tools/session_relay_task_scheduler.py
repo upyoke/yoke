@@ -21,6 +21,8 @@ from yoke_contracts.machine_config.relay_instance import (
 from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError, relay_runtime_python
+from yoke_harness.session_relay_process_restart import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
+from yoke_contracts.designed_wait import announce_designed_wait
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
@@ -55,7 +57,7 @@ def _run(argv: list[str], runner: Runner) -> subprocess.CompletedProcess[str]:
             except UnicodeDecodeError:
                 return value.decode(locale.getpreferredencoding(False), errors="replace")
         return subprocess.CompletedProcess(argv, result.returncode, decode(result.stdout), decode(result.stderr))
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError, UnicodeError) as exc:
         raise _unavailable(str(exc)) from exc
 
 
@@ -185,17 +187,22 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
         machine_paths.CONFIG_FILE_ENV: str(selected.config_path),
         machine_paths.HOME_ENV: str(selected.yoke_home),
         "PATH": source_env.get("PATH", ""),
+        WINDOWS_RELAY_RUNNER_ENV: "1",
     }
     if selected.follows_served_release:
         argv = [str(relay_runtime_python(selected.state_dir)), "-I",
-                str(launcher.with_suffix(".py")), "--env", selected.environment, "relay", "serve"]
+                str(relay_runtime_python(selected.state_dir).with_name("yoke.py")),
+                "--env", selected.environment, "relay", "serve"]
     else:
         argv = [str(launcher), "--env", selected.environment, "relay", "serve"]
     body = ("import os, subprocess\n"
             f"os.environ.update({environment!r})\n"
             f"with open({str(selected.stdout_log)!r}, 'ab', buffering=0) as out, "
             f"open({str(selected.stderr_log)!r}, 'ab', buffering=0) as err:\n"
-            f"    raise SystemExit(subprocess.call({argv!r}, stdout=out, stderr=err))\n")
+            "    while True:\n"
+            f"        code = subprocess.call({argv!r}, stdout=out, stderr=err)\n"
+            f"        if code != {WINDOWS_RELAY_RESTART_CODE}:\n"
+            "            raise SystemExit(code)\n")
     write_owner_private(selected.state_dir / "task-runner.py", body)
     path = selected.state_dir / "task.xml"
     write_owner_private(path, relay_task_document(selected, user_sid=sid).encode("utf-16"))
@@ -203,6 +210,8 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     _checked(["schtasks", "/Run", "/TN", selected.label], runner)
     status = relay_task_status(instance=selected, runner=runner)
     deadline = time.monotonic() + 5
+    if status.task_current and not status.reason and not status.loaded:
+        announce_designed_wait("scheduled relay startup", max_wait_seconds=5, cadence="every 100ms")
     while status.task_current and not status.reason and not status.loaded and time.monotonic() < deadline:
         time.sleep(0.1)
         status = relay_task_status(instance=selected, runner=runner)
