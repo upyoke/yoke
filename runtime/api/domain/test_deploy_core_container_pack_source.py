@@ -6,6 +6,10 @@ from runtime.api.domain.deploy_core_container_test_support import (
 from runtime.api.domain.deploy_core_container_shared_test_support import _BINDING, _env
 from yoke_core.domain.deploy_core_container import render_service_files
 
+import pytest
+
+pytestmark = pytest.mark.windows
+
 
 class TestRenderServiceFiles:
     def test_compose_pins_image_loopback_port_and_awslogs(self, tmp_path):

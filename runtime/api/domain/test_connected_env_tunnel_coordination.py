@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import fcntl
+from yoke_contracts import platform_file_lock
 import json
 import os
 import subprocess
+import sys
 import time
 
 import pytest
@@ -13,6 +14,8 @@ import pytest
 from yoke_core.domain import connected_env_readiness_connector as cer_c
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import machine_config
+
+pytestmark = pytest.mark.windows
 
 PORT = 6547
 
@@ -30,7 +33,7 @@ def _lock_path():
 
 def _dead_pid() -> int:
     """A pid that has certainly exited."""
-    finished = subprocess.Popen(["true"])
+    finished = subprocess.Popen([sys.executable, "-c", "pass"])
     finished.wait()
     return finished.pid
 
@@ -41,8 +44,8 @@ def test_lock_refuses_while_another_holder_has_it_and_names_them(monkeypatch):
     # A second descriptor is a second open file description, so this conflicts
     # exactly as another process's would.
     descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
-    fcntl.flock(descriptor, fcntl.LOCK_EX)
-    path.write_text(
+    platform_file_lock.acquire_exclusive(descriptor)
+    path.with_suffix(".holder.json").write_text(
         json.dumps({"pid": os.getpid(), "held_since": time.time() - 42}),
         encoding="utf-8",
     )
@@ -79,7 +82,9 @@ def test_lock_is_available_again_after_the_holder_leaves():
 
 def test_lock_records_the_holder_for_a_waiter_to_name():
     with coordination.lifecycle_lock(PORT, timeout=1.0):
-        payload = json.loads(_lock_path().read_text(encoding="utf-8"))
+        payload = json.loads(
+            _lock_path().with_suffix(".holder.json").read_text(encoding="utf-8")
+        )
     assert payload["pid"] == os.getpid()
 
 
@@ -153,7 +158,7 @@ def test_lease_for_active_tunnel_leases_the_detected_port(monkeypatch):
 
 def test_lease_reason_is_redacted_before_storage():
     with coordination.use_lease(PORT, "copy password=secret") as path:
-        assert "secret" not in path.read_text()
+        assert "secret" not in path.read_text(encoding="utf-8")
         assert "secret" not in coordination.active_leases(PORT)[0].line
 
 
@@ -171,3 +176,41 @@ def test_selected_detection_restores_ambient_environment_on_failure(monkeypatch)
         ):
             pytest.fail("detection failed")
     assert os.environ["YOKE_ENV"] == "unrelated"
+
+
+def test_held_lease_with_unreadable_metadata_still_protects_tunnel():
+    with coordination.use_lease(PORT, "active transfer") as metadata:
+        metadata.write_text("broken metadata", encoding="utf-8")
+        leases = coordination.active_leases(PORT)
+        assert len(leases) == 1
+        assert "holder metadata unavailable" in leases[0].reason
+    assert coordination.active_leases(PORT) == []
+
+
+def test_peer_can_read_live_lease_metadata_and_observe_release():
+    script = (
+        "import json; "
+        "from yoke_core.domain.connected_env_tunnel_coordination import active_leases; "
+        f"print(json.dumps([{{'pid': lease.pid, 'reason': lease.reason}} for lease in active_leases({PORT})]))"
+    )
+    def peer_leases():
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True,
+            text=True, check=True, timeout=15,
+        )
+        return json.loads(result.stdout)
+
+    with coordination.use_lease(PORT, "peer-visible transfer"):
+        assert peer_leases() == [
+            {"pid": os.getpid(), "reason": "peer-visible transfer"}
+        ]
+    assert peer_leases() == []
+
+
+def test_empty_stale_lease_is_removed_with_writable_lock_probe():
+    directory = coordination.coordination_dir(PORT) / coordination.LEASE_DIR_NAME
+    directory.mkdir(parents=True, exist_ok=True)
+    stale = directory / "empty.json"
+    stale.touch()
+    assert coordination.active_leases(PORT) == []
+    assert not stale.exists()

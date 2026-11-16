@@ -49,7 +49,7 @@ def test_rejected_finished_resume_retries_only_recoverable_failures(
         state_dir=custody,
     )
     monkeypatch.setattr(
-        "yoke_harness.session_process_custody.group_members", lambda group: {}
+        "yoke_harness.session_process_custody.platform_process.pid_alive", lambda *args: False
     )
     calls = []
 

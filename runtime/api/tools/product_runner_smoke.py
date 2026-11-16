@@ -16,9 +16,11 @@ import tempfile
 
 try:
     from .product_runner_commands import Commands, SmokeFailure, venv_executable
+    from .product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from .product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 except ImportError:
     from product_runner_commands import Commands, SmokeFailure, venv_executable
+    from product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 
 # Windows needs these to start Python, Git and uv at all; none carries authority.
@@ -27,9 +29,19 @@ WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "P
 
 
 def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
-    """Explicit child environment: no tokens, DSNs, session identity, or API URLs."""
-    home = scratch / "home"
-    home.mkdir()
+    """Explicit child environment: no tokens, DSNs, session identity, or API URLs.
+
+    Inside the Linux CI disposable account (see product_runner_linux_account),
+    HOME is that account's real home and only its user-manager bus variables
+    pass through, so the relay unit lands where its user manager looks.
+    Everywhere else HOME is a fresh scratch folder.
+    """
+    service_env = {}
+    if sys.platform == "linux" and os.environ.get(ACCOUNT_HOME):
+        home, service_env = verified_account_environment()
+    else:
+        home = scratch / "home"
+        home.mkdir()
     scripts = venv_executable(venv, "yoke").parent
     tools = [scripts, *(Path(found).parent for found in map(shutil.which, ("uv", "git")) if found)]
     env = {
@@ -42,6 +54,7 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
         "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
         "GIT_CONFIG_NOSYSTEM": "1",
     }
+    env.update(service_env)
     if WINDOWS:
         temp = home / "AppData" / "Local" / "Temp"
         temp.mkdir(parents=True)
@@ -86,7 +99,7 @@ def selected_stages(through: str):
 def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
     """Stop what onboarding started; a cleanup failure never hides the primary one."""
     try:
-        if sys.platform == "darwin":
+        if sys.platform in {"darwin", "linux"}:
             run.commands.run(
                 "uninstall-local-relay",
                 [run.yoke, "relay", "uninstall", "--json"],

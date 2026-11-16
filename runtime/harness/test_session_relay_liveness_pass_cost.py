@@ -1,7 +1,7 @@
 """The relay's pre-claim liveness pass costs one process read, not one per record.
 
 Every poll checks each custody record on the machine before it claims. A
-``ps`` per record and a directory re-read per dead session made that pass
+process-table scan per record and a directory re-read per dead session made that pass
 take most of a minute on a machine holding a thousand records, so every wake
 there waited for the previous one to finish (YOK-5294).
 """
@@ -27,14 +27,10 @@ from yoke_harness.session_launch_containment import (
 from yoke_harness.session_relay_process_liveness import verified_dead_sessions
 
 
-START = "Mon Aug 24 08:00:00 2026"
+pytestmark = pytest.mark.windows
+
+START = "1787000000.25"
 ABSENT_PID = 2_000_000_000
-
-
-def _darwin(monkeypatch) -> None:
-    monkeypatch.setattr(
-        process_start_snapshot, "sys", SimpleNamespace(platform="darwin")
-    )
 
 
 def _resume(state_dir: Path, index: int, *, session: str, pid: int) -> None:
@@ -67,42 +63,38 @@ def _per_pid(answers: dict[int, str | None], asked: list[int]):
     return probe
 
 
-def test_reader_answers_every_listed_pid_from_one_ps_call(monkeypatch) -> None:
-    _darwin(monkeypatch)
-    calls: list[list[str]] = []
+def test_reader_answers_every_listed_pid_from_one_platform_snapshot(monkeypatch) -> None:
+    calls = []
 
-    def ps_lines(args):
-        calls.append(args)
-        return [
-            f"{OWN} S {START}",
-            f"  101 S    {START}",
-            "  102 Z    Mon Aug 24 07:00:00 2026",
-        ]
+    def snapshot():
+        calls.append(True)
+        return [SimpleNamespace(pid=pid, start_time=float(START))
+                for pid in (OWN, 101)]
 
     asked: list[int] = []
-    monkeypatch.setattr(process_start_snapshot, "ps_lines", ps_lines)
+    monkeypatch.setattr(process_start_snapshot.platform_process, "process_command_lines", snapshot)
     monkeypatch.setattr(
         process_start_snapshot, "process_start_time", _per_pid({OWN: START}, asked)
     )
     reader = process_start_snapshot.process_start_reader()
 
     assert [reader(101) for _ in range(50)] == [START] * 50
-    # A defunct process answers as gone, exactly as the per-pid probe does.
-    assert reader(102) is None
+    # A missing process answers as gone without a per-pid table scan.
+    assert reader(ABSENT_PID) is None
     assert len(calls) == 1
-    # Only the construction self-check asked the per-pid probe.
-    assert asked == [OWN]
+    # Snapshot and per-pid probe share the platform epoch contract.
+    assert asked == []
 
 
 def test_reader_asks_live_for_a_pid_the_snapshot_missed(monkeypatch) -> None:
-    _darwin(monkeypatch)
     monkeypatch.setattr(
-        process_start_snapshot, "ps_lines", lambda args: [f"{OWN} S {START}"]
+        process_start_snapshot.platform_process, "process_command_lines",
+        lambda: [SimpleNamespace(pid=OWN, start_time=float(START))]
     )
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     try:
         asked: list[int] = []
-        later = "Tue Aug 25 10:00:00 2026"
+        later = "1787000001.5"
         monkeypatch.setattr(
             process_start_snapshot,
             "process_start_time",
@@ -114,28 +106,20 @@ def test_reader_asks_live_for_a_pid_the_snapshot_missed(monkeypatch) -> None:
         assert reader(child.pid) == later
         # A pid with no process at all is gone without a subprocess.
         assert reader(ABSENT_PID) is None
-        assert asked == [OWN, child.pid]
+        assert asked == [child.pid]
     finally:
         child.kill()
         child.wait()
 
 
-def test_unreadable_table_falls_back_to_the_per_pid_probe(monkeypatch) -> None:
-    _darwin(monkeypatch)
-    monkeypatch.setattr(process_start_snapshot, "ps_lines", lambda args: [])
-    reader = process_start_snapshot.process_start_reader()
-    assert reader is process_start_snapshot.process_start_time
+@pytest.mark.parametrize("denied", [False, True])
+def test_unreadable_table_falls_back_to_the_per_pid_probe(monkeypatch, denied) -> None:
+    def snapshot():
+        if denied:
+            raise OSError("process access denied")
+        return []
 
-
-def test_a_table_whose_tokens_drift_from_the_probe_is_not_used(monkeypatch) -> None:
-    """Records carry process_start_time tokens; a differing table reads all gone."""
-    _darwin(monkeypatch)
-    monkeypatch.setattr(
-        process_start_snapshot, "ps_lines", lambda args: [f"{OWN} S {START}"]
-    )
-    monkeypatch.setattr(
-        process_start_snapshot, "process_start_time", lambda pid: "1787000000.25"
-    )
+    monkeypatch.setattr(process_start_snapshot.platform_process, "process_command_lines", snapshot)
     reader = process_start_snapshot.process_start_reader()
     assert reader is process_start_snapshot.process_start_time
 
@@ -179,18 +163,17 @@ def test_reader_tokens_match_the_per_pid_probe_on_this_platform() -> None:
     assert reader(os.getpid()) is not None
 
 
-def test_liveness_pass_over_many_records_reads_ps_once(tmp_path, monkeypatch) -> None:
-    _darwin(monkeypatch)
+def test_liveness_pass_over_many_records_reads_platform_snapshot_once(tmp_path, monkeypatch) -> None:
     sessions = [f"00000000-0000-4000-8000-{index:012d}" for index in range(20)]
     for index in range(200):
         _resume(tmp_path, index, session=sessions[index % 20], pid=ABSENT_PID)
-    ps_calls: list[list[str]] = []
+    snapshot_calls = []
 
-    def ps_lines(args):
-        ps_calls.append(args)
-        return [f"{os.getpid()} S {START}"]
+    def snapshot():
+        snapshot_calls.append(True)
+        return [SimpleNamespace(pid=OWN, start_time=float(START))]
 
-    monkeypatch.setattr(process_start_snapshot, "ps_lines", ps_lines)
+    monkeypatch.setattr(process_start_snapshot.platform_process, "process_command_lines", snapshot)
     asked: list[int] = []
     monkeypatch.setattr(
         process_start_snapshot, "process_start_time", _per_pid({OWN: START}, asked)
@@ -207,6 +190,6 @@ def test_liveness_pass_over_many_records_reads_ps_once(tmp_path, monkeypatch) ->
     dead = verified_dead_sessions(state_dir=tmp_path, anchors_dir=tmp_path / "anchors")
 
     assert sorted(entry.session_id for entry in dead) == sorted(sessions)
-    assert len(ps_calls) == 1
-    assert asked == [OWN]
+    assert len(snapshot_calls) == 1
+    assert asked == []
     assert reads == [session_launch_containment._directory(tmp_path)]

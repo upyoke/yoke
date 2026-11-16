@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import os
@@ -85,10 +86,7 @@ def secrets_dir() -> Path:
 
 def _write_secret(path: Path, secret: str) -> None:
     _refuse_unisolated_test_write(path)
-    tmp_path = path.with_name(path.name + ".tmp")
-    tmp_path.write_text(secret + "\n", encoding="utf-8")
-    tmp_path.chmod(0o600)
-    os.replace(tmp_path, path)
+    write_owner_private(path, (secret + "\n").encode("utf-8"))
 
 
 def _refuse_unisolated_test_write(path: Path) -> None:

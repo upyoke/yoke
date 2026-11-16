@@ -8,6 +8,8 @@ from yoke_harness import session_relay_record_pruning as pruning
 from yoke_harness import session_process_custody as custody
 from yoke_harness.session_relay_process_liveness import VerifiedDeadSession
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.parametrize("source", ["launch", "anchor"])
 @pytest.mark.parametrize("current_start", [None, "reused", "recorded", "unresolved"])
@@ -32,8 +34,7 @@ def test_ungrouped_cleanup_uses_the_reports_resolver(
     def unexpected_machine_read(*_args):
         pytest.fail("ungrouped cleanup consulted the real machine's custody")
 
-    monkeypatch.setattr(custody, "process_start_time", unexpected_machine_read)
-    monkeypatch.setattr(custody.os, "kill", unexpected_machine_read)
+    monkeypatch.setattr(custody.platform_process, "pid_alive", unexpected_machine_read)
     pruning.prune_dead_session_records(
         (VerifiedDeadSession("session", {}, (path,)),),
         start_time_of=start_time_of,
@@ -47,15 +48,15 @@ def test_ungrouped_cleanup_uses_the_reports_resolver(
 def test_group_cleanup_preserves_surviving_or_unresolved_custody(
     tmp_path, monkeypatch, group_state
 ):
-    record = {"pid": 4002, "process_start_time": "recorded", "process_group_id": 4002}
+    record = {"pid": 4002, "process_start_time": "123.5",
+              "process_members": {"4002": "123.5"}}
     path = tmp_path / "record.json"
     path.write_text(json.dumps(record))
-    members = {
-        "live": {"4002": "recorded"},
-        "unresolved": {"4002": "reused"},
-        "gone": {},
-    }
-    monkeypatch.setattr(custody, "group_members", lambda group: members[group_state])
+    def observed(*args):
+        if group_state == "unresolved":
+            raise OSError("process_access_denied")
+        return group_state == "live"
+    monkeypatch.setattr(custody.platform_process, "pid_alive", observed)
 
     def unexpected_leader_probe(_pid):
         pytest.fail("a missing leader cannot prove that its group is gone")
