@@ -21,7 +21,17 @@ The smoke verifies the actual OS and architecture first; a label migration
 refuses with `runner_identity_mismatch` until its declaration is reviewed.
 
 The Ubuntu job removes one Chromium library package from its disposable runner
-before onboarding. It then requires captured proof that onboarding installed
+before onboarding. It then runs the whole smoke through
+`runtime/api/tools/product_runner_linux_account.py` as a throwaway OS account
+with passwordless sudo, from a copy of the checkout that account owns, inside a
+real PAM login session (`systemd-run -p PAMName=login`, Linger=no). That
+session's systemd user manager supplies `XDG_RUNTIME_DIR` and
+`DBUS_SESSION_BUS_ADDRESS`; the smoke keeps the account's real home and passes
+only those two variables to its commands, so the relay installs its user unit
+where that manager looks. It refuses with a named `smoke_account_*` reason when
+the home, bus, user manager or Linger=no cannot be proven. Afterwards the
+launcher hands the evidence back to the runner account and deletes the account.
+Local Linux runs and macOS keep a scratch home. It then requires captured proof that onboarding installed
 missing libraries through passwordless sudo and validated them afterwards;
 "already present" cannot pass this branch check. The fixture never runs on the
 operator machine. macOS retains its ordinary browser setup path.
@@ -50,8 +60,8 @@ environment. The product test cluster resolves already-installed embedded
 Postgres binaries, falling back to system PATH when none are installed. The
 pytest wrapper preserves executable access when it isolates machine config. The
 smoke uses a short disposable socket root, retains failed watcher/server
-captures, and stops that test cluster. Cleanup uninstalls macOS's disposable local
-relay before stopping the local cluster and removing its scratch directory.
+captures, and stops that test cluster. Cleanup uninstalls the disposable local relay
+on macOS and Linux before stopping the local cluster and removing its scratch directory.
 
 Run through `qa.plan_execution.begin` using the standalone adapter:
 
@@ -78,8 +88,9 @@ Read `yoke qa plan get product-smoke --project P --full` for the saved case
 and evidence. Each job uploads `product-smoke-evidence`: `report.json`, session
 and evaluation reads, exact command captures, and failure diagnostics.
 No hosted Yoke token, harness account, provider secret, or preinstalled relay
-supervisor is needed by the smoke jobs. macOS onboarding installs its own
-local relay. Harness login happens only when refreshing fixtures.
+supervisor is needed by the smoke jobs. Onboarding installs its own local
+relay: under launchd on macOS, and under the disposable account's systemd user
+manager on Linux. Harness login happens only when refreshing fixtures.
 Self-host bring-up and relay supervision are separate checks.
 
 ## Refresh native recordings

@@ -62,12 +62,26 @@ jobs:
           uv run --frozen python runtime/api/tools/product_runner_checkout_tests.py --output product-smoke-evidence
       - name: Prepare a missing browser library on the disposable Linux runner
         if: runner.os == 'Linux'
-        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64
+        # Remove Firefox too: otherwise apt swaps the image's Firefox for the
+        # snap transitional package, whose install fails on the runner.
+        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64 firefox
       - name: Install, onboard, replay hooks, and check source development
+        if: runner.os != 'Linux'
         env:
           SMOKE_EXPECTED_OS: ${{ matrix.os }}
           SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
         run: python3 runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
+      # Linux relay setup needs a real systemd user manager: run the whole smoke
+      # as a disposable account inside its own PAM login session (Linger=no).
+      - name: Run Linux smoke in a disposable login account
+        if: runner.os == 'Linux'
+        run: >-
+          echo "runner account linger: $(loginctl show-user "$(id -u)" --property=Linger --value 2>&1)" ;
+          sudo -n --preserve-env=GITHUB_ACTIONS "$(command -v python3)"
+          runtime/api/tools/product_runner_linux_account.py
+          --output product-smoke-evidence --uv "$(command -v uv)"
+          --expected-os '${{ matrix.os }}'
+          --expected-architecture '${{ matrix.architecture }}'
       - name: Preserve proof and failure diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
