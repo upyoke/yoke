@@ -406,7 +406,7 @@ def _bootstrap_locking():
 
 @contextmanager
 def _bootstrap_publication(root: Path, locking):
-    with (root / "publication.lock").open("a+b") as handle:
+    with (root / "publication.lock").open(mode="a+b") as handle:
         deadline = time.monotonic() + 30
         announced = False
         while True:
@@ -653,7 +653,7 @@ def _run_isolated_install(command: list[str], env: dict[str, str]):
             generation = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=releases))
             (generation / "pending").touch()
             (generation / "lease").touch()
-            lease = (generation / "lease").open("rb")
+            lease = (generation / "lease").open(mode="rb")
             try:
                 locking["acquire_shared"](lease.fileno())
             except BaseException:

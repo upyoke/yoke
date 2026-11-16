@@ -184,7 +184,7 @@ def _run_isolated_install(command: list[str], env: dict[str, str]):
             generation = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=releases))
             (generation / "pending").touch()
             (generation / "lease").touch()
-            lease = (generation / "lease").open("rb")
+            lease = (generation / "lease").open(mode="rb")
             try:
                 locking["acquire_shared"](lease.fileno())
             except BaseException:

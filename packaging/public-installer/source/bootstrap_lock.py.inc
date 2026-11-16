@@ -7,7 +7,7 @@ def _bootstrap_locking():
 
 @contextmanager
 def _bootstrap_publication(root: Path, locking):
-    with (root / "publication.lock").open("a+b") as handle:
+    with (root / "publication.lock").open(mode="a+b") as handle:
         deadline = time.monotonic() + 30
         announced = False
         while True:
