@@ -24,7 +24,8 @@ def test_nul_git_paths_are_utf8_not_utf16(monkeypatch):
     assert collector._run(["git", "ls-files", "-z"], []) == "dir/José\0a\0"
 
 
-def test_wsl_unicode_distribution_names_decode(monkeypatch):
+@pytest.mark.parametrize("executable", ["wsl.exe", "wevtutil.exe"])
+def test_windows_unicode_tool_output_decodes(monkeypatch, executable):
     monkeypatch.setattr(
         collector.subprocess,
         "run",
@@ -32,7 +33,20 @@ def test_wsl_unicode_distribution_names_decode(monkeypatch):
             returncode=0, stdout="Ubuntu-é\r\n".encode("utf-16-le")
         ),
     )
-    assert collector._run(["wsl.exe", "--list"], []) == "Ubuntu-é\r\n"
+    assert collector._run([executable], []) == "Ubuntu-é\r\n"
+
+
+def test_native_tool_failure_keeps_the_windows_reason(monkeypatch):
+    monkeypatch.setattr(
+        collector.subprocess,
+        "run",
+        lambda *a, **kw: SimpleNamespace(
+            returncode=5, stdout=b"", stderr="Access denied: 東京".encode("utf-16-le")
+        ),
+    )
+    errors = []
+    assert collector._run(["wevtutil.exe"], errors) == ""
+    assert errors == ["wevtutil.exe exited 5: Access denied: 東京"]
 
 
 @pytest.mark.parametrize(
@@ -115,6 +129,29 @@ def test_bad_policy_log_is_not_clean_evidence(monkeypatch):
     errors = []
     assert collector._policy_blocks(errors) == []
     assert len(errors) == 2
+
+
+def test_policy_userdata_keeps_unicode_file_and_event_identity(monkeypatch):
+    xml = (
+        '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">'
+        "<System><EventID>8004</EventID><EventRecordID>42</EventRecordID></System>"
+        '<UserData><RuleAndFileData xmlns="http://schemas.microsoft.com/schemas/event/Microsoft.Windows/1.0.0.0">'
+        "<FilePath>C:/Users/José 東京/yoke/uv.exe</FilePath><RuleName>Company executable rule</RuleName>"
+        "</RuleAndFileData></UserData></Event>"
+    )
+
+    def run(argv, errors):
+        assert "/uni:true" in argv
+        return xml
+
+    monkeypatch.setattr(collector, "_run", run)
+    errors = []
+    blocks = collector._policy_blocks(errors)
+    assert not errors
+    assert len(blocks) == 2
+    assert blocks[0]["file"] == "C:/Users/José 東京/yoke/uv.exe"
+    assert "8004, record 42" in blocks[0]["evidence"]
+    assert "Company executable rule" in blocks[0]["evidence"]
 
 
 def test_windows_collection_is_read_only_and_reports_real_probe_results(

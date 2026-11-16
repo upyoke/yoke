@@ -19,18 +19,23 @@ DOWNLOAD_HOSTS = ("claude.ai", "downloads.cursor.com", "registry.npmjs.org")
 RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)", re.I)
 
 
+def _command_text(argv: list[str], raw: bytes) -> str:
+    encoding = (
+        "utf-16-le"
+        if argv[0] in ("wsl.exe", "wevtutil.exe") and b"\0" in raw
+        else "utf-8-sig"
+    )
+    return raw.decode(encoding, errors="replace").lstrip("\ufeff")
+
+
 def _run(argv: list[str], errors: list[str]) -> str:
     try:
         result = subprocess.run(argv, capture_output=True, timeout=4)
         if result.returncode:
-            errors.append(f"{argv[0]} exited {result.returncode}")
+            reason = _command_text(argv, result.stderr).strip()[:240]
+            errors.append(f"{argv[0]} exited {result.returncode}: {reason}")
             return ""
-        encoding = (
-            "utf-16-le"
-            if argv[0] == "wsl.exe" and b"\0" in result.stdout
-            else "utf-8-sig"
-        )
-        return result.stdout.decode(encoding, errors="replace").lstrip("\ufeff")
+        return _command_text(argv, result.stdout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         errors.append(f"{argv[0]}: {type(exc).__name__}")
         return ""
@@ -119,6 +124,7 @@ def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
                 "/c:20",
                 "/rd:true",
                 "/f:xml",
+                "/uni:true",
             ],
             errors,
         )
@@ -130,13 +136,18 @@ def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
                 raise ValueError("event log contains text instead of events")
             for event in root:
                 data = {
-                    node.attrib.get("Name"): node.text or ""
+                    (
+                        node.attrib.get("Name") or node.tag.rsplit("}", 1)[-1]
+                    ).lower(): node.text or ""
                     for node in event.iter()
-                    if node.tag.endswith("Data")
+                    if not len(node)
                 }
-                file = (
-                    data.get("FileName") or data.get("FilePath") or "unknown executable"
-                )
+                file = data.get("filename") or data.get("filepath")
+                if not file:
+                    errors.append(
+                        f"{log}: enforced block record {data.get('eventrecordid', 'unknown')} has no file field; inspect it in Event Viewer"
+                    )
+                    continue
                 if any(
                     name in file.lower()
                     for name in ("yoke", "python", "uv.exe", "postgres")
@@ -145,7 +156,7 @@ def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
                         {
                             "policy": policy,
                             "file": file,
-                            "evidence": f"{log}: enforced block event; policy {data.get('PolicyName', 'see Event Viewer')}",
+                            "evidence": f"{log}: enforced block event {data.get('eventid', 'unknown')}, record {data.get('eventrecordid', 'unknown')}; policy {data.get('policyname') or data.get('rulename') or 'see Event Viewer'}",
                         }
                     )
         except (ET.ParseError, ValueError):
