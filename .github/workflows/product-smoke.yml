@@ -50,14 +50,6 @@ jobs:
           printf '%s\n' "${pythonLocation}/lib" | sudo tee /etc/ld.so.conf.d/yoke-product-smoke-python.conf >/dev/null
           sudo ldconfig
           env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
-      - name: Prepare a missing browser library on the disposable Linux runner
-        if: runner.os == 'Linux'
-        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64
-      - name: Install, onboard, replay hooks, and check source development
-        env:
-          SMOKE_EXPECTED_OS: ${{ matrix.os }}
-          SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
-        run: python3 runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
       - name: Verify native process identity, reactivation and stop custody
         run: |
           uv sync --all-packages --locked
@@ -74,6 +66,14 @@ jobs:
             runtime/harness/test_session_relay_native_turn_custody.py \
             runtime/harness/test_session_relay_recorded_exit_custody.py \
             runtime/harness/test_session_relay_liveness_pruning.py
+      - name: Prepare a missing browser library on the disposable Linux runner
+        if: runner.os == 'Linux'
+        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64
+      - name: Install, onboard, replay hooks, and check source development
+        env:
+          SMOKE_EXPECTED_OS: ${{ matrix.os }}
+          SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        run: python3 runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
       - name: Preserve proof and failure diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
