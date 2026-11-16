@@ -185,6 +185,18 @@ def test_unproven_live_daemon_is_preserved_until_idle_exit(profiles, monkeypatch
     assert not check.directory.exists()
 
 
+def _stub_daemon_group(monkeypatch, readiness, process):
+    record = {"pid": process.pid, "start_time": 1.0, "members": [[process.pid, 1.0]]}
+    group = SimpleNamespace(
+        pid=process.pid, start_time=1.0, process=process, to_record=lambda: record
+    )
+    monkeypatch.setattr(readiness, "launch_daemon", lambda *a: group)
+    monkeypatch.setattr(
+        readiness.platform_process, "handle_from_pid", lambda *a: group
+    )
+    return group
+
+
 def test_daemon_birth_token_is_recorded_before_readiness(
     profiles, monkeypatch, tmp_path
 ):
@@ -192,10 +204,13 @@ def test_daemon_birth_token_is_recorded_before_readiness(
     from yoke_harness import browser_client_readiness as readiness
 
     process = SimpleNamespace(pid=os.getpid(), kill=Mock(), wait=Mock())
-    monkeypatch.setattr(readiness, "launch_daemon", lambda *a: process)
+    group = _stub_daemon_group(monkeypatch, readiness, process)
+    stopped = Mock()
+    monkeypatch.setattr(readiness.platform_process, "stop_group", stopped)
     with checks.check_scope("fixture") as check:
 
         def ready(*args, **kwargs):
+            assert args[0] is group
             record = json.loads((check.directory / "owner.json").read_text())
             assert record["daemon"] == checks._owner(process.pid)
             return {"pid": process.pid, "status": "started"}
@@ -205,6 +220,7 @@ def test_daemon_birth_token_is_recorded_before_readiness(
             ["node"], {}, tmp_path / "runtime-state", profile_dir=str(check.profile)
         )
         assert result["pid"] == process.pid
+    stopped.assert_not_called()
     process.kill.assert_not_called()
 
 
@@ -215,7 +231,9 @@ def test_failed_daemon_owner_record_stops_only_the_new_child(
     from yoke_harness import browser_client_readiness as readiness
 
     process = SimpleNamespace(pid=42, kill=Mock(), wait=Mock())
-    monkeypatch.setattr(readiness, "launch_daemon", lambda *a: process)
+    group = _stub_daemon_group(monkeypatch, readiness, process)
+    stopped = Mock()
+    monkeypatch.setattr(readiness.platform_process, "stop_group", stopped)
     ready = Mock()
     monkeypatch.setattr(readiness, "wait_for_daemon_ready", ready)
     with pytest.raises(RuntimeError, match="browser_check_owner_unavailable"):
@@ -230,7 +248,6 @@ def test_failed_daemon_owner_record_stops_only_the_new_child(
             readiness.start_daemon(
                 ["node"], {}, tmp_path / "runtime-state", profile_dir=str(check.profile)
             )
-    process.kill.assert_called_once_with()
-    process.wait.assert_called_once_with(timeout=5)
+    stopped.assert_called_once_with(group, 5)
     ready.assert_not_called()
     assert not check.directory.exists()
