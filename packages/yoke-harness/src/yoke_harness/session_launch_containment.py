@@ -19,7 +19,7 @@ launch handle's job, in :mod:`session_relay_termination`.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import create_owner_private_directory
 
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -34,7 +34,7 @@ from uuid import UUID
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_process_custody import (
     MAX_RECORD_BYTES,
-    capture_group,
+    capture_process_tree,
     custody_state,
     write_record,
 )
@@ -47,8 +47,15 @@ SUPERVISION_DIRECTORY_NAME = "session-launch-supervision"
 
 def _directory(state_dir: Path | None = None) -> Path:
     root = state_dir or machine_config.cache_dir()
+    missing = []
+    ancestor = root
+    while not ancestor.exists():
+        missing.append(ancestor)
+        ancestor = ancestor.parent
+    for ancestor in reversed(missing):
+        create_owner_private_directory(ancestor)
     directory = root / SUPERVISION_DIRECTORY_NAME
-    create_private_directory(directory)
+    create_owner_private_directory(directory)
     return directory
 
 
@@ -98,7 +105,7 @@ def record_supervised_native(
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
-        payload.update(capture_group(pid, start_time))
+        payload.update(capture_process_tree(pid, start_time))
         path = supervision_record_path(launch_id, state_dir)
         return write_record(path, payload)
     except (OSError, ValueError, subprocess.SubprocessError):
@@ -123,7 +130,7 @@ def touch_supervised_resume(
         if custody_state(payload) == "live":
             try:
                 payload.update(
-                    capture_group(payload["pid"], payload["process_start_time"])
+                    capture_process_tree(payload["pid"], payload["process_start_time"])
                 )
             except OSError:
                 pass

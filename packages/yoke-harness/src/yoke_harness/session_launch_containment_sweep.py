@@ -129,7 +129,7 @@ def _registration_handle_exists(payload: dict[str, object]) -> bool:
             and bool(record.get("target_session_id"))
             and record.get("pid") == payload.get("pid")
             and record.get("process_start_time") == payload.get("process_start_time")
-            and record.get("process_group_id") == payload.get("process_group_id")
+            and record.get("process_members") == payload.get("process_members")
         )
     except (OSError, ValueError, AttributeError):
         return False

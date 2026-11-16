@@ -15,6 +15,8 @@ from yoke_contracts import harness_family_identity as families
 from yoke_contracts import session_identity
 from yoke_contracts.cursor_session_map import record_conversation_session
 
+pytestmark = pytest.mark.windows
+
 
 CLAUDE_PARENT = "claude-parent-session"
 CODEX_CHILD = "codex-child-session"

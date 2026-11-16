@@ -29,9 +29,13 @@ def entry_key(entry: Dict[str, Any]) -> Tuple[Any, Tuple[str, ...], Any]:
     if "hooks" not in entry and isinstance(entry.get("command"), str):
         return (entry.get("matcher"), (entry["command"],), entry.get("timeout"))
     commands = tuple(
-        str(hook.get("command") or "")
+        command
         for hook in entry.get("hooks") or []
         if isinstance(hook, dict)
+        for command in (
+            [str(hook.get("command") or "")]
+            + ([hook["commandWindows"]] if hook.get("commandWindows") else [])
+        )
     )
     return (entry.get("matcher"), commands, None)
 

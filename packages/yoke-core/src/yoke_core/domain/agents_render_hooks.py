@@ -170,7 +170,17 @@ _CODEX_PERMISSION_MATCHER = "apply_patch|Write|Edit"
 
 
 def _codex_entry(matcher: str | None, verb: str) -> dict:
-    entry: dict = {"hooks": [{"type": "command", "command": _codex_command(verb)}]}
+    from yoke_contracts.hook_shell_command import windows_hook_command
+
+    entry: dict = {
+        "hooks": [
+            {
+                "type": "command",
+                "command": _codex_command(verb),
+                "commandWindows": windows_hook_command("codex", verb, None),
+            }
+        ]
+    }
     if matcher is not None:
         # Insert matcher before hooks for stable output.
         entry = {"matcher": matcher, "hooks": entry["hooks"]}

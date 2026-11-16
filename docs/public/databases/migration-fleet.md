@@ -63,7 +63,13 @@ both `yoke watch preflight` and the release gate run in place of the local
 kernel. Set it with `yoke projects environment-settings merge --project P
 --environment E --set release.preflight_executor=<command>`; set it empty to
 run the kernel on this machine, the normal mode for local and self-hosted
-projects. The executor contract:
+projects on macOS and Linux. Native Windows requires a declared executor on a
+host beside the database. With the setting unset or empty, both `yoke watch
+preflight` and the release gate refuse as `fleet_preflight_executor_required`
+before copying a database. Set it with `yoke projects environment-settings merge
+--project P --environment E --set release.preflight_executor=<command>`.
+Per-item `yoke migration rehearse` uses its declared validation surface and does
+not require a fleet executor. The executor contract:
 
 - **Arguments.** The executor receives the kernel's arguments after its own
   command words: `--project`, `--model`, the environment and any database

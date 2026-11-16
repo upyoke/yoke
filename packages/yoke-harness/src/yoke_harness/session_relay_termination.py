@@ -20,7 +20,7 @@ from yoke_harness import session_launch_handles
 from yoke_harness.session_process_custody import (
     MAX_RECORD_BYTES,
     SUCCESS_RESULTS,
-    bind_process_group,
+    bind_process_tree,
     TERMINATE_WAIT_SECONDS,
     custody_state,
     terminate_record,
@@ -74,8 +74,7 @@ def adopt_launched_session(
         "pid": pid,
         "process_start_time": start,
         "capture_path": record.get("capture_path"),
-        "process_group_id": record.get("process_group_id"),
-        "group_members": record.get("group_members"),
+        "process_members": record.get("process_members"),
     }
     try:
         destination = session_launch_handles.native_handle_path(launch_id)
@@ -252,7 +251,7 @@ def reap_terminated_session(
     """Reap launch custody, detached resume, or local process-anchor handles.
 
     Every native this relay starts is a process it owns, so terminating one is
-    signalling the process group named by a record this machine wrote. No
+    stopping the process tree named by a record this machine wrote. No
     surface needs a second owner asked to release the session first.
     """
     from yoke_harness.session_relay_runtime import RelayAdapterResult
@@ -289,17 +288,18 @@ def reap_terminated_session(
         )
         outcomes.append(background_result)
         evidence.update(background_evidence)
-    records = [(path, bind_process_group(record)) for path, record in records]
-    seen: set[int] = set()
+    records = [(path, bind_process_tree(record)) for path, record in records]
+    records.sort(key=lambda entry: len(entry[1].get("process_members") or {}), reverse=True)
+    seen: set[tuple[str, str]] = set()
     for path, record in records:
-        identity = (
-            record.get("process_group_id")
-            or record.get("pid")
-            or record.get("anchor_pid")
-        )
-        if not isinstance(identity, int) or identity in seen:
+        pid = record.get("pid") or record.get("anchor_pid")
+        started = record.get("process_start_time") or record.get("anchor_start_time")
+        members = dict(record.get("process_members") or {})
+        identities = {(str(p), str(s)) for p, s in members.items()}
+        identities.add((str(pid), str(started)))
+        if identities <= seen and custody_state(record) != "gone":
             continue
-        seen.add(identity)
+        seen.update(identities)
         result = _terminate_record(path, record)
         outcomes.append(result[1] if result is not None else "outcome_unknown")
     if "failed" in outcomes:

@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 from typing import Any, Optional
 
 from yoke_contracts.harness_family_identity import (
@@ -20,6 +19,7 @@ from yoke_contracts.harness_family_identity import (
     nearest_harness_family,
 )
 from yoke_contracts.session_identity import resolve_env_session_id
+from yoke_contracts import platform_process
 from yoke_contracts.session_model_facts import (
     PLACEHOLDER_MODEL_VALUES as _PLACEHOLDER_MODEL_VALUES,  # noqa: F401
     is_placeholder_model as _is_placeholder_model,
@@ -227,24 +227,18 @@ def detect_entrypoint() -> Optional[str]:
 
 
 def _read_parent_argv() -> list[str]:
+    """Read the parent's argument vector through the shared process layer."""
     try:
         ppid = os.getppid()
     except OSError:
         return []
     if ppid <= 1:
         return []
-    try:
-        result = subprocess.run(
-            ["ps", "-p", str(ppid), "-o", "args="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return []
-    if result.returncode != 0:
-        return []
-    return result.stdout.strip().split()
+    return next(
+        (list(entry.cmdline) for entry in platform_process.process_command_lines()
+         if entry.pid == ppid),
+        [],
+    )
 
 
 def _extract_model_from_argv(argv: list[str]) -> str:

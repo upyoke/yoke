@@ -13,6 +13,7 @@ import os
 import sys
 from typing import Any, Dict
 
+from yoke_contracts.platform_process import pid_alive
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
@@ -44,12 +45,9 @@ def _local_machine_id() -> str:
 def _process_gone(pid: int) -> bool:
     """True only when this machine's process table has no *pid* at all."""
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return True
+        return not pid_alive(pid)
     except OSError:
         return False
-    return False
 
 
 def exited_local_driver_pid(response: FunctionCallResponse, machine_id: str) -> int:

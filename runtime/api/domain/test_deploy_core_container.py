@@ -20,6 +20,8 @@ from yoke_core.domain.deploy_core_container import (
 from yoke_core.domain.deploy_remote import CommandResult
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
+pytestmark = pytest.mark.windows
+
 
 def _checked_in_project(tmp_path, stack: str):
     root = tmp_path / "project"

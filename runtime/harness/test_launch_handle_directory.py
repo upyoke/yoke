@@ -124,7 +124,7 @@ def test_a_landed_report_prunes_the_hook_written_handle(
 ) -> None:
     assert _hook_written_handle(os.getpid())
     monkeypatch.setattr(
-        "yoke_harness.session_process_custody.group_members", lambda group: {}
+        "yoke_harness.session_process_custody.platform_process.pid_alive", lambda *args: False
     )
     dispatcher = _Dispatcher([SESSION_ID])
 

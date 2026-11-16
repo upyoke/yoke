@@ -10,6 +10,8 @@ from yoke_harness import session_launch_handles, session_relay_runtime as runtim
 from yoke_harness.session_launch_containment import supervision_record_path
 from yoke_harness.session_relay_native_turn_custody import deferral_for_running_native
 
+pytestmark = pytest.mark.windows
+
 SESSION = "11111111-1111-4111-8111-111111111111"
 NATIVE = "22222222-2222-4222-8222-222222222222"
 START = "Mon Aug 24 08:00:00 2026"
@@ -21,7 +23,11 @@ def isolated(tmp_path, monkeypatch):
     handles = tmp_path / "handles"
     handles.mkdir()
     monkeypatch.setattr(session_launch_handles, "native_handle_directory", lambda: handles)
-    monkeypatch.setattr("os.getpgid", lambda _pid: 7001)
+    from types import SimpleNamespace
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_interactive_holder.platform_process.ancestors",
+        lambda _pid: [SimpleNamespace(pid=5001, start_time=123.5)],
+    )
     monkeypatch.setattr(
         "yoke_harness.session_relay_native_turn_custody.process_start_time",
         lambda _pid: START,
@@ -79,7 +85,8 @@ class TestInteractiveHolder:
         # The supervisor pid differs from the native anchor pid. Its completed
         # turn must not be reclassified as an interactive holder by that anchor.
         record = {
-            "pid": 5001, "process_start_time": START, "process_group_id": 7001,
+            "pid": 5001, "process_start_time": "123.5",
+            "process_members": {"5001": "123.5"},
             "supervision_kind": kind, "target_session_id": "other-session",
         }
         path = (session_launch_handles.native_handle_directory() / "launch.json"

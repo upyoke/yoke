@@ -24,8 +24,14 @@ from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence
 
 from yoke_core.domain import json_helper
-from yoke_contracts.machine_config import capability_secret_store as capability_machine_secrets
+from yoke_contracts.machine_config import (
+    capability_secret_store as capability_machine_secrets,
+)
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
+from yoke_core.domain.deploy_database_tunnel import (
+    open_db_tunnel as open_db_tunnel,
+    close_db_tunnel as close_db_tunnel,
+)
 from yoke_core.domain.deploy_remote_atomic_file import (
     push_remote_file as push_remote_file,
     remove_remote_file as remove_remote_file,
@@ -85,6 +91,9 @@ class CommandRunner:
         env: Optional[Mapping[str, str]] = None,
         timeout: int = 600,
     ) -> CommandResult:
+        from yoke_core.domain.ssh_identity import validate_identity
+
+        validate_identity(argv)
         completed = subprocess.run(
             list(argv),
             input=input_text,
@@ -98,6 +107,16 @@ class CommandRunner:
             stdout=completed.stdout or "",
             stderr=completed.stderr or "",
         )
+
+    def start_forward(self, argv, *, host: str, port: int, timeout: int) -> None:
+        from yoke_core.domain.ssh_forward_process import start_forward
+
+        start_forward(argv, host=host, port=port, timeout=timeout)
+
+    def stop_forward(self, forward_spec: str, *, timeout: int) -> None:
+        from yoke_core.domain.deploy_database_tunnel import stop_forward
+
+        stop_forward(forward_spec, timeout=timeout)
 
 
 def aws_capability_region(
@@ -302,48 +321,3 @@ def free_local_port() -> int:
 def db_tunnel_forward_spec(local_port: int, db_host: str, db_port: int) -> str:
     """The ``-L`` forward spec for a local->env-database tunnel."""
     return f"127.0.0.1:{local_port}:{db_host}:{db_port}"
-
-
-def open_db_tunnel(
-    runner: CommandRunner,
-    env: DeployEnvironment,
-    forward_spec: str,
-    *,
-    timeout: int = 30,
-) -> None:
-    """Open a backgrounded SSH port-forward through the env origin.
-
-    The env's database is VPC-internal (``publicly_accessible=False``), so
-    laptop-side operations reach it exactly the way the prod connected-env
-    does: a local forward through the origin box. ``ExitOnForwardFailure``
-    makes a failed bind a loud nonzero exit instead of a silent dead port.
-    """
-    argv = [
-        "ssh",
-        "-i",
-        env.ssh_key_path,
-        *_SSH_BASE_OPTIONS,
-        "-o",
-        "ExitOnForwardFailure=yes",
-        "-N",
-        "-f",
-        "-L",
-        forward_spec,
-        env.ssh_target,
-    ]
-    result = runner.run(argv, timeout=timeout)
-    if not result.ok:
-        raise RuntimeError(
-            f"db tunnel open failed (rc={result.returncode}): "
-            + (result.stderr or result.stdout).strip()[-400:]
-        )
-
-
-def close_db_tunnel(
-    runner: CommandRunner, forward_spec: str, *, timeout: int = 10
-) -> None:
-    """Terminate the backgrounded forward matching *forward_spec*.
-
-    Best-effort: rc=1 (no match) is fine — the forward may have exited.
-    """
-    runner.run(["pkill", "-f", "--", f"-L {forward_spec}"], timeout=timeout)
