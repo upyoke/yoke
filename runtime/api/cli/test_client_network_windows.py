@@ -26,6 +26,8 @@ from yoke_contracts.pre_resolved_https_connection import (
     _PreResolvedHTTPSConnection,
 )
 
+pytestmark = pytest.mark.windows
+
 URL = "https://yoke.corp.example:8688"
 COMPANY_ROOT = b"0\x82company-root-der"
 

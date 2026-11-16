@@ -24,6 +24,8 @@ from runtime.api.cli.github_stable_helper_test_support import (
 )
 from yoke_cli.config import github_git_credentials
 
+pytestmark = pytest.mark.windows
+
 TOKEN = "yoke-helper-secret"
 # Stands in for `credential.helper=manager`; a shell function works under
 # Git for Windows' sh as well as POSIX shells.

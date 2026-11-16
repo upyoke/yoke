@@ -21,6 +21,8 @@ from yoke_cli.config import (
 from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
 from yoke_contracts import owner_private_path
 
+pytestmark = pytest.mark.windows
+
 POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits")
 
 
@@ -191,9 +193,9 @@ def test_windows_idle_lock_is_closed_before_unlink(
     monkeypatch, tmp_path: Path
 ) -> None:
     config = tmp_path / "config.json"
+    _fake_acl(monkeypatch)
     with machine_config_file.exclusive_lock(config):
         pass
-    _fake_acl(monkeypatch)
     _as_windows(monkeypatch, machine_config_file)
     lock = machine_config_file.config_lock_path(config)
 
@@ -205,9 +207,9 @@ def test_windows_lock_opened_by_another_process_is_reported_busy(
     monkeypatch, tmp_path: Path
 ) -> None:
     config = tmp_path / "config.json"
+    _fake_acl(monkeypatch)
     with machine_config_file.exclusive_lock(config):
         pass
-    _fake_acl(monkeypatch)
     _as_windows(monkeypatch, machine_config_file)
 
     def sharing_violation(self, *args, **kwargs):

@@ -8,6 +8,8 @@ import pytest
 
 from yoke_cli.config import hosted_machine_browser as browser
 
+pytestmark = pytest.mark.windows
+
 URL = "https://upyoke.com/device?code=ABCD-1234"
 
 
