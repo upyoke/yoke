@@ -11,6 +11,7 @@ def test_readonly_tree_removed(tmp_path):
     data = root / 'readonly'
     data.write_bytes(b'data')
     data.chmod(stat.S_IREAD)
+    root.chmod(stat.S_IREAD | stat.S_IEXEC)
     platform_fs.remove_tree(root)
     assert not root.exists()
     platform_fs.remove_tree(root)
