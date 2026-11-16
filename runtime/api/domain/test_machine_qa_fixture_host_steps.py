@@ -86,8 +86,7 @@ def test_admission_host_runs_on_the_current_release_interpreter() -> None:
 
     assert result.ok, result.evidence
     release_python = (
-        "/Users/tester/.local/share/uv/tools/yoke-cli-releases/current/"
-        "tools/yoke-cli/bin/python3"
+        "/Users/tester/.local/share/uv/tools/yoke-cli-releases/python"
     )
     assert [shlex.split(command) for command, _timeout in remote.commands] == [
         [release_python, "-m", HOST_MODULE, "stop" if step else "start", "self-hosted"]

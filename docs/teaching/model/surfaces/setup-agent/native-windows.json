@@ -1,0 +1,10 @@
+{
+ "id": "native-windows",
+ "title": "Inspect native Windows before setup writes and explain the WSL-blocked path.",
+ "status": "observed",
+ "form": "Rule",
+ "verification": "Fake-facts tests cover preflight refusals and notices on every OS. Native runtime acceptance remains pending; no support claim follows from these verdicts.",
+ "topics": ["projects/onboarding", "machines/inspection"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_native_preflight.py", "packages/yoke-cli/src/yoke_cli/config/native_windows_terminal.py", "packages/yoke-contracts/src/yoke_contracts/windows_preflight.py", "runtime/api/test_windows_preflight.py", "runtime/api/cli/test_onboard_native_preflight.py", "runtime/api/cli/test_native_windows_terminal.py"],
+ "position": 14
+}

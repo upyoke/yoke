@@ -67,16 +67,21 @@ def resolve_native_cli_source(
     for manifest in HARNESS_CLI_MANIFESTS if manifests is None else manifests:
         if manifest.executable != command_name:
             continue
-        for raw in manifest.bundled_candidates:
-            candidate = Path(raw).expanduser()
+        candidates, patterns = manifest.bundles_for_platform()
+        for raw in candidates:
+            candidate = Path(os.path.expandvars(raw)).expanduser()
             if candidate.is_file() and os.access(candidate, os.X_OK):
                 return ResolvedNativeCli(str(candidate), "bundled")
         versioned = []
-        for raw in manifest.bundled_patterns:
-            pattern = str(Path(raw).expanduser())
+        for raw in patterns:
+            pattern = str(Path(os.path.expandvars(raw)).expanduser())
             prefix = pattern.split("{version}", 1)[0]
             for match in glob.glob(pattern.replace("{version}", "[0-9]*")):
                 candidate = Path(match)
+                if "{version}" not in pattern:
+                    if candidate.is_file() and os.access(candidate, os.X_OK):
+                        versioned.append(((), str(candidate)))
+                    continue
                 version = re.match(r"[0-9]+(?:\.[0-9]+)+", match[len(prefix) :])
                 if version and candidate.is_file() and os.access(candidate, os.X_OK):
                     key = tuple(int(part) for part in version.group().split("."))

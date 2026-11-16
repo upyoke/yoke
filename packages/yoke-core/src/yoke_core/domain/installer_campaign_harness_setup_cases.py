@@ -11,7 +11,7 @@ def harness_setup_cases(command_case):
         command_case(
             29,
             "harness-installed-after-yoke",
-            '"$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" -c '
+            '"$(uv tool dir)/yoke-cli-releases/python" -c '
             + shlex.quote(
                 "from yoke_core.domain.installer_campaign_harness_setup_cases import run_probe; run_probe()"
             ),

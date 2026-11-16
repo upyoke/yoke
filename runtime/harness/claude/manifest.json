@@ -19,6 +19,15 @@
       "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude"
     ],
     "install_command": "curl -fsSL https://claude.ai/install.sh | bash",
+    "windows": {
+      "install_command": "winget install --id Anthropic.ClaudeCode -e",
+      "bundled_candidates": [
+        "~/.local/bin/claude.exe"
+      ],
+      "bundled_patterns": [
+        "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude.exe"
+      ]
+    },
     "authentication": {
       "status_args": [
         "auth",

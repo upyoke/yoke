@@ -12,7 +12,8 @@ from typing import Any, Mapping
 
 from yoke_cli.config import github_git_credential_bundle
 from yoke_cli.config.github_prior_runtime_verification import (
-    current_release_path,
+    release_install_root,
+    stable_python,
     orphaned_release_helper,
     verified_prior_runtime_helper,
 )
@@ -193,7 +194,7 @@ def _is_yoke_helper(
     if len(command) != 4 or command[2] != "--config":
         return False
     expected = (
-        Path(sys.executable).expanduser().resolve(strict=False),
+        stable_python(Path(sys.executable)).expanduser().resolve(strict=False),
         (_helper_dir() / STABLE_HELPER_FILE_NAME).resolve(strict=False),
         machine_config.config_path(config_path).resolve(strict=False),
     )
@@ -247,16 +248,18 @@ def helper_command(
         Path(helper_path) if helper_path is not None else install_stable_helper()
     )
     return render_helper_command(
-        current_release_path(Path(sys.executable)),
-        current_release_path(selected_helper),
+        stable_python(Path(sys.executable)),
+        selected_helper,
         machine_config.config_path(config_path),
     )
 
 
 def _helper_dir() -> Path:
-    # The environment root, not lib/python3.X/site-packages, so the saved
-    # path survives a release that changes the Python minor version.
-    return Path(sys.prefix) / "github-credential-helper"
+    # A released CLI shares one helper directory across its releases, so the
+    # saved path survives pruning; other installs keep it at the environment
+    # root, not lib/python3.X/site-packages, to survive a Python minor change.
+    root = release_install_root(Path(sys.prefix))
+    return (root or Path(sys.prefix)) / "github-credential-helper"
 
 
 def credential_helper_key(web_url: str) -> str:
