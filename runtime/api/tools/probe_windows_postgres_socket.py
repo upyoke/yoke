@@ -56,12 +56,12 @@ def main():
     root.mkdir()
     owner = run(["whoami"]).stdout.strip()
     run(["icacls", str(root), "/inheritance:r", "/grant:r", f"{owner}:(OI)(CI)F"])
-    sock = root / "sock"
-    sock.mkdir()
+    sock = Path(tempfile.mkdtemp(prefix="ys-", dir="C:/Users/Public"))
+    run(["icacls", str(sock), "/inheritance:r", "/grant:r", f"{owner}:(OI)(CI)F"])
     data = root / "data"
     run([str(binary / "initdb.exe"), "-D", str(data), "-U", "probe", "--auth=trust", "--locale=C"])
     # PostgreSQL's server option parser needs quotes around the path with spaces.
-    options = f'-k "{sock.as_posix()}" -c listen_addresses=\'\''
+    options = f'-k "{sock.as_posix()}" -c listen_addresses='
     try:
         result = run([str(binary / "pg_ctl.exe"), "-D", str(data), "-l", str(root / "server.log"), "-o", options, "-w", "start"], check=False)
         if result.returncode:
