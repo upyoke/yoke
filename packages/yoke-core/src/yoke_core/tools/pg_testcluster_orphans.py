@@ -9,7 +9,6 @@ any more, and how to reclaim them without ever delaying a starting suite.
 from __future__ import annotations
 
 import contextlib
-import os
 import subprocess
 import sys
 import time
@@ -82,9 +81,10 @@ def _single_sweeper():
     root = _frontend()._root()
     try:
         root.mkdir(parents=True, exist_ok=True)
-        handle = (root / _SWEEP_LOCK_FILENAME).open("w")
-    except OSError:
-        yield True  # Cannot lock; sweeping unguarded beats not sweeping.
+        handle = (root / _SWEEP_LOCK_FILENAME).open("a+b")
+    except OSError as exc:
+        sys.stderr.write(f"pgtest_sweep_lock_unavailable: {exc}; repair the cluster root and retry prune\n")
+        yield False
         return
     try:
         try:
@@ -106,15 +106,13 @@ def _owner_process_is_alive(pid: int) -> bool:
     ``PermissionError`` means the process exists but belongs to another user —
     still alive, and still not ours to reclaim.
     """
+    from yoke_contracts.platform_process import pid_alive
+
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
+        return pid_alive(pid)
+    except OSError as exc:
+        sys.stderr.write(f"pgtest_owner_unreadable: {exc}; preserve this database and retry prune as its owner\n")
         return True
-    except OSError:
-        return True  # Unreadable means "assume live"; the sweep is optional.
-    return True
 
 
 def sweep_orphaned_test_databases() -> int:
@@ -210,7 +208,9 @@ def start_detached_orphan_sweep() -> None:
     sweep's own file lock keeps repeated launches from piling up.
     """
     try:
-        subprocess.Popen(
+        from yoke_contracts.platform_process import spawn_group
+
+        spawn_group(
             # The frontend owns the command-line entry point; this module has
             # none, and a spawn naming it would die instantly on a missing
             # __main__ — silently, since the streams below are discarded.
@@ -218,7 +218,6 @@ def start_detached_orphan_sweep() -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
-            start_new_session=True,
         )
-    except OSError:
-        pass  # Cleanup is best-effort; never fail a run over it.
+    except OSError as exc:
+        sys.stderr.write(f"pgtest_sweep_spawn_failed: {exc}; retry pg_testcluster prune\n")

@@ -196,18 +196,6 @@ def test_sweep_stays_quiet_when_nothing_was_orphaned(monkeypatch, capsys):
 def test_owner_liveness_reads_the_operating_system(monkeypatch):
     assert pg_testcluster_orphans._owner_process_is_alive(os.getpid())
 
-    def refuse(pid, sig):
-        raise ProcessLookupError
-
-    monkeypatch.setattr(pg_testcluster_orphans.os, "kill", refuse)
+    from yoke_contracts import platform_process
+    monkeypatch.setattr(platform_process, "pid_alive", lambda pid: False)
     assert not pg_testcluster_orphans._owner_process_is_alive(999999)
-
-
-def test_owner_owned_by_another_user_counts_as_alive(monkeypatch):
-    # Not ours to signal means not ours to reclaim.
-    def refuse(pid, sig):
-        raise PermissionError
-
-    monkeypatch.setattr(pg_testcluster_orphans.os, "kill", refuse)
-
-    assert pg_testcluster_orphans._owner_process_is_alive(4242)

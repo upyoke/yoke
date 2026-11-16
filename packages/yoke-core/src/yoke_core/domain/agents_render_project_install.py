@@ -230,16 +230,13 @@ def _copied_tree_outputs(source_dir: Path, target_dir: Path) -> list[tuple[Path,
 
 
 def _ensure_skill_link(link_path: Path, *, dry_run: bool) -> str:
-    if link_path.is_symlink() and link_path.readlink().as_posix() == _SKILL_LINK_TARGET:
-        return "skip"
-    if dry_run:
-        return "would-write"
-    assert_target_under_session_work_authority(link_path)
-    link_path.parent.mkdir(parents=True, exist_ok=True)
-    if link_path.exists() or link_path.is_symlink():
-        link_path.unlink()
-    link_path.symlink_to(_SKILL_LINK_TARGET)
-    return "write"
+    from yoke_core.domain.agents_render_native_links import ensure_native_agents_link
+
+    root = link_path.parents[2]
+    action, _target = ensure_native_agents_link(
+        root, Path(".agents/skills/yoke"), link_path.relative_to(root), dry_run=dry_run
+    )
+    return action
 
 
 def _source_root_from_module() -> Path:

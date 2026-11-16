@@ -105,7 +105,7 @@ def ensure_started() -> int:
     candidate = spec.bin_dir
     missing = (
         f"YOKE_PG_BIN_DIR={candidate} has no initdb"
-        if candidate is not None and not (candidate / "initdb").is_file()
+        if candidate is not None and not (candidate / ("initdb.exe" if os.name == "nt" else "initdb")).is_file()
         else "initdb is unavailable on PATH"
         if candidate is None and shutil.which("initdb") is None
         else None
