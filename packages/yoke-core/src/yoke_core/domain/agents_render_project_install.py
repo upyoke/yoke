@@ -83,11 +83,9 @@ def detect_project_install_drift(
             drift.append(f"drift: {rel_path}")
     if not copy_skills:
         for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):
-            full = root / link_path
-            if not full.is_symlink():
-                drift.append(f"missing: {link_path}")
-            elif full.readlink().as_posix() != _SKILL_LINK_TARGET:
-                drift.append(f"drift: {link_path}")
+            from yoke_core.domain.agents_render_native_links import native_agents_link_drift
+
+            drift.extend(native_agents_link_drift(root, Path(".agents/skills/yoke"), link_path))
     return drift
 
 

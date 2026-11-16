@@ -63,6 +63,8 @@ def test_ci_checks_committed_outputs_without_ignored_native_views(tmp_path, monk
     from yoke_core.domain import agents_render
     from yoke_core.tools.ci_generated_surfaces import check_agent_render
 
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / ".yoke"))
     _seed_minimal_canonical_tree(tmp_path)
     monkeypatch.setattr(agents_render, "AGENTS", ["architect"])
     for path, content in agents_render._enumerate_outputs(tmp_path):
@@ -73,3 +75,20 @@ def test_ci_checks_committed_outputs_without_ignored_native_views(tmp_path, monk
     assert "missing: .codex/agents" in agents_render.detect_substrate_drift(target_root=tmp_path)
     (tmp_path / agents_render.CODEX_OUT_DIR / "yoke-architect.toml").write_text("stale")
     assert not check_agent_render(tmp_path, None)[0]
+
+
+def test_project_skill_copies_follow_content_drift(tmp_path, monkeypatch, owned):
+    from yoke_contracts import platform_links
+    from yoke_core.domain.agents_render_project_install import write_project_install, detect_project_install_drift
+
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / ".yoke"))
+    monkeypatch.setattr(platform_links, "link", lambda source, target: shutil.copytree(source, target))
+    target = tmp_path / "project"
+    target.mkdir()
+    write_project_install(target_root=target)
+    assert detect_project_install_drift(target_root=target) == []
+    (target / ".claude/skills/yoke/SKILL.md").write_text("stale", encoding="utf-8")
+    assert "drift: .claude/skills/yoke" in detect_project_install_drift(target_root=target)
+    write_project_install(target_root=target)
+    assert detect_project_install_drift(target_root=target) == []

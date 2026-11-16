@@ -29,7 +29,14 @@ WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "P
 def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     """Explicit child environment: no tokens, DSNs, session identity, or API URLs."""
     home = scratch / "home"
-    home.mkdir()
+    service_env = {}
+    if sys.platform == "linux" and os.environ.get("YOKE_SMOKE_LINUX_ACCOUNT_HOME"):
+        try:
+            from .product_runner_linux_account import verified_account_environment
+        except ImportError:
+            from product_runner_linux_account import verified_account_environment
+        home, service_env = verified_account_environment()
+    home.mkdir(exist_ok=True)
     scripts = venv_executable(venv, "yoke").parent
     tools = [scripts, *(Path(found).parent for found in map(shutil.which, ("uv", "git")) if found)]
     env = {
@@ -42,6 +49,7 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
         "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
         "GIT_CONFIG_NOSYSTEM": "1",
     }
+    env.update(service_env)
     if WINDOWS:
         temp = home / "AppData" / "Local" / "Temp"
         temp.mkdir(parents=True)
@@ -86,7 +94,7 @@ def selected_stages(through: str):
 def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
     """Stop what onboarding started; a cleanup failure never hides the primary one."""
     try:
-        if sys.platform == "darwin":
+        if sys.platform in {"darwin", "linux"}:
             run.commands.run(
                 "uninstall-local-relay",
                 [run.yoke, "relay", "uninstall", "--json"],
