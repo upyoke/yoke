@@ -35,3 +35,33 @@ def test_windows_copy_fallback(monkeypatch, tmp_path):
 def test_missing_target_refuses(tmp_path):
     with pytest.raises(FileNotFoundError, match='link_target_missing'):
         links.link(tmp_path / 'missing', tmp_path / 'link')
+
+
+def test_concurrent_destination_is_never_overwritten(monkeypatch, tmp_path):
+    source, destination = tmp_path / 'source', tmp_path / 'destination'
+    source.write_bytes(b'source')
+    def collision(path, *args, **kwargs):
+        path.write_bytes(b'other caller')
+        raise FileExistsError(str(path))
+    monkeypatch.setattr(Path, 'symlink_to', collision)
+    with pytest.raises(FileExistsError, match='link_destination_exists'):
+        links.link(source, destination)
+    assert destination.read_bytes() == b'other caller'
+
+
+def test_file_copy_fallback_refuses_racing_destination(monkeypatch, tmp_path):
+    import builtins
+    source, destination = tmp_path / 'source', tmp_path / 'destination'
+    source.write_bytes(b'source')
+    def no_symlinks(*args, **kwargs):
+        raise OSError('unsupported filesystem')
+    original_open = builtins.open
+    def racing_open(path, mode, *args, **kwargs):
+        if Path(path) == destination and mode == 'xb':
+            destination.write_bytes(b'other caller')
+        return original_open(path, mode, *args, **kwargs)
+    monkeypatch.setattr(Path, 'symlink_to', no_symlinks)
+    monkeypatch.setattr(links, 'open', racing_open, raising=False)
+    with pytest.raises(FileExistsError, match='link_destination_exists'):
+        links.link(source, destination)
+    assert destination.read_bytes() == b'other caller'

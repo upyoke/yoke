@@ -46,7 +46,7 @@ def host(monkeypatch, *, session, frames):
     return SimpleNamespace(os="linux", _run=run, restarts=restarts), captures, commands
 
 
-@pytest.mark.parametrize("os", ["linux", "windows"])
+@pytest.mark.parametrize("os", ["linux", "wsl"])
 @pytest.mark.parametrize("session", ["started", "reused", "restarted"])
 def test_blank_desktop_recovers_first_frame(monkeypatch, session, os):
     control, captures, commands = host(

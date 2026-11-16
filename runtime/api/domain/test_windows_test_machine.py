@@ -14,7 +14,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts.machine_config.test_machine import validate_test_machine_settings
+from yoke_contracts.machine_config.test_machine import (
+    TestMachineCapabilityError as CapabilityError,
+    validate_test_machine_settings,
+)
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.machine_qa_host_control import host_control_for
@@ -29,7 +32,7 @@ SETTINGS = {
     "resource_name": "windows-lab",
     "host": "windows.invalid",
     "user": "Administrator",
-    "os": "windows",
+    "os": "wsl",
     "operating_notes": "WSL2",
     "golden_baseline_path": "/var/lib/yoke-golden/tester/home",
 }
@@ -125,8 +128,7 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
     control = SshWindowsHostOperations(settings=SETTINGS, key_path="/private/key")
     assert control.home == "/home/tester"
     receipt = control.check_connection()
-    assert receipt.ok and receipt.evidence["os"] == "windows"
-    assert receipt.evidence["execution_context"] == "wsl2"
+    assert receipt.ok and receipt.evidence["os"] == "wsl"
     result = control.run_command(["printf", "%s", "two words"])
     assert result.returncode == 0
     assert (
@@ -137,10 +139,10 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
 
 
 def test_windows_baselines_use_the_linux_restore_boundary():
-    assert validate_test_machine_settings(SETTINGS)["os"] == "windows"
+    assert validate_test_machine_settings(SETTINGS)["os"] == "wsl"
     selected = []
     control = SimpleNamespace(
-        os="windows",
+        os="wsl",
         reach_baseline=lambda name: (
             selected.append(name) or HostActionResult(True, {"home": "/home/tester"})
         ),
@@ -153,6 +155,12 @@ def test_machine_qa_factory_selects_windows_transport(monkeypatch):
     monkeypatch.setattr(SshWindowsHostControl, "__init__", lambda *a: None)
     control = host_control_for(SimpleNamespace(settings=SETTINGS))
     assert isinstance(control, SshWindowsHostControl)
+
+
+def test_native_windows_never_falls_back_to_the_wsl_or_linux_transport():
+    native = {**SETTINGS, "os": "windows"}
+    with pytest.raises(CapabilityError, match="test_machine_os_unimplemented"):
+        host_control_for(SimpleNamespace(settings=native))
 
 
 def test_windows_golden_command_forwards_private_ssh_log(tmp_path, monkeypatch):
@@ -220,3 +228,16 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
     )
     assert adapter.test_machine_exec(["--project", "yoke", "--", "exit 7"]) == 7
     assert _linux_command(calls[0]["command"][0]) == "exit 7"
+
+
+def test_gui_command_refuses_native_windows_before_any_ssh(monkeypatch, tmp_path):
+    from yoke_harness import machine_gui_command as gui
+    from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: pytest.fail("no SSH for native Windows")
+    )
+    with pytest.raises(RemoteExecRefusal, match="windows Test Machines"):
+        gui.run_gui_command(
+            settings={**SETTINGS, "os": "windows"}, argv=["yoke"], yoke_home=tmp_path
+        )

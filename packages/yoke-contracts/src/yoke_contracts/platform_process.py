@@ -128,6 +128,8 @@ def handle_from_pid(pid: int, start_time: float) -> GroupHandle | None:
         if not pid_alive(pid, start_time):
             return None
         return GroupHandle(pid, float(start_time), tuple(members))
+    except psutil.NoSuchProcess:
+        return None
     except psutil.Error as exc:
         raise OSError(f"process_capture_failed: PID {pid}; run as its owner and retry") from exc
 
@@ -176,7 +178,9 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
             except ProcessLookupError:
                 pass
         console_stop = False
-        if os.name == "nt" and handle.pid in processes:
+        # Only spawn_group owns a known CREATE_NEW_PROCESS_GROUP console group.
+        # Restored/adopted PIDs can share our console and must never get a break.
+        if os.name == "nt" and handle._job is not None and handle.pid in processes:
             try:
                 processes[handle.pid].send_signal(signal.CTRL_BREAK_EVENT)
                 console_stop = True

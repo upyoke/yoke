@@ -14,3 +14,9 @@ runtime/api/cli/test_yoke_universe_ui_restart.py
 runtime/api/cli/test_universe_ui_daemon_process_identity.py
 runtime/api/cli/test_machine_file_clock_instants.py::test_ui_record_ingress_is_native_and_status_formats_only_at_wire
 runtime/api/cli/test_machine_file_clock_instants.py::test_bad_ui_record_clock_returns_named_cli_refusal
+runtime/api/cli/test_platform_process.py
+runtime/api/cli/test_platform_process_windows.py
+runtime/api/cli/test_platform_links.py
+runtime/api/cli/test_platform_fs.py
+runtime/api/cli/test_owner_private_path.py
+runtime/api/domain/test_lint_platform.py

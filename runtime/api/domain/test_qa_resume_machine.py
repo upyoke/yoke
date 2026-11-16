@@ -138,7 +138,7 @@ def _hosts(monkeypatch):
 
 @pytest.mark.parametrize(
     "platform,expected",
-    [("linux", "linux-lab"), ("macos", "test-mac"), ("windows", None)],
+    [("linux", "linux-lab"), ("macos", "test-mac"), ("wsl", None)],
 )
 def test_each_platform_recovers_only_its_own_execution_host(
     monkeypatch, platform, expected

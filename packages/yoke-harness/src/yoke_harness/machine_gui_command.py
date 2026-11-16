@@ -71,7 +71,7 @@ class _GuiSshControl:
         )
 
     def _run(self, command, *, input_text=None, timeout=60):
-        if self.settings["os"] == "windows":
+        if self.settings["os"] == "wsl":
             from yoke_contracts.windows_wsl_command import windows_wsl_command
 
             command = windows_wsl_command(command)
@@ -148,6 +148,12 @@ def run_gui_command(
     """Run on the declared OS desktop, preserving argv and its exit status."""
     settings = validate_test_machine_settings(settings)
     kind = settings["os"]
+    if kind not in {"macos", "linux", "wsl"}:
+        raise RemoteExecRefusal(
+            "test_machine_os_unimplemented",
+            f"{kind} Test Machines have no desktop command support on this Yoke version",
+            "Run desktop commands on a macos, linux or wsl Test Machine, or upgrade Yoke.",
+        )
     if not os.environ.get(SSH_AUTH_SOCK_ENV):
         raise RemoteExecRefusal(
             "test_machine_ssh_agent_unavailable",
