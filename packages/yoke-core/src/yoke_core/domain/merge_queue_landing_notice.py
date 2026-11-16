@@ -3,8 +3,8 @@
 The landing observer decides what GitHub did; this decides who hears about
 it. The two are separate because the answer to "who owns this lane"
 outlives any one observation: a landing whose holder is gone has to reach
-the project's steering seat instead. Notice acceptance and recipient delivery
-stay distinct so the observer can stop resending an accepted intent while the
+the steering seat covering the item instead. Notice acceptance and recipient
+delivery stay distinct so the observer can stop resending an accepted intent while the
 ordinary pending-message path owns delivery.
 """
 
@@ -16,6 +16,11 @@ from typing import Any, Callable
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
+from yoke_core.domain.steering_scope_membership import (
+    item_coverage_target,
+    item_document_links,
+)
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
@@ -26,7 +31,7 @@ from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 #: Reached the session holding the item's work claim.
 HOLDER = "holder"
 
-#: Reached the project's steering seat because no live holder answered.
+#: Reached the item's covering steering seat because no live holder answered.
 STEERING = "steering"
 
 
@@ -37,7 +42,7 @@ def _p(conn: Any) -> str:
 #: Live work claims joined to the sessions holding them.
 _LIVE_CLAIMS = (
     " FROM work_claims wc JOIN harness_sessions hs ON hs.session_id=wc.session_id "
-    "WHERE wc.released_at IS NULL AND hs.terminated_at IS NULL "
+    "WHERE wc.released_at IS NULL AND hs.terminated_at IS NULL AND hs.ended_at IS NULL "
 )
 
 
@@ -46,20 +51,17 @@ def resolve_lane_recipient(
 ) -> tuple[str, int, str]:
     """The session to tell, its actor, and which route found it.
 
-    The item's own claim holder answers first, live sessions before ended
-    ones. A lane nobody holds falls back to the project's steering seat,
-    which is what turns an abandoned landing into staffing work instead of
-    silence. ``("", 0, "")`` means nobody is addressable at all.
+    The item's live claim holder answers first. A lane nobody holds falls
+    back to the steering seat covering its strategy document or unlinked
+    project work; an unrelated seat never receives it. ``("", 0, "")`` means
+    nobody is addressable at all.
     An explicit execution owner replaces claim lookup, retaining the same
     steering fallback and native-resume delivery path.
     """
     marker = _p(conn)
     item_scope = scope_int_sql(conn, "wc.scope", "item_id")
-    project_scope = scope_int_sql(conn, "wc.scope", "project_id")
     common = _LIVE_CLAIMS
-    liveness = (
-        "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC LIMIT 1"
-    )
+    liveness = "ORDER BY wc.id DESC LIMIT 1"
     if owner_session_id is not None:
         # An execution can belong to a delegated session rather than the
         # claim holder. Only that owner can resume its immutable capture.
@@ -76,51 +78,55 @@ def resolve_lane_recipient(
             + liveness,
             (item_id,),
         ).fetchone()
-    route = HOLDER
     if row is None:
-        row = conn.execute(
-            "SELECT wc.session_id, hs.actor_id"
-            + common
-            + f"AND wc.target_kind='steering' AND {project_scope}={marker} "
-            + liveness,
-            (project_id,),
-        ).fetchone()
-        route = STEERING
-    if row is None or row[1] is None:
+        seat = covering_seat(
+            conn, item_coverage_target(conn, project_id=project_id, item_id=item_id)
+        )
+        if seat is None or seat.get("actor_id") is None:
+            return "", 0, ""
+        return str(seat["session_id"]), int(seat["actor_id"]), STEERING
+    if row[1] is None:
         return "", 0, ""
-    return str(row[0]), int(row[1]), route
+    return str(row[0]), int(row[1]), HOLDER
 
 
 def addressable_items(conn: Any, *, item_ids: Any, project_id: int) -> set[int]:
-    """Which items :func:`resolve_lane_recipient` would reach, in two reads.
+    """Items with a live holder or covering steering seat, using bounded reads.
 
-    A live project steering seat reaches every item; otherwise only items
-    with a live claim holder are addressable. Bounded by the item set, not
-    one resolution per item.
+    Resolve steering claims and document links once for the batch, then apply
+    the shared coverage rule in memory rather than resolving every item.
     """
     ids = sorted({int(item_id) for item_id in item_ids})
     if not ids:
         return set()
     marker = _p(conn)
-    live = _LIVE_CLAIMS + "AND hs.actor_id IS NOT NULL "
-    project_scope = scope_int_sql(conn, "wc.scope", "project_id")
-    seat = conn.execute(
-        "SELECT 1"
-        + live
-        + f"AND wc.target_kind='steering' AND {project_scope}={marker} LIMIT 1",
-        (project_id,),
-    ).fetchone()
-    if seat is not None:
-        return set(ids)
+    claims = live_steering_claims(conn)
+    links = item_document_links(conn, ids)
     item_scope = scope_int_sql(conn, "wc.scope", "item_id")
     rows = conn.execute(
-        f"SELECT DISTINCT {item_scope}"
-        + live
+        f"SELECT {item_scope}, hs.actor_id"
+        + _LIVE_CLAIMS
         + f"AND wc.target_kind='item' AND {item_scope} IN "
-        + f"({','.join([marker] * len(ids))})",
+        + f"({','.join([marker] * len(ids))}) ORDER BY wc.id DESC",
         tuple(ids),
     ).fetchall()
-    return {int(row[0]) for row in rows}
+    holders = {}
+    for row in rows:
+        holders.setdefault(int(row[0]), row[1])
+    addressable = {item_id for item_id, actor in holders.items() if actor is not None}
+    for item_id in ids:
+        if item_id in holders:
+            continue
+        seat = covering_seat(
+            conn,
+            item_coverage_target(
+                conn, project_id=project_id, item_id=item_id, links=links
+            ),
+            claims=claims,
+        )
+        if seat is not None and seat.get("actor_id") is not None:
+            addressable.add(item_id)
+    return addressable
 
 
 def landing_message(
