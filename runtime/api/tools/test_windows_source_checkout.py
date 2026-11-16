@@ -81,3 +81,14 @@ def test_ssh_host_block_normalizes_native_paths(monkeypatch):
     block = mac_leg.host_block(SimpleNamespace(env_name="prod"), str(Path.home() / "known hosts"))
     assert f'IdentityFile "{(Path.home() / "key with spaces").as_posix()}"' in block
     assert f'UserKnownHostsFile "{(Path.home() / "known hosts").as_posix()}"' in block
+
+
+def test_windows_cluster_environment_uses_powershell_literals(monkeypatch, tmp_path):
+    monkeypatch.setattr(pg_testcluster, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(pg_testcluster, "_root", lambda: tmp_path / "user's $cluster")
+    monkeypatch.setattr(pg_testcluster, "dsn", lambda: "host=socket user=contributor")
+    monkeypatch.setattr(pg_testcluster.postgres_binaries, "pinned_bin_dir", lambda: None)
+    result = pg_testcluster.env_block()
+    assert "$env:YOKE_PG_CLUSTER_ROOT = '" in result
+    assert "user''s $cluster'" in result
+    assert "$env:YOKE_PG_DSN = 'host=socket user=contributor'" in result
