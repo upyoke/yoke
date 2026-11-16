@@ -193,3 +193,21 @@ def test_pytest_invoked_from_the_home_keeps_it_guarded(
     seen = list(isolation.GUARD.writes)
     isolation.GUARD.writes.clear()
     assert ("open", str(real / ".gitconfig")) in seen
+
+
+def test_a_temp_folder_inside_the_home_holds_tmp_path_unguarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Windows keeps the system temp folder, and so tmp_path, in the profile."""
+    real = tmp_path / "real-home"
+    temp = real / "AppData" / "Local" / "Temp"
+    temp.mkdir(parents=True)
+    _guard_real_home(monkeypatch, real)
+    monkeypatch.setattr(isolation.tempfile, "gettempdir", lambda: str(temp))
+    isolation.pytest_configure(_pytest_config(tmp_path / "checkout", real))
+    isolation.GUARD.writes.clear()
+    (temp / "pytest-of-runner").mkdir()
+    (real / ".gitconfig").write_text("[user]\n")
+    seen = list(isolation.GUARD.writes)
+    isolation.GUARD.writes.clear()
+    assert seen == [("open", str(real / ".gitconfig"))]
