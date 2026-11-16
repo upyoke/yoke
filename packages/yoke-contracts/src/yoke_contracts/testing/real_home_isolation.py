@@ -67,6 +67,8 @@ def _written_by_open(args: Sequence[object]) -> bool:
 
 
 def _under(path: str, root: str) -> bool:
+    # normcase folds case and separators where the OS does (Windows only).
+    path, root = os.path.normcase(path), os.path.normcase(root)
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
 
 
@@ -146,9 +148,12 @@ def exempt_roots(
     """
     kept: List[str] = []
     for root in roots:
-        path = os.path.abspath(os.fspath(root))
-        if not _under(home, path) and path not in kept:
-            kept.append(path)
+        given = os.path.abspath(os.fspath(root))
+        # Keep the resolved form too: Windows may name the temp folder by its
+        # 8.3 short name (RUNNER~1) while writes arrive under the long one.
+        for path in (given, os.path.realpath(given)):
+            if not _under(home, path) and path not in kept:
+                kept.append(path)
     return tuple(kept)
 
 

@@ -108,6 +108,8 @@ def test_the_installed_guard_sees_a_real_write_this_process_makes(
     real = tmp_path / "real-home"
     real.mkdir()
     monkeypatch.setattr(isolation.GUARD, "home", str(real))
+    # The stand-in home sits in tmp_path, inside the exempt system temp folder.
+    monkeypatch.setattr(isolation.GUARD, "exempt", ())
     captured_at_import = real / ".claude" / "settings.json"
     captured_at_import.parent.mkdir()
     captured_at_import.write_text("{}\n")
@@ -211,3 +213,13 @@ def test_a_temp_folder_inside_the_home_holds_tmp_path_unguarded(
     seen = list(isolation.GUARD.writes)
     isolation.GUARD.writes.clear()
     assert seen == [("open", str(real / ".gitconfig"))]
+
+
+def test_an_exempt_root_also_covers_its_resolved_name(tmp_path: Path):
+    """A temp folder named by an alias (a symlink, or a Windows 8.3 short name)."""
+    real_temp = tmp_path / "home" / "AppData" / "Local" / "Temp"
+    real_temp.mkdir(parents=True)
+    alias = tmp_path / "TEMP~1"
+    alias.symlink_to(real_temp, target_is_directory=True)
+    roots = isolation.exempt_roots(str(tmp_path / "home"), [alias])
+    assert str(alias) in roots and os.path.realpath(alias) in roots
