@@ -140,6 +140,13 @@ def test_machine_exec(args: List[str]) -> int:
             from yoke_contracts.windows_wsl_command import windows_wsl_command
 
             command = [windows_wsl_command(" ".join(command))]
+        elif settings["os"] == "windows":
+            from yoke_harness.native_windows.transport import encoded, process_script
+
+            command = [
+                "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
+                + encoded("$ErrorActionPreference='Stop'; " + process_script(command))
+            ]
         completed = run_remote_command(
             host=str(settings["host"]),
             cloud_instance_id=settings.get("cloud_instance_id"),

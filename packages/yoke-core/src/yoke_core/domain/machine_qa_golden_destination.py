@@ -10,7 +10,7 @@ the settings record it only once the capture has succeeded.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.test_machine import (
@@ -78,7 +78,8 @@ def resolve_golden_capture_destination(
             "so there is nowhere to put a capture beside; pass an absolute "
             "--destination for the first golden baseline"
         )
-    parent = PurePosixPath(validate_golden_baseline_path(declared)).parent
+    path_type = PureWindowsPath if row.settings.get('os') == 'windows' else PurePosixPath
+    parent = path_type(validate_golden_baseline_path(declared)).parent
     candidate = str(parent / timestamped_golden_directory_name(row.settings["user"]))
     if candidate == declared:
         raise TestMachineCapabilityError(
@@ -134,7 +135,8 @@ def kept_golden_fields(
     """
     if not destination:
         return {}
-    parent = PurePosixPath(destination).parent
+    path_type = PureWindowsPath if settings.get("os") == "windows" else PurePosixPath
+    parent = path_type(destination).parent
     try:
         rows = shared_home_registrations(conn, settings)
     except TestMachineCapabilityError as exc:
@@ -150,7 +152,7 @@ def kept_golden_fields(
     kept = {destination}
     for row in rows:
         path = row.settings.get(GOLDEN_BASELINE_PATH_KEY)
-        if path and PurePosixPath(path).parent == parent:
+        if path and path_type(path).parent == parent:
             kept.add(path)
     return {KEPT_GOLDEN_PATHS_KEY: sorted(kept)}
 

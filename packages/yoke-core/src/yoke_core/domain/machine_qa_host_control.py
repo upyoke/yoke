@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from yoke_contracts.machine_config.test_machine import (
-    TestMachineCapabilityError,
     validate_test_machine_os,
 )
 from yoke_core.domain.host_control_runner import (
@@ -18,16 +17,17 @@ def host_control_for(material: TestMachineMaterial):
         from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 
         return SshMacHostControl(material)
+    if os_name == "windows":
+        from yoke_core.domain.ssh_native_windows_host_control import (
+            SshNativeWindowsHostControl,
+        )
+
+        return SshNativeWindowsHostControl(material)
     if os_name == "wsl":
         from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
 
         return SshWindowsHostControl(material)
-    if os_name != "linux":
-        raise TestMachineCapabilityError(
-            f"test_machine_os_unimplemented: {os_name} Test Machines have no host "
-            "control on this Yoke version; upgrade Yoke, or register the machine "
-            "with an implemented os (macos, linux or wsl)"
-        )
+
     from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
 
     return SshLinuxHostControl(material)

@@ -156,7 +156,6 @@
   "packages/yoke-core/src/yoke_core/tools/stored_instant_census.py": {"encoding|afd5debe7f01a6d0": 2},
   "packages/yoke-core/src/yoke_core/tools/yokepedia.py": {"encoding|c610e3203386247c": 1},
   "packages/yoke-harness/src/yoke_harness/artifact_scan.py": {"encoding|9f26bbd7647402f3": 3},
-  "packages/yoke-harness/src/yoke_harness/baseline_harness_requests.py": {"tmp|51fb04965cc3e01d": 1},
   "packages/yoke-harness/src/yoke_harness/browser_apparmor.py": {"encoding|677b19878ef86e2a": 1, "encoding|8257e9a04737e65b": 1},
   "packages/yoke-harness/src/yoke_harness/browser_check_profile.py": {"encoding|08c164b21ed71c85": 1, "encoding|47eb099ca9d545ea": 3, "encoding|4ee7aca17722c3f4": 1, "encoding|e0df3abbbfdc086f": 2},
   "packages/yoke-harness/src/yoke_harness/browser_client.py": {"process|c243b81a9c81345c": 1},

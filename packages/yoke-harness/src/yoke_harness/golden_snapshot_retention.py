@@ -1,15 +1,7 @@
-"""Remove retired golden snapshots after the new one is registered.
+"""Retire old goldens after a verified capture is registered.
 
-Restore reads only the registered baseline, so older snapshots are not a
-rollback copy. A directory named for the test user is that user's golden
-root: every other child is a snapshot, including dated homes, mixed captures,
-``.yoke-golden-*`` temporaries and retired browser profiles. A shared parent
-drops only this user's ``USER-home-*`` and ``home-*`` snapshots, so another
-user's baseline stays. One host and user can be registered in several projects
-that share a parent, so every golden registered for that home stays with
-its ``.probes``, ``.manifest`` and ``.harness-clis`` sidecars. Anything newer
-than the new golden stays too: it belongs to a capture that started after this
-one finished. A symlink, or a name whose removal fails, is kept and named.
+Cross-project registrations protect every live baseline. Failed captures
+never retire snapshots; removal refuses when registrations are unknown.
 """
 
 from __future__ import annotations
@@ -315,6 +307,10 @@ def retain_registered_golden(
         )
     try:
         operations = host_operations_for(contract)
+        if contract.settings["os"] == "windows":
+            from yoke_harness.native_windows.retention import retain
+
+            return retain(operations, destination, kept_paths)
         return apply_retention(
             operations._run,
             destination=destination,
