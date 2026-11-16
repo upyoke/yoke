@@ -46,11 +46,11 @@ def test_real_detached_dashboard_is_replaced_and_bookmark_survives(monkeypatch):
         children.append(child)
         return child
 
-    def alive(pid):
+    def alive(pid, start_time=None):
         # A real supervisor reaps its children; retain the fixture supervisor.
         for child in children:
             child.poll()
-        return original_alive(pid)
+        return original_alive(pid, start_time)
 
     monkeypatch.setattr(daemon.subprocess, "Popen", spawn)
     monkeypatch.setattr(daemon, "process_alive", alive)
@@ -73,7 +73,7 @@ def test_absent_or_stale_dashboard_stays_stopped(monkeypatch, stale):
         state.write_record(
             pid=123456, host="127.0.0.1", port=8688, env="saved", supervised=False
         )
-    monkeypatch.setattr(daemon, "process_alive", lambda pid: False)
+    monkeypatch.setattr(daemon, "process_alive", lambda pid, start_time=None: False)
     monkeypatch.setattr(daemon, "up", lambda **kw: pytest.fail("must stay stopped"))
     assert daemon.restart_running() == {"restarted": False}
     assert not state.record_path().exists()
@@ -98,7 +98,7 @@ def test_start_failure_names_saved_settings_and_cli_fails(monkeypatch, capsys):
         pid=123456, host="127.0.0.1", port=8765, env="saved", supervised=False
     )
     alive = iter([True, False])
-    monkeypatch.setattr(daemon, "process_alive", lambda pid: next(alive))
+    monkeypatch.setattr(daemon, "process_alive", lambda pid, start_time=None: next(alive))
     monkeypatch.setattr(daemon, "down", state.clear_record)
 
     def fail(**kwargs):

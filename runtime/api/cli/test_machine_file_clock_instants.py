@@ -75,7 +75,7 @@ def test_ui_record_ingress_is_native_and_status_formats_only_at_wire(
     assert document["started_at"] == WIRE
     document["started_at"] = "2026-10-09T20:00:00.123456+05:00"
     path.write_text(json.dumps(document))
-    monkeypatch.setattr(universe_ui_daemon, "process_alive", lambda pid: True)
+    monkeypatch.setattr(universe_ui_daemon, "process_alive", lambda pid, start_time=None: True)
     monkeypatch.setattr(universe_ui_daemon, "port_accepting", lambda host, port: True)
     assert universe_ui_daemon.status()["started_at"] == WIRE
     assert json.loads(path.read_text())["started_at"] == document["started_at"]
