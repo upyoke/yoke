@@ -42,6 +42,9 @@ def main(serve) -> int:
     os.set_inheritable(args.lock_fd, True)
     if not uses_named_pipe():
         create_private_directory(socket_path.parent)
+    from yoke_cli.config.cli_release_runtime import hold_release
+
+    hold_release()  # An update keeps this release until the resident exits.
     if not serve(socket_path, args.lock_fd):
         os.close(args.lock_fd)
         return 0
