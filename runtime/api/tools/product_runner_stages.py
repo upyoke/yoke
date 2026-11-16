@@ -49,7 +49,10 @@ def install(run: SmokeRun) -> None:
     wheels = run.scratch / "wheels"
     run.commands.run(
         "build-wheels",
-        ["uv", "build", "--all-packages", "--wheel", "--out-dir", str(wheels)],
+        [
+            "uv", "build", "--all-packages", "--wheel",
+            "--python", sys.executable, "--out-dir", str(wheels),
+        ],  # fmt: skip
         cwd=run.root,
     )
     run.commands.run(
