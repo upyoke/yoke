@@ -106,7 +106,7 @@ def test_skipped_or_unserved_receipts_remain_never_attempted(fleet, condition):
     if condition == "disconnected":
         fleet.execute("UPDATE session_relays SET connected_until=%s", (LONG_AGO,))
     elif condition == "inactive":
-        fleet.execute("UPDATE session_relays SET state='offline'")
+        fleet.execute("UPDATE session_relays SET state='revoked'")
     elif condition == "stale":
         fleet.execute("UPDATE session_message_attempts SET started_at=%s", (LONG_AGO,))
     elif condition == "hook_only":
@@ -181,7 +181,7 @@ def test_expired_injection_lease_reenters_the_queue(fleet):
 
 
 def test_queue_positions_do_not_enter_report_identity(fleet):
-    report = compose(fleet)
+    report = replace(compose(fleet), undelivered=_rows(fleet))
     assert report.undelivered
     moved = replace(
         report,
