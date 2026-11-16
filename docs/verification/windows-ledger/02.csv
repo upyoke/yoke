@@ -3,7 +3,6 @@ windows-ae4bb6fc153ddd2034c2,hook PostToolUseFailure,claude-vscode,self-hosted-c
 windows-78a911e69b29693f6882,hook SessionStart,cursor-desktop,self-hosted-client,must-pass,,
 windows-8853a8d9793d063e4d02,hook UserPromptSubmit,claude-desktop,local,must-pass,,
 windows-22580033a28c4150e242,hook preCompact,cursor-desktop,local,must-pass,,
-windows-ad9b8bf7b3688e86e842,yoke azure admin-link,cli,self-hosted-client,must-pass,,
 windows-46f70833ae680cc76042,yoke claims work status,cli,self-hosted-client,must-pass,,
 windows-d7b2d2d9621fb28617c2,yoke decision-requests withdraw,cli,hosted-client,must-pass,,
 windows-abd14cab3960506adc82,yoke deployment runs remove-item,cli,self-hosted-client,must-pass,,

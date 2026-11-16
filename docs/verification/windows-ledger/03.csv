@@ -3,7 +3,6 @@ windows-684734f2b1d1c588ae83,desktop message_active,cursor-desktop,local,not-app
 windows-8db3932acffc3a2fde03,hook beforeShellExecution,cursor-cli,local,must-pass,,
 windows-540b2bf9ef7cb62a95c3,hook sessionStart,cursor-cli,self-hosted-client,must-pass,,
 windows-5ff8a76ee4a5468e2f83,yoke agents render,cli,hosted-client,must-pass,,
-windows-e4042b0200ead3be6043,yoke azure exec,cli,self-hosted-client,must-pass,,
 windows-7ca2a71bccc0ffc1e943,yoke browser verify,cli,self-hosted-client,must-pass,,
 windows-3ff43a72d50a0a1add83,yoke claims steering release,cli,self-hosted-client,must-pass,,
 windows-dfda39e6f52f24527383,yoke claims steering release,cli,hosted-client,must-pass,,

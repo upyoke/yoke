@@ -8,8 +8,6 @@ windows-0b2f81bbd1efd020bed6,hook beforeShellExecution,cursor-desktop,self-hoste
 windows-9c4108a504fbd5478896,hook postToolUse,cursor-cli,hosted-client,must-pass,,
 windows-9fb1472b9b35fa71c096,yoke advance preflight hard-blocks,cli,local,must-pass,,
 windows-dd1e8d7ccb3c70b25dd6,yoke aws admin-link,cli,local,must-pass,,
-windows-6969f18667038ab47896,yoke azure admin-status,cli,local,must-pass,,
-windows-fedc1cd5e6344110ac56,yoke azure admin-status,cli,hosted-client,must-pass,,
 windows-74cb0efde542b0f342d6,yoke claims coordination-claim release,cli,hosted-client,must-pass,,
 windows-6984ba81992928fe3096,yoke decision-requests get,cli,hosted-client,must-pass,,
 windows-9f9c822bc05088213fd6,yoke deployment-flows describe,cli,local,must-pass,,
