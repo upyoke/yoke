@@ -26,7 +26,7 @@ from yoke_core.domain.qa_obligation_settlement import (
 )
 
 
-def scoped_cases(
+def subject_cases(
     conn: Any,
     *,
     run_id: str,
@@ -35,6 +35,7 @@ def scoped_cases(
     execution_target_digest: str,
     target=None,
 ) -> list[dict[str, Any]]:
+    """Every materialized case of this subject, blocking and non_blocking."""
     from yoke_core.domain.deployment_qa_target_continuity import evidence_cases
 
     return evidence_cases(
@@ -47,6 +48,20 @@ def scoped_cases(
     )
 
 
+def blocking_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [row for row in rows if row["blocking_mode"] == "blocking"]
+
+
+def scoped_cases(conn: Any, **scope: Any) -> list[dict[str, Any]]:
+    """The subject's blocking cases: the ones the gate grades."""
+    return blocking_cases(subject_cases(conn, **scope))
+
+
+def only_non_blocking(rows: list[dict[str, Any]]) -> bool:
+    """Cases exist and none of them blocks: nothing is owed to the gate."""
+    return bool(rows) and not blocking_cases(rows)
+
+
 def obligations_fully_discharged(
     conn: Any,
     *,
@@ -56,14 +71,18 @@ def obligations_fully_discharged(
     execution_target_digest: str,
     target=None,
 ) -> bool:
-    """True when this subject has cases and every one is waived or superseded.
+    """True when this subject has cases and no blocking one is still owed.
 
-    A subject in that state has nothing left to execute, regardless of any
-    completed execution and its historical verdict. An
-    empty case set is deliberately not "fully discharged": a member with no
-    materialized cases has an unanswered obligation, not a settled one.
+    Cases of any mode must exist, and every blocking case must be waived,
+    superseded or retracted. A subject in that state has nothing left to
+    execute, regardless of any completed execution and its historical verdict;
+    a subject whose cases are all non_blocking owes the gate nothing. Passed
+    blocking cases do not count here: they still answer through
+    :func:`case_failures` and the evidence checks. An empty case set is
+    deliberately not "fully discharged": a member with no materialized cases
+    has an unanswered obligation, not a settled one.
     """
-    rows = scoped_cases(
+    rows = subject_cases(
         conn,
         run_id=run_id,
         stage_name=stage_name,
@@ -71,7 +90,7 @@ def obligations_fully_discharged(
         execution_target_digest=execution_target_digest,
         target=target,
     )
-    return bool(rows) and all(obligation_settled(row) for row in rows)
+    return bool(rows) and all(obligation_settled(row) for row in blocking_cases(rows))
 
 
 def _latest_verdicts(
@@ -116,13 +135,15 @@ def case_failures(
 ) -> list[CaseFailure]:
     """Every blocking case this subject cannot accept, each with its kind.
 
+    A subject whose cases are all non_blocking has none to fail.
+
     A plan group (``shared_plan_id`` set) is keyed by its own target digest,
     which never moves, so it has no recorded-elsewhere fallback: another
     digest of the same plan is another group.
     """
     from yoke_core.domain.deployment_qa_stage_outstanding import member_ref_lookup
 
-    rows = scoped_cases(
+    every = subject_cases(
         conn,
         run_id=run_id,
         stage_name=stage_name,
@@ -130,6 +151,9 @@ def case_failures(
         execution_target_digest=execution_target_digest,
         target=target,
     )
+    if only_non_blocking(every):
+        return []
+    rows = blocking_cases(every)
     if not rows and shared_plan_id is None:
         from yoke_core.domain.deployment_qa_presentation_facts import (
             subject_requirement_rows,
@@ -293,5 +317,8 @@ __all__ = [
     "NO_CASES_FAILURE",
     "case_failures",
     "obligations_fully_discharged",
+    "blocking_cases",
+    "only_non_blocking",
     "scoped_cases",
+    "subject_cases",
 ]
