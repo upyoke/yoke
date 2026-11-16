@@ -43,9 +43,12 @@ def _world(conn):
 
 def test_notices_choose_the_covering_document_not_the_newest_claim(test_db):
     _world(test_db)
-    resolve = lambda item: notice.resolve_lane_recipient(
-        test_db, item_id=item, project_id=PROJECT_ALPHA
-    )
+
+    def resolve(item):
+        return notice.resolve_lane_recipient(
+            test_db, item_id=item, project_id=PROJECT_ALPHA
+        )
+
     assert resolve(9101) == ("document-b", 1, notice.STEERING)
     assert resolve(9102) == ("whole-project", 1, notice.STEERING)
     assert resolve(9103) == ("", 0, "")
