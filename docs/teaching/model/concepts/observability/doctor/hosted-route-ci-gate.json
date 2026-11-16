@@ -3,8 +3,6 @@
  "title": "Hosted route CI gate",
  "status": "observed",
  "summary": "The hosted-route contract check reads active flows and declared environment production roles through registered APIs on both HTTPS and database clients. Normal production routes require wait_for_ci true; Stage relies on the paired production gate, and hotfix routes may skip CI deliberately. Unreadable flow or role declarations fail with recovery rather than reporting N/A.",
- "sources": [
-  ".yoke/doctor/check_hosted_route_stage_contract.py"
- ],
+ "sources": [".yoke/doctor/check_hosted_route_stage_contract.py"],
  "commands": []
 }
