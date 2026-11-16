@@ -12,6 +12,7 @@ import pytest
 from yoke_cli.config import machine_uninstall_inventory as inventory
 from yoke_cli.config import machine_uninstall_workers as workers
 from yoke_cli.project_install.files import MANIFEST_REL
+from yoke_contracts import platform_process
 from yoke_contracts.process_ancestry import process_start_time
 
 
@@ -224,11 +225,10 @@ def test_worker_stop_checks_process_identity_before_signalling(
         stderr=subprocess.DEVNULL,
     )
     try:
+        started = process_start_time(process.pid)
         record = {
             "pid": process.pid,
-            "process_start_time": "stale identity"
-            if stale_identity
-            else process_start_time(process.pid),
+            "process_start_time": str(float(started) + 1) if stale_identity else started,
         }
         assert record["process_start_time"]
         (handles / "owned.json").write_text(json.dumps(record))
@@ -236,7 +236,8 @@ def test_worker_stop_checks_process_identity_before_signalling(
         if stale_identity:
             assert process.poll() is None
         else:
-            assert process.wait(timeout=10) < 0
+            process.wait(timeout=10)
+            assert not platform_process.pid_alive(process.pid, float(started))
     finally:
         if process.poll() is None:
             process.terminate()

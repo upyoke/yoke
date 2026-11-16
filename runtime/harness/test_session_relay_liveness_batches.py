@@ -105,7 +105,7 @@ def _dead_launches(state_dir: Path, count: int, monkeypatch) -> tuple[str, ...]:
     """Supervise more gone natives than one request is allowed to carry."""
     monkeypatch.setattr(
         "yoke_harness.session_launch_containment.process_start_time",
-        lambda pid: RECORDED_START,
+        lambda pid: "123.5",
     )
     monkeypatch.setattr("yoke_harness.session_launch_containment.capture_process_tree", lambda *args: {})
     launches = tuple(
