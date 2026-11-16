@@ -15,8 +15,14 @@ from yoke_contracts.windows_user_path import (
 )
 
 
+def resolve_tools(value: str):
+    from yoke_cli.config.path_doctor import ToolResolution
+
+    return [ToolResolution(tool, shutil.which(tool, path=value)) for tool in PATH_TOOLS]
+
+
 def diagnose_windows(env: dict[str, str], *, home: Path | None = None):
-    from yoke_cli.config.path_doctor import PathDiagnosis, ToolResolution
+    from yoke_cli.config.path_doctor import PathDiagnosis
     from yoke_cli.config.path_harness_clis import resolve_harness_clis
 
     if home is not None:
@@ -26,12 +32,7 @@ def diagnose_windows(env: dict[str, str], *, home: Path | None = None):
     user = read_user_path()
     future = fresh_path(env)
 
-    def resolve(value):
-        return [
-            ToolResolution(tool, shutil.which(tool, path=value)) for tool in PATH_TOOLS
-        ]
-
-    present, later = resolve(current), resolve(future)
+    present, later = resolve_tools(current), resolve_tools(future)
     preferred = str(Path(directory) / "yoke.cmd")
 
     def shadowed(rows):

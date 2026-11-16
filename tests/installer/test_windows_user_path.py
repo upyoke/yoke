@@ -1,7 +1,10 @@
 """Persistent Windows PATH reporting, repair and ownership on uninstall."""
 
 import sys
+import json
 from types import SimpleNamespace
+
+import pytest
 
 from yoke_contracts import shell_path_state, windows_user_path
 
@@ -89,6 +92,7 @@ def test_status_and_doctor_report_user_path_without_posix_shells(monkeypatch, tm
     assert not diagnosis.current_on_path
     assert not diagnosis.needs_fix
     assert diagnosis.contexts[0]["path"] == str(tmp_path)
+    assert next(row.path for row in path_doctor.verify_fresh_login(env={}) if row.name == "yoke") == str(tmp_path / "yoke.cmd")
     contract = shell_path_state.resolve_path_state_contract(env={"HOME": str(tmp_path)})
     assert contract.yoke_bin.endswith("yoke.cmd")
     assert contract.supported_startup_files == ()
@@ -117,3 +121,18 @@ def test_status_runtime_reports_persistent_path(monkeypatch):
     text = status_render.render_human({"runtime": runtime})
     assert windows_user_path.USER_PATH_LOCATION in text
     assert state["value"] in text
+
+
+@pytest.mark.parametrize("command,args", [("path_check", ["--json"]), ("path_verify", ["--json"]), ("path_fix", ["--yes", "--json"])])
+def test_path_commands_report_unreadable_registry_without_traceback(monkeypatch, capsys, command, args):
+    from yoke_cli.commands.adapters import path_doctor
+
+    def refuse():
+        raise OSError("windows_user_path_unreadable: denied; check registry access and retry yoke path doctor.")
+
+    monkeypatch.setattr(path_doctor.doctor, "diagnose", refuse)
+    monkeypatch.setattr(path_doctor.doctor, "update_shell", lambda: "already configured")
+    assert getattr(path_doctor, command)(args) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert not report["verified"]
+    assert "windows_user_path_unreadable" in report["error"]

@@ -28,6 +28,8 @@ def verification_ok(resolved: Iterable[Any], plan: dict[str, Any]) -> bool:
 
 
 def target_description(target: dict[str, Any], plan: dict[str, Any]) -> str:
+    if plan.get("shell") == "windows":
+        return f"Run {UPDATE_SHELL_COMMAND}: Yoke checks the Windows user PATH and adds uv's bin directory if missing. Open a new terminal afterward."
     return f"Run {UPDATE_SHELL_COMMAND}: Yoke repairs its owned PATH blocks for login, interactive and SSH shells."
 
 

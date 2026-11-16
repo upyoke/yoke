@@ -79,7 +79,8 @@ def update_shell(*, env: dict[str, str] | None = None) -> str:
 
     environ = dict(os.environ if env is None else env)
     changed = write_shell_path(env=environ)
-    return "Shell PATH updated: " + (", ".join(changed) or "already configured") + "\n"
+    label = "Windows user PATH" if sys.platform == "win32" else "Shell PATH"
+    return label + " updated: " + (", ".join(changed) or "already configured") + "\n"
 
 
 def _probe_env_without_managed_paths(
@@ -154,6 +155,10 @@ def verify_fresh_login(
     managed_path_dirs: Sequence[str] | None = None,
 ) -> list[ToolResolution]:
     """Resolve tools using the user's actual fresh login-shell configuration."""
+    if sys.platform == "win32":
+        from yoke_cli.config.path_windows import fresh_path, resolve_tools
+
+        return resolve_tools(fresh_path(dict(os.environ if env is None else env)))
     return _verify_shell("-lic", shell, env=env, managed_path_dirs=managed_path_dirs)
 
 
