@@ -35,8 +35,8 @@ def assert_secure_parent(
     if require_private or _WINDOWS:
         if not owner_private_path.is_owner_private_directory(path):
             raise error_type(
-                f"GitHub App credential directory is not owner-only: {path}; "
-                f"{_directory_repair(path)}, then retry"
+                f"GitHub App credential directory permissions are unsafe: {path}; "
+                f"{_directory_repair()}, then retry"
             )
         return
     # POSIX-only middle ground (owner-writable, others may read): no shared
@@ -61,19 +61,20 @@ def assert_owner_only_file(
     if not stat.S_ISREG(info.st_mode):
         raise error_type(f"GitHub App credential must be a regular file: {path}")
     if not owner_private_path.is_owner_private_file(path):
+        required = "owner-only" if _WINDOWS else "0600"
         raise error_type(
-            f"GitHub App credential is not owner-only: {path}; "
+            f"GitHub App credential permissions must be {required}: {path}; "
             f"{_file_repair(path)}, then retry"
         )
 
 
-def _directory_repair(path: Path) -> str:
+def _directory_repair() -> str:
     if _WINDOWS:
         return (
             "remove inherited and other users' access so only your Windows "
             "account, SYSTEM and Administrators remain"
         )
-    return f"run chmod 700 {path} as its owner"
+    return "set directory permissions to 700"
 
 
 def _file_repair(path: Path) -> str:
