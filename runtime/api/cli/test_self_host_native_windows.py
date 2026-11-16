@@ -111,3 +111,20 @@ def test_recovery_uses_configured_distribution_installer(monkeypatch):
         native_windows.refuse()
     assert command in str(refused.value)
     installer.assert_called_once_with()
+
+
+def test_host_wizard_names_wsl_refusal_without_image_repair(monkeypatch, tmp_path):
+    from yoke_cli.config import onboard_wizard_image_repository as images
+
+    _windows(monkeypatch)
+    views = []
+    shell = SimpleNamespace(
+        result=SimpleNamespace(config_path=str(tmp_path / "config.json")),
+        _goto=views.append,
+        _step_back=Mock(),
+    )
+    assert images.load_setup(shell) is None
+    prompt = views[0].prompt
+    assert prompt.title == "Self-hosting requires WSL2."
+    _assert_recovery(prompt.message)
+    assert _snapshot(tmp_path) == {}
