@@ -1,10 +1,13 @@
 name: windows-ledger
+run-name: windows-ledger [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]
 
 on:
-  pull_request:
-    branches: [main]
-  merge_group:
   workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: Yoke QA correlation id
+        required: false
+        default: ""
 
 permissions:
   contents: read
