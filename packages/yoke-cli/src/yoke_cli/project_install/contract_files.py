@@ -52,7 +52,9 @@ def apply_contract_files(
                     current = target.read_bytes().decode("utf-8")
                 except (OSError, UnicodeDecodeError):
                     current = None
-                if current == content:
+                if current is not None and sha256_text(current) == sha256_text(
+                    content
+                ):
                     contract_map[rel] = sha256_text(content)
                     adopted.append(rel)
             continue
@@ -140,18 +142,19 @@ def reconcile_gitignore(
         if line.strip() and not line.lstrip().startswith("#")
     ]
     try:
-        current = target.read_text(encoding="utf-8")
+        raw = target.read_bytes().decode("utf-8")
     except (OSError, UnicodeDecodeError):
         return []
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    current = raw.replace("\r\n", "\n")
     present = {line.strip() for line in current.splitlines() if line.strip()}
     missing = [line for line in canonical if line not in present]
     if not missing:
         return []
     if current and not current.endswith("\n"):
         current += "\n"
-    target.write_text(
-        current + "\n".join(missing) + "\n", encoding="utf-8", newline=""
-    )
+    updated = current + "\n".join(missing) + "\n"
+    target.write_text(updated.replace("\n", newline), encoding="utf-8", newline="")
     return missing
 
 

@@ -15,6 +15,10 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.dash_evidence_status import status_argument_kwargs
+from yoke_cli.commands.adapters.repo_path_input import (
+    RepoPathInputError,
+    normalize_repo_paths,
+)
 from yoke_cli.commands.adapters.dash_survey_recovery import (
     build_survey_timeout_recovery,
 )
@@ -97,6 +101,10 @@ def dash_survey(args: List[str]) -> int:
     if paths:
         lane = item_lane_tree(parsed.item, parsed.project, parsed.session_id)
         tree_root = lane.path if lane.live else (lane.checkout or None)
+        try:
+            paths = normalize_repo_paths(paths, repo_root=tree_root)
+        except RepoPathInputError as exc:
+            return usage_error(f"{exc.code}: {exc}")
         try:
             path_sizes = survey_path_sizes(paths, tree_root=tree_root)
         except RuntimeError as exc:
@@ -249,6 +257,12 @@ def dash_evidence(args: List[str]) -> int:
                 "recorded implementation lane and this directory is not a git "
                 "worktree; pass --tree-root and --tree-head-sha."
             )
+    try:
+        touched_files = normalize_repo_paths(
+            parsed.paths, repo_root=tree_root or None
+        )
+    except RepoPathInputError as exc:
+        return usage_error(f"{exc.code}: {exc}")
     return dispatch_and_emit(
         function_id="direct_workflow.dash.evidence",
         target=item_target("item", parsed.item, parsed.project),
@@ -258,7 +272,7 @@ def dash_evidence(args: List[str]) -> int:
             "verification_status": parsed.verification_status,
             "commit_sha": parsed.commit_sha,
             "merge_sha": parsed.merge_sha,
-            "touched_files": parsed.paths,
+            "touched_files": touched_files,
             "posture_checks": checks,
             "no_changes": parsed.no_changes,
             "tree_root": tree_root,

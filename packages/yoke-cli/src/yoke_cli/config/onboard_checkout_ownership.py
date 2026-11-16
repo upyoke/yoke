@@ -9,65 +9,47 @@ import stat
 import uuid
 from typing import Any, Mapping
 
+from yoke_contracts.owner_private_path import (
+    is_owner_private_file,
+    write_owner_private,
+)
+
 
 MARKER_NAME = "yoke-onboard-created.json"
 
 
 def mark_created(root: Path) -> dict[str, Any] | None:
-    """Create an owner-only marker through an opened checkout directory."""
+    """Create an owner-only marker inside a checkout this run just created.
 
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(
-        os, "O_NOFOLLOW", 0,
-    )
+    Returns the checkout identity and marker token, or ``None`` when the
+    checkout is not a real directory with a real ``.git`` directory or a
+    marker already exists (fail closed: no ownership is claimed).
+    """
+
+    git_dir = root / ".git"
+    marker = git_dir / MARKER_NAME
     try:
-        descriptor = os.open(root, flags)
+        root_info = root.lstat()
+        git_info = git_dir.lstat()
     except OSError:
         return None
-    try:
-        return mark_created_fd(descriptor)
-    finally:
-        os.close(descriptor)
-
-
-def mark_created_fd(root_descriptor: int) -> dict[str, Any] | None:
-    """Create a marker relative to an already-opened checkout inode."""
-
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(
-        os, "O_NOFOLLOW", 0,
-    )
-    try:
-        git_descriptor = os.open(".git", directory_flags, dir_fd=root_descriptor)
-    except OSError:
+    if not (_plain_directory(root_info) and _plain_directory(git_info)):
+        return None
+    if os.path.lexists(marker):
         return None
     token = uuid.uuid4().hex
-    marker_flags = (
-        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    )
     try:
-        marker_descriptor = os.open(
-            MARKER_NAME, marker_flags, 0o600, dir_fd=git_descriptor,
-        )
-    except FileExistsError:
-        os.close(git_descriptor)
-        return None
+        write_owner_private(marker, json.dumps({"token": token}))
     except OSError:
-        os.close(git_descriptor)
         return None
-    try:
-        os.fchmod(marker_descriptor, 0o600)
-        os.write(marker_descriptor, json.dumps({"token": token}).encode("utf-8"))
-        os.fsync(marker_descriptor)
-    except OSError:
-        try:
-            os.unlink(MARKER_NAME, dir_fd=git_descriptor)
-        except OSError:
-            pass
-        return None
-    finally:
-        os.close(marker_descriptor)
-        os.close(git_descriptor)
-    root_info = os.fstat(root_descriptor)
     return {"device": root_info.st_dev, "inode": root_info.st_ino, "token": token}
+
+
+def _plain_directory(info: os.stat_result) -> bool:
+    reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    return stat.S_ISDIR(info.st_mode) and not (
+        getattr(info, "st_file_attributes", 0) & reparse
+    )
 
 
 def capture(root: Path) -> dict[str, Any] | None:
@@ -78,11 +60,9 @@ def capture(root: Path) -> dict[str, Any] | None:
         root_info = root.lstat()
         marker_info = marker.lstat()
         if (
-            not stat.S_ISDIR(root_info.st_mode)
-            or root.is_symlink()
+            not _plain_directory(root_info)
             or not stat.S_ISREG(marker_info.st_mode)
-            or marker.is_symlink()
-            or stat.S_IMODE(marker_info.st_mode) & 0o077
+            or not is_owner_private_file(marker)
             or marker_info.st_size > 1024
         ):
             return None
@@ -121,6 +101,6 @@ def refresh_snapshot(snapshot: Any) -> None:
 
 
 __all__ = [
-    "MARKER_NAME", "capture", "mark_created", "mark_created_fd", "matches",
+    "MARKER_NAME", "capture", "mark_created", "matches",
     "refresh_snapshot",
 ]

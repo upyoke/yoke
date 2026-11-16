@@ -24,7 +24,7 @@ facts. See the [packet reference](../databases/reference.md#agent-context-packet
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` is Claude’s required native discovery link to the same source; it contains no regular copies.
+Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` is Claude’s required local discovery entry onto the same source.
 
 ## Surfaces
 

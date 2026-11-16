@@ -160,25 +160,19 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
                 f"install_drift_unreadable: {rel} cannot be compared. "
                 "Restore its recorded UTF-8 content, then rerun project refresh."
             ) from exc
-        from yoke_cli.project_install.recovery_checkout import text_digests
-
-        digests = text_digests(content)
-        if baseline in digests:
+        digest = sha256_text(content)
+        if baseline == digest:
             continue
         changed.append(rel)
-        installer_digests = {incoming.get(rel), interrupted.get(rel)}
-        matched = next(
-            (digest for digest in digests if digest in installer_digests), None
-        )
-        if matched is not None:
-            previous[rel] = matched
+        if digest in {incoming.get(rel), interrupted.get(rel)}:
+            previous[rel] = digest
             continue
         if proof is None:
             proof = GitOwnership(root)
-        if any(proof.proves(rel, digest) for digest in digests) or archives.proves(
+        if proof.proves(rel, digest) or archives.proves(
             rel, target.read_text(encoding="utf-8")
         ):
-            previous[rel] = sha256_text(content)
+            previous[rel] = digest
             continue
         raise ProjectInstallError(
             f"install_drift_local_edits: {rel} differs from the install record "

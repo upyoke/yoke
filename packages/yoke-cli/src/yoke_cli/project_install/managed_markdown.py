@@ -29,6 +29,7 @@ from yoke_cli.project_install.files import (
     remove_empty_parents,
     sha256_text,
 )
+from yoke_cli.project_install.line_endings import fold_newlines
 
 from yoke_contracts.project_contract.managed_block import (
     MANAGED_BLOCK_BEGIN,
@@ -83,7 +84,8 @@ def plan_markdown_block(current: Optional[str], block: str) -> Tuple[str, str]:
     start, end = span
     before, after = current[:start], current[end:]
     new = before + rendered + after
-    if new == current:
+    # Git converts line endings on Windows checkouts; that is not drift.
+    if fold_newlines(new) == fold_newlines(current):
         return "unchanged", current
     return "refreshed", new
 

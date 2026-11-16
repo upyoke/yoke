@@ -73,7 +73,7 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     assert payload["worktrees_ignore"]["status"] == "present"
     assert payload["worktrees_ignore"]["patch"] == []
     assert (checkout / ".gitignore").read_text(encoding="utf-8") == (
-        "node_modules/\n.worktrees/\n"
+        "node_modules/\n.worktrees/\n/.claude/skills/yoke\n"
     )
     assert payload["install"]["snapshot_sync"]["status"] == "ok"
     assert payload["handoff"]["run_id"] == "run-handoff"

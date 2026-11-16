@@ -141,7 +141,7 @@ def test_worktrees_ignore_owned_line_round_trips_without_foreign_loss(repo) -> N
     apply_bundle(repo, make_bundle(), source="test")
 
     assert root_ignore.read_text(encoding="utf-8") == (
-        "dist/\n# operator note\n.worktrees/\n"
+        "dist/\n# operator note\n.worktrees/\n/.claude/skills/yoke\n"
     )
     manifest = _manifest(repo)
     assert manifest["worktrees_ignore_added"] is True

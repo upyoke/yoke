@@ -113,7 +113,8 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert (repo / ".yoke/install-manifest.json").is_file()
     assert report["worktrees_ignore"]["status"] == "written"
     assert report["worktrees_ignore"]["patch"] == ["+.worktrees/"]
-    assert (repo / ".gitignore").read_text(encoding="utf-8") == ".worktrees/\n"
+    ignored = (repo / ".gitignore").read_text(encoding="utf-8")
+    assert ignored == ".worktrees/\n/.claude/skills/yoke\n"
     assert sorted(report["contract_files_written"]) == sorted(
         e["path"] for e in DEFAULT_CONTRACT_FILES
     )

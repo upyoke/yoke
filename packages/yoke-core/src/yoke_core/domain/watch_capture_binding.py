@@ -42,6 +42,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from yoke_contracts.platform_process import pid_alive
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
 
@@ -132,16 +133,13 @@ def writer_pid(line: str) -> int | None:
 def writer_alive(pid: int) -> bool:
     """Return whether *pid* still names a live process on this machine.
 
-    ``PermissionError`` means the process exists under another user, so
-    it counts as alive; only ``ProcessLookupError`` proves it is gone.
+    A process the caller may not inspect still exists under another user,
+    so it counts as alive; only a missing process proves it is gone.
     """
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
+        return pid_alive(pid)
+    except OSError:
         return True
-    return True
 
 
 def unwritten_capture_refusal(

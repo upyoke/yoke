@@ -114,7 +114,7 @@ def test_atomic_text_preserves_canonical_lf_bytes(tmp_path):
     assert path.read_bytes() == b"first\nsecond\n"
 
 
-def test_crlf_only_interrupted_output_is_rewritten_canonically(tmp_path, monkeypatch):
+def test_crlf_only_interrupted_output_is_accepted_as_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(instruction_discovery.shutil, "which", lambda _: None)
     _git(tmp_path, "init")
     _file(tmp_path, "README.md", "project\n")
@@ -127,7 +127,8 @@ def test_crlf_only_interrupted_output_is_rewritten_canonically(tmp_path, monkeyp
     assert recovery.recoverable_checkout(tmp_path)
     apply_bundle(tmp_path, bundle, retain_pending=True)
 
-    assert b"\r\n" not in skill.read_bytes()
+    # Git converts line endings on Windows checkouts; that is not an edit.
+    assert skill.read_bytes() == b"# yoke\r\n"
 
 
 def test_dirty_interrupted_checkout_accepts_planned_settings_and_refuses_edits(

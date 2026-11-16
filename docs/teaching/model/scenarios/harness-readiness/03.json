@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Instructions or a skill are absent in a supposedly wired project",
- "need": "Use the exact discovery refusal/recovery and native verification. Claude instruction suppression, ambiguous old copies, unsupported engines and symlink failures have different fixes. Do not create a duplicate native tree as fallback.",
+ "need": "Use the exact discovery refusal/recovery and native verification. Claude instruction suppression, ambiguous old copies, unsupported engines, link failures and a missing skill tree have different fixes. The Claude skill entry is local and gitignored, so a fresh clone needs yoke project refresh before Claude finds the skill.",
  "disclosure": "current cue",
  "surface": "harness-discovery recovery sections -> native settings/new session and installed-layer refresh.",
  "review": "Pending exact recipe proof.",

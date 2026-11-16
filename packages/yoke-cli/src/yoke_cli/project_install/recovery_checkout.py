@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+import stat
 from typing import Any
 
 from yoke_cli.project_install import (
@@ -12,32 +12,28 @@ from yoke_cli.project_install import (
     managed_markdown,
     settings_permissions,
     settings_status_line,
+    skill_discovery,
 )
 from yoke_cli.project_install.files import sha256_text
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 
 
 def state(path: Path) -> str:
-    if path.is_symlink():
-        return "link:" + os.readlink(path)
-    if not path.exists():
+    """Name one path's state: absent, a link by its resolved target, or content."""
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
         return "absent"
+    if skill_discovery.is_link_entry(info):
+        return "link:" + str(path.resolve())
+    if stat.S_ISDIR(info.st_mode):
+        return "directory"
     return sha256_text(path.read_bytes().decode("utf-8"))
-
-
-def text_digests(content: str) -> set[str]:
-    """Return exact and CRLF-normalized hashes for installer recovery proof."""
-    return {
-        sha256_text(content),
-        sha256_text(content.replace("\r\n", "\n")),
-    }
 
 
 def states(path: Path) -> set[str]:
     """Return every safe state that proves the current installer-owned path."""
-    if path.is_symlink() or not path.exists():
-        return {state(path)}
-    return text_digests(path.read_bytes().decode("utf-8"))
+    return {state(path)}
 
 
 def plan(
@@ -67,15 +63,8 @@ def plan(
     for rel in preflight["install_recovery"]["removed_paths"]:
         add(rel, None)
     for rel, destination in SKILL_DISCOVERY_LINKS.items():
-        expected.setdefault(
-            rel,
-            {
-                "directory"
-                if (root / rel).is_dir() and not (root / rel).is_symlink()
-                else state(root / rel)
-            },
-        )
-        expected[rel].add("link:" + destination)
+        linked = "link:" + str(((root / rel).parent / destination).resolve())
+        expected.setdefault(rel, {state(root / rel)}).update({"absent", linked})
     for rel, planned in preflight["hook_plans"].items():
         json_state(rel, planned["payload"])
         if planned["deleted_file"]:
@@ -108,25 +97,28 @@ def plan(
         )
         add(entry["path"], text)
     # These two append-only owners expose their canonical entries directly.
-    from yoke_cli.config.project_worktrees_ignore import WORKTREES_IGNORE_ENTRY, report
+    from yoke_cli.config.project_worktrees_ignore import (
+        WORKTREES_IGNORE_ENTRY,
+        planned_text,
+    )
 
     ignore = root / ".gitignore"
-    if not report(root, apply=False)["present"]:
-        text = ignore.read_text() if ignore.is_file() else ""
-        add(
-            ".gitignore",
-            text
-            + ("\n" if text and not text.endswith("\n") else "")
-            + WORKTREES_IGNORE_ENTRY
-            + "\n",
-        )
+    text = ignore.read_text(encoding="utf-8") if ignore.is_file() else ""
+    for entry in (
+        WORKTREES_IGNORE_ENTRY,
+        *map(skill_discovery.ignore_entry, SKILL_DISCOVERY_LINKS),
+    ):
+        planned = planned_text(text, entry)
+        if planned != text:
+            add(".gitignore", planned)
+            text = planned
     for entry in bundle.get("project_contract_files") or []:
         if entry["path"] != ".yoke/.gitignore":
             continue
         target = root / entry["path"]
         if not target.is_file():
             continue
-        text = target.read_text()
+        text = target.read_text(encoding="utf-8")
         present = {line.strip() for line in text.splitlines() if line.strip()}
         missing = [
             line

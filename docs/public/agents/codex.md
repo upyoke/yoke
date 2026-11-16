@@ -29,7 +29,7 @@ See the [packet reference](../databases/reference.md#agent-context-packet).
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. Claude requires `.claude/skills/yoke`, a native discovery symlink to the canonical tree in both source and installed projects. Codex and Cursor discover `.agents/skills` directly. No regular discovery copies are installed; native symlink support is required. See [native discovery](harness-discovery.md).
+Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. Claude requires `.claude/skills/yoke`, a local discovery entry onto the canonical tree that install creates in each checkout and keeps out of Git. Codex and Cursor discover `.agents/skills` directly. See [native discovery](harness-discovery.md).
 
 ## Approval and sandbox posture
 

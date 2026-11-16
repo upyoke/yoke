@@ -49,9 +49,10 @@ def owned_paths(report: Mapping[str, Any] | None) -> list[str]:
     if report.get("gitignore_ignores_backfilled"):
         paths.append(YOKE_GITIGNORE_REL)
     worktrees = report.get("worktrees_ignore") or {}
-    if isinstance(worktrees, dict) and (
-        worktrees.get("applied") or worktrees.get("status") == "written"
-    ):
+    if (
+        isinstance(worktrees, dict)
+        and (worktrees.get("applied") or worktrees.get("status") == "written")
+    ) or report.get("skill_discovery_ignored"):
         paths.append(GITIGNORE_REL)
     if report.get("settings_permissions_actions") or report.get(
         "settings_status_line_actions"
@@ -197,7 +198,9 @@ __all__ = [
 def discovery_commit_paths(root: Path, paths: list[str]) -> list[str]:
     from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 
-    linked = [rel for rel in SKILL_DISCOVERY_LINKS if (root / rel).is_symlink()]
+    from yoke_cli.project_install.skill_discovery import MISSING, entry_state
+
+    linked = [rel for rel in SKILL_DISCOVERY_LINKS if entry_state(root, rel) != MISSING]
     return normalized(
         [
             next((entry for entry in linked if path.startswith(entry + "/")), path)
