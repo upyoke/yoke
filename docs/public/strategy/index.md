@@ -40,6 +40,12 @@ yoke strategy render <SLUG> --target-root <checkout> [--project P]
 yoke strategy ingest <SLUG> --target-root <checkout> [--project P] --dry-run
 ```
 
+Without a slug, ingest covers every active doc and any archived doc with a
+rendered file in either the active or archive directory. Missing archived
+files are skipped; local edits to rendered archives are still ingested.
+An explicit slug requires its file: render a missing archive with
+`yoke strategy render <SLUG> --target-root <checkout>`, then retry ingest.
+
 ## Link to items, and to a steering seat
 
 An item belongs to one strategy document. That link is what a document-scoped

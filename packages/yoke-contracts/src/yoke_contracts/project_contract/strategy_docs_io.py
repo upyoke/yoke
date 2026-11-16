@@ -48,8 +48,9 @@ def read_ingest_files(
     slugs: Sequence[str],
     *,
     validate_slug: Callable[[str], str] = require_strategy_doc_slug,
+    skip_missing_slugs: Sequence[str] = (),
 ) -> List[Dict[str, str]]:
-    """Read rendered files for ``slugs``; return ``[{slug, path, text}]``."""
+    """Read rendered files, skipping absent files only for optional slugs."""
     target_root = Path(target_root)
     files: List[Dict[str, str]] = []
     for slug_value in slugs:
@@ -63,9 +64,11 @@ def read_ingest_files(
             if archived_path.is_file():
                 path = archived_path
         if not path.is_file():
+            if slug in skip_missing_slugs:
+                continue
             raise StrategyIngestFileMissingError(
                 f"no rendered file for strategy doc {slug!r} at {path}; "
-                "render it first: yoke strategy render --target-root "
+                f"render it first: yoke strategy render {slug} --target-root "
                 f"{target_root}"
             )
         files.append(
