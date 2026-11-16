@@ -324,5 +324,6 @@ def test_exec_wraps_only_wsl_machines_in_wsl(cli, os_name, wrapped) -> None:
     assert cli(["--project", "yoke", "--", "uname", "-a"], os_name=os_name) == 0
 
     sent = cli.ran[-1]["command"]
-    assert sent[0].startswith("powershell.exe ") is wrapped
-    assert ("wsl.exe" in sent[0]) is wrapped
+    from yoke_contracts.windows_wsl_command import windows_wsl_command
+
+    assert sent == ([windows_wsl_command("uname -a")] if wrapped else ["uname", "-a"])
