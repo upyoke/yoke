@@ -72,7 +72,10 @@ def test_windows_commands_are_shell_safe_and_keep_context(harness):
     assert "Set-Location -LiteralPath" in source if harness == "cursor" else True
 
 
-def test_codex_renders_windows_command_and_hashes_the_selected_command(monkeypatch):
+@pytest.mark.parametrize("host_os", ["posix", "nt"])
+def test_codex_renders_windows_command_and_hashes_the_selected_command(
+    monkeypatch, host_os
+):
     from yoke_contracts import codex_hook_trust as trust
     from yoke_contracts import hook_shell_command as shell
     from yoke_core.domain.agents_render_hooks import render_codex_hooks_block
@@ -81,10 +84,14 @@ def test_codex_renders_windows_command_and_hashes_the_selected_command(monkeypat
     handler = document["hooks"]["Stop"][0]["hooks"][0]
     assert handler["command"].startswith("/bin/sh")
     assert handler["commandWindows"].startswith("powershell.exe")
+    monkeypatch.setattr(trust.os, "name", host_os)
+    native_hash = trust.codex_hook_hashes_from_document(document)
+    monkeypatch.setattr(trust.os, "name", "posix")
     posix_hash = trust.codex_hook_hashes_from_document(document)
     monkeypatch.setattr(trust.os, "name", "nt")
     windows_hash = trust.codex_hook_hashes_from_document(document)
     assert windows_hash != posix_hash
+    assert native_hash == (windows_hash if host_os == "nt" else posix_hash)
     assert "yoke hook evaluate Stop" in shell.hook_command_source(
         handler["commandWindows"]
     )

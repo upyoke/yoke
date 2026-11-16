@@ -247,10 +247,13 @@ def evaluate_with_resident(
             last_error = f"socket unavailable ({type(exc).__name__})"
             if not start_attempted:
                 launched = _start_resident(paths, request.environment)
-                start_attempted = True
+                # A retiring Windows resident releases its lock after draining;
+                # it exits instead of execing a replacement as POSIX does.
+                start_attempted = launched is not None or not uses_named_pipe()
             elif launched is not None and launched.poll() is not None:
                 if uses_named_pipe() and launched.returncode == 0:
                     launched = None  # Another resident won the startup lock.
+                    start_attempted = False
                 else:
                     raise unavailable(
                         "YOKE_HOOK_RESIDENT_START_FAILED",

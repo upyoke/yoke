@@ -164,3 +164,28 @@ def test_windows_resident_warms_answers_health_and_stops(monkeypatch, tmp_path):
     finally:
         lifecycle.stop_resident()
     assert lifecycle._resident_processes(paths) == []
+
+
+def test_windows_client_retries_start_after_retiring_resident_releases_lock(
+    monkeypatch, tmp_path
+):
+    from yoke_cli import hook_resident_client as client
+
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(client, "uses_named_pipe", lambda: True)
+    peer = Mock()
+    connect = Mock(
+        side_effect=[ConnectionRefusedError(), ConnectionRefusedError(), peer]
+    )
+    launch = Mock(side_effect=[None, Mock()])
+    monkeypatch.setattr(client, "_connect", connect)
+    monkeypatch.setattr(client, "_start_resident", launch)
+    monkeypatch.setattr(
+        client,
+        "_exchange",
+        lambda *args: {"status": "ok", "stdout": "", "stderr": "", "exit_code": 0},
+    )
+    result = client.evaluate_with_resident("PreToolUse", "{}", dry_run=True)
+    assert result.exit_code == 0
+    assert launch.call_count == 2
+    peer.close.assert_called_once()
