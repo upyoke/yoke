@@ -130,7 +130,9 @@ def test_finisher_runs_isolated_base_python_with_pure_package_roots(
             Path(root, "yoke_contracts").is_dir() or Path(root, "yoke_cli").is_dir()
             for root in argv[8:]
         )
-        assert kwargs["start_new_session"] is True
+        assert {
+            key: kwargs[key] for key in detached._detached()
+        } == detached._detached()
         # The parent holds the lock the finisher waits for.
         probe = os.open(argv[3], os.O_RDWR)
         with pytest.raises(BlockingIOError):
@@ -140,6 +142,9 @@ def test_finisher_runs_isolated_base_python_with_pure_package_roots(
         os.close(handoff.lock_descriptor)
 
 
+@pytest.mark.skipif(
+    os.name == "nt", reason="fixture uses POSIX symlinks and a shebang uv stand-in"
+)
 def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
