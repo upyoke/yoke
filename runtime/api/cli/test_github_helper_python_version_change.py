@@ -177,6 +177,8 @@ def test_unverified_helper_is_left_untouched(machine, monkeypatch, tmp_path, cas
     value = _refused_values(root, config)[case]
     if case == "editable":
         editable = tmp_path / "venv"
+        (editable / "bin").mkdir(parents=True)
+        (editable / "bin/python").symlink_to(sys.executable)
         monkeypatch.setattr(credentials.sys, "executable", str(editable / "bin/python"))
         monkeypatch.setattr(credentials.sys, "prefix", str(editable))
     run_git(repo, "config", "--add", KEY, value)

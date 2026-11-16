@@ -37,7 +37,7 @@ __all__ = [
 ]
 
 GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE = (
-    "yoke github credential-helper refresh [--config PATH] [--json]"
+    "yoke github credential-helper refresh [--config PATH] [--check-only] [--json]"
 )
 
 
@@ -52,11 +52,27 @@ def github_credential_helper_refresh(args: List[str]) -> int:
     parser.add_argument(
         "--json", dest="json_mode", action="store_true", help="Print JSON output."
     )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Validate the candidate interpreter and helper bundle without changing git config.",
+    )
     parsed = parser.parse_args(args)
-    result = github_repo_helper_reconnect.restore_missing_bundle(parsed.config_path)
+    if parsed.check_only:
+        from yoke_cli.config.github_credential_helper_check import check_candidate
+
+        result = check_candidate(parsed.config_path)
+    else:
+        result = github_repo_helper_reconnect.restore_missing_bundle(parsed.config_path)
     error = result.get("error")
     if parsed.json_mode:
         print(json.dumps(result))
+    elif parsed.check_only:
+        print(
+            f"Credential helper check failed: {error}"
+            if error
+            else "Credential helper candidate verified."
+        )
     elif result["configured"] is False:
         print(
             "No registered checkout references a git credential helper; nothing to refresh."

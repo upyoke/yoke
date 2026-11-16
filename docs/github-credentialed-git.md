@@ -175,3 +175,18 @@ instead with `credentialed_git.git_environment(args, cwd=...)` and run the
 command yourself, retaining that runner's network deadline and process cleanup.
 Do not build a git environment by hand: credential selection and prompt
 suppression belong to this shared runner.
+
+## Release refresh safety
+
+`yoke github credential-helper refresh` refuses with
+`github_helper_interpreter_unavailable` before writing a helper command when
+its interpreter is missing or not executable. Rerun the public installer or
+`yoke update` to repair the CLI; no substitute interpreter is selected.
+
+Before publication, `yoke github credential-helper refresh --check-only --json`
+validates the candidate release interpreter, builds and executes an isolated
+helper bundle, and checks registered checkout references without changing git
+config or the installed helper. The installer refreshes the real helper after
+activation. A failed probe or publication preserves the prior release pointer,
+launcher and shims. A relay records an installer error as `update_failed` even
+when the installed version already matches the requested version.
