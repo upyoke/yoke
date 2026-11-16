@@ -9,6 +9,7 @@ checked at the seam that reads the command.
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -193,7 +194,8 @@ def test_destructive_git_refuses_reset_hard_in_both_shells() -> None:
     repo = _make_repo(initial_files={"a.txt": "v1\n"})
     _modify(repo, "a.txt", "v2\n")
     for command, shell in (
-        (f"git -C {repo} reset --hard HEAD~1", "bash"),
+        # Bash (Git Bash on Windows) is written with forward slashes.
+        (f"git -C {Path(repo).as_posix()} reset --hard HEAD~1", "bash"),
         (f"git -C '{repo}' reset --hard HEAD~1", "powershell"),
     ):
         assert _decide("lint_destructive_git", _context(command, shell, {})) is Outcome.DENY
