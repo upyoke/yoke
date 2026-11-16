@@ -6,6 +6,7 @@ import os
 import re
 import shlex
 import stat
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -43,11 +44,16 @@ class PathStateContract:
 
     def __post_init__(self) -> None:
         path_type = PurePosixPath if self.posix_paths else Path
+        suffix = ".exe" if self.shell == "windows" else ""
         expected = tuple(
-            str(path_type(self.tool_bin_dir) / tool) for tool in self.tools
+            str(
+                path_type(self.tool_bin_dir)
+                / (tool + (".cmd" if tool == "yoke" and suffix else suffix))
+            )
+            for tool in self.tools
         )
         if self.tool_paths != expected or self.yoke_bin != str(
-            path_type(self.tool_bin_dir) / "yoke"
+            path_type(self.tool_bin_dir) / ("yoke.cmd" if suffix else "yoke")
         ):
             raise ValueError("PATH contract tool paths differ from product authority")
         if self.harness_clis != HARNESS_CLIS:
@@ -67,6 +73,8 @@ def tool_bin_dir(env: Mapping[str, str] | None = None) -> str:
 
 def current_shell(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
+    if sys.platform == "win32":
+        return "windows"
     shell = environ.get("SHELL")
     if not shell:
         try:
@@ -141,24 +149,35 @@ def resolve_path_state_contract(
     environ["HOME"] = str(home_path)
 
     shell = current_shell(environ)
+    windows = sys.platform == "win32"
+    suffix = ".exe" if windows else ""
     bindir = tool_bin_dir(environ)
     ssh_startup = default_ssh_startup_file(shell, home_path)
     return PathStateContract(
         home=str(home_path),
         shell=shell,
-        shell_path=environ.get("SHELL") or f"/bin/{shell}",
+        shell_path=(environ.get("COMSPEC") or "cmd.exe") if windows else environ.get("SHELL") or f"/bin/{shell}",
         tool_bin_dir=bindir,
-        startup_file=str(default_startup_file(shell, home_path)),
+        startup_file=r"HKCU\Environment\Path"
+        if windows
+        else str(default_startup_file(shell, home_path)),
         ssh_startup_file=str(ssh_startup) if ssh_startup is not None else None,
         supported_startup_files=tuple(
-            str(path) for path in supported_startup_files(home_path)
+            str(path)
+            for path in (() if windows else supported_startup_files(home_path))
         ),
         managed_begin=MANAGED_BEGIN,
         managed_end=MANAGED_END,
         tools=TOOLS,
         harness_clis=HARNESS_CLIS,
-        tool_paths=tuple(str(Path(bindir) / tool) for tool in TOOLS),
-        yoke_bin=str(Path(bindir) / "yoke"),
+        tool_paths=tuple(
+            str(
+                Path(bindir)
+                / (tool + (".cmd" if tool == "yoke" and suffix else suffix))
+            )
+            for tool in TOOLS
+        ),
+        yoke_bin=str(Path(bindir) / ("yoke.cmd" if suffix else "yoke")),
         posix_paths=False,
     )
 
@@ -216,6 +235,10 @@ def _without_owned_path(text: str) -> str:
 
 def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
     """Prepend owned PATH blocks before interactive-only startup guards."""
+    if sys.platform == "win32":
+        from yoke_contracts.windows_user_path import write_user_path
+
+        return write_user_path(tool_bin_dir(env), env)
     directory = shlex.quote(tool_bin_dir(env))
     changed = []
     for path, shell in shell_setup_files(env).items():
@@ -246,6 +269,9 @@ def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
 
 def remove_shell_path(*, env: Mapping[str, str] | None = None) -> list[str]:
     """Remove owned blocks in every supported file, preserving other bytes."""
+    if sys.platform == "win32":
+        # uv owns the shared bin entry. Removing it would break uv and uvx.
+        return []
     environ = dict(os.environ if env is None else env)
     home = Path(environ.get("HOME") or str(Path.home()))
     candidates = set(supported_startup_files(home)) | set(shell_setup_files(environ))

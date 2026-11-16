@@ -6,6 +6,7 @@ import os
 import shutil
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
@@ -190,6 +191,10 @@ def _shadowing_yoke_path(resolved: list[ToolResolution], *, bindir: str) -> str:
 
 def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagnosis:
     environ = dict(os.environ if env is None else env)
+    if sys.platform == "win32":
+        from yoke_cli.config.path_windows import diagnose_windows
+
+        return diagnose_windows(environ, home=home)
     home_path = home or Path(environ.get("HOME") or str(Path.home()))
     environ["HOME"] = str(home_path)
     bindir = tool_bin_dir(environ)

@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent
 PARTS = (
     "options",
     "diagnostics",
+    "native_windows",
     "distribution",
     "helper_sources",
     "verification",

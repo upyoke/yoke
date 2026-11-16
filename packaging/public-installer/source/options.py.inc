@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import glob
-import fcntl
 import json
 import os
 import platform
@@ -67,7 +66,7 @@ LOCKSTEP_PRODUCT_PACKAGES = ("yoke-contracts", "yoke-harness", "yoke-core")
 # Inclusive endpoints: CI reads this declaration without importing the helper.
 SUPPORTED_PYTHON = ((3, 11), (3, 14))
 PYTHON_CONSTRAINT = (
-    f">={SUPPORTED_PYTHON[0][0]}.{SUPPORTED_PYTHON[0][1]},"
+    f">={SUPPORTED_PYTHON[0][0]}.{12 if sys.platform == 'win32' else SUPPORTED_PYTHON[0][1]},"
     f"<{SUPPORTED_PYTHON[1][0]}.{SUPPORTED_PYTHON[1][1] + 1}"
 )
 PYPI_INDEX_URL = "https://pypi.org/simple/"
@@ -143,6 +142,7 @@ class InstallOptions:
 
 def main(argv: Iterable[str] | None = None) -> int:
     try:
+        require_native_windows_python()
         Installer(parse_args(argv)).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
@@ -153,6 +153,7 @@ def main(argv: Iterable[str] | None = None) -> int:
 
 def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
     parser = argparse.ArgumentParser(description="Install Yoke.")
+    parser.add_argument("--wsl", action="store_true", help="Show the Ubuntu/WSL installation choice instead of installing natively.")
     parser.add_argument(
         "--channel", default=os.environ.get("YOKE_CHANNEL") or DEFAULT_CHANNEL
     )
@@ -179,6 +180,8 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
         default=os.environ.get("YOKE_INSTALL_BASE_URL") or DEFAULT_BASE_URL,
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.wsl:
+        parser.exit(0, "WSL choice: install Ubuntu with wsl --install -d Ubuntu, open Ubuntu, then run curl -fsSL https://upyoke.com/install | sh there. Keep native Windows and WSL installations separate.\n")
     return InstallOptions(
         channel=args.channel,
         version=args.version,
@@ -187,3 +190,12 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
         base_url=args.base_url.rstrip("/"),
         no_setup=bool(args.no_setup),
     )
+
+
+def require_native_windows_python() -> None:
+    if sys.platform == "win32" and sys.version_info < (3, 12):
+        raise InstallError(
+            "windows_python_floor: native Windows needs Python 3.12+ for "
+            "non-blocking process pipes; rerun with uv run --isolated --no-project "
+            "--python 3.12 python install.py. macOS/Linux require Python 3.11+."
+        )

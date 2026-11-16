@@ -45,6 +45,10 @@ class Installer(InstallerVerification, InstallerResolution):
             return True
         if force == "0":
             return False
+        try:
+            GUTTER.encode(getattr(sys.stdout, "encoding", None) or "utf-8")
+        except (UnicodeError, LookupError):
+            return True
         term = os.environ.get("TERM", "")
         return (
             term.startswith("screen") or term == "dumb" or bool(os.environ.get("STY"))
@@ -71,6 +75,7 @@ class Installer(InstallerVerification, InstallerResolution):
 
 
     def run(self) -> None:
+        require_native_windows_python()
         libc = (
             platform.libc_ver()[0].lower() if sys.platform.startswith("linux") else ""
         )
@@ -141,21 +146,29 @@ class Installer(InstallerVerification, InstallerResolution):
                 + "; run yoke hook resident restart, then retry the installer."
             )
         self._restart_running_dashboard(yoke_bin)
-        try:
-            wsl_setup = self.terminal_runner([yoke_bin, "wsl", "setup"])
-        except OSError as exc:
-            raise InstallError(
-                f"wsl_systemd_setup_unavailable: {exc}. "
-                "Rerun the installer to repair the installed yoke executable."
-            ) from exc
-        if wsl_setup.returncode:
-            raise InstallError(
-                "wsl_systemd_setup_failed: See the WSL setup reason above. "
-                "Rerun yoke wsl setup in an Ubuntu terminal with administrator access, "
-                "then rerun the installer."
-            )
+        if sys.platform != "win32":
+            try:
+                wsl_setup = self.terminal_runner([yoke_bin, "wsl", "setup"])
+            except OSError as exc:
+                raise InstallError(
+                    f"wsl_systemd_setup_unavailable: {exc}. "
+                    "Rerun the installer to repair the installed yoke executable."
+                ) from exc
+            if wsl_setup.returncode:
+                raise InstallError(
+                    "wsl_systemd_setup_failed: See the WSL setup reason above. "
+                    "Rerun yoke wsl setup in an Ubuntu terminal with administrator access, "
+                    "then rerun the installer."
+                )
         if already:
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
             print(self._say(f"Yoke v{display} is ready"), file=self.stdout)
         self._advise_path(yoke_bin)
+        if sys.platform == "win32" and not self.options.no_setup:
+            if self.options.yes or not sys.stdin.isatty():
+                print(self._say("Run yoke setup in a new terminal."), file=self.stdout)
+            else:
+                setup = self.terminal_runner([yoke_bin, "setup", "--post-install"])
+                if setup.returncode:
+                    raise InstallError("setup_incomplete: run yoke setup in a new terminal, then retry.")

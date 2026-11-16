@@ -12,6 +12,8 @@ def _rerun_command(base_url: str, *, channel: str | None = None) -> str:
         if host.startswith(api_prefix):
             host = host[len(api_prefix) :]
         origin = f"{scheme}://{host}"
+    if sys.platform == "win32":
+        return f"irm {origin}/install.ps1 | iex"
     command = f"curl -fsSL {origin}/install | sh"
     if channel is not None:
         command += f" -s -- --channel {shlex.quote(channel)}"
@@ -141,21 +143,18 @@ def fetch_url(url: str) -> bytes:
 
 def _install_candidate(command: list[str], env: dict[str, str], root: Path, generation: Path, version: str):
     """uv owns each private tool environment; only publication changes PATH."""
+    require_windows_path(candidate_python(generation))
     isolated = dict(env, UV_TOOL_DIR=str(generation / "tools"), UV_TOOL_BIN_DIR=str(generation / "bin"))
-    try:
-        result = _install_qualified_candidate(command, isolated, generation)
-    except InstallError:
-        shutil.rmtree(generation)
-        raise
+    result = _install_qualified_candidate(command, isolated, generation)
     if result.returncode:
-        shutil.rmtree(generation)
+        refuse_windows_path_failure(result)
         return result
     bin_dir = subprocess.run(
         ["uv", "tool", "dir", "--bin"], env=env, capture_output=True, text=True, check=True,
     ).stdout.strip()
     if not Path(bin_dir).is_absolute():
         raise InstallError("cli_launcher_directory_unavailable: repair uv tool dir --bin and retry")
-    python = generation / "tools" / "yoke-cli" / "bin" / "python3"
+    python = candidate_python(generation)
     runtime_script = generation / "runtime.py"
     runtime_script.write_text(CLI_RUNTIME_SOURCE, encoding="utf-8")
     activation = subprocess.run(
@@ -173,16 +172,26 @@ def _run_isolated_install(command: list[str], env: dict[str, str]):
     if not Path(location).is_absolute():
         raise InstallError("cli_release_root_unavailable: uv returned no absolute tool directory; repair uv and retry")
     releases = root / "releases"
+    require_windows_path(releases)
     releases.mkdir(parents=True, exist_ok=True)
     version = _product_spec_version(command[3])
     if not version or not re.fullmatch(r"[A-Za-z0-9_.+-]+", version):
         raise InstallError("cli_release_version_required: select an exact published release and retry")
-    staging = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=root))
-    lease = (staging / "lease").open("a+")
-    fcntl.flock(lease, fcntl.LOCK_SH)
-    (staging / "pending").touch()
-    generation = releases / staging.name
-    staging.rename(generation)
+    # Use the embedded runtime's publication lock, including before a product
+    # wheel exists. Creation and lease acquisition must exclude collect().
+    runtime = {"__name__": "yoke_installer_runtime", "__file__": str(root / "launcher")}
+    exec(compile(CLI_RUNTIME_SOURCE, "<cli_release_runtime>", "exec"), runtime)
+    try:
+        with runtime["locked"](root / "publication.lock"):
+            generation = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=releases))
+            (generation / "pending").touch()
+            lease = (generation / "lease").open("a+")
+            if os.name != "nt":
+                import fcntl
+
+                fcntl.flock(lease, fcntl.LOCK_SH)
+    except (OSError, RuntimeError) as exc:
+        raise InstallError(f"cli_release_prepare_failed: {exc}; let the active update finish and retry") from exc
     with lease:
         try:
             result = _install_candidate(command, env, root, generation, version)

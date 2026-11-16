@@ -26,6 +26,7 @@ def test_build_release_renders_pep503_simple_index(
     asset_dir = tmp_path / "assets"
     asset_dir.mkdir()
     (asset_dir / "install.py").write_text("print('install')\n", encoding="utf-8")
+    (asset_dir / "install.ps1").write_text("# PowerShell bootstrap\n", encoding="utf-8")
     (asset_dir / "install").write_text("#!/bin/sh\n", encoding="utf-8")
     aws_asset_dir = _aws_bootstrap_assets(tmp_path)
 
@@ -171,6 +172,7 @@ def test_build_release_refuses_missing_hosting_bootstrap_template(
     asset_dir = tmp_path / "assets"
     asset_dir.mkdir()
     (asset_dir / "install.py").write_text("print('install')\n", encoding="utf-8")
+    (asset_dir / "install.ps1").write_text("# PowerShell bootstrap\n", encoding="utf-8")
     (asset_dir / "install").write_text("#!/bin/sh\n", encoding="utf-8")
 
     def fake_wheelhouse(*, wheelhouse: Path, **_: object) -> Path:

@@ -252,23 +252,25 @@ def test_cache_cleanup_failure_refuses_without_reinstall(monkeypatch, tmp_path):
     assert sum(call == COMMAND for call in calls) == 1
 
 
-def test_reinstall_failure_removes_candidate_and_never_activates(monkeypatch, tmp_path):
+def test_reinstall_failure_retains_pending_candidate_and_never_activates(monkeypatch, tmp_path):
     installer = load_installer()
     calls = _scripted(monkeypatch, installer, verdicts=[_verdict(["a"])], retry=1)
     generation = tmp_path / "releases" / "candidate"
     generation.mkdir(parents=True)
+    (generation / "pending").touch()
     result = installer._install_candidate(COMMAND, {}, tmp_path, generation, "1.0")
     assert result.returncode == 1
-    assert not generation.exists()
+    assert (generation / "pending").is_file()
     assert not any("runtime.py" in " ".join(call) for call in calls)
 
 
-def test_unsafe_candidate_is_removed_before_activation(monkeypatch, tmp_path):
+def test_unsafe_candidate_stays_pending_and_never_activates(monkeypatch, tmp_path):
     installer = load_installer()
     calls = _scripted(monkeypatch, installer, verdicts=[_verdict(refusal="/x: unsafe")])
     generation = tmp_path / "releases" / "candidate"
     generation.mkdir(parents=True)
+    (generation / "pending").touch()
     with pytest.raises(installer.InstallError, match="helper_source_unsafe"):
         installer._install_candidate(COMMAND, {}, tmp_path, generation, "1.0")
-    assert not generation.exists()
+    assert (generation / "pending").is_file()
     assert not any("runtime.py" in " ".join(call) for call in calls)

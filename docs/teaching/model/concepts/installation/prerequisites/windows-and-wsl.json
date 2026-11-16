@@ -1,8 +1,10 @@
 {
  "id": "windows-and-wsl",
  "title": "Windows and WSL",
- "status": "draft-copy",
+ "status": "observed",
  "commands": ["yoke wsl setup"],
  "page": "installation",
- "position": 2
+ "position": 2,
+ "summary": "The native Windows installer uses uv-managed Python 3.12+; macOS/Linux remain 3.11+. --wsl teaches the separate Ubuntu route. Native Windows acceptance and support remain pending.",
+ "source_paths": ["packaging/public-installer/install.ps1", "packaging/public-installer/source/native_windows.py.inc", "packages/yoke-contracts/src/yoke_contracts/windows_user_path.py"]
 }

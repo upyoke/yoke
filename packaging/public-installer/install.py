@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import glob
-import fcntl
 import json
 import os
 import platform
@@ -72,7 +71,7 @@ LOCKSTEP_PRODUCT_PACKAGES = ("yoke-contracts", "yoke-harness", "yoke-core")
 # Inclusive endpoints: CI reads this declaration without importing the helper.
 SUPPORTED_PYTHON = ((3, 11), (3, 14))
 PYTHON_CONSTRAINT = (
-    f">={SUPPORTED_PYTHON[0][0]}.{SUPPORTED_PYTHON[0][1]},"
+    f">={SUPPORTED_PYTHON[0][0]}.{12 if sys.platform == 'win32' else SUPPORTED_PYTHON[0][1]},"
     f"<{SUPPORTED_PYTHON[1][0]}.{SUPPORTED_PYTHON[1][1] + 1}"
 )
 PYPI_INDEX_URL = "https://pypi.org/simple/"
@@ -148,6 +147,7 @@ class InstallOptions:
 
 def main(argv: Iterable[str] | None = None) -> int:
     try:
+        require_native_windows_python()
         Installer(parse_args(argv)).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
@@ -158,6 +158,11 @@ def main(argv: Iterable[str] | None = None) -> int:
 
 def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
     parser = argparse.ArgumentParser(description="Install Yoke.")
+    parser.add_argument(
+        "--wsl",
+        action="store_true",
+        help="Show the Ubuntu/WSL installation choice instead of installing natively.",
+    )
     parser.add_argument(
         "--channel", default=os.environ.get("YOKE_CHANNEL") or DEFAULT_CHANNEL
     )
@@ -184,6 +189,11 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
         default=os.environ.get("YOKE_INSTALL_BASE_URL") or DEFAULT_BASE_URL,
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.wsl:
+        parser.exit(
+            0,
+            "WSL choice: install Ubuntu with wsl --install -d Ubuntu, open Ubuntu, then run curl -fsSL https://upyoke.com/install | sh there. Keep native Windows and WSL installations separate.\n",
+        )
     return InstallOptions(
         channel=args.channel,
         version=args.version,
@@ -192,6 +202,15 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
         base_url=args.base_url.rstrip("/"),
         no_setup=bool(args.no_setup),
     )
+
+
+def require_native_windows_python() -> None:
+    if sys.platform == "win32" and sys.version_info < (3, 12):
+        raise InstallError(
+            "windows_python_floor: native Windows needs Python 3.12+ for "
+            "non-blocking process pipes; rerun with uv run --isolated --no-project "
+            "--python 3.12 python install.py. macOS/Linux require Python 3.11+."
+        )
 
 
 CLI_RUNTIME_SOURCE = '"""Publish immutable CLI environments and lease them while commands run.\n\nThe installed launcher is a standalone copy, interpreted by uv\'s base Python;\nit can choose and protect a release before importing any release-owned code.\n"""\n\nfrom __future__ import annotations\n\nfrom contextlib import contextmanager, nullcontext\nimport fcntl\nimport json\nimport os\nfrom pathlib import Path\nimport shutil\nimport subprocess\nimport sys\nimport tempfile\nimport time\n\nINSTALL_ROOT = None\nRECOVERY = "rerun the public installer or yoke update to repair the CLI"\nRELEASE_ENTRY = """\nimport os, signal, sys, threading\ndef end_with_launcher(fd):\n    while os.read(fd, 1):\n        pass\n    os.kill(os.getpid(), signal.SIGTERM)\nthreading.Thread(target=end_with_launcher, args=(int(sys.argv[2]),), daemon=True).start()\ntry:\n    from yoke_cli.config.install_binding import detect\n    binding = detect()\n    if binding[\'kind\'] != \'packaged_wheel\' or not binding[\'version\']:\n        sys.exit(\'released_cli_required: CLI must be a versioned wheel; \' + sys.argv[1])\n    from yoke_cli.main import main\nexcept (ImportError, OSError) as exc:\n    sys.exit(\'released_cli_unavailable: \' + str(exc) + \'; \' + sys.argv[1])\nsys.exit(main(sys.argv[3:]) or 0)\n"""\n\n\n@contextmanager\ndef locked(path: Path, *, shared: bool = False, nonblocking: bool = False):\n    with path.open("a+") as handle:\n        mode = fcntl.LOCK_SH if shared else fcntl.LOCK_EX\n        try:\n            fcntl.flock(handle, mode | fcntl.LOCK_NB)\n        except BlockingIOError:\n            if nonblocking:\n                raise\n            print(\n                "Waiting by design: CLI publication lock; checking every 50ms; gives up after 30 seconds.",\n                file=sys.stderr,\n            )\n            deadline = time.monotonic() + 30\n            while True:\n                try:\n                    fcntl.flock(handle, mode | fcntl.LOCK_NB)\n                    break\n                except BlockingIOError:\n                    if time.monotonic() >= deadline:\n                        raise RuntimeError(\n                            "cli_publication_busy: let the active update finish, then retry"\n                        ) from None\n                    time.sleep(0.05)\n        try:\n            yield handle\n        finally:\n            fcntl.flock(handle, fcntl.LOCK_UN)\n\n\n@contextmanager\ndef _launcher_pipe():\n    """A pipe only this process holds open, for RELEASE_ENTRY\'s ``fd`` argument.\n\n    The released command waits on its read end; end of file means this process\n    is gone, however it was stopped, so the command ends too rather than running\n    on with its locks.\n    """\n    alive, held = os.pipe()\n    try:\n        yield alive\n    finally:\n        os.close(alive)\n        os.close(held)\n\n\ndef _replace(path: Path, content: str, *, executable: bool = False) -> None:\n    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)\n    try:\n        with os.fdopen(descriptor, "w") as output:\n            output.write(content)\n            if executable:\n                os.fchmod(output.fileno(), 0o755)\n            output.flush()\n            os.fsync(output.fileno())\n        os.replace(temporary, path)\n    finally:\n        Path(temporary).unlink(missing_ok=True)\n\n\ndef _point(path: Path, target: Path) -> None:\n    temporary = path.with_name(f".{path.name}-{os.getpid()}")\n    try:\n        temporary.symlink_to(target)\n        os.replace(temporary, path)\n    finally:\n        temporary.unlink(missing_ok=True)\n\n\ndef _generation(root: Path) -> Path:\n    generation = (root / "current").resolve(strict=True)\n    if generation.parent != root / "releases":\n        raise RuntimeError(\n            "cli_release_target_invalid: current points outside releases"\n        )\n    return generation\n\n\ndef exec_current_python(arguments: list[str]) -> int:\n    """Replace a resident under the publication lock, keeping its start lock."""\n    try:\n        environment = Path(sys.executable).parent.parent.resolve()\n        generation = environment.parent.parent\n        immutable = (\n            environment.name == "yoke-cli"\n            and environment.parent.name == "tools"\n            and generation.parent.name == "releases"\n        )\n        root = generation.parent.parent\n        with (\n            locked(root / "publication.lock", shared=True)\n            if immutable\n            else nullcontext()\n        ):\n            # Resolve the generation, never the virtualenv\'s Python symlink.\n            python = (\n                _generation(root) / "tools/yoke-cli/bin/python3"\n                if immutable\n                else Path(sys.executable)\n            )\n            os.execv(str(python), [str(python), *arguments])\n    except (OSError, RuntimeError) as exc:\n        print(\n            f"hook_resident_restart_failed: {exc}; {RECOVERY}, then run "\n            "yoke hook resident restart from your own terminal; read this evaluator log",\n            file=sys.stderr,\n        )\n        return 2\n    return 0\n\n\ndef _process_commands() -> str:\n    result = subprocess.run(\n        ["ps", "-wwaxo", "pid=,command="], capture_output=True, text=True, timeout=10\n    )\n    if result.returncode or not result.stdout.strip():\n        raise RuntimeError(\n            "cli_cleanup_process_snapshot_unavailable: restore ps and retry the update"\n        )\n    return result.stdout\n\n\ndef collect(root: Path, *, legacy: bool = False, pending_safe: bool = False) -> None:\n    """Called under the publication lock; absence of a lease alone is insufficient.\n\n    Process inspection also protects direct interpreter children and the original\n    uv environment, whose commands started before release leases existed.\n    """\n    root = root.resolve()\n    current = _generation(root)\n    commands = _process_commands()\n    for candidate in (root / "releases").iterdir():\n        if candidate == current or candidate.is_symlink() or not candidate.is_dir():\n            continue\n        if str(candidate) in commands or (\n            (candidate / "pending").exists() and not pending_safe\n        ):\n            continue\n        try:\n            with locked(candidate / "lease", nonblocking=True):\n                shutil.rmtree(candidate)\n        except BlockingIOError:\n            continue\n    original = root.parent / "yoke-cli"\n    if legacy and original.is_dir() and not original.is_symlink():\n        if str(original) not in commands:\n            shutil.rmtree(original)\n            (root / "retire-original").unlink(missing_ok=True)\n\n\ndef activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:\n    root = root.resolve()\n    generation = generation.resolve()\n    if generation.parent != root / "releases":\n        raise RuntimeError(\n            "cli_release_target_invalid: candidate must be inside releases"\n        )\n    executable = generation / "tools" / "yoke-cli" / "bin" / "yoke"\n    # Probe and repair with the candidate, while the public launcher still uses\n    # the previous release. A broken candidate never replaces that launcher.\n    for arguments in (\n        ["--version"],\n        ["--help"],\n        ["github", "credential-helper", "refresh", "--json"],\n    ):\n        with _launcher_pipe() as alive:\n            result = subprocess.run(\n                [\n                    str(executable.with_name("python3")),\n                    "-I",\n                    "-c",\n                    RELEASE_ENTRY,\n                    RECOVERY,\n                    str(alive),\n                    *arguments,\n                ],\n                pass_fds=(alive,),\n                capture_output=True,\n                text=True,\n                timeout=120,\n            )\n        if result.returncode:\n            raise RuntimeError(\n                f"cli_candidate_verification_failed: {result.stderr or result.stdout}"\n            )\n        if arguments == ["--version"] and result.stdout.strip() != version:\n            raise RuntimeError(\n                "cli_candidate_version_mismatch: candidate does not report the requested release"\n            )\n        if arguments[0] == "github":\n            receipt = json.loads(result.stdout)\n            if (\n                not isinstance(receipt, dict)\n                or "configured" not in receipt\n                or receipt.get("error")\n            ):\n                raise RuntimeError(\n                    "cli_candidate_helper_repair_failed: no successful credential-helper receipt"\n                )\n    (generation / "lease").touch()\n    # Resolve the base interpreter, not the version-owned virtualenv symlink.\n    python = Path(sys._base_executable).resolve()\n    source = Path(__file__).read_text(encoding="utf-8")\n    source = source.replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)\n    source = f"#!{python}\\n" + source\n    bin_dir.mkdir(parents=True, exist_ok=True)\n    with locked(root / "publication.lock"):\n        _replace(root / "launcher", source, executable=True)\n        current = root / "current"\n        previous = current.resolve(strict=True) if current.exists() else None\n        try:\n            _point(current, generation)\n            _point(bin_dir / "yoke", root / "launcher")\n        except OSError:\n            if previous is None:\n                current.unlink(missing_ok=True)\n            else:\n                _point(current, previous)\n            raise\n        if (root.parent / "yoke-cli").is_dir():\n            (root / "retire-original").touch()\n        (generation / "pending").unlink(missing_ok=True)\n        try:\n            collect(root, legacy=True, pending_safe=True)\n        except (OSError, RuntimeError, subprocess.SubprocessError) as exc:\n            print(\n                f"cli_cleanup_deferred: {exc}; retry yoke update after old commands finish",\n                file=sys.stderr,\n            )\n\n\ndef launch(root: Path, arguments: list[str]) -> int:\n    lease = None\n    try:\n        with locked(root / "publication.lock", shared=True):\n            generation = _generation(root)\n            lease = (generation / "lease").open("a+")\n            fcntl.flock(lease, fcntl.LOCK_SH)\n        python = generation / "tools" / "yoke-cli" / "bin" / "python3"\n        with _launcher_pipe() as alive:\n            result = subprocess.run(\n                [str(python), "-I", "-c", RELEASE_ENTRY, RECOVERY, str(alive)]\n                + arguments,\n                pass_fds=(lease.fileno(), alive),\n            )\n        return result.returncode if result.returncode >= 0 else 128 - result.returncode\n    except KeyboardInterrupt:\n        return 130\n    except (OSError, RuntimeError) as exc:\n        print(f"cli_release_unavailable: {exc}; {RECOVERY}", file=sys.stderr)\n        return 2\n    finally:\n        if lease is not None:\n            lease.close()\n            try:\n                with locked(root / "publication.lock", nonblocking=True):\n                    if (\n                        _generation(root) != generation\n                        or (root / "retire-original").exists()\n                    ):\n                        collect(root, legacy=True)\n            except BlockingIOError:\n                pass\n            except (OSError, RuntimeError, subprocess.SubprocessError) as exc:\n                print(\n                    f"cli_cleanup_deferred: {exc}; retry yoke update after old commands finish",\n                    file=sys.stderr,\n                )\n\n\ndef uninstall(root: Path, bin_dir: Path) -> None:\n    """Remove only this install\'s launcher and released environments."""\n    from contextlib import ExitStack\n\n    root = root.resolve()\n    with ExitStack() as stack:\n        stack.enter_context(locked(root / "publication.lock", nonblocking=True))\n        _generation(root)\n        commands = "\\n".join(\n            line\n            for line in _process_commands().splitlines()\n            if line.split(maxsplit=1)[0] != str(os.getpid())\n        )\n        original = root.parent / "yoke-cli"\n        if str(root / "releases") in commands or str(original) in commands:\n            raise BlockingIOError("CLI interpreter still running")\n        for candidate in (root / "releases").iterdir():\n            stack.enter_context(locked(candidate / "lease", nonblocking=True))\n        launcher = bin_dir / "yoke"\n        if launcher.is_symlink() and launcher.resolve() == root / "launcher":\n            launcher.unlink()\n        shutil.rmtree(root)\n        if original.is_dir() and not original.is_symlink():\n            shutil.rmtree(original)\n\n\ndef main() -> int:\n    if INSTALL_ROOT is not None:\n        return launch(Path(INSTALL_ROOT), sys.argv[1:])\n    try:\n        root, generation, bin_dir, version = sys.argv[1:]\n        activate(Path(root), Path(generation), Path(bin_dir), version)\n        return 0\n    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:\n        print(f"cli_release_activation_failed: {exc}; {RECOVERY}", file=sys.stderr)\n        return 2\n\n\nif __name__ == "__main__":\n    sys.exit(main())\n'
@@ -317,6 +336,64 @@ def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").lower() in {"1", "true", "yes", "y"}
 
 
+def candidate_python(generation: Path) -> Path:
+    environment = generation / "tools" / "yoke-cli"
+    if sys.platform == "win32":
+        return environment / "Scripts" / "python.exe"
+    return environment / "bin" / "python3"
+
+
+def windows_long_paths_enabled() -> bool:
+    import winreg
+
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\FileSystem",
+        ) as handle:
+            return winreg.QueryValueEx(handle, "LongPathsEnabled")[0] == 1
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise InstallError(
+            f"windows_long_paths_unreadable: {exc}; ask your administrator to "
+            r"check HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled "
+            "and rerun the installer."
+        ) from exc
+
+
+def long_path_refusal() -> InstallError:
+    return InstallError(
+        "windows_long_paths_disabled: installation needs a path longer than "
+        "260 characters. Ask your administrator to set DWORD LongPathsEnabled=1 "
+        r"in HKLM\SYSTEM\CurrentControlSet\Control\FileSystem, restart Windows, "
+        "then rerun the installer; or use shorter UV_TOOL_DIR and UV_CACHE_DIR paths."
+    )
+
+
+def require_windows_path(path: Path) -> None:
+    if sys.platform == "win32" and len(str(path.absolute())) >= 260:
+        if not windows_long_paths_enabled():
+            raise long_path_refusal()
+
+
+def refuse_windows_path_failure(result) -> None:
+    if sys.platform != "win32":
+        return
+    diagnostic = (result.stdout + "\n" + result.stderr).lower()
+    if any(
+        word in diagnostic
+        for word in (
+            "filename or extension is too long",
+            "os error 206",
+            "winerror 206",
+            "path too long",
+        )
+    ):
+        if not windows_long_paths_enabled():
+            raise long_path_refusal()
+
+
 def product_spec(version: str | None) -> str:
     if version:
         return f"{PRODUCT_PACKAGE}=={version}"
@@ -331,6 +408,8 @@ def _rerun_command(base_url: str, *, channel: str | None = None) -> str:
         if host.startswith(api_prefix):
             host = host[len(api_prefix) :]
         origin = f"{scheme}://{host}"
+    if sys.platform == "win32":
+        return f"irm {origin}/install.ps1 | iex"
     command = f"curl -fsSL {origin}/install | sh"
     if channel is not None:
         command += f" -s -- --channel {shlex.quote(channel)}"
@@ -462,18 +541,15 @@ def _install_candidate(
     command: list[str], env: dict[str, str], root: Path, generation: Path, version: str
 ):
     """uv owns each private tool environment; only publication changes PATH."""
+    require_windows_path(candidate_python(generation))
     isolated = dict(
         env,
         UV_TOOL_DIR=str(generation / "tools"),
         UV_TOOL_BIN_DIR=str(generation / "bin"),
     )
-    try:
-        result = _install_qualified_candidate(command, isolated, generation)
-    except InstallError:
-        shutil.rmtree(generation)
-        raise
+    result = _install_qualified_candidate(command, isolated, generation)
     if result.returncode:
-        shutil.rmtree(generation)
+        refuse_windows_path_failure(result)
         return result
     bin_dir = subprocess.run(
         ["uv", "tool", "dir", "--bin"],
@@ -486,7 +562,7 @@ def _install_candidate(
         raise InstallError(
             "cli_launcher_directory_unavailable: repair uv tool dir --bin and retry"
         )
-    python = generation / "tools" / "yoke-cli" / "bin" / "python3"
+    python = candidate_python(generation)
     runtime_script = generation / "runtime.py"
     runtime_script.write_text(CLI_RUNTIME_SOURCE, encoding="utf-8")
     activation = subprocess.run(
@@ -526,18 +602,30 @@ def _run_isolated_install(command: list[str], env: dict[str, str]):
             "cli_release_root_unavailable: uv returned no absolute tool directory; repair uv and retry"
         )
     releases = root / "releases"
+    require_windows_path(releases)
     releases.mkdir(parents=True, exist_ok=True)
     version = _product_spec_version(command[3])
     if not version or not re.fullmatch(r"[A-Za-z0-9_.+-]+", version):
         raise InstallError(
             "cli_release_version_required: select an exact published release and retry"
         )
-    staging = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=root))
-    lease = (staging / "lease").open("a+")
-    fcntl.flock(lease, fcntl.LOCK_SH)
-    (staging / "pending").touch()
-    generation = releases / staging.name
-    staging.rename(generation)
+    # Use the embedded runtime's publication lock, including before a product
+    # wheel exists. Creation and lease acquisition must exclude collect().
+    runtime = {"__name__": "yoke_installer_runtime", "__file__": str(root / "launcher")}
+    exec(compile(CLI_RUNTIME_SOURCE, "<cli_release_runtime>", "exec"), runtime)
+    try:
+        with runtime["locked"](root / "publication.lock"):
+            generation = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=releases))
+            (generation / "pending").touch()
+            lease = (generation / "lease").open("a+")
+            if os.name != "nt":
+                import fcntl
+
+                fcntl.flock(lease, fcntl.LOCK_SH)
+    except (OSError, RuntimeError) as exc:
+        raise InstallError(
+            f"cli_release_prepare_failed: {exc}; let the active update finish and retry"
+        ) from exc
     with lease:
         try:
             result = _install_candidate(command, env, root, generation, version)
@@ -671,7 +759,7 @@ def _run_candidate_uv(command: list[str], env: dict[str, str]):
         capture_output=True,
         text=True,
         check=False,
-        umask=CANDIDATE_UMASK,
+        **({"umask": CANDIDATE_UMASK} if os.name != "nt" else {}),
     )
 
 
@@ -679,7 +767,7 @@ def _unsafe_helper_source_permissions(
     generation: Path, env: dict[str, str]
 ) -> list[str]:
     """Return helper sources unsafe only by permissions; refuse anything else."""
-    python = generation / "tools" / "yoke-cli" / "bin" / "python3"
+    python = candidate_python(generation)
     try:
         result = subprocess.run(
             [str(python), "-I", "-c", HELPER_SOURCE_CHECK],
@@ -736,7 +824,7 @@ def _install_qualified_candidate(
         capture_output=True,
         text=True,
         check=False,
-        umask=CANDIDATE_UMASK,
+        **({"umask": CANDIDATE_UMASK} if os.name != "nt" else {}),
     )
     if clean.returncode:
         raise InstallError(
@@ -792,20 +880,21 @@ class InstallerVerification:
         raise InstallError("yoke command not found after install")
 
     def _installed_yoke_candidates(self) -> Iterable[str]:
+        executable = "yoke.cmd" if sys.platform == "win32" else "yoke"
         uv_tool_bin = os.environ.get("UV_TOOL_BIN_DIR")
         if uv_tool_bin:
-            yield os.path.join(uv_tool_bin, "yoke")
+            yield os.path.join(uv_tool_bin, executable)
         xdg_bin = os.environ.get("XDG_BIN_HOME")
         if xdg_bin:
-            yield os.path.join(xdg_bin, "yoke")
+            yield os.path.join(xdg_bin, executable)
         uv_bin = self.capture_runner(["uv", "tool", "dir", "--bin"])
         if uv_bin.returncode == 0:
             directory = uv_bin.stdout.strip()
             if directory and "\n" not in directory and os.path.isabs(directory):
-                yield os.path.join(directory, "yoke")
+                yield os.path.join(directory, executable)
         home = os.path.expanduser("~")
         if home and home != "~":
-            yield os.path.join(home, ".local", "bin", "yoke")
+            yield os.path.join(home, ".local", "bin", executable)
 
     def _smoke_yoke(self, yoke_bin: str = "yoke") -> str:
         version = ""
@@ -1168,6 +1257,10 @@ class Installer(InstallerVerification, InstallerResolution):
             return True
         if force == "0":
             return False
+        try:
+            GUTTER.encode(getattr(sys.stdout, "encoding", None) or "utf-8")
+        except (UnicodeError, LookupError):
+            return True
         term = os.environ.get("TERM", "")
         return (
             term.startswith("screen") or term == "dumb" or bool(os.environ.get("STY"))
@@ -1190,6 +1283,7 @@ class Installer(InstallerVerification, InstallerResolution):
         return f"{self.options.base_url}/simple/"
 
     def run(self) -> None:
+        require_native_windows_python()
         libc = (
             platform.libc_ver()[0].lower() if sys.platform.startswith("linux") else ""
         )
@@ -1268,24 +1362,34 @@ class Installer(InstallerVerification, InstallerResolution):
                 + "; run yoke hook resident restart, then retry the installer."
             )
         self._restart_running_dashboard(yoke_bin)
-        try:
-            wsl_setup = self.terminal_runner([yoke_bin, "wsl", "setup"])
-        except OSError as exc:
-            raise InstallError(
-                f"wsl_systemd_setup_unavailable: {exc}. "
-                "Rerun the installer to repair the installed yoke executable."
-            ) from exc
-        if wsl_setup.returncode:
-            raise InstallError(
-                "wsl_systemd_setup_failed: See the WSL setup reason above. "
-                "Rerun yoke wsl setup in an Ubuntu terminal with administrator access, "
-                "then rerun the installer."
-            )
+        if sys.platform != "win32":
+            try:
+                wsl_setup = self.terminal_runner([yoke_bin, "wsl", "setup"])
+            except OSError as exc:
+                raise InstallError(
+                    f"wsl_systemd_setup_unavailable: {exc}. "
+                    "Rerun the installer to repair the installed yoke executable."
+                ) from exc
+            if wsl_setup.returncode:
+                raise InstallError(
+                    "wsl_systemd_setup_failed: See the WSL setup reason above. "
+                    "Rerun yoke wsl setup in an Ubuntu terminal with administrator access, "
+                    "then rerun the installer."
+                )
         if already:
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
             print(self._say(f"Yoke v{display} is ready"), file=self.stdout)
         self._advise_path(yoke_bin)
+        if sys.platform == "win32" and not self.options.no_setup:
+            if self.options.yes or not sys.stdin.isatty():
+                print(self._say("Run yoke setup in a new terminal."), file=self.stdout)
+            else:
+                setup = self.terminal_runner([yoke_bin, "setup", "--post-install"])
+                if setup.returncode:
+                    raise InstallError(
+                        "setup_incomplete: run yoke setup in a new terminal, then retry."
+                    )
 
 
 if __name__ == "__main__":

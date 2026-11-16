@@ -17,17 +17,20 @@ from public_installer_helpers import (
 _bin = linux_stub_bin
 
 
-def test_native_windows_is_unsupported(tmp_path: Path) -> None:
+@pytest.mark.parametrize("kernel", ["MINGW64_NT-10.0", "MSYS_NT-10.0", "CYGWIN_NT-10.0"])
+def test_git_bash_hands_off_to_powershell(tmp_path: Path, kernel: str) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    write_executable(bin_dir / "uname", "#!/bin/sh\nprintf MINGW64_NT-10.0\n")
-
-    result = run_shim(bin_dir)
-
-    assert result.returncode == 1
-    assert "is not supported by this installer" in result.stdout
-    assert "WSL follows the Linux path" in result.stdout
-    assert "curl -fsSL https://example.invalid/install | sh" in result.stdout
+    write_executable(bin_dir / "uname", f"#!/bin/sh\nprintf {kernel}\n")
+    write_executable(bin_dir / "curl", "#!/bin/sh\nprintf '# powershell shim'\n")
+    write_executable(bin_dir / "cygpath", '#!/bin/sh\nprintf "%s" "$2"\n')
+    write_executable(bin_dir / "powershell.exe", '#!/bin/sh\nprintf "%s\\n" "$@"\nexit 7\n')
+    result = run_shim(bin_dir, args=("--channel", "latest", "--dry-run", "--no-setup"))
+    assert result.returncode == 7
+    assert "-NoProfile" in result.stdout
+    assert "--channel" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--no-setup" in result.stdout
 
 
 def test_missing_uv_without_curl_prints_manual_and_rerun(tmp_path: Path) -> None:

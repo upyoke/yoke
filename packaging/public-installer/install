@@ -572,6 +572,26 @@ done
 os_name=$(uname -s 2>/dev/null || printf unknown)
 case "$os_name" in
   Darwin|Linux) : ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # Download a file rather than evaluating remote text in PowerShell.
+    need_command powershell.exe || fail "windows_powershell_unavailable: open PowerShell and run irm https://upyoke.com/install.ps1 | iex"
+    windows_tmp=$(mktemp -d "${TMPDIR:-/tmp}/yoke-install.XXXXXX") || fail "windows_installer_temp_failed: check TEMP permissions and retry"
+    windows_installer="$windows_tmp/install.ps1"
+    if ! curl -fsSL "${base_url%/}/install.ps1" > "$windows_installer"; then
+      rm -rf "$windows_tmp"
+      fail "windows_installer_download_failed: check access to $(safe_base_url_for_display)/install.ps1 and retry"
+    fi
+    set --
+    [ -n "$channel" ] && set -- "$@" --channel "$channel"
+    [ -n "$version" ] && set -- "$@" --version "$version"
+    [ -n "$yes" ] && set -- "$@" --yes
+    [ -n "$dry_run" ] && set -- "$@" --dry-run
+    [ -n "$no_setup" ] && set -- "$@" --no-setup
+    powershell.exe -NoProfile -File "$(cygpath -w "$windows_installer")" "$@"
+    windows_rc=$?
+    rm -rf "$windows_tmp"
+    exit "$windows_rc"
+    ;;
   *) decline_unsupported_os_and_exit ;;
 esac
 

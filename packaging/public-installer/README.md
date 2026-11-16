@@ -20,3 +20,18 @@ Installer colors use 24-bit SGR only when `COLORTERM` is `truecolor` or `24bit`;
 other color terminals use their basic ANSI palette. Body text uses the terminal's
 default foreground so the completion instructions work on light backgrounds.
 `NO_COLOR`, non-terminal output and `TERM=dumb` disable color.
+
+The native Windows bootstrap is `install.ps1`; `--channel`, `--version`,
+`--dry-run`, `--yes` and `--no-setup` pass to the Python helper. `--wsl` explains
+the Ubuntu alternative without installing. `YOKE_INSTALL_BASE_URL` selects the
+distribution origin (including a local CI HTTP server). Windows needs Python
+3.12+ for non-blocking process pipes; uv supplies it. macOS/Linux remain 3.11+.
+Package `requires-python` stays at the common 3.11 floor because it cannot
+express platform-specific floors; both the CLI and installer reject Windows 3.11.
+
+Constrained PowerShell refuses before bootstrap and gives a download-to-file
+Python route that does not use `iex`; application-control restrictions still
+apply. Paths exceeding MAX_PATH refuse with the `LongPathsEnabled` recovery.
+Windows PATH inspection reads `HKCU\Environment\Path`; repair adds uv's bin
+only when missing. Uninstall retains that shared entry because uv owns it.
+This work is preparation for native Windows acceptance, not a support claim.

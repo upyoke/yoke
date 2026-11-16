@@ -36,13 +36,13 @@ print(json.dumps({"checked": len(paths), "unsafe_permissions": loose, "refusal":
 def _run_candidate_uv(command: list[str], env: dict[str, str]):
     return subprocess.run(
         command, env=env, capture_output=True, text=True, check=False,
-        umask=CANDIDATE_UMASK,
+        **({"umask": CANDIDATE_UMASK} if os.name != "nt" else {}),
     )
 
 
 def _unsafe_helper_source_permissions(generation: Path, env: dict[str, str]) -> list[str]:
     """Return helper sources unsafe only by permissions; refuse anything else."""
-    python = generation / "tools" / "yoke-cli" / "bin" / "python3"
+    python = candidate_python(generation)
     try:
         result = subprocess.run(
             [str(python), "-I", "-c", HELPER_SOURCE_CHECK],
@@ -85,7 +85,7 @@ def _install_qualified_candidate(command: list[str], env: dict[str, str], genera
     config = command[command.index("--config-file"):][:2] if "--config-file" in command else []
     clean = subprocess.run(
         ["uv", "cache", "clean", *HELPER_SOURCE_PACKAGES, *config],
-        env=env, capture_output=True, text=True, check=False, umask=CANDIDATE_UMASK,
+        env=env, capture_output=True, text=True, check=False, **({"umask": CANDIDATE_UMASK} if os.name != "nt" else {}),
     )
     if clean.returncode:
         raise InstallError(

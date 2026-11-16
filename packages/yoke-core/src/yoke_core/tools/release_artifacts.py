@@ -78,6 +78,7 @@ class ReleasePaths:
     migration_history_manifest_path: Path
     migration_history_release_evidence_path: Path
     install_py: Path
+    install_ps1: Path
     install_shim: Path
     channel_path: Path
     aws_admin_template: Path
@@ -119,6 +120,7 @@ class ReleaseBuild:
             ),
             "install_py": str(self.paths.install_py),
             "install": str(self.paths.install_shim),
+            "install_ps1": str(self.paths.install_ps1),
             "channel_path": str(self.paths.channel_path),
             "aws_admin_template": str(self.paths.aws_admin_template),
         }
@@ -220,6 +222,7 @@ def _prepare_release_paths(
         ),
         install_py=dist_root / INSTALL_PY,
         install_shim=output_root / INSTALL_SHIM,
+        install_ps1=output_root / "install.ps1",
         channel_path=channels_dir / f"{channel}.json",
         aws_admin_template=release_dir / AWS_ADMIN_TEMPLATE,
     )
@@ -236,15 +239,17 @@ def _copy_wheels(
 def _copy_installer_assets(asset_dir: Path, paths: ReleasePaths) -> None:
     install_py_source = asset_dir / INSTALL_PY
     install_shim_source = asset_dir / INSTALL_SHIM
+    install_ps1_source = asset_dir / "install.ps1"
     missing = [
         str(path)
-        for path in (install_py_source, install_shim_source)
+        for path in (install_py_source, install_shim_source, install_ps1_source)
         if not path.is_file()
     ]
     if missing:
         raise ReleaseBuildError("missing installer asset(s): " + ", ".join(missing))
     shutil.copy2(install_py_source, paths.install_py)
     shutil.copy2(install_shim_source, paths.install_shim)
+    shutil.copy2(install_ps1_source, paths.install_ps1)
 
 
 def _copy_aws_admin_template(asset_dir: Path, paths: ReleasePaths) -> None:
