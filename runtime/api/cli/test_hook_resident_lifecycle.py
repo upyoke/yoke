@@ -22,15 +22,16 @@ def test_restart_warms_a_real_evaluator_and_replaces_same_version(
     try:
         lifecycle.restart_resident()
         first = lifecycle._resident_processes(paths)
-        assert len(first) == 1
+        # Windows virtualenv Python can retain a launcher beside its child.
+        assert first
         # Readiness is a real evaluation, not just a listening socket.
         result = client.evaluate_with_resident("PreToolUse", "{}", dry_run=True)
         assert result.exit_code == 0
         lifecycle.restart_resident()
         second = lifecycle._resident_processes(paths)
-        assert len(second) == 1
-        assert second != first
-        assert not platform_process.pid_alive(*first[0])
+        assert second
+        assert set(second).isdisjoint(first)
+        assert all(not platform_process.pid_alive(*identity) for identity in first)
         lifecycle.stop_resident()
         assert lifecycle._resident_processes(paths) == []
         assert not paths.socket.exists()

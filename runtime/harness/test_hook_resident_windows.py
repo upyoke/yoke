@@ -146,13 +146,15 @@ def test_windows_resident_warms_answers_health_and_stops(monkeypatch, tmp_path):
     from yoke_cli import hook_resident_lifecycle as lifecycle
     from yoke_cli.hook_resident_health import resident_revision_problem
     from yoke_contracts.execution_provenance import collect_execution_provenance
+    from yoke_contracts import platform_process
 
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     paths = client.resident_paths()
     try:
         lifecycle.restart_resident()
         first = lifecycle._resident_processes(paths)
-        assert len(first) == 1
+        # Windows virtualenv Python can retain a launcher beside its child.
+        assert first
         assert (
             client.evaluate_with_resident("PreToolUse", "{}", dry_run=True).exit_code
             == 0
@@ -160,7 +162,11 @@ def test_windows_resident_warms_answers_health_and_stops(monkeypatch, tmp_path):
         revision = collect_execution_provenance().get("source_sha")
         assert resident_revision_problem(paths.socket, revision) == ""
         lifecycle.restart_resident()
-        assert lifecycle._resident_processes(paths) != first
+        second = lifecycle._resident_processes(paths)
+        assert second
+        assert set(second).isdisjoint(first)
+        assert all(not platform_process.pid_alive(*identity) for identity in first)
+        assert resident_revision_problem(paths.socket, revision) == ""
     finally:
         lifecycle.stop_resident()
     assert lifecycle._resident_processes(paths) == []
