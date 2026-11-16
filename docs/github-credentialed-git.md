@@ -160,9 +160,11 @@ helpers. Without stored authorization, the optional path may use the user's
 existing helper, without installing a new credential or substituting it for
 GitHub API authorization.
 
-For released CLI installs, newly configured helpers name both Python and the
-helper script through `yoke-cli-releases/current/`. Updating that link keeps
-the checkout's helper usable after the previous release is pruned.
+For released CLI installs, newly configured helpers name the install's
+`yoke-cli-releases/python` shim, which runs the current release's Python, and
+the helper script in `yoke-cli-releases/github-credential-helper/`, which every
+release shares. Neither path names a release, so the checkout's helper stays
+usable after the previous release is pruned.
 
 ## Adding a remote operation
 

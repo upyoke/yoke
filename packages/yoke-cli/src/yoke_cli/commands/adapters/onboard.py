@@ -52,8 +52,15 @@ ONBOARD_USAGE = (
 
 
 def onboard(args: List[str]) -> int:
+    from yoke_cli.config.native_windows_terminal import configure
+
+    configure()
     parsed = parse_or_usage_error(_parser(), args, ONBOARD_USAGE)
     if parsed is None:
+        return 2
+    from yoke_cli.config.onboard_native_preflight import check_setup
+
+    if not check_setup(parsed):
         return 2
     shell = onboard_agent.select_shell(parsed)
     if shell.error:
