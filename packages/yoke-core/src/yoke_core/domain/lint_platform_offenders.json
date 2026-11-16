@@ -166,7 +166,6 @@
   "packages/yoke-harness/src/yoke_harness/browser_check_profile.py": {"encoding|08c164b21ed71c85": 1, "encoding|47eb099ca9d545ea": 3, "encoding|4ee7aca17722c3f4": 1, "encoding|e0df3abbbfdc086f": 2},
   "packages/yoke-harness/src/yoke_harness/browser_client.py": {"process|c243b81a9c81345c": 1},
   "packages/yoke-harness/src/yoke_harness/browser_human_gate.py": {"process|dfbc5d07dbf56168": 1},
-  "packages/yoke-harness/src/yoke_harness/desktop_access.py": {"tmp|51fb04965cc3e01d": 1},
   "packages/yoke-harness/src/yoke_harness/desktop_browser_sign_in.py": {"encoding|76c2a2faf284d0f5": 1, "getuid|bde9d6f7d756a86f": 1, "process|50876adc6a302215": 1},
   "packages/yoke-harness/src/yoke_harness/desktop_forward.py": {"tmp|51fb04965cc3e01d": 1},
   "packages/yoke-harness/src/yoke_harness/hooks/client_session_title.py": {"encoding|2abf8aa3bba4ade0": 1, "encoding|a9b55c243c72e4e2": 1, "encoding|b7706e509670679e": 1, "encoding|cfa1d28251832094": 1, "encoding|d37c02efa55a975d": 1, "encoding|df1cd389b43134e4": 1, "encoding|f2480a489edc6693": 1},
