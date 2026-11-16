@@ -21,6 +21,7 @@ from runtime.api.fixtures.carried_release_candidate import (
     insert_run,
     item_ref,
     release_repository,
+    serve_no_provider,
     serve_repository,
 )
 from runtime.api.domain.github_actions_rest_test_support import _RESOLVED
@@ -62,6 +63,10 @@ def merged(test_db, tmp_path, monkeypatch):
     ref = item_ref(test_db, ITEM_ID)
     repo, baseline, landing = release_repository(tmp_path, ref)
     serve_repository(monkeypatch, repo)
+    # Containment reads the checkout here. Binding the provider opener's
+    # resolver first keeps the resolver patch below from being captured by
+    # that module if this test is the first to import it.
+    serve_no_provider(monkeypatch)
     record_entry(test_db, item_id=ITEM_ID, branch=ref, target="main",
                  merge_sha=landing)
     test_db.commit()
@@ -137,20 +142,8 @@ def test_merge_proof_carries_the_identical_commit_through_delivery(merged):
 
 
 def test_a_bound_release_missing_the_merge_refuses_before_creation(
-    merged, test_db: Any, monkeypatch
+    merged, test_db: Any
 ):
-    from yoke_core.domain.project_github_auth_models import ProjectGithubAuthError
-
-    def _no_provider(project, **_kwargs):
-        raise ProjectGithubAuthError(project, "containment reads the checkout here")
-
-    # The refusal comes before any source binding, so only the checkout
-    # answers containment.
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_carried_work_repository."
-        "resolve_project_github_auth",
-        _no_provider,
-    )
     carrier = ensure_project_id(test_db, "carrier", ts=datetime.now(timezone.utc))
     pinned = merged["baseline"]
     insert_run(test_db, "run-carrier", lineage="e" * 40, status="executing",

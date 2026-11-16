@@ -108,6 +108,28 @@ def serve_repository(monkeypatch: pytest.MonkeyPatch, repo: Path | None) -> None
     )
 
 
+def serve_no_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Declare that this host holds no GitHub binding for any project.
+
+    The provider opener then refuses with ``CarriedWorkSourceUnavailable``, so
+    containment is answered by the served checkout alone, whatever binding or
+    token an earlier test left resolvable. Patching the opener's own import
+    boundary also imports that module here, with its real resolver bound,
+    before any later patch of the resolver's defining module can be captured.
+    """
+    from yoke_core.domain import deployment_run_carried_work_repository
+    from yoke_core.domain.project_github_auth_models import MissingCapability
+
+    def _no_binding(project, **_kwargs):
+        raise MissingCapability(project, f"project '{project}' has no GitHub binding")
+
+    monkeypatch.setattr(
+        deployment_run_carried_work_repository,
+        "resolve_project_github_auth",
+        _no_binding,
+    )
+
+
 def insert_run(
     conn: Any,
     run_id: str,
