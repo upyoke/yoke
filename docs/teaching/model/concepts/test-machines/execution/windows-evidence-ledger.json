@@ -1,0 +1,9 @@
+{
+ "id": "windows-evidence-ledger",
+ "title": "Native Windows evidence ledger",
+ "status": "observed",
+ "page": "test-machine-execution",
+ "position": 5,
+ "summary": "Checked-in operation, surface and mode expectations join to tagged native Windows machine QA receipts for an exact Yoke release. Missing receipts remain unproven; WSL is not native proof. Expected refusals require the declared reason, and Cursor upstream limitations remain visible failures.",
+ "sources": ["docs/windows-evidence-ledger.md", "packages/yoke-cli/src/yoke_cli/windows_evidence_ledger.py", "packages/yoke-cli/src/yoke_cli/windows_evidence_report.py"]
+}
