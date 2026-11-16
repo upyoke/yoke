@@ -61,7 +61,7 @@ def native_agents_link_drift(
     """Compare native content, including copies made without symlink privilege."""
     path = target_root / native_dir
     if not path.exists():
-        return [f"missing: {native_dir}"]
+        return [f"missing: {native_dir.as_posix()}"]
     if not _same_content(target_root / out_dir, path):
-        return [f"drift: {native_dir}"]
+        return [f"drift: {native_dir.as_posix()}"]
     return []

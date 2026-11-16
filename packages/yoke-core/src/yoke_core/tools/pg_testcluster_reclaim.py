@@ -43,7 +43,7 @@ def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
 
     data = root / "data"
     for path in (root, data):
-        if path.is_symlink() or path.is_junction():
+        if path.is_symlink() or getattr(path.lstat(), "st_file_attributes", 0) & 0x400:
             raise ValueError("cluster path is not a real directory")
         if os.name != "nt" and path.stat().st_uid != os.getuid():
             raise ValueError("cluster directory is not owned by this user")
