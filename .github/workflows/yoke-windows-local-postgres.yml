@@ -15,5 +15,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - run: python -m pip install pefile
       - name: Probe pinned PostgreSQL Unix socket under a private spaced path
         run: python runtime/api/tools/probe_windows_postgres_socket.py

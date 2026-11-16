@@ -30,8 +30,17 @@ def main():
     with tarfile.open(archive) as stream:
         stream.extractall(work / "engine", filter="tar")
     binary = next((work / "engine").rglob("initdb.exe")).parent
-    print("DLLs:", [str(p.relative_to(binary.parent)) for p in binary.parent.rglob("*.dll")], flush=True)
-    os.environ["PATH"] = str(binary) + os.pathsep + str(binary.parent / "lib") + os.pathsep + os.environ["PATH"]
+    import pefile
+    for image in [binary / "initdb.exe", binary / "libpq.dll"]:
+        pe = pefile.PE(str(image))
+        print(image.name, "imports:", [entry.dll.decode() for entry in pe.DIRECTORY_ENTRY_IMPORT], flush=True)
+    import ctypes
+    for dll in binary.glob("*.dll"):
+        try:
+            ctypes.WinDLL(str(dll))
+        except OSError as exc:
+            print("DLL load failure:", dll.name, exc, flush=True)
+    os.environ["PATH"] = str(binary) + os.pathsep + str(binary / "DLLs") + os.pathsep + str(binary.parent / "lib") + os.pathsep + os.environ["PATH"]
     root = work / "private cluster"
     root.mkdir()
     owner = run(["whoami"]).stdout.strip()
