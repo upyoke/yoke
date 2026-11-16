@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 if __package__:
+    from yoke_contracts import owner_private_path
     from yoke_contracts import platform_file_lock, platform_file_sync
     from yoke_contracts.designed_wait import announce_designed_wait
     from yoke_contracts.machine_config.directories import create_private_directory
     from yoke_cli.config import github_git_credential_permissions
 else:
+    import _yoke_owner_private_path as owner_private_path
     import _yoke_platform_file_lock as platform_file_lock
     import _yoke_platform_file_sync as platform_file_sync
     import _yoke_github_git_credential_permissions as github_git_credential_permissions
@@ -18,9 +20,10 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
-import tempfile
 import time
 from typing import Any, Iterator, Mapping
+
+_WINDOWS = os.name == "nt"
 
 
 MAX_CREDENTIAL_DOCUMENT_BYTES = 64 * 1024
@@ -49,7 +52,8 @@ def read_json_document(
         CredentialFileError,
         require_private=require_private_parent,
     )
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         descriptor = os.open(selected, flags)
     except OSError as exc:
@@ -107,24 +111,14 @@ def write_json_document(path: str | Path, payload: Mapping[str, Any]) -> Path:
     github_git_credential_permissions.assert_secure_parent(
         selected.parent, CredentialFileError
     )
-    descriptor, raw_tmp = tempfile.mkstemp(
-        prefix=f".{selected.name}.", suffix=".tmp", dir=selected.parent
-    )
-    tmp_path = Path(raw_tmp)
     try:
-        os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "wb") as stream:
-            descriptor = -1
-            stream.write(serialized)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(tmp_path, selected)
+        owner_private_path.write_owner_private(selected, serialized)
         platform_file_sync.sync_directory(selected.parent)
-    except BaseException:
-        if descriptor >= 0:
-            os.close(descriptor)
-        tmp_path.unlink(missing_ok=True)
-        raise
+    except OSError as exc:
+        raise CredentialFileError(
+            f"GitHub App credential could not be written: {selected}; check "
+            "free space and that only you can write its directory, then reconnect GitHub"
+        ) from exc
     return selected
 
 
@@ -196,7 +190,8 @@ def exclusive_lock(
         github_git_credential_permissions.assert_secure_parent(
             selected.parent, CredentialFileError
         )
-        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(selected_lock_path, flags, 0o600)
     except OSError as exc:
         raise CredentialFileError(
@@ -204,7 +199,9 @@ def exclusive_lock(
         ) from exc
     try:
         try:
-            os.fchmod(descriptor, 0o600)
+            if not _WINDOWS:
+                # Windows: the lock inherits the private directory's DACL.
+                os.fchmod(descriptor, 0o600)
             github_git_credential_permissions.assert_owner_only_file(
                 os.fstat(descriptor), selected_lock_path, CredentialFileError
             )
