@@ -1,6 +1,7 @@
 """Custody precedes execution, including natives that exit immediately."""
 
 from io import BytesIO
+import os
 from pathlib import Path
 import sys
 import threading
@@ -57,7 +58,8 @@ def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path, mo
     started = spawn_supervised_native(
         [sys.executable, "-c", "import sys; print('current refusal', file=sys.stderr); sys.exit(7)"],
         checkout=tmp_path,
-        environment={},
+        # Windows asyncio needs SystemRoot to load Winsock: CPython issue #118234.
+        environment={"SystemRoot": os.environ["SystemRoot"]} if os.name == "nt" else {},
         attempt_id="11111111-1111-4111-8111-111111111111",
         native_session_id="22222222-2222-4222-8222-222222222222",
         binary_source="path",
