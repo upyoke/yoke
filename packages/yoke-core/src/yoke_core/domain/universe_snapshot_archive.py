@@ -19,6 +19,8 @@ from yoke_core.domain.universe_export_destination import (
     resolve_export_destination,
 )
 
+from yoke_contracts.owner_private_path import write_owner_private
+
 ARTIFACT_FORMAT = "universe-tar"
 EXPORT_TIMEOUT_SETTING = "universe_export_timeout_seconds"
 DEFAULT_EXPORT_TIMEOUT_S = 600
@@ -233,7 +235,7 @@ def _staged_dump_path(destination: Path) -> Path:
     )
     os.close(descriptor)
     staged = Path(raw_path)
-    staged.chmod(0o600)
+    write_owner_private(staged, b"")
     return staged
 
 
