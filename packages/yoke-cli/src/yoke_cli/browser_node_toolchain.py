@@ -75,7 +75,7 @@ _PLATFORM_ARCHIVES = {
     ("windows", "arm64"): "win-arm64",
 }
 
-#: Published sha256 of each ``node-<version>-<slug>.tar.gz`` archive.
+#: Published sha256 of each Node distribution archive.
 _ARCHIVE_SHA256 = {
     "win-x64": "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba",
     "win-arm64": "31c6799744de8a54601643098040c68c3697e56c94e407d61d0e5fa5f34191d7",
