@@ -1,6 +1,6 @@
 """Portable process-ancestry walk for session identity (shared contract).
 
-Standard library only: macOS ``ps``, Linux procfs, Windows process tokens.
+Process facts come from the shared platform layer on every operating system.
 Hooks record the nearest per-session harness ancestor. Shells walk that same
 ancestry against the registry written by the hooks.
 
@@ -33,12 +33,11 @@ a reused pid fails that comparison, and so does a defunct one.
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
+import ntpath
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
-from yoke_contracts import linux_process_snapshot, terminal_detached_process
+from yoke_contracts import platform_process
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
 #: The process title of a Claude daemon spare, which becomes one session's host.
@@ -64,8 +63,8 @@ session it spawns, and the Cursor IDE host process is shared the same way.
 Claude's background-agent daemon keeps a pool of ``bg-pty-host`` and
 ``bg-spare`` processes and hands them to successive workers, so a pid
 identifies the pool slot rather than any one session. They announce that
-role in their process title, which is what ``ps`` reports as the command
-name. Listing them matters most on the read side: their chain can rise
+role in their process title, which the shared process layer reports as the
+command name. Listing them matters most on the read side: their chain can rise
 into an ordinary per-session ``claude``, and walking through would let a
 worker resolve to -- and act as -- whichever session owns that process.
 One such pid was observed holding a contention marker naming seven
@@ -73,9 +72,6 @@ sessions, which is that walk happening repeatedly on the write side.
 """
 
 _MAX_ANCESTOR_DEPTH = 64
-_PS_TIMEOUT_SECONDS = 5
-#: A process that exited unreaped: pid and start time are the ones it ran with.
-_DEFUNCT_PROCESS_STATE = "Z"
 
 
 @dataclass(frozen=True)
@@ -87,43 +83,12 @@ class ProcessAnchor:
     process_name: str
 
 
-def ps_lines(args: List[str]) -> List[str]:
-    """Run ``ps`` with ``args`` and return stdout lines; [] on any failure."""
-    try:
-        result = terminal_detached_process.run(
-            ["ps", *args],
-            capture_output=True,
-            text=True,
-            timeout=_PS_TIMEOUT_SECONDS,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return []
-    if result.returncode != 0:
-        return []
-    return result.stdout.splitlines()
-
-
 def process_table() -> Dict[int, Tuple[int, str]]:
-    """Return ``pid -> (ppid, executable basename)`` for every live process.
-
-    One platform snapshot supplies parents and names. Linux reads procfs
-    for untruncated names
-    and needs no ``ps``. macOS requests ``comm`` last to preserve spaces
-    in full paths. A nameless process retains its parent link.
-    """
-    if sys.platform == "linux":
-        return linux_process_snapshot.process_table()
-    table: Dict[int, Tuple[int, str]] = {}
-    for line in ps_lines(["-axo", "pid=,ppid=,comm="]):
-        fields = line.split(None, 2)
-        if len(fields) < 2:
-            continue
-        try:
-            pid, ppid = int(fields[0]), int(fields[1])
-        except ValueError:
-            continue
-        table[pid] = (ppid, os.path.basename(fields[2]) if len(fields) > 2 else "")
-    return table
+    """Return parent and executable title from one shared process snapshot."""
+    return {
+        entry.pid: (entry.ppid, entry.name)
+        for entry in platform_process.process_command_lines()
+    }
 
 
 def parent_map() -> Dict[int, int]:
@@ -132,35 +97,21 @@ def parent_map() -> Dict[int, int]:
 
 
 def process_start_time(pid: int) -> Optional[str]:
-    """Return the live process's platform start token; zombies answer as gone."""
-    if sys.platform == "win32":
-        from yoke_contracts import windows_process_snapshot
-
-        return windows_process_snapshot.process_start_time(pid)
-    if sys.platform == "linux":
-        return linux_process_snapshot.process_start_time(pid)
-    lines = ps_lines(["-o", "stat=,lstart=", "-p", str(pid)])
-    fields = lines[0].strip().split(None, 1) if lines else []
-    if len(fields) < 2 or fields[0].startswith(_DEFUNCT_PROCESS_STATE):
-        return None
-    return fields[1].strip() or None
+    """Return the live process creation epoch as an opaque identity token."""
+    return next(
+        (str(entry.start_time) for entry in platform_process.process_command_lines()
+         if entry.pid == pid and platform_process.pid_alive(pid, entry.start_time)),
+        None,
+    )
 
 
 def process_command_name(pid: int) -> Optional[str]:
-    """Return the executable basename for ``pid`` or ``None``.
-
-    Linux reads the full argv[0] or exe link; macOS basenames the whole
-    ``ps -o comm=`` line, preserving spaces in executable paths.
-    """
-    if sys.platform == "linux":
-        return linux_process_snapshot.process_command_name(pid)
-    lines = ps_lines(["-o", "comm=", "-p", str(pid)])
-    if not lines:
-        return None
-    raw = lines[0].strip()
-    if not raw:
-        return None
-    return os.path.basename(raw)
+    """Return the live executable title from the shared process layer."""
+    return next(
+        (entry.name for entry in platform_process.process_command_lines()
+         if entry.pid == pid),
+        None,
+    )
 
 
 def ancestor_pids(
@@ -174,7 +125,9 @@ def ancestor_pids(
     ``parents`` injects a process table for tests.
     """
     current = os.getpid() if pid is None else pid
-    table = parent_map() if parents is None else parents
+    if parents is None:
+        return [entry.pid for entry in platform_process.ancestors(current)]
+    table = parents
     seen = {current}
     chain: List[int] = []
     for _ in range(_MAX_ANCESTOR_DEPTH):
@@ -189,18 +142,24 @@ def ancestor_pids(
     return chain
 
 
+def process_basename(name: str) -> str:
+    """Normalize native executable paths and the Windows executable suffix."""
+    basename = ntpath.basename(name.strip()).lower()
+    return basename[:-4] if basename.endswith(".exe") else basename
+
+
 def is_harness_process_name(name: Optional[str]) -> bool:
     """True when ``name`` (an executable basename) is a known harness binary."""
     if not name:
         return False
-    return name.lower() in HARNESS_PROCESS_BASENAMES
+    return process_basename(name) in HARNESS_PROCESS_BASENAMES
 
 
 def is_multiplexed_process_name(name: Optional[str]) -> bool:
     """True when ``name`` hosts many sessions under one pid (never an anchor)."""
     if not name:
         return False
-    return name.lower() in MULTIPLEXED_PROCESS_BASENAMES
+    return process_basename(name) in MULTIPLEXED_PROCESS_BASENAMES
 
 
 def _unknown_name(_pid: int) -> Optional[str]:
@@ -241,7 +200,7 @@ def anchor_candidate_pids(
     chain: List[int] = []
     for ancestor in ancestor_pids(pid, parents=parents):
         name = resolve_name(ancestor)
-        if is_multiplexed_process_name(os.path.basename(name) if name else ""):
+        if is_multiplexed_process_name(process_basename(name) if name else ""):
             break
         chain.append(ancestor)
     return chain
@@ -275,7 +234,7 @@ def find_nearest_harness_anchor(
         name_of=resolve_name,
     ):
         name = resolve_name(ancestor)
-        basename = os.path.basename(name) if name else ""
+        basename = process_basename(name) if name else ""
         if not is_harness_process_name(basename):
             continue
         start_time = resolve_start(ancestor)
@@ -303,7 +262,7 @@ def find_nearest_named_process_anchor(
     use the result only for process liveness; the anchor registry's tenancy
     marker still refuses a pid shared by multiple sessions.
     """
-    targets = {os.path.basename(name).lower() for name in process_names if name}
+    targets = {process_basename(name) for name in process_names if name}
     if not targets:
         return None
     resolve_name = name_of
@@ -317,7 +276,7 @@ def find_nearest_named_process_anchor(
     resolve_start = process_start_time if start_time_of is None else start_time_of
     for ancestor in ancestor_pids(pid, parents=parents):
         name = resolve_name(ancestor)
-        basename = os.path.basename(name).lower() if name else ""
+        basename = process_basename(name) if name else ""
         if basename not in targets:
             continue
         start_time = resolve_start(ancestor)
@@ -339,8 +298,8 @@ __all__ = [
     "is_harness_process_name",
     "is_multiplexed_process_name",
     "parent_map",
+    "process_basename",
     "process_command_name",
     "process_start_time",
     "process_table",
-    "ps_lines",
 ]

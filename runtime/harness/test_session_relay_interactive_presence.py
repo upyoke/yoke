@@ -18,7 +18,10 @@ from yoke_harness.session_relay_process_liveness import verified_dead_sessions
 def test_contended_interactive_holder_prevents_false_death(
     tmp_path, monkeypatch, anchor_start, live
 ):
-    monkeypatch.setattr("os.getpgid", lambda pid: 99)
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_interactive_holder.platform_process.ancestors",
+        lambda pid: [],
+    )
     _handle(DEAD_SESSION, 4002, "spent-launch")
     anchors = tmp_path / "anchors"
     _anchor(

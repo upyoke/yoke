@@ -1,9 +1,7 @@
-"""Identity-bound group observation and bounded physical termination.
+"""Durable PID and creation-time custody for native process trees.
 
-Group ids alone can be reused. A surviving recorded member proves ownership.
-A different incarnation of the recorded leader leading the group proves reuse,
-so the recorded group is gone. Any other populated group stays unresolved and
-is never signalled.
+Captured descendants retain custody after their supervisor exits. Every stop
+revalidates each incarnation through the shared platform process owner.
 """
 
 from __future__ import annotations
@@ -11,58 +9,34 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import signal
-import subprocess
-import sys
-import time
 from typing import Any, Callable, Mapping
 
-from yoke_contracts.process_ancestry import process_start_time
+from yoke_contracts import platform_process
 
 MAX_RECORD_BYTES = 4096
 TERMINATE_WAIT_SECONDS = 2.0
 SUCCESS_RESULTS = frozenset({"terminated", "killed", "already_exited"})
 
 
-def group_members(group: int) -> dict[str, str]:
-    """Read live members; observation failures raise instead of proving exit."""
-    members = {}
-    if sys.platform == "linux":
-        for entry in Path("/proc").iterdir():
-            if not entry.name.isdecimal():
-                continue
-            try:
-                fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
-            except (FileNotFoundError, ProcessLookupError):
-                # A task may exit between enumeration and reading its stat.
-                continue
-            if int(fields[2]) == group and fields[0] != "Z":
-                members[entry.name] = "linux:" + fields[19]
-    else:
-        result = subprocess.run(
-            ["ps", "-axo", "pid=,pgid=,stat=,lstart="],
-            capture_output=True,
-            text=True,
-            timeout=TERMINATE_WAIT_SECONDS,
-            check=True,
-        )
-        for line in result.stdout.splitlines():
-            pid, pgid, state, started = line.split(None, 3)
-            if int(pgid) == group and not state.startswith("Z"):
-                members[pid] = started.strip()
-    return members
+def _identity(record: Mapping[str, Any]) -> tuple[int, str]:
+    pid = record.get("pid") or record.get("anchor_pid")
+    started = record.get("process_start_time") or record.get("anchor_start_time")
+    if not isinstance(pid, int) or pid <= 0 or not started:
+        raise ValueError("process_identity_missing")
+    return pid, str(started)
 
 
-def capture_group(pid: int, started: str) -> dict[str, Any]:
-    group = os.getpgid(pid)
-    members = group_members(group)
-    if (
-        process_start_time(pid) != started
-        or str(pid) not in members
-        or os.getpgid(pid) != group
-    ):
+def _members(record: Mapping[str, Any]) -> dict[str, str]:
+    pid, started = _identity(record)
+    return {str(pid): started, **dict(record.get("process_members") or {})}
+
+
+def capture_process_tree(pid: int, started: str) -> dict[str, Any]:
+    """Capture a verified root and its current descendants for later recovery."""
+    handle = platform_process.handle_from_pid(pid, float(started))
+    if handle is None:
         raise OSError("process_identity_changed")
-    return {"process_group_id": group, "group_members": members}
+    return {"process_members": {str(p): str(stamp) for p, stamp in handle.members}}
 
 
 def custody_state(
@@ -70,43 +44,17 @@ def custody_state(
     *,
     start_time_of: Callable[[int], str | None] | None = None,
 ) -> str:
-    """Return live, gone, or unresolved without signalling anything.
-
-    A supplied identity observer is authoritative for ungrouped records:
-    None means the recorded native is gone, including an exited zombie.
-    Grouped records still require a custody observation of every survivor.
-    """
-    group = record.get("process_group_id")
-    pid = record.get("pid") or record.get("anchor_pid")
-    started = record.get("process_start_time") or record.get("anchor_start_time")
+    """Return live, gone or unresolved; an observation failure proves no exit."""
     try:
-        if not isinstance(group, int):
-            if start_time_of is not None:
-                if not isinstance(pid, int) or pid <= 0 or not started:
-                    return "unresolved"
-                return "live" if start_time_of(pid) == started else "gone"
-            if process_start_time(pid) == started:
-                return "live"
-            # A reused pid must never be signalled. A missing identity probe
-            # alone does not prove exit when the numeric pid still exists.
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                return "gone"
-            return "gone" if process_start_time(pid) is not None else "unresolved"
-        members = group_members(group)
-        if not members:
-            return "gone"
-        captured = dict(record.get("group_members") or {})
-        recorded = {str(pid): started, **captured}
-        if any(members.get(p) == s for p, s in recorded.items()):
-            return "live"
-        # A pid is never reissued while a group with that id exists, so a new
-        # incarnation leading the group proves the recorded group ended.
-        leader = captured.get(str(group))
-        current = members.get(str(group))
-        return "gone" if leader and current and current != leader else "unresolved"
-    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+        members = _members(record)
+        if start_time_of is not None and not record.get("process_members"):
+            pid, started = _identity(record)
+            return "live" if start_time_of(pid) == started else "gone"
+        return "live" if any(
+            platform_process.pid_alive(int(pid), float(started))
+            for pid, started in members.items()
+        ) else "gone"
+    except (OSError, ValueError, TypeError):
         return "unresolved"
 
 
@@ -127,73 +75,53 @@ def write_record(path: Path, record: Mapping[str, Any]) -> bool:
     return True
 
 
-def _wait_gone(record: Mapping[str, Any], wait_seconds: float) -> bool:
-    deadline = time.monotonic() + wait_seconds
-    while True:
-        if custody_state(record) == "gone":
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        time.sleep(min(0.1, max(0, deadline - time.monotonic())))
-
-
 def terminate_record(
     record: dict[str, Any],
     *,
     wait_seconds: float = TERMINATE_WAIT_SECONDS,
     persist: Callable[[Mapping[str, Any]], bool] | None = None,
 ) -> str:
-    """One TERM/KILL attempt, with identity and exit checked at each boundary."""
+    """Persist survivors before asking the platform owner to stop their trees."""
     state = custody_state(record)
     if state == "gone":
         return "already_exited"
     if state != "live":
         return "outcome_unknown"
-    pid = record.get("pid") or record.get("anchor_pid")
-    started = record.get("process_start_time") or record.get("anchor_start_time")
     try:
-        if not isinstance(record.get("process_group_id"), int):
-            record.update(capture_group(pid, started))
-        group = record["process_group_id"]
-        if group == os.getpgrp():
+        members = _members(record)
+        for pid, started in tuple(members.items()):
+            if platform_process.pid_alive(int(pid), float(started)):
+                members.update(capture_process_tree(int(pid), started)["process_members"])
+        protected = {os.getpid(), *(entry.pid for entry in
+                                   platform_process.ancestors(os.getpid()))}
+        if any(int(pid) in protected and platform_process.pid_alive(int(pid), float(started))
+               for pid, started in members.items()):
             return "shared_process_group"
-        # Retain survivors before TERM can kill their supervisor. A retry can
-        # then recognize the same group even after its leader has gone.
-        record["group_members"] = group_members(group)
-        if custody_state(record) != "live" or (
-            persist is not None and not persist(record)
-        ):
+        record["process_members"] = members
+        if persist is not None and not persist(record):
             return "outcome_unknown"
-        for sig, success in (
-            (signal.SIGTERM, "terminated"),
-            (signal.SIGKILL, "killed"),
-        ):
-            state = custody_state(record)
-            if state == "gone":
-                return "terminated"
-            if state != "live":
-                return "outcome_unknown"
-            try:
-                os.killpg(group, sig)
-            except ProcessLookupError:
-                return success if custody_state(record) == "gone" else "outcome_unknown"
-            if _wait_gone(record, wait_seconds):
-                return success
+        pid, started = _identity(record)
+        handle = platform_process.GroupHandle.from_record({
+            "pid": pid, "start_time": float(started),
+            "members": [[int(p), float(stamp)] for p, stamp in members.items()],
+        })
+        platform_process.stop_group(handle, wait_seconds)
+        return "terminated" if custody_state(record) == "gone" else "outcome_unknown"
     except PermissionError:
         return "failed"
-    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+    except (OSError, ValueError, TypeError):
         return "outcome_unknown"
-    return "outcome_unknown"
 
 
-def bind_process_group(record: Mapping[str, Any]) -> dict[str, Any]:
-    """Resolve an anchor's group before any peer record can stop its leader."""
+def bind_process_tree(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Capture every live record before stopping any overlapping supervisor."""
     payload = dict(record)
-    pid = payload.get("pid") or payload.get("anchor_pid")
-    started = payload.get("process_start_time") or payload.get("anchor_start_time")
-    if not payload.get("process_group_id") and isinstance(pid, int) and started:
-        try:
-            payload.update(capture_group(pid, started))
-        except (OSError, ValueError, subprocess.SubprocessError):
-            pass
+    try:
+        members = _members(payload)
+        for pid, started in tuple(members.items()):
+            if platform_process.pid_alive(int(pid), float(started)):
+                members.update(capture_process_tree(int(pid), started)["process_members"])
+        payload["process_members"] = members
+    except (OSError, ValueError, TypeError):
+        pass
     return payload

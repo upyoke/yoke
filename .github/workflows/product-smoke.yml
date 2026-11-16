@@ -52,6 +52,29 @@ jobs:
           printf '%s\n' "${pythonLocation}/lib" | sudo tee /etc/ld.so.conf.d/yoke-product-smoke-python.conf >/dev/null
           sudo ldconfig
           env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
+      - name: Verify native process identity, reactivation and stop custody
+        run: |
+          uv sync --all-packages --locked
+          export YOKE_MACHINE_HOME="$RUNNER_TEMP/native-custody-machine"
+          export YOKE_PG_CLUSTER_ROOT="/tmp/yoke-native-custody-${GITHUB_RUN_ID}"
+          mkdir -p product-smoke-evidence
+          env -u YOKE_PG_CLUSTER_ROOT uv run --frozen yoke local-postgres start --json > product-smoke-evidence/native-postgres-setup.json
+          env -u YOKE_PG_CLUSTER_ROOT uv run --frozen yoke local-postgres stop --json > product-smoke-evidence/native-postgres-stop.json
+          trap 'uv run --frozen python -m yoke_core.tools.pg_testcluster stop' EXIT
+          uv run --frozen python -m pytest -q \
+            runtime/api/domain/test_process_ancestry.py \
+            runtime/api/domain/test_process_ancestry_platform.py \
+            runtime/api/domain/test_harness_family_identity.py \
+            runtime/api/domain/test_session_ambient_identity.py \
+            runtime/api/test_yoke_harness_identity_runtime.py \
+            runtime/harness/test_hook_helpers_model.py \
+            runtime/harness/test_session_process_custody.py \
+            runtime/harness/test_session_relay_interactive_holder.py \
+            runtime/harness/test_session_relay_claude_idle_hosts.py \
+            runtime/harness/test_session_relay_native_turn_custody.py \
+            runtime/harness/test_session_relay_recorded_exit_custody.py \
+            runtime/harness/test_session_relay_liveness_pruning.py \
+            runtime/harness/test_session_relay_liveness_pass_cost.py
       - name: Verify contributor checkout collection and tests
         run: |
           uv sync --all-packages --locked
