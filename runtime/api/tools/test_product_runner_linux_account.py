@@ -3,6 +3,7 @@
 from contextlib import nullcontext
 from pathlib import Path
 import sys
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -65,7 +66,8 @@ def test_linux_child_uses_verified_home_without_inheriting_tokens(monkeypatch, t
     assert "GH_TOKEN" not in env
 
 
-def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
+@pytest.mark.parametrize("teardown_failure", [None, "userdel", "systemctl"])
+def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path, teardown_failure):
     scratch = tmp_path / "account"
     scratch.mkdir()
     root = tmp_path / "checkout"
@@ -80,9 +82,15 @@ def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "pwd", SimpleNamespace(getpwnam=lambda user: SimpleNamespace(pw_uid=1234)))
     monkeypatch.setattr(account.tempfile, "TemporaryDirectory", lambda **kwargs: nullcontext(str(scratch)))
     calls = []
+    checked = []
 
     def run(argv, **kwargs):
         calls.append(argv)
+        checked.append(kwargs.get("check"))
+        if argv[0] == teardown_failure:
+            raise subprocess.CalledProcessError(8, argv, stderr="account still busy")
+        if argv[0] == "ps":
+            return SimpleNamespace(returncode=0, stdout="6589 1 /outside/slice survivor", stderr="")
         if argv[0] == "systemd-run":
             evidence = Path(argv[-1])
             evidence.mkdir()
@@ -90,7 +98,18 @@ def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
         return SimpleNamespace(returncode=7 if argv[0] == "systemd-run" else 0)
 
     monkeypatch.setattr(account.subprocess, "run", run)
-    assert account.run_account(root, output, Path("/tools/uv"), "Ubuntu 24.04", "arm64") == 7
+    if teardown_failure:
+        with pytest.raises(account.AccountRefused, match="smoke_account_teardown_incomplete") as refused:
+            account.run_account(root, output, Path("/tools/uv"), "Ubuntu 24.04", "arm64")
+        assert "6589 1 /outside/slice survivor" in str(refused.value)
+        assert "account still busy" in str(refused.value)
+        assert "smoke exit status: 7" in str(refused.value)
+        assert account.RELAUNCH in str(refused.value)
+        assert refused.value.exit_code == 7
+        assert calls.pop() == ["ps", "-o", "pid,ppid,cgroup,cmd", "-u", "yksmoke99"]
+        checked.pop()
+    else:
+        assert account.run_account(root, output, Path("/tools/uv"), "Ubuntu 24.04", "arm64") == 7
     login = next(argv for argv in calls if argv[0] == "systemd-run")
     home = scratch / "home"
     assert "--property=PAMName=login" in login
@@ -104,10 +123,15 @@ def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
     assert (home / "checkout" / ".git").is_dir()
     assert (output / "report.json").read_text() == "{}"
     assert ["chown", "-R", "yksmoke99:", str(scratch)] in calls
-    assert calls[-4][:2] == ["chown", "-R"] and calls[-4][-1] == str(output)
-    assert calls[-3][0:2] == ["loginctl", "terminate-user"]
-    assert calls[-2] == ["systemctl", "stop", "user@1234.service"]
-    assert calls[-1] == ["userdel", "yksmoke99"]
+    export_index = next(i for i, argv in enumerate(calls) if argv[0] == "chown" and argv[-1] == str(output))
+    assert calls[export_index][:2] == ["chown", "-R"]
+    assert calls[export_index + 1] == ["systemctl", "stop", "user-1234.slice"]
+    assert checked[export_index + 1] is True
+    if teardown_failure != "systemctl":
+        assert calls[export_index + 2] == ["userdel", "yksmoke99"]
+        assert checked[export_index + 2] is True
+    else:
+        assert not any(argv[0] == "userdel" for argv in calls)
     assert not (tmp_path / "yoke-smoke-1234").exists()
     assert all("enable-linger" not in argv for argv in calls)
 
@@ -116,3 +140,15 @@ def test_launcher_refuses_outside_disposable_linux_ci(monkeypatch, tmp_path):
     monkeypatch.setattr(account, "os", SimpleNamespace(getuid=lambda: 1000, environ={}))
     with pytest.raises(account.AccountRefused, match="smoke_account_requires_disposable_linux_runner"):
         account.run_account(tmp_path, tmp_path / "out", Path("/uv"), "Ubuntu 24.04", "arm64")
+
+
+def test_launcher_preserves_primary_smoke_exit_on_teardown_refusal(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["account", "--output", "/out", "--uv", "/uv",
+                                     "--expected-os", "linux", "--expected-architecture", "arm64"])
+
+    def refuse(*args):
+        raise account.AccountRefused("smoke_account_teardown_incomplete: survivor", exit_code=7)
+
+    monkeypatch.setattr(account, "run_account", refuse)
+    assert account.main() == 7
+    assert "smoke_account_teardown_incomplete: survivor" in capsys.readouterr().err

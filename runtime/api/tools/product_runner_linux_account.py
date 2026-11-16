@@ -28,6 +28,10 @@ RELAUNCH = "rerun the product-smoke workflow, which starts the smoke through pro
 class AccountRefused(RuntimeError):
     """The disposable account or its login session is not what the smoke needs."""
 
+    def __init__(self, message: str, *, exit_code: int = 1):
+        super().__init__(message)
+        self.exit_code = exit_code
+
 
 def _probe(argv: list[str], reason: str) -> str:
     result = subprocess.run(argv, capture_output=True, text=True, check=False)
@@ -85,6 +89,7 @@ def run_account(root: Path, output: Path, uv: Path, expected_os: str, architectu
     created = False
     uid = None
     policy = None
+    smoke_returncode = None
     with tempfile.TemporaryDirectory(prefix="yoke-smoke-account-", dir="/home") as scratch:
         home = Path(scratch) / "home"
         checkout = home / "checkout"
@@ -124,21 +129,36 @@ def run_account(root: Path, output: Path, uv: Path, expected_os: str, architectu
                 sys.executable, str(checkout / "runtime/api/tools/product_runner_smoke.py"),
                 "--output", str(evidence),
             ], check=False)  # fmt: skip
-            return result.returncode
+            smoke_returncode = result.returncode
+            return smoke_returncode
         finally:
             if evidence.is_dir():
                 # Hand the proof back to the runner account for upload.
                 shutil.copytree(evidence, output, dirs_exist_ok=True)
                 subprocess.run(["chown", "-R", f"{runner.st_uid}:{runner.st_gid}", str(output)], check=True)
             if created:
-                # The smoke uninstalls its relay before its login exits. Stop
-                # any failed-session residue before deleting the account.
-                subprocess.run(["loginctl", "terminate-user", user], check=False)
-                if uid is not None:
-                    subprocess.run(["systemctl", "stop", f"user@{uid}.service"], check=False)
+                # Stopping the whole slice waits for all disposable UID
+                # processes, including residue outside the user manager.
                 if policy is not None:
                     policy.unlink(missing_ok=True)
-                subprocess.run(["userdel", user], check=True)
+                try:
+                    if uid is not None:
+                        subprocess.run(["systemctl", "stop", f"user-{uid}.slice"], check=True,
+                                       capture_output=True, text=True)
+                    subprocess.run(["userdel", user], check=True, capture_output=True, text=True)
+                except subprocess.CalledProcessError as exc:
+                    processes = subprocess.run(
+                        ["ps", "-o", "pid,ppid,cgroup,cmd", "-u", user],
+                        check=False, capture_output=True, text=True,
+                    )
+                    raise AccountRefused(
+                        f"smoke_account_teardown_incomplete: `{' '.join(exc.cmd)}` "
+                        f"exited {exc.returncode}: {exc.stderr}; "
+                        f"smoke exit status: {smoke_returncode}; "
+                        f"remaining disposable account processes (ps exit {processes.returncode}): "
+                        f"{processes.stdout}{processes.stderr}; {RELAUNCH}",
+                        exit_code=smoke_returncode or 1,
+                    ) from None
 
 
 def main() -> int:
@@ -156,7 +176,7 @@ def main() -> int:
         )  # fmt: skip
     except AccountRefused as exc:
         print(f"product-smoke failed: {exc}", file=sys.stderr)
-        return 1
+        return exc.exit_code
 
 
 if __name__ == "__main__":
