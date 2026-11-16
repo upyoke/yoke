@@ -15,6 +15,9 @@ from yoke_harness.native_windows.journal import journal_operation
 from yoke_core.domain.native_windows_fixture import NativeWindowsFixture
 
 
+pytestmark = pytest.mark.windows
+
+
 def completed(stdout="", returncode=0, stderr=""):
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 

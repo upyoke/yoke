@@ -82,9 +82,8 @@ def _loader_finds_libpq() -> bool:
     return any(line.split()[:1] == ["libpq.so.5"] for line in cache.stdout.splitlines())
 
 
-def _copy_pg_client(image: str, holder: str, staging: Path) -> bool:
-    """Copy the client tools (and libpq when missing) out of the image."""
-    pull = "Check the pulled image and Docker daemon, then retry CI"
+def _copy_pg_client(container: str, staging: Path) -> bool:
+    """Copy the client tools (and libpq when missing) out of the running server."""
     triplet = IMAGE_LIB_TRIPLETS.get(platform.machine())
     if triplet is None:
         raise _refuse(
@@ -95,28 +94,20 @@ def _copy_pg_client(image: str, holder: str, staging: Path) -> bool:
     needs_libpq = not _loader_finds_libpq()
     if needs_libpq:
         sources.append((f"/usr/lib/{triplet}/libpq.so.5", staging / "libpq.so.5"))
-    _pg_client_step("create", ["docker", "create", "--name", holder, image], pull, timeout=60)
-    try:
-        for source, target in sources:
-            _pg_client_step(
-                "copy", ["docker", "cp", "-L", f"{holder}:{source}", str(target)],
-                pull, timeout=60,
-            )
-    except PreparationError:
+    for source, target in sources:
         try:
-            _run(["docker", "rm", "-f", holder], timeout=30)
-        except PreparationError as cleanup:
-            print(str(cleanup), file=sys.stderr, flush=True)
-        raise
-    _pg_client_step(
-        "cleanup", ["docker", "rm", "-f", holder],
-        f"Remove container {holder} with docker rm -f, then retry CI", timeout=30,
-    )
+            _docker(["docker", "cp", "-L", f"{container}:{source}", str(target)], timeout=60)
+        except PreparationError as exc:
+            raise _refuse(
+                f"ci_runner_pg_client_copy_failed: {exc}",
+                f"Check that container {container} is running and the Docker daemon "
+                "is responsive, then retry CI",
+            ) from exc
     return needs_libpq
 
 
-def install_pg_client(image: str, container: str) -> None:
-    """Supply PostgreSQL 16 client tools from the pulled server image, without apt."""
+def install_pg_client(container: str) -> None:
+    """Supply PostgreSQL 16 client tools from the running server container, without apt."""
     if _pg_client_version_problem() is None:
         return
     if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -126,7 +117,7 @@ def install_pg_client(image: str, container: str) -> None:
             "Install the PostgreSQL 16 client tools on the runner, then retry CI",
         )
     staging = Path(tempfile.mkdtemp(prefix="yoke-ci-pg-client.", dir="/tmp"))
-    needs_libpq = _copy_pg_client(image, f"{container}-client", staging)
+    needs_libpq = _copy_pg_client(container, staging)
     install = "Repair sudo access and runner disk space, then retry CI"
     _pg_client_step("install", ["sudo", "install", "-d", str(PG_CLIENT_BIN)],
                     install, timeout=30)
@@ -163,31 +154,57 @@ def _publish_env(values: dict[str, str]) -> None:
         target.writelines(f"{key}={value}\n" for key, value in values.items())
 
 
+def _docker(args: list[str], *, capture: bool = False, timeout: int):
+    """Run one Docker step and log its duration whether it passes or fails."""
+    started = time.monotonic()
+    outcome = "failed"
+    try:
+        result = _run(args, capture=capture, timeout=timeout)
+        outcome = "passed"
+        return result
+    finally:
+        print(
+            f"CI Postgres step: {' '.join(args[:2])}; outcome={outcome}; "
+            f"elapsed={time.monotonic() - started:.3f}s", flush=True,
+        )
+
+
+HOST_DIAGNOSTICS = (
+    ["cat", "/proc/pressure/io"],
+    ["df", "-h", "/var/lib/docker"],
+    ["journalctl", "-u", "docker", "--since", "-5min", "-n", "100", "--no-pager"],
+)
+
+
+def _print_diagnostics(commands) -> None:
+    """Print each bounded diagnostic's output; a failing one never hides the cause."""
+    for command in commands:
+        print("CI Postgres diagnostic: " + " ".join(command), file=sys.stderr, flush=True)
+        try:
+            result = _run(command, capture=True, timeout=10)
+            print((result.stdout or "")[:8000], file=sys.stderr, flush=True)
+            print((result.stderr or "")[:8000], file=sys.stderr, flush=True)
+        except PreparationError as exc:
+            print(str(exc), file=sys.stderr, flush=True)
+
+
 def _start_container(args: list[str], container: str) -> None:
     for attempt in range(2):
         try:
-            _run(args, timeout=120)
+            _docker(args, timeout=120)
             return
         except PreparationError:
             if attempt == 0:
                 try:
-                    _run(["docker", "rm", "-f", container], timeout=30)
+                    _docker(["docker", "rm", "-f", container], timeout=30)
                 except PreparationError as exc:
                     print(str(exc), file=sys.stderr, flush=True)
                 continue
-            for command in (
+            _print_diagnostics((
                 ["docker", "ps", "-a", "--filter", f"name={container}"],
                 ["docker", "logs", "--tail", "50", container],
                 ["docker", "info"],
-            ):
-                print("CI Postgres diagnostic: " + " ".join(command),
-                      file=sys.stderr, flush=True)
-                try:
-                    result = _run(command, capture=True, timeout=10)
-                    print((result.stdout or "")[:8000], file=sys.stderr, flush=True)
-                    print((result.stderr or "")[:8000], file=sys.stderr, flush=True)
-                except PreparationError as exc:
-                    print(str(exc), file=sys.stderr, flush=True)
+            ))
             raise
 
 
@@ -198,9 +215,17 @@ def start_postgres() -> None:
     # Publish before starting Docker so the caller's always-cleanup can run
     # even if this task or a concurrent prerequisite fails.
     _publish_env({"YOKE_PG_SOCKET_DIR": socket_dir})
+    try:
+        _start_postgres_container(container, image, socket_dir)
+    except PreparationError:
+        _print_diagnostics(HOST_DIAGNOSTICS)
+        raise
+
+
+def _start_postgres_container(container: str, image: str, socket_dir: str) -> None:
     for attempt in range(5):
         try:
-            _run(["docker", "pull", image], timeout=60)
+            _docker(["docker", "pull", image], timeout=60)
             break
         except PreparationError:
             if attempt == 4:
@@ -210,7 +235,6 @@ def start_postgres() -> None:
                 ) from None
             # artifact-fetch-allow: bounded retries for transient GHCR transport faults
             time.sleep(random.randint(5, 30))
-    install_pg_client(image, container)
     timezone = dict(DISPOSABLE_SERVER_SETTINGS)["timezone"]
     _start_container([
         "docker", "run", "-d", "--name", container,
@@ -221,7 +245,9 @@ def start_postgres() -> None:
         "-c", "synchronous_commit=off", "-c", "full_page_writes=off",
         "-c", "wal_level=minimal", "-c", "max_wal_senders=0",
     ], container)
-    mapping = _run(["docker", "port", container, "5432"], capture=True, timeout=10)
+    # The server runs the same image, so its client tools come from it.
+    install_pg_client(container)
+    mapping = _docker(["docker", "port", container, "5432"], capture=True, timeout=10)
     lines = mapping.stdout.splitlines()
     port = lines[0].rsplit(":", 1)[-1] if lines else ""
     if not port.isdecimal() or not 0 < int(port) < 65536:

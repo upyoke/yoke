@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Any, Callable
 
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
@@ -96,10 +97,10 @@ def host_block(env: Any, known_hosts: str) -> str:
             f"Host {name}",
             f"  HostName {host}",
             f"  User {user}",
-            f'  IdentityFile "{key_path(env)}"',
+            f'  IdentityFile "{Path(key_path(env)).as_posix()}"',
             "  IdentitiesOnly yes",
             f"  HostKeyAlias {name}",
-            f'  UserKnownHostsFile "{known_hosts}"',
+            f'  UserKnownHostsFile "{Path(known_hosts).as_posix()}"',
             "  StrictHostKeyChecking yes",
             "  BatchMode yes",
         ]

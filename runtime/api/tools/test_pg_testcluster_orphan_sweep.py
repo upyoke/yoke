@@ -15,6 +15,11 @@ from yoke_core.domain import pg_test_db_namespace
 from yoke_core.domain.db_backend import POSTGRES_TEST_DB_PREFIX
 from yoke_core.tools import pg_testcluster, pg_testcluster_orphans
 
+import pytest
+
+
+pytestmark = pytest.mark.windows
+
 
 def _completed(stdout: str = '', returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout=stdout, stderr='')
@@ -196,18 +201,17 @@ def test_sweep_stays_quiet_when_nothing_was_orphaned(monkeypatch, capsys):
 def test_owner_liveness_reads_the_operating_system(monkeypatch):
     assert pg_testcluster_orphans._owner_process_is_alive(os.getpid())
 
-    def refuse(pid, sig):
-        raise ProcessLookupError
-
-    monkeypatch.setattr(pg_testcluster_orphans.os, "kill", refuse)
+    from yoke_contracts import platform_process
+    monkeypatch.setattr(platform_process, "pid_alive", lambda pid: False)
     assert not pg_testcluster_orphans._owner_process_is_alive(999999)
 
 
-def test_owner_owned_by_another_user_counts_as_alive(monkeypatch):
-    # Not ours to signal means not ours to reclaim.
-    def refuse(pid, sig):
-        raise PermissionError
+def test_unreadable_owner_is_preserved(monkeypatch, capsys):
+    from yoke_contracts import platform_process
 
-    monkeypatch.setattr(pg_testcluster_orphans.os, "kill", refuse)
+    def denied(_pid):
+        raise PermissionError("process access denied")
 
+    monkeypatch.setattr(platform_process, "pid_alive", denied)
     assert pg_testcluster_orphans._owner_process_is_alive(4242)
+    assert "pgtest_owner_unreadable" in capsys.readouterr().err

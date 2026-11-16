@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.self_host import native_windows
+
 import argparse
 import json
 import os
@@ -238,6 +240,11 @@ def _confirm_replace(directory: Path, *, assume_yes: bool) -> None:
 
 
 def self_host_import(args: List[str]) -> int:
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host import",
         description=(

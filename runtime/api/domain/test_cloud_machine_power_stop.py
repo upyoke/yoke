@@ -14,6 +14,9 @@ from yoke_core.domain.cloud_machine_power_stop import stop_released
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 from runtime.api.domain.cloud_machine_power_test_support import CLOUD, MAC, OK
 
+
+pytestmark = pytest.mark.windows
+
 RELEASED = [{"project": "yoke", "test_machine": "windows-lab"}]
 
 

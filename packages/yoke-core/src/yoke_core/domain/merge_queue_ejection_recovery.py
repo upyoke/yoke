@@ -79,7 +79,7 @@ def recover_ejection(
     read_queue=read_queue_members,
     read_files=read_pr_changed_files,
     enqueue=enter_merge_queue,
-    reread=None,
+    reread,
     failed_train=unchanged_failed_train_refusal,
 ):
     """Snapshot predecessors while queued; recover only the same unchanged head.
@@ -176,6 +176,15 @@ def recover_ejection(
         return replace(readback, queue_recovery={**recovery, "action": "watching"})
     if not (recovering or queue_only or recovery.get("ahead")):
         return readback
+    if member.mergeable == "UNKNOWN":
+        # GitHub may report a real base conflict as UNKNOWN for a while; one
+        # fresh read decides rebase before anything promises re-enqueue.
+        fresh = reread(ctx, pr_number)
+        if fresh.state is not None and fresh.membership is not None:
+            readback, state, member = fresh, fresh.state, fresh.membership
+        if conflicts_with_base(readback):
+            recovery.pop("message", None)
+            return replace(readback, queue_recovery={**recovery, "action": "rebase"})
     current = {m.pr_num for m in members}
     waiting = [
         entry for entry in recovery.get("ahead", []) if entry["pr_number"] in current
@@ -185,7 +194,18 @@ def recover_ejection(
             f"PR #{entry['pr_number']} (shared files: {', '.join(entry['shared_files']) or 'none'})"
             for entry in waiting
         )
-        message = f"queue_conflict: waiting for {details or 'GitHub to remove the unmergeable entry'} to land or leave. The landing observer re-enqueues the unchanged head by itself once GitHub reports it MERGEABLE, and sends a new notice if it reports CONFLICTING; take no action and do not hold the landing."
+        if member.mergeable == "UNKNOWN":
+            message = (
+                f"queue_conflict: GitHub is still computing mergeability for PR #{pr_number}"
+                + (f"; waiting for {details} to land or leave" if details else "")
+                + ". A rebase may follow: if GitHub reports it CONFLICTING, the landing "
+                f"observer sends a new notice; rebase the lane onto {ctx.args.target}, re-run "
+                "the verification gate, and re-run `yoke merge item`. If it reports "
+                "MERGEABLE, the observer re-enqueues the unchanged head by itself; do not "
+                "hold the landing."
+            )
+        else:
+            message = f"queue_conflict: waiting for {details or 'GitHub to remove the unmergeable entry'} to land or leave. The landing observer re-enqueues the unchanged head by itself once GitHub reports it MERGEABLE, and sends a new notice if it reports CONFLICTING; take no action and do not hold the landing."
         return replace(
             readback,
             queue_recovery={**recovery, "action": "waiting", "message": message},

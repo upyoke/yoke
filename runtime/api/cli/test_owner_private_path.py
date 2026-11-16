@@ -10,6 +10,9 @@ import pytest
 from yoke_contracts import owner_private_path
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits do not model DACLs")
 def test_posix_owner_private_file_requires_private_mode(tmp_path: Path) -> None:
     path = tmp_path / "config.json"
