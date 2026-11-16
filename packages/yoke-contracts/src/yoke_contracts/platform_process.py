@@ -159,6 +159,7 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
         raise ValueError("invalid_stop_timeout: use a finite nonnegative timeout")
     processes = {}
     try:
+        job_running = handle._job is not None and handle._job.has_active_processes()
         for pid, stamp in handle.members:
             if not pid_alive(pid, stamp):
                 continue
@@ -170,17 +171,23 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
                 processes[child.pid] = child
         # Only a live, verified leader authorizes signalling a POSIX group.
         if os.name != "nt" and handle._owns_session and pid_alive(handle.pid, handle.start_time):
-            os.killpg(handle.pid, signal.SIGTERM)
-        if os.name == "nt" and handle.process is not None and processes:
             try:
-                handle.process.send_signal(signal.CTRL_BREAK_EVENT)
-            except OSError:
-                pass  # No attached console: the verified tree still stops below.
-        for process in reversed(list(processes.values())):
-            try:
-                process.terminate()
-            except psutil.NoSuchProcess:
+                os.killpg(handle.pid, signal.SIGTERM)
+            except ProcessLookupError:
                 pass
+        console_stop = False
+        if os.name == "nt" and handle.pid in processes:
+            try:
+                processes[handle.pid].send_signal(signal.CTRL_BREAK_EVENT)
+                console_stop = True
+            except (OSError, psutil.Error):
+                pass  # No attached console: the verified tree still stops below.
+        if not console_stop:
+            for process in reversed(list(processes.values())):
+                try:
+                    process.terminate()
+                except psutil.NoSuchProcess:
+                    pass
         _, alive = psutil.wait_procs(list(processes.values()), timeout=timeout)
         if handle._job is not None:
             handle._job.terminate()
@@ -195,7 +202,7 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
             raise TimeoutError(f"process_stop_timeout: PIDs {[p.pid for p in alive]}; close their owner and retry")
         if handle.process is not None:
             handle.process.wait(timeout=timeout)
-        return bool(processes)
+        return bool(processes) or job_running
     except psutil.Error as exc:
         raise OSError(f"process_stop_failed: PID {handle.pid}; run as its owner and retry") from exc
     finally:

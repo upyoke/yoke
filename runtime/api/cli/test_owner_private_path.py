@@ -84,3 +84,32 @@ def test_private_write_does_not_create_parents(tmp_path):
     with pytest.raises(OSError):
         owner_private_path.write_owner_private(tmp_path / "missing" / "secret", b"no")
     assert not (tmp_path / "missing").exists()
+
+
+def test_windows_private_creation_explicitly_sets_token_user_owner(monkeypatch, tmp_path):
+    """Elevated Windows tokens can otherwise default ownership to Administrators."""
+    from types import SimpleNamespace
+    windows = owner_private_path.windows_private_directory
+    descriptors, masks = [], []
+    class Function:
+        def __init__(self, callback):
+            self.callback = callback
+        def __call__(self, *args):
+            return self.callback(*args)
+    def convert(sddl, revision, output, length):
+        descriptors.append(sddl)
+        output._obj.value = 123
+        return 1
+    api = SimpleNamespace(
+        ConvertStringSecurityDescriptorToSecurityDescriptorW=Function(convert),
+        SetFileSecurityW=Function(lambda path, mask, descriptor: masks.append(mask) or 1),
+        CreateDirectoryW=Function(lambda *args: 1),
+        LocalFree=Function(lambda *args: None),
+    )
+    monkeypatch.setattr(windows.ctypes, 'WinDLL', lambda *a, **k: api, raising=False)
+    monkeypatch.setattr(windows, '_configure_apis', lambda *args: None)
+    monkeypatch.setattr(windows, '_current_user_sid', lambda *args: 'S-1-5-21-123')
+    windows.create_private_directory(tmp_path / 'private')
+    windows.make_private_file(tmp_path / 'file')
+    assert all(sddl.startswith('O:S-1-5-21-123D:P') for sddl in descriptors)
+    assert masks[0] & windows._OWNER_SECURITY_INFORMATION

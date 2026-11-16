@@ -271,7 +271,10 @@ the serving floor named.
 
 For evidence that depends on time or traffic, the holder schedules its own recheck:
 `yoke sessions wake schedule --at 2026-12-01T12:00:00Z --reason "check the required traffic evidence"`.
-Choose the earliest instant the evidence can exist. The durable wake uses the same
-manifest-qualified relay as other messages. A release takeover moves the requirement
-and its QA without sending this notice again; changed evidence or a new holder
-gets a fresh notice.
+Choose whenever the evidence could plausibly exist (a date for time-based evidence,
+a sensible interval for event-based evidence), and schedule the next one after every
+recheck that still finds none; the holder cannot park without one. The durable wake
+uses the same manifest-qualified relay as other messages. A release takeover moves
+the requirement and its QA without sending this notice again, and sends no
+takeover notice to a manual-only holder that holds a scheduled recheck; changed
+evidence or a new holder gets a fresh notice.
