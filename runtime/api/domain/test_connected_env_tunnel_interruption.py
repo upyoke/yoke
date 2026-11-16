@@ -11,7 +11,8 @@ import pytest
 from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import connected_env_tunnel_lifecycle as lifecycle
-from yoke_core.domain import machine_config, process_group_reaping
+from yoke_core.domain import machine_config
+from yoke_contracts.platform_process import spawn_group, stop_group
 
 
 def test_reaped_preflight_releases_replacement_guard(tmp_path, monkeypatch):
@@ -25,7 +26,7 @@ def test_reaped_preflight_releases_replacement_guard(tmp_path, monkeypatch):
         remote_host="db.example.invalid",
         remote_port=5432,
     )
-    child = process_group_reaping.popen_in_process_group(
+    group = spawn_group(
         [
             sys.executable,
             "-c",
@@ -39,11 +40,13 @@ def test_reaped_preflight_releases_replacement_guard(tmp_path, monkeypatch):
         text=True,
         env=os.environ.copy(),
     )
+    child = group.process
+    assert child is not None
     try:
         assert child.stdout is not None
         assert child.stdout.readline().strip() == "copying"
         lease_dir = coordination.coordination_dir(port) / coordination.LEASE_DIR_NAME
-        lease_path = next(lease_dir.iterdir())
+        lease_path = next(lease_dir.glob("*.json"))
         assert lease_path.exists()
         monkeypatch.setattr(lifecycle, "LEASE_WAIT_SECONDS", 0.0)
         with pytest.raises(connector.ConnectedEnvUnavailable) as refusal:
@@ -53,7 +56,7 @@ def test_reaped_preflight_releases_replacement_guard(tmp_path, monkeypatch):
             refusal.value
         )
 
-        process_group_reaping.terminate_process_group(child)
+        stop_group(group, timeout=2.0)
         assert lease_path.exists()  # SIGTERM bypassed the child's finally block.
         monkeypatch.setattr(coordination, "pid_alive", lambda _pid: True)
         started = []
@@ -69,4 +72,4 @@ def test_reaped_preflight_releases_replacement_guard(tmp_path, monkeypatch):
         assert started == [spec]
         assert not lease_path.exists()
     finally:
-        process_group_reaping.terminate_process_group(child)
+        stop_group(group, timeout=2.0)
