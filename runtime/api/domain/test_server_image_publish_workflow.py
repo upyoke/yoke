@@ -316,3 +316,33 @@ def test_ci_cache_writes_are_ref_gated_and_pr_builds_only_read():
         "${{ github.ref == 'refs/heads/main' "
         "&& 'type=gha,mode=max,scope=yoke-ci-container' || '' }}"
     )
+
+
+def test_main_images_consume_attested_wheels_and_queue_keeps_source_build():
+    import yaml
+
+    jobs = yaml.safe_load(_text())["jobs"]
+    build = jobs["build"]
+    assert build["permissions"]["actions"] == "read"
+    assert build["permissions"]["attestations"] == "read"
+    steps = build["steps"]
+    promotion = next(
+        i
+        for i, step in enumerate(steps)
+        if "promote_main_artifacts.py wheels" in step.get("run", "")
+    )
+    image = next(i for i, step in enumerate(steps) if step.get("id") == "push")
+    assert promotion < image
+    assert '--source-sha "$GITHUB_SHA"' in steps[promotion]["run"]
+    assert (
+        steps[image]["with"]["build-contexts"]
+        == "builder=${{ runner.temp }}/main-wheels"
+    )
+    assert "YOKE_ATTESTED_WHEELS=1" in steps[image]["with"]["build-args"]
+    queue = next(
+        step
+        for step in jobs["check-build"]["steps"]
+        if "docker/build-push-action@" in step.get("uses", "")
+    )
+    assert "build-contexts" not in queue["with"]
+    assert "YOKE_ATTESTED_WHEELS" not in queue["with"]["build-args"]

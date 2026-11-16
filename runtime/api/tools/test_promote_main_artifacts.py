@@ -223,16 +223,65 @@ def test_promotion_refusal_reaches_release_failure_trace(monkeypatch, capsys, tm
         raise ValueError("main_factory_failed: exact main factory failed")
 
     monkeypatch.setattr(subject, "promote", refuse)
-    assert subject.main([
-        "image", "--repo", "owner/yoke", "--source-sha", SHA,
-        "--version", VERSION, "--destination", str(tmp_path),
-    ]) == 1
+    assert (
+        subject.main(
+            [
+                "image",
+                "--repo",
+                "owner/yoke",
+                "--source-sha",
+                SHA,
+                "--version",
+                VERSION,
+                "--destination",
+                str(tmp_path),
+            ]
+        )
+        == 1
+    )
     annotation = capsys.readouterr().err.strip()
     assert annotation.startswith("::error::main_artifact_promotion_refused: ")
     # GitHub Actions renders workflow error annotations in downloaded job logs.
     logged = annotation.replace("::error::", "##[error]", 1)
-    diagnostic = terminal_error(logged + "\n##[error]Process completed with exit code 1.")
+    diagnostic = terminal_error(
+        logged + "\n##[error]Process completed with exit code 1."
+    )
     assert diagnostic == (
         "main_artifact_promotion_refused: main_factory_failed: exact main factory failed; "
         "inspect the exact main factory and retry the failed publication job"
+    )
+
+
+def test_tampered_wheel_is_refused_before_attestation(wheel_tree, monkeypatch):
+    root, _ = wheel_tree
+    wheel = next((root / "wheels").glob("*.whl"))
+    wheel.write_bytes(wheel.read_bytes() + b"tampered")
+    monkeypatch.setattr(subject, "download", lambda *a: None)
+    monkeypatch.setattr(
+        subject, "attest", lambda *a, **kw: pytest.fail("tampered wheel was attested")
+    )
+    args = image_args(root)
+    args.kind = "wheels"
+    with pytest.raises(ValueError, match="main_wheel_identity_mismatch"):
+        subject.promote(args)
+
+
+def test_container_local_validation_never_downloads_or_attests(wheel_tree, monkeypatch):
+    root, _ = wheel_tree
+    monkeypatch.setattr(
+        subject, "run", lambda *a: pytest.fail("local validation used network")
+    )
+    assert (
+        subject.main(
+            [
+                "check-wheels",
+                "--source-sha",
+                SHA,
+                "--version",
+                VERSION,
+                "--destination",
+                str(root),
+            ]
+        )
+        == 0
     )

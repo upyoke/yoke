@@ -53,14 +53,20 @@ every Linux runtime dependency on x86_64 and aarch64. Review the published
 image's distribution diff against the lock when changing this build contract.
 
 The image factory builds and verifies native linux/amd64 and linux/arm64 images
-on `main`, assembles their manifest and signs its digest in a no-checkout job.
+on `main`, using the four attested wheels from that exact commit's successful
+wheel factory. Each native job verifies GitHub attestations, replaces Docker's
+`builder` stage with the verified artifact context, and rechecks manifest digests
+before installation. It compares each wheel's original hashed `RECORD` rows
+with installed metadata and actual files; installer-generated rows are additional.
+The factory then assembles their manifest and signs its digest in a no-checkout job.
 The tag job downloads that successful exact-main record and verifies its OCI
 attestation before promoting the same digest to `:VERSION`. It refuses a
 conflicting immutable version reference. Serialized publication advances `latest`
 only for the highest canonical annotated release, so retrying an older release
 cannot roll it back. Main pushes never update release pointers.
 Merge-queue candidates check both native image builds with read-only permissions,
-without registry publication or signing.
+without registry publication or signing. Queue, checkout and operator builds keep
+the Dockerfile source builder when no attested context is supplied.
 
 Both main factory artifacts retain their provenance records for 14 days. If
 those workflow artifacts expire, rerun the exact main factory and then retry

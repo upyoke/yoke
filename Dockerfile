@@ -128,15 +128,28 @@ FROM runtime-base AS runtime
 
 WORKDIR /app
 
-# Bind mounts keep build tooling/wheels out of the image. Only the small
-# workspace installation changes; the external-dependency layer stays shared.
-RUN --mount=type=bind,from=builder,source=/wheels,target=/wheels \
-    --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
-    uv pip install --python /opt/yoke-venv/bin/python --no-cache --compile-bytecode --no-deps --no-index /wheels/*.whl
-
-# Commit identity belongs after stable OS, user, PostgreSQL and dependencies.
+# Main supplies the attested artifact as the named context `builder`, replacing
+# the source builder above. Other callers keep the source build by default.
+ARG YOKE_ATTESTED_WHEELS=0
 ARG YOKE_BUILD_SHA=""
 ARG YOKE_ENGINE_VERSION=""
+
+# Bind mounts keep build tooling/wheels out of the image. Only the small
+# workspace installation changes; the external-dependency layer stays shared.
+RUN --mount=type=bind,from=builder,source=/,target=/product \
+    --mount=type=bind,source=packages,target=/validation/packages \
+    --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
+    if [ "$YOKE_ATTESTED_WHEELS" = 1 ]; then \
+        PYTHONPATH=/validation/packages/yoke-contracts/src \
+        python /validation/packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py check-wheels \
+            --destination /product --version "$YOKE_ENGINE_VERSION" --source-sha "$YOKE_BUILD_SHA"; \
+    elif [ "$YOKE_ATTESTED_WHEELS" != 0 ]; then \
+        echo "invalid_attested_wheels_mode: use 0 for source or 1 with the verified builder context" >&2; exit 1; \
+    fi \
+    && uv pip install --python /opt/yoke-venv/bin/python --no-cache --compile-bytecode --no-deps --no-index /product/wheels/*.whl \
+    && python -m yoke_core.tools.container_image_validation --wheels /product/wheels
+
+# Commit identity follows stable OS, user, PostgreSQL and dependencies.
 ENV YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
 
 # Import every installed core module with the source checkout absent.

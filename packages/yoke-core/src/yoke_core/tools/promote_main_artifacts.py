@@ -116,7 +116,8 @@ def attest(
     ]
     if oci:
         command.append("--bundle-from-oci")
-    run(command)
+    output = run(command)
+    print(f"Attestation verified: {subject}\n{output}", flush=True)
 
 
 def validate_wheels(root: Path, version: str, source: str) -> list[Path]:
@@ -167,6 +168,9 @@ def validate_wheels(root: Path, version: str, source: str) -> list[Path]:
 
 def promote(args) -> dict[str, str]:
     version = release_version(args.version)
+    if args.kind == "check-wheels":
+        validate_wheels(args.destination, version, args.source_sha)
+        return {"release_version": version}
     if args.kind == "wheels":
         workflow = "yoke-build-artifacts.yml"
         name = f"yoke-release-{args.source_sha}"
@@ -210,16 +214,20 @@ def promote(args) -> dict[str, str]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("kind", choices=("wheels", "image"))
-    parser.add_argument("--repo", required=True)
+    parser.add_argument("kind", choices=("wheels", "image", "check-wheels"))
+    parser.add_argument("--repo")
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--destination", required=True, type=Path)
     args = parser.parse_args(argv)
+    if args.kind != "check-wheels" and not args.repo:
+        parser.error("--repo is required for promotion")
     try:
         result = promote(args)
-        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-            out.writelines(f"{key}={value}\n" for key, value in result.items())
+        if args.kind != "check-wheels":
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+                out.writelines(f"{key}={value}\n" for key, value in result.items())
+        print(f"Main artifact validation passed: {args.kind} {args.source_sha}")
     except (
         ValueError,
         TypeError,
