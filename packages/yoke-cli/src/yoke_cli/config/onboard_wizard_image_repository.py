@@ -57,19 +57,29 @@ def _input_error(value: str) -> str | None:
 def load_setup(shell):
     from yoke_cli.config import onboard_self_host_server as server
     from yoke_cli.config.onboard_wizard_state import _View
+    from yoke_cli.self_host.native_windows import NativeWindowsError
 
     try:
         return server.new_setup(config_path=shell.result.config_path)
     except ValueError as exc:
         message = str(exc)
+        native_host_refusal = isinstance(exc, NativeWindowsError)
         shell._goto(
             _View(
                 SetupPrompt(
                     key="connect.load_setup",
                     step=STEP_CONNECT,
-                    title="Self-host image configuration needs attention.",
+                    title=(
+                        "Self-hosting requires WSL2." if native_host_refusal
+                        else "Self-host image configuration needs attention."
+                    ),
                     message=message,
-                    choices=tuple([SelectionRow("back", "Back", "repair the named machine setting")]),
+                    choices=(
+                        SelectionRow(
+                            "back", "Back", "host inside Ubuntu in WSL2"
+                            if native_host_refusal else "repair the named machine setting",
+                        ),
+                    ),
                     tone=TONE_ERROR,
                 ),
                 lambda _choice: shell._step_back(),

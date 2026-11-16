@@ -9,6 +9,10 @@ the published server image plus a Postgres 17 database. Your data stays on
 hardware you control; engineers point their CLIs at your server instead of the
 hosted platform.
 
+Windows hosting requires WSL2 Ubuntu with Yoke and Docker Compose inside.
+Native hosting refuses before writes. Same-PC `localhost` forwarding is
+expected, unverified. See [Windows hosting](../start/windows-wsl.md).
+
 ## Quickstart
 
 Install [Docker with Compose](https://docs.docker.com/get-started/get-docker/)
