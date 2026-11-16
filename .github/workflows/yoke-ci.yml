@@ -156,7 +156,6 @@ jobs:
           uv run python -m yoke_core.tools.ci_durations_refresh --target-root .
           --latest --repository "${{ github.repository }}"
           --python "${{ steps.fan_out.outputs.python_latest }}"
-
       - name: Share the timing profile with every shard
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -308,13 +307,14 @@ jobs:
     needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
     uses: ./.github/workflows/browser-runtime-tests.yml
+  windows_smoke:
+    uses: ./.github/workflows/windows-smoke.yml
   container:
     timeout-minutes: 10
     name: container
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
     permissions:
       contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

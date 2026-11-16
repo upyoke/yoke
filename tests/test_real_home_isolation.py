@@ -108,6 +108,8 @@ def test_the_installed_guard_sees_a_real_write_this_process_makes(
     real = tmp_path / "real-home"
     real.mkdir()
     monkeypatch.setattr(isolation.GUARD, "home", str(real))
+    # The stand-in home sits in tmp_path, inside the exempt system temp folder.
+    monkeypatch.setattr(isolation.GUARD, "exempt", ())
     captured_at_import = real / ".claude" / "settings.json"
     captured_at_import.parent.mkdir()
     captured_at_import.write_text("{}\n")
@@ -193,3 +195,31 @@ def test_pytest_invoked_from_the_home_keeps_it_guarded(
     seen = list(isolation.GUARD.writes)
     isolation.GUARD.writes.clear()
     assert ("open", str(real / ".gitconfig")) in seen
+
+
+def test_a_temp_folder_inside_the_home_holds_tmp_path_unguarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Windows keeps the system temp folder, and so tmp_path, in the profile."""
+    real = tmp_path / "real-home"
+    temp = real / "AppData" / "Local" / "Temp"
+    temp.mkdir(parents=True)
+    _guard_real_home(monkeypatch, real)
+    monkeypatch.setattr(isolation.tempfile, "gettempdir", lambda: str(temp))
+    isolation.pytest_configure(_pytest_config(tmp_path / "checkout", real))
+    isolation.GUARD.writes.clear()
+    (temp / "pytest-of-runner").mkdir()
+    (real / ".gitconfig").write_text("[user]\n")
+    seen = list(isolation.GUARD.writes)
+    isolation.GUARD.writes.clear()
+    assert seen == [("open", str(real / ".gitconfig"))]
+
+
+def test_an_exempt_root_also_covers_its_resolved_name(tmp_path: Path):
+    """A temp folder named by an alias (a symlink, or a Windows 8.3 short name)."""
+    real_temp = tmp_path / "home" / "AppData" / "Local" / "Temp"
+    real_temp.mkdir(parents=True)
+    alias = tmp_path / "TEMP~1"
+    alias.symlink_to(real_temp, target_is_directory=True)
+    roots = isolation.exempt_roots(str(tmp_path / "home"), [alias])
+    assert str(alias) in roots and os.path.realpath(alias) in roots

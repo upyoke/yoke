@@ -9,12 +9,12 @@ any more, and how to reclaim them without ever delaying a starting suite.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import os
 import subprocess
 import sys
 import time
 
+from yoke_contracts import platform_file_lock
 from yoke_core.domain import pg_test_db_namespace
 
 
@@ -88,14 +88,14 @@ def _single_sweeper():
         return
     try:
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(handle.fileno())
         except OSError:
             yield False
             return
         try:
             yield True
         finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            platform_file_lock.release_exclusive(handle.fileno())
     finally:
         handle.close()
 
