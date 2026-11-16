@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import shutil
+import os
 import sys
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import install_binding
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.runtime_identity import with_runtime_identity
 
 
 def build_runtime_status(
@@ -50,6 +52,32 @@ def build_runtime_status(
                 hint,
             )
         )
+    user_path = None
+    if sys.platform == "win32":
+        from yoke_contracts.shell_path_state import tool_bin_dir
+        from yoke_contracts.windows_user_path import (
+            USER_PATH_LOCATION,
+            contains,
+            read_user_path,
+        )
+
+        try:
+            value = read_user_path()
+            user_path = {
+                "location": USER_PATH_LOCATION,
+                "value": value,
+                "contains_tool_bin": contains(value, tool_bin_dir(), os.environ),
+            }
+        except OSError as exc:
+            user_path = {"location": USER_PATH_LOCATION, "error": str(exc)}
+            issues.append(
+                issue(
+                    "warning",
+                    "windows_user_path_unreadable",
+                    str(exc),
+                    "Check registry access, then run yoke path doctor.",
+                )
+            )
     return {
         "python_executable": sys.executable,
         "python_version": ".".join(str(part) for part in sys.version_info[:3]),
@@ -57,9 +85,8 @@ def build_runtime_status(
         "imports": imports,
         "package_versions": package_versions,
         "issues": issues,
+        "user_path": user_path,
     }
 
-
-from yoke_contracts.runtime_identity import with_runtime_identity
 
 __all__ = ["build_runtime_status", "with_runtime_identity"]

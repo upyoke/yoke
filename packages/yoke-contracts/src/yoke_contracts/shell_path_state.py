@@ -156,7 +156,9 @@ def resolve_path_state_contract(
     return PathStateContract(
         home=str(home_path),
         shell=shell,
-        shell_path=(environ.get("COMSPEC") or "cmd.exe") if windows else environ.get("SHELL") or f"/bin/{shell}",
+        shell_path=(environ.get("COMSPEC") or "cmd.exe")
+        if windows
+        else environ.get("SHELL") or f"/bin/{shell}",
         tool_bin_dir=bindir,
         startup_file=r"HKCU\Environment\Path"
         if windows

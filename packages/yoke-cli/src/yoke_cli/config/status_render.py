@@ -101,6 +101,16 @@ def render_human(report: Mapping[str, Any]) -> str:
             f"python={runtime.get('python_version')} "
             f"yoke={runtime.get('yoke_executable') or '<not on PATH>'}"
         )
+        user_path = runtime.get("user_path")
+        if isinstance(user_path, Mapping):
+            lines.append(
+                f"  Windows user PATH ({user_path['location']}): "
+                + str(user_path.get("error") or user_path.get("value") or "<empty>")
+            )
+            if not user_path.get("contains_tool_bin"):
+                lines.append(
+                    "  PATH recovery: run yoke path doctor, then yoke path fix --yes and open a new terminal."
+                )
     db = report.get("db") or {}
     if isinstance(db, Mapping):
         lines.append(
@@ -156,7 +166,11 @@ def render_human(report: Mapping[str, Any]) -> str:
             if key in session:
                 lines.append(f"    {key}: {session[key]}")
     if report.get("item_state"):
-        item = {key: value for key, value in report["item_state"].items() if key != "next_actor"}
+        item = {
+            key: value
+            for key, value in report["item_state"].items()
+            if key != "next_actor"
+        }
         lines.append(f"  item state: {item}")
     return "\n".join(lines) + "\n"
 

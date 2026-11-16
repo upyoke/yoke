@@ -92,3 +92,28 @@ def test_status_and_doctor_report_user_path_without_posix_shells(monkeypatch, tm
     contract = shell_path_state.resolve_path_state_contract(env={"HOME": str(tmp_path)})
     assert contract.yoke_bin.endswith("yoke.cmd")
     assert contract.supported_startup_files == ()
+
+
+def test_status_runtime_reports_persistent_path(monkeypatch):
+    from yoke_cli.config import status_runtime, status_render
+
+    state = registry(monkeypatch, r"C:\Tools\uv;C:\Other")
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv("UV_TOOL_BIN_DIR", r"C:\Tools\uv")
+    monkeypatch.setattr(status_runtime.shutil, "which", lambda _: r"C:\Tools\uv\yoke.cmd")
+    monkeypatch.setattr(
+        status_runtime.install_binding, "detect", lambda: {"kind": "packaged_wheel"}
+    )
+    runtime = status_runtime.build_runtime_status(
+        {},
+        required_imports=(),
+        runtime_packages=(),
+        import_status=lambda _: {},
+        package_version=lambda *args, **kwargs: "1.0",
+        issue=lambda *args: {},
+    )
+    assert runtime["user_path"]["value"] == state["value"]
+    assert runtime["user_path"]["contains_tool_bin"]
+    text = status_render.render_human({"runtime": runtime})
+    assert windows_user_path.USER_PATH_LOCATION in text
+    assert state["value"] in text
