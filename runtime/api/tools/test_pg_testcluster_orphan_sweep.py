@@ -199,3 +199,14 @@ def test_owner_liveness_reads_the_operating_system(monkeypatch):
     from yoke_contracts import platform_process
     monkeypatch.setattr(platform_process, "pid_alive", lambda pid: False)
     assert not pg_testcluster_orphans._owner_process_is_alive(999999)
+
+
+def test_unreadable_owner_is_preserved(monkeypatch, capsys):
+    from yoke_contracts import platform_process
+
+    def denied(_pid):
+        raise PermissionError("process access denied")
+
+    monkeypatch.setattr(platform_process, "pid_alive", denied)
+    assert pg_testcluster_orphans._owner_process_is_alive(4242)
+    assert "pgtest_owner_unreadable" in capsys.readouterr().err

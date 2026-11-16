@@ -89,7 +89,11 @@ def _single_sweeper():
     try:
         try:
             platform_file_lock.acquire_exclusive_nonblocking(handle.fileno())
-        except OSError:
+        except BlockingIOError:
+            yield False
+            return
+        except OSError as exc:
+            sys.stderr.write(f"pgtest_sweep_lock_failed: {exc}; repair the lock file and retry prune\n")
             yield False
             return
         try:

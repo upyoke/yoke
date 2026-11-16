@@ -258,7 +258,9 @@ _NATIVE_AGENT_LINKS: tuple[tuple[Path, Path], ...] = (
 )
 
 
-def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
+def detect_substrate_drift(
+    *, target_root: Optional[Path] = None, include_native_views: bool = True,
+) -> list[str]:
     """Compare every rendered substrate output to on-disk content.
 
     Returns a list of human-readable drift descriptions. Empty list means
@@ -304,7 +306,7 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
             continue
         if out_path.read_text(encoding="utf-8") != rendered:
             drift.append(f"drift: {rel_path}")
-    for native_dir, out_dir in _NATIVE_AGENT_LINKS:
+    for native_dir, out_dir in _NATIVE_AGENT_LINKS if include_native_views else ():
         if (root / out_dir).exists():
             drift.extend(native_agents_link_drift(root, out_dir, native_dir))
     return drift
