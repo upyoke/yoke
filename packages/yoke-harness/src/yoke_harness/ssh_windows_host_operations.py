@@ -63,6 +63,6 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
         result = super().check_connection()
         return HostActionResult(
             result.ok,
-            {**result.evidence, "os": "windows", "execution_context": "wsl2"},
+            {**result.evidence, "os": "wsl"},
             result.error_code,
         )

@@ -101,7 +101,7 @@ else:
 
 
 def _run(control: Any, mode: str, declared: dict | None, *, secrets=()) -> dict:
-    if getattr(control, "os", None) not in {"linux", "windows"}:
+    if getattr(control, "os", None) not in {"linux", "wsl"}:
         if declared:
             raise ValueError(
                 "os_package_fixture_unsupported: apt fixtures require a Linux or WSL Test Machine"

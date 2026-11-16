@@ -16,13 +16,13 @@ holds the store's lock.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import stat
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts import platform_file_lock
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from yoke_cli.config import onboard_checklist
@@ -229,7 +229,7 @@ def _lock() -> int:
     create_private_directory(directory)
     lock_fd = os.open(directory / LOCK_NAME, os.O_CREAT | os.O_RDWR, STORE_MODE)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        platform_file_lock.acquire_exclusive_nonblocking(lock_fd)
     except BlockingIOError as exc:
         os.close(lock_fd)
         raise AnswerStoreError(

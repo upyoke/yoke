@@ -106,7 +106,7 @@ def _patch_begin(monkeypatch, route, failure=None):
     monkeypatch.setattr("yoke_harness.desktop_access.begin_desktop_view", begin)
 
 
-@pytest.mark.parametrize("os_name", ["linux", "windows"])
+@pytest.mark.parametrize("os_name", ["linux", "wsl"])
 def test_rdp_route_opens_viewer_for_declared_account_then_closes_it(
     route, monkeypatch, capsys, os_name
 ):

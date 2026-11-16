@@ -1,0 +1,71 @@
+name: windows-smoke
+
+# Native Windows proof for every change: the candidate wheels install and
+# `yoke status` names an empty machine as not set up, then the declared
+# Windows test list passes. NATIVE-WINDOWS lanes extend
+# runtime/api/tools/product_runner_windows_tests.txt and the smoke stages.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    name: windows-smoke
+    timeout-minutes: 30
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: {python-version: '3.12'}
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install the candidate wheels and run yoke status
+        env:
+          SMOKE_EXPECTED_OS: Windows 2025Server
+          SMOKE_EXPECTED_ARCHITECTURE: x86_64
+        run: >-
+          python runtime/api/tools/product_runner_smoke.py
+          --output windows-smoke-evidence --through status
+      - name: Install test dependencies
+        run: uv sync --all-packages --locked --python 3.12
+      - name: Start the runner's preinstalled Postgres for the test suite
+        # Same disposable settings as Linux CI's container (pytest_cluster_identity).
+        run: |
+          bin="$(cygpath -u "$PGBIN")"
+          data="$RUNNER_TEMP\yoke-pg"
+          "$bin/initdb" -D "$data" -U yoke -A trust --encoding=UTF8 --locale=C
+          "$bin/pg_ctl" -D "$data" -l "$RUNNER_TEMP\yoke-pg.log" -w start -o \
+            "-p 5432 -c max_connections=400 -c timezone=Asia/Kathmandu -c fsync=off -c synchronous_commit=off -c full_page_writes=off"
+          echo "YOKE_PG_DSN=host=localhost port=5432 user=yoke dbname=postgres" >> "$GITHUB_ENV"
+      - name: Run the declared Windows tests
+        run: |
+          mapfile -t tests < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' runtime/api/tools/product_runner_windows_tests.txt)
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "windows_test_list_empty: add tests to runtime/api/tools/product_runner_windows_tests.txt" >&2
+            exit 1
+          fi
+          uv run --frozen python -m pytest -p no:cacheprovider -q "${tests[@]}" 2>&1 | tee windows-smoke-evidence/pytest-output.txt
+          exit "${PIPESTATUS[0]}"
+      - name: Preserve proof and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-smoke-evidence
+          path: windows-smoke-evidence
+          if-no-files-found: error
+          retention-days: 14
