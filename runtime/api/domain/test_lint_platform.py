@@ -58,16 +58,41 @@ def test_repository_platform_ratchet():
 
 def test_allowance_list_can_only_shrink():
     root = Path(__file__).resolve().parents[3]
-    # The founding addition has no old file. Once present on main, no entry or
-    # count may grow, even if someone changes the baseline alongside bad code.
-    old = subprocess.run(['git', 'show', f'origin/main:{lint.BASELINE}'], cwd=root,
-                         capture_output=True, text=True, encoding='utf-8')
-    if old.returncode:
-        return
-    previous = {f"{path}|{site}": count for path, sites in json.loads(old.stdout).items()
-                for site, count in sites.items()}
-    current = lint.read_baseline(root / lint.BASELINE)
-    assert all(count <= previous.get(key, 0) for key, count in current.items())
+    assert lint.baseline_growth(root) == []
+
+
+def _git(root, *args):
+    subprocess.run(['git', *args], cwd=root, check=True, capture_output=True)
+
+
+def _commit_baseline(root, grouped, message):
+    path = root / lint.BASELINE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(grouped), encoding='utf-8')
+    _git(root, 'add', '-A')
+    _git(root, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', message)
+
+
+def test_growth_compares_to_merge_base_not_moving_main(tmp_path):
+    _git(tmp_path, 'init', '-q', '-b', 'main')
+    _commit_baseline(tmp_path, {'a.py': {'tmp|x': 2, 'process|y': 1}}, 'base')
+    _git(tmp_path, 'checkout', '-qb', 'candidate')
+    _git(tmp_path, 'checkout', '-q', 'main')
+    _commit_baseline(tmp_path, {'a.py': {'tmp|x': 1}}, 'main prunes entries')
+    _git(tmp_path, 'update-ref', 'refs/remotes/origin/main', 'main')
+    _git(tmp_path, 'checkout', '-q', 'candidate')
+    assert lint.baseline_growth(tmp_path) == []
+    _commit_baseline(tmp_path, {'a.py': {'tmp|x': 3, 'process|y': 1, 'symlink|z': 1}}, 'grow')
+    growth = lint.baseline_growth(tmp_path)
+    assert [line.split(' (')[0] for line in growth] == [
+        'grown_platform_allowance: a.py|symlink|z', 'grown_platform_allowance: a.py|tmp|x']
+
+
+def test_growth_fails_loudly_without_integration_ref(tmp_path):
+    _git(tmp_path, 'init', '-q', '-b', 'main')
+    _commit_baseline(tmp_path, {}, 'base')
+    with pytest.raises(lint.BaselineBaseUnavailable, match='git fetch origin main'):
+        lint.baseline_growth(tmp_path)
 
 
 def test_prune_only_reduces_known_sites(monkeypatch, tmp_path):
