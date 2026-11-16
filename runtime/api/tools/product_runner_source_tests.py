@@ -6,14 +6,14 @@ import sys
 import tempfile
 
 
-def declared_source_tests(root: Path) -> list[str]:
-    roster = root / "runtime/api/tools/product_runner_windows_tests.txt"
-    declared = [line.split("#", 1)[0].strip() for line in roster.read_text().splitlines()]
-    return list(dict.fromkeys([
-        "runtime/harness/test_hook_runner_decision_render.py",
-        "tests/import_graph/test_yoke_cli_dev_setup_contract.py",
-        *(line for line in declared if line),
-    ]))
+def source_test_selections() -> dict[str, list[str]]:
+    return {
+        "source": [
+            "runtime/harness/test_hook_runner_decision_render.py",
+            "tests/import_graph/test_yoke_cli_dev_setup_contract.py",
+        ],
+        "windows": ["-m", "windows", "runtime/api", "runtime/harness", "tests"],
+    }
 
 
 def run_source_tests(root: Path, commands) -> None:
@@ -22,27 +22,27 @@ def run_source_tests(root: Path, commands) -> None:
         ["uv", "sync", "--all-packages", "--locked"],
         cwd=root,
     )
-    tests = declared_source_tests(root)
     # The socket must fit even when macOS's ordinary temp root is very long.
     with tempfile.TemporaryDirectory(prefix="yoke-pg-smoke-", dir="/tmp" if sys.platform == "darwin" else None) as cluster:
         commands.env["YOKE_PG_CLUSTER_ROOT"] = cluster
         try:
-            commands.run(
-                "pytest-subset",
-                [
-                    "uv",
-                    "run",
-                    "--frozen",
-                    "yoke",
-                    "watch",
-                    "pytest",
-                    "--local",
-                    "--",
-                    *tests,
-                    "-q",
-                ],
-                cwd=root,
-            )
+            for selection, tests in source_test_selections().items():
+                commands.run(
+                    f"pytest-subset-{selection}",
+                    [
+                        "uv",
+                        "run",
+                        "--frozen",
+                        "yoke",
+                        "watch",
+                        "pytest",
+                        "--local",
+                        "--",
+                        *tests,
+                        "-q",
+                    ],
+                    cwd=root,
+                )
         except Exception:
             home = Path(commands.env["YOKE_MACHINE_HOME"])
             captures = list(home.rglob("yoke-pytest.raw.*.log"))
