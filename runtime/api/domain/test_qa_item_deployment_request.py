@@ -31,9 +31,17 @@ def _run(name, status="executing", stage="item-qa"):
 
 @pytest.fixture
 def members(monkeypatch):
+    from yoke_core.domain import deployment_qa_run_acceptance as standing
+
     read = Mock()
     monkeypatch.setattr(intake, "completion_runs", read)
     monkeypatch.setattr(intake, "render_item_ref", lambda conn, item_id: MEMBER)
+    # No run owes the item here, so the newest run at the stage answers.
+    monkeypatch.setattr(
+        standing,
+        "current_item_qa",
+        lambda conn, **kwargs: SimpleNamespace(accepted=True),
+    )
     return read
 
 
@@ -115,8 +123,8 @@ def test_explicit_plan_keeps_environment_and_plan_ownership_selection(
             plan_id: None if shared else ITEM_ID,
         },
     )
-    select = Mock(return_value=_run("explicit"))
-    monkeypatch.setattr(intake, "latest_qa_member_run", select)
+    select = Mock(return_value=[_run("explicit", "succeeded")])
+    monkeypatch.setattr(intake, "qa_member_runs", select)
     conn = Mock()
     conn.execute.return_value.fetchone.side_effect = [("example",), ("stage",)]
     resolved = intake.resolve_item_deployment_request(conn, _request(plan=str(plan_id)))

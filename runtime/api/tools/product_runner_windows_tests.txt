@@ -1,6 +1,7 @@
 # Tests the required windows-smoke job runs on native Windows (yoke-ci.yml).
 # One pytest path or node id per line; blank lines and # comments are ignored.
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
+runtime/api/cli/test_azure_admin.py
 runtime/api/cli/test_machine_file_clock_instants.py::test_bad_ui_record_clock_returns_named_cli_refusal
 runtime/api/cli/test_machine_file_clock_instants.py::test_ui_record_ingress_is_native_and_status_formats_only_at_wire
 runtime/api/cli/test_native_windows_terminal.py
@@ -8,7 +9,12 @@ runtime/api/cli/test_onboard_native_preflight.py
 runtime/api/cli/test_universe_ui_daemon_process_identity.py
 runtime/api/cli/test_yoke_universe_ui_daemon.py
 runtime/api/cli/test_yoke_universe_ui_restart.py
+runtime/api/domain/test_azure_machine_power.py
+runtime/api/domain/test_cloud_machine_power.py
+runtime/api/domain/test_cloud_machine_power_stop.py
+runtime/api/domain/test_ec2_instance_power.py
 runtime/api/domain/test_local_database_children_detached.py
+runtime/api/domain/test_machine_desktop_access.py
 runtime/api/domain/test_postgres_binaries.py::test_platform_target_mapping
 runtime/api/domain/test_postgres_cluster.py::test_destroy_keeps_data_when_server_cannot_stop
 runtime/api/domain/test_postgres_windows.py

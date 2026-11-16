@@ -1,7 +1,7 @@
 """Run a cloud Test Machine only while a lease holds it.
 
-A Test Machine whose settings record ``cloud_instance_id`` is an EC2
-instance the project's aws-admin capability powers from the executing
+A Test Machine whose settings record ``cloud_instance_id`` names a VM
+the project's provider admin capability powers from the executing
 machine. The lease holder starts it, and waits until its key logs in, before
 the first host command. The last lease release stops it: any call whose
 release leaves the host free (no waiter's turn reserved) names it on its
@@ -15,13 +15,19 @@ registered host before SSH. Machines without the setting are never touched.
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.test_machine_remote_exec import get_test_machine_remote_exec
+from yoke_contracts.runtime_ports.test_machine_remote_exec import (
+    get_test_machine_remote_exec,
+)
 
 import json
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Iterator
+from contextlib import contextmanager
+from typing import Protocol
+from yoke_contracts.azure_admin import AzureAdminError, azure_session
+from yoke_contracts.azure_cli_prerequisite import AzureCliPrerequisiteError
 from typing import Any
 
 from yoke_contracts.api.function_call import TargetRef
@@ -38,8 +44,6 @@ from yoke_core.domain.deploy_remote import (
 )
 from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
-    ensure_instance_running,
-    instance_public_address,
 )
 
 SSH_WAIT_SECONDS = 600
@@ -64,6 +68,7 @@ def _emit(line: str) -> None:
 
 def _dispatch(function_id: str, payload: dict[str, Any]) -> Any:
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+
     build_actor = get_structured_dispatch().build_actor
     call_dispatcher = get_structured_dispatch().call_dispatcher
 
@@ -115,6 +120,11 @@ def _readiness_command(os_name: str) -> tuple[str, str | None]:
     A freshly booted Windows host accepts a login long before WSL can start
     Python inside the 20 seconds host control allows its first command.
     """
+    if os_name == "windows":
+        return (
+            'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "exit 0"',
+            None,
+        )
     if os_name != "wsl":
         return "exit", None
     from yoke_contracts.windows_wsl_command import (
@@ -201,29 +211,27 @@ def power_on(
     if not instance_id:
         return settings
     name = str(settings["resource_name"])
-    aws_env = _aws_env(project)
+    read_command = (
+        f"yoke {settings.get('cloud_provider', 'aws')} admin-status --project {project}"
+    )
     try:
-        prior = ensure_instance_running(
-            runner or CommandRunner(), instance_id, aws_env, emit
-        )
-        address = instance_public_address(
-            runner or CommandRunner(), instance_id, aws_env
-        )
-    except Ec2InstancePowerError as exc:
+        with machine_power(
+            project, settings, runner or CommandRunner(), emit
+        ) as provider:
+            read_command = provider.read_command
+            prior = provider.start()
+            address = provider.address()
+    except (Ec2InstancePowerError, AzureAdminError, AzureCliPrerequisiteError) as exc:
         raise _refused(
             "test_machine_power_start_failed",
             f"Test Machine {name}: {exc}",
-            "fix the named cause, then rerun; read the instance with `yoke aws "
-            f"exec --project {project} -- ec2 describe-instances --instance-ids "
-            f"{instance_id}`",
+            f"fix the named cause and rerun; inspect it with `{read_command}`",
         ) from exc
     if address is None:
         raise _refused(
             "test_machine_power_no_public_address",
             f"Test Machine {name} instance {instance_id} has no public IPv4",
-            "give the instance a public IPv4 (a subnet that assigns one), then rerun; "
-            f"read it with `yoke aws exec --project {project} -- ec2 "
-            f"describe-instances --instance-ids {instance_id}`",
+            f"assign one public IPv4, then rerun; inspect it with `{read_command}`",
         )
     if address != settings["host"]:
         current = _call("test_machine.get", {"project": project, "test_machine": name})
@@ -253,6 +261,55 @@ def power_on(
     if prior != "running":
         wait_for_ssh_login(project, settings, emit, runner=runner)
     return settings
+
+
+class CloudMachinePower(Protocol):
+    """One leased VM: start, current address, and release its allocation."""
+
+    read_command: str
+    stop_command: str
+
+    def start(self) -> str: ...
+    def address(self) -> str | None: ...
+    def stop(self) -> None: ...
+
+
+@contextmanager
+def machine_power(
+    project: str,
+    settings: Mapping[str, str],
+    runner: CommandRunner,
+    emit: Callable[[str], None],
+) -> Iterator[CloudMachinePower]:
+    provider = settings.get("cloud_provider", "aws")
+    instance_id = settings["cloud_instance_id"]
+    if provider == "aws":
+        from yoke_core.domain.ec2_machine_power import Ec2MachinePower
+
+        yield Ec2MachinePower(runner, _aws_env(project), instance_id, project, emit)
+    elif provider == "azure":
+        from yoke_core.domain.azure_instance_power import AzureMachinePower
+
+        capability = _call(
+            "projects.capability_settings.get",
+            {"project": project, "cap_type": "azure-admin"},
+        )
+        config = json.loads(str(capability.get("settings_json") or "{}"))
+        subscription = str(config.get("subscription_id") or "")
+        if not subscription or not instance_id.lower().startswith(
+            f"/subscriptions/{subscription}/".lower()
+        ):
+            raise AzureAdminError(
+                "VM resource id names a different subscription; correct azure-admin or the VM id and retry"
+            )
+        with azure_session(project, config, run=runner.run) as (command, env):
+            yield AzureMachinePower(runner, command, env, instance_id, project, emit)
+    else:
+        raise _refused(
+            "test_machine_cloud_provider_unsupported",
+            f"unknown provider {provider}",
+            "set cloud_provider to aws or azure and retry",
+        )
 
 
 __all__ = [

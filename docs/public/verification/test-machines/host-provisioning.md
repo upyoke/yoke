@@ -99,3 +99,35 @@ yoke test-machine exec --project P --test-machine NAME --admin -- diskutil apfs 
 `yes` answers the `repairDisk` confirmation. A physical Mac's internal disk
 cannot grow: free space with reset and old-golden retention, or move to a
 larger machine. Confirm with `df -h` and rerun the refused QA.
+
+## Cloud power by lease
+
+Optional `cloud_instance_id` makes Yoke start the VM before host operations,
+including `yoke test-machine verify`. `cloud_provider` selects `aws` (the
+default) or `azure`. Store these fields in the settings JSON passed to
+`yoke test-machine settings-replace`. AWS uses an EC2 instance id; Azure uses
+`/subscriptions/SUB/resourceGroups/GROUP/providers/Microsoft.Compute/virtualMachines/VM`.
+The Azure VM must belong to the subscription declared by `azure-admin`.
+
+Run `yoke azure admin-link --project PROJECT` for service-principal setup.
+Set `tenant_id`, `client_id` and `subscription_id` on the `azure-admin`
+capability; store `client_secret` with `yoke projects capability secret set
+--project PROJECT --cap-type azure-admin --key client_secret --value-stdin`.
+The secret stays in the executing machine's capability secret store. Install
+[Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), then run
+`yoke azure admin-status --project PROJECT`. It reports missing settings or
+credentials and verifies the selected identity. `yoke azure exec --project
+PROJECT -- <az-args>` uses those credentials with a disposable private login
+cache, independent of the operator's Azure CLI account.
+
+Deploy the provider-capable serving build before registering `cloud_provider`:
+older validators reject unknown settings; the CLI names
+`test_machine_cloud_provider_serving_floor_required` (minimum serving version
+`next-release`). Existing AWS settings work without the optional field.
+
+Every power-on reads the current public IPv4 and rebinds the registered SSH
+host (and a matching desktop host) before login. After starting a VM, Yoke
+waits for SSH readiness. The last lease release stops EC2 or **deallocates**
+Azure, under the host's own lease; a reserved waiter's turn keeps it running.
+Azure's stopped-but-allocated state still bills. A release no client hears
+leaves the VM running until its next lease cycles; there is no idle sweep.
