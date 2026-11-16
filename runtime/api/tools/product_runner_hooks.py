@@ -150,7 +150,7 @@ def replay_hooks(root: Path, project: Path, commands, yoke: str) -> list[dict]:
         )
         rows = commands.document(
             f"{harness}-registration",
-            [yoke, "sessions", "list", "--session", session, "--json"],
+            [yoke, "sessions", "list", "--session", session, "--full", "--json"],
             cwd=project,
         )["rows"]
         if (

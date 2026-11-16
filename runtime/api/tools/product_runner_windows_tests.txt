@@ -2,8 +2,11 @@
 # One pytest path or node id per line; blank lines and # comments are ignored.
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
 runtime/api/cli/test_azure_admin.py
+runtime/api/cli/test_db_admin_box_hop.py
+runtime/api/cli/test_filesystem_safety.py::test_atomic_replace_on_windows_does_not_require_fchmod
 runtime/api/cli/test_native_windows_terminal.py
 runtime/api/cli/test_onboard_native_preflight.py
+runtime/api/domain/test_agents_render_native_links.py
 runtime/api/domain/test_azure_machine_power.py
 runtime/api/domain/test_cloud_machine_power.py
 runtime/api/domain/test_cloud_machine_power_stop.py
@@ -12,6 +15,8 @@ runtime/api/domain/test_machine_desktop_access.py
 runtime/api/test_windows_harness_cli_manifest.py
 runtime/api/test_windows_preflight.py
 runtime/api/test_windows_preflight_facts.py
+runtime/api/tools/test_pg_testcluster_orphan_sweep.py
+runtime/api/tools/test_pg_testcluster_sweep_scheduling.py
 runtime/api/tools/test_product_runner_stages.py
 runtime/api/cli/test_owner_private_path.py
 runtime/api/cli/test_platform_file_lock.py
@@ -30,3 +35,6 @@ runtime/api/cli/test_cli_release_runtime.py::test_standalone_bootstrap_activates
 runtime/api/cli/test_cli_release_runtime_platform.py
 runtime/api/domain/test_lint_platform.py
 runtime/api/cli/test_self_host_native_windows.py
+runtime/api/tools/test_source_dev_run.py
+runtime/api/tools/test_source_dev_run_command_environment.py
+runtime/api/tools/test_windows_source_checkout.py

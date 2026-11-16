@@ -25,7 +25,7 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 SKILLS = REPO / ".agents" / "skills" / "yoke"
-AGENTS = REPO / ".claude" / "agents"
+AGENTS = REPO / "runtime" / "harness" / "claude" / "agents"
 
 
 def _read(path: Path) -> str:
