@@ -132,7 +132,7 @@ def test_more_dead_sessions_than_one_request_holds_are_sent_as_accepted_batches(
     # Synthetic pids do not describe this test runner's processes. Control
     # the final custody recheck too, including its conservative unknown case.
     monkeypatch.setattr(
-        "yoke_harness.session_relay_process_liveness.custody_state",
+        "yoke_harness.session_relay_process_liveness.observed_custody_state",
         lambda record, *, start_time_of: custody,
     )
     anchors = tmp_path / ANCHORS_DIR_NAME
@@ -167,7 +167,7 @@ def test_a_refused_session_batch_keeps_its_records_and_the_ones_behind_it(
 ) -> None:
     """The undelivered tail is read again next poll rather than spent here."""
     monkeypatch.setattr(
-        "yoke_harness.session_relay_process_liveness.custody_state",
+        "yoke_harness.session_relay_process_liveness.observed_custody_state",
         lambda record, *, start_time_of: custody,
     )
     anchors = tmp_path / ANCHORS_DIR_NAME
