@@ -96,6 +96,9 @@ def config_status(args: List[str]) -> int:
 
 
 def _status(args: List[str], *, prog: str, usage: str) -> int:
+    from yoke_cli.config.native_windows_terminal import configure
+
+    configure()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog,
         description="Show machine health and the current session state from the shared server model.",
