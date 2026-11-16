@@ -37,6 +37,7 @@ from typing import Any
 from yoke_core.domain.session_message_authorization import scope_policy
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
+from yoke_core.domain.steering_fleet_report_wake_queue import draining_wake_positions
 from yoke_core.domain.steering_fleet_report_queued_wake import (
     wake_release_times,
 )
@@ -90,6 +91,8 @@ class UndeliveredMessages:
     #: is the difference between a turn that is working and one to look at.
     held_native_silent_for_seconds: int | None = None
     held_native_observed_at: datetime | None = None
+    #: Positions in the actively draining machine queue, in claim order.
+    wake_queue_positions: tuple[int, ...] = ()
     #: True when an explicit wake was requested for this recipient, the
     #: delivery plane has still made no attempt on it, and every such receipt
     #: has waited out the wake grace. The row then names a queued wake and
@@ -138,7 +141,7 @@ def report_receipts(
     latest_call = latest_tool_call_select(conn, session_alias="s")
     rows = conn.execute(
         f"""SELECT r.message_id AS message_id,
-                   r.session_id AS session_id,
+                   r.session_id AS session_id, r.machine_id AS machine_id,
                    r.created_at AS created_at,
                    r.state AS receipt_state, r.injection_count AS injection_count,
                    i.id AS item_id, i.project_sequence AS project_sequence,
@@ -216,6 +219,9 @@ def undelivered_messages(
     current = parse_stamp(now)
     records = [dict(raw) for raw in rows]
     wake_release_at = wake_release_times(records, grace=grace)
+    positions = draining_wake_positions(
+        conn, machine_ids=(row.get("machine_id") for row in records), now=current
+    )
     groups: dict[tuple[str, str], MessageGroup] = {}
     for record in records:
         sent_at = parse_stamp(record.get("created_at"))
@@ -228,6 +234,7 @@ def undelivered_messages(
         evidence = view.evidence if view else {}
         failed_count = view.failed_count if view else 0
         record.update(
+            wake_queue_position=positions.get((str(record["message_id"]), session_id)),
             held_at=view.completed_at if view else None,
             wake_delivered_at=view.wake_delivered_at if view else None,
         )
@@ -285,6 +292,7 @@ def undelivered_messages(
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
             recipient_gone_at=group.recipient_gone_at,
+            wake_queue_positions=tuple(sorted(group.wake_queue_positions)),
             queued_wake=group.queued_wake,
             wake_releasable_at=group.wake_releasable_at,
         )
