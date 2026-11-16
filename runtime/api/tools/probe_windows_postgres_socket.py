@@ -41,6 +41,15 @@ def main():
         except OSError as exc:
             print("DLL load failure:", dll.name, exc, flush=True)
     os.environ["PATH"] = str(binary) + os.pathsep + str(binary / "DLLs") + os.pathsep + str(binary.parent / "lib") + os.pathsep + os.environ["PATH"]
+    for image in [binary / "initdb.exe", binary / "postgres.exe"]:
+        run([str(image), "--version"], check=False)
+        pe = pefile.PE(str(image))
+        for entry in pe.DIRECTORY_ENTRY_IMPORT:
+            dll = entry.dll.decode()
+            try:
+                ctypes.WinDLL(dll)
+            except OSError as exc:
+                print("unresolved dependency:", dll, exc, flush=True)
     root = work / "private cluster"
     root.mkdir()
     owner = run(["whoami"]).stdout.strip()
