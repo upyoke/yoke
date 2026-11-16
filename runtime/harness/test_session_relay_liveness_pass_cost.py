@@ -27,6 +27,8 @@ from yoke_harness.session_launch_containment import (
 from yoke_harness.session_relay_process_liveness import verified_dead_sessions
 
 
+pytestmark = pytest.mark.windows
+
 START = "1787000000.25"
 ABSENT_PID = 2_000_000_000
 

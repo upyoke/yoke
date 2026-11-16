@@ -73,7 +73,8 @@ jobs:
             runtime/harness/test_session_relay_claude_idle_hosts.py \
             runtime/harness/test_session_relay_native_turn_custody.py \
             runtime/harness/test_session_relay_recorded_exit_custody.py \
-            runtime/harness/test_session_relay_liveness_pruning.py
+            runtime/harness/test_session_relay_liveness_pruning.py \
+            runtime/harness/test_session_relay_liveness_pass_cost.py
       - name: Verify contributor checkout collection and tests
         run: |
           uv sync --all-packages --locked
