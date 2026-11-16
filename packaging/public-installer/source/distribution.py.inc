@@ -185,11 +185,8 @@ def _run_isolated_install(command: list[str], env: dict[str, str]):
         with runtime["locked"](root / "publication.lock"):
             generation = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=releases))
             (generation / "pending").touch()
-            lease = (generation / "lease").open("a+")
-            if os.name != "nt":
-                import fcntl
-
-                fcntl.flock(lease, fcntl.LOCK_SH)
+            (generation / "lease").touch()
+            lease = runtime["_lease"](generation)
     except (OSError, RuntimeError) as exc:
         raise InstallError(f"cli_release_prepare_failed: {exc}; let the active update finish and retry") from exc
     with lease:
