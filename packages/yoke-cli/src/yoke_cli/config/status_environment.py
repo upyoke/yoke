@@ -10,6 +10,8 @@ from yoke_cli.config import machine_config
 from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema as contract
 
+_WINDOWS = os.name == "nt"
+
 SECRET_ENV_KEYS = {"YOKE_PG_DSN"}
 AMBIENT_ENV_KEYS = (
     machine_config.CONFIG_FILE_ENV,
@@ -24,33 +26,25 @@ AMBIENT_ENV_KEYS = (
 
 
 def permission_issues(path: Path) -> list[dict[str, str]]:
-    if not path.is_file():
+    """Report a machine config that is not owner-only (or not owned by you)."""
+    if not path.is_file() or owner_private_path.is_owner_private_file(path):
         return []
-    path_stat = path.stat()
-    issues: list[dict[str, str]] = []
-    if not owner_private_path.is_owner_private_file(path):
-        message = f"{path} must be owner-only"
-        hint = "Repair the file permissions so only your Windows account and administrators have access."
-        if os.name != "nt":
-            message += " (0600)"
-            hint = f"Run `chmod 600 {path}`."
-        issues.append(
-            {
-                "severity": "error",
-                "code": "config_permissions",
-                "message": message,
-                "hint": hint,
-            }
-        )
-    if hasattr(os, "getuid") and path_stat.st_uid != os.getuid():
-        issues.append(
-            {
-                "severity": "error",
-                "code": "config_owner",
-                "message": f"{path} is not owned by the current user",
-            }
-        )
-    return issues
+    message = f"{path} must be owned by you and private to your account"
+    hint = (
+        "Repair the file permissions so only your Windows account, SYSTEM "
+        "and Administrators have access."
+    )
+    if not _WINDOWS:
+        message += " (0600)"
+        hint = f"As its owner, run `chmod 600 {path}`."
+    return [
+        {
+            "severity": "error",
+            "code": "config_permissions",
+            "message": message,
+            "hint": hint,
+        }
+    ]
 
 
 def ambient_env_status() -> dict[str, Any]:

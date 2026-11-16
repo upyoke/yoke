@@ -140,6 +140,7 @@ def test_check_covers_every_bundle_source_and_launcher():
         [sys.executable, "-c", installer.HELPER_SOURCE_CHECK],
         capture_output=True, text=True, check=True,
     )
+    # Every bundled module plus the launcher; tracks the bundle as it grows.
     expected = len(github_git_credential_bundle._bundle_sources()) + 1
     assert json.loads(result.stdout)["checked"] == expected
 
