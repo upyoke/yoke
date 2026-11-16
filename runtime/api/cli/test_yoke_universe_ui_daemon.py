@@ -21,13 +21,15 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from types import SimpleNamespace
 
 import pytest
 
 from yoke_cli.config import universe_ui_daemon as daemon
 from yoke_cli.config import universe_ui_launchd as launchd
 from yoke_cli.config import universe_ui_daemon_state as state
+
+
+pytestmark = pytest.mark.windows
 
 
 @pytest.fixture()
@@ -43,21 +45,21 @@ def reap_detached_children(monkeypatch):
     # mistakes a zombie for a running daemon and waits the whole stop deadline.
     children = {}
 
+    real_spawn = daemon.platform_process.spawn_group
+
     def spawn(*args, **kwargs):
-        child = subprocess.Popen(*args, **kwargs)
-        children[child.pid] = child
-        return child
+        handle = real_spawn(*args, **kwargs)
+        children[handle.pid] = handle.process
+        return handle
 
-    def alive(pid):
+    def alive(pid, start_time=None):
         child = children.get(pid)
-        return (child is None or child.poll() is None) and state.process_alive(pid)
+        return (child is None or child.poll() is None) and state.process_alive(pid, start_time)
 
-    monkeypatch.setattr(daemon, "subprocess", SimpleNamespace(
-        Popen=spawn, DEVNULL=subprocess.DEVNULL,
-    ))
+    monkeypatch.setattr(launchd, "remove_agent", lambda: False)
+    monkeypatch.setattr(daemon.platform_process, "spawn_group", spawn)
     monkeypatch.setattr(daemon, "process_alive", alive)
     monkeypatch.setattr(daemon, "READY_POLL_INTERVAL_S", 0.01)
-    monkeypatch.setattr(daemon, "STOP_POLL_INTERVAL_S", 0.01)
     yield
     for child in children.values():
         if child.poll() is None:
@@ -73,8 +75,8 @@ class TestTokenCustody:
 
     def test_token_file_is_owner_only(self, machine_home):
         state.stable_session_token()
-        mode = state.token_path().stat().st_mode & 0o777
-        assert mode == 0o600
+        from yoke_contracts.owner_private_path import is_owner_private_file
+        assert is_owner_private_file(state.token_path())
 
     def test_token_survives_a_down_cycle(self, machine_home):
         minted = state.stable_session_token()
@@ -282,7 +284,7 @@ class TestLaunchdSupervision:
         assert document["RunAtLoad"] is True
         assert document["KeepAlive"] is True
         assert document["ProgramArguments"] == [
-            "/usr/local/bin/yoke", "--env", "local",
+            str(Path("/usr/local/bin/yoke")), "--env", "local",
             "ui", "serve-process", "--host", "127.0.0.1", "--port", "8688",
         ]
 
