@@ -52,7 +52,7 @@ jobs:
           env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
       - name: Prepare a missing browser library on the disposable Linux runner
         if: runner.os == 'Linux'
-        run: sudo -n dpkg --remove --force-depends libatk-bridge2.0-0t64
+        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64
       - name: Install, onboard, replay hooks, and check source development
         if: runner.os != 'Linux'
         env:
