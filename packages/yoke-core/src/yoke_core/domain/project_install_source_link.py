@@ -1,21 +1,16 @@
 """Source-link delivery strategy for ``yoke dev setup``.
 
-The Yoke source checkout IS the bundle source, so its harness surfaces
-are git-tracked links into the live tree (edit a canonical file, run
-``agents.render.run``, every consumer sees the change instantly). Project
-configuration files that Cursor discovers are tracked regular files because
-Cursor refuses config paths containing symlinks; the renderer and this setup
-path keep them byte-identical to their canonical runtime files.
-``source-link`` owns that wiring:
+The Yoke source checkout IS the bundle source, so its harnesses read the
+live rendered tree (edit a canonical file, run ``yoke agents render``, every
+consumer sees the change). Project configuration files that Cursor discovers
+are tracked regular files because Cursor refuses config paths containing
+symlinks; the renderer and this setup path keep them byte-identical to their
+canonical runtime files. ``source-link`` owns that wiring:
 
-1. Dev links — ``.claude/`` + ``.codex/`` surfaces pointing at the
-   canonical ``runtime/harness/...`` targets, the
-   ``.claude/skills/yoke`` native discovery link, and the tester-browser
-   reference link. ``.claude/settings.json`` and ``.cursor/hooks.json`` are
-   materialized from their canonical runtime files so Cursor's symlink refusal
-   cannot disable either native or Claude-compatible hooks. The links and
-   files are git-tracked, so a fresh clone already has them; install/refresh
-   repairs drift idempotently.
+1. Materialized configs — ``.claude/settings.json`` and
+   ``.cursor/hooks.json`` copied from their canonical runtime files so
+   Cursor's symlink refusal cannot disable either native or
+   Claude-compatible hooks; install/refresh repairs drift idempotently.
 2. Cursor permission regions — the same
    :mod:`yoke_cli.project_install.cursor_permissions` merge copy mode
    runs, unioning Yoke's command approvals and control-plane network
@@ -26,11 +21,14 @@ path keep them byte-identical to their canonical runtime files.
    semantics as copy mode; linked worktrees skip gracefully).
 4. Contract seeding — the seed-if-missing pass copy mode uses; the Yoke
    repo tracks its own contract files, so this is normally a no-op.
-5. Installed-layout views — the gitignored ``.yoke/docs`` and
-   ``.yoke/harness/*/manifest.json`` copies of their tracked sources.
-6. Manifest — ``.yoke/install-manifest.json`` with ``"mode": "source-link"``
-   and the link inventory. ``refresh`` re-runs the same repair;
-   ``uninstall`` REFUSES entirely (the links are tracked files).
+5. Generated views — the gitignored ``.yoke/docs`` and
+   ``.yoke/harness/*/manifest.json`` copies and the native harness views
+   (``.claude/agents``, ``.codex/hooks.json`` ...) through
+   ``refresh_source_installed_views``, the same refresh the checkout's
+   head-moving git hooks and lane preparation run.
+6. Manifest — ``.yoke/install-manifest.json`` with ``"mode": "source-link"``.
+   ``refresh`` re-runs the same repair; ``uninstall`` REFUSES entirely (the
+   materialized configs are tracked files).
 
 No bundle fetch ever happens in source-link mode, and normal ``yoke project
 install`` does not enter this branch. Detection marker: ``pyproject.toml``
@@ -39,7 +37,6 @@ declaring ``name = "yoke"`` plus a ``runtime/harness/`` tree.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -50,7 +47,6 @@ from yoke_contracts.filesystem_safety import (
     first_symlink_component,
 )
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
-from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 from yoke_contracts.project_contract.source_installed_views import refresh_source_installed_views
 from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
 from yoke_contracts.runtime_ports.project_install_git_hooks import get_project_install_git_hooks
@@ -65,20 +61,6 @@ ProjectInstallError = files_layer.ProjectInstallError
 GIT_HOOK_NAMES = get_project_install_git_hooks().GIT_HOOK_NAMES
 BootstrapResult = get_project_install_git_hooks().BootstrapResult
 install_git_hooks = get_project_install_git_hooks().install_git_hooks
-
-# Relative symlinks the Yoke source checkout carries so that harness
-# runtimes read the live canonical tree instead of stale copies.
-DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
-    (".claude/agents", "../runtime/harness/claude/agents"),
-    (".claude/rules", "../runtime/harness/claude/rules"),
-    *SKILL_DISCOVERY_LINKS.items(),
-    (".codex/agents", "../runtime/harness/codex/agents"),
-    (".codex/hooks.json", "../runtime/harness/codex/hooks.json"),
-    (
-        "runtime/harness/claude/agents/references/yoke-tester-browser.md",
-        "../../../../agents/tester-browser.md",
-    ),
-)
 
 DEV_MATERIALIZED_FILES: Tuple[Tuple[str, str], ...] = (
     (".claude/settings.json", "runtime/harness/claude/settings.json"),
@@ -96,7 +78,7 @@ _SOURCE_LINK_OWNED_KEYS = frozenset(
         "manifest_schema",
         "yoke_version",
         MODE_KEY,
-        "symlinks",
+        "symlinks",  # retired link inventory; dropped from older manifests
         "materialized_files",
         "git_hooks",
         "contract_files",
@@ -130,42 +112,6 @@ def resolve_mode(root: Path, explicit: Optional[str]) -> Tuple[str, str]:
     if explicit == MODE_COPY:
         return MODE_COPY, "explicit --copy"
     return MODE_COPY, "external project repo"
-
-
-def ensure_dev_symlink(
-    target_root: Path,
-    rel: str,
-    link_target: str,
-    result: BootstrapResult,
-) -> None:
-    """Create *rel* -> *link_target* under *target_root*; repair-safe.
-
-    Correct existing link: counted skipped. Wrong-target link or a
-    regular file/dir squatting on the path: warn and leave in place
-    (never silently replace operator state). Missing: create.
-    """
-    path = target_root / rel
-    if path.is_symlink():
-        current = os.readlink(path)
-        if current == link_target:
-            result.note(f"Exists: {rel} -> {link_target}")
-            result.skipped += 1
-        else:
-            result.warn(
-                f"{rel} is a symlink to {current} (expected {link_target}). "
-                "Leaving in place; reconcile manually if intended."
-            )
-        return
-    if path.exists():
-        result.warn(
-            f"{rel} exists as a regular file/dir. Move or remove it and "
-            "re-run `yoke dev setup` so the symlink can be created."
-        )
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.symlink_to(link_target)
-    result.note(f"Created: {rel} -> {link_target}")
-    result.installed += 1
 
 
 def _assert_no_symlinked_parent(target_root: Path, rel: str) -> None:
@@ -236,8 +182,8 @@ def ensure_dev_materialized_file(
 def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
     return ProjectInstallError(
         f"refusing to uninstall: {root} uses the source-link strategy — "
-        "the source-dev harness links and materialized configs are "
-        "git-tracked parts of the repo itself, "
+        "the source-dev materialized configs are git-tracked parts of the "
+        "repo itself and its native harness views are generated from it, "
         "not an installed copy. There is nothing to de-install; remove "
         ".git/hooks/ shims manually if you must"
     )
@@ -262,9 +208,6 @@ def install_source_link(
             context="source-link materialized file mutation",
         )
         _assert_no_symlinked_parent(repo_root, rel)
-    links = BootstrapResult()
-    for rel, link_target in DEV_SYMLINKS:
-        ensure_dev_symlink(repo_root, rel, link_target, links)
     materialized = BootstrapResult()
     for rel, source_rel in DEV_MATERIALIZED_FILES:
         ensure_dev_materialized_file(repo_root, rel, source_rel, materialized)
@@ -298,7 +241,6 @@ def install_source_link(
             "manifest_schema": files_layer.MANIFEST_SCHEMA,
             "yoke_version": yoke_version(),
             MODE_KEY: MODE_SOURCE_LINK,
-            "symlinks": {rel: target for rel, target in DEV_SYMLINKS},
             "materialized_files": {
                 rel: source_rel for rel, source_rel in DEV_MATERIALIZED_FILES
             },
@@ -315,15 +257,12 @@ def install_source_link(
         "repo_root": str(repo_root),
         "yoke_version": manifest["yoke_version"],
         "source": "in-checkout",
-        "symlinks_created": links.installed,
-        "symlinks_ok": links.skipped,
         "materialized_files_created": materialized.installed,
         "materialized_files_updated": materialized.updated,
         "materialized_files_ok": materialized.skipped,
         "hooks_installed_or_updated": hooks.installed + hooks.updated,
         "actions": (
-            links.actions
-            + materialized.actions
+            materialized.actions
             + cursor_permissions_report["actions"]
             + hooks.actions
         ),
@@ -333,16 +272,14 @@ def install_source_link(
         "source_views_refreshed": refresh_source_installed_views(repo_root),
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,
-        "warnings": links.warnings + materialized.warnings + hooks.warnings,
+        "warnings": materialized.warnings + hooks.warnings,
     }
 
 
 __all__ = [
     "DEV_MATERIALIZED_FILES",
-    "DEV_SYMLINKS",
     "SOURCE_DISPLAY_NAME",
     "ensure_dev_materialized_file",
-    "ensure_dev_symlink",
     "install_source_link",
     "is_yoke_source_checkout",
     "resolve_mode",
