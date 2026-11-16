@@ -9,6 +9,8 @@ from yoke_contracts.browser_identity import DEFAULT_IDENTITY, validate_identity_
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
 CAPABILITY_SECRETS_DIR_NAME = "capability-secrets"
+AZURE_ADMIN_CAPABILITY = "azure-admin"
+AZURE_ADMIN_SECRET_KEYS = frozenset({"client_secret"})
 AWS_ADMIN_CAPABILITY = "aws-admin"
 AWS_ADMIN_SECRET_KEYS = frozenset(
     {
@@ -45,6 +47,7 @@ TEST_MACHINE_CAPABILITY = "test-machine"
 TEST_MACHINE_SECRET_KEYS = frozenset({"ssh_private_key"})
 MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
     AWS_ADMIN_CAPABILITY: AWS_ADMIN_SECRET_KEYS,
+    AZURE_ADMIN_CAPABILITY: AZURE_ADMIN_SECRET_KEYS,
     SSH_CAPABILITY: SSH_SECRET_KEYS,
     TEST_MACHINE_CAPABILITY: TEST_MACHINE_SECRET_KEYS,
 }

@@ -244,3 +244,15 @@ def test_rebind_refusal_keeps_server_diagnosis(monkeypatch, aws):
     assert refused.value.code == "test_machine_host_rebind_refused"
     assert "function_version_skew" in str(refused.value)
     assert "next-release" in str(refused.value)
+
+
+def test_native_windows_ssh_readiness_does_not_invoke_wsl(ssh_key):
+    runner = _LoginRunner([OK])
+    wait_for_ssh_login(
+        "yoke", {**CLOUD, "os": "windows"}, lambda _: None, runner=runner
+    )
+    assert (
+        runner.calls[0][-1]
+        == 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "exit 0"'
+    )
+    assert runner.inputs == [None]
