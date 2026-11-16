@@ -37,7 +37,7 @@ Yoke CLI, which dispatches the registered `qa.*` function ids:
 
 - `yoke qa requirement add|add-batch|list|get|update|waive|transfer ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
-- `yoke qa plan run --item PREFIX-N --stage STAGE [--plan PLAN] --project P` — runs the item's cases; `--plan ID_OR_SLUG` adds no obligations; a new plan fills only an empty stage.
+- `yoke qa plan run --item PREFIX-N --stage STAGE [--plan PLAN] --project P` — runs the item's cases; `--plan ID_OR_SLUG` adds no obligations; a new plan fills only an empty stage. Both forms reach the member run executing that stage whose item QA is still owed, the older run (Stage before Production) first when both owe it. A member whose cases at a stage are all `non_blocking`, waived or not, owes that stage nothing.
 - `yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN --project P` — runs the plan's open [plan group](deployment-plan-execution.md#plan-groups) once for the release; refuses `plan_group_not_open` listing its closed groups
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P` — run-wide, and refused on a run pinning any QA stage
 - `yoke qa run add|complete|record-verdict|list|get ...`

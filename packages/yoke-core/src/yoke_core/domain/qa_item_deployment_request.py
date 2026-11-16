@@ -6,7 +6,8 @@ from uuid import uuid4
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.deployment_item_completion_runs import (
     completion_runs,
-    latest_qa_member_run,
+    owing_stage_run,
+    qa_member_runs,
 )
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -57,21 +58,23 @@ def resolve_item_deployment_request(conn, request):
                 "SELECT name FROM environments WHERE id=%s",
                 (plan["target_environment_id"],),
             ).fetchone()[0]
+    # One selection for both forms: the run at this stage that still owes the
+    # item's QA, oldest first when a Stage and Production pair both owe it.
+    stage = payload["deployment_stage"]
     if payload.get("plan"):
-        run = latest_qa_member_run(conn, item_id=int(item_id), target_env=target_env)
+        capable = qa_member_runs(conn, item_id=int(item_id), target_env=target_env)
+        run = owing_stage_run(conn, item_id=int(item_id), stage=stage, runs=capable)
+        run = run or next(iter(capable), None)
     else:
-        run = next(
-            (
-                candidate
-                for candidate in completion_runs(conn, int(item_id), include_qa=True)
-                if candidate["status"] == "executing"
-                and candidate["current_stage"] == payload["deployment_stage"]
-            ),
-            None,
+        run = owing_stage_run(
+            conn,
+            item_id=int(item_id),
+            stage=stage,
+            runs=completion_runs(conn, int(item_id), include_qa=True),
         )
         if run is None:
             raise QaItemStageUnavailable(
-                _stage_run_recovery(conn, int(item_id), payload["deployment_stage"])
+                _stage_run_recovery(conn, int(item_id), stage)
             )
     if run is None:
         raise QaPlanError(

@@ -42,4 +42,26 @@ class QaPlanCaseDocument(BaseModel):
 QA_PLAN_CASE_FIELDS: tuple[str, ...] = tuple(QaPlanCaseDocument.model_fields)
 
 
-__all__ = ["QA_PLAN_CASE_FIELDS", "QaPlanCaseDocument"]
+def unknown_case_field_refusal(cases: List[Dict[str, Any]]) -> Optional[str]:
+    """Name every case key outside :data:`QA_PLAN_CASE_FIELDS`, or None.
+
+    A whole-case replacement that silently dropped an unknown key (say
+    ``blocking_mode``) would report success for a field it never stored.
+    """
+    unknown = [
+        f"{case.get('case_key') or f'case {index}'}: {key}"
+        for index, case in enumerate(cases, start=1)
+        for key in case
+        if key not in QA_PLAN_CASE_FIELDS
+    ]
+    if not unknown:
+        return None
+    return (
+        "qa_plan_case_field_unknown: plan cases carry no field "
+        + ", ".join(unknown)
+        + "; remove it and retry. Known case fields: "
+        + ", ".join(QA_PLAN_CASE_FIELDS)
+    )
+
+
+__all__ = ["QA_PLAN_CASE_FIELDS", "QaPlanCaseDocument", "unknown_case_field_refusal"]
