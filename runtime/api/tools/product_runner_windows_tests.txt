@@ -2,8 +2,14 @@
 # One pytest path or node id per line; blank lines and # comments are ignored.
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
 runtime/api/cli/test_hook_resident_lifecycle.py
+runtime/api/cli/test_azure_admin.py
 runtime/api/cli/test_native_windows_terminal.py
 runtime/api/cli/test_onboard_native_preflight.py
+runtime/api/domain/test_azure_machine_power.py
+runtime/api/domain/test_cloud_machine_power.py
+runtime/api/domain/test_cloud_machine_power_stop.py
+runtime/api/domain/test_ec2_instance_power.py
+runtime/api/domain/test_machine_desktop_access.py
 runtime/api/test_windows_harness_cli_manifest.py
 runtime/api/test_windows_preflight.py
 runtime/api/test_windows_preflight_facts.py

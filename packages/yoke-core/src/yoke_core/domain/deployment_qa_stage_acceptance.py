@@ -85,14 +85,21 @@ def unsettled_acceptance_blocker(
 def member_cases_passed(
     conn: Any, run_id: str, stage: str, member: int, digest: str, *, target=None
 ) -> bool:
-    """Every concrete run-bound case has a current pass for this member."""
-    from yoke_core.domain.deployment_qa_stage_case_failures import scoped_cases
+    """Every concrete run-bound blocking case has a current pass for this member.
+
+    A member whose cases are all non_blocking has passed: none of them blocks.
+    """
+    from yoke_core.domain.deployment_qa_stage_case_failures import (
+        blocking_cases,
+        only_non_blocking,
+        subject_cases,
+    )
     from yoke_core.domain.qa_requirement_pass_currency import (
         current_passing_requirements,
     )
     from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
-    rows = scoped_cases(
+    every = subject_cases(
         conn,
         run_id=run_id,
         stage_name=stage,
@@ -100,6 +107,9 @@ def member_cases_passed(
         execution_target_digest=digest,
         target=target,
     )
+    if only_non_blocking(every):
+        return True
+    rows = blocking_cases(every)
     ids = {int(row["id"]) for row in rows if not obligation_settled(row)}
     return bool(rows) and ids <= current_passing_requirements(conn, ids)
 

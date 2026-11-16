@@ -81,7 +81,9 @@ def test_explicit_item_plan_keeps_member_unless_the_plan_is_shared(
     if kind == "correction":
         plan = _plan(test_db, "member-correction")
     monkeypatch.setattr(
-        routing, "latest_qa_member_run", lambda *args, **kwargs: {"id": RUN}
+        routing,
+        "qa_member_runs",
+        lambda *args, **kwargs: [{"id": RUN, "status": "succeeded", "current_stage": ""}],
     )
     request = resolve_item_deployment_request(test_db, _request(test_db, plan))
     assert request.target.deployment_run_id == RUN

@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.capability_secret_store import (
     machine_capability_secret_path,
     read_machine_capability_secret,
 )
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_cli.config import machine_config
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
@@ -218,8 +219,9 @@ def open_desktop_access(
         receipt, run = _prepare_desktop(settings, key_path, password)
         session_evidence = {"desktop_session": receipt["desktop_session"]}
     descriptor, name = tempfile.mkstemp(
-        prefix="yoke-desktop-", suffix=".password", dir="/tmp"
+        prefix="yoke-desktop-", suffix=".password"
     )
+    os.close(descriptor)
     password_path = Path(name)
     control_path = name + ".ssh"
     ssh_args: list[str] = []
@@ -227,8 +229,7 @@ def open_desktop_access(
     tunnel = False
     opened = False
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(password + "\n")
+        write_owner_private(password_path, password + "\n")
         host = route.get("desktop_host") or settings["host"]
         port = int(route["desktop_port"])
         if route["desktop_route"] == "ssh-forward":

@@ -91,7 +91,10 @@ environment names on the plan's project, each with a reviewable URL. Use `[]`
 to keep the plan's default target. `qa plan edit` puts every case field in its
 document, `target_envs` and `stage_reason` included; a save that leaves out a
 field of an existing case and would reset its stored value is refused as
-`qa_plan_edit_unedited_field_changed`, naming each case and field.
+`qa_plan_edit_unedited_field_changed`, naming each case and field. `qa plan-cases replace`
+refuses a key that is not a plan case field, such as `blocking_mode`, as
+`qa_plan_case_field_unknown`, naming each case and key; blocking mode belongs
+to a materialized requirement (`yoke qa requirement update`).
 
 `stage_reason` is optional descriptive metadata. It accepts
 `creates_or_destroys_data` or `changes_infrastructure`; an unknown value
