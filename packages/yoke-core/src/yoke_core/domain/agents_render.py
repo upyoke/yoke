@@ -22,14 +22,15 @@ from yoke_core.domain.agents_render_conditional import (
     detect_conditional_marker_drift,
     rendered_agent_path,
 )
+from yoke_contracts.project_contract.source_native_views import (
+    NATIVE_AGENT_LINKS,
+    ensure_native_agents_link,
+    native_agents_link_drift,
+)
 from yoke_core.domain.agents_render_cursor import (
     render_cursor_agent,
     render_cursor_hooks_json,
     render_cursor_manifest_json,
-)
-from yoke_core.domain.agents_render_native_links import (
-    ensure_native_agents_link,
-    native_agents_link_drift,
 )
 from yoke_core.domain.agents_render_context import (
     detect_canonical_body_drift,
@@ -237,25 +238,15 @@ def write_all(
             continue
         _atomic_write(out_path, rendered, target_root=root)
         results[rel] = ("write", rendered)
-    for native_dir, out_dir in _NATIVE_AGENT_LINKS:
+    for native_dir, out_dir in NATIVE_AGENT_LINKS:
         if not (root / out_dir).exists():
             continue
         link_action, link_target = ensure_native_agents_link(
-            root, out_dir, native_dir, dry_run=dry_run
+            root, out_dir, native_dir, dry_run=dry_run,
+            before_write=assert_target_under_session_work_authority,
         )
         results[str(native_dir)] = (link_action, link_target)
     return results
-
-
-# Render-owned native paths; platform_links chooses symlink, junction or copy.
-_NATIVE_AGENT_LINKS: tuple[tuple[Path, Path], ...] = (
-    (Path(".claude/agents"), CLAUDE_OUT_DIR),
-    (Path(".claude/rules"), Path("runtime/harness/claude/rules")),
-    (Path(".claude/skills/yoke"), Path(".agents/skills/yoke")),
-    (Path(".codex/hooks.json"), CODEX_HOOKS_PATH),
-    (CODEX_NATIVE_AGENTS_DIR, CODEX_OUT_DIR),
-    (CURSOR_NATIVE_AGENTS_DIR, CURSOR_OUT_DIR),
-)
 
 
 def detect_substrate_drift(
@@ -306,7 +297,7 @@ def detect_substrate_drift(
             continue
         if out_path.read_text(encoding="utf-8") != rendered:
             drift.append(f"drift: {rel_path}")
-    for native_dir, out_dir in _NATIVE_AGENT_LINKS if include_native_views else ():
+    for native_dir, out_dir in NATIVE_AGENT_LINKS if include_native_views else ():
         if (root / out_dir).exists():
             drift.extend(native_agents_link_drift(root, out_dir, native_dir))
     return drift

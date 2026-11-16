@@ -151,6 +151,8 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
   Harness manifest schema: `runtime/harness/manifest-schema.md`.
 - Install-bundle docs are authored under `docs/public/`, their only committed copy. The
   yoke-core wheel build packages the bundle; `.yoke/docs` here is a gitignored generated copy.
+  The native harness views (`.claude/agents`, `.codex/hooks.json` ...) are gitignored too; the
+  head-moving git hooks recreate them ([agents](agents.md)).
 - Machine config: `~/.yoke/config.json`; machines: [machine registry](machine-registry.md).
 
 ## Review, teaching and cleanup

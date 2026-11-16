@@ -3,8 +3,10 @@
 An installed project receives the public docs at ``.yoke/docs`` and each
 harness manifest at ``.yoke/harness/<harness>/manifest.json``. A Yoke source
 checkout commits only the sources, so the teaching that names those installed
-paths reads gitignored copies that ``yoke dev setup`` and the checkout's git
-hooks refresh here.
+paths reads gitignored copies that ``yoke dev setup``, lane preparation and the
+checkout's head-moving git hooks refresh here. The same refresh recreates the
+gitignored native harness views (``.claude/agents``, ``.codex/hooks.json`` ...)
+listed in :mod:`source_native_views`.
 """
 
 from __future__ import annotations
@@ -16,6 +18,10 @@ from typing import Dict, List
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.install_binding import is_yoke_source_checkout
+from yoke_contracts.project_contract.source_native_views import (
+    NATIVE_AGENT_LINKS,
+    ensure_native_agents_link,
+)
 
 DOCS_SOURCE = "docs/public"
 DOCS_VIEW = ".yoke/docs"
@@ -110,7 +116,8 @@ def refresh_source_installed_views(root: Path) -> List[str]:
     """Rewrite the views that differ from their sources; return changed paths.
 
     Anything else under ``.yoke/docs`` is removed, so a page deleted or
-    renamed in ``docs/public`` disappears from the view too. Outside a Yoke
+    renamed in ``docs/public`` disappears from the view too. Missing or stale
+    native harness views are recreated as links (or copies) of their sources. Outside a Yoke
     source checkout this does nothing: there the installer owns these paths.
     """
     if not is_yoke_source_checkout(root):
@@ -124,7 +131,22 @@ def refresh_source_installed_views(root: Path) -> List[str]:
                 path.unlink()
             _write(path, data)
             changed.append(rel)
-    return changed + _prune_docs_view(root, views)
+    return changed + _prune_docs_view(root, views) + _refresh_native_views(root)
+
+
+def _refresh_native_views(root: Path) -> List[str]:
+    changed: List[str] = []
+    for native_dir, out_dir in NATIVE_AGENT_LINKS:
+        if not (root / out_dir).exists():
+            raise SourceViewError(
+                f"source_view_source_unreadable: {out_dir.as_posix()} (source of "
+                f"{native_dir.as_posix()}). Restore it from git and run "
+                "`yoke agents render`."
+            )
+        action, _target = ensure_native_agents_link(root, out_dir, native_dir, dry_run=False)
+        if action == "write":
+            changed.append(native_dir.as_posix())
+    return changed
 
 
 __all__ = [

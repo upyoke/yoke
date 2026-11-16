@@ -5,7 +5,7 @@ import shutil
 
 import pytest
 
-from yoke_core.domain import agents_render_native_links as native
+from yoke_contracts.project_contract import source_native_views as native
 
 
 pytestmark = pytest.mark.windows
@@ -13,10 +13,14 @@ pytestmark = pytest.mark.windows
 
 @pytest.fixture
 def owned(monkeypatch):
-    monkeypatch.setattr(native, "assert_target_under_session_work_authority", lambda _path: None)
+    from yoke_core.domain import workspace_authority
+
+    monkeypatch.setattr(
+        workspace_authority, "assert_target_under_session_work_authority", lambda _path: None,
+    )
 
 
-def test_copy_drift_is_checked_and_refreshed(tmp_path, monkeypatch, owned):
+def test_copy_drift_is_checked_and_refreshed(tmp_path, monkeypatch):
     from yoke_contracts import platform_links
 
     source = tmp_path / "rendered"
@@ -42,7 +46,29 @@ def test_copy_drift_is_checked_and_refreshed(tmp_path, monkeypatch, owned):
     assert native.native_agents_link_drift(*args)
 
 
-def test_file_copy_drift(tmp_path, monkeypatch, owned):
+def test_before_write_guards_only_real_writes(tmp_path):
+    (tmp_path / "hooks.json").write_text("{}")
+    args = tmp_path, Path("hooks.json"), Path(".codex/hooks.json")
+    seen = []
+    native.ensure_native_agents_link(*args, dry_run=True, before_write=seen.append)
+    assert seen == []
+    native.ensure_native_agents_link(*args, dry_run=False, before_write=seen.append)
+    assert seen == [tmp_path / ".codex/hooks.json"]
+    native.ensure_native_agents_link(*args, dry_run=False, before_write=seen.append)
+    assert len(seen) == 1
+
+
+def test_renderer_constants_match_the_native_view_list():
+    from yoke_core.domain import agents_render
+
+    sources = dict(native.NATIVE_AGENT_LINKS)
+    assert sources[agents_render.CODEX_NATIVE_AGENTS_DIR] == agents_render.CODEX_OUT_DIR
+    assert sources[agents_render.CURSOR_NATIVE_AGENTS_DIR] == agents_render.CURSOR_OUT_DIR
+    assert sources[Path(".claude/agents")] == agents_render.CLAUDE_OUT_DIR
+    assert sources[Path(".codex/hooks.json")] == agents_render.CODEX_HOOKS_PATH
+
+
+def test_file_copy_drift(tmp_path, monkeypatch):
     from yoke_contracts import platform_links
 
     (tmp_path / "hooks.json").write_text("{}")

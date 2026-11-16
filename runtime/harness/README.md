@@ -23,7 +23,7 @@ runtime/harness/
     # Hook entrypoints live under yoke_core.hooks
   codex/                  # Codex adapter
     manifest.json         # Adapter manifest (identity, affordances, limitations)
-    hooks.json            # Hook configuration (surfaced via .codex/hooks.json symlink)
+    hooks.json            # Hook configuration (surfaced via the generated .codex/hooks.json view)
     agents/               # Rendered Codex custom-agent adapters (yoke-*.toml)
     # Python entrypoints live under yoke_core.hooks.*
   cursor/                 # Cursor adapter
