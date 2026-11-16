@@ -5,7 +5,8 @@ import subprocess
 from yoke_cli.config import onboard_session_relay as relay
 from yoke_cli.commands.adapters.session_control_relay_output import relay_status_fields
 from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_LOGOUT_BEHAVIOR
-
+import pytest
+pytestmark = pytest.mark.windows
 
 def test_windows_setup_plans_installs_and_describes_both_build_sources(monkeypatch, tmp_path):
     monkeypatch.setattr(relay.sys, "platform", "win32")

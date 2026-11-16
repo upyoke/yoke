@@ -189,16 +189,10 @@ def test_no_rendered_agent_uses_retired_backlog_md_paths(repo_root: Path) -> Non
         assert "data/backlog/" not in rendered, f"{agent}: retired data/backlog/ ref in rendered"
 
 
-def test_tester_browser_reference_is_committed_symlink(repo_root: Path) -> None:
-    """runtime/harness/claude/agents/references/yoke-tester-browser.md is a symlink
-    to the canonical runtime/agents/tester-browser.md — not a rendered copy."""
+def test_tester_browser_reference_is_portable_file(repo_root: Path) -> None:
     ref_path = repo_root / CLAUDE_OUT_DIR / "references" / "yoke-tester-browser.md"
-    assert ref_path.is_symlink(), f"{ref_path} must be a symlink, not a rendered copy"
-    resolved = ref_path.resolve()
-    expected = (repo_root / CANONICAL_DIR / "tester-browser.md").resolve()
-    assert resolved == expected, (
-        f"tester-browser reference resolves to {resolved}, expected {expected}"
-    )
+    assert ref_path.is_file() and not ref_path.is_symlink()
+    assert ref_path.read_bytes() == (repo_root / CANONICAL_DIR / "tester-browser.md").read_bytes()
 
 
 # Marker-expansion tests live in `test_agents_render_context.py`.

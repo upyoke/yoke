@@ -18,7 +18,7 @@ def _dispatch_stage(**overrides):
         "dispatch_correlation_input": "yoke_dispatch_id",
         "inputs": {"target_environment": "{target_environment}"},
         "reconcile_by_head_sha": False,
-        "wait_for_ci": False,
+        "wait_for_ci": True,
     }
     stage.update(overrides)
     return stage
@@ -32,36 +32,49 @@ WARM_UP = {"name": "warm-up", "step_runner": "warm-up", "connection_env": "prod"
 
 
 class _Conn:
-    def __init__(self, flows):
-        self._flows = flows
-
-    def execute(self, sql, params=()):  # noqa: ARG002 - shape only
-        return self
-
-    def fetchall(self):
-        return [
-            {"id": flow_id, "stages": json.dumps(stages)}
-            for flow_id, stages in self._flows.items()
-        ]
-
-    def fetchone(self):
-        return (1,)
+    def execute(self, *_args, **_kwargs):
+        raise AssertionError("doctor must use registered reads, not local SQL")
 
 
-def _run(monkeypatch, flows):
-    monkeypatch.setattr(mod._base, "_table_exists", lambda conn, name: True)
-    monkeypatch.setattr(
-        mod, "query_rows",
-        lambda conn, sql, params=(): conn.fetchall(),
-    )
+@pytest.fixture(params=["database", "https"])
+def transport(request):
+    return request.param
+
+
+def _run(monkeypatch, flows, *, production=True, transport="https"):
+    calls = []
+
+    def read(function_id, payload):
+        calls.append((function_id, payload))
+        if function_id == "deployment_flows.list":
+            assert payload == {"project": "acme"}
+            return {"rows": [
+                {"id": flow_id, "stages": json.dumps(stages),
+                 "target_environment": "live"}
+                for flow_id, stages in flows.items()
+            ]}
+        assert function_id == "projects.environment_settings.get"
+        assert payload == {
+            "project": "acme", "environment": "live",
+            "paths": ["role.production"],
+        }
+        return {"values": {"role.production": production}}
+
+    monkeypatch.setattr(mod, "relay", read)
     records = RecordCollector()
-    mod.hc_hosted_route_stage_contract(_Conn(flows), DoctorArgs(), records)
+    from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
+    conn = UnavailableControlPlane() if transport == "https" else _Conn()
+    mod.hc_hosted_route_stage_contract(conn, DoctorArgs(project="acme"), records)
     assert len(records.results) == 1
+    assert calls[0][0] == "deployment_flows.list"
     return records.results[0]
 
 
-def test_passes_for_a_route_that_carries_the_whole_contract(monkeypatch) -> None:
-    result = _run(monkeypatch, {"acme-prod": _route(_dispatch_stage(), WARM_UP)})
+def test_passes_for_a_route_that_carries_the_whole_contract(monkeypatch, transport) -> None:
+    result = _run(
+        monkeypatch, {"acme-prod": _route(_dispatch_stage(), WARM_UP)},
+        transport=transport,
+    )
 
     assert result.result == "PASS"
     assert "1 active dispatching route(s)" in result.detail
@@ -82,7 +95,7 @@ def test_passes_when_no_route_dispatches_a_workflow(monkeypatch) -> None:
     [
         ({"dispatch_correlation_input": None}, "dispatch_correlation_input"),
         ({"reconcile_by_head_sha": True}, "reuse an older run"),
-        ({"wait_for_ci": True}, "waits on CI"),
+        ({"wait_for_ci": False}, "production per-commit CI gate"),
         (
             {"inputs": {"target_environment": "prod"}},
             "instead of the {target_environment} placeholder",
@@ -121,3 +134,46 @@ def test_omitted_warm_up_connection_follows_the_run_target(monkeypatch) -> None:
     result = _run(monkeypatch, {"acme-prod": _route(_dispatch_stage(), warm)})
 
     assert result.result == "PASS"
+
+
+@pytest.mark.parametrize("production, mode", [(True, "hotfix"), (False, "normal")])
+def test_stage_and_hotfix_allow_skipping_ci(monkeypatch, transport, production, mode):
+    stage = _dispatch_stage(
+        wait_for_ci=False,
+        inputs={"target_environment": "{target_environment}", "release_mode": mode},
+    )
+    result = _run(
+        monkeypatch, {"acme-release": _route(stage, WARM_UP)},
+        production=production, transport=transport,
+    )
+    assert result.result == "PASS"
+
+
+def test_production_without_ci_fails_on_both_transports(monkeypatch, transport):
+    result = _run(
+        monkeypatch,
+        {"acme-release": _route(_dispatch_stage(wait_for_ci=False), WARM_UP)},
+        transport=transport,
+    )
+    assert result.result == "FAIL"
+    assert "wait_for_ci is not true" in result.detail
+
+
+def test_unreadable_flows_fail_with_recovery(monkeypatch):
+    def refused(*_args):
+        raise RuntimeError("control plane unavailable")
+    monkeypatch.setattr(mod, "relay", refused)
+    rec = RecordCollector()
+    mod.hc_hosted_route_stage_contract(None, DoctorArgs(project="acme"), rec)
+    assert rec.results[0].result == "FAIL"
+    assert "control plane unavailable" in rec.results[0].detail
+    assert "yoke deployment-flows list" in rec.results[0].detail
+
+
+def test_missing_production_declaration_fails(monkeypatch):
+    result = _run(
+        monkeypatch, {"acme-prod": _route(_dispatch_stage(), WARM_UP)},
+        production=None,
+    )
+    assert result.result == "FAIL"
+    assert "role.production" in result.detail

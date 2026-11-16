@@ -7,6 +7,9 @@ import pytest
 from yoke_core.domain import lint_platform as lint
 
 
+pytestmark = pytest.mark.windows
+
+
 @pytest.mark.parametrize(('source', 'rule'), [
     ('import fcntl', 'fcntl'),
     ('from fcntl import flock', 'fcntl'),

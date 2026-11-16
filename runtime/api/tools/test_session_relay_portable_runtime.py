@@ -14,7 +14,7 @@ from yoke_core.tools import session_relay_runtime_install as runtime
 from yoke_core.tools.session_relay_release_install import pin_relay_release
 from yoke_core.domain import relay_release_path as paths
 from yoke_harness import session_relay_process_restart as restart
-
+pytestmark = pytest.mark.windows
 
 def test_copy_fallback_keeps_physical_release_selection_and_rollback(tmp_path, monkeypatch):
     def copy(target, path):

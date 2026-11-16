@@ -6,7 +6,7 @@ import pytest
 
 from yoke_contracts.machine_config import native_capacity as capacity
 from yoke_harness import session_launch_admission as admission
-
+pytestmark = pytest.mark.windows
 
 def test_real_probes_with_restricted_daemon_path(monkeypatch):
     monkeypatch.setenv("PATH", "")

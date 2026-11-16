@@ -9,7 +9,7 @@ import pytest
 from runtime.api.tools.session_relay_release_test_support import relay_instance
 from yoke_core.tools import session_relay_task_scheduler as tasks
 from yoke_core.tools import session_relay_service as service
-
+pytestmark = pytest.mark.windows
 SID = "S-1-5-21-123-456-789-1001"
 NS = {"t": tasks.TASK_NS}
 

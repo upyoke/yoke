@@ -5,7 +5,7 @@ import os
 import pytest
 
 from yoke_harness.session_relay_pipe_reader import PipeReader
-
+pytestmark = pytest.mark.windows
 
 def test_timeout_keeps_pipe_and_later_bytes_for_the_next_owner():
     read_fd, write_fd = os.pipe()

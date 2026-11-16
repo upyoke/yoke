@@ -22,7 +22,8 @@ from yoke_harness.session_relay_codex import CodexNativeOutcome
 from yoke_harness.session_relay_codex_invocation import codex_base_command
 from yoke_harness.session_relay_inventory import ResolvedNativeCli
 from yoke_harness.session_relay_codex_worker_protocol import request_payload
-
+import pytest
+pytestmark = pytest.mark.windows
 
 class _Input:
     def __init__(self, on_close) -> None:

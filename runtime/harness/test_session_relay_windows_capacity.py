@@ -8,7 +8,7 @@ import pytest
 from yoke_contracts.machine_config import machine_capacity as machine
 from yoke_contracts.machine_config import native_capacity as native
 from yoke_contracts.timestamps import parse_instant
-
+pytestmark = pytest.mark.windows
 GIB = 1024**3
 
 

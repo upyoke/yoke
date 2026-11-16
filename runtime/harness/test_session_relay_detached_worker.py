@@ -7,7 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-
+import pytest
+pytestmark = pytest.mark.windows
 
 OWNER_SOURCE = """
 import json

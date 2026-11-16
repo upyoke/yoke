@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import session_relay_stop_deadline as deadline
-
+pytestmark = pytest.mark.windows
 
 @pytest.mark.parametrize(
     "platform,output,expected",

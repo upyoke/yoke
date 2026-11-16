@@ -74,6 +74,11 @@ def test_apply_refuses_before_mutating_when_attribution_is_missing(
     assert conn.execute("SELECT count(*) FROM migration_audit").fetchone()[0] == 0
 
 
+@pytest.fixture(autouse=True)
+def clear_build_sha(monkeypatch):
+    monkeypatch.delenv("YOKE_BUILD_SHA", raising=False)
+
+
 def test_collect_boot_attribution_does_not_refuse_an_unnameable_commit() -> None:
     gathered = collect_boot_attribution(
         applied_by="boot-converge",
@@ -205,3 +210,41 @@ def test_operator_attribution_fails_closed_without_a_session(monkeypatch) -> Non
 
     with pytest.raises(IncompleteAttributionError, match="session_id"):
         collect_operator_attribution(_Conn(), worktree=Path("/no/such/worktree"))
+
+
+def test_gitless_pending_boot_records_build_commit(tmp_path: Path, monkeypatch) -> None:
+    commit = "a" * 40
+    monkeypatch.setenv("YOKE_BUILD_SHA", commit)
+    conn = connection()
+    history = build_history(tmp_path, "0001_first")
+    gathered = collect_boot_attribution(
+        applied_by="boot-converge", running_version="", worktree=tmp_path,
+    )
+
+    outcome = apply_pending(
+        conn, history=history, applied_by="boot-converge", running_version="",
+        attribution=gathered, external_restore_point=RESTORE_POINT,
+    )
+
+    assert outcome.applied == ("0001_first",)
+    assert marks(conn) == ["0001_first"]
+    assert conn.execute(
+        "SELECT source_commit FROM migration_audit WHERE state='completed'"
+    ).fetchone() == (commit,)
+
+
+@pytest.mark.parametrize(
+    ("git_commit", "build_sha", "version", "expected"),
+    [("git-commit", "build-commit", "1.0", "git-commit"),
+     (None, " build-commit ", "1.0", "build-commit"),
+     (None, " ", "1.0", "1.0")],
+)
+def test_boot_commit_precedence(monkeypatch, git_commit, build_sha, version, expected):
+    monkeypatch.setattr(
+        "yoke_core.domain.migration_apply_attribution.git_branch_and_commit",
+        lambda _: (None, git_commit),
+    )
+    monkeypatch.setenv("YOKE_BUILD_SHA", build_sha)
+    assert collect_boot_attribution(
+        applied_by="boot-converge", running_version=version,
+    )["source_commit"] == expected

@@ -3,7 +3,8 @@
 from types import SimpleNamespace
 
 from yoke_harness import session_relay_process_group as groups
-
+import pytest
+pytestmark = pytest.mark.windows
 
 def test_spawn_and_stop_use_one_os_group_handle(monkeypatch):
     process = SimpleNamespace(pid=1234)

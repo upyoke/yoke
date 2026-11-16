@@ -117,6 +117,7 @@ def onboard(run: SmokeRun) -> None:
         "onboard",
         [
             run.yoke, "setup", "--local", "--non-interactive", "--yes", "--json",
+            "--admin-name", "Yoke Smoke",
             "--machine-github", "disabled", "--github-adoption", "disabled",
             "--project-mode", "local-checkout", "--checkout", str(project),
             "--project-slug", "smoke", "--project-name", "Smoke",

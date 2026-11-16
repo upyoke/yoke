@@ -25,7 +25,7 @@ from yoke_harness.session_relay_native_diagnostics import (
     read_native_diagnostic,
     store_native_diagnostic,
 )
-
+pytestmark = pytest.mark.windows
 
 ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
 

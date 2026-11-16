@@ -33,7 +33,7 @@ from yoke_harness.session_relay_native_diagnostics import (
 )
 from yoke_harness.session_relay_native_spawn import spawn_supervised_native
 from yoke_harness.session_relay_runtime import RelayExecutionContext
-
+pytestmark = pytest.mark.windows
 
 @pytest.fixture
 def tmp_path(tmp_path): return create_owner_private_directory(tmp_path / "private-relay")

@@ -21,7 +21,7 @@ from runtime.api.tools.session_relay_release_test_support import (
 from yoke_core.tools import session_relay_release_retention as retention
 from yoke_core.tools.session_relay_release import RelayReleaseError
 from yoke_core.tools.session_relay_release_install import pin_relay_release
-
+pytestmark = pytest.mark.windows
 
 THIRD_RELEASE = "0.2.0.202610140943"
 

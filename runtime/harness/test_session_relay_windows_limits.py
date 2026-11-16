@@ -4,7 +4,8 @@ import json
 from types import SimpleNamespace
 
 from yoke_harness import session_relay_plan_limits as limits
-
+import pytest
+pytestmark = pytest.mark.windows
 
 def test_windows_claude_reads_user_credentials_without_keychain(tmp_path, monkeypatch):
     monkeypatch.setattr(limits.sys, "platform", "win32")
