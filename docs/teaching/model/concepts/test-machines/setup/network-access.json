@@ -1,0 +1,10 @@
+{
+ "id": "network-access",
+ "title": "Network access: usable from anywhere",
+ "status": "draft-copy",
+ "sources": ["docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machines/windows-host-provisioning.md", "packages/yoke-harness/src/yoke_harness/desktop_access.py"],
+ "commands": ["yoke test-machine desktop-access"],
+ "page": "test-machine-setup",
+ "position": 7,
+ "summary": "A test machine must be usable from anywhere so QA runs from any controller, including cloud sessions and other networks. SSH is open to every source address with key-only authentication: password and keyboard-interactive SSH disabled, the project's shared test-machine key authorized, and a dedicated non-admin test account. The desktop goes through the SSH forward (desktop_route=ssh-forward); no public RDP or VNC port is opened and SSH is not limited by source address. The rule lives once in the host-provisioning index under Network access and each OS guide links to it."
+}
