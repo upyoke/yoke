@@ -63,6 +63,22 @@ def remap_recording(
     return transform(payload)
 
 
+
+def saved_codex_fixture(fixture: dict, *, project: Path, session: str) -> dict:
+    """Replay registration of a saved thread; native null denotes an unsaved one."""
+    transcript = project / "agent-transcripts" / session / f"{session}.jsonl"
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+    transcript.write_text(json.dumps({
+        "type": "session_meta",
+        "payload": {"id": session, "cwd": str(project), "originator": "codex_cli_rs", "source": "cli"},
+    }) + "\n", encoding="utf-8")
+    return {
+        key: {**payload, "transcript_path": str(transcript)}
+        if key in {"session_start", "pre_tool_use_allowed", "pre_tool_use_denied"} else payload
+        for key, payload in fixture.items()
+    }
+
+
 def require_dispatch(rows: list[dict], *, outcome: str) -> dict:
     """This diagnostic requires affirmative proof; absent telemetry proves no product fault."""
     for row in rows:
@@ -137,6 +153,8 @@ def replay_hooks(root: Path, project: Path, commands, yoke: str) -> list[dict]:
                 f"native_recording_provenance_missing: {recording}; record the native capture source and version"
             )
         session = str(uuid.uuid4())
+        if harness == "codex":
+            fixture = saved_codex_fixture(fixture, project=project, session=session)
         commands.run(
             f"{harness}-session-start",
             rendered_command(project, config, start_event),
@@ -163,6 +181,7 @@ def replay_hooks(root: Path, project: Path, commands, yoke: str) -> list[dict]:
             )
         proof = {
             "harness": harness,
+            "session_state": "saved" if harness == "codex" else "native",
             "session_id": session,
             "executor": rows[0]["executor"],
             "decisions": [],

@@ -76,6 +76,7 @@ def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
     ))
     monkeypatch.setitem(sys.modules, "pwd", SimpleNamespace(getpwnam=lambda user: SimpleNamespace(pw_uid=1234)))
     monkeypatch.setattr(account.tempfile, "TemporaryDirectory", lambda **kwargs: nullcontext(str(scratch)))
+    monkeypatch.setattr(account, "SUDOERS_ROOT", tmp_path)
     calls = []
 
     def run(argv, **kwargs):
@@ -93,3 +94,5 @@ def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path):
     assert calls[-2] == ["userdel", "yksmoke99"]
     assert calls[-1][0:2] == ["chown", "-R"]
     assert all("enable-linger" not in argv for argv in calls)
+
+    assert not (tmp_path / "yoke-smoke-1234").exists()

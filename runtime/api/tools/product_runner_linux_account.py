@@ -11,6 +11,7 @@ import tempfile
 
 
 ACCOUNT_HOME = "YOKE_SMOKE_LINUX_ACCOUNT_HOME"
+SUDOERS_ROOT = Path("/etc/sudoers.d")
 
 
 def verified_account_environment() -> tuple[Path, dict[str, str]]:
@@ -44,6 +45,7 @@ def run_account(root: Path, output: Path, uv: Path, expected_os: str, architectu
     original = root.stat()
     created = False
     uid = None
+    policy = None
     with tempfile.TemporaryDirectory(prefix="yoke-smoke-account-", dir="/home") as scratch:
         home = Path(scratch) / "home"
         home.mkdir()
@@ -56,6 +58,11 @@ def run_account(root: Path, output: Path, uv: Path, expected_os: str, architectu
             import pwd
 
             uid = pwd.getpwnam(user).pw_uid
+            # Match the disposable runner's unattended browser-package authority.
+            policy = SUDOERS_ROOT / f"yoke-smoke-{uid}"
+            policy.write_text(f"{user} ALL=(ALL) NOPASSWD: ALL\n", encoding="utf-8")
+            policy.chmod(0o440)
+            subprocess.run(["visudo", "-cf", str(policy)], check=True)
             subprocess.run(["chown", "-R", user, scratch, str(root)], check=True)
             runtime = f"/run/user/{uid}"
             # PAM registers the account with logind and starts its user manager
@@ -78,6 +85,8 @@ def run_account(root: Path, output: Path, uv: Path, expected_os: str, architectu
                 subprocess.run(["loginctl", "terminate-user", user], check=False)
                 if uid is not None:
                     subprocess.run(["systemctl", "stop", f"user@{uid}.service"], check=False)
+                if policy is not None:
+                    policy.unlink(missing_ok=True)
                 subprocess.run(["userdel", user], check=True)
                 subprocess.run(["chown", "-R", f"{original.st_uid}:{original.st_gid}", str(root)], check=True)
 

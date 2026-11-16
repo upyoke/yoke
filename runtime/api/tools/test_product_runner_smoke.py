@@ -276,3 +276,18 @@ def test_runner_identity_uses_declared_architecture_names(
     monkeypatch.setattr(runner.platform, "mac_ver", lambda: ("26.0", (), ""))
     monkeypatch.setattr(runner.platform, "release", lambda: "2025Server")
     assert observed_runner() == expected
+
+
+def test_codex_registration_replay_materializes_saved_state_without_changing_recording(tmp_path):
+    from runtime.api.tools.product_runner_hooks import saved_codex_fixture
+
+    raw = {key: {"session_id": "native", "transcript_path": None} for key in (
+        "session_start", "pre_tool_use_allowed", "pre_tool_use_denied",
+    )}
+    saved = saved_codex_fixture(raw, project=tmp_path, session="saved-thread")
+    transcript = Path(saved["session_start"]["transcript_path"])
+    assert transcript.is_file()
+    metadata = json.loads(transcript.read_text(encoding="utf-8"))
+    assert metadata["payload"]["id"] == "saved-thread"
+    assert all(payload["transcript_path"] == str(transcript) for payload in saved.values())
+    assert all(payload["transcript_path"] is None for payload in raw.values())
