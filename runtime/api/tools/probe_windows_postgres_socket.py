@@ -50,6 +50,8 @@ def main():
                 ctypes.WinDLL(dll)
             except OSError as exc:
                 print("unresolved dependency:", dll, exc, flush=True)
+    owner = run(["whoami"]).stdout.strip()
+    run(["icacls", str(work), "/grant:r", f"{owner}:(OI)(CI)F", "/T", "/Q"])
     root = work / "private cluster"
     root.mkdir()
     owner = run(["whoami"]).stdout.strip()
