@@ -19,6 +19,7 @@ the judgment rules no command can check are in `.yoke/docs/agents/rules.md`.
   unless the user asks.
 - Keep each authored file at 350 lines or fewer.
 - Write items only through typed `yoke` item commands.
+- When the user names a plan (e.g. `MASTER-PLAN`), read it with `yoke strategy doc get SLUG`; it is not an item.
 - Iterate with `yoke watch pytest --impacted main --bounded`; the item's attached QA case owns
   the full run.
 - A Yoke skill that says auto-X authorizes X: do it without asking. Security rules still hold.
