@@ -3,3 +3,6 @@
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
 runtime/api/tools/test_product_runner_stages.py
 runtime/api/cli/test_platform_file_lock.py
+runtime/api/cli/test_browser_node_toolchain.py
+runtime/api/cli/test_browser_windows_toolchain.py
+runtime/api/cli/test_browser_platform_process.py
