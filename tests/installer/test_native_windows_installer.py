@@ -82,6 +82,18 @@ def test_bootstrap_creates_pending_generation_under_shared_publication_lock(
     monkeypatch, tmp_path
 ):
     module = load_installer()
+    from yoke_cli.config import cli_release_runtime
+
+    real_mkdtemp = module.tempfile.mkdtemp
+
+    def create_generation(*args, **kwargs):
+        lock = tmp_path / "yoke-cli-releases/publication.lock"
+        with pytest.raises(BlockingIOError):
+            with cli_release_runtime.locked(lock, nonblocking=True):
+                pytest.fail("generation creation must exclude the release collector")
+        return real_mkdtemp(*args, **kwargs)
+
+    monkeypatch.setattr(module.tempfile, "mkdtemp", create_generation)
     monkeypatch.setattr(
         module.subprocess,
         "run",
@@ -112,6 +124,22 @@ def test_bootstrap_creates_pending_generation_under_shared_publication_lock(
     assert (generation / "pending").is_file()
     # The failure has closed its lease so later shared-runtime cleanup can retire it.
     generation.rename(generation.with_name("retired"))
+
+
+def test_bootstrap_publication_timeout_names_recovery(monkeypatch, tmp_path, capsys):
+    module = load_installer()
+    ticks = iter([0, 31])
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: next(ticks)))
+
+    def contended(_descriptor):
+        raise BlockingIOError("held")
+
+    with pytest.raises(module.InstallError, match="cli_publication_busy.*retry"):
+        with module._bootstrap_publication(
+            tmp_path, {"acquire_exclusive_nonblocking": contended}
+        ):
+            pytest.fail("a contended publication lock must not admit creation")
+    assert "gives up after 30 seconds" in capsys.readouterr().err
 
 
 def test_windows_helper_permission_refusal_never_requests_posix_cache_repair(

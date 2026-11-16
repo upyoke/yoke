@@ -177,16 +177,19 @@ def _run_isolated_install(command: list[str], env: dict[str, str]):
     version = _product_spec_version(command[3])
     if not version or not re.fullmatch(r"[A-Za-z0-9_.+-]+", version):
         raise InstallError("cli_release_version_required: select an exact published release and retry")
-    # Use the embedded runtime's publication lock, including before a product
-    # wheel exists. Creation and lease acquisition must exclude collect().
-    runtime = {"__name__": "yoke_installer_runtime", "__file__": str(root / "launcher")}
-    exec(compile(CLI_RUNTIME_SOURCE, "<cli_release_runtime>", "exec"), runtime)
+    # Creation and lease acquisition exclude collect(), before a wheel exists.
+    locking = _bootstrap_locking()
     try:
-        with runtime["locked"](root / "publication.lock"):
+        with _bootstrap_publication(root, locking):
             generation = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=releases))
             (generation / "pending").touch()
             (generation / "lease").touch()
-            lease = runtime["_lease"](generation)
+            lease = (generation / "lease").open("rb")
+            try:
+                locking["acquire_shared"](lease.fileno())
+            except BaseException:
+                lease.close()
+                raise
     except (OSError, RuntimeError) as exc:
         raise InstallError(f"cli_release_prepare_failed: {exc}; let the active update finish and retry") from exc
     with lease:

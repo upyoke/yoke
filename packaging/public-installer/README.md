@@ -5,6 +5,10 @@ Run `yoke dev run -- python3 packaging/public-installer/build.py` after editing
 the generated `install.py` together. Each fragment has one concern and stays
 within the repository's `file_line_limit`; the generated download remains one standalone Python program.
 
+Before a candidate exists, bootstrap uses the embedded shared `platform_file_lock`
+primitive to exclude release collection during generation creation and lease
+acquisition. It keeps the lease file open through installation and activation.
+
 The installer uses uv to resolve one exact product release into a private tool
 environment. The build embeds the shared `cli_release_runtime` source so bootstrap
 also works when a selected wheel does not carry that module. Its standalone copy
