@@ -9,17 +9,9 @@ the published server image plus a Postgres 17 database. Your data stays on
 hardware you control; engineers point their CLIs at your server instead of the
 hosted platform.
 
-## Windows hosts require WSL2
-
-Native Windows refuses `yoke self-host init` (including `--start`), `upgrade`,
-`import` and `teardown`, and setup's **Host a server here**, before host writes.
-Install WSL2 and Ubuntu from Windows PowerShell with `wsl --install -d Ubuntu`.
-Open Ubuntu, install Yoke **inside that distribution**, and make Docker Engine
-with Compose available there. Follow the quickstart below from Ubuntu; keep the
-bundle and its secrets in the Linux filesystem. See [Windows and WSL](../start/windows-wsl.md).
-
-A native client on the same PC should reach the WSL2 server through `localhost`:
-WSL2 forwards it by default. This combination is not a verified support claim.
+Windows hosting requires WSL2 Ubuntu with Yoke and Docker Compose inside.
+Native hosting refuses before writes. Same-PC `localhost` forwarding is
+expected, unverified. See [Windows hosting](../start/windows-wsl.md).
 
 ## Quickstart
 
