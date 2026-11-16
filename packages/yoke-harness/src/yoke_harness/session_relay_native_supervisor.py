@@ -26,6 +26,8 @@ contents; the unconditional write only changes the clock.
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_release_lease import hold_running_release
+
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -53,6 +55,8 @@ from yoke_harness.session_relay_native_streams import (
     BoundedStreams,
     start_drain,
 )
+
+_RELEASE_LEASE = hold_running_release(__file__)
 
 
 #: How often a running native's words -- and, when it has none, the bare fact

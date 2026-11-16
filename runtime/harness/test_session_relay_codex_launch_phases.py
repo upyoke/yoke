@@ -15,6 +15,7 @@ from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_harness import session_relay_codex_app_server as app_module
 from yoke_harness import session_relay_codex_app_server_client as client_module
 from yoke_harness import session_relay_codex_cli_process as process_module
+from yoke_harness import session_relay_codex_cli as cli_module
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
@@ -122,6 +123,7 @@ def _request(
 
 def _spawning(monkeypatch, native: _FakeNative, source: str = "bundled"):
     transport = CodexCliTransport(worker=True)
+    monkeypatch.setattr(cli_module, "_stop", lambda child: child.terminate())
     monkeypatch.setattr(
         transport, "_spawn", lambda request, *, resume, streams: (native, source)
     )
@@ -166,6 +168,7 @@ def test_active_writer_refusal_survives_worker_translation_as_busy(
     native = _FakeNative(b"")
     native.returncode = 1
     transport = CodexCliTransport(worker=True)
+    monkeypatch.setattr(cli_module, "_stop", lambda child: child.terminate())
 
     def spawn(request, *, resume, streams):
         assert resume is True

@@ -16,7 +16,7 @@ import sys
 import sysconfig
 
 from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
-from yoke_core.tools.session_relay_release import RELAY_ACTIVE_RELEASE_NAME
+from yoke_core.tools.session_relay_release import RELAY_ACTIVE_RELEASE_NAME, write_release_json
 from yoke_core.tools.session_relay_runtime_install import _install_runtime_entrypoint
 
 
@@ -44,6 +44,7 @@ def _installed_relay(tmp_path: Path) -> Path:
         "    return 0\n",
         encoding="utf-8",
     )
+    write_release_json(release / ".yoke-relay-release.json", {"physical_root": str(release.resolve())})
     (state_dir / RELAY_ACTIVE_RELEASE_NAME).symlink_to(release, target_is_directory=True)
     _install_runtime_entrypoint(runtime, state_dir=state_dir)
     return state_dir

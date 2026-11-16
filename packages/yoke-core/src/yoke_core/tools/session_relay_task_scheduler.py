@@ -23,6 +23,7 @@ from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError, relay_runtime_python
 from yoke_harness.session_relay_process_restart import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
 from yoke_contracts.designed_wait import announce_designed_wait
+from yoke_contracts.refusal_recovery import compose_refusal
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
@@ -63,8 +64,11 @@ def _run(argv: list[str], runner: Runner) -> subprocess.CompletedProcess[str]:
 
 def _unavailable(detail: str) -> RelayInstallError:
     return RelayInstallError(
-        f"relay_task_scheduler_unavailable: {detail}. Recovery: enable Task Scheduler "
-        "and permit this user's interactive scheduled tasks, then retry `yoke relay install`.",
+        compose_refusal(
+            f"relay_task_scheduler_unavailable: {detail}",
+            recovery="enable Task Scheduler and permit this user's interactive scheduled "
+            "tasks, then retry `yoke relay install`",
+        ),
         code="relay_task_scheduler_unavailable",
     )
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from yoke_contracts.machine_config.relay_instance import RELAY_LOGOUT_BEHAVIOR
 from typing import Any
+from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.tools import session_relay_plist, session_relay_systemd, session_relay_task_scheduler
 from yoke_core.domain.relay_launchd_status import RelayInstallError
@@ -31,11 +32,23 @@ def relay_service_operation(action: str, **kwargs: Any) -> Any:
         }
     else:
         raise RelayInstallError(
-            f"relay_os_unsupported: no relay supervisor for {sys.platform}. "
-            "Recovery: run the relay on an OS with a declared supervisor.",
+            compose_refusal(
+                f"relay_os_unsupported: no relay supervisor for {sys.platform}",
+                recovery="run the relay on an OS with a declared supervisor",
+            ),
             code="relay_os_unsupported",
         )
-    return operations[action](**kwargs)
+    try:
+        return operations[action](**kwargs)
+    except OSError as exc:
+        raise RelayInstallError(
+            compose_refusal(
+                f"relay_service_filesystem_failed: {exc}",
+                recovery="repair access to the named relay state path and close handles "
+                f"preventing its replacement, then retry `yoke relay {action}`",
+            ),
+            code="relay_service_filesystem_failed",
+        ) from exc
 
 
 def relay_service_current(status: Any) -> bool:

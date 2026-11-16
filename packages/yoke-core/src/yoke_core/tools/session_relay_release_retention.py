@@ -12,6 +12,7 @@ from yoke_contracts import platform_file_lock as locks
 from yoke_contracts.platform_fs import remove_tree
 from yoke_contracts.platform_process import process_command_lines
 from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.relay_release_layout import RELAY_RELEASE_LOCK_NAME, RELAY_RELEASE_USE_LOCK_NAME
 
 from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_INSTALL_FAILED,
@@ -23,7 +24,6 @@ from yoke_core.tools.session_relay_release import (
 )
 
 
-RELAY_RELEASE_LOCK_NAME = "release-pin.lock"
 
 
 def prune_relay_releases(state_dir: Path) -> None:
@@ -82,7 +82,7 @@ def prune_relay_releases(state_dir: Path) -> None:
         # Stable launchers hold a shared file lock for their full lifetime.
         # Taking the pin lock before resolving the active pointer prevents a
         # launcher from selecting a tree while it is being removed.
-        with (candidate / ".relay-use.lock").open(mode="a+b") as handle:
+        with (candidate / RELAY_RELEASE_USE_LOCK_NAME).open(mode="a+b") as handle:
             try:
                 locks.acquire_exclusive_nonblocking(handle.fileno())
             except BlockingIOError:

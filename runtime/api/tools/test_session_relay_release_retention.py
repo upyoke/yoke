@@ -106,9 +106,9 @@ def test_file_lease_preserves_packages_without_release_in_command(tmp_path):
         [
             sys.executable,
             "-c",
-            "from yoke_contracts import platform_file_lock as locks; import pathlib, sys; "
-            "h=(pathlib.Path(sys.stdin.readline().strip()) / ' .relay-use.lock'.strip()).open('a+b'); "
-            "locks.acquire_shared(h.fileno()); print('ready', flush=True); sys.stdin.read()",
+            "from yoke_harness.session_relay_release_lease import hold_running_release; import pathlib, sys; "
+            "h=hold_running_release(str(pathlib.Path(sys.stdin.readline().strip()) / 'lib' / 'worker.py')); "
+            "assert h is not None; print('ready', flush=True); sys.stdin.read()",
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -217,3 +217,13 @@ def test_existing_install_receipts_converge_before_reuse_cleanup(tmp_path):
     assert install(instance, NEXT_RELEASE) == current
     assert set((instance.state_dir / "releases").iterdir()) == {previous, current}
     assert json.loads(receipt_path.read_text())["previous_release"] == str(previous)
+
+
+def test_worker_lease_failure_names_recovery(tmp_path, monkeypatch):
+    from yoke_harness import session_relay_release_lease as lease
+    root = install(relay_instance(tmp_path), RELEASE)
+    def denied(*args):
+        raise OSError("lock access denied")
+    monkeypatch.setattr(lease.locks, "acquire_shared", denied)
+    with pytest.raises(SystemExit, match="relay_worker_release_unavailable.*Recovery"):
+        lease.hold_running_release(str(root / "lib" / "worker.py"))

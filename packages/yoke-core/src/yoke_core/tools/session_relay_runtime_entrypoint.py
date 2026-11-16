@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 import sys
 import sysconfig
+from yoke_contracts.refusal_recovery import compose_refusal
+
+# __YOKE_REFUSAL_COMPOSER__
 
 
 _RELEASE_HANDLE = None
@@ -28,11 +31,11 @@ def _select_release_packages() -> None:
         locks.acquire_shared(pin_lock.fileno())
         try:
             active = state_dir / "__YOKE_ACTIVE_RELEASE__"
-            receipt = json.loads((active / ".yoke-relay-release.json").read_text(encoding="utf-8"))
+            receipt = json.loads((active / "__YOKE_RELEASE_RECEIPT__").read_text(encoding="utf-8"))
             release_root = Path(receipt["physical_root"]).resolve(strict=True)
             if release_root.parent != (state_dir / "releases").resolve():
                 raise RuntimeError("selected release is outside the owned releases directory")
-            _RELEASE_HANDLE = (release_root / ".relay-use.lock").open(mode="a+b")
+            _RELEASE_HANDLE = (release_root / "__YOKE_RELEASE_USE_LOCK__").open(mode="a+b")
             locks.acquire_shared(_RELEASE_HANDLE.fileno())
         finally:
             locks.release_exclusive(pin_lock.fileno())
@@ -64,9 +67,10 @@ def main() -> int:
         return int(cli_main(sys.argv[1:]) or 0)
     except Exception as exc:  # noqa: BLE001 - emit an operator-facing refusal
         print(
-            "relay_runtime_start_failed: "
-            f"{type(exc).__name__}: {exc}. Recovery: retry `yoke relay install` "
-            "for this environment.",
+            compose_refusal(
+                f"relay_runtime_start_failed: {type(exc).__name__}: {exc}",
+                recovery="retry `yoke relay install` for this environment",
+            ),
             file=sys.stderr,
         )
         return 1

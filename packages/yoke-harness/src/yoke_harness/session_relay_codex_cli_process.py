@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_relay_release_lease import hold_running_release
+
 from yoke_harness.session_launch_admission import NativeCapacityRefusal
 
 import json
@@ -38,6 +40,8 @@ from yoke_harness.session_relay_detached_worker import (
     START_TIMEOUT_SECONDS,
     run_detached_json_worker,
 )
+
+_RELEASE_LEASE = hold_running_release(__file__)
 
 
 _MODULE = "yoke_harness.session_relay_codex_cli_process"

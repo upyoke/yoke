@@ -15,6 +15,8 @@ registered worker supervised, and the containment sweep reaped it.
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import create_owner_private_directory
+
 import io
 import json
 import os
@@ -51,7 +53,7 @@ class _LaunchedNative:
         )
 
         self.relay_state = tmp_path / "relay-state"
-        self.relay_state.mkdir(parents=True)
+        create_owner_private_directory(self.relay_state)
         self.handles = tmp_path / "session-native-handles"
         home = tmp_path / "yoke-home"
         home.mkdir()

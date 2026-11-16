@@ -161,3 +161,13 @@ def test_task_owner_recycles_relay_without_finishing_scheduled_action(tmp_path, 
     assert exited.value.code == 0
     assert len(calls) == 2 and calls[0] == calls[1]
     assert tasks.os.environ[tasks.WINDOWS_RELAY_RUNNER_ENV] == "1"
+
+
+def test_supervisor_filesystem_failure_has_reason_and_recovery(monkeypatch):
+    monkeypatch.setattr(service.sys, "platform", "win32")
+    def fail(**kwargs):
+        raise OSError("state path is locked")
+    monkeypatch.setattr(tasks, "install_relay_task", fail)
+    with pytest.raises(tasks.RelayInstallError, match="state path is locked.*Recovery") as raised:
+        service.relay_service_operation("install")
+    assert raised.value.code == "relay_service_filesystem_failed"

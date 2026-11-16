@@ -25,13 +25,13 @@ from yoke_contracts.machine_config.relay_instance import (
     resolve_relay_instance,
 )
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.relay_release_layout import RELAY_RELEASE_RECEIPT_NAME
 
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 
 from yoke_core.domain.relay_release_path import relay_launch_path
 RELAY_RUNTIME_NAME = "runtime"
 RELAY_ACTIVE_RELEASE_NAME = "release"
-RELAY_RELEASE_RECEIPT_NAME = ".yoke-relay-release.json"
 RELAY_RELEASE_ERROR_NAME = "release-pin-error.json"
 RELAY_RELEASE_FETCH_FAILED = "relay_release_fetch_failed"
 RELAY_RELEASE_INSTALL_FAILED = "relay_release_install_failed"
