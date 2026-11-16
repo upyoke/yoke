@@ -57,6 +57,7 @@ def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, float]]:
             continue
         if argv[4] != str(paths.socket) or argv[5] not in ("--lock-fd", "--lock-path"):
             continue
+        # Framework builds on macOS name the executable "Python".
         executable = argv[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
         if not re.fullmatch(r"pythonw?(?:\d+(?:\.\d+)*)?(?:\.exe)?", executable):
             continue

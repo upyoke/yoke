@@ -4,6 +4,7 @@ import os
 import socket
 import threading
 import time
+from types import SimpleNamespace
 from multiprocessing import Pipe, connection
 from unittest.mock import Mock
 
@@ -71,6 +72,72 @@ def test_windows_pipe_path_is_stable_and_not_a_filesystem_socket(monkeypatch, tm
     assert first == paths.resident_paths()
     assert paths.resident_transport_available()
     assert paths.resident_transport_refusal(first) is None
+
+
+@pytest.mark.parametrize(
+    "executable",
+    [
+        "/Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python",
+        "/venv/bin/python3",
+        r"C:\Python\python.exe",
+    ],
+)
+def test_discovered_python_resident_stops_and_releases_startup_lock(
+    monkeypatch, tmp_path, executable
+):
+    import yoke_contracts
+    from yoke_cli import hook_resident_client as client
+    from yoke_cli import hook_resident_lifecycle as lifecycle
+    from yoke_cli import hook_resident_start as startup
+
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    paths = client.resident_paths()
+    held = [startup._open_start_lock(paths.lock)]
+    assert held[0] is not None
+    process = SimpleNamespace(
+        pid=123,
+        start_time=10.0,
+        name="Python",
+        cmdline=(
+            executable,
+            "-m",
+            "yoke_harness.hook_resident",
+            "--socket",
+            str(paths.socket),
+            "--lock-fd",
+            str(held[0]),
+        ),
+    )
+    handle = object()
+
+    def rebuild(pid, started):
+        assert (pid, started) == (process.pid, process.start_time)
+        return handle
+
+    def stop(custody, timeout):
+        assert custody is handle and timeout == lifecycle._STOP_SECONDS
+        os.close(held.pop())
+        return True
+
+    platform = SimpleNamespace(
+        process_command_lines=lambda: [process],
+        handle_from_pid=rebuild,
+        stop_group=stop,
+        pid_alive=lambda *args: bool(held),
+    )
+    monkeypatch.setattr(yoke_contracts, "platform_process", platform, raising=False)
+    try:
+        assert lifecycle._resident_processes(paths) == [
+            (process.pid, process.start_time)
+        ]
+        lifecycle.stop_resident(paths)
+        assert not held
+        released = startup._open_start_lock(paths.lock)
+        assert released is not None
+        os.close(released)
+    finally:
+        if held:
+            os.close(held.pop())
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows named pipes")
