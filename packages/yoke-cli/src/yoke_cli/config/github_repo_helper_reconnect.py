@@ -73,7 +73,11 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
     return counts
 
 
-def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
+def restore_missing_bundle(
+    config_path: str | Path | None,
+    *,
+    check_only: bool = False,
+) -> dict[str, object]:
     """Rebuild the helper bundle, then point stale checkouts at it.
 
     Detection reads only registered checkouts' git config, matching each
@@ -142,7 +146,17 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
             }
         return {"configured": False, "repaired": False, **warning_receipt}
 
+    if check_only:
+        return {
+            "configured": True,
+            "repaired": False,
+            **({"error": unresolved} if unresolved else {}),
+        }
+
     try:
+        github_git_credentials.helper_command(
+            config_path=config_path, helper_path=Path("unused")
+        )
         helper = github_git_credentials.install_stable_helper()
     except (OSError, github_git_credentials.GitHubCredentialBundleError) as exc:
         error = str(exc)
