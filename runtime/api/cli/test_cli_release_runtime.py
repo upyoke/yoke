@@ -160,26 +160,7 @@ def test_publication_failure_preserves_prior_release(tmp_path, monkeypatch, fail
 
 
 @pytest.mark.windows
-def test_standalone_bootstrap_activates_wheel_without_runtime_module(tmp_path):
-    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
-    generation = candidate(root, "1.0")
-    script = generation / "runtime.py"
-    script.write_text(Path(runtime.__file__).read_text())
-    python = runtime.release_python(generation)
-    result = subprocess.run(
-        [str(python), "-I", str(script), str(root), str(generation), str(bin_dir)]
-        + ["1.0"],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
-    assert version(bin_dir) == "1.0"
-
-
-def test_real_installer_runner_isolates_uv_and_activates_candidate(
-    tmp_path, monkeypatch
-):
+def _load_installer(monkeypatch):
     installer_path = (
         Path(__file__).resolve().parents[3] / "packaging/public-installer/install.py"
     )
@@ -189,6 +170,53 @@ def test_real_installer_runner_isolates_uv_and_activates_candidate(
     installer = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, installer)
     spec.loader.exec_module(installer)
+    return installer
+
+
+def test_installer_activates_candidate_with_the_candidates_own_runtime(
+    tmp_path, monkeypatch
+):
+    """An installer built before the candidate still gets the candidate's layout."""
+    installer = _load_installer(monkeypatch)
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    generation = candidate(root, "2.0")
+    marker = "# layout owned by candidate 2.0\n"
+    candidate_runtime = next(generation.glob("tools/yoke-cli/**/cli_release_runtime.py"))
+    candidate_runtime.write_text(candidate_runtime.read_text() + marker)
+    real_run = subprocess.run
+
+    def run(command, **kwargs):
+        if command == ["uv", "tool", "dir", "--bin"]:
+            return subprocess.CompletedProcess(command, 0, str(bin_dir), "")
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(installer.subprocess, "run", run)
+    monkeypatch.setattr(
+        installer,
+        "_install_qualified_candidate",
+        lambda command, env, generation: subprocess.CompletedProcess(command, 0, "", ""),
+    )
+    command = ["uv", "tool", "install", "yoke-cli==2.0"]
+    result = installer._install_candidate(command, {}, root, generation, "2.0")
+    assert result.returncode == 0, result.stderr
+    assert not (root / "current").is_symlink()
+    assert (root / "current").read_text() == "2.0\n"
+    assert (root / "launcher").read_text().endswith(marker)
+    assert not (generation / "pending").exists()
+    assert version(bin_dir) == "2.0"
+    shim = subprocess.run(
+        [str(root / "python"), "-c", "import release_marker; print(release_marker.VERSION)"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert shim.stdout.strip() == "2.0", shim.stderr
+
+
+def test_real_installer_runner_isolates_uv_and_activates_candidate(
+    tmp_path, monkeypatch
+):
+    installer = _load_installer(monkeypatch)
     calls = []
 
     def run(command, **kwargs):
@@ -212,8 +240,13 @@ def test_real_installer_runner_isolates_uv_and_activates_candidate(
     assert generation.parent == tmp_path / "tools/yoke-cli-releases/releases"
     assert environment["UV_TOOL_BIN_DIR"] == str(generation / "bin")
     activation, _ = calls[-1]
-    assert activation[1:3] == ["-I", str(generation / "runtime.py")]
-    assert (generation / "runtime.py").read_text() == Path(runtime.__file__).read_text()
+    assert activation[:4] == [
+        str(generation / "tools/yoke-cli/bin/python3"),
+        "-I",
+        "-m",
+        "yoke_cli.config.cli_release_runtime",
+    ]
+    assert not (generation / "runtime.py").exists()
     assert activation[-3:] == [str(generation), str(tmp_path / "bin"), "1.0"]
 
 

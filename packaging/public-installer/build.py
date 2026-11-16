@@ -32,13 +32,6 @@ def render() -> str:
                 / "packages/yoke-contracts/src/yoke_contracts/platform_file_lock.py"
             ).read_text(encoding="utf-8")
         )
-        + "\nCLI_RUNTIME_SOURCE = "
-        + repr(
-            (
-                ROOT.parents[1]
-                / "packages/yoke-cli/src/yoke_cli/config/cli_release_runtime.py"
-            ).read_text()
-        )
         + "\n"
         + "\n".join(parts[1:])
         + '\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
