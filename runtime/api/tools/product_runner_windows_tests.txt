@@ -21,3 +21,9 @@ runtime/api/domain/test_deploy_core_container_pack_source.py
 runtime/api/domain/test_migration_apply.py
 runtime/api/domain/test_deploy_core_container.py
 runtime/api/domain/test_migration_fleet_preflight_credentials.py
+runtime/api/cli/test_platform_process.py
+runtime/api/cli/test_platform_process_windows.py
+runtime/api/cli/test_platform_links.py
+runtime/api/cli/test_platform_fs.py
+runtime/api/cli/test_owner_private_path.py
+runtime/api/domain/test_lint_platform.py
