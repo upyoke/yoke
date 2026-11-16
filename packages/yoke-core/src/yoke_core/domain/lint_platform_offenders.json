@@ -50,7 +50,6 @@
   "packages/yoke-contracts/src/yoke_contracts/install_binding.py": {"encoding|35172a15e20a058f": 1},
   "packages/yoke-contracts/src/yoke_contracts/linux_process_snapshot.py": {"encoding|204d6bd3263856ff": 1, "encoding|e0191c313ed67109": 1},
   "packages/yoke-contracts/src/yoke_contracts/machine_config/directories.py": {"tmp|51fb04965cc3e01d": 1},
-  "packages/yoke-contracts/src/yoke_contracts/machine_config/native_capacity.py": {"encoding|a3d29e8cbfb9abb6": 1},
   "packages/yoke-contracts/src/yoke_contracts/machine_config/runtime.py": {"encoding|c69fd2043a2f35b7": 1},
   "packages/yoke-contracts/src/yoke_contracts/machine_config/scratch_roots.py": {"tmp|51fb04965cc3e01d": 4},
   "packages/yoke-contracts/src/yoke_contracts/machine_screenshot.py": {"encoding|ab68a26fe2f2e861": 1},

@@ -15,10 +15,9 @@ An idle machine with no launch-capable surface polls every 5 minutes instead
 of every minute. A relay that has not probed its surfaces yet, such as a fresh
 install, keeps the one-minute cadence until it reports what it found.
 Each serialized native spawn checks current reclaimable memory and swap,
-with a three-second stagger. macOS uses only `/usr/bin/vm_stat`, independently
-of the relay's filtered PATH; Linux reads `/proc/meminfo`. Admission needs
-1 GiB available memory. Linux also needs 512 MiB free swap when swap is enabled.
-macOS grows swap on demand, so admission has no swap ceiling there. Disabled
+with a three-second stagger. Shared psutil probes read available memory and
+swap independently of the relay's filtered PATH. Admission needs
+1 GiB available memory and 512 MiB free swap when swap is enabled. Disabled
 swap permits launching with sufficient memory. Placement also respects
 configured machine capacity.
 

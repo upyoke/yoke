@@ -20,9 +20,7 @@ from yoke_contracts.timestamps import as_utc, format_instant, temporal_wire
 
 from dataclasses import asdict, dataclass
 import os
-import re
-import subprocess
-import sys
+import psutil
 from typing import Any, Mapping
 
 MAX_WORKER_LANES_KEY = "max_worker_lanes"
@@ -66,66 +64,26 @@ class MachineCapacityReading:
 
 
 def free_memory_bytes() -> int | None:
-    """Reclaimable free memory in bytes, or ``None`` when unknowable.
-
-    macOS sums the free, inactive, speculative, and purgeable pages from
-    ``vm_stat`` -- all reclaimable without disk I/O. Linux reads
-    ``MemAvailable`` from ``/proc/meminfo``.
-    """
-    if sys.platform == "darwin":
-        try:
-            result = subprocess.run(
-                ["/usr/bin/vm_stat"], capture_output=True, text=True, timeout=2
-            )
-        except (OSError, subprocess.TimeoutExpired, TypeError):
-            # TypeError surfaces when a test fixture monkeypatches
-            # subprocess.run with a narrower signature; unknowable, not broken.
-            return None
-        if result.returncode != 0:
-            return None
-        page_size = 4096
-        page_size_match = re.search(r"page size of (\d+) bytes", result.stdout)
-        if page_size_match:
-            page_size = int(page_size_match.group(1))
-        pages = 0
-        for key in (
-            "Pages free",
-            "Pages inactive",
-            "Pages speculative",
-            "Pages purgeable",
-        ):
-            match = re.search(rf"{re.escape(key)}:\s+(\d+)", result.stdout)
-            if match:
-                pages += int(match.group(1))
-        return pages * page_size if pages else None
-    if sys.platform.startswith("linux"):
-        try:
-            with open("/proc/meminfo", encoding="utf-8") as handle:
-                for line in handle:
-                    if line.startswith("MemAvailable:"):
-                        parts = line.split()
-                        if len(parts) >= 2 and parts[1].isdigit():
-                            return int(parts[1]) * 1024
-        except OSError:
-            return None
-    return None
+    """Memory available without swapping, from the shared cross-platform probe."""
+    try:
+        available = int(psutil.virtual_memory().available)
+        return available if available >= 0 else None
+    except (OSError, psutil.Error, AttributeError, TypeError, ValueError):
+        return None
 
 
 def total_memory_bytes() -> int | None:
     try:
-        pages = os.sysconf("SC_PHYS_PAGES")
-        page_size = os.sysconf("SC_PAGE_SIZE")
-    except (AttributeError, OSError, ValueError):
+        total = int(psutil.virtual_memory().total)
+        return total if total > 0 else None
+    except (OSError, psutil.Error, AttributeError, TypeError, ValueError):
         return None
-    if pages <= 0 or page_size <= 0:
-        return None
-    return int(pages) * int(page_size)
 
 
 def load_average_1m() -> float | None:
     try:
-        return float(os.getloadavg()[0])
-    except (AttributeError, OSError):
+        return float(psutil.getloadavg()[0])
+    except (AttributeError, OSError, psutil.Error):
         return None
 
 

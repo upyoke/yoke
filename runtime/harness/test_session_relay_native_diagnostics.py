@@ -78,7 +78,7 @@ def test_reader_refuses_traversal_symlinks_wrong_owner_and_open_permissions(
     monkeypatch,
 ) -> None:
     directory = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME
-    directory.mkdir(mode=0o700)
+    create_owner_private_directory(directory)
     outside = tmp_path / "outside"
     outside.write_bytes(b"private")
     symlink_ref = _reference(1)
@@ -120,7 +120,7 @@ def test_cleanup_enforces_ttl_and_count_without_following_unknown_entries(
     tmp_path: Path,
 ) -> None:
     directory = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME
-    directory.mkdir(mode=0o700)
+    create_owner_private_directory(directory)
     unknown = directory / "operator-note"
     unknown.write_text("keep", encoding="utf-8")
     outside = tmp_path / "outside"
