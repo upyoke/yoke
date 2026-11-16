@@ -43,6 +43,15 @@ jobs:
           --output windows-smoke-evidence --through status
       - name: Install test dependencies
         run: uv sync --all-packages --locked --python 3.12
+      - name: Start the runner's preinstalled Postgres for the test suite
+        # Same disposable settings as Linux CI's container (pytest_cluster_identity).
+        run: |
+          bin="$(cygpath -u "$PGBIN")"
+          data="$RUNNER_TEMP\yoke-pg"
+          "$bin/initdb" -D "$data" -U yoke -A trust --encoding=UTF8 --locale=C
+          "$bin/pg_ctl" -D "$data" -l "$RUNNER_TEMP\yoke-pg.log" -w start -o \
+            "-p 5432 -c max_connections=400 -c timezone=Asia/Kathmandu -c fsync=off -c synchronous_commit=off -c full_page_writes=off"
+          echo "YOKE_PG_DSN=host=localhost port=5432 user=yoke dbname=postgres" >> "$GITHUB_ENV"
       - name: Run the declared Windows tests
         run: |
           mapfile -t tests < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' runtime/api/tools/product_runner_windows_tests.txt)
