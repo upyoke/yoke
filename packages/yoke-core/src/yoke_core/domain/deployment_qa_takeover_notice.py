@@ -1,4 +1,8 @@
-"""Tell each moved member owner with no open walk that item QA now waits on the successor."""
+"""Tell each moved member owner that item QA now waits on the successor.
+
+Skipped: plan-only members, members mid-walk, and manual-only members whose
+claim holder already holds a future scheduled recheck.
+"""
 
 from __future__ import annotations
 
@@ -62,6 +66,54 @@ def _member_rows(conn: Any, item_ids: Sequence[int]) -> list[dict[str, Any]]:
     ]
 
 
+def _all_manual_members(conn: Any, new_id: str, item_ids: Sequence[int]) -> set[int]:
+    """Members whose every moved open requirement is manual-wake."""
+    from yoke_contracts.qa_case_wake_path import MANUAL
+
+    ids = sorted({int(item_id) for item_id in item_ids})
+    if not ids:
+        return set()
+    rows = conn.execute(
+        "SELECT q.deployment_member_item_id FROM qa_requirements q "
+        "WHERE q.deployment_run_id=%s AND q.deployment_member_item_id=ANY(%s) "
+        "AND q.waived_at IS NULL AND q.superseded_at IS NULL "
+        "AND q.retracted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM qa_runs r WHERE r.qa_requirement_id=q.id) "
+        "GROUP BY q.deployment_member_item_id "
+        "HAVING bool_and(q.wake_path IS NOT DISTINCT FROM %s)",
+        (new_id, ids, MANUAL),
+    ).fetchall()
+    return {int(row[0]) for row in rows}
+
+
+def recheck_holding_members(
+    conn: Any, *, new_id: str, item_ids: Sequence[int], project_id: int
+) -> set[int]:
+    """Members a takeover need not wake: their holder already set its recheck.
+
+    All must hold: the notice would reach the claim holder (not the steering
+    seat), that holder has a future unconsumed scheduled wake, and every moved
+    open requirement of the member is manual-wake. The holder's own timer is
+    its next look; an automatic requirement still needs the successor's wake.
+    """
+    from yoke_contracts.timestamps import utc_now
+    from yoke_core.domain.merge_queue_landing_notice import (
+        HOLDER,
+        resolve_lane_recipient,
+    )
+    from yoke_core.domain.session_scheduled_wake import pending_session_wake_holders
+
+    holders: dict[int, str] = {}
+    for item_id in sorted(_all_manual_members(conn, new_id, item_ids)):
+        session_id, _, route = resolve_lane_recipient(
+            conn, item_id=item_id, project_id=project_id
+        )
+        if session_id and route == HOLDER:
+            holders[item_id] = session_id
+    timed = pending_session_wake_holders(conn, holders.values(), now=utc_now())
+    return {item_id for item_id, session in holders.items() if session in timed}
+
+
 def notify_moved_member_qa(
     conn: Any,
     *,
@@ -86,7 +138,8 @@ def notify_moved_member_qa(
     stage_name = item_qa_stage_name(stages)
     # A member owing only plans has nothing to run; its plan groups moved whole.
     # A member mid-walk keeps walking on its carried execution; telling it to
-    # wait would stop a walk that may pass on the newer build.
+    # wait would stop a walk that may pass on the newer build. A manual-only
+    # member whose holder holds a scheduled recheck keeps sleeping until it.
     skipped = plan_only_members(conn, new_id, item_ids) | open_walk_members(
         conn, new_id, item_ids
     )
@@ -99,6 +152,11 @@ def notify_moved_member_qa(
     for project_id, members in by_project.items():
         reachable = addressable_items(
             conn,
+            item_ids=[int(row["id"]) for row in members],
+            project_id=project_id,
+        ) - recheck_holding_members(
+            conn,
+            new_id=new_id,
             item_ids=[int(row["id"]) for row in members],
             project_id=project_id,
         )
@@ -130,4 +188,9 @@ def notify_moved_member_qa(
                 continue
 
 
-__all__ = ["item_qa_stage_name", "moved_member_body", "notify_moved_member_qa"]
+__all__ = [
+    "item_qa_stage_name",
+    "moved_member_body",
+    "notify_moved_member_qa",
+    "recheck_holding_members",
+]

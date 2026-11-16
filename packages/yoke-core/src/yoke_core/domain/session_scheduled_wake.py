@@ -69,6 +69,26 @@ def schedule_session_wake(
     }
 
 
+def pending_session_wake_holders(
+    conn: Any, session_ids: Any, *, now: datetime
+) -> set[str]:
+    """Sessions among *session_ids* that hold a future, unconsumed timed wake.
+
+    A missing table (lean fixtures, pre-convergence reads) means nobody does.
+    """
+    wanted = sorted({str(session_id) for session_id in session_ids if session_id})
+    if not wanted or not _table_exists(conn, "session_scheduled_wakes"):
+        return set()
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT DISTINCT session_id FROM session_scheduled_wakes "
+        f"WHERE session_id IN ({','.join([p] * len(wanted))}) "
+        f"AND message_id IS NULL AND due_at>{p}",
+        (*wanted, instant_parameter(conn, parse_instant(now))),
+    ).fetchall()
+    return {str(row[0]) for row in rows}
+
+
 def enqueue_due_session_wakes(conn: Any, *, now: datetime) -> int:
     """The existing relay sweep atomically consumes due timers once.
 

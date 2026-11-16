@@ -41,4 +41,75 @@ def test_windows_owner_private_file_uses_dacl_validator(
 
 
 def test_owner_private_path_exports_only_file_validator() -> None:
-    assert owner_private_path.__all__ == ["is_owner_private_file"]
+    assert {"is_owner_private_file", "is_owner_private_directory",
+            "create_owner_private_directory", "write_owner_private"} == set(owner_private_path.__all__)
+
+
+@pytest.mark.parametrize("data", ["héllo", b"secret"])
+def test_atomic_private_write(data, tmp_path):
+    path = tmp_path / "secret"
+    owner_private_path.write_owner_private(path, data)
+    assert path.read_bytes() == (data.encode("utf-8") if isinstance(data, str) else data)
+    assert owner_private_path.is_owner_private_file(path)
+    owner_private_path.write_owner_private(path, b"replacement")
+    assert path.read_bytes() == b"replacement"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_private_write_replace_failure_preserves_old_data(monkeypatch, tmp_path):
+    path = tmp_path / "secret"
+    owner_private_path.write_owner_private(path, b"before")
+    def fail(*args):
+        raise PermissionError("locked")
+    monkeypatch.setattr(owner_private_path.os, "replace", fail)
+    with pytest.raises(OSError, match="owner_private_write_failed"):
+        owner_private_path.write_owner_private(path, b"after")
+    assert path.read_bytes() == b"before"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_private_directory_creation_and_existing_unsafe_refusal(tmp_path):
+    path = tmp_path / "private"
+    assert owner_private_path.create_owner_private_directory(path) == path
+    assert owner_private_path.is_owner_private_directory(path)
+    owner_private_path.create_owner_private_directory(path)
+    if os.name != "nt":
+        path.chmod(0o755)
+        with pytest.raises(OSError, match="owner_private_directory_unsafe"):
+            owner_private_path.create_owner_private_directory(path)
+        assert path.stat().st_mode & 0o777 == 0o755
+
+
+def test_private_write_does_not_create_parents(tmp_path):
+    with pytest.raises(OSError):
+        owner_private_path.write_owner_private(tmp_path / "missing" / "secret", b"no")
+    assert not (tmp_path / "missing").exists()
+
+
+def test_windows_private_creation_explicitly_sets_token_user_owner(monkeypatch, tmp_path):
+    """Elevated Windows tokens can otherwise default ownership to Administrators."""
+    from types import SimpleNamespace
+    windows = owner_private_path.windows_private_directory
+    descriptors, masks = [], []
+    class Function:
+        def __init__(self, callback):
+            self.callback = callback
+        def __call__(self, *args):
+            return self.callback(*args)
+    def convert(sddl, revision, output, length):
+        descriptors.append(sddl)
+        output._obj.value = 123
+        return 1
+    api = SimpleNamespace(
+        ConvertStringSecurityDescriptorToSecurityDescriptorW=Function(convert),
+        SetFileSecurityW=Function(lambda path, mask, descriptor: masks.append(mask) or 1),
+        CreateDirectoryW=Function(lambda *args: 1),
+        LocalFree=Function(lambda *args: None),
+    )
+    monkeypatch.setattr(windows.ctypes, 'WinDLL', lambda *a, **k: api, raising=False)
+    monkeypatch.setattr(windows, '_configure_apis', lambda *args: None)
+    monkeypatch.setattr(windows, '_current_user_sid', lambda *args: 'S-1-5-21-123')
+    windows.create_private_directory(tmp_path / 'private')
+    windows.make_private_file(tmp_path / 'file')
+    assert all(sddl.startswith('O:S-1-5-21-123D:P') for sddl in descriptors)
+    assert masks[0] & windows._OWNER_SECURITY_INFORMATION

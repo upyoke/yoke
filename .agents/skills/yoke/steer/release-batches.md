@@ -40,8 +40,8 @@ Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
 
 ### Manual-wake member QA
 
-Staff owners; `yoke qa plan reconcile` ownerless walks. Evidence not available on this release yet: stay parked;
-the case rides the next release takeover.
+Staff owners; `yoke qa plan reconcile` ownerless walks. Evidence not available yet: the owner parks only behind
+its own `yoke sessions wake schedule` recheck, so a takeover does not wake it; ask an owner parked without one to schedule it.
 
 Driver runs run-scoped QA:
 

@@ -57,7 +57,9 @@ def set_session_mode(
     """Persist mode and its optional quiet reason without touching heartbeat.
 
     A parked write also advances ``turn_posture_at`` so a delayed accepted
-    prompt observed before that write cannot clear the fresh park.
+    prompt observed before that write cannot clear the fresh park. A holder
+    woken for an open manual-wake QA requirement parks only while it holds a
+    future scheduled recheck (:mod:`session_park_recheck_guard`).
     """
     row = _load_session(conn, session_id)
     if row.get("ended_at") is not None:
@@ -75,6 +77,12 @@ def set_session_mode(
             "PARKED_REASON_REQUIRED",
             "mode parked requires a reason so the next reader knows why",
         )
+    if stored_mode == SESSION_MODE_PARKED:
+        from yoke_core.domain.session_park_recheck_guard import park_recheck_refusal
+
+        refusal = park_recheck_refusal(conn, session_id)
+        if refusal:
+            raise SessionError("PARK_RECHECK_REQUIRED", refusal)
     marker = _p(conn)
     if _quiet_reason_present(conn):
         conn.execute(

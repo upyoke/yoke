@@ -209,4 +209,62 @@ def _sid_string(sid: int, advapi: object, kernel: object) -> str:
         kernel.LocalFree(rendered)
 
 
-__all__ = ["is_private_directory", "is_private_file"]
+def make_private_file(path: str | Path) -> None:
+    """Protect an empty temporary file before its owner writes secret bytes."""
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    _configure_apis(advapi, kernel)
+    sid = _current_user_sid(advapi, kernel)
+    descriptor = ctypes.c_void_p()
+    convert = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
+    convert.argtypes = [wintypes.LPCWSTR, wintypes.DWORD,
+                        ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+    convert.restype = wintypes.BOOL
+    set_security = advapi.SetFileSecurityW
+    set_security.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, ctypes.c_void_p]
+    set_security.restype = wintypes.BOOL
+    if not convert(f"O:{sid}D:P(A;;FA;;;{sid})(A;;FA;;;SY)(A;;FA;;;BA)", 1,
+                   ctypes.byref(descriptor), None):
+        raise OSError("owner_private_acl_failed: cannot build DACL; check Windows account policy")
+    try:
+        if not set_security(str(path), _DACL_SECURITY_INFORMATION | _OWNER_SECURITY_INFORMATION | 0x80000000, descriptor):
+            raise OSError("owner_private_acl_failed: cannot protect file; grant owner ACL access")
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+def create_private_directory(path: str | Path) -> None:
+    """Create a directory with a protected inheritable DACL from its first instant."""
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    _configure_apis(advapi, kernel)
+    sid = _current_user_sid(advapi, kernel)
+    descriptor = ctypes.c_void_p()
+    convert = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
+    convert.argtypes = [wintypes.LPCWSTR, wintypes.DWORD,
+                        ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+    convert.restype = wintypes.BOOL
+    if not convert(f"O:{sid}D:P(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)", 1,
+                   ctypes.byref(descriptor), None):
+        raise OSError("owner_private_acl_failed: cannot build DACL; check Windows account policy")
+
+    class SecurityAttributes(ctypes.Structure):
+        _fields_ = [("nLength", wintypes.DWORD), ("lpSecurityDescriptor", ctypes.c_void_p),
+                    ("bInheritHandle", wintypes.BOOL)]
+
+    attributes = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor, False)
+    create = kernel.CreateDirectoryW
+    create.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(SecurityAttributes)]
+    create.restype = wintypes.BOOL
+    try:
+        if not create(str(path), ctypes.byref(attributes)):
+            error = ctypes.get_last_error()
+            if error == 183:
+                raise FileExistsError(str(path))
+            raise OSError(error, f"owner_private_directory_create_failed: {path}; check parent access")
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+__all__ = ["is_private_directory", "is_private_file", "make_private_file",
+           "create_private_directory"]

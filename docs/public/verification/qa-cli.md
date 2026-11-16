@@ -90,6 +90,8 @@ yoke qa requirement update --requirement-id 4309 --field method_config --value "
 # Mark a live case manual-wake: evidence first, then the path
 yoke qa requirement update --requirement-id 4309 --field wake_evidence --value "$evidence"
 yoke qa requirement update --requirement-id 4309 --field wake_path --value manual
+# Its owner, woken while the evidence is missing, parks only behind its next recheck
+yoke sessions wake schedule --at UTC_INSTANT --reason "check the required evidence"
 # Re-declare a machine case's starting state before anything has run it
 yoke qa requirement update --requirement-id 4309 --field starting_state --value '{"starting_state":"as_is","starting_state_reason":"keeps the session a person opened"}'
 
