@@ -163,7 +163,7 @@ def test_detached_sweep_command_is_actually_runnable(tmp_path, monkeypatch):
         spawned["argv"] = argv
         return object()
 
-    monkeypatch.setattr(pg_testcluster_orphans.subprocess, "Popen", capture)
+    monkeypatch.setattr("yoke_contracts.platform_process.spawn_group", capture)
     pg_testcluster_orphans.start_detached_orphan_sweep()
     # `subprocess` is one shared module object, so the patch above would
     # also intercept this test's own run() call. Drop it before executing.

@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import os
+import sys
+import json
 import subprocess
 from types import SimpleNamespace
 
@@ -92,3 +94,36 @@ def test_windows_cluster_environment_uses_powershell_literals(monkeypatch, tmp_p
     assert "$env:YOKE_PG_CLUSTER_ROOT = '" in result
     assert "user''s $cluster'" in result
     assert "$env:YOKE_PG_DSN = 'host=socket user=contributor'" in result
+
+
+def test_source_launcher_loads_explicit_checkout_with_native_python(tmp_path):
+    root = Path(__file__).resolve().parents[3]
+    source = tmp_path / "source with spaces"
+    package = source / "packages/yoke-cli/src/yoke_cli"
+    package.mkdir(parents=True)
+    (package / "__init__.py").touch()
+    (package / "main.py").write_text(
+        "import json\ndef main(argv):\n    print(json.dumps(argv))\n    return 7\n"
+    )
+    launcher = root / "packages/yoke-core/src/yoke_core/tools/yoke_launcher.py"
+    result = subprocess.run(
+        [sys.executable, str(launcher), "argument with spaces", "--version"],
+        env={**os.environ, "YOKE_SOURCE_DEV": "1", "YOKE_HOME": str(source)},
+        cwd=tmp_path, text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 7, result.stderr
+    assert json.loads(result.stdout) == ["argument with spaces", "--version"]
+    assert "source authority: explicit operator opt-in" in result.stderr
+
+
+def test_source_launcher_refuses_missing_checkout_without_traceback(tmp_path):
+    root = Path(__file__).resolve().parents[3]
+    launcher = root / "packages/yoke-core/src/yoke_core/tools/yoke_launcher.py"
+    result = subprocess.run(
+        [sys.executable, str(launcher), "--version"],
+        env={**os.environ, "YOKE_SOURCE_DEV": "1", "YOKE_HOME": str(tmp_path / "missing")},
+        cwd=tmp_path, text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 2
+    assert "source_cli_unavailable" in result.stderr
+    assert "Traceback" not in result.stderr

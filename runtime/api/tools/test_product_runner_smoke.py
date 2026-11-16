@@ -194,6 +194,9 @@ def test_native_corpus_has_all_events_without_account_data(harness):
 def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path):
     from runtime.api.tools.product_runner_source_tests import run_source_tests
 
+    roster = tmp_path / "runtime/api/tools/product_runner_windows_tests.txt"
+    roster.parent.mkdir(parents=True)
+    roster.write_text("# portable subset\nruntime/api/tools/test_windows_source_checkout.py\n")
     home = tmp_path / "home"
     home.mkdir()
     output = tmp_path / "evidence"
@@ -220,6 +223,7 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"
     assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
+    assert "runtime/api/tools/test_windows_source_checkout.py" in seen[1][1]
     assert seen[-1][0] == "stop-test-postgres"
 
 
