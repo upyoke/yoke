@@ -81,8 +81,9 @@ az vm deallocate --resource-group GROUP --name VM
 
 ## 2. Provision OpenSSH and the standard test account
 
-Install the signed Microsoft Win32-OpenSSH MSI using Azure `az vm run-command invoke
---command-id RunPowerShellScript`. Set `sshd` automatic, enable public-key
+Install the Microsoft-serviced Windows capability with
+`Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0` using Azure
+`az vm run-command invoke --command-id RunPowerShellScript`. Set `sshd` automatic, enable public-key
 authentication and disable password authentication in
 `C:\ProgramData\ssh\sshd_config`. Fresh Windows images can spend considerable time in Windows Update servicing;
 the provisioner announces and allows up to 90 minutes for the capability
@@ -90,6 +91,26 @@ bootstrap. Let servicing settle after first boot, then retry when necessary.
 Slowness alone is not an installation error. Keep the Microsoft-serviced
 capability; use a pinned, signature-verified Microsoft MSI only after an
 actual capability installation error has been diagnosed.
+If Azure repeatedly refuses a new invocation with “Run command extension
+execution is in progress” after the bounded wait, stop the controller retry
+loop and record the stuck invocation. Remove the stuck **action Run Command**
+extension before starting a new provisioning attempt:
+
+```text
+az vm extension delete --resource-group GROUP --vm-name VM --name RunCommandWindows
+az vm start --resource-group GROUP --name VM
+```
+
+For a **managed Run Command**, delete its named resource with
+`az vm run-command delete --resource-group GROUP --vm-name VM --name COMMAND_NAME`
+instead. These are different Azure resources; select the one actually used.
+Let first-boot Windows servicing finish, then rerun the capability provisioner
+with its 90-minute bound. Removing the extension does not prove that Windows
+servicing stopped or OpenSSH installed; require the readiness receipt and SSH
+probe. Preserve the VM disk, deallocate after use, and record recovery results.
+See Microsoft's [action Run Command recovery](https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command)
+and [OpenSSH installation](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse).
+
 Authorize the project test-machine public
 key for the administrator bootstrap in
 `C:\ProgramData\ssh\administrators_authorized_keys`, owned only by
