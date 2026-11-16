@@ -100,3 +100,14 @@ def test_guided_hosting_refuses_before_loading_or_provisioning(monkeypatch, tmp_
 def test_linux_and_mac_guard_allows_existing_host_path(monkeypatch, platform):
     monkeypatch.setattr(native_windows, "sys", SimpleNamespace(platform=platform))
     assert native_windows.refuse() is None
+
+
+def test_recovery_uses_configured_distribution_installer(monkeypatch):
+    _windows(monkeypatch)
+    command = "curl -fsSL https://distribution.example.test/install | sh"
+    installer = Mock(return_value=command)
+    monkeypatch.setattr(native_windows, "install_command", installer)
+    with pytest.raises(native_windows.NativeWindowsError) as refused:
+        native_windows.refuse()
+    assert command in str(refused.value)
+    installer.assert_called_once_with()
