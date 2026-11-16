@@ -1,0 +1,180 @@
+name: yoke-suite
+
+# Layer 1 (test suite) of the multi-OS CI model: the full pytest suite on
+# Windows and macOS, one Python (the newest supported), on demand. Linux CI
+# (yoke-ci) owns the required verdict; this workflow measures how much of the
+# same suite passes elsewhere and how long it takes.
+#
+# A Linux plan job collects the suite once and publishes yoke-ci's file
+# groups and exact-commit product wheels. Each OS then runs the same
+# ci_shards groups with the product's own native Postgres engine
+# (yoke_core.tools.ci_suite_postgres) instead of a container. Known failures
+# live in runtime/known_failure_baselines/<os>.json and run as strict xfails,
+# so a fixed test fails the run until its entry is deleted.
+#
+# Dispatch-only: macOS runners stay out of automatic CI
+# (runtime/api/cli/test_github_workflow_runner_routing.py). See
+# docs/testing-verification/multi-os-suite.md.
+run-name: >-
+  ${{ inputs.yoke_dispatch_id
+      && format('yoke-suite {0} [yoke-dispatch:{1}]', inputs.sha || github.sha, inputs.yoke_dispatch_id)
+      || format('yoke-suite {0}', inputs.sha || github.sha) }}
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to test; empty tests the dispatched ref.
+        required: false
+        default: ""
+      yoke_dispatch_id:
+        description: Correlation id echoed into run-name; empty for hand triggers.
+        required: false
+        default: ""
+
+concurrency:
+  group: yoke-suite-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  POSTGRES_IMAGE: ghcr.io/upyoke/postgres:16
+
+jobs:
+  plan:
+    timeout-minutes: 15
+    name: plan
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
+    outputs:
+      shards: ${{ steps.fan_out.outputs.shards }}
+      python_latest: ${{ steps.fan_out.outputs.python_latest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+          fetch-depth: 0
+      - name: Publish shard fan-out
+        id: fan_out
+        run: >-
+          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
+          yoke_core.tools.ci_shards fan-out --write-github-output
+      - name: Prepare collection runner
+        uses: ./.github/actions/yoke-test-runner
+        with:
+          python-version: ${{ steps.fan_out.outputs.python_latest }}
+          pg-container: yoke-suite-collection-pg-${{ github.run_id }}
+      - name: Build product wheels and collect shard files
+        run: |
+          uv run python -m yoke_core.tools.ci_shard_groups &
+          grouping_pid=$!
+          uv run python -m yoke_core.tools.ci_product_wheels --output "$RUNNER_TEMP/product-wheels" &
+          wheels_pid=$!
+          result=0
+          wait "$grouping_pid" || result=1
+          wait "$wheels_pid" || result=1
+          exit "$result"
+      - name: Share exact-commit product wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: product-wheels
+          path: ${{ runner.temp }}/product-wheels
+          retention-days: 7
+          if-no-files-found: error
+      - name: Share file groups with every shard
+        if: always() # Retain collection diagnostics even when grouping refuses.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-shard-groups
+          path: .yoke/tmp/ci-shard-groups.*
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
+      - name: Stop collection Postgres
+        if: always()
+        run: |
+          docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
+          if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
+  suite:
+    timeout-minutes: 90
+    name: suite (${{ matrix.os }}, ${{ matrix.shard }})
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUNBUFFERED: "1"
+      YOKE_CI_PYTHON_SCOPE: all
+      YOKE_KNOWN_FAILURE_BASELINE: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows, macos]
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+        include:
+          - os: windows
+            runner: windows-2025
+          - os: macos
+            runner: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Download assigned file groups
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: {name: ci-shard-groups, path: .yoke/tmp}
+      - name: Download exact-commit product wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: product-wheels
+          path: ${{ runner.temp }}/product-wheels
+      - name: Set up Python ${{ needs.plan.outputs.python_latest }}
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: {python-version: '${{ needs.plan.outputs.python_latest }}'}
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install locked dependencies
+        run: uv sync --all-packages --locked --python "${{ needs.plan.outputs.python_latest }}"
+      - name: Set up Node.js
+        # Selected TypeScript contract tests fail without the toolchain.
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: "22", cache: npm, cache-dependency-path: packages/yoke-core/src/yoke_core/ui/package-lock.json}
+      - name: Install TypeScript compiler
+        run: npm ci --prefix packages/yoke-core/src/yoke_core/ui
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@yoke.local"
+          git config --global user.name "Yoke CI"
+          git config --global init.defaultBranch main
+      - name: Start the native test Postgres
+        run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres start
+      - name: Run pytest
+        env:
+          YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
+        run: uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
+      - name: Upload pytest output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-output-${{ matrix.os }}-${{ matrix.shard }}
+          path: |
+            .yoke/tmp/ci-shard-files.txt
+            pytest-output.txt
+            pytest-report.xml
+          retention-days: 14
+          if-no-files-found: warn
+          include-hidden-files: true
+      - name: Stop the native test Postgres
+        if: always()
+        run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres stop || true
