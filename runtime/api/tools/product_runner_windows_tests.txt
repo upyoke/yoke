@@ -3,6 +3,7 @@
 # NATIVE-WINDOWS lanes append the tests they port. Never remove a passing entry.
 runtime/api/cli/test_azure_admin.py
 runtime/api/cli/test_db_admin_box_hop.py
+runtime/api/cli/test_filesystem_safety.py::test_atomic_replace_on_windows_does_not_require_fchmod
 runtime/api/cli/test_native_windows_terminal.py
 runtime/api/cli/test_onboard_native_preflight.py
 runtime/api/domain/test_agents_render_native_links.py
