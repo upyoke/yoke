@@ -7,6 +7,18 @@ from pathlib import Path
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_harness.ssh_native_windows_host_operations import (
+    SshNativeWindowsHostOperations,
+)
+from yoke_harness.native_windows.terminal import run_native_terminal_case
+from yoke_harness.native_windows.terminal import WindowsTerminal
+
+__all__ = [
+    "SshWindowsHostOperations",
+    "SshNativeWindowsHostOperations",
+    "run_native_terminal_case",
+    "WindowsTerminal",
+]
 from yoke_contracts.windows_wsl_command import windows_wsl_command, windows_wsl_input
 
 

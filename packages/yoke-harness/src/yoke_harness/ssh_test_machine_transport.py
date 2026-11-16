@@ -109,7 +109,8 @@ class SshTestMachineTransport:
         self.golden_baseline_path = (
             str(settings.get("golden_baseline_path") or "") or None
         )
-        self._control_path = _control_socket(self._host, self._user, self._key_path)
+        self._control_path = (None if sys.platform == 'win32' else
+                              _control_socket(self._host, self._user, self._key_path))
         facts = self._host_facts()
         self.home = str(facts["home"])
         self.shell = str(facts["shell"])
@@ -120,14 +121,17 @@ class SshTestMachineTransport:
         self.path_state: PathStateContract = resolve_path_state_contract(env=path_env)
 
     def _ssh_argv(self, command: str) -> list[str]:
+        # Windows OpenSSH has no multiplexing/control sockets.
+        options = SSH_OPTIONS if self._control_path is not None else tuple(
+            option for option in SSH_OPTIONS if not option.startswith(('ControlMaster=', 'ControlPersist='))
+        )
         return [
             "ssh",
             "-i",
             str(self._key_path),
-            *[part for option in SSH_OPTIONS for part in ("-o", option)],
+            *[part for option in options for part in ("-o", option)],
             *getattr(self, "_host_key_options", []),
-            "-o",
-            f"ControlPath={self._control_path}",
+            *(['-o', f'ControlPath={self._control_path}'] if self._control_path is not None else []),
             f"{self._user}@{self._host}",
             command,
         ]

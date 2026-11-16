@@ -81,7 +81,7 @@ def remote_exec_argv(
     return [
         "ssh",
         "-F",
-        "/dev/null",
+        os.devnull,
         *[part for option in SSH_OPTIONS for part in ("-o", option)],
         *host_key_options({"cloud_instance_id": cloud_instance_id}, known_hosts),
         "--",

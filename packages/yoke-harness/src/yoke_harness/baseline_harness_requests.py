@@ -7,13 +7,14 @@ import json
 from pathlib import PurePosixPath
 import re
 import shlex
+import tempfile
 from typing import Any, Sequence
 
 from yoke_harness.baseline_native_failures import NATIVE_FAILURES, native_failure_cause
 
 PROBE_REPLY = "OK"
 PROBE_PROMPT = f"Reply exactly {PROBE_REPLY}. Do not use any tools."
-REQUEST_WORKSPACE = "/tmp"
+REQUEST_WORKSPACE = tempfile.gettempdir()
 REJECTION_EVENT_TYPE_LIMIT = 40
 #: Cursor ask mode has no flag that disables tools. These inspection calls
 #: may precede an exact OK reply; write and shell calls still reject.

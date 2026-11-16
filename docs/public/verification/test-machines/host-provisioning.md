@@ -24,6 +24,8 @@ unverified label; code-reviewed contracts do not substitute for live proof.
 - [macOS](macos-host-provisioning.md)
 - [Linux](linux-host-provisioning.md)
 - [Windows with WSL2](windows-host-provisioning.md)
+- [Native Windows lab machine](windows-native-host-provisioning.md)
+- [Native Windows browser identities](windows-browser-identities.md)
 
 ## Network access
 

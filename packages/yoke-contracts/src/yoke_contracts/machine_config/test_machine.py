@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 import re
 from typing import Any, Mapping
 
@@ -94,7 +94,8 @@ def validate_golden_baseline_path(value: Any) -> str:
     resolved from the live host rather than from a settings document.
     """
     normalized = str(value or "").strip()
-    selected = PurePosixPath(normalized)
+    selected = (PureWindowsPath(normalized) if PureWindowsPath(normalized).drive
+                else PurePosixPath(normalized))
     if (
         not normalized
         or "~" in normalized

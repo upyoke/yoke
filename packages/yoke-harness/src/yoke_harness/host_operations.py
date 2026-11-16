@@ -60,9 +60,11 @@ def _linux_ssh_operations(contract: HostControlExecutionContract) -> HostOperati
 
 
 def _windows_ssh_operations(contract: HostControlExecutionContract) -> HostOperations:
-    from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
+    from yoke_harness.ssh_native_windows_host_operations import SshNativeWindowsHostOperations
 
-    return SshWindowsHostOperations.from_contract(contract)
+    control = SshNativeWindowsHostOperations.from_contract(contract)
+    control.bind_qa_lease(contract.lease_id)
+    return control
 
 
 HOST_OPERATIONS_BY_OS: dict[str, HostOperationsFactory] = {
