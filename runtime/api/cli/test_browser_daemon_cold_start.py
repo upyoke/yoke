@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -72,7 +73,7 @@ def test_a_live_daemon_slower_than_ten_seconds_is_waited_for(tmp_path) -> None:
         return _healthy_state(proc.pid) if clock.now >= cold_start_seconds else None
 
     result = wait_for_daemon_ready(
-        proc,
+        SimpleNamespace(process=proc),
         tmp_path / DAEMON_LOG_NAME,
         load_state=load_state,
         probe_health=lambda _state: None,
@@ -89,9 +90,19 @@ def test_a_live_daemon_slower_than_ten_seconds_is_waited_for(tmp_path) -> None:
     assert clock.now < cold_start_seconds + READINESS_POLL_SECONDS + 1e-9
 
 
-def test_a_stalled_start_is_stopped_reaped_and_names_its_phase(tmp_path) -> None:
+def test_a_stalled_start_is_stopped_reaped_and_names_its_phase(
+    tmp_path, monkeypatch
+) -> None:
     clock = FakeClock()
     proc = LiveProcess()
+
+    def stop(group, timeout):
+        group.process.kill()
+        group.process.wait()
+
+    monkeypatch.setattr(
+        "yoke_harness.browser_client_readiness.platform_process.stop_group", stop
+    )
     log_file = tmp_path / DAEMON_LOG_NAME
     log_file.write_text(
         "Launching Chromium (headless, throwaway profile)...\n",
@@ -100,7 +111,7 @@ def test_a_stalled_start_is_stopped_reaped_and_names_its_phase(tmp_path) -> None
 
     with pytest.raises(RuntimeError) as exc_info:
         wait_for_daemon_ready(
-            proc,
+            SimpleNamespace(process=proc),
             log_file,
             load_state=lambda: None,
             probe_health=lambda _state: None,
@@ -130,7 +141,7 @@ def test_a_daemon_that_exits_is_reported_without_waiting_out_the_budget(
 
     with pytest.raises(RuntimeError, match="exited unexpectedly") as exc_info:
         wait_for_daemon_ready(
-            ExitedProcess(),
+            SimpleNamespace(process=ExitedProcess()),
             log_file,
             load_state=lambda: None,
             probe_health=lambda _state: None,
@@ -155,7 +166,7 @@ def test_the_daemon_log_captures_its_startup_phase_lines(tmp_path) -> None:
         {},
         log_file,
     )
-    proc.wait(timeout=30)
+    proc.process.wait(timeout=30)
 
     logged = log_file.read_text(encoding="utf-8")
     assert "Launching Chromium..." in logged

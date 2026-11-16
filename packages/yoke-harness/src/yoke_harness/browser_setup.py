@@ -130,7 +130,7 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
             "[browser-auto-bootstrap] node_modules or playwright missing; auto-installing..."
         )
         result = _run_setup_command(
-            [str(toolchain.npm), "install"],
+            toolchain.package_command("npm", "install"),
             timeout=NPM_INSTALL_TIMEOUT_SECONDS,
             reason="browser_npm_install_timeout",
             cwd=str(browser),
@@ -171,7 +171,7 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
             )
         _log("[browser-auto-bootstrap] Chromium binary not found; auto-installing...")
         result = _run_setup_command(
-            [str(toolchain.npx), "playwright", "install", "chromium"],
+            toolchain.package_command("npx", "playwright", "install", "chromium"),
             timeout=CHROMIUM_INSTALL_TIMEOUT_SECONDS,
             reason="browser_chromium_install_timeout",
             cwd=str(browser),

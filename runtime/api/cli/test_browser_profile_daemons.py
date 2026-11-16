@@ -45,9 +45,7 @@ def test_stop_and_status_address_only_the_requested_profile(
         request,
     )
     monkeypatch.setattr(client, "daemon_running", lambda state: state.pid in alive)
-    monkeypatch.setattr(
-        client.os, "kill", lambda *args: (_ for _ in ()).throw(ProcessLookupError())
-    )
+    monkeypatch.setattr(client.platform_process, "pid_alive", lambda pid: False)
 
     assert client.daemon_status(profile_dir=b)["pid"] == 202
     assert client.daemon_stop(profile_dir=a) == "stopped"
