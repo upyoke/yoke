@@ -30,8 +30,13 @@ def test_separate_drivers_refuse_then_reuse_and_keep_stable_inode(
     spec = ClusterSpec(tmp_path / "cluster", "test")
     spec.sock_dir.mkdir(parents=True)
     alias = tmp_path / "alias"
-    alias.symlink_to(spec.sock_dir, target_is_directory=True)
-    same = ClusterSpec(tmp_path / "different-root", "other-role", socket_dir=alias)
+    if os.name != "nt":
+        alias.symlink_to(spec.sock_dir, target_is_directory=True)
+    same = ClusterSpec(
+        tmp_path / "different-root",
+        "other-role",
+        socket_dir=alias if os.name != "nt" else spec.sock_dir,
+    )
     ctx = multiprocessing.get_context("spawn")
     entered, release = ctx.Event(), ctx.Event()
     process = ctx.Process(target=_hold, args=(spec, home, entered, release))
@@ -40,7 +45,9 @@ def test_separate_drivers_refuse_then_reuse_and_keep_stable_inode(
         assert entered.wait(10)
         path = admission.lock_path(spec, "copy")
         inode = path.stat().st_ino
-        path.write_text('{"pid":999999999,"started_at":0}')
+        path.with_suffix(".holder.json").write_text(
+            '{"pid":999999999,"started_at":0}', encoding="utf-8"
+        )
         with pytest.raises(
             admission.RehearsalCopyBusy, match="rehearsal_copy_busy.*retry"
         ):
@@ -80,7 +87,9 @@ def test_malformed_diagnostics_cannot_change_busy_admission(tmp_path, monkeypatc
     monkeypatch.setattr(admission.machine_config, "yoke_home", lambda: tmp_path)
     spec = ClusterSpec(tmp_path / "cluster", "test")
     with admission.copy_lock(spec, "copy"):
-        admission.lock_path(spec, "copy").write_text('{"pid":1e999,"started_at":0}')
+        admission.lock_path(spec, "copy").with_suffix(".holder.json").write_text(
+            '{"pid":1e999,"started_at":0}', encoding="utf-8"
+        )
         with pytest.raises(
             admission.RehearsalCopyBusy, match="diagnostics unavailable.*retry"
         ):
@@ -122,6 +131,10 @@ def _until(predicate):
         time.sleep(0.01)
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="local fleet copy runs on a declared executor on native Windows",
+)
 @pytest.mark.parametrize("runner", ["restore", "dump", "declared"])
 def test_killed_parent_does_not_release_a_live_transfer(tmp_path, monkeypatch, runner):
     home = tmp_path / "home"

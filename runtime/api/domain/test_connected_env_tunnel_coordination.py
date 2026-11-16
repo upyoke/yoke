@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import fcntl
+from yoke_contracts import platform_file_lock
 import json
 import os
 import subprocess
+import sys
 import time
 
 import pytest
@@ -30,7 +31,7 @@ def _lock_path():
 
 def _dead_pid() -> int:
     """A pid that has certainly exited."""
-    finished = subprocess.Popen(["true"])
+    finished = subprocess.Popen([sys.executable, "-c", "pass"])
     finished.wait()
     return finished.pid
 
@@ -41,8 +42,8 @@ def test_lock_refuses_while_another_holder_has_it_and_names_them(monkeypatch):
     # A second descriptor is a second open file description, so this conflicts
     # exactly as another process's would.
     descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
-    fcntl.flock(descriptor, fcntl.LOCK_EX)
-    path.write_text(
+    platform_file_lock.acquire_exclusive(descriptor)
+    path.with_suffix(".holder.json").write_text(
         json.dumps({"pid": os.getpid(), "held_since": time.time() - 42}),
         encoding="utf-8",
     )
@@ -79,7 +80,9 @@ def test_lock_is_available_again_after_the_holder_leaves():
 
 def test_lock_records_the_holder_for_a_waiter_to_name():
     with coordination.lifecycle_lock(PORT, timeout=1.0):
-        payload = json.loads(_lock_path().read_text(encoding="utf-8"))
+        payload = json.loads(
+            _lock_path().with_suffix(".holder.json").read_text(encoding="utf-8")
+        )
     assert payload["pid"] == os.getpid()
 
 
@@ -153,7 +156,7 @@ def test_lease_for_active_tunnel_leases_the_detected_port(monkeypatch):
 
 def test_lease_reason_is_redacted_before_storage():
     with coordination.use_lease(PORT, "copy password=secret") as path:
-        assert "secret" not in path.read_text()
+        assert "secret" not in path.read_text(encoding="utf-8")
         assert "secret" not in coordination.active_leases(PORT)[0].line
 
 

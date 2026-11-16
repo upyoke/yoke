@@ -30,12 +30,15 @@ copy a declared-remote fleet onto this machine.
 
 from __future__ import annotations
 
+import os
 import shlex
 import sys
 from dataclasses import dataclass
 from typing import Sequence
 
 from yoke_contracts.refusal_recovery import compose_refusal
+
+_NATIVE_WINDOWS = os.name == "nt"
 
 PREFLIGHT_MODULE = "yoke_core.tools.preflight_fleet_migrations"
 
@@ -139,6 +142,15 @@ def resolve(args: Sequence[str]) -> PreflightCommand:
         )
     executor = declared_text(settings_from_projection(values), PREFLIGHT_EXECUTOR_PATH)
     if not executor:
+        if _NATIVE_WINDOWS:
+            return _executor_refusal(
+                "fleet_preflight_executor_required: native Windows cannot run "
+                f"the local fleet copy for {project}/{environment}; "
+                "release.preflight_executor must name an executor beside the database",
+                project,
+                environment,
+                recovery="declare the executor: " + _set_recovery(project, environment),
+            )
         return PreflightCommand(project=project, environment=environment)
     try:
         command = shlex.split(executor)
@@ -181,9 +193,7 @@ def executor_failure(command: PreflightCommand, rc: int, raw_capture: object) ->
     from yoke_core.domain.watch_runner import WRAPPER_LAUNCH_ERROR
 
     outcome = (
-        "could not start"
-        if rc == WRAPPER_LAUNCH_ERROR
-        else f"exited with code {rc}"
+        "could not start" if rc == WRAPPER_LAUNCH_ERROR else f"exited with code {rc}"
     )
     return compose_refusal(
         f"fleet_preflight_executor_failed: the preflight executor "

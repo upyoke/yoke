@@ -31,10 +31,8 @@ from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
 
-import fcntl
 import json
 import os
-import subprocess
 import time
 from uuid import uuid4
 from contextlib import contextmanager
@@ -42,6 +40,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, List, Optional
 
+from yoke_contracts import platform_file_lock
+from yoke_contracts.platform_process import pid_alive, process_command_lines
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config import runtime as machine_config
 
@@ -103,9 +103,9 @@ def lifecycle_lock(
     try:
         while True:
             try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                platform_file_lock.acquire_exclusive_nonblocking(descriptor)
                 break
-            except OSError:
+            except BlockingIOError:
                 if time.monotonic() >= deadline:
                     raise TunnelReplacementContended(
                         local_port=local_port,
@@ -120,39 +120,37 @@ def lifecycle_lock(
                         max_wait_seconds=timeout,
                     )
                 time.sleep(LIFECYCLE_LOCK_POLL_SECONDS)
-        _stamp_holder(descriptor)
+        _stamp_holder(path)
         yield
     finally:
         os.close(descriptor)  # closing releases the flock
 
 
-def _stamp_holder(descriptor: int) -> None:
+def _stamp_holder(path: Path) -> None:
     """Record who holds the lock so a waiter can name it, not just wait."""
     payload = json.dumps({"pid": os.getpid(), "held_since": time.time()})
     try:
-        os.lseek(descriptor, 0, os.SEEK_SET)
-        os.ftruncate(descriptor, 0)
-        os.write(descriptor, payload.encode("utf-8"))
+        path.with_suffix(".holder.json").write_text(payload, encoding="utf-8")
     except OSError:
         return
 
 
 def _process_command(pid: int) -> str:
-    try:
-        result = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return redact(result.stdout.strip())
+    return next(
+        (
+            redact(" ".join(info.cmdline))
+            for info in process_command_lines()
+            if info.pid == pid
+        ),
+        "",
+    )
 
 
 def _lock_holder(path: Path) -> str:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            path.with_suffix(".holder.json").read_text(encoding="utf-8")
+        )
         pid = int(payload["pid"])
         held_since = float(payload["held_since"])
     except (OSError, ValueError, KeyError, TypeError):
@@ -162,21 +160,6 @@ def _lock_holder(path: Path) -> str:
     command = _process_command(pid) or "<unknown>"
     held_seconds = max(0, int(time.time() - held_since))
     return f"holder pid={pid} command={command!r} held={held_seconds}s"
-
-
-def pid_alive(pid: int) -> bool:
-    """True when *pid* still exists, for lifecycle-lock diagnostics."""
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
 
 
 # --- use leases ------------------------------------------------------------
@@ -208,19 +191,19 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
     payload = {"pid": os.getpid(), "reason": redact(reason), "started_at": time.time()}
     with lifecycle_lock(local_port):
         create_private_directory(directory)
-        descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+        descriptor = os.open(path.with_suffix(".lock"), os.O_RDWR | os.O_CREAT, 0o600)
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
-            os.ftruncate(descriptor, 0)
-            os.write(descriptor, json.dumps(payload).encode("utf-8"))
+            platform_file_lock.acquire_exclusive(descriptor)
+            path.write_text(json.dumps(payload), encoding="utf-8")
         except BaseException:
             os.close(descriptor)
             raise
     try:
         yield path
     finally:
-        path.unlink(missing_ok=True)
         os.close(descriptor)
+        path.unlink(missing_ok=True)
+        path.with_suffix(".lock").unlink(missing_ok=True)
 
 
 @contextmanager
@@ -253,26 +236,29 @@ def active_leases(
     """Live leases on this port; the holder's exit releases its file lock."""
     directory = coordination_dir(local_port) / LEASE_DIR_NAME
     try:
-        entries = sorted(directory.iterdir())
+        entries = sorted(directory.glob("*.json"))
     except OSError:
         return []
     leases: List[UseLease] = []
     for entry in entries:
         try:
-            descriptor = os.open(entry, os.O_RDONLY)
+            descriptor = os.open(
+                entry.with_suffix(".lock"), os.O_RDWR | os.O_CREAT, 0o600
+            )
         except FileNotFoundError:
             continue
         try:
             try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                platform_file_lock.acquire_exclusive_nonblocking(descriptor)
             except BlockingIOError:
                 lease = _read_lease(entry)
             else:
-                entry.unlink(missing_ok=True)
-                continue
+                lease = None
         finally:
             os.close(descriptor)
         if lease is None:
+            entry.unlink(missing_ok=True)
+            entry.with_suffix(".lock").unlink(missing_ok=True)
             continue
         if exclude_pid is not None and lease.pid == exclude_pid:
             continue

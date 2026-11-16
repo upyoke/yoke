@@ -173,3 +173,21 @@ def test_a_refused_release_reports_the_reason_and_lets_shutdown_finish(
 
     assert driver_client.release_driver("run-driver") is None
     assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("alive", [True, False])
+def test_local_driver_liveness_uses_platform_snapshot(monkeypatch, alive):
+    seen = []
+    monkeypatch.setattr(
+        driver_client, "pid_alive", lambda pid: seen.append(pid) or alive
+    )
+    assert driver_client._process_gone(EXITED_PID) is (not alive)
+    assert seen == [EXITED_PID]
+
+
+def test_inaccessible_driver_is_never_superseded(monkeypatch):
+    def denied(pid):
+        raise OSError("process_access_denied")
+
+    monkeypatch.setattr(driver_client, "pid_alive", denied)
+    assert driver_client._process_gone(EXITED_PID) is False

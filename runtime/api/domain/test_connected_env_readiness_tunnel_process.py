@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import subprocess
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -53,47 +54,52 @@ def _stub_lease(monkeypatch, pid: int, reason: str) -> None:
     )
 
 
-def test_find_tunnel_pids_uses_dashdash_and_lsof_fallback(monkeypatch):
+def test_find_tunnel_pids_matches_full_argv_and_windows_executable(monkeypatch):
     spec = _spec()
-    calls: list[list[str]] = []
+    snapshots = [
+        SimpleNamespace(
+            pid=123, cmdline=("ssh.exe", "-N", "-L", spec.forward_spec, spec.bastion)
+        ),
+        SimpleNamespace(
+            pid=124, cmdline=("ssh", "-L" + spec.forward_spec, spec.bastion)
+        ),
+        SimpleNamespace(
+            pid=125, cmdline=("python", "-L", spec.forward_spec, spec.bastion)
+        ),
+        SimpleNamespace(
+            pid=126, cmdline=("ssh", "-L", spec.forward_spec + "0", spec.bastion)
+        ),
+        SimpleNamespace(
+            pid=127, cmdline=("ssh", "-L", spec.forward_spec, "other-host")
+        ),
+    ]
+    monkeypatch.setattr(lifecycle, "process_command_lines", lambda: snapshots)
+    assert lifecycle._find_tunnel_pids(spec) == [123, 124]
 
-    def fake_run(args, **kwargs):
-        del kwargs
-        calls.append(list(args))
-        if args[0] == "pgrep":
-            return _completed("")
-        if args[0] == "lsof":
-            return _completed("123\n")
-        if args[0] == "ps":
-            return _completed(f"ssh -N -f -L {spec.forward_spec} {spec.bastion}\n")
-        raise AssertionError(args)
 
-    monkeypatch.setattr(lifecycle.subprocess, "run", fake_run)
+def test_termination_rechecks_identity_before_stopping_tree(monkeypatch):
+    monkeypatch.setattr(
+        lifecycle,
+        "process_command_lines",
+        lambda: [
+            SimpleNamespace(pid=123, start_time=42.0),
+            SimpleNamespace(pid=124, start_time=43.0),
+        ],
+    )
+    captured, stopped = [], []
+    handle = object()
 
-    assert lifecycle._find_tunnel_pids(spec) == [123]
-    assert calls[0] == ["pgrep", "-f", "--", f"-L {spec.forward_spec}"]
+    def capture(pid, stamp):
+        captured.append((pid, stamp))
+        return handle if pid == 123 else None
 
-
-def test_find_tunnel_pids_raises_on_pgrep_usage_failure(monkeypatch):
-    spec = _spec()
-
-    def fake_run(args, **kwargs):
-        del args, kwargs
-        return subprocess.CompletedProcess(
-            args=[],
-            returncode=2,
-            stdout="",
-            stderr="pgrep: illegal option -- L\n",
-        )
-
-    monkeypatch.setattr(lifecycle.subprocess, "run", fake_run)
-
-    with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
-        lifecycle._find_tunnel_pids(spec)
-
-    msg = str(excinfo.value)
-    assert "could not enumerate tunnel pids" in msg
-    assert "pgrep rc=2" in msg
+    monkeypatch.setattr(lifecycle, "handle_from_pid", capture)
+    monkeypatch.setattr(
+        lifecycle, "stop_group", lambda group, timeout: stopped.append(group)
+    )
+    lifecycle._terminate_pids([123, 124])
+    assert captured == [(123, 42.0), (124, 43.0)]
+    assert stopped == [handle]
 
 
 def test_transient_probe_failure_recovers_before_restart(machine_home, monkeypatch):
@@ -300,7 +306,7 @@ def test_build_ssh_argv_matches_operator_shape():
 
     assert argv[0] == "ssh"
     assert argv[1:3] == ["-i", "/keys/k.pem"]
-    assert "-N" in argv and "-f" in argv
+    assert "-N" in argv and "-f" not in argv
     assert argv[argv.index("-L") + 1] == "6547:aurora.x:5432"
     assert argv[-1] == "ubuntu@1.2.3.4"
     joined = " ".join(argv)
