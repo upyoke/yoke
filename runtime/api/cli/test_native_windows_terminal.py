@@ -17,7 +17,9 @@ from yoke_cli.config import native_windows_terminal as terminal
 
 def test_non_utf8_streams_become_utf8_without_color(monkeypatch):
     buffers = (io.BytesIO(), io.BytesIO())
-    streams = tuple(io.TextIOWrapper(buffer, encoding="cp1252") for buffer in buffers)
+    streams = tuple(
+        io.TextIOWrapper(buffer, encoding="cp1252", newline="\n") for buffer in buffers
+    )
     monkeypatch.setattr(
         terminal,
         "sys",
