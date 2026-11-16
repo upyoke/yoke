@@ -55,7 +55,11 @@ def build_status(
 ) -> dict[str, Any]:
     selected_path = machine_config.config_path(config_path)
     selected_repo = Path(repo_root).expanduser() if repo_root else Path.cwd()
-    issues: list[dict[str, str]] = []
+    from yoke_contracts.windows_preflight_facts import collect_facts
+    from yoke_contracts.windows_preflight import verdicts
+
+    native_facts = collect_facts(home=selected_path.parent, repo=selected_repo)
+    issues: list[dict[str, str]] = verdicts(native_facts)
     try:
         payload = machine_config.load_config(selected_path)
     except machine_config.MachineConfigError as exc:
@@ -132,6 +136,7 @@ def build_status(
             "db": db,
             "server": server,
             "ambient_env": env,
+            "native_preflight": native_facts,
         }
     )
     return attach_doctor(
