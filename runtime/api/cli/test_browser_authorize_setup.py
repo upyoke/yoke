@@ -105,10 +105,7 @@ def test_setup_refusal_preserves_profile_and_stops_before_window(
     )
 
 
-@pytest.mark.parametrize("desktop", [False, True])
-def test_omitted_identity_refuses_before_runtime_or_window(
-    setup, monkeypatch, capsys, desktop
-):
+def test_omitted_identity_refuses_before_runtime_or_window(setup, monkeypatch, capsys):
     site = dict(site="app", origin="https://app.example", account="admin@example")
     site["probe"] = {"url": "https://app.example/me", "signed_in_status": 200}
     declarations = {"identities": {"admin": {"sites": [site]}}}
@@ -117,9 +114,7 @@ def test_omitted_identity_refuses_before_runtime_or_window(
         "declared_settings",
         lambda *a, **kwargs: declarations,
     )
-    args = ["--project", "project", "--json"] + (
-        ["--desktop-browser"] if desktop else []
-    )
+    args = ["--project", "project", "--json"]
     assert command.browser_authorize(args) != 0
     assert "browser_identity_required" in json.loads(capsys.readouterr().out)["error"]
     assert setup == []

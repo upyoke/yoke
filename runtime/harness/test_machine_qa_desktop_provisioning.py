@@ -3,6 +3,7 @@
 import importlib.util
 import io
 import json
+import shlex
 from pathlib import Path
 import sys
 import subprocess
@@ -76,7 +77,16 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["provisioner", "--verify" if verify else "--desktop-password-stdin"],
+        ["provisioner", "--verify"]
+        if verify
+        else [
+            "provisioner",
+            "--desktop-password-stdin",
+            "--browser-project",
+            "acme",
+            "--browser-identity",
+            "operator",
+        ],
     )
     assert windows.main() == 0
     result = json.loads(capsys.readouterr().out)
@@ -86,7 +96,11 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     assert result["wsl_lifetime"]["restart_required"] is not verify
     assert "fixture-secret" not in json.dumps(result)
     assert calls == [
-        *([] if verify else [("provision", home, windows.DEFAULT_WSL_RDP_PORT)]),
+        *(
+            []
+            if verify
+            else [("provision", home, windows.DEFAULT_WSL_RDP_PORT, "acme", "operator")]
+        ),
         ("localhost", windows.DEFAULT_WSL_RDP_PORT),
         *([] if verify else [("password", "fixture-secret")]),
     ]
@@ -270,7 +284,7 @@ def test_wsl_lifetime_does_not_normalize_an_already_effective_setting(provisione
         "application/pdf=evince.desktop\n[Added Associations]\nx=y.desktop\n",
     ],
 )
-def test_chromium_becomes_the_default_browser_without_erasing_other_defaults(
+def test_the_identity_launcher_becomes_the_default_browser_without_erasing_others(
     provisioners, existing
 ):
     linux, _ = provisioners
@@ -282,40 +296,39 @@ def test_chromium_becomes_the_default_browser_without_erasing_other_defaults(
         if "firefox" not in line:
             assert line in selected.splitlines()
     for kind in linux.BROWSER_TYPES:
-        assert f"{kind}={linux.CHROMIUM_DESKTOP_ENTRY}" in selected.splitlines()
+        assert f"{kind}={linux.LAUNCHER_DESKTOP_ENTRY}" in selected.splitlines()
     assert not linux.browser_selected(existing)
 
 
-def _browser_alternative(tmp_path, target):
-    """Lay out /usr/bin/x-www-browser -> /etc/alternatives -> target like dpkg."""
-    (tmp_path / "alternatives").mkdir()
-    (tmp_path / "alternatives/x-www-browser").symlink_to(target)
-    link = tmp_path / "x-www-browser"
-    link.symlink_to(tmp_path / "alternatives/x-www-browser")
-    return link
-
-
-def test_verify_resolves_x_www_browser_to_the_chromium_wrapper(provisioners, tmp_path):
+def test_the_launcher_entry_opens_links_in_the_named_identity(provisioners, tmp_path):
     linux, _ = provisioners
-    wrapper = tmp_path / "chromium-browser"
-    wrapper.write_text('#!/bin/sh\nexec /snap/bin/chromium "$@"\n')
-    link = _browser_alternative(tmp_path, wrapper)
-    assert linux.resolved_default_browser(link) == str(wrapper)
+    entry = linux.launcher_entry("acme", "operator")
+    exec_line = next(x for x in entry.splitlines() if x.startswith("Exec="))
+    argv = shlex.split(exec_line.removeprefix("Exec="))
+    assert argv[:2] == ["bash", "-lc"] and argv[-1] == "%u"
+    assert shlex.split(argv[2]) == [
+        "exec", "yoke", "browser", "open", "--project", "acme",
+        "--identity", "operator", "$0",
+    ]
+    assert "x-scheme-handler/https" in entry
+    home = tmp_path
+    (home / ".local/share/applications").mkdir(parents=True)
+    (home / ".local/share/applications" / linux.LAUNCHER_DESKTOP_ENTRY).write_text(entry)
+    (home / ".config").mkdir()
+    (home / ".config/mimeapps.list").write_text(linux.browser_defaults(""))
+    assert "browser open" in linux.selected_launcher(home)
 
 
-@pytest.mark.parametrize("target", ["firefox", "snap", None])
-def test_verify_refuses_an_x_www_browser_that_is_not_chromium(
-    provisioners, tmp_path, target
-):
-    """A direct /snap/bin/chromium link resolves to snap, which cannot run as x-www-browser."""
+@pytest.mark.parametrize("missing", ["entry", "defaults"])
+def test_verify_refuses_links_that_bypass_the_launcher(provisioners, tmp_path, missing):
     linux, _ = provisioners
-    link = tmp_path / "x-www-browser"
-    if target:
-        (tmp_path / target).write_text("")
-        (tmp_path / "chromium").symlink_to(tmp_path / target)
-        link = _browser_alternative(tmp_path, tmp_path / "chromium")
-    with pytest.raises(
-        linux.ProvisionFailure, match="default_browser_not_selected"
-    ) as refusal:
-        linux.resolved_default_browser(link)
-    assert (target or "nothing") in str(refusal.value)
+    (tmp_path / ".config").mkdir()
+    (tmp_path / ".config/mimeapps.list").write_text(
+        linux.browser_defaults("") if missing == "entry" else "[Default Applications]\n"
+    )
+    if missing == "defaults":
+        apps = tmp_path / ".local/share/applications"
+        apps.mkdir(parents=True)
+        (apps / linux.LAUNCHER_DESKTOP_ENTRY).write_text(linux.launcher_entry("a", "b"))
+    with pytest.raises(linux.ProvisionFailure, match="default_browser_not_selected"):
+        linux.selected_launcher(tmp_path)

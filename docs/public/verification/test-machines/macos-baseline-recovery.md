@@ -11,13 +11,13 @@ Complete [macOS host provisioning](macos-host-provisioning.md) first.
 Keep signed-in vendor state but remove Yoke/uv state through the registered
 baseline preparation path. Harness logins themselves are never captured: the
 login Keychain (`Library/Keychains`, holding Claude's and Cursor's logins),
-`.claude/.credentials.json`, `.codex/auth.json`, the browser identity store
-`.yoke-browser-identities` and Safari's cookie store
-(`Library/Containers/com.apple.Safari/Data/Library/Cookies`) are excluded from
-the golden and kept live on every reset, so a reset never puts back a rotated
-token or cookie. Safari writes its cookies when it quits, so capture and reset
-first ask a running Safari to quit and wait up to 30 seconds for it to exit;
-they never force-quit it. If a previous golden exists, reset first, then make
+`.claude/.credentials.json`, `.codex/auth.json` and the browser identity
+store `.yoke-browser-identities` are excluded from the golden and kept live on
+every reset, so a reset never puts back a rotated token or cookie. The
+identity profiles are the machine's only saved browser logins. Chromium writes
+a profile's cookies as it closes, so capture and reset first close every
+running identity browser gracefully through its DevTools port; they never
+force-quit it. If a previous golden exists, reset first, then make
 the operator preparations above and re-save. The first bare home needs no
 Yoke installation before capture. Never seal a home containing Yoke residue.
 Choose a new absolute destination outside the test home, in a separate new parent for EACH attempt; retention can
@@ -50,8 +50,8 @@ repair it. The manifest also seals the whole preserved list as
 `preserved_home_entries`. Older manifests remain readable and their captured
 copies of preserved entries are never restored; a present declaration may name
 only kept entries, and every entry it declares must be absent from the golden.
-An entry kept only since the golden was sealed, such as Safari's cookie store,
-stays inert in it and the live copy is kept.
+An entry kept only since the golden was sealed stays inert in it and the live
+copy is kept.
 Only the dedicated test home is captured; system settings/other homes are not.
 
 | Named refusal | Recovery |
@@ -60,7 +60,8 @@ Only the dedicated test home is captured; system settings/other homes are not.
 | `golden_capture_foreign_owner` | Diagnose the unexpected owner's writer; prove a product-owned restoration path before capture |
 | `golden_capture_preserved_state_invalid` | Inspect the named OS entry's owner/type or symlink ancestor; preserve content and do not change its owner |
 | `golden_capture_destination_occupied` | Choose a new destination |
-| `test_machine_sign_in_app_quit_not_proved` | The named app did not quit. Quit it on the machine, answering any prompt it shows, then retry. If `quit_requested` is false, allow the SSH session to control it under Privacy & Security > Automation |
+| `test_machine_sign_in_app_quit_not_proved` | An identity browser did not close. Close its windows on the machine, answering any prompt it shows, then retry |
+| `test_machine_sign_in_app_probe_failed` | Yoke could not read the identity browsers through `/usr/bin/python3` or their DevTools ports. Install the Command Line Tools provisioning requires, then retry |
 | `baseline_probe_failed` | Read cause/reason/recovery and sanitized native exit diagnostics. Nonzero execution retains its category; reason/recovery names quota, authentication, model or transport evidence. Quota waits for provider capacity; only diagnosed auth calls for sign-in. Preserve the golden and failed capture; never reset credentials to clear quota |
 | `baseline_probe_bridge_unavailable` | Repair the named bridge condition, then retry |
 | `test_machine_terminal_quit_not_proved` | Terminal survived its quit and a forced kill. Quit it at the console (Terminal > Quit Terminal, then Terminate), then retry |
@@ -92,10 +93,10 @@ After restore it relaunches Terminal without saved windows to avoid probe stalls
 The restore merges each captured directory into place with `ditto`, so a macOS
 daemon recreating its directory mid-restore does not fail it. Restoring a home
 cannot restore an external grant. A login that expires on the live host is
-fixed by signing in again in the GUI; the kept-live login survives the next
-reset, and `yoke test-machine golden-capture` saves the rest of that signed-in
+fixed by signing in again (`yoke browser authorize --test-machine` for a
+browser identity); the kept-live login survives the next reset, and `yoke test-machine golden-capture` saves the rest of that signed-in
 state into the baseline. Reset refuses `test_machine_sign_in_app_quit_not_proved`
-before clearing when Safari will not quit. Recheck screen saver 0 and
+before clearing when an identity browser will not close. Recheck screen saver 0 and
 the GUI keychain after the roundtrip, with Screen Sharing disconnected.
 
 Require passing operation receipts bound to the new golden, standard checks,
@@ -108,17 +109,13 @@ proof; an old receipt or a successful capture alone cannot replace it.
 
 ## 11. Live browser identities
 
-Required authorization behavior:
-
-Run yoke browser authorize to check automation identities and Test Machine
-desktop browser sign-ins. It opens tabs only for expired sites and names the
-account to use. Desktop browser sign-ins stay live through reset and are
-excluded from golden snapshots.
-
-The remote `--test-machine NAME` command includes both checks by default; there
-is no desktop opt-out. Confirm release-matched help and operation receipts
-before relying on an installed release. Before running it, read the complete
-[desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
+Run `yoke browser authorize --test-machine NAME` to check each identity. It
+opens tabs only for expired sites and names the account to use. The identity
+profiles are the machine's only saved login store and stay live through
+reset; there is no Safari sign-in. Confirm release-matched help and operation
+receipts before relying on an installed release. Before running it, read the
+complete [machine sign-in](browser-identities.md#machine-sign-in-and-approval)
+procedure.
 
 1. Apply the project-owned sign-in policy. The human only types their own
    password or credential; agents complete every other prompt.

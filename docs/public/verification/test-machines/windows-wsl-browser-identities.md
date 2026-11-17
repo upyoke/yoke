@@ -41,7 +41,13 @@ clean-home golden.
    naming that one entry, machine, identity, site, account and resume state.
    Runtime and inventory failures retain their named diagnostics.
 
-The candidate Chromium and profile both live under the non-root WSL test user.
+WSL takes the Linux route: its desktop is Yoke's Linux XFCE/xrdp inside WSL,
+not WSLg. The identity profiles are the machine's only saved login store; the
+desktop's web links and the installer's approval link open in them through
+`yoke browser open`, and the
+[browser approval gates](linux-browser-identities.md#browser-approval-gates)
+apply unchanged. The candidate Chromium and profile both live under the
+non-root WSL test user.
 The operator needs an actually working headed WSL display; a native Windows
 Edge/Chrome sign-in cannot populate this Linux candidate profile. Prove the
 Linux application visibly renders before requesting a personal sign-in. If

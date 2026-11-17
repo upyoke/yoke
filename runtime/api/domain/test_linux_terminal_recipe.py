@@ -7,7 +7,7 @@ import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import recipe
 from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
-from yoke_harness import ssh_linux_browser_approval
+from yoke_harness import identity_browser_approval, ssh_linux_browser_approval
 from yoke_contracts.test_machine_types import HostActionResult
 
 ORIGIN = "https://app.stage.upyoke.com"
@@ -71,6 +71,8 @@ def _gate_recipe():
         },
         {"step": "done", "keys": [], "capture": False},
     ]
+    operator = {"project": "acme", "identity": "operator", "test_machine": "lab"}
+    config["operator_browser"] = operator
     return config
 
 
@@ -126,11 +128,10 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
         lambda control: {"environment": DESKTOP, "desktop_session": "reused"},
     )
 
-    def host(_control, command, *arguments, desktop=True):
+    def host(_run, command, *arguments, secrets=()):
         host_calls.append(command)
         return {
-            "prepare": {"ok": True, "chromium": "started"},
-            "tabs": {"ok": True, "urls": [ENTRY]},
+            "tabs": {"ok": True, "urls": [ENTRY], "identity_browsers": 1},
             "approve": {
                 "ok": True,
                 "state": "approved",
@@ -139,7 +140,7 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
             },
         }[command]
 
-    monkeypatch.setattr(ssh_linux_browser_approval, "_host", host)
+    monkeypatch.setattr(identity_browser_approval, "_host", host)
     result = execute_linux_recipe(
         _control(capture_terminal_checkpoint=lambda: {"artifact_handle": "frame-1"}),
         entry_surface="yoke setup",
@@ -150,7 +151,7 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
     )
     assert result.ok, result.evidence
     assert events[0] == ("open", "yoke setup", (120, 40), DESKTOP)
-    assert host_calls == ["prepare", "tabs", "approve"]
+    assert host_calls == ["tabs", "approve"]
     gate = result.evidence["steps"][0]
     assert gate["browser_approval"] == {
         "browser": "Chromium",
@@ -188,15 +189,15 @@ def test_operator_gate_without_a_desktop_refuses_with_a_named_reason(monkeypatch
     assert not any(event[0] == "open" for event in events if isinstance(event, tuple))
 
 
-def test_chromium_refusal_stops_before_the_installer_starts(monkeypatch):
+def test_desktop_refusal_stops_before_the_installer_starts(monkeypatch):
     events = []
     _terminal(monkeypatch, events, "")
     monkeypatch.setattr(
-        "yoke_core.domain.ssh_linux_terminal_recipe.prepare_desktop_chromium",
+        "yoke_core.domain.ssh_linux_terminal_recipe.prepare_desktop",
         lambda control: HostActionResult(
             False,
-            {"recovery": "Run xdg-settings set default-web-browser chromium.desktop."},
-            "linux_desktop_default_browser_not_chromium",
+            {"recovery": "Provision the desktop, then rerun."},
+            "headless_linux_browser_approval_unavailable",
         ),
     )
     result = execute_linux_recipe(
@@ -207,8 +208,7 @@ def test_chromium_refusal_stops_before_the_installer_starts(monkeypatch):
         size=(120, 40),
         allowed_operator_urls=(ORIGIN,),
     )
-    assert result.error_code == "linux_desktop_default_browser_not_chromium"
-    assert "xdg-settings" in result.evidence["recovery"]
+    assert result.error_code == "headless_linux_browser_approval_unavailable"
     assert events == ["closed"]
 
 

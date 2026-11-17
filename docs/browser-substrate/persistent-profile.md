@@ -240,7 +240,7 @@ by the time it is restored. A test machine keeps its identities live in
 `~/.yoke-browser-identities/<project>/<identity>/`
 (`LIVE_IDENTITY_STORE_HOME_ENTRY`), outside `~/.yoke`. The macOS and Linux full
 resets keep that store exactly as they keep live harness logins, and golden
-capture never includes it, while `~/.yoke` is still absent after a reset. When
+capture never includes it, while `~/.yoke` is still absent after a reset.
 `yoke_cli.config.browser_profile` saves every identity profile there on every
 machine, creating the store owner-only with the first profile, so the
 installed product reads and refreshes the live sessions in place — a walk that
@@ -250,3 +250,27 @@ is not a directory, or cannot be created refuses with
 delete. A profile an earlier release saved at the capability-secrets path is
 moved into the store the first time its identity is used, never discarded; a
 profile in both places refuses with `browser_identity_store_conflict`.
+
+## Opening a page in an identity's browser
+
+`yoke browser open --project P --identity NAME URL` shows URL in a visible
+window of that identity's profile. It launches the same Chromium binary with
+the same flags `yoke browser authorize` uses, so the cookie key domain matches
+and the page opens signed in, plus a loopback DevTools port. When that
+profile's browser is already running, the URL opens as a new tab there. An
+identity never authorized refuses with `browser_identity_not_authorized`,
+naming `yoke browser authorize --project P --identity NAME --test-machine
+TEST_MACHINE`. It reads only the machine-local profile, so it needs no
+control-plane connection.
+
+This makes the identity profiles a test machine's only login store. The
+installer's link opener honors the standard `BROWSER` variable on every
+platform: each `os.pathsep`-separated command is tried, with `%s` replaced by
+the URL or the URL appended. A Machine QA recipe whose operator gate is a
+browser approval exports `BROWSER="env -u YOKE_MACHINE_HOME <yoke_bin> browser
+open --project P --identity <operator identity> %s"`, where the operator
+identity is the project's browser-control `default_identity`. The approval
+driver then finds the exact approval tab through each identity browser's
+DevTools port. On Linux and WSL desktops, provisioning registers
+`yoke-identity-browser.desktop` as the web-link default, so `xdg-open` lands
+in the same profile.

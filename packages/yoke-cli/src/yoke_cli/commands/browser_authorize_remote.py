@@ -196,17 +196,6 @@ def authorize_remote(parsed) -> int:
             argv.append("--reset")
         if parsed.json_mode:
             argv.append("--json")
-        if parsed.desktop_browser and detail["settings"].get("os") not in {
-            "linux",
-            "macos",
-        }:
-            raise BrowserIdentityError(
-                "desktop_browser_unsupported: choose a Linux Chromium or macOS Safari Test Machine."
-            )
-        if parsed.desktop_browser:
-            argv.append("--desktop-browser")
-        elif detail["settings"].get("os") in {"linux", "macos"}:
-            argv.append("--include-desktop-browser")
         from yoke_harness.browser_identity_check import sign_in_request
 
         for line in sign_in_request(

@@ -18,9 +18,11 @@ def test_walker_prompt_uses_yoke_browser_only_when_the_walk_installed_yoke() -> 
     assert "if Yoke is on the target because this walk installed it" in prompt
     assert walker["browser_setup_command"] in prompt
     assert walker["browser_step_command"] in prompt
-    assert "Otherwise open the host's own browser" in prompt
-    assert "Safari on macOS" in prompt
-    assert "the desktop's default browser elsewhere" in prompt
+    assert "Otherwise open each page with" in prompt
+    assert "-- yoke browser open --project PROJECT --identity" in prompt
+    assert "never the stock desktop browser" in prompt
+    assert "Safari" not in prompt
+    assert "until YOK-5408 lands" in prompt
     assert "screenshots and keystrokes" in prompt
     assert "Never install Yoke on a Test Machine to get a browser." in prompt
 
@@ -34,7 +36,7 @@ def test_named_identities_select_managed_browser_without_installing_yoke(
 
     assert "For named browser identities, use the managed browser" in prompt
     assert "because this walk installed it" not in prompt
-    assert "Otherwise open the host's own browser" not in prompt
+    assert "Otherwise open each page with" not in prompt
     assert walker["browser_setup_command"] in prompt
     assert walker["browser_step_command"] in prompt
     assert walker["browser_identities"] == identities
@@ -116,3 +118,12 @@ def test_walker_human_gate_names_only_prohibited_credential_entry(identities) ->
         "and resume state."
     ) in prompt
     assert "If a permission dialog" not in prompt
+
+
+def test_the_launcher_names_the_project_default_identity() -> None:
+    from yoke_core.domain.agent_mission_brief import _operator_identity
+
+    declared = {"identities": {"operator": {"sites": []}}, "default_identity": "operator"}
+    assert _operator_identity(declared) == "operator"
+    assert _operator_identity({}) == "OPERATOR_IDENTITY"
+    assert _operator_identity({"default_identity": "ghost"}) == "OPERATOR_IDENTITY"

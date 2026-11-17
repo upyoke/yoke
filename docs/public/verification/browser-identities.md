@@ -48,13 +48,14 @@ the capability-secrets surface; an identity holds only browser sessions.
 ```text
 yoke browser verify --project P --identity buyer        # buyer: google ok, shop expired
 yoke browser authorize --project P --identity buyer     # window only for expired sites
+yoke browser open --project P --identity buyer URL      # show URL signed in
 ```
 
 `verify` checks every declared site headless and reports each one. `authorize`
 runs the same check first and returns at once when every site is signed in,
 unless you supply `--url URL`. With `--url`, it always opens that URL so you can
 complete an extra access check such as GitHub Confirm access. This also applies
-to `--desktop-browser` and `--test-machine`.
+to `--test-machine`.
 Otherwise it signs expired automatic sites in headless, then opens one window
 with a tab per expired human site, naming the identity,
 the site and the account, and checks again after the window closes. A site
@@ -76,6 +77,19 @@ to finish or close that sign-in window, or quit the named PID, then retry.
 Sign-in windows close after 30 minutes; managed Chromium gets 10 seconds to
 quit before it is force-stopped. A gate marker older than 30 minutes plus
 that shutdown margin is removed even if its recorded PID is still alive.
+
+`open` shows URL in a visible window of an authorized identity's profile: the
+same Chromium binary and flags `authorize` uses, plus a loopback DevTools port.
+When that profile's browser is already running, the URL opens as a new tab
+there. An identity never authorized refuses with
+`browser_identity_not_authorized`, naming `yoke browser authorize --project P
+--identity NAME --test-machine TEST_MACHINE`. It reads only the machine-local
+profile, so it needs no control-plane connection. It also works as the
+standard `BROWSER` opener, with `%s` standing for the URL:
+
+```text
+BROWSER='yoke browser open --project P --identity buyer %s'
+```
 
 ## Automatic sign-in for first-party test accounts
 
@@ -130,7 +144,7 @@ read-only. The managed Playwright browser uses its existing basic password
 store and mock Keychain switches, including headless background execution;
 it needs no GUI login session or macOS Keychain approval. Sign-in has no
 screenshots or tracing, and reports site states without page text or raw errors.
-Native Test Machine browser sign-in remains human.
+Human sign-in on a Test Machine uses the same identity profile.
 
 A Browser case can also sign in during its run after sign-out or session
 expiry: use `{"action": "sign_in", "site": "shop"}` with this identity selected.
@@ -178,16 +192,15 @@ Yoke browser runtime, but no control-plane connection or pasted settings.
 Read `yoke browser authorize --help` for reset, starting URL, JSON output
 and window bounds.
 
-On Linux and macOS, `--test-machine NAME` checks both automation and native desktop
-browser sign-ins. Add `--desktop-browser` to check only that machine's native
-Chromium or Safari. Native sign-ins stay live through resets and are never saved
-into golden snapshots or wiped by authorization. A second Linux viewer refuses
+A test machine's identity profiles are its only saved login store; there is
+no separate desktop browser sign-in. A second Linux viewer refuses
 `linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME` viewer or
 let its authorization finish, then retry. Linux authorization uses `xdotool`
 to detect closure of the spawned Chromium PID's windows before verification.
-If an approval walk finds a Google or Microsoft sign-in page instead of its exact
-request tab, it names `machine_browser_sign_in_required`. The operator completes
-the declared identity's native sign-in before retrying; approval automation never
+If an approval walk finds a sign-in page instead of its exact request tab, the
+identity's login expired: it refuses `machine_browser_sign_in_required`, naming
+the exact `yoke browser authorize --project P --identity NAME --test-machine T`
+command to rerun. Nobody signs in inside that window; approval automation never
 enters credentials or clicks an unrelated request.
 
 The workstation needs an ssh-agent with a key the host accepts. macOS uses its

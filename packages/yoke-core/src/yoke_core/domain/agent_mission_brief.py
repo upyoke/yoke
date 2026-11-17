@@ -74,6 +74,19 @@ def _deployment_run_clause(execution_target: Mapping[str, Any]) -> str:
     )
 
 
+def _operator_identity(browser_settings: Mapping[str, Any]) -> str:
+    """The project's default identity, which every test machine signs in."""
+    from yoke_contracts.browser_identity import (
+        BrowserIdentityError,
+        declared_default_identity,
+    )
+
+    try:
+        return declared_default_identity(browser_settings) or "OPERATOR_IDENTITY"
+    except BrowserIdentityError:
+        return "OPERATOR_IDENTITY"
+
+
 def _walker_dispatch(
     case: Mapping[str, Any],
     *,
@@ -174,9 +187,13 @@ def _walker_dispatch(
         + (
             ""
             if identities
-            else "Otherwise open the host's own browser "
-            "(Safari on macOS; the desktop's default browser elsewhere) and "
-            "drive it with screenshots and keystrokes through the remote command. "
+            else "Otherwise open each page with "
+            f"`{host_command_base} -- yoke browser open --project PROJECT "
+            f"--identity {_operator_identity(browser_settings)} URL`: a visible "
+            "window of the test machine's operator identity, already signed in, "
+            "never the stock desktop browser. Drive it with screenshots and "
+            "keystrokes through the remote command. On a native Windows test "
+            "machine, until YOK-5408 lands, use the desktop's default browser. "
         )
         + "Never install Yoke on a Test Machine to get a browser. "
         "Add `--gui-session` to the outer host command for macOS "

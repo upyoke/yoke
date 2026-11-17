@@ -245,31 +245,12 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     from types import SimpleNamespace
     from yoke_cli.commands import browser_authorize_remote as remote
     from yoke_harness import machine_gui_command as gui
-    from yoke_harness import desktop_browser_sign_in as desktop
 
     from contextlib import nullcontext
     from yoke_cli.commands import test_machine_desktop_lease as custody
 
     monkeypatch.setattr(custody, "desktop_lease", lambda **kw: nullcontext())
     monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
-
-    desktop_checks = []
-
-    def native_check(identity, runtime, *, kind):
-        assert buyer["states"]["yoke"] == "signed_in"
-        desktop_checks.append(identity.name)
-        return [
-            {
-                "site": c.site,
-                "state": "signed_in",
-                "origin": c.origin,
-                "account": c.account,
-            }
-            for c in identity.sites
-        ]
-
-    monkeypatch.setattr(desktop, "browser_kind", lambda: "Safari")
-    monkeypatch.setattr(desktop, "check_desktop", native_check)
 
     document = {"identities": {"buyer": {"sites": list(SITES.values())}}}
     monkeypatch.setattr(remote, "ensure_handlers_loaded", lambda: None)
@@ -313,4 +294,4 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     assert buyer["windows"] == [[SITES["yoke"]["origin"]]]
     assert buyer["gate"][0]["identity"] == "buyer"
     assert all(s["state"] == "signed_in" for s in payload["sites"])
-    assert payload["desktop_browser"]["ok"] and desktop_checks == ["buyer"]
+    assert "desktop_browser" not in payload
