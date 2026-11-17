@@ -27,6 +27,7 @@ class TerminalModel:
         self.grid = [[" "] * width for _ in range(height)]
         self.row = 0
         self.col = 0
+        self._pending_escape = ""
 
     @property
     def rows(self) -> list[str]:
@@ -46,9 +47,17 @@ class TerminalModel:
         self.col = min(self.col, width - 1)
 
     def feed(self, data: str) -> None:
+        data = self._pending_escape + data
+        self._pending_escape = ""
         position = 0
-        for match in _SEQUENCE.finditer(data):
-            self._write_text(data[position : match.start()])
+        while (escape := data.find("\x1b", position)) != -1:
+            self._write_text(data[position:escape])
+            match = _SEQUENCE.match(data, escape)
+            if match is None:
+                # Driver writes are stream chunks, not complete frames. Textual
+                # splits Windows frames at 8192 characters, even inside CSI/OSC.
+                self._pending_escape = data[escape:]
+                return
             if match.group("final") and not match.group("private"):
                 self._control(match.group("final"), match.group("params"))
             position = match.end()

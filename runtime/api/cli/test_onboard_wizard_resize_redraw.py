@@ -16,6 +16,7 @@ import pytest
 pytest.importorskip("textual")
 
 from textual.events import Resize  # noqa: E402
+import textual.app  # noqa: E402
 from textual.geometry import Size  # noqa: E402
 from textual.widgets import Static  # noqa: E402
 
@@ -101,8 +102,13 @@ async def _assert_screen_once(pilot, terminal: TerminalModel, seen: list[str]) -
     assert HEADER_TEXT in terminal.rows[1], terminal.text
 
 
-def test_resizing_mid_flow_shows_each_screen_once() -> None:
+@pytest.mark.parametrize("windows_chunking", [False, True])
+def test_resizing_mid_flow_shows_each_screen_once(
+    monkeypatch, windows_chunking
+) -> None:
+    # Exercise Textual's Windows frame writer on every CI operating system.
     app, spy, terminal = _wizard_on_terminal(WIDE)
+    monkeypatch.setattr(textual.app, "WINDOWS", windows_chunking)
     seen: list[str] = []
 
     async def scenario() -> None:
