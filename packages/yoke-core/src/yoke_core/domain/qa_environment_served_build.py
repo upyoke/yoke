@@ -31,6 +31,8 @@ def observe_build(conn: Any, target: Mapping[str, Any], *, expected: str = "") -
 
     settings = _decode(row["settings"])
     qa = settings.get("qa") or {}
+    if not isinstance(qa, Mapping):
+        _refuse("served_build_unobservable", "the owning environment qa settings are not an object")
     path = qa.get("identity_path")
     if path is None:
         if expected:

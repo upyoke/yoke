@@ -5,10 +5,5 @@
  "page": "qa-cases",
  "position": 3,
  "summary": "A case's target_envs names registered environments; [] keeps the plan default. Each target creates its own delivery obligation. The control plane records and executes QA against project-owned environments or an authorized same-org hosted-runtime bridge, rechecking the frozen environment identity on dispatch. The owning environment ID selects its origin and qa.identity_path. Begin and each result write observe the full served SHA; results persist served_build_sha and served_build_status. A missing declared path is recorded; an unanswerable probe refuses served_build_unobservable, and a changed build refuses served_build_changed with both SHAs and requires a new execution. Deployment and project targets retain their own identity rules.",
- "sources": [
-  "packages/yoke-core/src/yoke_core/domain/qa_plan_case_targets.py",
-  "runtime/api/test_qa_plan_case_stage_reason.py",
-  "docs/public/verification/standalone-plans.md",
-  "packages/yoke-core/src/yoke_core/domain/qa_execution_environment_target.py"
- ]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_plan_case_targets.py", "runtime/api/test_qa_plan_case_stage_reason.py", "docs/public/verification/standalone-plans.md", "packages/yoke-core/src/yoke_core/domain/qa_execution_environment_target.py"]
 }

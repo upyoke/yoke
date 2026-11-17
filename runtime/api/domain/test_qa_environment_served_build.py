@@ -106,3 +106,26 @@ def test_no_declared_path_is_durable(test_db, monkeypatch):
     written = insert_qa_run(test_db, qa_requirement_id=execution["roster"][0]["requirement_id"], qa_kind="command", performed_by="7", created_at=utc_now(), verdict="pass")
     row = test_db.execute("SELECT served_build_sha,served_build_status FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()
     assert tuple(row) == (None, "no_declared_path")
+
+
+def test_build_change_before_first_result_compares_with_begin(test_db, monkeypatch):
+    _setup(test_db, monkeypatch)
+    execution = _begin(test_db)
+    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
+    with pytest.raises(QaExecutionTargetError, match="served_build_changed"):
+        insert_qa_run(test_db, qa_requirement_id=execution["roster"][0]["requirement_id"],
+                      qa_kind="command", performed_by="7", created_at=utc_now(), verdict="pass")
+    assert test_db.execute("SELECT COUNT(*) FROM qa_runs").fetchone()[0] == 0
+
+
+def test_roster_step_and_case_run_recheck_frozen_authorization(test_db, monkeypatch):
+    from yoke_core.domain.qa_case_execution_context import get_case_execution_context
+    from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_execution
+
+    owner, _, _ = _setup(test_db, monkeypatch)
+    execution = _begin(test_db)
+    test_db.execute("UPDATE environments SET settings='{}' WHERE id=%s", (owner,))
+    with pytest.raises(QaExecutionTargetError, match="not authorized"):
+        get_case_execution_context(test_db, requirement_id=execution["roster"][0]["requirement_id"])
+    with pytest.raises(QaExecutionTargetError, match="not authorized"):
+        heartbeat_plan_execution(test_db, execution)
