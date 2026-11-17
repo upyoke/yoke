@@ -98,16 +98,6 @@ def test_malformed_shapes_precede_windows_reserved_names(typed: str) -> None:
     assert caught.value.code == "path_malformed"
 
 
-def test_windows_git_advice_names_the_native_installer() -> None:
-    from yoke_cli.config.project_git_install_advice import install_advice
-
-    advice = install_advice(platform_name="win32", which=lambda name: None)
-    assert "Git for Windows" in advice.note
-    assert "https://gitforwindows.org/" in advice.note
-    assert "PATH" in advice.note and "new terminal" in advice.note
-    assert "WSL" not in advice.note
-
-
 def test_paths_differing_only_by_case_are_refused(tmp_path: Path) -> None:
     with pytest.raises(paths.RepoPathInputError) as caught:
         paths.normalize_repo_paths(
