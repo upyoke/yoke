@@ -182,7 +182,7 @@ def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path, monkeyp
     evidence.rmdir()
 
 
-@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="requires Unix sockets")
+@pytest.mark.posix_only(reason='requires Unix sockets')
 def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
     config, original, token = _seed(tmp_path / "machine")
     profile = token.parent / "profile"
@@ -210,7 +210,7 @@ def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
     assert config.read_bytes() == original
 
 
-@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="requires Unix sockets")
+@pytest.mark.posix_only(reason='requires Unix sockets')
 def test_snapshot_skips_live_browser_profiles_and_stray_special_files(
     tmp_path, monkeypatch
 ):

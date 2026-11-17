@@ -31,7 +31,11 @@ container runtime on these runners: `yoke_core.tools.ci_suite_postgres start`
 fetches the product's own pinned Postgres engine, starts the disposable test
 cluster under the runner's temp directory and exports `YOKE_PG_DSN` to later
 steps. Each shard uploads `pytest-output-<os>-<shard>` with its log and JUnit
-report.
+report. The plan retains modules skipped before import on its collection OS
+so native runners still receive them, with conservative product-wheel fixture
+affinity because their fixture closure cannot be imported on the plan host.
+Coverage manifests name these collection skips explicitly; each test and each
+module skip must appear exactly once in the shard reports.
 
 The free macOS runner pool caps concurrency, so macOS shards queue; read
 runtime from each job's own start and finish times, not the run's wall clock.
@@ -89,3 +93,15 @@ and passed across the runs is printed as flaky and never recorded: a strict
 entry cannot hold it, so file it for a fix. Review the diff before
 committing. `tests/test_known_failure_baseline.py` refuses an entry with
 no reason, or one that names no test or module defined in a suite file.
+
+OS requirements use `pytest.mark.posix_only(reason="...")`, `windows_only`,
+`macos_only` or `linux_only`, with exactly one nonempty reason and one scope
+per test. A module-level `pytestmark` is read before import. Collection skips
+with `<marker>: <reason>`; the `windows` smoke marker cannot accompany a scope
+that excludes Windows. The tracked-source scanner refuses hand-written OS
+`skipif`/`xfail` conditions and OS-guarded `pytest.skip`/`pytest.xfail`.
+Root-user and missing-tool skips stay ordinary conditions.
+
+A test or module scoped off an OS must leave that OS's known-failure baseline;
+`tests/test_known_failure_baseline.py` refuses such entries. Scoping describes
+a native requirement, rather than suppressing a portability failure.

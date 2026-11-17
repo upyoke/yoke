@@ -87,7 +87,7 @@ if sys.argv[2] == 'persistent':
 """
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX caller-group teardown")
+@pytest.mark.posix_only(reason='POSIX caller-group teardown')
 @pytest.mark.parametrize("caller_kind", ["short", "persistent"])
 def test_setup_survives_caller_group_exit_and_serves_browser_step(
     tmp_path: Path,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-import sys
 from types import SimpleNamespace
 
 import pytest
@@ -132,7 +131,7 @@ def test_transport_fake_applies_bsd_chmod_rules_and_seals_the_uploaded_probes():
     ] == "sealed"
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="requires the real BSD chmod")
+@pytest.mark.macos_only(reason='requires the real BSD chmod')
 def test_seal_command_succeeds_with_real_macos_chmod_on_a_disposable_sidecar(tmp_path):
     transport = FakeCaptureTransport(closed_capture_stdout())
     sidecar = tmp_path / "golden.probes"

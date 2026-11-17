@@ -142,7 +142,7 @@ def test_discovered_python_resident_stops_and_releases_startup_lock(
             os.close(held.pop())
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires native Windows named pipes")
+@pytest.mark.windows_only(reason='requires native Windows named pipes')
 def test_windows_resident_warms_answers_health_and_stops(monkeypatch, tmp_path):
     from yoke_cli import hook_resident_client as client
     from yoke_cli import hook_resident_lifecycle as lifecycle

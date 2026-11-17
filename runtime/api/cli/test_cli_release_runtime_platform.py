@@ -18,9 +18,7 @@ from runtime.api.cli.cli_release_runtime_test_support import candidate, point_cu
 from yoke_cli.config import cli_release_runtime as runtime
 
 
-pytestmark = pytest.mark.windows
-
-POSIX_ONLY = pytest.mark.skipif(runtime.WINDOWS, reason="POSIX process facts")
+POSIX_ONLY = pytest.mark.posix_only(reason='POSIX process facts')
 
 
 def _alive(pid: int) -> bool:
@@ -39,6 +37,7 @@ def _alive(pid: int) -> bool:
 STOPS = ["kill"] if runtime.WINDOWS else ["kill", signal.SIGTERM]
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("stop", STOPS)
 def test_stopping_the_launcher_ends_its_command(tmp_path, stop):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
@@ -114,6 +113,7 @@ def _inheritable(fd: int, inode: int) -> bool:
         return False
 
 
+@pytest.mark.windows
 def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime, "WINDOWS", True)
     generation = tmp_path / "releases/1.0"
@@ -132,6 +132,7 @@ def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
         runtime._shims(tmp_path / "100%", python, tmp_path / "bin")
 
 
+@pytest.mark.windows
 def test_windows_cleanup_skips_a_release_whose_rename_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime, "WINDOWS", True)
     release = tmp_path / "releases/1.0"
@@ -145,6 +146,7 @@ def test_windows_cleanup_skips_a_release_whose_rename_is_refused(tmp_path, monke
     assert release.is_dir()
 
 
+@pytest.mark.windows
 def test_windows_pointer_replace_retries_a_briefly_open_reader(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime, "WINDOWS", True)
     replace, attempts = os.replace, []
@@ -161,6 +163,7 @@ def test_windows_pointer_replace_retries_a_briefly_open_reader(tmp_path, monkeyp
     assert len(attempts) == 2
 
 
+@pytest.mark.windows
 def test_current_must_name_a_release_folder(tmp_path):
     for name in ("", "..", "../elsewhere", ".retired"):
         (tmp_path / "current").write_text(name + "\n")

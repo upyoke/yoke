@@ -21,9 +21,8 @@ from yoke_cli.config import (
 from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
 from yoke_contracts import owner_private_path
 
-pytestmark = pytest.mark.windows
 
-POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits")
+POSIX_ONLY = pytest.mark.posix_only(reason='POSIX mode bits')
 
 
 class _Refused(RuntimeError):
@@ -60,6 +59,7 @@ def _raise(message: str):
 # --- GitHub credential helper permissions ---------------------------------
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("private", [True, False])
 def test_credential_directory_follows_the_shared_acl_check(
     monkeypatch, tmp_path: Path, private: bool
@@ -76,6 +76,7 @@ def test_credential_directory_follows_the_shared_acl_check(
         check()
 
 
+@pytest.mark.windows
 def test_windows_credential_directory_refusal_names_the_acl_repair(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -88,6 +89,7 @@ def test_windows_credential_directory_refusal_names_the_acl_repair(
         )
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("private", [True, False])
 def test_credential_file_follows_the_shared_acl_check(
     monkeypatch, tmp_path: Path, private: bool
@@ -106,6 +108,7 @@ def test_credential_file_follows_the_shared_acl_check(
         check()
 
 
+@pytest.mark.windows
 def test_windows_credential_write_and_lock_use_no_posix_modes(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -126,6 +129,7 @@ def test_windows_credential_write_and_lock_use_no_posix_modes(
     assert written == [(target, b'{"token": "t"}\n')]
 
 
+@pytest.mark.windows
 def test_credential_write_failure_is_named(monkeypatch, tmp_path: Path) -> None:
     def deny(_path, _data):
         raise OSError("owner_private_write_failed: disk full")
@@ -149,6 +153,7 @@ def test_machine_config_write_is_owner_only(tmp_path: Path) -> None:
     assert owner_private_path.is_owner_private_file(target)
 
 
+@pytest.mark.windows
 def test_machine_config_write_failure_is_named(monkeypatch, tmp_path: Path) -> None:
     def deny(_path, _data):
         raise OSError("owner_private_write_failed")
@@ -167,6 +172,7 @@ def test_machine_state_directory_left_at_umask_is_tightened(tmp_path: Path) -> N
     assert owner_private_path.is_owner_private_directory(home)
 
 
+@pytest.mark.windows
 def test_windows_machine_state_directory_is_refused_not_repaired(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -177,6 +183,7 @@ def test_windows_machine_state_directory_is_refused_not_repaired(
         machine_config_file.ensure_owner_only_directory(tmp_path)
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("private", [True, False])
 def test_windows_machine_config_lock_follows_the_shared_acl_check(
     monkeypatch, tmp_path: Path, private: bool
@@ -195,6 +202,7 @@ def test_windows_machine_config_lock_follows_the_shared_acl_check(
             pass
 
 
+@pytest.mark.windows
 def test_windows_idle_lock_is_closed_before_unlink(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -209,6 +217,7 @@ def test_windows_idle_lock_is_closed_before_unlink(
     assert not lock.exists()
 
 
+@pytest.mark.windows
 def test_windows_lock_opened_by_another_process_is_reported_busy(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -231,6 +240,7 @@ def test_windows_lock_opened_by_another_process_is_reported_busy(
 # --- Connection removal and status ----------------------------------------
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("private", [True, False])
 def test_connection_credential_removal_follows_the_shared_acl_check(
     monkeypatch, tmp_path: Path, private: bool
@@ -248,6 +258,7 @@ def test_connection_credential_removal_follows_the_shared_acl_check(
         check()
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("windows", [False, True])
 def test_status_reports_a_shared_config_with_its_platform_repair(
     monkeypatch, tmp_path: Path, windows: bool
@@ -264,6 +275,7 @@ def test_status_reports_a_shared_config_with_its_platform_repair(
     assert ("chmod 600" in issue["hint"]) is not windows
 
 
+@pytest.mark.windows
 def test_status_accepts_an_owner_only_config(monkeypatch, tmp_path: Path) -> None:
     config = tmp_path / "config.json"
     config.write_text("{}", encoding="utf-8")

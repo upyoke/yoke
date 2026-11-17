@@ -93,7 +93,7 @@ def test_cleanup_keeps_installs_in_progress_and_uninstall_waits_for_them(tmp_pat
     assert not (bin_dir / "yoke").exists()
 
 
-@pytest.mark.skipif(runtime.WINDOWS, reason="the symlink layout never shipped there")
+@pytest.mark.posix_only(reason='the symlink layout never shipped there')
 def test_update_from_the_symlink_layout_replaces_every_link(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old = candidate(root, "1.0")
