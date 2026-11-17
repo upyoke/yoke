@@ -25,7 +25,7 @@ function Invoke-YokeSystemTailnetProof($exe,$body) {
  $nonce=[Guid]::NewGuid().ToString('N')
  $probeRoot=Join-Path $private ('TailnetProbe-'+$nonce)
  $taskName='YokeQaTailnetProbe-'+$nonce
- $registered=$null; $instance=$null
+ $registered=$null; $instance=$null; $probeFailure=$null
  New-Item -ItemType Directory -Path $probeRoot -ErrorAction Stop | Out-Null
  try {
   $acl=Get-Acl -LiteralPath $probeRoot
@@ -63,18 +63,29 @@ function Invoke-YokeSystemTailnetProof($exe,$body) {
   $result=[IO.File]::ReadAllText($resultPath) | ConvertFrom-Json -ErrorAction Stop
   if($result.nonce -cne $nonce -or $result.sid -cne 'S-1-5-18' -or $result.ok -isnot [bool] -or !$result.ok -or !$result.proof){throw 'windows_rdp_firewall_failed: SYSTEM tailnet identity and adapter proof unavailable'}
   return $result.proof
- } finally {
-  if($registered){
-   if($registered.State -in @(2,4)){
-    if($instance){$instance.Stop()}else{$registered.Stop(0)}
+ } catch {$probeFailure=$_; throw} finally {
+  try {
+   if($registered){
+    $stopOwned={param($all)
+     try {if($all -or !$instance){$registered.Stop(0)}else{$instance.Stop()}} catch {
+      $failure=$_.Exception
+      while($failure.InnerException){$failure=$failure.InnerException}
+      if($failure -isnot [Runtime.InteropServices.COMException] -or $failure.HResult -ne -2147216629){throw}
+     }
+    }
+    if($folder.GetTask($taskName).State -in @(2,4)){& $stopOwned $false}
+    if($folder.GetTask($taskName).State -eq 2){& $stopOwned $true}
+    $cleanupDeadline=[DateTime]::UtcNow.AddSeconds(2)
+    while($folder.GetTask($taskName).State -in @(2,4) -and [DateTime]::UtcNow -lt $cleanupDeadline){Start-Sleep -Milliseconds 50}
+    if($folder.GetTask($taskName).State -notin @(1,3)){throw 'windows_rdp_firewall_failed: owned SYSTEM probe did not settle; preserve its task and files'}
+    $folder.DeleteTask($taskName,0)
    }
-   $cleanupDeadline=[DateTime]::UtcNow.AddSeconds(2)
-   while($registered.State -in @(2,4) -and [DateTime]::UtcNow -lt $cleanupDeadline){Start-Sleep -Milliseconds 50}
-   if($registered.State -in @(2,4)){throw 'windows_rdp_firewall_failed: owned SYSTEM probe did not stop; preserve its task and files'}
-   $folder.DeleteTask($taskName,0)
+   Assert-YokeTailnetPrivate $probeRoot $true
+   Remove-Item -LiteralPath $probeRoot -Recurse -Force -ErrorAction Stop
+  } catch {
+   if($probeFailure){throw ($probeFailure.Exception.Message+'; owned probe cleanup failed: '+$_.Exception.Message)}
+   throw
   }
-  Assert-YokeTailnetPrivate $probeRoot $true
-  Remove-Item -LiteralPath $probeRoot -Recurse -Force -ErrorAction Stop
  }
 }
 function Get-YokeTailnetProof {

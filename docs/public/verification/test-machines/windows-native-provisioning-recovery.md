@@ -134,6 +134,10 @@ the first up adapter can have no IPv4 address. Create probe scripts exclusively
 and set trusted ownership only on the newly created file before the unchanged
 owner/ACL guard. A generic owner refusal identifies no offender; retain probe
 basename/owner-SID diagnostics and never take ownership of an existing object.
+Task completion can race `Stop()`: accept only `SCHED_E_TASK_NOT_RUNNING`
+(`0x8004130B`), then require fresh settled state before deleting task/files.
+Queued instances get one owned-task stop fallback; other errors or unsettled
+state preserve the task/files and report cleanup alongside the original error.
 
 A later full lab refresh refused unverified Tailscale self identity and
 deallocated after 150 seconds. A read-only administrator probe found CLI exit
