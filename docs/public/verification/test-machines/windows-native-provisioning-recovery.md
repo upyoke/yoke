@@ -106,6 +106,61 @@ address- or interface-confined RDP allows. Names alone, broad ranges, wildcard
 interfaces or mixed public scope never authorize them. Prove tailnet RDP and
 blocked public3389 before readiness; retain the SSH forward for bootstrap.
 
+### Tailnet cutover and host replacement
+
+Existing rollout: join first, deploy the no-rebind build, then settings-replace
+`host` using the as-read token. Upgrade clients, then detach/delete the old
+`20.124.243.250` under the recorded operator exception, using the detach/delete
+commands in [the provisioning guide](windows-native-host-provisioning.md#tailscale-and-public-ip-lifetime).
+An unmanaged IP attachment refuses with that recovery. A failed delete reports
+`test_machine_power_stop_failed`: repair its named cause and retry verify/release.
+Prove start/verify/stop keeps the host unchanged, with no QA_HOST or public IP left.
+
+Before rebuilding, remove the old tailnet device, then join with the same name;
+require no `-1` suffix. Verify the new SSH fingerprint, then clear the old pin
+with `ssh-keygen -R VM_RESOURCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine
+known_hosts file. Re-read settings and use its token for any change; verify again.
+For DNS/SSH failures check Tailscale, device expiry, controller DNS and sshd;
+never change a live lease target to repair connectivity.
+
+### Tailscale query context and preserved state
+
+Windows CI exposed two API mismatches: query `RemoteDesktop-*` by name, then
+filter `Enabled` in the pipeline; those parameters belong to different sets.
+Windows cannot store wildcard interface aliases: use real `Any` filters for
+integration and assert wildcard rejection directly against the same predicate.
+
+A later full lab refresh refused unverified Tailscale self identity and
+deallocated after 150 seconds. A read-only administrator probe found CLI exit
+zero, `BackendState=NeedsLogin` and no self IPs; deallocation verified after
+118 seconds. A SYSTEM/admin/standard-user comparison deallocated after
+201 seconds: SYSTEM and administrator agreed; standard-user CLI/CIM errors
+provided no verified backend state. Granting that user more rights is no fix.
+
+SYSTEM-only metadata inspection, without a Tailscale query or file contents,
+deallocated after 138 seconds. The original directory/state-file creation
+times and SYSTEM/Administrators-only ACLs remained; the state file was written
+near the first administrator status query. No provisioner operation targeted
+Tailscale state, and Azure activity showed no reimage/disk action. A subsequent
+SYSTEM policy/profile-list probe deallocated after 172 seconds: machine
+`UnattendedMode=always`, saved account/tailnet profile present but unselected,
+and ordinary, unlinked provisioning directories. Metadata does not prove keys
+or the historical selection transition; preserve that distinction.
+
+The matching Tailscale v1.104.7 source explains a conditional path: an allowed
+non-SYSTEM status request can select an empty administrator default. The
+`always` policy saves its forced-daemon preferences and clears startup
+selection because the empty profile has no persisted state key. The older
+saved profile need not be deleted. The observed policy, unselected profile
+and write timing strongly match this path; historical ownership was not logged.
+Collect proof only as SYSTEM through the private bounded task, with nonce/SID
+verification and owned-task/file cleanup; never fall back to administrator CLI.
+SYSTEM execution policy must permit private local task scripts, as for the
+fixed recovery task; do not change policy to hide a refused probe.
+Diagnose `NeedsLogin` before selecting a profile or reauthenticating. Successful
+repair commands alone do not prove unattended persistence: require a cold boot,
+SYSTEM running/self-IP evidence and independent private-route proof.
+
 ## Standard-user host-facts failure
 
 A registered screenshot reached SSH as `winnative\yokeqa`, then reported

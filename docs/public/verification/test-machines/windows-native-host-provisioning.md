@@ -114,11 +114,16 @@ that same tailnet name as `desktop_host`. A forwarded route uses loopback.
 Golden reset never changes Tailscale.
 
 Permit RDP only over verified tailnet addresses or interfaces. The installed
-Tailscale CLI must report a running self identity; each address needs one
+Tailscale CLI must report a running self identity **as SYSTEM**; each address needs one
 preferred assignment on a live adapter. Every local address or every interface
 must be verified. Names, wildcards, broad ranges and mixed public scope do not
 prove confinement. Preserve Tailscale; add no blanket 3389 block. Prove tailnet
 RDP and blocked public TCP3389; keep public NSG/firewall TCP/UDP3389 closed.
+The provisioner uses an owned, bounded SYSTEM task and private filtered receipt,
+then removes its task/files. An administrator-context status query can select
+a different Windows Tailscale profile; do not use it as a harmless health check.
+For `NeedsLogin`, preserve saved profiles and diagnose before reauthentication;
+see [the observed recovery](windows-native-provisioning-recovery.md#tailscale-query-context-and-preserved-state).
 
 Never register the bootstrap public IP. Keep the private subnet, key-only
 SSH from anywhere (NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
@@ -137,18 +142,8 @@ az network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
 az network public-ip delete --ids IP_ID
 ```
 
-Existing rollout: join first, deploy the no-rebind build, then settings-replace
-`host` using the as-read token. Upgrade clients, then detach/delete the old
-`20.124.243.250` by the commands above under the recorded operator exception.
-An unmanaged IP attachment refuses with that recovery. Verify that the VM is
-running, its MagicDNS host is unchanged and the QA_HOST lease has been released.
-
-Before rebuilding, remove the old tailnet device, then join with the same name;
-require no `-1` suffix. Verify the new SSH fingerprint, then clear the old pin
-with `ssh-keygen -R VM_RESOURCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine
-known_hosts file. Re-read settings and use its token for any change; verify again.
-For DNS/SSH failures check Tailscale, device expiry, controller DNS and sshd;
-never change a live lease target to repair connectivity.
+For existing-VM host/IP cutover, unmanaged-IP failures, host replacement and
+DNS/SSH repair, follow [tailnet recovery](windows-native-provisioning-recovery.md#tailnet-cutover-and-host-replacement).
 
 ## 2. Provision OpenSSH and the standard test account
 

@@ -18,8 +18,10 @@ try {
 using System;
 using System.IO;
 using System.Reflection;
+using System.Security.Principal;
 public class YokeTailnetFixture {
  public static int Main(string[] args) {
+  if(WindowsIdentity.GetCurrent().User.Value!="S-1-5-18") return 4;
   if(args.Length!=2 || args[0]!="status" || args[1]!="--json") return 2;
   Console.Write(File.ReadAllText(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),"status.json")));
   return 0;
@@ -82,6 +84,8 @@ public class YokeTailnetFixture {
  if((Get-NetFirewallRule -Name $legacyTailnet).Enabled -ne 'True'){throw 'verified tailnet desktop rule was disabled'}
  if((Get-NetFirewallRule -Name $legacyPublic).Enabled -ne 'False'){throw 'public desktop rule remains enabled'}
  if((Get-NetFirewallRule -Name $rule).Enabled -ne 'True'){throw 'foreign tailnet rule was changed'}
+ if(@(Get-ChildItem 'C:\ProgramData\YokeQa\private' -Filter 'TailnetProbe-*').Count){throw 'tailnet probe staging remains'}
+ if(@(Get-ScheduledTask -TaskName 'YokeQaTailnetProbe-*' -ErrorAction SilentlyContinue).Count){throw 'tailnet probe task remains'}
  'TAILNET_SCOPE_AND_IDENTITY_VERIFIED'
 } finally {
  $env:ProgramFiles=$originalProgramFiles
