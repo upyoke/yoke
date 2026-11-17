@@ -170,7 +170,8 @@ root:
       - {title: "Items", summary: "Read item function identities and structured-write contracts.", path: "functions/items.md"}
       - {title: "Project configuration", summary: "Read configuration, strategy and shared-file operation contracts.", path: "functions/project-configuration.md"}
       - {title: "QA", summary: "Read QA function identities and execution and evidence obligations.", path: "functions/qa.md"}
-      - {title: "Runtime", summary: "Read runtime function identities, actor roles and output authority.", path: "functions/runtime.md"}
+      - {title: "Runtime", summary: "Read runtime function identities and output authority.", path: "functions/runtime.md"}
+      - {title: "Actors and org roles", summary: "Read actor roster, state and org-role rules and refusals.", path: "functions/actors.md"}
       - {title: "Tasks", summary: "Read generated-task, dispatch and review operation contracts.", path: "functions/tasks.md"}
       - {title: "Workflows", summary: "Read workflow function identities, immutable pins and routing contracts.", path: "functions/workflows.md"}
       - {title: "Worktrees", summary: "Read lane preparation, landing, merge and close-out contracts.", path: "functions/worktrees.md"}

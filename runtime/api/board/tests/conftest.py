@@ -189,11 +189,11 @@ def test_db_path(tmp_path):
         conn = connect_test_db(db_path)
         from yoke_core.domain.model_reference_store import (
             create_model_reference_table,
-            seed_initial_catalog,
         )
+        from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 
         create_model_reference_table(conn)
-        seed_initial_catalog(conn)
+        sync_shipped_catalog(conn)
         for version_id, workflow_id in ((1, "issue"), (2, "epic")):
             definition = builtin_workflow_definition(workflow_id)["definition"]
             conn.execute(

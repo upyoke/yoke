@@ -9,6 +9,7 @@ from yoke_cli.commands.adapters import (
     item_worktrees,
     models,
     models_level_proposal,
+    models_shipped,
     overview,
     operator_data_repair,
     qa_catalog,
@@ -200,6 +201,10 @@ MODELS_SUBCOMMAND_REGISTRY = {
     ("models", "publish"): ("models.publish.run", models.models_publish),
     ("models", "revisions"): ("models.revisions.run", models.models_revisions),
     ("models", "restore"): ("models.restore.run", models.models_restore),
+    ("models", "follow-shipped"): (
+        "models.follow_shipped.run",
+        models_shipped.models_follow_shipped,
+    ),
 }
 
 UNIVERSE_SUBCOMMAND_REGISTRY = {

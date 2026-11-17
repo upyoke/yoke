@@ -23,8 +23,8 @@ from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
     publish_catalog,
     revision_at,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from yoke_core.domain.universe_levels import create_universe_settings_table
 
 SUCCESSOR = ModelRecord(
@@ -52,7 +52,7 @@ class _Conn:
 def db(monkeypatch):
     conn = sqlite3.connect(":memory:")
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     create_universe_settings_table(conn)
     monkeypatch.setattr(db_helpers, "connect", lambda *_a, **_k: _Conn(conn))
     yield conn
@@ -65,6 +65,7 @@ def _publish(conn, records) -> None:
         [record.to_dict() for record in records],
         effective_at=None,
         actor_id=1,
+        source="operator",
         source_note="test publication",
         expected_base_revision_id=revision_at(conn)["revision_id"],
     )

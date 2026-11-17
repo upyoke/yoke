@@ -115,6 +115,17 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
   --project-repo-path "$c" --source-ref FULL_SHA --idempotency-key KEY
 ```
 
+## Refresh shipped model defaults
+
+Every install follows the catalog and levels a Yoke build ships, so a Yoke model refresh is a
+code change, not a publication. In a Dash, research official sources (`/yoke models` steps 3–4
+for the record rules), then edit the shipped records in
+`packages/yoke-contracts/src/yoke_contracts/model_reference_data.json` and the levels in
+`level_defaults.py` together. The catalog test
+validates them in CI. After release, each environment whose latest revision is `shipped`
+appends the new catalog on its next boot; check with `yoke --env ENV models revisions`.
+Never `models publish` the shipped content to an environment: that records an operator override.
+
 ## Code rules for this repo
 
 - CLI usage: [authoring and checks](source-dev/cli-usage-contract.md).

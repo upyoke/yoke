@@ -6,8 +6,8 @@ from typing import Any
 import json
 from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from yoke_contracts.session_control.native_models import models_reading, native_model
 from runtime.api.domain.session_launch_test_support import NOW
 
@@ -65,7 +65,7 @@ def level_connection(*options: dict[str, Any]):
     """A launch universe whose one stored level, SENIOR, has ``options``."""
     conn = launch_connection()
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     create_universe_settings_table(conn)
     conn.execute(
         "CREATE TABLE project_capabilities "

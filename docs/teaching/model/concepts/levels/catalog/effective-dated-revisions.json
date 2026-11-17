@@ -1,7 +1,11 @@
 {
  "id": "effective-dated-revisions",
  "title": "Effective-dated revisions",
- "status": "draft-copy",
+ "status": "observed",
  "page": "levels",
- "position": 1
+ "position": 1,
+ "current": "Each catalog revision is a complete immutable snapshot with an effective_at and a source: shipped (the catalog a Yoke build ships) or operator (yoke models publish or restore by an org admin). Every server start, and the first local command after yoke update, appends the running build's shipped catalog effective now while the latest revision is shipped and the catalog differs from every shipped revision stored, so an older build never undoes a newer one; an empty store gets it effective from 1970. An operator latest revision is never replaced: yoke models get, lookup and revisions report shipped_defaults_differ, and yoke models follow-shipped (org admin) appends the shipped catalog as a shipped revision so later releases keep it current. Session cost estimates use the revision effective at each session's offered_at, so new revisions never change past estimates.",
+ "commands": ["yoke models follow-shipped", "yoke models get", "yoke models lookup", "yoke models publish", "yoke models restore", "yoke models revisions"],
+ "functions": ["models.follow_shipped.run", "models.get.run", "models.lookup.run", "models.publish.run", "models.restore.run", "models.revisions.run"],
+ "sources": ["docs/public/functions/models.md", "packages/yoke-core/src/yoke_core/domain/model_reference_shipped.py", "packages/yoke-core/src/yoke_core/domain/model_reference_store.py"]
 }

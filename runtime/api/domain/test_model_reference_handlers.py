@@ -19,15 +19,15 @@ from yoke_core.domain.handlers import model_reference
 from yoke_core.domain.handlers import model_reference_publication as publication
 from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 
 
 @pytest.fixture
 def catalog_db(monkeypatch):
     conn = sqlite3.connect(":memory:")
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     monkeypatch.setattr(db_helpers, "connect", lambda: conn)
     yield conn
     conn.close()
@@ -101,6 +101,7 @@ def test_catalog_publication_functions_are_registered():
         publication.PUBLISH_FUNCTION_ID,
         publication.REVISIONS_FUNCTION_ID,
         publication.RESTORE_FUNCTION_ID,
+        publication.FOLLOW_SHIPPED_FUNCTION_ID,
     ):
         entry = yoke_function_registry.lookup(function_id)
         assert entry is not None
@@ -178,3 +179,34 @@ def test_publish_and_restore_create_auditable_revisions(catalog_db):
         _request(model_reference.GET_FUNCTION_ID, {"at": future})
     )
     assert after.result_payload["revision_id"] == restored.result_payload["revision_id"]
+    assert after.result_payload["source"] == "operator"
+    overridden = publication.handle_models_revisions(
+        _request(publication.REVISIONS_FUNCTION_ID, {})
+    ).result_payload
+    assert overridden["revisions"][0]["source"] == "operator"
+    assert overridden["shipped_defaults_differ"] is False
+    followed = publication.handle_models_follow_shipped(
+        _request(publication.FOLLOW_SHIPPED_FUNCTION_ID, {})
+    )
+    assert followed.primary_success is True
+    assert followed.result_payload["appended"] is True
+    assert followed.result_payload["effective_at"] == after.result_payload["effective_at"]
+    following = publication.handle_models_revisions(
+        _request(publication.REVISIONS_FUNCTION_ID, {})
+    ).result_payload
+    assert following["revisions"][0]["source"] == "shipped"
+    assert "shipped_defaults_differ" not in following
+
+
+def test_reads_tell_an_operator_how_to_follow_shipped_defaults():
+    import io
+
+    from yoke_cli.commands.adapters.models_shipped import write_shipped_notice
+
+    differs, equal, following = io.StringIO(), io.StringIO(), io.StringIO()
+    write_shipped_notice({"shipped_defaults_differ": True}, differs)
+    write_shipped_notice({"shipped_defaults_differ": False}, equal)
+    write_shipped_notice({}, following)
+    assert "yoke models follow-shipped" in differs.getvalue()
+    assert "will not follow future Yoke updates" in equal.getvalue()
+    assert following.getvalue() == ""

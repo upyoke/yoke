@@ -103,12 +103,21 @@ def register(registry) -> None:
             _publication.handle_models_restore,
             _publication.ModelsRestoreRequest,
         ),
+        (
+            _publication.FOLLOW_SHIPPED_FUNCTION_ID,
+            _publication.handle_models_follow_shipped,
+            _publication.ModelsFollowShippedRequest,
+        ),
     ):
         registry.register(
             function_id,
             handler,
             request_type,
-            _publication.ModelsPublishResponse,
+            (
+                _publication.ModelsFollowShippedResponse
+                if function_id == _publication.FOLLOW_SHIPPED_FUNCTION_ID
+                else _publication.ModelsPublishResponse
+            ),
             stability="stable",
             owner_module="yoke_core.domain.handlers.model_reference_publication",
             target_kinds=["global"],
