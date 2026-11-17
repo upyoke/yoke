@@ -1,5 +1,6 @@
 """Tool working directories override the hook's startup directory."""
 
+import shlex
 from unittest.mock import Mock
 
 import pytest
@@ -33,7 +34,7 @@ def test_commit_repo_root_resolves_repository_identity(tmp_path, via):
     from types import SimpleNamespace
     from unittest.mock import patch
 
-    repo = tmp_path / "repo"
+    repo = tmp_path / "repo with spaces"
     repo.mkdir()
 
     def git(*args):
@@ -52,7 +53,7 @@ def test_commit_repo_root_resolves_repository_identity(tmp_path, via):
     elif via == "linked-worktree":
         cwd = repo / ".worktrees" / "lane"
         git("worktree", "add", "-b", "lane", str(cwd))
-        command = f"git -C {repo} commit -m change"
+        command = f"git -C {shlex.quote(str(repo))} commit -m change"
         assert main_commit_client._repo_root(str(cwd)) == normalize_repo_path(str(repo.resolve()))
     shell = parse_shell(command)
     payload = {"cwd": str(cwd), "tool_input": {"command": command}}
