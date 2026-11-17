@@ -70,21 +70,28 @@ def _covering_run(
 
     The event filter mirrors the one the caller's own downstream lookup
     applies, so a run resumed here is the same run that path then finds. A
-    queue-routed gate can only be satisfied by the landing pull request's
-    entry run, so resuming a dispatch run there would strand the gate
-    waiting for an entry run that never appears.
+    PR-triggered workflow keeps its entry event; a dispatch-only workflow
+    instead requires Yoke-recorded inputs, just like the initial lookup.
     """
     head_sha = qa_case_ci_lane.ref_sha(checkout, "HEAD")
     if not head_sha:
         return None
     with qa_case_ci_lane.github_actions_authority():
-        run = qa_case_ci_covering_run.find_run_for_tree(
+        event = (
+            qa_case_ci_entry_run.workflow_event(checkout, workflow, head_sha)
+            if queue_routed else ""
+        )
+        lookup = (
+            qa_case_ci_entry_run.find_workflow_run if queue_routed
+            else qa_case_ci_covering_run.find_run_for_tree
+        )
+        run = lookup(
             project=project,
             repo=repo,
             workflow=workflow,
             head_sha=head_sha,
             timeout_seconds=timeout_seconds,
-            event="pull_request" if queue_routed else "",
+            event=event if queue_routed else "",
         )
     source = qa_case_ci_covering_run.classify(
         run,

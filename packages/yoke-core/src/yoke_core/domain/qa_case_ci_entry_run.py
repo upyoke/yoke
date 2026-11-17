@@ -11,7 +11,9 @@ to do is reachable only when the pull-request run comes *first*.
 
 Every live CI lane the gate still has to examine is brought current by
 :mod:`yoke_core.engines.lane_base_update`, then the runner publishes it once. For merge-queue
-projects the gate also opens the pull request and waits for the run that opening it produces. The landing
+projects the gate also opens the pull request. PR-triggered workflows wait for
+the entry run; dispatch-only workflows probe recorded dispatch evidence once.
+The landing
 step later finds the same pull request open and green and simply enqueues
 it. Per-item cost becomes one entry suite plus the train's amortized share.
 
@@ -152,8 +154,29 @@ def open_landing_pull_request(
     return pr_num
 
 
+def workflow_event(checkout: Path, workflow: str, head_sha: str) -> str:
+    """Select the entry event from the workflow at the candidate commit."""
+    from yoke_core.domain.github_actions_workflow_inspection import workflow_triggers
+
+    name = workflow.removeprefix(".github/workflows/")
+    text = qa_case_ci_lane._git_output(
+        checkout, "show", f"{head_sha}:.github/workflows/{name}",
+        what="reading candidate CI workflow",
+    )
+    return "pull_request" if "pull_request" in workflow_triggers(text) else ""
+
+
+def find_workflow_run(*, event: str, **kwargs):
+    """Dispatch evidence must attest its inputs through Yoke's durable intent."""
+    run = qa_case_ci_covering_run.find_run_for_tree(event=event, **kwargs)
+    if not event and run is not None and run.dispatch_inputs is None:
+        return None
+    return run
+
+
 def find_entry_run(
     *,
+    checkout: Path,
     requirement_id: int,
     project: str,
     repo: str,
@@ -171,23 +194,26 @@ def find_entry_run(
     (:mod:`yoke_core.domain.qa_case_ci_covering_run`), so this waits only
     for the run to exist.
 
-    ``None`` means no pull-request run ever appeared for this commit,
+    Dispatch-only workflows are probed once without an event filter and
+    require a recorded dispatch payload. PR workflows keep their bounded wait.
+    ``None`` means no eligible run appeared for this commit,
     which the caller answers by dispatching — the same fallback it uses
     when a project has no pull request open at all.
     """
+    event = workflow_event(checkout, workflow, head_sha)
     deadline = monotonic() + ENTRY_RUN_APPEARANCE_TIMEOUT_SECONDS
     while True:
-        run = qa_case_ci_covering_run.find_run_for_tree(
+        run = find_workflow_run(
             project=project,
             repo=repo,
             workflow=workflow,
             head_sha=head_sha,
             timeout_seconds=timeout_seconds,
-            event="pull_request",
+            event=event,
         )
         if run is not None:
             return run
-        if monotonic() >= deadline:
+        if not event or monotonic() >= deadline:
             return None
         qa_case_ci_progress.announce_covering_wait(
             requirement_id,

@@ -63,6 +63,7 @@ class WorkflowFindRunResponse(BaseModel):
     conclusion: Optional[str] = None
     html_url: Optional[str] = None
     head_sha: Optional[str] = None
+    dispatch_inputs: Optional[Dict[str, str]] = None
 
 
 class RunJobsCountRequest(BaseModel):
@@ -153,8 +154,23 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
         from yoke_core.domain.ci_job_outcome import with_effective_conclusion
 
         run = with_effective_conclusion(payload.repo, run, token=token) or run
+        from yoke_core.domain.github_workflow_dispatch_intents import (
+            DispatchIntentStoreError, recorded_run_inputs,
+        )
+
+        inputs = None
+        if run.get("event") == "workflow_dispatch":
+            try:
+                inputs = recorded_run_inputs(
+                    repo=payload.repo, workflow=str(payload.workflow), run_id=str(run["id"]),
+                )
+            except DispatchIntentStoreError as exc:
+                return _transport_failed(
+                    f"workflow dispatch evidence unavailable: {exc}; restore the intent store and retry"
+                )
         response = WorkflowFindRunResponse(
             found=True,
+            dispatch_inputs=inputs,
             run_id=str(run.get("id") or "") or None,
             status=str(run.get("status") or "") or None,
             conclusion=str(run.get("conclusion") or "") or None,

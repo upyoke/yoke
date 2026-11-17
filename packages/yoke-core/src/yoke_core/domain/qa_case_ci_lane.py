@@ -50,6 +50,7 @@ class WorkflowRun:
     conclusion: str
     html_url: str
     head_sha: str
+    dispatch_inputs: Mapping[str, str] | None = None
 
 
 def _git(

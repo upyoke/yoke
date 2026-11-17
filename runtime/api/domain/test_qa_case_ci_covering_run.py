@@ -327,7 +327,8 @@ def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, concl
     assert result["verdict"] == "pass"
     dispatch.assert_called_once()
     suffix = "never-started-retry" if conclusion == "ci_job_not_started" else "after:77"
-    assert dispatch.call_args.kwargs["request_id"] == f"qa-case:41:{LANE_HEAD}:{suffix}"
+    prefix = "qa-case:41" if conclusion == "ci_job_not_started" else "qa-ci"
+    assert dispatch.call_args.kwargs["request_id"] == f"{prefix}:{LANE_HEAD}:{suffix}"
     evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == covering.DISPATCHED
     assert evidence["ci_run_id"] == "9182736"

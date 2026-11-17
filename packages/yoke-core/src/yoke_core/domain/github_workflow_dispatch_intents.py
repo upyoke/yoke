@@ -142,6 +142,25 @@ def newest_scope_intent(scope: str) -> Optional[DispatchIntent]:
     return None if row is None else _row_to_intent(row)
 
 
+def recorded_run_inputs(*, repo: str, workflow: str, run_id: str):
+    """The payload Yoke actually posted for this exact repository run."""
+    from yoke_core.domain import db_helpers
+
+    try:
+        with db_helpers.connect() as conn:
+            row = conn.execute(
+                f"SELECT inputs FROM {INTENT_TABLE} WHERE repo = %s "
+                "AND workflow = %s AND workflow_run_id = %s AND state = 'completed' "
+                "ORDER BY created_at DESC LIMIT 1",
+                (repo, workflow, run_id),
+            ).fetchone()
+    except Exception as exc:
+        raise DispatchIntentStoreError(
+            f"could not read workflow dispatch inputs: {exc}"
+        ) from exc
+    return json_helper.loads_text(str(row[0])) if row else None
+
+
 def claim_attempt(
     *,
     request_id: str,

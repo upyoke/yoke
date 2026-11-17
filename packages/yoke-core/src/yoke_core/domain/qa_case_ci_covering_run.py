@@ -112,6 +112,7 @@ def find_run_for_tree(
         conclusion=str(payload.get("conclusion") or "").strip(),
         html_url=str(payload.get("html_url") or "").strip(),
         head_sha=str(payload.get("head_sha") or "").strip(),
+        dispatch_inputs=payload.get("dispatch_inputs"),
     )
 
 
@@ -148,15 +149,18 @@ def classify(
     run was posted with, and a ``pull_request`` run carried none. A run
     built against a *different* producer candidate is not covering
     evidence, so an unattestable one is never adopted — the only run
-    whose inputs are known is one this invocation dispatches itself.
+    whose inputs are known has a matching durable Yoke dispatch record.
     """
     if run is None or not run.head_sha or run.head_sha != head_sha:
+        return DISPATCHED
+    if run.dispatch_inputs is not None:
+        if dict(run.dispatch_inputs) != dict(required_inputs or {}):
+            return DISPATCHED
+    elif required_inputs:
         return DISPATCHED
     if run.status == "completed" and run.conclusion == "ci_job_not_started":
         # Poll its provider reason before the bounded recovery can dispatch.
         return ATTACHED
-    if required_inputs:
-        return DISPATCHED
     if run.status == "completed":
         return ADOPTED if run.conclusion in BINDING_CONCLUSIONS else DISPATCHED
     return ATTACHED

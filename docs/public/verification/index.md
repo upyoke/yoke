@@ -146,20 +146,24 @@ dispatch arguments (project, repository, workflow, ref, and all resolved
 inputs). Correcting `product_ref` on an unchanged requirement and consumer
 commit starts a fresh dispatch. Identical retries, including reordered input
 keys, recover the same run; never-started retries and merge-boundary dispatches
-use the same binding. No-input cases keep their existing adoption and rejoin
-behavior. Historical run records are retained. A genuinely different payload
+use the same binding. Historical run records are retained. A genuinely different payload
 under the same bound identity still refuses `idempotency_key_collision`:
 review the differing payload and its recorded intent rather than retrying it
 unchanged or altering old run history.
 
-**A case declaring inputs never reuses a run it finds.** GitHub's run record
-does not expose the inputs a `workflow_dispatch` run was posted with, so a run
-sitting on the right commit cannot be shown to have built against the right
-candidate — and one built against a different candidate is not covering
-evidence. Adoption and attachment are therefore skipped, and the gate
-dispatches the only run whose inputs are known. A `pull_request` run carries
-no dispatch inputs at all, so a project verifying through its merge queue
-refuses the declaration by name instead of recording a proof it cannot make.
+Dispatch-only workflows skip the pull-request entry wait, including on
+merge-queue projects. Item and standalone CI share a dispatch identity keyed
+by workflow, ref, head SHA and resolved inputs. A dispatched run is adopted
+or attached only when Yoke's durable dispatch record attests exactly the
+requested inputs, including an empty payload. An unrecorded run or one with
+different inputs cannot cover the case. Older servers that omit dispatch
+input evidence cannot supply adoption proof; the correlated dispatch path
+still protects identical retries from duplicate POSTs.
+
+A workflow declaring `pull_request` keeps its entry-event filter and bounded
+wait. That run carries no dispatch inputs, so an input-bearing case bound to
+such a workflow still refuses with recovery rather than claiming candidate
+proof it cannot make.
 Cases declaring no inputs adopt completed success, failure and test-timeout
 verdicts and attach to in-progress runs. Failed tests stay red until the cause
 is fixed and committed. Only cancelled and never-started runs request a fresh

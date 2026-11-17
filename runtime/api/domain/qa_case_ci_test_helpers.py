@@ -105,6 +105,7 @@ def in_flight_run(head_sha: str, status: str = "in_progress"):
 
 def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     """Stub every boundary the runner crosses; return its wiring."""
+    monkeypatch.setattr(qa_case_ci_entry_run, "workflow_event", lambda *a: "pull_request")
     checkout = tmp_path / "checkout"
     checkout.mkdir()
     from yoke_core.domain.merge_github_discovery import BranchListing

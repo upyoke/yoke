@@ -98,7 +98,7 @@ def execute_standalone_ci(
                 repo=repo,
                 workflow=workflow,
                 branch=ref,
-                request_id=f"qa-standalone:{case['requirement_id']}:{sha}",
+                request_id=f"qa-ci:{sha}",
                 timeout_seconds=budget.seconds,
                 inputs=inputs,
             )
