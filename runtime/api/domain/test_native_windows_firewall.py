@@ -12,8 +12,11 @@ from uuid import uuid4
 import pytest
 
 from yoke_harness.native_windows import provision
+from yoke_harness.native_windows import process_input
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
 from yoke_harness.native_windows.transport import encoded, quote
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 pytestmark = pytest.mark.windows
 
@@ -25,6 +28,30 @@ def powershell(script, directory, timeout=300):
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(path)],
         capture_output=True, text=True, timeout=timeout,
     )
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_windows_input_file_is_private_exact_and_removed(monkeypatch, failure):
+    seen = []
+    monkeypatch.setattr(process_input, "WINDOWS_CONTROLLER", True)
+
+    def run(argv, **kwargs):
+        source = kwargs["stdin"]
+        seen.append(Path(source.name))
+        assert is_owner_private_file(source.name)
+        assert "input" not in kwargs
+        assert source.read() == b"exact framed bytes" * 1000
+        if failure:
+            raise subprocess.TimeoutExpired(argv, 30)
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(process_input.subprocess, "run", run)
+    if failure:
+        with pytest.raises(subprocess.TimeoutExpired):
+            process_input.run_ssh(["ssh"], input_text="exact framed bytes" * 1000)
+    else:
+        assert process_input.run_ssh(["ssh"], input_text="exact framed bytes" * 1000).returncode == 0
+    assert seen and not seen[0].exists() and not seen[0].parent.exists()
 
 
 @pytest.mark.skipif(
@@ -124,6 +151,15 @@ if(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
         verified = powershell(checks, tmp_path)
         assert verified.returncode == 0, verified.stderr
         assert "GUEST_SETUP_OK" in verified.stdout
+        # A genuinely unrestricted RDP rule must still fail closed. The
+        # built-in kernel/Wi-Fi rule is unrelated to svchost's RDP listener.
+        rule = "YokeFixtureRdp" + uuid4().hex
+        rejected = powershell(
+            f"New-NetFirewallRule -Name '{rule}' -DisplayName 'owned RDP fixture' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -Program Any -Service Any | Out-Null; try {{\n"
+            + FIREWALL_SCRIPT + f"\n}} finally {{Remove-NetFirewallRule -Name '{rule}'}}",
+            tmp_path,
+        )
+        assert rejected.returncode != 0 and rule in rejected.stderr
         # Retry the entire script through real SSH, including profile reuse.
         provision.provision("fixture", "fixture", "127.0.0.1", "fixture", admin, name,
                             bootstrap_transport="ssh")

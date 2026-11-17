@@ -24,7 +24,8 @@ foreach($allow in $allows){
  $service=$allow | Get-NetFirewallServiceFilter -ErrorAction Stop
  $app=$allow | Get-NetFirewallApplicationFilter -ErrorAction Stop
  if($app.Package -and $app.Package -ne 'Any'){continue}
- if($service.Service -eq 'TermService' -or ($service.Service -eq 'Any' -and $app.Program -in @('Any','System','%SystemRoot%\system32\svchost.exe',(Join-Path $env:WINDIR 'System32\svchost.exe')))){
+ # System denotes a kernel listener, not the svchost-hosted TermService.
+ if($service.Service -eq 'TermService' -or ($service.Service -eq 'Any' -and $app.Program -in @('Any','%SystemRoot%\system32\svchost.exe',(Join-Path $env:WINDIR 'System32\svchost.exe')))){
   throw ('windows_rdp_firewall_failed: inspect RDP-capable inbound allow rule '+$allow.Name+'; do not widen network access')
  }
 }

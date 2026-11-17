@@ -26,6 +26,7 @@ from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
+from yoke_harness.native_windows.process_input import run_ssh
 from yoke_harness.native_windows.profile import (
     SCRIPT as PROFILE_SCRIPT,
     missing_password_guard,
@@ -54,13 +55,13 @@ def admin_script(key, host, user, script, *, input_text=None):
     ]
     payload = script.encode("utf-8-sig")
     write = upload_script(quote(path))
-    uploaded = subprocess.run(
+    uploaded = run_ssh(
         [
             *ssh,
             "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
             + encoded(write),
         ],
-        input=frame_bytes(payload),
+        input_text=frame_bytes(payload),
         capture_output=True,
         text=True,
         timeout=30,
@@ -70,9 +71,9 @@ def admin_script(key, host, user, script, *, input_text=None):
             "windows_admin_script_upload_failed: verify administrator SSH key access; "
             + uploaded.stderr[-800:]
         )
-    return subprocess.run(
+    return run_ssh(
         [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
-        input=frame_bytes(input_text.encode("utf-8"))
+        input_text=frame_bytes(input_text.encode("utf-8"))
         if input_text is not None
         else None,
         capture_output=True,
