@@ -66,6 +66,7 @@ def _stub_success(monkeypatch, calls: list[str]) -> None:
     monkeypatch.setattr(server, "provision", provision)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_picker_preview_is_exact_and_does_not_mutate_before_start(
     tmp_path, monkeypatch
 ) -> None:
@@ -92,6 +93,7 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
     asyncio.run(scenario())
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_success_shows_handoff_and_continue_rejoins_project_setup(
     tmp_path, monkeypatch
 ) -> None:
@@ -128,6 +130,7 @@ def test_success_shows_handoff_and_continue_rejoins_project_setup(
     assert calls == ["provision"]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_finish_with_handoff_exits_successfully_without_a_project(
     tmp_path, monkeypatch
 ) -> None:
@@ -148,6 +151,7 @@ def test_finish_with_handoff_exits_successfully_without_a_project(
     assert app.result.api_url == server.LOCAL_SERVER_URL
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_prerequisite_refusal_names_docker_and_allows_back(
     tmp_path, monkeypatch
 ) -> None:
@@ -184,6 +188,7 @@ def test_prerequisite_refusal_names_docker_and_allows_back(
     asyncio.run(scenario())
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_connect_recovery_names_the_token_file_and_retries_it_in_memory(
     tmp_path, monkeypatch
 ) -> None:
@@ -269,6 +274,7 @@ def test_sleep_warning_is_conditional(tmp_path) -> None:
     )
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_wizard_screen_helpers_never_emit_the_raw_token(tmp_path) -> None:
     setup = server.new_setup(
         config_path=str(tmp_path / "config.json"),
@@ -288,6 +294,7 @@ def test_wizard_screen_helpers_never_emit_the_raw_token(tmp_path) -> None:
     assert f"Admin token file: {token_file}" in rendered
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_quit_is_blocked_only_during_bundle_and_compose_provisioning(tmp_path) -> None:
     calls: list[dict[str, object]] = []
 

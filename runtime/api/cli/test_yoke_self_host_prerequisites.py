@@ -11,6 +11,7 @@ from yoke_cli.commands import self_host
 from yoke_cli.self_host import prerequisites
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize("json_mode", [False, True])
 @pytest.mark.parametrize("mode", [[], ["--start"], ["--force"], ["--protect-existing"]])
 @pytest.mark.parametrize(
@@ -69,6 +70,7 @@ def test_missing_prerequisite_preserves_bundle(
         )
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_available_compose_writes_bundle(monkeypatch, tmp_path, capsys):
     target = tmp_path / "bundle"
     monkeypatch.setattr(prerequisites.shutil, "which", lambda name: "/docker")

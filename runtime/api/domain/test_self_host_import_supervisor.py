@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import pytest
+
+
+
 import signal
 import subprocess
 import sys
 
-import pytest
+
+pytestmark = pytest.mark.posix_only(
+    reason="self-host server runs on Linux or WSL2"
+)
+
 
 
 @pytest.mark.parametrize("worker_exit", (0, 7, -9))

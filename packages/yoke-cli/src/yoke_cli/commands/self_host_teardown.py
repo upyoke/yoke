@@ -33,11 +33,6 @@ _INPUT = input
 
 
 def self_host_teardown(args: List[str]) -> int:
-    try:
-        native_windows.refuse()
-    except native_windows.NativeWindowsError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host teardown",
         description=(
@@ -119,6 +114,11 @@ def self_host_teardown(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, TEARDOWN_USAGE)
     if parsed is None:
         return 2
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     try:
         _confirm_destroy_universe(parsed)
         report = teardown.tear_down(

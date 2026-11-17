@@ -50,11 +50,6 @@ _INPUT = input
 
 
 def self_host_init(args: List[str]) -> int:
-    try:
-        native_windows.refuse()
-    except native_windows.NativeWindowsError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host init",
         description=(
@@ -152,6 +147,11 @@ def self_host_init(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, INIT_USAGE)
     if parsed is None:
         return 2
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if parsed.github_app_private_key and not parsed.protect_existing:
         return usage_error(
             "--github-app-private-key requires --protect-existing so the "
@@ -220,11 +220,6 @@ def _warn_network_publish(publish_spec: str) -> None:
 
 
 def self_host_upgrade(args: List[str]) -> int:
-    try:
-        native_windows.refuse()
-    except native_windows.NativeWindowsError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host upgrade",
         description=(
@@ -255,6 +250,11 @@ def self_host_upgrade(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, UPGRADE_USAGE)
     if parsed is None:
         return 2
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if parsed.json_mode and not parsed.yes:
         return usage_error("--json requires --yes so stdout remains one JSON result")
     try:
