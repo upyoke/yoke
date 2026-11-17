@@ -51,7 +51,7 @@ def test_argv_skips_ssh_config_and_pins_keys_under_the_yoke_home(tmp_path) -> No
     )
 
     assert argv[:3] == ["ssh", "-F", "none"]
-    assert f"UserKnownHostsFile={tmp_path}/test-machine/known_hosts" in argv
+    assert f"UserKnownHostsFile={tmp_path / 'test-machine' / 'known_hosts'}" in argv
     assert "IdentityFile=none" in argv
     assert "StrictHostKeyChecking=accept-new" in argv
     # `--` ends ssh's own options, so a command word like `-a` is never

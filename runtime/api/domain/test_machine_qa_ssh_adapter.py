@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 
 import pytest
@@ -65,7 +65,7 @@ def test_ssh_adapter_uses_secret_file_reference_not_secret_argv(
     control = SshMacHostControl(material)
     assert control.check_connection().ok
     argv_text = json.dumps([call[0] for call in calls])
-    assert str(key_path) in argv_text
+    assert any(str(key_path) in argv for argv, _kwargs in calls)
     assert "top-secret" not in argv_text
 
 
@@ -158,7 +158,7 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
     )
 
     assert control.path_state.tool_bin_dir == xdg_bin_home
-    home = Path("/Users/tester")
+    home = PurePosixPath("/Users/tester")
     assert control.path_state.startup_file == str(
         path_doctor.default_startup_file("bash", home)
     )

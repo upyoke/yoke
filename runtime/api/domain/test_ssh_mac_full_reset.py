@@ -16,7 +16,6 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     GOLDEN_BASELINE_PATH,
     closed_reset_stdout,
 )
-from yoke_cli.config import path_doctor
 from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_REMOTE_PATH,
@@ -114,7 +113,7 @@ def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
     assert rows[f"{HOME}/.local/bin/yoke"] == "absent"
     # The shared tool directory is reported for what it is, not claimed gone:
     # the user's own command-line tools live there.
-    assert rows[str(path_doctor.tool_bin_dir({"HOME": HOME}))] == (
+    assert rows[f"{HOME}/.local/bin"] == (
         "carries-no-yoke-tool"
     )
     assert result.evidence["path_state"] == {
