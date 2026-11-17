@@ -162,7 +162,7 @@ def test_the_git_installer_opens_once(drive, monkeypatch):
     advice = project_git_prerequisite.install_advice(
         platform_name="darwin", which=lambda _name: None,
     )
-    monkeypatch.setattr(project_git_prerequisite, "install_advice", lambda: advice)
+    monkeypatch.setattr(project_git_prerequisite, "install_advice", lambda **_k: advice)
     monkeypatch.setattr(
         project_git_prerequisite,
         "require_git_available",
