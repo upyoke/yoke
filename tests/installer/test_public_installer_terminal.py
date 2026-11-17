@@ -7,6 +7,7 @@ import os
 import shlex
 import signal
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -68,7 +69,7 @@ def test_pipe_install_restores_terminal_on_interrupt_and_suspend(tmp_path, actio
         start = len(shell.output)
         command = f"curl -fsSL {shlex.quote(INSTALL_SHIM_PATH.as_uri())} | sh\n"
         shell.send(command.encode())
-        shell.wait_for(b"PIPE_SETUP_READY", after=start)
+        shell.wait_for(b"PIPE_SETUP_READY", after=start, setup_evidence=evidence)
         terminal = json.loads(evidence.read_text())
         wizard_pid = terminal.pop("pid")
         assert terminal == {
@@ -104,3 +105,37 @@ def test_pipe_install_restores_terminal_on_interrupt_and_suspend(tmp_path, actio
         assert restored.read_text() == baseline.read_text()
     finally:
         shell.close()
+
+
+@pytest.mark.parametrize("responsive", [True, False])
+def test_setup_response_deadline_starts_after_import_evidence(
+    tmp_path, monkeypatch, responsive
+):
+    import installer_terminal_support as support
+
+    evidence = tmp_path / "terminal.json"
+    shell = TerminalShell.__new__(TerminalShell)
+    shell.fd, shell.pid = 10, 20
+    shell.output, shell.job_groups = bytearray(), set()
+    shell.process = SimpleNamespace(poll=lambda: None)
+    clock = [0]
+    monkeypatch.setattr(support.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(support.os, "tcgetpgrp", lambda fd: shell.pid)
+
+    def readable(*args):
+        # Model imports taking longer than the terminal response budget without
+        # slowing the real terminal tests or relying on the host's import cache.
+        clock[0] += 13
+        evidence.write_text("{}")
+        return [shell.fd], [], []
+
+    chunks = iter([b"imports complete", b"PIPE_SETUP_READY" if responsive else b""])
+    monkeypatch.setattr(support.select, "select", readable)
+    monkeypatch.setattr(support.os, "read", lambda *args: next(chunks))
+    if responsive:
+        assert b"PIPE_SETUP_READY" in shell.wait_for(
+            b"PIPE_SETUP_READY", setup_evidence=evidence
+        )
+    else:
+        with pytest.raises(AssertionError, match="imports complete"):
+            shell.wait_for(b"PIPE_SETUP_READY", setup_evidence=evidence)
