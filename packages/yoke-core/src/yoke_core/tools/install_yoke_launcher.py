@@ -14,6 +14,7 @@ import sysconfig
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts import claude_posture_install as _claude
 from yoke_core.tools import install_yoke_launcher_core as _core
 from yoke_core.tools import install_yoke_launcher_macos as _macos
@@ -247,6 +248,11 @@ def install(
     stream=None,
 ) -> TargetChoice:
     """Run the install steps. Returns the chosen target."""
+    if os.name == "nt":
+        raise InstallError(compose_refusal(
+            "posix_launcher_shim_unsupported: POSIX launcher shim is unavailable on Windows.",
+            recovery="Run the public Windows installer instead.",
+        ))
     out = stream if stream is not None else sys.stdout
     verify_python_version()
     cwd = (cwd or Path.cwd()).resolve()

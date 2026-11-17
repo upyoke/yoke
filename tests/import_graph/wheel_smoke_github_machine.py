@@ -7,12 +7,17 @@ never shell out to the ``gh`` CLI.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
+from tests.import_graph.onboard_wheel_smoke_support import _product_env as base_product_env
+
+from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+
 import json
 import os
 import subprocess
 from pathlib import Path
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 REFRESH_SECRET = "github-app-refresh-secret"
 
 
@@ -22,8 +27,8 @@ def smoke(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
-    yoke = venv_dir / "bin" / "yoke"
+    venv_python = venv_interpreter(venv_dir)
+    yoke = venv_console_script(venv_dir, "yoke")
     assert yoke.is_file()
 
     checkout = tmp_path / "external-project"
@@ -32,7 +37,7 @@ def smoke(
     readme.write_text("# external\n", encoding="utf-8")
 
     machine_home = tmp_path / "home" / ".yoke"
-    machine_home.mkdir(parents=True)
+    create_private_directory(machine_home)
     config = machine_home / "config.json"
     gh_marker = tmp_path / "gh-called"
     env = _product_env(
@@ -104,8 +109,7 @@ def smoke(
     assert not (machine_home / "secrets" / "github.token").exists()
 
     refresh = machine_home / "secrets" / f"github-app-user-{'a' * 32}.json"
-    refresh.parent.mkdir(parents=True)
-    refresh.parent.chmod(0o700)
+    create_private_directory(refresh.parent)
     refresh.write_text(
         json.dumps(
             {
@@ -212,18 +216,8 @@ def _product_env(
     *,
     extra_path: Path | None = None,
 ) -> dict[str, str]:
-    path_parts = [str(venv_dir / "bin")]
-    if extra_path is not None:
-        path_parts.append(str(extra_path))
-    path_parts.append(BASE_PATH)
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": ":".join(path_parts),
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
+    env = base_product_env(machine_home, venv_dir, extra_path=extra_path)
+    return env
 
 
 def _fake_github_cli(tmp_path: Path, marker: Path) -> Path:

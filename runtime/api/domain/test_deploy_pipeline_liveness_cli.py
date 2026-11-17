@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 import io
+from pathlib import Path
 from contextlib import nullcontext, redirect_stdout
 
 import pytest
@@ -69,7 +72,7 @@ def test_liveness_cli_reexecs_into_the_pinned_tree(
             liveness_cli.main(["run-1"])
     assert exited.value.code == 0
     exe, argv, env = calls[0]
-    assert exe == "/pin/.venv/bin/python3"
+    assert exe == str(venv_python(Path("/pin/.venv"), name="python3"))
     assert argv[:3] == [
         exe,
         "-m",

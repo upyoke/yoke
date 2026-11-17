@@ -5,6 +5,8 @@ Every runner runs every stage in order (see :mod:`product_runner_stages`).
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script
+
 import argparse
 import json
 import os
@@ -16,11 +18,11 @@ import sys
 import tempfile
 
 try:
-    from .product_runner_commands import Commands, SmokeFailure, venv_executable
+    from .product_runner_commands import Commands, SmokeFailure
     from .product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from .product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 except ImportError:
-    from product_runner_commands import Commands, SmokeFailure, venv_executable
+    from product_runner_commands import Commands, SmokeFailure
     from product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 
@@ -55,7 +57,7 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     else:
         home = scratch / "home"
         home.mkdir()
-    scripts = venv_executable(venv, "yoke").parent
+    scripts = venv_console_script(venv, "yoke").parent
     tools = [scripts, *(Path(found).parent for found in map(shutil.which, ("uv", "git")) if found)]
     env = {
         "HOME": str(home),

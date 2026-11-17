@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_scripts, venv_console_script, venv_python
+
 import json
 import shutil
 import tempfile
@@ -71,8 +73,8 @@ def run_smoke(
             commands=commands,
             env=base_env(home),
         )
-        py = venv_dir / "bin" / "python"
-        yoke = venv_dir / "bin" / "yoke"
+        py = venv_python(venv_dir)
+        yoke = venv_console_script(venv_dir, "yoke")
         run(
             [str(py), "-m", "pip", "install", "--upgrade", "pip"],
             step="pip-upgrade",
@@ -92,7 +94,7 @@ def run_smoke(
             home=home,
             machine_home=machine_home,
             config_path=config_path,
-            venv_bin=venv_dir / "bin",
+            venv_bin=venv_scripts(venv_dir),
             env_name=env_name,
             session_id=session_id,
         )

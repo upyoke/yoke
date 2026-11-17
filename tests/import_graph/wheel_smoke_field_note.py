@@ -6,13 +6,16 @@ installed packages. No engine or source-checkout package enters that view.
 
 from __future__ import annotations
 
+from tests.import_graph.onboard_wheel_smoke_support import _product_env as base_product_env
+
+from yoke_contracts.venv_layout import venv_python as venv_interpreter
+
 import json
 import os
 import subprocess
 from pathlib import Path
 
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 def smoke(
@@ -21,7 +24,7 @@ def smoke(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
+    venv_python = venv_interpreter(venv_dir)
     site_result = _run(
         [
             str(venv_python),
@@ -39,23 +42,16 @@ def smoke(
             (client_site / entry.name).symlink_to(
                 entry, target_is_directory=entry.is_dir()
             )
-    yoke = tmp_path / "yoke"
+    yoke = tmp_path / "yoke.py"
     yoke.write_text(
-        f"#!{venv_python} -S\nfrom yoke_cli.main import main\nraise SystemExit(main())\n",
+        "from yoke_cli.main import main\nraise SystemExit(main())\n",
         encoding="utf-8",
     )
-    yoke.chmod(0o755)
 
     external_project = tmp_path / "external-project"
     external_project.mkdir()
-    env = {
-        "HOME": str(tmp_path / "home"),
-        "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "PYTHONPATH": str(client_site),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
+    env = base_product_env(tmp_path / "home" / ".yoke", venv_dir)
+    env["PYTHONPATH"] = str(client_site)
 
     import_check = _run(
         [
@@ -72,7 +68,7 @@ def smoke(
     assert import_check.stdout == ""
 
     help_result = _run(
-        [str(yoke), "feedback", "--to", "universe", "--help"],
+        [str(venv_python), "-S", str(yoke), "feedback", "--to", "universe", "--help"],
         cwd=external_project,
         env=env,
     )
@@ -80,7 +76,7 @@ def smoke(
 
     invalid_kind = _run(
         [
-            str(yoke),
+            str(venv_python), "-S", str(yoke),
             "feedback", "--to", "universe",
             "--category",
             "unsupported",

@@ -266,11 +266,10 @@ def _validate_wheel_identity(
     metadata_version = Version(version)
     if metadata_name != filename_name or metadata_version != filename_version:
         raise ValueError(f"wheel filename identity does not match METADATA: {path}")
-    dist_info_name = str(metadata_name).replace("-", "_")
-    expected_metadata_arcname = (
-        f"{dist_info_name}-{metadata_version}.dist-info/METADATA"
-    )
-    if metadata_arcname != expected_metadata_arcname:
+    dist_info = metadata_arcname.removesuffix(".dist-info/METADATA")
+    dist_name, separator, dist_version = dist_info.rpartition("-")
+    if (not separator or canonicalize_package_name(dist_name) != metadata_name
+            or Version(dist_version) != metadata_version):
         raise ValueError(f"wheel dist-info identity does not match METADATA: {path}")
 
 

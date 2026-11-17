@@ -7,6 +7,10 @@ present but inert.
 
 from __future__ import annotations
 
+from tests.import_graph.onboard_wheel_smoke_support import _product_env as base_product_env
+
+from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+
 import json
 import os
 import subprocess
@@ -16,7 +20,6 @@ from runtime.api.product_boundary_isolation import write_sitecustomize
 from yoke_core.tools import package_index
 
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 def smoke(
@@ -25,8 +28,8 @@ def smoke(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
-    yoke = venv_dir / "bin" / "yoke"
+    venv_python = venv_interpreter(venv_dir)
+    yoke = venv_console_script(venv_dir, "yoke")
     assert yoke.is_file()
 
     checkout = tmp_path / "fixture-checkout"
@@ -130,15 +133,9 @@ def _product_env(
     venv_dir: Path,
     sitecustomize_dir: Path,
 ) -> dict[str, str]:
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "PYTHONPATH": str(sitecustomize_dir),
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
+    env = base_product_env(machine_home, venv_dir)
+    env["PYTHONPATH"] = str(sitecustomize_dir)
+    return env
 
 
 def _run(
@@ -157,6 +154,7 @@ def _run(
         cwd=cwd,
         env=run_env,
         text=True,
+        input="",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         timeout=timeout,

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env
+
+from yoke_contracts.venv_layout import venv_console_script, venv_python
+
 import json
 import os
 import subprocess
@@ -20,7 +24,7 @@ def test_installed_hooks_register_emit_and_deny(
     venv = product_venv
     repo = _git_repo(tmp_path)
     env = _installed_env(tmp_path, venv, repo, test_db)
-    yoke = venv / "bin" / "yoke"
+    yoke = venv_console_script(venv, "yoke")
     session_id = "installed-hook-session"
 
     opened = _hook(
@@ -92,7 +96,7 @@ def test_installed_hook_chain_imports_and_missing_member_is_loud(
     venv = product_venv
     repo = _git_repo(tmp_path)
     env = _installed_env(tmp_path, venv, repo, test_db)
-    python = venv / "bin" / "python"
+    python = venv_python(venv)
     script = """
 import importlib
 import importlib.util
@@ -189,11 +193,7 @@ def _installed_env(
         )
     dsn = os.environ[db_backend.PG_DSN_ENV]
     return {
-        "HOME": str(machine_home.parent),
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-        "PATH": f"{venv / 'bin'}:{os.defpath}",
-        "PYTHONNOUSERSITE": "1",
+        **product_env(machine_home, venv),
         # Exercise the installed chain through the CLI's test seam. Dropping
         # this marker starts a detached resident per fixture and makes session
         # registration depend on cold startup finishing within the hook budget.

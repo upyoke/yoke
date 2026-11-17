@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from yoke_contracts import windows_private_directory
+from yoke_contracts import platform_file_sync, windows_private_directory
 from yoke_contracts.owner_private_path import is_owner_private_file
 
 _WINDOWS = os.name == "nt"
@@ -69,18 +69,7 @@ class PrivateArchiveOutput:
         _validate_existing_destination(self.destination)
         try:
             os.replace(self.temporary, self.destination)
-            if _WINDOWS:
-                # Windows cannot open/fsync a directory; the file was flushed above.
-                self.committed = True
-                return
-            directory = os.open(
-                self.destination.parent,
-                os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-            )
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            platform_file_sync.sync_directory(self.destination.parent)
         except OSError as exc:
             raise PrivateArchiveOutputError(
                 f"the universe archive could not be committed: {self.destination}"

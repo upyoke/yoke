@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
+from yoke_contracts import platform_file_sync
 from yoke_contracts.machine_config.paths import yoke_home
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -242,11 +243,7 @@ def _save(marker, state):
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, marker)
-        directory = os.open(marker.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        platform_file_sync.sync_directory(marker.parent)
     finally:
         Path(temporary).unlink(missing_ok=True)
 

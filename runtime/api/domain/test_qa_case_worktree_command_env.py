@@ -17,7 +17,7 @@ from yoke_contracts.qa_case_environment import (
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
-from yoke_core.domain.source_python_environment import venv_python
+from yoke_contracts.venv_layout import venv_python
 from yoke_core.domain.qa_method_config_validation import (
     COMMAND_SHELL_CONTRACT,
     QaMethodConfigError,
@@ -102,7 +102,7 @@ def test_product_command_environment_keeps_venv_bin_when_python_is_symlink(
 
 
 def test_product_command_environment_puts_checkout_venv_first(tmp_path: Path) -> None:
-    python = venv_python(tmp_path / ".venv")
+    python = venv_python(tmp_path / ".venv", name="python3")
     python.parent.mkdir(parents=True)
     python.write_text("", encoding="utf-8")
     bound = product_command_environment({"PATH": "/usr/bin"}, tmp_path)
@@ -132,7 +132,7 @@ def test_product_command_environment_keeps_yoke_checkout_on_runner(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
-    python = venv_python(tmp_path / ".venv")
+    python = venv_python(tmp_path / ".venv", name="python3")
     python.parent.mkdir(parents=True)
     python.write_text("", encoding="utf-8")
     bound = product_command_environment({"PATH": "/usr/bin"}, tmp_path)

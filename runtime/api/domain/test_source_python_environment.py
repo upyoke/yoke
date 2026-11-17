@@ -1,5 +1,7 @@
 """Locked checkout checks reject stale, missing, and redirected environments."""
 
+from yoke_contracts.venv_layout import venv_python, venv_site_packages
+
 import os
 import json
 import subprocess
@@ -73,7 +75,7 @@ def lane(tmp_path, monkeypatch):
 def test_fresh_environment_reports_its_identity_and_ignores_ambient_redirect(lane):
     incoming = dict(os.environ, UV_PROJECT_ENVIRONMENT="/missing/main", UV_NO_DEV="1")
     binding = environment.resolve(lane, incoming)
-    assert binding.python == str(lane / ".venv/bin/python3")
+    assert binding.python == str(venv_python(lane / ".venv", name="python3"))
     assert Path(binding.evidence["prefix"]) == lane / ".venv"
     assert binding.evidence["version"] == sys.version.split()[0]
     assert binding.env["UV_PROJECT_ENVIRONMENT"] == str(lane / ".venv")
@@ -118,7 +120,7 @@ def test_python_requirement_mismatch_refuses_without_downloading(lane, tmp_path_
 
 
 def _extraneous_package(lane: Path) -> Path:
-    site = next((lane / ".venv/lib").glob("python*/site-packages"))
+    site = venv_site_packages(lane / ".venv")
     metadata = site / "main_only-1.0.dist-info"
     metadata.mkdir()
     (metadata / "METADATA").write_text(
@@ -167,18 +169,22 @@ def test_touched_project_file_is_repaired_once(tmp_path, monkeypatch):
     assert "repaired" not in environment.resolve(lane, os.environ).evidence
 
 
-def test_failed_sync_refuses_with_its_reason_and_command(lane):
+def test_failed_sync_refuses_with_its_reason_and_command(lane, monkeypatch):
     metadata = _extraneous_package(lane)
-    site = metadata.parent
-    site.chmod(0o555)
-    try:
-        with pytest.raises(environment.SourceEnvironmentRefusal) as refused:
-            environment.resolve(lane, os.environ)
-    finally:
-        site.chmod(0o755)
+    real_uv = environment._uv
+
+    def fail_sync(project, env, argv, timeout):
+        if len(argv) > 1 and argv[1] == "sync" and "--check" not in argv:
+            return subprocess.CompletedProcess(argv, 1, "", "sync denied")
+        return real_uv(project, env, argv, timeout)
+
+    monkeypatch.setattr(environment, "_uv", fail_sync)
+    with pytest.raises(environment.SourceEnvironmentRefusal) as refused:
+        environment.resolve(lane, os.environ)
     message = str(refused.value)
     assert "SOURCE-ENVIRONMENT-SYNC-FAILED" in message
     assert "`uv sync --locked --offline --no-python-downloads`" in message
+    assert "sync denied" in message
     assert metadata.exists()
 
 
@@ -298,7 +304,7 @@ def test_python_pin_mismatch_cannot_replace_the_environment(lane):
 def test_matching_python_request_keeps_the_candidate_interpreter(lane, python_request):
     (lane / ".python-version").write_text(python_request + "\n")
     assert environment.resolve(lane, os.environ).python == str(
-        lane / ".venv/bin/python3"
+        venv_python(lane / ".venv", name="python3")
     )
 
 

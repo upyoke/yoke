@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, List, Optional
 
+from yoke_contracts import platform_file_sync
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import PROJECT_ROLES
 from yoke_core.domain.actor_state import ActorDisabledError
@@ -96,11 +97,7 @@ def _write_raw_token_file(target: Path, raw_token: str) -> None:
         os.replace(temporary, target)
         replacement_committed = True
         temporary = None
-        directory = os.open(target.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        platform_file_sync.sync_directory(target.parent)
     except OSError as exc:
         if replacement_committed:
             message = (
