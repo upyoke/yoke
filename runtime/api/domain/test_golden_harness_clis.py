@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from yoke_harness import golden_harness_clis as clis
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 
 LATEST = {"claude-code": "2.1.300", "codex": "0.163.0", "cursor": "2026.10.16-e3cb207"}
 
@@ -125,3 +126,55 @@ def test_macos_reads_versions_in_the_gui_session(os_name, context):
     host.os = os_name
     assert clis.probe_harness_cli_versions(host) == LATEST
     assert host.contexts[0].get("required_session_context") == context
+
+
+def test_host_failure_keeps_redacted_exception_tail_and_specific_recovery():
+    class FailedHost:
+        secret_values = ("private-credential",)
+
+        def run_command(self, argv, **kwargs):
+            return subprocess.CompletedProcess(
+                argv,
+                1,
+                "",
+                "Traceback: "
+                + "frame " * 400
+                + "PermissionError: cleanup denied /tmp/private-credential/executable",
+            )
+
+    with pytest.raises(HostControlLocalError) as caught:
+        clis.install_harness_clis(FailedHost(), LATEST, ["claude-code"])
+    error = caught.value
+    assert error.phase == "harness_cli_install"
+    assert error.exit_code == 1
+    assert len(error.stderr) <= 1200
+    assert "PermissionError: cleanup denied" in str(error)
+    assert "private-credential" not in str(error)
+    assert "[REDACTED]/executable" in str(error)
+    assert "preserve the registered golden" in error.recovery_hint
+    assert "Restore SSH" not in error.recovery_hint
+
+
+def test_structured_cleanup_failure_redacts_secrets_without_losing_outcomes():
+    class CleanupHost(FakeHost):
+        secret_values = ("private-credential",)
+
+        def run_command(self, *args, **kwargs):
+            result = super().run_command(*args, **kwargs)
+            receipt = json.loads(result.stdout)
+            receipt["cleanup_error"] = {
+                "exception_type": "PermissionError",
+                "errno": 13,
+                "message": "frame " * 400 + "denied private-credential",
+                "filename": "/tmp/private-credential/executable",
+            }
+            result.stdout = json.dumps(receipt)
+            return result
+
+    result = clis.install_harness_clis(CleanupHost(LATEST), LATEST, ["claude-code"])
+    assert not result.ok and result.error_code == "harness_cli_cleanup_failed"
+    receipt = result.evidence["installs"][0]
+    assert receipt["install_exit_code"] == 0
+    assert receipt["probe"]["version"] == LATEST["claude-code"]
+    assert "private-credential" not in json.dumps(result.evidence)
+    assert receipt["cleanup_error"]["message"].endswith("denied [REDACTED]")

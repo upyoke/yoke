@@ -32,8 +32,20 @@ def resolve(names):
 def install(harness, names, script, wanted):
     receipt = dict(install_exit_code=None, install_stderr='')
     try:
-        with tempfile.TemporaryDirectory(prefix='yoke-harness-') as temporary:
-            install_into(receipt, Path(temporary) / 'executable', harness, names, script, wanted)
+        temporary = tempfile.TemporaryDirectory(prefix='yoke-harness-')
+        try:
+            install_into(receipt, Path(temporary.name) / 'executable', harness, names, script, wanted)
+        finally:
+            try:
+                temporary.cleanup()
+            except OSError as error:
+                if error.errno in DISK_ERRNOS:
+                    raise
+                # Preserve outcomes without hiding cleanup failure or repairing the host.
+                receipt['cleanup_error'] = dict(
+                    exception_type=type(error).__name__, errno=error.errno,
+                    filename=error.filename, temporary_directory=temporary.name,
+                    message=str(error))
     except OSError as error:
         if error.errno not in DISK_ERRNOS:
             raise
