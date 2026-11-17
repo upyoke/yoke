@@ -27,7 +27,7 @@ def route(monkeypatch):
     return invoke
 
 
-@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000])
+@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000], ids=["unsplit-list", "long-name"])
 def test_watch_gate_refuses_long_path_arguments(route, capsys, argument):
     from yoke_core.tools.gate_admission import is_heavy_invocation
 
@@ -94,8 +94,16 @@ def test_normal_paths_node_ids_and_keyword_expressions_pass_through(route, tmp_p
     assert seen == arguments
 
 
-@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000])
-def test_watch_command_boundary_refuses_long_arguments(route, capsys, argument):
+@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000], ids=["unsplit-list", "long-name"])
+def test_watch_command_boundary_refuses_long_arguments(route, capsys, argument, monkeypatch):
+    from yoke_core.tools import watch_pytest
+
+    # Test the real watcher path checks without provisioning a project Python.
+    monkeypatch.setattr(watch_pytest, "project_parallel_args", lambda args, **kw: args)
+    monkeypatch.setattr(
+        watch_pytest._source_pythonpath, "verified_source_environment",
+        lambda root, env: (env, None),
+    )
     assert router.route_command([
         "watch", "pytest", "--print-streaming-pair", "--local", "--", argument,
     ]) == 2
