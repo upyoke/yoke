@@ -31,6 +31,7 @@ def test_a_browser_approval_names_the_project_default_identity(monkeypatch):
         "project": "acme",
         "identity": "operator",
         "test_machine": "linux-lab",
+        "os": "linux",
     }
     assert operator.reauthorize_command(config) == (
         "yoke browser authorize --project acme --identity operator "
@@ -40,9 +41,9 @@ def test_a_browser_approval_names_the_project_default_identity(monkeypatch):
 
 @pytest.mark.parametrize(
     ("actions", "os_name"),
-    [((), "linux"), (({"step": "x"},), "macos"), ((GATE,), "windows")],
+    [((), "linux"), (({"step": "x"},), "macos"), ((), "windows")],
 )
-def test_recipes_without_a_browser_approval_and_native_windows_are_unchanged(
+def test_recipes_without_a_browser_approval_are_unchanged(
     monkeypatch, actions, os_name
 ):
     config = _with(monkeypatch, {}, actions=actions, os_name=os_name)

@@ -111,7 +111,7 @@ def test_machine_entry_does_not_authorize_the_hosted_redirect_route():
 def _chromium(monkeypatch, *, response, observed):
     calls = []
 
-    def host(_run, _yoke_bin, command, *arguments, secrets=()):
+    def host(_run, _yoke_bin, command, *arguments, secrets=(), host_command=None):
         calls.append((command, *arguments))
         if command == "tabs":
             return {"ok": True, "urls": [observed], "identity_browsers": 1}
