@@ -104,4 +104,3 @@ Cleanup restores policy, registry, certificates and tools and compares every
 inventory. The next serial lease restores an interrupted journal before capture;
 keep the machine unavailable until verified. Never use VM snapshots, delete the
 journal, pass a policy failure or recapture a dirty machine.
-
