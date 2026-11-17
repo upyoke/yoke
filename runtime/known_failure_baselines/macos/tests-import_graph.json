@@ -1,3 +1,1 @@
-{
-"tests/import_graph/test_yoke_cli_wheel_smoke.py::test_installed_product_scenario[setup]": "subprocess.TimeoutExpired: yoke timed out after 60 seconds"
-}
+{}

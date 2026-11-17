@@ -63,6 +63,8 @@ finally:
 """
 
 SETUP_CALLER = """
+import faulthandler
+faulthandler.dump_traceback_later(15)
 import json
 import os
 import subprocess
@@ -122,7 +124,8 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
             assert caller.returncode == 0, errors
         else:
             ready, _, _ = select.select([caller.stdout], [], [], 20)
-            assert ready, "persistent setup caller did not finish"
+            if not ready:
+                raise subprocess.TimeoutExpired(caller.args, 20)
             output = caller.stdout.readline()
             assert caller.poll() is None
         started = json.loads(output)
@@ -157,7 +160,20 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
                 == "executed"
             )
             browser_client.daemon_request("/api/stop")
+    except subprocess.TimeoutExpired as exc:
+        caller.kill()
+        output, errors = caller.communicate(timeout=10)
+        logs = []
+        for name in (".daemon.log", "evaluator.log"):
+            for path in tmp_path.rglob(name):
+                logs.append(f"{path}:\n{path.read_text(errors='replace')}")
+        pytest.fail(
+            f"setup caller timed out after {exc.timeout}s\n"
+            f"stdout:\n{output}\nstderr:\n{errors}\n" + "\n".join(logs)
+        )
     finally:
+        if daemon_pid is None and state_file.exists():
+            daemon_pid = json.loads(state_file.read_text())["pid"]
         if caller.poll() is None:
             caller.kill()
             caller.communicate(timeout=10)

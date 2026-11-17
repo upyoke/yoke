@@ -122,16 +122,29 @@ def _run(
     run_env = dict(env) if env is not None else os.environ.copy()
     if env is None:
         run_env.pop("PYTHONPATH", None)
-    result = subprocess.run(
-        command,
-        cwd=cwd,
-        env=run_env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            env=run_env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        logs = []
+        machine_home = run_env.get("YOKE_MACHINE_HOME")
+        if machine_home:
+            for name in (".daemon.log", "evaluator.log"):
+                for path in Path(machine_home).parent.rglob(name):
+                    logs.append(f"{path}:\n{path.read_text(errors='replace')}")
+        raise AssertionError(
+            f"command timed out after {timeout}s: {command!r}\n"
+            f"stdout:\n{exc.stdout!r}\nstderr:\n{exc.stderr!r}\n"
+            + "\n".join(logs)
+        ) from exc
     if check:
         assert result.returncode == 0, _format_result(result)
     return result
@@ -150,6 +163,7 @@ def _stub_native_provisioning(*, cwd: Path) -> Path:
     directory = cwd / "native-stub"
     directory.mkdir()
     (directory / "sitecustomize.py").write_text(
+        "import faulthandler; faulthandler.dump_traceback_later(45); "
         "import yoke_cli.config.onboard_session_relay as relay; "
         "relay.install = lambda _outcome=relay.RelayInstallOutcome, **kwargs: _outcome(installed=True, reused=False); "
         "import yoke_harness.browser_setup as browser; "
