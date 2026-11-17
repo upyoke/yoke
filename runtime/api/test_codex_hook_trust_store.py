@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from yoke_contracts.codex_hook_trust_toml import _toml_string
+
 import pytest
 
 import tomllib
@@ -48,9 +50,19 @@ def _checkout(root: Path, name: str) -> Path:
 def _config(path: Path, hook_entries=(), projects=()) -> Path:
     lines = ['model = "gpt-5.6-luna"\n']
     for key, digest in hook_entries:
-        lines.extend([f'\n[hooks.state."{key}"]\n', f'trusted_hash = "{digest}"\n'])
+        lines.extend(
+            [
+                f"\n[hooks.state.{_toml_string(str(key))}]\n",
+                f'trusted_hash = "{digest}"\n',
+            ]
+        )
     for project in projects:
-        lines.extend([f'\n[projects."{project}"]\n', 'trust_level = "trusted"\n'])
+        lines.extend(
+            [
+                f"\n[projects.{_toml_string(str(project))}]\n",
+                'trust_level = "trusted"\n',
+            ]
+        )
     path.write_text("".join(lines), encoding="utf-8")
     return path
 

@@ -14,6 +14,8 @@ canonical Codex prompt body.
 
 from __future__ import annotations
 
+from yoke_contracts.hook_shell_command import hook_command_source
+
 from runtime.api.domain.agents_render_substrate_test_support import (
     _seed_minimal_canonical_tree as _seed_minimal_canonical_tree,
 )
@@ -96,7 +98,9 @@ def test_codex_agent_runtime_path_is_surfaced_to_native_location(
     rendered_dir = isolated_repo / CODEX_OUT_DIR
 
     assert native_dir.is_dir(), f"missing .codex/agents: {native_dir}"
-    assert sorted(p.name for p in native_dir.iterdir()) == sorted(p.name for p in rendered_dir.iterdir())
+    assert sorted(p.name for p in native_dir.iterdir()) == sorted(
+        p.name for p in rendered_dir.iterdir()
+    )
 
     for agent in ["architect"]:
         assert (native_dir / f"yoke-{agent}.toml").is_file(), (
@@ -196,7 +200,7 @@ def test_render_claude_settings_json_has_generated_marker_and_hooks() -> None:
     # per-policy chain (lint_session_cwd, etc.) is dispatched inside the
     # runner behind that boundary, not enumerated in the manifest.
     pre = payload["hooks"].get("PreToolUse", [])
-    cmds = [h["command"] for e in pre for h in e.get("hooks", [])]
+    cmds = [hook_command_source(h["command"]) for e in pre for h in e.get("hooks", [])]
     assert cmds and all("yoke hook evaluate PreToolUse" in c for c in cmds), (
         f"expected yoke hook evaluate PreToolUse on every entry, got: {cmds}"
     )
@@ -290,6 +294,7 @@ def test_drift_detection_reports_missing_codex_native_view(tmp_path: Path) -> No
         write_all(target_root=tmp_path, dry_run=False)
         native_dir = tmp_path / CODEX_NATIVE_AGENTS_DIR
         from yoke_contracts.platform_fs import remove_tree
+
         remove_tree(native_dir)
         drift = detect_substrate_drift(target_root=tmp_path)
     assert any(str(CODEX_NATIVE_AGENTS_DIR) in d for d in drift), (

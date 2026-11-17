@@ -14,14 +14,14 @@ import multiprocessing
 import os
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+
+from runtime.api.cli.hook_transport_test_support import resident_test_paths
 
 from yoke_cli.commands.adapters import hook_inprocess, hooks
 from yoke_cli.hook_resident_client import ResidentUnavailable
@@ -59,10 +59,9 @@ def _context_evaluator(barrier: threading.Barrier):
     return evaluate
 
 
-def _serve_test_resident(socket_path: str, ready, mode: str) -> None:
+def _serve_test_resident(socket_path: str, lock_path: str, ready, mode: str) -> None:
     from yoke_harness.hook_resident import _ResidentServer
 
-    lock_path = Path(socket_path).with_suffix(".lock")
     lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
     server = _ResidentServer(socket_path, lock_fd)
     server.load_evaluator()
@@ -70,7 +69,8 @@ def _serve_test_resident(socket_path: str, ready, mode: str) -> None:
         server.evaluate_inprocess = _context_evaluator(threading.Barrier(2))
     ready.send(server.loaded_revision)
     try:
-        server.serve_forever(poll_interval=0.02)
+        while True:
+            server.handle_request()
     finally:
         server.server_close()
         server.observations.close(drain_timeout=0.1)
@@ -79,20 +79,20 @@ def _serve_test_resident(socket_path: str, ready, mode: str) -> None:
 
 
 @pytest.fixture
-def resident_process():
+def resident_process(monkeypatch):
     processes = []
-    socket_paths = []
+    contexts = []
 
     def start(mode: str = "actual"):
         context = multiprocessing.get_context("spawn")
         parent, child = context.Pipe(duplex=False)
-        socket_path = str(
-            Path(tempfile.gettempdir())
-            / f"yoke-resident-test-{os.getpid()}-{len(processes)}.sock"
-        )
+        paths_context = resident_test_paths(monkeypatch)
+        paths = paths_context.__enter__()
+        contexts.append(paths_context)
+        socket_path = str(paths.socket)
         process = context.Process(
             target=_serve_test_resident,
-            args=(socket_path, child, mode),
+            args=(socket_path, str(paths.lock), child, mode),
         )
         process.start()
         if not parent.poll(10):
@@ -103,7 +103,6 @@ def resident_process():
             )
         revision = parent.recv()
         processes.append(process)
-        socket_paths.append(socket_path)
         return socket_path, revision
 
     yield start
@@ -111,11 +110,11 @@ def resident_process():
         if process.is_alive():
             process.terminate()
         process.join(timeout=5)
-    for socket_path in socket_paths:
-        Path(socket_path).unlink(missing_ok=True)
-        Path(socket_path).with_suffix(".lock").unlink(missing_ok=True)
+    for paths_context in reversed(contexts):
+        paths_context.__exit__(None, None, None)
 
 
+@pytest.mark.windows
 def test_resident_dry_run_matches_inprocess_for_every_hook_event(
     resident_process,
     tmp_path,
@@ -236,10 +235,10 @@ def test_client_falls_back_with_named_reason(monkeypatch, tmp_path, capsys) -> N
     monkeypatch.setattr(
         hooks,
         "_evaluate_inprocess",
-        lambda *args, **kwargs: captured.update(
-            kwargs, budget=os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"]
-        )
-        or 7,
+        lambda *args, **kwargs: (
+            captured.update(kwargs, budget=os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"])
+            or 7
+        ),
     )
     assert hooks.hook_evaluate(["PreToolUse"]) == 7
     assert captured["fallback_reason"] == "YOKE_HOOK_RESIDENT_UNREACHABLE"
@@ -279,7 +278,7 @@ def test_concurrent_hooks_are_admitted_without_a_serial_wait(
     def call() -> None:
         response = _round_trip(
             socket_path,
-            _request("PreToolUse", cwd="/tmp", revision=revision),
+            _request("PreToolUse", cwd=os.getcwd(), revision=revision),
         )
         with lock:
             responses.append(response)

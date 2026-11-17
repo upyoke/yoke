@@ -6,6 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.codex_hook_trust_toml import _toml_string
+
 from yoke_core.domain.codex_hook_trust_identity import codex_hook_hashes
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_project_checks import check_worktree_hook_trust as check
@@ -29,7 +31,7 @@ def _write_trust(config: Path, checkouts: tuple[Path, ...]) -> None:
         for suffix, digest in sorted(codex_hook_hashes(hooks).items()):
             lines.extend(
                 [
-                    f'\n[hooks.state."{hooks}:{suffix}"]\n',
+                    f"\n[hooks.state.{_toml_string(f'{hooks}:{suffix}')}]\n",
                     f'trusted_hash = "{digest}"\n',
                 ]
             )
@@ -144,12 +146,12 @@ def test_deleted_paths_warn_with_sweep_recovery(monkeypatch, tmp_path: Path):
     gone = tmp_path / "deleted-lane"
     with config.open("a", encoding="utf-8") as handle:
         handle.write(
-            f'''\n[hooks.state."{gone}/.codex/hooks.json:session_start:0:0"]
+            f"""\n[hooks.state.{_toml_string(str(gone / ".codex/hooks.json") + ":session_start:0:0")}]
 trusted_hash = "stale"
 
-[projects."{gone}"]
+[projects.{_toml_string(str(gone))}]
 trust_level = "trusted"
-'''
+"""
         )
 
     result = _run(monkeypatch, source, worktree, config)

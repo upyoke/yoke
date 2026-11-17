@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -45,12 +46,14 @@ def test_observe_subprocess_gets_target_root_and_hook_args(monkeypatch, tmp_path
 
     assert failure is None
     assert captured["cwd"] == str(tmp_path)
-    py_paths = captured["env"]["PYTHONPATH"].split(":")
+    py_paths = captured["env"]["PYTHONPATH"].split(os.pathsep)
     assert str(Path(policy.__file__).resolve().parents[3]) in py_paths
     assert str(tmp_path) in py_paths
     assert captured["env"]["YOKE_ROOT"] == str(tmp_path)
     assert captured["argv"][:3] == [
-        sys.executable, "-m", "yoke_core.domain.observe",
+        sys.executable,
+        "-m",
+        "yoke_core.domain.observe",
     ]
     assert "--hook-event" in captured["argv"]
     assert "PostToolUse" in captured["argv"]
@@ -92,5 +95,7 @@ def test_non_observe_subprocess_keeps_plain_module_argv(monkeypatch, tmp_path):
     assert failure is None
     assert captured["cwd"] == str(tmp_path)
     assert captured["argv"] == [
-        sys.executable, "-m", "yoke_core.domain.db_error_hook",
+        sys.executable,
+        "-m",
+        "yoke_core.domain.db_error_hook",
     ]

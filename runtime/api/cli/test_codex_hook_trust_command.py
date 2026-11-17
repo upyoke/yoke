@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
+
+from yoke_contracts.codex_hook_trust_toml import _toml_string
 
 from yoke_cli.commands import codex_hook_trust
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
@@ -19,20 +22,20 @@ def _config(tmp_path: Path) -> tuple[Path, Path]:
     hooks.write_text("{}", encoding="utf-8")
     gone = tmp_path / "gone"
     config.write_text(
-        f'''model = "gpt-5.6-luna"
+        f"""model = "gpt-5.6-luna"
 
-[hooks.state."{hooks}:session_start:0:0"]
+[hooks.state.{_toml_string(f"{hooks}:session_start:0:0")}]
 trusted_hash = "keep"
 
-[hooks.state."{gone}/.codex/hooks.json:session_start:0:0"]
+[hooks.state.{_toml_string(str(gone / ".codex/hooks.json") + ":session_start:0:0")}]
 trusted_hash = "remove"
 
-[projects."{existing}"]
+[projects.{_toml_string(str(existing))}]
 trust_level = "trusted"
 
-[projects."{gone}"]
+[projects.{_toml_string(str(gone))}]
 trust_level = "trusted"
-''',
+""",
         encoding="utf-8",
     )
     return config, gone
@@ -75,7 +78,7 @@ def test_sweep_removes_only_gone_paths(monkeypatch, tmp_path: Path, capsys):
     text = config.read_text(encoding="utf-8")
     assert payload["changed"] is True
     assert str(gone) not in text
-    assert str(tmp_path / "existing") in text
+    assert str(tmp_path / "existing") in tomllib.loads(text)["projects"]
     assert 'trusted_hash = "keep"' in text
 
 

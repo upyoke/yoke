@@ -22,12 +22,14 @@ from yoke_core.domain.project_install_strategy import STRATEGY_INSTALL_POLICY
 from yoke_core.domain.strategy_docs_header import render_file_text
 from yoke_core.domain.strategy_docs_paths import strategy_view_rel_path
 
-CLAUDE_PRE_CMD = "/bin/zsh -lc 'yoke hook evaluate PreToolUse'"
-CLAUDE_STOP_CMD = "/bin/zsh -lc 'yoke hook evaluate Stop'"
-CODEX_PRE_CMD = (
-    "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai "
-    "yoke hook evaluate PreToolUse'"
+from yoke_contracts.machine_hooks_render import evaluate_hook_command
+
+CLAUDE_PRE_CMD = evaluate_hook_command(
+    "claude-code", "PreToolUse", config_owner="claude"
 )
+CLAUDE_STOP_CMD = evaluate_hook_command("claude-code", "Stop", config_owner="claude")
+CODEX_PRE_CMD = evaluate_hook_command("codex", "PreToolUse", config_owner=None)
+
 
 DEFAULT_FILES = [
     {"path": ".agents/skills/yoke/SKILL.md", "content": "# yoke\n"},
@@ -87,7 +89,13 @@ def claude_hooks() -> Dict[str, Any]:
 
 
 def codex_hooks() -> Dict[str, Any]:
-    return {"PreToolUse": [entry(CODEX_PRE_CMD, "Bash")]}
+    from yoke_contracts.hook_shell_command import windows_hook_command
+
+    handler = entry(CODEX_PRE_CMD, "Bash")
+    handler["hooks"][0]["commandWindows"] = windows_hook_command(
+        "codex", "PreToolUse", None
+    )
+    return {"PreToolUse": [handler]}
 
 
 def make_bundle(

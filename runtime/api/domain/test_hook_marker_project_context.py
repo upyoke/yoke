@@ -91,8 +91,15 @@ def test_command_capture_uses_case_project_instead_of_server_context(
 
     monkeypatch.setenv("YOKE_PROJECT", "8")
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    import shlex
+    import sys
+    from subprocess import list2cmdline
+    import os
+
+    argv = [sys.executable, "-c", "print('caller-output')"]
+    command = list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
     result = stream_command(
-        "printf caller-output",
+        command,
         cwd=str(tmp_path),
         env={"YOKE_PROJECT": "7"},
         timeout_seconds=10,

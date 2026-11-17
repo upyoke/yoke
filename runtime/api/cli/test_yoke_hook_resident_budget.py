@@ -10,16 +10,20 @@ from __future__ import annotations
 import io
 import json
 import os
-import socket
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+
+from runtime.api.cli.hook_transport_test_support import (
+    resident_test_paths,
+    resident_listener,
+    connect_peer,
+)
 
 from yoke_cli import hook_resident_client as client
 from yoke_cli.commands.adapters import hooks
@@ -36,20 +40,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 @pytest.fixture
 def paths(monkeypatch):
-    # Unix socket paths are short; pytest's tmp_path can exceed the limit.
-    state_dir = Path(tempfile.mkdtemp(prefix="yhb-"))
-    resident = client.ResidentPaths(
-        state_dir=state_dir,
-        socket=state_dir / "r.sock",
-        lock=state_dir / "r.lock",
-        log=state_dir / "r.log",
-    )
-    monkeypatch.setattr(client, "resident_paths", lambda: resident)
-    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
-    yield resident
-    for path in state_dir.iterdir():
-        path.unlink()
-    state_dir.rmdir()
+    with resident_test_paths(monkeypatch) as resident:
+        monkeypatch.setattr(client, "resident_paths", lambda: resident)
+        monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
+        yield resident
 
 
 def _launch(monkeypatch, code: str) -> list[subprocess.Popen]:
@@ -74,13 +68,8 @@ def _evaluate() -> tuple[client.ResidentUnavailable, float]:
 
 def test_a_loading_resident_is_waited_on_only_inside_the_budget(paths) -> None:
     # Bound and listening but still loading: it never answers.
-    loading = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    loading.bind(str(paths.socket))
-    loading.listen(8)
-    try:
+    with resident_listener(paths):
         error, elapsed = _evaluate()
-    finally:
-        loading.close()
     assert error.code == "YOKE_HOOK_RESIDENT_TIMEOUT"
     assert elapsed < 1.3, f"waited {elapsed:.2f}s on a 1s budget"
 
@@ -147,6 +136,7 @@ def test_a_resident_that_only_ever_restarts_gives_up_inside_the_budget(
     assert error.resident_wait_ms > 0
 
 
+@pytest.mark.windows
 def test_a_cold_resident_listens_before_loading_and_answers_once_ready(
     paths,
 ) -> None:
@@ -157,16 +147,14 @@ def test_a_cold_resident_listens_before_loading_and_answers_once_ready(
     try:
         # Construction binds without importing the evaluator.
         assert not hasattr(server, "evaluate_inprocess")
-        peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        peer.settimeout(5)
-        peer.connect(str(paths.socket))
+        peer = connect_peer(paths)
         request = HookEvaluatorRequest(
             event_name="PreToolUse",
             stdin="{}",
             dry_run=True,
             pid=41001,
             ppid=41000,
-            cwd="/tmp",
+            cwd=str(paths.state_dir),
             environment={},
             revision="unknown",
         )
@@ -205,10 +193,14 @@ def test_manifests_publish_the_harness_hook_timeout(harness_dir: str) -> None:
 
 
 def test_cursor_hook_entries_carry_the_declared_timeout() -> None:
-    hooks_json = json.loads((REPO_ROOT / "runtime/harness/cursor/hooks.json").read_text())
+    hooks_json = json.loads(
+        (REPO_ROOT / "runtime/harness/cursor/hooks.json").read_text()
+    )
     declared = HARNESS_MACHINE_HOOKS["cursor"].hook_timeout_seconds
     timeouts = {
-        entry["timeout"] for entries in hooks_json["hooks"].values() for entry in entries
+        entry["timeout"]
+        for entries in hooks_json["hooks"].values()
+        for entry in entries
     }
     assert timeouts == {declared}
 
