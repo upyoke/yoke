@@ -52,8 +52,8 @@ def test_main_cwd_target_with_worktree_claim_refuses(
     msg = str(exc.value)
     assert "refusing write" in msg
     assert SESSION_A in msg
-    assert str(Path("/opt/yoke-test/.worktrees/YOK-42").resolve()) in msg
-    assert str(Path("/opt/yoke-test/runtime/x.py").resolve()) in msg
+    assert str(Path("/opt/yoke-test/.worktrees/YOK-42").resolve()) in msg.replace("\\\\", "\\")
+    assert str(Path("/opt/yoke-test/runtime/x.py").resolve()) in msg.replace("\\\\", "\\")
 
 
 def test_session_with_only_no_worktree_claims_is_no_op(

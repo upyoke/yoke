@@ -90,7 +90,7 @@ def test_windows_short_names_canonicalize_on_both_sides(tmp_path):
     )
 
 
-def test_relayed_windows_paths_use_only_client_observations():
+def test_relayed_windows_paths_use_only_client_observations(monkeypatch):
     from yoke_contracts.hook_runner.client_facts import client_fact, WRITE_TARGETS_KEY
 
     payload = client_fact(
@@ -119,6 +119,14 @@ def test_relayed_windows_paths_use_only_client_observations():
         assert paths.join_path("D:/repo", "/sub", shell="powershell").replace("\\", "/") == "D:/sub"
         with pytest.raises(ValueError, match="git_bash_client_path_required"):
             paths.resolve_bash_path("/unobserved", "D:/repo")
+        def no_authority_cwd():
+            raise AssertionError("authority cwd is not client evidence")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(paths.os, "getcwd", no_authority_cwd)
+            assert paths.resolve_bash_path("C:/repo/file", shell="powershell") == r"C:\repo\file"
+            with pytest.raises(ValueError, match="git_bash_client_cwd_required"):
+                paths.resolve_bash_path("/tmp", shell="powershell")
 
     resolve(payload)
     assert paths.join_path("/repo", "file") == "/repo/file"

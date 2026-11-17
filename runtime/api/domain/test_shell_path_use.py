@@ -1,6 +1,7 @@
 """Operand-role regressions minimized from retained native tool calls."""
 
 import json
+import posixpath
 import shlex
 from pathlib import Path
 
@@ -48,7 +49,7 @@ def test_quoting_and_normalization_preserve_capacity_role(target):
     }
     uses = extract_payload_path_uses(payload, machine_home="/clients/operator")
     assert all(use.role == PathRole.CAPACITY for use in uses)
-    assert uses[0].path == target
+    assert uses[0].path == posixpath.normpath(target)
 
 
 @pytest.mark.parametrize(
@@ -132,12 +133,13 @@ def test_state_moves_are_mutations_for_every_authority_consumer(command):
         ("gh repo clone /tmp/repo", ["/tmp/repo"]),
     ],
 )
+@pytest.mark.usefixtures("posix_client_paths")
 def test_github_api_routes_and_local_file_operands(command, targets):
     result = analyze_shell_path_use(command)
     assert list(result.local_targets) == targets
     payload = {"tool_name": "Bash", "cwd": "/", "tool_input": {"command": command}}
     assert {use.path for use in extract_payload_path_uses(payload)} == {
-        str(Path("/", target)) for target in targets
+        posixpath.join("/", target) for target in targets
     }
 
 

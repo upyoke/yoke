@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import re
-from yoke_contracts.hook_runner.bash_paths import windows_path
+from yoke_contracts.hook_runner.bash_paths import windows_path, is_absolute
 import shlex
 import tempfile
 from pathlib import PurePath
@@ -70,7 +70,7 @@ def unwrap_cli_file_param(token: str) -> str:
 
 def is_path_like(token: str) -> bool:
     """Return True only when ``token`` looks like a real absolute path."""
-    if not token or not token.startswith("/"):
+    if not token or not is_absolute(token):
         return False
     # Bare filesystem root: never a write target an agent specifies. A lone
     # ``/`` reaching here is almost always a tokenized shell / Python ``/``

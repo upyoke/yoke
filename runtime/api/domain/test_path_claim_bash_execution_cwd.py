@@ -276,7 +276,7 @@ class TestRelativeTargetAfterCd:
         worktree, claim = lane
         command = "rm runtime/api/domain/a.py; cd docs && rm b.py"
         targets = [m.target_path for m in extract_mutations(command, str(worktree))]
-        assert targets == ["runtime/api/domain/a.py", f"{Path(worktree).as_posix()}/docs/b.py"]
+        assert targets == ["runtime/api/domain/a.py", str(worktree / "docs/b.py")]
         verdict = self._bash(command, worktree, claim)
         assert verdict.outcome == "deny"
         assert verdict.failure_mode == "out-of-claim"

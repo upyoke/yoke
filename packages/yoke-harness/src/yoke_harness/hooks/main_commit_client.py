@@ -17,6 +17,7 @@ from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.hook_runner.shell_parse import ShellParse
 
 from yoke_harness.hooks.local_policy_common import cwd_from_payload, repo_cwd
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 
 
 def _git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
@@ -80,8 +81,10 @@ def _commit_cwd(payload: dict, shell: ShellParse) -> str:
     for segment, segment_cwd in zip(shell.segments, shell.segment_cwds(base)):
         for args, repo_path in git_invocations(segment.text):
             if args[:1] == ["commit"]:
-                if repo_path or not segment_cwd:
-                    return repo_cwd(payload, repo_path)
+                if repo_path:
+                    return resolve_bash_path(repo_path, segment_cwd or base, shell=shell.shell)
+                if not segment_cwd:
+                    return repo_cwd(payload)
                 return segment_cwd
     return repo_cwd(payload)
 

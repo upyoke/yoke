@@ -21,8 +21,8 @@ not to the checkout root, so the suggestion never nests one lane's
 
 from __future__ import annotations
 
-from pathlib import Path, PurePosixPath
-from yoke_contracts.hook_runner.bash_paths import lexical_client_path, join_path
+from pathlib import PureWindowsPath, PurePosixPath
+from yoke_contracts.hook_runner.bash_paths import lexical_client_path, join_path, windows_path
 from typing import Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_path_authority import (
@@ -91,16 +91,17 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
     root = repo_root_from_worktree_path(claim.worktree_path)
     if not root:
         return claim.worktree_path
+    path_type = PureWindowsPath if windows_path(main_target) or windows_path(root) else PurePosixPath
     try:
-        rel = PurePosixPath(
-            lexical_client_path(main_target).replace("\\", "/")
-        ).relative_to(PurePosixPath(lexical_client_path(root).replace("\\", "/")))
+        rel = path_type(lexical_client_path(main_target)).relative_to(
+            path_type(lexical_client_path(root))
+        )
     except (OSError, ValueError):
         return claim.worktree_path
     parts = rel.parts
     if len(parts) >= 2 and parts[0] == _WORKTREES_DIR:
         # A foreign lane's file: keep only its lane-relative path.
-        rel = Path(*parts[2:]) if len(parts) > 2 else Path(".")
+        rel = path_type(*parts[2:]) if len(parts) > 2 else path_type(".")
     if ".git" in rel.parts:
         # No source equivalent: linked worktrees have a .git file. Without
         # client proof the write still refuses, but cannot be redirected there.

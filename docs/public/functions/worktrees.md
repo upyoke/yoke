@@ -101,9 +101,9 @@ or branch mismatch needs authority reconciliation before recording a path.
 Path recording validates client syntax independently of the server OS. It
 accepts POSIX absolute paths, Windows drive-rooted paths (`C:/checkout` or
 `C:\checkout`), and complete backslash UNC paths (`\\server\share\checkout`,
-including the share root). It trims outer whitespace and stores the remaining
-spelling unchanged; the server neither resolves the path nor inspects the
-client checkout. Drive-relative `C:checkout`, backslash-rooted `\checkout`,
+including the share root). It trims outer whitespace, stores forward slashes
+and lowercase drive letters, and removes trailing separators except at roots.
+The server neither resolves the path nor inspects the client checkout. Drive-relative `C:checkout`, backslash-rooted `\checkout`,
 incomplete UNC, and backslash Windows device namespaces (`\\?\`, `\\.\`)
 refuse. Every leading-forward-slash form retains POSIX meaning, including
 `//server` and `//?/C:/checkout`; that syntax is ambiguous across operating

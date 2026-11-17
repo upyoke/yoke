@@ -33,7 +33,7 @@ def project_id(project: str = "yoke") -> int:
 
 def _lane_path(repo_path, branch):
     root = repo_path if isinstance(repo_path, PurePath) else Path(repo_path)
-    return str(root / ".worktrees" / branch)
+    return (root / ".worktrees" / branch).as_posix()
 
 
 def seed_item(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from unittest import mock
 
 import pytest
@@ -133,7 +134,7 @@ class TestExtractedTargetRefusal:
         assert verdict.derivation.token == "docs/notes.md"
         assert "Extracted:     docs/notes.md" in verdict.reason
         assert f"working directory {repo} -> {repo / 'docs/notes.md'}" in verdict.reason
-        assert f"Main checkout: {repo}" in verdict.reason
+        assert f"Main checkout: {normalize_repo_path(str(repo))}" in verdict.reason
 
     def test_tool_target_refusal_names_the_file_path(self, conn, repo):
         _seed_lane(conn, repo)

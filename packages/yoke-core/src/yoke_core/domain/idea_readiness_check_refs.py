@@ -151,7 +151,7 @@ def relative_module_file_candidates(module_dotted: str) -> tuple[str, ...]:
     lookup, so a host without one still resolves the same path strings.
     """
     return tuple(
-        str(path.with_suffix(".py"))
+        path.with_suffix(".py").as_posix()
         for path in _relative_module_candidates(module_dotted)
     )
 

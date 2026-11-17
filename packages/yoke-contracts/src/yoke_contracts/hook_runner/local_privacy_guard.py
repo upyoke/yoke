@@ -154,11 +154,12 @@ def _path_finding(
     expanded = _expanded_path(token, home, cwd)
     if expanded is None:
         return None
-    if expanded == str(_SYSTEM_PRIVACY_DATABASE) or expanded.startswith(
-        str(_SYSTEM_PRIVACY_DATABASE.parent) + os.sep
-    ):
-        return LocalPrivacyFinding(SYSTEM_PRIVACY_DATABASE, token, "Full Disk Access")
     separator = "\\" if windows_path(expanded) else "/"
+    privacy_path = _expanded_path(str(_SYSTEM_PRIVACY_DATABASE), home)
+    if privacy_path and (expanded == privacy_path or expanded.startswith(
+        privacy_path.rsplit(separator, 1)[0] + separator
+    )):
+        return LocalPrivacyFinding(SYSTEM_PRIVACY_DATABASE, token, "Full Disk Access")
     home_text = _expanded_path(str(home), home) or str(home)
     if expanded == home_text:
         return LocalPrivacyFinding(HOME_DISCOVERY, token, "user home")

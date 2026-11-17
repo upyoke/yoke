@@ -228,7 +228,17 @@ def resolve_bash_path(
         else os.name == "nt" or windows_path(cwd) or windows_path(expanded)
     )
     if windows and shell == "powershell":
-        native = ntpath.join(cwd or os.getcwd(), expanded)
+        if windows_path(expanded):
+            native = expanded
+        elif cwd:
+            native = ntpath.join(cwd, expanded)
+        elif facts is not None:
+            raise BashPathResolutionError(
+                "git_bash_client_cwd_required: the executing client did not supply a directory; "
+                "set an explicit tool workdir and retry."
+            )
+        else:
+            native = ntpath.join(os.getcwd(), expanded)
         return canonical_native_path(native) if canonical else ntpath.normpath(native)
     if windows and expanded.startswith("/") and not expanded.startswith("//"):
         mounts = facts.get("mount_paths", {}) if facts else {}
