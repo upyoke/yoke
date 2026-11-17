@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import shlex
+import subprocess
 import sys
 from types import SimpleNamespace
 import venv
@@ -55,11 +56,25 @@ def _switch_release(monkeypatch, root: Path, name: str, minor: str) -> Path:
     environment = root / "releases" / name / "tools" / "yoke-cli"
     venv.EnvBuilder(with_pip=False).create(environment)
     python = venv_python(environment, name="python3")
-    (environment / "lib" / f"python3.{minor}" / "site-packages").mkdir(parents=True)
+    (environment / "lib" / f"python3.{minor}" / "site-packages").mkdir(
+        parents=True, exist_ok=True
+    )
     point_current(root, environment.parent.parent)
     monkeypatch.setattr(credentials.sys, "executable", str(python))
     monkeypatch.setattr(credentials.sys, "prefix", str(environment))
     return environment
+
+
+
+def test_release_fixture_accepts_the_running_python_minor(tmp_path, monkeypatch):
+    environment = _switch_release(
+        monkeypatch, tmp_path, "native", str(sys.version_info.minor)
+    )
+    prefix = subprocess.check_output(
+        [str(venv_python(environment)), "-c", "import sys; print(sys.prefix)"],
+        text=True,
+    ).strip()
+    assert Path(prefix).resolve() == environment.resolve()
 
 
 def _orphaned_value(root: Path, config: Path) -> str:
