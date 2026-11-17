@@ -69,6 +69,25 @@ def is_others_unwritable_directory(path: str | Path) -> bool:
         return False
 
 
+def is_others_unwritable_file(path: str | Path) -> bool:
+    """Check file write grants, permitting readable/system-owned executables.
+
+    POSIX uses regular-file mode bits; Windows requires a trusted owner and
+    no effective write grant outside the account, SYSTEM and Administrators.
+    Symlinks refuse; callers checking an interpreter resolve its target first.
+    """
+    selected = Path(path)
+    try:
+        info = selected.lstat()
+        if not stat.S_ISREG(info.st_mode):
+            return False
+        if _WINDOWS_PERMISSIONS:
+            return windows_others_unwritable_directory.is_others_unwritable_file(selected)
+        return not bool(stat.S_IMODE(info.st_mode) & 0o022)
+    except OSError:
+        return False
+
+
 def create_owner_private_directory(path: str | Path) -> Path:
     """Create one private directory; refuse unsafe existing paths, create no parents."""
     selected = Path(path)
@@ -115,5 +134,5 @@ def write_owner_private(path: str | Path, data: str | bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
-__all__ = ["is_current_user_owned_path", "is_others_unwritable_directory", "is_owner_private_file", "is_owner_private_directory",
+__all__ = ["is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file", "is_owner_private_file", "is_owner_private_directory",
            "create_owner_private_directory", "write_owner_private"]

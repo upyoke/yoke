@@ -183,6 +183,11 @@ suppression belong to this shared runner.
 its interpreter is missing or not executable. Rerun the public installer or
 `yoke update` to repair the CLI; no substitute interpreter is selected.
 
+Prior-runtime recognition permits shared reads but refuses foreign writes to
+the launcher or a prior interpreter. Windows uses file ACLs; POSIX uses mode
+bits. The active interpreter retains its existing trust exception. Recognition
+verifies the adjacent bundle's hash without executing the old launcher.
+
 Before publication, `yoke github credential-helper refresh --check-only --json`
 validates the candidate release interpreter, builds and executes an isolated
 helper bundle, and checks registered checkout references without changing git

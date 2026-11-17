@@ -43,6 +43,20 @@ def test_parent_predicate_refuses_files_links_and_missing(tmp_path):
         assert not paths.is_others_unwritable_directory(link)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file mode contract")
+def test_file_writability_preserves_system_owned_readable_files(tmp_path, monkeypatch):
+    path = tmp_path / 'python'
+    path.write_text('interpreter', encoding='utf-8')
+    monkeypatch.setattr(paths.os, 'getuid', lambda: path.stat().st_uid + 1)
+    for mode, accepted in ((0o755, True), (0o644, True), (0o775, False), (0o666, False)):
+        path.chmod(mode)
+        assert paths.is_others_unwritable_file(path) is accepted
+    link = tmp_path / 'link'
+    link.symlink_to(path)
+    assert not paths.is_others_unwritable_file(link)
+    assert not paths.is_others_unwritable_file(tmp_path)
+
+
 def _check_acl(entries, *, foreign=True, failed_index=None):
     buffers = [ctypes.create_string_buffer(entry) for entry in entries]
     acl = windows._Acl(count=len(entries))
@@ -147,6 +161,16 @@ def test_native_foreign_grants(tmp_path, principal, grants, accepted):
         with pytest.raises(machine_config_file.MachineConfigFileError,
                            match="remove other users' write access"):
             machine_config_file._assert_secure_parent(path)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='native Windows file DACL contract')
+@pytest.mark.parametrize('principal', ['BU', 'WD'])
+@pytest.mark.parametrize('right,accepted', [('FW', False), ('FR', True)])
+def test_native_file_foreign_grants(tmp_path, principal, right, accepted):
+    path = tmp_path / 'launcher.py'
+    paths.write_owner_private(path, b'launcher')
+    _set_acl(path, f'(A;;{right};;;{principal})')
+    assert paths.is_others_unwritable_file(path) is accepted
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='native Windows DACL contract')

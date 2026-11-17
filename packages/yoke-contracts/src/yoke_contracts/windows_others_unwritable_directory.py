@@ -1,4 +1,4 @@
-"""Windows ownership and directory write-access checks, allowing shared reads."""
+"""Windows ownership and file/directory write checks, allowing shared reads."""
 from __future__ import annotations
 
 import ctypes
@@ -42,12 +42,18 @@ def is_others_unwritable_directory(path: str | Path) -> bool:
     return _inspect(path, check_writes=True)
 
 
-def _inspect(path: str | Path, *, check_writes: bool) -> bool:
+def is_others_unwritable_file(path: str | Path) -> bool:
+    """Allow readable files owned by the user or OS administrators, not foreign writes."""
+    return _inspect(path, check_writes=True, directory=False)
+
+
+def _inspect(path: str | Path, *, check_writes: bool, directory: bool = True) -> bool:
     if os.name != "nt":
         raise OSError("Windows path ACL inspection is unavailable")
     selected = Path(path)
     info = selected.stat(follow_symlinks=False)
-    if check_writes and not stat.S_ISDIR(info.st_mode):
+    expected_kind = stat.S_ISDIR if directory else stat.S_ISREG
+    if check_writes and not expected_kind(info.st_mode):
         return False
     if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
         return False
@@ -73,7 +79,10 @@ def _inspect(path: str | Path, *, check_writes: bool) -> bool:
         if result or not owner.value:
             return False
         user = private._current_user_sid(advapi, kernel)
-        if private._sid_string(owner.value, advapi, kernel) != user:
+        trusted_owners = {user}
+        if check_writes and not directory:
+            trusted_owners.update({private._SYSTEM_SID, private._ADMINISTRATORS_SID})
+        if private._sid_string(owner.value, advapi, kernel) not in trusted_owners:
             return False
         if not check_writes:
             return True
