@@ -179,33 +179,26 @@ Use a dedicated operator-owned App for server automation. [GitHub App setup](git
 
 ## Upgrades
 
-Running bundles stay on their exact image pin until you deliberately advance
-the pair. Upgrades use the configured image repository. From any directory, run:
+Upgrade the pinned pair using the configured image repository:
 
 ```bash
 yoke self-host upgrade --dir /path/to/yoke-server
 ```
 
-The command performs a read-only preflight and shows the current image, target
-release, distribution origin, exact target image, and ordered actions before asking you to type
-`upgrade`. It then installs that release's CLI through the public installer
-channel, atomically rewrites `YOKE_SERVER_IMAGE`, runs `docker compose pull
-core`, refreshes the Compose template, and restarts through the private host handoff. Use `--yes` only when an automated run
-has already accepted that same plan. Setup and upgrade resolve releases from
-`settings.distribution.origin`; upgrade defaults to `settings.distribution.channel`.
-`--channel` changes the channel while preserving the recorded origin.
-`YOKE_INSTALL_BASE_URL` does not override the machine record. Missing or invalid
-metadata refuses before fetching; repair it with
-`yoke settings set distribution '{"origin":"URL","channel":"NAME"}'`.
-An explicit setup `--image` skips distribution resolution.
+Preflight shows images, release, distribution origin and actions, then asks you
+to type `upgrade`. It installs the paired CLI,
+atomically updates `YOKE_SERVER_IMAGE`, pulls `core`, refreshes Compose, and
+restarts through the private host handoff. `--yes` accepts this plan automatically.
 
-An active source-checkout CLI refuses this command before preview or install,
-just as `yoke update` does. Update the checkout with git, then rebuild its
-source server with `yoke core upgrade --from-checkout /path/to/yoke --build`.
-Checkout builds pass Git HEAD and the checkout's setuptools-scm version into
-the image, so installed wheels pass version and migration-readiness checks.
-The refusal preserves the CLI install, bundle image pin, and running server.
+Setup and upgrade use `settings.distribution.origin`, ignoring
+`YOKE_INSTALL_BASE_URL`. Upgrade defaults to `settings.distribution.channel`;
+`--channel` overrides only the channel. Missing or invalid metadata refuses before
+fetching; repair with `yoke settings set distribution '{"origin":"URL","channel":"NAME"}'`.
+Setup `--image` skips resolution.
 
+Source-checkout CLIs refuse upgrades; update with git and rebuild with
+`yoke core upgrade --from-checkout /path/to/yoke --build`.
+Checkout images carry Git HEAD and setuptools-scm version for readiness checks.
 Failures name the stage and exact retry. The pin is unchanged when CLI install
 fails; after the CLI and pin advance, a pull or restart failure leaves both
 durable identities on the target and prints the two Compose recovery commands.
