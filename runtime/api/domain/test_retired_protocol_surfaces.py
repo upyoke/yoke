@@ -85,4 +85,6 @@ def test_host_rebind_refuses_old_clients_through_dispatch(test_db):
     assert not response.success
     assert response.error.code == "function_version_skew"
     assert "floor next-release" in response.error.message
+    assert "yoke update, then yoke project refresh" in response.error.message
+    assert "--version next-release" not in response.error.message
     assert "test_machine.host_rebind" in response.error.message

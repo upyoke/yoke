@@ -33,8 +33,9 @@ def retired_surface_reason(kind, name):
     floor = floors.get((kind, name))
     if floor is None:
         return None
+    update = "yoke update" if floor == "next-release" else f"yoke update --version {floor}"
     repair = (
-        f"Run yoke update --version {floor}, then yoke project refresh in "
+        f"Run {update}, then yoke project refresh in "
         "each registered checkout and use the current command from yoke --help."
     )
     return f"protocol_surface_removed: {kind} {name!r} was removed; required client floor {floor}. {repair}"

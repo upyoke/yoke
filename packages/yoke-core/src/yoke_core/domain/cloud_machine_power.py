@@ -190,8 +190,8 @@ def wait_for_ssh_login(
         SSH_UNAVAILABLE,
         f"Test Machine {name} is running but refused SSH logins on {host} for "
         f"{timeout_s}s ({last_error})",
-        "confirm the instance's security group admits this machine "
-        "and sshd is running, then rerun",
+        "confirm Tailscale is running, the controller resolves the registered "
+        "MagicDNS name and sshd is running, then rerun",
     )
 
 

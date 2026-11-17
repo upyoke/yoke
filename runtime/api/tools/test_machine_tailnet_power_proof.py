@@ -152,7 +152,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (RuntimeError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
+    except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
         raise SystemExit(
             f"tailnet_power_proof_refused: {exc}; repair the named precondition and rerun this case"
         ) from None
