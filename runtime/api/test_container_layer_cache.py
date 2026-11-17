@@ -67,9 +67,9 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "COPY" not in builder_stage
     assert "server image contains development runtime package" in builder
     runtime = builder.split("FROM runtime-base AS runtime", 1)[1]
-    identity = runtime.index('ARG YOKE_BUILD_SHA=""')
+    identity = runtime.index('ENV YOKE_BUILD_SHA=')
     assert runtime.index("uv pip install") < identity
-    assert "--no-deps --no-index /wheels/*.whl" in runtime
+    assert "--no-deps --no-index /product/wheels/*.whl" in runtime
     assert "--compile-bytecode --no-cache" in dependencies
     assert "--no-cache --compile-bytecode" in runtime
     for stable in ("apt-get update", "addgroup", "uv sync", "['ensure_binaries']()"):
@@ -80,7 +80,11 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "COPY packages ./packages" not in builder
     assert "COPY runtime ./runtime" not in builder
     assert "UV_CACHE_DIR=/build/packages/.uv-build-cache" in builder
-    assert "source=/wheels,target=/wheels" in runtime
+    assert "from=builder,source=/,target=/product" in runtime
+    assert "check-wheels" in runtime
+    assert "--wheels /product/wheels" in runtime
+    assert 'ARG YOKE_ATTESTED_WHEELS=0' in runtime
+    assert runtime.index("check-wheels") < runtime.index("uv pip install")
     assert "--mount=type=bind,from=tools" in dependencies
     assert "uv venv /opt/yoke-build-env" in dependencies
     assert "--no-build-isolation --offline" in builder

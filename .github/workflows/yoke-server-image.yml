@@ -80,9 +80,7 @@ jobs:
     timeout-minutes: 10
     name: build-native-${{ matrix.arch }}
     needs: validate-tag
-    permissions: {contents: read, packages: write}
-    # GHCR publishing carries no operator state: hosted runners can do it all.
-    # Hard-pinning avoids operator fleets even where runner-routing is configured.
+    permissions: {actions: read, attestations: read, contents: read, packages: write}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -109,13 +107,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Recover and verify the attested main wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.validate-tag.outputs.release_version }}
+        run: |
+          PYTHONPATH=packages/yoke-contracts/src python3 packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py wheels \
+            --repo "$GITHUB_REPOSITORY" --source-sha "$GITHUB_SHA" \
+            --version "$RELEASE_VERSION" --destination "$RUNNER_TEMP/main-wheels"
       - name: Build and push the native content-addressed image
         id: push
-        # Push without version/latest. /v1/health exposes the baked full source SHA;
-        # package versions use the exact commit UTC clock.
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
+          build-contexts: builder=${{ runner.temp }}/main-wheels
           push: true
           # Only main publishes this cache; queue builds only import it.
           cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-analysis-${{ matrix.arch }},mode=max,compression=gzip,compression-level=1
@@ -126,6 +131,7 @@ jobs:
           outputs: type=image,name=${{ needs.validate-tag.outputs.repository }},push-by-digest=true,name-canonical=true,push=true,compression=gzip,compression-level=1
           provenance: false
           build-args: |
+            YOKE_ATTESTED_WHEELS=1
             YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.source_sha }}
             YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}
       - name: Verify native architecture and installed release metadata
