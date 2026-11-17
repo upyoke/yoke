@@ -14,6 +14,12 @@ from pathlib import Path
 from typing import Mapping
 
 from yoke_contracts.hook_runner import client_facts as cf
+from yoke_contracts.hook_runner.bash_paths import (
+    shell_path_spellings,
+    resolve_bash_path,
+    is_under,
+)
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.scratch_roots import scratch_path_roots
 from yoke_contracts.watch_capture import capture_state
@@ -29,13 +35,34 @@ _MAX_CAPTURE_FILES = 16
 def capture_files_fact(payload: Mapping[str, object]) -> dict:
     """Report this machine's scratch roots and each capture the command names."""
     roots = scratch_path_roots()
-    alternation = "|".join(re.escape(root) for root in roots)
+    native_roots = tuple(resolve_bash_path(root) for root in roots)
+    alternation = "|".join(
+        re.escape(spelling) for root in roots for spelling in shell_path_spellings(root)
+    )
     files: dict[str, dict] = {}
     command = command_from_payload(dict(payload))
     if command and alternation:
         for path in re.findall(rf"(?:{alternation})/[\w./-]+", command):
             if path not in files and len(files) < _MAX_CAPTURE_FILES:
-                files[path] = capture_state(path)
+                files[path] = capture_state(resolve_bash_path(path))
+    # A short Windows spelling can name the same canonical scratch directory.
+    # Evidence its actual operand on the writing client; the authority never
+    # expands a short name against its own filesystem.
+    if command:
+        for segment in parse_shell(command).segments:
+            for raw in segment.argv:
+                if (
+                    "/" not in raw
+                    or raw.startswith("-")
+                    or len(files) >= _MAX_CAPTURE_FILES
+                ):
+                    continue
+                path = resolve_bash_path(raw)
+                if any(is_under(path, root) for root in native_roots):
+                    files[raw] = capture_state(path)
+                    parent = raw.rsplit("/", 1)[0]
+                    if parent and parent not in roots:
+                        roots.append(parent)
     return cf.client_fact(cf.CAPTURE_FILES_KEY, {"roots": roots, "files": files})
 
 

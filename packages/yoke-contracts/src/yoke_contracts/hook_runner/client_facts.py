@@ -76,7 +76,8 @@ def capture_roots(payload: Mapping[str, Any]) -> tuple[str, ...]:
     roots = fact.get("roots") if isinstance(fact, Mapping) else None
     if not isinstance(roots, list):
         return ()
-    return tuple(r for r in roots if isinstance(r, str) and r.startswith("/"))
+    from yoke_contracts.hook_runner.bash_paths import is_absolute
+    return tuple(r for r in roots if isinstance(r, str) and is_absolute(r))
 
 
 def capture_file_state(

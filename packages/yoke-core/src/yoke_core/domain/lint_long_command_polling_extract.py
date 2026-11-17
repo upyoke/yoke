@@ -12,6 +12,8 @@ effects.
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import shell_path_spellings
+
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -69,7 +71,12 @@ def capture_path_group(roots: Sequence[str]) -> str:
     authority never substitutes its own: a capture lives where the client
     wrote it.
     """
-    alternation = "|".join(re.escape(r.rstrip("/")) for r in roots if r)
+    alternation = "|".join(
+        re.escape(spelling.rstrip("/"))
+        for r in roots
+        if r
+        for spelling in shell_path_spellings(r)
+    )
     return f"(?:{alternation or _NO_ROOT})/[\\w./-]+"
 
 

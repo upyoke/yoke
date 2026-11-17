@@ -30,6 +30,10 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
 
 
 class TestEvaluatePayloadFromObservedCapture(CapturePairHelpers, unittest.TestCase):
+    def _make_pair(self, kind="merge"):
+        raw, progress = super()._make_pair(kind)
+        return Path(raw).resolve().as_posix(), Path(progress).resolve().as_posix()
+
     def _peek_payload(self, raw: str) -> dict:
         command = f"tail -80 {Path(raw).as_posix()}"
         roots = (os.path.dirname(raw),)

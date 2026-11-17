@@ -86,6 +86,14 @@ def is_absolute(path: str) -> bool:
     return path.startswith("/") or windows_path(path)
 
 
+def shell_path_spellings(path: str) -> tuple[str, ...]:
+    """Git Bash drive spellings for an evidenced native root, without host IO."""
+    forward = path.replace("\\", "/") if windows_path(path) else path
+    if windows_path(path) and len(forward) > 2 and forward[1] == ":":
+        return forward, "/" + forward[0].lower() + forward[2:]
+    return (forward,)
+
+
 def canonical_native_path(path: str) -> str:
     """Canonicalize filesystem aliases locally; never probe foreign drives."""
     facts = _CLIENT_PATHS.get()
