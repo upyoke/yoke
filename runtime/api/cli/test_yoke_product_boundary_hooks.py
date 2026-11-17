@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV
+
 from runtime.api.cli.product_boundary_test_support import (
     CLI_SRC,
     CONTRACTS_SRC,
@@ -100,6 +102,9 @@ def test_bound_local_hook_reports_missing_engine_loudly(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
         config_payload=config,
+        # A fresh isolated resident must finish cold startup before it can
+        # report the missing engine; this test does not measure hook latency.
+        extra_env={TOTAL_TIMEOUT_ENV: "45000"},
     )
 
     assert run.returncode == 1

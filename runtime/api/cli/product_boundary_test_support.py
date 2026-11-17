@@ -149,6 +149,7 @@ def _run_product_cli(
     include_harness: bool = True,
     stdin_data: str = "",
     client_cwd: Path | None = None,
+    extra_env: Mapping[str, str] | None = None,
 ) -> ProductCliRun:
     home = tmp_path / "home"
     yoke_home = home / ".yoke"
@@ -184,6 +185,7 @@ def _run_product_cli(
         "YOKE_MACHINE_CONFIG_FILE": str(config_path),
         "YOKE_MACHINE_HOME": str(yoke_home),
     }
+    env.update(extra_env or {})
     result = run_load_tolerant_subprocess(
         [sys.executable, "-c", _HARNESS, *args],
         purpose="running an isolated product CLI boundary command",
