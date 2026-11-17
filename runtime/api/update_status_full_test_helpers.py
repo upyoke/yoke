@@ -35,6 +35,7 @@ from runtime.api.update_status_schema_test_helpers import _apply_update_status_s
 from runtime.api.update_status_github_auth_test_support import seed_github_app_auth
 from runtime.api.task_files_touched_test_support import files_touched_body
 from yoke_core.domain import db_backend
+from yoke_contracts.testing.child_environment import minimal_child_environment
 from yoke_contracts.machine_config import schema as machine_config_contract
 
 
@@ -263,7 +264,6 @@ class UpdateStatusEnv:
 
     @property
     def env(self) -> dict:
-        path = f"{self.mock_dir}:{SCRIPTS_DIR}:{os.environ.get('PATH', '')}"
         pythonpath_entries = [str(REPO_ROOT)]
         for entry in os.environ.get("PYTHONPATH", "").split(os.pathsep):
             if not entry:
@@ -281,7 +281,9 @@ class UpdateStatusEnv:
         rest_fake_dir = self.tmp / "rest-fakes"
         rest_fake_dir.mkdir(exist_ok=True)
         env = {
-            "PATH": path,
+            **minimal_child_environment(
+                (self.mock_dir, SCRIPTS_DIR, *os.get_exec_path())
+            ),
             "MOCK_GH_LOG": str(self.gh_log),
             "YOKE_REST_FAKE_DIR": str(rest_fake_dir),
             "YOKE_REST_FAKE_LOG": str(self.gh_log),

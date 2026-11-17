@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from yoke_contracts.testing.child_environment import minimal_child_environment
+
 from runtime.api.product_boundary_isolation import write_sitecustomize
 from runtime.api.load_tolerant_subprocess import (
     run_load_tolerant_subprocess,
@@ -175,9 +177,9 @@ def _run_product_cli(
         allowed_repo_paths=allowed_paths,
     )
     env = {
+        **minimal_child_environment(),
         "HOME": str(home),
         "LC_ALL": "C",
-        "PATH": "/usr/bin:/bin",
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONNOUSERSITE": "1",
         "PYTHONPATH": os.pathsep.join((str(sitecustomize_dir), pythonpath)),
