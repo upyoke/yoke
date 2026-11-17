@@ -3,13 +3,12 @@
     python -m runtime.known_failure_baseline_record --os windows --reports DIR
 
 ``DIR`` holds the run's shard outputs: the ``pytest-output-<os>-<shard>``
-artifacts (``gh run download RUN -p 'pytest-output-windows-*' -D DIR``) or
-saved job logs. Every ``FAILED``/``ERROR`` line of pytest's short test summary
-becomes an entry whose reason is its failure message; an entry the run
-the plugin reported as ``[XPASS(strict)] <node id> passed`` is deleted, and every other existing entry is
-kept. Read the result before committing: an entry is a promise that the test
-fails there for the stated reason, and a flaky test belongs in a fix, not in a
-strict baseline.
+artifacts or saved job logs. Every ``FAILED``/``ERROR`` line of pytest's
+short test summary becomes an entry whose reason is its failure message; an
+entry the plugin reported as ``[XPASS(strict)] <node id> passed`` is deleted,
+and every other existing entry is kept. Read the result before committing: an
+entry is a promise that the test fails there for the stated reason, and a
+flaky test belongs in a fix, not in a strict baseline.
 """
 
 from __future__ import annotations

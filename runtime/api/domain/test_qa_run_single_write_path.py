@@ -29,7 +29,7 @@ def test_no_source_writes_qa_runs_outside_the_verdict_writer() -> None:
             continue
         if "migrations" in relative.parts:
             continue
-        for number, line in enumerate(path.read_text().splitlines(), start=1):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             if RAW_WRITE.search(line):
                 offenders.append(f"{relative}:{number}: {line.strip()}")
     assert not offenders, (

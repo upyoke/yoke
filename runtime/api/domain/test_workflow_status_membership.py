@@ -72,7 +72,7 @@ def test_production_code_has_no_copied_item_terminal_sets():
                 or path.name == "lifecycle_status.py"
             ):
                 continue
-            tree = ast.parse(path.read_text())
+            tree = ast.parse(path.read_text(encoding="utf-8"))
             docstrings = {
                 id(node.body[0].value)
                 for node in ast.walk(tree)

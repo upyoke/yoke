@@ -59,10 +59,10 @@ The baselines only shrink:
 - an unlisted failure fails the run as usual. Fix it, or add an entry with
   the reason when the fix is real work.
 
-To refresh a baseline from a run, download its shard outputs and record them:
+To refresh a baseline from a run, download the run's `pytest-output-<os>-*`
+artifacts (from the run's summary page) into one directory and record them:
 
 ```text
-gh run download <run id> -p 'pytest-output-windows-*' -D /tmp/suite-windows
 yoke dev run -- python3 -m runtime.known_failure_baseline_record \
   --os windows --reports /tmp/suite-windows
 ```

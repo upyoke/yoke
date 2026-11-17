@@ -108,7 +108,7 @@ def test_only_heading_copy_grows_in_wrapping_rows():
 
 def test_card_flow_style_does_not_share_the_item_panel_class():
     static = files("yoke_core.ui").joinpath("static")
-    card = static.joinpath("universe_item_deployment.js").read_text()
+    card = static.joinpath("universe_item_deployment.js").read_text(encoding="utf-8")
     assert '"item-card-delivery-flow"' in card
     assert '"item-delivery-flow"' not in card
     assert (

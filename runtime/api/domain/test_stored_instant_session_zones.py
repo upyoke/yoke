@@ -79,7 +79,7 @@ def test_session_zone_parametrizations_share_the_declared_odd_offsets():
     assert all(offset.total_seconds() % 3600 != 0 for offset in offsets)
     root = Path(__file__).resolve().parents[3]
     for path in (root / "runtime/api").rglob("test_*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)

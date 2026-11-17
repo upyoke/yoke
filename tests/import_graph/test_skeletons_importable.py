@@ -252,7 +252,7 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
 
 
 def _imported_modules(path: Path) -> list[str]:
-    tree = ast.parse(path.read_text(), filename=str(path))
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imported: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

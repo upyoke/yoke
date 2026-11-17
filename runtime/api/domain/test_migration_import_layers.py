@@ -181,7 +181,7 @@ def test_live_source_never_imports_migration_modules():
                 package = ".".join(filter(None, (root.name, package)))
             errors.extend(
                 f"{path.relative_to(ROOT)}: {error}"
-                for error in reverse_violations(path.read_text(), package)
+                for error in reverse_violations(path.read_text(encoding="utf-8"), package)
             )
     assert not errors, "\n".join(errors)
 

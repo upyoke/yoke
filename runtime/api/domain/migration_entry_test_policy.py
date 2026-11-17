@@ -51,5 +51,5 @@ def obsolete_dedicated_tests(directory: Path, history_names: set[str]) -> dict[s
     return {
         str(path.relative_to(directory)): missing
         for path in directory.rglob("test_*.py")
-        if (missing := missing_test_entries(path.read_text(), history_names))
+        if (missing := missing_test_entries(path.read_text(encoding="utf-8"), history_names))
     }

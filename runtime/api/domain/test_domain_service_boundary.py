@@ -20,7 +20,7 @@ def test_domain_does_not_import_service_clients():
     )
     violations = []
     for path in paths:
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):
                 modules = [node.module or ""]
                 modules.extend(f"{node.module}.{alias.name}" for alias in node.names)

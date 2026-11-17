@@ -253,7 +253,7 @@ def test_page_module_wires_the_workbench_shell():
     ):
         assert reference in domains, reference
     # The controls module composes the dialog; it owns no read of its own.
-    controls = static_root.joinpath("universe_shell_controls.js").read_text()
+    controls = static_root.joinpath("universe_shell_controls.js").read_text(encoding="utf-8")
     assert "items.search.run" not in controls
     history = static_root.joinpath("universe_search_history.js").read_text()
     for reference in (
