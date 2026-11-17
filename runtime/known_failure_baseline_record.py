@@ -38,7 +38,8 @@ def reason_text(message: str) -> str:
     timeout = _TIMEOUT.match(message)
     if timeout is not None:
         program, seconds = timeout.groups()
-        message = f"subprocess.TimeoutExpired: {re.split(r'[\\/]+', program)[-1]} timed out after {seconds} seconds"
+        name = re.split(r"[\\/]+", program)[-1]
+        message = f"subprocess.TimeoutExpired: {name} timed out after {seconds} seconds"
     return message[:REASON_CHARACTERS].strip() or "fails with no message"
 
 
