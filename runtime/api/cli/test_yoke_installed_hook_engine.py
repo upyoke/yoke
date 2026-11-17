@@ -8,14 +8,18 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_actor_binding_write import persist_operating_actor
 
 
+@pytest.mark.parametrize("_repetition", range(8))
 def test_installed_hooks_register_emit_and_deny(
     tmp_path: Path,
     product_venv: Path,
     test_db,
+    _repetition,
 ) -> None:
     venv = product_venv
     repo = _git_repo(tmp_path)
@@ -41,7 +45,7 @@ def test_installed_hooks_register_emit_and_deny(
         "WHERE session_id = %s",
         (session_id,),
     ).fetchone()
-    assert row is not None
+    assert row is not None, _format(opened)
     assert row["tool_call_count"] == 0
 
     completed = _hook(
@@ -62,7 +66,7 @@ def test_installed_hooks_register_emit_and_deny(
         "SELECT tool_call_count FROM harness_sessions WHERE session_id = %s",
         (session_id,),
     ).fetchone()
-    assert row is not None
+    assert row is not None, _format(completed)
     assert row["tool_call_count"] >= 1
 
     repo.joinpath("base.txt").write_text("threatened\n", encoding="utf-8")
@@ -210,7 +214,11 @@ def _hook(
     payload: dict,
 ) -> subprocess.CompletedProcess[str]:
     return _run(
-        [str(yoke), "hook", "evaluate", event_name],
+        [str(yoke.parent / "python"), "-c", (
+            "import faulthandler, runpy, sys; "
+            "faulthandler.dump_traceback_later(8); "
+            "sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')"
+        ), str(yoke), "hook", "evaluate", event_name],
         cwd=repo,
         env=env,
         input_text=json.dumps(payload),
