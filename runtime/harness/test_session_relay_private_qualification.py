@@ -222,7 +222,7 @@ def test_launchd_projection_authorizes_connection_derived_stage(
         environ={"PATH": "/usr/bin:/bin"},
     )
     assert document["ProgramArguments"][0] == str(
-        instance.venv_console_script(state_dir / "venv", "yoke", windows_suffix=".cmd")
+        venv_console_script(instance.state_dir / "venv", "yoke", windows_suffix=".cmd")
     )
     assert document["ProgramArguments"][1:3] == ["--env", "stage"]
     environment = document["EnvironmentVariables"]
