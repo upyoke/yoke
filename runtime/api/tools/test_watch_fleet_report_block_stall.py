@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.platform_process import pid_alive
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.tools import watch_fleet
 
@@ -79,7 +80,6 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
     from yoke_core.tools import watch_tail
     import time
     import psutil
-    from yoke_contracts import platform_process
 
     monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.5")
     monkeypatch.setattr(
@@ -107,9 +107,8 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
         assert "aborted: fleet_probe_stalled" in text
         assert "waiting_on=child process" in text
         assert "fleet pass" not in text
-    pid = int(pid_path.read_text())
-    assert not platform_process.pid_alive(pid)
-    assert not psutil.pid_exists(pid)
+    assert not pid_alive(int(pid_path.read_text()))
+    assert not psutil.pid_exists(int(pid_path.read_text()))
     follower = RecordingStream()
     assert watch_tail.follow(tmp_path / "progress.log", out=follower) == 0
     assert "aborted: fleet_probe_stalled" in follower.getvalue()

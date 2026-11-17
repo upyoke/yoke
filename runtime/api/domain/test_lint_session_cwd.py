@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
@@ -312,4 +313,4 @@ class TestValidatorDirect:
             conn, session_id="sid-1", targets=(str(target),),
         )
         assert verdict.allow is True
-        assert str(repo) in verdict.repo_roots
+        assert normalize_repo_path(str(repo)) in verdict.repo_roots

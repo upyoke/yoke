@@ -3,7 +3,6 @@
 import io
 import json
 import os
-from contextlib import contextmanager
 
 import pytest
 
@@ -12,35 +11,25 @@ from yoke_contracts.machine_config.selection import checkout_connection
 from yoke_contracts.working_directory import WorkingDirectoryMissing, current_directory
 
 
-@contextmanager
-def deleted_directory(tmp_path):
-    original = os.open(".", os.O_RDONLY)
-    folder = tmp_path / "removed"
-    folder.mkdir()
-    os.chdir(folder)
-    folder.rmdir()
-    try:
-        yield
-    finally:
-        os.fchdir(original)
-        os.close(original)
+@pytest.fixture
+def deleted_directory(monkeypatch):
+    def missing_directory():
+        raise FileNotFoundError
+
+    monkeypatch.setattr(os, "getcwd", missing_directory)
 
 
 def test_current_directory_returns_process_directory():
     assert current_directory() == os.getcwd()
 
 
-@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
-def test_checkout_connection_names_deleted_directory(tmp_path):
-    with deleted_directory(tmp_path):
-        with pytest.raises(WorkingDirectoryMissing, match="working_directory_missing"):
-            checkout_connection({})
+def test_checkout_connection_names_deleted_directory(deleted_directory):
+    with pytest.raises(WorkingDirectoryMissing, match="working_directory_missing"):
+        checkout_connection({})
 
 
-@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
-def test_command_refuses_deleted_directory(tmp_path, capsys):
-    with deleted_directory(tmp_path):
-        code = main(["items", "get", "X-1", "status"])
+def test_command_refuses_deleted_directory(deleted_directory, capsys):
+    code = main(["items", "get", "X-1", "status"])
     captured = capsys.readouterr()
     assert code == 1
     assert captured.out == ""
@@ -50,15 +39,13 @@ def test_command_refuses_deleted_directory(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
-@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
-def test_hook_allows_deleted_directory(tmp_path, monkeypatch, capsys, executor):
+def test_hook_allows_deleted_directory(deleted_directory, monkeypatch, capsys, executor):
     monkeypatch.setenv("YOKE_EXECUTOR", executor)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.delenv("YOKE_HOOKS_OFF", raising=False)
     monkeypatch.delenv("YOKE_HOOK_CONFIG_OWNER", raising=False)
     monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
-    with deleted_directory(tmp_path):
-        code = main(["hook", "evaluate", "PreToolUse"])
+    code = main(["hook", "evaluate", "PreToolUse"])
     captured = capsys.readouterr()
     assert code == 0
     reply = json.loads(captured.out)

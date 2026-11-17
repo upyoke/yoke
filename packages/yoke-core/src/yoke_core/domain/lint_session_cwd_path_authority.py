@@ -193,9 +193,7 @@ def recorded_repo_roots(conn: Any) -> List[str]:
         text = str(value or "").strip()
         if text:
             paths.append(text)
-    # The query parses recorded lane paths as "/"-separated host data, so the
-    # roots stay in that recorded form rather than this machine's flavour.
-    return list(dict.fromkeys(str(PurePosixPath(root)) for root in paths))
+    return list(dict.fromkeys(normalize_repo_path(root) for root in paths))
 
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
