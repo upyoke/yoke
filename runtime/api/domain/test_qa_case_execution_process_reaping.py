@@ -36,7 +36,7 @@ def test_command_case_timeout_reaps_the_whole_process_tree(
     program = (
         "import pathlib,subprocess,sys,time; "
         "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(300)']); "
-        f"pathlib.Path({str(pid_file)!r}).write_text(str(child.pid)); time.sleep(300)"
+        f"pathlib.Path({pid_file.as_posix()!r}).write_text(str(child.pid)); time.sleep(300)"
     )
     case = _case(
         "command",
