@@ -12,13 +12,18 @@ happens to QA already under way.
 A run waiting on item QA still occupies its server, so a newer release on the
 same target could not start behind it. Instead, the newer release takes the
 older run over: its unfinished work moves to the newer run, which then
-deploys the newer commit. Cut a containing release on the same flow and
-target while member QA runs; nothing has to be cancelled first.
+deploys the newer commit. Cut a containing release on the same flow (or the
+active successor of a retired flow) and target while member QA runs; nothing
+has to be cancelled first.
 
 ## Which run is taken over
 
-Creation looks at runs on the same project, flow and target environment,
-skipping cancelled runs and runs already superseded
+Creation looks at runs on the same project and target environment whose flow
+is the new run's flow, or a retired flow whose published successor is now the
+new run's flow (`deployment_flow_succession.successor_flows`). A predecessor
+flow that is still active carries its own releases and is not followed, and a
+retired flow whose newest active successor is another flow belongs to that
+flow. Creation skips cancelled runs and runs already superseded
 (`deployment_run_takeover_eligibility.eligible_predecessors`). The newer run
 must have a commit: a run prepared before its commit exists has nothing to
 compare, and its start meets the older run's occupancy instead.
