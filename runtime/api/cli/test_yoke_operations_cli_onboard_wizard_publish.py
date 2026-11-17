@@ -24,9 +24,6 @@ from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 
-from runtime.api.cli.onboard_wizard_checkout_test_helpers import (  # noqa: E402
-    stub_local_checkout_identity,
-)
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     accept_project_details,
     advance_past_path,
@@ -73,7 +70,6 @@ async def _pick_mode(pilot, value: str) -> None:
 
 
 def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
-    stub_local_checkout_identity(monkeypatch)
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -108,7 +104,6 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
 
 
 def test_publish_no_keeps_it_local(monkeypatch) -> None:
-    stub_local_checkout_identity(monkeypatch)
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -132,8 +127,7 @@ def test_publish_no_keeps_it_local(monkeypatch) -> None:
     assert not applied["project_github_repo"]
 
 
-def test_owner_picker_routes_org_with_user_login(monkeypatch) -> None:
-    stub_local_checkout_identity(monkeypatch)
+def test_owner_picker_routes_org_with_user_login() -> None:
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -266,9 +260,8 @@ def test_changed_checkout_origin_back_returns_to_project_name(
     asyncio.run(scenario())
 
 
-def test_no_app_connection_publish_no_keeps_it_local(monkeypatch) -> None:
+def test_no_app_connection_publish_no_keeps_it_local() -> None:
     """Without an App connection the publish prompt is still shown; No stays local."""
-    stub_local_checkout_identity(monkeypatch)
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -294,7 +287,6 @@ def test_no_app_connection_publish_no_keeps_it_local(monkeypatch) -> None:
 
 
 def test_owner_picker_error_back_returns_to_publish_choice(monkeypatch) -> None:
-    stub_local_checkout_identity(monkeypatch)
     monkeypatch.setattr(
         onboard_wizard_flow,
         "fetch_repo_owners",

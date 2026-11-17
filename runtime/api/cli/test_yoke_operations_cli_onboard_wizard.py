@@ -27,9 +27,6 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     SelectionList,
 )
 
-from runtime.api.cli.onboard_wizard_checkout_test_helpers import (  # noqa: E402
-    stub_local_checkout_identity,
-)
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
@@ -141,8 +138,7 @@ def test_cancel_at_finish_does_not_apply() -> None:
     assert app.exit_code == 0
 
 
-def test_local_checkout_collects_project_fields(monkeypatch) -> None:
-    stub_local_checkout_identity(monkeypatch)
+def test_local_checkout_collects_project_fields() -> None:
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -222,14 +218,13 @@ def test_keystrokes_during_transition_reach_the_new_input() -> None:
     asyncio.run(scenario())
 
 
-def test_fast_type_enter_type_across_inputs_collects_both_values(monkeypatch) -> None:
+def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
     """A rapid type -> enter -> type sequence across two consecutive inputs must
     not collide in the widget registry — the regression the original deferral
     guarded against. Both input views reuse the id ``onboard-input``; awaiting
     the removal before mounting the next keeps the swap clean so the second value
     lands in the second input without dropping the first.
     """
-    stub_local_checkout_identity(monkeypatch)
     app, spy = make_app()
 
     async def scenario() -> None:
