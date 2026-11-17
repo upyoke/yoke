@@ -65,8 +65,12 @@ public class YokeTailnetFixture {
  if(Test-RuleScope){throw 'unrestricted Tailscale display name was accepted'}
  $r | Get-NetFirewallInterfaceFilter | Set-NetFirewallInterfaceFilter -InterfaceAlias $adapter.Name
  if(!(Test-RuleScope)){throw 'exact verified adapter was refused'}
- $r | Get-NetFirewallInterfaceFilter | Set-NetFirewallInterfaceFilter -InterfaceAlias '*'
- if(Test-RuleScope){throw 'wildcard interface was accepted'}
+ $r | Get-NetFirewallInterfaceFilter | Set-NetFirewallInterfaceFilter -InterfaceAlias Any
+ if(Test-RuleScope){throw 'unrestricted interface/address was accepted'}
+ # Windows cannot persist wildcard aliases; exercise that defensive input directly.
+ foreach($alias in @('*',($adapter.Name+'*'),'?')){
+  if(Test-YokeTailnetOnly @{LocalAddress='Any'} @{InterfaceAlias=$alias} $proof){throw 'wildcard interface was accepted'}
+ }
  if(Test-YokeTailnetOnly @{LocalAddress=$ip} @{InterfaceAlias='Any'} $null){throw 'missing proof was accepted'}
  # Execute the unchanged full classifier with the substituted CLI identity.
  Write-Status 'Running' @($ip)
