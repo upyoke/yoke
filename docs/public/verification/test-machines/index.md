@@ -146,6 +146,7 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 - [Windows host provisioning](windows-host-provisioning.md) — Prepare a Windows test account and the WSL desktop route.
 - [WSL browser identities](windows-wsl-browser-identities.md) — Authorize browser identities in the WSL test desktop.
 - [Native Windows host provisioning](windows-native-host-provisioning.md) — Prepare a Windows lab profile, native desktop and lease recovery journal.
+- [Native Windows provisioning recovery](windows-native-provisioning-recovery.md) — Recover bounded administrator SSH, partial key ACLs and RDP setup.
 - [Native Windows browser identities](windows-browser-identities.md) — Authorize browser identities in the native Windows test desktop.
 - [Machine browser identities](browser-identities.md) — Follow the browser identity procedure for the declared OS.
 <!-- /yoke:contents -->

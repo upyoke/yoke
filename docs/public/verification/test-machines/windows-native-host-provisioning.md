@@ -23,6 +23,47 @@ If `az` fails with `AADSTS530035` (security defaults), the operator completes
 interactive `az login --tenant TENANT --scope https://management.core.windows.net//.default`
 and selects the inventory subscription. The lane retries the failed read,
 requires a fresh power-state receipt, then resumes; never bypass the policy.
+### Link the Azure provider identity
+
+Provider leases use the approved existing Azure service principal **yoke-admin**,
+with tenant, application/client ID, subscription and existing role grants from
+inventory. The VM account `yokeadmin` is a separate identity. Interactive `az login`
+does not link this provider capability. Feed secret-set from private custody or
+masked operator input, never a literal secret in argv, shell history, captures
+or chat. Run:
+
+```text
+yoke azure admin-link --project P
+yoke projects capability-settings merge --project P --cap-type azure-admin --set tenant_id=TENANT --set client_id=APP_ID --set subscription_id=SUBSCRIPTION
+yoke projects capability secret set --project P --cap-type azure-admin --key client_secret --value-stdin
+yoke azure admin-status --project P
+```
+
+For masked terminal entry, use this instead of the secret-set line above:
+
+```python
+import getpass
+import subprocess
+subprocess.run(
+    ["yoke", "projects", "capability", "secret", "set", "--project", "P",
+     "--cap-type", "azure-admin", "--key", "client_secret", "--value-stdin"],
+    input=getpass.getpass("yoke-admin client secret: "), text=True, check=True,
+)
+```
+
+Require `admin-status` ready before provider QA. A missing capability can be
+reported as a subscription mismatch; compare the inventory resource ID and
+`admin-status` before changing either. The provider uses its own principal login.
+
+For rotation, the operator opens Entra **App registrations > yoke-admin >
+Certificates & secrets > Client secrets > New client secret**. Set a description
+and expiry, add it alongside the old credential, and capture its one-time
+**Value** into private custody. Repeat secret-set with that Value, not its ID.
+Require ready status and successful provider start/deallocation before deleting
+only the old credential by its ID. Retain the existing app and role grants.
+See [Microsoft's client-secret steps](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal#option-3-create-a-new-client-secret).
+
+### Create or identify the VM resources
 
 ```text
 az network vnet create -g yoke-test-machines -n windows-native-lab-vnet --subnet-name default
@@ -68,7 +109,7 @@ authentication and disable password authentication in
 `C:\ProgramData\ssh\sshd_config`. Fresh Windows images can spend considerable time in Windows Update servicing;
 the provisioner announces and allows up to 90 minutes for the capability
 bootstrap. Let servicing settle after first boot, then retry when necessary.
-Use a pinned, signature-verified Microsoft MSI only after a diagnosed capability error.
+Use a pinned, signature-verified MSI only after a diagnosed capability error.
 If Azure repeatedly refuses a new invocation with “Run command extension
 execution is in progress” after the bounded wait, stop the controller retry
 loop and record the stuck invocation. Check the VM agent and the invocation's
@@ -139,82 +180,10 @@ For an existing key file, validate its trusted owner and repair explicit file
 grants **before** writing; an empty protected DACL otherwise denies the write.
 Keep final owner/exact-three-SID ACL checks; never take ownership/reset accounts.
 
-### Bounded recovery when administrator SSH is unavailable
-
-Within approved authority, cap each start at twenty minutes, reserve cleanup
-at minute seventeen and verify `PowerState/deallocated` by minute twenty.
-Stop on ambiguity; never infer retry/process-kill permission from timeout.
-If installed/running OpenSSH has blocked TCP22, inspect managed `YokeQaSsh`:
-`New-NetFirewallRule` needs `-DisplayName` even with `-Name`, otherwise it can
-prompt noninteractively. Save this nonsecret script as `ssh-firewall.ps1`:
-
-```powershell
-$ErrorActionPreference='Stop'
-Get-NetFirewallRule -Name YokeQaSsh -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule -Name YokeQaSsh -DisplayName 'Yoke QA SSH' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -Profile Any -RemoteAddress Any -ErrorAction Stop | Out-Null
-$r=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaSsh -ErrorAction Stop
-$p=$r | Get-NetFirewallPortFilter -ErrorAction Stop
-if($r.Enabled -ne 'True' -or $r.Direction -ne 'Inbound' -or $r.Action -ne 'Allow' -or $p.LocalPort -ne '22'){throw 'effective SSH rule invalid'}
-Restart-Service sshd -ErrorAction Stop
-'YOKE_SSH_FIREWALL_READY'
-```
-
-Run **one managed Run Command v2**, retaining its named resource for audit:
-
-```text
-az vm run-command create --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --script @ssh-firewall.ps1 --timeout-in-seconds 120
-az vm run-command show --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --expand instanceView --query instanceView -o json
-```
-
-Require terminal success, exit code zero and `YOKE_SSH_FIREWALL_READY`;
-ARM `Creating`/`Canceled` is not the guest result. Do not repeat removal or
-create another guest invocation because the controller result is ambiguous.
-Verify external TCP22, then key-only administrator SSH before continuing.
-From a PowerShell controller (`KEY`, `ADMIN` and `HOST` are inventory values):
-
-```powershell
-if(!(Test-NetConnection HOST -Port 22 -InformationLevel Quiet)){throw 'TCP22 unreachable'}
-$probe=@'
-$ErrorActionPreference='Stop'
-$id=[Security.Principal.WindowsIdentity]::GetCurrent()
-$expected=Get-LocalUser -Name 'ADMIN' -ErrorAction Stop
-if($id.User.Value -ne $expected.SID.Value -or !([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'wrong administrator token'}
-$stale=@(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {$_.CommandLine -match 'script0\.ps1'})
-$stale | Select-Object ProcessId,CreationDate
-if($stale.Count -ne 0){throw 'stale script0 process: report only, stop provisioning'}
-'YOKE_ADMIN_AND_STALE_AUDIT_OK'
-'@
-$encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($probe))
-ssh -i KEY -o BatchMode=yes ADMIN@HOST "powershell.exe -NoProfile -NonInteractive -EncodedCommand $encoded"
-if($LASTEXITCODE -ne 0){throw 'administrator SSH audit failed'}
-```
-
-Never kill reported processes. Provision only after the zero-count audit;
-retain all three readiness receipts. Compare actual token SIDs to `Get-LocalUser`,
-admin membership true only for ADMIN, and inspect the test SID's registered path/hive.
-
-### RDP firewall failure and partial setup
-
-Windows Firewall rejects **both** `::1` and `127.0.0.1` as explicit loopback
-address conditions. Do not replace the rejected IPv6 address with an IPv4 allow
-rule. The provisioner removes legacy `YokeQaRdpLoopback`, disables stable
-`RemoteDesktop-*` rules, requires all firewall profiles enabled/default inbound
-block, and refuses RDP-capable allow rules. Package SID/family constraints exclude
-packaged apps; `System` is a kernel listener, not TermService. Keep public3389 blocked;
-forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
-Require a real forwarded RDP negotiation and independently blocked direct RDP.
-
-The profile-by-SID window failed at this rule and deallocated after 121 seconds.
-Registration, QA and an independent profile receipt remained unverified.
-The next window passed admin SSH/stale audit but failed rewriting that partial
-key file before ACL repair; deallocation was verified after 124 seconds,
-without registration. Prove recovery from the actual malformed ACL in CI.
-Preserve the partial account/profile and custody. Correct and run the **entire**
-guest provisioner on disposable `windows-latest`, including actual SSH and RDP
-forwarding, before requesting another VM window with exact-commit green evidence.
-After successful setup register **SETUP INCOMPLETE**, immediately deallocate,
-then run dispatched native QA separately. Failure means stop, deallocate, record
-the exact guest error and inspect it; never mark registration or QA complete.
+For bounded administrator-SSH repair, stale-process audit, partial key/RDP
+recovery and observed window outcomes, follow
+[native Windows provisioning recovery](windows-native-provisioning-recovery.md).
+Retain all required receipts before continuing setup or QA.
 
 Prove the test user is not an Administrator and cannot modify the fixed
 administrator task or its program. Select **Windows Console Host** as the
@@ -235,7 +204,7 @@ Register `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
 `yoke test-machine desktop-access` returns the forward and private password-file
 path for your existing RDP client; Yoke adds none. Disconnect without sign-out;
 if locked/logged off, reconnect, unlock and return to console before QA.
-Screenshots use scheduled `CopyFromScreen` **inside the VM**, read back over SSH.
+Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
 
 As the standard user install all harness CLIs from their vendors:
 
@@ -258,22 +227,9 @@ alone do not prove readiness. Follow [native browser identities](windows-browser
 
 ## 4. Settings journal and interrupted-case recovery
 
-SYSTEM task `YokeQaMachineSettings` accepts only capture/restore with a QA lease
-identifier. Its program/journal in `C:\ProgramData\YokeQa\private` are writable
-only by Administrators/SYSTEM; the standard user can start it and write
-`C:\ProgramData\YokeQa\requests`, never replace the program. Before mutations
-it records AppLocker policy, `LongPathsEnabled` presence/value, machine
-certificate inventory and Programs/MSI tools; public certificates export privately.
-
-Before baseline-tool removal, the administrator supplies its versioned installer
-in the private recovery cache and `tool-installers.json`. Private-key certificate
-removal requires a project-approved recovery procedure. Failed restore retains
-the journal and reports its reason; it never becomes a passing case.
-
-Cleanup restores policy, registry, certificates and tools and compares every
-inventory. The next serial lease restores an interrupted journal before capture;
-keep the machine unavailable until verified. Never use VM snapshots, delete the
-journal, pass a policy failure or recapture a dirty machine.
+Before QA, follow [settings journal and interrupted-case recovery](windows-native-provisioning-recovery.md#settings-journal-and-interrupted-case-recovery).
+The SYSTEM task restores and verifies policy, registry, certificates and tools;
+keep the machine unavailable until recovery verifies.
 
 ## 5. Register, capture and prove
 
