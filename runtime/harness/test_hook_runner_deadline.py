@@ -94,6 +94,11 @@ def test_total_deadline_fails_open_and_stops_unfinished_chain(
     _patch_budgets(monkeypatch, total_ms=120)
     _Ok.called = False
     _Slow.called = False
+    records: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.run_tail.flush_run_tail",
+        lambda **k: records.extend(k["telem_records"]),
+    )
     _patch_modules(monkeypatch, {"mod.slow": _Slow, "mod.ok": _Ok})
     capability = _capability(monkeypatch, ["mod.slow", "mod.ok"])
     monkeypatch.setattr(
@@ -108,6 +113,9 @@ def test_total_deadline_fails_open_and_stops_unfinished_chain(
     )
 
     assert (text, exit_code) == ("", 0)
+    assert [(kind, data.get("failure")) for kind, data in records] == [
+        ("failed", "timeout_120ms"),
+    ]
     assert _Slow.called is True
     assert _Ok.called is False
 
