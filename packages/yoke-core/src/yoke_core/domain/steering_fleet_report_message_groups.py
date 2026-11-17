@@ -41,6 +41,9 @@ class MessageGroup:
     recipient_gone_at: datetime | None = None
     held_native_silent_for_seconds: int | None = None
     held_native_observed_at: datetime | None = None
+    held_turn_ended_at: datetime | None = None
+    held_background_child: tuple[int, str] | None = None
+    held_background_count: int = 0
     wake_queue_positions: list[tuple[str, int]] = field(default_factory=list)
     queued_wake: bool = False
     wake_releasable_at: datetime | None = None
@@ -122,13 +125,33 @@ class MessageGroup:
 
     def note_held_native(
         self,
+        record: Mapping[str, Any],
         *,
         evidence: Mapping[str, Any],
         observed_at: datetime | None,
-        latest_tool_call_at: datetime | None,
         current: datetime,
     ) -> None:
-        """Bound native output silence by the session's latest tool call."""
+        """Name what holds the native: a running turn, or an ended one's children.
+
+        A Stop posture newer than every recorded tool call means the turn
+        ended and the process outlived it, which only a background command
+        does. The machine names those commands; the posture says they are
+        the hold rather than the current tool call.
+        """
+        latest_tool_call_at = parse_stamp(record.get("latest_tool_call_started_at"))
+        acted_at = _latest(
+            latest_tool_call_at, parse_stamp(record.get("last_tool_call_at"))
+        )
+        posture_at = parse_stamp(record.get("turn_posture_at"))
+        if (
+            record.get("turn_posture") == "waiting"
+            and posture_at is not None
+            and (acted_at is None or posture_at > acted_at)
+        ):
+            self.held_turn_ended_at = posture_at
+            self.held_background_child, self.held_background_count = (
+                _background_child(evidence)
+            )
         silent = evidence.get("running_native_silent_for_seconds")
         if isinstance(silent, int) and not isinstance(silent, bool):
             if latest_tool_call_at is not None:
@@ -139,3 +162,24 @@ class MessageGroup:
                     silent, observed_at = tool_silence, current
             self.held_native_silent_for_seconds = silent
             self.held_native_observed_at = observed_at
+
+
+def _latest(*stamps: datetime | None) -> datetime | None:
+    present = [stamp for stamp in stamps if stamp is not None]
+    return max(present) if present else None
+
+
+def _background_child(
+    evidence: Mapping[str, Any],
+) -> tuple[tuple[int, str] | None, int]:
+    """The first command the machine named, and how many it found.
+
+    A relay that predates these fields sends neither, which reads as no
+    command named rather than as no command running.
+    """
+    pid = evidence.get("running_native_background_pid")
+    if not isinstance(pid, int) or isinstance(pid, bool):
+        return None, 0
+    count = evidence.get("running_native_background_count")
+    command = str(evidence.get("running_native_background_command") or "")
+    return (pid, command), count if isinstance(count, int) and count > 0 else 1

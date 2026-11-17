@@ -138,3 +138,79 @@ def test_held_silence_uses_recent_tool_activity(fleet, tool_at, silent, expected
         assert "silent for 5m as of 12:00Z" in line
     if expected is None:
         assert "silent for" not in line
+
+
+_CHILD = {
+    "running_native_pid": 4001,
+    "running_native_background_pid": 4120,
+    "running_native_background_command": "gh run watch 9876",
+    "running_native_background_count": 1,
+}
+
+
+def _posture(fleet, posture: str, at: str) -> None:
+    fleet.execute(
+        "UPDATE harness_sessions SET turn_posture=%s, turn_posture_at=%s "
+        "WHERE session_id=%s",
+        (posture, at, ANSWERER),
+    )
+
+
+def test_an_ended_turn_names_the_background_child_holding_it(fleet):
+    """A Stop newer than the last tool call: the hold is the child, not a turn."""
+    _posture(fleet, "waiting", "2026-08-26T08:01:00Z")
+    rows = _held(fleet, evidence={**_CHILD, "running_native_silent_for_seconds": 600})
+    from yoke_core.domain.steering_fleet_report_render_undelivered import (
+        undelivered_line,
+    )
+
+    assert rows[0].delivery_state == WAKE_HELD_FOR_NATIVE_TURN
+    line = undelivered_line(rows[0])
+    assert "turn ended at 2026-08-26T08:01:00.000000Z" in line
+    assert "held by background child 4120 `gh run watch 9876`" in line
+    assert "delivers when it returns" in line
+    assert "native turn running" not in line
+    # Silence is still measured as before, from capture output and tool calls.
+    assert "silent for 10m" in line
+
+
+def test_an_ended_turn_without_named_children_still_says_so(fleet):
+    """A relay that predates the child fields names none, and says that."""
+    _posture(fleet, "waiting", "2026-08-26T08:01:00Z")
+    from yoke_core.domain.steering_fleet_report_render_undelivered import (
+        undelivered_line,
+    )
+
+    line = undelivered_line(_held(fleet, evidence={"running_native_pid": 4001})[0])
+    assert "turn ended at 2026-08-26T08:01:00.000000Z; process held by background task(s)" in line
+
+
+@pytest.mark.parametrize(
+    ("posture", "posture_at", "call_at"),
+    [
+        # No Stop since the last tool call: the turn is still running.
+        ("waiting", "2026-08-26T07:59:00Z", None),
+        ("running", "2026-08-26T08:01:00Z", None),
+        # A completed call after the Stop opened another turn.
+        ("waiting", "2026-08-26T08:01:00Z", "2026-08-26T08:02:00Z"),
+    ],
+)
+def test_a_running_turn_still_reads_native_turn_running(
+    fleet, posture, posture_at, call_at
+):
+    _posture(fleet, posture, posture_at)
+    if call_at:
+        seed_tool_call(
+            fleet, ANSWERER, tool_use_id="after-stop", started_at=call_at,
+            completed_at=call_at, command_summary="Run tests",
+        )
+    from yoke_core.domain.steering_fleet_report_render_undelivered import (
+        undelivered_line,
+    )
+
+    rows = _held(fleet, evidence=_CHILD)
+    assert rows[0].delivery_state == WAKE_HELD_FOR_NATIVE_TURN
+    assert rows[0].held_turn_ended_at is None
+    line = undelivered_line(rows[0])
+    assert "wake held — native turn running" in line
+    assert "turn ended" not in line

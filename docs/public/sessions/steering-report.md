@@ -112,7 +112,7 @@ Nine states remain distinct:
 | wake queue draining | Eligible receipt in a connected machine’s wake queue, with its position in claim order. A wake relay attempt on that machine within three polls proves progress; without it, overdue receipts remain never attempted. Waiting; not actionable or fingerprinted. |
 | queued for next hook | Hook/window means no attempt owed yet. Waiting; not actionable or fingerprinted. |
 | recipient turn in flight | Current running call below the shared 45-minute ceiling; message lands at its return hook. Waiting; not actionable or fingerprinted. |
-| wake held for native turn | Machine verified pid/start identity still running between calls. Gives attempt back and keeps envelope pending. Fingerprinted, not actionable; no automatic second turn. |
+| wake held for native turn | Machine verified pid/start identity still running. Gives attempt back and keeps envelope pending. Reads `turn ended at T; process held by background child PID `CMD`` when a Stop posture is newer than the session's last tool call. Fingerprinted, not actionable; no automatic second turn. |
 | recipient ended without remaining route | No parked/waiting declaration; sender/seat cancels envelope and re-sends content to intended successor. No automatic successor or acknowledgement. |
 | recipient terminated | Deliberate end has no route; same cancel/re-send recovery. |
 
@@ -133,7 +133,12 @@ Native-held rows name the native and, when measurable, the smaller of its
 no-output age from the capture's own clock and time since the session's latest
 recorded tool call. The row dates the chosen measurement; file mtime is not
 activity. Pending mail delivers at that session's next tool call or when its
-turn ends. Missing old
+turn ends. A turn that ended while a background command still runs keeps a
+headless Claude native alive; it takes its next turn, and delivers, when that
+command returns. The row then names the turn's end and the first shell
+command under the native, by pid and program words only, never options or
+arguments that could hold credentials. Ending that command delivers now.
+Without named commands from an older relay it says background task(s). Missing old
 clock means unknown, never recent output. Parked declares wait, not exit; a
 supervisor-recorded exit ends the hold despite surviving group members. Codex
 background_session_in_use is native_turn_running deferral, not a failure.
