@@ -205,6 +205,7 @@ def test_an_unparseable_receipt_is_not_a_successful_capture() -> None:
     assert result.error_code == "golden_capture_output_invalid"
 
 
+@pytest.mark.posix_only(reason="runs zsh on the POSIX test machine")
 def test_the_capture_program_is_valid_zsh() -> None:
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
