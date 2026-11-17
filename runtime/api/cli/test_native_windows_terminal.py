@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -69,7 +70,12 @@ def test_native_shell_output_capture(tmp_path, shell, surface):
     if not executable:
         pytest.skip(f"{shell} is not installed on this Windows runner")
     script = tmp_path / "capture.py"
-    common = "import sys; sys.stdout.reconfigure(encoding='cp1252', errors='strict'); "
+    started_marker = tmp_path / "python-started.txt"
+    common = (
+        "import pathlib, time; "
+        f"pathlib.Path({str(started_marker)!r}).write_text(str(time.time())); "
+        "import sys; sys.stdout.reconfigure(encoding='cp1252', errors='strict'); "
+    )
     if surface == "status":
         code = (
             "from yoke_cli.commands.adapters import config; "
@@ -103,8 +109,28 @@ def test_native_shell_output_capture(tmp_path, shell, surface):
             + "; exit $LASTEXITCODE"
         )
         argv = [executable, "-NoProfile", "-NonInteractive", "-Command", command]
-    result = subprocess.run(argv, capture_output=True, env=env, timeout=30)
+    launched_at = time.time()
+    try:
+        result = subprocess.run(
+            argv, capture_output=True, stdin=subprocess.DEVNULL, env=env, timeout=30
+        )
+    except subprocess.TimeoutExpired as exc:
+        if started_marker.exists():
+            startup_seconds = float(started_marker.read_text()) - launched_at
+            diagnostic = (
+                f"Python started after {startup_seconds:.3f}s; "
+                "output capture did not finish within 30s"
+            )
+        else:
+            diagnostic = "Python never started within 30s"
+        pytest.fail(
+            f"{shell} / {surface}: {diagnostic}; "
+            f"stdout={exc.stdout!r}; stderr={exc.stderr!r}",
+            pytrace=False,
+        )
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
+    startup_seconds = float(started_marker.read_text()) - launched_at
+    print(f"WINDOWS_SHELL_START {shell} {surface}: {startup_seconds:.3f}s")
     output = result.stdout.decode("utf-8-sig")
     assert "José 東京" in output and "\x1b[" not in output
     print(f"WINDOWS_SHELL_CAPTURE {shell} {surface}: {output.strip()}")
