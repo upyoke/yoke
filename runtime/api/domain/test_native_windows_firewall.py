@@ -155,6 +155,20 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
                 [*ssh, user + "@127.0.0.1", "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(script)],
                 capture_output=True, text=True, timeout=45,
             )
+            if result.returncode:
+                diagnostic = powershell(
+                    "$u=Get-LocalUser -Name " + quote(user)
+                    + "; $p=Get-ItemProperty -LiteralPath ('HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList\\'+$u.SID.Value); "
+                    + "$u | Format-List Name,Enabled,SID; $p | Format-List ProfileImagePath; "
+                    + "$h=$p.ProfileImagePath; Get-Acl $h,(Join-Path $h '.ssh'),(Join-Path $h '.ssh\\authorized_keys') | Format-List Path,Owner,Sddl; "
+                    + "Get-Content 'C:\\ProgramData\\ssh\\sshd_config'; "
+                    + "& ($env:WINDIR+'\\System32\\OpenSSH\\sshd.exe') -T -C " + quote("user=" + user + ",host=localhost,addr=127.0.0.1")
+                    + "; Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 20 -ErrorAction SilentlyContinue | Select-Object TimeCreated,Message | Format-List",
+                    tmp_path,
+                )
+                with capsys.disabled():
+                    print(diagnostic.stdout)
+                    print(diagnostic.stderr)
             assert result.returncode == 0, result.stderr
             assert "TOKEN_OK" in result.stdout
         checks = rf"""
