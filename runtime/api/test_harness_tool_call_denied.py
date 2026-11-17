@@ -100,7 +100,7 @@ class TestHarnessToolCallDeniedEndToEnd:
         monkeypatch.setattr(
             lmc,
             "_active_worktree_items",
-            lambda: ["42|Fix the thing"],
+            lambda repo_root: ["42|Fix the thing"],
         )
 
         payload = {
@@ -276,7 +276,7 @@ class TestSingleEmitPerDenier:
         monkeypatch.setattr(
             lmc,
             "_active_worktree_items",
-            lambda: ["42|Fix the thing"],
+            lambda repo_root: ["42|Fix the thing"],
         )
 
         payload = {

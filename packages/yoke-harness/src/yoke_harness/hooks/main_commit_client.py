@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from typing import Optional
 
@@ -12,6 +13,7 @@ from yoke_contracts.hook_runner.main_commit import (
     git_invocations,
     is_actual_git_commit,
 )
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.hook_runner.shell_parse import ShellParse
 
 from yoke_harness.hooks.local_policy_common import cwd_from_payload, repo_cwd
@@ -34,6 +36,13 @@ def _branch(cwd: str) -> Optional[str]:
     if result is None or result.returncode != 0:
         return None
     return result.stdout.strip()
+
+
+def _repo_root(cwd: str) -> Optional[str]:
+    result = _git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if result is None or result.returncode != 0 or not result.stdout.strip():
+        return None
+    return normalize_repo_path(os.path.realpath(os.path.dirname(result.stdout.strip())))
 
 
 def _staged(cwd: str) -> Optional[list[str]]:
@@ -95,6 +104,7 @@ def collect_git_commit_facts(payload: dict, shell: ShellParse) -> dict:
             "schema": CLIENT_GIT_COMMIT_FACTS_SCHEMA,
             "is_git_commit": True,
             "repo_cwd": cwd,
+            "repo_root": _repo_root(cwd),
             "branch": _branch(cwd),
             "staged_paths": paths,
             "staged_probe_ok": staged is not None,
