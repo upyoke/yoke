@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 from functools import cache
 from dataclasses import dataclass
@@ -176,8 +177,9 @@ def _run_product_cli(
         repo_root=REPO_ROOT,
         allowed_repo_paths=allowed_paths,
     )
+    git = shutil.which("git")
     env = {
-        **minimal_child_environment(),
+        **minimal_child_environment((Path(git).parent,) if git else ()),
         "HOME": str(home),
         "LC_ALL": "C",
         "PYTHONDONTWRITEBYTECODE": "1",

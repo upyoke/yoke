@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 
+from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV, HOME_ENV
 from yoke_contracts.process_environment import system_startup_environment
 
 # Ensure the repo root is importable when called from anywhere
@@ -90,6 +91,11 @@ def _subprocess_service_env() -> dict:
     """Environment for delegated Yoke Python children on the same backend."""
     env = {
         **system_startup_environment(),
+        **{
+            name: os.environ[name]
+            for name in ("HOME", "USERPROFILE", HOME_ENV, CONFIG_FILE_ENV)
+            if name in os.environ
+        },
         "PATH": os.environ.get("PATH", ""),
         "PYTHONPATH": _subprocess_pythonpath(),
         **_subprocess_backend_env(),

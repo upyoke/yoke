@@ -67,7 +67,13 @@ def test_minimal_child_can_initialize_networking():
 def test_delegated_service_child_keeps_os_startup_without_caller_authority(monkeypatch):
     from yoke_core.api import service_client_shared_io
 
-    values = {name: f"system-{name}" for name in WINDOWS_SYSTEM_VARIABLES}
+    values = {
+        **{name: f"system-{name}" for name in WINDOWS_SYSTEM_VARIABLES},
+        "HOME": "caller-home",
+        "USERPROFILE": "caller-profile",
+        "YOKE_MACHINE_HOME": "caller-machine-home",
+        "YOKE_MACHINE_CONFIG_FILE": "caller-config.json",
+    }
     for name, value in values.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setenv("YOKE_API_TOKEN", "operator-secret")
