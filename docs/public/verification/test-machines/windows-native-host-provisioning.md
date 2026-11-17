@@ -23,6 +23,9 @@ If `az` fails with `AADSTS530035` (security defaults), the operator completes
 interactive `az login --tenant TENANT --scope https://management.core.windows.net//.default`
 and selects the inventory subscription. The lane retries the failed read,
 requires a fresh power-state receipt, then resumes; never bypass the policy.
+Provider leases separately require `yoke azure admin-status --project P` ready.
+Interactive login does not link `azure-admin`; use `yoke azure admin-link`
+only with an approved scoped identity, before provider QA.
 
 ```text
 az network vnet create -g yoke-test-machines -n windows-native-lab-vnet --subnet-name default
@@ -68,7 +71,7 @@ authentication and disable password authentication in
 `C:\ProgramData\ssh\sshd_config`. Fresh Windows images can spend considerable time in Windows Update servicing;
 the provisioner announces and allows up to 90 minutes for the capability
 bootstrap. Let servicing settle after first boot, then retry when necessary.
-Use a pinned, signature-verified Microsoft MSI only after a diagnosed capability error.
+Use a pinned, signature-verified MSI only after a diagnosed capability error.
 If Azure repeatedly refuses a new invocation with “Run command extension
 execution is in progress” after the bounded wait, stop the controller retry
 loop and record the stuck invocation. Check the VM agent and the invocation's
@@ -190,8 +193,8 @@ if($LASTEXITCODE -ne 0){throw 'administrator SSH audit failed'}
 ```
 
 Never kill reported processes. Provision only after the zero-count audit;
-retain all three readiness receipts. Compare actual token SIDs to `Get-LocalUser`,
-admin membership true only for ADMIN, and inspect the test SID's registered path/hive.
+retain all three receipts. Compare actual token SIDs to `Get-LocalUser`,
+ADMIN alone has admin membership; inspect the test SID's registered path/hive.
 
 ### RDP firewall failure and partial setup
 
