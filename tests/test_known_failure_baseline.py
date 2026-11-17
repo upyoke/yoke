@@ -272,3 +272,57 @@ def test_recorder_reports_flaky_tests_without_recording_them(tmp_path, monkeypat
     assert record.main(["--os", "windows", "--reports", str(tmp_path)]) == 0
     assert baseline.load_baseline("windows") == {"tests/test_known_failure_baseline.py::test_stable": "always"}
     assert "flaky (failed and passed across these reports; not recorded): tests/test_known_failure_baseline.py::test_flaky" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("os_name", OS_NAMES)
+def test_every_flaky_entry_names_a_real_test_its_feedback_and_fix_item(os_name: str) -> None:
+    flaky = baseline.load_flaky(os_name)
+    problems = {
+        node_id: problem
+        for node_id, entry in flaky.items()
+        if (problem := _entry_problem(node_id, entry["reason"])) is not None
+    }
+    assert problems == {}
+    assert not set(flaky) & set(baseline.load_baseline(os_name))
+
+
+def test_flaky_list_requires_feedback_and_fix_item(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(baseline, "FLAKY_DIR", tmp_path)
+    (tmp_path / "windows.json").write_text('{"tests/x.py::t": {"reason": "why", "feedback": 1}}')
+    with pytest.raises(pytest.UsageError, match="known_flaky_list_invalid"):
+        baseline.load_flaky("windows")
+    (tmp_path / "windows.json").write_text(
+        '{"tests/x.py::t": {"reason": "why", "feedback": 1, "fix_item": "YOK-9"}}'
+    )
+    assert baseline.load_flaky("windows")["tests/x.py::t"]["fix_item"] == "YOK-9"
+
+
+def test_flaky_tests_are_non_strict_and_teardown_failures_expected(monkeypatch) -> None:
+    monkeypatch.setattr(baseline.sys, "platform", "win32")
+    monkeypatch.setenv(baseline.ENABLE_ENV, "1")
+    monkeypatch.setattr(baseline, "load_baseline", lambda _os: {"tests/a.py::test_y": "why"})
+    monkeypatch.setattr(
+        baseline, "load_flaky",
+        lambda _os: {"tests/a.py::test_x": {"reason": "races", "feedback": 7, "fix_item": "YOK-9"}},
+    )
+    config = SimpleNamespace(stash={})
+    baseline.pytest_configure(config)
+    item = _Item(nodeid="tests/a.py::test_x[1]", markers=[], stash={})
+    baseline.pytest_collection_modifyitems(config, [item])
+    (marker,) = item.markers
+    assert marker.kwargs == {"strict": False, "reason": "windows flaky until YOK-9 lands: races"}
+    assert _phase(item, "call", "failed").outcome == "failed"  # pytest's xfail owns the call
+    teardown = _phase(item, "teardown", "failed", excinfo=object())
+    assert teardown.outcome == "skipped" and teardown.wasxfail.startswith("windows flaky")
+
+
+def test_a_test_cannot_be_both_known_failing_and_flaky(monkeypatch) -> None:
+    monkeypatch.setattr(baseline.sys, "platform", "win32")
+    monkeypatch.setenv(baseline.ENABLE_ENV, "1")
+    monkeypatch.setattr(baseline, "load_baseline", lambda _os: {"tests/a.py::t": "why"})
+    monkeypatch.setattr(
+        baseline, "load_flaky",
+        lambda _os: {"tests/a.py::t": {"reason": "r", "feedback": 1, "fix_item": "YOK-1"}},
+    )
+    with pytest.raises(pytest.UsageError, match="flaky_overlap"):
+        baseline.pytest_configure(SimpleNamespace(stash={}))

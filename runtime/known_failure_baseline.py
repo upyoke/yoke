@@ -15,6 +15,14 @@ Each such test is listed, with the reason, in a JSON file under
   the run until the entry is deleted;
 - an unlisted failure fails the run as usual.
 
+A test that fails in some runs and passes in others cannot be held by a
+strict entry. It goes in ``runtime/known_failure_baselines/flaky/<os>.json``
+instead, as ``{"<node id>": {"reason": ..., "feedback": <entry id>, "fix_item": "YOK-N"}}``,
+naming the feedback entry that records it and the item that fixes it; the
+entry is deleted when that fix lands. A flaky test is marked
+``xfail(strict=False)``: its failures never fail the run, and its passes do
+not either. Keep that list by hand; the recorder never writes it.
+
 Entries are pytest node ids relative to the repository root, always written
 with ``/`` separators. A parametrized node id names one case; a node id
 without parameters covers every case of that test.
@@ -28,6 +36,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -41,7 +50,11 @@ BASELINE_DIR = Path(__file__).resolve().parent / "known_failure_baselines"
 #: The baseline each ``sys.platform`` reads; Linux has none.
 PLATFORM_BASELINES = {"win32": "windows", "darwin": "macos"}
 
+FLAKY_DIR = BASELINE_DIR / "flaky"
+
 _ENTRIES = pytest.StashKey[dict]()
+_FLAKY = pytest.StashKey[dict]()
+_FLAKY_REASON = pytest.StashKey[str]()
 _REASON = pytest.StashKey[str]()
 _PASSED_SO_FAR = pytest.StashKey[bool]()
 
@@ -79,6 +92,29 @@ def load_baseline(os_name: str) -> dict[str, str]:
     return entries
 
 
+def load_flaky(os_name: str) -> dict[str, dict]:
+    """The ``{node id: {"reason", "feedback"}}`` flaky list for *os_name*."""
+    path = FLAKY_DIR / f"{os_name}.json"
+    if not path.is_file():
+        return {}
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise pytest.UsageError(f"known_flaky_list_unreadable: {path} ({exc}); restore its JSON") from exc
+    for node_id, entry in (entries.items() if isinstance(entries, dict) else [(None, None)]):
+        if not (
+            isinstance(entry, dict)
+            and isinstance(entry.get("reason"), str) and entry["reason"].strip()
+            and isinstance(entry.get("feedback"), int)
+            and re.fullmatch(r"[A-Z]+-\d+", str(entry.get("fix_item", "")))
+        ):
+            raise pytest.UsageError(
+                f"known_flaky_list_invalid: {path} entry {node_id!r} needs a reason, the "
+                "integer id of the feedback entry that records it, and its fix item (PREFIX-N)"
+            )
+    return entries
+
+
 def baseline_reason(node_id: str, entries: dict[str, str]) -> str | None:
     """The reason *node_id* is expected to fail: by exact, unparametrized or module id."""
     reason = entries.get(node_id)
@@ -97,7 +133,16 @@ def active_os() -> str | None:
 
 def pytest_configure(config: pytest.Config) -> None:
     os_name = active_os()
-    config.stash[_ENTRIES] = load_baseline(os_name) if os_name else {}
+    entries = load_baseline(os_name) if os_name else {}
+    flaky = load_flaky(os_name) if os_name else {}
+    both = sorted(entries.keys() & flaky.keys())
+    if both:
+        raise pytest.UsageError(
+            f"known_failure_baseline_flaky_overlap: {both[0]} is both a known failure "
+            "and flaky; keep it in one list"
+        )
+    config.stash[_ENTRIES] = entries
+    config.stash[_FLAKY] = flaky
 
 
 @pytest.hookimpl(wrapper=True)
@@ -115,10 +160,17 @@ def pytest_make_collect_report(collector: pytest.Collector):
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     entries = config.stash.get(_ENTRIES, {})
-    if not entries:
+    flaky = config.stash.get(_FLAKY, {})
+    if not (entries or flaky):
         return
     os_name = active_os()
     for item in items:
+        flake = baseline_reason(item.nodeid, flaky)
+        if flake is not None:
+            text = f"{os_name} flaky until {flake['fix_item']} lands: {flake['reason']}"
+            item.stash[_FLAKY_REASON] = text
+            item.add_marker(pytest.mark.xfail(strict=False, reason=text))
+            continue
         reason = baseline_reason(item.nodeid, entries)
         if reason is not None:
             text = f"{os_name} known failure: {reason}"
@@ -137,6 +189,12 @@ def pytest_runtest_makereport(item: pytest.Item, call):
     the run at teardown with an explicit ``[XPASS(strict)]`` message.
     """
     report = yield
+    flake = item.stash.get(_FLAKY_REASON, None)
+    if flake is not None:
+        if report.when == "teardown" and call.excinfo is not None:
+            report.outcome = "skipped"
+            report.wasxfail = flake
+        return report
     reason = item.stash.get(_REASON, None)
     if reason is None:
         return report

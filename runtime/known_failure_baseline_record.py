@@ -8,7 +8,9 @@ or saved job logs. A test that fails wherever it ran becomes an entry whose
 reason is its failure message; an entry for a test that passed (or reported
 ``[XPASS(strict)] <node id> passed``) is deleted; a test that both failed and
 passed across the reports is printed as flaky and never recorded, since a
-strict entry cannot hold it. Every other existing entry is kept. Read the result before committing: an
+strict entry cannot hold it; add it by hand to ``flaky/<os>.json`` with its
+feedback entry and fix item. Tests already on that list are ignored. Every
+other existing entry is kept. Read the result before committing: an
 entry is a promise that the test fails there for the stated reason, and a
 flaky test belongs in a fix, not in a strict baseline.
 """
@@ -198,13 +200,15 @@ def write_baseline(os_name: str, entries: dict[str, str], root: Path = BASELINE_
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    from runtime.known_failure_baseline import load_baseline
+    from runtime.known_failure_baseline import baseline_reason, load_baseline, load_flaky
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--os", required=True, choices=sorted(set(PLATFORM_BASELINES.values())))
     parser.add_argument("--reports", required=True, type=Path)
     args = parser.parse_args(argv)
     failures, passed = read_reports(args.reports)
+    listed_flaky = load_flaky(args.os)
+    failures = {k: v for k, v in failures.items() if baseline_reason(k, listed_flaky) is None}
     existing = load_baseline(args.os)
     entries = {k: v for k, v in existing.items() if k not in passed}
     added = {k: v for k, v in failures.items() if k not in entries and k not in passed}
