@@ -38,7 +38,9 @@ def run_source_tests(root: Path, commands, yoke: str) -> None:
     )
     commands.run(
         "install-test-dependencies",
-        ["uv", "sync", "--all-packages", "--locked"],
+        # The smoke's own interpreter, as the install stage uses: uv would
+        # otherwise pick any newer Python it finds (Windows lists preview ones).
+        ["uv", "sync", "--all-packages", "--locked", "--python", sys.executable],
         cwd=root,
     )
     # The socket must fit even when macOS's ordinary temp root is very long.
