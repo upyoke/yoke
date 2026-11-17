@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 
-import os
+import codecs
+import locale
 import re
-import select
-import signal
 import subprocess
 import time
 from pathlib import Path
 from typing import Optional, Tuple
 
-from yoke_contracts import schema_authority
+from yoke_contracts import schema_authority, platform_process
+from yoke_contracts.project_command_shell import (
+    ProjectCommandShellUnavailable, project_command_shell,
+)
 from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.domain.merge_context import MergeContext
 
@@ -25,32 +27,6 @@ def _parent():
     from yoke_core.engines import merge_worktree as _mw
 
     return _mw
-
-
-def _terminate_process_tree(proc: subprocess.Popen[str]) -> None:
-    """Terminate *proc* and any children spawned in its process group."""
-    if proc.poll() is not None:
-        return
-
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-    except OSError:
-        proc.terminate()
-
-    try:
-        proc.wait(timeout=5)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-
-    if proc.poll() is not None:
-        return
-
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-    except OSError:
-        proc.kill()
-    proc.wait()
 
 
 def _run_streaming(
@@ -73,54 +49,63 @@ def _run_streaming(
     mw = _parent()
     _print = mw._print
 
+    from yoke_contracts.byte_stream_reader import ByteStreamReader
+
     transcript_lines: list[str] = []
-    proc = subprocess.Popen(
+    handle = platform_process.spawn_group(
         cmd,
         cwd=str(cwd),
         env=schema_authority.environment_without_administering_selection(),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        start_new_session=True,
     )
+    proc = handle.process
+    assert proc is not None and proc.stdout is not None
+    decoder = codecs.getincrementaldecoder(locale.getpreferredencoding(False))(errors="replace")
+    pending = ""
+
+    def consume(chunk: bytes, *, final: bool = False) -> None:
+        nonlocal pending
+        pending += decoder.decode(chunk, final=final)
+        while "\n" in pending:
+            line, pending = pending.split("\n", 1)
+            line = line.rstrip("\r")
+            _print(f"{prefix} {line}")
+            transcript_lines.append(line)
+        if final and pending:
+            _print(f"{prefix} {pending}")
+            transcript_lines.append(pending)
+            pending = ""
+
     deadline = time.monotonic() + timeout
     timed_out = False
     try:
-        assert proc.stdout is not None  # mypy
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                timed_out = True
-                break
-            ready, _, _ = select.select([proc.stdout], [], [], min(remaining, 1.0))
-            if ready:
-                line = proc.stdout.readline()
-                if not line:
-                    break  # EOF
-                line = line.rstrip("\n")
-                _print(f"{prefix} {line}")
-                transcript_lines.append(line)
-            elif proc.poll() is not None:
-                # Process ended; drain any remaining output.
-                for line in proc.stdout:
-                    line = line.rstrip("\n")
-                    _print(f"{prefix} {line}")
-                    transcript_lines.append(line)
-                break
+        with ByteStreamReader((proc.stdout,), chunk_size=8192) as reader:
+            try:
+                while reader.pending:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        timed_out = True
+                        break
+                    event = reader.read(timeout=min(remaining, 0.2))
+                    if event is not None:
+                        consume(event[1])
+                if not timed_out:
+                    try:
+                        proc.wait(timeout=max(0, deadline - time.monotonic()))
+                    except subprocess.TimeoutExpired:
+                        timed_out = True
+            finally:
+                platform_process.stop_group(handle, timeout=5)
+                while reader.pending:
+                    event = reader.read(timeout=0.2)
+                    if event is not None:
+                        consume(event[1])
+                consume(b"", final=True)
     finally:
-        _terminate_process_tree(proc)
-        if proc.stdout is not None:
-            remainder = proc.stdout.read()
-            if remainder:
-                for line in remainder.splitlines():
-                    _print(f"{prefix} {line}")
-                    transcript_lines.append(line)
+        proc.stdout.close()
 
-    if timed_out:
-        return (-1, "\n".join(transcript_lines))
-
-    return (proc.returncode, "\n".join(transcript_lines))
+    return (-1 if timed_out else proc.returncode, "\n".join(transcript_lines))
 
 
 def _registered_verification_command(
@@ -215,8 +200,13 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             "[phase:tests] executing registered project verification "
             f"({scope}) in candidate worktree"
         )
+        try:
+            shell = project_command_shell()
+        except ProjectCommandShellUnavailable as exc:
+            _print(str(exc), err=True)
+            return (1, str(exc))
         rc, transcript = _run_streaming(
-            ["/bin/sh", "-c", command],
+            [shell, "-c", command],
             cwd=cwd,
             timeout=generic_test_timeout,
             prefix="[verification]",

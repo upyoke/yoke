@@ -25,6 +25,9 @@ from pathlib import Path
 from typing import Mapping, Optional, TextIO
 
 from yoke_contracts.venv_layout import venv_python
+from yoke_contracts.project_command_shell import (
+    ProjectCommandShellUnavailable, project_command_shell,
+)
 from yoke_core.domain import source_pythonpath as _source_pythonpath
 
 #: Capture-file and banner label. Names the surface an agent is reading,
@@ -37,7 +40,7 @@ def product_command_environment(
 ) -> dict[str, str]:
     """Bind a Command case onto the checkout's .venv, else this runner.
 
-    ``/bin/sh -c`` otherwise resolves ``python3`` from the process PATH —
+    The project command shell otherwise resolves ``python3`` from PATH —
     typically the system interpreter, which imports neither the project's
     test packages nor ``yoke_cli``. When the case's checkout *cwd* is
     another project with its own ``.venv``, that interpreter's folder goes
@@ -120,6 +123,13 @@ def stream_command(
     )
     destination = sys.stderr if stream is None else stream
     product_env = product_command_environment(env, cwd)
+    try:
+        shell = project_command_shell()
+    except ProjectCommandShellUnavailable as exc:
+        output = str(exc) + "\n"
+        raw_capture.write_text(output, encoding="utf-8")
+        print(output, file=destination, end="", flush=True)
+        return StreamedCommand(1, False, output, raw_capture)
     evidence = None
     with candidate_source(candidate_root, product_env) as binding:
         if binding and binding.refusal:
@@ -128,7 +138,7 @@ def stream_command(
             print(binding.refusal, file=destination, flush=True)
         else:
             exit_code = run_watcher(
-                argv=["/bin/sh", "-c", command],
+                argv=[shell, "-c", command],
                 classifier=relay_every_line,
                 raw_capture=raw_capture,
                 progress_capture=progress_capture,

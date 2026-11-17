@@ -21,6 +21,22 @@ from yoke_core.domain import (
 )
 
 from runtime.api.domain.qa_case_execution_test_support import _case
+from yoke_contracts.project_command_shell import ProjectCommandShellUnavailable
+
+
+def test_missing_project_shell_records_a_failed_case_and_capture(tmp_path, monkeypatch):
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+
+    def unavailable():
+        raise ProjectCommandShellUnavailable(
+            "project_command_shell_unavailable. Recovery: Install Git for Windows."
+        )
+
+    monkeypatch.setattr(qa_case_command_stream, "project_command_shell", unavailable)
+    case = _case("command", "worktree_run", {"command": "echo never-started"})
+    result = _execute(case, tmp_path, [])
+    assert result["verdict"] == "fail"
+    assert "project_command_shell_unavailable" in Path(result["output_capture"]).read_text()
 
 
 def _recording_dispatch(calls: list):

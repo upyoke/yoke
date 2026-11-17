@@ -53,7 +53,6 @@ from yoke_core.engines.merge_worktree_execute import (  # noqa: F401
     auto_resolve_conflicts,
     trial_merge,
     do_rebase_or_merge,
-    _terminate_process_tree,
     _run_streaming,
     run_tests,
 )

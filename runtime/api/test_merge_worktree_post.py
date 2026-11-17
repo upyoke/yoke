@@ -11,6 +11,7 @@ Shared fixtures and helpers live in test_merge_worktree_full.py.
 import subprocess
 import sys
 import textwrap
+import shutil
 from unittest import mock
 
 from yoke_core.engines import merge_worktree as engine
@@ -23,7 +24,6 @@ import pytest
 from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
-    MERGE_MODULE,
     WORKTREE_ROOT,
     _git,
     _write_file,
@@ -222,43 +222,26 @@ class TestCleanupTrap:
         """Trap cleans up trial branch on error."""
         repo = merge_env.repo
 
-        # Find real git
-        real_git = subprocess.run(
-            ["which", "git"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-
-        # Create git mock that fails on 'checkout YOK-N' (without -b)
-        git_mock_dir = merge_env.tmpdir / "git-mock"
-        git_mock_dir.mkdir(parents=True, exist_ok=True)
-        git_mock_script = textwrap.dedent(f"""\
-            #!/usr/bin/env sh
-            _has_b=0
-            _has_checkout=0
-            _has_branch_name=0
-            for _a in "$@"; do
-              case "$_a" in
-                -b) _has_b=1 ;;
-                checkout) _has_checkout=1 ;;
-                {TEST_BRANCH}) _has_branch_name=1 ;;
-              esac
-            done
-            if [ "$_has_checkout" -eq 1 ] && [ "$_has_branch_name" -eq 1 ] && [ "$_has_b" -eq 0 ]; then
-              "{real_git}" checkout --detach HEAD 2>/dev/null || true
-              echo "mock git: simulated checkout failure" >&2
-              exit 1
-            fi
-            exec "{real_git}" "$@"
+        real_git = shutil.which("git")
+        assert real_git is not None
+        # Inject the fault inside the Python engine, without a shebang wrapper
+        # or an MSYS path that native Windows cannot execute.
+        driver = textwrap.dedent(f"""\
+            import subprocess
+            from yoke_core.engines import merge_worktree as engine
+            run_git = engine._run_git
+            def fault(args, **kwargs):
+                if "checkout" in args and {TEST_BRANCH!r} in args and "-b" not in args:
+                    run_git(["checkout", "--detach", "HEAD"], **kwargs)
+                    return subprocess.CompletedProcess(args, 1, "", "simulated checkout failure")
+                return run_git(args, **kwargs)
+            engine._run_git = fault
+            raise SystemExit(engine.main([{TEST_BRANCH!r}, "main"]))
         """)
-        git_mock_path = git_mock_dir / "git"
-        git_mock_path.write_text(git_mock_script)
-        git_mock_path.chmod(git_mock_path.stat().st_mode | 0o111)
-
-        git_mock_test_path = f"{git_mock_dir}:{merge_env.test_path}"
-
-        env_overrides = merge_env.env(extra={"PATH": git_mock_test_path})
+        env_overrides = merge_env.env()
         env_overrides.setdefault("PYTHONPATH", str(WORKTREE_ROOT))
         subprocess.run(
-            [sys.executable, "-m", MERGE_MODULE, TEST_BRANCH, "main"],
+            [sys.executable, "-c", driver],
             cwd=str(repo),
             capture_output=True,
             text=True,

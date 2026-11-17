@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import subprocess
 
 import pytest
 
@@ -13,7 +12,6 @@ from textual.widgets import Static  # noqa: E402
 
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
-from yoke_cli.config import project_git_install_advice  # noqa: E402
 from yoke_cli.config import project_git_probe  # noqa: E402
 from yoke_cli.config import project_git_prerequisite  # noqa: E402
 from yoke_cli.config import project_git_transport  # noqa: E402
@@ -34,33 +32,8 @@ def _stub_path_doctor(monkeypatch):
     stub_path_doctor(monkeypatch)
 
 
-def _force_linux(monkeypatch) -> None:
-    real_advice = project_git_install_advice.install_advice
-    monkeypatch.setattr(
-        project_git_install_advice,
-        "install_advice",
-        lambda **kwargs: real_advice(**{**kwargs, "platform_name": "linux"}),
-    )
-    real_available = project_git_prerequisite.git_available
-    monkeypatch.setattr(
-        project_git_prerequisite,
-        "git_available",
-        lambda **kwargs: real_available(
-            **{
-                **kwargs,
-                "platform_name": "linux",
-                "runner": lambda *args, **kw: subprocess.CompletedProcess(args, 0),
-            }
-        ),
-    )
-
-
-def _available_git(name: str) -> str | None:
-    if name == "git":
-        return "/usr/bin/git"
-    if name in {"dnf", "sudo"}:
-        return f"/usr/bin/{name}"
-    return None
+def _stub_git_probe(monkeypatch) -> None:
+    monkeypatch.setattr(project_git_prerequisite, "git_available", lambda **kw: True)
 
 
 def _stub_unreachable_remote(monkeypatch) -> None:
@@ -109,12 +82,7 @@ def test_clone_remote_retry_edit_and_back_keep_history_bounded(
     monkeypatch,
 ) -> None:
     app, _spy = make_app()
-    _force_linux(monkeypatch)
-    monkeypatch.setattr(
-        project_git_prerequisite.shutil,
-        "which",
-        _available_git,
-    )
+    _stub_git_probe(monkeypatch)
     _stub_unreachable_remote(monkeypatch)
 
     async def scenario() -> None:
@@ -162,13 +130,8 @@ def test_clone_git_install_replaces_missing_git_recovery_view(
     monkeypatch,
 ) -> None:
     app, _spy = make_app()
-    _force_linux(monkeypatch)
+    _stub_git_probe(monkeypatch)
     state = {"installed": True, "install_calls": 0}
-
-    def _which(name: str) -> str | None:
-        if name == "git":
-            return "/usr/bin/git" if state["installed"] else None
-        return _available_git(name)
 
     def _install_git() -> None:
         state["install_calls"] += 1
@@ -182,7 +145,8 @@ def test_clone_git_install_replaces_missing_git_recovery_view(
             failure_kind=None,
         )
 
-    monkeypatch.setattr(project_git_prerequisite.shutil, "which", _which)
+    monkeypatch.setattr(project_git_prerequisite, "git_available",
+                        lambda **kw: state["installed"])
     monkeypatch.setattr(project_git_prerequisite, "install_git", _install_git)
     monkeypatch.setattr(project_git_transport, "remote_probe", _remote_probe)
 
@@ -219,12 +183,7 @@ def test_connected_clone_remote_back_returns_to_visibility_without_stale_error(
     monkeypatch,
 ) -> None:
     app, _spy = make_app()
-    _force_linux(monkeypatch)
-    monkeypatch.setattr(
-        project_git_prerequisite.shutil,
-        "which",
-        _available_git,
-    )
+    _stub_git_probe(monkeypatch)
     _stub_unreachable_remote(monkeypatch)
 
     async def scenario() -> None:
