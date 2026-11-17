@@ -158,10 +158,13 @@ def _open_file_holders(path: Path) -> list[str]:
 
     wanted = os.path.normcase(str(path))
     holders = []
-    for process in psutil.process_iter(["pid", "name"]):
+    for process in psutil.process_iter(["pid", "name", "cmdline"]):
         try:
             if any(os.path.normcase(f.path) == wanted for f in process.open_files()):
-                holders.append(f"{process.info['name']} (pid {process.info['pid']})")
+                pid = process.info["pid"]
+                command = " ".join(process.info["cmdline"] or [process.info["name"] or "?"])
+                this = ", this command" if pid == os.getpid() else ""
+                holders.append(f"pid {pid}{this} `{command[:160]}`")
         except (psutil.Error, OSError):
             continue
     return holders
