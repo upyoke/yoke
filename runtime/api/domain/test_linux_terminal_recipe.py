@@ -129,7 +129,7 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
         lambda control: {"environment": DESKTOP, "desktop_session": "reused"},
     )
 
-    def host(_run, _yoke_bin, command, *arguments, secrets=()):
+    def host(_run, _yoke_bin, command, *arguments, secrets=(), host_command=None):
         host_calls.append(command)
         return {
             "tabs": {"ok": True, "urls": [ENTRY], "identity_browsers": 1},

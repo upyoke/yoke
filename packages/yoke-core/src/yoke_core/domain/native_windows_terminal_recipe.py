@@ -7,7 +7,9 @@ from yoke_contracts.runtime_ports.ssh_windows_host_operations import (
     get_ssh_windows_host_operations,
 )
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_core.domain.machine_qa_operator_browser import reauthorize_command
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code
+from yoke_core.domain.native_windows_operator_gate import run_operator_gate
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     stage_recipe_files,
     run_command_recipe,
@@ -38,6 +40,7 @@ def execute_recipe(
         else:
             terminal = get_ssh_windows_host_operations().WindowsTerminal(control)
             result = _interactive(
+                control,
                 terminal,
                 entry_surface,
                 required_completion,
@@ -45,6 +48,7 @@ def execute_recipe(
                 progress_callback,
                 secrets,
                 control._pending_terminal_size,
+                allowed_operator_urls,
             )
         return HostActionResult(
             result.ok,
@@ -76,7 +80,9 @@ def execute_recipe(
                 )
 
 
-def _interactive(terminal, entry, required, config, progress, secrets, size):
+def _interactive(
+    control, terminal, entry, required, config, progress, secrets, size, operator_urls
+):
     deadline = time.monotonic() + float(config["max_wall_seconds"])
     rows = []
     try:
@@ -86,9 +92,22 @@ def _interactive(terminal, entry, required, config, progress, secrets, size):
             )
         for action in config["actions"]:
             if action.get("operator_gate"):
-                raise RuntimeError(
-                    "windows_operator_gate_requires_human: finish sign-ins on the native desktop before capturing the golden and rerun this case"
+                failed = run_operator_gate(
+                    control,
+                    terminal,
+                    action,
+                    rows,
+                    tuple(operator_urls),
+                    progress,
+                    reauthorize_command(config),
                 )
+                if failed is not None:
+                    return failed
+                if rows[-1]["key"] in config["capture_checkpoints"] and (
+                    "sha256" not in rows[-1]
+                ):
+                    rows[-1].update(terminal.capture_window())
+                continue
             text = terminal.wait_for(action.get("ready_text", []), deadline, progress)
             if text is None:
                 raise RuntimeError(

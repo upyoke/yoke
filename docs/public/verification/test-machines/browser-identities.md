@@ -95,10 +95,10 @@ waits up to 30 seconds; it never force-quits. A browser still running refuses
 failed process probe refuses `test_machine_sign_in_app_probe_failed`: check
 SSH and retry.
 
-Native Windows keeps its current installer, approval and default desktop
-browser paths until the launcher supports native Windows. Stock
+Native Windows follows the same route in PowerShell; see
+[native Windows browser identities](windows-browser-identities.md). Stock
 Safari, Edge and snap Chromium are no longer exercised, and the installer's
-handoff to the OS default browser is not exercised on macOS or WSL.
+handoff to the OS default browser is not exercised on any test machine.
 
 ## macOS sign-in procedure
 

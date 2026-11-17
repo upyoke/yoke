@@ -162,8 +162,9 @@ Use `--page NAME` for several pages within that check; the default is
 Without identities, open pages with `yoke browser open --project P --identity
 NAME URL` through the lease, naming the project's `default_identity`: a
 visible window of the machine's operator identity, already signed in. Drive it
-through screenshots and keystrokes; the stock desktop browser is never used
-(native Windows keeps it until the launcher supports native Windows).
+through screenshots and keystrokes; the stock desktop browser is never used.
+On native Windows the lease starts `yoke browser open` and the managed
+`yoke qa browser` commands in the test user's desktop.
 Never install Yoke on a Test Machine to get a browser.
 Agents do every step an agent physically can, including permission prompts and
 code approvals in the signed-in browser. Only the user's own password, MFA code

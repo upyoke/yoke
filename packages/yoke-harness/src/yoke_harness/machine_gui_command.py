@@ -22,6 +22,7 @@ from yoke_harness.native_windows.transport import (
     encoded,
     process_script,
 )
+from yoke_harness.native_windows.yoke_python import yoke_python_command
 
 
 class _Progress:
@@ -209,7 +210,13 @@ def run_gui_command(
                 "Repair the native SSH user profile and retry.",
             )
         control.home = home.stdout.strip()
-        result = desktop_script(control, process_script(argv), timeout=timeout)
+        # ProcessStartInfo finds only .exe on PATH; Yoke is the yoke.cmd shim.
+        script = (
+            yoke_python_command(argv)
+            if argv and argv[0] == "yoke"
+            else process_script(argv)
+        )
+        result = desktop_script(control, script, timeout=timeout)
         result.output_streamed = False
         return result
     if kind == "macos":

@@ -5,7 +5,9 @@ opens its approval link through ``BROWSER`` (``yoke browser open``), so the
 page lands in the operator identity's signed-in Chromium, which listens on a
 loopback DevTools port. This driver runs the machine's installed Yoke over
 SSH (``yoke browser devtools``, owned by ``identity_browser_devtools``), so the
-host needs no other interpreter: find the exact same-origin exact-code tab, revalidate it before
+host needs no other interpreter. *host_command* spells that argv in the host's
+shell: POSIX ``shlex`` by default; native Windows runs the installed Yoke's
+Python directly (``native_windows.yoke_python``). Then: find the exact same-origin exact-code tab, revalidate it before
 pressing the visible control, and accept only a same-origin navigation or the
 visible connected confirmation in that tab. A tab that landed on a sign-in page
 means the identity's login expired, and the refusal names the authorize command.
@@ -35,12 +37,19 @@ from yoke_harness import identity_browser_devtools
 BROWSER = "Chromium"
 HELPER_UNREADABLE = "identity_browser_helper_unreadable"
 RunRemote = Callable[..., subprocess.CompletedProcess[str]]
+HostCommand = Callable[[list[str]], str]
 _HOST_TIMEOUT_SECONDS = 90
 
 
-def _host(run: RunRemote, yoke_bin: str, *arguments: str, secrets=()) -> dict[str, Any]:
+def _host(
+    run: RunRemote,
+    yoke_bin: str,
+    *arguments: str,
+    secrets=(),
+    host_command: HostCommand = shlex.join,
+) -> dict[str, Any]:
     argv = [yoke_bin, "browser", "devtools", *arguments]
-    result = run(shlex.join(argv), timeout=_HOST_TIMEOUT_SECONDS)
+    result = run(host_command(argv), timeout=_HOST_TIMEOUT_SECONDS)
     try:
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         if not isinstance(payload, dict):
@@ -68,6 +77,7 @@ def approve_machine_in_identity_browser(
     reauthorize_command: str,
     yoke_bin: str,
     secrets=(),
+    host_command: HostCommand = shlex.join,
 ) -> BrowserApprovalResult:
     """Press the approval button only in the exact installer-opened tab."""
     try:
@@ -78,7 +88,14 @@ def approve_machine_in_identity_browser(
     tabs: dict[str, Any] = {"urls": []}
     deadline: float | None = None  # Starts at the first miss.
     while True:
-        tabs = _host(run, yoke_bin, "tabs", expected_origin, secrets=secrets)
+        tabs = _host(
+            run,
+            yoke_bin,
+            "tabs",
+            expected_origin,
+            secrets=secrets,
+            host_command=host_command,
+        )
         if not tabs.get("ok"):
             outcome = tabs
             break
@@ -91,6 +108,7 @@ def approve_machine_in_identity_browser(
                 json.dumps(allowed_urls),
                 APPROVE_CONTROL_LABEL,
                 secrets=secrets,
+                host_command=host_command,
             )
             break
         # A request-specific route with a rejected query is a navigation

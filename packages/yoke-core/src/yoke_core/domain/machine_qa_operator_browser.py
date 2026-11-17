@@ -5,7 +5,8 @@ browser-approval gate needs the operator's sign-in names the project's
 ``default_identity`` (its operator identity) here. The recipe exports the
 standard ``BROWSER`` variable as ``yoke browser open`` for that identity, so
 the installer's approval link opens signed in, and the approval driver's
-expired-login refusal names the exact re-authorize command.
+expired-login refusal names the exact re-authorize command. A POSIX host gets
+a shell ``export``; native Windows gets the PowerShell ``$env:`` form.
 """
 
 from __future__ import annotations
@@ -49,11 +50,8 @@ def with_operator_browser(
     test_machine: str,
     os_name: str,
 ) -> dict[str, Any]:
-    """Name the operator identity on a config whose gate approves in a browser.
-
-    Native Windows is deferred to its own change and keeps its current route.
-    """
-    if os_name == "windows" or not any(
+    """Name the operator identity on a config whose gate approves in a browser."""
+    if not any(
         gate_needs_desktop_browser(a) for a in config.get("actions") or ()
     ):
         return dict(config)
@@ -74,20 +72,23 @@ def with_operator_browser(
             "project": project,
             "identity": identity,
             "test_machine": test_machine,
+            "os": os_name,
         },
     }
 
 
 def browser_export(config: Mapping[str, Any]) -> str:
-    """The shell prefix that routes every link the entry opens to the launcher.
+    """The entry prefix that routes every link the entry opens to the launcher.
 
     ``{yoke_bin}`` is the host's resolved Yoke, substituted by each host
-    control. The launcher drops a fixture's ``YOKE_MACHINE_HOME`` so it reads
-    the test user's own identity store, the one a reset keeps.
+    control. The launcher must not see a fixture's ``YOKE_MACHINE_HOME``, so it
+    reads the test user's own identity store, the one a reset keeps.
     """
     operator = config.get(OPERATOR_BROWSER)
     if not operator:
         return ""
+    if operator.get("os") == "windows":
+        return _powershell_browser_export(operator)
     opener = " ".join(
         [
             "env -u YOKE_MACHINE_HOME {yoke_bin} browser open",
@@ -99,6 +100,33 @@ def browser_export(config: Mapping[str, Any]) -> str:
         ]
     )
     return f'export BROWSER="{opener}"; '
+
+
+def _powershell_browser_export(operator: Mapping[str, Any]) -> str:
+    """The native Windows form: PowerShell, with no backslash in ``BROWSER``.
+
+    Yoke splits ``BROWSER`` with POSIX ``shlex``, which drops backslashes, so
+    the opener names ``yoke.cmd`` and the prefix puts the resolved Yoke's
+    directory first on ``PATH``. PowerShell has no ``env -u``; the entry
+    clears ``YOKE_MACHINE_HOME`` before it runs, so the launcher inherits none.
+    """
+    opener = shlex.join(
+        [
+            "yoke.cmd",
+            "browser",
+            "open",
+            "--project",
+            operator["project"],
+            "--identity",
+            operator["identity"],
+        ]
+    )
+    literal = "'" + (opener + " %s").replace("'", "''") + "'"
+    return (
+        "$env:Path=(Split-Path -Parent {yoke_bin})+';'+$env:Path; "
+        f"$env:BROWSER={literal}; "
+        "Remove-Item Env:YOKE_MACHINE_HOME -ErrorAction SilentlyContinue; "
+    )
 
 
 def reauthorize_command(config: Mapping[str, Any]) -> str:
