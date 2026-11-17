@@ -270,12 +270,10 @@ def hook_evaluate(args: List[str]) -> int:
         )
         sys.stdout.write(plain_allow_stdout(event, executor))
         return 0
-    from yoke_contracts.hook_runner.safety import parse_payload
-
     stdout, stderr = io.StringIO(), io.StringIO()
     try:
         current_directory()
-        require_payload_directory(parse_payload(raw))
+        require_payload_directory(raw)
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
     except Exception as exc:  # noqa: BLE001 — no infrastructure failure may block
@@ -291,7 +289,7 @@ def hook_evaluate(args: List[str]) -> int:
         if stderr.getvalue():
             sys.stderr.write(stderr.getvalue())
     if event == "Stop":
-        from yoke_contracts.hook_runner.safety import protect_stop
+        from yoke_contracts.hook_runner.safety import parse_payload, protect_stop
 
         text, code = protect_stop(event, parse_payload(raw), text, code, executor)
     if text:
