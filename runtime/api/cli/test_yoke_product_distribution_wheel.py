@@ -5,7 +5,6 @@ from __future__ import annotations
 from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
 
 from runtime.api.cli.yoke_product_distribution_wheel_test_support import (
-    BASE_PATH as BASE_PATH,
     _assert_command as _assert_command,
     _format_result as _format_result,
     _product_env as _product_env,
