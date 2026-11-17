@@ -183,9 +183,17 @@ def stub_folder_validators(monkeypatch) -> None:
     covered directly by the validator unit suite, not these flow scenarios.
     """
     from yoke_cli.config import onboard_input_validation as validation
+    from yoke_cli.config import existing_project_lookup, onboard_local_checkout_identity
 
     monkeypatch.setattr(validation, "validate_create_target_folder", lambda _p: None)
     monkeypatch.setattr(validation, "validate_clone_target_folder", lambda _p: None)
+    # Fictional flow paths must never consult host Git or checkout mappings.
+    monkeypatch.setattr(
+        onboard_local_checkout_identity, "inspect", lambda *_: (None, None)
+    )
+    monkeypatch.setattr(
+        existing_project_lookup, "find_local_project_reference", lambda *a, **k: None
+    )
 
 
 def stub_source_branch(
