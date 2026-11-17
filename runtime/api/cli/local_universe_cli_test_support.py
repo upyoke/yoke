@@ -42,10 +42,15 @@ def _stub_engine(
 
 @pytest.fixture()
 def machine_home(monkeypatch, tmp_path) -> Path:
-    home = owner_private_path.create_owner_private_directory(tmp_path / "machine-home")
+    home = tmp_path / "machine-home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     monkeypatch.setattr(setup, "_record_operating_actor", lambda report, path: None)
     return home
+
+
+@pytest.fixture()
+def private_machine_home(machine_home) -> Path:
+    return owner_private_path.create_owner_private_directory(machine_home)
 
 
 def _config(home: Path) -> dict:
