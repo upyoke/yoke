@@ -1,0 +1,13 @@
+{
+ "id": "child-process-startup",
+ "title": "Restricted children retain operating system startup facts",
+ "status": "observed",
+ "audience": "maintainer",
+ "when": "A delegated Python command or isolated test child starts on native Windows.",
+ "need": "A restricted child retains SYSTEMROOT, SYSTEMDRIVE, WINDIR, COMSPEC and PATHEXT when present so Python networking can initialize. Test executable paths use the native path separator; disposable home and app-data paths stay separate from caller authority.",
+ "disclosure": "source contract",
+ "surface": "Delegated service-client environment and isolated test-support builders.",
+ "review": "Focused child-environment checks cover OS variable preservation and secret isolation; the Windows suite exercises release-all and the product-boundary commands without weakening their assertions.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/process_environment.py", "packages/yoke-contracts/src/yoke_contracts/testing/child_environment.py", "packages/yoke-core/src/yoke_core/api/service_client_shared_io.py", "runtime/api/test_child_environment.py"],
+ "position": 4
+}

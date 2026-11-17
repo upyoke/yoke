@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_merge_worktree_post_diverge.py::TestDivergenceHandling::test_yok602_multi_commit_board_empty",
- "reason": "YOK-5369: MergeEnv.env hands the merge child no SYSTEMROOT and a ':'-joined PATH; its psycopg import fails with 'no pq wrapper available'"
-}
