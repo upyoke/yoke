@@ -26,12 +26,16 @@ except ImportError:
 # Windows needs these to start Python, Git and uv at all; none carries authority.
 WINDOWS = os.name == "nt"
 # A real Windows session always carries these; PowerShell and COM expect them.
+# The PowerShell module path and analysis cache keep the hooks' and relay's
+# cmdlet lookups from rebuilding a cache over every module on the runner image
+# (20-50 seconds per process); a user's own profile keeps that cache warm.
 WINDOWS_SYSTEM_VARIABLES = (
     "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT",
     "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "PROGRAMDATA", "ALLUSERSPROFILE",
     "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)", "COMMONPROGRAMW6432", "PUBLIC",
     "COMPUTERNAME", "USERNAME", "USERDOMAIN", "OS", "NUMBER_OF_PROCESSORS",
     "PROCESSOR_ARCHITECTURE", "PROCESSOR_IDENTIFIER", "PROCESSOR_LEVEL", "PROCESSOR_REVISION",
+    "PSMODULEPATH", "PSMODULEANALYSISCACHEPATH",
 )  # fmt: skip
 SCRATCH_PREFIX = "yps-"
 
