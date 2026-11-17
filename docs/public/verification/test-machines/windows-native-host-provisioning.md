@@ -240,6 +240,16 @@ VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
+On a macOS controller, install Microsoft's **Windows App** before opening a
+bounded VM setup window. Microsoft provides a [standalone installer](https://learn.microsoft.com/windows-app/get-started-connect-devices-desktops-apps?pivots=remote-pc)
+or Mac App Store download; Homebrew's `windows-app` cask uses the vendor PKG.
+The PKG requires controller administrator authentication. Complete installation
+and verify Computer Use can select the packaged app before powering on the VM;
+an unbundled SDL FreeRDP process may connect without a controllable app surface.
+Use the verified private tailnet address, retain certificate validation, and
+keep test-account credentials in private custody. Do not save credentials or
+accept an unexpected certificate warning as part of unattended setup.
+
 Configure automatic logon using an LSA-protected password (such as Microsoft's
 Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
 the project's lab policy. Reboot and prove a scheduled task with
