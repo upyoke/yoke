@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_session_relay_inventory.py::test_a_standalone_install_on_path_wins_over_the_desktop_bundle",
+ "reason": "AssertionError: assert None == '0.150.0'"
+}

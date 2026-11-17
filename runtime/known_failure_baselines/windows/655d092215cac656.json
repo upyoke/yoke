@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_sign_in_stores.py::test_rotated_refresh_tokens_are_never_rolled_back",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

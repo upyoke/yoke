@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_app_binding_http_security.py::test_https_binding_uses_default_server_app_and_never_persists_secrets",
+ "reason": "AssertionError: assert 'configured GitHub App cannot access' in 'this platform cannot safely open the GitHub App private-key file'"
+}

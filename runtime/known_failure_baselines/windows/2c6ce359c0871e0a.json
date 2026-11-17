@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_hook_helpers_identity.py::TestDetectNativeThreadId::test_captures_codex_thread_id",
+ "reason": "RuntimeError: Could not determine home directory."
+}

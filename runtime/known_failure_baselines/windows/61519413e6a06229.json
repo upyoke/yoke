@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_merge_worktree_prepare.py::TestBranchValidation::test_standalone_branch_rejected_without_permission",
+ "reason": "YOK-5369: MergeEnv.env hands the merge child no SYSTEMROOT and a ':'-joined PATH; its psycopg import fails with 'no pq wrapper available'"
+}

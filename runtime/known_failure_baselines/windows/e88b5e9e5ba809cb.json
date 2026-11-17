@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_merge_worktree_execute.py::TestTrialMerge::test_yok208_trial_merge_auto_resolvable",
+ "reason": "YOK-5369: MergeEnv.env hands the merge child no SYSTEMROOT and a ':'-joined PATH; its psycopg import fails with 'no pq wrapper available'"
+}

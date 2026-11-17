@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_product_boundary_fault_injection.py::test_local_only_dispatch_fails_closed_when_core_authority_is_blocked",
+ "reason": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+}

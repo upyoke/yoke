@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_browser_system_dependencies.py::test_root_invokes_playwright_package_installer_directly",
+ "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
+}

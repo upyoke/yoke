@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_watch_print_only_contract.py::test_an_unwakeable_caller_gets_a_foreground_command_and_no_subscription",
+ "reason": "assert 'tail -80 C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_an_unwakeable_caller_gets0\\\\fleet.raw' in \"# watch_fleet wait_mode=in-turn\\n# watch_flee"
+}

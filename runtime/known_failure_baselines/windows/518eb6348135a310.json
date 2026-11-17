@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_service_client_connected_env.py::test_subprocess_backend_env_uses_pytest_checkout_binding",
+ "reason": "KeyError: 'YOKE_MACHINE_CONFIG_FILE'"
+}

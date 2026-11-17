@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_browser_system_dependencies.py::test_missing_libraries_are_installed_before_sandbox_launch_probe",
+ "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
+}

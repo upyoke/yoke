@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_desktop_session.py::test_existing_human_xfce_is_reused_without_password",
+ "reason": "ModuleNotFoundError: No module named 'pwd'"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestGitDirectoryOption::test_relative_git_dir_joins_execution_cwd",
+ "reason": "AssertionError: assert ['/repo\\\\lane\\\\src/a.py'] == ['/repo/lane/src/a.py']"
+}

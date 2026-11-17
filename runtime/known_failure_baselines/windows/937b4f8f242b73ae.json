@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_agent_mission_stale_owner_marker.py::test_preparation_keeps_a_yoke_home_that_holds_anything_else",
+ "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+}

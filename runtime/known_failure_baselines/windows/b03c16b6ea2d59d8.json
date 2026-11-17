@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_hook_phase_timing.py::test_a_degraded_hook_logs_its_phases_without_chat_noise",
+ "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_a_degraded_hook_logs_its_0\\\\hook-evaluator\\\\eval"
+}

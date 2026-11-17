@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_operation_permission_scopes.py::test_direct_installation_token_minters_and_imports_are_allowlisted",
+ "reason": "AssertionError: assert {('packages\\\\...get_or_mint')} == frozenset({('...et_or_mint')})"
+}

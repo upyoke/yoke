@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_installer_campaign_harness_setup_cases.py::test_late_harness_scripted_probe",
+ "reason": "RuntimeError: late_harness_setup_incomplete: inspect setup rows: ['claude-code: folder_trust skipped_no_home C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\harness-setup-proof-b6o16z0q\\\\checkout', 'cla"
+}

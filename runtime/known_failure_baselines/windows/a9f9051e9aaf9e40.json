@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write_derivation.py::TestExtractedTargetRefusal::test_relative_token_refusal_names_token_and_resolution",
+ "reason": "assert 'working directory C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_relative_token_refusal_na0\\\\repo -> C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Tem"
+}

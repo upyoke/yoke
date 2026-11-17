@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_source_machine_home.py::test_snapshot_unreadable_secret_names_failed_path",
+ "reason": "Failed: Invalid regex pattern provided to 'match': incomplete escape \\U at position 2"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_agent_mission_stale_owner_marker.py::test_preparation_deletes_a_stale_marker_and_its_otherwise_empty_home",
+ "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_product_cli_no_checkout_smoke.py::test_missing_credential_step_detects_issue",
+ "reason": "AssertionError: assert False"
+}

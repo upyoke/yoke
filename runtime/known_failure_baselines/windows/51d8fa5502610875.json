@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_dev_redirect.py::test_dev_null_and_fd_dup_is_not_a_write",
+ "reason": "AssertionError: assert True is False"
+}

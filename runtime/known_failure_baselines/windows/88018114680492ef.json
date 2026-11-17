@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_destructive_git_variable_shape.py::TestStashDropVariableShape::test_loop_variable_stash_drop_is_denied",
+ "reason": "AssertionError: unexpectedly None"
+}

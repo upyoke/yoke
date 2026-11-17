@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_hook_resident_budget.py::test_a_cold_resident_listens_before_loading_and_answers_once_ready",
+ "reason": "OSError: [WinError 123] The filename, directory name, or volume label syntax is incorrect"
+}

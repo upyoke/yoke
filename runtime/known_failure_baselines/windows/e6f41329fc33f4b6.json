@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_leading_cd_into_lane_allows[python3 - <<'PY'\\nfrom pathlib import Path\\ndef change(name, old, new):\\n p=Path(name); s=p.read_text(); assert old in s,name; p.write_text(s.replace(old,new))\\nc='packages/yoke-core/src/yoke_core/domain/'\\nchange(c+'projects_restart_schema.py','a\\\\n','b\\\\n')\\nPY-; ]",
+ "reason": "AssertionError: BLOCKED: source write to the main checkout while an implementation lane is held."
+}

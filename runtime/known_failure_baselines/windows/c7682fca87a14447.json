@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_codex_lane_hook_trust.py::test_differing_hook_content_is_never_granted_trust",
+ "reason": "AssertionError: assert 'Codex config..., then retry.' == 'worktree hoo...ource content'"
+}

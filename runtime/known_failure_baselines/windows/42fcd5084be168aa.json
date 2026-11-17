@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_documentation_navigation.py::test_tracked_source_pages_and_symlink_escape",
+ "reason": "assert 'untracked: s...lic\\\\index.md' == \"untracked: s...ic\\\\index.md'\""
+}

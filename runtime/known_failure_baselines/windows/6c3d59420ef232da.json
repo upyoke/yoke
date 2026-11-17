@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write.py::TestMainWriteRefused::test_write_to_main_checkout_denies",
+ "reason": "assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_write_to_main_checkout_de0\\\\repo\\\\.worktrees\\\\YOK-2013/runtime/api/foo.py' in \"BLOCKED: source wr"
+}

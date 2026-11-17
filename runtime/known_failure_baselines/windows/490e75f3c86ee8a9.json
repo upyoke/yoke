@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_candidate_checkout.py::test_partial_clone_source_yields_a_complete_candidate",
+ "reason": "AssertionError: assert 'fail' == 'pass'"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestRelativeTargetAfterCd::test_append_to_claimed_file_from_sub_folder_is_allowed",
+ "reason": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/var/tmp\\\\yoke-lane-w2yjpea8'"
+}

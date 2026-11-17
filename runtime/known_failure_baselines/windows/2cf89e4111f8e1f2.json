@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_project_uninstall_owned_cleanup.py::test_unrecorded_and_legacy_trust_is_preserved",
+ "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_unrecorded_and_legacy_tru0\\\\harness-home\\\\.claud"
+}

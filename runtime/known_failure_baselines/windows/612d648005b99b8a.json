@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_codex_lane_hook_trust.py::test_mirroring_grants_the_worktree_the_source_hashes",
+ "reason": "AssertionError: assert set() == {'pre_tool_us...on_start:0:0'}"
+}

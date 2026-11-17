@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_app_group_secret_mount.py::test_accepts_service_group_read_only_secret_mount",
+ "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'getegid'"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_hc_events_app_state_reads.py::TestScanEventsReads::test_claim_boundary_audit_summary_is_allowlisted_audit_reader",
+ "reason": "AssertionError: Lists differ: ['packages\\\\yoke-core\\\\src\\\\yoke_core\\\\dom[110 chars]%s\"'] != []"
+}

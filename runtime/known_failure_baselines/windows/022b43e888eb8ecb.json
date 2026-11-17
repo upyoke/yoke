@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_hc_project_hook_config.py::test_a_valid_codex_config_is_checked_and_named",
+ "reason": "AssertionError: assert '.codex/hooks.json' in 'regular and schema-valid: .claude\\\\settings.json, .codex\\\\hooks.json, .cursor\\\\hooks.json'"
+}

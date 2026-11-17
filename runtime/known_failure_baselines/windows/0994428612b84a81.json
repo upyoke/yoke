@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_app_public_profile.py::test_partial_or_invalid_profile_warns_without_values[partial]",
+ "reason": "AssertionError: assert False"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_ci_repo_contracts.py::test_changed_path_ruff_reports_every_finding_then_passes_when_fixed",
+ "reason": "AssertionError: assert ['C', 'C', 'C'] == ['alpha.py', ...y', 'zeta.py']"
+}

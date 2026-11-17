@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_project_publication_settings.py::test_policy_switch_keeps_only_established_registration_ownership[owned]",
+ "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_policy_switch_keeps_only_0\\\\harness-home\\\\.claud"
+}

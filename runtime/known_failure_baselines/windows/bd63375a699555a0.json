@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_candidate_source.py::test_bare_python_and_yoke_import_candidate_instead_of_installed_source[shell]",
+ "reason": "AssertionError: assert 'fail' == 'pass'"
+}

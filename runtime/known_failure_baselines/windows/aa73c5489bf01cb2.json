@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_hook_resident_health.py::test_missing_unix_socket_transport_reaches_canonical_fallback",
+ "reason": "IndexError: list index out of range"
+}

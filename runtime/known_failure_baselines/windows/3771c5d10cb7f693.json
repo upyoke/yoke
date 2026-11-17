@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_sign_in_stores.py::test_chromium_quits_before_capture_or_reset_touches_the_home",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

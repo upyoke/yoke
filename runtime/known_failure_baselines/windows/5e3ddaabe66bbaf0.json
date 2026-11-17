@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_project_uninstall_trust_values.py::test_entries_without_granted_trust_leave_uninstall_complete",
+ "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_entries_without_granted_t0\\\\harness-home\\\\.claud"
+}

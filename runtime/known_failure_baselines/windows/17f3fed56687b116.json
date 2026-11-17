@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_unconnected_onboarding_publication.py::test_unconnected_onboarding_finishes_with_or_without_git_credentials[True]",
+ "reason": "yoke_cli.config.project_git_prerequisite.MissingGitError: git is required for project setup but was not found on PATH. Native Windows onboarding is not supported. Install WSL, open Ubuntu, then rerun"
+}
