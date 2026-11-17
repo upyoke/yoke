@@ -1,0 +1,5 @@
+{
+"runtime/harness/test_session_relay_interactive_holder.py::TestInteractiveHolder::test_live_interactive_anchor_defers_without_custody[claude-cli]": "counts the shard's own `uv run` parent as a native background command (test reads real host processes)",
+"runtime/harness/test_session_relay_interactive_holder.py::TestInteractiveHolder::test_live_interactive_anchor_defers_without_custody[codex-cli]": "counts the shard's own `uv run` parent as a native background command (test reads real host processes)",
+"runtime/harness/test_session_relay_interactive_holder.py::TestInteractiveHolder::test_live_interactive_anchor_defers_without_custody[cursor-cli]": "counts the shard's own `uv run` parent as a native background command (test reads real host processes)"
+}

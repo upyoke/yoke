@@ -10,7 +10,7 @@ CORE = "packages/yoke-core/src/yoke_core/domain/"
 
 def assignments(path):
     result = {}
-    for row in ast.parse(path.read_text()).body:
+    for row in ast.parse(path.read_text(encoding="utf-8")).body:
         if isinstance(row, ast.Assign) and isinstance(row.targets[0], ast.Name):
             result[row.targets[0].id] = row.value
         elif isinstance(row, ast.AnnAssign) and isinstance(row.target, ast.Name):
@@ -72,7 +72,7 @@ def add_setup(add, model):
     for path in files:
         common.update(assignments(path))
     for path in files:
-        code = ast.parse(path.read_text())
+        code = ast.parse(path.read_text(encoding="utf-8"))
         names = common | assignments(path)
         for row in ast.walk(code):
             if not isinstance(row, ast.Call) or not isinstance(row.func, ast.Name):
@@ -152,7 +152,7 @@ def add_setup(add, model):
 def add_packets(add):
     table_sources = {}
     for source in (REPO / CORE).glob("schema_api_context_table*.py"):
-        for row in ast.walk(ast.parse(source.read_text())):
+        for row in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
             if isinstance(row, ast.Dict):
                 for key, value in zip(row.keys, row.values):
                     name = literal(key)

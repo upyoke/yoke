@@ -54,7 +54,7 @@ def test_page_inlines_assets_and_never_fetches(tools):
 def test_unsafe_inline_asset_is_refused(tools, monkeypatch, tmp_path):
     _, model, render = tools
     for name in ("explorer.css", "explorer_outline.css", *render.SCRIPTS):
-        (tmp_path / name).write_text((TOOLS / name).read_text(encoding="utf-8"))
+        (tmp_path / name).write_text((TOOLS / name).read_text(encoding="utf-8"), encoding="utf-8")
     (tmp_path / "explorer.js").write_text("const end = '</" + "script>';")
     monkeypatch.setattr(render, "HERE", tmp_path)
     loaded = model.Model()

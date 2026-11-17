@@ -1,5 +1,4 @@
 {
-"runtime/api/cli/test_yoke_self_host_teardown.py::test_a_failed_compose_down_removes_nothing_else": "AssertionError: assert 1 == 0",
 "runtime/api/cli/test_yoke_self_host_teardown.py::test_an_image_still_in_use_is_reported_not_forced": "AssertionError: assert 1 == 0",
 "runtime/api/cli/test_yoke_self_host_teardown.py::test_connection_choice_refuses_before_docker_and_excludes_dead_replacements": "AssertionError: assert 1 == 0",
 "runtime/api/cli/test_yoke_self_host_teardown.py::test_default_teardown_stops_the_stack_and_keeps_the_data": "AssertionError: assert 1 == 0",

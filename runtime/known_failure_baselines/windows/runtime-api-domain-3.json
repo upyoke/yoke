@@ -1,4 +1,6 @@
 {
+"runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_refusal_names_the_path_and_what_to_change[assert_home_ownership-foreign_owner-/Users/tester/Library/root-owned-golden_capture_foreign_owner]": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_capture_foreign_owner'",
+"runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_refusal_names_the_path_and_what_to_change[assert_no_yoke_residue-yoke_residue-/Users/tester/.yoke-golden_capture_yoke_residue]": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_capture_yoke_residue'",
 "runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_refusal_names_the_path_and_what_to_change[validate_destination-destination_occupied-/Users/Shared/yoke-golden/tester-home-20260903-golden_capture_destination_occupied]": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_captu...tion_occupied'",
 "runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_residue_refusal_recovers_without_a_registered_golden": "KeyError: 'refusal'",
 "runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_successful_capture_seals_both_sidecars_and_reports_what_it_wrote": "AssertionError: test_mac_path_home_mismatch",

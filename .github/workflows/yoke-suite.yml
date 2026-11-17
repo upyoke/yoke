@@ -110,10 +110,6 @@ jobs:
       PYTHONUNBUFFERED: "1"
       YOKE_CI_PYTHON_SCOPE: all
       YOKE_KNOWN_FAILURE_BASELINE: "1"
-      # Name every test as it finishes, and end the shard when a test kills
-      # its xdist worker: a replaced worker never receives its shutdown, so
-      # each worker waits on its last queued test until the job times out.
-      PYTEST_ADDOPTS: -v --max-worker-restart=0 --deselect runtime/api/cli/test_github_workflow_runner_routing.py::test_automatic_workflows_do_not_require_macos_runners --deselect runtime/api/cli/test_github_workflow_runner_routing.py::test_multi_os_suite_remains_an_on_demand_windows_and_macos_matrix  # TEMPORARY with the pull_request trigger
     strategy:
       fail-fast: false
       matrix:
@@ -166,7 +162,15 @@ jobs:
       - name: Run pytest
         env:
           YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
-        run: uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
+        # -v names every test as it finishes. --max-worker-restart=0 ends the
+        # shard when a test kills its xdist worker: a replaced worker never
+        # receives its shutdown, so each worker would wait on its last queued
+        # test until the job timed out.
+        run: >-
+          uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
+          -- -v --max-worker-restart=0
+          --deselect runtime/api/cli/test_github_workflow_runner_routing.py::test_automatic_workflows_do_not_require_macos_runners
+          --deselect runtime/api/cli/test_github_workflow_runner_routing.py::test_multi_os_suite_remains_an_on_demand_windows_and_macos_matrix
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

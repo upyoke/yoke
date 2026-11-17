@@ -1,4 +1,6 @@
 {
+"runtime/api/domain/test_linux_reset_preconditions.py::test_live_credential_survives_success_and_midway_failure[True]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
+"runtime/api/domain/test_linux_reset_preconditions.py::test_reset_ends_open_desktop_before_clearing_home[False]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/domain/test_linux_reset_preconditions.py::test_reset_ends_open_desktop_before_clearing_home[True]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/domain/test_linux_reset_preconditions.py::test_symlinked_live_credential_refuses_before_teardown": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/domain/test_linux_reset_service_inventory.py::test_reset_accepts_empty_definitions_and_evicts_loaded_fileless_relay[False-0]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
@@ -296,7 +298,5 @@
 "runtime/api/domain/test_ssh_mac_full_reset_relay_receipt.py::test_reset_refuses_a_relay_failure_naming_a_service_it_does_not_own": "AssertionError: assert 'test_mac_path_home_mismatch' == 'test_mac_reset_failed'",
 "runtime/api/domain/test_ssh_mac_full_reset_relay_receipt.py::test_reset_reports_whether_a_relay_service_had_to_be_unloaded": "AssertionError: assert False",
 "runtime/api/domain/test_ssh_mac_full_reset_relay_receipt.py::test_reset_stops_before_the_wipe_when_a_relay_service_stays_loaded": "AssertionError: assert 'test_mac_path_home_mismatch' == 'test_mac_res...ervice_failed'",
-"runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_capture_whose_probes_never_seal_reports_the_unsealed_sidecar": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_probes_seal_failed'",
-"runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_refusal_names_the_path_and_what_to_change[assert_home_ownership-foreign_owner-/Users/tester/Library/root-owned-golden_capture_foreign_owner]": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_capture_foreign_owner'",
-"runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_refusal_names_the_path_and_what_to_change[assert_no_yoke_residue-yoke_residue-/Users/tester/.yoke-golden_capture_yoke_residue]": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_capture_yoke_residue'"
+"runtime/api/domain/test_ssh_mac_golden_capture.py::test_a_capture_whose_probes_never_seal_reports_the_unsealed_sidecar": "AssertionError: assert 'test_mac_path_home_mismatch' == 'golden_probes_seal_failed'"
 }

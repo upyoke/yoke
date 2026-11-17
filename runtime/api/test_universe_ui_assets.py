@@ -297,7 +297,7 @@ def test_page_module_wires_the_workbench_shell():
         "universe_views_capabilities.js": ("projects.capabilities.list",),
     }
     for module_name, references in view_references.items():
-        view = static_root.joinpath(module_name).read_text()
+        view = static_root.joinpath(module_name).read_text(encoding="utf-8")
         for reference in references:
             assert reference in view, f"{module_name}: {reference}"
 
