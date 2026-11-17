@@ -32,7 +32,7 @@ def test_qa_browser_status_runs_from_clean_client(tmp_path: Path) -> None:
     assert run.returncode == 0
     payload = json.loads(run.stdout)
     assert payload["daemon"]["status"] == "not_running"
-    assert payload["runtime_dir"].endswith("/home/.yoke/browser-runtime")
+    assert Path(payload["runtime_dir"]).parts[-3:] == ("home", ".yoke", "browser-runtime")
     assert run.stderr == ""
     _assert_clean_client_boundary(run)
 
@@ -50,7 +50,7 @@ def test_qa_browser_setup_dry_run_runs_from_clean_client(
     assert payload["ok"] is True
     assert payload["dry_run"] is True
     assert payload["daemon"]["status"] == "not_running"
-    assert payload["runtime_dir"].endswith("/home/.yoke/browser-runtime")
+    assert Path(payload["runtime_dir"]).parts[-3:] == ("home", ".yoke", "browser-runtime")
     assert run.stderr == ""
     _assert_clean_client_boundary(run)
 
