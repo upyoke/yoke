@@ -129,6 +129,12 @@ recovery task, and enables RDP restricted by the SSH-only network route:
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
 ```
 
+When administrator key SSH already works, add `--bootstrap-transport ssh` to run
+bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
+Uploads and password input use bounded length frames, so guest readers finish
+without waiting for stdin EOF. Uploaded files require a byte-count and SHA256
+receipt before execution; password input never produces a digest or receipt.
+
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
 -- ...`; this deliberately persists the generated test-user password in Yoke.
 The provisioner uses the capability-owned `test-machine.ssh_private_key` and

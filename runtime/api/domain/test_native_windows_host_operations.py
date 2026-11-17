@@ -137,25 +137,6 @@ def test_native_refresh_never_runs_posix_python(monkeypatch):
     assert "Get-Command" in seen[0]
 
 
-def test_large_script_streams_utf8_bom_and_keeps_input(monkeypatch):
-    from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
-
-    calls = []
-
-    def run(self, script, **kwargs):
-        calls.append((script, kwargs))
-        return completed()
-
-    monkeypatch.setattr(SshTestMachineTransport, "_run", run)
-    control = object.__new__(WindowsTransport)
-    source = 'Write-Output "héllo"; ' * 1000
-    control._run(source, input_text="private-input", timeout=17)
-    assert base64.b64decode(calls[0][1]["input_text"]).decode("utf-8-sig") == source
-    assert calls[1][1]["input_text"] == "private-input"
-    assert "finally" in calls[1][0]
-    assert "Remove-Item" in calls[1][0]
-
-
 def test_native_console_task_outlives_open_and_is_owned_until_close(monkeypatch):
     from yoke_harness.native_windows.terminal import WindowsTerminal
 
