@@ -158,8 +158,18 @@ def resolve(
         # A synchronized package set alone does not prove .python-version.
         # Delegate every supported Python request format to uv, without letting
         # it provision another interpreter or use that interpreter for checks.
+        # --managed-python keeps discovery to virtual environments and uv-managed
+        # installs: a request this .venv misses must refuse without querying
+        # every interpreter on the host search path, which is unbounded.
         requested = subprocess.run(
-            [UV_EXECUTABLE, "python", "find", "--offline", "--no-python-downloads"],
+            [
+                UV_EXECUTABLE,
+                "python",
+                "find",
+                "--offline",
+                "--no-python-downloads",
+                "--managed-python",
+            ],
             cwd=project,
             env=clean,
             capture_output=True,
