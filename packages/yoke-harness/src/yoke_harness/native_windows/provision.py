@@ -26,6 +26,10 @@ from yoke_harness.native_windows.stdin_frame import (
 from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+from yoke_harness.native_windows.profile import (
+    SCRIPT as PROFILE_SCRIPT,
+    missing_password_guard,
+)
 
 
 BOOTSTRAP_TIMEOUT_SECONDS = 5400
@@ -218,23 +222,23 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
         project, "test-machine:" + machine, "desktop_password"
     )
     if not password:
+        absent = admin_script(key, host, admin_user, missing_password_guard(test_user))
+        if absent.returncode or "YOKE_TEST_USER_ABSENT" not in absent.stdout:
+            raise RuntimeError(
+                "windows_existing_user_secret_required: verify account absence or restore its stored secret; no password was reset"
+            )
         password = secrets.token_urlsafe(32) + "aA1!"
         store_machine_capability_secret(
             project, "test-machine:" + machine, "desktop_password", password
         )
-    setup = r"""$ErrorActionPreference='Stop'
+    setup = (
+        r"""$ErrorActionPreference='Stop'
 $name=TEST_USER
 $password=[Text.Encoding]::UTF8.GetString((Read-YokeFrame))
 $secure=ConvertTo-SecureString $password -AsPlainText -Force
-if(Get-LocalUser -Name $name -ErrorAction SilentlyContinue){Set-LocalUser -Name $name -Password $secure}
-else {New-LocalUser -Name $name -Password $secure -PasswordNeverExpires | Out-Null}
+PROFILE_CREATION
 Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $name -ErrorAction SilentlyContinue
 if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\$name"){throw 'windows_test_user_admin: remove the test user from Administrators and retry'}
-# Create its profile without an interactive password exchange.
-$credential=[PSCredential]::new("$env:COMPUTERNAME\$name",$secure)
-$p=Start-Process powershell.exe -Credential $credential -LoadUserProfile -ArgumentList '-NoProfile -Command exit' -PassThru -Wait
-if($p.ExitCode){throw 'windows_profile_creation_failed: inspect the standard test account'}
-$homePath="C:\Users\$name"
 New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens','C:\ProgramData\YokeQa\requests','C:\ProgramData\YokeQa\private' | Out-Null
 Set-Content -LiteralPath "$homePath\.ssh\authorized_keys" -Value PUBLIC_KEY
 & icacls.exe "$homePath\.ssh" /inheritance:r /grant "${name}:(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
@@ -255,7 +259,10 @@ if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -
  throw 'windows_rdp_firewall_failed: inspect the effective YokeQaRdpLoopback firewall rule'
 }
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
-""".replace("TEST_USER", quote(test_user)).replace("PUBLIC_KEY", quote(public))
+""".replace("TEST_USER", quote(test_user))
+        .replace("PUBLIC_KEY", quote(public))
+        .replace("PROFILE_CREATION", PROFILE_SCRIPT)
+    )
     result = admin_script(
         key,
         host,

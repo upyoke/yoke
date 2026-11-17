@@ -141,6 +141,12 @@ The provisioner uses the capability-owned `test-machine.ssh_private_key` and
 stores `test-machine:VM.desktop_password`; it streams the password to the
 administrator over SSH stdin. It never embeds it in argv or the provisioned
 script. Keep administrator and standard-user passwords separate.
+Retries preserve an existing test account's password and require its stored
+`desktop_password`; restore custody if it is missing, rather than resetting the
+account. Profiles are created by the administrator through Windows
+[`CreateProfile`](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createprofile)
+and resolved by SID, including profile directory suffixes. Profile creation
+checks the registered directory and hive; it does not prove interactive sign-in.
 Read errors and rerun only after correcting the named failure. Azure returning
 success does not prove its script succeeded; the provisioner requires its
 explicit readiness message.
