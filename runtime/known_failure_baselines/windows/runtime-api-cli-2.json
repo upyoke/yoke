@@ -135,8 +135,6 @@
 "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_git_prerequisite.py::test_missing_git_retry_continues_after_install": "AssertionError: assert 'What to do' == 'Clone a project from GitHub.'",
 "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_hosting.py::test_both_key_paths_store_and_verify_the_same_redacted_identity[existing]": "AssertionError: assert (33206 & 63) == 0",
 "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_hosting.py::test_both_key_paths_store_and_verify_the_same_redacted_identity[guided]": "AssertionError: assert (33206 & 63) == 0",
-"runtime/api/cli/test_yoke_operations_cli_onboard_wizard_publish.py::test_changed_checkout_origin_back_returns_to_project_name": "AssertionError: assert 'Checkout origin changed' in 'Project details.'",
-"runtime/api/cli/test_yoke_operations_cli_onboard_wizard_publish.py::test_remote_already_present_auto_skips_publish": "AssertionError: assert 'How should Yoke manage this project on GitHub?' in 'Project details.'",
 "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_self_host.py::test_connect_recovery_names_the_token_file_and_retries_it_in_memory": "AttributeError: 'OnboardWizardApp' object has no attribute '_self_host_setup'",
 "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_self_host.py::test_finish_with_handoff_exits_successfully_without_a_project": "AssertionError: assert '' == 'http://127.0.0.1:8765'",
 "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_self_host.py::test_picker_preview_is_exact_and_does_not_mutate_before_start": "assert 'Host a Yoke server on this machine?' in \"\\u2717 Self-hosting requires WSL2.  Cause: self_host_native_windows_requires_wsl2: hosting a Yoke server on native Windows requires WSL2. Recovery: In",
