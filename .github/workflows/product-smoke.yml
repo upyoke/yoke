@@ -108,21 +108,32 @@ jobs:
         run: |
           tasklist //v //fi "imagename eq Runner.Worker.exe" || true
           python - <<'PROBE'
-          import os, subprocess, time
+          import os, subprocess, sys, tempfile, time
+          sys.path.insert(0, "runtime/api/tools")
+          from product_runner_smoke import WINDOWS_SYSTEM_VARIABLES
           root = os.environ["SYSTEMROOT"]
-          keep = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
-          minimal = {k: os.environ[k] for k in keep if k in os.environ}
-          minimal["PATH"] = root + r"\System32;" + root + r"\System32\WindowsPowerShell\v1.0"
+          home = tempfile.mkdtemp(prefix="yps-probe-")
+          base = {k: os.environ[k] for k in WINDOWS_SYSTEM_VARIABLES if k in os.environ}
+          base |= {"HOME": home, "USERPROFILE": home, "APPDATA": home + r"\R", "LOCALAPPDATA": home + r"\L", "TEMP": home, "TMP": home}
+          base["PATH"] = root + r"\System32;" + root + r"\System32\WindowsPowerShell\v1.0"
+          real = lambda *names: {k: os.environ[k] for k in names if k in os.environ}
+          trials = {
+              "smoke-like": {},
+              "+PSModulePath": real("PSMODULEPATH"),
+              "+HOMEDRIVE/HOMEPATH/LOGONSERVER": real("HOMEDRIVE", "HOMEPATH", "LOGONSERVER", "USERDNSDOMAIN", "SESSIONNAME"),
+              "+real profile dirs": real("USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP"),
+              "+full PATH": real("PATH"),
+          }
+          print("full env keys:", sorted(os.environ), flush=True)
           com = "$s=New-Object -ComObject Schedule.Service; $s.Connect(); $s.GetFolder('\\').GetTasks(0).Count"
-          for label, env in (("full", dict(os.environ)), ("minimal", minimal)):
-              for command in ("1", com):
-                  start = time.monotonic()
-                  try:
-                      r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
-                                         env=env, capture_output=True, text=True, timeout=120)
-                      print(label, command[:12], round(time.monotonic() - start, 1), r.returncode, r.stdout.strip()[:80], r.stderr.strip()[:400], flush=True)
-                  except subprocess.TimeoutExpired:
-                      print(label, command[:12], "timeout 120", flush=True)
+          for label, extra in trials.items():
+              start = time.monotonic()
+              try:
+                  r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", com],
+                                     env=base | extra, capture_output=True, text=True, timeout=60)
+                  print(label, round(time.monotonic() - start, 1), r.returncode, r.stdout.strip()[:40], r.stderr.strip()[:300], flush=True)
+              except subprocess.TimeoutExpired:
+                  print(label, "timeout 60", flush=True)
           PROBE
       - name: Install, onboard, replay hooks, and check source development
         if: runner.os != 'Linux'
