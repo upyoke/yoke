@@ -1,6 +1,7 @@
 """Windows relay supervision contract; no scheduler or administrator needed."""
 
 import subprocess
+import sys
 from dataclasses import replace
 import xml.etree.ElementTree as ET
 
@@ -119,7 +120,11 @@ def test_disabled_and_changed_tasks_need_repair(tmp_path):
     assert "disabled" in status.reason
     runner.state = "3"
     runner.xml = runner.xml.replace("InteractiveToken", "Password")
-    assert "outdated" in tasks.relay_task_status(instance=instance, runner=runner).reason
+    reason = tasks.relay_task_status(instance=instance, runner=runner).reason
+    assert reason.startswith(
+        "relay_task_outdated: Task/Principals/Principal/LogonType is 'Password', "
+        "expected 'InteractiveToken'; retry `yoke relay install`"
+    )
 
 
 def test_windows_dispatch_and_unknown_os_refusal(monkeypatch):
@@ -191,3 +196,16 @@ def test_local_task_keeps_a_stable_interpreter_across_operator_cli_updates(tmp_p
     assert root.findtext("t:Actions/t:Exec/t:Command", namespaces=NS) == str(tasks.relay_runtime_python(instance.state_dir))
     body = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
     assert repr(str(launcher)) in body
+
+
+def test_task_runner_containment_joins_a_kill_on_close_job_only_as_the_task():
+    compile(tasks._CONTAIN_RUNNER, "task-runner.py", "exec")
+    assert "0x2000" in tasks._CONTAIN_RUNNER  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    exec(tasks._CONTAIN_RUNNER, {"__name__": "imported"})  # never contains an importer
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Win32 job objects")
+def test_task_runner_containment_runs_on_windows():
+    probe = f"exec({tasks._CONTAIN_RUNNER!r}, {{'__name__': '__main__'}}); print('contained')"
+    result = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True, timeout=60)
+    assert (result.returncode, result.stdout.strip()) == (0, "contained"), result.stderr
