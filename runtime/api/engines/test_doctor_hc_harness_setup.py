@@ -139,7 +139,10 @@ def test_setup_apply_reports_ready_after_relay_ran_before_scaffold(
     monkeypatch.setattr(doctor, "codex_home_without_codex", lambda: "")
 
     early = relay.reconcile_on_change(now=100)
-    assert ".codex/hooks.json" in json.dumps(early["failure"])
+    [refusal] = [
+        row for row in early["failure"]["rows"] if row["outcome"] == "refused"
+    ]
+    assert str(root / ".codex" / "hooks.json") in refusal["detail"]
 
     hooks = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "x"}]}]}}
     (root / ".codex").mkdir()

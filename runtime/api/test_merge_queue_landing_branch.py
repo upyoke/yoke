@@ -8,6 +8,8 @@ reaches GitHub with a branch GitHub has never seen and is refused as a bare
 HTTP 422.
 """
 
+from pathlib import Path
+
 import pytest
 
 from runtime.api.merge_queue_landing_test_helpers import (
@@ -106,13 +108,13 @@ def test_landing_publishes_a_branch_origin_has_never_seen(monkeypatch):
 
     def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
         order.append("push")
-        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
+        pushed.update(checkout=Path(checkout), branch=branch, source_ref=source_ref)
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
     assert _ensure() == ("42", None)
     assert order == ["push", "create"]
     assert pushed == {
-        "checkout": CHECKOUT,
+        "checkout": Path(CHECKOUT),
         "branch": "YOK-200",
         "source_ref": LANE_SHA,
     }
@@ -130,13 +132,13 @@ def test_landing_publishes_when_origin_holds_a_different_head(monkeypatch):
 
     def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
         order.append("push")
-        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
+        pushed.update(checkout=Path(checkout), branch=branch, source_ref=source_ref)
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
     assert _ensure() == ("42", None)
     assert order == ["push", "create"]
     assert pushed == {
-        "checkout": CHECKOUT,
+        "checkout": Path(CHECKOUT),
         "branch": "YOK-200",
         "source_ref": LANE_SHA,
     }
@@ -297,12 +299,12 @@ def test_an_open_pull_request_publishes_a_new_lane_head(monkeypatch):
     pushed: dict = {}
 
     def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
-        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
+        pushed.update(checkout=Path(checkout), branch=branch, source_ref=source_ref)
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
     assert _ensure() == ("183", None)
     assert pushed == {
-        "checkout": CHECKOUT,
+        "checkout": Path(CHECKOUT),
         "branch": "YOK-200",
         "source_ref": LANE_SHA,
     }

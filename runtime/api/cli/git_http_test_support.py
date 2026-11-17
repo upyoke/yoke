@@ -117,5 +117,8 @@ def own_credential_config(root: Path, url: str):
     endpoint = urlsplit(url)
     credential.write_text(f"http://{FIXTURE_CREDENTIAL}@{endpoint.netloc}\n")
     config = root / "gitconfig"
-    config.write_text(f"[credential]\n\thelper = store --file={credential}\n")
+    # Git config values treat ``\`` as an escape; Git for Windows takes ``/``.
+    config.write_text(
+        f"[credential]\n\thelper = store --file={credential.as_posix()}\n"
+    )
     return config

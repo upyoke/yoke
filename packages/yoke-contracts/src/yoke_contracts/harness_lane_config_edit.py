@@ -44,10 +44,12 @@ def codex_plan(text: str, document: dict, selected):
     hooks = set()
     for key in all_hook_entries(document):
         raw = hook_path(key)
+        # Codex keys hooks by the OS-native hooks.json path (``\\`` on Windows).
+        hooks_file = Path(raw) if raw else None
         if (
-            raw
-            and raw.endswith("/.codex/hooks.json")
-            and selected(raw.removesuffix("/.codex/hooks.json"))
+            hooks_file is not None
+            and hooks_file.parts[-2:] == (".codex", "hooks.json")
+            and selected(str(hooks_file.parent.parent))
         ):
             hooks.add(key)
     updated, hook_count, project_count = filter_tables(text, hooks, projects)
