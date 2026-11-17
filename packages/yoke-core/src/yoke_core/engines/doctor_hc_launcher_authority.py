@@ -8,7 +8,7 @@ shim and quarantine shadows, never delete).
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 import json
 import os
@@ -207,13 +207,17 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if checkout is not None:
         problems.extend(hook_config_yoke_problems(checkout, canonical))
     if problems:
+        try:
+            recovery = f"Install the release: {install_command()}."
+        except InstallOriginUnavailable as exc:
+            recovery = f"{exc}; then install the release."
         rec.record(
             SLUG,
             TITLE,
             "FAIL",
             "Machine launcher is not canonical.\n  "
             + "\n  ".join(problems)
-            + f"\n  Install the release: {install_command()}."
+            + f"\n  {recovery}"
             + " Then repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
             + "  (or `yoke doctor run --quick --fix`). Shadows are quarantined, never deleted.",
         )

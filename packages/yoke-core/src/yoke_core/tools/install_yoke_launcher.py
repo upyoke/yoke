@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.launcher_locations import LAUNCHER_FILENAME
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 import argparse
 import os
@@ -155,11 +155,14 @@ def configure_session_relay(*, stream=None) -> bool:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    try:
+        recovery = f"Install the release with `{install_command()}` first."
+    except InstallOriginUnavailable as exc:
+        recovery = f"{exc}; then install the release first."
     parser = argparse.ArgumentParser(
         prog="install_yoke_launcher",
         description=(
-            "Install a launcher for uv's released yoke-cli. Install the release "
-            f"with `{install_command()}` first. "
+            f"Install a launcher for uv's released yoke-cli. {recovery} "
             "YOKE_SOURCE_DEV=1 explicitly opts into YOKE_HOME source code."
         ),
     )

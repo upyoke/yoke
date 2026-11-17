@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 from yoke_contracts.refusal_recovery import compose_refusal
 
 
@@ -13,10 +13,13 @@ class NativeWindowsError(ValueError):
 
     code = "self_host_native_windows_requires_wsl2"
     def __init__(self) -> None:
+        try:
+            recovery = f"install Yoke inside that distribution: `{install_command()}`."
+        except InstallOriginUnavailable as exc:
+            recovery = f"{exc}; then install Yoke inside that distribution."
         self.detail_lines = (
             "In Windows PowerShell, run `wsl --install -d Ubuntu` to install WSL2 and Ubuntu.",
-            "Open Ubuntu and install Yoke inside that distribution: "
-            f"`{install_command()}`.",
+            f"Open Ubuntu and {recovery}",
             "Make Docker Engine with Compose available inside Ubuntu, then rerun "
             "the self-host command or `yoke setup` there.",
         )

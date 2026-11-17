@@ -10,6 +10,10 @@ from yoke_cli.config import distribution, machine_config
 from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
 
 
+class InstallOriginUnavailable(RuntimeError):
+    """The machine has no usable distribution origin for install advice."""
+
+
 def install_command(*, path: str | Path | None = None) -> str:
     """Compose advice without silently choosing a production origin.
 
@@ -32,11 +36,11 @@ def install_command(*, path: str | Path | None = None) -> str:
             )
             origin = distribution.origin_for_connection(connection, path=path)
         return f"curl -fsSL {shlex.quote(origin + '/install')} | sh"
-    except (OSError, RuntimeError, ValueError):
-        return (
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise InstallOriginUnavailable(
             "install_origin_unavailable: restore settings.distribution.origin "
             f"and channel with {distribution.SELECT_COMMAND}, then retry"
-        )
+        ) from exc
 
 
 def hosted_connect_url(api_url: object = None, env_name: object = None) -> str:

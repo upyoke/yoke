@@ -109,7 +109,10 @@ def handle_overview_activation_get(
         conn.close()
     install_command = get_install_advice().install_command
 
-    result["install_command"] = install_command()
+    try:
+        result["install_command"] = install_command()
+    except get_install_advice().InstallOriginUnavailable:
+        result["install_command"] = None
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 

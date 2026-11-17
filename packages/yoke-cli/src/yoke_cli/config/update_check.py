@@ -23,7 +23,7 @@ HTTPS env already serves. No server function is involved.
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 from typing import Any
 
@@ -84,9 +84,13 @@ def run_check(*, channel: str | None = None) -> dict[str, Any]:
         raise self_update.SelfUpdateError(str(exc)) from exc
     cli_version = str(binding["version"] or "").strip()
     if not cli_version:
+        try:
+            recovery = f"repair with the public installer ({install_command()})"
+        except InstallOriginUnavailable as exc:
+            recovery = f"{exc}; then repair with the public installer"
         raise self_update.SelfUpdateError(
-            "could not determine the installed Yoke version; repair with "
-            f"the public installer ({install_command()}) before running `yoke update --check`"
+            "could not determine the installed Yoke version; "
+            f"{recovery} before running `yoke update --check`"
         )
     target = self_update.resolve_target(channel=channel)
     try:
