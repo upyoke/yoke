@@ -21,7 +21,6 @@ run-name: >-
       || format('yoke-suite {0}', inputs.sha || github.sha) }}
 
 on:
-  pull_request:
   workflow_dispatch:
     inputs:
       sha:
@@ -169,8 +168,6 @@ jobs:
         run: >-
           uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
           -- -v --max-worker-restart=0
-          --deselect runtime/api/cli/test_github_workflow_runner_routing.py::test_automatic_workflows_do_not_require_macos_runners
-          --deselect runtime/api/cli/test_github_workflow_runner_routing.py::test_multi_os_suite_remains_an_on_demand_windows_and_macos_matrix
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
