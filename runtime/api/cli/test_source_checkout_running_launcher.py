@@ -76,3 +76,35 @@ def test_launcher_held_open_refuses_by_name_with_its_holders(tmp_path, monkeypat
         f"editable_install_launcher_in_use: {scripts / 'yoke.exe'} is held open by pid 42 `python.exe -m yoke_harness.hook_resident`"
     )
     assert "yoke dev setup --editable-install" in str(refused.value)
+
+
+def test_a_zipapp_launcher_is_not_held_open_after_metadata_scans(tmp_path):
+    """The launcher archive leaves sys.path, so importlib.metadata never caches it."""
+    import sys
+    import zipfile
+
+    launcher = tmp_path / "yoke.exe"
+    with zipfile.ZipFile(launcher, "w") as archive:
+        archive.writestr(
+            "__main__.py",
+            "import os, sys, importlib.metadata, psutil\n"
+            "import yoke_cli\n"
+            "list(importlib.metadata.distributions())\n"
+            "held = [f.path for f in psutil.Process().open_files()]\n"
+            "print(sys.argv[0] in sys.path, any(os.path.samefile(p, sys.argv[0]) for p in held))\n",
+        )
+    result = subprocess.run(
+        [sys.executable, str(launcher)], capture_output=True, text=True, timeout=120
+    )
+    assert result.stdout.split() == ["False", "False"], result.stderr
+
+
+def test_only_the_running_archive_leaves_sys_path(monkeypatch, tmp_path):
+    import yoke_cli
+
+    stdlib = tmp_path / "python313.zip"
+    stdlib.write_bytes(b"")
+    monkeypatch.setattr(yoke_cli._sys, "argv", [str(tmp_path / "script.py")])
+    monkeypatch.setattr(yoke_cli._sys, "path", [str(stdlib), "site-packages"])
+    yoke_cli._release_launcher_archive()
+    assert yoke_cli._sys.path == [str(stdlib), "site-packages"]
