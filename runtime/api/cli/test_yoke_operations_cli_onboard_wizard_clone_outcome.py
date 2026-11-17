@@ -27,6 +27,7 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
+    settle_checks,
     stub_checkout_fetch,
     stub_path_doctor,
     stub_source_branch,
@@ -194,8 +195,8 @@ def test_clone_outcome_screen_uses_source_access_and_origin(monkeypatch) -> None
             await pilot.press("enter")  # remote -> clone-folder input
             await app.workers.wait_for_complete()
             await pilot.pause()
-            await pilot.press("enter")  # accept default folder -> clone-outcome screen
-            await pilot.pause()
+            await pilot.press("enter")  # accept default folder -> fetch, source access
+            await settle_checks(pilot)  # both checks finish -> clone-outcome screen
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             values = [row.value for row in selection.rows]
             assert values == [
@@ -310,9 +311,8 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
             assert "already has this repo" in body.lower()
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             assert [r.value for r in selection.rows] == ["resume", "choose-folder"]
-            await pilot.press("enter")  # Resume (first row) -> clone-outcome screen
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await pilot.press("enter")  # Resume (first row) -> fetch, source access
+            await settle_checks(pilot)  # both checks finish -> clone-outcome screen
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
