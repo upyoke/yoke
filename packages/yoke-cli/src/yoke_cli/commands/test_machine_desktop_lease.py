@@ -1,11 +1,11 @@
 """Hold a desktop command's host custody before starting its cloud machine."""
 
 from contextlib import contextmanager
-import importlib
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_qa_failures import host_control_failure
 from yoke_cli.transport.dispatcher import call_dispatcher
+from yoke_cli.commands.adapters.test_machine_operation import _power
 
 
 def _call(function, payload, actor):
@@ -58,8 +58,7 @@ def desktop_lease(
             )["claim"]["id"]
     try:
         try:
-            power = importlib.import_module("yoke_core.domain.cloud_machine_power")
-            power.power_on(project, settings)
+            _power().power_on(project, settings)
         except Exception as exc:
             code, message, recovery = host_control_failure(exc, phase="desktop_power")
             raise RuntimeError(f"{code}: {message}. {recovery}") from exc
