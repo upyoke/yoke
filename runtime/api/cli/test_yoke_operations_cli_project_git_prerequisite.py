@@ -211,7 +211,7 @@ def test_install_git_tries_macos_terminal_clt_before_handoff(tmp_path, monkeypat
             "-n",
             "/usr/bin/xcode-select",
             "--switch",
-            "/Library/Developer/CommandLineTools",
+            str(Path("/Library/Developer/CommandLineTools")),
         ),
     ]
 

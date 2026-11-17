@@ -140,7 +140,7 @@ def test_branch_checked_out_elsewhere_is_left_alone(project, tmp_path):
     result = refresh_base_branch(str(checkout), default)
 
     assert result.state == freshness.STATE_BEHIND_NOT_UPDATED
-    assert str(borrowed) in result.note
+    assert borrowed.as_posix() in result.note
     assert result.lane_base_ref == result.upstream_sha
 
 
