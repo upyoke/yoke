@@ -22,6 +22,7 @@ def verify_standard_task_operations(settings, key, password):
     assert set(control.native_features) == FEATURES
     readiness = control.check_connection()
     assert readiness.ok is features_absent(control.native_features), readiness.evidence
+    genuine_before = control.read_remote_text(RECEIPT)
     protected = control._run(r"""
 $receipt='C:\ProgramData\YokeQa\receipts\receipt.json'
 if(!(Test-Path -LiteralPath $receipt)){throw 'genuine SYSTEM receipt missing'}
@@ -29,25 +30,33 @@ function Assert-Denied($operation) {
  $denied=$false
  try {& $operation} catch {
   $failure=$_.Exception
-  while($failure.InnerException){$failure=$failure.InnerException}
-  if($failure.HResult -ne -2147024891 -and $_.CategoryInfo.Category -notin @('PermissionDenied','SecurityError')){throw}
-  $denied=$true
+  $chain=@()
+  while($failure){
+   $chain+=@{type=$failure.GetType().FullName;hresult=$failure.HResult}
+   if($failure -is [UnauthorizedAccessException] -or $failure.HResult -eq -2147024891){$denied=$true}
+   $failure=$failure.InnerException
+  }
+  if(!$denied){throw ('unexpected protected-proof failure: '+($chain | ConvertTo-Json -Compress))}
  }
  if(!$denied){throw 'protected SYSTEM proof was mutable by the standard user'}
 }
 Assert-Denied {[IO.File]::WriteAllText($receipt,'forged')}
 Assert-Denied {[IO.File]::WriteAllText('C:\ProgramData\YokeQa\receipts\new.json','forged')}
-Assert-Denied {Remove-Item -LiteralPath $receipt -Force -ErrorAction Stop}
+Assert-Denied {[IO.File]::Delete($receipt)}
 $source='C:\ProgramData\YokeQa\requests\forged.json'
 Set-Content -LiteralPath $source -Value forged
-try {Assert-Denied {Move-Item -LiteralPath $source -Destination $receipt -Force -ErrorAction Stop}}
+try {
+ Assert-Denied {[IO.File]::Replace($source,$receipt,$null)}
+ if(!(Test-Path -LiteralPath $source)){throw 'denied replacement consumed its source'}
+}
 finally {Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue}
 $acl=Get-Acl -LiteralPath $receipt
 $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.WindowsIdentity]::GetCurrent().Name,'FullControl','Allow'))
-Assert-Denied {Set-Acl -LiteralPath $receipt -AclObject $acl -ErrorAction Stop}
-Assert-Denied {Remove-Item -LiteralPath 'C:\ProgramData\YokeQa\receipts' -Recurse -Force -ErrorAction Stop}
+Assert-Denied {[IO.File]::SetAccessControl($receipt,$acl)}
+Assert-Denied {[IO.Directory]::Delete('C:\ProgramData\YokeQa\receipts',$true)}
 """)
     assert protected.returncode == 0, protected.stderr
+    assert control.read_remote_text(RECEIPT) == genuine_before
     assert json.loads(control.read_remote_text(RECEIPT))["ok"] is True
     upload = control.upload_remote_text
     def forge_old_receipt(path, text):
