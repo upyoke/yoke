@@ -180,8 +180,10 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
     """Return whether running members were found; terminate then kill after timeout.
 
     Identity uses exact creation time equality, never a PID-only or fuzzy match.
-    A member that exits while the stop runs counts as stopped. A survivor that
-    refused a signal raises PermissionError; other survivors raise TimeoutError.
+    A member that exits while the stop runs counts as stopped, including one
+    whose exit made Windows deny a signal or Darwin deny killpg with EPERM. A
+    survivor of a refused signal raises PermissionError; other survivors raise
+    TimeoutError.
     """
     if timeout < 0 or not math.isfinite(timeout):
         raise ValueError("invalid_stop_timeout: use a finite nonnegative timeout")
@@ -201,12 +203,18 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
             processes[pid] = process
             for child in descendants:
                 processes[child.pid] = child
+        denied: set[int] = set()
+        group_refused = False
         # Only a live, verified leader authorizes signalling a POSIX group.
         if os.name != "nt" and handle._owns_session and pid_alive(handle.pid, handle.start_time):
             try:
                 os.killpg(handle.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+            except PermissionError:
+                # Darwin refuses killpg with EPERM once the group holds only a
+                # zombie; the verified members below decide whether it stopped.
+                group_refused = True
         console_stop = False
         # Only spawn_group owns a known CREATE_NEW_PROCESS_GROUP console group.
         # Restored/adopted PIDs can share our console and must never get a break.
@@ -216,7 +224,6 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
                 console_stop = True
             except (OSError, psutil.Error):
                 pass  # No attached console: the verified tree still stops below.
-        denied: set[int] = set()
         if not console_stop:
             for process in reversed(list(processes.values())):
                 _signal(process, False, denied)
@@ -226,7 +233,7 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
         for process in alive:
             _signal(process, True, denied)
         alive = _survivors(alive, timeout)
-        refused = [p.pid for p in alive if p.pid in denied]
+        refused = [p.pid for p in alive if group_refused or p.pid in denied]
         if refused:
             raise PermissionError(f"process_access_denied: PIDs {refused} refused stop; run as their owner and retry")
         if alive:
