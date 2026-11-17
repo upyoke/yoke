@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_merge_worktree_prepare.py::TestStandaloneBoundaryCeremony::test_standalone_without_a_ceremony_nonce_never_merges",
- "reason": "YOK-5369: MergeEnv.env hands the merge child no SYSTEMROOT and a ':'-joined PATH; its psycopg import fails with 'no pq wrapper available'"
-}

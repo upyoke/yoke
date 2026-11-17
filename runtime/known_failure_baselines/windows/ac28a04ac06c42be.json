@@ -1,4 +1,4 @@
 {
- "node_id": "runtime/api/test_update_status_full_lifecycle.py::TestLabelReconciliation::test_underscore_label_removed",
- "reason": "assert 1 == 0"
+  "node_id": "runtime/api/test_update_status_full_lifecycle.py::TestLabelReconciliation::test_underscore_label_removed",
+  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
 }

@@ -1,4 +1,4 @@
 {
- "node_id": "runtime/api/test_update_status_full_unblock_sync.py::TestGitHubSync::test_github_label_swap",
- "reason": "assert 1 == 0"
+  "node_id": "runtime/api/test_update_status_full_unblock_sync.py::TestGitHubSync::test_github_label_swap",
+  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
 }

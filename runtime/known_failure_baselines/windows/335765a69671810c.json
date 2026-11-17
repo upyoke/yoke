@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_merge_worktree_execute.py::TestBasicMerge::test_clean_merge_preserves_lane_and_reports_all_steps",
- "reason": "YOK-5369: MergeEnv.env hands the merge child no SYSTEMROOT and a ':'-joined PATH; its psycopg import fails with 'no pq wrapper available'"
-}

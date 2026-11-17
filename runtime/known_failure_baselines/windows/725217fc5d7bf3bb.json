@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py::test_project_install_refuses_missing_hook_runtime_before_repo_writes",
- "reason": "assert 'requires the yoke-harness product package' in 'Traceback (most recent call last):\\n  File \"<string>\", line 48, in <module>\\n    rc = int(main(sys.argv[1:]) or 0)\\n             ~~~~^^^^^^^^^^^^"
-}

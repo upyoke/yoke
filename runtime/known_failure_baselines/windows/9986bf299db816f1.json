@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_strategy_event_product_boundary.py::test_events_emit_invocation_stays_product_safe",
- "reason": "assert 1 == 0"
-}

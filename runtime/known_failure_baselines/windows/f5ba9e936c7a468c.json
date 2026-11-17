@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py::test_project_install_https_external_repo_stays_product_client_only",
- "reason": "AssertionError: Traceback (most recent call last):"
-}
