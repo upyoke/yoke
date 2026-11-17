@@ -1,4 +1,10 @@
-"""Select the runs a new release supersedes on its flow and target.
+"""Select the runs a new release supersedes on its target.
+
+A candidate runs on the new release's flow, or on a retired flow whose
+publication succession now ends at that flow: occupancy blocks a target by
+server origin whatever the flow, so a holder left on a predecessor flow must
+still be superseded. An active predecessor still carries its own releases and
+is not followed.
 
 The run waiting on item QA is the one occupying the target, so a new release
 supersedes it first; superseding only a newer never-started run would leave
@@ -12,9 +18,30 @@ from yoke_core.domain.db_helpers import query_one, query_rows
 _GATE_RUNNERS = frozenset({"qa", "human-approval"})
 _COLUMNS = "id,status,current_stage,settling_at,release_lineage,supersedes_run_id,created_at"
 _ON_TARGET = (
-    "FROM deployment_runs WHERE project_id=%s AND flow=%s AND target_environment_id=%s "
+    "FROM deployment_runs WHERE project_id=%s AND flow=ANY(%s) AND target_environment_id=%s "
     "AND superseded_by_run_id IS NULL AND status<>'cancelled' AND id<>%s "
 )
+
+
+def _accepted_flows(conn: Any, new_run: Mapping[str, Any]) -> list[str]:
+    """The new run's flow, then every flow on the target that succeeds into it.
+
+    The new run's own flow is always resolved too, so the statements a
+    takeover issues do not depend on which other flows share the target.
+    """
+    from yoke_core.domain.deployment_flow_succession import successor_flows
+
+    flow = str(new_run["flow"])
+    rows = query_rows(
+        conn,
+        "SELECT DISTINCT flow FROM deployment_runs WHERE project_id=%s "
+        "AND target_environment_id=%s AND superseded_by_run_id IS NULL "
+        "AND status<>'cancelled' AND id<>%s",
+        (new_run["project_id"], new_run["target_environment_id"], new_run["id"]),
+    )
+    flows = sorted({flow, *(str(row["flow"]) for row in rows)})
+    successors = successor_flows(conn, flows)
+    return [flow, *(f for f in flows if f != flow and successors.get(f) == flow)]
 
 
 def _is_qa(stage: Mapping[str, Any]) -> bool:
@@ -53,7 +80,7 @@ def eligible_predecessors(conn: Any, new_run: Mapping[str, Any]) -> list[dict]:
 
     params = (
         new_run["project_id"],
-        new_run["flow"],
+        _accepted_flows(conn, new_run),
         new_run["target_environment_id"],
         new_run["id"],
     )

@@ -98,8 +98,8 @@ together once every QA and gate has passed.
 
 ## Takeover
 
-Takeover happens when a newer run is created on the same flow and target as
-an older run. A run created before its commit is chosen never takes over.
+Takeover happens when a newer run is created on the same target as an older
+run, on its flow or on the active successor of its retired flow. A run created before its commit is chosen never takes over.
 The newer run takes over, in this order:
 
 1. an executing run whose deploy stages are done, that waits only on QA and

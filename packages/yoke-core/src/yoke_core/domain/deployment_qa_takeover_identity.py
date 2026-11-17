@@ -12,7 +12,11 @@ from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
 
 def inherited_target(conn: Any, run_id: str, target: Mapping) -> bool:
-    """Prove the immutable starting release is an ancestor on the same target."""
+    """Prove the immutable starting release is an ancestor on the same target.
+
+    Takeover alone links runs, and it may cross onto a successor flow, so the
+    chain is followed whatever flow each ancestor ran on.
+    """
     identity = target.get("deployment") or {}
     original = str(identity.get("starting_run_id", identity.get("run_id")) or "")
     if not original or original == str(run_id):
@@ -23,11 +27,11 @@ def inherited_target(conn: Any, run_id: str, target: Mapping) -> bool:
             query_one(
                 conn,
                 "WITH RECURSIVE owners AS ("
-                "SELECT id,supersedes_run_id,project_id,flow,target_environment_id "
+                "SELECT id,supersedes_run_id,project_id,target_environment_id "
                 "FROM deployment_runs WHERE id=%s UNION "
-                "SELECT p.id,p.supersedes_run_id,p.project_id,p.flow,p.target_environment_id "
+                "SELECT p.id,p.supersedes_run_id,p.project_id,p.target_environment_id "
                 "FROM deployment_runs p JOIN owners c ON p.id=c.supersedes_run_id "
-                "AND p.project_id=c.project_id AND p.flow=c.flow "
+                "AND p.project_id=c.project_id "
                 "AND p.target_environment_id IS NOT DISTINCT FROM c.target_environment_id) "
                 "SELECT id FROM owners WHERE id=%s",
                 (str(run_id), original),
