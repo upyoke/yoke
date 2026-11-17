@@ -229,6 +229,7 @@ def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
     )
     assert " ".join(str(jobs["test_shard"]["if"]).split()) == prerequisites_ok
     assert " ".join(str(jobs["shard_coverage"]["if"]).split()) == prerequisites_ok
+    assert " ".join(str(jobs["shard_collection"]["if"]).split()) == prerequisites_ok
     assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == prerequisites_ok
     # Python coverage never stands in for the commit-versioned image build.
     assert "if" not in jobs["container"] and "needs" not in jobs["container"]
@@ -245,18 +246,44 @@ def test_orphan_detection_flags_deleted_aggregate_names() -> None:
     assert context_matches_job("test-shard (3.10, 1)", job_names)
 
 
-def test_coverage_waits_for_shards_and_checks_the_unsplit_collection() -> None:
-    job = _yoke_ci()["jobs"]["shard_coverage"]
-    assert set(job["needs"]) == {"repo_contracts", "reuse_coverage", "test_shard"}
-    assert job["strategy"]["matrix"]["python-version"] == (
-        "${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}"
-    )
+def test_collection_runs_beside_the_shards_and_coverage_replays_it() -> None:
+    jobs = _yoke_ci()["jobs"]
+    collection, job = jobs["shard_collection"], jobs["shard_coverage"]
+    assert set(collection["needs"]) == {"repo_contracts", "reuse_coverage"}
+    assert set(job["needs"]) == {
+        "repo_contracts", "reuse_coverage", "test_shard", "shard_collection"}
+    for each in (collection, job):
+        assert each["strategy"]["matrix"]["python-version"] == (
+            "${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}"
+        )
+    # Collection keeps the shards' interpreter scope, runner and deselection.
+    assert collection["env"]["YOKE_CI_PYTHON_SCOPE"] == (
+        jobs["test_shard"]["env"]["YOKE_CI_PYTHON_SCOPE"])
+    gather = {step["name"]: step for step in collection["steps"]}
+    assert gather["Prepare collection runner"]["uses"] == "./.github/actions/yoke-test-runner"
+    collect = gather["Collect the unsplit suite"]["run"]
+    assert "ci_shard_coverage collect" in collect
+    assert "--output shard-collection/expected-tests.json" in collect
+    upload = gather["Upload collection evidence"]
+    assert "always()" in upload["if"]
+    assert upload["with"]["name"] == "shard-collection-${{ matrix.python-version }}"
+    assert upload["with"]["path"] == "shard-collection"
+    assert "always()" in gather["Stop Postgres"]["if"]
+
     steps = {step["name"]: step for step in job["steps"]}
+    uses = " ".join(str(step.get("uses", "")) for step in job["steps"])
+    assert "yoke-test-runner" not in uses and "setup-uv" not in uses
+    assert "PG_CONTAINER" not in job.get("env", {})
     check = steps["Compare execution with the unsplit collection"]
-    assert "yoke_core.tools.ci_shard_coverage" in check["run"]
+    assert "yoke_core.tools.ci_shard_coverage compare" in check["run"]
+    assert "uv run" not in check["run"]
     assert '--reports shard-reports --python "${{ matrix.python-version }}"' in check["run"]
+    assert "--expected shard-collection/expected-tests.json" in check["run"]
     assert not check.get("continue-on-error")
     download = steps["Download every shard report"]["with"]
     assert download["pattern"] == "pytest-output-${{ matrix.python-version }}-*"
     assert download["path"] == "shard-reports"
-    assert "always()" in steps["Upload collection evidence"]["if"]
+    manifest = steps["Download the unsplit collection"]
+    assert manifest["with"] == {"name": upload["with"]["name"], "path": "shard-collection"}
+    # A missing manifest reaches the comparison, which refuses it by name.
+    assert manifest["continue-on-error"] is True

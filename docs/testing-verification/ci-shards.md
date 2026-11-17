@@ -209,26 +209,34 @@ The eight import-graph scenarios remain eight parametrized cases in
 
 ## Prove shard coverage
 
-The required `shard-coverage (3.11)` and `shard-coverage (3.14)` jobs run
-once all shards finish, including when a shard failed. Each downloads every
-`pytest-output-<python>-<shard>` report and independently collects the full
-suite without splitting or xdist. The older interpreter's collection applies
-its normal repository-only deselection. A skipped testcase still counts as
-one execution; a deselected testcase is outside that interpreter's contract.
+The non-required `shard-collection (<python>)` jobs start beside the shards,
+once `repo-contracts` and `reuse-coverage` pass. Each prepares the same runner
+and `YOKE_CI_PYTHON_SCOPE` as that leg's shards and collects the full suite
+without splitting or xdist (`ci_shard_coverage collect`). The older
+interpreter's collection applies its normal repository-only deselection. It
+uploads `shard-collection-<python>`: `expected-tests.json` and the collection
+log `collection-output.txt`. A failed collection refuses
+`ci_shard_collection_failed` and names that log.
 
-`ci_shard_coverage` compares JUnit identities against that collection and
-refuses missing, duplicated or unexpected tests with their names and Python
-version. A missing report refuses `ci_shard_reports_missing` and names its
-shard. Restore the report upload or fix collection/profile divergence, then
-verify the corrected commit. `shard-collection-<python>` retains the expected
-IDs and collection log. To replay saved evidence:
+The required `shard-coverage (3.11)` and `shard-coverage (3.14)` jobs run once
+all shards and the collection finish, including when one failed. Each
+downloads every `pytest-output-<python>-<shard>` report and its leg's
+manifest, then replays it with `ci_shard_coverage compare` on the runner's
+`python3`; it installs no dependencies and starts no Postgres. A skipped
+testcase still counts as one execution; a deselected testcase is outside that
+interpreter's contract. The comparison refuses missing, duplicated or
+unexpected tests with their names and Python version. A missing report
+refuses `ci_shard_reports_missing` and names its shard; a missing manifest
+refuses `ci_shard_collection_missing` and points at the `shard-collection`
+job. Restore the upload or fix collection/profile divergence, then verify the
+corrected commit. To replay saved evidence:
 
 ```text
-yoke dev run -- python3 -m yoke_core.tools.ci_shard_coverage --python 3.14 --reports REPORT_DIRECTORY --expected expected-tests.json
+yoke dev run -- python3 -m yoke_core.tools.ci_shard_coverage compare --python 3.14 --reports REPORT_DIRECTORY --expected expected-tests.json
 ```
 
-On `SUITE_ALREADY_PROVEN`, both coverage jobs skip collection and report
-comparison and remain successful, as the test shards do. Required check names
+On `SUITE_ALREADY_PROVEN`, the collection and coverage jobs skip collection
+and report comparison and remain successful, as the test shards do. Required check names
 live in `.yoke/merge-queue.json`; apply that declaration when changing them.
 
 Each shard records every worker's assigned collection count and sorted-ID
