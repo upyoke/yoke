@@ -16,17 +16,12 @@ import pytest
 
 from yoke_contracts.hook_runner.guard_shells import GUARD_SHELLS, shell_applicable_chain
 from yoke_core.hooks.types import HookContext, Outcome
+from runtime.api.domain.lint_main_commit_test_support import git_facts
 
 pytestmark = pytest.mark.windows
 
 _D = "yoke_core.domain."
-_MAIN_COMMIT_FACTS = {
-    "_yoke_client_git_commit_facts": {
-        "schema": 1, "is_git_commit": True, "repo_cwd": "/client/checkout",
-        "branch": "main", "staged_paths": ["runtime/api/domain/foo.py"],
-        "staged_probe_ok": True, "status_probe_ok": True,
-    }
-}
+_MAIN_COMMIT_FACTS = git_facts("main", ["runtime/api/domain/foo.py"])
 _HEADLESS = {"_yoke_client_headless_launch": {"schema": 1, "value": True}}
 _SWEEP = "python3 -m pytest runtime/api/ runtime/harness/ tests/"
 
