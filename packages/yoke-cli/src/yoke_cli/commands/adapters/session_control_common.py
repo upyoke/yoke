@@ -188,6 +188,17 @@ def selector_payload(parsed: argparse.Namespace) -> dict[str, Any]:
     return selector
 
 
+def add_message_delivery_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--idempotency-key",
+        metavar="K",
+        help="Reuse a caller-generated key to avoid duplicate sends.",
+    )
+    parser.add_argument(
+        "--confirmation-token", metavar="T", help="Exact preview token."
+    )
+
+
 def read_stdin_payload(parsed: argparse.Namespace) -> str | None:
     """Read sensitive text only from stdin, never from the process arguments."""
     if not parsed.stdin:
@@ -205,7 +216,14 @@ def write_message_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         state = result.get("state") or message.get("state") or "acknowledged"
         print(f"msg {message_id} acknowledged (state {state})", file=stdout)
         return
-    write_human_message_result(response.result or {}, stdout)
+    from yoke_cli.transport.output_limit import full_output_requested
+
+    result = response.result or {}
+    if full_output_requested() and result.get("messages"):
+        for message in result["messages"]:
+            write_human_message_result({"message": message}, stdout, with_body=True)
+        return
+    write_human_message_result(result, stdout)
 
 
 def write_message_detail_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
@@ -249,6 +267,7 @@ def write_launch_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
 
 
 __all__ = [
+    "add_message_delivery_arguments",
     "STEERING_SCOPE_EXAMPLE",
     "SELECTOR_HELP",
     "SELECTOR_SYNOPSIS",

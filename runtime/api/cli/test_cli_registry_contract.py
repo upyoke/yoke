@@ -177,6 +177,7 @@ def test_registry_help_and_usage(monkeypatch, tmp_path):
     [
         ("yoke sample --extra", (["--visible"], ["--extra"])),
         ("yoke sample --visible", ([], [])),
+        ("yoke sample --visible --unregistered", ([], ["--unregistered"])),
     ],
 )
 def test_rendered_usage_drift_remains_detectable(usage, expected):
@@ -189,6 +190,8 @@ def test_rendered_usage_drift_remains_detectable(usage, expected):
     "usage, error_usage",
     [
         ("yoke sample", "yoke sample --visible"),
+        ("yoke sample --visible --unregistered", "yoke sample --visible"),
+        ("yoke sample --visible", "yoke sample --visible --unregistered"),
         ("yoke retired --visible", "yoke sample --visible"),
         ("yoke sample --visible", "yoke retired --visible"),
     ],
