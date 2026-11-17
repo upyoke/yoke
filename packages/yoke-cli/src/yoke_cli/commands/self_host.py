@@ -242,7 +242,7 @@ def self_host_upgrade(args: List[str]) -> int:
     parser.add_argument(
         "--channel",
         default=None,
-        help="Published release channel (default: stable or YOKE_CHANNEL).",
+        help="Published release channel (default: settings.distribution.channel).",
     )
     parser.add_argument(
         "--yes",
@@ -291,6 +291,7 @@ def _print_upgrade_preview(plan: upgrade.UpgradePlan) -> None:
     print("self-host paired upgrade preview (no changes made):")
     print(f"  bundle: {plan.directory}")
     print(f"  current server image: {plan.previous_image}")
+    print(f"  distribution origin: {plan.target.base_url}")
     print(f"  target release: {plan.target.version} ({plan.target.channel})")
     print(f"  target server image: {plan.target.image}")
     for index, step in enumerate(plan.steps, start=1):

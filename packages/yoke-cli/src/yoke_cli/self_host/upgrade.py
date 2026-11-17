@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from yoke_cli.config import install_binding, onboard_self_host_server
+from yoke_cli.config import distribution, install_binding, onboard_self_host_server
 from yoke_cli.self_host import bundle, runtime
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
@@ -58,9 +58,18 @@ def plan_upgrade(
     _require_packaged_install()
     try:
         target_dir = bundle.validate_existing_bundle(directory=directory)
-        target = release_target.channel_release_target(channel=channel)
+        selected = distribution.recorded()
+        target = release_target.channel_release_target(
+            channel=channel or selected["channel"], base_url=selected["origin"]
+        )
         prerequisites = _CHECK_DOCKER()
         previous_image = _read_server_image(target_dir / bundle.ENV_FILE_NAME)
+    except distribution.DistributionError as exc:
+        raise SelfHostUpgradeError(
+            "distribution-origin",
+            "The machine's distribution origin could not be read.",
+            (str(exc), f"Repair with `{distribution.SELECT_COMMAND}`, then retry."),
+        ) from exc
     except bundle.SelfHostBundleError as exc:
         raise SelfHostUpgradeError(
             "bundle-invalid",
@@ -101,6 +110,7 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
         "ok": True,
         "directory": str(plan.directory),
         "channel": plan.target.channel,
+        "distribution_origin": plan.target.base_url,
         "version": plan.target.version,
         "source_commit": plan.target.source_commit,
         "previous_image": plan.previous_image,

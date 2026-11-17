@@ -21,7 +21,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 @pytest.fixture()
 def import_files(tmp_path):
     directory = tmp_path / "server"
-    bundle.write_bundle(admin_name="Ada Lovelace", directory=str(directory))
+    bundle.write_bundle(
+        admin_name="Ada Lovelace", directory=str(directory), image="candidate:immutable"
+    )
     archive = tmp_path / "universe.tar"
     archive.write_bytes(b"portable universe tar")
     archive.chmod(0o600)
