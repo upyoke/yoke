@@ -240,16 +240,6 @@ VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-On a macOS controller, install Microsoft's **Windows App** before opening a
-bounded VM setup window. Microsoft provides a [standalone installer](https://learn.microsoft.com/windows-app/get-started-connect-devices-desktops-apps?pivots=remote-pc)
-or Mac App Store download; Homebrew's `windows-app` cask uses the vendor PKG.
-The PKG requires controller administrator authentication. Complete installation
-and verify Computer Use can select the packaged app before powering on the VM;
-an unbundled SDL FreeRDP process may connect without a controllable app surface.
-Use the verified private tailnet address, retain certificate validation, and
-keep test-account credentials in private custody. Do not save credentials or
-accept an unexpected certificate warning as part of unattended setup.
-
 Configure automatic logon using an LSA-protected password (such as Microsoft's
 Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
 the project's lab policy. Reboot and prove a scheduled task with
@@ -259,7 +249,7 @@ After tailnet proof, register `desktop_protocol=rdp`, `desktop_route=direct`,
 `desktop_host=MAGICDNS`, `desktop_port=3389`, `desktop_user=yokeqa`.
 For SSH bootstrap use `desktop_route=ssh-forward`, `desktop_host=127.0.0.1`.
 `yoke test-machine desktop-access` returns the private address or forward and
-private password-file path for your existing RDP client; Yoke adds none.
+private password-file path for your [controller RDP client](windows-native-controller.md).
 Disconnect without sign-out;
 if locked/logged off, reconnect, unlock and return to console before QA.
 Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
