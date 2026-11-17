@@ -17,6 +17,7 @@ def _approve():
         verification_url=START,
         user_code="K7F2",
         reauthorize_command=REAUTHORIZE,
+        yoke_bin="/home/tester/.local/bin/yoke",
     )
 
 
@@ -35,7 +36,7 @@ def test_waits_for_exact_request_after_an_existing_origin_tab(monkeypatch, targe
     observed = iter([["https://app.example/"], ["https://app.example/", target]])
     calls = []
 
-    def host(run, command, *args, secrets=()):
+    def host(run, yoke_bin, command, *args, secrets=()):
         calls.append(command)
         if command == "tabs":
             return {"ok": True, "urls": next(observed), "identity_browsers": 1}
@@ -57,7 +58,7 @@ def test_unrelated_or_wrong_code_tabs_time_out_without_pressing(monkeypatch):
     now = _clock(monkeypatch)
     monkeypatch.setattr(driver.identity_browser_devtools, "TAB_WAIT_SECONDS", 1)
 
-    def host(run, command, *args, secrets=()):
+    def host(run, yoke_bin, command, *args, secrets=()):
         assert command == "tabs"
         return {
             "ok": True,
@@ -77,7 +78,7 @@ def test_tab_reader_refusal_is_preserved_without_retry(monkeypatch):
     _clock(monkeypatch)
     calls = []
 
-    def host(run, command, *args, secrets=()):
+    def host(run, yoke_bin, command, *args, secrets=()):
         calls.append(command)
         return {
             "ok": False,

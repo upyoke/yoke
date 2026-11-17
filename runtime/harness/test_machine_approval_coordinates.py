@@ -111,7 +111,7 @@ def test_machine_entry_does_not_authorize_the_hosted_redirect_route():
 def _chromium(monkeypatch, *, response, observed):
     calls = []
 
-    def host(_run, command, *arguments, secrets=()):
+    def host(_run, _yoke_bin, command, *arguments, secrets=()):
         calls.append((command, *arguments))
         if command == "tabs":
             return {"ok": True, "urls": [observed], "identity_browsers": 1}
@@ -130,6 +130,7 @@ def _chromium(monkeypatch, *, response, observed):
         verification_url=ENTRY,
         user_code="K7F2",
         reauthorize_command=REAUTHORIZE,
+        yoke_bin="yoke",
     )
     return outcome, calls
 
@@ -246,6 +247,7 @@ def test_invalid_context_never_reaches_the_browser(
             verification_url=verification_url,
             user_code=user_code,
             reauthorize_command=REAUTHORIZE,
+            yoke_bin="yoke",
         ),
     }[driver]
     result = approve()

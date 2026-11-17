@@ -97,6 +97,7 @@ def test_the_driver_names_the_reauthorize_command_for_an_expired_login(monkeypat
         verification_url=ENTRY,
         user_code=CODE,
         reauthorize_command=REAUTHORIZE,
+        yoke_bin="yoke",
     )
     assert result.error_code == "machine_browser_sign_in_required"
     assert result.evidence["observed_tab_paths"] == ["/auth/sign-in"]
@@ -115,6 +116,7 @@ def test_no_running_identity_browser_says_the_link_bypassed_the_launcher(monkeyp
         verification_url=ENTRY,
         user_code=CODE,
         reauthorize_command=REAUTHORIZE,
+        yoke_bin="yoke",
     )
     assert result.error_code == "machine_browser_tab_missing"
     assert result.evidence["state"] == "identity_browser_not_running"

@@ -15,9 +15,9 @@ login Keychain (`Library/Keychains`, holding Claude's and Cursor's logins),
 store `.yoke-browser-identities` are excluded from the golden and kept live on
 every reset, so a reset never puts back a rotated token or cookie. The
 identity profiles are the machine's only saved browser logins. Chromium writes
-a profile's cookies as it closes, so capture and reset first close every
-running identity browser gracefully through its DevTools port; they never
-force-quit it. If a previous golden exists, reset first, then make
+a profile's cookies as it closes, so capture and reset first find each
+identity browser's main process with `/bin/ps`, send it SIGTERM (Chromium's
+clean shutdown) and wait up to 30 seconds; they never force-quit it. If a previous golden exists, reset first, then make
 the operator preparations above and re-save. The first bare home needs no
 Yoke installation before capture. Never seal a home containing Yoke residue.
 Choose a new absolute destination outside the test home, in a separate new parent for EACH attempt; retention can
@@ -60,8 +60,8 @@ Only the dedicated test home is captured; system settings/other homes are not.
 | `golden_capture_foreign_owner` | Diagnose the unexpected owner's writer; prove a product-owned restoration path before capture |
 | `golden_capture_preserved_state_invalid` | Inspect the named OS entry's owner/type or symlink ancestor; preserve content and do not change its owner |
 | `golden_capture_destination_occupied` | Choose a new destination |
-| `test_machine_sign_in_app_quit_not_proved` | An identity browser did not close. Close its windows on the machine, answering any prompt it shows, then retry |
-| `test_machine_sign_in_app_probe_failed` | Yoke could not read the identity browsers through `/usr/bin/python3` or their DevTools ports. Install the Command Line Tools provisioning requires, then retry |
+| `test_machine_sign_in_app_quit_not_proved` | An identity browser still runs 30 seconds after SIGTERM. Close its windows on the machine yourself, answering any prompt it shows, then retry; never force-quit it |
+| `test_machine_sign_in_app_probe_failed` | Yoke could not list the identity browser processes over SSH. Check SSH to the machine, then retry |
 | `baseline_probe_failed` | Read cause/reason/recovery and sanitized native exit diagnostics. Nonzero execution retains its category; reason/recovery names quota, authentication, model or transport evidence. Quota waits for provider capacity; only diagnosed auth calls for sign-in. Preserve the golden and failed capture; never reset credentials to clear quota |
 | `baseline_probe_bridge_unavailable` | Repair the named bridge condition, then retry |
 | `test_machine_terminal_quit_not_proved` | Terminal survived its quit and a forced kill. Quit it at the console (Terminal > Quit Terminal, then Terminate), then retry |

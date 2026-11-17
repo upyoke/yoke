@@ -173,8 +173,6 @@ its curtain can lock the physical display while the remote viewer looks unlocked
 Install Command Line Tools once with `xcode-select --install`, finish the
 dialog locally, then prove `git --version` returns immediately. Full Xcode is
 not required. A bare Mac's Git shim can raise a dialog nobody sees over SSH.
-The browser approval driver also runs `/usr/bin/python3`, which these tools
-provide.
 Keep the existing GNU `screen`; the macOS bridge uses Terminal.app.
 
 Install the required harness apps and vendor CLIs as the test user. Use the
@@ -214,7 +212,7 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 SSH `osascript` Terminal control uses the Remote Login controller.
 GUI-session commands (`--gui-session`) need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium
-through its DevTools port, not AppleScript. A checked Automation box alone does not prove consent: macOS can
+through the installed Yoke, not AppleScript. A checked Automation box alone does not prove consent: macOS can
 still hold an unanswered prompt. At the host console, open Terminal and run:
 
 ```sh

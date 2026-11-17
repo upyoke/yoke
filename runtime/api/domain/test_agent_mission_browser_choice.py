@@ -22,7 +22,7 @@ def test_walker_prompt_uses_yoke_browser_only_when_the_walk_installed_yoke() -> 
     assert "-- yoke browser open --project PROJECT --identity" in prompt
     assert "never the stock desktop browser" in prompt
     assert "Safari" not in prompt
-    assert "until YOK-5408 lands" in prompt
+    assert "until the launcher supports it" in prompt
     assert "screenshots and keystrokes" in prompt
     assert "Never install Yoke on a Test Machine to get a browser." in prompt
 

@@ -270,7 +270,9 @@ the URL or the URL appended. A Machine QA recipe whose operator gate is a
 browser approval exports `BROWSER="env -u YOKE_MACHINE_HOME <yoke_bin> browser
 open --project P --identity <operator identity> %s"`, where the operator
 identity is the project's browser-control `default_identity`. The approval
-driver then finds the exact approval tab through each identity browser's
-DevTools port. On Linux and WSL desktops, provisioning registers
+driver then runs the machine's installed Yoke over SSH (`yoke browser devtools
+tabs|approve`, owned by `yoke_harness.identity_browser_devtools`), which reads
+every `~/.yoke-browser-identities/*/*/DevToolsActivePort` and finds the exact
+approval tab. On Linux and WSL desktops, provisioning registers
 `yoke-identity-browser.desktop` as the web-link default, so `xdg-open` lands
 in the same profile.

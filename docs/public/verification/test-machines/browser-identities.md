@@ -74,11 +74,13 @@ the operator identity's signed-in browser. A project without
 capability-settings merge --project P --cap-type browser-control --set
 default_identity=NAME`.
 
-One approval driver serves Linux, WSL and macOS. It runs a stdlib
-`/usr/bin/python3` program over SSH (on macOS that needs the Command Line
-Tools provisioning already requires). The program finds the exact approval
-tab through each identity browser's DevTools port and presses **Approve
-machine**. A tab that landed on a sign-in page means the login expired: it
+One approval driver serves Linux, WSL and macOS. It runs the test machine's
+installed Yoke over SSH (`yoke browser devtools tabs` and `approve`, an
+internal command), so the host needs no other interpreter. That Yoke reads
+every `~/.yoke-browser-identities/*/*/DevToolsActivePort`, finds the exact
+approval tab and presses **Approve machine**. When that command returns no
+readable receipt, the gate refuses with reason
+`identity_browser_helper_unreadable`, naming the installed Yoke path. A tab that landed on a sign-in page means the login expired: it
 refuses `machine_browser_sign_in_required`, whose recovery names the exact
 `yoke browser authorize --project P --identity NAME --test-machine T`
 command. Nobody signs in inside that window. When no identity browser runs,
@@ -86,12 +88,15 @@ it refuses `machine_browser_tab_missing`: the installer did not open its
 link through `yoke browser open`.
 
 Before a capture or reset, Linux and WSL ask every Chromium to quit and never
-kill it; macOS closes every identity browser gracefully through its DevTools
-port. A browser that does not close refuses
-`test_machine_sign_in_app_quit_not_proved`.
+kill it. macOS finds each identity browser's main process with `/bin/ps`,
+sends it SIGTERM (Chromium's clean shutdown, which saves its cookies) and
+waits up to 30 seconds; it never force-quits. A browser still running refuses
+`test_machine_sign_in_app_quit_not_proved`: close its windows and retry. A
+failed process probe refuses `test_machine_sign_in_app_probe_failed`: check
+SSH and retry.
 
-Native Windows (`windows-native-lab`) keeps its current installer, approval
-and default desktop browser paths until follow-up item YOK-5408 lands. Stock
+Native Windows keeps its current installer, approval and default desktop
+browser paths until the launcher supports native Windows. Stock
 Safari, Edge and snap Chromium are no longer exercised, and the installer's
 handoff to the OS default browser is not exercised on macOS or WSL.
 

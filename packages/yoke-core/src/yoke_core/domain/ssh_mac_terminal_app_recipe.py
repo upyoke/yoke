@@ -185,6 +185,7 @@ def run_terminal_app_recipe(
                         verification_url=url,
                         user_code=code,
                         reauthorize_command=reauthorize_command(config),
+                        yoke_bin=yoke_bin,
                     ),
                     run_yoke=yoke_runner(run, yoke_bin),
                     terminal_location="the Terminal.app window on the test machine",

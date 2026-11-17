@@ -64,9 +64,9 @@ installer's tmux session carries the desktop's DISPLAY, so the installer's
 [identity launcher](linux-host-provisioning.md#4-durable-desktop-and-unattended-sessions) provisioning registers.
 
 The gate starts or reuses the fixture desktop before the installer starts.
-It then runs a stdlib `/usr/bin/python3` program over SSH that finds the
-exact installer-opened tab through each identity browser's loopback DevTools
-port, on the declared origin with the displayed code. It presses **Approve
+It then runs the machine's installed Yoke over SSH (`yoke browser devtools`),
+which finds the exact installer-opened tab through each identity browser's
+loopback DevTools port, on the declared origin with the displayed code. It presses **Approve
 machine** only there, revalidates the tab first, accepts only a same-origin
 navigation away from it, and attaches a desktop screenshot to the step. The
 first sign-in happens once with `yoke browser authorize --test-machine`;
@@ -86,4 +86,5 @@ it.
 | `machine_browser_sign_in_required` | The identity's login expired: rerun the named `yoke browser authorize --project P --identity NAME --test-machine T`; nobody signs in inside that window |
 | `machine_browser_tab_missing` | No identity browser runs: the installer did not open its link through `yoke browser open`; check the recipe's `BROWSER` export |
 | `linux_desktop_default_browser_not_selected` | Rerun the step 4 provisioner with `--browser-project` and `--browser-identity` |
+| `identity_browser_helper_unreadable` | `yoke browser devtools` returned no readable receipt: check the installed Yoke at the named path and SSH, then rerun |
 | `test_machine_sign_in_app_quit_not_proved` | Close every Chromium window, answering its prompts, then rerun; it is never force-killed |

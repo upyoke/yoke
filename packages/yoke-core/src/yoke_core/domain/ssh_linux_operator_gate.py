@@ -57,6 +57,7 @@ def run_operator_gate(
             verification_url=url,
             user_code=code,
             reauthorize_command=reauthorize,
+            yoke_bin=control.path_state.yoke_bin,
             secrets=getattr(control, "secret_values", ()),
         ),
         # Only admission gates run yoke, so only they need the resolved binary.

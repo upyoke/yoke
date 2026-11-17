@@ -1,21 +1,23 @@
-"""Find and drive the approval page in an identity browser; host stdlib only.
+"""Find and drive the approval page in a running identity browser.
 
-Shipped to the test machine after ``linux_devtools_page`` (Linux and macOS
-python3), so it carries no __future__ import and no Yoke imports at run time.
 ``yoke browser open`` starts each identity browser with a loopback DevTools
 port that Chromium records in the profile's DevToolsActivePort file; every
 identity profile lives under ~/.yoke-browser-identities/<project>/<identity>.
+The test machine's installed Yoke runs this through ``yoke browser devtools``,
+so the workstation driver needs nothing on the host but that Yoke.
 """
+
+from __future__ import annotations
+
 
 import json
 import os
 from pathlib import Path
-import sys
 import time
 from urllib.parse import quote
 from urllib.request import urlopen
 
-from yoke_harness.linux_devtools_page import DevToolsPage  # host: prepended source
+from yoke_harness.linux_devtools_page import DevToolsPage
 from yoke_contracts.machine_browser_approval import CONNECTED_CONFIRMATION
 
 STORE = ".yoke-browser-identities"
@@ -128,42 +130,26 @@ def approve(allowed_urls, label):
     return {"state": "approval_navigation_missing"}
 
 
-def close_all(wait_seconds=30):
-    """Ask every identity browser to close gracefully so its cookies reach disk."""
-    ports = live_ports()
-    for port in ports:
-        try:
-            browser = _get_json(port, "/json/version")["webSocketDebuggerUrl"]
-            DevToolsPage(browser).call("Browser.close")
-        except (OSError, ValueError, KeyError, IndexError):
-            pass  # The browser closes its socket as it exits.
-    deadline = time.monotonic() + wait_seconds
-    while live_ports():
-        if time.monotonic() >= deadline:
-            return {"closed": False, "still_running": len(live_ports())}
-        time.sleep(POLL_SECONDS)
-    return {"closed": True, "browsers": len(ports)}
-
-
-def main():
-    command, arguments = sys.argv[1], sys.argv[2:]
+def run_command(command: str, arguments: list[str]) -> dict:
+    """Run one registered command; ``ok`` False names why it failed."""
     try:
-        if command == "tabs":
-            result = tabs(arguments[0])
-        elif command == "approve":
-            result = approve(json.loads(arguments[0]), arguments[1])
-        elif command == "close":
-            result = close_all()
-        else:
-            print(json.dumps({"ok": False, "reason": "identity_browser_command_unknown",
-                              "recovery": "Use a registered command."}))
-            raise SystemExit(69)
+        if command == "tabs" and len(arguments) == 1:
+            return {"ok": True, **tabs(arguments[0])}
+        if command == "approve" and len(arguments) == 2:
+            return {"ok": True, **approve(json.loads(arguments[0]), arguments[1])}
     except (OSError, ValueError) as exc:
-        print(json.dumps({
+        return {
             "ok": False,
             "reason": "identity_browser_devtools_failed",
             "recovery": f"DevTools failed: {exc}. Confirm the identity browser "
             "opened by `yoke browser open` is running and responsive, then rerun.",
-        }))
-        raise SystemExit(69)
-    print(json.dumps({"ok": True, **result}))
+        }
+    return {
+        "ok": False,
+        "reason": "identity_browser_command_unknown",
+        "recovery": "Use `yoke browser devtools tabs ORIGIN` or "
+        "`yoke browser devtools approve URLS_JSON LABEL`.",
+    }
+
+
+__all__ = ["approve", "live_ports", "run_command", "tabs"]

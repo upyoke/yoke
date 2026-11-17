@@ -32,22 +32,18 @@ def _shipped(program_for, argv):
     return shlex.split(captured["argv"])[2]
 
 
-@pytest.mark.parametrize(
-    ("program_for", "reason"),
-    [
-        (lambda run, argv: controller._host(run, *argv), "identity_browser_command_unknown"),
-        (
-            lambda run, argv: ssh_linux_browser_approval.quit_desktop_chromium(
-                type("Control", (), {"_run": staticmethod(run)})
-            ),
-            "linux_desktop_chromium_command_unknown",
-        ),
-    ],
-)
-def test_shipped_programs_run_with_only_the_host_stdlib(tmp_path, program_for, reason):
-    program = _shipped(program_for, ["quit"])
+def test_the_quit_program_runs_with_only_the_host_stdlib(tmp_path):
+    captured = {}
+
+    def run(command, timeout):
+        captured["argv"] = command
+        return subprocess.CompletedProcess(command, 0, '{"ok": true}', "")
+
+    ssh_linux_browser_approval.quit_desktop_chromium(
+        type("Control", (), {"_run": staticmethod(run)})
+    )
+    program = shlex.split(captured["argv"])[2]
     assert "from yoke_harness" not in program
-    assert "from yoke_contracts" not in program
     result = subprocess.run(
         [sys.executable, "-I", "-c", program, "unregistered"],
         capture_output=True,
@@ -55,7 +51,41 @@ def test_shipped_programs_run_with_only_the_host_stdlib(tmp_path, program_for, r
         cwd=tmp_path,
     )
     assert result.returncode == 69
-    assert json.loads(result.stdout)["reason"] == reason
+    assert json.loads(result.stdout)["reason"] == "linux_desktop_chromium_command_unknown"
+
+
+def test_the_driver_runs_the_installed_yoke_and_names_a_missing_receipt():
+    commands = []
+
+    def run(command, timeout):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 127, "", "yoke: not found")
+
+    receipt = controller._host(run, "/opt/yoke bin/yoke", "tabs", "https://a.test")
+    assert shlex.split(commands[0]) == [
+        "/opt/yoke bin/yoke", "browser", "devtools", "tabs", "https://a.test"
+    ]
+    assert receipt["reason"] == controller.HELPER_UNREADABLE
+    assert "/opt/yoke bin/yoke" in receipt["recovery"]
+
+
+def test_devtools_commands_answer_with_named_receipts(monkeypatch):
+    monkeypatch.setattr(host, "tabs", lambda origin: {"urls": [origin]})
+    assert host.run_command("tabs", ["https://a.test"]) == {
+        "ok": True,
+        "urls": ["https://a.test"],
+    }
+    assert host.run_command("approve", ["[]"])["reason"] == (
+        "identity_browser_command_unknown"
+    )
+
+    def broken(origin):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(host, "tabs", broken)
+    failed = host.run_command("tabs", ["https://a.test"])
+    assert failed["reason"] == "identity_browser_devtools_failed"
+    assert "connection refused" in failed["recovery"]
 
 
 def test_live_ports_reads_only_answering_identity_browsers(tmp_path, monkeypatch):
@@ -199,40 +229,6 @@ def test_missing_tab_is_reported_without_pressing(monkeypatch):
     )
     monkeypatch.setattr(host, "DevToolsPage", lambda url: pytest.fail("pressed"))
     assert host.approve([START], "Approve machine") == {"state": "browser_tab_missing"}
-
-
-def test_close_asks_each_browser_to_close_and_waits(monkeypatch):
-    calls = []
-    ports = iter([[9222], []])
-    monkeypatch.setattr(host, "live_ports", lambda home=None: next(ports, []))
-    monkeypatch.setattr(
-        host, "_get_json", lambda port, path: {"webSocketDebuggerUrl": "ws://b"}
-    )
-
-    class _Browser:
-        def __init__(self, url):
-            calls.append(url)
-
-        def call(self, method, **params):
-            calls.append(method)
-            raise OSError("closed while answering")
-
-    monkeypatch.setattr(host, "DevToolsPage", _Browser)
-    assert host.close_all() == {"closed": True, "browsers": 1}
-    assert calls == ["ws://b", "Browser.close"]
-
-
-def test_a_browser_that_stays_open_is_named(monkeypatch):
-    monkeypatch.setattr(host, "live_ports", lambda home=None: [9222])
-    monkeypatch.setattr(host, "_get_json", lambda port, path: {})
-    clock = [0.0]
-
-    def monotonic():
-        clock[0] += 31
-        return clock[0]
-
-    monkeypatch.setattr(host.time, "monotonic", monotonic)
-    assert host.close_all() == {"closed": False, "still_running": 1}
 
 
 def test_quit_is_graceful_and_names_a_chromium_that_stays(monkeypatch):

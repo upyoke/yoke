@@ -193,7 +193,7 @@ def _walker_dispatch(
             "window of the test machine's operator identity, already signed in, "
             "never the stock desktop browser. Drive it with screenshots and "
             "keystrokes through the remote command. On a native Windows test "
-            "machine, until YOK-5408 lands, use the desktop's default browser. "
+            "machine, until the launcher supports it, use the desktop's default browser. "
         )
         + "Never install Yoke on a Test Machine to get a browser. "
         "Add `--gui-session` to the outer host command for macOS "

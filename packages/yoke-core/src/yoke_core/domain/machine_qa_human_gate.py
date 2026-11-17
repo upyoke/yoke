@@ -186,6 +186,7 @@ def run_multiplexer_operator_gate(
             verification_url=url,
             user_code=code,
             reauthorize_command=reauthorize_command,
+            yoke_bin=yoke_bin,
         ),
         run_yoke=yoke_runner(run, yoke_bin),
         terminal_location=f"the visible Terminal window on the test machine ({attach})",

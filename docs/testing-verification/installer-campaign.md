@@ -170,12 +170,12 @@ completion text, keeping the driver's own code in
 `browser_automation_error_code` beside `browser_approval` and a recovery. Full hosted setup still requires the
 run-bound case verdict and independent inspection review.
 
-On Linux the gate first starts the fixture desktop and its Chromium with a
-loopback DevTools port and runs the installer's tmux session on that desktop,
-so the wizard's link opens in the browser the operator signed in to. The step
+On Linux the gate first starts the fixture desktop and runs the installer's
+tmux session there with `BROWSER` set to `yoke browser open` for the operator
+identity, so the wizard's link opens in that signed-in identity browser. The step
 always attaches a desktop screenshot. A host without a desktop refuses
 `headless_linux_browser_approval_unavailable`; the Machine QA
-[Linux browser approval gates](../public/verification/test-machines/linux-host-provisioning.md#browser-approval-gates)
+[Linux browser approval gates](../public/verification/test-machines/linux-browser-identities.md#browser-approval-gates)
 list every refusal and its recovery.
 
 ## Real machine admission fixture

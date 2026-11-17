@@ -53,7 +53,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         commands.append(command)
         if " hardcopy -h " in command:
             return completed(command, stdout=next(transcripts))
-        if command.startswith("/usr/bin/python3 -c "):
+        if command.startswith("yoke browser devtools "):
             entry = "https://app.stage.upyoke.com/connect?user_code=K7F2"
             reply = (
                 {"ok": True, "urls": [entry], "identity_browsers": 1}

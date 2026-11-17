@@ -21,7 +21,7 @@ from yoke_contracts.ssh_mac_preserved_state import (
     PRESERVED_MANIFEST_VALUE,
     RETIRED_PRESERVED_HOME_ENTRIES,
 )
-from yoke_harness import identity_browser_approval
+from yoke_harness import ssh_mac_sign_in_apps as sign_in_apps
 from yoke_harness.ssh_mac_sign_in_apps import (
     SIGN_IN_APP_PROBE_FAILED,
     SIGN_IN_APP_QUIT_NOT_PROVED,
@@ -75,49 +75,44 @@ def test_a_golden_naming_an_unknown_entry_is_refused(tmp_path):
     assert _manifest_rejects(tmp_path, declared, carried=False)
 
 
-def _reply(payload, returncode=0):
-    return subprocess.CompletedProcess([], returncode, json.dumps(payload), "")
+def _host_result(code, stderr=""):
+    return subprocess.CompletedProcess([], code, "", stderr)
 
 
-def test_running_identity_browsers_are_closed_through_devtools():
+def test_running_identity_browsers_are_asked_to_quit_with_guaranteed_primitives():
     commands = []
 
     def run(command, *, timeout=60):
         commands.append(command)
-        return _reply({"ok": True, "closed": True, "browsers": 2})
+        return _host_result(0)
 
     result = quit_sign_in_apps(run, "tester")
     assert result.ok and result.evidence == {"sign_in_apps_quit": ["identity browser"]}
-    assert commands[0].startswith("/usr/bin/python3 -c ")
-    assert commands[0].endswith(" close")
-    assert not any("kill" in c.split()[0] for c in commands)
+    script = commands[0]
+    assert "python" not in script.casefold()
+    assert "/bin/ps -U tester" in script and "/bin/kill -TERM" in script
+    assert "-KILL" not in script and "-9" not in script
+
+
+def test_the_probe_never_matches_its_own_command_line(tmp_path):
+    script = sign_in_apps._close_script("tester")
+    assert "--user-data-dir=" not in script
+    assert '"--user-data" "-dir="' in script
 
 
 def test_no_identity_browser_running_is_left_alone():
-    result = quit_sign_in_apps(
-        lambda *a, **k: _reply({"ok": True, "closed": True, "browsers": 0}), "tester"
-    )
+    result = quit_sign_in_apps(lambda *a, **k: _host_result(10), "tester")
     assert result.ok and result.evidence == {"sign_in_apps_quit": []}
 
 
 def test_a_browser_that_will_not_close_refuses_without_force():
-    result = quit_sign_in_apps(
-        lambda *a, **k: _reply({"ok": True, "closed": False, "still_running": 1}),
-        "tester",
-    )
+    result = quit_sign_in_apps(lambda *a, **k: _host_result(11), "tester")
     assert not result.ok and result.error_code == SIGN_IN_APP_QUIT_NOT_PROVED
-    assert (
-        result.evidence["reason"]
-        == identity_browser_approval.IDENTITY_BROWSER_CLOSE_NOT_PROVED
-    )
     assert "not force-quit" in result.evidence["recovery"]
 
 
-def test_a_failed_helper_is_not_read_as_closed():
-    def run(command, *, timeout=60):
-        return subprocess.CompletedProcess([], 255, "", "ssh: closed")
-
-    result = quit_sign_in_apps(run, "tester")
+def test_a_failed_probe_is_not_read_as_closed():
+    result = quit_sign_in_apps(lambda *a, **k: _host_result(255, "ssh: closed"), "tester")
     assert not result.ok and result.error_code == SIGN_IN_APP_PROBE_FAILED
     assert result.evidence["exit_code"] == 255
     assert result.evidence["stderr"] == "ssh: closed"

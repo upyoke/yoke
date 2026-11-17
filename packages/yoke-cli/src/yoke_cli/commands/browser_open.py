@@ -120,15 +120,48 @@ def open_identity_url(project: str, identity: str, url: str) -> dict:
     return {**receipt, "profile_dir": str(profile)}
 
 
-TOOL_SHAPED_SUBCOMMANDS = {("browser", "open"): browser_open}
+BROWSER_DEVTOOLS_USAGE = (
+    "yoke browser devtools tabs ORIGIN | yoke browser devtools approve URLS_JSON LABEL"
+)
+
+
+def browser_devtools(args: List[str]) -> int:
+    """Machine QA's approval driver on the test machine; prints one JSON receipt.
+
+    ``tabs ORIGIN`` lists the pages of every running identity browser (waiting
+    briefly for one on ORIGIN); ``approve URLS_JSON LABEL`` presses the visible
+    control in the exact allowed tab and reports where the tab went.
+    """
+    if args[:1] in (["-h"], ["--help"]):
+        print(f"usage: {BROWSER_DEVTOOLS_USAGE}\n\n{browser_devtools.__doc__}")
+        return 0
+    if not args:
+        print(f"usage: {BROWSER_DEVTOOLS_USAGE}", file=sys.stderr)
+        return 2
+    from yoke_harness import identity_browser_devtools
+
+    receipt = identity_browser_devtools.run_command(args[0], args[1:])
+    print(json.dumps(receipt))
+    return 0 if receipt.get("ok") else 69
+
+
+TOOL_SHAPED_SUBCOMMANDS = {
+    ("browser", "open"): browser_open,
+    ("browser", "devtools"): browser_devtools,
+}
 TOOL_SHAPED_USAGE = {
     "yoke browser open": (
         "Open a URL in a visible window of an authorized identity's browser profile."
-    )
+    ),
+    "yoke browser devtools": (
+        "Find or approve a machine request in a running identity browser."
+    ),
 }
 
 __all__ = [
+    "BROWSER_DEVTOOLS_USAGE",
     "BROWSER_OPEN_USAGE",
+    "browser_devtools",
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
     "browser_open",
