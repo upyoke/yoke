@@ -65,6 +65,7 @@ def _run_probe(probe, tmp_path):
     )
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize(
     "name,executable", [("Claude", "claude"), ("Codex", "codex"), ("Cursor", "agent")]
 )
@@ -122,6 +123,7 @@ def test_bypass_acceptance_is_read_without_setting_it(tmp_path, setting):
     assert config.read_bytes() == before
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize("readable", [True, False])
 def test_keychain_probe_discards_the_credential_and_uses_login_keychain(
     monkeypatch, capsys, readable

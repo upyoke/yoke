@@ -75,6 +75,7 @@ def test_terminal_selection_converges_without_erasing_other_helpers(provisioner)
     assert provisioner.terminal_settings(selected) == selected
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_custom_desktop_session_is_preserved(provisioner, monkeypatch, tmp_path):
     monkeypatch.setattr(provisioner.platform, "system", lambda: "Linux")
     monkeypatch.setattr(provisioner.os, "getuid", lambda: 1001)

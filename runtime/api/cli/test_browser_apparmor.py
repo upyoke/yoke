@@ -84,6 +84,7 @@ def test_unrestricted_hosts_need_no_profile_or_authority(setup, value):
     assert setup.commands == []
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_install_exact_paths_and_skip_already_loaded_profile(setup):
     setup.ensure()
     command, kwargs = setup.commands[-2]
@@ -99,6 +100,7 @@ def test_install_exact_paths_and_skip_already_loaded_profile(setup):
     assert "already verified" in setup.logs[-1]
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_browser_update_replaces_old_attachments_in_same_profile(setup):
     setup.ensure()
     destination = setup.commands[-2][0][-3]
@@ -111,6 +113,7 @@ def test_browser_update_replaces_old_attachments_in_same_profile(setup):
     assert "-r" in aa.INSTALL_PROFILE
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_file_alone_does_not_prove_loaded_kernel_profile(setup):
     setup.ensure()
     setup.loaded.write_text("")
@@ -118,6 +121,7 @@ def test_file_alone_does_not_prove_loaded_kernel_profile(setup):
     assert len(setup.commands) == 7
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_failed_profile_load_stops_setup_with_cause_and_recovery(setup, monkeypatch):
     monkeypatch.setattr(
         aa.subprocess,
@@ -136,6 +140,7 @@ def test_failed_profile_load_stops_setup_with_cause_and_recovery(setup, monkeypa
     assert not any("verified" in log for log in setup.logs)
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_parser_success_requires_loaded_kernel_profiles(setup, monkeypatch):
     monkeypatch.setattr(
         aa.subprocess,
@@ -150,6 +155,7 @@ def test_parser_success_requires_loaded_kernel_profiles(setup, monkeypatch):
         setup.ensure()
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_interactive_sudo_does_not_prompt_and_launches_unsandboxed(setup, monkeypatch):
     monkeypatch.setattr(aa, "command_authority", lambda reason: (["sudo", "--"], True))
     assert setup.ensure() is False
@@ -157,6 +163,7 @@ def test_interactive_sudo_does_not_prompt_and_launches_unsandboxed(setup, monkey
     assert any("sandbox off" in log for log in setup.logs)
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_restricted_userns_without_root_completes_with_sandbox_off(setup, monkeypatch):
     def refuse(reason):
         raise RuntimeError(reason)
@@ -169,6 +176,7 @@ def test_restricted_userns_without_root_completes_with_sandbox_off(setup, monkey
     assert any("retry yoke qa browser setup" in log for log in setup.logs)
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_autoinstall_disabled_refuses_required_profile(setup):
     with pytest.raises(RuntimeError, match="YOKE_BROWSER_AUTOINSTALL=0"):
         setup.ensure(autoinstall=False)

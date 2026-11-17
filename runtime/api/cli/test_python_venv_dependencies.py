@@ -34,6 +34,7 @@ def setup(monkeypatch):
     return commands
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_missing_ensurepip_installs_actual_interpreter_package_and_rechecks(setup):
     deps.ensure_venv_support("/relay/runtime/bin/python", emit=lambda _: None)
     commands = [command for command, _ in setup]
@@ -43,18 +44,21 @@ def test_missing_ensurepip_installs_actual_interpreter_package_and_rechecks(setu
     assert setup[3][1]["capture_output"] is True
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_present_venv_needs_no_package_authority(setup, monkeypatch):
     monkeypatch.setattr(deps, "_probe", lambda _: {"version": "3.12", "ready": True})
     deps.ensure_venv_support(emit=lambda _: None)
     assert setup == []
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_root_and_interactive_install_reuse_os_authority(setup, monkeypatch):
     monkeypatch.setattr(privileges.os, "geteuid", lambda: 0)
     deps.ensure_venv_support(emit=lambda _: None)
     assert all("sudo" not in command[0] for command, _ in setup)
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_interactive_install_inherits_terminal(setup, monkeypatch):
     monkeypatch.setattr(deps.sys, "stdin", SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(deps.sys, "stderr", SimpleNamespace(isatty=lambda: True))
@@ -72,6 +76,7 @@ def test_interactive_install_inherits_terminal(setup, monkeypatch):
     assert kwargs["capture_output"] is False
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_no_authority_names_package_without_installing(setup, monkeypatch):
     monkeypatch.setattr(
         deps.shutil,
@@ -85,6 +90,7 @@ def test_no_authority_names_package_without_installing(setup, monkeypatch):
     assert len(setup) == 1
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_apt_failure_names_package_and_recovery(setup, monkeypatch):
     original = deps.subprocess.run
 
@@ -100,6 +106,7 @@ def test_apt_failure_names_package_and_recovery(setup, monkeypatch):
         deps.ensure_venv_support(emit=lambda _: None)
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_successful_apt_must_supply_ensurepip(setup, monkeypatch):
     monkeypatch.setattr(deps, "_probe", lambda _: {"version": "3.12", "ready": False})
     with pytest.raises(
@@ -108,6 +115,7 @@ def test_successful_apt_must_supply_ensurepip(setup, monkeypatch):
         deps.ensure_venv_support(emit=lambda _: None)
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_other_platforms_do_not_probe(setup, monkeypatch):
     monkeypatch.setattr(deps.sys, "platform", "darwin")
     deps.ensure_venv_support()

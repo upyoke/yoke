@@ -73,6 +73,7 @@ def _prepare_browser_start(tmp_path, monkeypatch):
     return browser, fake_run, toolchain
 
 
+@pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
 def test_linux_download_is_user_space_then_shared_dependency_check(
     tmp_path, monkeypatch
 ):

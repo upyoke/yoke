@@ -8,6 +8,7 @@ import pytest
 from yoke_harness import linux_desktop_state as state
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize(
     "kind,status,cls,user,expected",
     [
@@ -38,6 +39,7 @@ def test_only_active_logged_in_fixture_graphical_sessions(
     assert bool(state.graphical_sessions()) is expected
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize(
     "active,foreign,expected",
     [(True, False, True), (False, False, False), (True, True, False)],

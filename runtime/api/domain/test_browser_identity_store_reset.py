@@ -45,6 +45,7 @@ def test_the_store_is_kept_live_and_lives_outside_the_absent_yoke_home():
     )
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_mac_reset_keeps_the_live_store_and_capture_prunes_it(tmp_path):
     require_zsh()
     home, golden = tmp_path / "home", tmp_path / "golden"
@@ -88,7 +89,8 @@ def _archive_run(home: Path, golden: Path, operation: str):
     )
 
 
-@pytest.mark.skipif(os.getuid() == 0, reason="archive fixture needs a non-root user")
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.skipif(os.name == "posix" and os.getuid() == 0, reason="archive fixture needs a non-root user")
 def test_linux_capture_omits_the_store_and_reset_keeps_it_live(tmp_path):
     home, golden = tmp_path / "home", tmp_path / "golden"
     _write(home, COOKIES, "signed in at capture")

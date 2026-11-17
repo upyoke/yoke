@@ -42,6 +42,7 @@ def test_newer_session_reuses_without_signal(manager, monkeypatch):
     assert not state.restart_orphan({**SESSION, "start": "300000"}, 3389)
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("sessions", [[], [SESSION]])
 def test_connected_viewer_refuses_before_reuse_or_restart(host, monkeypatch, sessions):
     monkeypatch.setattr(state, "desktop_sessions", lambda: sessions)
@@ -55,6 +56,7 @@ def test_connected_viewer_refuses_before_reuse_or_restart(host, monkeypatch, ses
         state.ensure_desktop(PASSWORD, rdp_access=True)
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_gui_command_reuses_desktop_while_viewer_connected(host, monkeypatch):
     monkeypatch.setattr(state, "desktop_sessions", lambda: [SESSION])
     monkeypatch.setattr(state, "rdp_connected", lambda port: True)
@@ -104,6 +106,7 @@ def test_orphan_stop_timeout_names_sesman_log(manager, monkeypatch):
         state.restart_orphan(SESSION, 3389)
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_access_restarts_orphan_and_updates_ownership(host, monkeypatch):
     live = [SESSION]
     monkeypatch.setattr(state, "desktop_sessions", lambda **kw: live)
