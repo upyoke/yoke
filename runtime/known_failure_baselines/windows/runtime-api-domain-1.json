@@ -115,7 +115,6 @@
 "runtime/api/domain/test_guard_false_refusals.py::test_target_directory_option_keeps_write_target[-t {main}/d /tmp/source-cp]": "AssertionError: assert True is False",
 "runtime/api/domain/test_guard_false_refusals.py::test_target_directory_option_keeps_write_target[-t {main}/d /tmp/source-install]": "AssertionError: assert True is False",
 "runtime/api/domain/test_guard_false_refusals.py::test_target_directory_option_keeps_write_target[-t {main}/d /tmp/source-mv]": "AssertionError: assert True is False",
-"runtime/api/domain/test_harness_cli_install_program.py::test_cursor_installer_success_requires_a_runnable_binary[0-False]": "AssertionError: assert 'harness_cli_install_failed' == 'harness_cli_...ll_unverified'",
 "runtime/api/domain/test_harness_machine_inventory.py::test_every_matching_handler_is_approved[cli]": "AssertionError: assert 'unapproved' == 'approved'",
 "runtime/api/domain/test_hook_marker_project_context.py::test_command_capture_uses_case_project_instead_of_server_context": "AssertionError: assert 127 == 0",
 "runtime/api/domain/test_install_bundle.py::test_build_bundle_is_deterministic": "assert '{\\n  \"_gener...ed\"\\n  }\\n}\\n' == '{\\n  \"_gener...ed\"\\n  }\\n}\\n'",
