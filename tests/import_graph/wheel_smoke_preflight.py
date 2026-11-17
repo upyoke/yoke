@@ -2,6 +2,7 @@
 
 from yoke_contracts.venv_layout import venv_console_script, venv_python
 
+import os
 from pathlib import Path
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
@@ -15,6 +16,8 @@ from types import SimpleNamespace
 import json
 import os
 import subprocess
+import shlex
+import sys
 from yoke_core.tools import migration_fleet_selection as selection
 from yoke_core.domain import (
     connected_env_readiness, connected_env_tunnel_coordination,
@@ -33,11 +36,16 @@ selection.resolve = lambda *a, **kw: (selection.FleetTarget(
 migration_preflight_receipt_store.read_declared_admin_connection = (
     lambda **kw: ('disposable-admin', '')
 )
-# No release.preflight_executor declared: the installed kernel runs locally.
+# Windows dispatches a declared executor; its installed kernel has the same
+# controlled database boundaries. POSIX exercises the local kernel path.
 original_read_coverage = migration_preflight_receipt_store.read_coverage
 def read_coverage(**kw):
     if list(kw['paths']) == ['release.preflight_executor']:
         assert (kw['project'], kw['environment']) == ('fixture', 'rehearsal')
+        if os.name == 'nt':
+            command = shlex.join([sys.executable, '-m',
+                                  'yoke_core.tools.preflight_fleet_migrations'])
+            return {'release.preflight_executor': command}, ''
         return {}, ''
     return original_read_coverage(**kw)
 migration_preflight_receipt_store.read_coverage = read_coverage
@@ -132,7 +140,12 @@ def smoke(tmp_path, product_wheelhouse, product_venv):
         check=False,
     )
     assert failure.returncode == 1
-    assert "fleet_preflight_import_failed" in failure.stdout
     assert "diagnostic capture:" in failure.stdout
-    assert "yoke update" in failure.stdout
+    if os.name == "nt":
+        assert "fleet_preflight_executor_failed" in failure.stdout
+        assert "--set release.preflight_executor=<command>" in failure.stdout
+        assert "controlled missing installed dependency" in failure.stdout
+    else:
+        assert "fleet_preflight_import_failed" in failure.stdout
+        assert "yoke update" in failure.stdout
     assert not Path(env["PREFLIGHT_RECEIPT_PROOF"]).exists()

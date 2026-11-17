@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env
+
 from yoke_contracts.venv_layout import venv_console_script, venv_python
 
 import json
@@ -191,11 +193,7 @@ def _installed_env(
         )
     dsn = os.environ[db_backend.PG_DSN_ENV]
     return {
-        "HOME": str(machine_home.parent),
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-        "PATH": f"{venv / 'bin'}:{os.defpath}",
-        "PYTHONNOUSERSITE": "1",
+        **product_env(machine_home, venv),
         # Exercise the installed chain through the CLI's test seam. Dropping
         # this marker starts a detached resident per fixture and makes session
         # registration depend on cold startup finishing within the hook budget.

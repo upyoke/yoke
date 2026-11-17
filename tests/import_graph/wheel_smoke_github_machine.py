@@ -7,6 +7,8 @@ never shell out to the ``gh`` CLI.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from tests.import_graph.onboard_wheel_smoke_support import _product_env as base_product_env
 
 from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
@@ -35,7 +37,7 @@ def smoke(
     readme.write_text("# external\n", encoding="utf-8")
 
     machine_home = tmp_path / "home" / ".yoke"
-    machine_home.mkdir(parents=True)
+    create_private_directory(machine_home)
     config = machine_home / "config.json"
     gh_marker = tmp_path / "gh-called"
     env = _product_env(
@@ -107,8 +109,7 @@ def smoke(
     assert not (machine_home / "secrets" / "github.token").exists()
 
     refresh = machine_home / "secrets" / f"github-app-user-{'a' * 32}.json"
-    refresh.parent.mkdir(parents=True)
-    refresh.parent.chmod(0o700)
+    create_private_directory(refresh.parent)
     refresh.write_text(
         json.dumps(
             {

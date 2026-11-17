@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env as _product_env
+
 from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
 
 from runtime.api.cli.yoke_package_index_test_support import _record as _record
@@ -22,7 +24,6 @@ from yoke_core.tools import distribution_publish, package_index, release_artifac
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 _LINK_RE = re.compile(r'<a\s+href=["\'](?P<href>[^"\']+)["\']\s*>')
 
 
@@ -212,16 +213,6 @@ def test_validate_release_rejects_invalid_wheel_record(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="duplicate archive member"):
         distribution_publish.validate_release_directory(release_dir)
 
-
-def _product_env(*, machine_home: Path, venv_dir: Path) -> dict[str, str]:
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
 
 
 def _assert_module_presence(

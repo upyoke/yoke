@@ -26,6 +26,8 @@ package index and never cloned the repository.
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env
+
 from yoke_contracts.venv_layout import venv_python as venv_interpreter
 
 import os
@@ -33,7 +35,6 @@ import subprocess
 from pathlib import Path
 
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 def test_engine_wheel_boots_and_serves_standalone(
@@ -46,13 +47,7 @@ def test_engine_wheel_boots_and_serves_standalone(
 
     home = tmp_path / "home"
     home.mkdir()
-    env = {
-        "HOME": str(home),
-        "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
+    env = product_env(home / ".yoke", venv_dir)
 
     isolation_check = (
         "import importlib.util\n"
