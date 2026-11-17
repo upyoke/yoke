@@ -1,4 +1,4 @@
-"""Stage cutoff, the not-set-up status proof, and the Windows child environment."""
+"""Stage order and cleanup, the not-set-up status proof, and the Windows child environment."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.tools import product_runner_hooks as hooks
 from runtime.api.tools import product_runner_smoke as smoke
 from runtime.api.tools import product_runner_stages as stages
 from runtime.api.tools.product_runner_commands import Commands, SmokeFailure
@@ -67,16 +68,22 @@ def test_status_stage_refuses_a_config_outside_the_isolated_home(tmp_path, monke
         stages.status(run)
 
 
-def test_cutoff_runs_earlier_stages_in_order_and_skips_cleanup(tmp_path, monkeypatch):
+def test_every_stage_runs_in_order_then_cleanup_stops_relay_and_postgres(
+    tmp_path, monkeypatch
+):
     seen = []
-    fake = tuple((name, lambda run, name=name: seen.append(name)) for name in stages.STAGE_NAMES)
+
+    def stage(run, name):
+        seen.append(name)
+        run.onboarded = run.onboarded or name == "onboard"
+
+    fake = tuple((name, lambda run, name=name: stage(run, name)) for name in stages.STAGE_NAMES)
     monkeypatch.setattr(smoke, "STAGES", fake)
-    commands = Commands(tmp_path, {})
-    run = stages.SmokeRun(tmp_path, tmp_path, commands, {})
-    monkeypatch.setattr(smoke, "cleanup", lambda *args, **kwargs: pytest.fail("cleanup"))
-    smoke.run_stages(run, "status")
-    assert seen == ["install", "status"]
-    assert run.report == {"stage": "status", "ok": True}
+    run = stages.SmokeRun(tmp_path, tmp_path, Commands(tmp_path, {}), {})
+    monkeypatch.setattr(run.commands, "run", lambda name, argv, **kwargs: seen.append(argv[1:3]))
+    smoke.run_stages(run)
+    assert seen == [*stages.STAGE_NAMES, ["relay", "uninstall"], ["local-postgres", "stop"]]
+    assert run.report == {"stage": "source-tests", "ok": True}
 
 
 def test_cleanup_failure_cannot_hide_the_primary_failure(tmp_path, monkeypatch):
@@ -90,7 +97,7 @@ def test_cleanup_failure_cannot_hide_the_primary_failure(tmp_path, monkeypatch):
         run.commands, "run", lambda *a, **k: (_ for _ in ()).throw(SmokeFailure("x"))
     )
     with pytest.raises(SmokeFailure, match="onboard_not_born"):
-        smoke.run_stages(run, "onboard")
+        smoke.run_stages(run)
 
 
 def test_windows_child_environment_is_isolated_and_startable(tmp_path, monkeypatch):
@@ -108,3 +115,15 @@ def test_windows_child_environment_is_isolated_and_startable(tmp_path, monkeypat
         for name in ("USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP")
     )
     assert env["PATH"].split(smoke.os.pathsep)[0] == str(tmp_path / "venv" / "Scripts")
+    powershell = Path(r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0"
+    assert env["PATH"].endswith(smoke.os.pathsep + str(powershell))
+
+
+@pytest.mark.parametrize("windows", [True, False])
+def test_replay_runs_the_command_the_native_harness_runs_on_this_os(tmp_path, windows):
+    handler = {"command": "/bin/sh -c 'yoke hook evaluate PreToolUse'"}
+    handler["commandWindows"] = "powershell.exe -EncodedCommand AAAA"
+    config = tmp_path / "hooks.json"
+    config.write_text(json.dumps({"hooks": {"PreToolUse": [{"hooks": [handler]}]}}))
+    expected = handler["commandWindows" if windows else "command"]
+    assert hooks.rendered_command(tmp_path, "hooks.json", "PreToolUse", windows=windows) == expected

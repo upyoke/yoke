@@ -80,7 +80,7 @@ def run_source_tests(root: Path, commands) -> None:
                         "uv",
                         "run",
                         "--frozen",
-                        "python3",
+                        "python",
                         "-m",
                         "yoke_core.tools.pg_testcluster",
                         "stop",

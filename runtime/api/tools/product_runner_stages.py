@@ -1,8 +1,4 @@
-"""Ordered product-smoke stages; each lane appends the stage that proves its port.
-
-A run executes the stages in order up to its cutoff (``--through``), so a
-runner that cannot yet onboard still proves install and ``yoke status``.
-"""
+"""Ordered product-smoke stages; every runner executes all of them in order."""
 
 from __future__ import annotations
 

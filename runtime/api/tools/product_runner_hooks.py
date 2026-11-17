@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import uuid
 
@@ -23,10 +24,14 @@ HARNESS_CONFIGS = {
 }
 
 
-def rendered_command(project: Path, config: str, event: str) -> str:
+def rendered_command(
+    project: Path, config: str, event: str, *, windows: bool | None = None
+) -> str:
+    """The command the native harness runs; Codex on Windows runs ``commandWindows``."""
+    windows = os.name == "nt" if windows is None else windows
     hooks = json.loads((project / config).read_text(encoding="utf-8"))["hooks"][event]
     commands = {
-        hook["command"]
+        hook["commandWindows"] if windows and "commandWindows" in hook else hook["command"]
         for group in hooks
         for hook in group.get("hooks", [group])
         if "command" in hook

@@ -1,6 +1,6 @@
 """Disposable-runner product smoke; no harness login or hosted universe.
 
-Stages run in order up to ``--through`` (see :mod:`product_runner_stages`).
+Every runner runs every stage in order (see :mod:`product_runner_stages`).
 """
 
 from __future__ import annotations
@@ -67,7 +67,9 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
             "TMP": str(temp),
         }
         system = Path(env.get("SYSTEMROOT", r"C:\Windows")) / "System32"
-        env["PATH"] = os.pathsep.join(str(path) for path in (*tools, system))
+        # Rendered Windows hooks start powershell.exe, which lives outside System32 proper.
+        powershell = system / "WindowsPowerShell" / "v1.0"
+        env["PATH"] = os.pathsep.join(str(path) for path in (*tools, system, powershell))
     else:
         defaults = (os.defpath, "/usr/local/bin", "/opt/homebrew/bin")
         env["PATH"] = os.pathsep.join([*(str(path) for path in tools), *defaults])
@@ -92,19 +94,14 @@ def observed_runner() -> dict[str, str]:
     return {"os": os_name, "architecture": architecture}
 
 
-def selected_stages(through: str):
-    return STAGES[: STAGE_NAMES.index(through) + 1]
-
-
 def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
     """Stop what onboarding started; a cleanup failure never hides the primary one."""
     try:
-        if sys.platform in {"darwin", "linux"}:
-            run.commands.run(
-                "uninstall-local-relay",
-                [run.yoke, "relay", "uninstall", "--json"],
-                cwd=run.project,
-            )
+        run.commands.run(
+            "uninstall-local-relay",
+            [run.yoke, "relay", "uninstall", "--json"],
+            cwd=run.project,
+        )
         run.commands.run(
             "stop-local-postgres",
             [run.yoke, "local-postgres", "stop", "--json"],
@@ -115,10 +112,10 @@ def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
             raise
 
 
-def run_stages(run: SmokeRun, through: str) -> None:
+def run_stages(run: SmokeRun) -> None:
     failed = True
     try:
-        for name, stage in selected_stages(through):
+        for name, stage in STAGES:
             run.report["stage"] = name
             stage(run)
         run.report["ok"] = True
@@ -144,8 +141,8 @@ def run_stages(run: SmokeRun, through: str) -> None:
             cleanup(run, primary_failure=failed)
 
 
-def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
-    report = {"ok": False, "through": through}
+def smoke(root: Path, output: Path) -> None:
+    report = {"ok": False, "stages": list(STAGE_NAMES)}
     report_path = output / "report.json"
     commands = None
     try:
@@ -162,7 +159,7 @@ def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
         with tempfile.TemporaryDirectory(prefix="yoke-product-smoke-") as raw:
             scratch = Path(raw).resolve()
             commands = Commands(output, isolated_environment(scratch, scratch / "venv"))
-            run_stages(SmokeRun(root, scratch, commands, report), through)
+            run_stages(SmokeRun(root, scratch, commands, report))
     except Exception as exc:
         report["ok"] = False
         failure = str(exc)
@@ -183,22 +180,16 @@ def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--through",
-        choices=STAGE_NAMES,
-        default=STAGE_NAMES[-1],
-        help="last stage to run; earlier stages always run first",
-    )
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     root = Path(__file__).resolve().parents[3]
     try:
-        smoke(root, output, args.through)
+        smoke(root, output)
     except SmokeFailure as exc:
         print(f"product-smoke failed: {exc}", file=sys.stderr)
         return 1
-    print(f"product-smoke passed through {args.through}: {output / 'report.json'}")
+    print(f"product-smoke passed {', '.join(STAGE_NAMES)}: {output / 'report.json'}")
     return 0
 
 
