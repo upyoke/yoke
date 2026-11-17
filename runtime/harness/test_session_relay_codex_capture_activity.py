@@ -131,4 +131,6 @@ def test_capture_refresh_keeps_the_previous_envelope_readable_until_replacement(
     write_native_capture(path, new)
     assert observed == [b"previous"]
     assert read_native_capture(path).stdout == b"current"
-    assert path.stat().st_mode & 0o777 == 0o600
+    from yoke_contracts.owner_private_path import is_owner_private_file
+
+    assert is_owner_private_file(path)

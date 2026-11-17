@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from yoke_core.domain.relay_release_path import relay_venv_executable
 import subprocess
-import sys
+from yoke_contracts.venv_layout import venv_site_packages
 import venv
 
 import pytest
@@ -30,15 +31,6 @@ from yoke_core.tools.session_relay_release_install import pin_relay_release
 
 CANDIDATE_RELEASE = "0.2.0.202610150430"
 RUNNING_RELEASE = "0.1.1+launch.300"
-
-
-def _site_packages(prefix: Path) -> Path:
-    return (
-        prefix
-        / "lib"
-        / f"python{sys.version_info.major}.{sys.version_info.minor}"
-        / "site-packages"
-    )
 
 
 def _install_yoke_cli(site_packages: Path, release: str) -> None:
@@ -80,8 +72,8 @@ def _installing_runner(donor: Path, argv_log: list[list[str]]):
         argv_log.append(argv)
         candidate = Path(argv[0]).parent.parent
         if "pip" in argv:
-            _install_yoke_cli(_site_packages(candidate), CANDIDATE_RELEASE)
-            (candidate / "bin" / "yoke").write_text("", encoding="utf-8")
+            _install_yoke_cli(venv_site_packages(candidate), CANDIDATE_RELEASE)
+            relay_venv_executable(candidate).write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 0, "", "")
         return subprocess.run(
             argv,

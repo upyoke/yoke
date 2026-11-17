@@ -12,6 +12,7 @@ redacted copy of its message via ``_rpc_error``.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 import tempfile
 
@@ -101,27 +102,30 @@ def test_the_client_reports_no_tail_when_capture_is_off() -> None:
 
 @pytest.mark.parametrize(
     ("body", "code"),
-    [("exec sleep 30", "timeout"), ("read request; exit 0", "eof")],
+    [("import time; time.sleep(30)", "timeout"), ("import sys; sys.stdin.readline()", "eof")],
 )
 def test_a_failed_initialize_leaves_no_app_server_child(
     tmp_path: Path, monkeypatch, body: str, code: str
 ) -> None:
-    binary = tmp_path / "codex"
-    binary.write_text(f"#!/bin/sh\n{body}\n")
-    binary.chmod(0o755)
+    binary = tmp_path / "codex.py"
+    binary.write_text(body, encoding="utf-8")
     started = []
     spawn = client_module.spawn_admitted_process
     monkeypatch.setattr(client_module, "resolve_native_cli", lambda _name: str(binary))
-    monkeypatch.setattr(
-        client_module,
-        "spawn_admitted_process",
-        lambda *args, **kwargs: started.append(spawn(*args, **kwargs)) or started[-1],
-    )
+    def start(argv, **kwargs):
+        assert argv == [str(binary), "app-server", "--stdio"]
+        process = spawn([sys.executable, str(binary)], **kwargs)
+        started.append(process)
+        return process
+
+    monkeypatch.setattr(client_module, "spawn_admitted_process", start)
 
     with pytest.raises(CodexAppServerError) as failure:
         _Client("codex", tmp_path, {}, 0.5)
 
     assert failure.value.code == code
     assert started[0].returncode is not None
-    with pytest.raises(ChildProcessError):
-        os.waitpid(started[0].pid, os.WNOHANG)
+    assert started[0].poll() is not None
+    if os.name != "nt":
+        with pytest.raises(ChildProcessError):
+            os.waitpid(started[0].pid, os.WNOHANG)

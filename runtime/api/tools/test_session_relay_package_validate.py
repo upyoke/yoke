@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
 import shutil
 import subprocess
 import sys
+from yoke_contracts.venv_layout import venv_site_packages
 
 import pytest
 
@@ -66,15 +68,6 @@ def install():
 """
 
 
-def _site_packages(prefix: Path) -> Path:
-    return (
-        prefix
-        / "lib"
-        / f"python{sys.version_info.major}.{sys.version_info.minor}"
-        / "site-packages"
-    )
-
-
 def _write_yoke_cli(packages: Path, release: str) -> Path:
     """An importable yoke_cli beside the yoke-core metadata that names it."""
     dist_info = packages / f"yoke_core-{release}.dist-info"
@@ -113,10 +106,10 @@ def _pinned_relay(tmp_path: Path, release: str = RELEASE):
     instance.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     ensure_relay_runtime(instance.state_dir)
     active = instance.state_dir / "releases" / "active"
-    _write_yoke_cli(_site_packages(active), release)
-    (active / "bin").mkdir(parents=True, exist_ok=True)
-    (active / "bin" / "python").touch()
-    (active / "bin" / "yoke").touch()
+    _write_yoke_cli(venv_site_packages(active), release)
+    relay_venv_python(active).parent.mkdir(parents=True, exist_ok=True)
+    relay_venv_python(active).touch()
+    relay_venv_executable(active).touch()
     write_release_json(
         active / ".yoke-relay-release.json",
         {
@@ -134,7 +127,8 @@ def _pinned_relay(tmp_path: Path, release: str = RELEASE):
 def _start_the_launcher(state_dir: Path) -> subprocess.CompletedProcess[str]:
     """Run the stable launcher exactly as launchd runs it."""
     return subprocess.run(
-        [str(state_dir / "runtime" / "bin" / "yoke")],
+        [str(relay_runtime_python(state_dir)), "-I", str(state_dir / "runtime" / "Scripts" / "yoke.py")]
+        if sys.platform == "win32" else [str(state_dir / "runtime" / "bin" / "yoke")],
         check=False,
         capture_output=True,
         text=True,
@@ -167,7 +161,7 @@ def test_a_release_replaced_by_editable_pointers_is_not_ready(tmp_path: Path) ->
     """
     instance, active = _pinned_relay(tmp_path)
     _write_editable_pointer(
-        _site_packages(active), tmp_path / "a-worktree-that-moved" / "yoke_cli"
+        venv_site_packages(active), tmp_path / "a-worktree-that-moved" / "yoke_cli"
     )
 
     status = relay_release_status(
@@ -196,9 +190,9 @@ def test_a_release_whose_package_comes_from_elsewhere_is_not_ready(
     instance, active = _pinned_relay(tmp_path)
     foreign = tmp_path / "a-live-worktree"
     _write_yoke_cli(foreign, OTHER_RELEASE)
-    _write_editable_pointer(_site_packages(active), foreign / "yoke_cli")
+    _write_editable_pointer(venv_site_packages(active), foreign / "yoke_cli")
     _write_editable_pointer(
-        _site_packages(instance.state_dir / "runtime"), foreign / "yoke_cli"
+        venv_site_packages(instance.state_dir / "runtime"), foreign / "yoke_cli"
     )
 
     reason = relay_package_runnable_reason(
@@ -274,7 +268,7 @@ def test_an_absent_release_tree_is_named_rather_than_raised(
     if absent == "the release":
         (instance.state_dir / "release").unlink()
     else:
-        shutil.rmtree(_site_packages(active))
+        shutil.rmtree(venv_site_packages(active))
 
     reason = relay_package_runnable_reason(
         relay_runtime_python(instance.state_dir),

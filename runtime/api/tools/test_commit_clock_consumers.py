@@ -67,7 +67,8 @@ def test_public_relay_pin_preserves_the_numeric_handshake(tmp_path):
 
     def runtime(path):
         fake_venv(path)
-        (path / "bin/python").chmod(0o700)
+        from yoke_core.domain.relay_release_path import relay_venv_python
+        relay_venv_python(path).chmod(0o700)
 
     status = session_relay_release_install.pin_relay_release(
         instance=relay_instance(tmp_path),

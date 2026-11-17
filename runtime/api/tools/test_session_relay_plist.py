@@ -29,6 +29,9 @@ from yoke_core.tools.session_relay_plist import install_relay_launchd, uninstall
 from yoke_core.domain.relay_release_path import relay_launch_executable
 
 
+
+pytestmark = pytest.mark.posix_only(reason='launchd plist preserves POSIX CLI search paths')
+
 def _instance(tmp_path: Path, environment: str):
     return resolve_relay_instance(
         config_path=_config(tmp_path),

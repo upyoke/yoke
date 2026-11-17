@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.session_control.evidence_fetch import EVIDENCE_MAX_BYTES
 from yoke_harness.session_relay_evidence_files import (
     ADAPTER_REVISION,
@@ -27,9 +28,7 @@ def _machine(tmp_path: Path) -> tuple[Path, Path]:
     """Lay out one machine's relay state dir and scratch root."""
     state_dir = tmp_path / "relay"
     state_dir.mkdir(mode=0o700)
-    (state_dir / "relay.stderr.log").write_text(
-        "relay boot\nrelay refused a wake\n", encoding="utf-8"
-    )
+    write_owner_private(state_dir / "relay.stderr.log", "relay boot\nrelay refused a wake\n")
     scratch_root = tmp_path / "scratch"
     captures = (
         scratch_root
@@ -41,9 +40,7 @@ def _machine(tmp_path: Path) -> tuple[Path, Path]:
         / ("watcher-captures")
     )
     captures.mkdir(parents=True)
-    (captures / "yoke-pytest.raw.abc.log").write_text(
-        "collecting\n1 failed\n", encoding="utf-8"
-    )
+    write_owner_private(captures / "yoke-pytest.raw.abc.log", "collecting\n1 failed\n")
     return state_dir, scratch_root
 
 
@@ -109,7 +106,7 @@ def test_tail_returns_only_the_last_lines(tmp_path: Path) -> None:
 
 def test_one_enormous_line_is_capped_in_bytes(tmp_path: Path) -> None:
     state_dir, scratch_root = _machine(tmp_path)
-    (state_dir / "relay.stdout.log").write_text("y" * 500_000, encoding="utf-8")
+    write_owner_private(state_dir / "relay.stdout.log", "y" * 500_000)
     entry = next(
         found
         for found in list_session_evidence(
@@ -206,7 +203,7 @@ def test_filesystem_nanoseconds_sort_natively_and_emit_six_fraction_json(tmp_pat
     state_dir, scratch_root = _machine(tmp_path)
     older = state_dir / "relay.stderr.log"
     newer = state_dir / "relay.stdout.log"
-    newer.write_text("opaque 2060-10-08T00:00:00+09:00 unchanged")
+    write_owner_private(newer, "opaque 2060-10-08T00:00:00+09:00 unchanged")
     epoch_ns = 1_728_345_600_123_456_000
     os.utime(older, ns=(epoch_ns, epoch_ns))
     os.utime(newer, ns=(epoch_ns + 1000, epoch_ns + 1000))

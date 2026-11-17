@@ -53,14 +53,14 @@ def test_relay_lifecycle_reports_release_pin(monkeypatch, capsys) -> None:
         "loaded": True,
         "pinned_release": "0.1.1+launch.365",
         "plist_current": True,
-        "plist_path": "/tmp/com.upyoke.relay.abc123.plist",
+        "plist_path": str(Path("/tmp/com.upyoke.relay.abc123.plist")),
         "plist_present": True,
         "release_current": True,
         "release_error": None,
         "release_error_code": None,
         "release_recovery": None,
         "served_build": "v0.1.1+launch.365",
-        "state_dir": "/tmp/relay-instances/abc123",
+        "state_dir": str(Path("/tmp/relay-instances/abc123")),
         "supported": True,
     }
 

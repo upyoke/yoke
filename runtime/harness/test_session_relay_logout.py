@@ -12,6 +12,7 @@ import pytest
 @pytest.mark.parametrize(
     "blocked", ["idle", "poll", "maintenance", "settlement", "refresh", "report"]
 )
+@pytest.mark.posix_only(reason='POSIX signal drain permits graceful SIGTERM settlement; Windows stops immediately')
 def test_term_exits_below_user_manager_budget_and_keeps_custody(tmp_path, blocked):
     ready = tmp_path / "ready"
     custody = tmp_path / "native-custody.json"

@@ -73,18 +73,17 @@ def _native_account(tmp_path: Path, release_packages: Path) -> tuple[list[str], 
     was the relay's.
     """
     account = tmp_path / "native-environment.json"
-    script = tmp_path / "native.sh"
+    script = tmp_path / "native.py"
     script.write_text(
-        'if [ -n "$VIRTUAL_ENV" ]; then\n'
-        f'  echo replaced > "{release_packages}/__init__.py"\n'
-        "fi\n"
-        f'printf \'{{"PATH":"%s","VIRTUAL_ENV":"%s","PYTHONPATH":"%s",'
-        f'"{RELAY_STATE_DIR_ENV}":"%s"}}\' '
-        f'"$PATH" "$VIRTUAL_ENV" "$PYTHONPATH" "${RELAY_STATE_DIR_ENV}" '
-        f'> "{account}"\n',
+        "import json, os\nfrom pathlib import Path\n"
+        "if os.environ.get('VIRTUAL_ENV'):\n"
+        f"    Path({str(release_packages / '__init__.py')!r}).write_text('replaced')\n"
+        f"Path({str(account)!r}).write_text(json.dumps({{\n"
+        f"    key: os.environ.get(key, '') for key in {('PATH', 'VIRTUAL_ENV', 'PYTHONPATH', RELAY_STATE_DIR_ENV)!r}\n"
+        "}))\n",
         encoding="utf-8",
     )
-    return ["/bin/sh", str(script)], account
+    return [sys.executable, str(script)], account
 
 
 def test_the_relay_python_reaches_the_supervisor_and_stops_at_the_native(
@@ -143,7 +142,7 @@ def test_the_relay_python_reaches_the_supervisor_and_stops_at_the_native(
     assert supervisors[0].wait() == 0
 
     # The supervisor is a Python process and read the inherited import path;
-    # the native is not, so the one recorded startup is the supervisor's.
+    # the native starts without that path, so only the supervisor records it.
     assert python_startups.read_text(encoding="utf-8").split() != []
 
     observed = json.loads(account.read_text(encoding="utf-8"))
