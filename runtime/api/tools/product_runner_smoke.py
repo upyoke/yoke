@@ -69,8 +69,11 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     }
     env.update(service_env)
     if WINDOWS:
-        temp = home / "AppData" / "Local" / "Temp"
-        temp.mkdir(parents=True)
+        # A real profile's temp folder is short; one nested under this scratch
+        # home would push Postgres socket fallbacks past the Unix-socket limit.
+        temp = scratch / "tmp"
+        temp.mkdir()
+        (home / "AppData" / "Local").mkdir(parents=True)
         env |= {name: os.environ[name] for name in WINDOWS_SYSTEM_VARIABLES if name in os.environ}
         env |= {
             "USERPROFILE": str(home),

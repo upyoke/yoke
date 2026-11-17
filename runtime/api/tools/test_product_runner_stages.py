@@ -117,8 +117,9 @@ def test_windows_child_environment_is_isolated_and_startable(tmp_path, monkeypat
     assert "GH_TOKEN" not in env and "SHELL" not in env
     assert all(
         Path(env[name]).is_relative_to(home)
-        for name in ("USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP")
+        for name in ("USERPROFILE", "APPDATA", "LOCALAPPDATA")
     )
+    assert env["TEMP"] == env["TMP"] == str(tmp_path / "tmp")
     assert env["PATH"].split(smoke.os.pathsep)[0] == str(tmp_path / "venv" / "Scripts")
     powershell = Path(r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0"
     assert env["PATH"].endswith(smoke.os.pathsep + str(powershell))
