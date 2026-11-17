@@ -8,6 +8,8 @@ import pytest
 from runtime.api.tools.product_runner_commands import Commands
 from runtime.api.tools.product_runner_source_tests import run_source_tests
 
+LAUNCHER = "/scratch/venv/bin/yoke"  # the installed launcher, never a bare PATH name
+
 
 @pytest.mark.parametrize("previous_cluster", [None, "/existing-cluster"])
 def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeypatch, previous_cluster):
@@ -22,7 +24,7 @@ def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeyp
         seen.append(argv)
         if argv[1:3] == ["projects", "create"]:
             assert argv == [
-                "yoke", "projects", "create", "--slug", "yoke-source",
+                LAUNCHER, "projects", "create", "--slug", "yoke-source",
                 "--name", "Yoke source", "--public-item-prefix", "SRC",
                 "--default-branch", "main", "--github-sync-mode", "disabled", "--json",
             ]
@@ -32,7 +34,7 @@ def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeyp
         if "pytest" in argv:
             assert seen[0][1:3] == ["projects", "create"]
             assert seen[1] == [
-                "yoke", "project", "register", str(root),
+                LAUNCHER, "project", "register", str(root),
                 "--project-id", str(project_id), "--json",
             ]
             assert "--project" not in argv
@@ -41,6 +43,6 @@ def test_source_tests_register_their_own_project_before_pytest(tmp_path, monkeyp
     monkeypatch.setattr("runtime.api.tools.product_runner_commands.subprocess.run", run)
     original_env = {} if previous_cluster is None else {"YOKE_PG_CLUSTER_ROOT": previous_cluster}
     commands = Commands(tmp_path, original_env.copy())
-    run_source_tests(root, commands)
+    run_source_tests(root, commands, LAUNCHER)
     assert commands.env == original_env
     assert sum("pytest" in argv for argv in seen) == 2

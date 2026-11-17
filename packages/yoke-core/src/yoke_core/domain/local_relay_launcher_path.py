@@ -4,17 +4,25 @@ import sys
 from pathlib import Path
 from yoke_core.domain.launcher_locations import LAUNCHER_FILENAME, TARGET_PRIORITY
 
+#: Windows names: the installer writes a ``yoke.cmd`` shim into the canonical
+#: directory, while a pipx or virtualenv install owns ``Scripts\yoke.exe``.
+WINDOWS_SHIM_FILENAME = "yoke.cmd"
+WINDOWS_SCRIPT_FILENAME = "yoke.exe"
+_WINDOWS = os.name == "nt"
+
+
 def local_launcher_candidates() -> tuple[Path, ...]:
     """Absolute launcher paths this machine may hold, best candidate first."""
+    shim = WINDOWS_SHIM_FILENAME if _WINDOWS else LAUNCHER_FILENAME
+    script = WINDOWS_SCRIPT_FILENAME if _WINDOWS else LAUNCHER_FILENAME
     candidates = [
-        Path(directory).expanduser() / LAUNCHER_FILENAME
-        for directory, _label in TARGET_PRIORITY
+        Path(directory).expanduser() / shim for directory, _label in TARGET_PRIORITY
     ]
     # A pipx or virtualenv install owns a console script beside its
     # interpreter even when no canonical shim was ever written.
     # Preserve the venv path: resolving its Python symlink moves to the base
     # interpreter, whose directory does not own this install's console script.
-    candidates.append(Path(sys.executable).absolute().parent / LAUNCHER_FILENAME)
+    candidates.append(Path(sys.executable).absolute().parent / script)
     unique: list[Path] = []
     for candidate in candidates:
         if candidate.is_absolute() and candidate not in unique:

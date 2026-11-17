@@ -223,7 +223,7 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
         document=lambda *args, **kwargs: {"project": {"id": 42}},
     )
     with pytest.raises(ValueError, match="primary test failure"):
-        run_source_tests(tmp_path, commands)
+        run_source_tests(tmp_path, commands, "yoke")
 
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"

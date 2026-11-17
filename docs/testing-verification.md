@@ -321,8 +321,8 @@ Tests of fixture helpers alone add no product coverage.
 
 Windows and macOS product smoke run only on demand through
 `.github/workflows/product-smoke.yml`, alongside Ubuntu x86 and arm runners.
-Windows proves candidate wheel installation and `yoke status`; macOS and Linux
-also exercise onboarding, hooks and source development. No per-PR Windows
+All four legs run the full flow: candidate wheel installation, `yoke status`,
+onboarding, hook replay and source development. No per-PR Windows
 check is required by the merge queue.
 
 For targeted Windows source tests, select `-m windows` across `runtime/api`,
