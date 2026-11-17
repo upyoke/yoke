@@ -153,22 +153,22 @@ def check_completion_stage_qa(
     return awaiting_qa_exit
 
 
-def fresh_resume(run_status: str, from_stage: str, stage_name: str) -> bool:
-    """True when a failed run's ``--from-stage`` re-entry must dispatch fresh.
+def retry_failed_stage(run_status: str, start_stage: str, stage_name: str) -> bool:
+    """True for the stage a failed run failed at, as its resume re-enters it.
 
-    Only the named stage of a run whose status is ``failed`` is treated as
-    ``--fresh``, so that stage gets one new workflow dispatch. A re-drive of
-    a run that is not failed stays false and joins the dispatch already
-    started. Later stages of the same resume stay false too.
+    That stage retries its failed workflow run once
+    (:mod:`deploy_pipeline_github_workflow_retry`). A re-drive of a run that
+    is not failed stays false and joins the dispatch already started, and so
+    do later stages of the same resume.
     """
-    return run_status == "failed" and bool(from_stage) and from_stage == stage_name
+    return run_status == "failed" and bool(start_stage) and start_stage == stage_name
 
 
 __all__ = [
     "check_completion_stage_qa",
     "check_resume_qa_gate",
     "check_unresolved_qa",
-    "fresh_resume",
+    "retry_failed_stage",
     "report_missing_start_stage",
     "stage_completes_run",
 ]

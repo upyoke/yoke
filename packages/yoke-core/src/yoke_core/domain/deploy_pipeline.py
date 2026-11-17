@@ -74,7 +74,6 @@ def run_pipeline(
     primary_arg: str,
     *,
     timeout_min: int = 30,
-    from_stage: str = "",
     fresh: bool = False,
     image_tag: str = "",
     product_repo_path: str = "",
@@ -182,8 +181,8 @@ def run_pipeline(
     if not ok:
         return EXIT_USAGE
 
-    start_stage = from_stage
-    if not start_stage and current_stage:
+    start_stage = ""
+    if current_stage:
         if current_stage.endswith("-failed"):
             start_stage = current_stage.replace("-failed", "")
         elif current_stage == "complete":
@@ -272,7 +271,8 @@ def run_pipeline(
             first_item=first_item,
             first_item_label=str(first_member.get("public_ref") or ""),
             timeout_min=timeout_min,
-            fresh=fresh or stage_checks.fresh_resume(run_status, from_stage, s_name),
+            fresh=fresh,
+            retry_failed=stage_checks.retry_failed_stage(run_status, start_stage, s_name),
             image_tag=image_tag,
             environment_name=environment_name,
             gate_branch=gate_branch,

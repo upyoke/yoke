@@ -214,10 +214,7 @@ def cmd_remove_item(
             "while this run is still created."
         )
         if status == "failed":
-            recovery = (
-                f"Resume this same run with `yoke watch deploy -- {run_id} "
-                "--from-stage item-qa`."
-            )
+            recovery = f"Resume this same run with `yoke watch deploy -- {run_id}`."
         elif status == "executing":
             from yoke_core.domain.deployment_run_auto_completion import (
                 continue_after_settlement,

@@ -1,13 +1,16 @@
-"""Same-run --from-stage resume of a failed pipeline re-enters executing.
+"""A plain resume of a failed pipeline re-enters executing at the failed stage.
 
-A failed run whose current_stage is already the resume point must flip
-status to executing before any receipt allocate, and must not dispatch
-skipped completed stages. Failed receipts stay; this path is not --retry-of.
+The run flips to executing before any receipt allocate and does not dispatch
+completed stages. Failed receipts stay; this path is not --retry-of. Only
+the stage that failed is told to retry its failed workflow run, and there is
+no ``--from-stage``.
 """
 
 from __future__ import annotations
 
 from unittest import mock
+
+import pytest
 
 from yoke_core.domain import (
     deploy_pipeline,
@@ -15,14 +18,11 @@ from yoke_core.domain import (
     deploy_pipeline_run_updates,
     deploy_pipeline_stage_checks,
 )
-from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
-    fresh_retrigger_scope,
-    workflow_dispatch_request_id,
-)
-from yoke_core.domain.deploy_pipeline_stage_checks import fresh_resume
+from yoke_core.domain.deploy_pipeline_cli import _build_parser
+from yoke_core.domain.deploy_pipeline_stage_checks import retry_failed_stage
 
 
-def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
+def test_failed_run_resume_reenters_executing_without_replay(capsys):
     run_id = "run-20260917-012"
     context = {
         "run": {
@@ -33,7 +33,7 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
             "target_environment": "prod",
             "release_lineage": "a" * 40,
             "status": "failed",
-            "current_stage": "warm-up",
+            "current_stage": "warm-up-failed",
         },
         "members": [],
         "stages": [
@@ -106,7 +106,7 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
             return_value=[],
         ),
     ):
-        rc = deploy_pipeline.run_pipeline(run_id, from_stage="warm-up", sd="/tmp/sd")
+        rc = deploy_pipeline.run_pipeline(run_id, sd="/tmp/sd")
 
     assert rc == deploy_pipeline.EXIT_SUCCESS
     assert "hosted-release" not in dispatched
@@ -131,7 +131,9 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
     assert "--- Stage: warm-up" in out
 
 
-def _fresh_flags(status: str, from_stage: str, run_id: str) -> dict[str, bool]:
+def _dispatch_flags(
+    status: str, current_stage: str, run_id: str
+) -> dict[str, tuple[bool, bool]]:
     context = {
         "run": {
             "id": run_id,
@@ -141,7 +143,7 @@ def _fresh_flags(status: str, from_stage: str, run_id: str) -> dict[str, bool]:
             "target_environment": "prod",
             "release_lineage": "a" * 40,
             "status": status,
-            "current_stage": from_stage,
+            "current_stage": current_stage,
         },
         "members": [],
         "stages": [
@@ -153,10 +155,10 @@ def _fresh_flags(status: str, from_stage: str, run_id: str) -> dict[str, bool]:
             {"name": "complete", "step_runner": "auto"},
         ],
     }
-    flags: dict[str, bool] = {}
+    flags: dict[str, tuple[bool, bool]] = {}
 
     def fake_dispatch(stage, **kwargs):
-        flags[stage["name"]] = kwargs["fresh"]
+        flags[stage["name"]] = (kwargs["fresh"], kwargs["retry_failed"])
         return 0, ""
 
     with (
@@ -200,34 +202,35 @@ def _fresh_flags(status: str, from_stage: str, run_id: str) -> dict[str, bool]:
             return_value=[],
         ),
     ):
-        rc = deploy_pipeline.run_pipeline(run_id, from_stage=from_stage, sd="/tmp/sd")
+        rc = deploy_pipeline.run_pipeline(run_id, sd="/tmp/sd")
 
     assert rc == deploy_pipeline.EXIT_SUCCESS
     return flags
 
 
-def test_failed_from_stage_dispatches_fresh_and_executing_keeps_base_request_id():
+def test_only_the_failed_stage_of_a_failed_run_retries_its_workflow_run():
     run_id = "run-20261023-007"
     stage = "hosted-release"
-    project = "yoke"
-    base = workflow_dispatch_request_id(project, run_id, stage)
 
-    assert fresh_resume("failed", stage, stage) is True
-    assert fresh_resume("failed", stage, "warm-up") is False
-    assert fresh_resume("failed", "", stage) is False
-    assert fresh_resume("executing", stage, stage) is False
+    assert retry_failed_stage("failed", stage, stage) is True
+    assert retry_failed_stage("failed", stage, "warm-up") is False
+    assert retry_failed_stage("failed", "", stage) is False
+    assert retry_failed_stage("executing", stage, stage) is False
 
-    failed = _fresh_flags("failed", stage, run_id)
-    assert failed[stage] is True
-    assert failed["warm-up"] is False
-    scoped = workflow_dispatch_request_id(
-        project,
-        run_id,
-        stage,
-        retrigger_scope=fresh_retrigger_scope(),
-    )
-    assert scoped.startswith(f"{base}:fresh:")
+    failed = _dispatch_flags("failed", f"{stage}-failed", run_id)
+    assert failed == {
+        stage: (False, True),
+        "warm-up": (False, False),
+        "complete": (False, False),
+    }
 
-    executing = _fresh_flags("executing", stage, run_id)
-    assert executing[stage] is False
-    assert workflow_dispatch_request_id(project, run_id, stage) == base
+    executing = _dispatch_flags("executing", stage, run_id)
+    assert executing[stage] == (False, False)
+
+
+def test_from_stage_is_rejected_as_unknown(capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        _build_parser().parse_args(["run-x", "--from-stage", "hosted-release"])
+
+    assert exit_info.value.code == 2
+    assert "unrecognized arguments: --from-stage" in capsys.readouterr().err

@@ -174,7 +174,7 @@ def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
 
     Normalization adds only what execution addresses a stage by: ``name``
     and ``step_runner`` as strings, for ``deployment_runs.current_stage``,
-    ``--from-stage`` resume, and stage telemetry; and ``config`` as the
+    failed-stage resume, and stage telemetry; and ``config`` as the
     same stage under the name each step runner reads its own fields from.
     Persisted runner fields are top-level — there is no nested ``config``
     object in a stored stage, and operator writes refuse one.
