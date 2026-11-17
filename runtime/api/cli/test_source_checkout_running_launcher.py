@@ -59,3 +59,20 @@ def test_failed_install_restores_the_running_launcher(tmp_path, monkeypatch):
         activation._run_editable_install(_checkout(tmp_path / "yoke"))
     assert (scripts / "yoke.exe").read_text(encoding="utf-8") == "running"
     assert not list(scripts.glob("yoke.exe.*.replaced"))
+
+
+def test_launcher_held_open_refuses_by_name_with_its_holders(tmp_path, monkeypatch):
+    scripts = _scripts(tmp_path, monkeypatch)
+
+    def held(self, target):
+        raise PermissionError(32, "being used by another process")
+
+    monkeypatch.setattr(activation.Path, "replace", held)
+    monkeypatch.setattr(activation.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(activation, "_open_file_holders", lambda path: ["python.exe (pid 42)"])
+    with pytest.raises(RuntimeError) as refused:
+        activation._set_running_launcher_aside(scripts)
+    assert str(refused.value).startswith(
+        f"editable_install_launcher_in_use: {scripts / 'yoke.exe'} is held open by python.exe (pid 42)"
+    )
+    assert "yoke dev setup --editable-install" in str(refused.value)

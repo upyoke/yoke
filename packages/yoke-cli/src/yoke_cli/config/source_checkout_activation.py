@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import Any, TypeVar
@@ -84,7 +85,7 @@ def _run_editable_install(
     )
     for package in packages:
         command.extend(["-e", str(package)])
-    moved = _set_running_launcher_aside(Path(sys.executable).parent)
+    moved = _set_running_launcher_aside(Path(sys.executable).parent, error_type=error_type)
     result = terminal_detached_process.run(
         command,
         cwd=root,
@@ -113,12 +114,15 @@ def _run_editable_install(
     }
 
 
-def _set_running_launcher_aside(scripts: Path) -> list[tuple[Path, Path]]:
+def _set_running_launcher_aside(
+    scripts: Path, *, error_type: type[_Error] = RuntimeError
+) -> list[tuple[Path, Path]]:
     """Let the install replace this environment's ``yoke.exe`` on Windows.
 
     Windows refuses to delete a running executable -- this command, the local
-    relay or the hook evaluator may be running it -- but allows renaming it.
-    Copies set aside earlier are removed once nothing runs them.
+    relay or the hook evaluator may be running it -- but allows renaming it
+    unless a process holds it open as a file. Copies set aside earlier are
+    removed once nothing runs them.
     """
     if not _WINDOWS:
         return []
@@ -131,8 +135,36 @@ def _set_running_launcher_aside(scripts: Path) -> list[tuple[Path, Path]]:
     if not launcher.is_file():
         return []
     aside = launcher.with_name(f"{_LAUNCHER}.{uuid.uuid4().hex[:8]}{_ASIDE_SUFFIX}")
-    launcher.replace(aside)
-    return [(launcher, aside)]
+    for attempt in range(10):
+        try:
+            launcher.replace(aside)
+            return [(launcher, aside)]
+        except PermissionError:
+            if attempt < 9:
+                time.sleep(0.3)  # A scanner's brief handle closes on its own.
+    holders = _open_file_holders(launcher)
+    raise error_type(
+        f"editable_install_launcher_in_use: {launcher} is held open by "
+        f"{', '.join(holders) or 'an unidentified process'}, so Windows cannot "
+        "replace it. Stop that process (the local relay: `yoke relay uninstall`; the "
+        "hook evaluator: `yoke hook resident stop`), then rerun "
+        "`yoke dev setup --editable-install`."
+    )
+
+
+def _open_file_holders(path: Path) -> list[str]:
+    """Name the processes that hold *path* open; a process we cannot read is skipped."""
+    import psutil
+
+    wanted = os.path.normcase(str(path))
+    holders = []
+    for process in psutil.process_iter(["pid", "name"]):
+        try:
+            if any(os.path.normcase(f.path) == wanted for f in process.open_files()):
+                holders.append(f"{process.info['name']} (pid {process.info['pid']})")
+        except (psutil.Error, OSError):
+            continue
+    return holders
 
 
 def _find_uv() -> str | None:
