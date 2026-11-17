@@ -55,7 +55,7 @@ def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
         # principal that can already write the root could change them.
         if not is_owner_private_directory(root):
             raise ValueError("cluster root is not owner-private")
-    lines = (data / "postmaster.pid").read_text().splitlines()
+    lines = (data / "postmaster.pid").read_text(encoding="utf-8").splitlines()
     if int(lines[0]) != pid or Path(lines[1]).resolve() != data.resolve():
         raise ValueError("postmaster identity changed")
     return ClusterSpec(

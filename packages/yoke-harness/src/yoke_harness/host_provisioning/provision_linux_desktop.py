@@ -163,7 +163,7 @@ def prerequisites() -> Path:
     command(["sudo", "-n", "true"])
     home = Path.home()
     session = home / ".xsession"
-    if session.exists() and session.read_text() != SESSION_CONTENT:
+    if session.exists() and session.read_text(encoding="utf-8") != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_conflict: .xsession already selects another session; "
             "preserve that customization and have the operator select XFCE deliberately"
@@ -195,7 +195,7 @@ def provision(home: Path, port: int, project: str, identity: str) -> None:
         ]
     )
     config_path = Path("/etc/xrdp/xrdp.ini")
-    original = config_path.read_text()
+    original = config_path.read_text(encoding="utf-8")
     configured = localhost_config(original, port)
     if configured != original:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as candidate:
@@ -216,12 +216,12 @@ def provision(home: Path, port: int, project: str, identity: str) -> None:
                     str(config_path),
                 ]
             )
-    (home / ".xsession").write_text(SESSION_CONTENT)
+    (home / ".xsession").write_text(SESSION_CONTENT, encoding="utf-8", newline="\n")
     (home / ".xsession").chmod(0o600)
     helpers = home / ".config/xfce4/helpers.rc"
     helpers.parent.mkdir(parents=True, exist_ok=True)
     helpers.write_text(
-        terminal_settings(helpers.read_text() if helpers.exists() else "")
+        terminal_settings(helpers.read_text(encoding="utf-8") if helpers.exists() else ""), encoding="utf-8", newline="\n"
     )
     print("linux-desktop: routing web links to the identity browser", flush=True)
     entry = home / ".local/share/applications" / LAUNCHER_DESKTOP_ENTRY
@@ -229,7 +229,7 @@ def provision(home: Path, port: int, project: str, identity: str) -> None:
     entry.write_text(launcher_entry(project, identity), encoding="utf-8")
     defaults = home / ".config/mimeapps.list"
     defaults.write_text(
-        browser_defaults(defaults.read_text() if defaults.exists() else "")
+        browser_defaults(defaults.read_text(encoding="utf-8") if defaults.exists() else ""), encoding="utf-8", newline="\n"
     )
     command(["sudo", "-n", "usermod", "-aG", "ssl-cert", "xrdp"])
     command(["sudo", "-n", "systemctl", "enable", "--now", "xrdp", "xrdp-sesman"])
@@ -254,7 +254,7 @@ def selected_launcher(home: Path) -> str:
 def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
     command(["systemctl", "is-active", "xrdp", "xrdp-sesman"])
     wait_for_listener(port)
-    if (home / ".xsession").read_text() != SESSION_CONTENT:
+    if (home / ".xsession").read_text(encoding="utf-8") != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
         )
@@ -277,7 +277,7 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
     helpers = home / ".config/xfce4/helpers.rc"
     if (
         not helpers.is_file()
-        or TERMINAL_SELECTION not in helpers.read_text().splitlines()
+        or TERMINAL_SELECTION not in helpers.read_text(encoding="utf-8").splitlines()
     ):
         raise ProvisionFailure(
             "linux_desktop_terminal_not_selected: rerun provisioning to select xfce4-terminal"

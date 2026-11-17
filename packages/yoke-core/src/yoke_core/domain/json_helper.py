@@ -28,16 +28,16 @@ def load_path(path: Path) -> object:
 
 
 def dump_path(path: Path, data: object) -> None:
-    path.write_text(dumps_pretty(data), encoding="utf-8")
+    path.write_text(dumps_pretty(data), encoding="utf-8", newline="\n")
 
 
 def _load_json(path: Path) -> object:
-    with path.open() as handle:
+    with path.open(encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _dump_json(path: Path, data: object) -> None:
-    with path.open("w") as handle:
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(temporal_wire(data), handle, indent=2)
         handle.write("\n")
 

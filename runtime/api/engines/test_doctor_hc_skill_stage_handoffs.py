@@ -11,7 +11,7 @@ from yoke_project_checks import check_skill_stage_handoffs as check
 def _corpus(tmp_path: Path, text: str, owner: str = "idea") -> Path:
     root = tmp_path / check.SKILL_ROOT / owner
     root.mkdir(parents=True)
-    (root / "notes.md").write_text(text)
+    (root / "notes.md").write_text(text, encoding="utf-8", newline="\n")
     return tmp_path
 
 

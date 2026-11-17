@@ -51,7 +51,7 @@ def checkout_binding(root: Path, branch: str) -> dict[str, Any]:
     if git_dir.returncode:
         return {}
     try:
-        manifest = json.loads((root / ".yoke/install-manifest.json").read_text())
+        manifest = json.loads((root / ".yoke/install-manifest.json").read_text(encoding="utf-8"))
         project_id = manifest["project_id"]
         if type(project_id) is not int or project_id <= 0:
             return {}
@@ -112,7 +112,7 @@ def verified_commits(root: Path, branch: str) -> tuple[str, ...]:
                 or metadata.st_size > 2_000_000
             ):
                 continue
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             if (
                 not isinstance(payload, dict)
                 or payload.get("schema") != onboard_apply_report.SCHEMA_NAME

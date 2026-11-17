@@ -27,7 +27,7 @@ def shared_postgres_environment(env: Mapping[str, str]) -> dict[str, str]:
             selected = home / selected
     if not env.get("YOKE_PG_CLUSTER_ROOT"):
         try:
-            payload = json.loads(selected.read_text()) if selected.is_file() else {}
+            payload = json.loads(selected.read_text(encoding="utf-8")) if selected.is_file() else {}
             if not isinstance(payload, dict):
                 raise ValueError("machine config must contain an object")
         except (ValueError, OSError) as exc:

@@ -64,7 +64,7 @@ def _source_cases(
                 Path(__file__).resolve().parents[1]
                 / "domain"
                 / "installer_exploration_cases.json"
-            ).read_text()
+            ).read_text(encoding="utf-8")
         )
     raise ValueError(
         f"unsupported installer plan {slug!r}; read installer-campaign or "

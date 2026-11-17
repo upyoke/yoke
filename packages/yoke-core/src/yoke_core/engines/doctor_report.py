@@ -316,7 +316,7 @@ def _resolve_main_root() -> Optional[str]:
     git_dir = Path(repo_root) / ".git"
     if git_dir.is_file():
         # Worktree: .git is a file pointing to the main repo's .git dir
-        content = git_dir.read_text().strip()
+        content = git_dir.read_text(encoding="utf-8").strip()
         if content.startswith("gitdir:"):
             git_path = content.split(":", 1)[1].strip()
             # e.g. /path/to/repo/.git/worktrees/YOK-N

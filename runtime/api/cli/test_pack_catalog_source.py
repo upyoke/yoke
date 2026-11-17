@@ -26,15 +26,15 @@ def _outside_source_dev_run(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, encoding="utf-8"
     ).stdout.strip()
 
 
 def _yoke_checkout(root: Path) -> Path:
     """A minimal Yoke-shaped clone whose origin default branch is ``main``."""
     (root / "runtime" / "harness").mkdir(parents=True)
-    (root / "runtime" / "harness" / "README.md").write_text("harness\n")
-    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
+    (root / "runtime" / "harness" / "README.md").write_text("harness\n", encoding="utf-8", newline="\n")
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n', encoding="utf-8", newline="\n")
     write_pack(root, files={"docs/packs/sample/README.md": "# Sample\n"})
     _git(root, "init", "-q", "-b", "main")
     _git(root, "add", "-A")
@@ -46,7 +46,7 @@ def _yoke_checkout(root: Path) -> Path:
 
 def _add_version(root: Path, version: str, content: str) -> None:
     descriptor_path = root / "packs" / "sample" / "pack.json"
-    descriptor = json.loads(descriptor_path.read_text())
+    descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
     record = json.loads(json.dumps(descriptor["versions"]["1.0.0"]))
     record["source"] = f"versions/{version}/files"
     record["files"].append(
@@ -54,11 +54,11 @@ def _add_version(root: Path, version: str, content: str) -> None:
     )
     source = root / "packs" / "sample" / "versions" / version / "files"
     (source / "docs" / "packs" / "sample").mkdir(parents=True)
-    (source / "docs" / "packs" / "sample" / "README.md").write_text("# Sample\n")
-    (source / "notes.txt").write_text(content)
+    (source / "docs" / "packs" / "sample" / "README.md").write_text("# Sample\n", encoding="utf-8", newline="\n")
+    (source / "notes.txt").write_text(content, encoding="utf-8", newline="\n")
     descriptor["versions"][version] = record
     descriptor["latest_version"] = version
-    descriptor_path.write_text(json.dumps(descriptor))
+    descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8", newline="\n")
 
 
 def test_omitted_catalog_is_served_outside_source_dev_run() -> None:
@@ -104,7 +104,7 @@ def test_commit_catalog_reads_a_merged_commit_not_the_working_tree(
     merged = _git(checkout, "rev-parse", "HEAD")
     (
         checkout / "packs" / "sample" / "versions" / "1.1.0" / "files" / "notes.txt"
-    ).write_text("uncommitted\n")
+    ).write_text("uncommitted\n", encoding="utf-8", newline="\n")
 
     catalog = resolve_catalog(f"commit:{merged[:12]}", yoke_checkout=str(checkout))
     files = {row["path"]: row["content"] for row in catalog.pack_files("sample")}

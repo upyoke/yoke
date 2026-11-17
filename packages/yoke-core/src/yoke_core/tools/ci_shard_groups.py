@@ -37,7 +37,7 @@ def pytest_collection_finish(session):
     # Their fixture closure is unknown: retain conservative wheel affinity.
     records.extend({"nodeid": path, "independent": False, "wheel": True}
                    for path in skipped_modules())
-    Path(destination).write_text(json.dumps(records) + "\n", encoding="utf-8")
+    Path(destination).write_text(json.dumps(records) + "\n", encoding="utf-8", newline="\n")
 
 
 def group_files(records, durations, tracked, count=SHARD_COUNT):
@@ -122,7 +122,7 @@ def main(argv=None):
     environment = dict(os.environ, **{FACTS_ENV: str(facts.resolve()),
                                      "YOKE_CI_PYTHON_SCOPE": "all"})
     try:
-        with args.output.with_suffix(".collection.txt").open("w") as output:
+        with args.output.with_suffix(".collection.txt").open("w", encoding="utf-8", newline="\n") as output:
             result = subprocess.run(
                 [sys.executable, "-m", "pytest", *SUITE_PATHS, "--collect-only",
                  "--assert=plain", "-qq", "-p", "no:xdist",
@@ -132,9 +132,9 @@ def main(argv=None):
         if result.returncode:
             raise ValueError("ci_shard_collection_failed: inspect ci-shard-groups.collection.txt")
         tracked = subprocess.check_output(["git", "ls-files", "-z"], text=True).split("\0")
-        groups = build_groups(json.loads(facts.read_text()),
-                              json.loads(Path(".test_durations").read_text()), tracked)
-        args.output.write_text(json.dumps(groups, indent=2) + "\n")
+        groups = build_groups(json.loads(facts.read_text(encoding="utf-8")),
+                              json.loads(Path(".test_durations").read_text(encoding="utf-8")), tracked)
+        args.output.write_text(json.dumps(groups, indent=2) + "\n", encoding="utf-8", newline="\n")
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         print(f"ci_shard_groups_failed: {error}; repair collection and regenerate file groups")
         return 1

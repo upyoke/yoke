@@ -37,7 +37,7 @@ def test_standalone_model_tools(script, args, expected):
         cwd=REPO,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=300, encoding="utf-8",
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert expected in result.stdout
@@ -112,9 +112,9 @@ def test_check_does_not_depend_on_local_views(tools, monkeypatch, tmp_path):
     assert not local_views.exists()
     local_views.mkdir()
     stale = local_views / "unexpected.html"
-    stale.write_text("obsolete output")
+    stale.write_text("obsolete output", encoding="utf-8", newline="\n")
     assert build.main(["--check"]) == 0
-    assert stale.read_text() == "obsolete output"
+    assert stale.read_text(encoding="utf-8") == "obsolete output"
 
 
 def test_build_writes_one_self_contained_page(tools, monkeypatch, tmp_path):
@@ -127,31 +127,31 @@ def test_build_writes_one_self_contained_page(tools, monkeypatch, tmp_path):
     for path in obsolete:
         stale = tmp_path / path
         stale.parent.mkdir(parents=True, exist_ok=True)
-        stale.write_text("obsolete")
+        stale.write_text("obsolete", encoding="utf-8", newline="\n")
     record = tmp_path / "record.json"
     original = '{"id":"example"}\n'
-    record.write_text(original)
+    record.write_text(original, encoding="utf-8", newline="\n")
     monkeypatch.setattr(build, "model_files", lambda: [record])
     assert build.main([]) == 0
-    assert record.read_text() == original
+    assert record.read_text(encoding="utf-8") == original
     assert [path.name for path in (tmp_path / "views").iterdir()] == ["yokepedia.html"]
-    page = (tmp_path / "views/yokepedia.html").read_text()
+    page = (tmp_path / "views/yokepedia.html").read_text(encoding="utf-8")
     assert page.startswith("<!doctype html>")
-    assert (TOOLS / "explorer.css").read_text() in page
+    assert (TOOLS / "explorer.css").read_text(encoding="utf-8") in page
     assert '<link rel="stylesheet"' not in page and "<script src=" not in page
     assert not (tmp_path / "live").exists()
 
 
 def test_generated_views_are_untracked_and_ignored():
     tracked = subprocess.check_output(
-        ["git", "ls-files", "docs/teaching/views"], cwd=REPO, text=True
+        ["git", "ls-files", "docs/teaching/views"], cwd=REPO, text=True, encoding="utf-8"
     )
     assert not tracked
     result = subprocess.run(
         ["git", "check-ignore", "docs/teaching/views/yokepedia.html"],
         cwd=REPO,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
 
@@ -206,7 +206,7 @@ def test_conversion_preserves_records_and_is_repeatable(tools, monkeypatch, tmp_
     for name, value in arrays.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(model.dump(value))
+        path.write_text(model.dump(value), encoding="utf-8", newline="\n")
     assert convert_model.convert(root) == 12
     snapshot = {p.relative_to(root): p.read_bytes() for p in root.rglob("*.json")}
     assert convert_model.convert(root) == 0
@@ -227,7 +227,7 @@ def test_conversion_preserves_records_and_is_repeatable(tools, monkeypatch, tmp_
     # Upstream arrays can be reapplied without touching unrelated record files.
     source = root / "gaps.json"
     source.write_text(
-        model.dump({"records": [{"id": "missing", "title": "Updated"}, {"id": "new"}]})
+        model.dump({"records": [{"id": "missing", "title": "Updated"}, {"id": "new"}]}), encoding="utf-8", newline="\n"
     )
     assert convert_model.convert(root) == 2
     assert model.load().gaps["missing"]["title"] == "Updated"
@@ -241,8 +241,8 @@ def test_loader_reports_filename_mismatch(tools, monkeypatch, tmp_path):
     model, *_ = tools
     root = tmp_path / "docs/teaching/model"
     (root / "gaps").mkdir(parents=True)
-    (root / "gaps/wrong.json").write_text(model.dump({"id": "different"}))
-    (root / "docs-graph.json").write_text("{}\n")
+    (root / "gaps/wrong.json").write_text(model.dump({"id": "different"}), encoding="utf-8", newline="\n")
+    (root / "docs-graph.json").write_text("{}\n", encoding="utf-8", newline="\n")
     monkeypatch.setattr(model, "MODEL_ROOT", root)
     monkeypatch.setattr(model, "TEACHING_ROOT", root.parent)
     loaded = model.load()
@@ -254,7 +254,7 @@ def test_loader_refuses_a_strategy_plan_mirror(tools, monkeypatch, tmp_path):
     model, *_ = tools
     root = tmp_path / "docs/teaching/model"
     (root / "plan").mkdir(parents=True)
-    (root / "docs-graph.json").write_text("{}\n")
+    (root / "docs-graph.json").write_text("{}\n", encoding="utf-8", newline="\n")
     monkeypatch.setattr(model, "MODEL_ROOT", root)
     monkeypatch.setattr(model, "TEACHING_ROOT", root.parent)
     loaded = model.load()
@@ -264,21 +264,21 @@ def test_loader_refuses_a_strategy_plan_mirror(tools, monkeypatch, tmp_path):
 
 def test_independent_additions_merge_without_shared_file_edits(tmp_path):
     def git(*args):
-        return subprocess.check_output(["git", "-C", str(tmp_path), *args], text=True)
+        return subprocess.check_output(["git", "-C", str(tmp_path), *args], text=True, encoding="utf-8")
 
     git("init", "-b", "base")
     git("config", "user.email", "test@example.invalid")
     git("config", "user.name", "Test")
     owner = tmp_path / "model/surfaces/entry.json"
     owner.parent.mkdir(parents=True)
-    owner.write_text('{"id": "entry"}\n')
+    owner.write_text('{"id": "entry"}\n', encoding="utf-8", newline="\n")
     git("add", ".")
     git("commit", "-m", "Collection owner")
     for branch, record_id in [("left", "alpha"), ("right", "beta")]:
         git("checkout", "-b", branch, "base")
         record = owner.with_suffix("") / f"{record_id}.json"
         record.parent.mkdir(exist_ok=True)
-        record.write_text(json.dumps({"id": record_id}) + "\n")
+        record.write_text(json.dumps({"id": record_id}) + "\n", encoding="utf-8", newline="\n")
         git("add", ".")
         git("commit", "-m", "Add record")
         assert git("diff", "--name-only", "base").strip() == (

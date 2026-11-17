@@ -105,7 +105,7 @@ def windows_facts() -> dict:
         raise desktop.ProvisionFailure(
             "windows_wsl_required: run inside the registered Windows user's WSL2 Ubuntu"
         )
-    if Path("/proc/1/comm").read_text().strip() != "systemd":
+    if Path("/proc/1/comm").read_text(encoding="utf-8").strip() != "systemd":
         raise desktop.ProvisionFailure(
             "windows_wsl_systemd_required: have the operator enable the declared "
             "systemd prerequisite and reopen WSL before rerunning"

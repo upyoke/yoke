@@ -40,7 +40,7 @@ class TransitionResult:
         }
         tmp = f"{path}.tmp.{os.getpid()}"
         try:
-            with open(tmp, "w") as f:
+            with open(tmp, "w", encoding="utf-8", newline="\n") as f:
                 json.dump(data, f, indent=2)
                 f.write("\n")
             os.replace(tmp, path)

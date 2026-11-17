@@ -28,7 +28,6 @@ import json
 from pathlib import Path
 from typing import Any, List
 
-import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 from yoke_core.engines.doctor_hc_architecture_helpers import (
@@ -50,7 +49,7 @@ def _read_agents_md() -> str:
     if not _AGENTS_FILE.exists():
         return ""
     try:
-        return _AGENTS_FILE.read_text()
+        return _AGENTS_FILE.read_text(encoding="utf-8")
     except OSError:
         return ""
 

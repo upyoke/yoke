@@ -123,7 +123,7 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if repo_root:
         cfg = Path(repo_root) / "data" / "config"
         if cfg.is_file():
-            for line in cfg.read_text(errors="replace").splitlines():
+            for line in cfg.read_text(errors="replace", encoding="utf-8").splitlines():
                 if line.strip().startswith("backlog_stale_days="):
                     try:
                         stale_days = int(line.strip().split("=", 1)[1])

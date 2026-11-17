@@ -117,7 +117,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
                 _cli_usage_error(
                     "Usage: progress-note-insert <epic-id> <task_num> <note_num> [--body-file <path>]"
                 )
-            with open(body_rest[1], "r") as f:
+            with open(body_rest[1], "r", encoding="utf-8") as f:
                 body = f.read()
         else:
             body = _epic._read_stdin_safe()

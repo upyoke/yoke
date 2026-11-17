@@ -10,7 +10,7 @@ from yoke_harness import linux_command_supervisor as remote
 
 
 def _program(expression, *arguments):
-    source = Path(remote.__file__).read_text()
+    source = Path(remote.__file__).read_text(encoding="utf-8")
     return shlex.join(
         [
             "/usr/bin/python3",

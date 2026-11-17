@@ -47,7 +47,7 @@ def quiet_closed_stdout(operation):
         except _StdoutClosed:
             # Prevent the interpreter's final buffered flush from raising again.
             try:
-                with open(os.devnull, "w") as sink:
+                with open(os.devnull, "w", encoding="utf-8", newline="\n") as sink:
                     os.dup2(sink.fileno(), original.fileno())
             except (OSError, ValueError):
                 pass

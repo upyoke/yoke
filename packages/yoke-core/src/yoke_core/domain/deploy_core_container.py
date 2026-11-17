@@ -85,7 +85,7 @@ def _render_service_template(project_root: Path, name: str, values: dict) -> str
         raise CoreDeployError(
             f"[core-deploy] project-owned Pack file missing: {template}"
         )
-    return render_pack_text(template.read_text(), values)
+    return render_pack_text(template.read_text(encoding="utf-8"), values)
 
 
 @dataclass(frozen=True)

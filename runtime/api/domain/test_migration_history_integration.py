@@ -23,7 +23,7 @@ def _git(repo: Path, *args: str) -> str:
         ["git", "-C", str(repo), *args],
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
     )
     return result.stdout.strip()
 
@@ -33,7 +33,7 @@ def _entry(repo: Path, name: str, marker: str = "base") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"MARKER = {marker!r}\n\ndef apply(conn):\n    pass\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     return path
 
@@ -47,7 +47,7 @@ def lane(tmp_path: Path) -> Path:
     _git(repo, "config", "user.name", "Test")
     _entry(repo, "0013_existing")
     (repo / MODULES_DIR / "legacy_module.py").write_text(
-        "def apply(conn):\n    pass\n", encoding="utf-8"
+        "def apply(conn):\n    pass\n", encoding="utf-8", newline="\n"
     )
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "seed history")
@@ -77,6 +77,27 @@ def test_rehearsal_accepts_a_lane_that_extends_target(lane: Path) -> None:
     _entry(lane, "0014_next")
 
     _rehearsal(lane, "0014_next")
+
+
+@pytest.mark.parametrize("check", [_rehearsal, _merge])
+def test_history_compares_git_normalized_checkout_content(lane: Path, check) -> None:
+    _git(lane, "config", "core.autocrlf", "true")
+    existing = lane / MODULES_DIR / "0013_existing.py"
+    existing.write_bytes(existing.read_bytes().replace(b"\n", b"\r\n"))
+    _entry(lane, "0014_next")
+
+    check(lane, "0014_next")
+
+
+def test_history_preserves_bytes_when_git_disables_text_conversion(lane: Path) -> None:
+    _git(lane, "config", "core.autocrlf", "true")
+    (lane / ".gitattributes").write_bytes(b"*.py -text\n")
+    existing = lane / MODULES_DIR / "0013_existing.py"
+    existing.write_bytes(existing.read_bytes().replace(b"\n", b"\r\n"))
+    _entry(lane, "0014_next")
+
+    with pytest.raises(HistoryError, match="different permanent bytes"):
+        _rehearsal(lane, "0014_next")
 
 
 def test_rehearsal_refuses_replaced_target_entry(lane: Path) -> None:
@@ -164,7 +185,7 @@ def _baseline(lane: Path) -> None:
                 "content_sha256": "a" * 64,
                 "minimum_serving_version": "next-release",
             }
-        )
+        ), encoding="utf-8", newline="\n"
     )
 
 

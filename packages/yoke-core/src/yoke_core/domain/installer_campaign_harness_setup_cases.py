@@ -76,7 +76,7 @@ def run_probe() -> None:
                         ]
                     }
                 }
-            )
+            ), encoding="utf-8", newline="\n"
         )
         git("add", ".codex/hooks.json")
         git(

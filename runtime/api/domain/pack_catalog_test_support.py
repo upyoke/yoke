@@ -23,7 +23,7 @@ def write_pack(
         if isinstance(content, bytes):
             path.write_bytes(content)
         else:
-            path.write_text(content, encoding="utf-8")
+            path.write_text(content, encoding="utf-8", newline="\n")
     copied = copy_files or set()
     placeholders: set[str] = set()
     file_records: list[dict[str, str]] = []
@@ -72,7 +72,7 @@ def write_pack(
                 },
             }
         ),
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     return source
 

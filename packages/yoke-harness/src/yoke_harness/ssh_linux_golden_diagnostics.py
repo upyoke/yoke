@@ -58,7 +58,7 @@ def run_golden_command(control, command, *, input_text, timeout):
             "started_at": format_instant(started),
             "completed_at": format_instant(finished),
         }
-    client_log.write_text(_sanitize(client_log.read_text(errors="replace"), secrets))
+    client_log.write_text(_sanitize(client_log.read_text(errors="replace", encoding="utf-8"), secrets), encoding="utf-8", newline="\n")
     journal_command = shlex.join(
         [
             "sudo",
@@ -77,7 +77,7 @@ def run_golden_command(control, command, *, input_text, timeout):
     journal = control._run(journal_command, timeout=20)
     journal_log = directory / "sshd-journal.log"
     journal_log.touch(mode=0o600)
-    journal_log.write_text(_sanitize(journal.stdout + "\n" + journal.stderr, secrets))
+    journal_log.write_text(_sanitize(journal.stdout + "\n" + journal.stderr, secrets), encoding="utf-8", newline="\n")
     evidence = {
         "started_at": format_instant(started),
         "completed_at": format_instant(finished),

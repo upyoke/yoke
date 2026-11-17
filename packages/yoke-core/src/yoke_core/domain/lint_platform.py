@@ -32,6 +32,10 @@ OWNERS = {
 }
 BASELINE = "packages/yoke-core/src/yoke_core/domain/lint_platform_offenders.json"
 RECOVERY = "Use the shared platform_* helper or explicit UTF-8 encoding; remove the fixed offender entry. Never grow the baseline."
+NON_FILE_IO = {
+    "tarfile.open", "PIL.Image.open", "webbrowser.open",
+    "yoke_cli.config.onboard_checklist_files.write_text",
+}
 
 
 @dataclass(frozen=True)
@@ -87,6 +91,49 @@ def scan_source(source: str, path: str) -> list[PlatformHit]:
         first, _, rest = value.partition(".")
         return aliases.get(first, first) + ("." + rest if rest else "")
 
+    # These APIs open a connection, image, archive or terminal, not a text
+    # file. Infer receivers from their factories instead of exempting names
+    # such as "opener", which could just as well refer to a Path.
+    factories = {
+        "urllib.request.build_opener": "urllib.request.OpenerDirector",
+        "importlib.metadata.distribution": "importlib.metadata.Distribution",
+    }
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "LinuxTerminal":
+            factories[node.name] = "LinuxTerminal"
+        elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Attribute):
+            if (node.value.attr == "LinuxTerminal" and isinstance(node.value.value, ast.Call)
+                    and name(node.value.value.func).endswith(".get_ssh_linux_terminal")):
+                factories.update({_name(t): "LinuxTerminal" for t in node.targets})
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.returns and any(name(n) == "importlib.metadata.Distribution"
+                                    for n in ast.walk(node.returns)):
+                factories[node.name] = "importlib.metadata.Distribution"
+            if any(isinstance(n, ast.Return) and n.value is not None
+                   and name(n.value) == "PIL.Image" for n in ast.walk(node)):
+                factories[node.name] = "PIL.Image"
+    bindings = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            value = node.value
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            kind = factories.get(name(value.func)) if isinstance(value, ast.Call) else None
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    bindings.setdefault(target.id, set()).add(kind)
+    receivers = {key: next(iter(kinds)) for key, kinds in bindings.items()
+                 if len(kinds) == 1 and None not in kinds}
+
+    def non_file_io(node, function):
+        if function in NON_FILE_IO:
+            return True
+        if not isinstance(node.func, ast.Attribute):
+            return False
+        kind = receivers.get(_name(node.func.value))
+        return ((node.func.attr == "open" and kind in {
+            "urllib.request.OpenerDirector", "PIL.Image", "LinuxTerminal"})
+            or (node.func.attr == "read_text" and kind == "importlib.metadata.Distribution"))
+
     # Only the protected branch of a platform test guards getuid. A getuid in
     # the other branch or later in the function is still an offender.
     guarded = set()
@@ -129,6 +176,8 @@ def scan_source(source: str, path: str) -> list[PlatformHit]:
         function = name(node.func)
         tail = function.rsplit(".", 1)[-1]
         if tail not in {"open", "read_text", "write_text"}:
+            return False
+        if non_file_io(node, function):
             return False
         if function == "os.open":
             return False
