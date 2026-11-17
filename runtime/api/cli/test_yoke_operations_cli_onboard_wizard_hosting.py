@@ -39,6 +39,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     accept_project_details,
     advance_past_path,
     make_app,
+    settle_checks,
     skip_hosting,
     type_text,
 )
@@ -51,6 +52,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 
 def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> None:
     """Declining hosting continues to Review and reports the skipped answer."""
+    from textual.widgets import Input
     from yoke_contracts.machine_config import checkout
 
     # Recreate the captured failure: a nonexistent folder under a Git ancestor.
@@ -74,14 +76,18 @@ def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> 
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("down", "enter")  # project: existing folder
+            await settle_checks(pilot)
             await type_text(pilot, checkout_path)
+            assert app.query_one("#onboard-body Input", Input).value == checkout_path
             await pilot.press("enter")
             await accept_project_details(pilot)
             await pilot.press("enter")  # publish: No (preselected)
             assert "Connect your hosting provider?" in body_text(app)
             await skip_hosting(pilot)
+            await settle_checks(pilot)
             assert "Review what" in body_text(app)
             await pilot.press("enter")  # finish: apply
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
