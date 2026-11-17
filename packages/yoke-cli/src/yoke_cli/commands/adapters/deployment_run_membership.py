@@ -13,6 +13,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.deployment_member_removal_teaching import REMOVAL_EFFECT
 
 
 ADD_ITEM_USAGE = (
@@ -128,11 +129,9 @@ def deployment_runs_remove_item(args: List[str]) -> int:
         usage=REMOVE_ITEM_USAGE,
         description=(
             "Take one member out of a created run, an executing item-QA stage, or a run failed at item-qa-failed, recording "
-            "the reason on the run. Composition then never re-enrolls it, and the "
-            "removal carries to a run that takes this one over. Its landed code "
-            "still ships with the candidate, so a release that does not take this "
-            "run over can enroll the item again. Re-attaching while created with "
-            "`add-item` clears the removal. "
+            f"the reason on the run. {REMOVAL_EFFECT} "
+            "To undo now, run `yoke deployment-runs add-item RUN-ID PREFIX-N` "
+            "while this run is still created. "
             "Refused while another session is the run's live driver. "
             "Item-QA removal refuses shared run QA/approval, settled members, and "
             "any stage other than item QA; every unsettled run-bound requirement of the "
