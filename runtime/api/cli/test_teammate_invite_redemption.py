@@ -276,3 +276,12 @@ def test_choices_and_notice(monkeypatch, capsys, company, tty, choice):
 )
 def test_invite_flag_usage_errors(args):
     assert connect.connect(args) == 2
+
+
+@pytest.fixture(autouse=True)
+def isolate_connection_relay(monkeypatch):
+    from yoke_cli.config import onboard_session_relay as relay
+
+    monkeypatch.setattr(
+        relay, "install", lambda **kw: relay.RelayInstallOutcome(True, False)
+    )

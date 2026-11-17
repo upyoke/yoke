@@ -21,7 +21,9 @@ def _never(*_args, **_kwargs):
 def test_windows_ssh_session_opens_nothing(monkeypatch, variable: str) -> None:
     monkeypatch.setattr(webbrowser, "open", _never)
 
-    result = browser.open_url(URL, platform="win32", environ={variable: "10.0.0.2 5 22"})
+    result = browser.open_url(
+        URL, platform="win32", environ={variable: "10.0.0.2 5 22"}
+    )
 
     assert result == browser.BrowserOpenResult(
         opened=False, reason="browser_display_unavailable"
@@ -57,8 +59,13 @@ def test_connect_over_ssh_on_windows_prints_the_code_flow(monkeypatch, capsys) -
     from yoke_cli.config import hosted_machine_authorization as auth
 
     pending = auth.PendingMachineAuthorization(
-        "https://upyoke.com", "device-secret", "ABCD-1234",
-        "https://upyoke.com/device", URL, 60, 2,
+        "https://upyoke.com",
+        "device-secret",
+        "ABCD-1234",
+        "https://upyoke.com/device",
+        URL,
+        60,
+        2,
     )
     monkeypatch.setattr(auth, "start", lambda *a, **kw: pending)
     monkeypatch.setattr(
@@ -71,7 +78,11 @@ def test_connect_over_ssh_on_windows_prints_the_code_flow(monkeypatch, capsys) -
     monkeypatch.setattr(
         command.server_connect,
         "connect_server",
-        lambda *a, **kw: {"api_url": "https://team.example", "env": "team", "activated": True},
+        lambda *a, **kw: {
+            "api_url": "https://team.example",
+            "env": "team",
+            "activated": True,
+        },
     )
     monkeypatch.setattr(webbrowser, "open", _never)
     monkeypatch.setattr(
@@ -92,3 +103,12 @@ def test_connect_over_ssh_on_windows_prints_the_code_flow(monkeypatch, capsys) -
     assert f"Open {URL}" in out
     assert "ABCD-1234" in out
     assert "The browser did not open (browser_display_unavailable)" in out
+
+
+@pytest.fixture(autouse=True)
+def isolate_connection_relay(monkeypatch):
+    from yoke_cli.config import onboard_session_relay as relay
+
+    monkeypatch.setattr(
+        relay, "install", lambda **kw: relay.RelayInstallOutcome(True, False)
+    )

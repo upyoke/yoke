@@ -131,3 +131,12 @@ def _stub_authorization(monkeypatch, capsys, opened):
         },
     )
     return pending
+
+
+@pytest.fixture(autouse=True)
+def isolate_connection_relay(monkeypatch):
+    from yoke_cli.config import onboard_session_relay as relay
+
+    monkeypatch.setattr(
+        relay, "install", lambda **kw: relay.RelayInstallOutcome(True, False)
+    )

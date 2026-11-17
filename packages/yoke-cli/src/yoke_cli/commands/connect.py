@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import urllib.parse
-import json
 import platform
 import sys
 from typing import Callable, Dict, List, Tuple
@@ -12,6 +11,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_contracts.private_network_http import PRIVATE_HTTP_WARNING
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
+from yoke_cli.commands.connect_result import finish_connection
 from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import server_connect, team_server_authorization, setup_browser
@@ -203,11 +203,7 @@ def connect(args: List[str]) -> int:
     except server_connect.ServerConnectError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    if parsed.json_mode:
-        print(json.dumps(report, indent=2, sort_keys=True))
-    else:
-        _print_summary(report)
-    return 0
+    return finish_connection(report, json_mode=parsed.json_mode)
 
 
 def _connect_hosted(parsed: argparse.Namespace) -> int:
@@ -306,33 +302,8 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         if getattr(parsed, "invite_code", None):
             print(teammate_invite_redemption.LOST_DELIVERY, file=sys.stderr)
         return 1
-    if parsed.json_mode:
-        print(json.dumps(report, indent=2, sort_keys=True))
-    else:
-        _print_summary(report)
-    return 0
+    return finish_connection(report, json_mode=parsed.json_mode)
 
-
-def _print_summary(report: Dict[str, object]) -> None:
-    print(f"connected: {report.get('api_url')} (env {report.get('env')})")
-    identity = report.get("identity")
-    identity = identity if isinstance(identity, dict) else {}
-    actor = identity.get("actor")
-    actor = actor if isinstance(actor, dict) else {}
-    if actor.get("label") or actor.get("id") is not None:
-        print(f"actor: {actor.get('label')} (id={actor.get('id')})")
-    health = report.get("health")
-    health = health if isinstance(health, dict) else {}
-    if health.get("build"):
-        print(f"server build: {health.get('build')}")
-    if report.get("activated"):
-        print(f"active env: {report.get('env')}")
-    else:
-        print(
-            f"connection written without activation; switch later with "
-            f"`yoke env use {report.get('env')}`"
-        )
-    print("verify anytime with `yoke status`")
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {

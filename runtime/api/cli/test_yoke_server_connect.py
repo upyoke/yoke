@@ -309,3 +309,12 @@ def test_tool_shaped_resolution():
     adapter, remaining = resolved
     assert adapter is commands.connect
     assert remaining == ["http://x", "--token-stdin"]
+
+
+@pytest.fixture(autouse=True)
+def isolate_connection_relay(monkeypatch):
+    from yoke_cli.config import onboard_session_relay as relay
+
+    monkeypatch.setattr(
+        relay, "install", lambda **kw: relay.RelayInstallOutcome(True, False)
+    )
