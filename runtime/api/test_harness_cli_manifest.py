@@ -152,6 +152,7 @@ def test_versioned_claude_bundles_choose_the_newest_executable(tmp_path, monkeyp
             "", manifests=(replace(manifest, bundled_patterns=(pattern,), windows_bundled_patterns=(pattern,)),)
         )[0]
         assert (resolution.path, resolution.source) == (selected, "bundled_versioned")
-        assert managed_path_directories("/tools", (resolution,)) == ("/tools",)
+        tools = str(tmp_path / "tools")
+        assert managed_path_directories(tools, (resolution,)) == (tools,)
     resolution = resolve_harness_clis("", manifests=(manifest,))[0]
     assert "2.10.2" in resolution.path
