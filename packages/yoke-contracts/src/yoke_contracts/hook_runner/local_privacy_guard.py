@@ -302,7 +302,7 @@ def classify_shell_command(
     base = os.fspath(cwd) if cwd is not None else ""
     strongest: LocalPrivacyFinding | None = None
     for segment, segment_cwd in zip(
-        parsed.segments, parsed.segment_cwds(base, home=str(home), canonical=False)
+        parsed.segments, parsed.segment_cwds(base, home=str(home))
     ):
         finding = _scan_segment(
             segment.argv,

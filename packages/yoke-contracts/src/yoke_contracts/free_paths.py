@@ -12,7 +12,11 @@ from __future__ import annotations
 import os
 import tempfile
 
-from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, is_under
+from yoke_contracts.hook_runner.bash_paths import (
+    resolve_bash_path,
+    is_under,
+    client_path_facts,
+)
 from pathlib import Path
 
 
@@ -36,12 +40,18 @@ STATIC_FREE_PATH_PREFIXES = (
     DEV_FAMILY_PREFIX,
 )
 
+
 def free_path_prefixes(
     prefixes: tuple[str, ...] = STATIC_FREE_PATH_PREFIXES,
 ) -> tuple[str, ...]:
     """Include this machine's canonical TMPDIR only when explicitly absolute."""
     prefixes = tuple(resolve_bash_path(prefix) for prefix in prefixes)
-    raw = os.environ.get("TMPDIR", "")
+    facts = client_path_facts()
+    raw = (
+        str(facts.get("tmpdir") or "")
+        if facts is not None
+        else os.environ.get("TMPDIR", "")
+    )
     if not raw or not Path(raw).is_absolute():
         return prefixes
     return (*prefixes, str(Path(raw).resolve(strict=False)))

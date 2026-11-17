@@ -198,7 +198,7 @@ def _client_target(
     fact = write_target(payload, raw)
     client_path = fact.get("path") if fact is not None else None
     client = (
-        (client_path, fact.get("ignored") is True)
+        (canonical_native_path(client_path), fact.get("ignored") is True)
         if isinstance(client_path, str)
         else None
     )

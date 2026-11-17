@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import posixpath
 from pathlib import Path, PurePosixPath
 from yoke_contracts.hook_runner.bash_paths import (
-    canonical_native_path, is_absolute,
+    canonical_native_path,
+    is_absolute,
     resolve_bash_path,
-    windows_path,
     is_under,
 )
 from typing import Any, Iterable, List, Optional, Sequence
@@ -106,10 +105,7 @@ def is_free_path(
     for cand in candidates:
         for prefix in active:
             prefix = resolve_bash_path(prefix)
-            if cand == prefix or cand.startswith(
-                prefix.rstrip("/\\")
-                + ("/" if windows_path(cand) and os.name != "nt" else os.sep)
-            ):
+            if is_under(cand, prefix):
                 return True
         if prefixes is None and is_yoke_watcher_capture_path(cand):
             return True

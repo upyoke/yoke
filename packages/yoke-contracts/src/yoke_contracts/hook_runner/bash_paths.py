@@ -34,6 +34,11 @@ def client_path_scope(paths):
         _CLIENT_PATHS.reset(token)
 
 
+def client_path_facts():
+    """The current executing-client observations, absent outside a hook scope."""
+    return _CLIENT_PATHS.get()
+
+
 class BashPathResolutionError(ValueError):
     """The executing client cannot prove a Bash path's native destination."""
 
@@ -94,11 +99,7 @@ def canonical_native_path(path: str) -> str:
             if comparable == prefix or comparable.startswith(prefix.rstrip("/") + "/"):
                 text = aliases[raw] + text[len(raw) :]
                 break
-        return (
-            ntpath.normpath(text).replace("\\", "/")
-            if windows
-            else posixpath.normpath(text)
-        )
+        return ntpath.normpath(text) if windows else posixpath.normpath(text)
     if windows_path(path) and os.name != "nt":
         return ntpath.normpath(path).replace("\\", "/")
     return os.path.realpath(path)
@@ -191,7 +192,7 @@ def join_path(base: str, path: str) -> str:
         joined = ntpath.join(base, path)
         return (
             joined
-            if os.name == "nt" and not _CLIENT_PATHS.get()
+            if os.name == "nt" or (_CLIENT_PATHS.get() or {}).get("windows")
             else joined.replace("\\", "/")
         )
     return posixpath.join(base, path)

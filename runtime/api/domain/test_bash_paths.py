@@ -106,11 +106,11 @@ def test_relayed_windows_paths_use_only_client_observations():
 
     @paths.with_client_paths
     def resolve(payload):
-        assert paths.resolve_bash_path("/tmp", "D:/repo") == "C:/Users/runner/Temp"
-        assert paths.resolve_bash_path("/c/repo", "D:/repo") == "C:/repo"
+        assert paths.resolve_bash_path("/tmp", "D:/repo") == r"C:\Users\runner\Temp"
+        assert paths.resolve_bash_path("/c/repo", "D:/repo") == r"C:\repo"
         assert (
             paths.resolve_bash_path("../file", "C:/Users/RUNNER~1/repo")
-            == "C:/Users/runner/file"
+            == r"C:\Users\runner\file"
         )
         with pytest.raises(ValueError, match="git_bash_client_path_required"):
             paths.resolve_bash_path("/unobserved", "D:/repo")

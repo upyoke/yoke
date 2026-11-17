@@ -210,7 +210,8 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
             key = str(ancestor).replace("\\", "/").rstrip("/")
             if key:
                 canonical[key] = (
-                    canonical_native_path(str(ancestor)).replace("\\", "/").rstrip("/") or "/"
+                    canonical_native_path(str(ancestor)).replace("\\", "/").rstrip("/")
+                    or "/"
                 )
     by_repo: dict[str, list[str]] = {}
     cwd_repo = _repo_root(cwd)
@@ -235,6 +236,9 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
             "execution_cwd": cwd,
             "bash_paths": {
                 "windows": os.name == "nt",
+                "tmpdir": canonical_native_path(os.environ["TMPDIR"])
+                if os.path.isabs(os.environ.get("TMPDIR", ""))
+                else "",
                 "home": canonical_native_path(str(Path.home())),
                 "mount_paths": mount_paths,
                 "canonical": canonical,
