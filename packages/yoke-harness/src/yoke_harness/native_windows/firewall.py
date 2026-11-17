@@ -11,7 +11,7 @@ if($profiles.Count -ne 3 -or @($profiles | Where-Object {$_.Enabled -ne 'True' -
  throw 'windows_rdp_firewall_failed: require all effective firewall profiles enabled with default inbound block'
 }
 $tailnetProof=Get-YokeTailnetProof
-foreach($legacy in @(Get-NetFirewallRule -Name 'RemoteDesktop-*' -Enabled True -ErrorAction SilentlyContinue)){
+foreach($legacy in @(Get-NetFirewallRule -Name 'RemoteDesktop-*' -ErrorAction SilentlyContinue | Where-Object {$_.Enabled -eq 'True'})){
  $address=$legacy | Get-NetFirewallAddressFilter -ErrorAction Stop
  $interface=$legacy | Get-NetFirewallInterfaceFilter -ErrorAction Stop
  if(!(Test-YokeTailnetOnly $address $interface $tailnetProof)){$legacy | Disable-NetFirewallRule -ErrorAction Stop}
