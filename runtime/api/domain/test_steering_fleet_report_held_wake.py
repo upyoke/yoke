@@ -143,7 +143,7 @@ def test_held_silence_uses_recent_tool_activity(fleet, tool_at, silent, expected
 _CHILD = {
     "running_native_pid": 4001,
     "running_native_background_pid": 4120,
-    "running_native_background_command": "gh run watch 9876",
+    "running_native_background_command": "npm run build",
     "running_native_background_count": 1,
 }
 
@@ -167,7 +167,7 @@ def test_an_ended_turn_names_the_background_child_holding_it(fleet):
     assert rows[0].delivery_state == WAKE_HELD_FOR_NATIVE_TURN
     line = undelivered_line(rows[0])
     assert "turn ended at 2026-08-26T08:01:00.000000Z" in line
-    assert "held by background child 4120 `gh run watch 9876`" in line
+    assert "held by background child 4120 `npm run build`" in line
     assert "delivers when it returns" in line
     assert "native turn running" not in line
     # Silence is still measured as before, from capture output and tool calls.

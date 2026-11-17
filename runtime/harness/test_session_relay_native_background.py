@@ -26,13 +26,13 @@ def _proc(pid: int, ppid: int, *argv: str) -> ProcessInfo:
     return ProcessInfo(pid, ppid, tuple(argv), 0.0, Path(argv[0]).name, 0, "me")
 
 
-#: A native after its turn: an MCP server it owns, and a background ``gh run
-#: watch`` the Bash tool started under a login shell.
+#: A native after its turn: an MCP server it owns, and a background ``npm run
+#: build`` the Bash tool started under a login shell.
 TABLE = (
     _proc(NATIVE, 1, "/usr/local/bin/claude", "-p"),
     _proc(4100, NATIVE, "node", "mcp-server.js"),
-    _proc(4110, NATIVE, "/bin/zsh", "-c", "-l", "source snap && eval 'gh run watch 9876'"),
-    _proc(4120, 4110, "gh", "run", "watch", "9876"),
+    _proc(4110, NATIVE, "/bin/zsh", "-c", "-l", "source snap && eval 'npm run build'"),
+    _proc(4120, 4110, "npm", "run", "build"),
 )
 
 
@@ -70,7 +70,7 @@ def _context(workspace: Path):
 def test_a_shell_child_is_named_by_the_command_under_it() -> None:
     children = background_children(NATIVE, TABLE)
 
-    assert [(c.pid, c.command) for c in children] == [(4120, "gh run watch 9876")]
+    assert [(c.pid, c.command) for c in children] == [(4120, "npm run build")]
 
 
 def test_a_shell_with_nothing_under_it_is_named_itself() -> None:
@@ -118,7 +118,7 @@ def test_a_held_wake_names_the_background_child_and_starts_nothing(
     kept = redacted_evidence_document(result.evidence)
     assert kept["running_native_pid"] == NATIVE
     assert kept["running_native_background_pid"] == 4120
-    assert kept["running_native_background_command"] == "gh run watch 9876"
+    assert kept["running_native_background_command"] == "npm run build"
     assert kept["running_native_background_count"] == 1
 
 

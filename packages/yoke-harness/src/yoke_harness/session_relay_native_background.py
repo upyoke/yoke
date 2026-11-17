@@ -11,7 +11,7 @@ waiting on: ending that command makes the native take its next turn.
 A tool command runs under a shell, so a shell child of the native is one of
 those commands. Its other children, such as MCP servers, belong to the
 native itself and are not named. Each command is named by the first
-non-shell process under its shell: ``gh run watch 123``, not the shell
+non-shell process under its shell: ``npm run build``, not the shell
 wrapper that started it. A shell with nothing under it is named by itself.
 A name carries only the program and its leading plain words, never options
 or credential-shaped arguments.
@@ -63,7 +63,7 @@ def _plain(word: str) -> bool:
 
 
 def _command(entry: ProcessInfo) -> str:
-    """The program and its leading plain words: ``gh run watch 9876``.
+    """The program and its leading plain words: ``npm run build``.
 
     A command line can carry credentials in options or arguments, and this
     text leaves the machine. So naming stops at the first option, or at any
