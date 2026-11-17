@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 from typing import Any, Mapping
 from urllib.parse import urlsplit
@@ -71,12 +70,6 @@ def _url(value: Any) -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise QaExecutionTargetError(f"QA target endpoint is not an HTTP URL: {text!r}")
     return text
-
-
-def runtime_environment_name() -> str:
-    """Return the normalized runtime environment selected for QA."""
-    selected = os.environ.get("YOKE_ENVIRONMENT") or os.environ.get("APP_ENV")
-    return str(selected or "development").strip().lower()
 
 
 def require_environment_target_access(conn: Any, target: Mapping[str, Any]) -> None:
