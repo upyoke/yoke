@@ -261,7 +261,7 @@ class TestSetupAdapter:
         payload = json.loads(out.getvalue())
         assert payload["ok"] is True
         assert payload["dry_run"] is True
-        assert payload["runtime_dir"] == "/machine/browser-runtime"
+        assert payload["runtime_dir"] == str(Path("/machine/browser-runtime"))
         assert payload["readiness"]["daemon"]["status"] == "not_running"
 
     def test_setup_dry_run_text_reports_daemon_status(self):

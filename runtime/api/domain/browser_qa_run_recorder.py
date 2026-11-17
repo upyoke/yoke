@@ -1,5 +1,7 @@
 """Database-backed run recorder for browser QA orchestration fixtures."""
 
+from pathlib import Path
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.project_identity import placeholder as _placeholder
 
@@ -117,7 +119,7 @@ class _FakeRunRecorder:
         actor=None,
     ) -> int:
         """Stand in for persistence while scenario tests exercise orchestration."""
-        filename = str(file_path).rsplit("/", 1)[-1]
+        filename = Path(file_path).name
         return self.record_artifact(
             run_id,
             requirement_id,

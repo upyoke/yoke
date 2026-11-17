@@ -56,7 +56,7 @@ def test_reassignment_requires_explicit_flag_without_a_seat(
     else:
         assert not outcome.primary_success
         assert outcome.error.code == "machine_config_write_refused"
-        assert str(old.resolve()) in outcome.error.message
+        assert repr(str(old.resolve())) in outcome.error.message
         assert "project register --reassign" in outcome.error.message
         assert "steering" not in outcome.error.message
         assert _config(home) == before

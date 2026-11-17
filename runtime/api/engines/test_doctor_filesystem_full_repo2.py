@@ -56,7 +56,7 @@ class TestRepoFileHealthChecksB:
             rec = _run_hc(hc_stray_db)
         assert rec.results[0].result == "WARN"
         detail = rec.results[0].detail
-        assert ".worktrees/YOK-999/runtime/yoke.db" in detail
+        assert str(stray) in detail
         assert "Postgres" in detail
         assert "stray file" in detail
         # The obsolete "migrate into data/yoke.db" guidance is gone.

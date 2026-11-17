@@ -81,7 +81,7 @@ def test_onboard_dry_run_prints_write_plan_without_mutation(
         "kind": "token_file",
         "path": str(token),
     }
-    assert payload["plan"]["connection"]["credential_source"]["path"].endswith(
+    assert Path(payload["plan"]["connection"]["credential_source"]["path"]).as_posix().endswith(
         "secrets/prod.token"
     )
     assert "actor-token" not in out

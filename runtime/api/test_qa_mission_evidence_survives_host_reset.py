@@ -290,5 +290,5 @@ def test_a_mission_handle_with_no_bytes_at_the_allowed_location_is_refused(
     assert not never_written.exists()
     assert not outcome.primary_success
     assert outcome.error.code == "payload_invalid"
-    assert str(never_written) in outcome.error.message
+    assert repr(str(never_written)) in outcome.error.message
     assert int(stored) == 0

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 import json
 import stat
 import uuid
@@ -257,7 +258,7 @@ def test_invocation_recipe_names_the_running_interpreter_not_ambient_python() ->
         main_spec_name="yoke_cli.commands.merge_item_local_runtime",
     )
 
-    assert recipe.startswith(sys.executable)
+    assert shlex.split(recipe)[0] == sys.executable
     assert not recipe.startswith("python3 ")
 
 

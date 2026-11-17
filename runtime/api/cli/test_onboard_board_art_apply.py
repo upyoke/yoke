@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -103,7 +104,7 @@ def test_rebuild_board_requires_configured_board_path(tmp_path: Path, monkeypatc
         lambda _repo_arg=None: tmp_path,
     )
 
-    with pytest.raises(RuntimeError, match=r"\.yoke/BOARD\.md"):
+    with pytest.raises(RuntimeError, match=re.escape(str(tmp_path / ".yoke/BOARD.md"))):
         art_apply.rebuild_board(tmp_path)
 
 

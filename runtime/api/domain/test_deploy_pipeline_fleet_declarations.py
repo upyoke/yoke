@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from unittest import mock
 
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal as rehearsal
@@ -96,7 +98,7 @@ def test_named_database_fleet_rehearses_its_own_project_and_model(
     assert asked == ["platform", "platform"]
     assert rehearsed[0][:7] == [
         "--checkout",
-        "/release-checkout",
+        str(Path("/release-checkout")),
         "--project",
         "platform",
         "--model",

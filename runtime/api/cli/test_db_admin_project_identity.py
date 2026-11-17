@@ -2,6 +2,8 @@
 
 import pytest
 
+from pathlib import Path
+
 from yoke_cli.config import db_admin_setup as config
 from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
     _env,
@@ -33,6 +35,6 @@ def test_dsn_file_label_uses_resolved_environment_project(monkeypatch, project):
         allow_render_only=False,
     )
     assert report["project"] == "acme"
-    assert report["plan"]["dsn_file"].endswith(
+    assert Path(report["plan"]["dsn_file"]).as_posix().endswith(
         "secrets/acme-prod-db-admin.dsn"
     )

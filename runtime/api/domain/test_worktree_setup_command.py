@@ -37,7 +37,7 @@ def test_setup_failure_keeps_command_output(tmp_path, monkeypatch, capfd):
     assert "missing locked wheel" in captured.err
     assert captured.out == ""
     assert "SETUP-COMMAND-FAILED" in captured.err
-    assert "exited 7" in captured.err and str(tmp_path) in captured.err
+    assert "exited 7" in captured.err and repr(str(tmp_path)) in captured.err
     assert "--base '<current setup_command settings JSON>'" in captured.err
 
 

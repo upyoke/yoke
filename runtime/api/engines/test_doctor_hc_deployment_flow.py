@@ -87,7 +87,7 @@ class TestFlowWorkflowExists:
         result = _result(rec)
 
         assert result.result == "WARN"
-        assert ".github/workflows/externalwebapp-deploy.yml" in result.detail
+        assert str(project_repo / ".github/workflows/externalwebapp-deploy.yml") in result.detail
         assert "projects/externalwebapp/workflows" not in result.detail
 
 

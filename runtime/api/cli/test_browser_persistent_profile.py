@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import json
 import stat
 import subprocess
@@ -159,7 +161,7 @@ def test_daemon_start_passes_the_profile_directory(tmp_path, monkeypatch) -> Non
     result = browser_client.daemon_start(profile_dir="/profiles/acme")
 
     assert result["status"] == "started"
-    assert ["--profile-dir", "/profiles/acme"] == launched[0][-4:-2]
+    assert ["--profile-dir", str(Path("/profiles/acme"))] == launched[0][-4:-2]
 
 
 def test_daemon_start_without_a_profile_launches_clean(tmp_path, monkeypatch) -> None:
@@ -266,13 +268,14 @@ def test_authorize_creates_the_profile_and_opens_the_window(
 ) -> None:
     calls = _stub_authorize_runtime(tmp_path, monkeypatch)
 
+    toolchain = install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     assert authorize_command.browser_authorize(["--project", "acme"]) == 0
 
     profile = browser_profile.profile_dir("acme")
     assert profile.is_dir()
     command = calls[0]["command"]
     assert command[:2] == [
-        str(tmp_path / "node-bin" / "node"),
+        str(toolchain.node),
         str(tmp_path / "browser-runtime" / "src" / "authorize.js"),
     ]
     assert command[2:4] == ["--profile-dir", str(profile)]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from yoke_contracts.project_contract.source_installed_views import view_source
@@ -58,11 +60,8 @@ def test_different_effective_level_names_exact_successor_command(monkeypatch):
     assert "--level" not in handoff["next_command"]
     assert (
         "\n## Stage-level handoff\n"
-        in open(
-            __file__.rsplit("/runtime/", 1)[0]
-            + "/"
-            + view_source(handoff["read"].split("#")[0])
-        ).read()
+        in (Path(__file__).resolve().parents[3]
+            / view_source(handoff["read"].split("#")[0])).read_text(encoding="utf-8")
     )
 
 

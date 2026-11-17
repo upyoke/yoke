@@ -1,6 +1,8 @@
 """Friendly labels for ``yoke setup`` write-plan steps."""
 
 from __future__ import annotations
+
+from pathlib import Path
 from yoke_cli.config import onboard_relay_supervisor
 
 from yoke_contracts import harness_machine_hooks, harness_unattended_posture
@@ -162,7 +164,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             "Install harness hooks in .claude/settings.json, "
             ".codex/hooks.json, and .cursor/hooks.json. "
             + (
-                f"Trust {target}/.codex/hooks.json handlers (trusted_hash) and "
+                f"Trust {Path(target) / '.codex/hooks.json'} handlers (trusted_hash) and "
                 f"the project folder (projects trust_level) in "
                 f"{harness_unattended_posture.codex_config_path()}; "
                 "seed absent approval_policy/sandbox_mode keys, preserve configured values"

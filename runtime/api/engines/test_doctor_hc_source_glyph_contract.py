@@ -34,7 +34,7 @@ def test_scan_flags_package_art_data(tmp_path: Path) -> None:
     data.parent.mkdir(parents=True)
     data.write_text("❤️ broken top border\n", encoding="utf-8")
     hits = glyph_hc.scan_source_glyphs(tmp_path)
-    assert any(glyph_hc._SCAN_EXTRA_FILES[0].as_posix() in h for h in hits), hits
+    assert any(Path(glyph_hc._SCAN_EXTRA_FILES[0]).as_posix() in h for h in hits), hits
     assert any("VS16" in h for h in hits), hits
 
 
