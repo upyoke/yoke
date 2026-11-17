@@ -561,7 +561,7 @@
       "source_url": "https://developers.openai.com/api/docs/pricing"
     },
     "benchmarks": [],
-    "checked_at": "2026-10-12",
+    "checked_at": "2026-11-17",
     "context_window_tokens": [
       1050000
     ],
@@ -577,11 +577,12 @@
       "max",
       "ultra"
     ],
-    "replacement_model_id": null,
+    "replacement_model_id": "gpt-6.2-astra",
     "source_urls": [
       "https://developers.openai.com/api/docs/models/gpt-6-astra",
       "https://learn.chatgpt.com/docs/pricing",
-      "https://developers.openai.com/api/docs/guides/latest-model"
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://learn.chatgpt.com/docs/models"
     ],
     "subscription_rules": [
       {
@@ -622,7 +623,7 @@
       "source_url": "https://developers.openai.com/api/docs/pricing"
     },
     "benchmarks": [],
-    "checked_at": "2026-10-12",
+    "checked_at": "2026-11-17",
     "context_window_tokens": [
       1050000
     ],
@@ -638,11 +639,12 @@
       "max",
       "ultra"
     ],
-    "replacement_model_id": null,
+    "replacement_model_id": "gpt-6.2-sol",
     "source_urls": [
       "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
       "https://learn.chatgpt.com/docs/pricing",
-      "https://developers.openai.com/api/docs/guides/latest-model"
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://learn.chatgpt.com/docs/models"
     ],
     "subscription_rules": [
       {

@@ -44,7 +44,7 @@ SURFACE_VERSIONS = {
 }
 
 CLAUDE_OPUS = {"model": "claude-opus-5-5", "min_effort": "high"}
-CODEX_SOL = {"model": "gpt-6.1-sol", "min_effort": "medium"}
+CODEX_SOL = {"model": "gpt-6.2-sol", "min_effort": "medium"}
 CURSOR_GROK = {"model": "grok-4.7", "min_effort": "high"}
 CURSOR_OPUS = {"model": "claude-opus-5-5", "min_effort": "medium"}
 NATIVE_MODELS = {
@@ -52,7 +52,7 @@ NATIVE_MODELS = {
         native_model("claude-opus-5-5", reasoning_efforts=["low", "medium", "high"])
     ],
     "codex-cli": [
-        native_model("gpt-6.1-sol", reasoning_efforts=["low", "medium", "high"])
+        native_model("gpt-6.2-sol", reasoning_efforts=["low", "medium", "high"])
     ],
     "cursor-cli": [
         native_model("grok-4.7-high", reasoning_efforts=["high"]),
