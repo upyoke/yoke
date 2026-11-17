@@ -219,6 +219,27 @@ def _set_deploy_stage(
     run_updates.update_run_field(run_id, "current_stage", stage)
 
 
+def stamp_held_members_complete(
+    run_id: str, member_items: List[str], *, sd: Optional[str] = None
+) -> str:
+    """Stamp ``complete`` on members the run still holds; return any refusal.
+
+    A member released mid-run awaits a later release; stamping it would claim
+    a delivery no run made. *member_items* narrows in place for later stamps.
+    """
+    from yoke_core.domain import deploy_pipeline_control_plane as control_plane
+
+    try:  # An item-less run has nothing a release could narrow.
+        member_items[:] = member_items and control_plane.current_member_refs(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        return (
+            f"{exc}; no member was stamped complete. Restore the control-plane "
+            f"read, then re-drive with `yoke watch deploy -- {run_id}`"
+        )
+    _set_deploy_stage("complete", run_id, member_items, sd=sd)
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # GitHub Actions poll loop
 # ---------------------------------------------------------------------------

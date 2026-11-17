@@ -78,12 +78,12 @@ def statuses(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     """Answer the run-status read from a dict instead of a control plane."""
     table: dict[str, str] = {}
 
-    def fake_status(run_id: str) -> tuple[str, str]:
+    def fake_record(run_id: str) -> tuple[dict[str, str], str]:
         if run_id not in table:
-            return "", "no such run"
-        return table[run_id], ""
+            return {}, "no such run"
+        return {"status": table[run_id]}, ""
 
-    monkeypatch.setattr(retirement, "_run_status", fake_status)
+    monkeypatch.setattr(retirement, "_run_record", fake_record)
     return table
 
 
@@ -170,8 +170,8 @@ def test_unreadable_run_status_keeps_the_worktree(
     path = _driver_worktree(repo, "run-20260101-005")
     monkeypatch.setattr(
         retirement,
-        "_run_status",
-        lambda _run_id: ("", "control plane unreachable"),
+        "_run_record",
+        lambda _run_id: ({}, "control plane unreachable"),
     )
 
     verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)

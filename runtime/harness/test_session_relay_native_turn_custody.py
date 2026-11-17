@@ -308,7 +308,7 @@ def test_a_wake_after_the_native_exits_is_allowed(
 
 
 def test_a_deferral_is_not_reported_as_a_failure() -> None:
-    assert delivery_attempt_failed(NATIVE_TURN_RUNNING_RESULT) is False
+    assert delivery_attempt_failed(NATIVE_TURN_RUNNING_RESULT, {}) is False
 
 
 def test_a_parked_session_is_held_by_a_live_native(

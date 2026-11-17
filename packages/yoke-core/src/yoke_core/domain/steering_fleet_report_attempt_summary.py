@@ -71,7 +71,7 @@ def last_attempts(
         failed_count = prior.failed_count if prior else 0
         last_failed_code = prior.last_failed_code if prior else ""
         last_failed_evidence = prior.last_failed_evidence if prior else {}
-        if delivery_attempt_failed(code):
+        if delivery_attempt_failed(code, evidence):
             failed_count += 1
             last_failed_code = code
             last_failed_evidence = evidence

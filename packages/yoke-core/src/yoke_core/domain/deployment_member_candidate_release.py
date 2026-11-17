@@ -11,6 +11,9 @@ from yoke_core.domain.project_identity import render_item_ref
 #: landed outside this run's frozen lineage: its rework is done, so the
 #: owner waits on the later release instead of classifying the failure.
 CORRECTION_RELEASE_REMOVED_BY = "item QA failure"
+#: Why that member left: a later run whose pin contains the merge delivers it,
+#: so a takeover successor does not inherit this removal.
+CORRECTION_RELEASE_REASON = "failed item QA cannot pass against this run's frozen lineage; recorded merge is not contained; awaiting a later release"
 
 
 def candidate_exclusions(
@@ -128,7 +131,7 @@ def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -
             f"member_candidate_release_held: {render_item_ref(conn, item_id)} on {run_id}: {read.refusal}"
         )
         return False
-    reason = "failed item QA cannot pass against this run's frozen lineage; recorded merge is not contained; awaiting a later release"
+    reason = CORRECTION_RELEASE_REASON
     ref = remove_member_on(
         conn,
         run_id,

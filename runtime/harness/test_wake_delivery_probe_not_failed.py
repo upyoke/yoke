@@ -31,12 +31,12 @@ def test_subagent_exit_probe_is_a_deferral_not_a_failure() -> None:
         HOOK_DEFERRED_FOR_BUDGET_RESULT,
         HOOK_SUBAGENT_EXIT_RESULT,
     }
-    assert delivery_attempt_failed(PROBE_SUBAGENT_EXIT) is False
+    assert delivery_attempt_failed(PROBE_SUBAGENT_EXIT, {}) is False
     assert delivery_attempt_diagnostic(PROBE_SUBAGENT_EXIT, {}) == ""
 
 
 def test_other_probe_reasons_still_fail() -> None:
-    assert delivery_attempt_failed(PROBE_LEASE_FAILED) is True
+    assert delivery_attempt_failed(PROBE_LEASE_FAILED, {}) is True
 
 
 def _state(result_code: str, failed_count: int) -> str:

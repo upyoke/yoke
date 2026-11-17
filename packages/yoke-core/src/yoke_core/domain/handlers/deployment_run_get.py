@@ -7,6 +7,28 @@ from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import error, run_id
+from yoke_core.domain.deployment_run_driver_attachment import (
+    COLUMN as DRIVER_ATTACHMENT_FIELD,
+    parse_attachment,
+)
+
+
+def _recorded_driver(run_id_value: str) -> Optional[Dict[str, Any]]:
+    """The recorded driver, live or lapsed, for a reader that judges liveness."""
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.schema_common import _column_exists
+
+    with connect() as conn:
+        if not _column_exists(conn, "deployment_runs", DRIVER_ATTACHMENT_FIELD):
+            return None
+        row = conn.execute(
+            f"SELECT {DRIVER_ATTACHMENT_FIELD} FROM deployment_runs WHERE id=%s",
+            (run_id_value,),
+        ).fetchone()
+    field = DRIVER_ATTACHMENT_FIELD
+    raw = None if row is None else row[field] if hasattr(row, "keys") else row[0]
+    attachment = parse_attachment(run_id_value, raw)
+    return None if attachment is None else attachment.as_dict()
 
 
 class DeploymentRunGetRequest(BaseModel):
@@ -63,7 +85,12 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     member_names = [
         name for name in requested or () if name in computed.COMPUTED_RUN_FIELDS
     ]
-    stored = [name for name in requested or () if name not in member_names]
+    driver = DRIVER_ATTACHMENT_FIELD in (requested or ())
+    stored = [
+        name
+        for name in requested or ()
+        if name not in member_names and name != DRIVER_ATTACHMENT_FIELD
+    ]
     try:
         raw = (
             get_run(resolved_run_id)
@@ -76,7 +103,7 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         return error(
             "invalid_field",
             f"{str(exc).rstrip('.')}. Computed fields: "
-            f"{', '.join(computed.COMPUTED_RUN_FIELDS)}.",
+            f"{', '.join((*computed.COMPUTED_RUN_FIELDS, DRIVER_ATTACHMENT_FIELD))}.",
             jsonpath="$.payload.fields" if fields is not None else "$.payload.field",
         )
     if raw is None:
@@ -90,6 +117,8 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         if requested is None or member_names
         else {}
     )
+    if driver:
+        values[DRIVER_ATTACHMENT_FIELD] = _recorded_driver(resolved_run_id)
     if field:
         value = (
             values[field]

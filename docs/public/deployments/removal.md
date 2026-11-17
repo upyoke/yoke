@@ -34,7 +34,11 @@ it back, and the composition notice names it.
 
 The item stays out of that release, including any run that takes the release
 over: a takeover successor's enrollment subtracts the operator removals its
-superseded runs recorded. Because no run then holds the item, the first
+superseded runs recorded. An automatic release whose reason ends "awaiting a
+later release" (a member whose candidate is outside that run's frozen lineage,
+or one set aside for rework) is not inherited, so a successor whose pin
+contains the candidate enrolls the item. A released member is never stamped
+`deploy_stage` `complete` by the run it left. Because no run then holds the item, the first
 release cut after that run ends enrolls it again through its unheld-custody
 pass.
 

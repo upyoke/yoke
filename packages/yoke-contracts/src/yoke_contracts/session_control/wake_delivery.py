@@ -48,6 +48,27 @@ TURN_WITHOUT_INJECTION_RESULT = "turn_without_injection"
 #: turn's own hook, and the sweep after that native exits wakes normally.
 NATIVE_TURN_RUNNING_RESULT = "native_turn_running"
 
+#: What a relay's release of an unstarted job stores as the attempt result;
+#: the relay's own reason rides in the attempt evidence as ``result_code``.
+RELEASED_RESULT = "released"
+
+#: Release reasons that hand an unstarted wake back for the next claim: every
+#: settlement worker was busy, or the relay was stopping. No native started,
+#: the release refunds the attempt, and the next claim delivers.
+RELAY_WORKERS_BUSY = "relay_workers_busy"
+RELAY_STOPPING = "relay_stopping"
+RELAY_HANDBACK_RESULTS = frozenset({RELAY_WORKERS_BUSY, RELAY_STOPPING})
+
+
+def wake_attempt_handed_back(result_code: object, evidence: object) -> bool:
+    """True for a released wake the relay handed back as busy or stopping."""
+    document = evidence if isinstance(evidence, Mapping) else {}
+    return (
+        str(result_code) == RELEASED_RESULT
+        and document.get("result_code") in RELAY_HANDBACK_RESULTS
+    )
+
+
 #: Reported codes that decided against waking rather than attempting one.
 #: Read as failures they would tell an operator a wake broke when it was
 #: deliberately held back, and would spend a retry the relay never used.
@@ -155,14 +176,17 @@ DELIVERY_ATTEMPT_SUCCESS_RESULTS = frozenset(
 )
 
 
-def delivery_attempt_failed(result_code: object) -> bool:
+def delivery_attempt_failed(result_code: object, evidence: object) -> bool:
     """True when this attempt did not deliver and never will.
 
     An attempt with no result yet is in flight, not failed: the control
     plane settles the delivery verdict after the relay reports, so a blank
-    code is a question still open rather than an answer.
+    code is a question still open rather than an answer. A wake the relay
+    handed back busy or stopping is deferred: the next claim delivers it.
     """
     if result_code is None or not str(result_code).strip():
+        return False
+    if wake_attempt_handed_back(result_code, evidence):
         return False
     if str(result_code) in WAKE_DEFERRED_RESULTS:
         # Nothing was started, so nothing broke. The receipt is still
@@ -189,7 +213,7 @@ def delivery_attempt_diagnostic(
     reader of a failed attempt goes through here, and an attempt that
     reports nothing at all still says so out loud.
     """
-    if not delivery_attempt_failed(result_code):
+    if not delivery_attempt_failed(result_code, evidence):
         return ""
     document = evidence if isinstance(evidence, Mapping) else {}
     coarse = str(result_code)
@@ -235,6 +259,10 @@ __all__ = [
     "HOOK_INJECTED_RESULT",
     "NATIVE_RESUME_ACCEPTED_RESULT",
     "NATIVE_TURN_RUNNING_RESULT",
+    "RELAY_HANDBACK_RESULTS",
+    "RELAY_STOPPING",
+    "RELAY_WORKERS_BUSY",
+    "RELEASED_RESULT",
     "UNREPORTED_DELIVERY_DIAGNOSTIC",
     "delivery_attempt_diagnostic",
     "delivery_attempt_failed",
@@ -247,6 +275,7 @@ __all__ = [
     "WAKE_DELIVERY_UNVERIFIED_RESULTS",
     "WAKE_DELIVERY_VERDICTS",
     "WAKE_REPORT_CODES",
+    "wake_attempt_handed_back",
     "wake_attempt_unsettled",
     "wake_roster_state",
 ]

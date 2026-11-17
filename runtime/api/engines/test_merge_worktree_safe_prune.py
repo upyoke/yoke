@@ -258,7 +258,7 @@ def test_a_finished_deploy_run_worktree_is_swept_with_the_item_lanes(
     driver.parent.mkdir(parents=True, exist_ok=True)
     _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
     monkeypatch.setattr(
-        _retirement, "_run_status", lambda _run_id: ("succeeded", "")
+        _retirement, "_run_record", lambda _run_id: ({"status": "succeeded"}, "")
     )
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
@@ -275,7 +275,7 @@ def test_a_live_deploy_run_worktree_survives_the_sweep(monkeypatch, tmp_path: Pa
     driver.parent.mkdir(parents=True, exist_ok=True)
     _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
     monkeypatch.setattr(
-        _retirement, "_run_status", lambda _run_id: ("executing", "")
+        _retirement, "_run_record", lambda _run_id: ({"status": "executing"}, "")
     )
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")

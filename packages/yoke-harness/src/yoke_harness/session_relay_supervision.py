@@ -7,6 +7,10 @@ import queue
 import threading
 import time
 
+from yoke_contracts.session_control.wake_delivery import (
+    RELAY_STOPPING,
+    RELAY_WORKERS_BUSY,
+)
 from yoke_harness.session_relay_failure_log import FailureReporter
 
 
@@ -84,9 +88,9 @@ class Supervisor:
         with self.lock:
             self.pending = [f for f in self.pending if not f.done()]
             reason = (
-                "relay_stopping"
+                RELAY_STOPPING
                 if self.stop.is_set()
-                else "relay_workers_busy"
+                else RELAY_WORKERS_BUSY
                 if len(self.pending) >= self.max_workers
                 else None
             )
@@ -99,7 +103,7 @@ class Supervisor:
         try:
             try:
                 outcome = (
-                    release("relay_stopping")
+                    release(RELAY_STOPPING)
                     if self.stop.reason.startswith("signal:")
                     else settle()
                 )

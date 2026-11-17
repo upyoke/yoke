@@ -250,7 +250,10 @@ yoke watch doctor -- --only HC-worktree-health --fix
 ```
 
 Only a status the run-status vocabulary names terminal (`succeeded`, `failed`,
-`cancelled`) releases the directory. A run still `created` or `executing` is not a finding. An empty,
+`cancelled`) releases the directory, and only while the run has no live driver
+attachment: a re-driven terminal run still reads `failed` while its driver
+freezes source, so a live heartbeat keeps the tree in any phase. A run still
+`created` or `executing` is not a finding. An empty,
 unrecognised, or unreadable status, a tree holding a tracked change or an
 untracked non-ignored file, and a tree the sweeping process is itself executing from all
 keep the directory with the reason named — reclaiming a live run's pinned

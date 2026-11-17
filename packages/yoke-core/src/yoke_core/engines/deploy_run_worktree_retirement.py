@@ -15,15 +15,16 @@ an interruption never strands a half-deleted registered tree. A tree holding
 real work refuses and says what survived.
 
 Every answer short of "terminal" keeps the directory and names why: a run still
-open, a status this build does not recognise, an unreachable control plane, a
-directory whose run id cannot be read back, and a tree the calling process is
-itself executing from. Removing a live run's pinned source would pull the
+open or driven live, a status this build does not recognise, an unreachable
+control plane, a directory whose run id cannot be read back, and a tree the
+calling process is itself executing from. Removing a live run's pinned source would pull the
 ground out from under a driver mid-deploy, which is never worth saving one
 directory.
 """
 
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,13 @@ from yoke_core.engines.deploy_run_worktree_naming import (
     run_id_for_driver_worktree,
 )
 from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.deployment_run_driver_attachment import (
+    COLUMN as DRIVER_FIELD,
+    DriverAttachment,
+    is_live,
+    parse_attachment,
+)
 
 
 RUN_STATUS_FUNCTION_ID = "deployment_runs.get"
@@ -102,27 +110,39 @@ def _executing_inside(candidate: Path) -> bool:
     return False
 
 
-def _run_status(run_id: str) -> tuple[str, str]:
-    """``(status, refusal)`` for *run_id*; refusal set when it cannot be read."""
+def _run_record(run_id: str) -> tuple[dict[str, Any], str]:
+    """``(run, refusal)`` for *run_id*: its status and recorded driver."""
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
     try:
         response = call_dispatcher(
             function_id=RUN_STATUS_FUNCTION_ID,
             target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-            payload={"fields": ["status"]},
+            payload={"fields": ["status", DRIVER_FIELD]},
         )
     except Exception as exc:  # noqa: BLE001 - unreachable authority == keep it
-        return "", f"{RUN_STATUS_FUNCTION_ID} was unreachable ({exc})"
+        return {}, f"{RUN_STATUS_FUNCTION_ID} was unreachable ({exc})"
     if not response.success:
-        message = (
-            response.error.message if response.error is not None else "request refused"
-        )
-        return "", f"{RUN_STATUS_FUNCTION_ID} refused ({message})"
+        error = response.error
+        message = error.message if error is not None else "request refused"
+        if error is not None and error.code == "invalid_field":
+            message += (
+                f"; the serving control plane predates {DRIVER_FIELD} reads, so "
+                "driver liveness is unknown and the tree stays until it serves them"
+            )
+        return {}, f"{RUN_STATUS_FUNCTION_ID} refused ({message})"
     run = (response.result or {}).get("run")
     if not isinstance(run, dict):
-        return "", f"{RUN_STATUS_FUNCTION_ID} served no run row"
-    return str(run.get("status") or ""), ""
+        return {}, f"{RUN_STATUS_FUNCTION_ID} served no run row"
+    return run, ""
+
+
+def _live_driver(run_id: str, recorded: Any) -> DriverAttachment | None:
+    """The recorded driver when its heartbeat is live, by the attach rule."""
+    if not isinstance(recorded, dict):
+        return None
+    driver = parse_attachment(run_id, json.dumps(recorded))
+    return driver if driver is not None and is_live(driver, now=utc_now()) else None
 
 
 def _lane(path: Path, run_id: str, state: str, reason: str = "") -> DeployRunLane:
@@ -132,14 +152,24 @@ def _lane(path: Path, run_id: str, state: str, reason: str = "") -> DeployRunLan
 def _run_state(run_id: str) -> tuple[str, str]:
     """``(state, reason)`` for the run behind one driver worktree.
 
-    Only a status the vocabulary contract names as terminal reads as finished.
+    A run with a live driver attachment is open in any phase or status: a
+    re-driven terminal run keeps its terminal status while it freezes source.
+    Otherwise only a status the vocabulary contract names as terminal reads as finished.
     An empty, unrecognised, or unreadable status is blocked rather than open,
     because it is a leftover somebody has to look at — reporting it as open
     would hide it behind a run that is not actually going anywhere.
     """
-    status, refusal = _run_status(run_id)
+    run, refusal = _run_record(run_id)
     if refusal:
         return LANE_BLOCKED, f"run status unreadable: {refusal}"
+    driver = _live_driver(run_id, run.get(DRIVER_FIELD))
+    if driver is not None:
+        # A re-driven terminal run still reads failed while it freezes source.
+        return LANE_RUN_OPEN, (
+            f"run has a live driver (phase {driver.phase or 'unrecorded'}, "
+            f"session {driver.session_id})"
+        )
+    status = str(run.get("status") or "")
     if not status:
         return LANE_BLOCKED, "run status is empty"
     if run_is_open(status):

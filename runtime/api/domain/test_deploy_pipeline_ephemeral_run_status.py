@@ -132,6 +132,11 @@ class _Harness:
                 return_value=[],
             ),
             mock.patch.object(
+                deploy_pipeline.control_plane,
+                "current_member_refs",
+                return_value=[member["public_ref"] for member in members],
+            ),
+            mock.patch.object(
                 deploy_pipeline,
                 "resolve_project_checkout_path",
                 return_value="/repo",
