@@ -6,9 +6,10 @@ Ready PRs enter directly. Holding clears arming and entry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.domain.merge_landing_state import PrLandingState
 
@@ -219,11 +220,9 @@ mutation($pullRequestId: ID!) {
 }
 """)
     if not result.success:
-        from dataclasses import replace
-
-        return replace(result, error_detail=(
-            f"pr_ready_for_review_failed: {result.error_detail or 'GitHub refused'}; "
-            f"mark PR {pr_num} ready on GitHub and re-run `yoke merge item`"
+        return replace(result, error_detail=compose_refusal(
+            f"pr_ready_for_review_failed: {result.error_detail or 'GitHub refused'}",
+            recovery=f"mark PR {pr_num} ready on GitHub and re-run `yoke merge item`"
         ))
     return result
 
