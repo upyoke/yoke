@@ -54,6 +54,7 @@ WORKFLOW_STAGE_RUNNER_FIELDS = (
     "ref",
     "inputs",
     "wait_for_ci",
+    "allow_merge_group_ci",
     "dispatch_correlation_input",
     RUN_FROM_RELEASE_COMMIT,
 )
@@ -182,14 +183,16 @@ def validate_stages(stages_json: str) -> None:
                 f'stage {i} has invalid step_runner "{stage["step_runner"]}". '
                 f"Must be one of: {' '.join(sorted(VALID_STEP_RUNNERS))}"
             )
-        if "wait_for_ci" in stage:
+        for field in ("wait_for_ci", "allow_merge_group_ci"):
+            if field not in stage:
+                continue
             if stage["step_runner"] != WORKFLOW_STEP_RUNNER:
                 raise ValueError(
-                    f'stage {i} carries "wait_for_ci" but step_runner '
+                    f'stage {i} carries "{field}" but step_runner '
                     f'is not "{WORKFLOW_STEP_RUNNER}"'
                 )
-            if not isinstance(stage["wait_for_ci"], bool):
-                raise ValueError(f'stage {i} field "wait_for_ci" must be a boolean')
+            if not isinstance(stage[field], bool):
+                raise ValueError(f'stage {i} field "{field}" must be a boolean')
         _validate_run_from_release_commit(i, stage)
         if "approvals" in stage:
             parse_stage_approvals(

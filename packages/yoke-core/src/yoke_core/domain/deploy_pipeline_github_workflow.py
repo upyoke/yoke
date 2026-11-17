@@ -131,7 +131,7 @@ def _dispatch_github_actions_workflow(
             project,
             timeout_sec,
             branch=gate_branch, run_id=run_id,
-            head_sha=project_head_sha,
+            head_sha=project_head_sha, allow_merge_group_ci=config.get("allow_merge_group_ci") is True,
             sd=sd,
         )
     ready = readiness.await_dispatch_readiness(ci_gate, before_dispatch, bound_inputs)

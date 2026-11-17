@@ -70,12 +70,22 @@ Merge verification, release creation (`deployment-runs create` and
 `start-for-item`) and the deploy-time CI gate ask the same question: which run
 of the `ci_workflow_file` workflow proves this exact commit? It is the newest
 run and attempt on exactly that commit whose event is not `pull_request`,
-`pull_request_target` or `merge_group` (those test a synthetic merge or a queue
-candidate). The branch that started it does not matter, so the run merge
+`pull_request_target` or `merge_group`. PR runs test a synthetic merge. The branch that started it does not matter, so the run merge
 verification dispatched on the item's lane branch proves the identical commit
 once it is the gate branch tip, and delivery dispatches no second suite. A
 newer failed, cancelled or unfinished attempt is never passed over for an older
-green one. Proof is not placement: the bound commit must still descend from the
+green one.
+
+A `github-actions-workflow` flow stage may set `allow_merge_group_ci: true`
+(default false), beside `wait_for_ci`. Release creation and that stage's CI gate
+then also accept a completed successful `merge_group` run on the identical
+commit SHA, only when no ordinary eligible run exists. Failed, cancelled and
+unfinished queue runs are ignored; PR runs remain excluded. All CI-waiting
+stages must opt in for release creation to accept queue proof. Merge
+verification and standalone `check-ci` keep the default rule because neither
+selects a release flow.
+
+Proof is not placement: the bound commit must still descend from the
 previous release and contain every member.
 
 A tip with no eligible run at all gets one dispatch on the gate branch at

@@ -115,7 +115,9 @@ def merge_queue_same_tree_note(runs: list[Any]) -> str:
     loc = str(chosen.get("head_branch") or chosen.get("event") or "merge queue")
     return (
         f"A merge-queue run of {name} on {loc} for this identical tree "
-        f"already concluded {conclusion}; that does not satisfy this gate.\n\n"
+        f"already concluded {conclusion}. Successful merge_group proof requires "
+        "allow_merge_group_ci on this flow stage and the identical commit SHA; "
+        "PR runs and unsuccessful queue runs never satisfy the gate.\n\n"
     )
 
 
