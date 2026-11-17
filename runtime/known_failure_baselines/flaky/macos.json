@@ -1,9 +1,4 @@
 {
- "runtime/api/domain/test_source_python_environment.py::test_python_requirement_mismatch_refuses_without_downloading": {
-  "reason": "'uv python find' exceeds its 10s timeout on a loaded runner",
-  "feedback": 96581,
-  "fix_item": "YOK-5315"
- },
  "runtime/harness/test_session_relay_interactive_holder.py::TestInteractiveHolder::test_live_interactive_anchor_defers_without_custody": {
   "reason": "reads real host processes and sometimes counts a 'uv run' process as a native background command",
   "feedback": 96580,

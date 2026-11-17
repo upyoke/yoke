@@ -103,11 +103,18 @@ def test_stale_lock_refuses_without_rewriting_it(lane):
     assert (lane / "uv.lock").read_bytes() == before
 
 
-def test_python_requirement_mismatch_refuses_without_downloading(lane):
+def test_python_requirement_mismatch_refuses_without_downloading(lane, tmp_path_factory):
     project = lane / "pyproject.toml"
     project.write_text(project.read_text().replace(">=3.11", "<3.0"))
+    # A host interpreter on the search path must never be queried.
+    host = tmp_path_factory.mktemp("host-path")
+    probe = host / "python3"
+    probe.write_text(f"#!/bin/sh\ntouch '{host / 'queried'}'\nexit 1\n")
+    probe.chmod(0o755)
+    env = dict(os.environ, PATH=str(host) + os.pathsep + os.environ["PATH"])
     with pytest.raises(environment.SourceEnvironmentRefusal, match="OUT-OF-DATE"):
-        environment.resolve(lane, os.environ)
+        environment.resolve(lane, env)
+    assert not (host / "queried").exists()
 
 
 def _extraneous_package(lane: Path) -> Path:
