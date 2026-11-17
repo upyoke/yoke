@@ -6,6 +6,9 @@ from uuid import uuid4
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.tasks import (
+    create_interactive_task, remove_owned_task, require_task_result,
+)
 
 SCREEN_READER = r"""
 using System;
@@ -60,15 +63,10 @@ class WindowsTerminal:
             "Write-Host ('__YOKE_EXIT_'+$code) } catch {Write-Host $_; Write-Host '__YOKE_EXIT_1'}"
         )
         self.control.upload_remote_text(self.root + ".ps1", script)
-        start = self.control._run(f"""
-$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoLogo -NoExit -File "'+{quote(self.root + ".ps1")}+'"')
-$principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-$settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 40)
-Register-ScheduledTask -TaskName {quote(self.token)} -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-Start-ScheduledTask -TaskName {quote(self.token)}
-""")
-        if start.returncode:
-            return False
+        start = self.control._run(create_interactive_task(
+            self.token, '-NoLogo -NoExit -File "' + self.root + '.ps1"', 2400,
+        ))
+        require_task_result(self.control, start, phase="terminal_task_start")
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             pid = self.control.read_remote_text(self.root + ".pid")
@@ -135,14 +133,8 @@ Start-ScheduledTask -TaskName {quote(self.token)}
         return {key:value for key,value in result.evidence.items() if key != 'capture_artifact'}
 
     def close(self):
-        result = self.control._run(f"""
-if(Get-ScheduledTask -TaskName {quote(self.token)} -ErrorAction SilentlyContinue){{
- Stop-ScheduledTask -TaskName {quote(self.token)}
- Unregister-ScheduledTask -TaskName {quote(self.token)} -Confirm:$false
-}}
-""")
-        if result.returncode:
-            return False
+        result = self.control._run(remove_owned_task(self.token))
+        require_task_result(self.control, result, phase="terminal_task_cleanup")
         if self.pid is not None:
             stopped = self.control._run(
                 f"if(Get-Process -Id {self.pid} -ErrorAction SilentlyContinue){{& taskkill.exe /PID {self.pid} /T /F | Out-Null}}; if(Get-Process -Id {self.pid} -ErrorAction SilentlyContinue){{exit 1}}; exit 0"

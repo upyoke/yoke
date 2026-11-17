@@ -12,6 +12,9 @@ from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.tasks import (
+    create_interactive_task, remove_owned_task, require_task_result,
+)
 
 
 def desktop_script(control, script, *, timeout=60):
@@ -34,20 +37,11 @@ try {{
 }} catch {{ @{{exit_code=1;stdout='';stderr="$_"}} | ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(receipt)} }}
 """,
     )
-    start = control._run(f"""$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoLogo -NoProfile -WindowStyle Normal -File "'+{quote(source)}+'"')
-$principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-$settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds {int(timeout)})
-Register-ScheduledTask -TaskName {quote(name)} -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-Start-ScheduledTask -TaskName {quote(name)}
-""")
     try:
-        if start.returncode:
-            return subprocess.CompletedProcess(
-                [],
-                69,
-                "",
-                "windows_desktop_task_unavailable: log on and unlock the test user; repair Task Scheduler permissions and retry",
-            )
+        start = control._run(create_interactive_task(
+            name, '-NoLogo -NoProfile -WindowStyle Normal -File "' + source + '"', timeout,
+        ))
+        require_task_result(control, start, phase="desktop_task_start")
         announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -65,18 +59,8 @@ Start-ScheduledTask -TaskName {quote(name)}
             "windows_desktop_task_timeout: unlock the auto-logged-on test session, inspect Task Scheduler and retry",
         )
     finally:
-        cleanup = control._run(f"""if(Get-ScheduledTask -TaskName {quote(name)} -ErrorAction SilentlyContinue){{
-  Stop-ScheduledTask -TaskName {quote(name)}
-  Unregister-ScheduledTask -TaskName {quote(name)} -Confirm:$false
-}}
-Remove-Item -LiteralPath {",".join(quote(root + s) for s in (".ps1", ".command.ps1", ".json", ".out", ".err"))} -Force -ErrorAction SilentlyContinue
-""")
-        if cleanup.returncode:
-            raise RuntimeError(
-                "windows_desktop_cleanup_failed: stop and remove "
-                + name
-                + " in Task Scheduler before retrying"
-            )
+        cleanup = control._run(remove_owned_task(name) + f"\nRemove-Item -LiteralPath {','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.out', '.err'))} -Force -ErrorAction SilentlyContinue")
+        require_task_result(control, cleanup, phase="desktop_task_cleanup")
 
 
 def capture_desktop(control, *, focused_window=False):

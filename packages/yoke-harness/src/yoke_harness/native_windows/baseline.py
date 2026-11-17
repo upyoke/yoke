@@ -4,6 +4,7 @@ from pathlib import PureWindowsPath
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 
 
 # These contain live Windows credentials, browser identities or locked registry
@@ -62,7 +63,7 @@ def profile_script(control, operation, destination):
         for base in (control.home, str(PureWindowsPath(path) / "profile"))
     ]
     excluded_files = ",".join(quote(value) for value in files)
-    preamble = f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
+    preamble = TASK_HELPERS + f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
     preamble += r"""
 $check=$golden
 while($check){
@@ -89,8 +90,12 @@ New-Item -ItemType Directory -Path $golden | Out-Null
 $source=$profileRoot; $target=Join-Path $golden 'profile'
 """
             + copy
-            + r"""$tasks=@(Get-ScheduledTask | Where-Object {$_.Principal.UserId -in @($env:USERNAME,[Security.Principal.WindowsIdentity]::GetCurrent().Name)} | ForEach-Object {
-  @{name=$_.TaskName;path=$_.TaskPath;xml=(Export-ScheduledTask -TaskName $_.TaskName -TaskPath $_.TaskPath)}
+            + r"""$tasks=@(Get-YokeOwnedTasks ($schedule.GetFolder('\')) | ForEach-Object {
+  if($_.Definition.Principal.LogonType -notin @(2,3) -or $_.Definition.Principal.RunLevel -ne 0){
+   throw 'windows_task_credentials_required: baseline tasks must use limited interactive or S4U logon without stored passwords'
+  }
+  $split=$_.Path.LastIndexOf('\')
+  @{name=$_.Name;path=$_.Path.Substring(0,$split+1);xml=$_.Xml}
 })
 @{user_path=[Environment]::GetEnvironmentVariable('Path','User');tasks=$tasks} |
  ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 (Join-Path $golden 'state.json')
@@ -105,18 +110,17 @@ $source=Join-Path $golden 'profile'; $target=$profileRoot
         + copy
         + r"""[Environment]::SetEnvironmentVariable('Path',$state.user_path,'User')
 $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+$state.user_path
-$owned=@(Get-ScheduledTask | Where-Object {$_.Principal.UserId -in @($env:USERNAME,[Security.Principal.WindowsIdentity]::GetCurrent().Name)})
+$owned=@(Get-YokeOwnedTasks ($schedule.GetFolder('\')))
 foreach($task in $owned){
- if(!($state.tasks | Where-Object {$_.name -eq $task.TaskName -and $_.path -eq $task.TaskPath})){
-  Stop-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath
-  Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false
+ if(!($state.tasks | Where-Object {($_.path+$_.name) -eq $task.Path})){
+  Remove-YokeTask $task.Path
  }
 }
 Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'YokeQa') -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 Get-ChildItem -LiteralPath $env:TEMP -Force | Where-Object {
  $_.Name -match '^(yoke|playwright|chromium|pip)-' -and $_.FullName -ne $PSCommandPath
 } | Remove-Item -Recurse -Force
-foreach($task in $state.tasks){Register-ScheduledTask -TaskName $task.name -TaskPath $task.path -Xml $task.xml -Force | Out-Null}
+foreach($task in $state.tasks){Restore-YokeTask $task}
 if([Environment]::GetEnvironmentVariable('Path','User') -cne $state.user_path){throw 'windows_path_restore_failed: repair user environment access and reset again'}
 """
     )

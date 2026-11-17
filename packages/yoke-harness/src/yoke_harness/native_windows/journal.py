@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from yoke_contracts.designed_wait import announce_designed_wait
 
-from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.tasks import require_task_result, start_fixed_task
 
 ROOT = r"C:\ProgramData\YokeQa"
 TASK = "YokeQaMachineSettings"
@@ -117,11 +117,8 @@ def journal_operation(control, action):
             }
         ),
     )
-    started = control._run(f"Start-ScheduledTask -TaskName {quote(TASK)}")
-    if started.returncode:
-        raise RuntimeError(
-            "windows_journal_task_unavailable: provision the fixed administrator recovery task and grant the test user start access"
-        )
+    started = control._run(start_fixed_task(TASK))
+    require_task_result(control, started, phase="journal_task_start")
     announce_designed_wait(
         "native Windows machine settings " + action, max_wait_seconds=300
     )
