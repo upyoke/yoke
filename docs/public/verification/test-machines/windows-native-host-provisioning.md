@@ -147,9 +147,91 @@ account. Profiles are created by the administrator through Windows
 [`CreateProfile`](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createprofile)
 and resolved by SID, including profile directory suffixes. Profile creation
 checks the registered directory and hive; it does not prove interactive sign-in.
+An account can exist without a profile after interrupted setup. Preserve it and
+its stored password; rerun the same provisioner with `--bootstrap-transport ssh`.
+It resolves `ProfileList\<SID>\ProfileImagePath`, requires `NTUSER.DAT`, and
+accepts CreateProfile success or `ERROR_ALREADY_EXISTS` only after validation.
+Other HRESULTs, missing custody, a disabled account or unexpected privileges
+require investigation; never reset the password or delete/recreate the account.
 Read errors and rerun only after correcting the named failure. Azure returning
 success does not prove its script succeeded; the provisioner requires its
 explicit readiness message.
+
+### Bounded recovery when administrator SSH is unavailable
+
+Use an explicitly approved window: one start, maximum twenty minutes, reserve
+cleanup at minute seventeen, and verify `PowerState/deallocated` by minute twenty.
+Stop on ambiguity; a timeout is not permission to retry or kill guest processes.
+If OpenSSH is installed/running but TCP22 is blocked, inspect the managed
+`YokeQaSsh` firewall rule. `New-NetFirewallRule` requires `-DisplayName` even
+with `-Name`; omitting it can prompt instead of completing noninteractively.
+Save this nonsecret repair script as `ssh-firewall.ps1`:
+
+```powershell
+$ErrorActionPreference='Stop'
+Get-NetFirewallRule -Name YokeQaSsh -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -Name YokeQaSsh -DisplayName 'Yoke QA SSH' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -Profile Any -RemoteAddress Any -ErrorAction Stop | Out-Null
+$r=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaSsh -ErrorAction Stop
+$p=$r | Get-NetFirewallPortFilter -ErrorAction Stop
+if($r.Enabled -ne 'True' -or $r.Direction -ne 'Inbound' -or $r.Action -ne 'Allow' -or $p.LocalPort -ne '22'){throw 'effective SSH rule invalid'}
+Restart-Service sshd -ErrorAction Stop
+'YOKE_SSH_FIREWALL_READY'
+```
+
+Run **one managed Run Command v2**, retaining its named resource for audit:
+
+```text
+az vm run-command create --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --script @ssh-firewall.ps1 --timeout-in-seconds 120
+az vm run-command show --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --expand instanceView --query instanceView -o json
+```
+
+Require terminal execution success, exit code zero and `YOKE_SSH_FIREWALL_READY`;
+ARM `Creating`/`Canceled` alone is not the guest result. Do not repeat removal or
+create another guest invocation because the controller result is ambiguous.
+Verify external TCP22, then key-only administrator SSH before continuing.
+From a PowerShell controller (`KEY`, `ADMIN` and `HOST` are inventory values):
+
+```powershell
+if(!(Test-NetConnection HOST -Port 22 -InformationLevel Quiet)){throw 'TCP22 unreachable'}
+$probe=@'
+$ErrorActionPreference='Stop'
+$id=[Security.Principal.WindowsIdentity]::GetCurrent()
+$expected=Get-LocalUser -Name 'ADMIN' -ErrorAction Stop
+if($id.User.Value -ne $expected.SID.Value -or !([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'wrong administrator token'}
+$stale=@(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {$_.CommandLine -match 'script0\.ps1'})
+$stale | Select-Object ProcessId,CreationDate
+if($stale.Count -ne 0){throw 'stale script0 process: report only, stop provisioning'}
+'YOKE_ADMIN_AND_STALE_AUDIT_OK'
+'@
+$encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($probe))
+ssh -i KEY -o BatchMode=yes ADMIN@HOST "powershell.exe -NoProfile -NonInteractive -EncodedCommand $encoded"
+if($LASTEXITCODE -ne 0){throw 'administrator SSH audit failed'}
+```
+
+Never kill a reported process. Run the provisioner only after this zero-count
+audit, retaining all three readiness receipts. Verify both users' actual token
+SIDs against `Get-LocalUser`, and administrator membership true only for ADMIN.
+Inspect the test SID's registered path/hive without assuming `C:\Users\yokeqa`.
+
+### RDP firewall failure and partial setup
+
+Windows Firewall rejects **both** `::1` and `127.0.0.1` as explicit loopback
+address conditions. Do not replace the rejected IPv6 address with an IPv4 allow
+rule. The provisioner removes legacy `YokeQaRdpLoopback`, disables stable
+`RemoteDesktop-*` rules, requires all firewall profiles enabled/default inbound
+block, and refuses other RDP-capable allow rules. Keep NSG public3389 blocked;
+forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
+Require a real forwarded RDP negotiation and independently blocked direct RDP.
+
+The 2026-11-17 profile-by-SID window reached this invalid firewall rule, then
+verified deallocation after 121 seconds. No registration or native QA occurred;
+progress past profile setup alone was not an independent profile receipt.
+Preserve the partial account/profile and custody. Correct and run the **entire**
+guest provisioner on disposable `windows-latest`, including actual SSH and RDP
+forwarding, before requesting another VM window with exact-commit green evidence.
+After successful setup register **SETUP INCOMPLETE**, immediately deallocate,
+then run dispatched native QA separately. Failure means stop, deallocate, record
+the exact guest error and inspect it; never mark registration or QA complete.
 
 Prove the test user is not an Administrator and cannot modify the fixed
 administrator task or its program. Select **Windows Console Host** as the

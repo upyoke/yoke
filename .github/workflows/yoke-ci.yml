@@ -34,6 +34,8 @@ env:
   POSTGRES_IMAGE: ghcr.io/upyoke/postgres:16
 
 jobs:
+  native_windows_provisioning:
+    uses: ./.github/workflows/native-windows-provisioning.yml
   repo_contracts:
     # Publishes portable wheels and fixture-aware file groups; checks run in parallel.
     timeout-minutes: 10

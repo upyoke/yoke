@@ -299,9 +299,7 @@ def test_provision_firewall_commands_cannot_prompt_or_hide_creation_errors(monke
     with pytest.raises(RuntimeError, match="test_setup_captured"):
         provision.provision("project", "machine", "host", "group", "admin", "test")
     assert len(scripts) == 2
-    for script, name, port in zip(
-        scripts, ["YokeQaSsh", "YokeQaRdpLoopback"], [22, 3389]
-    ):
+    for script, name, port in [(scripts[0], "YokeQaSsh", 22)]:
         create = next(
             line
             for line in script.splitlines()
@@ -314,8 +312,9 @@ def test_provision_firewall_commands_cannot_prompt_or_hide_creation_errors(monke
         assert f"-PolicyStore ActiveStore -Name {name} -ErrorAction Stop" in script
         assert "Get-NetFirewallPortFilter -ErrorAction Stop" in script
         assert script.index("Remove-NetFirewallRule") < script.index(create)
-    assert "-RemoteAddress 127.0.0.1,::1" in scripts[1]
-    assert "Get-NetFirewallAddressFilter -ErrorAction Stop" in scripts[1]
+    assert "New-NetFirewallRule" not in scripts[1]
+    assert "-DefaultInboundAction Block" in scripts[1]
+    assert "Get-NetFirewallServiceFilter -ErrorAction Stop" in scripts[1]
     stages = ["capability", "configuration", "firewall", "service"]
     positions = [scripts[0].index(f"Native OpenSSH stage: {stage}") for stage in stages]
     assert positions == sorted(positions)

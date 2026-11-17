@@ -1,0 +1,36 @@
+name: native-windows-provisioning
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  complete_guest_setup:
+    name: complete guest setup (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      YOKE_NATIVE_WINDOWS_PROVISIONING: "1"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Install locked source dependencies
+        run: uv sync --all-packages --locked
+      - name: Run complete native guest provisioning with real SSH and RDP
+        run: >-
+          uv run --frozen python -m pytest --noconftest -n 0 -v -s
+          runtime/api/domain/test_native_windows_firewall.py
+          --junitxml=native-windows-provisioning.xml
+      - name: Retain exact-commit provisioning evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-windows-provisioning-${{ github.sha }}
+          path: native-windows-provisioning.xml
+          if-no-files-found: error
+          retention-days: 7

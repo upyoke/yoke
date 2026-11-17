@@ -26,6 +26,7 @@ from yoke_harness.native_windows.stdin_frame import (
 from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
 from yoke_harness.native_windows.profile import (
     SCRIPT as PROFILE_SCRIPT,
     missing_password_guard,
@@ -248,20 +249,12 @@ Set-Content -LiteralPath "$homePath\.ssh\authorized_keys" -Value PUBLIC_KEY
 & icacls.exe 'C:\ProgramData\YokeQa\private' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
 & icacls.exe 'C:\ProgramData\YokeQa\requests' /grant "${name}:(OI)(CI)M" | Out-Null
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
-# RDP is reachable only by SSH local forwarding, including on the guest.
-Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Disable-NetFirewallRule
-Get-NetFirewallRule -Name YokeQaRdpLoopback -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule -Name YokeQaRdpLoopback -DisplayName 'Yoke QA RDP loopback' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -RemoteAddress 127.0.0.1,::1 -Profile Any -ErrorAction Stop | Out-Null
-$rule=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaRdpLoopback -ErrorAction Stop
-$port=$rule | Get-NetFirewallPortFilter -ErrorAction Stop
-$addresses=$rule | Get-NetFirewallAddressFilter -ErrorAction Stop
-if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or $port.LocalPort -ne '3389' -or @($addresses.RemoteAddress).Count -ne 2 -or '127.0.0.1' -notin $addresses.RemoteAddress -or '::1' -notin $addresses.RemoteAddress){
- throw 'windows_rdp_firewall_failed: inspect the effective YokeQaRdpLoopback firewall rule'
-}
+RDP_FIREWALL
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
 """.replace("TEST_USER", quote(test_user))
         .replace("PUBLIC_KEY", quote(public))
         .replace("PROFILE_CREATION", PROFILE_SCRIPT)
+        .replace("RDP_FIREWALL", RDP_FIREWALL_SCRIPT)
     )
     result = admin_script(
         key,
