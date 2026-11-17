@@ -71,6 +71,7 @@ def test_native_shell_output_capture(tmp_path, shell, surface, request):
         pytest.skip(f"{shell} is not installed on this Windows runner")
     script = tmp_path / "capture.py"
     started_marker = tmp_path / "python-started.txt"
+    shell_marker = tmp_path / "shell-started.txt"
     common = (
         "import pathlib, time; "
         f"pathlib.Path({str(started_marker)!r}).write_text(str(time.time())); "
@@ -102,7 +103,10 @@ def test_native_shell_output_capture(tmp_path, shell, surface, request):
             return "'" + text.replace("'", "''") + "'"
 
         command = (
-            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); & "
+            "[IO.File]::WriteAllText("
+            + quote(str(shell_marker))
+            + ", [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds().ToString()); "
+            + "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); & "
             + quote(sys.executable)
             + " "
             + quote(str(script))
@@ -124,6 +128,12 @@ def test_native_shell_output_capture(tmp_path, shell, surface, request):
             )
         else:
             diagnostic = "Python never started within 30s"
+        if shell != "cmd.exe":
+            if shell_marker.exists():
+                shell_seconds = float(shell_marker.read_text()) / 1000 - launched_at
+                diagnostic += f"; PowerShell command started after {shell_seconds:.3f}s"
+            else:
+                diagnostic += "; PowerShell command never started within 30s"
         pytest.fail(
             f"{shell} / {surface}: {diagnostic}; "
             f"stdout={exc.stdout!r}; stderr={exc.stderr!r}",
@@ -132,6 +142,9 @@ def test_native_shell_output_capture(tmp_path, shell, surface, request):
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
     startup_seconds = float(started_marker.read_text()) - launched_at
     request.node.user_properties.append(("python_startup_seconds", startup_seconds))
+    if shell_marker.exists():
+        shell_seconds = float(shell_marker.read_text()) / 1000 - launched_at
+        request.node.user_properties.append(("shell_startup_seconds", shell_seconds))
     print(f"WINDOWS_SHELL_START {shell} {surface}: {startup_seconds:.3f}s")
     output = result.stdout.decode("utf-8-sig")
     assert "José 東京" in output and "\x1b[" not in output
