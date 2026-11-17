@@ -273,5 +273,5 @@
 "runtime/api/cli/test_server_image_repository.py::test_provision_uses_and_saves_wizard_repository": "yoke_cli.self_host.native_windows.NativeWindowsError: self_host_native_windows_requires_wsl2: hosting a Yoke server on native Windows requires WSL2. Recovery: In Windows PowerShell, run `wsl --install",
 "runtime/api/cli/test_server_image_repository.py::test_wizard_preview_changes_repository_without_writes": "yoke_cli.self_host.native_windows.NativeWindowsError: self_host_native_windows_requires_wsl2: hosting a Yoke server on native Windows requires WSL2. Recovery: In Windows PowerShell, run `wsl --install",
 "runtime/api/cli/test_server_image_repository.py::test_wizard_repository_choice_validates_and_returns_to_preview": "AssertionError: assert 'Image repository: registry.example/fork/yoke' in 'Your Yoke lives on this machine.  Reachable here only — other computers cannot connect to it.   • No account is required.   •",
-"runtime/api/cli/test_session_relay_release_status.py::test_relay_lifecycle_reports_release_pin": "AssertionError: assert {'distributio...d': True, ...} == {'distributio...d': True, ...}",
+"runtime/api/cli/test_session_relay_release_status.py::test_relay_lifecycle_reports_release_pin": "AssertionError: assert {'distributio...d': True, ...} == {'distributio...d': True, ...}"
 }
