@@ -59,5 +59,28 @@ def copy_repository(tmp_path: Path, request, branch: str) -> None:
         "repo/.git/worktrees/worktree/gitdir",
         "worktree/.git",
     ):
-        path = tmp_path / relative
-        path.write_text(path.read_text().replace(str(template), str(tmp_path)))
+        _relocate_in_place(tmp_path / relative, template, tmp_path)
+
+
+def _relocate_in_place(path: Path, old: Path, new: Path) -> None:
+    """Point one Git pointer file from ``old`` to ``new`` without recreating it.
+
+    Git for Windows marks a linked worktree's ``.git`` file Hidden, and
+    Windows denies a truncating create on a hidden file, so the existing file
+    is opened for update instead. Git spells a path with ``/`` in pointer
+    files and escapes ``\\`` in config, so every spelling is replaced.
+    """
+    spellings = {
+        str(old).replace("\\", "\\\\"): str(new).replace("\\", "\\\\"),
+        old.as_posix(): new.as_posix(),
+    }
+    with path.open("r+", encoding="utf-8", newline="") as handle:
+        original = handle.read()
+        text = original
+        for before, after in spellings.items():
+            text = text.replace(before, after)
+        if text == original:
+            raise AssertionError(f"{path} does not name the template {old}")
+        handle.seek(0)
+        handle.write(text)
+        handle.truncate()
