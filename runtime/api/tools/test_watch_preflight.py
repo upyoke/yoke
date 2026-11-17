@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import io
 import sys
 from pathlib import Path
@@ -119,7 +120,7 @@ def test_streaming_pair_uses_the_registered_wrapper(
     output = capsys.readouterr().out
     assert "yoke watch preflight --raw-capture" in output
     assert "-- prod-db-admin" in output
-    assert f"yoke watch tail {progress}" in output
+    assert f"yoke watch tail {shlex.quote(str(progress))}" in output
 
 
 def test_fake_preflight_streams_stops_tail_and_propagates_failure(

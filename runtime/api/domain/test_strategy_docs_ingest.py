@@ -7,6 +7,7 @@ lives in ``test_strategy_docs_ingest_execute.py``; shared fixtures in
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 
 import pytest
@@ -260,6 +261,6 @@ class TestDryRun:
     def test_conflict_teaching_names_recovery_steps(self) -> None:
         teaching = ing.conflict_teaching(["PAD", "WISPS"], Path("/repo"))
         assert "'PAD'" in teaching and "'WISPS'" in teaching
-        assert "yoke strategy render --target-root /repo" in teaching
+        assert f"yoke strategy render --target-root {shlex.quote(str(Path('/repo')))}" in teaching
         assert "git diff" in teaching
         assert "yoke strategy ingest PAD WISPS" in teaching

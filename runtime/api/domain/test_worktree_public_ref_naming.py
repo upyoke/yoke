@@ -9,6 +9,8 @@ correct internal id from its name.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import os
 
 import pytest
@@ -71,7 +73,7 @@ def test_worktree_named_by_public_ref_and_resolves_back(
 
     assert result.error is None, result.error
     assert result.worktrees[0].branch == public_ref
-    assert result.worktrees[0].path.endswith(f"/.worktrees/{public_ref}")
+    assert Path(result.worktrees[0].path).as_posix().endswith(f"/.worktrees/{public_ref}")
     assert os.path.isdir(result.worktrees[0].path)
     # The raw internal id is never used as a worktree directory name.
     assert not os.path.isdir(

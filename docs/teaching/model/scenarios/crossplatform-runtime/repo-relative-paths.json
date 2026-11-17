@@ -1,0 +1,13 @@
+{
+ "id": "repo-relative-paths",
+ "title": "Keep repository identities portable and quote shell operands",
+ "status": "observed",
+ "audience": "agent",
+ "when": "Reading source-discovery results, renderer outputs, doctor findings or a printed Bash recovery command.",
+ "need": "Repository-relative identities use forward slashes on every operating system. Local absolute filesystem paths retain native spelling. Printed Bash commands quote path operands with shlex, including native Windows paths; copy the quoted command as printed.",
+ "disclosure": "current cue",
+ "surface": "Event discovery, architect anticipation, agent renderer results, doctor scanners and printed recovery commands.",
+ "review": "Source regressions cover the existing identity and command contracts. Native Windows suite acceptance remains pending.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/events_registry_discovery.py", "packages/yoke-core/src/yoke_core/domain/architect_plan_anticipation.py", "packages/yoke-core/src/yoke_core/domain/agents_render.py", "packages/yoke-cli/src/yoke_cli/operating_layer_drift.py", "runtime/api/tools/test_watch_print_only_contract.py"],
+ "position": 4
+}

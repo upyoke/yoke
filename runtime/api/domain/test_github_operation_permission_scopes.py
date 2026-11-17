@@ -255,7 +255,7 @@ def test_privileged_operation_scopes_and_aliases_are_allowlisted() -> None:
         "resolve_project_github_auth",
     }
     for path, tree in _source_modules():
-        relative = str(path.relative_to(_REPO_ROOT))
+        relative = path.relative_to(_REPO_ROOT).as_posix()
         parent_by_node = _parent_map(tree)
         for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
             if _call_name(call) not in privileged_helpers:
@@ -327,7 +327,7 @@ def test_direct_installation_token_minters_and_imports_are_allowlisted() -> None
     direct_calls: set[tuple[str, str]] = set()
     minter_imports: set[str] = set()
     for path, tree in _source_modules():
-        relative = str(path.relative_to(_REPO_ROOT))
+        relative = path.relative_to(_REPO_ROOT).as_posix()
         aliases = _import_aliases(tree)
         if "mint_installation_token" in aliases.values():
             minter_imports.add(relative)

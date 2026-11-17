@@ -186,7 +186,7 @@ def test_tracked_source_pages_and_symlink_escape(tmp_path):
     refusal = nav.validate_navigation(root, complete=False)[0]
     assert refusal.code == "NAV_PATH_MISSING"
     assert refusal.detail == "page is untracked"
-    assert f"untracked: stage it with git add -- {root / 'index.md'}" == refusal.repair
+    assert f"untracked: stage it with git add -- {shlex.quote(str(root / 'index.md'))}" == refusal.repair
     subprocess.run(
         shlex.split(refusal.repair.removeprefix("untracked: stage it with ")),
         cwd=repo,

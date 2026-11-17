@@ -6,6 +6,8 @@ from runtime.api.domain.worktree_create_multiworktree_test_support import (_conf
 from runtime.api.domain.worktree_create_test_support import (_placeholder as _placeholder)
 
 
+from pathlib import Path
+
 import os
 import subprocess
 import sys
@@ -44,7 +46,7 @@ class TestCreateWorktreeMultiWorktree:
         assert result.error is None
         assert result.created is True
         assert result.branch == "YOK-99100"
-        assert result.path.endswith(".worktrees/YOK-99100")
+        assert Path(result.path).as_posix().endswith(".worktrees/YOK-99100")
         assert len(result.worktrees) == 1
         assert result.worktrees[0].branch == "YOK-99100"
         assert result.worktrees[0].created is True
@@ -94,7 +96,7 @@ class TestCreateWorktreeMultiWorktree:
         assert not hasattr(result, "scope_entered")
         assert not hasattr(result, "scope_message")
         assert result.branch == "YOK-99202"
-        assert result.path.endswith(".worktrees/YOK-99202")
+        assert Path(result.path).as_posix().endswith(".worktrees/YOK-99202")
         assert len(result.worktrees) == len(entries) + 1
         for wt_result, (expected_branch, expected_path) in zip(
             result.worktrees[1:],
@@ -193,7 +195,7 @@ class TestCreateWorktreeMultiWorktree:
             config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
-        assert result.path.endswith(f".worktrees/{lane_ref}")
+        assert Path(result.path).as_posix().endswith(f".worktrees/{lane_ref}")
         assert result.branch == lane_ref
         assert result.created is True
         # `worktrees` is present but len()==1 for single-worktree.
@@ -272,7 +274,7 @@ class TestCreateWorktreeMultiWorktree:
         assert rc == 0, capsys.readouterr().err
         out = capsys.readouterr().out.strip().splitlines()
         assert len(out) == 1
-        assert out[0].endswith(f".worktrees/{lane_ref}")
+        assert Path(out[0]).as_posix().endswith(f".worktrees/{lane_ref}")
 
     def test_epic_without_worker_lanes_is_rejected(self, git_repo, yoke_db):
         # Task-graph workflows require their universal worker lanes first.

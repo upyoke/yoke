@@ -66,7 +66,7 @@ def checkout(tmp_path, monkeypatch):
 
 def _strategy_paths(root):
     return sorted(
-        str(path.relative_to(root)) for path in (root / ".yoke/strategy").iterdir()
+        path.relative_to(root).as_posix() for path in (root / ".yoke/strategy").iterdir()
     )
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import shlex
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
@@ -103,7 +104,7 @@ def test_unknown_subcommand_refreshes_stale_project_layer_before_cli(
 
     assert rc == 2
     err = capsys.readouterr().err
-    assert "yoke project install /work/demo" in err
+    assert f"yoke project install {shlex.quote(str(Path('/work/demo')))}" in err
     assert "Do not reinstall the newer CLI/source checkout" in err
     assert "rerun the public installer" not in err.lower()
 
@@ -189,7 +190,7 @@ def test_stale_project_layer_is_named_even_when_server_lacks_command(
 
     assert rc == 2
     err = capsys.readouterr().err
-    assert "yoke project install /work/demo" in err
+    assert f"yoke project install {shlex.quote(str(Path('/work/demo')))}" in err
     assert "public installer" not in err.lower()
 
 

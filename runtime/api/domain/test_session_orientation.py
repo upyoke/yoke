@@ -1,14 +1,14 @@
 """Client-side session orientation for a managed project's main session.
-
 The server skips the orientation policy over https because it cannot see
 the client machine, and the source-repo renderer is absent from a managed
 project. These regressions pin the client-side replacement: it orients each
-harness on its real startup-context event exactly once, stays silent on every
-other event, never raises, and carries the shared message-trust block.
+harness at startup exactly once, stays silent on other events, never raises,
+and carries the shared message-trust block.
 """
 
 from __future__ import annotations
 
+import shlex
 import json
 from pathlib import Path
 
@@ -276,7 +276,7 @@ def test_orientation_warns_when_installed_teaching_is_behind(
 
     assert out is not None
     assert "operating layer 0.1.1+launch.24 is behind" in out
-    assert f"`yoke project install {project}`" in out
+    assert f"`yoke project install {shlex.quote(str(project))}`" in out
 
 
 def test_orientation_warns_for_install_predating_tracked_receipts(
@@ -297,7 +297,7 @@ def test_orientation_warns_for_install_predating_tracked_receipts(
 
     assert out is not None
     assert "operating layer 0.1.1+launch.24 is behind" in out
-    assert f"`yoke project install {project}`" in out
+    assert f"`yoke project install {shlex.quote(str(project))}`" in out
 
 
 @pytest.mark.parametrize(

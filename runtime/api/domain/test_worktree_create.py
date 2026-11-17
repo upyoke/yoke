@@ -15,6 +15,8 @@ from runtime.api.domain.worktree_create_test_support import (
 )
 
 
+from pathlib import Path
+
 import os
 import subprocess
 from types import SimpleNamespace
@@ -112,7 +114,7 @@ class TestCreateWorktree:
         assert result.created is True
         assert result.branch == TEST_ITEM_REF
         assert os.path.isdir(result.path)
-        assert result.path.endswith(f".worktrees/{TEST_ITEM_REF}")
+        assert Path(result.path).as_posix().endswith(f".worktrees/{TEST_ITEM_REF}")
 
         # Verify it's a real git worktree
         r = subprocess.run(

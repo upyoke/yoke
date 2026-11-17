@@ -119,12 +119,12 @@ def scan_source_glyphs(repo_root: Path) -> list[str]:
                 if cp == _VS16:
                     base = line[i - 1] if i > 0 else ""
                     hits.append(
-                        f"{rel}:{lineno}: VS16 on text-default base "
+                        f"{rel.as_posix()}:{lineno}: VS16 on text-default base "
                         f"{base!r} ({_char_name(base)})"
                     )
                 elif _SKIN_LO <= cp <= _SKIN_HI:
                     hits.append(
-                        f"{rel}:{lineno}: skin-tone modifier {ch!r} ({_char_name(ch)})"
+                        f"{rel.as_posix()}:{lineno}: skin-tone modifier {ch!r} ({_char_name(ch)})"
                     )
     return hits
 

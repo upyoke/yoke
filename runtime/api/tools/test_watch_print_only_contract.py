@@ -12,6 +12,7 @@ child exactly once and returns its exit status.
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 import sys
 
 import pytest
@@ -83,8 +84,8 @@ def test_printing_a_wait_shape_launches_nothing(
     assert expected in output
     # The printed command is the caller's next step: this wrapper bound
     # to both minted captures, and never the print flag again.
-    assert f"--raw-capture {raw}" in output
-    assert f"--progress-capture {progress}" in output
+    assert f"--raw-capture {shlex.quote(str(raw))}" in output
+    assert f"--progress-capture {shlex.quote(str(progress))}" in output
     assert "--print-streaming-pair" not in output
 
 
@@ -110,7 +111,7 @@ def test_an_unwakeable_caller_gets_a_foreground_command_and_no_subscription(
     assert "keep the call open" in output
     assert "no completion wake is expected" in output
     assert "yoke watch fleet" in output
-    assert f"tail -80 {raw}" in output
+    assert f"tail -80 {shlex.quote(str(raw))}" in output
     assert "yoke watch tail" not in output
 
 

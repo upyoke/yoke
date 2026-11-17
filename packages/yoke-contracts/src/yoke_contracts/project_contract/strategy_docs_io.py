@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
+import shlex
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -69,7 +70,7 @@ def read_ingest_files(
             raise StrategyIngestFileMissingError(
                 f"no rendered file for strategy doc {slug!r} at {path}; "
                 f"render it first: yoke strategy render {slug} --target-root "
-                f"{target_root}"
+                f"{shlex.quote(str(target_root))}"
             )
         files.append(
             {

@@ -67,7 +67,7 @@ def test_cleanup_log_owns_fixed_six_utc_clock(
 def test_frozen_cleanup_pack_files_keep_exact_bytes():
     frozen = PACK / "versions/1.1.0/files"
     actual = {
-        str(p.relative_to(frozen)): hashlib.sha256(p.read_bytes()).hexdigest()
+        p.relative_to(frozen).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in frozen.rglob("*")
         if p.is_file()
     }

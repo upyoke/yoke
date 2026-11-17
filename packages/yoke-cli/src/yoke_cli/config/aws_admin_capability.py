@@ -185,7 +185,7 @@ def credential_dir_display(project_slug: str) -> str:
         return ""
     directory = credential_dir(slug)
     try:
-        return f"~/{directory.relative_to(Path.home())}/"
+        return f"~/{directory.relative_to(Path.home()).as_posix()}/"
     except (OSError, ValueError):
         return f"{directory}/"
 

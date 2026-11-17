@@ -91,7 +91,7 @@ def _doctor_hcs(repo_root: Path, file_budget: Sequence[str]) -> list[str]:
         for hc in sorted(repo_root.joinpath(hc_dir).glob("doctor_hc_*.py")):
             text = _read(hc)
             if any(name in text for name in basenames):
-                hits.append(str(hc.relative_to(repo_root)))
+                hits.append(hc.relative_to(repo_root).as_posix())
     return hits
 
 
@@ -128,7 +128,7 @@ def _callers(
     budget = set(file_budget)
     hits: list[str] = []
     for path in _python_files(repo_root, search_roots):
-        rel = str(path.relative_to(repo_root))
+        rel = path.relative_to(repo_root).as_posix()
         if rel not in budget and pattern.search(_read(path)):
             hits.append(rel)
     return sorted(set(hits))

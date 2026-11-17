@@ -113,7 +113,7 @@ def hc_historical_yok_n_cruft(conn, args: DoctorArgs, rec: RecordCollector) -> N
         except ValueError:
             rel = hit.path
         lines.append(
-            f"- {rel}:{hit.line}: {hit.work_item} "
+            f"- {rel.as_posix()}:{hit.line}: {hit.work_item} "
             f"(status={hit.status}) — {hit.context[:120]}"
         )
     extra = ""
