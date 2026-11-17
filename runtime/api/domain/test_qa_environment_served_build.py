@@ -11,6 +11,7 @@ from yoke_core.domain.qa_execution_environment_target import (
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.qa_standalone_execution import begin_standalone_execution
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
+from yoke_contracts.timestamps import utc_now
 
 SHA = "a" * 40
 OTHER = "b" * 40
@@ -54,7 +55,7 @@ def test_bridge_probes_owner_by_id_and_records_begin_and_result(test_db, monkeyp
     assert execution["served_build_sha"] == SHA
     assert execution["execution_target"]["environment"] == {"id": owner, "name": "stage"}
     requirement = execution["roster"][0]["requirement_id"]
-    written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command")
+    written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command", performed_by="7", created_at=utc_now())
     update_qa_run(test_db, written.run_id, {"verdict": "pass"})
     row = test_db.execute("SELECT served_build_sha,served_build_status FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()
     assert tuple(row) == (SHA, "observed")
@@ -65,7 +66,7 @@ def test_changed_build_refuses_result_and_preserves_unjudged_run(test_db, monkey
     _setup(test_db, monkeypatch)
     execution = _begin(test_db)
     requirement = execution["roster"][0]["requirement_id"]
-    written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command")
+    written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command", performed_by="7", created_at=utc_now())
     monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
     with pytest.raises(QaExecutionTargetError, match=f"served_build_changed: began on {SHA}; now serves {OTHER}"):
         update_qa_run(test_db, written.run_id, {"verdict": "pass"})
@@ -102,6 +103,6 @@ def test_no_declared_path_is_durable(test_db, monkeypatch):
     execution = _begin(test_db)
     assert execution["served_build_sha"] is None
     assert execution["served_build_status"] == "no_declared_path"
-    written = insert_qa_run(test_db, qa_requirement_id=execution["roster"][0]["requirement_id"], qa_kind="command", verdict="pass")
+    written = insert_qa_run(test_db, qa_requirement_id=execution["roster"][0]["requirement_id"], qa_kind="command", performed_by="7", created_at=utc_now(), verdict="pass")
     row = test_db.execute("SELECT served_build_sha,served_build_status FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()
     assert tuple(row) == (None, "no_declared_path")
