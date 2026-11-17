@@ -1,8 +1,10 @@
 """Module-owned Git repository templates for merge subprocess tests."""
 
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import warnings
 
 import pytest
 
@@ -59,5 +61,21 @@ def copy_repository(tmp_path: Path, request, branch: str) -> None:
         "repo/.git/worktrees/worktree/gitdir",
         "worktree/.git",
     ):
-        path = tmp_path / relative
-        path.write_text(path.read_text().replace(str(template), str(tmp_path)))
+        _rewrite_in_place(tmp_path / relative, str(template), str(tmp_path))
+
+
+def _rewrite_in_place(path: Path, old: str, new: str) -> None:
+    """Replace text inside an existing file without recreating it.
+
+    Git for Windows marks a linked worktree's ``.git`` file Hidden, and
+    Windows denies a truncating create on a hidden file; opening the existing
+    file for update keeps its attributes and is allowed.
+    """
+    attributes = getattr(os.stat(path), "st_file_attributes", None)
+    if attributes is not None:  # YOK-5357 cause probe; removed once confirmed.
+        warnings.warn(f"YOK-5357 attributes {path.name}: {attributes:#x}")
+    with path.open("r+", encoding="utf-8", newline="") as handle:
+        text = handle.read().replace(old, new)
+        handle.seek(0)
+        handle.write(text)
+        handle.truncate()
