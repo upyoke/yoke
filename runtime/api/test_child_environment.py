@@ -83,3 +83,27 @@ def test_delegated_service_child_keeps_os_startup_without_caller_authority(monke
     assert {name: env[name] for name in values} == values
     assert "YOKE_API_TOKEN" not in env
     assert "YOKE_SESSION_ID" not in env
+
+
+def test_merge_child_has_an_isolated_native_profile(tmp_path, monkeypatch):
+    from dataclasses import fields
+    from types import SimpleNamespace
+    from runtime.api import merge_worktree_full_test_support as support
+
+    monkeypatch.setattr(support, "os", SimpleNamespace(
+        name="nt", environ=os.environ, pathsep=os.pathsep,
+    ))
+    monkeypatch.setenv("APPDATA", "operator-profile")
+    values = {field.name: tmp_path / field.name for field in fields(support.MergeEnv)}
+    values.update(tmpdir=tmp_path, test_path=str(Path(sys.executable).parent))
+    env = support.MergeEnv(**values).env()
+    home = Path(env["USERPROFILE"])
+    assert home == Path(env["HOME"]) == tmp_path / "home"
+    for name in ("APPDATA", "LOCALAPPDATA"):
+        assert Path(env[name]).is_relative_to(home)
+        assert Path(env[name]).is_dir()
+    assert env["TEMP"] == env["TMP"] == env["TMPDIR"] == str(tmp_path / "tmp")
+    subprocess.run(
+        [sys.executable, "-c", "import pyfiglet"],
+        env=env, check=True, capture_output=True, timeout=30,
+    )
