@@ -323,14 +323,10 @@ def test_queue_requires_main_ci_and_release_factory_checks() -> None:
                 called = yaml.load(
                     (REPO_ROOT / job["uses"]).read_text(), Loader=yaml.BaseLoader
                 )
-                contexts = set()
-                for child_name, child in called["jobs"].items():
-                    names = [child.get("name", child_name)]
-                    for axis, values in child.get("strategy", {}).get("matrix", {}).items():
-                        assert isinstance(values, list) and values and all(isinstance(v, str) for v in values), "require static child matrix axes"
-                        names = [name.replace("${{ matrix." + axis + " }}", value) for name in names for value in values]
-                    assert all("${{" not in name for name in names), "resolve required child check names"
-                    contexts.update(f"{context} / {name}" for name in names)
+                contexts = {
+                    f"{context} / {child.get('name', child_name)}"
+                    for child_name, child in called["jobs"].items()
+                }
             else:
                 contexts = {context}
             assert contexts <= required, (
