@@ -30,7 +30,12 @@ def main():
         if fixture:
             argv.extend(["--session-id", fixture_session])
         result = subprocess.run(
-            argv, input=stdin, text=True, capture_output=True, check=False
+            argv,
+            input=stdin,
+            text=True,
+            encoding="utf-8",
+            capture_output=True,
+            check=False,
         )
         try:
             reply = json.loads(result.stdout)
@@ -184,7 +189,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (AssertionError, RuntimeError) as exc:
+    except (AssertionError, KeyError, RuntimeError) as exc:
         sys.exit(
             f"supersession_proof_failed: {exc}; retain the printed fixture identities, fix the failed deployed behavior or setup, then rerun the case"
         )

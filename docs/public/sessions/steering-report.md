@@ -256,9 +256,10 @@ that operator answers in the session's own chat. When no live seat covers the
 work, the project seat for the owning project sees the question marked
 `unattended: no live seat for DOC` until a document seat is taken. Questions with
 no project show when addressed to you. The Inbox and `yoke decision-requests
-list` show every question. Answer or withdraw the question to remove it. The hook update and fleet watcher name each departure
+list` show every question. Answer, withdraw or replace the question to remove it. The hook update and fleet watcher name each departure
 once: `request N no longer waiting: answered (<option label>)`, `withdrawn`,
-or `consumed`. The watcher checks question status each poll; a change wakes
+or `superseded by request N`. A replacement preserves any old answer as linked
+history and leaves only the new pending question current. The watcher checks question status each poll; a change wakes
 steering and requests the outcome report immediately, ahead of the usual report
 interval. Failed answer delivery remains visible as
 `operator_question_undelivered`; read the saved answer and relay it to the current
