@@ -1,0 +1,9 @@
+{
+ "id": "deleted-folder-recovery",
+ "title": "Recover a shell after its merged lane folder is removed",
+ "status": "observed",
+ "trigger": "A command runs in a shell whose working folder was removed when its lane merged.",
+ "need": "Ordinary commands refuse with working_directory_missing and tell the caller to cd to the project checkout and retry. No other folder is selected automatically. Claude Code, Codex and Cursor hooks keep allowing the tool call and name the missing working directory in their diagnostic.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/working_directory.py", "packages/yoke-cli/src/yoke_cli/main.py", "runtime/api/cli/test_working_directory.py"],
+ "topics": ["merging/landing"]
+}

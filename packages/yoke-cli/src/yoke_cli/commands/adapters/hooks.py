@@ -23,6 +23,7 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
+from yoke_contracts.working_directory import WorkingDirectoryMissing, current_directory
 
 
 __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
@@ -267,10 +268,11 @@ def hook_evaluate(args: List[str]) -> int:
         return 0
     stdout, stderr = io.StringIO(), io.StringIO()
     try:
+        current_directory()
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
     except Exception as exc:  # noqa: BLE001 — no infrastructure failure may block
-        if isinstance(exc, HookBudgetExhausted):
+        if isinstance(exc, (HookBudgetExhausted, WorkingDirectoryMissing)):
             cause = str(exc)
         elif isinstance(exc, ImportError):
             cause = f"hook_infrastructure_unavailable: ImportError: {exc}"
