@@ -162,19 +162,8 @@ See [People and machines](people.md) to connect engineers and approve your own m
 
 ## Restore admin access
 
-The host stays connected after setup. If this machine loses its connection,
-rerun `yoke setup` on the host and choose **Host a server here**: it finds the existing bundle, restarts it, and
-reconnects with `secrets/first-boot-admin-token` without asking anything new.
-If that credential is lost or revoked, the first-boot and recovery bootstrap
-is available on the server host:
-
-```bash
-docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli bootstrap-admin --actor-name "Your name" --name recovery
-```
-
-Save the one-time token and reconnect with `yoke connect <server> --token-stdin`.
-Once connected, use [personal token controls](people.md) to revoke the
-lost token and manage your own tokens.
+See [Restore admin access](people.md#restore-admin-access) to reconnect the host
+or mint a recovery credential without replacing the server.
 
 ## Web dashboard and browser sign-in
 
