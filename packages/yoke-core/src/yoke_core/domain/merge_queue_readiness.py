@@ -16,7 +16,7 @@ from yoke_core.domain.merge_queue_missing_checks import (
 )
 from yoke_core.domain.merge_queue_entry_checks import (
     ENTRY_CHECKS_FAILED,
-    UNRELATED_FAILURE_ROUTING,
+    FAILURE_OWNERSHIP_ROUTING,
     describe_failed_checks,
     failed_required_checks,
     has_pending_required_check,
@@ -135,7 +135,7 @@ class MergeQueueReadiness:
             recovery = (
                 "; re-run `yoke merge item`; for a failed train, inspect its run, "
                 "fix it on the lane, commit, and re-run verification. "
-                + UNRELATED_FAILURE_ROUTING
+                + FAILURE_OWNERSHIP_ROUTING
             )
         return (
             f"pull request {self.pr_number or 'not recorded'}: "

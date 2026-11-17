@@ -128,7 +128,7 @@ same stop notice; a new governed arming starts a new episode.
 
 A failed train refuses re-entry on the same head and base.
 Fix the cause, commit, re-run verification, and re-enter through `yoke merge item`.
-An unrelated cause follows the
+A failure this item didn't cause follows the
 [failure rules](../agents/rules.md#failures).
 
 Arming and disarming merge-when-ready, dequeuing, and automatic conflict re-entry

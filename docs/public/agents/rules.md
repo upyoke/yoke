@@ -29,22 +29,24 @@ command's `--help` ends with its recipe. Claude-only steps live in
 - A future item or a planned path claim is not a verification waiver. Fix it
   here unless a live conflict or an explicit operator waiver applies.
 - Update a test your change made stale.
-- A failing or flaky test is a defect. Fix it here when it is in code or tests
-  this item touches, shares a root cause with this item's change, or is a flake
-  this item caused.
-- Otherwise it is unrelated: report it, never block on it. Record it, tell your
-  steering seat, then rerun:
+- A failing or flaky test is a defect. Fix it here, even if this item didn't
+  cause it, unless another live item already fixes that same failure: then
+  depend on that item and send its holder the evidence.
+- For a failure this item didn't cause, if a live steering seat covers this
+  item, agree the next step with it before you act: fix it here, depend on
+  another item, or ask the operator. A failure this item caused, you just fix.
+- If the fix is too large for this item, ask with `yoke decision-requests ask`.
+  Never file, dash or promote an item yourself.
+
+To depend on the item that already fixes the failure:
 
 ```text
-yoke feedback --to universe --category failed --evidence 'Unrelated failure: RUN URL, JOB/SHARD, TEST, observed outcome'
-printf %s "Unrelated failure: TEST in RUN URL; feedback ENTRY" | yoke say --steering --stdin
+yoke items dependency add THIS-ITEM OWNER-ITEM dash --gate-point integration --satisfaction fact:merged --rationale 'OWNER-ITEM fixes TEST (RUN URL)'
+printf %s "TEST fails in RUN URL: JOB/SHARD, observed outcome" | yoke say --item OWNER-ITEM --stdin
+yoke sessions touch --mode parked --reason "awaiting OWNER-ITEM merge"
 ```
 
-  Never file, dash or promote an item for it, and never add a dependency on
-  one: steering vets the finding and decides whether to file a fix. Rerun the
-  local gate, or proceed when your own required proof stands. For red CI,
-  rebase onto a moved main and re-run `yoke merge item`; never push an empty
-  commit. Until main moves, wait naming your steering report.
+- Never rerun unchanged inputs to get a pass, and never push an empty commit.
 - A cancelled or never-started CI job is not a verdict. Recover it with
   [failed CI job recovery](../github/index.md#failed-ci-job-recovery).
 - Record the failure, the claim action and the rerun evidence. Never report

@@ -52,11 +52,13 @@ def test_unchanged_head_and_base_after_a_failed_train_is_refused(conclusion):
     assert BASE_SHA in error
     assert "Inspect that identified failed run first" in error
     assert "fix it on the lane" in error
-    assert "yoke feedback" in error
-    assert "yoke say --steering" in error
+    assert "Fix any failure here, even one this item didn't cause." in error
+    assert "agree the next step" in error
+    assert "depend on that item" in error
+    assert "decision-requests ask" in error
     assert "feedback promote" not in error
-    assert "record the dependency" not in error
-    assert "no empty commits" in error
+    assert "yoke say --steering" not in error
+    assert "Do not use empty commits to re-run unchanged inputs." in error
     assert "--retry-flake" not in error
     assert "retry once" not in error
     assert "one recorded retry" not in error

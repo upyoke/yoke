@@ -19,7 +19,10 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.merge_github_queue import resolve_auth_detail
-from yoke_core.domain.merge_queue_entry_checks import UNRELATED_FAILURE_ROUTING
+from yoke_core.domain.merge_queue_entry_checks import (
+    FAILURE_OWNERSHIP_ROUTING,
+    NO_EMPTY_COMMIT_RERUN,
+)
 from yoke_core.domain.merge_github_train_run import TrainRun, read_train_run
 from yoke_core.domain.merge_context import MergeContext
 
@@ -111,7 +114,7 @@ def _refusal(
         f"failed train for these unchanged inputs; {identity}; {compared}. "
         f"{inspect}. A failing or flaky test is a defect: fix it on the lane, "
         "commit, re-run the verification gate, then re-run yoke merge item. "
-        f"{UNRELATED_FAILURE_ROUTING}."
+        f"{FAILURE_OWNERSHIP_ROUTING} {NO_EMPTY_COMMIT_RERUN}."
     )
 
 

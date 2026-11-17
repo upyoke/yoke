@@ -184,11 +184,22 @@ def test_a_queue_entry_outranks_a_stale_red_check_read():
     assert _record(membership=IN_QUEUE, checks=(FAILED_REQUIRED,)).state == PENDING
 
 
-def test_red_check_recovery_fixes_on_the_lane_and_routes_unrelated_to_steering():
+def test_red_check_recovery_fixes_any_failure_on_the_lane():
     recovery = checks_mod.red_checks_recovery([FAILED_REQUIRED])
     assert "fix it on the lane" in recovery
-    assert "yoke feedback" in recovery
-    assert "yoke say --steering" in recovery
+    assert checks_mod.FAILURE_OWNERSHIP_ROUTING == (
+        "Fix any failure here, even one this item didn't cause. If this item "
+        "didn't cause it and a live steering seat covers this item, agree the "
+        "next step with that seat first. If another live item already fixes "
+        "it, depend on that item and message its holder; if it's too large, "
+        "ask with `yoke decision-requests ask`. Never file or promote an item "
+        "yourself."
+    )
+    assert checks_mod.FAILURE_OWNERSHIP_ROUTING in recovery
+    assert "agree the next step" in recovery
+    assert "depend on that item" in recovery
+    assert "decision-requests ask" in recovery
+    assert "Do not use empty commits to re-run unchanged inputs" in recovery
     assert "feedback promote" not in recovery
-    assert "record the dependency" not in recovery
+    assert "yoke say --steering" not in recovery
     assert "rerun-failed" not in recovery

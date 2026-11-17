@@ -280,12 +280,15 @@ def test_an_idle_open_pull_request_keeps_the_rerun_advice(checks) -> None:
     assert "re-run `yoke merge item`" in result.describe()
 
 
-def test_not_in_flight_routes_an_unrelated_failure_to_steering() -> None:
+def test_not_in_flight_tells_the_lane_to_fix_any_failure_it_uncovers() -> None:
     text = _open_unarmed().describe()
 
-    assert "yoke say --steering" in text
+    assert "Fix any failure here, even one this item didn't cause." in text
+    assert "agree the next step" in text
+    assert "depend on that item" in text
+    assert "decision-requests ask" in text
     assert "feedback promote" not in text
-    assert "record the dependency" not in text
+    assert "yoke say --steering" not in text
 
 
 def test_two_red_check_urls_appear_once_in_the_readback() -> None:
