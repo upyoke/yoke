@@ -30,13 +30,13 @@ def item_qa_stage_name(stages: Sequence[Mapping[str, Any]]) -> str:
 
 
 def moved_member_body(
+    route: str,
     *,
     item_ref: str,
     old_id: str,
     new_id: str,
     stage_name: str,
     manual_only: bool,
-    route: str,
 ) -> str:
     """One notice: QA moved, and the predecessor wake is no longer the command."""
     if manual_only:
