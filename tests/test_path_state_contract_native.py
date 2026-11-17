@@ -51,3 +51,15 @@ def test_remote_posix_contract_ignores_client_platform(monkeypatch, client):
     assert contract.ssh_startup_file == "/Users/tester/.zshenv"
     assert contract.yoke_bin == "/Users/tester/tools/yoke"
     assert all("\\" not in path for path in contract.tool_paths)
+
+
+@pytest.mark.parametrize("client", ["win32", "darwin", "linux"])
+def test_explicit_posix_target_keeps_shell_with_observed_home(tmp_path, monkeypatch, client):
+    from yoke_contracts import shell_path_state
+
+    monkeypatch.setattr(shell_path_state.sys, "platform", client)
+    contract = resolve_path_state_contract(
+        target="posix", home=tmp_path,
+        env={"HOME": str(tmp_path), "SHELL": "/bin/bash"},
+    )
+    assert contract.shell == "bash"
