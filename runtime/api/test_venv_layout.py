@@ -9,6 +9,8 @@ import pytest
 from yoke_contracts import venv_layout as layout
 from yoke_cli.config import cli_release_runtime
 
+pytestmark = pytest.mark.windows
+
 
 @pytest.mark.parametrize("windows", [False, True])
 def test_layout_matches_standalone_release_launcher(tmp_path, monkeypatch, windows):
