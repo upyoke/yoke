@@ -86,6 +86,23 @@ After successful setup register **SETUP INCOMPLETE**, immediately deallocate,
 then run dispatched native QA separately. Failure means stop, deallocate, record
 the exact guest error and inspect it; never mark registration or QA complete.
 
+## Standard-user host-facts failure
+
+A registered screenshot reached SSH as `winnative\yokeqa`, then reported
+`native_windows_test_user_required`. The actual token was standard: both role
+checks returned `false`. The failing read was `Get-CimInstance Win32_OperatingSystem`,
+which returned `Access denied`; the old refusal hid that command failure.
+
+The corrected probe reads `EditionID` and `CurrentBuildNumber` from
+`HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion`, uses the built-in
+Administrator enum, and requires an actual boolean privilege result. Execution
+and malformed-output failures retain bounded, redacted subprocess evidence;
+only a confirmed administrator token reports the standard-user refusal.
+Do not add administrator membership or change WMI permissions to repair this.
+Each diagnostic released its lease and deallocated the VM; it produced no
+desktop PNG or native readiness pass. Verify the corrected probe and actual
+desktop through the registered screenshot path before accepting readiness.
+
 ## Settings journal and interrupted-case recovery
 
 SYSTEM task `YokeQaMachineSettings` accepts only capture/restore with a QA lease
