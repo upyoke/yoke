@@ -209,8 +209,8 @@ def test_replace_is_atomic_and_names_replacement(conn):
     )
     assert new["id"] != old["id"]
     prior = request_row(conn, old["id"])
-    assert prior["status"] == "withdrawn"
-    assert str(new["id"]) in prior["withdrawal_reason"]
+    assert prior["status"] == "superseded"
+    assert prior["superseded_by_request_id"] == new["id"]
     assert [q["id"] for q in list_questions(conn, "worker", "pending")] == [new["id"]]
 
 

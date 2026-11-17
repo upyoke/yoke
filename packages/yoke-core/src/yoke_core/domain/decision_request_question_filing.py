@@ -57,8 +57,8 @@ def list_questions(conn: Any, session_id: str, status: str | None = None):
     params = [session_id]
     clause = ""
     if status is not None:
-        if status not in {"pending", "resolved", "withdrawn"}:
-            raise invalid("status must be pending, resolved or withdrawn")
+        if status not in {"pending", "resolved", "withdrawn", "superseded"}:
+            raise invalid("status must be pending, resolved, withdrawn or superseded")
         clause = f" AND status={p}"
         params.append(status)
     ids = [
@@ -75,7 +75,7 @@ def list_questions(conn: Any, session_id: str, status: str | None = None):
 
     for row in rows.values():
         row["question_excerpt"] = row["subject_context"]["question"][:160]
-        row["answer"] = answer_text(row) if row["status"] == "resolved" else None
+        row["answer"] = answer_text(row) if row.get("resolution_action") else None
         actor_id = row.get("resolution_actor_id")
         row["answered_by"] = (
             actor_display_labels(conn, [actor_id]).get(actor_id) if actor_id else None
@@ -98,7 +98,9 @@ def describe_question(conn, row, requester_labels, *, item_refs=None):
     if row["subject_context"].get("item_id"):
         item_id = row["subject_context"]["item_id"]
         row["subject_context"]["item_ref"] = (
-            item_refs(item_id) if item_refs is not None else render_item_ref(conn, item_id)
+            item_refs(item_id)
+            if item_refs is not None
+            else render_item_ref(conn, item_id)
         )
 
 
@@ -134,11 +136,10 @@ def cancellation_authority(conn, request, session_id, actor_id):
 
 
 def file_question(conn, *, replaces=None, attachments=None, **kwargs):
-    """Replace and file in one transaction; the shared withdrawal owns the write."""
+    """Supersede and file atomically, preserving any recorded resolution."""
     from yoke_core.domain.db_savepoint import savepoint
     from yoke_core.domain.decision_requests import create_decision_request, _p
     from yoke_core.domain.decision_request_rows import request_row
-    from yoke_core.domain.decision_request_resolution import withdraw_for_ended_subject
 
     from yoke_contracts.operator_question_attachments import validate_uploads
 
@@ -157,20 +158,15 @@ def file_question(conn, *, replaces=None, attachments=None, **kwargs):
             prior = request_row(conn, replaces)
             if (
                 prior["kind"] != "operator_question"
-                or prior["status"] != "pending"
+                or prior["status"] not in {"pending", "resolved"}
                 or prior["requesting_session_id"] != kwargs["requesting_session_id"]
             ):
                 raise invalid(
-                    "operator_question_replace_invalid: replace a pending question from the same requesting session"
+                    "operator_question_replace_invalid: replace a pending or resolved question from the same requesting session"
                 )
-            withdraw_for_ended_subject(
-                conn,
-                replaces,
-                reason="replacement being filed",
-                actor_id=kwargs["originator_actor_id"],
-                session_id=kwargs["session_id"],
-                question_cancellation=True,
-                commit=False,
+            conn.execute(
+                f"UPDATE decision_requests SET status='superseded' WHERE id={_p(conn)}",
+                (replaces,),
             )
         row, created = create_decision_request(conn, **kwargs, commit=False)
         if created and attachments:
@@ -181,8 +177,8 @@ def file_question(conn, *, replaces=None, attachments=None, **kwargs):
             row = attach_files(conn, row, attachments)
         if replaces is not None:
             conn.execute(
-                f"UPDATE decision_requests SET withdrawal_reason={_p(conn)} WHERE id={_p(conn)}",
-                (f"Replaced by decision request {row['id']}", replaces),
+                f"UPDATE decision_requests SET superseded_by_request_id={_p(conn)} WHERE id={_p(conn)}",
+                (row["id"], replaces),
             )
     conn.commit()
     return row, created
