@@ -7,6 +7,10 @@ from pathlib import Path
 import shlex
 import sys
 from types import SimpleNamespace
+import venv
+
+from yoke_contracts.venv_layout import venv_python
+from yoke_contracts.git_credential_command import helper_command
 
 import pytest
 
@@ -49,9 +53,8 @@ def machine(tmp_path, monkeypatch):
 def _switch_release(monkeypatch, root: Path, name: str, minor: str) -> Path:
     """Publish a release generation and point ``current`` at it."""
     environment = root / "releases" / name / "tools" / "yoke-cli"
-    python = environment / "bin" / "python3"
-    python.parent.mkdir(parents=True)
-    python.symlink_to(Path(sys.executable))
+    venv.EnvBuilder(with_pip=False).create(environment)
+    python = venv_python(environment, name="python3")
     (environment / "lib" / f"python3.{minor}" / "site-packages").mkdir(parents=True)
     point_current(root, environment.parent.parent)
     monkeypatch.setattr(credentials.sys, "executable", str(python))
@@ -66,7 +69,7 @@ def _orphaned_value(root: Path, config: Path) -> str:
         / "lib/python3.11/site-packages"
         / credentials.STABLE_HELPER_FILE_NAME
     )
-    return f"!{environment / 'bin/python3'} {helper} --config {config}"
+    return helper_command(environment / "bin/python3", helper, config)
 
 
 def _expected(config: Path) -> str:

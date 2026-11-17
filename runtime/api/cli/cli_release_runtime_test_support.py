@@ -86,6 +86,7 @@ def point_current(root: Path, generation: Path) -> None:
     runtime._replace(root / "current", generation.name + "\n")
     shim = root / "python"
     if not shim.exists():
-        release = '"$r/releases/$(cat "$r/current")/tools/yoke-cli/bin/python3"'
-        shim.write_text(f'#!/bin/sh\nr={shlex.quote(str(root))}\nexec {release} "$@"\n')
+        python = runtime.release_python(Path()).as_posix()
+        release = f'"$r/releases/$(cat "$r/current")/{python}"'
+        shim.write_text(f'#!/bin/sh\nr={shlex.quote(root.as_posix())}\nexec {release} "$@"\n')
         shim.chmod(0o755)
