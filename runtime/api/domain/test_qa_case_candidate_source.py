@@ -119,10 +119,18 @@ def test_candidate_launcher_preserves_arguments_environment_and_cleanup(tmp_path
         assert binding is not None and not binding.refusal
         launcher_directory = Path(binding.env["PATH"].split(os.pathsep)[0])
         assert launcher_directory.is_dir()
-        result = subprocess.run(
-            ["yoke", *arguments], cwd=root, env=binding.env,
-            capture_output=True, text=True, check=True,
+        # Native Windows lookup uses the calling process's environment, not
+        # PATH supplied only for its future child. Model the QA process tree:
+        # establish the candidate environment, then invoke bare yoke within it.
+        body = (
+            "import subprocess,sys; "
+            "raise SystemExit(subprocess.call(['yoke', *sys.argv[1:]]))"
         )
+        result = subprocess.run(
+            [binding.python, "-c", body, *arguments], cwd=root, env=binding.env,
+            capture_output=True, text=True, check=False,
+        )
+        assert result.returncode == 0, (result.stdout, result.stderr)
         facts = json.loads(next(
             line.removeprefix("launcher-facts=")
             for line in result.stdout.splitlines() if line.startswith("launcher-facts=")
