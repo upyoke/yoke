@@ -94,7 +94,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             # of any PowerShell command. Later stages use real framed SSH.
             return powershell(script, tmp_path, timeout=900)
         try:
-            return actual_admin_script(key, host, user, script, **kwargs)
+            result = actual_admin_script(key, host, user, script, **kwargs)
         except subprocess.TimeoutExpired:
             diagnostic = powershell(
                 "Get-Service sshd | Format-List Name,Status; "
@@ -108,10 +108,10 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
                 print(diagnostic.stderr)
             raise RuntimeError("Real SSH guest stage timed out; inspect OpenSSH diagnostics") from None
 
-        except RuntimeError as exc:
+        if result.returncode:
             import re
 
-            match = re.search(r"inbound allow rule ([^;\s]+)", str(exc))
+            match = re.search(r"inbound allow rule\s+([^;\s]+)", result.stderr)
             if match:
                 diagnostic = powershell(
                     "$r=Get-NetFirewallRule -PolicyStore ActiveStore -Name " + quote(match[1])
@@ -126,7 +126,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
                 with capsys.disabled():
                     print(diagnostic.stdout)
                     print(diagnostic.stderr)
-            raise
+        return result
 
     monkeypatch.setattr(provision, "admin_script", guest)
     ssh = ["ssh", "-F", "none", "-i", str(key), "-o", "BatchMode=yes",
