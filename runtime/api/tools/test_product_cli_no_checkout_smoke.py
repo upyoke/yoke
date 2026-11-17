@@ -58,9 +58,11 @@ BOOTSTRAP_OK_RESPONSES = [
 ]
 
 
-def write_owner_only_config(ctx: steps.SmokeContext) -> None:
+def write_owner_only_config(ctx: steps.SmokeContext, monkeypatch) -> None:
     ctx.config_path.write_text("{}\n", encoding="utf-8")
     ctx.config_path.chmod(0o600)
+    # The canned writer reports a POSIX mode; native chmod is not that model.
+    monkeypatch.setattr(steps, "_owner_only_mode", lambda path: 0o600 if path.is_file() else None)
 
 
 def test_missing_config_step_requires_codes_and_nonzero_exit(tmp_path) -> None:
@@ -86,9 +88,9 @@ def test_missing_config_step_requires_codes_and_nonzero_exit(tmp_path) -> None:
     assert any("connections_required" in f for f in missing_code["failures"])
 
 
-def test_writer_bootstrap_asserts_ok_envs_and_owner_only_config(tmp_path) -> None:
+def test_writer_bootstrap_asserts_ok_envs_and_owner_only_config(tmp_path, monkeypatch) -> None:
     ctx = make_ctx(tmp_path)
-    write_owner_only_config(ctx)
+    write_owner_only_config(ctx, monkeypatch)
     runner = FakeRunner({steps.STEP_WRITER_BOOTSTRAP: BOOTSTRAP_OK_RESPONSES})
     entry = steps.step_writer_bootstrap(ctx, runner)
     assert entry["status"] == steps.STATUS_PASS
@@ -125,22 +127,20 @@ def test_writer_bootstrap_failure_modes(tmp_path) -> None:
     assert any("ok was not true" in failure for failure in not_ok["failures"])
 
 
-def test_missing_credential_step_detects_issue(tmp_path) -> None:
+def test_missing_credential_step_detects_issue(tmp_path, monkeypatch) -> None:
     ctx = make_ctx(tmp_path)
-    write_owner_only_config(ctx)
+    write_owner_only_config(ctx, monkeypatch)
     entry = steps.step_missing_credential(ctx, FakeRunner({
         steps.STEP_MISSING_CREDENTIAL: [
             (1, status_payload(False, ("credential_missing",)), ""),
         ],
     }))
     assert entry["status"] == steps.STATUS_PASS
-    assert entry["evidence"]["missing_credential_path"].endswith(
-        "/home/.yoke/secrets/missing.token"
-    )
+    expected = ctx.machine_home / "secrets" / "missing.token"
+    assert Path(entry["evidence"]["missing_credential_path"]) == expected
     payload = json.loads(ctx.config_path.read_text(encoding="utf-8"))
-    assert payload["connections"][steps.ENV_MISSING_CREDENTIAL][
-        "credential_source"
-    ]["path"].endswith("/home/.yoke/secrets/missing.token")
+    credential = payload["connections"][steps.ENV_MISSING_CREDENTIAL]["credential_source"]
+    assert Path(credential["path"]) == expected
 
     silent = steps.step_missing_credential(ctx, FakeRunner({
         steps.STEP_MISSING_CREDENTIAL: [
@@ -264,9 +264,9 @@ def test_no_project_dir_writes_step(tmp_path) -> None:
     assert dirty["evidence"]["project_dir_entries"] == ["stray.txt"]
 
 
-def test_execute_steps_offline_happy_path_report(tmp_path) -> None:
+def test_execute_steps_offline_happy_path_report(tmp_path, monkeypatch) -> None:
     ctx = make_ctx(tmp_path)
-    write_owner_only_config(ctx)
+    write_owner_only_config(ctx, monkeypatch)
     runtime_dir = ctx.machine_home / steps.BROWSER_RUNTIME_DIR_NAME
     runtime_dir.mkdir()
     (runtime_dir / "package.json").write_text("{}\n", encoding="utf-8")
