@@ -186,7 +186,10 @@ def operation_golden_inputs(
     row = selected_test_machine_row(conn, project=project, test_machine=test_machine)
     if operation == VERIFY_OPERATION:
         return destination, registered_golden_fields(conn, row.settings)
-    return resolve_golden_capture_destination(row, requested=destination), {}
+    destination = resolve_golden_capture_destination(row, requested=destination)
+    return destination, kept_golden_fields(
+        conn, settings=row.settings, destination=destination
+    )
 
 
 __all__ = [
