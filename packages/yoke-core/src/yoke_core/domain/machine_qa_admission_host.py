@@ -232,9 +232,16 @@ def stop(mode: str) -> None:
     root = mode_root(mode)
     identity = root / "identity.json"
     if identity.is_file():
-        record = json.loads(identity.read_text(encoding="utf-8"))["group"]
         try:
-            stop_group(GroupHandle.from_record(record), timeout=10)
+            record = json.loads(identity.read_text(encoding="utf-8"))["group"]
+            group = GroupHandle.from_record(record)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise AdmissionFixtureError(
+                f"machine_admission_identity_invalid: {identity}; inspect and stop the "
+                "fixture processes, then remove the invalid fixture and rerun the case"
+            ) from exc
+        try:
+            stop_group(group, timeout=10)
         except OSError as exc:
             raise AdmissionFixtureError(
                 f"machine_admission_cleanup_failed: {type(exc).__name__}: {exc}; "

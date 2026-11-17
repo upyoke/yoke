@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shlex
 from types import SimpleNamespace
@@ -141,7 +142,9 @@ def test_stop_treats_an_exited_process_group_as_gone(
 ) -> None:
     root = tmp_path / "self-hosted"
     root.mkdir()
-    (root / "identity.json").write_text('{"pid": 4242}\n', encoding="utf-8")
+    (root / "identity.json").write_text(json.dumps({"group": {
+        "pid": 4242, "start_time": 1.0, "members": [[4242, 1.0]],
+    }}), encoding="utf-8")
     monkeypatch.setattr(admission_host, "mode_root", lambda _mode: root)
     monkeypatch.setattr(
         admission_host,
@@ -149,12 +152,12 @@ def test_stop_treats_an_exited_process_group_as_gone(
         lambda _mode: SimpleNamespace(bin_dir=None, data_dir=root / "universe"),
     )
 
-    def exited_group(pid: int, sig: int) -> None:
-        assert sig != admission_host.signal.SIGKILL
-        if sig == 0:
-            raise PermissionError(1, "Operation not permitted")
+    def exited_group(group, *, timeout):
+        assert group.pid == 4242 and group.start_time == 1.0
+        assert timeout == 10
+        return False
 
-    monkeypatch.setattr(admission_host.os, "killpg", exited_group)
+    monkeypatch.setattr(admission_host, "stop_group", exited_group)
     admission_host.stop("self-hosted")
     assert not root.exists()
 
@@ -168,7 +171,9 @@ def test_cleanup_retry_removes_root_and_preserves_first_exception(
 
     root = tmp_path / "self-hosted"
     root.mkdir()
-    (root / "identity.json").write_text('{"pid": 4242}\n', encoding="utf-8")
+    (root / "identity.json").write_text(json.dumps({"group": {
+        "pid": 4242, "start_time": 1.0, "members": [[4242, 1.0]],
+    }}), encoding="utf-8")
     monkeypatch.setattr(admission_host, "mode_root", lambda _mode: root)
     monkeypatch.setattr(
         admission_host, "universe_spec",
@@ -176,14 +181,14 @@ def test_cleanup_retry_removes_root_and_preserves_first_exception(
     )
     calls = []
 
-    def exiting_group(pid: int, sig: int) -> None:
-        calls.append(sig)
+    def exiting_group(group, *, timeout):
+        assert group.pid == 4242 and group.start_time == 1.0
+        calls.append(timeout)
         if len(calls) == 1:
             raise PermissionError(1, "Operation not permitted")
-        if sig == 0:
-            raise ProcessLookupError()
+        return False
 
-    monkeypatch.setattr(admission_host.os, "killpg", exiting_group)
+    monkeypatch.setattr(admission_host, "stop_group", exiting_group)
     runtime = MachineQaFixtureRuntime(
         run_remote=lambda *_a, **_kw: None, upload_text=lambda *_a: None,
         home="/Users/testy",
@@ -223,3 +228,13 @@ def test_cleanup_fails_when_fixture_root_remains(
 
     with pytest.raises(admission_host.AdmissionFixtureError, match="remains"):
         admission_host.stop("local")
+
+
+def test_invalid_process_custody_names_recovery_and_preserves_fixture(tmp_path, monkeypatch):
+    root = tmp_path / "self-hosted"
+    root.mkdir()
+    (root / "identity.json").write_text('{"pid": 4242}', encoding="utf-8")
+    monkeypatch.setattr(admission_host, "mode_root", lambda mode: root)
+    with pytest.raises(admission_host.AdmissionFixtureError, match="machine_admission_identity_invalid.*inspect and stop"):
+        admission_host.stop("self-hosted")
+    assert root.exists()

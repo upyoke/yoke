@@ -242,13 +242,21 @@ class TestCanonicalYokeDbSetup:
                 self._interrupted = True
                 raise process_group_reaping.ProcessGroupInterrupted(signal.SIGTERM)
 
+        process = _InterruptedLaunch()
+        reaped = []
         monkeypatch.setattr(
             run_tests.process_group_reaping,
             "popen_in_process_group",
-            lambda *args, **kwargs: _InterruptedLaunch(),
+            lambda *args, **kwargs: process,
+        )
+        monkeypatch.setattr(
+            run_tests.process_group_reaping,
+            "terminate_process_group",
+            lambda child, **kwargs: reaped.append(child),
         )
 
         assert run_tests.run() == 128 + signal.SIGTERM
+        assert reaped == [process]
 
     def test_non_yoke_repo_does_not_prepare_canonical_db(
         self, tmp_path: Path, monkeypatch

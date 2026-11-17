@@ -20,7 +20,7 @@ def test_loaded_manager_deadline_reserves_small_margin(
     monkeypatch, platform, output, expected
 ):
     monkeypatch.setattr(deadline.sys, "platform", platform)
-    monkeypatch.setattr(deadline.os, "getuid", lambda: 501, raising=False)
+    monkeypatch.setattr(deadline, "posix_uid", lambda: 501)
     monkeypatch.setattr(
         deadline,
         "resolve_relay_instance",
@@ -48,7 +48,7 @@ def test_loaded_manager_deadline_reserves_small_margin(
         assert argv == [
             "launchctl",
             "print",
-            f"gui/{deadline.os.getuid()}/relay-instance",
+            f"gui/{deadline.posix_uid()}/relay-instance",
         ]
     assert kwargs["timeout"] == deadline.STOP_QUERY_TIMEOUT_SECONDS
 
@@ -67,7 +67,7 @@ def test_unreadable_deadline_uses_named_conservative_fallback(
     monkeypatch, caplog, platform, output, returncode
 ):
     monkeypatch.setattr(deadline.sys, "platform", platform)
-    monkeypatch.setattr(deadline.os, "getuid", lambda: 501, raising=False)
+    monkeypatch.setattr(deadline, "posix_uid", lambda: 501)
     monkeypatch.setattr(
         deadline,
         "resolve_relay_instance",

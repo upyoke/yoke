@@ -23,7 +23,7 @@ AUTHORITY_DATABASE = (
     (
         "yoke_contracts.machine_config.directories:create_private_directory",
         "yoke_contracts.owner_private_path:_is_private",
-        "yoke_contracts.platform_process:spawn_group",
+        "yoke_contracts.platform_process:spawn_group_process",
         "yoke_contracts.platform_process_windows:spawn",
         _C + "ssh_identity:validate_identity",
         "yoke_contracts.machine_config.selection:connection_selection",
