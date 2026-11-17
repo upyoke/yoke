@@ -67,7 +67,10 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
         raise QaPlanExecutionError("QA review bundle lacks immutable target authority")
     connection_env = _review_connection_env()
     authority["connection_env"] = connection_env
-    prefix = f"yoke --env {shlex.quote(connection_env)}"
+    # A handed-off execution's walker commands run on the same candidate runtime.
+    runtime = result.get("controller_runtime") or {}
+    executable = shlex.quote(str(runtime.get("executable") or "yoke"))
+    prefix = f"{executable} --env {shlex.quote(connection_env)}"
     commands = dispatch.get("artifact_read_commands")
     if not isinstance(commands, list) or any(
         not isinstance(command, str) or not command.startswith("yoke ")
@@ -95,6 +98,12 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
         f"{str(dispatch.get('prompt') or '').strip()} Use the exact Yoke "
         f"connection `{connection_env}` carried by this handoff for every "
         "registered read and submission; do not use the ambient connection."
+        + (
+            f" Run each command with its exact executable {executable}: it is "
+            "this release run's candidate controller, not the installed CLI."
+            if runtime.get("executable")
+            else ""
+        )
     )
 
 
