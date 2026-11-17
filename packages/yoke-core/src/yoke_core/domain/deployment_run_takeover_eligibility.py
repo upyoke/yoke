@@ -24,7 +24,11 @@ _ON_TARGET = (
 
 
 def _accepted_flows(conn: Any, new_run: Mapping[str, Any]) -> list[str]:
-    """The new run's flow, then every flow on the target that succeeds into it."""
+    """The new run's flow, then every flow on the target that succeeds into it.
+
+    The new run's own flow is always resolved too, so the statements a
+    takeover issues do not depend on which other flows share the target.
+    """
     from yoke_core.domain.deployment_flow_succession import successor_flows
 
     flow = str(new_run["flow"])
@@ -32,12 +36,12 @@ def _accepted_flows(conn: Any, new_run: Mapping[str, Any]) -> list[str]:
         conn,
         "SELECT DISTINCT flow FROM deployment_runs WHERE project_id=%s "
         "AND target_environment_id=%s AND superseded_by_run_id IS NULL "
-        "AND status<>'cancelled' AND id<>%s AND flow<>%s",
-        (new_run["project_id"], new_run["target_environment_id"], new_run["id"], flow),
+        "AND status<>'cancelled' AND id<>%s",
+        (new_run["project_id"], new_run["target_environment_id"], new_run["id"]),
     )
-    others = sorted(str(row["flow"]) for row in rows)
-    successors = successor_flows(conn, others)
-    return [flow, *(other for other in others if successors.get(other) == flow)]
+    flows = sorted({flow, *(str(row["flow"]) for row in rows)})
+    successors = successor_flows(conn, flows)
+    return [flow, *(f for f in flows if f != flow and successors.get(f) == flow)]
 
 
 def _is_qa(stage: Mapping[str, Any]) -> bool:
