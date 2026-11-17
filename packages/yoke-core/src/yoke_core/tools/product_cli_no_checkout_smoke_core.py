@@ -9,7 +9,7 @@ hygiene through :mod:`product_cli_no_checkout_smoke_steps`.
 
 from __future__ import annotations
 
-from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+from yoke_contracts.venv_layout import venv_scripts, venv_console_script, venv_python as venv_interpreter
 
 import os
 import shutil
@@ -94,7 +94,7 @@ def run_smoke(
                 env=no_checkout_env(
                     home=home,
                     machine_home=machine_home,
-                    venv_bin=venv_dir / "bin",
+                    venv_bin=venv_scripts(venv_dir),
                 ),
                 commands=commands,
             )
@@ -230,8 +230,10 @@ def no_checkout_env(
     path being proven.
     """
     return {
+        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP") if key in os.environ},
         "HOME": str(home),
-        "PATH": f"{venv_bin}:{BASE_PATH}",
+        "USERPROFILE": str(home),
+        "PATH": os.pathsep.join((str(venv_bin), os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH)),
         "YOKE_MACHINE_HOME": str(machine_home),
         "YOKE_SESSION_ID": SMOKE_SESSION_ID,
         "PYTHONNOUSERSITE": "1",

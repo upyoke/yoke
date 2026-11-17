@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.venv_layout import venv_console_script, venv_python
+from yoke_contracts.venv_layout import venv_scripts, venv_console_script, venv_python
 
 import json
 import shutil
@@ -94,7 +94,7 @@ def run_smoke(
             home=home,
             machine_home=machine_home,
             config_path=config_path,
-            venv_bin=venv_dir / "bin",
+            venv_bin=venv_scripts(venv_dir),
             env_name=env_name,
             session_id=session_id,
         )
