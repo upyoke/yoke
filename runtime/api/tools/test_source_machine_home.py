@@ -291,7 +291,7 @@ def test_snapshot_unreadable_secret_names_failed_path(tmp_path, monkeypatch):
         return original(source, destination, **kwargs)
 
     monkeypatch.setattr(shutil, "copyfile", copyfile)
-    with pytest.raises(OSError, match=re.escape(str(token))):
+    with pytest.raises(OSError, match=re.escape(repr(str(token)))):
         with isolated_machine_home(
             {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
         ):
