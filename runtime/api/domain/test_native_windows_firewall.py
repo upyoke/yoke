@@ -14,6 +14,7 @@ import pytest
 from runtime.api.domain.native_windows_fixture_cleanup import AUTOLOGON_CLEARED_SCRIPT
 from runtime.api.domain.native_windows_fixture_tasks import verify_standard_task_operations
 from runtime.api.domain.native_windows_fixture_upload import chunk_probe
+from runtime.api.domain.native_windows_fixture_firewall import verify_tailnet_scope
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
@@ -133,7 +134,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         output = capsys.readouterr().out
         for receipt in (
             "Native OpenSSH ready; password authentication disabled.",
-            "Native standard user, private golden directory and SSH-only desktop route ready.",
+            "Native standard user, private golden directory and private desktop routes ready.",
             "Native QA recovery task ready.",
         ):
             assert receipt in output
@@ -198,11 +199,12 @@ if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyCon
         verified = powershell(checks, tmp_path)
         assert verified.returncode == 0, verified.stderr
         assert "GUEST_SETUP_OK" in verified.stdout
+        verify_tailnet_scope(powershell, tmp_path)
         # A genuinely unrestricted RDP rule must still fail closed. The
         # built-in kernel/Wi-Fi rule is unrelated to svchost's RDP listener.
         rule = "YokeFixtureRdp" + uuid4().hex
         rejected = powershell(
-            f"New-NetFirewallRule -Name '{rule}' -DisplayName 'owned RDP fixture' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -Program Any -Service Any | Out-Null; try {{\n"
+            f"New-NetFirewallRule -Name '{rule}' -DisplayName 'Tailscale-In' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -Program Any -Service Any | Out-Null; try {{\n"
             + FIREWALL_SCRIPT + f"\n}} finally {{Remove-NetFirewallRule -Name '{rule}'}}",
             tmp_path,
         )

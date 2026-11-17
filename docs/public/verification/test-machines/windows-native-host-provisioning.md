@@ -88,7 +88,8 @@ delete it after the request. Verify the resulting resource with a query that
 returns only its id, image, disk size, security type and power state.
 
 SSH port 22 is reachable from any address, with **key-only authentication**.
-No public RDP rule exists. RDP is for humans over an authenticated SSH forward.
+No public RDP rule exists. Human RDP is reachable over the verified tailnet;
+an authenticated SSH forward remains available during bootstrap.
 Use Windows Firewall on all network profiles for SSH; do not enable password
 SSH or a public desktop listener as a recovery shortcut.
 
@@ -108,11 +109,19 @@ operator approve the AuthURL and disable key expiry. The standard SSH user
 must remain standard. Install on Windows only, never WSL; prove connection
 after logout/reboot and resolve the reported MagicDNS name from the controller.
 Use the linked bootstrap SSH command with Yoke's known_hosts and the full VM
-resource ID as HostKeyAlias. Register MagicDNS as `host`; forwarded
-`desktop_host` stays loopback. Golden reset never changes Tailscale.
+resource ID as HostKeyAlias. Register MagicDNS as `host`; direct RDP uses
+that same tailnet name as `desktop_host`. A forwarded route uses loopback.
+Golden reset never changes Tailscale.
 
-Never register that IP. Keep the private subnet, key-only SSH from anywhere
-(NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
+Permit RDP only over verified tailnet addresses or interfaces. The installed
+Tailscale CLI must report a running self identity; each address needs one
+preferred assignment on a live adapter. Every local address or every interface
+must be verified. Names, wildcards, broad ranges and mixed public scope do not
+prove confinement. Preserve Tailscale; add no blanket 3389 block. Prove tailnet
+RDP and blocked public TCP3389; keep public NSG/firewall TCP/UDP3389 closed.
+
+Never register the bootstrap public IP. Keep the private subnet, key-only
+SSH from anywhere (NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
 and bills until deleted. The NIC public IP supplies outbound on the private subnet.
 Registered power creates/attaches `VM-yoke-power` in the VM resource group/location
 on its sole NIC IP configuration before start and waits for SSH on the registered
@@ -182,7 +191,7 @@ Administrators/SYSTEM. Validate the effective configuration and restart sshd.
 
 For an **existing** VM the provisioner creates the standard account/profile,
 authorizes its `.ssh\authorized_keys`, prepares goldens and the fixed recovery
-task, and enables RDP through SSH forwarding:
+task, and enables private RDP over the tailnet or an SSH forward:
 
 ```text
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
@@ -240,10 +249,12 @@ Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable l
 the project's lab policy. Reboot and prove a scheduled task with
 `LogonType=Interactive` runs as the standard user without an RDP client open.
 
-Register `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
-`desktop_host=127.0.0.1`, `desktop_port=3389`, `desktop_user=yokeqa`.
-`yoke test-machine desktop-access` returns the forward and private password-file
-path for your existing RDP client; Yoke adds none. Disconnect without sign-out;
+After tailnet proof, register `desktop_protocol=rdp`, `desktop_route=direct`,
+`desktop_host=MAGICDNS`, `desktop_port=3389`, `desktop_user=yokeqa`.
+For SSH bootstrap use `desktop_route=ssh-forward`, `desktop_host=127.0.0.1`.
+`yoke test-machine desktop-access` returns the private address or forward and
+private password-file path for your existing RDP client; Yoke adds none.
+Disconnect without sign-out;
 if locked/logged off, reconnect, unlock and return to console before QA.
 Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
 

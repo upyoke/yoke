@@ -266,7 +266,7 @@ RECOVERY_PATHS
 Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 RDP_FIREWALL
-Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
+Write-Output 'Native standard user, private golden directory and private desktop routes ready.'
 """.replace("TEST_USER", quote(test_user))
         .replace("USER_SSH_ACCESS", USER_SSH_SCRIPT)
         .replace("RECOVERY_PATHS", RECOVERY_PATHS)

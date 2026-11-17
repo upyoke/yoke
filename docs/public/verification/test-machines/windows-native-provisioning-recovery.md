@@ -66,12 +66,13 @@ ADMIN alone has admin membership; inspect the test SID's registered path/hive.
 
 Windows Firewall rejects **both** `::1` and `127.0.0.1` as explicit loopback
 address conditions. Do not replace the rejected IPv6 address with an IPv4 allow
-rule. The provisioner removes legacy `YokeQaRdpLoopback`, disables stable
+rule. The provisioner removes legacy `YokeQaRdpLoopback`, disables public-scoped
 `RemoteDesktop-*` rules, requires all firewall profiles enabled/default inbound
-block, and refuses RDP-capable allow rules. Package SID/family constraints exclude
-packaged apps; `System` is a kernel listener, not TermService. Keep public3389 blocked;
-forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
-Require a real forwarded RDP negotiation and independently blocked direct RDP.
+block, and refuses RDP-capable allows without verified tailnet confinement.
+Package SID/family constraints exclude packaged apps; `System` is a kernel
+listener, not TermService. Keep public3389 blocked and permit direct tailnet RDP.
+During bootstrap forward with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
+Require real private RDP negotiation and independently blocked public RDP.
 
 Earlier windows failed at the loopback rule (121 seconds) and writing the
 partial key's empty DACL (124 seconds); each deallocated without registration.
@@ -85,6 +86,25 @@ forwarding, before requesting another VM window with exact-commit green evidence
 After successful setup register **SETUP INCOMPLETE**, immediately deallocate,
 then run dispatched native QA separately. Failure means stop, deallocate, record
 the exact guest error and inspect it; never mark registration or QA complete.
+
+### Tailscale rule diagnosis and revised desktop policy
+
+A later full refresh refused an RDP-capable GUID rule and deallocated after
+179 seconds. That GUID was absent after reboot; the exact-name diagnostic
+made no guest changes and deallocated after 177 seconds. A read-only capture
+using the same classifier found two current `Tailscale-In` rules: any program,
+service, protocol, port and remote address, confined to the VM's tailnet IPv4
+and IPv6 local addresses. It had no lookup failures and deallocated after
+183 seconds. GUIDs can change; retain the original failure and record current
+filters rather than assuming a disappeared rule resolved the issue.
+
+Operator decision request 15899 permits **direct RDP over the tailnet** and
+forbids public RDP. No blanket 3389 block was applied; the source-only proposal
+was withdrawn. Preserve the installed/joined Tailscale service and its rules.
+Verify its running self addresses and live adapter assignments before accepting
+address- or interface-confined RDP allows. Names alone, broad ranges, wildcard
+interfaces or mixed public scope never authorize them. Prove tailnet RDP and
+blocked public3389 before readiness; retain the SSH forward for bootstrap.
 
 ## Standard-user host-facts failure
 
