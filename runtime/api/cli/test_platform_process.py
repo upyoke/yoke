@@ -154,3 +154,37 @@ def test_signal_refused_by_a_surviving_member_raises_permission_error(monkeypatc
     with pytest.raises(PermissionError, match=r'process_access_denied: PIDs \[123\]'):
         processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
     assert events == ['terminate', 'kill']
+
+
+def _darwin_group(monkeypatch, live, exits_on_killpg):
+    """Simulate Darwin's killpg EPERM for a group whose leader is exiting."""
+    def killpg(pid, sig):
+        if exits_on_killpg:
+            live.clear()  # The leader became a zombie between check and signal.
+        raise PermissionError(1, 'Operation not permitted')
+    monkeypatch.setattr(processes.os, 'name', 'posix')
+    monkeypatch.setattr(processes.os, 'killpg', killpg, raising=False)
+    return processes.GroupHandle(123, 1, ((123, 1),), _owns_session=True)
+
+
+def test_group_signal_refused_by_an_exiting_group_counts_as_stopped(monkeypatch):
+    events, live = [], {123}
+    _fake_tree(monkeypatch, live, _FakeProcess(live, events))
+    handle = _darwin_group(monkeypatch, live, exits_on_killpg=True)
+    assert processes.stop_group(handle, 0)
+    assert events == ['terminate']
+
+
+def test_group_signal_refused_with_a_surviving_member_raises_permission_error(monkeypatch):
+    class Survivor(_FakeProcess):
+        def terminate(self):
+            self.events.append('terminate')
+
+        def kill(self):
+            self.events.append('kill')
+    events, live = [], {123}
+    _fake_tree(monkeypatch, live, Survivor(live, events))
+    handle = _darwin_group(monkeypatch, live, exits_on_killpg=False)
+    with pytest.raises(PermissionError, match=r'process_access_denied: PIDs \[123\]'):
+        processes.stop_group(handle, 0)
+    assert events == ['terminate', 'kill']
