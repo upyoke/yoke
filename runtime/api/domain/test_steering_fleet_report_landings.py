@@ -130,7 +130,9 @@ def test_failed_required_check_retains_idle_holder(fleet, monkeypatch, queued):
         checks=(LandingCheck("tests", "completed", "failure", required=True),),
     )
 
-    assert len(compose(fleet).idle) == 1
+    report = compose(fleet)
+    assert len(report.idle) == 1
+    assert report.holders[0].next_actor["actor"] == "this_session"
 
 
 def test_dead_landing_retains_idle_holder(fleet, monkeypatch):
@@ -140,6 +142,7 @@ def test_dead_landing_retains_idle_holder(fleet, monkeypatch):
     report = compose(fleet)
 
     assert len(report.idle) == 1
+    assert report.holders[0].next_actor["actor"] == "this_session"
     assert report.landings_needing_action()
 
 

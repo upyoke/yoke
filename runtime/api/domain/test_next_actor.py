@@ -18,6 +18,7 @@ NOW = datetime(2026, 11, 6, tzinfo=timezone.utc)
         ("dependency_wait", "another_item", "dependency_unsatisfied"),
         ("deployment_wait", "ci_or_deploy", "release_run_in_progress"),
         ("ci_wait", "ci_or_deploy", "ci_run_in_progress"),
+        ("landing_wait", "ci_or_deploy", "landing_in_progress"),
     ],
 )
 def test_session_and_item_share_external_action(key, actor, reason, executor):
@@ -66,14 +67,22 @@ def test_priority_is_decision_then_dependency_then_ci_then_release():
         "dependency_wait": action("another_item", "dependency"),
         "ci_wait": action("ci_or_deploy", "ci"),
         "deployment_wait": action("ci_or_deploy", "release"),
+        "landing_wait": action("ci_or_deploy", "landing_in_progress"),
     }
     for key, reason in [
         ("pending_decision", "approve"),
         ("dependency_wait", "dependency"),
         ("ci_wait", "ci"),
         ("deployment_wait", "release"),
+        ("landing_wait", "landing_in_progress"),
     ]:
         assert item_next_actor(facts)["reason"] == reason
+        assert (
+            session_state({**facts, "native_process_gone_at": NOW}, now=NOW)[
+                "next_actor"
+            ]["reason"]
+            == reason
+        )
         facts.pop(key)
 
 
