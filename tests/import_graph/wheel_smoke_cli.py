@@ -154,7 +154,7 @@ def _run(
         cwd=cwd,
         env=run_env,
         text=True,
-        stdin=subprocess.DEVNULL,
+        input="",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         timeout=timeout,

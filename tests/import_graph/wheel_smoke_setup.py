@@ -7,6 +7,7 @@ a pure product-client flow with the engine present but inert.
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
 
@@ -208,7 +209,7 @@ def _run_onboard_flow(
     assert stored_token.read_text("utf-8") == "product-token\n"
     assert "product-token" not in applied.stdout
     assert "product-token" not in config.read_text("utf-8")
-    assert config.stat().st_mode & 0o077 == 0
+    assert is_owner_private_file(config)
 
     # The stub answers only the registry, so /v1/health 404s: no control plane.
     status = _run(

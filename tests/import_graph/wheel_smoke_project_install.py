@@ -6,6 +6,7 @@ present but inert.
 """
 
 from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+from yoke_contracts.machine_config.directories import create_private_directory
 
 from pathlib import Path
 import json
@@ -35,7 +36,7 @@ def smoke(
     _run(["git", "init", "-b", "trunk"], cwd=checkout)
 
     machine_home = tmp_path / "home" / ".yoke"
-    machine_home.mkdir(parents=True)
+    create_private_directory(machine_home)
     token_file = machine_home / "token"
     token_file.write_text("product-token\n", encoding="utf-8")
     env = _product_env(machine_home, venv_dir)
