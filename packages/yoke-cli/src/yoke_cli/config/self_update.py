@@ -10,7 +10,7 @@ repairs them directly because it skips installation.
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 import dataclasses
 import shutil
@@ -54,9 +54,13 @@ def run_update(
         raise SelfUpdateError(str(exc)) from exc
     old_version = binding["version"]
     if not old_version:
+        try:
+            recovery = f"repair with the public installer ({install_command()})"
+        except InstallOriginUnavailable as exc:
+            recovery = f"{exc}; then repair with the public installer"
         raise SelfUpdateError(
-            "could not determine the installed Yoke version; repair with "
-            f"the public installer ({install_command()}) before running `yoke update`"
+            "could not determine the installed Yoke version; "
+            f"{recovery} before running `yoke update`"
         )
     yoke_bin = shutil.which("yoke")
     if not yoke_bin:
