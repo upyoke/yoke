@@ -175,8 +175,8 @@ def execute_full_test_machine_reset(
             {"paths": []},
             "test_mac_golden_baseline_unsafe",
         )
-    selected_path_state = path_state or resolve_path_state_contract(
-        env={"HOME": home, "SHELL": "/bin/zsh"}, posix_host=True
+    selected_path_state = path_state or resolve_path_state_contract(target="posix",
+        env={"HOME": home, "SHELL": "/bin/zsh"}
     )
     if selected_path_state.home != home:
         return HostActionResult(

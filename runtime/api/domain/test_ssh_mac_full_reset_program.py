@@ -169,7 +169,7 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
     binary = _require_zsh()
     golden, home = _baseline_pair(tmp_path)
     error_log = tmp_path / "restore-errors.log"
-    path_state = path_doctor.resolve_path_state_contract(
+    path_state = path_doctor.resolve_path_state_contract(target="posix",
         env={"HOME": str(home), "SHELL": binary}
     )
     verify_lines = (

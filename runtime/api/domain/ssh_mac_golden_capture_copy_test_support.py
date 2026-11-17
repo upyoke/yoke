@@ -46,9 +46,8 @@ from yoke_harness.ssh_mac_golden_capture_script import render_golden_capture_scr
 def _run_capture(home: Path, destination: Path, tmp_path: Path):
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
-            resolve_path_state_contract(
-                env={"HOME": "/Users/tester", "SHELL": "/bin/zsh"},
-                posix_host=True,
+            resolve_path_state_contract(target="posix",
+                env={"HOME": "/Users/tester", "SHELL": "/bin/zsh"}
             )
         )
     )

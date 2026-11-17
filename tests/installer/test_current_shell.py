@@ -63,7 +63,7 @@ def test_pwd_unavailable_uses_default(monkeypatch):
 
 def test_headless_bash_contract_selects_bash_startup_files(tmp_path, monkeypatch):
     account_shell(monkeypatch, "/bin/bash")
-    contract = state.resolve_path_state_contract(env={"HOME": str(tmp_path)})
+    contract = state.resolve_path_state_contract(target="posix", home=tmp_path, env={"HOME": str(tmp_path)})
     assert contract.shell == "bash"
     assert contract.shell_path == "/bin/bash"
     assert contract.startup_file == str(tmp_path / ".profile")

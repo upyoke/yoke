@@ -195,8 +195,8 @@ def test_baselines_keep_full_reset_distinct_from_shell_preconfiguration() -> Non
         "ssh": True,
     }
     assert preconfigured.evidence["launcher_executable"] is True
-    path_state = path_doctor.resolve_path_state_contract(
-        env={"HOME": control.home, "SHELL": control.shell}, posix_host=True
+    path_state = path_doctor.resolve_path_state_contract(target="posix",
+        env={"HOME": control.home, "SHELL": control.shell}
     )
     assert preconfigured.evidence["path_state"] == {
         "launcher": path_state.yoke_bin,

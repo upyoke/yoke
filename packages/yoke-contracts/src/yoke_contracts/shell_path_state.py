@@ -9,8 +9,8 @@ import stat
 import sys
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path, PurePath, PurePosixPath
-from typing import Mapping
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from typing import Literal, Mapping
 
 from yoke_contracts.harness_cli_manifest import harness_cli_executables
 
@@ -43,7 +43,7 @@ class PathStateContract:
     posix_paths: bool = False
 
     def __post_init__(self) -> None:
-        path_type = PurePosixPath if self.posix_paths else Path
+        path_type = PureWindowsPath if self.shell == "windows" else PurePosixPath
         suffix = ".exe" if self.shell == "windows" else ""
         expected = tuple(
             str(
@@ -62,24 +62,23 @@ class PathStateContract:
             )
 
 
-def tool_bin_dir(
-    env: Mapping[str, str] | None = None, *, posix_host: bool = False
-) -> str:
+def tool_bin_dir(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
     xdg = environ.get("UV_TOOL_BIN_DIR") or environ.get("XDG_BIN_HOME")
     if xdg:
         return xdg
-    path_type = PurePosixPath if posix_host else Path
     home = environ.get("HOME") or str(Path.home())
-    return str(path_type(home) / ".local" / "bin")
+    return str(Path(home) / ".local" / "bin")
 
 
-def current_shell(
-    env: Mapping[str, str] | None = None, *, posix_host: bool = False
-) -> str:
+def current_shell(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
-    if sys.platform == "win32" and not posix_host:
+    if sys.platform == "win32":
         return "windows"
+    return _posix_shell(environ)
+
+
+def _posix_shell(environ: Mapping[str, str]) -> str:
     shell = environ.get("SHELL")
     if not shell:
         try:
@@ -99,7 +98,7 @@ def default_startup_file(shell: str, home: PurePath) -> PurePath:
             (
                 home / name
                 for name in (".bash_profile", ".bash_login", ".profile")
-                if os.path.exists(home / name)
+                if isinstance(home, Path) and (home / name).exists()
             ),
             home / ".profile",
         )
@@ -145,26 +144,36 @@ def supported_startup_files(home: PurePath) -> tuple[PurePath, ...]:
 
 def resolve_path_state_contract(
     *,
+    target: Literal["windows", "posix"],
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
-    posix_host: bool = False,
 ) -> PathStateContract:
-    """Resolve the PATH contract for this machine, or for a remote POSIX host.
-
-    ``posix_host`` builds every path with POSIX rules whatever the
-    controller's OS: a Windows controller describing a macOS or Linux test
-    host must not render ``\\Users\\tester`` or look for ``yoke.cmd``.
-    """
     environ = dict(os.environ if env is None else env)
-    path_type = PurePosixPath if posix_host else Path
+    if target not in ("windows", "posix"):
+        raise ValueError("PATH contract target must be windows or posix")
+    windows = target == "windows"
+    path_type = PureWindowsPath if windows else PurePosixPath
     requested_home = environ.get("HOME") or str(Path.home())
-    home_path = home or path_type(requested_home)
+    home_path = home if home is not None else path_type(requested_home)
     environ["HOME"] = str(home_path)
 
-    shell = current_shell(environ, posix_host=posix_host)
-    windows = sys.platform == "win32" and not posix_host
+    shell = (
+        "windows"
+        if windows
+        else (
+            _posix_shell(environ)
+            if home is not None
+            else PurePosixPath(environ.get("SHELL") or "/bin/zsh").name
+        )
+    )
     suffix = ".exe" if windows else ""
-    bindir = tool_bin_dir(environ, posix_host=posix_host)
+    bindir = str(
+        path_type(
+            environ.get("UV_TOOL_BIN_DIR")
+            or environ.get("XDG_BIN_HOME")
+            or home_path / ".local" / "bin"
+        )
+    )
     ssh_startup = default_ssh_startup_file(shell, home_path)
     return PathStateContract(
         home=str(home_path),
@@ -193,7 +202,7 @@ def resolve_path_state_contract(
             for tool in TOOLS
         ),
         yoke_bin=str(path_type(bindir) / ("yoke.cmd" if suffix else "yoke")),
-        posix_paths=posix_host,
+        posix_paths=not windows,
     )
 
 

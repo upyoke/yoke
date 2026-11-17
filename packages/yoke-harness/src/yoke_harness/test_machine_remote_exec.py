@@ -3,7 +3,7 @@
 The test-machine capability records the host and login user; this is the
 route an agent uses to run a command there outside a QA case. It never reads
 ``~/.ssh``: a relay-launched session is denied that directory even with its
-sandbox off, so ``-F /dev/null`` skips the user's SSH config and host keys
+sandbox off, so ``-F none`` skips the user's SSH config and host keys
 are pinned in a Yoke-managed known_hosts file under the Yoke home. The
 identity is whatever the caller's ssh-agent holds; ``IdentityFile=none``
 keeps ssh from reaching for default key files there.
@@ -14,10 +14,9 @@ from __future__ import annotations
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import codecs
-import locale
 import os
 from pathlib import Path
-import selectors
+from yoke_contracts.byte_stream_reader import ByteStreamReader
 import subprocess
 import sys
 import time
@@ -81,7 +80,7 @@ def remote_exec_argv(
     return [
         "ssh",
         "-F",
-        os.devnull,
+        "none",
         *[part for option in SSH_OPTIONS for part in ("-o", option)],
         *host_key_options({"cloud_instance_id": cloud_instance_id}, known_hosts),
         "--",
@@ -178,13 +177,13 @@ def _stream_command(
     """Drain both pipes without line buffering or retaining the full output."""
     from yoke_harness.test_machine_admin import PasswordRedactor
 
-    encoding = locale.getpreferredencoding(False)
+    encoding = "utf-8"
     secret = (redaction_secret or password or "").encode("utf-8")
     deadline = time.monotonic() + timeout if timeout is not None else None
     with process:
         assert process.stdout is not None and process.stderr is not None
         tails = {process.stdout: bytearray(), process.stderr: bytearray()}
-        with selectors.DefaultSelector() as selector:
+        with ByteStreamReader(tuple(tails), chunk_size=_READ_CHUNK_BYTES) as reader:
             try:
                 if password is not None:
                     assert process.stdin is not None
@@ -192,37 +191,35 @@ def _stream_command(
                         process.stdin.write(secret + b"\n")
                         process.stdin.close()
                     except BrokenPipeError:
-                        # SSH may have already refused; drain its diagnosed failure.
-                        pass
-                for stream, destination in (
-                    (process.stdout, stdout if stdout is not None else sys.stdout),
-                    (process.stderr, stderr if stderr is not None else sys.stderr),
-                ):
-                    decoder = codecs.getincrementaldecoder(encoding)(
-                        errors="backslashreplace"
+                        pass  # Drain SSH's diagnosed connection failure.
+                outputs = {
+                    stream: (
+                        destination,
+                        codecs.getincrementaldecoder(encoding)(errors="backslashreplace"),
+                        PasswordRedactor(secret),
                     )
-                    selector.register(
-                        stream,
-                        selectors.EVENT_READ,
-                        (destination, decoder, PasswordRedactor(secret)),
+                    for stream, destination in (
+                        (process.stdout, stdout if stdout is not None else sys.stdout),
+                        (process.stderr, stderr if stderr is not None else sys.stderr),
                     )
-                while selector.get_map():
-                    if deadline is not None and time.monotonic() >= deadline:
+                }
+                while reader.pending:
+                    remaining = None if deadline is None else deadline - time.monotonic()
+                    if remaining is not None and remaining <= 0:
                         raise subprocess.TimeoutExpired(argv, timeout)
-                    for key, _ in selector.select(timeout=1 if deadline else None):
-                        stream = key.fileobj
-                        chunk = os.read(stream.fileno(), _READ_CHUNK_BYTES)
-                        destination, decoder, redactor = key.data
-                        safe = redactor.feed(chunk, final=not chunk)
-                        destination.write(decoder.decode(safe, final=not chunk))
-                        destination.flush()
-                        tail = tails[stream]
-                        tail.extend(safe)
-                        del tail[:-DIAGNOSTIC_TAIL_BYTES]
-                        if not chunk:
-                            selector.unregister(stream)
-                            continue
-                returncode = process.wait()
+                    event = reader.read(timeout=remaining)
+                    if event is None:
+                        continue
+                    stream, chunk = event
+                    destination, decoder, redactor = outputs[stream]
+                    safe = redactor.feed(chunk, final=not chunk)
+                    destination.write(decoder.decode(safe, final=not chunk))
+                    destination.flush()
+                    tail = tails[stream]
+                    tail.extend(safe)
+                    del tail[:-DIAGNOSTIC_TAIL_BYTES]
+                remaining = None if deadline is None else max(0, deadline - time.monotonic())
+                returncode = process.wait(timeout=remaining)
             except BaseException:
                 process.kill()
                 process.wait()

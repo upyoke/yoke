@@ -10,6 +10,9 @@ import subprocess
 import pytest
 
 
+pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+
+
 @pytest.fixture
 def provisioners(monkeypatch):
     root = Path(__file__).resolve().parents[2]
