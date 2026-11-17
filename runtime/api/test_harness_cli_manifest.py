@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 
@@ -131,7 +133,7 @@ def test_versioned_claude_bundles_choose_the_newest_executable(tmp_path, monkeyp
     from yoke_cli.config.path_harness_clis import managed_path_directories
 
     manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "claude-code")
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     for pattern in manifest.bundled_patterns:
         selected = None
         for version in ("2.9.9", "2.10.2", "2.11.0"):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
 import json
 import os
 from pathlib import Path
@@ -196,7 +197,7 @@ def test_home_clear_failure_names_entry_and_preserves_sealed_archive(
         raise OSError("directory is being recreated")
 
     monkeypatch.setattr(shutil, "rmtree", clear_failure)
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setattr(sys, "argv", ["reset", "reset", str(home), str(golden)])
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(ABSENT_HOME_PATHS)))
     with pytest.raises(SystemExit) as stopped:

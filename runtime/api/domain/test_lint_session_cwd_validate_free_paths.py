@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import os
 import shutil
 from pathlib import Path
@@ -37,7 +39,7 @@ NON_TEMP_HOME = "/__yoke_test_home__"
 
 @pytest.fixture(autouse=True)
 def _home_outside_temp_roots(monkeypatch):
-    monkeypatch.setenv("HOME", NON_TEMP_HOME)
+    set_home(monkeypatch, NON_TEMP_HOME)
 
 
 @pytest.fixture

@@ -1,5 +1,7 @@
 """Onboarded projects uninstall completely, and a partial uninstall retries."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 import os
 
@@ -22,7 +24,7 @@ IGNORE_POLICY = "BOARD.md\ninstall-manifest.json\ninstall-pending.json\n"
 def machine(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)

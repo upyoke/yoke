@@ -11,6 +11,8 @@ it names must pass the same session-cwd authority the caller runs under.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import re
 import shlex
 from pathlib import Path
@@ -135,7 +137,7 @@ class TestStagedRecoveryCopy:
     def test_capture_tree_home_shape_is_not_readable(self, monkeypatch):
         """Why the copy exists: the capture root is a home dot-directory."""
         # A real home sits outside the OS temp roots; the per-test HOME does not.
-        monkeypatch.setenv("HOME", "/__yoke_test_home__")
+        set_home(monkeypatch, "/__yoke_test_home__")
         capture = (
             Path.home()
             / ".yoke"

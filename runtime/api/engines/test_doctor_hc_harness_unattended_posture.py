@@ -7,6 +7,8 @@ names both the key and the repair, and a fully configured machine is PASS.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 
@@ -35,7 +37,7 @@ def _paths(
 ):
     """Point the check at a temp home, creating only the config given."""
     monkeypatch.setattr(mod, "resolve_harness_clis", lambda path: [])
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.delenv("CODEX_HOME", raising=False)
     resolved = managed_config_paths()

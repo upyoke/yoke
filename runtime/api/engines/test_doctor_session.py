@@ -8,6 +8,8 @@ must say its harness is unknown rather than guess one.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 import subprocess
 from pathlib import Path
@@ -73,7 +75,7 @@ def clis(monkeypatch, *harness_ids: str) -> None:
 
 
 def configs(tmp_path: Path, monkeypatch, **payloads: str) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.delenv("CODEX_HOME", raising=False)
     resolved = {**managed_config_paths(), "claude-cli": claude_settings_path()}

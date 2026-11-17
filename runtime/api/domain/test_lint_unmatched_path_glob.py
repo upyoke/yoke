@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 
 import pytest
@@ -231,7 +233,7 @@ def test_path_globs_use_the_executing_filesystem(
     downloads = home / "Downloads"
     downloads.mkdir(parents=True)
     (downloads / "Meeting-notes.txt").write_text("notes")
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     cwd = tmp_path / "repository"
     cwd.mkdir()
     stem = "Meeting" if matching else "Missing"
@@ -265,7 +267,7 @@ def test_home_glob_does_not_match_a_literal_tilde_directory(
 
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     literal = tmp_path / "repository" / "~" / "Downloads"
     literal.mkdir(parents=True)
     (literal / "Meeting-notes.txt").write_text("notes")
@@ -285,7 +287,7 @@ def test_home_glob_repair_enumerates_expanded_parent(tmp_path: Path, monkeypatch
     downloads.mkdir(parents=True)
     notes = downloads / "Meeting-notes.txt"
     notes.write_text("notes")
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     cwd = tmp_path / "repository"
     cwd.mkdir()
     reason = _eval("ls ~/Downloads/Meeting*.pdf", cwd=str(cwd))[0]

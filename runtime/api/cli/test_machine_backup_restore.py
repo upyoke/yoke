@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 import stat
 from types import SimpleNamespace
@@ -20,7 +22,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 def machine(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home / ".yoke"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     root = home / ".yoke"
@@ -112,7 +114,7 @@ def test_external_files_and_new_home_paths(machine, tmp_path, monkeypatch):
     ]
     destination = tmp_path / "new-home"
     destination.mkdir()
-    monkeypatch.setenv("HOME", str(destination))
+    set_home(monkeypatch, str(destination))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(destination / ".yoke"))
     storage.restore(folder)
     restored = json.loads((destination / ".yoke/config.json").read_text())
@@ -212,7 +214,7 @@ def test_home_alias_and_blocked_destination_parent(machine, tmp_path, monkeypatc
     home, root, folder = machine
     alias = tmp_path / "home-alias"
     alias.symlink_to(home, target_is_directory=True)
-    monkeypatch.setenv("HOME", str(alias))
+    set_home(monkeypatch, str(alias))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(alias / ".yoke"))
     (home / "credentials").mkdir()
     (home / "credentials/token").write_text("private")

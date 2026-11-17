@@ -9,6 +9,8 @@ and say out loud what changed.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 from pathlib import Path
@@ -292,7 +294,7 @@ def test_posture_state_reports_each_outcome(tmp_path: Path, monkeypatch) -> None
 
 
 def test_the_wizard_step_names_every_harness_file_and_key(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.delenv("CODEX_HOME", raising=False)
     for name in (".claude", ".codex", ".cursor"):
         (tmp_path / name).mkdir()

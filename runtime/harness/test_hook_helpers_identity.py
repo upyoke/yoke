@@ -8,6 +8,8 @@ project/db/session/marker/json helpers). Shared fixtures live in
 from __future__ import annotations
 
 import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from unittest import mock
 
 import pytest
@@ -26,7 +28,7 @@ from yoke_core.hooks.helpers import (
 
 #: The isolation every test runs under; a cleared environment keeps it, or
 #: ``Path.home()`` falls back to the account's real home folder.
-_ISOLATION_KEYS = ("HOME", "YOKE_SCRATCH_ROOT")
+_ISOLATION_KEYS = (*HOME_ENVS, "YOKE_SCRATCH_ROOT")
 
 
 def _environ_only(values):

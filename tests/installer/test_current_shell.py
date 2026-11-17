@@ -1,5 +1,7 @@
 """Account login-shell selection when headless launchers omit SHELL."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import builtins
 import json
 import subprocess
@@ -99,7 +101,7 @@ def test_path_fix_without_shell_probes_bash(tmp_path, monkeypatch, capsys):
 
     account_shell(monkeypatch, "/bin/bash")
     monkeypatch.delenv("SHELL", raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
     tool_dir = tmp_path / "bin"
     tool_dir.mkdir()

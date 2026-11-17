@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 
 import pytest
@@ -51,7 +53,7 @@ def home(tmp_path, monkeypatch):
     """A synthetic operator home, so no test reads the real one."""
     home_path = tmp_path / "operator-home"
     home_path.mkdir()
-    monkeypatch.setenv("HOME", str(home_path))
+    set_home(monkeypatch, str(home_path))
     return home_path
 
 

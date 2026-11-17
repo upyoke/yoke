@@ -185,6 +185,12 @@ def isolated_home(tmp_path: Path) -> Path:
     return tmp_path / "harness-home"
 
 
+def set_home(monkeypatch: pytest.MonkeyPatch, path: "str | os.PathLike[str]") -> None:
+    """Move every native home resolver to the same test folder."""
+    for name in HOME_ENVS:
+        monkeypatch.setenv(name, os.fspath(path))
+
+
 def _redirect_envs() -> tuple:
     from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 
@@ -200,8 +206,7 @@ def _isolate_real_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     exists, so a test creates the harness home it means to exercise.
     """
     home = isolated_home(tmp_path)
-    for name in HOME_ENVS:
-        monkeypatch.setenv(name, str(home))
+    set_home(monkeypatch, home)
     for name in _redirect_envs():
         monkeypatch.delenv(name, raising=False)
     GUARD.start()

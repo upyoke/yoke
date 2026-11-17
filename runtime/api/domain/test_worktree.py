@@ -10,6 +10,7 @@ coverage lives in ``test_worktree_create``, and ``detect_deps`` lives in
 
 from __future__ import annotations
 
+from pathlib import Path
 import subprocess
 
 import pytest
@@ -63,11 +64,11 @@ class TestReadConfig:
 class TestResolvePlaywrightCache:
     def test_with_project(self):
         result = resolve_playwright_cache("externalwebapp", "/some/worktree")
-        assert result.endswith(".yoke/playwright-cache/externalwebapp")
+        assert Path(result).parts[-3:] == (".yoke", "playwright-cache", "externalwebapp")
 
     def test_without_project(self):
         result = resolve_playwright_cache(None, "/tmp/wt")
-        assert result == "/tmp/wt/.playwright-cache"
+        assert Path(result) == Path("/tmp/wt") / ".playwright-cache"
 
     def test_no_args(self):
         assert resolve_playwright_cache(None, None) is None

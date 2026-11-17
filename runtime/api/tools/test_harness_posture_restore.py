@@ -6,6 +6,8 @@ Yoke: a prompting mode plus the operator's own allowlist.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 from pathlib import Path
@@ -41,7 +43,7 @@ RESTRICTIVE_CODEX = 'approval_policy = "on-request"\nsandbox_mode = "workspace-w
 @pytest.fixture
 def machine(tmp_path: Path, monkeypatch):
     """A home holding all three harnesses with restrictive operator config."""
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.setenv("YOKE_HOME", str(tmp_path / ".yoke"))
     monkeypatch.delenv("CODEX_HOME", raising=False)

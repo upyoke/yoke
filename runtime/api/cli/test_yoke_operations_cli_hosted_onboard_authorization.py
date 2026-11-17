@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 
@@ -197,7 +199,7 @@ def test_resume_reuses_hosted_browser_approved_credential(
 ) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("ZDOTDIR", str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
     config = home / "config.json"

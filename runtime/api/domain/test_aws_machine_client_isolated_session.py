@@ -8,6 +8,8 @@ for minutes, and an ambient profile could answer a lookup the resolver owns.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import os
 import sys
 from pathlib import Path
@@ -62,7 +64,7 @@ def test_isolated_session_reads_no_shared_configuration(
         "aws_secret_access_key = ambient-secret\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("AWS_CONFIG_FILE", str(home / ".aws" / "config"))
     monkeypatch.setenv(
         "AWS_SHARED_CREDENTIALS_FILE", str(home / ".aws" / "credentials")

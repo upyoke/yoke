@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import asyncio
 from types import SimpleNamespace
 
@@ -23,7 +25,7 @@ def test_first_tilde_reaches_new_input_after_view_swap(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     asyncio.run(_assert_first_tilde_reaches_new_input())
 
 
@@ -31,7 +33,7 @@ def test_plain_glyph_body_accepts_input_focus_handoff(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     asyncio.run(_assert_plain_glyph_body_accepts_input_focus_handoff())
 
 

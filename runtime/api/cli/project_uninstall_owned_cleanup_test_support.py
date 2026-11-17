@@ -1,6 +1,8 @@
 # ruff: noqa: F401, E402
 """Shared setup for tests in this directory."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 
 import os
@@ -34,7 +36,7 @@ from runtime.api.cli.project_uninstall_test_support import git, read_json
 def installed(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     launcher = home / "bin/yoke"

@@ -1,3 +1,5 @@
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from tests.installer.public_installer_test_support import (
     _installed_yoke_path as _installed_yoke_path,
     _options as _options,
@@ -169,7 +171,7 @@ def test_installed_yoke_resolution_uses_uv_tool_bin_before_ambient(
     yoke_bin.chmod(0o755)
     monkeypatch.delenv("UV_TOOL_BIN_DIR", raising=False)
     monkeypatch.delenv("XDG_BIN_HOME", raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    set_home(monkeypatch, str(tmp_path / "home"))
     uv_dir = subprocess.CompletedProcess(
         ["uv", "tool", "dir", "--bin"],
         0,

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import io
+import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from contextlib import redirect_stderr, redirect_stdout
 from typing import List
 from unittest.mock import patch
@@ -51,7 +54,7 @@ def _run_capture(
     *argv: str,
     session_id: str | None = "test-session",
 ) -> tuple[int, str, str]:
-    env = {}
+    env = {name: os.environ[name] for name in HOME_ENVS}
     if session_id is not None:
         env["YOKE_SESSION_ID"] = session_id
     with patch.dict("os.environ", env, clear=session_id is None):
