@@ -48,7 +48,7 @@ def outputs(root):
         )
     result = {}
     for name in BROWSER_MODULES:
-        original = (source / f"{name}.ts").read_text()
+        original = (source / f"{name}.ts").read_text(encoding="utf-8")
         stripped = subprocess.run(
             ["node", "--input-type=module", "-e", NODE_STRIP],
             input=original,
@@ -63,12 +63,12 @@ def outputs(root):
             stripped,
         )
         result[target / "ui/static" / f"{name}.js"] = HEADER + stripped
-    rules = json.loads((source / "attribution_rules.json").read_text())
+    rules = json.loads((source / "attribution_rules.json").read_text(encoding="utf-8"))
     result[target / "ui/static/attribution_rules.js"] = (
         HEADER + "export default " + json.dumps(rules, separators=(",", ":")) + ";\n"
     )
     for name in SERVER_MODULES:
-        text = (source / f"{name}.py").read_text()
+        text = (source / f"{name}.py").read_text(encoding="utf-8")
         text = re.sub(
             r"^from (events_\w+) import", r"from .\1 import", text, flags=re.M
         )
@@ -76,13 +76,13 @@ def outputs(root):
     # Standalone timestamp resources retain the installed Pack's exact bytes.
     result[target / "ui/static/events_timestamps.mjs"] = (
         source / "events_timestamps.mjs"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     result[target / "frontend_events/events_timestamps.py"] = (
         source / "events_timestamps.py"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     result[target / "frontend_events/attribution_rules.json"] = (
         source / "attribution_rules.json"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     result[target / "frontend_events/__init__.py"] = (
         '"""Runtime helpers built from the installed Structured Events Pack."""\n'
     )
@@ -93,13 +93,13 @@ def build(*, target_root: Path, check: bool = False):
     expected = outputs(target_root)
     drift = []
     for path, text in expected.items():
-        if path.exists() and path.read_text() == text:
+        if path.exists() and path.read_text(encoding="utf-8") == text:
             continue
         drift.append(path.relative_to(target_root).as_posix())
         if not check:
             assert_target_under_session_work_authority(path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
+            path.write_text(text, encoding="utf-8", newline="\n")
     if check and drift:
         print(
             "frontend_events_build_stale: run python3 -m yoke_core.tools.build_frontend_events; "

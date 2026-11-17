@@ -27,7 +27,7 @@ def _write_downloaded_release_artifact(
     records, _wheel_records = _sample_release(wheels_dir, version=version)
     (artifact_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     return records
 
@@ -46,7 +46,7 @@ def test_distribution_publish_validates_release_and_writes_channel(
     records, wheel_records = _sample_release(wheels_dir, version=version)
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,
@@ -145,7 +145,7 @@ def test_validate_downloaded_release_artifact_rejects_evidence_tampering(
     evidence["manifest"]["sha256"] = "f" * 64
     evidence_path.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
 
     with pytest.raises(ValueError, match="does not bind"):
@@ -247,7 +247,7 @@ def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) ->
     records, wheel_records = _sample_release(wheels_dir, version=version)
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,
@@ -265,7 +265,7 @@ def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) ->
             original_sha,
             drifted_sha,
         ),
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
 
     try:
@@ -289,7 +289,7 @@ def test_distribution_publish_rejects_migration_evidence_tampering(
     )
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     package_index.write_simple_index(
         index_dir=output_root / "simple",
@@ -305,7 +305,7 @@ def test_distribution_publish_rejects_migration_evidence_tampering(
     evidence["manifest"]["sha256"] = "f" * 64
     evidence_path.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
 
     try:
@@ -329,7 +329,7 @@ def test_validate_release_matches_url_quoted_local_version_links(
     records, wheel_records = _sample_release(wheels_dir, version=version)
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
-        encoding="utf-8",
+        encoding="utf-8", newline="\n",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,

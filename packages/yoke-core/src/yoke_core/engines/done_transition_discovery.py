@@ -30,7 +30,7 @@ def _load_discovery_metadata(path: Path) -> int:
     """Read discovery metadata emitted by discovery_scan."""
     unreviewed = 0
     try:
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding="utf-8").splitlines():
             if line.startswith("UNREVIEWED_OUROBOROS="):
                 unreviewed = int(line.split("=", 1)[1].strip() or "0")
     except (OSError, ValueError):

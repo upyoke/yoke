@@ -27,7 +27,7 @@ def desktop_sessions(*, active_only=True):
         if not process.name.isdigit():
             continue
         try:
-            if (process / "comm").read_text().strip() != "xfce4-session":
+            if (process / "comm").read_text(encoding="utf-8").strip() != "xfce4-session":
                 continue
             if process.stat().st_uid != os.getuid():
                 continue
@@ -43,7 +43,7 @@ def desktop_sessions(*, active_only=True):
                     {
                         "pid": int(process.name),
                         "start": (process / "stat")
-                        .read_text()
+                        .read_text(encoding="utf-8")
                         .rsplit(")", 1)[1]
                         .split()[19],
                         "session_id": environment.get("XDG_SESSION_ID", ""),
@@ -119,7 +119,7 @@ def graphical_sessions():
 def rdp_connected(port=RDP_PORT):
     # A connected RDP client can adopt a session Yoke originally started.
     for name in ("tcp", "tcp6"):
-        for line in (Path("/proc/net") / name).read_text().splitlines()[1:]:
+        for line in (Path("/proc/net") / name).read_text(encoding="utf-8").splitlines()[1:]:
             fields = line.split()
             if int(fields[1].rsplit(":", 1)[1], 16) == port and fields[3] == "01":
                 return True
@@ -175,7 +175,7 @@ def human_desktop_exists(home, owned=None):
         return True
     proc = Path("/proc")
     if proc.exists():
-        for line in (proc / "self/mountinfo").read_text().splitlines():
+        for line in (proc / "self/mountinfo").read_text(encoding="utf-8").splitlines():
             target = line.split()[4].replace("\\040", " ").replace("\\134", "\\")
             if target == redirected or target.startswith(redirected + "/"):
                 return True
@@ -202,11 +202,11 @@ def restart_orphan(session, port):
         if (
             manager.returncode
             or pid <= 0
-            or process.joinpath("comm").read_text().strip() != "xrdp-sesman"
+            or process.joinpath("comm").read_text(encoding="utf-8").strip() != "xrdp-sesman"
         ):
             raise ValueError()
         started = int(
-            process.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+            process.joinpath("stat").read_text(encoding="utf-8").rsplit(")", 1)[1].split()[19]
         )
     except (OSError, ValueError):
         raise RuntimeError(

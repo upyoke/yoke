@@ -252,7 +252,7 @@ def phase_coverage(
 
 def load_report(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise BenchmarkRefusal(
             "HOOK_BENCHMARK_BASELINE_INVALID",

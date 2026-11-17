@@ -18,12 +18,12 @@ from yoke_core.tools import watch_pytest, watch_pytest_lane
 
 def git(repo: Path, *args: str, check: bool = True) -> str:
     return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=check
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=check, encoding="utf-8"
     ).stdout.strip()
 
 
 def commit(repo: Path, name: str, content: str) -> None:
-    (repo / name).write_text(content)
+    (repo / name).write_text(content, encoding="utf-8", newline="\n")
     git(repo, "add", name)
     git(repo, "commit", "-qm", f"{name}: {content.strip()}")
 
@@ -64,7 +64,7 @@ def lane_patch_ids(repo: Path) -> list[str]:
         input=log + "\n",
         capture_output=True,
         text=True,
-        check=True,
+        check=True, encoding="utf-8",
     ).stdout.split()
     return ids[::2]
 
@@ -88,8 +88,8 @@ def test_a_clean_lane_behind_main_lands_on_current_main(lane: Path) -> None:
 
 def test_a_dirty_lane_behind_main_is_refused_untouched(lane: Path) -> None:
     head = git(lane, "rev-parse", "HEAD")
-    (lane / "lane-a").write_text("edited, not committed\n")
-    (lane / "scratch.py").write_text("print('untracked')\n")
+    (lane / "lane-a").write_text("edited, not committed\n", encoding="utf-8", newline="\n")
+    (lane / "scratch.py").write_text("print('untracked')\n", encoding="utf-8", newline="\n")
 
     refusal = watch_pytest_lane.bring_lane_current(lane, None)
 

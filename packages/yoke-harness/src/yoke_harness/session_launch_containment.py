@@ -139,7 +139,7 @@ def touch_supervised_resume(
         body = json.dumps(payload, sort_keys=True)
         if len(body.encode()) > MAX_RECORD_BYTES:
             return False
-        temporary.write_text(body, encoding="utf-8")
+        temporary.write_text(body, encoding="utf-8", newline="\n")
         temporary.chmod(0o600)
         os.replace(temporary, path)
     except (OSError, TypeError, ValueError):
@@ -173,7 +173,7 @@ def release_supervised_native(
     try:
         path = supervision_record_path(launch_id, state_dir)
         if not custody_transferred:
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             if custody_state(payload) != "gone":
                 return
         path.unlink(missing_ok=True)

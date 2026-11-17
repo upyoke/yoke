@@ -253,7 +253,7 @@ def select_and_write_body_file(
         suffix=".md",
         delete=False,
     ) as body_path:
-        body_path.write_text(body)
+        body_path.write_text(body, encoding="utf-8", newline="\n")
     return str(body_path), mode
 
 

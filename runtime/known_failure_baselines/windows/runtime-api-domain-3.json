@@ -58,8 +58,6 @@
 "runtime/api/domain/test_standard_baseline_probes.py::test_sealed_request_program_checks_native_completion_without_leaking_output[private-account@example.com-Cursor-agent]": "AssertionError:",
 "runtime/api/domain/test_strategy_archive_routing.py::TestIngestReadResolvesArchive::test_read_ingest_files_finds_archived_doc": "AssertionError: assert False",
 "runtime/api/domain/test_strategy_docs_ingest.py::TestDryRun::test_conflict_teaching_names_recovery_steps": "assert 'yoke strategy render --target-root /repo' in \"strategy doc(s) 'PAD', 'WISPS' changed in the DB after the file header(s) were rendered — refusing the write so the newer DB content is not lost.",
-"runtime/api/domain/test_strategy_header_clock_instants.py::test_archive_relocation_matches_equal_instant_and_preserves_bytes[2026-06-11T11:00:00.123456+02:00]": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xeb in position 291: invalid continuation byte",
-"runtime/api/domain/test_strategy_header_clock_instants.py::test_archive_relocation_matches_equal_instant_and_preserves_bytes[clock0]": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xeb in position 291: invalid continuation byte",
 "runtime/api/domain/test_structured_events_pack.py::test_current_standalone_collector_clock_properties": "AssertionError: TAP version 13",
 "runtime/api/domain/test_structured_events_pack.py::test_structured_events_published_contract": "AssertionError: TAP version 13",
 "runtime/api/domain/test_universe_artifact_transfer.py::test_archive_roundtrip_rehomes_bytes[False-True-False-True]": "yoke_core.domain.universe_archive.UniverseArchiveError: archive_artifact_unreadable: yoke qa-artifacts/yoke/88541/1/2-artifact: ArtifactCheckoutUnavailableError; attach or register that project's chec",

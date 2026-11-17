@@ -100,7 +100,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         if body_rest and body_rest[0] == "--body-file":
             if len(body_rest) < 2 or not body_rest[1]:
                 _cli_usage_error(_TASK_UPDATE_BODY_USAGE)
-            with open(body_rest[1], "r") as f:
+            with open(body_rest[1], "r", encoding="utf-8") as f:
                 body = f.read()
         elif body_rest:
             _cli_usage_error(_TASK_UPDATE_BODY_USAGE)
@@ -152,7 +152,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         if output_file is not None:
             from pathlib import Path
 
-            Path(output_file).write_text(result, encoding="utf-8")
+            Path(output_file).write_text(result, encoding="utf-8", newline="\n")
         else:
             print(result)
         return True

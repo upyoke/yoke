@@ -53,7 +53,7 @@ def hc_stale_sessions(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Check if session registry is enabled
     enabled = False
     if config_path.is_file():
-        for line in config_path.read_text(errors="replace").splitlines():
+        for line in config_path.read_text(errors="replace", encoding="utf-8").splitlines():
             if line.strip().startswith("session_registry_enabled="):
                 enabled = line.strip().split("=", 1)[1].strip() == "true"
 

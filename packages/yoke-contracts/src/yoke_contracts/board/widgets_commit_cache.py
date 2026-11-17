@@ -43,7 +43,7 @@ def _load_cache_file(cache_path: Path) -> Tuple[Dict[str, Dict], Dict[str, Dict]
     if not cache_path.exists():
         return {}, {}
     try:
-        raw = json.loads(cache_path.read_text())
+        raw = json.loads(cache_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}, {}
     if not isinstance(raw, dict):
@@ -163,7 +163,7 @@ def get_commit_data(repos: List[str]) -> Dict[str, Dict]:
         cache = {h: e for h, e in cache.items() if e.get("day", "") >= since_date}
         try:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps(_cache_file_payload(cache, meta)))
+            cache_path.write_text(json.dumps(_cache_file_payload(cache, meta)), encoding="utf-8", newline="\n")
         except OSError:
             pass
 

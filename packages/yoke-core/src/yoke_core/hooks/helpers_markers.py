@@ -28,7 +28,7 @@ def write_current_item_marker(item_id: int | str) -> None:
     if not item_id:
         return
     try:
-        with open(hook_marker_path("current-item"), "w") as f:
+        with open(hook_marker_path("current-item"), "w", encoding="utf-8", newline="\n") as f:
             f.write(f"{item_id}\n")
     except OSError:
         pass
@@ -37,7 +37,7 @@ def write_current_item_marker(item_id: int | str) -> None:
 def read_current_item_marker() -> str:
     """Read the current-item marker. Returns empty string if missing."""
     try:
-        with open(hook_marker_path("current-item")) as f:
+        with open(hook_marker_path("current-item"), encoding="utf-8") as f:
             return f.read().strip()
     except (OSError, MissingProjectError):
         return ""
@@ -49,7 +49,7 @@ def write_done_item_marker(item_id: int | str) -> None:
         return
     try:
         epoch = int(time.time())
-        with open(hook_marker_path("done-item"), "w") as f:
+        with open(hook_marker_path("done-item"), "w", encoding="utf-8", newline="\n") as f:
             f.write(f"{item_id}|{epoch}\n")
     except OSError:
         pass
@@ -60,7 +60,7 @@ def read_done_item_marker(
 ) -> str:
     """Read the done-item marker if recent. Returns empty string if expired/missing."""
     try:
-        with open(hook_marker_path("done-item")) as f:
+        with open(hook_marker_path("done-item"), encoding="utf-8") as f:
             line = f.read().strip()
         if "|" not in line:
             return ""

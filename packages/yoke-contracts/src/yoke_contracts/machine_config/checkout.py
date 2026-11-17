@@ -48,6 +48,7 @@ def _git_worktrees(root: Path) -> list[Path]:
             ["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=10,
             check=False,
         )

@@ -43,7 +43,7 @@ def _collect_daemon_diagnostics(*, profile_dir: str | None = None) -> Dict[str, 
     daemon_log = _state_file_path(profile_dir).parent / DAEMON_LOG_NAME
     try:
         if daemon_log.exists():
-            text = daemon_log.read_text()
+            text = daemon_log.read_text(encoding="utf-8")
             # Last 40 lines
             lines = text.splitlines()[-40:]
             diag["log_tail"] = "\n".join(lines)

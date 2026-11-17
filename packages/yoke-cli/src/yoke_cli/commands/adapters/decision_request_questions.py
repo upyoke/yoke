@@ -101,7 +101,7 @@ def decision_requests_ask(args):
         return 2
     try:
         attachments = upload_files(parsed.attach)
-        context = parsed.context_file.read_text() if parsed.context_file else ""
+        context = parsed.context_file.read_text(encoding="utf-8") if parsed.context_file else ""
     except ValueError as exc:
         parser.error(str(exc))
     except OSError as exc:

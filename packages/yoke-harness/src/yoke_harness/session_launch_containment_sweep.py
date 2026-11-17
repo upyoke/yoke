@@ -123,7 +123,7 @@ def _registration_handle_exists(payload: dict[str, object]) -> bool:
         return False
     try:
         path = native_handle_path(launch_id)
-        record = json.loads(path.read_text())
+        record = json.loads(path.read_text(encoding="utf-8"))
         return (
             record.get("launch_id") == launch_id
             and bool(record.get("target_session_id"))
@@ -225,7 +225,7 @@ def _retain_contained_resume(
     payload["containment_reason"] = reason
     try:
         temporary = path.with_suffix(f".{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8", newline="\n")
         temporary.chmod(0o600)
         os.replace(temporary, path)
     except OSError:

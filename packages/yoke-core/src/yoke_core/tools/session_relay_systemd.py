@@ -57,7 +57,7 @@ def install_relay_systemd(
     path = relay_unit_path(selected, home=home)
     create_private_directory(path.parent)
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(relay_unit_document(selected, environ=environ))
+    temporary.write_text(relay_unit_document(selected, environ=environ), encoding="utf-8", newline="\n")
     temporary.chmod(0o600)
     temporary.replace(path)
     _checked(["systemctl", "--user", "daemon-reload"], runner)

@@ -45,7 +45,7 @@ def codex_title(session_id: str, home: Path):
     title = None
     index = home / "session_index.jsonl"
     if index.is_file():
-        with index.open() as stream:
+        with index.open(encoding="utf-8") as stream:
             for line in stream:
                 try:
                     record = json.loads(line)
@@ -110,7 +110,7 @@ def title_fact(obs, *, transcript_tail: str | None = None):
         return {}
     cache_path = _cache_path(obs.executor, session_id)
     try:
-        cached = json.loads(cache_path.read_text())
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         cached = {}
     previous = cached.get("title")
@@ -124,7 +124,7 @@ def title_fact(obs, *, transcript_tail: str | None = None):
                 transcript_tail = stream.read(65536).decode("utf-8", errors="replace")
         title = claude_title(transcript_tail.splitlines())
         if title is None and previous is None and not cached.get("scanned"):
-            with Path(path).open() as stream:
+            with Path(path).open(encoding="utf-8") as stream:
                 title = claude_title(stream)
         title = title or previous
     elif harness == "codex":
@@ -137,7 +137,7 @@ def title_fact(obs, *, transcript_tail: str | None = None):
         return {}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = cache_path.with_suffix(".tmp")
-    temporary.write_text(json.dumps({**cached, "title": title, "scanned": True}))
+    temporary.write_text(json.dumps({**cached, "title": title, "scanned": True}), encoding="utf-8", newline="\n")
     temporary.replace(cache_path)
     return (
         client_fact(HARNESS_TITLE_KEY, title)
@@ -162,10 +162,10 @@ def confirm_title(payload, executor, confirmed):
         return
     cache = _cache_path(executor, session_id)
     try:
-        cached = json.loads(cache.read_text())
+        cached = json.loads(cache.read_text(encoding="utf-8"))
         cached["confirmed_title"] = confirmed["value"]
         temporary = cache.with_suffix(".confirmed.tmp")
-        temporary.write_text(json.dumps(cached))
+        temporary.write_text(json.dumps(cached), encoding="utf-8", newline="\n")
         temporary.replace(cache)
     except (OSError, ValueError):
         return  # Without a marker the next hook safely resends.

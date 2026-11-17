@@ -115,6 +115,7 @@ def run_scan(
         "---\n"
         f"{scan_output}",
         encoding="utf-8",
+        newline="\n",
     )
 
     stdout.write("\n")

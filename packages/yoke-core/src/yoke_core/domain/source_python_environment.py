@@ -236,7 +236,7 @@ def resolve(
     if (
         not config.is_file()
         or "include-system-site-packages=true"
-        in config.read_text().lower().replace(" ", "")
+        in config.read_text(encoding="utf-8").lower().replace(" ", "")
     ):
         refuse(
             "SOURCE-ENVIRONMENT-IDENTITY", "environment permits ambient system packages"

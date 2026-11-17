@@ -64,7 +64,7 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     if not cfg_path.is_file():
         return {}
     try:
-        with cfg_path.open() as _fh:
+        with cfg_path.open(encoding="utf-8") as _fh:
             payload = json.load(_fh)
     except ValueError as exc:
         raise MachineConfigError(f"{cfg_path} is not valid JSON: {exc}") from exc
