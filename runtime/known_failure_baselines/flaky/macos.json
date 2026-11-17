@@ -1,9 +1,4 @@
 {
- "runtime/harness/test_session_relay_interactive_holder.py::TestInteractiveHolder::test_live_interactive_anchor_defers_without_custody": {
-  "reason": "reads real host processes and sometimes counts a 'uv run' process as a native background command",
-  "feedback": 96580,
-  "fix_item": "YOK-5316"
- },
  "runtime/api/cli/test_yoke_installed_hook_engine.py::test_installed_hooks_register_emit_and_deny": {
   "reason": "installed hook engine sometimes returns no registration (assert None is not None)",
   "feedback": 96600,

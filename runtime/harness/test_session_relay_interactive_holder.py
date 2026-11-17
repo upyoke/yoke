@@ -36,6 +36,11 @@ def isolated(tmp_path, monkeypatch):
         "yoke_harness.session_relay_interactive_holder.process_start_time",
         lambda _pid: START,
     )
+    # Synthetic anchor pids must never pick up commands from the host process table.
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_native_background.platform_process.process_command_lines",
+        lambda: (),
+    )
     runtime.reset_relay_adapters_for_tests()
     yield
     runtime.reset_relay_adapters_for_tests()
