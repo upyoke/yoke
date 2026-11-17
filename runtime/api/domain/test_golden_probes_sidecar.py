@@ -121,6 +121,9 @@ def test_upload_that_lands_short_without_failing_is_unverified(tmp_path, capture
     assert not capture_stubs
 
 
+@pytest.mark.posix_only(
+    reason="runs the Linux host upload program locally; os.O_NOFOLLOW is POSIX-only"
+)
 def test_wsl_capture_seals_verified_probes_and_digest_that_reset_accepts(
     monkeypatch, tmp_path, capture_stubs
 ):
