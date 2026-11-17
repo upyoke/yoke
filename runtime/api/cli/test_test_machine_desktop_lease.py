@@ -165,3 +165,58 @@ def test_installed_yoke_probe_uses_login_shell_without_desktop(
         "yoke test-machine reset --project acme --test-machine lab --baseline shell-preconfigured"
         in caught.value.recovery
     )
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_desktop_access_holds_lease_until_view_returns(monkeypatch, capsys, fails):
+    from yoke_cli.commands.adapters import test_machine_desktop as cli
+    from yoke_harness import desktop_access
+
+    events = []
+    route = {"project": "acme", "test_machine": "lab", "settings": {}}
+    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(
+        cli, "build_actor", lambda **kw: SimpleNamespace(session_id="own")
+    )
+
+    def dispatch(**kw):
+        function = kw["function_id"]
+        events.append(function)
+        result = (
+            route
+            if function == "test_machine.desktop_access"
+            else (
+                {"active_lease": None}
+                if function == "test_machine.get"
+                else {"claim": {"id": 12}}
+            )
+        )
+        return SimpleNamespace(success=True, result=result, error=None)
+
+    def view(**kw):
+        assert events[-1] == "power"
+        assert kw["view"] is True
+        events.append("desktop")
+        if fails:
+            raise desktop_access.DesktopAccessError(
+                "desktop_unreachable: repair the route"
+            )
+        return {"viewer": "closed"}
+
+    monkeypatch.setattr(cli, "call_dispatcher", dispatch)
+    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(
+        cloud_machine_power, "power_on", lambda *a: events.append("power")
+    )
+    monkeypatch.setattr(desktop_access, "open_desktop_access", view)
+    assert cli.test_machine_desktop_access(
+        ["--project", "acme", "--test-machine", "lab", "--view"]
+    ) == int(fails)
+    assert events == [
+        "test_machine.desktop_access",
+        "test_machine.get",
+        "claims.coordination_claim.acquire_if_free",
+        "power",
+        "desktop",
+        "claims.coordination_claim.release",
+    ]

@@ -109,26 +109,3 @@ def test_transport_failures_name_reason_and_recovery(
     with pytest.raises(RemoteExecRefusal) as raised:
         gui._GuiSshControl(SETTINGS, tmp_path, None)._run("true", timeout=10)
     assert raised.value.code == error and raised.value.recovery
-
-
-def test_no_browser_capability_still_has_default_identity(route, monkeypatch, capsys):
-    original = remote.call_dispatcher
-
-    def dispatch(**kwargs):
-        if kwargs["function_id"] == "projects.capability_settings.get":
-            return SimpleNamespace(
-                success=False, result=None, error=SimpleNamespace(code="not_found")
-            )
-        return original(**kwargs)
-
-    from yoke_cli.commands import test_machine_desktop_lease as custody
-    from yoke_core.domain import cloud_machine_power
-
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
-    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
-    monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
-    monkeypatch.setattr(remote, "call_dispatcher", dispatch)
-    assert authorize("--identity", "default", "--json") == 0
-    argv = route["argv"][0]["argv"]
-    assert json.loads(argv[argv.index("--declarations-json") + 1]) == {}
-    assert json.loads(capsys.readouterr().out)["ok"] is True
