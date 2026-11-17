@@ -19,6 +19,7 @@ from typing import Mapping
 
 from yoke_contracts.qa_case_environment import COMMAND_CASE_CANDIDATE_TREE_ENV
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts import venv_layout
 from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project
 
 from yoke_core.domain.qa_environment_declaration import (
@@ -31,11 +32,6 @@ QA_SOURCE_ENVIRONMENT_ENV = "YOKE_QA_SOURCE_ENVIRONMENT"
 
 class SourceEnvironmentRefusal(ValueError):
     """The selected checkout cannot supply truthful source verification."""
-
-
-def venv_python(prefix: Path) -> Path:
-    """The interpreter path inside the virtual environment at *prefix*."""
-    return prefix / ("Scripts/python.exe" if os.name == "nt" else "bin/python3")
 
 
 @dataclass(frozen=True)
@@ -139,7 +135,7 @@ def resolve(
             "SOURCE-ENVIRONMENT-LOCK-MISSING", f"no declared locked project in {root}"
         )
     prefix = project / ".venv"
-    python = venv_python(prefix)
+    python = venv_layout.venv_python(prefix, name="python3")
     if not python.is_file() or prefix.resolve().parent != project:
         refuse(
             "SOURCE-ENVIRONMENT-MISSING",

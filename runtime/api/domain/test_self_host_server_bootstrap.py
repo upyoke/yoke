@@ -26,11 +26,7 @@ from yoke_core.tools.self_host_server_bootstrap import (
 )
 
 
-pytestmark = pytest.mark.posix_only(
-    reason="self-host server runs on Linux or WSL2"
-)
-
-
+@pytest.mark.posix_only(reason="POSIX runtime identity and secret permissions")
 def test_handoff_inputs_are_written_by_runtime_without_chown(tmp_path, monkeypatch):
     payloads = {PG_DSN_FILE_ENV: b"host=db dbname=yoke user=yoke password=test\n"}
     monkeypatch.setattr(os, "chown", lambda *_a: pytest.fail("no chown is needed"))
@@ -50,11 +46,16 @@ def test_handoff_inputs_are_written_by_runtime_without_chown(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize(
-    "payloads",
-    ({}, {PG_DSN_FILE_ENV: b""}, {PG_DSN_FILE_ENV: b"x", "unexpected": b"x"}),
+    ("payloads", "refusal"),
+    (
+        ({}, "self_host_handoff_inputs_invalid"),
+        ({PG_DSN_FILE_ENV: b""}, "self_host_handoff_materialization_failed"),
+        ({PG_DSN_FILE_ENV: b"x", "unexpected": b"x"}, "self_host_handoff_inputs_invalid"),
+    ),
 )
-def test_missing_empty_or_unrequested_input_refuses(tmp_path, payloads):
-    with pytest.raises(SelfHostServerBootstrapError, match="self_host_handoff"):
+@pytest.mark.posix_only(reason="POSIX runtime identity and secret materialization")
+def test_missing_empty_or_unrequested_input_refuses(tmp_path, payloads, refusal):
+    with pytest.raises(SelfHostServerBootstrapError, match=refusal):
         materialize_self_host_runtime_secrets(
             {PG_DSN_FILE_ENV: "/run/secrets/yoke-db-dsn"},
             payloads=payloads,
@@ -74,6 +75,7 @@ def test_linux_effective_capability_proof_is_fail_closed(tmp_path: Path):
         assert_no_effective_linux_capabilities(status_path=status)
 
 
+@pytest.mark.posix_only(reason="POSIX container privilege drop and healthcheck")
 def test_compose_healthcheck_drops_root_before_running_probe(monkeypatch):
     calls = []
     monkeypatch.setattr(self_host_server_bootstrap.os, "geteuid", lambda: 0)
@@ -123,6 +125,7 @@ def test_compose_healthcheck_drops_root_before_running_probe(monkeypatch):
         ),
     ),
 )
+@pytest.mark.posix_only(reason="POSIX container import handoff after privilege drop")
 def test_bootstrap_allowlists_import_commands_after_privilege_drop(
     monkeypatch, selector, expected_tail
 ):

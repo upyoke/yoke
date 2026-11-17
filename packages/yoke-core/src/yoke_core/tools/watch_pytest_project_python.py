@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 from yoke_core.domain import verification_tree_binding
 from yoke_core.tools import impacted_tests
 
@@ -103,7 +105,7 @@ def project_parallel_args(
 def _checkout_venv_python(root: Path) -> Path:
     """The repo root's own .venv interpreter, or a refusal naming its setup."""
     prefix = root / ".venv"
-    python = source_python_environment.venv_python(prefix)
+    python = venv_python(prefix, name="python3")
     if python.is_file():
         return python
     raise source_python_environment.SourceEnvironmentRefusal(

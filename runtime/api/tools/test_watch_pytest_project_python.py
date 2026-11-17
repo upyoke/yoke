@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 import os
 import subprocess
 import sys
@@ -12,7 +14,6 @@ import pytest
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.domain.source_python_environment import (
     SourceEnvironmentRefusal,
-    venv_python,
 )
 from yoke_core.domain.verification_tree_binding import ClaimLookup
 from yoke_core.domain import source_pythonpath as _source_pythonpath
@@ -59,7 +60,7 @@ def test_non_uv_tree_reuses_only_an_active_checkout_environment(
     monkeypatch.setattr(sys, "executable", python)
     if not in_venv:
         monkeypatch.setattr(sys, "base_prefix", prefix)
-    root_python = venv_python(tmp_path / ".venv")
+    root_python = venv_python(tmp_path / ".venv", name="python3")
     if root_venv:
         root_python.parent.mkdir(parents=True)
         root_python.write_text("", encoding="utf-8")
@@ -72,7 +73,7 @@ def test_non_uv_tree_reuses_only_an_active_checkout_environment(
 
 def test_non_uv_tree_runs_on_its_own_venv(tmp_path: Path, monkeypatch) -> None:
     _non_uv_checkout(tmp_path, monkeypatch)
-    python = venv_python(tmp_path / ".venv")
+    python = venv_python(tmp_path / ".venv", name="python3")
     python.parent.mkdir(parents=True)
     python.write_text("", encoding="utf-8")
     (tmp_path / "tests").mkdir()

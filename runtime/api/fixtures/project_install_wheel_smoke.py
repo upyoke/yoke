@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env
+
 from yoke_contracts.project_contract.install_bundle import (
     BUNDLE_SCHEMA,
     SKILL_DISCOVERY_LINKS,
@@ -17,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 def _write_https_config(machine_home: Path, token_file: Path, api_url: str) -> Path:
@@ -217,15 +218,7 @@ class _BundleServer:
 
 
 def _product_env(machine_home: Path, venv_dir: Path) -> dict[str, str]:
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "PYTHONSAFEPATH": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
+    return {**product_env(machine_home, venv_dir), "PYTHONSAFEPATH": "1"}
 
 
 def _run(

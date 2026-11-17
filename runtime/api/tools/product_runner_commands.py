@@ -3,16 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import subprocess
 
-
-def venv_executable(venv: Path, name: str) -> Path:
-    """A console script or interpreter inside a venv on this OS."""
-    if os.name == "nt":
-        return venv / "Scripts" / f"{name}.exe"
-    return venv / "bin" / name
 
 
 class SmokeFailure(RuntimeError):

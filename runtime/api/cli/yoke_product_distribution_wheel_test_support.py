@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env as _product_env
+
 import json
 
 import os
@@ -20,18 +22,7 @@ from runtime.api.cli.product_pack_api import PackApi
 
 from yoke_core.tools import package_index
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-
-def _product_env(*, machine_home: Path, venv_dir: Path) -> dict[str, str]:
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
 
 
 def _assert_command(

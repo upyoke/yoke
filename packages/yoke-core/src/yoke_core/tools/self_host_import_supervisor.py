@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-import pwd
 import signal
 import subprocess
 import sys
 import time
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
     RECOVER_IMPORT_CREDENTIAL_ARG,
@@ -21,7 +21,17 @@ from yoke_core.tools.self_host_server_bootstrap import (
 )
 
 
+if os.name != "nt":
+    import pwd
+
+
 def main(argv: list[str] | None = None) -> int:
+    if os.name == "nt":
+        print(compose_refusal(
+            "self_host_import_supervisor_platform_unsupported: requires a POSIX container runtime.",
+            recovery="Run this entrypoint inside the POSIX self-host container.",
+        ), file=sys.stderr)
+        return 1
     args = list(sys.argv[1:] if argv is None else argv)
     if args not in ([IMPORT_UNIVERSE_ARG], [RECOVER_IMPORT_CREDENTIAL_ARG]):
         print(

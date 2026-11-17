@@ -19,6 +19,8 @@ from yoke_core.tools.install_yoke_launcher_sweep import (
 )
 
 
+pytestmark = pytest.mark.posix_only(reason="POSIX launcher shim")
+
 def _checkout(tmp_path: Path) -> Path:
     root = tmp_path / "checkout"
     root.mkdir()

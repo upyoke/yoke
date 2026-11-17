@@ -12,6 +12,8 @@ import pytest
 
 from yoke_core.tools import install_yoke_launcher as isl
 
+pytestmark = pytest.mark.posix_only(reason="POSIX launcher shim")
+
 
 def _fake_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "yoke-repo"

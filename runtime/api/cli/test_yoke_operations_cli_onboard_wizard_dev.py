@@ -19,6 +19,7 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
+    settle_checks,
     stub_path_doctor,
     type_text,
 )
@@ -49,6 +50,7 @@ async def _pick_edit_yoke(pilot) -> None:
     for _ in range(index):
         await pilot.press("down")
     await pilot.press("enter")
+    await settle_checks(pilot)
 
 
 def _body_text(app) -> str:
@@ -69,8 +71,9 @@ def test_single_checkout_needs_no_github_or_official_project_access(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _pick_edit_yoke(pilot)
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -107,8 +110,9 @@ def test_project_mode_preset_uses_selected_checkout(monkeypatch) -> None:
             await advance_past_path(pilot)
             await pilot.press("down")
             await pilot.press("enter")
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -148,8 +152,9 @@ def test_clone_accepts_user_supplied_fork_and_target(monkeypatch) -> None:
             await pilot.press("enter")
             await type_text(pilot, "/home/me/my-yoke")
             await pilot.press("enter")
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -177,7 +182,7 @@ def test_non_yoke_folder_shows_cause_and_required_recovery(
             await pilot.press("enter")  # Choose another checkout
             await type_text(pilot, str(conflict))
             await pilot.press("enter")
-            await pilot.pause()
+            await settle_checks(pilot)
             captured = _body_text(app)
 
     asyncio.run(scenario())

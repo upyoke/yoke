@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from yoke_contracts.venv_layout import venv_python, venv_console_script
 import subprocess
 
 import pytest
@@ -66,16 +67,16 @@ def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
     assert status.current
     assert status.pinned_release == RELEASE
     assert status.served_build == RELEASE
-    assert status.launch_executable == instance.state_dir / "venv" / "bin" / "yoke"
-    assert status.runtime_executable == instance.state_dir / "runtime" / "bin" / "yoke"
-    assert status.runtime_python == instance.state_dir / "runtime" / "bin" / "python"
+    assert status.launch_executable == venv_console_script(instance.state_dir / "venv", "yoke", windows_suffix=".cmd")
+    assert status.runtime_executable == venv_console_script(instance.state_dir / "runtime", "yoke", windows_suffix=".cmd")
+    assert status.runtime_python == venv_python(instance.state_dir / "runtime")
     assert status.runtime_python.resolve().is_relative_to(
         (instance.state_dir / "runtime").resolve()
     )
     assert (instance.state_dir / "venv").is_symlink()
     assert (instance.state_dir / "venv").resolve() == instance.state_dir / "runtime"
     assert (instance.state_dir / "release").is_symlink()
-    assert status.runtime_executable.read_text().startswith(
+    assert venv_console_script(instance.state_dir / "runtime", "yoke", windows_suffix=".py").read_text().startswith(
         f"#!{status.runtime_python} -I\n"
     )
     install = calls[0]
@@ -148,7 +149,7 @@ def test_existing_release_link_converges_to_the_stable_runtime(
     assert status.runtime_python.resolve().is_relative_to(
         (instance.state_dir / "runtime").resolve()
     )
-    assert status.runtime_executable.read_text().startswith(
+    assert venv_console_script(instance.state_dir / "runtime", "yoke", windows_suffix=".py").read_text().startswith(
         f"#!{status.runtime_python} -I\n"
     )
 
