@@ -40,6 +40,7 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.merge_github_queue import (
     READY_TO_ENQUEUE,
     enter_merge_queue,
+    mark_ready_for_review,
     read_pr_landing_state,
 )
 from yoke_core.domain.merge_context import MergeContext
@@ -164,6 +165,11 @@ def land_item_through_merge_queue(
     pre_state, pre_err = read_pr_landing_state(ctx, pr_num)
     if pre_err:
         warnings.append(pre_err)
+    if pre_state is not None and pre_state.draft:
+        ready = mark_ready_for_review(ctx, pr_num)
+        if not ready.success:
+            return fail_landing(pr_num, ready.error_detail, tuple(warnings))
+        emit(f"marked PR {pr_num} ready for review")
     already_merged = bool(pre_state is not None and pre_state.merged)
     already_armed = bool(
         pre_state is not None

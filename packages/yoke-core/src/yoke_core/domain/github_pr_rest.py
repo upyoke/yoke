@@ -27,7 +27,6 @@ def create_pull_request(
     head: str,
     base: str,
     body: Optional[str] = None,
-    draft: bool = False,
     token: str,
 ) -> Dict[str, Any]:
     """Open a pull request ``head`` -> ``base`` on ``repo``.
@@ -41,7 +40,6 @@ def create_pull_request(
         "title": title,
         "head": head,
         "base": base,
-        "draft": bool(draft),
     }
     if body is not None:
         payload["body"] = body

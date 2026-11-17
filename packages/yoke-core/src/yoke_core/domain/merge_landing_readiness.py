@@ -62,6 +62,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
 from yoke_core.domain.standalone_item_merge_release_status import (
     stale_mismatch_is_foreign,
 )
+from yoke_core.domain.merge_pr_readiness import check_standalone_draft
 from yoke_core.domain.merge_verification import resolve_verification
 
 
@@ -167,6 +168,7 @@ def _route_gates(
     elif admission.declares_queue:
         check_queue_gates(readiness, item=item, head=head)
     else:
+        check_standalone_draft(readiness, item=item)
         # The standalone engine resolves this after its rebase; read-only here.
         try:
             resolve_verification(public_ref, materialize=False)

@@ -60,10 +60,10 @@ def _resolver_ok(monkeypatch):
 def _rest_recorder(monkeypatch):
     calls = []
 
-    def fake_create(repo, *, title, head, base, body=None, draft=False, token):
+    def fake_create(repo, *, title, head, base, body=None, token):
         calls.append({
             "repo": repo, "title": title, "head": head, "base": base,
-            "body": body, "draft": draft, "token": token,
+            "body": body, "token": token,
         })
         return {"number": 41, "url": "https://github.com/upyoke/yoke/pull/41"}
 
@@ -118,7 +118,6 @@ class TestCreate:
             "head": "yoke-install/abc123def456",
             "base": "main",
             "body": None,
-            "draft": False,
             "token": "ghs_test_token",
         }]
         assert outcome.result_payload == {
@@ -126,19 +125,20 @@ class TestCreate:
             "url": "https://github.com/upyoke/yoke/pull/41",
         }
 
-    def test_optional_fields_pass_through(self, _resolver_ok, _rest_recorder):
+    @pytest.mark.parametrize("draft", [False, True])
+    def test_optional_fields_pass_through(self, _resolver_ok, _rest_recorder, draft):
         outcome = handle_pr_create(_make_request({
             "title": "T",
             "head": "yoke-install/feature-x",
             "base": "stage",
             "body": "## Summary\n\nDetails.",
-            "draft": True,
+            "draft": draft,
         }))
         assert outcome.primary_success
         call = _rest_recorder[0]
         assert call["base"] == "stage"
         assert call["body"] == "## Summary\n\nDetails."
-        assert call["draft"] is True
+        assert "draft" not in call
 
     def test_transport_error_surfaces_as_error_envelope(
         self, monkeypatch, _resolver_ok,

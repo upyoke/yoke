@@ -10,6 +10,7 @@ from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup
 from yoke_core.domain.merge_github_discovery import find_existing_pr
 from yoke_core.engines.merge_worktree_queue_landing import queue_lane_landing
 from yoke_core.domain.merge_github_rest import create_pr
+from yoke_core.domain.merge_pr_readiness import prepare_pull_request
 from yoke_core.engines.merge_worktree_pr_merge import (
     run_pr_merge_with_retry_guard,
 )
@@ -32,23 +33,10 @@ def _parent():
 
 
 def do_pr_merge(ctx: MergeContext) -> int:
-    """Land the lane: through the merge queue, or push + PR + CI + merge.
+    """Land through the queue, or publish, prepare, verify and merge a PR.
 
-    A project declaring the merge queue lands the lane through it
-    (:mod:`yoke_core.engines.merge_worktree_queue_landing`); the steps below
-    are the direct pull-request merge for every other project.
-
-    Preconditions (enforced by ``run()``):
-      - Local ``{target}`` has already been pushed to origin, and
-        ``ctx.target_sha_at_validation`` holds the SHA that was pushed.
-      - Trial merge + rebase/merge-commit already succeeded against the same
-        post-push origin target.
-
-    Publishing and REST steps stop at the first failure, record the failing
-    phase and return exit 1.
-
-    Never falls through to PR-merge with empty identifiers — empty
-    ``pr_url`` or empty ``pr_num`` are hard failures.
+    run() has validated the lane against ctx.target_sha_at_validation.
+    REST failures preserve the lane and record the failing phase.
     """
     from yoke_core.domain.qa_case_ci_lane import push_lane
 
@@ -177,6 +165,13 @@ def do_pr_merge(ctx: MergeContext) -> int:
             extra_detail="Refusing to merge with an empty PR identifier.",
         )
 
+    ready_error = prepare_pull_request(ctx, pr_num, emit=_print)
+    if ready_error:
+        return _fail_merge_rest(
+            "pr-ready-for-review", ctx=ctx,
+            event_name="MergePullRequestCreateFailed", error_detail=ready_error,
+            extra_detail="No merge attempt was made; worktree preserved.",
+        )
     _print(f"PR: {pr_url}")
 
     # 3. Wait for CI.
