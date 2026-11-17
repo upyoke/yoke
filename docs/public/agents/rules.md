@@ -29,18 +29,22 @@ command's `--help` ends with its recipe. Claude-only steps live in
 - A future item or a planned path claim is not a verification waiver. Fix it
   here unless a live conflict or an explicit operator waiver applies.
 - Update a test your change made stale.
-- A flaky test is a defect. If this item caused it, or it lives in a file this
-  item touches, fix it here. Otherwise file it and wait on the fix:
+- A failing or flaky test is a defect. Fix it here when it is in code or tests
+  this item touches, shares a root cause with this item's change, or is a flake
+  this item caused.
+- Otherwise it is unrelated: report it, never block on it. Record it, tell your
+  steering seat, then rerun:
 
 ```text
-yoke feedback --to universe --category failed --evidence 'Flaky test: TEST, CI run URL, observed outcomes'
-yoke feedback promote 12345 --title 'Fix flaky TEST'
-yoke items dependency add THIS-ITEM FIX-ITEM dash --gate-point integration \
-  --satisfaction fact:merged --rationale 'needs the flaky-test fix merged'
-yoke sessions touch --mode parked --reason "awaiting FIX-ITEM merge"
+yoke feedback --to universe --category failed --evidence 'Unrelated failure: RUN URL, JOB/SHARD, TEST, observed outcome'
+printf %s "Unrelated failure: TEST in RUN URL; feedback ENTRY" | yoke say --steering --stdin
 ```
 
-  If the fix is small and your work claim allows its files, fix it here instead.
+  Never file, dash or promote an item for it, and never add a dependency on
+  one: steering vets the finding and decides whether to file a fix. Rerun the
+  local gate, or proceed when your own required proof stands. For red CI,
+  rebase onto a moved main and re-run `yoke merge item`; never push an empty
+  commit. Until main moves, wait naming your steering report.
 - A cancelled or never-started CI job is not a verdict. Recover it with
   [failed CI job recovery](../github/index.md#failed-ci-job-recovery).
 - Record the failure, the claim action and the rerun evidence. Never report

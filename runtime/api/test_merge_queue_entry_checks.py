@@ -184,9 +184,11 @@ def test_a_queue_entry_outranks_a_stale_red_check_read():
     assert _record(membership=IN_QUEUE, checks=(FAILED_REQUIRED,)).state == PENDING
 
 
-def test_red_check_recovery_requires_a_fix_and_unrelated_cause_dependency():
+def test_red_check_recovery_fixes_on_the_lane_and_routes_unrelated_to_steering():
     recovery = checks_mod.red_checks_recovery([FAILED_REQUIRED])
     assert "fix it on the lane" in recovery
     assert "yoke feedback" in recovery
-    assert "record the dependency, and park" in recovery
+    assert "yoke say --steering" in recovery
+    assert "feedback promote" not in recovery
+    assert "record the dependency" not in recovery
     assert "rerun-failed" not in recovery

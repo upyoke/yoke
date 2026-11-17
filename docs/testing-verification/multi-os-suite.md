@@ -64,9 +64,10 @@ The baselines only shrink:
 A test that fails in some runs and passes in others cannot be held by a
 strict entry. List it by hand in `runtime/known_failure_baselines/flaky/<os>.json`
 as `"<node id>": {"reason": ..., "feedback": <entry id>, "fix_item": "YOK-N"}`:
-file a feedback note for it, promote that note to a fix item
-(`yoke feedback promote ENTRY --title "Fix flaky TEST"`) and link the item to
-the NATIVE-WINDOWS strategy document. A flaky test runs as
+file a feedback note for it and report it with `yoke say --steering --stdin`.
+Steering vets the note and files the fix item, linked to the NATIVE-WINDOWS
+strategy document; `fix_item` is the item steering names. A lane never
+promotes the note itself. A flaky test runs as
 `xfail(strict=False)`, so neither its failures nor its passes decide the run.
 Delete the entry when its fix item lands. A test cannot be on both lists.
 

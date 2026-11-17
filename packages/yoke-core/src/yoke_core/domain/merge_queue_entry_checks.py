@@ -103,6 +103,19 @@ def describe_failed_checks(failed: Sequence[LandingCheck]) -> str:
     return ", ".join(check.describe() for check in failed) or "none"
 
 
+UNRELATED_FAILURE_ROUTING = (
+    "If the cause is unrelated (not in code or tests this item touched, not "
+    "the same root cause, not a flake this item caused), record it with `yoke "
+    "feedback --to universe --category failed --evidence 'Unrelated failure: "
+    "RUN URL, JOB/SHARD, TEST, observed outcome'`, tell steering with `yoke say "
+    "--steering --stdin`, and never file, dash or promote an item or add a "
+    "dependency for it: steering vets the finding. Then re-run the local "
+    "verification gate; for red CI, rebase onto a moved main and re-run `yoke "
+    "merge item` (no empty commits), and until main moves, wait naming that "
+    "steering report"
+)
+
+
 def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
     if only_no_verdict(failed):
         return (
@@ -113,11 +126,7 @@ def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
         )
     return (
         "fix it on the lane, commit, re-run the verification gate, and "
-        "re-run `yoke merge item`. If this item's change did not cause it, "
-        "file it with `yoke feedback --to universe --category failed --evidence "
-        "'Flaky test: TEST, CI run URL, observed outcomes'`, then `yoke feedback "
-        "promote ENTRY --title 'Fix flaky TEST'`, record the dependency, and park; "
-        "the gate stays red until the fix lands"
+        "re-run `yoke merge item`. " + UNRELATED_FAILURE_ROUTING
     )
 
 

@@ -53,6 +53,10 @@ def test_unchanged_head_and_base_after_a_failed_train_is_refused(conclusion):
     assert "Inspect that identified failed run first" in error
     assert "fix it on the lane" in error
     assert "yoke feedback" in error
+    assert "yoke say --steering" in error
+    assert "feedback promote" not in error
+    assert "record the dependency" not in error
+    assert "no empty commits" in error
     assert "--retry-flake" not in error
     assert "retry once" not in error
     assert "one recorded retry" not in error
