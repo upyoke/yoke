@@ -4,7 +4,11 @@ from yoke_harness.native_windows.receipts import GUARDS
 
 SCRIPT = GUARDS + r"""
 function Assert-YokeTailnetPrivate($path,$directory) {
- Assert-YokeRecoveryObject $path $directory
+ try {Assert-YokeRecoveryObject $path $directory} catch {
+  $problem=$_.Exception.Message; $probeOwner='unavailable'
+  try {$probeOwner=(Get-Acl -LiteralPath $path -ErrorAction Stop).GetOwner([Security.Principal.SecurityIdentifier]).Value} catch {}
+  throw ($problem+'; probe='+[IO.Path]::GetFileName($path)+'; owner='+$probeOwner)
+ }
  $acl=Get-Acl -LiteralPath $path -ErrorAction Stop
  if($path -eq 'C:\ProgramData\YokeQa\private' -and !$acl.AreAccessRulesProtected){throw 'windows_rdp_firewall_failed: provision the protected private probe directory'}
  $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
@@ -33,7 +37,15 @@ function Invoke-YokeSystemTailnetProof($exe,$body) {
   $payload+="`$r=@{nonce='$nonce';sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;ok=`$false}`n"
   $payload+="try {`$r.proof=Get-YokeTailnetProof -Executable '"+$exe.Replace("'","''")+"';`$r.ok=`$true} catch {}`n"
   $payload+="[IO.File]::WriteAllText('$resultPath.tmp',(`$r | ConvertTo-Json -Depth 5 -Compress));[IO.File]::Move('$resultPath.tmp','$resultPath')"
-  [IO.File]::WriteAllText($scriptPath,$payload,[Text.UTF8Encoding]::new($true))
+  $stream=[IO.File]::Open($scriptPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+  try {
+   $writer=[IO.StreamWriter]::new($stream,[Text.UTF8Encoding]::new($true))
+   try {$writer.Write($payload)} finally {$writer.Dispose()}
+  } finally {$stream.Dispose()}
+  # Only this exclusively created file is ours; never repair a pre-existing owner.
+  $acl=Get-Acl -LiteralPath $scriptPath
+  $acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+  Set-Acl -LiteralPath $scriptPath -AclObject $acl -ErrorAction Stop
   Assert-YokeTailnetPrivate $scriptPath $false
   $scheduler=New-Object -ComObject Schedule.Service; $scheduler.Connect()
   $folder=$scheduler.GetFolder('\'); $definition=$scheduler.NewTask(0)

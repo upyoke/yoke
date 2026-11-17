@@ -30,9 +30,15 @@ public class YokeTailnetFixture {
 '@
  Add-Type -TypeDefinition $code -OutputAssembly (Join-Path $folder 'tailscale.exe') -OutputType ConsoleApplication -ErrorAction Stop
  $env:ProgramFiles=$root
- $adapter=@(Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object -First 1)[0]
- $ip=@(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 | Where-Object {$_.AddressState -eq 'Preferred'} | Select-Object -First 1)[0].IPAddress
- if(!$ip){throw 'real live adapter fixture missing'}
+ $adapters=@(Get-NetAdapter -IncludeHidden | Where-Object {$_.Status -eq 'Up'})
+ $addresses=@(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.AddressState -eq 'Preferred' -and $_.IPAddress -notlike '127.*' -and $_.IPAddress -ne '0.0.0.0'})
+ $pairs=@(foreach($address in $addresses){
+  $matches=@($adapters | Where-Object {$_.ifIndex -eq $address.InterfaceIndex})
+  if($matches.Count -eq 1){@{ip=$address.IPAddress;adapter=$matches[0]}}
+ })
+ $pair=@($pairs | Select-Object -First 1)
+ if($pair.Count -ne 1){throw 'real Preferred IPv4/live-adapter fixture missing'}
+ $adapter=$pair[0].adapter; $ip=$pair[0].ip
  function Write-Status($state,$ips) {
   @{BackendState=$state;Self=@{TailscaleIPs=@($ips)}} | ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $folder 'status.json')
  }

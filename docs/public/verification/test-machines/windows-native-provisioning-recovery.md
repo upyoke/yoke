@@ -129,6 +129,11 @@ Windows CI exposed two API mismatches: query `RemoteDesktop-*` by name, then
 filter `Enabled` in the pipeline; those parameters belong to different sets.
 Windows cannot store wildcard interface aliases: use real `Any` filters for
 integration and assert wildcard rejection directly against the same predicate.
+Choose a Preferred nonloopback IPv4 assignment paired with one live adapter;
+the first up adapter can have no IPv4 address. Create probe scripts exclusively
+and set trusted ownership only on the newly created file before the unchanged
+owner/ACL guard. A generic owner refusal identifies no offender; retain probe
+basename/owner-SID diagnostics and never take ownership of an existing object.
 
 A later full lab refresh refused unverified Tailscale self identity and
 deallocated after 150 seconds. A read-only administrator probe found CLI exit
