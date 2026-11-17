@@ -100,7 +100,7 @@ jobs:
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
     timeout-minutes: 45
-    name: suite (${{ matrix.os }}, ${{ matrix.shard }})
+    name: suite (${{ matrix.os }}, ${{ matrix.shard }}, ${{ matrix.crash }})
     needs: plan
     runs-on: ${{ matrix.runner }}
     defaults:
@@ -118,6 +118,7 @@ jobs:
       matrix:
         os: [windows]
         shard: [15]
+        crash: [with-worker-kill, without-worker-kill]
         include:
           - os: windows
             runner: windows-2025
@@ -162,13 +163,18 @@ jobs:
           git config --global init.defaultBranch main
       - name: Start the native test Postgres
         run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres start
-      - name: Run pytest serially with hang dumps (TEMPORARY DIAGNOSTIC)
+      - name: Reproduce the shard-15 hang under xdist (TEMPORARY DIAGNOSTIC)
         env:
-          YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
           PYTEST_ADDOPTS: ""
         run: |
-          uv run --frozen python -c "from pathlib import Path; from yoke_core.tools.ci_shard_groups import GROUPS_PATH, shard_files; Path('.yoke/tmp/ci-shard-files.txt').write_text(chr(10).join(shard_files(Path(GROUPS_PATH), 'all', ${{ matrix.shard }})) + chr(10))"
-          YOKE_CI_SELECTION_FILE="$PWD/.yoke/tmp/ci-shard-files.txt" uv run --frozen python -m pytest runtime/api/ runtime/harness/ tests/ -p yoke_core.tools.ci_selection_collect -v -o faulthandler_timeout=120 --deselect runtime/api/tools/test_source_postgres_environment.py::test_sigterm_unwinds_and_restores_handler --junitxml=pytest-report.xml 2>&1 | tee pytest-output.txt
+          cat diag/shard15-files-* > .yoke/tmp/ci-shard-files.txt
+          if [ "${{ matrix.crash }}" = with-worker-kill ]; then
+            # Same slot the killed test held: early in the queue, mid-run.
+            echo diag/test_diag_worker_kill.py >> .yoke/tmp/ci-shard-files.txt
+            extra=diag/
+          fi
+          YOKE_CI_SELECTION_FILE="$PWD/.yoke/tmp/ci-shard-files.txt" timeout 1500 uv run --frozen python -m pytest runtime/api/ runtime/harness/ tests/ ${extra:-} -p yoke_core.tools.ci_selection_collect -n 2 --dist loadfile --no-loadscope-reorder -v -o faulthandler_timeout=120 2>&1 | tee pytest-output.txt
+          echo "pytest exit: ${PIPESTATUS[0]}"
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

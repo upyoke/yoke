@@ -125,6 +125,14 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
     target.chmod(0o600)
 
 
+#: The signals a stop request arrives as. Windows stops a process group with
+#: CTRL_BREAK_EVENT (``platform_process.stop_group``), which Python receives as
+#: SIGBREAK; without a handler it ends the process before cleanup runs.
+STOP_SIGNALS = (signal.SIGTERM,) + (
+    (signal.SIGBREAK,) if hasattr(signal, "SIGBREAK") else ()
+)
+
+
 def _terminate(signum, _frame):
     raise SystemExit(128 + signum)
 
@@ -182,15 +190,16 @@ def isolated_machine_home(
         resolved["YOKE_SCRATCH_ROOT"] = str(evidence)
         print(f"source machine home: disposable {destination}", file=sys.stderr)
         print(f"source evidence root: {evidence}", file=sys.stderr)
-        previous = None
+        previous = {}
         if threading.current_thread() is threading.main_thread():
-            previous = signal.getsignal(signal.SIGTERM)
-            signal.signal(signal.SIGTERM, _terminate)
+            for stop_signal in STOP_SIGNALS:
+                previous[stop_signal] = signal.getsignal(stop_signal)
+                signal.signal(stop_signal, _terminate)
         try:
             yield resolved
         finally:
-            if previous is not None:
-                signal.signal(signal.SIGTERM, previous)
+            for stop_signal, handler in previous.items():
+                signal.signal(stop_signal, handler)
             from yoke_core.tools.pg_testcluster_reclaim import destroy_evidence_clusters
 
             destroy_evidence_clusters(evidence)

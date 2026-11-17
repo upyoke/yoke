@@ -1,7 +1,8 @@
 """Keep every test off the developer's real home folder.
 
-Each test runs with ``HOME`` set to an empty per-test folder, and with the
-variables that move a harness home or the XDG config root cleared, so every
+Each test runs with ``HOME`` (and ``USERPROFILE`` on Windows) set to an empty
+per-test folder, and with the variables that move a harness home or the XDG
+config root cleared, so every
 resolver — ``Path.home()``, ``expanduser``, a harness path imported by name
 into another module, and every subprocess the test starts — lands in that
 folder. A test that needs a file a real home would hold (a git identity, a
@@ -33,6 +34,10 @@ import tempfile
 from typing import Iterable, List, Sequence, Tuple
 
 import pytest
+
+#: The variables a test's isolated home is written to. Windows resolves
+#: ``Path.home()`` from ``USERPROFILE`` and ignores ``HOME``.
+HOME_ENVS = ("HOME", "USERPROFILE") if os.name == "nt" else ("HOME",)
 
 #: The variables, besides ``HOME``, that point a home resolver elsewhere.
 HOME_REDIRECT_ENVS = ("XDG_CONFIG_HOME",)
@@ -195,7 +200,8 @@ def _isolate_real_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     exists, so a test creates the harness home it means to exercise.
     """
     home = isolated_home(tmp_path)
-    monkeypatch.setenv("HOME", str(home))
+    for name in HOME_ENVS:
+        monkeypatch.setenv(name, str(home))
     for name in _redirect_envs():
         monkeypatch.delenv(name, raising=False)
     GUARD.start()
