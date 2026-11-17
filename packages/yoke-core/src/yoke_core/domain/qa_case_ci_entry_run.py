@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from yoke_contracts.runtime_ports.merge_item_local_runtime import get_merge_item_local_runtime
 
+import sys
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -141,12 +142,14 @@ def open_landing_pull_request(
         project=project,
     )
     with machine_github_user_authority():
-        pr_num, error = ensure_landing_pull_request(
+        pr_num, error, record_warning = ensure_landing_pull_request(
             ctx,
             branch,
             lane_head=lane_head,
             item_public_ref=public_ref,
         )
+    if record_warning:
+        print(f"Warning: {record_warning}", file=sys.stderr)
     if error:
         raise QaCaseExecutionError(
             f"could not open the landing pull request for {branch!r}: {error}"

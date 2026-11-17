@@ -19,6 +19,7 @@ from yoke_core.domain.close_out_evidence_gate import (
 )
 from yoke_core.domain import merge_landing_readiness as readiness_gate
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_integration_hold as hold
 from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import item_landings_close_out as landings
@@ -102,6 +103,12 @@ def run(argv: List[str]) -> int:
     )
     if args.check:
         return readiness_gate.print_check(readiness, as_json=as_json)
+    if not readiness.ready and hold.held_only_by_integration(readiness):
+        # Only the merge is held: publish the lane and its pull request first.
+        published = hold.publish_held_lane(item, readiness)
+        if not as_json:
+            print("\n".join(published))
+        return fail(readiness.refusal(), integration_hold=published)
     if not readiness.ready:
         return fail(readiness.refusal())
 

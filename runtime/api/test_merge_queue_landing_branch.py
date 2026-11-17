@@ -92,7 +92,7 @@ def _ensure():
         ctx(repo_root=CHECKOUT),
         "YOK-200",
         lane_head=LANE_SHA,
-    )
+    )[:2]
 
 
 def test_landing_publishes_a_branch_origin_has_never_seen(monkeypatch):

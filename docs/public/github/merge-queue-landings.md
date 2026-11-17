@@ -41,8 +41,11 @@ gate (`merge.preflight.dependency_gate`). Queue admission only sees
 predecessors that are queue members, so this gate is what keeps an item from
 enqueuing while a predecessor is still being implemented. A blocked gate
 refuses with `integration_dependency_blocked`, naming each predecessor and its
-status; nothing is armed or enqueued. Wait for the predecessor's landing
-notice, then re-run the same command. A gate that cannot be read refuses with
+status; nothing is armed or enqueued. When that is the only blocker, the
+command first pushes the lane and opens (or reuses) and records its landing
+pull request, then prints it before the refusal; any other blocker refuses
+with nothing published, and `--check` never publishes. Wait for the
+predecessor's landing notice, then re-run the same command. A gate that cannot be read refuses with
 `integration_dependency_gate_unavailable` rather than landing.
 
 Control-plane upkeep reads the registered pull request about once a minute.

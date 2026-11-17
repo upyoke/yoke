@@ -205,28 +205,35 @@ def ensure_landing_pull_request(
     *,
     lane_head: str = "",
     item_public_ref: str = "",
-) -> tuple[str, Optional[str]]:
+) -> tuple[str, Optional[str], str]:
     """Resolve this landing's pull request and record it on the item.
 
-    Recording here rather than at either caller is what makes the number
-    survive a process that dies waiting: both the verification gate and the
-    landing converge on this one function, so this is the only place that
-    sees every pull request an item lands through. Recording is advisory —
-    a landing that is otherwise fine does not fail because the marker write
-    did — an empty ``item_public_ref`` skips it for callers with no item in hand.
+    Returns ``(pr_num, error, record_warning)``. Recording here rather than
+    at either caller is what makes the number survive a process that dies
+    waiting: every route that lands or holds a lane converges on this one
+    function. Recording is advisory — a landing that is otherwise fine does
+    not fail because the marker write did — so a failed write comes back as
+    ``record_warning`` for the caller to print. An empty ``item_public_ref``
+    skips it for callers with no item in hand.
     """
     pr_num, error = _resolve_landing_pull_request(
         ctx,
         public_ref,
         lane_head=lane_head,
     )
+    warning = ""
     if pr_num and item_public_ref:
         from yoke_core.domain.merge_queue_landing_pending import (
             record_landing_pull_request,
         )
 
-        record_landing_pull_request(item_public_ref, pr_num)
-    return pr_num, error
+        warning = record_landing_pull_request(item_public_ref, pr_num)
+        if warning:
+            warning = (
+                f"pull request {pr_num} is open but was not recorded on "
+                f"{item_public_ref}: {warning}"
+            )
+    return pr_num, error, warning
 
 
 def _resolve_landing_pull_request(

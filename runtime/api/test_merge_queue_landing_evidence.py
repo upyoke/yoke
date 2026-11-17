@@ -171,7 +171,7 @@ def test_the_lane_head_is_what_declines_a_stale_merged_pull_request(
             already_exists=True,
         ),
     )
-    pr_num, error = landing_pr_mod.ensure_landing_pull_request(
+    pr_num, error, _warning = landing_pr_mod.ensure_landing_pull_request(
         ctx(),
         "YOK-200",
         lane_head=LANE_SHA,
