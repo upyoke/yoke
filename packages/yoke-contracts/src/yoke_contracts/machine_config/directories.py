@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_contracts.platform_paths import POSIX_TMP
+if __package__:
+    from yoke_contracts.platform_paths import POSIX_TMP
+else:
+    from _yoke_platform_paths import POSIX_TMP
 
 import os
 import tempfile
