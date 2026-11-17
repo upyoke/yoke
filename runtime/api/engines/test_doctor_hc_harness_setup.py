@@ -142,7 +142,9 @@ def test_setup_apply_reports_ready_after_relay_ran_before_scaffold(
     [refusal] = [
         row for row in early["failure"]["rows"] if row["outcome"] == "refused"
     ]
-    assert str(root / ".codex" / "hooks.json") in refusal["detail"]
+    assert refusal["target_path"] == str(root)
+    # The OS error renders the path through repr (doubled \\ on Windows).
+    assert repr(str(root / ".codex" / "hooks.json")) in refusal["detail"]
 
     hooks = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "x"}]}]}}
     (root / ".codex").mkdir()
