@@ -99,7 +99,7 @@ jobs:
           docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
-    timeout-minutes: 90
+    timeout-minutes: 25
     name: suite (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ matrix.runner }}
@@ -110,6 +110,9 @@ jobs:
       PYTHONUNBUFFERED: "1"
       YOKE_CI_PYTHON_SCOPE: all
       YOKE_KNOWN_FAILURE_BASELINE: "1"
+      # Name every test as it finishes: a hung or worker-killing test is then
+      # the unfinished one in its file, even when the job times out.
+      PYTEST_ADDOPTS: -v
     strategy:
       fail-fast: false
       matrix:
