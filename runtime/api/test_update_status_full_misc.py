@@ -14,7 +14,10 @@ from runtime.api.update_status_full_test_helpers import TEST_EPIC_REF, UpdateSta
 @pytest.fixture
 def env(tmp_path):
     e = UpdateStatusEnv(tmp_path, f"test-update-status-{os.getpid()}")
-    yield e
+    try:
+        yield e
+    finally:
+        e.close()
 
 
 class TestDBFailure:
