@@ -1,7 +1,9 @@
 {
  "id": "persistent-identity-store",
  "title": "Persistent identity store",
- "status": "draft-copy",
+ "status": "observed",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/browser_profile.py", "packages/yoke-contracts/src/yoke_contracts/browser_identity.py", "runtime/api/cli/test_browser_profile_store.py", "runtime/api/domain/test_browser_identity_store_reset.py", "docs/public/verification/test-machines/browser-identities.md"],
  "page": "test-machine-starting-state",
- "position": 4
+ "position": 4,
+ "summary": "Every identity profile lives in ~/.yoke-browser-identities/<project>/<identity> on every machine, outside ~/.yoke, so a reset that clears ~/.yoke keeps it. The first profile creates the store owner-only. A store that is a link or a file, or cannot be created, refuses browser_identity_store_unavailable. A profile left at the legacy path under ~/.yoke/secrets/capability-secrets moves into the store; when both copies exist the command refuses browser_identity_store_conflict. This fixes remote yoke browser authorize --test-machine leaving profiles where a reset cleared them. Live proof on real hosts is still owed."
 }
