@@ -13,7 +13,15 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
+from datetime import datetime
+
+from yoke_contracts.timestamps import (
+    InvalidInstant,
+    as_utc,
+    format_instant,
+    parse_instant,
+    utc_now,
+)
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
@@ -31,6 +39,7 @@ from yoke_core.domain.ci_job_outcome import (
 from yoke_core.domain.github_actions_identifiers import WorkflowRunId
 from yoke_core.domain.github_actions_run_stall import (
     CI_RUN_NEVER_STARTED_REASON,
+    PENDING_ZERO_JOBS_STALL_SECONDS,
     pending_run_message,
     run_concurrency_groups,
 )
@@ -141,6 +150,33 @@ def _jobs_count(data: Any) -> Optional[int]:
     return raw
 
 
+#: Marks a jobs listing GitHub answered with 404: a just-created attempt
+#: can have no listing yet.
+_JOBS_NOT_YET_CREATED = object()
+
+
+def _jobs_listing_missing_refusal(
+    status: str, run_id: str, updated_at: Optional[datetime]
+) -> Optional[HandlerOutcome]:
+    """Refuse a 404 jobs listing once the run is past the stall threshold.
+
+    A young run waits with no stall classification; the polling client
+    is the only retry. A run with no ``updated_at`` has no provable age.
+    """
+    if updated_at is not None:
+        age = (utc_now() - as_utc(updated_at)).total_seconds()
+        if age < PENDING_ZERO_JOBS_STALL_SECONDS:
+            return None
+    return _transport_failed(
+        f"{status} run {run_id} jobs listing 404 past "
+        f"{PENDING_ZERO_JOBS_STALL_SECONDS}s "
+        f"(updated_at={'unknown' if updated_at is None else format_instant(updated_at)}); "
+        "GitHub never created the attempt's jobs: re-read the run with "
+        "`yoke github-actions wait-run`, and cancel and redispatch it if "
+        "the listing stays missing"
+    )
+
+
 def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     payload, token, err = _validate_and_resolve(
         request,
@@ -151,8 +187,11 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     if err is not None:
         return err
 
-    from yoke_core.domain.gh_rest_transport import RestTransportError
-    from yoke_core.domain.github_actions_rest import rest_get
+    from yoke_core.domain.gh_rest_transport import (
+        RestNotFoundError,
+        RestTransportError,
+    )
+    from yoke_core.domain.github_actions_rest import rest_get, rest_get_found
 
     try:
         data = rest_get(
@@ -175,17 +214,27 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     jobs_count = None
     concurrency_groups = None
+    jobs: Any = None
     status = str(data.get("status") or "").strip()
     if status in _JOBLESS_STALL_STATUSES:
         attempt = data.get("run_attempt") or 1
         try:
-            jobs = rest_get(
+            jobs = rest_get_found(
                 f"/repos/{payload.repo}/actions/runs/{payload.run_id}/"
                 f"attempts/{attempt}/jobs",
                 token=token,
             )
+        except RestNotFoundError:
+            jobs = _JOBS_NOT_YET_CREATED
         except RestTransportError as exc:
             return _transport_failed(f"{status} run jobs lookup failed: {exc}")
+    if status in _JOBLESS_STALL_STATUSES and jobs is _JOBS_NOT_YET_CREATED:
+        refusal = _jobs_listing_missing_refusal(
+            status, str(payload.run_id), data.get("updated_at")
+        )
+        if refusal is not None:
+            return refusal
+    elif status in _JOBLESS_STALL_STATUSES:
         jobs_count = _jobs_count(jobs)
         if jobs_count is None:
             return _transport_failed(

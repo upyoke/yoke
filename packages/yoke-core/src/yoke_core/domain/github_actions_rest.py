@@ -73,12 +73,25 @@ def rest_get(
     token: str,
 ) -> Any:
     """GET a GitHub REST endpoint; return parsed JSON body or ``None`` on 404."""
-    req = RestRequest(method="GET", path=path, query=dict(query or {}))
     try:
-        resp = request_with_retry(req, token=token)
+        return rest_get_found(path, query=query, token=token)
     except RestNotFoundError:
         return None
-    return resp.body
+
+
+def rest_get_found(
+    path: str,
+    *,
+    query: Optional[Mapping[str, str]] = None,
+    token: str,
+) -> Any:
+    """GET a GitHub REST endpoint; a 404 raises :class:`RestNotFoundError`.
+
+    For callers that must tell a missing resource apart from a body that
+    parsed to something other than the expected object.
+    """
+    req = RestRequest(method="GET", path=path, query=dict(query or {}))
+    return request_with_retry(req, token=token).body
 
 
 def rest_post(
