@@ -239,7 +239,7 @@ def test_symlinked_temp_candidate_root_keeps_nested_project_labels(
     seen_root, report = reports[0]
     assert seen_root == seen_root.resolve()
     assert report.error == ""
-    assert "environment:synced=services/platform-svc" in report.actions
+    assert f"environment:synced={Path('services') / 'platform-svc'}" in report.actions
 
 
 @pytest.fixture
