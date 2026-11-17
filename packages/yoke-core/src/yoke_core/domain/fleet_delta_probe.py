@@ -59,6 +59,7 @@ Due reports are checked on quiet passes. Identifiers are printed whole.
 Removed holder, landing and run rows get one reason in the next due report.
 
 Raw line shapes:
+  fleet pass <instant> (raw-only liveness after each completed pass)
   fleet item YOK-N status <old> -> <new>
   fleet item YOK-N available status=<status> claim=<claim-state>
   fleet session <session-id> registered|ended|terminated surface=<surface>
@@ -71,6 +72,8 @@ Raw line shapes:
 
 def delta_wake_tier(line: str) -> str | None:
     """Return this line's tier, refusing an unclassified fleet delta."""
+    if line.startswith("fleet pass "):
+        return None
     for tier, pattern in DELTA_WAKE_RULES:
         if pattern.search(line):
             return tier
@@ -186,6 +189,7 @@ def run(
             )
             previous = current
 
+        _write(stream, f"fleet pass {pass_at.isoformat()}")
         if duration > 0 and (pass_at - started).total_seconds() >= duration:
             return 0
         sleep(interval)

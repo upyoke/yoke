@@ -64,6 +64,7 @@ def test_routine_deltas_are_silent_until_a_report_wake() -> None:
         "fleet session abc registered surface=codex-cli mode=dash",
         "fleet session abc ended surface=codex-cli",
         "fleet CLEAR idle-holder session=a",
+        "fleet pass 2026-08-28T17:01:00+00:00",
     ):
         assert watch_fleet.classify_fleet_line(line).cls is LineClass.NOISE
 
@@ -257,27 +258,27 @@ def test_print_streaming_pair_emits_the_background_monitor_inspect_triple(
     assert f"tail -80 {raw}" in output
 
 
-def test_the_wrapper_writes_the_exit_sentinel_a_follower_can_exit_on(
+def test_the_wrapper_refuses_an_interval_outside_the_quiet_bound(
     tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
-    """`watch_tail` exits only on this footer; a missing one hangs a Monitor."""
-    from yoke_contracts.watch_capture import EXIT_SENTINEL
-
+    monkeypatch.setenv("YOKE_WATCH_QUIET_HEARTBEAT_SECONDS", "60")
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
-    code = watch_fleet.main(
-        [
-            "--raw-capture",
-            str(raw),
-            "--progress-capture",
-            str(progress),
-            "--",
-            "--interval",
-            "0",
-        ]
-    )
-    assert code == 2
-    sentinel_lines = [
-        line for line in progress.read_text().splitlines() if EXIT_SENTINEL.match(line)
-    ]
-    assert sentinel_lines == ["# watch_fleet exit=2 raw=" + str(raw)]
+    for interval in ("0", "60", "61", "nan", "inf"):
+        code = watch_fleet.main(
+            [
+                "--raw-capture",
+                str(raw),
+                "--progress-capture",
+                str(progress),
+                "--",
+                "--interval",
+                interval,
+            ]
+        )
+        assert code == 2
+        assert "fleet_probe_interval_invalid" in capsys.readouterr().err
+        assert not raw.exists()
+        assert not progress.exists()
