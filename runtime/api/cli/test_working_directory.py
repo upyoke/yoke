@@ -69,3 +69,75 @@ def test_hook_allows_deleted_directory(tmp_path, monkeypatch, capsys, executor):
         assert "working_directory_missing" in reply["systemMessage"]
     assert "working_directory_missing" in captured.err
     assert "Traceback" not in captured.err
+
+
+def _hook_env(monkeypatch, executor):
+    monkeypatch.setenv("YOKE_EXECUTOR", executor)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("YOKE_HOOKS_OFF", raising=False)
+    monkeypatch.delenv("YOKE_HOOK_CONFIG_OWNER", raising=False)
+
+
+@pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
+def test_hook_names_removed_payload_folder(tmp_path, monkeypatch, capsys, executor):
+    """The hook child's own folder survives; the session folder is gone."""
+    _hook_env(monkeypatch, executor)
+    removed = tmp_path / "removed"
+    payload = json.dumps({"cwd": str(removed), "session_id": "s-1"})
+    monkeypatch.setattr("sys.stdin", io.StringIO(payload))
+    monkeypatch.setattr(
+        "yoke_cli.commands.adapters.hooks._dispatch_hook",
+        lambda *a: pytest.fail("a removed session folder must not reach dispatch"),
+    )
+    code = main(["hook", "evaluate", "PreToolUse"])
+    captured = capsys.readouterr()
+    assert code == 0
+    reply = json.loads(captured.out)
+    if executor == "cursor":
+        assert reply["permission"] == "allow"
+    else:
+        assert "hookSpecificOutput" not in reply
+        assert "working_directory_missing" in reply["systemMessage"]
+    assert "working_directory_missing" in captured.err
+    assert "Traceback" not in captured.err
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"cwd": 7}, {"cwd": "relative/gone"}, {"cwd": ""}, "not json"],
+)
+def test_hook_dispatches_without_authoritative_payload_folder(
+    monkeypatch, capsys, payload
+):
+    _hook_env(monkeypatch, "claude-code")
+    raw = payload if isinstance(payload, str) else json.dumps(payload)
+    monkeypatch.setattr("sys.stdin", io.StringIO(raw))
+    monkeypatch.setattr(
+        "yoke_cli.commands.adapters.hooks._dispatch_hook",
+        lambda *a: print('{"dispatched": true}') or 0,
+    )
+    code = main(["hook", "evaluate", "PreToolUse"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert json.loads(captured.out) == {"dispatched": True}
+    assert "working_directory_missing" not in captured.err
+
+
+@pytest.mark.parametrize("bypass", ["hooks_off", "disabled_folder"])
+def test_hook_bypass_policy_precedes_payload_folder(
+    tmp_path, monkeypatch, capsys, bypass
+):
+    _hook_env(monkeypatch, "claude-code")
+    removed = tmp_path / "removed"
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"cwd": str(removed)})))
+    if bypass == "hooks_off":
+        monkeypatch.setenv("YOKE_HOOKS_OFF", "1")
+    else:
+        monkeypatch.setattr(
+            "yoke_contracts.hook_runner.folder_scope.folder_scope",
+            lambda raw: "disabled",
+        )
+    code = main(["hook", "evaluate", "PreToolUse"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "working_directory_missing" not in captured.out + captured.err
