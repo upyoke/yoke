@@ -87,6 +87,10 @@ def create_decision_request_tables(
         conn, "decision_requests", "audience_id", "INTEGER REFERENCES audiences(id)"
     )
     _add_column_if_not_exists(
+        conn, "decision_requests", "superseded_by_request_id",
+        "INTEGER REFERENCES decision_requests(id)",
+    )
+    _add_column_if_not_exists(
         conn,
         "decision_request_decisions",
         "decided_session_id",

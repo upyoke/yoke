@@ -44,6 +44,7 @@ def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
         "requesting_session_id": "TEXT",
         "approval_mode": "TEXT",
         "status": "TEXT",
+        "superseded_by_request_id": "INTEGER",
         "resolution_action": "TEXT",
         "resolution_actor_id": "INTEGER",
         "resolution_note": "TEXT",
