@@ -141,33 +141,25 @@ never-started redispatch, and the merge boundary's post-rebase run, which
 reads them back from this same requirement rather than from anything the
 merge command was told.
 
-Correlated CI identity includes a deterministic digest of the effective
-dispatch arguments (project, repository, workflow, ref, and all resolved
-inputs). Correcting `product_ref` on an unchanged requirement and consumer
-commit starts a fresh dispatch. Identical retries, including reordered input
-keys, recover the same run; never-started retries and merge-boundary dispatches
-use the same binding. Historical run records are retained. A genuinely different payload
-under the same bound identity still refuses `idempotency_key_collision`:
-review the differing payload and its recorded intent rather than retrying it
-unchanged or altering old run history.
+CI dispatch identity binds project, repository, workflow, ref, head SHA and
+resolved inputs. Item and standalone cases share it. Changed inputs start a
+fresh run; identical retries, including reordered keys, recover the same run.
+Never-started retries and merge-boundary dispatches use the same binding.
+Historical records remain. `idempotency_key_collision` means review the differing
+payload and recorded intent; do not alter history or retry unchanged.
 
-Dispatch-only workflows skip the pull-request entry wait, including on
-merge-queue projects. Item and standalone CI share a dispatch identity keyed
-by workflow, ref, head SHA and resolved inputs. A dispatched run is adopted
-or attached only when Yoke's durable dispatch record attests exactly the
-requested inputs, including an empty payload. An unrecorded run or one with
-different inputs cannot cover the case. Older servers that omit dispatch
-input evidence cannot supply adoption proof; the correlated dispatch path
-still protects identical retries from duplicate POSTs.
+Dispatch-only workflows skip the PR-entry wait, including on merge-queue
+projects. Adoption or attachment requires a durable Yoke dispatch record with
+exactly matching inputs, including an empty payload. Unrecorded or mismatched
+runs cannot cover the case. Older servers omitting this evidence cannot prove
+adoption; correlated dispatch still protects identical retries from duplicate POSTs.
 
-A workflow declaring `pull_request` keeps its entry-event filter and bounded
-wait. That run carries no dispatch inputs, so an input-bearing case bound to
-such a workflow still refuses with recovery rather than claiming candidate
-proof it cannot make.
-Cases declaring no inputs adopt completed success, failure and test-timeout
-verdicts and attach to in-progress runs. Failed tests stay red until the cause
-is fixed and committed. Only cancelled and never-started runs request a fresh
-dispatch on the same commit; that no-verdict run identifies the recovery.
+Workflows declaring `pull_request` retain their entry-event filter and bounded
+wait. PR runs carry no dispatch inputs, so input-bearing cases still refuse.
+Completed success, failure and test-timeout verdicts are adopted; in-progress
+runs are attached. Failed tests stay red until corrected and committed. Only
+cancelled and never-started runs request a fresh dispatch on the same commit;
+that no-verdict run identifies the recovery.
 
 ## When the project has no suite
 
