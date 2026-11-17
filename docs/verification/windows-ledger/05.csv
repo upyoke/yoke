@@ -2,6 +2,7 @@ row_id,operation,surface,mode,expectation,reason,issue
 windows-d3c854747b0563eb6805,hook SessionStart,codex-cli,local,must-pass,,
 windows-a2935116f533c22b0d05,hook Stop,codex-vscode,local,must-pass,,
 windows-2d6fef2ff6286e2e3645,yoke browser authorize,cli,self-hosted-client,must-pass,,
+windows-7a4728092b9780270985,yoke browser open,cli,hosted-client,must-pass,,
 windows-cc31202e6e2368a13e05,yoke claims path cancel,cli,hosted-client,must-pass,,
 windows-9ad1b87993a135877945,yoke claims work-claim acquire,cli,local,must-pass,,
 windows-c8c68db72f5b4b9d6b45,yoke db-claim amend,cli,self-hosted-client,must-pass,,

@@ -39,8 +39,8 @@ TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE = "terminal_system_events_unavaila
 TERMINAL_AUTOMATION_UNAVAILABLE_ERROR_CODE = "terminal_automation_unavailable"
 TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE = "terminal_secure_keyboard_entry_on"
 # A command run inside Terminal.app could not drive System Events: Terminal
-# lacks that Automation grant, so the Safari approval helper and GUI-session
-# commands would block on consent until their own timeout.
+# lacks that Automation grant, so GUI-session commands would block on consent
+# until their own timeout.
 TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE = (
     "terminal_system_events_automation_missing"
 )

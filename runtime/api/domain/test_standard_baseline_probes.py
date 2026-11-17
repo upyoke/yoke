@@ -232,8 +232,9 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
         os=os_name,
         home="/Users/tester" if os_name == "macos" else "/home/tester",
         path_state=None,
+        # macOS: no identity browser is running to close (exit 10).
         run_remote_command=lambda *a, **kw: SimpleNamespace(
-            returncode=1, stdout="", stderr=""
+            returncode=10 if os_name == "macos" else 1, stdout="", stderr=""
         ),
         run_command=lambda *a, **kw: SimpleNamespace(
             returncode=0, stdout="", stderr=""

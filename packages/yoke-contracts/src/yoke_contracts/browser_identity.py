@@ -49,13 +49,12 @@ from yoke_contracts.browser_automatic_sign_in import (
 )
 
 DEFAULT_IDENTITY = "default"
-#: Home-relative directory where a Test Machine keeps its live identity
-#: profiles. It sits outside ``~/.yoke`` so a full reset keeps it, the same way
-#: the reset keeps live harness logins, while ``~/.yoke`` stays absent. A
-#: restored copy of a session is the cookies the site has since rotated, so
-#: identities are kept live and never sealed into a baseline. Its presence is
-#: what marks a machine as keeping live identities: the product links each
-#: identity's profile path into it (see ``yoke_cli.config.browser_profile``).
+#: Home-relative directory holding every live identity profile on a machine.
+#: It sits outside ``~/.yoke`` so a Test Machine's full reset keeps it, the
+#: same way the reset keeps live harness logins, while ``~/.yoke`` stays absent.
+#: A restored copy of a session is the cookies the site has since rotated, so
+#: identities are kept live and never sealed into a baseline. The product
+#: creates it with the first profile (see ``yoke_cli.config.browser_profile``).
 LIVE_IDENTITY_STORE_HOME_ENTRY = ".yoke-browser-identities"
 IDENTITIES_SETTING = "identities"
 DEFAULT_IDENTITY_SETTING = "default_identity"

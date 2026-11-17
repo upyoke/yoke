@@ -3,12 +3,10 @@
 import json
 
 import pytest
-from subprocess import CompletedProcess
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
 from yoke_contracts.machine_authorization import MATCH_CODE_ALPHABET, MATCH_CODE_LENGTH
-from yoke_harness import ssh_linux_browser_approval as chromium
-from yoke_harness import ssh_mac_browser_approval as safari
+from yoke_harness import identity_browser_approval as chromium
 from yoke_contracts.machine_browser_approval import approval_tab_urls, approval_url
 
 
@@ -110,35 +108,13 @@ def test_machine_entry_does_not_authorize_the_hosted_redirect_route():
     assert approval_tab_urls(entry, "K7F2", [REDIRECT]) == [entry]
 
 
-def _safari(monkeypatch, *, response, observed):
-    scripts = []
-    results = iter(
-        [
-            CompletedProcess([], 0, observed + "\n", ""),
-            CompletedProcess([], 0, response, ""),
-        ]
-    )
-
-    def run_script(_run, script, **_kwargs):
-        scripts.append(script)
-        return next(results)
-
-    monkeypatch.setattr(safari, "run_osascript", run_script)
-    outcome = safari.approve_machine_in_safari(
-        lambda *_args, **_kwargs: None,
-        verification_url=ENTRY,
-        user_code="K7F2",
-    )
-    return outcome, scripts
-
-
 def _chromium(monkeypatch, *, response, observed):
     calls = []
 
-    def host(_control, command, *arguments, desktop=True):
+    def host(_run, _yoke_bin, command, *arguments, secrets=()):
         calls.append((command, *arguments))
         if command == "tabs":
-            return {"ok": True, "urls": [observed]}
+            return {"ok": True, "urls": [observed], "identity_browsers": 1}
         state, _, navigation = response.partition("|")
         starting_url, _, result_url = navigation.partition("|")
         return {
@@ -149,14 +125,19 @@ def _chromium(monkeypatch, *, response, observed):
         }
 
     monkeypatch.setattr(chromium, "_host", host)
-    outcome = chromium.approve_machine_in_desktop_chromium(
-        object(), verification_url=ENTRY, user_code="K7F2"
+    outcome = chromium.approve_machine_in_identity_browser(
+        lambda *a, **k: None,
+        verification_url=ENTRY,
+        user_code="K7F2",
+        reauthorize_command=REAUTHORIZE,
+        yoke_bin="yoke",
     )
     return outcome, calls
 
 
-#: Every native browser driver shares one matcher and outcome contract.
-DRIVERS = {"Safari": _safari, "Chromium": _chromium}
+REAUTHORIZE = "yoke browser authorize --project acme --identity operator --test-machine lab"
+#: The one identity-browser driver keeps the shared matcher and outcome contract.
+DRIVERS = {chromium.BROWSER: _chromium}
 
 
 @pytest.fixture(params=sorted(DRIVERS))
@@ -191,19 +172,9 @@ def test_approval_requires_navigation_from_the_tab_that_was_actually_matched(
     }
 
 
-def test_safari_revalidates_the_matched_tab_before_reporting_navigation(monkeypatch):
-    _, scripts = _approval(
-        monkeypatch, "Safari", response=f"approved|{ENTRY}|{DESTINATION}"
-    )
-    approval_script = "\n".join(scripts[1])
-    assert "set matchedStartingURL to tabURL" in approval_script
-    assert "resultURL is not matchedStartingURL" in approval_script
-    assert "resultURL is not expectedURL" not in approval_script
-
-
 def test_chromium_presses_only_in_the_allowed_tabs(monkeypatch):
     _, calls = _approval(
-        monkeypatch, "Chromium", response=f"approved|{REDIRECT}|{DESTINATION}"
+        monkeypatch, chromium.BROWSER, response=f"approved|{REDIRECT}|{DESTINATION}"
     )
     assert calls == [
         ("tabs", "https://example.invalid"),
@@ -269,16 +240,14 @@ def test_invalid_context_never_reaches_the_browser(
     monkeypatch, driver, verification_url, user_code
 ):
     touched = []
-    monkeypatch.setattr(safari, "run_osascript", lambda *a: touched.append(a))
     monkeypatch.setattr(chromium, "_host", lambda *a, **k: touched.append(a))
     approve = {
-        "Safari": lambda: safari.approve_machine_in_safari(
+        chromium.BROWSER: lambda: chromium.approve_machine_in_identity_browser(
             lambda *_a, **_k: None,
             verification_url=verification_url,
             user_code=user_code,
-        ),
-        "Chromium": lambda: chromium.approve_machine_in_desktop_chromium(
-            object(), verification_url=verification_url, user_code=user_code
+            reauthorize_command=REAUTHORIZE,
+            yoke_bin="yoke",
         ),
     }[driver]
     result = approve()

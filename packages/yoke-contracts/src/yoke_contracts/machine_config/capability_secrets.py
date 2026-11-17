@@ -112,14 +112,12 @@ def capability_secret_directory_relative_path(
 def browser_profile_relative_path(
     project_ref: str, identity: str = DEFAULT_IDENTITY
 ) -> Path:
-    """Return the path under ``~/.yoke/secrets`` for one identity's browser profile.
+    """Return the old path under ``~/.yoke/secrets`` of one identity's profile.
 
-    The profile carries live signed-in cookies for whatever the operator
-    signed into, so it lives beside the project's other machine-local
-    capability secrets and never in the database, the repository, QA
-    artifacts, or a transcript. The ``default`` identity keeps the project's
-    original single-profile path, so a profile signed in before identities
-    existed is that identity's profile; every other identity has its own.
+    Profiles now live in the live identity store outside ``~/.yoke``; this
+    path names where an earlier release saved one, so the profile owner can
+    move that sign-in into the store and backups can skip it. The ``default``
+    identity used the project's original single-profile path.
     """
     capability = (
         Path(CAPABILITY_SECRETS_DIR_NAME)

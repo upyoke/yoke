@@ -2,6 +2,7 @@ row_id,operation,surface,mode,expectation,reason,issue
 windows-66904e5a65f2e0f84b1c,hook UserPromptSubmit,cursor-desktop,hosted-client,must-pass,,
 windows-27bc07fa3b8cb7cd1c5c,hook postToolUse,cursor-cli,local,must-pass,,
 windows-71d7914bfce7e45c819c,yoke audiences create,cli,local,must-pass,,
+windows-1882644ce58fea75179c,yoke browser open,cli,local,must-pass,,
 windows-ed8049d4fb2b2ff3bd9c,yoke claims path boundary-prove,cli,local,must-pass,,
 windows-9d85eed73c7c5b80a35c,yoke claims path boundary-prove,cli,self-hosted-client,must-pass,,
 windows-c92fec921f96a126e61c,yoke claims path release,cli,local,must-pass,,

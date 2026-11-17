@@ -2,8 +2,8 @@
  "id": "browser-approval-tab-readiness",
  "title": "Exact approval tab readiness",
  "status": "observed",
- "sources": ["packages/yoke-harness/src/yoke_harness/ssh_linux_browser_approval.py", "runtime/api/domain/test_linux_browser_tab_readiness.py"],
+ "sources": ["packages/yoke-harness/src/yoke_harness/identity_browser_approval.py", "runtime/api/domain/test_linux_browser_tab_readiness.py"],
  "page": "test-machine-execution",
  "position": 6,
- "summary": "Linux waits for the exact request URL or its canonical same-code organization route before approving; older tabs do not establish readiness. Linux and Safari report machine_browser_sign_in_required for missing approval tabs when same-origin tabs show /auth/sign-in, /beta or /orgs/new. Evidence records paths with codes redacted and queries/fragments omitted. Recovery asks the operator to sign the Test Machine browser in and recapture golden; it grants no agent authority. Absent and foreign-origin tabs retain machine_browser_tab_missing. Host preparation refusals remain unchanged."
+ "summary": "The identity browser driver waits for the exact request URL or its canonical same-code organization route before approving; older tabs do not establish readiness. It reports machine_browser_sign_in_required when same-origin tabs show /auth/sign-in, /beta or /orgs/new instead of the approval page: the operator identity's login expired. Its recovery names the exact yoke browser authorize --project P --identity NAME --test-machine TEST_MACHINE command and says never to sign in inside that approval window. Evidence records paths with codes redacted and queries and fragments omitted. Absent and foreign-origin tabs keep machine_browser_tab_missing; when no identity browser runs at all, the same code carries state identity_browser_not_running. Host preparation refusals are unchanged."
 }

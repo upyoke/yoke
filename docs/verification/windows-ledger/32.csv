@@ -2,6 +2,7 @@ row_id,operation,surface,mode,expectation,reason,issue
 windows-fbf2e7c12d1a4aa338b2,hook SessionEnd,claude-desktop,local,must-pass,,
 windows-3aab7236963063567572,hook sessionStart,cursor-cli,local,must-pass,,
 windows-c92d0fa85f058d4f7df2,yoke board rebuild,cli,self-hosted-client,must-pass,,
+windows-a64eac0e7fde1f3a3cf2,yoke browser devtools,cli,self-hosted-client,must-pass,,
 windows-a0b9de53e4555420d0f2,yoke decision requests list,cli,self-hosted-client,must-pass,,
 windows-03096cd8d58a6cf74972,yoke decision-requests dispose-ended,cli,hosted-client,must-pass,,
 windows-7ff7a6edeb103db6fa72,yoke deployment flows list,cli,self-hosted-client,must-pass,,

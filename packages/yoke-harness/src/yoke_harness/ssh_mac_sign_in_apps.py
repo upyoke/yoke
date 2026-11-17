@@ -1,12 +1,12 @@
-"""Quit the macOS apps holding sign-ins before a capture or reset touches them.
+"""Close the macOS identity browsers before a capture or reset touches them.
 
-Safari writes its cookie store when it quits. A store copied or kept while
-Safari runs can miss the newest sign-in, and Safari later writes its in-memory
-state back over a home restored under it. Capture and reset therefore quit it
-first, gracefully: a forced kill would discard the cookies being saved.
-
-Only pgrep's own "no match" exit (1) means an app is not running. Any other
-exit, such as an SSH or runner failure, proves nothing about the app.
+The identity profiles are the test machine's only login store. Chromium writes
+a profile's cookie store as it shuts down, so a store kept while it runs can
+miss the newest sign-in, and a running browser writes its in-memory state back
+over a home restored under it. Capture and reset therefore ask every identity
+browser's main process to quit with SIGTERM, which Chromium handles as a clean
+shutdown, and prove it exited. A forced kill would discard the cookies being
+saved. The probe uses only guaranteed macOS primitives (ps, awk, kill).
 """
 
 from __future__ import annotations
@@ -14,87 +14,79 @@ from __future__ import annotations
 import shlex
 from typing import Callable
 
+from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
-
-from yoke_harness.ssh_mac_terminal_app import run_osascript
 from yoke_contracts.test_machine_types import HostActionResult
 
-SIGN_IN_APPS = ("Safari",)
 QUIT_WAIT_SECONDS = 30
 SIGN_IN_APP_QUIT_NOT_PROVED = "test_machine_sign_in_app_quit_not_proved"
 SIGN_IN_APP_PROBE_FAILED = "test_machine_sign_in_app_probe_failed"
-_PGREP_NO_MATCH = 1
-# The wait loop exits with this when pgrep itself failed rather than matched.
-_WAIT_PROBE_FAILED = 3
+IDENTITY_BROWSER = "identity browser"
+_NONE_RUNNING = 10
+_STILL_RUNNING = 11
 
 
-def _probe_failed(app: str, probe: str, result) -> HostActionResult:
+def _close_script(user: str) -> str:
+    """Exit 0 closed, 10 none running, 11 still running, other probe failure.
+
+    The flag is assembled inside awk, so no probe's own command line carries
+    the full ``--user-data-dir=<store>`` text it looks for.
+    """
+    return (
+        f'store="$HOME/{LIVE_IDENTITY_STORE_HOME_ENTRY}/"; '
+        "browsers() { /bin/ps -U " + shlex.quote(user) + " -o pid=,command= | "
+        "/usr/bin/awk -v s=\"$store\" 'BEGIN { m = \"--user-data\" \"-dir=\" s } "
+        "index($0, m) && !index($0, \"--type=\") {print $1}'; }; "
+        "pids=$(browsers) || exit 3; "
+        f"[ -z \"$pids\" ] && exit {_NONE_RUNNING}; "
+        "/bin/kill -TERM $pids 2>/dev/null; "
+        f"i=0; while [ $i -lt {QUIT_WAIT_SECONDS} ]; do "
+        "left=$(browsers) || exit 3; [ -z \"$left\" ] && exit 0; "
+        "/bin/sleep 1; i=$((i+1)); done; "
+        f"exit {_STILL_RUNNING}"
+    )
+
+
+def quit_sign_in_apps(run: Callable[..., object], user: str) -> HostActionResult:
+    """Ask each running identity browser to quit and prove it exited."""
+    result = run(_close_script(user), timeout=QUIT_WAIT_SECONDS + 15)
+    code = int(result.returncode)
+    if code in (0, _NONE_RUNNING):
+        return HostActionResult(
+            True, {"sign_in_apps_quit": [IDENTITY_BROWSER] if code == 0 else []}
+        )
+    if code == _STILL_RUNNING:
+        return HostActionResult(
+            False,
+            {
+                "app": IDENTITY_BROWSER,
+                "recovery": (
+                    "Close every identity browser window on the test machine, "
+                    "answering any prompt it shows, then retry. It was not "
+                    "force-quit, so its unsaved sign-ins are still in memory."
+                ),
+            },
+            SIGN_IN_APP_QUIT_NOT_PROVED,
+        )
     return HostActionResult(
         False,
         {
-            "app": app,
-            "probe": probe,
-            "exit_code": int(result.returncode),
-            "stderr": bounded_machine_qa_diagnostic(result.stderr),
+            "app": IDENTITY_BROWSER,
+            "exit_code": code,
+            "stderr": bounded_machine_qa_diagnostic(getattr(result, "stderr", "")),
             "recovery": (
-                f"Yoke could not tell whether {app} is running on the test "
-                "machine. Check that SSH to the machine works (the stderr above "
-                "names the failure), then retry."
+                "Yoke could not tell whether an identity browser is running on "
+                "the test machine. Check that SSH to the machine works (the "
+                "stderr above names the failure), then retry."
             ),
         },
         SIGN_IN_APP_PROBE_FAILED,
     )
 
 
-def quit_sign_in_apps(run: Callable[..., object], user: str) -> HostActionResult:
-    """Ask each running sign-in app to quit and prove it exited."""
-    quit_apps: list[str] = []
-    for app in SIGN_IN_APPS:
-        running = shlex.join(["/usr/bin/pgrep", "-x", "-u", user, app])
-        probe = run(running + " >/dev/null")
-        if probe.returncode == _PGREP_NO_MATCH:
-            continue
-        if probe.returncode != 0:
-            return _probe_failed(app, "running", probe)
-        asked = run_osascript(run, [f'tell application "{app}" to quit'])
-        exited = run(
-            f"i=0; while [ $i -lt {QUIT_WAIT_SECONDS} ]; do "
-            f"{running} >/dev/null; s=$?; [ $s -eq {_PGREP_NO_MATCH} ] && exit 0; "
-            f"[ $s -ne 0 ] && exit {_WAIT_PROBE_FAILED}; "
-            "/bin/sleep 1; i=$((i+1)); done; exit 1",
-            timeout=QUIT_WAIT_SECONDS + 15,
-        )
-        if exited.returncode not in {0, 1}:
-            return _probe_failed(app, "exited", exited)
-        if exited.returncode != 0:
-            return HostActionResult(
-                False,
-                {
-                    "app": app,
-                    "quit_requested": asked.returncode == 0,
-                    "recovery": (
-                        f"Quit {app} on the test machine ({app} > Quit {app}), "
-                        "answering any prompt it shows, then retry. It was not "
-                        "force-quit, so its unsaved sign-ins are still in memory."
-                        + (
-                            ""
-                            if asked.returncode == 0
-                            else f" To let Yoke quit it next time, allow the SSH "
-                            f"session to control {app} in System Settings > "
-                            "Privacy & Security > Automation."
-                        )
-                    ),
-                },
-                SIGN_IN_APP_QUIT_NOT_PROVED,
-            )
-        quit_apps.append(app)
-    return HostActionResult(True, {"sign_in_apps_quit": quit_apps})
-
-
 __all__ = [
     "QUIT_WAIT_SECONDS",
     "SIGN_IN_APP_PROBE_FAILED",
-    "SIGN_IN_APPS",
     "SIGN_IN_APP_QUIT_NOT_PROVED",
     "quit_sign_in_apps",
 ]

@@ -66,7 +66,6 @@ def test_preserved_and_absent_surface_contract() -> None:
         ".codex/auth.json",
         *OS_MANAGED_HOME_ENTRIES,
         ".yoke-browser-identities",
-        "Library/Containers/com.apple.Safari/Data/Library/Cookies",
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES
     assert YOKE_ABSENT_TEMP_FILES == ("/tmp/yoke-install",)

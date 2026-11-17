@@ -4,10 +4,21 @@ import json
 
 import pytest
 
-from yoke_harness import ssh_linux_browser_approval as driver
+from yoke_harness import identity_browser_approval as driver
 
 START = "https://app.example/connect?user_code=K7F2"
 ROUTE = "https://app.example/orgs/acme/machine-approval/K7F2"
+REAUTHORIZE = "yoke browser authorize --project acme --identity operator --test-machine lab"
+
+
+def _approve():
+    return driver.approve_machine_in_identity_browser(
+        lambda *a, **k: None,
+        verification_url=START,
+        user_code="K7F2",
+        reauthorize_command=REAUTHORIZE,
+        yoke_bin="/home/tester/.local/bin/yoke",
+    )
 
 
 def _clock(monkeypatch):
@@ -25,10 +36,10 @@ def test_waits_for_exact_request_after_an_existing_origin_tab(monkeypatch, targe
     observed = iter([["https://app.example/"], ["https://app.example/", target]])
     calls = []
 
-    def host(control, command, *args):
+    def host(run, yoke_bin, command, *args, secrets=()):
         calls.append(command)
         if command == "tabs":
-            return {"ok": True, "urls": next(observed)}
+            return {"ok": True, "urls": next(observed), "identity_browsers": 1}
         assert target in json.loads(args[0])
         return {
             "ok": True,
@@ -38,28 +49,25 @@ def test_waits_for_exact_request_after_an_existing_origin_tab(monkeypatch, targe
         }
 
     monkeypatch.setattr(driver, "_host", host)
-    result = driver.approve_machine_in_desktop_chromium(
-        object(), verification_url=START, user_code="K7F2"
-    )
+    result = _approve()
     assert result.ok
     assert calls == ["tabs", "tabs", "approve"]
 
 
 def test_unrelated_or_wrong_code_tabs_time_out_without_pressing(monkeypatch):
     now = _clock(monkeypatch)
-    monkeypatch.setattr(driver.linux_desktop_chromium, "TAB_WAIT_SECONDS", 1)
+    monkeypatch.setattr(driver.identity_browser_devtools, "TAB_WAIT_SECONDS", 1)
 
-    def host(control, command, *args):
+    def host(run, yoke_bin, command, *args, secrets=()):
         assert command == "tabs"
         return {
             "ok": True,
             "urls": ["https://app.example/", ROUTE.replace("K7F2", "Z9A2")],
+            "identity_browsers": 1,
         }
 
     monkeypatch.setattr(driver, "_host", host)
-    result = driver.approve_machine_in_desktop_chromium(
-        object(), verification_url=START, user_code="K7F2"
-    )
+    result = _approve()
     assert not result.ok
     assert result.error_code == "machine_browser_tab_missing"
     assert "fresh request" in result.evidence["recovery"]
@@ -70,7 +78,7 @@ def test_tab_reader_refusal_is_preserved_without_retry(monkeypatch):
     _clock(monkeypatch)
     calls = []
 
-    def host(control, command, *args):
+    def host(run, yoke_bin, command, *args, secrets=()):
         calls.append(command)
         return {
             "ok": False,
@@ -79,9 +87,7 @@ def test_tab_reader_refusal_is_preserved_without_retry(monkeypatch):
         }
 
     monkeypatch.setattr(driver, "_host", host)
-    result = driver.approve_machine_in_desktop_chromium(
-        object(), verification_url=START, user_code="K7F2"
-    )
+    result = _approve()
     assert not result.ok
     assert result.evidence["reason"] == "devtools_unavailable"
     assert calls == ["tabs"]

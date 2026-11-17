@@ -43,10 +43,9 @@ and `manifest.json` binding archive digest, UID and home; sealed probe state
 travels beside the golden. Capture omits sockets and links to sockets/outside
 the home, retaining regular `.sock` files and safe persistent CLI links.
 Live `.ssh` and the browser identity store `.yoke-browser-identities` are
-never captured and are preserved on restore. Desktop Chromium sign-ins must
-also stay live outside golden snapshots: preserve the existing snap store
-`~/snap/chromium/common/chromium` only when present, and never restore stale
-sign-in state from an older golden. Require a reset receipt and real browser
+never captured and are preserved on restore. That store is the machine's only
+saved browser login store; never restore stale sign-in state from an older
+golden. Require a reset receipt and real browser
 sign-in proof against the selected release; this procedure alone is not that
 proof. No archive or auth material enters QA artifacts, settings or source control.
 
@@ -78,8 +77,8 @@ product services and home writers, restores files/modes and proves Yoke absent
 on login and SSH shells. It preserves live SSH and terminal preference while
 restoring settings/history from the golden.
 
-Capture and reset first ask a running desktop Chromium to quit (SIGTERM, which
-saves its cookies) and wait up to 30 seconds; it is never force-killed. One
+Capture and reset first ask every running Chromium, including each identity
+browser, to quit (SIGTERM, which saves its cookies) and wait up to 30 seconds; it is never force-killed. One
 that stays open refuses `test_machine_sign_in_app_quit_not_proved` before
 anything is copied or cleared. This flushes the live browser store before
 preservation; its sign-in state must not come from the restored archive.

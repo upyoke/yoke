@@ -13,7 +13,8 @@ from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_admission_gate import yoke_runner
 from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import step_failure
-from yoke_contracts.runtime_ports.ssh_mac_browser_approval import get_ssh_mac_browser_approval
+from yoke_contracts.runtime_ports.identity_browser_approval import get_identity_browser_approval
+from yoke_core.domain.machine_qa_operator_browser import reauthorize_command
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_BRIDGE_RECOVERY,
@@ -35,8 +36,7 @@ from yoke_core.domain.terminal_screenshot_quality import (
 )
 
 
-
-approve_machine_in_safari = get_ssh_mac_browser_approval().approve_machine_in_safari
+approve_machine_in_identity_browser = get_identity_browser_approval().approve_machine_in_identity_browser
 terminal_system_events_automation = get_ssh_mac_terminal_automation_probe().terminal_system_events_automation
 read_load_average = get_ssh_mac_host_session_state().read_load_average
 DisplayFrameUnavailable = get_terminal_control().DisplayFrameUnavailable
@@ -179,11 +179,13 @@ def run_terminal_app_recipe(
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
-                    browser="Safari",
-                    approve_browser=lambda url, code: approve_machine_in_safari(
+                    browser="Chromium",
+                    approve_browser=lambda url, code: approve_machine_in_identity_browser(
                         run,
                         verification_url=url,
                         user_code=code,
+                        reauthorize_command=reauthorize_command(config),
+                        yoke_bin=yoke_bin,
                     ),
                     run_yoke=yoke_runner(run, yoke_bin),
                     terminal_location="the Terminal.app window on the test machine",

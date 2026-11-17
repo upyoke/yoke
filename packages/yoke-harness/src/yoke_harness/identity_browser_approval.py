@@ -1,0 +1,163 @@
+"""Approve one exact machine request in the test machine's identity browser.
+
+Every test machine keeps one login store: its identity profiles. The installer
+opens its approval link through ``BROWSER`` (``yoke browser open``), so the
+page lands in the operator identity's signed-in Chromium, which listens on a
+loopback DevTools port. This driver runs the machine's installed Yoke over
+SSH (``yoke browser devtools``, owned by ``identity_browser_devtools``), so the
+host needs no other interpreter: find the exact same-origin exact-code tab, revalidate it before
+pressing the visible control, and accept only a same-origin navigation or the
+visible connected confirmation in that tab. A tab that landed on a sign-in page
+means the identity's login expired, and the refusal names the authorize command.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+import json
+import shlex
+import subprocess
+import time
+from typing import Any
+from urllib.parse import urlsplit, urlunsplit
+
+from yoke_contracts.machine_browser_approval import (
+    APPROVE_CONTROL_LABEL,
+    BrowserApprovalResult,
+    approval_outcome,
+    approval_tab_urls,
+    approval_url,
+    missing_approval_tab,
+)
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
+from yoke_harness import identity_browser_devtools
+
+BROWSER = "Chromium"
+HELPER_UNREADABLE = "identity_browser_helper_unreadable"
+RunRemote = Callable[..., subprocess.CompletedProcess[str]]
+_HOST_TIMEOUT_SECONDS = 90
+
+
+def _host(run: RunRemote, yoke_bin: str, *arguments: str, secrets=()) -> dict[str, Any]:
+    argv = [yoke_bin, "browser", "devtools", *arguments]
+    result = run(shlex.join(argv), timeout=_HOST_TIMEOUT_SECONDS)
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        if not isinstance(payload, dict):
+            raise ValueError
+    except (ValueError, IndexError):
+        return {
+            "ok": False,
+            "reason": HELPER_UNREADABLE,
+            "exit_code": result.returncode,
+            "stderr": bounded_machine_qa_diagnostic(result.stderr, secrets),
+            "recovery": "`yoke browser devtools` on the test machine exited "
+            + str(result.returncode)
+            + " without a receipt; check the installed Yoke at "
+            + yoke_bin
+            + " and SSH, then rerun.",
+        }
+    return payload
+
+
+def approve_machine_in_identity_browser(
+    run: RunRemote,
+    *,
+    verification_url: str,
+    user_code: str,
+    reauthorize_command: str,
+    yoke_bin: str,
+    secrets=(),
+) -> BrowserApprovalResult:
+    """Press the approval button only in the exact installer-opened tab."""
+    try:
+        expected_url, expected_origin = approval_url(verification_url, user_code)
+    except ValueError:
+        return BrowserApprovalResult(False, {}, "machine_browser_context_invalid")
+    allowed_urls = [expected_url]
+    tabs: dict[str, Any] = {"urls": []}
+    deadline: float | None = None  # Starts at the first miss.
+    while True:
+        tabs = _host(run, yoke_bin, "tabs", expected_origin, secrets=secrets)
+        if not tabs.get("ok"):
+            outcome = tabs
+            break
+        allowed_urls = approval_tab_urls(expected_url, user_code, tabs["urls"])
+        if any(url in allowed_urls for url in tabs["urls"]):
+            outcome = _host(
+                run,
+                yoke_bin,
+                "approve",
+                json.dumps(allowed_urls),
+                APPROVE_CONTROL_LABEL,
+                secrets=secrets,
+            )
+            break
+        # A request-specific route with a rejected query is a navigation
+        # refusal, not an unrelated tab still waiting for this request.
+        if any(_rejected_route(url, expected_url, user_code) for url in tabs["urls"]):
+            outcome = {"ok": True, "state": "approval_navigation_missing"}
+            break
+        now = time.monotonic()
+        if deadline is None:
+            deadline = now + identity_browser_devtools.TAB_WAIT_SECONDS
+        if now >= deadline:
+            outcome = {"ok": True, "state": "browser_tab_missing"}
+            break
+        time.sleep(identity_browser_devtools.POLL_SECONDS)
+    if not outcome.get("ok"):
+        return BrowserApprovalResult(
+            False,
+            {
+                "browser": BROWSER,
+                "reason": outcome.get("reason"),
+                "recovery": outcome.get("recovery"),
+            },
+            "machine_browser_automation_unavailable",
+        )
+    if outcome.get("state") == "browser_tab_missing":
+        if not tabs.get("identity_browsers"):
+            return BrowserApprovalResult(
+                False,
+                {
+                    "browser": BROWSER,
+                    "state": "identity_browser_not_running",
+                    "recovery": "No identity browser is running on the test "
+                    "machine, so the installer did not open its link through "
+                    "`yoke browser open`. Set BROWSER for the installer as the "
+                    "recipe does, check `" + reauthorize_command + "` has "
+                    "signed the identity in, then rerun with a fresh request.",
+                },
+                "machine_browser_tab_missing",
+            )
+        return missing_approval_tab(
+            browser=BROWSER,
+            expected_origin=expected_origin,
+            user_code=user_code,
+            observed=tabs["urls"],
+            reauthorize_command=reauthorize_command,
+        )
+    return approval_outcome(
+        browser=BROWSER,
+        state=outcome.get("state", ""),
+        starting_url=outcome.get("starting_url", ""),
+        result_url=outcome.get("result_url", ""),
+        allowed_urls=allowed_urls,
+        expected_origin=expected_origin,
+    )
+
+
+def _rejected_route(url: str, expected_url: str, user_code: str) -> bool:
+    try:
+        base = urlunsplit(urlsplit(url)._replace(query=""))
+    except ValueError:
+        return False
+    return base != expected_url and base in approval_tab_urls(
+        expected_url, user_code, [base]
+    )
+
+
+__all__ = [
+    "BROWSER",
+    "approve_machine_in_identity_browser",
+]

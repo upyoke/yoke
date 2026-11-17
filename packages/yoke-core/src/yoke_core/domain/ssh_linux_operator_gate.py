@@ -6,13 +6,13 @@ from yoke_core.domain.machine_qa_admission_gate import yoke_runner
 from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code
 from yoke_core.domain.ssh_mac_terminal_recipe_support import send_recipe_keys
-from yoke_contracts.runtime_ports.ssh_linux_browser_approval import get_ssh_linux_browser_approval
+from yoke_contracts.runtime_ports.identity_browser_approval import get_identity_browser_approval
 from yoke_contracts.runtime_ports.ssh_linux_terminal import get_ssh_linux_terminal
 from yoke_contracts.test_machine_types import HostActionResult
 
 
 
-approve_machine_in_desktop_chromium = get_ssh_linux_browser_approval().approve_machine_in_desktop_chromium
+approve_machine_in_identity_browser = get_identity_browser_approval().approve_machine_in_identity_browser
 LinuxTerminalWindowError = get_ssh_linux_terminal().LinuxTerminalWindowError
 
 def checkpoint(control, rows, terminal=None):
@@ -38,7 +38,9 @@ def checkpoint(control, rows, terminal=None):
     return None
 
 
-def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, progress):
+def run_operator_gate(
+    control, terminal, action, rows, allowed_operator_urls, progress, reauthorize
+):
     """Run the action's typed gate in the tmux session; refuse with its reason."""
     gate = run_operator_gate_with_io(
         read_transcript=terminal.transcript,
@@ -50,8 +52,13 @@ def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, pr
         progress_callback=progress,
         allowed_base_urls=allowed_operator_urls,
         browser="Chromium",
-        approve_browser=lambda url, code: approve_machine_in_desktop_chromium(
-            control, verification_url=url, user_code=code
+        approve_browser=lambda url, code: approve_machine_in_identity_browser(
+            control._run,
+            verification_url=url,
+            user_code=code,
+            reauthorize_command=reauthorize,
+            yoke_bin=control.path_state.yoke_bin,
+            secrets=getattr(control, "secret_values", ()),
         ),
         # Only admission gates run yoke, so only they need the resolved binary.
         run_yoke=lambda arguments: yoke_runner(
@@ -96,7 +103,7 @@ def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, pr
             "steps": rows,
             "operator_gate": action["operator_gate"],
             "browser_approval": gate.browser_evidence,
-            "recovery": "Read browser_approval for the desktop Chromium outcome, "
+            "recovery": "Read browser_approval for the identity browser outcome, "
             "repair the named step on the test machine, then rerun the case.",
         },
         gate.error_code,
