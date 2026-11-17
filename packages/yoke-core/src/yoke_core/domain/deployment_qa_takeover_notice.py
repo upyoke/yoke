@@ -7,10 +7,13 @@ claim holder already holds a future scheduled recheck.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from functools import partial
 from typing import Any
 
 from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
+from yoke_core.domain.deployment_qa_manual_wake import MANUAL_WAKE_RECHECK_INSTRUCTION
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
+from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.session_message_types import SessionMessageError
 
 _SEND_SAVEPOINT = "_yoke_moved_member_qa_notice"
@@ -27,9 +30,27 @@ def item_qa_stage_name(stages: Sequence[Mapping[str, Any]]) -> str:
 
 
 def moved_member_body(
-    *, item_ref: str, old_id: str, new_id: str, stage_name: str
+    route: str,
+    *,
+    item_ref: str,
+    old_id: str,
+    new_id: str,
+    stage_name: str,
+    manual_only: bool,
 ) -> str:
     """One notice: QA moved, and the predecessor wake is no longer the command."""
+    if manual_only:
+        instruction = (
+            "No dispatch will wake you for it: check the evidence. "
+            if route == HOLDER
+            else "Reaching the project's steering seat. No dispatch will wake "
+            "the claim holder for it: staff this item so its holder can check "
+            "the evidence and follow this recheck instruction: "
+        )
+        return (
+            f"{item_ref}'s manual-wake QA moved from run {old_id} to run {new_id}. "
+            f"{instruction}{MANUAL_WAKE_RECHECK_INSTRUCTION}"
+        )
     return (
         f"{item_ref}'s QA moved from run {old_id} to run {new_id}. "
         f"It opens when {new_id} reaches item QA stage {stage_name!r}. "
@@ -136,6 +157,7 @@ def notify_moved_member_qa(
     )
 
     stage_name = item_qa_stage_name(stages)
+    manual_members = _all_manual_members(conn, new_id, item_ids)
     # A member owing only plans has nothing to run; its plan groups moved whole.
     # A member mid-walk keeps walking on its carried execution; telling it to
     # wait would stop a walk that may pass on the newer build. A manual-only
@@ -167,19 +189,20 @@ def notify_moved_member_qa(
             item_ref = format_item_ref(
                 row["slug"], row["public_item_prefix"], row["project_sequence"]
             )
-            body = moved_member_body(
-                item_ref=item_ref,
-                old_id=old_id,
-                new_id=new_id,
-                stage_name=stage_name,
-            )
             try:
                 with savepoint(conn, _SEND_SAVEPOINT, owns=False):
                     push_member_notice(
                         conn,
                         item_id=item_id,
                         project_id=project_id,
-                        body_for_route=lambda route, body=body: body,
+                        body_for_route=partial(
+                            moved_member_body,
+                            item_ref=item_ref,
+                            old_id=old_id,
+                            new_id=new_id,
+                            stage_name=stage_name,
+                            manual_only=item_id in manual_members,
+                        ),
                         idempotency_key=f"deployment-qa-moved:{new_id}:{item_id}",
                     )
             except SavepointLostError:
