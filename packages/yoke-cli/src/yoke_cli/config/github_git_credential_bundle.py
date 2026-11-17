@@ -29,6 +29,7 @@ from yoke_cli.config import (
 from yoke_contracts import (
     api_urls,
     designed_wait,
+    filesystem_safety,
     github_app_tokens,
     github_origin,
     owner_private_path,
@@ -113,6 +114,10 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
         (
             Path(windows_private_directory.__file__),
             github_git_credential_launcher.BUNDLE_WINDOWS_PRIVATE_DIRECTORY_NAME,
+        ),
+        (
+            Path(filesystem_safety.__file__),
+            github_git_credential_launcher.BUNDLE_FILESYSTEM_SAFETY_NAME,
         ),
         (
             Path(owner_private_path.__file__),

@@ -91,10 +91,15 @@ def _write(
     )
     try:
         write_native_capture(capture, payload)
-    except NativeDiagnosticError:
-        # The native's outcome matters more than its transcript: losing the
-        # file must not lose the exit status the caller is waiting on.
-        return
+    except NativeDiagnosticError as exc:
+        # Running snapshots can recover on the next refresh. The final one
+        # has already exhausted bounded retries and has no later refresh.
+        if state == STATE_EXITED:
+            print(
+                f"native_capture_final_write_failed: {capture}: {exc}; "
+                "close open capture handles and check directory access before retrying",
+                file=sys.stderr, flush=True,
+            )
 
 
 def supervise(capture: Path, native: Sequence[str]) -> int:

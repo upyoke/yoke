@@ -8,6 +8,7 @@ nothing has to record a second mapping to find it again.
 
 from __future__ import annotations
 
+from yoke_contracts.filesystem_safety import retry_sharing_violations
 from yoke_contracts.owner_private_path import (
     create_owner_private_directory, is_owner_private_directory, is_owner_private_file,
 )
@@ -301,7 +302,7 @@ def read_native_capture(path: Path | None) -> NativeCapture | None:
     if path is None:
         return None
     try:
-        payload = path.read_bytes()
+        payload = retry_sharing_violations(path.read_bytes)
     except OSError:
         return None
     return parse_capture(payload[: NATIVE_DIAGNOSTIC_MAX_BYTES + 1])
