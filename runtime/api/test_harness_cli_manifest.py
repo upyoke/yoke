@@ -5,7 +5,10 @@ from __future__ import annotations
 from yoke_contracts.testing.real_home_isolation import set_home
 
 import json
+import os
 from pathlib import Path
+import shutil
+import sys
 
 from yoke_cli.config.path_harness_clis import resolve_harness_clis
 from yoke_contracts.harness_cli_manifest import (
@@ -24,6 +27,14 @@ from yoke_harness import session_relay_surface_probes
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _native_executable(path: Path) -> Path:
+    if os.name == "nt":
+        path = path.with_name(path.name + ".exe")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(sys.executable, path)
+    return path
 
 
 def test_native_cli_consumers_derive_identifiers_from_the_manifest() -> None:
@@ -55,13 +66,11 @@ def test_rendered_harness_manifests_carry_the_canonical_cli_sections() -> None:
 def test_new_manifest_entry_is_resolved_without_a_hardcoded_cli_list(
     tmp_path,
 ) -> None:
-    executable = tmp_path / "example-agent"
-    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = _native_executable(tmp_path / "example-agent")
     manifest = HarnessCliManifest(
         "example",
         "example-cli",
-        executable.name,
+        "example-agent",
         "example_quota",
     )
 
@@ -85,13 +94,10 @@ def test_setup_relay_and_doctor_share_path_and_bundled_resolution(
     from yoke_core.engines import doctor_install
 
     manifest = next(row for row in HARNESS_CLI_MANIFESTS if row.harness_id == "codex")
-    bundled = tmp_path / "bundled" / "codex"
-    standalone = tmp_path / "bin" / "codex"
-    for executable in (bundled, standalone):
-        executable.parent.mkdir()
-        executable.write_text("#!/bin/sh\nexit 0\n")
-        executable.chmod(0o755)
-    manifest = replace(manifest, bundled_candidates=(str(bundled),))
+    bundled = _native_executable(tmp_path / "bundled" / "codex")
+    standalone = _native_executable(tmp_path / "bin" / "codex")
+    manifest = replace(manifest, bundled_candidates=(str(bundled),),
+                       windows_bundled_candidates=(str(bundled),))
     original = resolver.resolve_native_cli_source
     monkeypatch.setattr(resolver, "HARNESS_CLI_MANIFESTS", (manifest,))
     monkeypatch.setattr(
@@ -111,17 +117,18 @@ def test_setup_relay_and_doctor_share_path_and_bundled_resolution(
         assert doctor_install.installed_harness_clis()["codex"] == str(expected)
 
 
-def test_codex_app_bundle_is_resolved_from_the_declared_path(tmp_path):
+def test_codex_app_bundle_is_resolved_from_the_declared_path(tmp_path, monkeypatch):
     from dataclasses import replace
 
     manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "codex")
     assert manifest.bundled_candidates == (
         "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
     )
-    bundled = tmp_path / manifest.bundled_candidates[0].lstrip("/")
-    bundled.parent.mkdir(parents=True)
-    bundled.write_text("#!/bin/sh\n")
-    bundled.chmod(0o755)
+    bundled = _native_executable(tmp_path / manifest.bundled_candidates[0].lstrip("/"))
+    monkeypatch.setattr(
+        HarnessCliManifest, "bundles_for_platform",
+        lambda self, **kw: (self.bundled_candidates, self.bundled_patterns),
+    )
     resolution = resolve_harness_clis(
         "", manifests=(replace(manifest, bundled_candidates=(str(bundled),)),)
     )[0]
