@@ -26,6 +26,7 @@ except ImportError:
 # Windows needs these to start Python, Git and uv at all; none carries authority.
 WINDOWS = os.name == "nt"
 WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
+SCRATCH_PREFIX = "yps-"
 
 
 def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
@@ -156,7 +157,9 @@ def smoke(root: Path, output: Path) -> None:
                 f"runner_identity_mismatch: expected {expected}, observed {report['runner']}; "
                 "check the latest-label rollout and update the declared job identities before rerunning"
             )
-        with tempfile.TemporaryDirectory(prefix="yoke-product-smoke-") as raw:
+        # Keep the scratch prefix short: the local universe's Postgres socket
+        # lives under the scratch HOME, and Windows' temp folder is already deep.
+        with tempfile.TemporaryDirectory(prefix=SCRATCH_PREFIX) as raw:
             scratch = Path(raw).resolve()
             commands = Commands(output, isolated_environment(scratch, scratch / "venv"))
             run_stages(SmokeRun(root, scratch, commands, report))

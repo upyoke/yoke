@@ -127,3 +127,11 @@ def test_replay_runs_the_command_the_native_harness_runs_on_this_os(tmp_path, wi
     config.write_text(json.dumps({"hooks": {"PreToolUse": [{"hooks": [handler]}]}}))
     expected = handler["commandWindows" if windows else "command"]
     assert hooks.rendered_command(tmp_path, "hooks.json", "PreToolUse", windows=windows) == expected
+
+
+def test_scratch_home_socket_fits_under_the_windows_runner_temp_folder():
+    # The hosted runner's temp folder plus TemporaryDirectory's 8 random
+    # characters, then the local universe's socket under the scratch HOME.
+    scratch = r"C:\Users\runneradmin\AppData\Local\Temp" + "\\" + smoke.SCRATCH_PREFIX + "x" * 8
+    socket = scratch + r"\home\.yoke\local-universe\sock\.s.PGSQL.5432"
+    assert len(socket) <= 103  # postgres_cluster's macOS/Windows sun_path budget
