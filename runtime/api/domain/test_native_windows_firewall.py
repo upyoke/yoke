@@ -200,10 +200,43 @@ if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyCon
             tmp_path,
         )
         assert rejected.returncode != 0 and rule in rejected.stderr
-        # Retry the entire script through real SSH, including profile reuse.
+        # Reproduce the protected empty file DACL left by partial provisioning.
+        import json
+
+        partial = powershell(rf"""
+$u=Get-LocalUser -Name '{name}'
+$p=Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\'+$u.SID.Value)
+$key=Join-Path $p.ProfileImagePath '.ssh\authorized_keys'
+Set-Content -LiteralPath $key -Value 'owned-stale-key' -Encoding ascii
+$acl=Get-Acl -LiteralPath $key
+$acl.SetAccessRuleProtection($true,$false)
+foreach($rule in @($acl.Access)){{$acl.RemoveAccessRuleSpecific($rule)}}
+Set-Acl -LiteralPath $key -AclObject $acl
+$actual=Get-Acl -LiteralPath $key
+if(!$actual.AreAccessRulesProtected -or @($actual.Access).Count){{throw 'empty DACL fixture not established'}}
+@{{sid=$u.SID.Value;passwordSet=$u.PasswordLastSet.ToFileTimeUtc();profile=$p.ProfileImagePath}} | ConvertTo-Json -Compress
+""", tmp_path)
+        assert partial.returncode == 0, partial.stderr
+        before = json.loads(partial.stdout)
+        saved_password = custody["password"]
+        # Retry the entire unchanged provisioner through administrator SSH.
         provision.provision("fixture", "fixture", "127.0.0.1", "fixture", admin, name,
                             bootstrap_transport="ssh")
         capsys.readouterr()
+        assert custody["password"] == saved_password
+        repaired = powershell(checks + rf"""
+if((Get-Content -LiteralPath (Join-Path $p.ProfileImagePath '.ssh\authorized_keys') -Raw).Trim() -cne {quote(key.with_suffix('.pub').read_text().strip())}){{throw 'public key content not repaired'}}
+@{{sid=$u.SID.Value;passwordSet=$u.PasswordLastSet.ToFileTimeUtc();profile=$p.ProfileImagePath}} | ConvertTo-Json -Compress
+""", tmp_path)
+        assert repaired.returncode == 0, repaired.stderr
+        assert json.loads(repaired.stdout.splitlines()[-1]) == before
+        probe = subprocess.run(
+            [*ssh, name + "@127.0.0.1", "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(
+                "$i=[Security.Principal.WindowsIdentity]::GetCurrent(); "
+                f"if($i.User.Value -cne {quote(before['sid'])} -or ([Security.Principal.WindowsPrincipal]::new($i)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){{throw 'wrong repaired SSH identity'}}; 'PARTIAL_KEY_ACL_RECOVERY_OK'"
+            )], capture_output=True, text=True, timeout=45,
+        )
+        assert probe.returncode == 0 and "PARTIAL_KEY_ACL_RECOVERY_OK" in probe.stdout, probe.stderr
         with socket.socket() as reserve:
             reserve.bind(("127.0.0.1", 0))
             port = reserve.getsockname()[1]
