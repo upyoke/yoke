@@ -39,6 +39,15 @@ def capture_process_tree(pid: int, started: str) -> dict[str, Any]:
     return {"process_members": {str(p): str(stamp) for p, stamp in handle.members}}
 
 
+def _capture_live_members(members: dict[str, str]) -> dict[str, str]:
+    """Add live members' current descendants; a member exiting meanwhile adds none."""
+    for pid, started in tuple(members.items()):
+        handle = platform_process.handle_from_pid(int(pid), float(started))
+        if handle is not None:
+            members.update({str(p): str(stamp) for p, stamp in handle.members})
+    return members
+
+
 def custody_state(
     record: Mapping[str, Any],
     *,
@@ -88,10 +97,7 @@ def terminate_record(
     if state != "live":
         return "outcome_unknown"
     try:
-        members = _members(record)
-        for pid, started in tuple(members.items()):
-            if platform_process.pid_alive(int(pid), float(started)):
-                members.update(capture_process_tree(int(pid), started)["process_members"])
+        members = _capture_live_members(_members(record))
         protected = {os.getpid(), *(entry.pid for entry in
                                    platform_process.ancestors(os.getpid()))}
         if any(int(pid) in protected and platform_process.pid_alive(int(pid), float(started))
@@ -117,11 +123,7 @@ def bind_process_tree(record: Mapping[str, Any]) -> dict[str, Any]:
     """Capture every live record before stopping any overlapping supervisor."""
     payload = dict(record)
     try:
-        members = _members(payload)
-        for pid, started in tuple(members.items()):
-            if platform_process.pid_alive(int(pid), float(started)):
-                members.update(capture_process_tree(int(pid), started)["process_members"])
-        payload["process_members"] = members
+        payload["process_members"] = _capture_live_members(_members(payload))
     except (OSError, ValueError, TypeError):
         pass
     return payload

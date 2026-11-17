@@ -18,15 +18,5 @@
   "reason": "Textual screen sometimes not mounted in time: '#onboard-body SelectionList' query fails",
   "feedback": 96604,
   "fix_item": "YOK-5312"
- },
- "runtime/harness/test_session_process_custody.py::test_supervisor_exit_keeps_live_child_identity_and_reaps_group": {
-  "reason": "group stop sometimes reports outcome_unknown",
-  "feedback": 96606,
-  "fix_item": "YOK-5320"
- },
- "runtime/api/cli/test_browser_platform_process.py::test_recorded_descendants_stop_after_the_daemon_leader_exits": {
-  "reason": "stopping a recorded descendant sometimes fails with process_stop_failed",
-  "feedback": 96606,
-  "fix_item": "YOK-5320"
  }
 }

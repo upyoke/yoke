@@ -286,9 +286,30 @@ def test_process_observation_failure_keeps_custody(monkeypatch):
 def test_persist_failure_prevents_any_signal(monkeypatch):
     record = {"pid": 123, "process_start_time": "123.5"}
     monkeypatch.setattr(custody.platform_process, "pid_alive", lambda *args: True)
-    monkeypatch.setattr(custody, "capture_process_tree",
-                        lambda *args: {"process_members": {"123": "123.5"}})
+    monkeypatch.setattr(custody.platform_process, "handle_from_pid",
+                        lambda pid, stamp: platform_process.GroupHandle(123, 123.5, ((123, 123.5),)))
     monkeypatch.setattr(custody.platform_process, "ancestors", lambda *args: [])
     monkeypatch.setattr(custody.platform_process, "stop_group",
                         lambda *args: pytest.fail("signal preceded persistence"))
     assert custody.terminate_record(record, persist=lambda record: False) == "outcome_unknown"
+
+
+@pytest.mark.windows
+def test_member_exiting_during_capture_still_stops_the_tree(monkeypatch):
+    record = {"pid": 123, "process_start_time": "123.5",
+              "process_members": {"124": "124.5"}}
+    live = {123, 124}
+    stopped = []
+    monkeypatch.setattr(custody.platform_process, "pid_alive",
+                        lambda pid, stamp=None: pid in live)
+    def exits_during_capture(pid, stamp):
+        live.discard(123)  # The supervisor's interpreter exits meanwhile.
+        return None if pid == 123 else platform_process.GroupHandle(pid, stamp, ((pid, stamp),))
+    monkeypatch.setattr(custody.platform_process, "handle_from_pid", exits_during_capture)
+    monkeypatch.setattr(custody.platform_process, "ancestors", lambda *args: [])
+    def stop(handle, timeout):
+        stopped.append(sorted(pid for pid, _ in handle.members))
+        live.clear()
+    monkeypatch.setattr(custody.platform_process, "stop_group", stop)
+    assert custody.terminate_record(record) == "terminated"
+    assert stopped == [[123, 124]]

@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import time
 
 import psutil
 
@@ -151,11 +152,36 @@ def spawn_group(argv, **popen_kwargs) -> GroupHandle:
                         _owns_session=True)
 
 
+def _signal(process: psutil.Process, kill: bool, denied: set[int]) -> None:
+    """Signal one verified process; an exit already under way is not a failure.
+
+    Windows refuses OpenProcess/TerminateProcess with access denied while a
+    process is exiting, so a denial only counts if the process outlives the wait.
+    """
+    try:
+        process.kill() if kill else process.terminate()
+    except psutil.NoSuchProcess:
+        pass
+    except psutil.AccessDenied:
+        denied.add(process.pid)
+
+
+def _survivors(processes, timeout: float) -> list[psutil.Process]:
+    """Poll exact identities until all exit or the timeout passes."""
+    deadline = time.monotonic() + timeout
+    while True:
+        alive = [p for p in processes if pid_alive(p.pid, p.create_time())]
+        if not alive or time.monotonic() >= deadline:
+            return alive
+        time.sleep(0.02)
+
+
 def stop_group(handle: GroupHandle, timeout: float) -> bool:
     """Return whether running members were found; terminate then kill after timeout.
 
     Identity uses exact creation time equality, never a PID-only or fuzzy match.
-    Permission failures raise OSError; survivors raise TimeoutError with recovery.
+    A member that exits while the stop runs counts as stopped. A survivor that
+    refused a signal raises PermissionError; other survivors raise TimeoutError.
     """
     if timeout < 0 or not math.isfinite(timeout):
         raise ValueError("invalid_stop_timeout: use a finite nonnegative timeout")
@@ -165,11 +191,15 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
         for pid, stamp in handle.members:
             if not pid_alive(pid, stamp):
                 continue
-            process = psutil.Process(pid)
-            if process.create_time() != stamp:
-                continue
+            try:
+                process = psutil.Process(pid)
+                if process.create_time() != stamp:
+                    continue
+                descendants = process.children(recursive=True)
+            except psutil.NoSuchProcess:
+                continue  # Exited after the liveness check: nothing left to stop.
             processes[pid] = process
-            for child in process.children(recursive=True):
+            for child in descendants:
                 processes[child.pid] = child
         # Only a live, verified leader authorizes signalling a POSIX group.
         if os.name != "nt" and handle._owns_session and pid_alive(handle.pid, handle.start_time):
@@ -186,29 +216,26 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
                 console_stop = True
             except (OSError, psutil.Error):
                 pass  # No attached console: the verified tree still stops below.
+        denied: set[int] = set()
         if not console_stop:
             for process in reversed(list(processes.values())):
-                try:
-                    process.terminate()
-                except psutil.NoSuchProcess:
-                    pass
-        _, alive = psutil.wait_procs(list(processes.values()), timeout=timeout)
+                _signal(process, False, denied)
+        alive = _survivors(processes.values(), timeout)
         if handle._job is not None:
             handle._job.terminate()
         for process in alive:
-            try:
-                process.kill()
-            except psutil.NoSuchProcess:
-                pass
-        _, alive = psutil.wait_procs(alive, timeout=timeout)
-        alive = [p for p in alive if pid_alive(p.pid, p.create_time())]
+            _signal(process, True, denied)
+        alive = _survivors(alive, timeout)
+        refused = [p.pid for p in alive if p.pid in denied]
+        if refused:
+            raise PermissionError(f"process_access_denied: PIDs {refused} refused stop; run as their owner and retry")
         if alive:
             raise TimeoutError(f"process_stop_timeout: PIDs {[p.pid for p in alive]}; close their owner and retry")
         if handle.process is not None:
             handle.process.wait(timeout=timeout)
         return bool(processes) or job_running
     except psutil.Error as exc:
-        raise OSError(f"process_stop_failed: PID {handle.pid}; run as its owner and retry") from exc
+        raise OSError(f"process_stop_failed: PID {handle.pid}: {exc}; run as its owner and retry") from exc
     finally:
         if handle._job is not None:
             handle._job.close()
