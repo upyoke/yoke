@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_codex_lane_hook_trust.py::test_a_quote_in_a_lane_path_stays_valid_toml",
+ "reason": "OSError: [WinError 123] The filename, directory name, or volume label syntax is incorrect: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_a_quote_in_a_"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_source_dev_run_cli_child_binding.py::test_two_selected_checkouts_each_answer_their_own_nested_command",
+ "reason": "AssertionError: assert 'child-ran-from C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_two_selected_checkouts_ea0\\\\lane/' in 'child-ran-from C:\\\\Users\\\\r"
+}

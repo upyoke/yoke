@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_qa_host_package_fixture.py::test_ambient_security_upgrade_is_rebased_without_package_mutation",
+ "reason": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'"
+}

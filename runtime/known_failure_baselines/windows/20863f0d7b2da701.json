@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_desktop_state.py::test_xfce_process_must_belong_to_active_fixture_login[False-False-False]",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

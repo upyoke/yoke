@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_qa_mission_evidence_survives_host_reset.py::test_a_mission_handle_with_no_bytes_at_the_allowed_location_is_refused",
+ "reason": "assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_a_mission_handle_with_no_0\\\\scratch\\\\1\\\\sessions\\\\mission-session\\\\runs\\\\mission-run\\\\storage\\\\qa"
+}

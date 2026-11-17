@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_workspace_authority.py::test_seed_source_under_target_root_passes_with_synthetic",
+ "reason": "RuntimeError: workspace_authority: seed-source mismatch for 'fake_seed' -- seed loaded from 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_seed_source_"
+}

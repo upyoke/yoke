@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_deploy_pipeline_fleet_declarations.py::test_named_database_fleet_rehearses_its_own_project_and_model",
+ "reason": "AssertionError: assert ['--checkout'...egistry', ...] == ['--checkout'...egistry', ...]"
+}

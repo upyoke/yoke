@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_session_relay_systemd.py::test_unit_quotes_paths_and_prevents_expansion",
+ "reason": "assert '100%%/$$HOME/\\\\\"yoke\\\\\"' in '[Unit]\\nDescription=Yoke machine relay\\nStartLimitIntervalSec=0\\n\\n[Service]\\nType=exec\\nExecStart=\"\\\\\\\\home\\\\\\\\user with spaces\\\\\\\\100%%\\\\\\\\$$HOME\\\\\\\\\\\\\"yoke\\\\\"\""
+}

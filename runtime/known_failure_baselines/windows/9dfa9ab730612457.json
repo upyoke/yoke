@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_onboard_wizard_goldens_hosting.py::test_hosting_existing_credentials",
+ "reason": "AssertionError: hosting_existing_credentials.svg drifted from its blessed golden. Re-bless with YOKE_WIZARD_GOLDEN_UPDATE=1 if the change is approved. First difference: byte 27676, expected line 157;"
+}

@@ -1,6 +1,0 @@
-{
-"runtime/api/cli/test_yoke_server_connect.py::test_connect_verifies_then_writes_connection_and_token_file": "AssertionError: assert 438 == 384",
-"runtime/api/cli/test_yoke_strategy_event_product_boundary.py::test_events_emit_invocation_stays_product_safe": "assert 1 == 0",
-"runtime/api/cli/test_yoke_strategy_event_product_boundary.py::test_strategy_event_ouroboros_help_stays_product_safe": "assert 1 == 0",
-"runtime/api/cli/test_yoke_strategy_ingest_corpus.py::test_explicit_missing_archive_recovery_renders_then_ingests": "AssertionError: assert ['yoke', 'str...ng_archive_0'] == ['yoke', 'str...ng_archive_0']"
-}

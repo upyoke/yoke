@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_product_runner_linux_account.py::test_account_login_and_teardown_survive_failed_smoke[None]",
+ "reason": "PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_account_login_and_teardow0\\\\yoke-smoke-1234'"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_app_private_key_policy.py::test_control_plane_config_rejects_invalid_issuer_and_key_encoding",
+ "reason": "AssertionError: Regex pattern did not match."
+}

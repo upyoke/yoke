@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_filesystem_full_repo2.py::TestRepoFileHealthChecksB::test_stray_db_warns_on_worktree_local_stray_nonempty",
+ "reason": "assert '.worktrees/YOK-999/runtime/yoke.db' in \"- C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_stray_db_warns_on_worktre0\\\\.worktrees\\\\YOK-999\\\\runtim"
+}

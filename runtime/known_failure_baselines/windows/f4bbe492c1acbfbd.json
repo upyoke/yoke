@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_checkout_clean_room_smoke.py::test_write_machine_files_owner_only",
+ "reason": "AssertionError: assert (33206 & 63) == 0"
+}

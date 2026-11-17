@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_session_relay_codex_capture_activity.py::test_capture_refresh_keeps_the_previous_envelope_readable_until_replacement",
+ "reason": "AssertionError: assert (33206 & 511) == 384"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_product_boundary_fault_injection.py::test_source_refresh_preview_diagnoses_without_hook_runtime",
+ "reason": "AssertionError: Traceback (most recent call last):"
+}

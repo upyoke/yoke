@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_merge_worktree_prepare.py::TestSimulationGate::test_yok1180_preflight_missing_simulation_blocks",
+ "reason": "YOK-5369: MergeEnv.env hands the merge child no SYSTEMROOT and a ':'-joined PATH; its psycopg import fails with 'no pq wrapper available'"
+}

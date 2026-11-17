@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_events_crud_registry.py::TestDiscover::test_discover_excludes_tests",
+ "reason": "AssertionError: assert 'TestOnlyEvent' not in 'TestOnlyEve..._emitters.py'"
+}

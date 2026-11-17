@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_codex_lane_hook_trust.py::test_untrusted_worktree_reads_as_a_dead_zone",
+ "reason": "AssertionError: assert False is True"
+}

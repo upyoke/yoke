@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_session_relay_claude_transcript.py::test_project_storage_key_matches_claude[/a/long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. long_name. --a-long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--long-name--r4ieb]",
+ "reason": "AssertionError: assert 'D--a-long-na...ng-nam-wesqw7' == '-a-long-name...g-name--r4ieb'"
+}

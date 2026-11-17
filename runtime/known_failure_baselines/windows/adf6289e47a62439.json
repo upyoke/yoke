@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_candidate_source_execution.py::test_candidate_command_executes_bound_source[direct]",
+ "reason": "AssertionError: assert ('fail' == 'pass'"
+}

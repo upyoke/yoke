@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_session_relay_claude_transcript.py::test_project_storage_key_matches_claude[/a/b/.worktrees/X--a-b--worktrees-X]",
+ "reason": "AssertionError: assert 'D--a-b--worktrees-X' == '-a-b--worktrees-X'"
+}

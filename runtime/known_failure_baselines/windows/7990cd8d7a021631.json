@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_control_plane.py::TestPythonPathEquivalence::test_override_reads_the_first_non_cd_command[cd /tmp; env -i _X=1 ]",
+ "reason": "AssertionError: assert None == '\\\\__yoke_test_root__'"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_tree_binding_scope.py::test_a_deployment_case_runs_when_the_checkout_is_the_candidate",
+ "reason": "AssertionError: assert 'fail' == 'pass'"
+}

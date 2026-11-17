@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_hc_worktree_hook_trust.py::test_command_edit_marks_persisted_trust_modified",
+ "reason": "AssertionError: assert 'modified' in 'Codex hooks will not fire in the main checkout:\\n  - Codex config could not be read: C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0"
+}

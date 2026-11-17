@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_existing_project_lookup.py::test_find_local_project_reference_reads_machine_config",
+ "reason": "yoke_cli.config.existing_project_lookup.ExistingProjectReferenceError: C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_find_local_project_refere1\\config.json is n"
+}

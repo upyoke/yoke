@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_architect_anticipation_integration.py::test_cross_cutting_fixture_expands_path_claim_surface",
+ "reason": "AssertionError: assert {'runtime\\\\ap...mple_auth.py'} == {'runtime/api...mple_auth.py'}"
+}

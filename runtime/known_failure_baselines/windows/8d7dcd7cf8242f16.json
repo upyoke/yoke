@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_repo_upstream_freshness.py::test_branch_checked_out_elsewhere_is_left_alone",
+ "reason": "AssertionError: assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_branch_checked_out_elsewh0\\\\borrowed' in 'upstream freshness: trunk is 1 commit(s"
+}

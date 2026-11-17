@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_local_universe_import.py::test_local_import_requires_exactly_one_org",
+ "reason": "AssertionError: assert 'exactly one organization' in 'the universe archive must be owner-only; run `chmod 600 C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\"
+}

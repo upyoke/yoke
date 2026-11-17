@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_persistent_host_operations.py::test_unsafe_golden_refuses_before_deleting_home[ssh_link_child]",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

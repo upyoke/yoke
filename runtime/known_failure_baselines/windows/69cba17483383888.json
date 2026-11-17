@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_events_crud_registry.py::TestDiscover::test_discover_harness_python_parse_args_wrapper",
+ "reason": "AssertionError: assert 'HarnessToolCallDenied|runtime/harness/denial_telemetry.py' in 'HarnessToolCallDenied|runtime\\\\harness\\\\denial_telemetry.py\\nHarnessToolCallDenied|runtime\\\\harness\\\\denial_telem"
+}

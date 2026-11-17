@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_hosting.py::test_both_key_paths_store_and_verify_the_same_redacted_identity[guided]",
+ "reason": "AssertionError: assert (33206 & 63) == 0"
+}

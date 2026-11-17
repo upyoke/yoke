@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_harness_cli_manifest.py::test_codex_app_bundle_is_resolved_from_the_declared_path",
+ "reason": "AssertionError: assert (None, 'missing') == ('C:\\\\Users\\\\...x', 'bundled')"
+}

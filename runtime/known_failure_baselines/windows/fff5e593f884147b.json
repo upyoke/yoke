@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_read_only_allow.py::TestNonReadOnlyStillDenies::test_synthetic_outside_path_still_denies",
+ "reason": "AssertionError: assert True is False"
+}

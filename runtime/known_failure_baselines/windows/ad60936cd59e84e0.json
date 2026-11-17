@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_hc_cursor_hooks.py::test_symlinked_claude_config_is_reported_as_unloadable",
+ "reason": "AssertionError: assert '.claude/settings.json contains symlink component' in '.claude\\\\settings.json contains symlink component .claude\\\\settings.json; Cursor refuses project hook config paths contain"
+}

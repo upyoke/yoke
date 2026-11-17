@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_app_private_key_policy.py::test_control_plane_config_rejects_root_owned_file_outside_runtime_mount",
+ "reason": "AssertionError: Regex pattern did not match."
+}

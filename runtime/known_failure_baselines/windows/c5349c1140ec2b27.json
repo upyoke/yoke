@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_global_skill_install.py::test_install_places_one_copy_and_a_claude_link",
+ "reason": "assert '---\\nname: y....com/docs>.\\n' == '---\\nname: y....com/docs>.\\n'"
+}

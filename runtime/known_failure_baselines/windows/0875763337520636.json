@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_harness_cli_manifest.py::test_setup_relay_and_doctor_share_path_and_bundled_resolution",
+ "reason": "AssertionError: assert None == 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_setup_relay_and_doctor_sh0\\\\bin\\\\codex'"
+}
