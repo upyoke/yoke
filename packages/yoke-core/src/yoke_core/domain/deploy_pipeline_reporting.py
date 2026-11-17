@@ -229,8 +229,8 @@ def stamp_held_members_complete(
     """
     from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 
-    try:
-        member_items[:] = control_plane.current_member_refs(run_id)
+    try:  # An item-less run has nothing a release could narrow.
+        member_items[:] = member_items and control_plane.current_member_refs(run_id)
     except control_plane.DeploymentControlPlaneError as exc:
         return (
             f"{exc}; no member was stamped complete. Restore the control-plane "

@@ -51,6 +51,18 @@ def test_unreadable_membership_stamps_nothing_and_names_recovery(monkeypatch):
     assert f"yoke watch deploy -- {RUN}" in refusal
 
 
+def test_item_less_run_stamps_complete_without_a_membership_read(monkeypatch):
+    stamped = _stamps(monkeypatch)
+
+    def _unexpected(_run):
+        raise AssertionError("an item-less run has no members to re-read")
+
+    monkeypatch.setattr(control_plane, "current_member_refs", _unexpected)
+
+    assert reporting.stamp_held_members_complete(RUN, []) == ""
+    assert stamped == [("complete", [])]
+
+
 def test_current_member_refs_reads_the_held_members(monkeypatch):
     calls = []
 
