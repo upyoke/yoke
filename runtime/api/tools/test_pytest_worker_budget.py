@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -214,7 +216,10 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
     )
     assert watch_pytest.main(["--", "-n", "auto", "runtime/api/tools"]) == 0
     assert captured["env"]["PYTEST_XDIST_AUTO_NUM_WORKERS"] == "10"
-    assert "packages/yoke-core/src" in captured["env"]["PYTHONPATH"]
+    assert ("packages", "yoke-core", "src") in {
+        Path(entry).parts[-3:]
+        for entry in captured["env"]["PYTHONPATH"].split(os.pathsep)
+    }
     # Two shapes are correct here, and which one appears is the environment
     # rather than the contract: where a budget cluster is reachable the
     # machine-wide worker budget resolves ``auto`` up front and hands the

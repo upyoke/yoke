@@ -13,9 +13,12 @@ from yoke_contracts.shell_path_state import (
 )
 
 
-def canonical_posix_path_state_contract() -> PathStateContract:
-    """Build reset paths without consulting or interpreting the local host."""
-    home = PurePosixPath("/")
+def canonical_posix_path_state_contract(home: str = "/") -> PathStateContract:
+    """Build a POSIX zsh host's paths without consulting the local host.
+
+    The default root home renders the reset renderer's relative paths.
+    """
+    home = PurePosixPath(home)
     tool_bin = home / ".local" / "bin"
     return PathStateContract(
         home=str(home),

@@ -31,6 +31,31 @@ class Job:
         if not self.api.AssignProcessToJobObject(self.handle, int(process._handle)):
             raise OSError("process_job_assignment_failed: close conflicting job policy and retry")
 
+    def kill_on_close(self):
+        """End every member once the last handle to this job closes.
+
+        The creator's death closes its handle, so members cannot outlive it.
+        """
+        class Basic(ctypes.Structure):
+            _fields_ = [("user_time", ctypes.c_int64), ("job_time", ctypes.c_int64),
+                        ("flags", wintypes.DWORD), ("min_set", ctypes.c_size_t),
+                        ("max_set", ctypes.c_size_t), ("processes", wintypes.DWORD),
+                        ("affinity", ctypes.c_size_t), ("priority", wintypes.DWORD),
+                        ("scheduling", wintypes.DWORD)]
+
+        class Extended(ctypes.Structure):
+            _fields_ = [("basic", Basic), ("io", ctypes.c_uint64 * 6)]
+            _fields_ += [(name, ctypes.c_size_t) for name in (
+                "process_memory", "job_memory", "peak_process", "peak_job")]
+        limits = Extended()
+        limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        apply = self.api.SetInformationJobObject
+        apply.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        apply.restype = wintypes.BOOL
+        if not apply(self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
+            raise OSError("process_job_limit_failed: close conflicting job policy and retry")
+        return self
+
     def terminate(self):
         if not self.api.TerminateJobObject(self.handle, 1):
             raise OSError("process_job_stop_failed: run as the process owner and retry")
@@ -59,39 +84,52 @@ class Job:
         self.close()
 
 
+def popen_in_job(argv, kwargs, job):
+    """Start *argv* suspended, assign it to *job*, then resume it.
+
+    Starting suspended means no descendant can escape the job's custody.
+    """
+    flags = kwargs.pop("creationflags", 0) | 4  # CREATE_SUSPENDED
+    process = subprocess.Popen(argv, creationflags=flags, **kwargs)
+    try:
+        job.assign(process)
+        _resume(process, job.api)
+    except BaseException:
+        process.kill()
+        process.wait()
+        raise
+    return process
+
+
+def _resume(process, api):
+    """Resume every thread of a process started with CREATE_SUSPENDED."""
+    api.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    api.OpenThread.restype = wintypes.HANDLE
+    api.ResumeThread.argtypes = [wintypes.HANDLE]
+    api.ResumeThread.restype = wintypes.DWORD
+    threads = psutil.Process(process.pid).threads()
+    if not threads:
+        raise OSError("process_resume_failed: no initial thread; retry the spawn")
+    for thread in threads:
+        native = api.OpenThread(2, False, thread.id)
+        if not native:
+            raise OSError("process_resume_failed: cannot open thread; check account policy")
+        try:
+            if api.ResumeThread(native) == 0xFFFFFFFF:
+                raise OSError("process_resume_failed: cannot resume thread; check account policy")
+        finally:
+            api.CloseHandle(native)
+
+
 def spawn(argv, kwargs):
     from yoke_contracts.platform_process import GroupHandle
 
     job = Job()
-    flags = kwargs.pop("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP | 4
-    process = None
+    kwargs["creationflags"] = kwargs.get("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP
     try:
-        process = subprocess.Popen(argv, creationflags=flags, **kwargs)
-        job.assign(process)
-        observed = psutil.Process(process.pid)
-        stamp = observed.create_time()
-        # Start suspended so no child can escape custody before job assignment.
-        api = job.api
-        api.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-        api.OpenThread.restype = wintypes.HANDLE
-        api.ResumeThread.argtypes = [wintypes.HANDLE]
-        api.ResumeThread.restype = wintypes.DWORD
-        threads = observed.threads()
-        if not threads:
-            raise OSError("process_resume_failed: no initial thread; retry the spawn")
-        for thread in threads:
-            native = api.OpenThread(2, False, thread.id)
-            if not native:
-                raise OSError("process_resume_failed: cannot open thread; check account policy")
-            try:
-                if api.ResumeThread(native) == 0xFFFFFFFF:
-                    raise OSError("process_resume_failed: cannot resume thread; check account policy")
-            finally:
-                api.CloseHandle(native)
+        process = popen_in_job(argv, kwargs, job)
+        stamp = psutil.Process(process.pid).create_time()
         return GroupHandle(process.pid, stamp, ((process.pid, stamp),), process, job)
     except BaseException:
-        if process is not None:
-            process.kill()
-            process.wait()
         job.close()
         raise

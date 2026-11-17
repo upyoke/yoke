@@ -71,9 +71,8 @@ def run_transfer(
                 env=None if env is None else dict(env),
             )
         else:
-            with subprocess.Popen(
+            with migration_rehearsal_copy_lock.popen_copy_child(
                 list(argv),
-                pass_fds=migration_rehearsal_copy_lock.child_descriptors(),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

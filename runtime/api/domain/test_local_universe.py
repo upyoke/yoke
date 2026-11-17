@@ -15,6 +15,11 @@ from yoke_core.domain import local_universe as lu
 from yoke_core.domain import postgres_cluster
 
 
+def _socket_host(path: Path) -> str:
+    # libpq on Windows takes the AF_UNIX directory in forward-slash form.
+    return path.as_posix() if os.name == "nt" else str(path)
+
+
 def _completed(stdout: str = "", returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout=stdout, stderr="")
 
@@ -31,7 +36,7 @@ def test_cluster_spec_is_durable_and_socket_scoped(tmp_path):
     assert spec.stop_mode == "fast"  # durable data: checkpoint on stop
     assert spec.server_settings == ()  # no throwaway durability tuning
     assert spec.bin_dir == tmp_path / "engine" / "bin"
-    assert lu.local_dsn(spec) == f"host={spec.sock_dir} user=yoke dbname=yoke"
+    assert lu.local_dsn(spec) == f"host={spec.socket_host} user=yoke dbname=yoke"
 
 
 def test_cluster_spec_shortens_overlong_unix_socket_path(tmp_path):
@@ -45,7 +50,7 @@ def test_cluster_spec_shortens_overlong_unix_socket_path(tmp_path):
     assert len(os.fsencode(socket_path)) <= (
         postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES
     )
-    assert lu.local_dsn(spec) == f"host={spec.sock_dir} user=yoke dbname=yoke"
+    assert lu.local_dsn(spec) == f"host={spec.socket_host} user=yoke dbname=yoke"
 
 
 def test_birth_reports_prior_socket_dsn_for_same_cluster(monkeypatch, tmp_path):
@@ -54,7 +59,7 @@ def test_birth_reports_prior_socket_dsn_for_same_cluster(monkeypatch, tmp_path):
 
     assert spec.socket_dir is not None
     assert lu.socket_dsn_aliases(spec) == [
-        f"host={root / 'sock'} user=yoke dbname=yoke"
+        f"host={_socket_host(root / 'sock')} user=yoke dbname=yoke"
     ]
 
 

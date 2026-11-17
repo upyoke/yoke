@@ -2,13 +2,13 @@
 
 import json
 from pathlib import Path
-import stat
 from types import SimpleNamespace
 
 import pytest
 
 from yoke_cli.commands import local_universe as commands
 from yoke_cli.config import local_universe_setup as setup
+from yoke_contracts import owner_private_path
 from runtime.api.cli.local_universe_cli_test_support import (
     _EngineError,
     _stub_engine,
@@ -82,21 +82,23 @@ def test_init_secures_machine_home_before_nested_runtime_writes(
     machine_home,
     capsys,
 ):
-    machine_home.mkdir(mode=0o775)
-    machine_home.chmod(0o775)
+    # A nested writer that made the home itself would leave it at the umask
+    # (POSIX) or with inherited ACLs (Windows). Tightening an existing loose
+    # home is test_machine_state_directory_left_at_umask_is_tightened.
+    assert not machine_home.exists()
 
     def engine_after_nested_write():
+        assert owner_private_path.is_owner_private_directory(machine_home)
         (machine_home / "postgres" / "17.11.1").mkdir(
             mode=0o700, parents=True, exist_ok=True
         )
-        assert stat.S_IMODE(machine_home.stat().st_mode) == 0o700
         return _stub_engine()
 
     monkeypatch.setattr(setup, "_engine", engine_after_nested_write)
 
     assert commands.init(["--local", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["ok"] is True
-    assert stat.S_IMODE(machine_home.stat().st_mode) == 0o700
+    assert owner_private_path.is_owner_private_directory(machine_home)
 
 
 def test_init_refuses_symlink_machine_home(monkeypatch, tmp_path, capsys):
