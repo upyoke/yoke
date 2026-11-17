@@ -229,6 +229,7 @@ def test_a_local_backup_restores_once(drive, monkeypatch, tmp_path: Path):
     assert len(imports) == 1
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_a_self_host_server_starts_once(drive, monkeypatch, tmp_path: Path):
     provisions: list[str] = []
 

@@ -61,6 +61,7 @@ def _guidance(text):
     assert docker.SELF_HOST_GUIDE in text
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize(
     "failure", ["docker-missing", "compose-missing", "docker-engine-not-running", ""]
 )
