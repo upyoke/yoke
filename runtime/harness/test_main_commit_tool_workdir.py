@@ -1,11 +1,13 @@
 """Tool working directories override the hook's startup directory."""
 
+import shlex
 from unittest.mock import Mock
 
 import pytest
 
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.shell_parse import parse_shell
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_harness.hooks import local_policy_common, main_commit_client
 
 
@@ -51,12 +53,12 @@ def test_commit_repo_root_resolves_repository_identity(tmp_path, via):
     elif via == "linked-worktree":
         cwd = repo / ".worktrees" / "lane"
         git("worktree", "add", "-b", "lane", str(cwd))
-        command = f"git -C {repo} commit -m change"
-        assert main_commit_client._repo_root(str(cwd)) == str(repo.resolve())
+        command = f"git -C {shlex.quote(str(repo))} commit -m change"
+        assert main_commit_client._repo_root(str(cwd)) == normalize_repo_path(str(repo.resolve()))
     shell = parse_shell(command)
     payload = {"cwd": str(cwd), "tool_input": {"command": command}}
     payload.update(main_commit_client.collect_git_commit_facts(payload, shell))
-    assert payload[CLIENT_GIT_COMMIT_FACTS_KEY]["repo_root"] == str(repo.resolve())
+    assert payload[CLIENT_GIT_COMMIT_FACTS_KEY]["repo_root"] == normalize_repo_path(str(repo.resolve()))
     rows = [{"public_ref": "TEST-1", "title": "Active",
              "worktrees": [{"path": str(repo / ".worktrees" / "lane")}]}]
     dispatcher = SimpleNamespace(
