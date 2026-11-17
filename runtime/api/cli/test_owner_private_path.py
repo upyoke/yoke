@@ -10,10 +10,7 @@ import pytest
 from yoke_contracts import owner_private_path
 
 
-pytestmark = pytest.mark.windows
-
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits do not model DACLs")
+@pytest.mark.posix_only(reason='POSIX mode bits do not model DACLs')
 def test_posix_owner_private_file_requires_private_mode(tmp_path: Path) -> None:
     path = tmp_path / "config.json"
     path.write_text("{}", encoding="utf-8")
@@ -25,6 +22,7 @@ def test_posix_owner_private_file_requires_private_mode(tmp_path: Path) -> None:
     assert owner_private_path.is_owner_private_file(path) is False
 
 
+@pytest.mark.windows
 def test_windows_owner_private_file_uses_dacl_validator(
     monkeypatch,
     tmp_path: Path,
@@ -43,11 +41,13 @@ def test_windows_owner_private_file_uses_dacl_validator(
     assert checked == [path]
 
 
+@pytest.mark.windows
 def test_owner_private_path_exports_only_file_validator() -> None:
     assert {"is_owner_private_file", "is_owner_private_directory",
             "create_owner_private_directory", "write_owner_private"} == set(owner_private_path.__all__)
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("data", ["héllo", b"secret"])
 def test_atomic_private_write(data, tmp_path):
     path = tmp_path / "secret"
@@ -59,6 +59,7 @@ def test_atomic_private_write(data, tmp_path):
     assert list(tmp_path.iterdir()) == [path]
 
 
+@pytest.mark.windows
 def test_private_write_replace_failure_preserves_old_data(monkeypatch, tmp_path):
     path = tmp_path / "secret"
     owner_private_path.write_owner_private(path, b"before")
@@ -71,6 +72,7 @@ def test_private_write_replace_failure_preserves_old_data(monkeypatch, tmp_path)
     assert list(tmp_path.iterdir()) == [path]
 
 
+@pytest.mark.windows
 def test_private_directory_creation_and_existing_unsafe_refusal(tmp_path):
     path = tmp_path / "private"
     assert owner_private_path.create_owner_private_directory(path) == path
@@ -83,12 +85,14 @@ def test_private_directory_creation_and_existing_unsafe_refusal(tmp_path):
         assert path.stat().st_mode & 0o777 == 0o755
 
 
+@pytest.mark.windows
 def test_private_write_does_not_create_parents(tmp_path):
     with pytest.raises(OSError):
         owner_private_path.write_owner_private(tmp_path / "missing" / "secret", b"no")
     assert not (tmp_path / "missing").exists()
 
 
+@pytest.mark.windows
 def test_windows_private_creation_explicitly_sets_token_user_owner(monkeypatch, tmp_path):
     """Elevated Windows tokens can otherwise default ownership to Administrators."""
     from types import SimpleNamespace
@@ -118,7 +122,8 @@ def test_windows_private_creation_explicitly_sets_token_user_owner(monkeypatch, 
     assert masks[0] & windows._OWNER_SECURITY_INFORMATION
 
 
-@pytest.mark.skipif(os.name != "nt", reason="native Windows directory ACL contract")
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows directory ACL contract')
 def test_machine_private_directory_recurses_and_preserves_existing(tmp_path):
     from yoke_contracts.machine_config.directories import create_private_directory
     parent = tmp_path / 'new'
@@ -134,6 +139,7 @@ def test_machine_private_directory_recurses_and_preserves_existing(tmp_path):
     assert owner_private_path.is_owner_private_directory(existing) == before
 
 
+@pytest.mark.windows
 def test_private_write_retries_windows_sharing_violation(monkeypatch, tmp_path):
     from yoke_contracts import filesystem_safety
 

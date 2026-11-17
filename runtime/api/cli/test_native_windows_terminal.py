@@ -60,9 +60,7 @@ def test_explicit_no_color_console(monkeypatch, setting, value):
     assert not terminal.supports_color(SimpleNamespace(isatty=lambda: True))
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="real native Windows shell captures"
-)
+@pytest.mark.windows_only(reason='real native Windows shell captures')
 @pytest.mark.parametrize("shell", ["cmd.exe", "powershell.exe", "pwsh.exe"])
 @pytest.mark.parametrize("surface", ["status", "setup"])
 def test_native_shell_output_capture(tmp_path, shell, surface, request):

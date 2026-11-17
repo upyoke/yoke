@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import shlex
-import sys
 from threading import Event, Thread
 
 import pytest
@@ -48,7 +47,7 @@ def test_capture_prunes_caches_without_preserving_them(tmp_path):
     assert manifest.strip() == f"{PRESERVED_MANIFEST_KEY} {PRESERVED_MANIFEST_VALUE}"
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS tar metadata")
+@pytest.mark.macos_only(reason='uses macOS tar metadata')
 def test_capture_succeeds_while_cache_files_appear_and_disappear(tmp_path):
     home = tmp_path / "home"
     caches = home / "Library/Caches/com.apple.duetexpertd"

@@ -9,8 +9,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.os_scope_markers import scoped_off
 from runtime import known_failure_baseline as baseline
 from runtime import known_failure_baseline_record as record
+
+pytestmark = pytest.mark.windows
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SUITE_ROOTS = ("runtime/api/", "runtime/harness/", "tests/")
@@ -32,7 +35,7 @@ def _defined_tests(path: Path) -> set[str]:
     return names
 
 
-def _entry_problem(node_id: str, reason: object) -> str | None:
+def _entry_problem(node_id: str, reason: object, os_name: str | None = None) -> str | None:
     if not isinstance(reason, str) or not reason.strip():
         return "has no reason"
     file_part, separator, test_part = node_id.partition("::")
@@ -48,6 +51,8 @@ def _entry_problem(node_id: str, reason: object) -> str | None:
     test = test_part.split("[", 1)[0]
     if separator and test not in _defined_tests(path):
         return f"names no test {test} in {file_part}"
+    if os_name and scoped_off(path, test, os_name):
+        return f"is scoped off {os_name}; remove it from the baseline"
     return None
 
 
@@ -57,7 +62,7 @@ def test_every_entry_names_a_real_test_with_a_reason(os_name: str) -> None:
     problems = {
         node_id: problem
         for node_id, reason in entries.items()
-        if (problem := _entry_problem(node_id, reason)) is not None
+        if (problem := _entry_problem(node_id, reason, os_name)) is not None
     }
     assert problems == {}, baseline.BASELINE_DIR / os_name
 
@@ -69,7 +74,7 @@ def test_baseline_files_hold_one_entry_per_line(os_name: str) -> None:
         assert len(lines) == len(json.loads("\n".join(lines))) + 2, path
 
 
-def test_entry_check_rejects_missing_reason_file_and_test() -> None:
+def test_entry_check_rejects_missing_reason_file_and_test(tmp_path, monkeypatch) -> None:
     this = "tests/test_known_failure_baseline.py"
     real = f"{this}::test_entry_check_rejects_missing_reason_file_and_test"
     assert _entry_problem(real, "why") is None
@@ -81,6 +86,17 @@ def test_entry_check_rejects_missing_reason_file_and_test() -> None:
     assert "separators" in _entry_problem("tests\\test_known_failure_baseline.py::x", "why")
     assert _entry_problem(real + "[C:\\temp]", "why") is None
     assert "unclosed" in _entry_problem(real + "[/tmp/a", "why")
+
+    monkeypatch.setattr(__import__(__name__, fromlist=["REPO_ROOT"]), "REPO_ROOT", tmp_path)
+    (tmp_path / "tests").mkdir()
+    scoped = tmp_path / "tests/scoped.py"
+    scoped.write_text('import pytest\npytestmark = pytest.mark.posix_only(reason="pipes")\ndef test_x(): pass\n')
+    for node in ("tests/scoped.py", "tests/scoped.py::test_x"):
+        assert "scoped off windows" in _entry_problem(node, "why", "windows")
+        assert _entry_problem(node, "why", "macos") is None
+
+    scoped.write_text('import pytest\n@pytest.mark.posix_only(reason="pipes")\ndef test_x(): pass\n')
+    assert "scoped off windows" in _entry_problem("tests/scoped.py::test_x", "why", "windows")
 
 
 def test_duplicate_entries_across_files_are_refused(tmp_path, monkeypatch) -> None:
@@ -280,7 +296,7 @@ def test_every_flaky_entry_names_a_real_test_its_feedback_and_fix_item(os_name: 
     problems = {
         node_id: problem
         for node_id, entry in flaky.items()
-        if (problem := _entry_problem(node_id, entry["reason"])) is not None
+        if (problem := _entry_problem(node_id, entry["reason"], os_name)) is not None
     }
     assert problems == {}
     assert not set(flaky) & set(baseline.load_baseline(os_name))

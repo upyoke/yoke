@@ -10,10 +10,8 @@ from pathlib import Path
 from yoke_contracts.hook_shell_command import hook_shell_command
 import pytest
 
-pytestmark = pytest.mark.windows
 
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX shell execution")
+@pytest.mark.posix_only(reason='POSIX shell execution')
 def test_hook_shell_avoids_startup_files_and_sets_launcher_path(tmp_path: Path) -> None:
     launcher_bin = tmp_path / "launcher-bin"
     launcher_bin.mkdir()
@@ -43,6 +41,7 @@ def test_hook_shell_avoids_startup_files_and_sets_launcher_path(tmp_path: Path) 
     assert completed.stdout == "hook-ok"
 
 
+@pytest.mark.windows
 def test_hook_shell_rejects_unquoted_source() -> None:
     try:
         hook_shell_command("printf 'unsafe'")
@@ -52,6 +51,7 @@ def test_hook_shell_rejects_unquoted_source() -> None:
         raise AssertionError("single-quoted hook source was accepted")
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
 def test_windows_commands_are_shell_safe_and_keep_context(harness):
     from yoke_contracts.hook_shell_command import (
@@ -74,6 +74,7 @@ def test_windows_commands_are_shell_safe_and_keep_context(harness):
     assert "Set-Location -LiteralPath" in source if harness == "cursor" else True
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize("host_os", ["posix", "nt"])
 def test_codex_renders_windows_command_and_hashes_the_selected_command(
     monkeypatch, host_os
@@ -99,6 +100,7 @@ def test_codex_renders_windows_command_and_hashes_the_selected_command(
     )
 
 
+@pytest.mark.windows
 def test_doctor_selects_windows_command_and_names_missing_shell(monkeypatch):
     from yoke_contracts import hook_shell_command as shell
 
@@ -114,6 +116,7 @@ def test_doctor_selects_windows_command_and_names_missing_shell(monkeypatch):
     assert "hook_command_unstartable" in shell.hook_command_start_problem(handler)
 
 
+@pytest.mark.windows
 def test_codex_trust_remints_when_the_windows_command_changes(tmp_path):
     import json
     from yoke_contracts.codex_hook_trust_store import (
@@ -140,6 +143,7 @@ def test_codex_trust_remints_when_the_windows_command_changes(tmp_path):
     assert inspect_hook_file_trust(hooks, config_path=config).approved
 
 
+@pytest.mark.windows
 def test_windows_install_renders_linux_server_bundle_without_changing_policy(
     monkeypatch,
 ):
@@ -170,6 +174,7 @@ def test_windows_install_renders_linux_server_bundle_without_changing_policy(
                     assert "yoke hook evaluate" in hook_command_source(command)
 
 
+@pytest.mark.windows
 def test_refresh_replaces_codex_entry_when_only_windows_command_changes(tmp_path):
     import json
     from copy import deepcopy
@@ -193,7 +198,8 @@ def test_refresh_replaces_codex_entry_when_only_windows_command_changes(tmp_path
     assert result["changed"]
 
 
-@pytest.mark.skipif(os.name != "nt", reason="executes native Windows PowerShell")
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='executes native Windows PowerShell')
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
 @pytest.mark.parametrize("shell", ["native", "git-bash"])
 def test_native_windows_command_keeps_stdin_paths_and_exit_status(

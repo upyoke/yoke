@@ -19,7 +19,7 @@ from public_installer_helpers import (
     write_uv_stub,
 )
 
-pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX job control")
+pytestmark = pytest.mark.posix_only(reason='POSIX job control')
 
 
 def assert_restored(output):

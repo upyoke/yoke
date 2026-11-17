@@ -1,0 +1,109 @@
+"""OS scopes refuse invalid declarations and replace hand-written conditions."""
+from pathlib import Path
+import os
+import subprocess
+import sys
+
+import pytest
+
+from runtime import os_scope_markers as scopes
+
+pytestmark = pytest.mark.windows
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _run(tmp_path, source, platform=None):
+    (tmp_path / "test_sample.py").write_text(source, encoding="utf-8")
+    (tmp_path / "conftest.py").write_text(
+        "import sys\n" + (f"sys.platform = {platform!r}\n" if platform else ""),
+        encoding="utf-8",
+    )
+    env = dict(os.environ, PYTHONPATH=str(ROOT), PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-p", "runtime.os_scope_markers", "-rs", "-q"],
+        cwd=tmp_path, env=env, text=True, capture_output=True,
+    )
+
+
+@pytest.mark.parametrize("declaration,error", [
+    ('pytest.mark.posix_only', 'os_scope_reason_required'),
+    ('pytest.mark.posix_only(reason=" ")', 'os_scope_reason_required'),
+    ('pytest.mark.posix_only("a", reason="b")', 'os_scope_reason_required'),
+    ('[pytest.mark.posix_only("a"), pytest.mark.linux_only("b")]', 'os_scope_conflict'),
+    ('[pytest.mark.windows, pytest.mark.macos_only("a")]', 'os_scope_windows_conflict'),
+])
+def test_invalid_module_declaration_refuses_before_import(tmp_path, declaration, error):
+    result = _run(tmp_path, f'import pytest\npytestmark = {declaration}\nraise RuntimeError("imported")\n')
+    assert result.returncode != 0
+    assert error in result.stdout + result.stderr
+    assert 'RuntimeError: imported' not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("marker,platform,skipped", [
+    ("posix_only", "win32", True), ("posix_only", "darwin", False),
+    ("windows_only", "linux", True), ("windows_only", "win32", False),
+    ("macos_only", "linux", True), ("macos_only", "darwin", False),
+    ("linux_only", "darwin", True), ("linux_only", "linux", False),
+])
+def test_function_scope_selects_and_explains(tmp_path, marker, platform, skipped):
+    result = _run(tmp_path, f'import pytest\n@pytest.mark.{marker}(reason="native API")\ndef test_x(): pass\n', platform)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ('1 skipped' if skipped else '1 passed') in result.stdout
+    if skipped:
+        assert f'{marker}: native API' in result.stdout
+
+
+def test_module_scope_skips_before_unavailable_import(tmp_path):
+    result = _run(tmp_path, 'import pytest\npytestmark = pytest.mark.windows_only("native API")\nimport absent_native_api\n', "linux")
+    assert result.returncode == 5, result.stdout + result.stderr
+    assert 'windows_only: native API' in result.stdout
+    assert 'ModuleNotFoundError' not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("decorators,error", [
+    ('@pytest.mark.linux_only()', 'os_scope_reason_required'),
+    ('@pytest.mark.posix_only("a")\n@pytest.mark.macos_only("b")', 'os_scope_conflict'),
+    ('@pytest.mark.windows\n@pytest.mark.linux_only("a")', 'os_scope_windows_conflict'),
+])
+def test_function_declarations_refuse(tmp_path, decorators, error):
+    result = _run(tmp_path, f'import pytest\n{decorators}\ndef test_x(): pass\n')
+    assert result.returncode != 0
+    assert error in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("source", [
+    '@pytest.mark.skipif(os.name == "nt", reason="x")\ndef test_x(): pass',
+    '@pytest.mark.xfail(sys.platform != "darwin", reason="x")\ndef test_x(): pass',
+    'if platform.system() == "Windows":\n pytest.skip("x")',
+    '@pytest.mark.skipif(condition=sys.platform == "win32", reason="x")\ndef test_x(): pass',
+    'if runtime.WINDOWS:\n pytest.xfail("x")',
+    'IS_NATIVE = sys.platform == "linux"\nif IS_NATIVE:\n pytest.skip("x")',
+    '@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="x")\ndef test_x(): pass',
+])
+def test_scanner_finds_os_conditions(source):
+    assert scopes.handwritten_os_skips(source)
+
+
+@pytest.mark.parametrize("source", [
+    '@pytest.mark.skipif(os.getuid() == 0, reason="root")\ndef test_x(): pass',
+    'if shutil.which("zsh") is None:\n pytest.skip("missing tool")',
+    '@pytest.mark.posix_only(reason="native API")\ndef test_x(): pass',
+])
+def test_scanner_preserves_non_os_skips(source):
+    assert scopes.handwritten_os_skips(source) == []
+
+
+def test_no_handwritten_os_skips_remain():
+    assert scopes.scan_tracked(ROOT) == []
+
+
+@pytest.mark.parametrize("declaration", [
+    'pytestmark = pytest.mark.linux_only("native")\n',
+    '@pytest.mark.linux_only("native")\n',
+    'NATIVE = pytest.mark.linux_only("native")\n@NATIVE\n',
+])
+def test_baseline_scope_reads_module_function_and_alias(tmp_path, declaration):
+    path = tmp_path / "test_native.py"
+    path.write_text('import pytest\n' + declaration + 'def test_x(): pass\n')
+    assert scopes.scoped_off(path, "test_x", "windows")
+    assert not scopes.scoped_off(path, "test_x", "linux")

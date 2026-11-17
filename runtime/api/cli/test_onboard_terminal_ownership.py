@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 from types import SimpleNamespace
 
@@ -11,7 +10,7 @@ import pytest
 from yoke_cli.config import onboard_terminal as terminal
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX controlling-terminal job control")
+@pytest.mark.posix_only(reason='POSIX controlling-terminal job control')
 @pytest.mark.parametrize("scenario", ["background", "loss", "loss-read", "copy-loss"])
 def test_unsafe_terminal_has_named_recovery_and_restored_modes(scenario, tmp_path):
     from runtime.api.cli.onboard_terminal_pty_support import run_pty
@@ -39,7 +38,7 @@ def test_unsafe_terminal_has_named_recovery_and_restored_modes(scenario, tmp_pat
         assert "Traceback" not in output
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX controlling-terminal job control")
+@pytest.mark.posix_only(reason='POSIX controlling-terminal job control')
 @pytest.mark.parametrize("scenario", ["foreground", "cancel", "copy", "suspend"])
 def test_foreground_handoffs_and_suspend_restore_the_terminal(scenario, tmp_path):
     from runtime.api.cli.onboard_terminal_pty_support import run_pty
@@ -56,7 +55,7 @@ def test_foreground_handoffs_and_suspend_restore_the_terminal(scenario, tmp_path
         assert output.count("\x1b[?1000h") >= 4  # enabled twice per start
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX controlling-terminal job control")
+@pytest.mark.posix_only(reason='POSIX controlling-terminal job control')
 @pytest.mark.parametrize("shell", ["bash", "zsh"])
 def test_interactive_login_probe_keeps_the_wizard_terminal(shell, tmp_path):
     """bash 5 and zsh `-lic` take the foreground unless detached from the tty."""
@@ -70,7 +69,7 @@ def test_interactive_login_probe_keeps_the_wizard_terminal(shell, tmp_path):
     assert "setup_terminal_" not in output
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX controlling-terminal job control")
+@pytest.mark.posix_only(reason='POSIX controlling-terminal job control')
 def test_loss_is_named_before_a_running_worker_finishes(tmp_path):
     """Apply runs in a worker thread; its loss must not wait for that thread."""
     from runtime.api.cli.onboard_terminal_pty_support import run_pty
