@@ -115,11 +115,13 @@ def test_public_writers_serialize_complete_updates(tmp_path, kind, alias):
     invalid_reads = []
 
     def read_configs():
+        # The product read path: it waits out a Windows sharing violation
+        # while a writer replaces the file, so any error here is a torn read.
         while not stop_reading.is_set():
             try:
-                document = tomllib.loads(config.read_text())
+                _, document = storage.read_config(config)
                 assert document["model"] == "chosen-model"
-            except (OSError, ValueError, KeyError, AssertionError) as exc:
+            except (storage.CodexHookTrustStoreError, KeyError, AssertionError) as exc:
                 invalid_reads.append(type(exc).__name__)
             stop_reading.wait(0.002)
 

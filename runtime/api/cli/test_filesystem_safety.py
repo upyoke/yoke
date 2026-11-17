@@ -82,3 +82,45 @@ def test_atomic_replace_on_windows_does_not_require_fchmod(tmp_path, monkeypatch
     filesystem_safety.atomic_replace_bytes(target, b"rendered\n")
     assert target.read_bytes() == b"rendered\n"
     assert list(tmp_path.glob(".rendered.md.*.tmp")) == []
+
+
+def _flaky(failures: int):
+    calls = []
+
+    def operation():
+        calls.append(None)
+        if len(calls) <= failures:
+            raise PermissionError("[WinError 5] Access is denied")
+        return "done"
+
+    return operation, calls
+
+
+def test_windows_sharing_violation_is_retried_until_the_holder_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(filesystem_safety, "_RETRY_SHARING_VIOLATIONS", True)
+    operation, calls = _flaky(3)
+    assert filesystem_safety.retry_sharing_violations(operation) == "done"
+    assert len(calls) == 4
+
+
+def test_windows_sharing_violation_that_outlasts_the_window_is_raised(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(filesystem_safety, "_RETRY_SHARING_VIOLATIONS", True)
+    monkeypatch.setattr(filesystem_safety, "SHARING_RETRY_SECONDS", 0.05)
+    operation, calls = _flaky(10**6)
+    with pytest.raises(PermissionError, match="Access is denied"):
+        filesystem_safety.retry_sharing_violations(operation)
+    assert len(calls) > 1
+
+
+def test_permission_error_off_windows_is_a_real_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(filesystem_safety, "_RETRY_SHARING_VIOLATIONS", False)
+    operation, calls = _flaky(1)
+    with pytest.raises(PermissionError):
+        filesystem_safety.retry_sharing_violations(operation)
+    assert len(calls) == 1
