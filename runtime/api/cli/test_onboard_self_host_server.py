@@ -17,6 +17,8 @@ from yoke_contracts.self_host_bootstrap_output import (
 )
 
 
+pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")
+
 RAW_TOKEN = TOKEN_PREFIX + ("A" * TOKEN_BODY_LENGTH)
 
 

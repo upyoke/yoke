@@ -20,7 +20,7 @@ def installed_self_host_prerequisites(monkeypatch, tmp_path):
     from yoke_cli.config import distribution
     from runtime.api.fixtures.machine_config_test import select_machine_config_file
 
-    select_machine_config_file(monkeypatch, tmp_path / "machine" / "config.json")
+    select_machine_config_file(monkeypatch, tmp_path / "machine-home" / "config.json")
     distribution.save(origin="https://api.stage.upyoke.com", channel="latest")
 
     monkeypatch.setattr(prerequisites, "check", lambda: None)
