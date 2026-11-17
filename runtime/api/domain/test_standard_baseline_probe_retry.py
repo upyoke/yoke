@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import tempfile
 import sys
 import shutil
 import time
@@ -119,7 +120,7 @@ def test_cursor_stall_retries_with_remaining_budget_and_retains_safe_evidence(
 
     def run(argv, **kwargs):
         timeouts.append(kwargs["timeout"])
-        assert kwargs["cwd"] == "/tmp"
+        assert kwargs["cwd"] == tempfile.gettempdir()
         if len(timeouts) == 1 or second_stalls:
             now[0] += kwargs["timeout"]
             raise subprocess.TimeoutExpired(argv, kwargs["timeout"], output=stream)

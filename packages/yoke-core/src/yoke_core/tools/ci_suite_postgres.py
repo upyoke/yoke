@@ -5,9 +5,11 @@ workflow's Windows and macOS shards have no container runtime, so they run
 the product's own pinned engine instead: fetch the embedded binaries the way
 ``yoke local-postgres start`` does, start the disposable test cluster
 (:mod:`yoke_core.tools.pg_testcluster`) under the runner's temp directory,
-and hand its connection to every later step through ``$GITHUB_ENV``. The
-suite's conftests then find an explicit DSN and never start a cluster of
-their own from inside an xdist worker.
+and hand it to every later step the way Linux CI's container setup does:
+the engine's ``bin`` directory on ``PATH`` (``pg_dump``, ``pg_restore``,
+``initdb``), and ``YOKE_PG_DSN`` and ``YOKE_PG_SOCKET_DIR`` naming the running
+server. The suite's conftests then find an explicit DSN and never start a
+cluster of their own from inside an xdist worker.
 
     python -m yoke_core.tools.ci_suite_postgres start
     python -m yoke_core.tools.ci_suite_postgres stop
@@ -20,14 +22,16 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import postgres_binaries
 
 CLUSTER_ROOT_ENV = "YOKE_PG_CLUSTER_ROOT"
 DSN_ENV = "YOKE_PG_DSN"
+SOCKET_DIR_ENV = "YOKE_PG_SOCKET_DIR"
 
 
 def _refuse(reason: str, recovery: str) -> int:
-    print(f"{reason}. Recovery: {recovery}.", file=sys.stderr, flush=True)
+    print(compose_refusal(reason, recovery=recovery), file=sys.stderr, flush=True)
     return 1
 
 
@@ -35,21 +39,22 @@ def cluster_root() -> Path:
     """The run-scoped cluster directory under the runner's temp directory."""
     runner_temp = os.environ.get("RUNNER_TEMP", "").strip()
     if not runner_temp:
-        raise SystemExit(
-            "ci_suite_postgres_outside_actions: RUNNER_TEMP is unset. Recovery: "
-            "run this inside a GitHub Actions job, or start a local cluster with "
-            "`yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start`."
-        )
+        raise SystemExit(compose_refusal(
+            "ci_suite_postgres_outside_actions: RUNNER_TEMP is unset",
+            recovery="run this inside a GitHub Actions job, or start a local cluster "
+            "with `yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start`",
+        ))
     return Path(runner_temp) / "yoke-pg"
 
 
 def start() -> int:
     """Fetch the engine, start the cluster and export its connection."""
-    destination = os.environ.get("GITHUB_ENV", "").strip()
-    if not destination:
+    env_file = os.environ.get("GITHUB_ENV", "").strip()
+    path_file = os.environ.get("GITHUB_PATH", "").strip()
+    if not (env_file and path_file):
         return _refuse(
-            "ci_suite_postgres_no_github_env: GITHUB_ENV is unset, so later steps "
-            "could not reach the cluster",
+            "ci_suite_postgres_no_github_env: GITHUB_ENV or GITHUB_PATH is unset, "
+            "so later steps could not reach the cluster",
             "run this inside a GitHub Actions job",
         )
     bin_dir = postgres_binaries.ensure_binaries(emit=lambda line: print(line, flush=True))
@@ -66,12 +71,14 @@ def start() -> int:
             "read the initdb and server log lines above, then rerun the job",
         )
     exports = {
-        postgres_binaries.BIN_DIR_ENV: str(bin_dir),
         CLUSTER_ROOT_ENV: str(cluster_root()),
         DSN_ENV: pg_testcluster.dsn(),
+        SOCKET_DIR_ENV: str(pg_testcluster._spec().sock_dir),
     }
-    with Path(destination).open("a", encoding="utf-8") as handle:
+    with Path(env_file).open("a", encoding="utf-8") as handle:
         handle.write("".join(f"{key}={value}\n" for key, value in exports.items()))
+    with Path(path_file).open("a", encoding="utf-8") as handle:
+        handle.write(f"{bin_dir}\n")
     print(f"native test Postgres ready: {exports[DSN_ENV]}", flush=True)
     return 0
 

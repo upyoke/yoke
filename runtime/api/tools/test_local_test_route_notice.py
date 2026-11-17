@@ -4,7 +4,7 @@ import pytest
 
 from yoke_core.domain import watch_capture_binding as _watch_capture_binding
 from yoke_core.tools import pytest_remote_selection as routing
-from yoke_core.tools import run_tests, watch_pytest
+from yoke_core.tools import _pytest_parallel, run_tests, watch_pytest
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
@@ -28,6 +28,8 @@ def _missing_workflow(monkeypatch, root):
 
 
 def _front_door(monkeypatch, module):
+    # Ample RAM: a busy host's low-memory worker notice is not a route notice.
+    monkeypatch.setattr(_pytest_parallel, "_read_free_ram_mb", lambda: 1 << 20)
     monkeypatch.setattr(
         module.verification_tree_binding,
         "evaluate_run",

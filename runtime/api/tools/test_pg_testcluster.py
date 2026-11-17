@@ -56,29 +56,32 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
 
 def test_ensure_started_recreates_on_stale_settings(monkeypatch, tmp_path):
     monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: f"/pg/bin/{name}")
-    monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", str(tmp_path / "cluster"))
+    root = tmp_path / "cluster"
+    monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", str(root))
     calls = []
 
     monkeypatch.setattr(
         postgres_cluster,
         "initdb_if_needed",
-        lambda spec: calls.append("initdb") or 0,
+        lambda spec: pytest.fail("initdb belongs to the shared lifecycle"),
     )
     monkeypatch.setattr(
         postgres_cluster,
         "ensure_started",
-        lambda spec: calls.append("start") or 0,
+        lambda spec: calls.append(("start", root.exists())) or 0,
     )
     monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: True)
     monkeypatch.setattr(pg_testcluster, "_settings_match", lambda: False)
     monkeypatch.setattr(
         pg_testcluster,
         "destroy",
-        lambda: calls.append("destroy") or 0,
+        lambda: calls.append(("destroy", root.exists())) or 0,
     )
 
     assert pg_testcluster.ensure_started() == 0
-    assert calls == ["initdb", "destroy", "initdb", "start"]
+    # The lifecycle creates a fresh root owner-private (a Windows root made
+    # here first would inherit ACLs the lifecycle refuses).
+    assert calls == [("destroy", False), ("start", False)]
 
 
 def test_env_block_exports_cluster_root_and_dsn(monkeypatch):

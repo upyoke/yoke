@@ -58,3 +58,14 @@ def test_product_smoke_remains_an_on_demand_three_runner_diagnostic():
         ("ubuntu-24.04-arm", "Ubuntu 24.04", "arm64"),
         ("macos-latest", "macOS 26", "arm64"),
     }
+
+
+def test_multi_os_suite_remains_an_on_demand_windows_and_macos_matrix():
+    body = (WORKFLOWS / "yoke-suite.yml").read_text(encoding="utf-8")
+    assert _manual_only(body)
+    strategy = parse_document(body)["jobs"]["suite"]["strategy"]
+    assert strategy["matrix"]["os"] == ["windows", "macos"]
+    assert {(entry["os"], entry["runner"]) for entry in strategy["matrix"]["include"]} == {
+        ("windows", "windows-2025"),
+        ("macos", "macos-latest"),
+    }
