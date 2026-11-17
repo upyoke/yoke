@@ -103,17 +103,16 @@ def describe_failed_checks(failed: Sequence[LandingCheck]) -> str:
     return ", ".join(check.describe() for check in failed) or "none"
 
 
-UNRELATED_FAILURE_ROUTING = (
-    "If the cause is unrelated (not in code or tests this item touched, not "
-    "the same root cause, not a flake this item caused), record it with `yoke "
-    "feedback --to universe --category failed --evidence 'Unrelated failure: "
-    "RUN URL, JOB/SHARD, TEST, observed outcome'`, tell steering with `yoke say "
-    "--steering --stdin`, and never file, dash or promote an item or add a "
-    "dependency for it: steering vets the finding. Then re-run the local "
-    "verification gate; for red CI, rebase onto a moved main and re-run `yoke "
-    "merge item` (no empty commits), and until main moves, wait naming that "
-    "steering report"
+FAILURE_OWNERSHIP_ROUTING = (
+    "Fix any failure here, even one this item didn't cause. If this item "
+    "didn't cause it and a live steering seat covers this item, agree the next "
+    "step with that seat first. If another live item already fixes it, depend "
+    "on that item and message its holder; if it's too large, ask with `yoke "
+    "decision-requests ask`. Never file or promote an item yourself."
 )
+
+# Callers end the sentence; recovery text is composed into longer refusals.
+NO_EMPTY_COMMIT_RERUN = "Do not use empty commits to re-run unchanged inputs"
 
 
 def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
@@ -126,7 +125,8 @@ def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
         )
     return (
         "fix it on the lane, commit, re-run the verification gate, and "
-        "re-run `yoke merge item`. " + UNRELATED_FAILURE_ROUTING
+        "re-run `yoke merge item`. "
+        f"{FAILURE_OWNERSHIP_ROUTING} {NO_EMPTY_COMMIT_RERUN}"
     )
 
 
