@@ -1,6 +1,6 @@
 """Closed paths, URLs, and commands owned by permanent Machine QA fixtures."""
 
-from pathlib import Path
+from pathlib import PurePosixPath
 
 from yoke_contracts import shell_path_state as path_doctor
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL, DISTRIBUTION_STAGE_URL
@@ -18,7 +18,7 @@ MANAGED_BLOCK_MARKER = path_doctor.MANAGED_BEGIN.removeprefix("# >>> ").removesu
     " >>>"
 )
 PATH_IDEMPOTENCE_STARTUP_FILES = tuple(
-    str(path) for path in path_doctor.startup_files_for_shell("bash", Path("~"))
+    str(path) for path in path_doctor.startup_files_for_shell("bash", PurePosixPath("~"))
 )
 
 FAKE_TOKEN_PATH = "/tmp/yoke-fake-api.token"

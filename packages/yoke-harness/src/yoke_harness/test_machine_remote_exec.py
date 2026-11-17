@@ -14,7 +14,6 @@ from __future__ import annotations
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import codecs
-import locale
 import os
 from pathlib import Path
 from yoke_contracts.byte_stream_reader import ByteStreamReader
@@ -178,7 +177,7 @@ def _stream_command(
     """Drain both pipes without line buffering or retaining the full output."""
     from yoke_harness.test_machine_admin import PasswordRedactor
 
-    encoding = locale.getpreferredencoding(False)
+    encoding = "utf-8"
     secret = (redaction_secret or password or "").encode("utf-8")
     deadline = time.monotonic() + timeout if timeout is not None else None
     with process:
