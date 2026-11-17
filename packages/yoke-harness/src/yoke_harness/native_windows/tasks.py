@@ -27,7 +27,7 @@ function Get-YokeTask($path) {
  catch {
   $failure=$_.Exception
   while($failure.InnerException){$failure=$failure.InnerException}
-  if($failure.HResult -eq -2147024894){return $null}
+  if($failure.HResult -in @(-2147024894,-2147024893)){return $null}
   throw
  }
 }
@@ -45,6 +45,21 @@ function Get-YokeOwnedTasks($folder) {
   if(Test-YokeTaskOwner $task){$task}
  }
  foreach($child in $folder.GetFolders(0)){Get-YokeOwnedTasks $child}
+}
+function Get-YokeTaskFolder($path) {
+ if(!$path.StartsWith('\')){throw 'windows_task_path_invalid: use a saved absolute task folder'}
+ $folder=$schedule.GetFolder('\')
+ foreach($part in $path.Split('\')) {
+  if(!$part){continue}
+  if($part -in @('.','..')){throw 'windows_task_path_invalid: remove parent traversal'}
+  try {$folder=$folder.GetFolder($part)} catch {
+   $failure=$_.Exception
+   while($failure.InnerException){$failure=$failure.InnerException}
+   if($failure.HResult -notin @(-2147024894,-2147024893)){throw}
+   $folder=$folder.CreateFolder($part,$null)
+  }
+ }
+ return $folder
 }
 function New-YokeInteractiveTask($name,$arguments,$seconds) {
  if(Get-YokeTask $name){throw 'windows_task_exists: preserve the existing task and choose a fresh task name'}
@@ -71,7 +86,8 @@ function Restore-YokeTask($row) {
  $existing=Get-YokeTask ($row.path+$row.name)
  if($existing -and !(Test-YokeTaskOwner $existing)){throw 'windows_task_owner_refused: preserve the foreign task at the saved path'}
  # TASK_CREATE_OR_UPDATE | TASK_IGNORE_REGISTRATION_TRIGGERS.
- $schedule.GetFolder($row.path).RegisterTaskDefinition($row.name,$definition,38,$taskIdentity.User.Value,$null,$definition.Principal.LogonType,$null) | Out-Null
+ $folder=Get-YokeTaskFolder $row.path
+ $folder.RegisterTaskDefinition($row.name,$definition,38,$taskIdentity.User.Value,$null,$definition.Principal.LogonType,$null) | Out-Null
 }
 """
 

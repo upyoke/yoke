@@ -172,9 +172,10 @@ def test_failed_transport_upload_never_executes_script(monkeypatch):
         lambda self, script, **kw: calls.append(script) or completed(),
     )
     control = object.__new__(WindowsTransport)
-    with pytest.raises(RuntimeError, match="windows_script_upload_failed"):
+    with pytest.raises(RuntimeError, match="length/hash receipt did not match"):
         control._run("Write-Output x;" * 1000)
-    assert len(calls) == 1
+    assert len(calls) == 2 and "Remove-Item" in calls[-1]
+    assert not any(script.startswith("& ") for script in calls)
 
 
 def test_file_upload_frames_binary_and_checks_receipt(monkeypatch):
@@ -298,28 +299,26 @@ def test_large_script_streams_utf8_bom_and_keeps_input(monkeypatch):
     from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
     calls = []
+    data = bytearray()
 
     def run(self, script, **kwargs):
         calls.append((script, kwargs))
 
-        data = (
-            base64.b64decode(kwargs["input_text"].split(":", 1)[1])
-            if len(calls) == 1
-            else b""
-        )
-        return completed(f"YOKE_UPLOAD:{len(data)}:{hashlib.sha256(data).hexdigest()}")
+        if "Read-YokeFrame" in script:
+            chunk = base64.b64decode(kwargs["input_text"].split(":", 1)[1])
+            assert len(chunk) <= 2048
+            data.extend(chunk)
+            return completed(receipt(data))
+        return completed()
 
     monkeypatch.setattr(SshTestMachineTransport, "_run", run)
     control = object.__new__(WindowsTransport)
     source = 'Write-Output "héllo"; ' * 1000
     control._run(source, input_text="private-input", timeout=17)
-    assert (
-        base64.b64decode(calls[0][1]["input_text"].split(":", 1)[1]).decode("utf-8-sig")
-        == source
-    )
-    assert calls[1][1]["input_text"] == "private-input"
-    assert "finally" in calls[1][0]
-    assert "Remove-Item" in calls[1][0]
+    assert data.decode("utf-8-sig") == source
+    assert calls[-2][1]["input_text"] == "private-input"
+    assert calls[-2][0].startswith("& ")
+    assert "Remove-Item" in calls[-1][0]
 
 
 def test_staging_cleanup_failure_preserves_original_upload_failure(monkeypatch):
