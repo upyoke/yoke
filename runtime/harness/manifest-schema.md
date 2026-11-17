@@ -257,6 +257,7 @@ reached an issue or pull request, on every machine that ran one.
 | `store` | string | `local_jsonl` \| `unverified`. |
 | `location` | string | Home-relative path pattern of one transcript file. Empty when unverified. |
 | `project_match` | string | How one transcript is tied to a checkout path. Empty when unverified. |
+| `session_start` | string | `transcript_required` skips a start without a transcript as `skipped:unsaved_transcript`; `transcript_optional` permits registration. A prompt always proves a conversation. |
 | `evidence` | string | The reader or inspection that established the layout. |
 
 `unverified` is the answer for a harness nobody has inspected; no surface may

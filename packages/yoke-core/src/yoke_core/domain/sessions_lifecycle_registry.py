@@ -96,26 +96,19 @@ def register_session(
     native_thread_id: Optional[str] = None,
     driver: Optional[Dict[str, Any]] = None,
     launch_id: Optional[str] = None,
+    first_user_prompt: bool = False,
 ) -> Dict[str, Any]:
-    """Register a new active session.
+    """Register or heal a session, atomically recording its first prompt.
 
-    ``launch_id`` binds the launching actor instead of the operating actor,
-    and overwrites the retained actor on reactivation like an explicit actor.
-
-    ``model_facts`` carries the requested ask beside whatever a provider
-    attested; ``session_model_columns`` owns how each half is written.
-
-    ``driver`` identifies the caller's pid, ppid and hook event, resolved by
-    the hook dispatch tail. Every reactivation records it in the stored
-    ``HarnessSessionStarted`` context because the driving and registered
-    surfaces can differ, as in cross-surface revivals. Fresh registration
-    omits it because the session row already identifies its driving surface.
-
-    ``native_thread_id`` is the harness's own thread/session identity
-    (Codex's ``CODEX_THREAD_ID``) when the environment or a relayed hook
-    payload carries it — distinct from a manually registered ``session_id``. Wake
-    resolves against that column rather than assuming the two agree.
+    Launch attestation binds the launching actor; explicit actors and launch
+    actors replace retained actors on reactivation. Model facts keep requested
+    choices separate from provider attestations. The driver's process facts
+    describe a reactivation, whose driver may differ from the registered
+    surface. Native thread identity is the harness's own resume target,
+    distinct from a manually assigned session id.
     """
+    from .session_registration_facts import stamp_registration_prompt, insert_refused
+
     now = instant_parameter(conn, utc_now())
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
     resolved_actor_id = resolve_session_actor_id(conn, actor_id, launch_id=launch_id)
@@ -159,9 +152,10 @@ def register_session(
             has_native_thread=has_thread_col,
             has_episode=has_episode_col,
         )
+        stamp_registration_prompt(conn, session_id, now, first_user_prompt)
         execution_level = refresh_session_execution_level(conn, session_id)
         conn.commit()
-    except db_backend.integrity_error_types():
+    except db_backend.integrity_error_types() as exc:
         # Postgres poisons the transaction after the duplicate INSERT; SQLite
         # does not, so only the native PG path rolls back before reactivation.
         if db_backend.connection_is_postgres(conn):
@@ -172,7 +166,9 @@ def register_session(
             session_id=session_id,
             include_native_thread=has_thread_col,
         )
-        if existing is not None and existing["terminated_at"] is not None:
+        if existing is None:
+            raise insert_refused(exc) from exc
+        if existing["terminated_at"] is not None:
             raise SessionError(
                 "SESSION_TERMINATED",
                 f"Session '{session_id}' is permanently terminated.",
@@ -202,7 +198,8 @@ def register_session(
                         recovery="reconnect with `yoke connection set` or ask an org admin for membership.",
                     ),
                 )
-        if existing is None or existing["ended_at"] is None:
+        if existing["ended_at"] is None:
+            stamp_registration_prompt(conn, session_id, now, first_user_prompt)
             refresh_active_duplicate_identity(
                 conn,
                 placeholder=p,
@@ -217,6 +214,7 @@ def register_session(
                 native_thread_id=native_thread_id if has_thread_col else None,
                 executor=canonical_executor,
             )
+            _get_session(conn, session_id)
             raise SessionError(
                 "SESSION_EXISTS",
                 f"Session '{session_id}' is already registered.",
@@ -254,10 +252,12 @@ def register_session(
             has_episode=has_episode_col,
         )
         if getattr(cursor, "rowcount", 1) == 0:
+            _get_session(conn, session_id)
             raise SessionError(
                 "SESSION_EXISTS",
                 f"Session '{session_id}' is already registered.",
             )
+        stamp_registration_prompt(conn, session_id, now, first_user_prompt)
         resolved_level = refresh_session_execution_level(conn, session_id)
         conn.commit()
         reactivation_driver = build_reactivation_driver_stamp(

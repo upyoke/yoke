@@ -29,6 +29,7 @@ class HarnessSessionTranscripts:
     location: str
     project_match: str
     evidence: str
+    session_start: Literal["transcript_optional", "transcript_required"] = "transcript_optional"
 
     def to_json(self) -> dict[str, object]:
         return asdict(self)
@@ -51,6 +52,7 @@ HARNESS_SESSION_TRANSCRIPTS: dict[str, HarnessSessionTranscripts] = {
         ),
     ),
     "codex": HarnessSessionTranscripts(
+        session_start="transcript_required",
         store="local_jsonl",
         location="~/.codex/sessions/YYYY/MM/DD/rollout-<started>-<session_id>.jsonl",
         project_match=(

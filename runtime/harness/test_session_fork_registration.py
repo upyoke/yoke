@@ -1,4 +1,4 @@
-"""Saved forks keep their own identities; unsaved Codex turns stay unregistered."""
+"""Saved forks retain identity; only unsaved starts and helper tool calls skip."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def test_fork_start_registers_child_identity(tmp_path, monkeypatch, family):
     register.assert_called_once()
 
 
-def test_unsaved_codex_prompt_never_reaches_registration_transport(
+def test_unsaved_codex_prompt_reaches_authoritative_registration(
     tmp_path, monkeypatch, capsys
 ):
     from yoke_cli.commands.adapters import hook_inprocess
@@ -101,10 +101,10 @@ def test_unsaved_codex_prompt_never_reaches_registration_transport(
         "yoke_harness.hooks.command_workdir_stamp.stamp_command_workdir",
         lambda text, _: text,
     )
-    monkeypatch.setattr(
-        "yoke_cli.transport.https.resolve_https_connection",
-        lambda: pytest.fail("unsaved turn reached transport selection"),
-    )
+    monkeypatch.setattr(hook_inprocess, "_session_orientation", lambda *a, **k: "")
+    monkeypatch.setattr("yoke_cli.transport.https.resolve_https_connection", lambda: object())
+    relayed = Mock(return_value=0)
+    monkeypatch.setattr("yoke_harness.hooks.relay.relay_hook_event", relayed)
     completed = Mock()
     assert (
         hook_inprocess.evaluate_inprocess(
@@ -117,13 +117,14 @@ def test_unsaved_codex_prompt_never_reaches_registration_transport(
         == 0
     )
     completed.assert_called_once()
+    relayed.assert_called_once()
     assert capsys.readouterr() == ("", "")
 
 
 @pytest.mark.parametrize("source", ["startup", "resume", "fork", "clear", "compact"])
 @pytest.mark.parametrize("transcript_path", [None, "", "saved.jsonl"])
 def test_codex_start_gates_before_registration_transport(
-    monkeypatch, source, transcript_path
+    monkeypatch, source, transcript_path, capsys
 ):
     import sqlite3
     from yoke_cli.commands.adapters import hook_inprocess
@@ -163,6 +164,10 @@ def test_codex_start_gates_before_registration_transport(
     )
     assert relayed.call_count == transport.call_count == bool(transcript_path)
     completed.assert_called_once()
+    if not transcript_path:
+        output = capsys.readouterr()
+        assert "skipped:unsaved_transcript" in output.err
+        assert output.out == ""
     conn.close()
 
 
@@ -178,7 +183,7 @@ def _ensure(monkeypatch, *, found, ended=False, stored_actor_id=None, **kwargs):
     monkeypatch.setattr(
         registration,
         "_register_from_hook",
-        lambda payload, sid, **kw: registered.append((sid, kw.get("actor_id"))),
+        lambda payload, sid, **kw: registered.append((sid, kw.get("actor_id"))) or ("registered", "codex", "openai", SessionModelFacts(), None),
     )
     drove = registration.ensure_registered_from_hook(
         object(), "{}", "helper", register_in_process=True, **kwargs
@@ -197,7 +202,7 @@ def test_unsaved_codex_hook_never_creates_or_revives_a_row(
     assert _ensure(
         monkeypatch, found=found, ended=ended,
         executor_hint="codex-desktop", force_reregister=force,
-    ) == (False, [])
+    ) == ("skipped:unsaved_transcript", [])
 
 
 @pytest.mark.parametrize(
@@ -210,13 +215,13 @@ def test_saved_codex_and_claude_without_a_path_still_register(
     assert _ensure(
         monkeypatch, found=False,
         executor_hint=executor, transcript_path=transcript_path,
-    ) == (True, [("helper", None)])
+    ) == ("registered", [("helper", None)])
 
 
 def test_live_unsaved_codex_row_still_gets_its_actor_backfilled(monkeypatch):
     assert _ensure(
         monkeypatch, found=True, executor_hint="codex-desktop", actor_id=7,
-    ) == (True, [("helper", 7)])
+    ) == ("registered", [("helper", 7)])
 
 
 def test_unsaved_codex_helper_tool_call_is_allowed_unregistered(monkeypatch):
@@ -274,4 +279,4 @@ def test_unsaved_codex_helper_tool_call_is_allowed_unregistered(monkeypatch):
 
     assert code == 0
     assert "BLOCKED" not in text
-    assert driven == [False]
+    assert driven == ["skipped:unsaved_transcript"]

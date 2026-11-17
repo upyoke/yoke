@@ -134,7 +134,7 @@ def test_claude_uses_a_distinct_native_session(monkeypatch) -> None:
 
 
 def test_local_registration_resolves_native_identity(monkeypatch) -> None:
-    calls: list[tuple] = []
+    calls: list[dict] = []
     monkeypatch.setattr(
         session_lifecycle_client, "_relay_owns_registration", lambda: False
     )
@@ -149,9 +149,8 @@ def test_local_registration_resolves_native_identity(monkeypatch) -> None:
         lambda executor, session_id: f"native:{executor}:{session_id}",
     )
     monkeypatch.setattr(
-        session_lifecycle_client.service_client,
-        "register_session",
-        lambda *args, **_kwargs: calls.append(args),
+        "yoke_core.hooks.registration_in_process._register_in_process",
+        lambda *args, **kwargs: calls.append(kwargs) or "registered",
     )
 
     result = session_lifecycle_client.register_harness_session(
@@ -162,5 +161,5 @@ def test_local_registration_resolves_native_identity(monkeypatch) -> None:
         model_facts=SessionModelFacts(requested_model="composer"),
     )
 
-    assert result == ""
-    assert calls[0][-1] == "native:cursor:yoke-session"
+    assert result == "registered"
+    assert calls[0]["native_thread_id"] == "native:cursor:yoke-session"

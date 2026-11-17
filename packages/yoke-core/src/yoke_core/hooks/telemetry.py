@@ -28,7 +28,6 @@ from yoke_core.hooks.identity import (  # noqa: F401
     resolve_session_id_from_env_and_payload,
 )
 from yoke_core.hooks.service_client import (  # noqa: F401
-    register_session,
     resolve_repo_root,
     session_service_client_path,
 )
@@ -231,7 +230,7 @@ def flush_hook_telemetry(
     ensure_session=None,
     observed_session=None,
     connection_factory=None,
-) -> None:
+) -> str:
     """Flush hook telemetry and independent session facts on one connection.
 
     ``records`` is the runner's ordered ``(kind, kwargs)`` list. Optional
@@ -239,12 +238,11 @@ def flush_hook_telemetry(
     ``observed_session`` carries an existing row's payload and trusted
     executor; valid for terminal hooks, and it can never revive a row.
 
-    Best-effort: never raises. A supplied ``deadline`` stops emission at
-    budget exhaustion. Emitters resolve at call time so test patches
-    still intercept.
+    Registration returns its outcome; telemetry remains budget-gated.
     """
+    from yoke_core.hooks.hook_registration_tail import unavailable_registration
     if not records and ensure_session is None and observed_session is None:
-        return
+        return "skipped:no_registration"
     emitters = {
         "guardrail": emit_hook_guardrail_evaluated,
         "failed": emit_hook_execution_failed,
@@ -255,16 +253,17 @@ def flush_hook_telemetry(
             check_severity_conn,
             hook_emit_connection,
         )
-    except Exception:  # noqa: BLE001 — degrade to per-call connections, no skip
+    except Exception as exc:  # telemetry still degrades to per-call connections
         _flush_records(
             records, emitters, conn=None, severity_check=None, deadline=deadline
         )
-        return
+        return unavailable_registration(ensure_session, str(exc))
     connection = (
         hook_emit_connection()
         if connection_factory is None
         else hook_emit_connection(connection_factory=connection_factory)
     )
+    outcome = "refused:SESSION_AUTHORITY_UNAVAILABLE" if ensure_session else "skipped:no_registration"
     with connection as conn:
         if conn is not None:
             try:  # session facts are best-effort and never break dispatch
@@ -272,17 +271,21 @@ def flush_hook_telemetry(
                     apply_hook_session_tail,
                 )
 
-                apply_hook_session_tail(
+                outcome = apply_hook_session_tail(
                     conn,
                     ensure_session=ensure_session,
                     observed_session=observed_session,
                 )
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:
+                outcome = unavailable_registration(ensure_session, str(exc))
+        else:
+            outcome = unavailable_registration(ensure_session, "cannot open hook authority; repair connection and retry")
         check = check_severity_conn if conn is not None else None
         _flush_records(
             records, emitters, conn=conn, severity_check=check, deadline=deadline
         )
+
+    return outcome
 
 
 def _flush_records(records, emitters, *, conn, severity_check, deadline) -> None:
@@ -332,7 +335,6 @@ __all__ = [
     "emit_session_hook_failed",
     "flush_hook_telemetry",
     "attest_served_model_facts",
-    "register_session",
     "resolve_direct_session_id",
     "resolve_repo_root",
     "resolve_session_id_from_env_and_payload",

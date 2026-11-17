@@ -79,7 +79,7 @@ def test_runner_exempts_before_guards_and_retains_delivery(
     monkeypatch.setattr(project_scope, 'resolve_hook_project_scope',
                         lambda payload: SimpleNamespace(require_project_id=lambda: 1))
     monkeypatch.setattr(guard_scope, 'applicable_chain', lambda chain, project: chain)
-    monkeypatch.setattr(run_tail, 'preflight_remote_registration', lambda **kw: None)
+    monkeypatch.setattr(run_tail, 'preflight_hook_registration', lambda **kw: None)
     monkeypatch.setattr(run_tail, 'flush_run_tail', lambda **kw: None)
     monkeypatch.setattr(runner, 'record_guard_decision', lambda *a, **kw: None)
     monkeypatch.setattr(runner._mode_gate, 'apply_mode', lambda decision, *a, **kw: decision)

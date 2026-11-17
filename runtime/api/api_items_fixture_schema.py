@@ -117,6 +117,7 @@ CREATE TABLE item_sections (
     PRIMARY KEY(item_id, section_name)
 );
 CREATE TABLE harness_sessions (
+    first_user_prompt_at TIMESTAMPTZ,
     session_id TEXT PRIMARY KEY, actor_id INTEGER, harness_title TEXT DEFAULT NULL,
     project_id INTEGER DEFAULT 1,
     org_id INTEGER,

@@ -197,7 +197,8 @@ def list_sessions(
         if session_ids is not None:
             clauses.append("s.session_id = ANY(%s)")
             where_params.append(list(session_ids))
-        clauses.append(not_probe_session_sql("s"))
+        if not normalized_session_id:
+            clauses.append(not_probe_session_sql("s"))
         if status == "ended":
             clauses.append(ended_session_sql("s"))
         elif status in {"working", "waiting"}:
@@ -255,6 +256,8 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
     """The routine roster omits diagnostics, stored usage and holdings detail."""
     fields = (
         "session_id",
+        "probe",
+        "first_user_prompt_at",
         "display_label",
         "actor_label",
         "project",

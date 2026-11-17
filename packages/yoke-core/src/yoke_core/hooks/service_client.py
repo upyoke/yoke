@@ -1,7 +1,7 @@
 """Service-client subprocess driver helpers + transcript-based model refresh.
 
 Owns repo-root resolution for hook CLI entrypoints, the
-``service_client.py`` path lookup, the ``register_session`` driver, and
+``service_client.py`` path lookup and
 the post-turn served-fact write path in
 ``session_model_attestation_write``.
 Re-exported via ``yoke_core.hooks.telemetry`` so post-cutover
@@ -16,7 +16,6 @@ import subprocess
 from pathlib import Path
 from typing import Iterator, Optional
 
-from yoke_contracts.session_model_facts import SessionModelFacts, facts_arguments
 
 _RETIRED_BACKEND_ENV = "YOKE_" + "BACKEND"
 
@@ -147,89 +146,6 @@ def _target_cwd(root: str, service_client_path: str = "") -> Optional[str]:
     return None
 
 
-def register_session(
-    service_client_path: str,
-    session_id: str,
-    executor: str,
-    provider: str,
-    model_facts: SessionModelFacts,
-    workspace: str,
-    entrypoint: Optional[str] = None,
-    project_id: Optional[int] = None,
-    executor_version: Optional[str] = None,
-    machine_id: Optional[str] = None,
-    native_thread_id: Optional[str] = None,
-    *,
-    launch_id: Optional[str] = None,
-) -> Optional[str]:
-    """Register/touch a session via service_client.py session-begin.
-
-    Returns None on success, or an error message string on failure.
-
-    ``entrypoint``, when provided, identifies the harness sub-surface
-    (e.g. ``claude-desktop``, ``claude-vscode-extension``, ``cli``) and
-    is recorded in the HarnessSessionStarted event context for telemetry.
-
-    ``model_facts`` travels as one flag per column so the requested ask and
-    the attested served truth stay distinguishable across the subprocess
-    boundary; an unset fact ships no flag rather than an empty string.
-
-    ``launch_id``, when the attestation side channel carried one, makes the
-    registration bind the launching actor instead of this machine's own. It
-    is keyword-only: the positional tail of this call is a shape callers and
-    tests read by index, and an identity fact that most sessions do not carry
-    does not belong in it.
-    """
-    if not os.path.isfile(service_client_path):
-        return "service_client.py not found"
-
-    cmd = [
-        "python3",
-        service_client_path,
-        "session-begin",
-        "--session-id",
-        session_id,
-        "--executor",
-        executor,
-        "--provider",
-        provider,
-        "--workspace",
-        workspace,
-    ]
-    cmd.extend(facts_arguments(model_facts))
-    if project_id is not None:
-        cmd.extend(["--project-id", str(project_id)])
-    if entrypoint:
-        cmd.extend(["--entrypoint", entrypoint])
-    if executor_version:
-        cmd.extend(["--executor-version", executor_version])
-    if machine_id:
-        cmd.extend(["--machine-id", machine_id])
-    if native_thread_id:
-        cmd.extend(["--native-thread-id", native_thread_id])
-    if launch_id:
-        cmd.extend(["--launch-id", launch_id])
-
-    try:
-        cwd = _target_cwd(workspace, service_client_path)
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            env=target_process_env(
-                cwd or workspace,
-                _service_client_repo_root(service_client_path),
-            ),
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return result.stderr.strip() or result.stdout.strip() or "unknown error"
-        return None
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        return str(e)
-
-
 def touch_session(service_client_path: str, root: str, session_id: str) -> int:
     """Heartbeat an active session through the same authority-pinned child."""
     if not os.path.isfile(service_client_path):
@@ -259,7 +175,6 @@ def touch_session(service_client_path: str, root: str, session_id: str) -> int:
 
 
 __all__ = [
-    "register_session",
     "resolve_repo_root",
     "session_service_client_path",
     "target_authority_env",

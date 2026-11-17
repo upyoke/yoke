@@ -1,7 +1,7 @@
 # Hooks Reference
 
 Harness-native startup, guardrails, telemetry and session end run through Python
-owners. Load this contributor reference when changing or diagnosing hooks.
+owners. See [registration outcomes](hook-session-registration.md) when diagnosing hooks.
 
 Print-only shell calls (`-h`, `--help`, `--version` as the only arguments) skip guards before dispatch; Yoke command words resolve through the CLI tree. Both relay halves use `chain_registry.help_only_chain`; guards that must inspect help opt out in `HELP_EXEMPTION_OPTOUTS`. Delivery and observation remain active. Pipelines such as `yoke items --help | head`, operands, forwarding separators and compound bodies retain guards; guard authors add no local help check.
 
