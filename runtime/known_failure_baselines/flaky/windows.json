@@ -1,7 +1,1 @@
-{
- "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_nav.py::test_ctrl_left_bracket_steps_back_one_view": {
-  "reason": "Textual screen sometimes not mounted in time: '#onboard-body SelectionList' query fails",
-  "feedback": 96604,
-  "fix_item": "YOK-5312"
- }
-}
+{}

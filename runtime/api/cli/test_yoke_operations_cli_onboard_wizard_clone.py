@@ -37,6 +37,7 @@ from runtime.api.cli.onboard_wizard_clone_test_support import (  # noqa: E402
     configure_clone_flow,
     pick_mode,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -234,12 +235,18 @@ def test_duplicate_without_app_connection_requires_an_explicit_destination(monke
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")  # continue without GitHub
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+            await wait_for_view(pilot, "project.clone_url", "Input")
             await type_text(pilot, "git@github.com:acme/widgets.git")  # remote first
+            assert app.query_one("#onboard-body Input", Input).value == "git@github.com:acme/widgets.git"
             await pilot.press("enter")  # remote -> clone-folder input
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             await pilot.press("enter")  # accept default folder -> clone-outcome
+            await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
             await pilot.press("down")  # "Duplicate it"
             await pilot.press("enter")
+            await wait_for_view(pilot, "project.new_repo_visibility", "SelectionList")
             await pilot.press("enter")  # new-repo visibility: Private (default)
             await accept_project_details(pilot, branch_from_source=True)
             await pilot.pause()
