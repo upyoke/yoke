@@ -7,7 +7,13 @@
 `yoke merge item PREFIX-N` verifies the exact candidate and enqueues its pull
 request when GitHub can queue it now (`CLEAN`, `HAS_HOOKS` or `UNSTABLE`), or
 arms merge-when-ready while it still waits on checks. Both name the lane head.
-Arming alone never queues a ready pull request. A headless worker receives `landing_pending=true` and waits for the
+An armed PR can wait briefly for its entry after checks pass. The observer
+requests that entry directly once per unchanged PR/head, then re-reads GitHub;
+an entry or merge succeeds even when GitHub wins the enqueue race. A refusal
+with no entry names the error. A recorded acceptance with no entry stops with
+that receipt rather than sending another automatic enqueue. Failed checks, a
+failed train, a base conflict or a moved head require correction first.
+A headless worker receives `landing_pending=true` and waits for the
 control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
@@ -82,10 +88,9 @@ request with arming cleared and no queue entry can also be mid-merge: the
 observer waits three seconds and reads it once more before sending a stopped
 notice. If the second read still shows that state, it reports the stop; if
 it merged, it receives the normal completion notice.
-An armed pull request GitHub could queue now but holds no entry for gets the
-same one re-read, then is reported stopped, never queued: re-run
-`yoke merge item`, which enqueues it directly. `yoke merge item` likewise
-confirms a new entry for up to ten seconds before refusing.
+An armed ready PR without an entry instead receives the guarded automatic
+enqueue described above. `yoke merge item` confirms a new entry for up to ten
+seconds before refusing.
 
 An armed PR with no queue entry can also stop when a required check never
 reports. After two refresh intervals from `autoMergeRequest.enabledAt`, a

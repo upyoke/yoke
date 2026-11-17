@@ -81,6 +81,7 @@ def recover_ejection(
     enqueue=enter_merge_queue,
     reread,
     failed_train=unchanged_failed_train_refusal,
+    enqueue_ready=None,
 ):
     """Snapshot predecessors while queued; recover only the same unchanged head.
 
@@ -128,6 +129,13 @@ def recover_ejection(
         )
     if readback.queue_recovery.get("action") == "blocked":
         return readback
+    if readback.armed_ready() and not member.in_queue:
+        from yoke_core.domain.merge_queue_armed_reentry import recover_armed_ready
+
+        return recover_armed_ready(
+            conn, row, ctx, readback, previous=previous, now=now,
+            enqueue=enqueue_ready, reread=reread, failed_train=failed_train,
+        )
     recovering = recovery.get("action") in {"waiting", "retry"}
     queue_only = member.entry_state == "UNMERGEABLE" and member.mergeable == "MERGEABLE"
     if (

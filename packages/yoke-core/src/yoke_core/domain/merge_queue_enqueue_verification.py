@@ -2,7 +2,7 @@
 
 Admission requires a viable queue entry, or an armed eligible PR still waiting
 on its checks. An armed PR that is ready yet holds no entry is not admitted:
-arming does not queue it. A bounded read-back (one re-read after
+the observer requests entry when its checks become ready. A bounded read-back (one re-read after
 ``ADMISSION_CONFIRM_SECONDS``) confirms membership, eligibility and checks.
 Cancelled checks recover before admission, independently of duplicate arming.
 """
@@ -22,7 +22,6 @@ from yoke_core.domain.merge_queue_missing_checks import (
     name_missing_checks,
 )
 from yoke_core.domain.merge_queue_absence_reasons import (
-    ARMED_READY_REASON,
     absence_reason,
 )
 from yoke_core.domain.merge_queue_entry_check_redispatch import (
@@ -111,7 +110,7 @@ class LandingReadback:
         )
 
     def armed_ready(self) -> bool:
-        """Armed and queueable now: arming alone never queues this state."""
+        """Armed and queueable now; its entry may still be forming."""
         state = self.state
         return bool(state and state.auto_merge_active) and (
             state.merge_state_status in READY_TO_ENQUEUE
@@ -177,13 +176,13 @@ class LandingReadback:
         failed = self.failed_required
         if failed:
             return red_checks_recovery(failed)
-        if self.armed_ready():
-            return ARMED_READY_REASON
         from yoke_core.domain.merge_queue_ejection_recovery import recovery_instruction
 
         instruction = recovery_instruction(self, target=target)
         if instruction:
             return instruction
+        if self.armed_ready():
+            return "its armed landing has no entry yet; inspect GitHub's queue and re-run `yoke merge item` to request entry directly"
         merge_state = (state.merge_state_status if state is not None else "").strip()
         if (
             self.membership

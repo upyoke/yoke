@@ -21,10 +21,6 @@ _ABSENCE_REASONS = {
     ),
 }
 
-ARMED_READY_REASON = (
-    "it is armed and ready but GitHub formed no queue entry — re-run "
-    "`yoke merge item`, which enqueues it directly"
-)
 _DEFAULT_ABSENCE_REASON = (
     "GitHub reports it neither armed nor queued, with nothing in flight for "
     "it — address what the observation names and re-run `yoke merge item`"
@@ -37,4 +33,4 @@ def absence_reason(merge_state: str, *, target: str) -> str:
     return template.format(target=target)
 
 
-__all__ = ["ARMED_READY_REASON", "absence_reason"]
+__all__ = ["absence_reason"]

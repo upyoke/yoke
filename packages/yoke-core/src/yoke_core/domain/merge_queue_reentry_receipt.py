@@ -21,13 +21,21 @@ def record_reentry(conn, item_id, pr_number, head_sha, now):
             (item_id, REENTRY_SECTION),
         ).fetchone()
         history = json.loads(row[0]) if row else {"receipts": []}
-        history["receipts"].append({
-            "pr_number": pr_number, "head_sha": head_sha,
-            "accepted_at": format_instant(now), "automatic": True,
-        })
+        history["receipts"].append(
+            {
+                "pr_number": pr_number,
+                "head_sha": head_sha,
+                "accepted_at": format_instant(now),
+                "automatic": True,
+            }
+        )
         with savepoint(conn, "queue_reentry_receipt", owns=False):
             upsert_json_section(
-                conn, item_id=item_id, section=REENTRY_SECTION, payload=history, ordering=211
+                conn,
+                item_id=item_id,
+                section=REENTRY_SECTION,
+                payload=history,
+                ordering=211,
             )
     except SavepointLostError:
         raise
@@ -38,3 +46,23 @@ def record_reentry(conn, item_id, pr_number, head_sha, now):
             "and record the accepted PR/head with yoke items progress-log append "
             "before resuming observation; do not re-arm."
         ) from exc
+
+
+def read_reentry(conn, item_id, pr_number, head_sha):
+    """Find durable automatic acceptance for this exact PR and head."""
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT content FROM item_sections WHERE item_id={p} AND section_name={p}",
+        (item_id, REENTRY_SECTION),
+    ).fetchone()
+    receipts = json.loads(row[0])["receipts"] if row else []
+    return next(
+        (
+            r
+            for r in receipts
+            if r.get("automatic")
+            and r["pr_number"] == pr_number
+            and r["head_sha"] == head_sha
+        ),
+        None,
+    )

@@ -1,9 +1,7 @@
 """Merge-queue reads, arming and enqueueing.
 
-GitHub consumes autoMergeRequest when it forms a queue entry. Holding a
-candidate clears both the arming and the entry; membership reads power admission.
-Arming through the API does not queue a pull request that is already ready: it
-stays armed with no entry. A ready pull request is enqueued directly instead.
+GitHub consumes arming when it forms an entry, possibly after checks pass.
+Ready PRs enter directly. Holding clears arming and entry.
 """
 
 from __future__ import annotations
@@ -177,11 +175,7 @@ def _mutate_pull_request(
     required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
     ready_mutation: str = "",
 ) -> QueueEntryResult:
-    """Mutate one PR with installation authority unless explicitly overridden.
-
-    ``ready_mutation`` replaces ``mutation`` when the PR is ready to enqueue;
-    its "already queued" refusal means GitHub holds the entry, so it succeeds.
-    """
+    """Mutate with installation authority; ready_mutation selects direct entry."""
     permissions = {**PR_WRITE, **CONTENTS_WRITE}
     auth, auth_err = resolve_auth_detail(
         ctx, permissions, required_authority=required_authority
@@ -230,6 +224,11 @@ def enter_merge_queue(
         expected_head_sha=expected_head_sha,
         ready_mutation=_ENQUEUE_MUTATION,
     )
+
+
+def enqueue_pull_request(ctx, pr_num, *, expected_head_sha=""):
+    """Direct entry regardless of REST readiness lag; pin the observed head."""
+    return _mutate_pull_request(ctx, pr_num, _ENQUEUE_MUTATION, expected_head_sha=expected_head_sha)
 
 
 def leave_merge_queue(
@@ -339,6 +338,7 @@ __all__ = [
     "QueueMember",
     "dequeue_pull_request",
     "enter_merge_queue",
+    "enqueue_pull_request",
     "graphql_with_auth",
     "leave_merge_queue",
     "read_pr_landing_state",
