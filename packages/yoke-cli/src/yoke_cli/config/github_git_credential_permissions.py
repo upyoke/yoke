@@ -20,35 +20,22 @@ def assert_secure_parent(
     *,
     require_private: bool = True,
 ) -> None:
-    """Refuse a credential directory others can write (or read, when private).
-
-    ``require_private=False`` admits a POSIX directory that others may read
-    but not write. Windows has no such middle ground in Yoke's directory
-    check, so both modes require the owner-private DACL there.
-    """
+    """Refuse a credential directory others can write (or read, when private)."""
     try:
         info = path.lstat()
     except OSError as exc:
         raise error_type(f"GitHub App credential directory is missing: {path}") from exc
     if not stat.S_ISDIR(info.st_mode):
         raise error_type(f"GitHub App credential parent must be a directory: {path}")
-    if require_private or _WINDOWS:
-        if not owner_private_path.is_owner_private_directory(path):
-            raise error_type(
-                f"GitHub App credential directory permissions are unsafe: {path}; "
-                f"{_directory_repair()}, then retry"
-            )
-        return
-    # POSIX-only middle ground (owner-writable, others may read): no shared
-    # helper owns this policy, so it stays here.
-    if hasattr(os, "getuid") and info.st_uid != os.getuid():
-        raise error_type(
-            f"GitHub App credential directory is not owned by the current user: {path}"
-        )
-    if stat.S_IMODE(info.st_mode) & 0o022:
+    check = (owner_private_path.is_owner_private_directory if require_private
+             else owner_private_path.is_others_unwritable_directory)
+    if not check(path):
+        repair = (_directory_repair() if require_private else
+                  "remove other users' write access" if _WINDOWS else
+                  "set directory permissions to 700")
         raise error_type(
             f"GitHub App credential directory permissions are unsafe: {path}; "
-            "set directory permissions to 700, then retry"
+            f"{repair}, then retry"
         )
 
 
