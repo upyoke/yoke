@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import subprocess
+import hashlib
 from pathlib import Path
 
 import pytest
 
 from yoke_core.domain.migration_history import HistoryError
 from yoke_core.domain.migration_history_integration import (
+    _lane_history,
+    _target_history,
     history_names_at_ref,
     require_merge_history_extension,
     require_rehearsal_history_extension,
@@ -87,6 +90,15 @@ def test_history_compares_git_normalized_checkout_content(lane: Path, check) -> 
     _entry(lane, "0014_next")
 
     check(lane, "0014_next")
+
+    target = _target_history(lane, "main", MODULES_DIR)[0]
+    checkout = _lane_history(lane, MODULES_DIR)[0]
+    assert target.content_identity == checkout.content_identity
+    assert checkout.content_sha256 == hashlib.sha256(existing.read_bytes()).hexdigest()
+    assert target.content_sha256 == hashlib.sha256(
+        subprocess.check_output(["git", "-C", str(lane), "show", f"main:{MODULES_DIR}/0013_existing.py"])
+    ).hexdigest()
+    assert target.content_sha256 != checkout.content_sha256
 
 
 def test_history_preserves_bytes_when_git_disables_text_conversion(lane: Path) -> None:

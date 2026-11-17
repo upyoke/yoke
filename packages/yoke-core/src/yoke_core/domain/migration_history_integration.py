@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Iterable
 
 from yoke_core.domain.migration_baseline import baseline_from_source
+from yoke_core.domain.migration_content_identity import raw_content_sha256
 
 from yoke_core.domain.migration_history import (
     ENTRY_NAME_PATTERN,
@@ -18,8 +19,11 @@ from yoke_core.domain.migration_history import (
 
 @dataclass(frozen=True)
 class HistoryIdentity:
+    """Retain release bytes while integration compares Git-normalized content."""
+
     sequence: int
     name: str
+    content_sha256: str = field(compare=False)
     content_identity: str
 
 
@@ -185,29 +189,28 @@ def _target_history(
     target_ref: str,
     modules_dir: str,
 ) -> tuple[HistoryIdentity, ...]:
-    live = tuple(
-        HistoryIdentity(
+    live = []
+    for sequence, path in _listed_entries(repo, target_ref, modules_dir):
+        content = _git(repo, "show", f"{target_ref}:{path.as_posix()}").stdout
+        live.append(HistoryIdentity(
             sequence,
             path.stem,
-            _git_content_identity(
-                repo, path.as_posix(),
-                _git(repo, "show", f"{target_ref}:{path.as_posix()}").stdout,
-            ),
-        )
-        for sequence, path in _listed_entries(repo, target_ref, modules_dir)
-    )
+            raw_content_sha256(content),
+            _git_content_identity(repo, path.as_posix(), content),
+        ))
 
     folded = tuple(
-        HistoryIdentity(entry.sequence, entry.name, entry.content_sha256)
+        HistoryIdentity(entry.sequence, entry.name, entry.content_sha256, entry.content_sha256)
         for entry in _baseline_at_ref(repo, target_ref, modules_dir)
     )
-    return tuple(sorted(live + folded, key=lambda entry: entry.sequence))
+    return tuple(sorted((*live, *folded), key=lambda entry: entry.sequence))
 
 
 def _lane_history(repo: Path, modules_dir: str) -> tuple[HistoryIdentity, ...]:
     return tuple(
         HistoryIdentity(
             entry.sequence, entry.name,
+            entry.content_sha256,
             entry.content_sha256 if entry.is_baseline else _git_content_identity(
                 repo, entry.path.relative_to(repo).as_posix(),
             ),

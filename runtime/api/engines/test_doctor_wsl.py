@@ -101,7 +101,7 @@ def test_unreadable_pid_one_warns(monkeypatch):
 def test_wsl_detection(monkeypatch, platform, distro, kernel, expected):
     monkeypatch.setattr(wsl.sys, "platform", platform)
     monkeypatch.setenv("WSL_DISTRO_NAME", distro)
-    monkeypatch.setattr(Path, "read_text", lambda self: kernel)
+    monkeypatch.setattr(Path, "read_text", lambda self, *, encoding: kernel)
     assert wsl.is_wsl() is expected
 
 
@@ -110,7 +110,7 @@ def test_wsl_detection_without_proc(monkeypatch):
     monkeypatch.setattr(wsl.sys, "platform", "linux")
     monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
 
-    def unreadable(self):
+    def unreadable(self, *, encoding):
         raise FileNotFoundError()
 
     monkeypatch.setattr(Path, "read_text", unreadable)
@@ -120,7 +120,7 @@ def test_wsl_detection_without_proc(monkeypatch):
 @pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize("comm,expected", [("systemd\n", True), ("init\n", False)])
 def test_pid_one_is_the_systemd_authority(monkeypatch, comm, expected):
-    monkeypatch.setattr(Path, "read_text", lambda self: comm)
+    monkeypatch.setattr(Path, "read_text", lambda self, *, encoding: comm)
     assert wsl.systemd_running() is expected
 
 
