@@ -20,7 +20,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import deployment_runs as dr
 from runtime.api.fixtures.file_test_db import apply_inline_ddl, init_test_db
 
 _MINIMAL_SCHEMA_DDL = """
@@ -110,7 +109,6 @@ def _apply_schema() -> None:
     repointed to the disposable per-test Postgres database.
     """
     apply_inline_ddl(_MINIMAL_SCHEMA_DDL)
-    dr.cmd_init()
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.flow_init import converge_flow_catalog
 

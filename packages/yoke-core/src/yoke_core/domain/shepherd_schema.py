@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.schema_common import _add_column_if_not_exists, _column_exists
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 _CREATE_SQL = """\
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS item_dependencies (
 );
 CREATE INDEX IF NOT EXISTS idx_id_dependent ON item_dependencies(dependent_item_id);
 CREATE INDEX IF NOT EXISTS idx_id_blocking ON item_dependencies(blocking_item_id);
+CREATE INDEX IF NOT EXISTS idx_cd_item ON caveat_dispositions(public_ref);
 """
 
 
@@ -65,10 +66,6 @@ def create_shepherd_tables(conn: Any) -> None:
     tables in dependency order.
     """
     execute_schema_script(conn, _CREATE_SQL)
-    if _column_exists(conn, "caveat_dispositions", "public_ref"):
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cd_item ON caveat_dispositions(public_ref)"
-        )
     for column, default in (("rationale", "''"), ("evidence_json", "'{}'")):
         _add_column_if_not_exists(
             conn, "item_dependencies", column, f"TEXT NOT NULL DEFAULT {default}"

@@ -125,7 +125,7 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # dependency metadata columns, which keep an additive boot lookup.
 # deployment_preview_environments.env_type converges additively on boot.
 _BORN_WITH_COLUMN_DIGEST = (
-    "fa8687d5d6f2751aa80e79ba0f44c5e6ae072f3e568594cf0a1881a434a64818"
+    "b9423deacb37462806692dd2a046303a7587351ec33fe59971b5a819471579ee"
 )
 
 
