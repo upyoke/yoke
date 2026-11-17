@@ -183,13 +183,13 @@ def fail_pipeline_stage(
     )
     _report_failure_trace(run_id)
     print(
-        f"Error: stage '{stage_name}' failed (exit code: {exit_code})",
-        file=sys.stderr,
-    )
-    print(
-        f"Recovery: fix the cause, then resume this run with `{deploy_command(run_id)}`; "
-        "it re-enters the failed stage, and a failed GitHub workflow run is "
-        "dispatched once more.",
+        "Error: "
+        + compose_refusal(
+            f"stage '{stage_name}' failed (exit code: {exit_code})",
+            recovery=f"fix the cause, then resume this run with "
+            f"`{deploy_command(run_id)}`; it re-enters the failed stage, and a "
+            "failed GitHub workflow run is dispatched once more.",
+        ),
         file=sys.stderr,
     )
     return EXIT_STAGE_FAILED
