@@ -110,9 +110,10 @@ jobs:
       PYTHONUNBUFFERED: "1"
       YOKE_CI_PYTHON_SCOPE: all
       YOKE_KNOWN_FAILURE_BASELINE: "1"
-      # Name every test as it finishes: a hung or worker-killing test is then
-      # the unfinished one in its file, even when the job times out.
-      PYTEST_ADDOPTS: -v
+      # Name every test as it finishes, and end the shard when a test kills
+      # its xdist worker: a replaced worker never receives its shutdown, so
+      # each worker waits on its last queued test until the job times out.
+      PYTEST_ADDOPTS: -v --max-worker-restart=0
     strategy:
       fail-fast: false
       matrix:
