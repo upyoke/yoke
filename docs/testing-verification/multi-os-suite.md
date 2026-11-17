@@ -34,6 +34,8 @@ steps. Each shard uploads `pytest-output-<os>-<shard>` with its log and JUnit
 report. The plan retains modules skipped before import on its collection OS
 so native runners still receive them, with conservative product-wheel fixture
 affinity because their fixture closure cannot be imported on the plan host.
+Coverage manifests name these collection skips explicitly; each test and each
+module skip must appear exactly once in the shard reports.
 
 The free macOS runner pool caps concurrency, so macOS shards queue; read
 runtime from each job's own start and finish times, not the run's wall clock.
