@@ -244,29 +244,6 @@ carry the recovery command and a null `execution_id`.
 
 ## Questions waiting on you
 
-The report lists pending operator questions oldest first, with the request id,
-requesting session label, held item, age and question excerpt. Questions follow
-the same seat coverage as items and steering mail. A question's work is the item
-it names; failing that, the item its asking session holds a work claim on;
-failing that, its project. The seat covering that work sees it, so a document
-seat sees questions about its member items in any project, and a project seat
-does not see what a live document seat covers. A seat always sees the questions
-it filed. Questions from other sessions the operator started by hand never show:
-that operator answers in the session's own chat. When no live seat covers the
-work, the project seat for the owning project sees the question marked
-`unattended: no live seat for DOC` until a document seat is taken. Questions with
-no project show when addressed to you. The Inbox and `yoke decision-requests
-list` show every question. Answer, withdraw or replace the question to remove it. The hook update and fleet watcher name each departure
-once: `request N no longer waiting: answered (<option label>)`, `withdrawn`,
-or `superseded by request N`. A replacement preserves any old answer as linked
-history and leaves only the new pending question current. The watcher checks question status each poll; a change wakes
-steering and requests the outcome report immediately, ahead of the usual report
-interval. Failed answer delivery remains visible as
-`operator_question_undelivered`; read the saved answer and relay it to the current
-item holder. Question and delivery state enter the report fingerprint; age does not.
-See [Decision requests](decision-requests.md) for filing and answering.
-
-Steering keeps every pending operator decision in both the Inbox and steering
-chat, and reconciles this section against chat whenever it reports. When facts
-change, use `ask --replaces`; when the answer is no longer needed, withdraw the
-question. Record an answer from chat through resolve immediately.
+Pending questions appear oldest first with the requester, held item, age and
+question excerpt. [Decision requests](decision-requests.md#steering-coverage-and-outcomes)
+explains seat coverage, outcomes and answer delivery.
