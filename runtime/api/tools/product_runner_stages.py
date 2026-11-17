@@ -154,7 +154,7 @@ def dev_setup(run: SmokeRun) -> None:
 
 
 def source_tests(run: SmokeRun) -> None:
-    run_source_tests(run.root, run.commands)
+    run_source_tests(run.root, run.commands, run.yoke)
 
 
 def require_browser_installation(onboard: dict, capture: Path) -> None:
