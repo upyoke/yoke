@@ -93,7 +93,7 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
         system = Path(env.get("SYSTEMROOT", r"C:\Windows")) / "System32"
         # Rendered Windows hooks start powershell.exe, which lives outside System32 proper.
         powershell = system / "WindowsPowerShell" / "v1.0"
-        env["PATH"] = minimal_child_environment((*tools, system, powershell))["PATH"]
+        env["PATH"] = os.pathsep.join((minimal_child_environment((*tools, system))["PATH"], str(powershell)))
     else:
         env["PATH"] = minimal_child_environment((*tools, "/usr/local/bin", "/opt/homebrew/bin"))["PATH"]
         env["SHELL"] = "/bin/bash"
