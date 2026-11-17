@@ -16,6 +16,10 @@ from public_installer_helpers import (
     write_uv_stub,
 )
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
+)
+
 
 def linux_stub_bin(tmp_path):
     bin_dir = _linux_stub_bin(tmp_path)
@@ -26,6 +30,7 @@ def linux_stub_bin(tmp_path):
     return bin_dir
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize("force_color", ["0", "1"])
 def test_bootstrap_uses_astral_even_when_brew_exists(
     tmp_path: Path, force_color: str
@@ -68,6 +73,7 @@ def test_bootstrap_uses_astral_even_when_brew_exists(
     )
 
 
+@SHIM_BRANCH
 def test_uv_installer_execution_times_out_with_recovery(tmp_path: Path) -> None:
     bin_dir = linux_stub_bin(tmp_path)
     write_executable(
@@ -91,6 +97,7 @@ def test_uv_installer_execution_times_out_with_recovery(tmp_path: Path) -> None:
     assert "Terminated:" not in result.stderr
 
 
+@SHIM_BRANCH
 def test_uv_installer_download_timeout_is_named(tmp_path: Path) -> None:
     bin_dir = linux_stub_bin(tmp_path)
     write_executable(bin_dir / "curl", "#!/bin/sh\nexit 28\n")
@@ -107,6 +114,7 @@ def test_uv_installer_download_timeout_is_named(tmp_path: Path) -> None:
     assert "then rerun" in result.stderr
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize("times_out", [False, True])
 def test_uv_bootstrap_without_ps(tmp_path: Path, times_out: bool) -> None:
     bin_dir = linux_stub_bin(tmp_path)

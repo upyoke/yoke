@@ -14,6 +14,10 @@ from yoke_contracts.shell_path_state import (
     shell_setup_files,
 )
 
+POSIX_SHELL = pytest.mark.posix_only(
+    reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
+)
+
 
 def environment(home):
     bindir = home / "tools with spaces"
@@ -32,6 +36,7 @@ def environment(home):
     }
 
 
+@POSIX_SHELL
 def test_reinstall_and_uninstall_preserve_unrelated_bytes_and_symlinks(tmp_path):
     env = environment(tmp_path)
     files = shell_setup_files(env)
@@ -56,6 +61,7 @@ def test_reinstall_and_uninstall_preserve_unrelated_bytes_and_symlinks(tmp_path)
     assert remove_shell_path(env=env) == []
 
 
+@POSIX_SHELL
 @pytest.mark.parametrize("shell", ("zsh", "bash", "fish"))
 def test_supported_shell_contexts_resolve_without_duplicate_path(tmp_path, shell):
     executable = shutil.which(shell)
@@ -101,6 +107,7 @@ def test_supported_shell_contexts_resolve_without_duplicate_path(tmp_path, shell
         assert bash_env == env["BASH_ENV"]
 
 
+@POSIX_SHELL
 def test_diagnosis_aggregates_ssh_failure_when_login_succeeds(tmp_path, monkeypatch):
     monkeypatch.setattr(
         doctor,
@@ -118,6 +125,7 @@ def test_diagnosis_aggregates_ssh_failure_when_login_succeeds(tmp_path, monkeypa
     assert diagnosis.needs_fix is True
 
 
+@POSIX_SHELL
 def test_invalid_marker_refuses_cleanup_with_recovery(tmp_path):
     env = environment(tmp_path)
     rc = tmp_path / ".bashrc"

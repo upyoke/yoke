@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.installer.public_installer_helpers import YOKE_LAUNCHER, current_os_answer
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALL_SHIM = REPO_ROOT / "packaging" / "public-installer" / "install"
@@ -43,7 +45,10 @@ def test_python_helper_honors_plain_glyph_env(monkeypatch) -> None:
     assert "* Setting up Yoke" in text
     assert "* Yoke v1.2.3 is ready" in text
     assert install_py.GUTTER_ICON not in text
-    assert sum(command[1:] == ["wsl", "setup"] for command in runner.commands) == 1
+    # install.py runs WSL setup only off native Windows.
+    assert sum(
+        command[1:] == ["wsl", "setup"] for command in runner.commands
+    ) == current_os_answer(posix=1, windows=0)
 
 
 def test_python_helper_prefers_uv_tool_bin_dir_for_installed_yoke(
@@ -53,7 +58,7 @@ def test_python_helper_prefers_uv_tool_bin_dir_for_installed_yoke(
     install_py = _load_install_py()
     bin_dir = tmp_path / "uv-bin"
     bin_dir.mkdir()
-    yoke = bin_dir / "yoke"
+    yoke = bin_dir / YOKE_LAUNCHER
     yoke.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     yoke.chmod(0o755)
     monkeypatch.setenv("UV_TOOL_BIN_DIR", str(bin_dir))

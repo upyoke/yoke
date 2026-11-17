@@ -28,6 +28,10 @@ from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
 from runtime.api.domain.qa_release_channel_target_test_support import _target
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch: the hosted campaign pipes curl into /bin/sh; Windows installs through install.ps1"
+)
+
 
 def test_every_recovery_recipe_satisfies_its_method_contract():
     for case in INSTALLER_RECOVERY_CASES:
@@ -279,6 +283,7 @@ def test_issue_sync_probe_checks_installed_value_and_permission_refusal(
     assert "deliberate unbound enable refused" in capsys.readouterr().out
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize("failure", [None, "installer", "backup", "preparation"])
 def test_hosted_ready_marker_follows_successful_exit_and_real_backup_check(
     monkeypatch,
