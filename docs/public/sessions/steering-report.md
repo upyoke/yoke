@@ -63,6 +63,7 @@ without `!`. Entry decides liveness, not null arming alone.
 Named waits take priority over a recorded process exit. An armed landing reads
 `ci_or_deploy / landing_in_progress` until it lands; presence still shows the exit.
 Without a named wait, the next actor is parent or steering.
+Live failed or unarmed PRs still require holder action.
 Holder rows describe delivery rather than infer native liveness:
 
 - `mid-turn — message arrives at its next tool call` from running turn posture;

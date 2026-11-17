@@ -275,11 +275,21 @@ def with_next_actor(
 
 
 def with_session_state(
-    holders: tuple[ClaimHolder, ...], *, now: str | datetime, idle_after_seconds: int
+    holders: tuple[ClaimHolder, ...],
+    *,
+    now: str | datetime,
+    idle_after_seconds: int,
+    landing_readbacks: tuple = (),
 ) -> tuple[ClaimHolder, ...]:
     """Project complete holder facts with the report's one project idle setting."""
     from yoke_core.domain.session_state import session_state
+    from yoke_core.domain.steering_fleet_report_landings import landing_wait_pending
 
+    inactive_landing_item_ids = {
+        row.item_id
+        for row in landing_readbacks
+        if not landing_wait_pending(row.to_dict())
+    }
     projected = []
     for holder in holders:
         facts = {
@@ -293,11 +303,29 @@ def with_session_state(
             "holds": [holder.public_ref],
             "session_idle_minutes": idle_after_seconds / 60,
         }
+        if holder.item_id in inactive_landing_item_ids:
+            facts["landing_wait"] = None
         model = session_state(facts, now=parse_stamp(now))
         projected.append(
             replace(holder, session_state=model, next_actor=model["next_actor"])
         )
     return tuple(projected)
+
+
+def quiet_holders(holders: tuple[ClaimHolder, ...]) -> tuple[ClaimHolder, ...]:
+    """Include provisional landing waits until live readiness can settle them."""
+    from yoke_core.domain.session_state import session_needs_idle_alarm
+
+    return tuple(
+        holder
+        for holder in holders
+        if holder.session_state["in_flight"]
+        or session_needs_idle_alarm(holder.session_state)
+        or (
+            holder.session_state["activity"] == "silent"
+            and holder.next_actor.get("reason") == "landing_in_progress"
+        )
+    )
 
 
 __all__ = ["ClaimHolder", "claim_holders", "with_session_state"]
