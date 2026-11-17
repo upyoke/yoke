@@ -240,6 +240,11 @@ def apply_additive_schema(conn: Any) -> None:
     conn.commit()
 
 
+    for column in ("served_build_sha", "served_build_status"):
+        _add_column_if_not_exists(conn, "qa_runs", column, "TEXT")
+    conn.commit()
+
+
 def finalize_initial_schema(conn: Any) -> None:
     """Install initial schema indexes and evidence invariants."""
     conn.execute(

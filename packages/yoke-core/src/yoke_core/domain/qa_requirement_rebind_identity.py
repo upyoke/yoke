@@ -235,7 +235,7 @@ def _live_target(
         )
     try:
         live = environment_execution_target(
-            conn, _identity_from_stored(stored, env_row), require_runtime_match=False
+            conn, _identity_from_stored(stored, env_row)
         )
     except ValueError as exc:
         raise QaRebindError(str(exc)) from exc

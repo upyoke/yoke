@@ -69,7 +69,10 @@ def test_add_with_authorized_target_persists_canonical_snapshot() -> None:
         ).fetchone()
         assert row["target_env"] == "local"
         target = json.loads(str(row["execution_target_json"]))
-        assert target["environment"] == {"name": "local"}
+        assert target["environment"] == {
+            "name": "local",
+            "id": conn.execute("SELECT id FROM environments WHERE project_id=1 AND name='local'").fetchone()[0],
+        }
         assert target["endpoints"]["app_url"] == PREVIEW_URL
         assert row["execution_target_digest"]
 
@@ -201,7 +204,10 @@ def test_update_then_begin_uses_persisted_snapshot() -> None:
             actor_id="7",
             session_id="standalone-bound-begin",
         )
-        assert execution["execution_target"]["environment"] == {"name": "local"}
+        assert execution["execution_target"]["environment"] == {
+            "name": "local",
+            "id": conn.execute("SELECT id FROM environments WHERE project_id=1 AND name='local'").fetchone()[0],
+        }
         assert execution["execution_target_digest"]
 
 

@@ -11,6 +11,7 @@ import pytest
 
 from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
+    _sqlite_environment_target,
     _result,
 )
 from runtime.api.fixtures.pg_testdb import (
@@ -266,7 +267,7 @@ def test_default_sqlite_rows_advance_replay_and_finish_portably() -> None:
             )
         )
         conn.execute("INSERT INTO qa_requirements(id) VALUES (1)")
-        target = {"environment": {"name": "development"}}
+        target = _sqlite_environment_target(conn)
         digest = target_digest(target)
         roster = [
             {

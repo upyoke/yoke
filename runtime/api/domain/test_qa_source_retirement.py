@@ -136,38 +136,26 @@ def test_source_without_a_passing_run_correction_is_not_retired(test_db) -> None
     assert stored is None
 
 
-def _restrict_prod_runtime(conn, monkeypatch) -> None:
-    monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
-    conn.execute(
-        "UPDATE environments SET settings=%s WHERE project_id=1 AND name='prod'",
-        ('{"qa":{"restrict_execution_to_self":true}}',),
-    )
-    conn.commit()
-
-
-def test_prod_records_a_stage_requirement_but_does_not_execute_it(
+def test_prod_records_and_executes_a_stage_requirement(
     test_db, monkeypatch
 ) -> None:
     from yoke_core.domain.qa_environment_execution_target import (
         bind_item_named_target,
         resolve_named_environment_execution_target,
     )
-    from yoke_core.domain.qa_execution_environment_target import (
-        QaExecutionTargetError,
-    )
 
     item_id = 2372
     _pair(test_db, item_id=item_id)
-    _restrict_prod_runtime(test_db, monkeypatch)
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
 
     row = {"target_env": "stage"}
     assert bind_item_named_target(test_db, item_id=item_id, row=row) == ""
     assert row["execution_target_digest"]
 
-    with pytest.raises(QaExecutionTargetError, match="cannot execute QA target"):
-        resolve_named_environment_execution_target(
-            test_db, project_id=1, environment_name="stage"
-        )
+    target = resolve_named_environment_execution_target(
+        test_db, project_id=1, environment_name="stage"
+    )
+    assert target["environment"]["name"] == "stage"
 
 
 def test_prod_rebinds_a_requirement_to_stage(test_db, monkeypatch) -> None:
@@ -175,7 +163,7 @@ def test_prod_rebinds_a_requirement_to_stage(test_db, monkeypatch) -> None:
 
     item_id = 2373
     sources = _pair(test_db, item_id=item_id)
-    _restrict_prod_runtime(test_db, monkeypatch)
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
 
     outcome = apply_requirement_update(test_db, sources["prod"], "target_env", "stage")
 

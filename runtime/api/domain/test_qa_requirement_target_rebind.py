@@ -192,7 +192,7 @@ def test_snapshot_reuse_names_rebind_when_only_declared_facts_moved() -> None:
 
         identity = _identity(conn, environment_id)
         current = environment_execution_target(
-            conn, identity, require_runtime_match=False
+            conn, identity
         )
         current = dict(current)
         current["endpoints"] = dict(current.get("endpoints") or {})

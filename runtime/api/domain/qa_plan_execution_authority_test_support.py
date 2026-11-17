@@ -94,3 +94,15 @@ def _result(requirement_id: int) -> dict:
         "verdict": "pass",
         "case_outcome": "passed",
     }
+
+
+def _sqlite_environment_target(conn):
+    conn.executescript("""
+        CREATE TABLE projects(id INTEGER,slug TEXT,org_id INTEGER);
+        INSERT INTO projects VALUES (1,'sample',1);
+        CREATE TABLE sites(id INTEGER,project_id INTEGER,name TEXT);
+        INSERT INTO sites VALUES (1,1,'app');
+        CREATE TABLE environments(id INTEGER,site INTEGER,name TEXT,url TEXT,settings TEXT);
+        INSERT INTO environments VALUES (1,1,'development','','{}');
+    """)
+    return {"project": {"id": 1}, "environment": {"id": 1, "name": "development"}}

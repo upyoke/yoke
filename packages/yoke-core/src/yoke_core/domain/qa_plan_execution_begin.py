@@ -39,19 +39,14 @@ from yoke_core.domain.qa_plan_execution_store import (
     same_owner,
     select_plan_execution,
 )
-from yoke_core.domain.qa_plan_execution_target_snapshot import (
-    require_execution_target,
-)
 from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
 from yoke_core.domain.qa_stage_execution_holders import admit_stage_roster
-
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-
 
 from yoke_core.domain.deployment_qa_shared_execution import route_shared_plan_execution
 
@@ -224,7 +219,8 @@ def begin_plan_execution(
             "awaiting_walk_review",
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
-                require_execution_target(existing)
+                from yoke_core.domain.qa_environment_served_build import observe_execution
+                observe_execution(conn, existing)
                 if not retire_unstarted_changed_roster(
                     conn, existing, digest=prepared.digest
                 ):
@@ -292,6 +288,8 @@ def begin_plan_execution(
     execution_target = prepared.execution_target
     execution_target_digest = prepared.execution_target_digest
     execution_id = str(uuid4())
+    from yoke_core.domain.qa_environment_served_build import observe_build
+    build = observe_build(conn, execution_target)
     now = utc_now()
     placeholder = marker(conn)
     try:
@@ -300,10 +298,10 @@ def begin_plan_execution(
             "id,item_id,deployment_run_id,deployment_stage,"
             "deployment_member_item_id,transition_id,actor_id,session_id,"
             "roster_digest,"
-            "roster_json,execution_target_json,execution_target_digest,"
+            "roster_json,execution_target_json,execution_target_digest,served_build_sha,served_build_status,"
             "continues_execution_id,requesting_member_item_id,"
             "cursor_ordinal,state,created_at,heartbeat_at"
-            f") VALUES ({', '.join([placeholder] * 18)})",
+            f") VALUES ({', '.join([placeholder] * 20)})",
             (
                 execution_id,
                 int(item_id) if item_id is not None else None,
@@ -317,6 +315,7 @@ def begin_plan_execution(
                 canonical(roster),
                 canonical(execution_target),
                 execution_target_digest,
+                build["served_build_sha"], build["served_build_status"],
                 continues_execution_id,
                 _requesting_member_item_id,
                 0,

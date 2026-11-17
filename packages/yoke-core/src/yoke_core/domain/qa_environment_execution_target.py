@@ -4,9 +4,7 @@ A plan reaches this through its own ``target_environment_id``; a case that
 belongs to no plan reaches it by naming the environment on the requirement.
 Both land on the same snapshot shape and the same authorization read, so a
 case outside a plan is bound to a real reviewed endpoint rather than
-dispatched at nothing. The runtime guard belongs to execution only: recording
-a requirement is a control-plane write, and the control plane may record a
-case for any environment its project owns.
+dispatched at nothing. The control plane records and executes cases for authorized environments.
 """
 
 from __future__ import annotations
@@ -15,22 +13,20 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 from yoke_contracts.machine_qa_case_target import ENVIRONMENT_TARGET_SCHEMA
-from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
+from yoke_core.domain import db_backend
 from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     endpoint_declaration_state,
     hosted_endpoints,
     is_hosted_runtime,
     is_production,
-    load_environment_settings,
 )
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     _decode,
     _generic_endpoints,
     _mapping_rows,
-    require_runtime_target,
-    runtime_environment_name,
+    require_environment_target_access,
 )
 
 
@@ -49,8 +45,6 @@ _IDENTITY_SQL = (
 def environment_execution_target(
     conn: Any,
     identity: Mapping[str, Any],
-    *,
-    require_runtime_match: bool = True,
 ) -> dict[str, Any]:
     """Assemble the immutable snapshot for one resolved environment row.
 
@@ -60,21 +54,14 @@ def environment_execution_target(
     """
     if identity["environment_id"] is None or identity["site_name"] is None:
         raise QaExecutionTargetError("QA plan execution environment is unavailable")
-    try:
-        hosted_identity.require_plan_environment_access(
-            conn,
-            plan_project_id=int(identity["project_id"]),
-            environment_id=int(identity["environment_id"]),
-        )
-    except ValueError as exc:
-        raise QaExecutionTargetError(str(exc)) from exc
-    target = environment_target_snapshot(identity)
-    if require_runtime_match:
-        runtime_settings = load_environment_settings(
-            conn, int(identity["project_id"]), runtime_environment_name()
-        )
-        require_runtime_target(target, runtime_settings=runtime_settings)
-    return target
+    require_environment_target_access(
+        conn,
+        {
+            "project": {"id": int(identity["project_id"])},
+            "environment": {"id": int(identity["environment_id"])},
+        },
+    )
+    return environment_target_snapshot(identity)
 
 
 def environment_target_snapshot(identity: Mapping[str, Any]) -> dict[str, Any]:
@@ -104,7 +91,7 @@ def environment_target_snapshot(identity: Mapping[str, Any]) -> dict[str, Any]:
             "name": str(identity["project_name"]),
         },
         "site": {"name": str(identity["site_name"])},
-        "environment": {"name": environment_name},
+        "environment": {"id": int(identity["environment_id"]), "name": environment_name},
         "endpoints": endpoints,
         "role": {"production": is_production(settings)},
     }
@@ -138,15 +125,13 @@ def persistable_named_environment_target(
     *,
     project_id: int,
     environment_name: str,
-    require_runtime_match: bool = True,
 ) -> dict[str, Any] | None:
     """Return the snapshot when *environment_name* is this project's to bind.
 
     An unregistered name stays unbound so authoring can defer the target. A
     name registered only on another project is refused rather than stored as
     a draft label that would later execute against the wrong universe.
-    Record writes pass ``require_runtime_match=False``; only a caller about
-    to execute against the target keeps the runtime guard.
+    Execution also rechecks the frozen target authorization.
     """
     name = str(environment_name or "").strip()
     if not name:
@@ -181,7 +166,6 @@ def persistable_named_environment_target(
         conn,
         project_id=int(project_id),
         environment_name=name,
-        require_runtime_match=require_runtime_match,
     )
 
 
@@ -201,7 +185,6 @@ def apply_named_target_to_requirement_row(
         conn,
         project_id=int(project_id),
         environment_name=str(row.get("target_env") or ""),
-        require_runtime_match=False,
     )
     if target is None:
         row["execution_target_json"] = None
@@ -238,7 +221,6 @@ def resolve_named_environment_execution_target(
     *,
     project_id: int,
     environment_name: str,
-    require_runtime_match: bool = True,
 ) -> dict[str, Any]:
     """Resolve the environment a case names into its execution target.
 
@@ -260,7 +242,7 @@ def resolve_named_environment_execution_target(
             f"{project_id} has not registered"
         )
     target = environment_execution_target(
-        conn, rows[0], require_runtime_match=require_runtime_match
+        conn, rows[0]
     )
     if not str(target["endpoints"].get("app_url") or "").strip():
         raise QaExecutionTargetError(

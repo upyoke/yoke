@@ -116,7 +116,10 @@ def test_a_planless_case_binds_the_environment_it_names() -> None:
         )
 
         target = context["execution_target"]
-        assert target["environment"] == {"name": "local"}
+        assert target["environment"] == {
+            "name": "local",
+            "id": conn.execute("SELECT id FROM environments WHERE project_id=1 AND name='local'").fetchone()[0],
+        }
         assert target["endpoints"]["app_url"] == PREVIEW_URL
         assert context["execution_target_digest"]
 

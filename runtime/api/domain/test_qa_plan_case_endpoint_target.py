@@ -44,7 +44,7 @@ def _case(url: str, **extra) -> dict:
 def production_default(monkeypatch):
     calls = []
 
-    def resolve(conn, *, plan_id, require_runtime_match=True, allow_unbound=False):
+    def resolve(conn, *, plan_id, allow_unbound=False):
         calls.append(plan_id)
         return _target("production")
 

@@ -40,7 +40,7 @@ def _preview_target(
     overlay = dict(identity)
     overlay["settings"] = json.dumps(dict(settings))
     try:
-        return environment_execution_target(conn, overlay, require_runtime_match=False)
+        return environment_execution_target(conn, overlay)
     except (QaExecutionTargetError, ValueError, TypeError):
         return None
 

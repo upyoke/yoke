@@ -149,17 +149,11 @@ def test_prod_authors_a_stage_plan_that_only_the_stage_run_owes(test_db, monkeyp
     )
     from yoke_core.domain.qa_execution_environment_target import (
         resolve_plan_execution_target,
-        QaExecutionTargetError,
     )
 
     item_id = 9684
     _pair(test_db, item_id=item_id)
     monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
-    test_db.execute(
-        "UPDATE environments SET settings=%s WHERE project_id=1 AND name='prod'",
-        ('{"qa":{"restrict_execution_to_self":true}}',),
-    )
-    test_db.commit()
     plan = create_plan(
         test_db, project="yoke", slug="stage-release-proof", target_environment="stage"
     )
@@ -197,10 +191,9 @@ def test_prod_authors_a_stage_plan_that_only_the_stage_run_owes(test_db, monkeyp
         item_id: {int(plan["id"])}
     }
     assert members_plan_ids(test_db, [item_id], "run-prod") == {item_id: set()}
-    # Actual standalone dispatch retains its runtime restriction; deployment
-    # QA later supplies the receipt-bound execution target that exempts it.
-    with pytest.raises(QaExecutionTargetError, match="cannot execute QA target"):
-        resolve_plan_execution_target(test_db, plan_id=int(plan["id"]))
+    target = resolve_plan_execution_target(test_db, plan_id=int(plan["id"]))
+    assert target["environment"]["name"] == "stage"
+    assert target["environment"]["id"]
 
 
 def test_composition_enrolls_both_runs_and_omits_unneeded_stage_members(test_db):

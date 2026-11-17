@@ -262,6 +262,8 @@ def create_core_tables(conn: Any) -> None:
         CREATE INDEX IF NOT EXISTS idx_qa_requirements_epic ON qa_requirements(epic_id, task_num);
         CREATE INDEX IF NOT EXISTS idx_qa_requirements_deployment ON qa_requirements(deployment_run_id);
         CREATE TABLE IF NOT EXISTS qa_runs (
+          served_build_sha TEXT,
+          served_build_status TEXT,
           id INTEGER PRIMARY KEY,
           qa_requirement_id INTEGER NOT NULL,
           performed_by TEXT NOT NULL,

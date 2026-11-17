@@ -33,7 +33,7 @@ def test_rebind_uses_plan_target_not_plan_project_environment_name() -> None:
             target_environment="Yoke API/prod",
         )
         live = resolve_plan_execution_target(
-            conn, plan_id=int(plan["id"]), require_runtime_match=False
+            conn, plan_id=int(plan["id"])
         )
         stored = dict(live)
         stored["endpoints"] = dict(stored.get("endpoints") or {})
@@ -102,7 +102,7 @@ def test_rebind_resolves_requirement_target_env_before_plan_default() -> None:
             target_environment="Yoke API/prod",
         )
         live = environment_execution_target(
-            conn, _identity(conn, stage_id), require_runtime_match=False
+            conn, _identity(conn, stage_id)
         )
         stored = dict(live)
         stored["endpoints"] = dict(stored.get("endpoints") or {})

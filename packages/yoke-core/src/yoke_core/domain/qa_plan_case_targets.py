@@ -58,7 +58,7 @@ def resolve_case_targets(
                 (
                     None,
                     resolve_plan_execution_target(
-                        conn, plan_id=int(plan["id"]), require_runtime_match=False
+                        conn, plan_id=int(plan["id"])
                     ),
                 )
             ]
@@ -72,7 +72,6 @@ def resolve_case_targets(
                 conn,
                 project_id=int(plan["project_id"]),
                 environment_name=name,
-                require_runtime_match=False,
             )
         except ValueError as exc:
             raise QaPlanError(

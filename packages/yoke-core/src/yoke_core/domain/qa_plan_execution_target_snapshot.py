@@ -86,7 +86,6 @@ def execution_target_for_roster(
         )
     target = dict(targets[0])
     from yoke_core.domain.qa_execution_environment_target import (
-        require_runtime_target,
         target_digest,
     )
 
@@ -94,7 +93,6 @@ def execution_target_for_roster(
         raise QaPlanExecutionStateError(
             "materialized QA roster target digest does not match"
         )
-    require_runtime_target(target)
     return target, digests[0]
 
 
