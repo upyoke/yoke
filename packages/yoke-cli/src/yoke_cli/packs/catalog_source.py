@@ -146,8 +146,16 @@ class PackCatalog:
         )
         if not listed:
             return {}
+        # A committed catalog carries blob bytes, independent of checkout EOL policy.
         archive = _git(
-            self.checkout, "archive", "--format=tar", str(self.commit), "--", *relatives
+            self.checkout,
+            "-c",
+            "core.autocrlf=false",
+            "archive",
+            "--format=tar",
+            str(self.commit),
+            "--",
+            *relatives,
         )
         files: dict[str, bytes] = {}
         with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as bundle:

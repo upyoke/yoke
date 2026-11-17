@@ -26,15 +26,23 @@ def _outside_source_dev_run(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, encoding="utf-8"
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     ).stdout.strip()
 
 
 def _yoke_checkout(root: Path) -> Path:
     """A minimal Yoke-shaped clone whose origin default branch is ``main``."""
     (root / "runtime" / "harness").mkdir(parents=True)
-    (root / "runtime" / "harness" / "README.md").write_text("harness\n", encoding="utf-8", newline="\n")
-    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n', encoding="utf-8", newline="\n")
+    (root / "runtime" / "harness" / "README.md").write_text(
+        "harness\n", encoding="utf-8", newline="\n"
+    )
+    (root / "pyproject.toml").write_text(
+        '[project]\nname = "yoke"\n', encoding="utf-8", newline="\n"
+    )
     write_pack(root, files={"docs/packs/sample/README.md": "# Sample\n"})
     _git(root, "init", "-q", "-b", "main")
     _git(root, "add", "-A")
@@ -54,7 +62,9 @@ def _add_version(root: Path, version: str, content: str) -> None:
     )
     source = root / "packs" / "sample" / "versions" / version / "files"
     (source / "docs" / "packs" / "sample").mkdir(parents=True)
-    (source / "docs" / "packs" / "sample" / "README.md").write_text("# Sample\n", encoding="utf-8", newline="\n")
+    (source / "docs" / "packs" / "sample" / "README.md").write_text(
+        "# Sample\n", encoding="utf-8", newline="\n"
+    )
     (source / "notes.txt").write_text(content, encoding="utf-8", newline="\n")
     descriptor["versions"][version] = record
     descriptor["latest_version"] = version
@@ -97,6 +107,7 @@ def test_commit_catalog_reads_a_merged_commit_not_the_working_tree(
     tmp_path: Path,
 ) -> None:
     checkout = _yoke_checkout(tmp_path)
+    _git(checkout, "config", "core.autocrlf", "true")
     _add_version(checkout, "1.1.0", "merged notes\n")
     _git(checkout, "add", "-A")
     _git(checkout, "-c", "user.email=t@e", "-c", "user.name=t", "commit", "-qm", "v1.1")
