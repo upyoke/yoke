@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def _run(tmp_path, source, platform=None):
     (tmp_path / "test_sample.py").write_text(source, encoding="utf-8")
     (tmp_path / "conftest.py").write_text(
-        "import sys\n" + (f"sys.platform = {platform!r}\n" if platform else ""),
+        "from types import SimpleNamespace\nimport runtime.os_scope_markers as scopes\n"
+        + (f"scopes.sys = SimpleNamespace(platform={platform!r})\n" if platform else ""),
         encoding="utf-8",
     )
     env = dict(os.environ, PYTHONPATH=str(ROOT), PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
@@ -122,3 +123,11 @@ def test_scanner_checks_only_tracked_runtime_and_test_python(tmp_path):
     assert scopes.scan_tracked(tmp_path) == [
         "runtime/test_native.py:2", "tests/nested/test_native.py:2",
     ]
+
+
+def test_platform_simulation_preserves_interpreter_platform(tmp_path):
+    simulated = "linux" if sys.platform == "win32" else "win32"
+    result = _run(tmp_path,
+                  f'import sys\ndef test_x(): assert sys.platform == {sys.platform!r}\n',
+                  simulated)
+    assert result.returncode == 0, result.stdout + result.stderr
