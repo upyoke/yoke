@@ -81,11 +81,22 @@ def test_windows_credential_directory_refusal_names_the_acl_repair(
 ) -> None:
     _fake_acl(monkeypatch, directories=False)
     _as_windows(monkeypatch, github_git_credential_permissions)
-    # Windows has no "others may read" middle ground: both modes need the DACL.
-    with pytest.raises(_Refused, match="only your Windows account, SYSTEM"):
+    monkeypatch.setattr(owner_private_path, "is_others_unwritable_directory", lambda _p: False)
+    with pytest.raises(_Refused, match="remove other users' write access"):
         github_git_credential_permissions.assert_secure_parent(
             tmp_path, _Refused, require_private=False
         )
+
+
+def test_windows_credential_parent_allows_shared_reads(monkeypatch, tmp_path):
+    _fake_acl(monkeypatch, directories=False)
+    _as_windows(monkeypatch, github_git_credential_permissions)
+    monkeypatch.setattr(owner_private_path, "is_others_unwritable_directory", lambda _p: True)
+    github_git_credential_permissions.assert_secure_parent(
+        tmp_path, _Refused, require_private=False
+    )
+    with pytest.raises(_Refused, match="only your Windows account, SYSTEM"):
+        github_git_credential_permissions.assert_secure_parent(tmp_path, _Refused)
 
 
 @pytest.mark.parametrize("private", [True, False])
