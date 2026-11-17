@@ -197,6 +197,18 @@ new golden. With no runnable version, refresh stops naming the harness and
 error; install a supported version as the test user, prove `--version` in
 Terminal, then rerun the plan. Installer success alone proves nothing.
 
+Self-host cases need Docker. Install Colima and the Docker CLI with Compose v2
+as the test user, keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
+under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
+or `/opt/homebrew/bin` (Apple silicon). Colima does not survive a reset or a
+reboot, so each case that needs Docker runs `colima start` itself. Prove it once:
+
+```text
+colima start
+docker run --rm hello-world
+docker compose version
+```
+
 ## 7. Effective privacy and terminal control
 
 In Privacy & Security (Security & Privacy on Monterey), grant every pair.
