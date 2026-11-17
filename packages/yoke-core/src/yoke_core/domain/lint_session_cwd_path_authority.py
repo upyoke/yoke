@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Iterable, List, Optional, Sequence
 
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
