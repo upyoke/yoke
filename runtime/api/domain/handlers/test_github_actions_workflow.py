@@ -55,6 +55,7 @@ def _find_request(
             "repo": "upyoke/platform",
             "workflow": "platform-release-bridge.yml",
             "head_sha": "abc123",
+            "dispatch_inputs": None,
         },
     )
 
@@ -76,6 +77,10 @@ def _jobs_request(
 
 @pytest.fixture
 def _resolved_auth(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.github_workflow_dispatch_intents.recorded_run_inputs",
+        lambda **kwargs: None,
+    )
     calls = []
 
     def _resolve(project, **kwargs):
@@ -133,6 +138,7 @@ class TestWorkflowFindRun:
             "conclusion": None,
             "html_url": "https://github.test/actions/runs/12",
             "head_sha": "abc123",
+            "dispatch_inputs": None,
         }
         assert calls == [
             (

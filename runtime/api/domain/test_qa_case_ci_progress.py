@@ -124,7 +124,9 @@ def test_entry_run_waits_are_live_while_the_run_has_no_id_yet(
     )
     clock = {"now": 0.0}
 
+    monkeypatch.setattr(qa_case_ci_entry_run, "workflow_event", lambda *a: "pull_request")
     result = qa_case_ci_entry_run.find_entry_run(
+        checkout="/tmp/tree",
         requirement_id=41,
         project="yoke",
         repo="acme/widgets",

@@ -70,6 +70,7 @@ def test_ci_dispatch_preserves_inputs_and_records_exact_commit(tmp_path, monkeyp
     assert result["verdict"] == "pass"
     assert result["verification_tree"]["head_sha"] == SHA
     assert result["ci_run_id"] == "123"
+    assert dispatch.call_args.kwargs["request_id"] == f"qa-ci:{SHA}"
     assert dispatch.call_args.kwargs["branch"] == "proof-tag"
     assert dispatch.call_args.kwargs["inputs"] == {"candidate": SHA}
     assert recorder.call_args.kwargs["verdict"] == "pass"

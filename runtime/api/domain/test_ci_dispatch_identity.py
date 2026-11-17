@@ -185,7 +185,7 @@ def test_never_started_retry_changes_identity_with_effective_producer(
         assert result.exit_code == 0
         runs.append(result.run_id)
     assert runs[0] == runs[1] != runs[2]
-    assert all(":never-started-retry:dispatch:" in key for key, _ in dispatch_store[1])
+    assert all(key.startswith(f"qa-ci:{LANE_HEAD}:dispatch:") for key, _ in dispatch_store[1])
 
 
 def test_merge_boundary_changed_producer_on_same_tree_dispatches_fresh(
@@ -207,3 +207,33 @@ def test_merge_boundary_changed_producer_on_same_tree_dispatches_fresh(
     runs = [json.loads(row["raw_result"])["ci_run_id"] for row in recorded]
     assert runs[0] == runs[1] != runs[2]
     assert all(key.startswith("merge-gate:") for key, _ in dispatch_store[1])
+
+
+@pytest.mark.parametrize("dead", [False, True])
+def test_standalone_item_and_recovery_share_one_dispatch_identity(
+    dispatch_store, tmp_path, monkeypatch, dead,
+):
+    from yoke_core.domain import qa_standalone_ci as standalone
+    from yoke_core.domain import qa_case_ci_covering_run as covering
+    from runtime.api.domain.qa_case_ci_test_helpers import completed_run
+
+    checkout, _, _ = wire_ci_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"))
+    monkeypatch.setattr(qa_case_ci_lane, "run_head_sha", lambda **k: LANE_HEAD)
+    monkeypatch.setattr(standalone, "standalone_ci_target", lambda *a: (
+        checkout, "acme/widgets", "ci.yml", "PRJ-9", LANE_HEAD, {},
+    ))
+    monkeypatch.setattr(standalone, "_record_run", lambda *a, **k: (1, 2))
+    first = standalone.execute_standalone_ci(ci_case())["ci_run_id"]
+    expected = first
+    if dead:
+        monkeypatch.setattr(ci_run_redispatch, "concluded_without_verdict",
+                            lambda **k: "cancelled" if k["run_id"] == first else "")
+        prior = completed_run(LANE_HEAD, "cancelled")
+        monkeypatch.setattr(covering, "find_run_for_tree", lambda **k: prior)
+        expected = standalone.execute_standalone_ci(ci_case())["ci_run_id"]
+        assert expected != first
+    item = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
+    assert item["verdict"] == "pass"
+    assert item["ci_run_id"] == expected
+    assert len(dispatch_store[0]) == (2 if dead else 1)

@@ -19,6 +19,11 @@ from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 
+@pytest.fixture(autouse=True)
+def pr_workflow(monkeypatch):
+    monkeypatch.setattr(entry_run, "workflow_event", lambda *a: "pull_request")
+
+
 def test_a_project_outside_the_queue_keeps_the_dispatch_path(monkeypatch):
     monkeypatch.setattr(
         entry_run,
@@ -147,6 +152,7 @@ def _find_entry(monkeypatch, runs):
         clock["now"] += seconds
 
     return entry_run.find_entry_run(
+        checkout="/tmp/tree",
         requirement_id=41,
         project="yoke",
         repo="acme/widgets",
@@ -190,6 +196,7 @@ def test_the_entry_lookup_asks_only_about_pull_request_runs(monkeypatch):
 
     monkeypatch.setattr(qa_case_ci_covering_run, "find_run_for_tree", _lookup)
     entry_run.find_entry_run(
+        checkout="/tmp/tree",
         requirement_id=41,
         project="yoke",
         repo="acme/widgets",
@@ -204,3 +211,34 @@ def test_the_entry_lookup_asks_only_about_pull_request_runs(monkeypatch):
 
 def test_no_entry_run_within_the_window_returns_none(monkeypatch):
     assert _find_entry(monkeypatch, []) is None
+
+
+def test_dispatch_only_probes_once_without_wait(monkeypatch):
+    monkeypatch.setattr(entry_run, "workflow_event", lambda *a: "")
+    lookup = mock.Mock(return_value=None)
+    monkeypatch.setattr(qa_case_ci_covering_run, "find_run_for_tree", lookup)
+    sleep = mock.Mock(side_effect=AssertionError("must not wait for PR event"))
+    assert entry_run.find_entry_run(
+        checkout="/tmp/tree", requirement_id=41, project="widgets",
+        repo="acme/widgets", workflow="smoke.yml", head_sha=LANE_HEAD,
+        timeout_seconds=60, sleep=sleep,
+    ) is None
+    assert lookup.call_count == 1
+    assert lookup.call_args.kwargs["event"] == ""
+
+
+@pytest.mark.parametrize("inputs", [None, {}, {"browser_unit_tests": "true"}])
+def test_dispatch_only_requires_exact_recorded_inputs(monkeypatch, inputs):
+    from dataclasses import replace
+
+    run = replace(completed_run(LANE_HEAD), dispatch_inputs=inputs)
+    monkeypatch.setattr(entry_run, "workflow_event", lambda *a: "")
+    monkeypatch.setattr(qa_case_ci_covering_run, "find_run_for_tree", lambda **k: run)
+    found = entry_run.find_entry_run(
+        checkout="/tmp/tree", requirement_id=41, project="widgets",
+        repo="acme/widgets", workflow="smoke.yml", head_sha=LANE_HEAD,
+        timeout_seconds=60,
+    )
+    source = qa_case_ci_covering_run.classify(found, head_sha=LANE_HEAD)
+    assert source == (qa_case_ci_covering_run.ADOPTED if inputs == {} else
+                      qa_case_ci_covering_run.DISPATCHED)

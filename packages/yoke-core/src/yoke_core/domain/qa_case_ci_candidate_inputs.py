@@ -88,13 +88,16 @@ def _decoded_config(config: Any) -> dict:
     return config if isinstance(config, dict) else {}
 
 
-def case_inputs(case: Mapping[str, Any], *, project: str) -> dict[str, str]:
+def case_inputs(
+    case: Mapping[str, Any], *, project: str, checkout=None
+) -> dict[str, str]:
     """Inputs this case's dispatch must carry, refusing what cannot prove them."""
     inputs = normalize(
         _decoded_config(case.get("method_config")).get(CI_WORKFLOW_INPUTS_KEY)
     )
     if inputs and not case.get("standalone_execution_id"):
-        _refuse_queue_routed(project, inputs)
+        workflow = str(_decoded_config(case.get("method_config")).get("ci_workflow") or "")
+        _refuse_queue_routed(project, inputs, checkout=checkout, workflow=workflow)
     from yoke_core.domain.qa_case_ci_product_publication import (
         require_published_product,
     )
@@ -103,12 +106,20 @@ def case_inputs(case: Mapping[str, Any], *, project: str) -> dict[str, str]:
     return inputs
 
 
-def _refuse_queue_routed(project: str, inputs: Mapping[str, str]) -> None:
+def _refuse_queue_routed(
+    project: str, inputs: Mapping[str, str], *, checkout=None, workflow=""
+) -> None:
     """Refuse a candidate-input case whose verdict is a pull-request run."""
     from yoke_core.domain import qa_case_ci_entry_run
 
     if not qa_case_ci_entry_run.routes_through_merge_queue(project):
         return
+    if checkout is not None:
+        from yoke_core.domain import qa_case_ci_lane
+
+        head = qa_case_ci_lane.ref_sha(checkout, "HEAD")
+        if not qa_case_ci_entry_run.workflow_event(checkout, workflow, head):
+            return
     raise QaCaseExecutionError(
         f"CI case declares method_config.{CI_WORKFLOW_INPUTS_KEY} "
         f"({', '.join(sorted(inputs))}), but project {project!r} verifies "

@@ -197,7 +197,7 @@ def test_dispatch_is_keyed_on_the_tree_under_test(wired):
 
     _run(checkout, dispatch=_dispatch, await_result=lambda **k: (0, "success"))
 
-    assert seen["request_id"] == f"qa-case:41:{'a' * 40}"
+    assert seen["request_id"] == f"qa-ci:{'a' * 40}"
     assert seen["branch"] == "PRJ-9"
     assert seen["workflow"] == "ci.yml"
     assert seen["repo"] == "acme/widgets"

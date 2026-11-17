@@ -281,3 +281,23 @@ def test_a_released_lane_never_probes_because_it_cannot_be_rebased(
 
     assert prepared.resumed_run is None
     assert prepared.queue_target == "main"
+
+
+@pytest.mark.parametrize("inputs", [None, {}, {"browser_unit_tests": "true"}])
+def test_dispatch_only_resume_requires_matching_recorded_payload(
+    live_lane, monkeypatch, inputs,
+):
+    from dataclasses import replace
+
+    checkout, _, _ = live_lane
+    _queue_project(monkeypatch)
+    monkeypatch.setattr(entry_run, "workflow_event", lambda *a: "")
+    run = replace(in_flight_run(LANE_HEAD), dispatch_inputs=inputs)
+    lookup = mock.Mock(return_value=run)
+    monkeypatch.setattr(covering_run, "find_run_for_tree", lookup)
+    found = qa_case_ci_resume._covering_run(
+        checkout, project="widgets", repo="acme/widgets", workflow="smoke.yml",
+        queue_routed=True, timeout_seconds=60,
+    )
+    assert found == (run if inputs == {} else None)
+    assert lookup.call_args.kwargs["event"] == ""

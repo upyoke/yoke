@@ -11,7 +11,6 @@ from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import (
     qa_case_budget,
-    qa_case_ci_candidate_inputs,
     qa_case_ci_covering_run,
     qa_case_ci_empty_diff,
     qa_case_ci_entry_run,
@@ -25,6 +24,7 @@ from yoke_core.domain import (
     qa_case_ci_superseded_run,
     verification_tree_binding,
 )
+from yoke_core.domain.qa_case_ci_candidate_inputs import case_inputs
 from yoke_core.domain.qa_case_ci_conclusion import (
     conclusion_from_poll,
     failure_verdict,
@@ -82,7 +82,7 @@ def execute_ci_case(
     project = str(case["project"])
     repo = qa_case_ci_lane.repo_slug(checkout)
     branch = qa_case_ci_lane.lane_branch(case, checkout)
-    workflow_inputs = qa_case_ci_candidate_inputs.case_inputs(case, project=project)
+    workflow_inputs = case_inputs(case, project=project, checkout=checkout)
     try:
         checked_out_branch = qa_case_ci_lane.checked_out_branch(checkout)
     except QaCaseExecutionError:
@@ -199,6 +199,7 @@ def execute_ci_case(
                         )
                     )
                     covering_run = qa_case_ci_entry_run.find_entry_run(
+                        checkout=checkout,
                         requirement_id=requirement_id,
                         project=project,
                         repo=repo,
@@ -231,9 +232,7 @@ def execute_ci_case(
                     repo=repo,
                     workflow=workflow,
                     branch=branch,
-                    request_id=qa_case_ci_covering_run.dispatch_request_id(
-                        f"qa-case:{requirement_id}:{head_sha}", head_sha, covering_run
-                    ),
+                    request_id=qa_case_ci_covering_run.candidate_request_id(head_sha),
                     timeout_seconds=budget,
                     inputs=workflow_inputs,
                 )

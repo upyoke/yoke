@@ -147,7 +147,7 @@ def await_with_one_redispatch(
         repo=repo,
         workflow=workflow,
         branch=branch,
-        request_id=(f"qa-case:{requirement_id}:{head_sha}:never-started-retry"),
+        request_id=qa_case_ci_covering_run.candidate_request_id(head_sha),
         timeout_seconds=timeout_seconds,
         inputs=inputs,
     )
