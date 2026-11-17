@@ -95,7 +95,7 @@ def test_requested_facts_fill_missing_roster_model_and_effort():
         {
             "executor": "codex",
             "execution_level": "primary",
-            "requested_model": "gpt-6.1-sol",
+            "requested_model": "gpt-6.2-sol",
             "requested_reasoning_effort": "medium",
         },
         levels={None: default_levels()},

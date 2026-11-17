@@ -34,7 +34,7 @@ def test_exhausted_overload_relaunches_different_same_level_model_once(monkeypat
     assert launch["requester_actor_id"] == 1
     placement = json.loads(launch["level_placement"])
     assert any(
-        c["model"] == "gpt-6.1-sol"
+        c["model"] == "gpt-6.2-sol"
         and c["blocked"].startswith("model_capacity_excluded")
         for c in placement["candidates"]
     )
@@ -145,7 +145,7 @@ def test_published_model_alias_excludes_the_same_capacity_overloaded_model(monke
     launch = conn.execute(
         "SELECT resolved_model,level_placement FROM session_launches"
     ).fetchone()
-    assert launch[0] == "gpt-6.1-sol"
+    assert launch[0] == "gpt-6.2-sol"
     candidates = json.loads(launch[1])["candidates"]
     assert next(c for c in candidates if c["model"] == "claude-fable-5-1")[
         "blocked"
@@ -197,7 +197,7 @@ def test_retry_preserves_model_exclusion_and_predecessor_custody(monkeypatch):
     assert retried.resolved_model == "claude-opus-5-5"
     recovery = json.loads(retried.level_placement)["capacity_recovery"]
     assert recovery["predecessor_session_id"] == PREDECESSOR
-    assert "gpt-6.1-sol" in recovery["excluded_models"]
+    assert "gpt-6.2-sol" in recovery["excluded_models"]
     assert claim(conn)[1] == PREDECESSOR
 
 

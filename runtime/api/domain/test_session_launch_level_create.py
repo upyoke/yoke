@@ -99,7 +99,7 @@ def test_an_exact_surface_launch_is_recorded_as_an_override() -> None:
         conn,
         surface="codex-cli",
         machine_id="m-codex",
-        model="gpt-6.1-sol",
+        model="gpt-6.2-sol",
         reasoning_effort="medium",
     )
     record = public_launch_record(launch)

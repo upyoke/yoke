@@ -34,7 +34,7 @@ _SHIPPED_MATCHES = [
     ("claude-desktop", "claude-opus-5-5", "medium", "SENIOR"),
     ("claude", "claude-haiku-5-5", "max", "INTERN"),
     ("codex", "gpt-6-luna", "max", "INTERN"),
-    ("codex-desktop", "gpt-6.1-sol", "medium", "SENIOR"),
+    ("codex-desktop", "gpt-6.2-sol", "medium", "SENIOR"),
 ]
 
 _SPLIT_MODEL = "claude-sonnet-5-5"

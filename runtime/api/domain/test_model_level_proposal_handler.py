@@ -151,7 +151,7 @@ def test_authored_option_with_an_unpublished_effort_is_refused(db):
                 {
                     "kind": "add",
                     "level": "PRINCIPAL",
-                    "option": {"model": "gpt-6.1-sol", "min_effort": "none"},
+                    "option": {"model": "gpt-6.2-sol", "min_effort": "none"},
                 }
             ]
         }

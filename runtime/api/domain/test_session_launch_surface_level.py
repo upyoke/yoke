@@ -133,7 +133,7 @@ def test_unrestricted_level_retry_can_still_change_surfaces():
 
 
 def test_explicit_model_keeps_the_exact_selection_path():
-    request = _surface_request(model="gpt-6.1-sol", reasoning_effort="high")
+    request = _surface_request(model="gpt-6.2-sol", reasoning_effort="high")
     resolved = workflow_stage_levels.default_launch_level(None, request)
     assert resolved is request
 

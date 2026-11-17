@@ -42,7 +42,7 @@ from runtime.api.domain.session_launch_level_test_support import (
 launch_connection = partial(level_connection, CODEX_SOL)
 
 _worker_launch = partial(
-    assigned_launch, work_required=True, model="gpt-6.1-sol", reasoning_effort="medium"
+    assigned_launch, work_required=True, model="gpt-6.2-sol", reasoning_effort="medium"
 )
 
 MACHINE = "machine-1"
@@ -66,7 +66,7 @@ def _publish_capacity(conn, *, max_worker_lanes: int | None, relay_id="relay-1")
 
 
 def _live_session(
-    conn, session_id: str, *, machine_id: str = MACHINE, model="gpt-6.1-sol"
+    conn, session_id: str, *, machine_id: str = MACHINE, model="gpt-6.2-sol"
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions (session_id, project_id, executor_surface, "

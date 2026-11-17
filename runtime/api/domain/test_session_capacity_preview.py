@@ -31,7 +31,7 @@ def _pool_population(monkeypatch):
 def test_rejected_level_preview_keeps_real_machine_cap_and_unknown_pool_population():
     conn = level_connection(CODEX_SOL)
     add_surface(conn, "machine-1", "codex-cli")
-    _live_session(conn, "worker", model="gpt-6.1-sol")
+    _live_session(conn, "worker", model="gpt-6.2-sol")
     conn.execute(
         "UPDATE session_relays SET machine_capacity=? WHERE machine_id='machine-1'",
         (

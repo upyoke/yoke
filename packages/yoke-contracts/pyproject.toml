@@ -49,6 +49,8 @@ where = ["src"]
 "yoke_contracts" = [
     "machine_authorization.schema.v2.json",
     "browser_step_schema.json",
+    # The shipped model catalog, identical to the published catalog records.
+    "model_reference_data.json",
     # Exact compiled UI contract bytes, importable by standalone Node consumers.
     "timestamps.mjs",
     "time_sql.mjs",
