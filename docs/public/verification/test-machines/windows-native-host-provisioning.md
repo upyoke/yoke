@@ -114,10 +114,9 @@ The provisioner uses the capability-owned `test-machine.ssh_private_key` and
 stores `test-machine:VM.desktop_password`; it streams the password to the
 administrator over SSH stdin. It never embeds it in argv or the provisioned
 script. Keep administrator and standard-user passwords separate.
-Retries preserve the enabled non-admin account and require its stored
-`desktop_password`; restore missing custody, never reset or recreate the
-user. Interrupted setup can leave an account without a profile. Reuse it
-through `--bootstrap-transport ssh`. The administrator uses
+Preserve existing non-admin accounts and `desktop_password` custody. For
+partial setup rerun `--bootstrap-transport ssh`; never reset/recreate the
+account. The administrator uses
 [`CreateProfile`](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createprofile)
 with a 260-character output buffer and resolves
 `ProfileList\<SID>\ProfileImagePath`, Success or `ERROR_ALREADY_EXISTS`
