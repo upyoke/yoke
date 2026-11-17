@@ -24,6 +24,7 @@ import argparse
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from pathlib import Path
 from threading import Thread
 
@@ -52,7 +53,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
         pass
 
-server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+server = LoopbackServer(('127.0.0.1', 0), Handler)
 state_file.write_text(json.dumps({
     'pid': os.getpid(), 'token': token,
     'endpoint': 'http://127.0.0.1:' + str(server.server_port),
