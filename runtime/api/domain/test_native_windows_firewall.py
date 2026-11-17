@@ -12,11 +12,9 @@ from uuid import uuid4
 import pytest
 
 from yoke_harness.native_windows import provision
-from yoke_harness.native_windows import process_input
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
 from yoke_harness.native_windows.transport import encoded, quote
-from yoke_contracts.owner_private_path import is_owner_private_file
 
 pytestmark = pytest.mark.windows
 
@@ -30,28 +28,29 @@ def powershell(script, directory, timeout=300):
     )
 
 
-@pytest.mark.parametrize("failure", [False, True])
-def test_windows_input_file_is_private_exact_and_removed(monkeypatch, failure):
-    seen = []
-    monkeypatch.setattr(process_input, "WINDOWS_CONTROLLER", True)
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows PowerShell")
+def test_real_chunk_append_rejects_wrong_offset_and_preserves_prefix(tmp_path):
+    from yoke_harness.native_windows.stdin_frame import frame_bytes, upload_received, upload_script
 
-    def run(argv, **kwargs):
-        source = kwargs["stdin"]
-        seen.append(Path(source.name))
-        assert is_owner_private_file(source.name)
-        assert "input" not in kwargs
-        assert source.read() == b"exact framed bytes" * 1000
-        if failure:
-            raise subprocess.TimeoutExpired(argv, 30)
-        return subprocess.CompletedProcess(argv, 0)
-
-    monkeypatch.setattr(process_input.subprocess, "run", run)
-    if failure:
-        with pytest.raises(subprocess.TimeoutExpired):
-            process_input.run_ssh(["ssh"], input_text="exact framed bytes" * 1000)
-    else:
-        assert process_input.run_ssh(["ssh"], input_text="exact framed bytes" * 1000).returncode == 0
-    assert seen and not seen[0].exists() and not seen[0].parent.exists()
+    target = tmp_path / "chunks.bin"
+    payload = b"first chunk" * 100
+    for offset, chunk in ((0, payload), (len(payload), b"second chunk")):
+        script = upload_script(quote(str(target)), offset=offset)
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded(script)],
+            input=frame_bytes(chunk), capture_output=True, text=True, timeout=20,
+        )
+        expected = payload if offset == 0 else payload + chunk
+        assert upload_received(result, expected), result.stderr
+        assert target.read_bytes() == expected
+    for offset in (0, 1):
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+             encoded(upload_script(quote(str(target)), offset=offset))],
+            input=frame_bytes(b"bad"), capture_output=True, text=True, timeout=20,
+        )
+        assert result.returncode != 0
+        assert target.read_bytes() == expected
 
 
 @pytest.mark.skipif(
@@ -100,7 +99,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             diagnostic = powershell(
                 "Get-Service sshd | Format-List Name,Status; "
                 "Get-NetTCPConnection -LocalPort 22 -ErrorAction SilentlyContinue | Format-List State,LocalAddress; "
-                "Get-Item 'C:\\ProgramData\\YokeQaProvision.ps1' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
+                "Get-ChildItem 'C:\\ProgramData\\YokeQaProvision-*.ps1' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
                 "Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 15 -ErrorAction SilentlyContinue | Select-Object TimeCreated,Message | Format-List",
                 tmp_path,
             )
@@ -108,6 +107,26 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
                 print(diagnostic.stdout)
                 print(diagnostic.stderr)
             raise RuntimeError("Real SSH guest stage timed out; inspect OpenSSH diagnostics") from None
+
+        except RuntimeError as exc:
+            import re
+
+            match = re.search(r"inbound allow rule ([^;\s]+)", str(exc))
+            if match:
+                diagnostic = powershell(
+                    "$r=Get-NetFirewallRule -PolicyStore ActiveStore -Name " + quote(match[1])
+                    + "; $r | Format-List *; "
+                    + "; ".join("$r | " + command + " | Format-List *" for command in (
+                        "Get-NetFirewallApplicationFilter", "Get-NetFirewallServiceFilter",
+                        "Get-NetFirewallPortFilter", "Get-NetFirewallInterfaceFilter",
+                        "Get-NetFirewallInterfaceTypeFilter", "Get-NetFirewallAddressFilter",
+                        "Get-NetFirewallSecurityFilter",
+                    )), tmp_path,
+                )
+                with capsys.disabled():
+                    print(diagnostic.stdout)
+                    print(diagnostic.stderr)
+            raise
 
     monkeypatch.setattr(provision, "admin_script", guest)
     ssh = ["ssh", "-F", "none", "-i", str(key), "-o", "BatchMode=yes",

@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import sys
 import time
+from uuid import uuid4
 
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config.capability_secret_store import (
@@ -26,7 +27,6 @@ from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
-from yoke_harness.native_windows.process_input import run_ssh
 from yoke_harness.native_windows.profile import (
     SCRIPT as PROFILE_SCRIPT,
     missing_password_guard,
@@ -37,7 +37,7 @@ BOOTSTRAP_TIMEOUT_SECONDS = 5400
 
 
 def admin_script(key, host, user, script, *, input_text=None):
-    path = r"C:\ProgramData\YokeQaProvision.ps1"
+    path = rf"C:\ProgramData\YokeQaProvision-{uuid4().hex}.ps1"
     ssh = [
         "ssh",
         "-F",
@@ -54,26 +54,25 @@ def admin_script(key, host, user, script, *, input_text=None):
         f"{user}@{host}",
     ]
     payload = script.encode("utf-8-sig")
-    write = upload_script(quote(path))
-    uploaded = run_ssh(
-        [
-            *ssh,
-            "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
-            + encoded(write),
-        ],
-        input_text=frame_bytes(payload),
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if not upload_received(uploaded, payload):
-        raise RuntimeError(
-            "windows_admin_script_upload_failed: verify administrator SSH key access; "
-            + uploaded.stderr[-800:]
+    deadline = time.monotonic() + 30
+    for offset in range(0, len(payload), 2048):
+        chunk = payload[offset:offset + 2048]
+        write = upload_script(quote(path), offset=offset)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired("Windows script upload", 30)
+        uploaded = subprocess.run(
+            [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
+            input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
         )
-    return run_ssh(
+        if not upload_received(uploaded, payload[:offset + len(chunk)]):
+            raise RuntimeError(
+                "windows_admin_script_upload_failed: verify administrator SSH key access; "
+                + uploaded.stderr[-800:]
+            )
+    return subprocess.run(
         [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
-        input_text=frame_bytes(input_text.encode("utf-8"))
+        input=frame_bytes(input_text.encode("utf-8"))
         if input_text is not None
         else None,
         capture_output=True,

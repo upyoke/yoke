@@ -113,6 +113,53 @@ def test_admin_upload_requires_receipt_and_password_stays_only_on_stdin(
     assert all(password not in " ".join(argv) for argv, _ in calls)
 
 
+@pytest.mark.parametrize("fail_chunk", [None, 1, 2])
+def test_admin_upload_chunks_verify_whole_prefix_with_one_deadline(monkeypatch, fail_chunk):
+    source = "Write-Output '雪';" * 400
+    payload = source.encode("utf-8-sig")
+    stored = bytearray()
+    calls = []
+    ticks = iter(range(100))
+    monkeypatch.setattr(provision.time, "monotonic", lambda: next(ticks))
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        if "-EncodedCommand " not in argv[-1]:
+            assert bytes(stored) == payload
+            return completed("EXECUTED")
+        script = base64.b64decode(argv[-1].split()[-1]).decode("utf-16-le")
+        assert f"$file.Length -ne {len(stored)}" in script
+        chunk = base64.b64decode(kwargs["input"].split(":", 1)[1], validate=True)
+        assert len(chunk) <= 2048
+        stored.extend(chunk)
+        return completed(receipt(bytes(stored)) if len(calls) != fail_chunk else receipt(b"wrong"))
+
+    monkeypatch.setattr(provision.subprocess, "run", run)
+    if fail_chunk:
+        with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed"):
+            provision.admin_script("key", "host", "admin", source)
+        assert len(calls) == fail_chunk
+    else:
+        assert provision.admin_script("key", "host", "admin", source).stdout == "EXECUTED"
+        assert [kw["timeout"] for _, kw in calls[:-1]] == list(range(29, 29-len(calls)+1, -1))
+        assert "CreateNew" in base64.b64decode(calls[0][0][-1].split()[-1]).decode("utf-16-le")
+
+
+def test_admin_upload_never_resets_total_deadline(monkeypatch):
+    ticks = iter([0, 1, 31])
+    monkeypatch.setattr(provision.time, "monotonic", lambda: next(ticks))
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return completed(receipt(base64.b64decode(kwargs["input"].split(":", 1)[1])))
+
+    monkeypatch.setattr(provision.subprocess, "run", run)
+    with pytest.raises(subprocess.TimeoutExpired):
+        provision.admin_script("key", "host", "admin", "x" * 5000)
+    assert len(calls) == 1
+
+
 def test_failed_transport_upload_never_executes_script(monkeypatch):
     calls = []
     monkeypatch.setattr(
