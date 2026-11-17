@@ -13,6 +13,10 @@ from public_installer_helpers import (
     write_uv_stub,
 )
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
+)
+
 QUESTION = {"setup": "agent", "version": 1, "state": "question", "key": "connect.destination"}
 
 
@@ -34,6 +38,7 @@ def _agent_yoke(tmp_path: Path, *, status: int = 0) -> tuple[Path, Path, Path]:
     return bin_dir, onboard_log, stdin_log
 
 
+@SHIM_BRANCH
 def test_without_a_terminal_setup_starts_in_agent_mode(tmp_path: Path) -> None:
     bin_dir, onboard_log, stdin_log = _agent_yoke(tmp_path)
 
@@ -49,6 +54,7 @@ def test_without_a_terminal_setup_starts_in_agent_mode(tmp_path: Path) -> None:
     assert "Starting Yoke setup" not in result.stdout
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize("status", [1, 2])
 def test_the_install_exit_status_follows_agent_setup(tmp_path: Path, status: int) -> None:
     bin_dir, _, _ = _agent_yoke(tmp_path, status=status)
@@ -58,6 +64,7 @@ def test_the_install_exit_status_follows_agent_setup(tmp_path: Path, status: int
     assert result.returncode == status
 
 
+@SHIM_BRANCH
 def test_yes_prints_the_agent_aware_next_command(tmp_path: Path) -> None:
     bin_dir, onboard_log, _ = _agent_yoke(tmp_path)
 
@@ -71,6 +78,7 @@ def test_yes_prints_the_agent_aware_next_command(tmp_path: Path) -> None:
     assert onboard_log.read_text(encoding="utf-8") == ""
 
 
+@SHIM_BRANCH
 def test_no_setup_skips_agent_mode(tmp_path: Path) -> None:
     bin_dir, onboard_log, _ = _agent_yoke(tmp_path)
 

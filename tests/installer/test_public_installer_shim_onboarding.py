@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from public_installer_helpers import (
     FAKE_INSTALL_PY,
     INSTALL_SHIM_PATH,
@@ -13,10 +15,15 @@ from public_installer_helpers import (
     write_uv_stub,
 )
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
+)
+
 
 _bin = linux_stub_bin
 
 
+@SHIM_BRANCH
 def test_yes_mode_prints_next_without_launching_onboard(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -42,6 +49,7 @@ def test_yes_mode_prints_next_without_launching_onboard(tmp_path: Path) -> None:
     assert onboard_log.read_text(encoding="utf-8") == ""
 
 
+@SHIM_BRANCH
 def test_no_setup_env_suppresses_onboard_offer(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -58,6 +66,7 @@ def test_no_setup_env_suppresses_onboard_offer(tmp_path: Path) -> None:
     assert "Run yoke setup" not in result.stdout
 
 
+@SHIM_BRANCH
 def test_interactive_success_launches_onboard_by_absolute_path(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -112,6 +121,7 @@ def test_interactive_success_launches_onboard_by_absolute_path(tmp_path: Path) -
     ) < result.stdout.index("/yoke onboard")
 
 
+@SHIM_BRANCH
 def test_screen_mode_success_guidance_uses_ascii_glyphs(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -155,6 +165,7 @@ def test_successful_interactive_onboard_prints_path_guidance_contract() -> None:
     assert 'exec "$shell_path" -l' not in text
 
 
+@SHIM_BRANCH
 def test_handoff_omits_reload_step_when_calling_shell_already_resolves_yoke(
     tmp_path: Path,
 ) -> None:
