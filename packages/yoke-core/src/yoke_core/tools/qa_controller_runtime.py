@@ -67,8 +67,13 @@ def _detail(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def _site_packages(root: Path) -> list[Path]:
-    # The venv is built by this interpreter, so its scheme names the layout.
-    return [Path(sysconfig.get_path("purelib", vars={"base": str(root), "platbase": str(root)}))]
+    # The venv is built by this interpreter, so its venv scheme names the layout.
+    scheme = "venv" if "venv" in sysconfig.get_scheme_names() else None
+    paths = sysconfig.get_paths(
+        **({"scheme": scheme} if scheme else {}),
+        vars={"base": str(root), "platbase": str(root)},
+    )
+    return [Path(paths["purelib"])]
 
 
 def verify_runtime(root: Path, version: str, commit: str) -> str:

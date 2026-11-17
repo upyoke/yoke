@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_core.domain.relay_release_path import relay_venv_executable, relay_venv_python
 from yoke_core.tools import qa_controller_runtime as runtime_mod
 from yoke_core.tools.qa_controller_runtime import (
     HANDOFF_MODULE,
@@ -34,19 +35,21 @@ def _fake_install(*, version=VERSION, commit=COMMIT, handoff=True, calls=None):
             calls.append(list(argv))
         if argv[1:4] == ["-I", "-m", "venv"]:
             root = Path(argv[-1])
-            (root / "bin").mkdir(parents=True)
-            for name in ("python", "yoke"):
-                (root / "bin" / name).write_text("")
+            for executable in (relay_venv_python(root), relay_venv_executable(root)):
+                executable.parent.mkdir(parents=True, exist_ok=True)
+                executable.write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 0, "", "")
         root = Path(argv[0]).parent.parent
-        info = root / "lib/python3.13/site-packages" / f"yoke_core-{version}.dist-info"
+        info = runtime_mod._site_packages(root)[0] / f"yoke_core-{version}.dist-info"
         info.mkdir(parents=True)
-        (info / "METADATA").write_text(f"Name: yoke-core\nVersion: {version}\n")
-        (info / "scm_version.json").write_text(json.dumps({"node": f"g{commit}"}))
+        (info / "METADATA").write_text(f"Name: yoke-core\nVersion: {version}\n", encoding="utf-8")
+        (info / "scm_version.json").write_text(json.dumps({"node": f"g{commit}"}), encoding="utf-8")
         module = HANDOFF_MODULE.replace(".", "/") + ".py"
         (info.parent / module).parent.mkdir(parents=True)
-        (info.parent / module).write_text("")
-        (info / "RECORD").write_text(f"{module},,\n" if handoff else "yoke_core/__init__.py,,\n")
+        (info.parent / module).write_text("", encoding="utf-8")
+        (info / "RECORD").write_text(
+            f"{module},,\n" if handoff else "yoke_core/__init__.py,,\n", encoding="utf-8"
+        )
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     return runner
@@ -59,13 +62,13 @@ def test_installs_candidate_wheels_isolated_from_the_installed_cli(machine_home)
         runner=_fake_install(calls=calls),
     )
     assert runtime.root == machine_home / "qa-controller-runtimes" / f"{VERSION}-{COMMIT[:12]}"
-    assert runtime.executable == runtime.root / "bin" / "yoke"
+    assert runtime.executable == relay_venv_executable(runtime.root)
     pip = calls[1]
     assert pip[1:6] == ["-I", "-m", "pip", "--isolated", "install"]
     assert f"{BASE}/dist/releases/{VERSION}/wheels/yoke_core-{VERSION}-py3-none-any.whl" in pip
     # Nothing but a venv and pip ran: no installer, channel or settings change.
     assert len(calls) == 2
-    receipt = json.loads((runtime.root / "controller-runtime.json").read_text())
+    receipt = json.loads((runtime.root / "controller-runtime.json").read_text(encoding="utf-8"))
     assert receipt["source_commit"] == COMMIT
 
 
