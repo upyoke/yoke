@@ -43,7 +43,6 @@
 "runtime/api/domain/test_check_prerequisites_no_gh.py::test_github_auth_resolver_failure_warns_without_host_gh_messaging": "assert 1 == 0",
 "runtime/api/domain/test_check_prerequisites_no_gh.py::test_messaging_emits_no_brew_install_gh": "AssertionError: \\u250c\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u25",
 "runtime/api/domain/test_chromium_process_selection.py::test_proc_selection_handles_flattened_titles_and_excludes_crashpad": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
-"runtime/api/domain/test_control_plane_connection_guards.py::test_an_abandoned_transaction_releases_its_run_row_lock": "psycopg.OperationalError: consuming input failed: server closed the connection unexpectedly",
 "runtime/api/domain/test_deploy_core_container_github_app_custody.py::test_valid_rotation_keeps_key_group_readable": "AssertionError: assert (33206 & 511) == 416",
 "runtime/api/domain/test_deploy_pipeline_fleet_declarations.py::test_named_database_fleet_rehearses_its_own_project_and_model": "AssertionError: assert ['--checkout'...egistry', ...] == ['--checkout'...egistry', ...]",
 "runtime/api/domain/test_deploy_remote_atomic_file.py": "fails with no message",
