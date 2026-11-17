@@ -139,8 +139,12 @@ def _apply_schema() -> None:
         conn.close()
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.flow_init import converge_flow_catalog
+    from yoke_core.domain.merge_queue_landing_record_schema import (
+        ensure_merge_queue_landing_record_schema,
+    )
 
     with connect() as conn:
+        ensure_merge_queue_landing_record_schema(conn)
         converge_flow_catalog(conn)
 
 
