@@ -198,9 +198,11 @@ def recorded_repo_roots(conn: Any) -> List[str]:
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
     normalized = normalize_repo_path(worktree_path)
-    root, marker, suffix = normalized.rpartition("/.worktrees")
-    if marker and (not suffix or suffix.startswith("/")):
+    root, marker, _ = normalized.rpartition("/.worktrees/")
+    if marker:
         return root or "/"
+    if normalized.endswith("/.worktrees"):
+        return normalized.removesuffix("/.worktrees") or "/"
     return None
 
 

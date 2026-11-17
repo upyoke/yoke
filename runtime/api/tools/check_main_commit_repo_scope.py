@@ -42,6 +42,8 @@ def main():
         repo = scratch / "repo"
         repo.mkdir()
         git(repo, "init", "-b", "main")
+        git(repo, "-c", "user.name=Scope probe", "-c", "user.email=probe@example.invalid",
+            "commit", "--allow-empty", "-m", "initial")
         (repo / "source.py").write_text("value = 1\n")
         git(repo, "add", "source.py")
         allowed = evaluate(repo)

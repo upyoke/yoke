@@ -72,6 +72,7 @@ def test_decision_only_names_items_in_commit_repo(monkeypatch, commit_root, lane
         (r"C:\Repo\.worktrees\item", "c:/Repo"),
         ("/.worktrees/item", "/"),
         ("/repo/.worktrees-other/item", None),
+        ("/repo/.worktrees/item/.worktrees-other", "/repo"),
         ("/repo", None),
     ],
 )
