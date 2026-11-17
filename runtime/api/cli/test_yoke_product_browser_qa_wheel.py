@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script
+
 import json
 from pathlib import Path
 
@@ -17,7 +19,7 @@ def test_product_wheel_runs_browser_qa_setup_and_status(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    yoke = venv_dir / "bin" / "yoke"
+    yoke = venv_console_script(venv_dir, "yoke")
 
     project = tmp_path / "external-project"
     machine_home = tmp_path / "home" / ".yoke"

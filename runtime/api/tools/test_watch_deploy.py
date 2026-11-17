@@ -6,6 +6,8 @@ the final result reach the user-facing stream.
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 import io
 
 import pytest
@@ -248,7 +250,7 @@ def test_self_deploy_watch_binds_the_pinned_child(monkeypatch, tmp_path):
     assert watch_deploy.main(["run-1"]) == 0
     assert captured["env"]["YOKE_DEPLOY_DRIVER_RELEASE"] == "abc"
     assert captured["cwd"] == str(tmp_path)
-    assert captured["argv"][0] == str(tmp_path / ".venv/bin/python3")
+    assert captured["argv"][0] == str(venv_python(tmp_path / ".venv", name="python3"))
     assert captured["header_metadata"].startswith("Self-deploy driver frozen at")
     assert captured["outcome_only"] is True
 
