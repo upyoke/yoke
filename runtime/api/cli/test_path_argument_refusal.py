@@ -94,7 +94,7 @@ def test_normal_paths_node_ids_and_keyword_expressions_pass_through(route, tmp_p
     assert seen == arguments
 
 
-@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000], ids=["unsplit-list", "long-name"])
+@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 4997 + ".py"], ids=["unsplit-list", "long-name"])
 def test_watch_command_boundary_refuses_long_arguments(route, capsys, argument, monkeypatch):
     from yoke_core.tools import watch_pytest
 
