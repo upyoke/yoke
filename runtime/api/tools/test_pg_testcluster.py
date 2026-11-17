@@ -9,12 +9,15 @@ root) and its ownership-gated orphan sweep.
 from __future__ import annotations
 
 import os
+import re
+import shlex
 import stat
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_core.domain import postgres_cluster, pytest_cluster_identity as test_postgres_cluster
 from yoke_core.tools import pg_testcluster
 
@@ -24,8 +27,29 @@ def _binary_environment(monkeypatch):
     monkeypatch.delenv("YOKE_PG_BIN_DIR", raising=False)
 
 
+EXE = ".exe" if os.name == "nt" else ""
+# pg_ctl hands -o to cmd.exe on Windows, where '' would reach Postgres verbatim.
+NO_LISTEN = "-c listen_addresses=" + ("" if os.name == "nt" else "''")
+
+
 def _completed(stdout: str = "", returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout=stdout, stderr="")
+
+
+def _exports(block: str) -> dict[str, str]:
+    """Parse env_block's POSIX ``export`` or PowerShell ``$env:`` lines."""
+    exports = {}
+    for line in block.splitlines():
+        if os.name == "nt":
+            match = re.fullmatch(r"\$env:(\w+) = '(.*)'", line)
+            assert match, line
+            exports[match.group(1)] = match.group(2).replace("''", "'")
+        else:
+            words = shlex.split(line)
+            assert words[0] == "export", line
+            key, value = words[1].split("=", 1)
+            exports[key] = value
+    return exports
 
 
 def test_spec_uses_disposable_cluster_settings(monkeypatch):
@@ -51,7 +75,7 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
     assert f"-c max_connections={pg_testcluster.LOCAL_CLUSTER_MAX_CONNECTIONS}" in opts
     assert "-c timezone=Asia/Kathmandu" in opts
     assert "-c fsync=off" in opts
-    assert "-c listen_addresses=''" in opts
+    assert NO_LISTEN in opts
 
 
 def test_ensure_started_recreates_on_stale_settings(monkeypatch, tmp_path):
@@ -85,13 +109,21 @@ def test_ensure_started_recreates_on_stale_settings(monkeypatch, tmp_path):
 
 
 def test_env_block_exports_cluster_root_and_dsn(monkeypatch):
-    root = "/tmp/yoke-pgtest-cluster-custom"
-    monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", root)
+    root = shortest_temp_directory() / "yoke-pgtest-cluster-custom"
+    monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", str(root))
+    monkeypatch.setattr(
+        pg_testcluster.postgres_binaries, "installed_bin_dir", lambda: None
+    )
 
-    block = pg_testcluster.env_block()
+    exports = _exports(pg_testcluster.env_block())
 
-    assert f"export YOKE_PG_CLUSTER_ROOT={root}" in block
-    assert f"host={root}/sock user=yoketest dbname=postgres" in block
+    assert exports == {
+        "YOKE_PG_CLUSTER_ROOT": str(root),
+        "YOKE_PG_DSN": (
+            f"host={(root / 'sock').as_posix() if os.name == 'nt' else root / 'sock'}"
+            " user=yoketest dbname=postgres"
+        ),
+    }
 
 
 def test_root_without_override_resolves_under_global_scratch_root(
@@ -119,7 +151,7 @@ def test_spec_uses_installed_embedded_binaries_without_fetching(monkeypatch, tmp
     spec = pg_testcluster._spec()
 
     assert spec.bin_dir == binaries
-    assert postgres_cluster.binary(spec, "initdb") == str(binaries / "initdb")
+    assert postgres_cluster.binary(spec, "initdb") == str(binaries / f"initdb{EXE}")
 
 
 def test_spec_shortens_overlong_cluster_root(monkeypatch, tmp_path):
@@ -140,7 +172,7 @@ def test_spec_shortens_overlong_cluster_root(monkeypatch, tmp_path):
 def test_long_root_starts_cluster_on_short_socket(monkeypatch):
     monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: f"/pg/bin/{name}")
     socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
-    root = Path("/tmp") / ("yoke-long-root-" + ("n" * 80))
+    root = shortest_temp_directory() / ("yoke-long-root-" + ("n" * 80))
     assert len(os.fsencode(root / "sock" / socket_name)) > (
         postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES
     )
@@ -164,21 +196,18 @@ def test_long_root_starts_cluster_on_short_socket(monkeypatch):
         assert stat.S_IMODE(spec.sock_dir.stat().st_mode) == 0o700
         start = [argv for argv in calls if argv[-1] == "start"]
         assert start
-        assert str(spec.sock_dir) in start[0][start[0].index("-o") + 1]
+        assert spec.socket_host in start[0][start[0].index("-o") + 1]
     finally:
         pg_testcluster.destroy()
 
 
-def test_env_block_exports_pinned_binaries_for_disposable_homes(monkeypatch):
-    from pathlib import Path
-    import shlex
-
-    binaries = Path("/embedded engine/bin")
+def test_env_block_exports_pinned_binaries_for_disposable_homes(monkeypatch, tmp_path):
+    binaries = tmp_path / "embedded engine's" / "bin"
     monkeypatch.setattr(
         pg_testcluster.postgres_binaries, "installed_bin_dir", lambda: binaries
     )
-    exports = [shlex.split(line)[1] for line in pg_testcluster.env_block().splitlines()]
-    assert f"YOKE_PG_BIN_DIR={binaries}" in exports
+    exports = _exports(pg_testcluster.env_block())
+    assert exports["YOKE_PG_BIN_DIR"] == str(binaries)
 
 
 @pytest.mark.parametrize("pinned", [False, True])

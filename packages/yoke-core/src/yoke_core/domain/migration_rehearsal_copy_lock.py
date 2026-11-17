@@ -37,13 +37,22 @@ def child_descriptors() -> tuple[int, ...]:
     return _DESCRIPTORS.get()
 
 
+def child_popen_options() -> dict:
+    """Popen options that hand the copy descriptors to a child.
+
+    ``pass_fds`` is POSIX-only; Windows children inherit no descriptors by
+    number, so the driver alone holds admission there.
+    """
+    return {} if os.name == "nt" else {"pass_fds": child_descriptors()}
+
+
 def run_child(argv, *, timeout: float, **kwargs) -> subprocess.CompletedProcess:
     """Retain copy admission, and reap interrupted children before cleanup."""
     with subprocess.Popen(
         argv,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        **({"pass_fds": child_descriptors()} if os.name != "nt" else {}),
+        **child_popen_options(),
         **kwargs,
     ) as process:
         try:

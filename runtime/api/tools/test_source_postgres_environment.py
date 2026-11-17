@@ -10,11 +10,14 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import local_universe_setup
+from yoke_contracts.owner_private_path import create_owner_private_directory
 from yoke_core.domain import qa_case_command_stream
 from yoke_core.tools import pg_testcluster
 from yoke_core.tools import pg_testcluster_reclaim as reclaim
 from yoke_core.tools import source_machine_home
 from yoke_core.domain.source_postgres_environment import shared_postgres_environment
+
+INITDB = "initdb.exe" if os.name == "nt" else "initdb"
 
 
 def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkeypatch):
@@ -22,7 +25,7 @@ def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkey
     machine.mkdir()
     binaries = machine / "postgres/17.11.1/bin"
     binaries.mkdir(parents=True)
-    (binaries / "initdb").touch()
+    (binaries / INITDB).touch()
     (machine / "config.json").write_text(
         json.dumps({"temp_root": str(tmp_path / "scratch")})
     )
@@ -45,7 +48,7 @@ def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path, monkey
     selected = tmp_path / "chosen-cluster"
     binaries = tmp_path / ".yoke/postgres/17.11.1/bin"
     binaries.mkdir(parents=True)
-    (binaries / "initdb").touch()
+    (binaries / INITDB).touch()
     import sys
     from yoke_core.domain import qa_case_candidate_source as candidate
     from yoke_core.domain.source_python_environment import SourcePythonEnvironment
@@ -191,9 +194,9 @@ def test_cleanup_reclaims_only_its_own_evidence_cluster(tmp_path, monkeypatch):
 
 
 def test_failed_stop_never_removes_live_data(tmp_path, monkeypatch):
-    root = tmp_path / "yoke-pgtest-cluster"
-    data = root / "data"
-    data.mkdir(parents=True)
+    # The lifecycle makes both owner-private; Windows revalidation reads the DACL.
+    root = create_owner_private_directory(tmp_path / "yoke-pgtest-cluster")
+    data = create_owner_private_directory(root / "data")
     marker = data / "postmaster.pid"
     marker.write_text(f"42\n{data}\n0\n5432\n{root / 'sock'}\n")
     monkeypatch.setattr(
@@ -209,19 +212,21 @@ def test_failed_stop_never_removes_live_data(tmp_path, monkeypatch):
 
 
 def test_postmaster_inventory_excludes_foreign_users_and_background_workers(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ):
+    postgres = str(tmp_path / "pg" / "bin" / "postgres")
+    old, home = tmp_path / "old" / "yoke-pgtest-cluster", tmp_path / "home" / "local-universe"
     processes = [
         SimpleNamespace(pid=os.getpid(), username="owner", cmdline=("python",)),
-        SimpleNamespace(pid=12, username="owner", cmdline=("/pg/bin/postgres", "-D", "/tmp/old/yoke-pgtest-cluster/data")),
-        SimpleNamespace(pid=13, username="owner", cmdline=("/pg/bin/postgres", "-D", "/home/local-universe/data")),
-        SimpleNamespace(pid=14, username="foreign", cmdline=("/pg/bin/postgres", "-D", "/tmp/foreign/data")),
+        SimpleNamespace(pid=12, username="owner", cmdline=(postgres, "-D", str(old / "data"))),
+        SimpleNamespace(pid=13, username="owner", cmdline=(postgres, "-D", str(home / "data"))),
+        SimpleNamespace(pid=14, username="foreign", cmdline=(postgres, "-D", str(tmp_path / "foreign" / "data"))),
         SimpleNamespace(pid=15, username="owner", cmdline=("postgres: checkpointer",)),
     ]
     monkeypatch.setattr("yoke_contracts.platform_process.process_command_lines", lambda: processes)
     assert reclaim._postmasters() == [
-        (12, Path("/tmp/old/yoke-pgtest-cluster"), Path("/pg/bin")),
-        (13, Path("/home/local-universe"), Path("/pg/bin")),
+        (12, old, tmp_path / "pg" / "bin"),
+        (13, home, tmp_path / "pg" / "bin"),
     ]
 
 
@@ -293,17 +298,16 @@ def test_unknown_postmaster_identity_refuses_instead_of_leaking_silently(
     assert data.exists()
 
 
-def test_postmaster_inventory_preserves_spaces_in_owned_paths(monkeypatch):
+def test_postmaster_inventory_preserves_spaces_in_owned_paths(monkeypatch, tmp_path):
+    engine, cluster = tmp_path / "embedded engine" / "bin", tmp_path / "evidence" / "private cluster"
     processes = [
         SimpleNamespace(pid=os.getpid(), username="owner", cmdline=("python",)),
         SimpleNamespace(pid=12, username="owner", cmdline=(
-            "/embedded engine/bin/postgres", "-D", "/tmp/evidence/private cluster/data", "-k", "/tmp/socket", "-p", "5432",
+            str(engine / "postgres"), "-D", str(cluster / "data"), "-k", str(tmp_path / "socket"), "-p", "5432",
         )),
     ]
     monkeypatch.setattr("yoke_contracts.platform_process.process_command_lines", lambda: processes)
-    assert reclaim._postmasters() == [
-        (12, Path("/tmp/evidence/private cluster"), Path("/embedded engine/bin"))
-    ]
+    assert reclaim._postmasters() == [(12, cluster, engine)]
 
 
 def test_ordinary_command_qa_does_not_inject_test_cluster_resources(tmp_path):

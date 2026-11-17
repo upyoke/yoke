@@ -38,7 +38,7 @@ def _service_spec(socket_dir):
     if on_path:
         candidates.append(Path(on_path).parent)
     for candidate in candidates:
-        executable = candidate / "pg_dump"
+        executable = Path(postgres_cluster.executable(candidate, "pg_dump"))
         if not executable.exists():
             continue
         result = subprocess.run(

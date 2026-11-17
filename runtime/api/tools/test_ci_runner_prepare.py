@@ -75,6 +75,7 @@ def test_self_hosted_runner_without_client_tools_refuses(host):
     assert fake.commands == []
 
 
+@pytest.mark.posix_only(reason="runs only on the GitHub hosted Linux runner")
 @pytest.mark.parametrize("loader_has_libpq", [True, False])
 def test_hosted_runner_copies_client_tools_from_the_image_without_apt(
     host, tmp_path, loader_has_libpq,

@@ -73,7 +73,7 @@ def run_transfer(
         else:
             with subprocess.Popen(
                 list(argv),
-                pass_fds=migration_rehearsal_copy_lock.child_descriptors(),
+                **migration_rehearsal_copy_lock.child_popen_options(),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

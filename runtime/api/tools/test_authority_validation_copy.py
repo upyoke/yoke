@@ -10,6 +10,7 @@ import pytest
 from runtime.api.tools import authority_validation_copy as copy_tool
 from yoke_core.domain.scratch_database_authority import ScratchDatabaseRefused
 from yoke_core.domain.migration_validation_binding import read_binding
+from yoke_core.domain.postgres_cluster_process import executable
 
 
 def test_refuses_the_authoritative_database_as_validation(monkeypatch) -> None:
@@ -62,7 +63,7 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
 
     def fake_run(argv, **_kwargs):
         calls.append((list(argv), dict(_kwargs["env"])))
-        if Path(argv[0]).name == "pg_dump":
+        if Path(argv[0]).name == executable(None, "pg_dump"):
             archive = Path(argv[argv.index("--file") + 1])
             archive.write_bytes(b"archive")
         return SimpleNamespace(returncode=0, stderr="")
@@ -74,8 +75,8 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     assert result == ("yoke", "yoke_validation")
     dump_argv, dump_env = calls[0]
     restore_argv, restore_env = calls[1]
-    assert Path(dump_argv[0]).name == "pg_dump"
-    assert Path(restore_argv[0]).name == "pg_restore"
+    assert Path(dump_argv[0]).name == executable(None, "pg_dump")
+    assert Path(restore_argv[0]).name == executable(None, "pg_restore")
     assert "--no-owner" in dump_argv
     assert "--no-privileges" in dump_argv
     assert "--clean" not in restore_argv
@@ -117,9 +118,9 @@ def test_restore_passes_the_staged_extension_list(monkeypatch, tmp_path) -> None
 
     def fake_run(argv, **_kwargs):
         argv = list(argv)
-        if Path(argv[0]).name == "pg_dump":
+        if Path(argv[0]).name == executable(None, "pg_dump"):
             Path(argv[argv.index("--file") + 1]).write_bytes(b"archive")
-        elif Path(argv[0]).name == "pg_restore":
+        elif Path(argv[0]).name == executable(None, "pg_restore"):
             restore_calls.append(argv)
         return SimpleNamespace(returncode=0, stderr="")
 

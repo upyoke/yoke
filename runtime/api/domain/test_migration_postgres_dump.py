@@ -15,12 +15,15 @@ from yoke_core.domain import (
     postgres_dump_restore_point,
 )
 
+EXE = ".exe" if os.name == "nt" else ""
+
 
 def test_shared_resolver_prefers_installed_engine_then_falls_back_to_path(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     bin_dir = tmp_path / "postgres-17" / "bin"
+    monkeypatch.delenv(postgres_client_runtime.postgres_binaries.BIN_DIR_ENV, raising=False)
     monkeypatch.setattr(
         postgres_client_runtime.postgres_binaries,
         "installed_bin_dir",
@@ -28,7 +31,7 @@ def test_shared_resolver_prefers_installed_engine_then_falls_back_to_path(
     )
 
     assert postgres_client_runtime.postgres_executable("pg_dump") == str(
-        bin_dir / "pg_dump"
+        bin_dir / f"pg_dump{EXE}"
     )
 
     monkeypatch.setattr(
@@ -36,7 +39,7 @@ def test_shared_resolver_prefers_installed_engine_then_falls_back_to_path(
         "installed_bin_dir",
         lambda: None,
     )
-    assert postgres_client_runtime.postgres_executable("pg_dump") == "pg_dump"
+    assert postgres_client_runtime.postgres_executable("pg_dump") == f"pg_dump{EXE}"
 
 
 def test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv(
