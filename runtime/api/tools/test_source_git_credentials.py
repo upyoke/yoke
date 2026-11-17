@@ -191,3 +191,13 @@ def test_noncanonical_or_unrelated_helper_is_unchanged(value):
         rebind_helper(value, Path("/real/config.json"), Path("/copy/config.json"))
         == value
     )
+
+
+def test_helper_inspection_timeout_is_a_named_refusal(tmp_path, monkeypatch):
+    def hang(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", hang)
+    with pytest.raises(OSError, match="timed out after 10s; check that PATH") as exc:
+        snapshot_git_helpers({}, tmp_path / "a.json", tmp_path / "b.json")
+    assert isinstance(exc.value.__cause__, subprocess.TimeoutExpired)

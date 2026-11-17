@@ -26,7 +26,9 @@ def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkey
     (machine / "config.json").write_text(
         json.dumps({"temp_root": str(tmp_path / "scratch")})
     )
-    env = {"YOKE_MACHINE_HOME": str(machine), "YOKE_SESSION_ID": "fixture"}
+    # Real PATH/HOME/TMPDIR: a bare env sends git to the slow macOS xcrun shim.
+    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ}
+    env.update(YOKE_MACHINE_HOME=str(machine), YOKE_SESSION_ID="fixture")
     identities = []
     for _ in range(2):
         with source_machine_home.isolated_machine_home(env) as child:
