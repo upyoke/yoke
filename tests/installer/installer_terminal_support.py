@@ -34,15 +34,29 @@ class TerminalShell:
     def send(self, data):
         os.write(self.fd, data)
 
-    def wait_for(self, marker, *, after=0):
-        deadline = time.monotonic() + 12
+    def wait_for(self, marker, *, after=0, setup_evidence=None):
+        # Cold setup imports are not terminal response time. The wizard writes
+        # its evidence after importing, before starting Textual. Let that durable
+        # handshake start the response deadline; CI's job timeout bounds a hung
+        # import, and an exited installer fails immediately at the shell prompt.
+        deadline = None if setup_evidence is not None else time.monotonic() + 12
         while marker not in self.output[after:]:
+            if deadline is None:
+                if setup_evidence.exists():
+                    deadline = time.monotonic() + 12
+                else:
+                    assert self.process.poll() is None, (
+                        "installer shell exited before setup"
+                    )
+                    assert self.prompt not in self.output[after:], self.output[
+                        -6000:
+                    ].decode(errors="replace")
             foreground = os.tcgetpgrp(self.fd)
             if foreground > 0 and foreground != self.pid:
                 self.job_groups.add(foreground)
-            assert time.monotonic() < deadline, self.output[-6000:].decode(
-                errors="replace"
-            )
+            assert deadline is None or time.monotonic() < deadline, self.output[
+                -6000:
+            ].decode(errors="replace")
             if select.select([self.fd], [], [], 0.1)[0]:
                 self.output.extend(os.read(self.fd, 65536))
         return bytes(self.output[after:])
