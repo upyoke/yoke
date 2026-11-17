@@ -28,6 +28,7 @@ from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
 from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
+from yoke_harness.native_windows.receipts import SETUP as RECOVERY_PATHS
 from yoke_harness.native_windows.profile import (
     SCRIPT as PROFILE_SCRIPT,
     missing_password_guard,
@@ -259,17 +260,16 @@ $secure=ConvertTo-SecureString $password -AsPlainText -Force
 PROFILE_CREATION
 Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $name -ErrorAction SilentlyContinue
 if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\$name"){throw 'windows_test_user_admin: remove the test user from Administrators and retry'}
-New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens','C:\ProgramData\YokeQa\requests','C:\ProgramData\YokeQa\private' | Out-Null
+New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens' | Out-Null
 USER_SSH_ACCESS
+RECOVERY_PATHS
 Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T
-Invoke-YokeAcl 'C:\ProgramData\YokeQa' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' "${name}:(OI)(CI)RX"
-Invoke-YokeAcl 'C:\ProgramData\YokeQa\private' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
-Invoke-YokeAcl 'C:\ProgramData\YokeQa\requests' /grant "${name}:(OI)(CI)M"
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 RDP_FIREWALL
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
 """.replace("TEST_USER", quote(test_user))
         .replace("USER_SSH_ACCESS", USER_SSH_SCRIPT)
+        .replace("RECOVERY_PATHS", RECOVERY_PATHS)
         .replace("PUBLIC_KEY", quote(public))
         .replace("PROFILE_CREATION", PROFILE_SCRIPT)
         .replace("RDP_FIREWALL", RDP_FIREWALL_SCRIPT)

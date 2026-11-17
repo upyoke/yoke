@@ -40,3 +40,20 @@ def test_journal_start_failure_does_not_poll_or_misdiagnose_provisioning():
     assert error.value.phase == "journal_task_start"
     assert "Scheduler RPC failed" in str(error.value)
     assert len(uploaded) == 1
+
+
+def test_offset_timeout_preserves_bound_and_carries_phase_and_target_evidence(monkeypatch, tmp_path):
+    from runtime.api.domain import native_windows_fixture_upload as fixture
+    target = tmp_path / "partial.bin"
+    target.write_bytes(b"partial")
+    monkeypatch.setattr(fixture.shutil, "which", lambda name: "powershell.exe")
+    def timeout(argv, **kwargs):
+        assert kwargs["timeout"] == 20
+        raise subprocess.TimeoutExpired(argv, 20, output=b"", stderr=b"YOKE_CHUNK_PHASE:written")
+    monkeypatch.setattr(fixture.subprocess, "run", timeout)
+    with pytest.raises(subprocess.TimeoutExpired) as error:
+        fixture.chunk_probe(target, b"payload", 0)
+    note = error.value.__notes__[0]
+    assert "YOKE_CHUNK_PHASE:written" in note
+    assert '"target_length": 7' in note
+    assert '"target_sha256"' in note

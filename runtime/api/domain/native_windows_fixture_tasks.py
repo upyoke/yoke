@@ -4,6 +4,8 @@ import json
 from uuid import uuid4
 
 from yoke_harness.native_windows.baseline import profile_operation
+from yoke_harness.native_windows.features import FEATURES, features_absent
+from yoke_harness.native_windows.receipts import RECEIPT
 from yoke_harness.native_windows.tasks import HELPERS, remove_owned_task
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.ssh_native_windows_host_operations import SshNativeWindowsHostOperations
@@ -17,6 +19,49 @@ def verify_standard_task_operations(settings, key, password):
     # Production binding invokes the fixed SYSTEM task through standard SSH;
     # its receipt proves execution, rather than just task registration.
     control.bind_qa_lease(lease)
+    assert set(control.native_features) == FEATURES
+    readiness = control.check_connection()
+    assert readiness.ok is features_absent(control.native_features), readiness.evidence
+    protected = control._run(r"""
+$receipt='C:\ProgramData\YokeQa\receipts\receipt.json'
+if(!(Test-Path -LiteralPath $receipt)){throw 'genuine SYSTEM receipt missing'}
+function Assert-Denied($operation) {
+ $denied=$false
+ try {& $operation} catch {
+  $failure=$_.Exception
+  while($failure.InnerException){$failure=$failure.InnerException}
+  if($failure.HResult -ne -2147024891 -and $_.CategoryInfo.Category -notin @('PermissionDenied','SecurityError')){throw}
+  $denied=$true
+ }
+ if(!$denied){throw 'protected SYSTEM proof was mutable by the standard user'}
+}
+Assert-Denied {[IO.File]::WriteAllText($receipt,'forged')}
+Assert-Denied {[IO.File]::WriteAllText('C:\ProgramData\YokeQa\receipts\new.json','forged')}
+Assert-Denied {Remove-Item -LiteralPath $receipt -Force -ErrorAction Stop}
+$source='C:\ProgramData\YokeQa\requests\forged.json'
+Set-Content -LiteralPath $source -Value forged
+try {Assert-Denied {Move-Item -LiteralPath $source -Destination $receipt -Force -ErrorAction Stop}}
+finally {Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue}
+$acl=Get-Acl -LiteralPath $receipt
+$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.WindowsIdentity]::GetCurrent().Name,'FullControl','Allow'))
+Assert-Denied {Set-Acl -LiteralPath $receipt -AclObject $acl -ErrorAction Stop}
+Assert-Denied {Remove-Item -LiteralPath 'C:\ProgramData\YokeQa\receipts' -Recurse -Force -ErrorAction Stop}
+""")
+    assert protected.returncode == 0, protected.stderr
+    assert json.loads(control.read_remote_text(RECEIPT))["ok"] is True
+    upload = control.upload_remote_text
+    def forge_old_receipt(path, text):
+        upload(path, text)
+        request = json.loads(text)
+        upload(r"C:\ProgramData\YokeQa\requests\receipt.json",
+               json.dumps(request | {"ok": True, "features": [], "forged": True}))
+    control.upload_remote_text = forge_old_receipt
+    try:
+        genuine = control.journal_settings("restore")
+        assert "forged" not in genuine
+        assert set(control.native_features) == FEATURES
+    finally:
+        control.upload_remote_text = upload
     name = "YokeFixture-" + uuid4().hex
     extra = name + "-extra"
     folder_name = name + "-folder"

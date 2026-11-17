@@ -103,12 +103,58 @@ Each diagnostic released its lease and deallocated the VM; it produced no
 desktop PNG or native readiness pass. Verify the corrected probe and actual
 desktop through the registered screenshot path before accepting readiness.
 
+## Standard-user task recovery
+
+After host-facts correction, the journal request upload succeeded but
+`Start-ScheduledTask YokeQaMachineSettings` returned `Cannot connect to CIM server.
+Access denied`. The old screenshot wrapper hid this as a generic `RuntimeError`.
+The fixed task already granted the test SID read/run (`GRGX`); do not widen WMI
+access or administrator membership to repair a denied CIM connection.
+
+Journal, desktop, terminal and baseline task operations now use the native
+Task Scheduler COM interface. Owned tasks use the current SID and limited
+interactive logon; foreign tasks remain protected. Reset preserves task XML
+and full paths, recreates missing saved folders, and removes newly added owned
+tasks. Task failures retain bounded, redacted Scheduler diagnostics.
+
+Runtime uploads also use bounded offset frames and cumulative length/hash
+receipts before execution or file commit; failed staging is cleaned up.
+Disposable Windows guest checks passed with both Git and native OpenSSH:
+the actual standard-SSH journal task returned its restore receipt, task/XML/PATH
+reset restored state, a deleted nested task folder was recreated, and attempted
+removal of the fixed SYSTEM task was refused. This proves those operations;
+full lab readiness still requires live proof. A subsequent registered capture
+did execute interactively and produced a real 1024×768 PNG. It showed Windows
+first-run privacy setup, not a ready desktop; the lease released and Azure
+deallocation verified. Decision request 15878 selects **Windows defaults** to
+match a typical user. Complete those prompts before desktop/app acceptance.
+
+## Native feature evidence
+
+Both direct CIM and legacy WMI feature queries returned `Access denied` under
+the standard SSH token. The existing fixed SYSTEM **restore** action must
+return current `Win32_OptionalFeature` evidence for both
+`Microsoft-Windows-Subsystem-Linux` and `VirtualMachinePlatform`; it adds no
+new action or test-user privilege. Refresh that fixed program through the full
+guest provisioner before binding a new QA lease to the corrected adapter.
+
+Require the current request token, lease, action and a boolean success field.
+Require exactly one row for each feature, with integer installation states:
+only **Disabled (2)** or **Absent (3)** prove absence. Enabled, missing,
+duplicate, malformed or unknown states never pass. Clear cached proof before
+rebinding or a machine-settings case; a successful restore refreshes it.
+Receipts live in `C:\ProgramData\YokeQa\receipts`, writable only by
+SYSTEM/Administrators and readable by the test SID. The writable `requests`
+directory cannot hold trusted proof. Provisioning rejects linked paths or
+untrusted owners and verifies exact protected ACLs; it never takes ownership.
+
 ## Settings journal and interrupted-case recovery
 
 SYSTEM task `YokeQaMachineSettings` accepts only capture/restore with a QA lease
 identifier. Its program/journal in `C:\ProgramData\YokeQa\private` are writable
 only by Administrators/SYSTEM; the standard user can start it and write
-`C:\ProgramData\YokeQa\requests`, never replace the program. Before mutations
+`C:\ProgramData\YokeQa\requests`, never replace the program or its protected
+receipts. Before mutations
 it records AppLocker policy, `LongPathsEnabled` presence/value, machine
 certificate inventory and Programs/MSI tools; public certificates export privately.
 

@@ -13,6 +13,7 @@ import pytest
 
 from runtime.api.domain.native_windows_fixture_cleanup import AUTOLOGON_CLEARED_SCRIPT
 from runtime.api.domain.native_windows_fixture_tasks import verify_standard_task_operations
+from runtime.api.domain.native_windows_fixture_upload import chunk_probe
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
@@ -32,25 +33,17 @@ def powershell(script, directory, timeout=300):
 
 @pytest.mark.windows_only(reason='requires native Windows PowerShell')
 def test_real_chunk_append_rejects_wrong_offset_and_preserves_prefix(tmp_path):
-    from yoke_harness.native_windows.stdin_frame import frame_bytes, upload_received, upload_script
+    from yoke_harness.native_windows.stdin_frame import upload_received
 
     target = tmp_path / "chunks.bin"
     payload = b"first chunk" * 100
     for offset, chunk in ((0, payload), (len(payload), b"second chunk")):
-        script = upload_script(quote(str(target)), offset=offset)
-        result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded(script)],
-            input=frame_bytes(chunk), capture_output=True, text=True, timeout=20,
-        )
+        result = chunk_probe(target, chunk, offset)
         expected = payload if offset == 0 else payload + chunk
         assert upload_received(result, expected), result.stderr
         assert target.read_bytes() == expected
     for offset in (0, 1):
-        result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand",
-             encoded(upload_script(quote(str(target)), offset=offset))],
-            input=frame_bytes(b"bad"), capture_output=True, text=True, timeout=20,
-        )
+        result = chunk_probe(target, b"bad", offset)
         assert result.returncode != 0
         assert target.read_bytes() == expected
 
