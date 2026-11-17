@@ -97,6 +97,9 @@ denial or unavailable helper is a provisioning blocker; stop and report it.
 
 ### Join Tailscale before registration
 
+Follow [tailnet bootstrap](tailnet-bootstrap.md) for provider start, current-IP
+SSH, stable lab naming and operator sign-in approval before these OS checks.
+
 Install Tailscale on the host and join the operator's tailnet by completing its
 sign-in flow. Enable startup/unattended operation and disable device key expiry
 in the admin console. Controllers join the same tailnet and use MagicDNS.
@@ -104,13 +107,14 @@ This is one-time manual machine setup.
 
 Use the [Linux installer](https://tailscale.com/download/linux), enable the
 `tailscaled` service (`sudo systemctl enable --now tailscaled`) and run
-`sudo tailscale up`; open its sign-in URL to join the tailnet.
+`sudo tailscale up --hostname=LAB_NAME`; give its sign-in URL to the operator.
 
 Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
 then register it as `host`; keep a forwarded `desktop_host` on loopback.
 For cloud bootstrap, query the provider's **current** public IP and connect with
-`ssh -o HostKeyAlias=INSTANCE_ID USER@CURRENT_PUBLIC_IP`; never register that IP.
+the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
+never register that IP.
 Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
