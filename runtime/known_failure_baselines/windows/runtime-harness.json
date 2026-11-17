@@ -1,10 +1,4 @@
 {
-"runtime/harness/test_bootstrap_skills.py::TestResolveSkillPath::test_named_subskill_returns_canonical_path": "AssertionError: assert '.agents/skills/yoke' in 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_named_subskill_returns_ca0\\\\.agents\\\\skills\\\\yoke\\\\strat",
-"runtime/harness/test_bootstrap_skills.py::TestResolveSkillPath::test_no_home_directory_fallback": "assert '.agents/skills/yoke' in \"Yoke skill 'does-not-exist' not found at C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_no_home_directory_fallbac0\\\\.ag",
-"runtime/harness/test_bootstrap_skills.py::TestSkillCLI::test_skill_path_cli_resolves_named_skill": "AssertionError: assert False",
-"runtime/harness/test_bootstrap_skills.py::TestSkillCLI::test_skill_path_cli_resolves_root_skill": "AssertionError: assert False",
-"runtime/harness/test_bootstrap_skills.py::TestSkillCompatibilitySymlink::test_resolver_returns_canonical_not_compat_path": "AssertionError: assert '.agents/skills/yoke' in 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_resolver_returns_canonica0\\\\.agents\\\\skills\\\\yoke\\\\idea\\",
-"runtime/harness/test_bootstrap_skills.py::TestSkillRealRepoDiscovery::test_real_tree_strategize_resolves": "AssertionError: assert False",
 "runtime/harness/test_guard_directory_resolution_client.py::test_git_c_still_wins_over_cd": "AssertionError: assert 'D:\\\\checkout...ktrees\\\\YOK-1' == '/checkout/.worktrees/YOK-1'",
 "runtime/harness/test_harness_setup_reconcile.py::test_harness_installed_after_yoke_converges_existing_lanes[claude-code-.claude]": "AssertionError: assert [] == ['claude-code']",
 "runtime/harness/test_harness_setup_reconcile.py::test_harness_installed_after_yoke_converges_existing_lanes[cursor-.cursor]": "AssertionError: assert [] == ['cursor']",
