@@ -17,10 +17,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.venv_layout import venv_console_script, venv_python
-<<<<<<< HEAD
 
-=======
->>>>>>> ed8817cf72 (Build local relay launcher fixtures with native venv filenames)
 from yoke_contracts.machine_config.relay_instance import (
     RELAY_LABEL_PREFIX,
     resolve_relay_instance,
@@ -83,18 +80,11 @@ def test_venv_python_symlink_keeps_its_installed_console_script(tmp_path, monkey
     base_python = venv_python(tmp_path / "base", name="python3")
     base_python.parent.mkdir(parents=True)
     base_python.touch(mode=0o755)
-<<<<<<< HEAD
     environment = tmp_path / "venv"
     interpreter = venv_python(environment, name="python3")
     interpreter.parent.mkdir(parents=True)
     interpreter.symlink_to(base_python)
     launcher = venv_console_script(environment, "yoke")
-=======
-    interpreter = venv_python(tmp_path / "venv", name="python3")
-    interpreter.parent.mkdir(parents=True)
-    interpreter.symlink_to(base_python)
-    launcher = venv_console_script(tmp_path / "venv", "yoke")
->>>>>>> ed8817cf72 (Build local relay launcher fixtures with native venv filenames)
     launcher.touch(mode=0o755)
     monkeypatch.setattr(local_launcher.sys, "executable", str(interpreter))
     monkeypatch.setattr(local_launcher, "TARGET_PRIORITY", ())

@@ -82,17 +82,22 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     }
 
 
-def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state() -> None:
+def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state(tmp_path) -> None:
+    home = tmp_path / "operator"
+    state = home / ".yoke" / "relay-instances" / "abcd1234"
+    release = state / "releases" / "deadbeef"
+    user_paths = [str(home / ".local" / "bin"), str(tmp_path / "system" / "bin")]
     environment = strip_relay_owned_python_state(
         {
             "PATH": os.pathsep.join([
-                f"{RELAY_STATE_DIR}/venv/bin",
-                f"{RELAY_STATE_DIR}/runtime/bin",
-                "/Users/example/.local/bin",
-                "/opt/homebrew/bin",
+                str(state / "venv" / "bin"),
+                str(state / "runtime" / "bin"),
+                *user_paths,
             ]),
-            "HOME": "/Users/example",
-            **RELAY_PYTHON_STATE,
+            "HOME": str(home),
+            RELAY_STATE_DIR_ENV: str(state),
+            "VIRTUAL_ENV": str(release),
+            "PYTHONPATH": str(release / "site-packages"),
         }
     )
 
@@ -102,8 +107,8 @@ def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state() -> No
     assert RELAY_STATE_DIR_ENV not in environment
     # Everything outside the relay's own tree is the user's, including the
     # directory the machine's installed `yoke` launcher lives in.
-    assert environment["PATH"] == os.pathsep.join(["/Users/example/.local/bin", "/opt/homebrew/bin"])
-    assert environment["HOME"] == "/Users/example"
+    assert environment["PATH"] == os.pathsep.join(user_paths)
+    assert environment["HOME"] == str(home)
 
 
 def test_a_search_path_the_relay_never_claimed_is_left_alone() -> None:

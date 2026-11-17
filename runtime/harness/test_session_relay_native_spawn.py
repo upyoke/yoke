@@ -299,7 +299,10 @@ def test_native_wake_environment_carries_only_its_resume_attempt(
     assert captured["attempt_id"] == ATTEMPT_ID
     assert RESUME_ATTEMPT_ENV not in captured["environment"]
     assert "YOKE_SESSION_ID" not in captured["environment"]
-    assert captured["environment"]["SHELL"] == "/bin/sh"
+    if sys.platform == "win32":
+        assert "SHELL" not in captured["environment"]
+    else:
+        assert captured["environment"]["SHELL"] == "/bin/sh"
 
 
 def test_a_launch_spawn_drops_an_inherited_resume_attempt(
