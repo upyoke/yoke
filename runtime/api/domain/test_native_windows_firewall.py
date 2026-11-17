@@ -258,8 +258,28 @@ Set-ItemProperty $winlogon -Name AutoAdminLogon -Value '0'
 Unregister-ScheduledTask -TaskName YokeQaMachineSettings -Confirm:$false -ErrorAction SilentlyContinue
 $account=Get-LocalUser -Name '{name}' -ErrorAction SilentlyContinue
 if($account){{
- try {{Remove-YokeFixtureProfile $account.SID.Value}}
- finally {{Remove-LocalUser -Name '{name}'}}
+ try {{
+  # This job owns the disposable sshd service; no real lab service is stopped.
+  function Show-FixtureHolders {{
+   Get-CimInstance Win32_Service -Filter "Name='sshd'" | Select-Object Name,State,ProcessId | ConvertTo-Json -Compress
+   Get-CimInstance Win32_UserProfile -Filter ("SID='"+$account.SID.Value+"'") | Select-Object SID,LocalPath,Loaded,refCount | ConvertTo-Json -Compress
+   foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='sshd.exe' OR Name='powershell.exe' OR Name='conhost.exe'")){{
+    $owner=$null
+    try {{$owner=(Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid -ErrorAction Stop).Sid}} catch {{Write-Output ('OWNER_QUERY_UNAVAILABLE:'+$p.ProcessId)}}
+    if($p.Name -eq 'sshd.exe' -or $owner -eq $account.SID.Value){{
+     [PSCustomObject]@{{Name=$p.Name;PID=$p.ProcessId;Parent=$p.ParentProcessId;Created=$p.CreationDate;SID=$owner}} | ConvertTo-Json -Compress
+    }}
+   }}
+  }}
+  Show-FixtureHolders
+  $service=Get-Service sshd -ErrorAction Stop
+  $service.Stop()
+  $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(10))
+  $service.Refresh()
+  if($service.Status -ne 'Stopped'){{throw 'owned fixture sshd did not stop'}}
+  Show-FixtureHolders
+  Remove-YokeFixtureProfile $account.SID.Value
+ }} finally {{Remove-LocalUser -Name '{name}'}}
 }}
 """, tmp_path, timeout=60,
             )
