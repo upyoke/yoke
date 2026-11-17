@@ -41,7 +41,7 @@ def test_installed_hooks_register_emit_and_deny(
         "WHERE session_id = %s",
         (session_id,),
     ).fetchone()
-    assert row is not None
+    assert row is not None, _format(opened)
     assert row["tool_call_count"] == 0
 
     completed = _hook(
@@ -62,7 +62,7 @@ def test_installed_hooks_register_emit_and_deny(
         "SELECT tool_call_count FROM harness_sessions WHERE session_id = %s",
         (session_id,),
     ).fetchone()
-    assert row is not None
+    assert row is not None, _format(completed)
     assert row["tool_call_count"] >= 1
 
     repo.joinpath("base.txt").write_text("threatened\n", encoding="utf-8")
@@ -194,6 +194,10 @@ def _installed_env(
         "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
         "PATH": f"{venv / 'bin'}:{os.defpath}",
         "PYTHONNOUSERSITE": "1",
+        # Exercise the installed chain through the CLI's test seam. Dropping
+        # this marker starts a detached resident per fixture and makes session
+        # registration depend on cold startup finishing within the hook budget.
+        "PYTEST_CURRENT_TEST": os.environ["PYTEST_CURRENT_TEST"],
         "YOKE_EXECUTOR": "claude-code",
         "YOKE_MACHINE_CONFIG_FILE": str(config),
         "YOKE_MACHINE_HOME": str(machine_home),
