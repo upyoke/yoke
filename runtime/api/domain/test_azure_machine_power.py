@@ -316,3 +316,15 @@ def test_fleet_report_names_cloud_provider(monkeypatch):
     lines = fleet.test_machine_lines(fleet.read_test_machines(conn, 1))
     assert "azure-lab (OS: linux · azure)" in lines[0]
     assert "aws-lab (OS: linux · aws)" in lines[0]
+
+
+@pytest.mark.parametrize("instance_id", [ID, ID.lower(), ID.upper()])
+def test_power_accepts_resource_id_casing_allowed_by_settings(instance_id):
+    runner = FakeRunner([details(), details(), nic(), OK, OK])
+    provider = AzureMachinePower(
+        runner, ("az",), {}, instance_id, "project", lambda _: None
+    )
+    assert provider.public_ip_id.lower() == IP_ID.lower()
+    assert provider.start() == "running"
+    create = runner.calls[3]["argv"]
+    assert create[create.index("--resource-group") + 1].lower() == "lab"

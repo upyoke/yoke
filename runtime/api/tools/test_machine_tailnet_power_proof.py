@@ -120,7 +120,7 @@ def main():
                 "json",
             )
         )
-        group = instance.split("/resourceGroups/", 1)[1].split("/", 1)[0]
+        group = instance.split("/")[4]
         ips = json.loads(
             cloud(
                 "network",
@@ -152,7 +152,13 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
+    except (
+        RuntimeError,
+        OSError,
+        ValueError,
+        KeyError,
+        subprocess.TimeoutExpired,
+    ) as exc:
         raise SystemExit(
             f"tailnet_power_proof_refused: {exc}; repair the named precondition and rerun this case"
         ) from None

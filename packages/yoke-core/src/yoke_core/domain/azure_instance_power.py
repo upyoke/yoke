@@ -118,7 +118,7 @@ class AzureMachinePower:
 
     @property
     def public_ip_id(self):
-        group = self.instance_id.split("/providers/", 1)[0]
+        group = "/".join(self.instance_id.split("/")[:5])
         name = self.instance_id.rsplit("/", 1)[1]
         return (
             f"{group}/providers/Microsoft.Network/publicIPAddresses/{name}-yoke-power"
@@ -165,7 +165,7 @@ class AzureMachinePower:
             "public-ip",
             "create",
             "--resource-group",
-            self.instance_id.split("/resourceGroups/", 1)[1].split("/", 1)[0],
+            self.instance_id.split("/")[4],
             "--name",
             self.public_ip_id.rsplit("/", 1)[1],
             "--location",
@@ -199,7 +199,7 @@ class AzureMachinePower:
                 "publicIPAddress",
             )
         # Listing handles both an absent IP and a create whose attachment failed.
-        group = self.instance_id.split("/resourceGroups/", 1)[1].split("/", 1)[0]
+        group = self.instance_id.split("/")[4]
         result = self._network("public-ip", "list", "--resource-group", group)
         try:
             ips = json.loads(result.stdout)
