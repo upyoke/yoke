@@ -1,0 +1,7 @@
+{
+ "id": "bounded-json-deadlines",
+ "title": "Bounded JSON request deadlines",
+ "status": "observed",
+ "summary": "JSON clients share one absolute deadline across DNS, connect, send, headers and body. Expired operations report a deadline failure, including when urllib wraps a connect or send deadline in URLError; genuine connection refusals remain network failures. This applies to private HTTP and HTTPS, replay-safe reads and caller-owned mutations on every OS.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/bounded_json_http.py", "runtime/api/cli/test_bounded_json_http_open_deadlines.py", "runtime/api/cli/test_loopback_http_deadline.py"]
+}
