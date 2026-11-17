@@ -4,6 +4,12 @@
  "status": "observed",
  "page": "context-guidance",
  "position": 7,
- "current": "Outside hook guard deny text, Python refusals in the engine, CLI, contracts and harness use yoke_contracts.refusal_recovery.compose_refusal. The shared composer keeps the reason separate from a reachable recovery or escalation owner. Source tests reject new hand-written recovery labels; permanent migration history, standalone versioned Pack scripts, the relay entrypoint before package binding and the browser-only schema-skew reply retain their distinct source constraints.",
- "sources": ["packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py", "docs/public/agents/rules.md", "docs/source-dev-doctrine.md", "runtime/api/domain/test_refusal_recovery_source.py"]
+ "current": "Outside hook guard deny text, Python refusals in the engine, CLI, contracts and harness use yoke_contracts.refusal_recovery.compose_refusal. The shared composer keeps the reason separate from a reachable recovery or escalation owner. Source tests reject new hand-written recovery labels; permanent migration history, standalone versioned Pack scripts, the relay entrypoint before package binding and the browser-only schema-skew reply retain their distinct source constraints. Registry-routed commands report path_argument_unusable when an OSError names an argv path (including the path before a pytest node id). The refusal names the errno and a bounded argument preview; whitespace adds a hint to pass paths separately. Errors naming internal paths still propagate.",
+ "sources": [
+  "packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py",
+  "docs/public/agents/rules.md",
+  "docs/source-dev-doctrine.md",
+  "runtime/api/domain/test_refusal_recovery_source.py",
+  "packages/yoke-cli/src/yoke_cli/command_router.py"
+ ]
 }

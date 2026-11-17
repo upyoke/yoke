@@ -17,6 +17,7 @@ has declined the invocation.
 
 from __future__ import annotations
 
+import errno
 import os
 import sys
 from typing import List, Optional, Sequence
@@ -45,6 +46,7 @@ from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_cli.invocation_locality import control_plane_locality
 from yoke_contracts.machine_config import schema as machine_schema
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 _BARE_SETUP_COMMAND = "yoke setup"
@@ -109,6 +111,32 @@ def _emit_unknown(
 def _emit_interrupted() -> int:
     print("yoke: interrupted by Ctrl-C.", file=sys.stderr)
     return 130
+
+
+def _refuse_path_argument(exc: OSError, argv: Sequence[str]) -> int:
+    paths = (exc.filename, exc.filename2)
+    argument = next(
+        (token for token in argv if any(
+            path is not None and os.fsdecode(path) in (token, token.split("::", 1)[0])
+            for path in paths
+        )),
+        None,
+    )
+    if argument is None:
+        raise exc
+    preview = argument[:80] + ("…" if len(argument) > 80 else "")
+    name = errno.errorcode.get(exc.errno, f"OS_ERROR_{exc.errno}")
+    recovery = "Pass a usable path with the required access permissions"
+    if any(character.isspace() for character in argument):
+        recovery = (
+            "An argument containing spaces is usually an unsplit path list; "
+            "pass each path as its own argument"
+        )
+    print(compose_refusal(
+        f"path_argument_unusable: {name} for argument {preview!r} ({exc.strerror})",
+        recovery=recovery,
+    ), file=sys.stderr)
+    return 2
 
 
 def _machine_config_ready(explicit_env: Optional[str]) -> tuple[bool, str]:
@@ -267,6 +295,8 @@ def route_command(argv: List[str]) -> int:
         ):
             try:
                 return sandbox_denial.run(adapter, remaining, argv)
+            except OSError as exc:
+                return _refuse_path_argument(exc, argv)
             except SystemExit as exc:
                 return exc.code if isinstance(exc.code, int) else 1
             except KeyboardInterrupt:
