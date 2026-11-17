@@ -46,23 +46,76 @@ def _marker_name(node):
 def _source_marks(nodes, aliases=None):
     scopes, windows = [], False
     for node in nodes:
-        for mark in ast.walk(node):
-            if isinstance(mark, ast.Name) and mark.id in (aliases or {}):
-                own, smoke = _source_marks([aliases[mark.id]])
-                scopes.extend(own)
-                windows |= smoke
-            windows |= _marker_name(mark) == "windows"
-            if isinstance(mark, ast.Call) and (name := _marker_name(mark.func)) in SCOPES:
+        if isinstance(node, ast.Name) and node.id in (aliases or {}):
+            own, smoke = _source_marks([aliases[node.id]])
+        elif isinstance(node, (ast.List, ast.Tuple)):
+            own, smoke = _source_marks(node.elts, aliases)
+        else:
+            name = _marker_name(node.func if isinstance(node, ast.Call) else node)
+            own, smoke = [], name == "windows"
+            if name in SCOPES:
                 try:
-                    scopes.append((name, [ast.literal_eval(a) for a in mark.args],
-                                   {k.arg: ast.literal_eval(k.value) for k in mark.keywords}))
+                    args = [ast.literal_eval(a) for a in node.args] if isinstance(node, ast.Call) else []
+                    kwargs = {k.arg: ast.literal_eval(k.value) for k in node.keywords} if isinstance(node, ast.Call) else {}
                 except (ValueError, TypeError):
                     raise pytest.UsageError(f"os_scope_reason_required: {name} needs a literal reason") from None
-            elif _marker_name(mark) in SCOPES:
-                # The attribute of a call is handled above.
-                if not any(isinstance(c, ast.Call) and c.func is mark for c in ast.walk(node)):
-                    scopes.append((_marker_name(mark), [], {}))
+                own.append((name, args, kwargs))
+        scopes.extend(own)
+        windows |= smoke
     return scopes, windows
+
+
+def _parameter_marks(decorators, aliases):
+    for decorator in decorators:
+        for node in ast.walk(decorator):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "pytest" and node.func.attr == "param"):
+                for keyword in node.keywords:
+                    if keyword.arg == "marks":
+                        yield _source_marks([keyword.value], aliases)
+
+
+def _parameter_scopes(decorators, aliases):
+    """Use pytest's ID owner to resolve literal parameter cases without importing tests."""
+    from _pytest.mark.structures import ParameterSet
+    from _pytest.python import IdMaker
+
+    def value(node):
+        try:
+            return ast.literal_eval(node)
+        except (ValueError, TypeError):
+            return object()  # Unknown objects use pytest's argname/index ID.
+
+    combinations = [([], [])]
+    try:
+        for decorator in reversed(decorators):
+            if not isinstance(decorator, ast.Call) or _marker_name(decorator.func) != "parametrize":
+                continue
+            keywords = {k.arg: k.value for k in decorator.keywords}
+            names = ast.literal_eval(decorator.args[0] if decorator.args else keywords["argnames"])
+            names = [n.strip() for n in names.split(",")] if isinstance(names, str) else names
+            cases = decorator.args[1] if len(decorator.args) > 1 else keywords["argvalues"]
+            parameters, marks = [], []
+            for case in cases.elts:
+                if isinstance(case, ast.Call):
+                    options = {k.arg: k.value for k in case.keywords}
+                    values = case.args
+                    own, _ = _source_marks([options["marks"]], aliases) if "marks" in options else ([], False)
+                    identifier = ast.literal_eval(options["id"]) if "id" in options else None
+                else:
+                    values = [case] if len(names) == 1 else case.elts
+                    own, identifier = [], None
+                parameters.append(ParameterSet([value(v) for v in values], (), identifier))
+                marks.append(own)
+            ids = ast.literal_eval(keywords["ids"]) if "ids" in keywords else None
+            identifiers = IdMaker(names, parameters, None, ids, None, None, None).make_unique_parameterset_ids()
+            combinations = [(parts + [identifier], scopes + own)
+                            for parts, scopes in combinations
+                            for identifier, own in zip(identifiers, marks)]
+    except (ValueError, TypeError, KeyError, AttributeError, IndexError):
+        raise pytest.UsageError("os_scope_parameter_ids_unresolved: use literal parameter values and ids for scoped baseline entries") from None
+    return [("-".join(parts), scopes) for parts, scopes in combinations]
 
 
 def _aliases(tree):
@@ -94,6 +147,8 @@ def pytest_pycollect_makemodule(module_path: Path, parent):
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 own, selected = _source_marks(node.decorator_list, _aliases(tree))
                 _validate(inherited + own, smoke or selected)
+                for parameter, chosen in _parameter_marks(node.decorator_list, _aliases(tree)):
+                    _validate(inherited + own + parameter, smoke or selected or chosen)
                 if isinstance(node, ast.ClassDef):
                     validate_tests(node.body, inherited + own, smoke or selected)
     validate_tests(tree.body, scopes, windows)
@@ -125,6 +180,9 @@ def scoped_off(path: Path, test: str, os_name: str) -> bool:
     tree = ast.parse(path.read_bytes(), filename=str(path))
     scopes, _ = module_marks(tree)
     nodes = tree.body
+    requested = test
+    test = test.split("[", 1)[0]
+    node = None
     for part in test.split("::") if test else []:
         node = next((n for n in nodes if isinstance(n, (ast.ClassDef, ast.FunctionDef,
                     ast.AsyncFunctionDef)) and n.name == part), None)
@@ -134,7 +192,22 @@ def scoped_off(path: Path, test: str, os_name: str) -> bool:
         scopes.extend(own)
         nodes = getattr(node, "body", [])
     platform = {"windows": "win32", "macos": "darwin", "linux": "linux"}[os_name]
-    return any(not scope_allows(name, platform) for name, _, _ in scopes)
+    if any(not scope_allows(name, platform) for name, _, _ in scopes):
+        return True
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    declarations = [scope for scope, _ in _parameter_marks(node.decorator_list, _aliases(tree))]
+    if not any(declarations):
+        return False
+    if "[" not in requested:
+        return any(not scope_allows(name, platform) for declaration in declarations
+                   for name, _, _ in declaration)
+    identifier = requested.split("[", 1)[1][:-1]
+    cases = [(case, own) for case, own in _parameter_scopes(node.decorator_list, _aliases(tree))
+             if case == identifier]
+    if not cases:
+        raise pytest.UsageError("os_scope_parameter_ids_unresolved: use literal ids matching the scoped baseline node id")
+    return any(not scope_allows(name, platform) for _, own in cases for name, _, _ in own)
 
 
 def _os_condition(node, aliases):

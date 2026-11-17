@@ -74,9 +74,9 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
 ) -> None:
     from yoke_core.domain import gate_stall_report, watch_runner
     from yoke_core.tools import watch_tail
-    import os
     import time
-    import pytest
+    import psutil
+    from yoke_contracts import platform_process
 
     monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.5")
     monkeypatch.setattr(
@@ -104,8 +104,9 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
         assert "aborted: fleet_probe_stalled" in text
         assert "waiting_on=child process" in text
         assert "fleet pass" not in text
-    with pytest.raises(ProcessLookupError):
-        os.kill(int(pid_path.read_text()), 0)
+    pid = int(pid_path.read_text())
+    assert not platform_process.pid_alive(pid)
+    assert not psutil.pid_exists(pid)
     follower = RecordingStream()
     assert watch_tail.follow(tmp_path / "progress.log", out=follower) == 0
     assert "aborted: fleet_probe_stalled" in follower.getvalue()

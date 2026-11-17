@@ -131,3 +131,32 @@ def test_platform_simulation_preserves_interpreter_platform(tmp_path):
                   f'import sys\ndef test_x(): assert sys.platform == {sys.platform!r}\n',
                   simulated)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_parameter_scopes_keep_portable_cases_active_and_validate_baselines(tmp_path):
+    source = '''import pytest
+@pytest.mark.parametrize("operation", ["setup", pytest.param("upgrade", marks=pytest.mark.posix_only("host bundle"))])
+@pytest.mark.parametrize("config,code", [({}, "missing"), (None, "unreadable")])
+def test_x(operation, config, code): pass
+'''
+    result = _run(tmp_path, source, "win32")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "2 passed, 2 skipped" in result.stdout
+    path = tmp_path / "test_sample.py"
+    for case in ("config0-missing", "None-unreadable"):
+        assert not scopes.scoped_off(path, f"test_x[{case}-setup]", "windows")
+        assert scopes.scoped_off(path, f"test_x[{case}-upgrade]", "windows")
+    assert scopes.scoped_off(path, "test_x", "windows")
+
+
+def test_different_parameter_cases_can_own_different_os_scopes(tmp_path):
+    source = '''import pytest
+@pytest.mark.parametrize("value", [pytest.param("posix", marks=pytest.mark.posix_only("native")), pytest.param("windows", marks=pytest.mark.windows_only("native"))])
+def test_x(value): pass
+'''
+    result = _run(tmp_path, source, "win32")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 passed, 1 skipped" in result.stdout
+    path = tmp_path / "test_sample.py"
+    assert scopes.scoped_off(path, "test_x[posix]", "windows")
+    assert not scopes.scoped_off(path, "test_x[windows]", "windows")

@@ -51,7 +51,7 @@ def _entry_problem(node_id: str, reason: object, os_name: str | None = None) -> 
     test = test_part.split("[", 1)[0]
     if separator and test not in _defined_tests(path):
         return f"names no test {test} in {file_part}"
-    if os_name and scoped_off(path, test, os_name):
+    if os_name and scoped_off(path, test_part, os_name):
         return f"is scoped off {os_name}; remove it from the baseline"
     return None
 
