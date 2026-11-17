@@ -89,6 +89,33 @@ def test_a_coordination_only_edge_gates_nothing_so_declares_nothing(conn) -> Non
     assert session_health_facts(conn, _rows(), {})[SESSION]["declared_wait"] is None
 
 
+def test_an_integration_edge_waits_only_once_the_dependent_opened_its_pull_request(
+    conn,
+) -> None:
+    _add_edge(conn, gate_point="integration")
+    assert session_health_facts(conn, _rows(), {})[SESSION]["declared_wait"] is None
+
+    conn.execute(
+        "UPDATE items SET merge_queue_pr_number='77' WHERE id=?", (DEPENDENT,)
+    )
+    wait = session_health_facts(conn, _rows(), {})[SESSION]["declared_wait"]
+    assert wait["gate_point"] == "integration"
+
+
+def test_a_closure_edge_waits_only_once_the_dependent_merged(conn) -> None:
+    _add_edge(conn, gate_point="closure")
+    conn.execute(
+        "UPDATE items SET merge_queue_pr_number='77' WHERE id=?", (DEPENDENT,)
+    )
+    assert session_health_facts(conn, _rows(), {})[SESSION]["declared_wait"] is None
+
+    conn.execute(
+        "UPDATE items SET merged_at='2026-08-22T12:00:00Z' WHERE id=?", (DEPENDENT,)
+    )
+    wait = session_health_facts(conn, _rows(), {})[SESSION]["declared_wait"]
+    assert wait["gate_point"] == "closure"
+
+
 def test_a_waiting_turn_posture_declares_the_wait_on_its_own(conn) -> None:
     identities = {SESSION: {"turn_posture": "waiting"}}
 
@@ -178,16 +205,17 @@ def test_a_partial_schema_reports_absent_facts_rather_than_failing() -> None:
     }
 
 
-@pytest.mark.parametrize("gate,satisfaction,held,status,expected", [
-    ("integration", "fact:merged", True, "implementing", True),
-    ("activation", "status:done", True, "implementing", True),
-    ("integration", "status:done", True, "done", False),
-    ("coordination_only", "status:done", True, "implementing", False),
-    ("integration", "fact:deployed:prod", True, "implementing", False),
-    ("integration", "status:done", False, "implementing", False),
+@pytest.mark.parametrize("gate,satisfaction,held,status,pr,expected", [
+    ("integration", "fact:merged", True, "implementing", "77", True),
+    ("integration", "fact:merged", True, "implementing", None, False),
+    ("activation", "status:done", True, "implementing", None, True),
+    ("integration", "status:done", True, "done", "77", False),
+    ("coordination_only", "status:done", True, "implementing", "77", False),
+    ("integration", "fact:deployed:prod", True, "implementing", "77", False),
+    ("integration", "status:done", False, "implementing", "77", False),
 ])
 def test_claim_dependency_fact_uses_only_woken_edges(
-    test_db, gate, satisfaction, held, status, expected
+    test_db, gate, satisfaction, held, status, pr, expected
 ):
     from runtime.api.fixtures.backlog_inserts import insert_item
     from yoke_core.domain.project_identity import render_item_ref
@@ -203,6 +231,10 @@ def test_claim_dependency_fact_uses_only_woken_edges(
         "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,created_at) "
         "VALUES (%s,%s,%s,%s,'test','2026-01-01T00:00:00Z')",
         (dependent if held else other, blocker, gate, satisfaction),
+    )
+    test_db.execute(
+        "UPDATE items SET merge_queue_pr_number=%s WHERE id IN (%s,%s)",
+        (pr, dependent, other),
     )
     facts = claimed_item_facts(test_db, [dependent, blocker])
     assert facts[dependent]["item_awaiting_dependency"] == (
