@@ -1,9 +1,9 @@
 """Typed-policy dispatch with a dual watchdog (SIGALRM / worker thread).
 
 ``dispatch_typed`` imports a policy module and invokes ``evaluate(context)``
-under a timeout. In the main thread (the per-invocation hook subprocess) the
-watchdog is POSIX ``SIGALRM``, which can interrupt CPU-bound policy code.
-Off the main thread — ``POST /v1/hooks/evaluate`` evaluates inside a FastAPI
+under a timeout. On platforms with ``SIGALRM``, the main thread (the per-invocation
+hook subprocess) uses that watchdog to interrupt CPU-bound policy code.
+Without ``SIGALRM`` or off the main thread — ``POST /v1/hooks/evaluate`` evaluates inside a FastAPI
 worker thread, where ``signal.signal`` raises ``ValueError`` — the evaluator
 runs on a daemon worker thread joined with the same timeout. A hung policy
 then leaks its daemon thread until it returns, but the chain proceeds to
@@ -60,7 +60,10 @@ def dispatch_typed(
     evaluator = getattr(module, "evaluate", None)
     if not callable(evaluator):
         return None, "missing_evaluate"
-    if threading.current_thread() is threading.main_thread():
+    if (
+        hasattr(signal, "SIGALRM")
+        and threading.current_thread() is threading.main_thread()
+    ):
         return _evaluate_with_sigalrm(evaluator, context, timeout_ms)
     return _evaluate_on_worker_thread(evaluator, context, timeout_ms)
 
