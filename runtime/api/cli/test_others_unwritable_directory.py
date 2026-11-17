@@ -13,6 +13,8 @@ from yoke_contracts import owner_private_path as paths
 from yoke_contracts import windows_others_unwritable_directory as windows
 from yoke_contracts import windows_private_directory as private
 from yoke_cli.config import machine_config_file
+from yoke_cli.config import github_git_credential_bundle as bundle
+from yoke_cli.config import github_prior_runtime_verification as prior
 from yoke_cli.config.github_git_credential_permissions import assert_secure_parent
 
 @pytest.mark.posix_only(reason="POSIX permissions contract")
@@ -175,6 +177,24 @@ def test_native_file_foreign_grants(tmp_path, principal, right, accepted):
     paths.write_owner_private(path, b'launcher')
     _set_acl(path, f'(A;;{right};;;{principal})')
     assert paths.is_others_unwritable_file(path) is accepted
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows prior-runtime DACL contract')
+@pytest.mark.parametrize('target', ['interpreter', 'helper'])
+@pytest.mark.parametrize('principal', ['BU', 'WD'])
+@pytest.mark.parametrize('right,accepted', [('FW', False), ('FR', True)])
+def test_prior_runtime_recognition_honors_native_write_grants(
+    tmp_path, target, principal, right, accepted,
+):
+    helper = bundle.install(tmp_path / 'site')
+    python = tmp_path / 'prior-python.exe'
+    paths.write_owner_private(python, b'interpreter')
+    path = python if target == 'interpreter' else helper
+    _set_acl(path, f'(A;;{right};;;{principal})')
+    assert prior.verified_prior_runtime_helper(
+        python, helper, current_python=tmp_path / 'current-python.exe',
+    ) is accepted
 
 
 @pytest.mark.windows

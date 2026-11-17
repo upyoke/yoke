@@ -214,6 +214,7 @@ def test_active_group_writable_runtime_recognizes_prior_helper_bundle(
     )
 
 
+@pytest.mark.posix_only(reason="POSIX chmod grants group write to the prior interpreter")
 def test_group_writable_prior_runtime_is_not_recognized(
     tmp_path,
     monkeypatch,
