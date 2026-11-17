@@ -13,7 +13,6 @@ import re
 import shlex
 import stat
 import subprocess
-from pathlib import Path
 
 import pytest
 

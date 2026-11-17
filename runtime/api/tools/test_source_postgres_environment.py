@@ -194,9 +194,10 @@ def test_cleanup_reclaims_only_its_own_evidence_cluster(tmp_path, monkeypatch):
 
 
 def test_failed_stop_never_removes_live_data(tmp_path, monkeypatch):
-    # The lifecycle makes both owner-private; Windows revalidation reads the DACL.
+    # The lifecycle makes the root owner-private; initdb makes data inside it.
     root = create_owner_private_directory(tmp_path / "yoke-pgtest-cluster")
-    data = create_owner_private_directory(root / "data")
+    data = root / "data"
+    data.mkdir()
     marker = data / "postmaster.pid"
     marker.write_text(f"42\n{data}\n0\n5432\n{root / 'sock'}\n")
     monkeypatch.setattr(

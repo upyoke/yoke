@@ -112,9 +112,26 @@ def test_an_abandoned_transaction_releases_its_run_row_lock(
         # own bound can, which is the whole point.
         time.sleep(REAP_WAIT_SECONDS)
 
-        with pytest.raises(psycopg.errors.IdleInTransactionSessionTimeout) as raised:
-            abandoned.execute("SELECT 1")
-        assert "idle-in-transaction timeout" in str(raised.value)
+        # Read the server's reason before writing: a write into the socket the
+        # server already closed draws a reset, and on Windows a reset discards
+        # the unread FATAL. Arriving while idle, libpq hands that FATAL to the
+        # notice handlers; copy its fields there, since the Diagnostic does not
+        # outlive the callback.
+        reasons: list[tuple[str | None, str | None]] = []
+        abandoned.add_notice_handler(
+            lambda diag: reasons.append((diag.sqlstate, diag.message_primary))
+        )
+        deadline = time.monotonic() + REAP_WAIT_SECONDS
+        with pytest.raises(psycopg.OperationalError):
+            while time.monotonic() < deadline:
+                abandoned.pgconn.consume_input()  # raises once the close is read
+                abandoned.pgconn.notifies()
+                time.sleep(0.05)
+        assert abandoned.broken
+        assert (
+            psycopg.errors.IdleInTransactionSessionTimeout.sqlstate,
+            "terminating connection due to idle-in-transaction timeout",
+        ) in reasons
 
         # The lock went with the backend, so the next driver simply proceeds.
         assert lock_run(waiting, run_id) == "created"
