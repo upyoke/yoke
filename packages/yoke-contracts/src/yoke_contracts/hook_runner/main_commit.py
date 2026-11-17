@@ -19,7 +19,7 @@ from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 
 CLIENT_GIT_COMMIT_FACTS_KEY = "_yoke_client_git_commit_facts"
-CLIENT_GIT_COMMIT_FACTS_SCHEMA = 1
+CLIENT_GIT_COMMIT_FACTS_SCHEMA = 2
 NO_MAIN_CHECK_SUPPRESSION = "# lint:no-main-check"
 
 BOOKKEEPING_EXACT = frozenset({"AGENTS.md", "CLAUDE.md"})

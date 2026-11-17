@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Sequence
 
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.free_paths import (
     DEV_FAMILY_PREFIX,
     STATIC_FREE_PATH_PREFIXES as _STATIC_FREE_PATH_PREFIXES,
@@ -196,10 +197,10 @@ def recorded_repo_roots(conn: Any) -> List[str]:
 
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
-    parts = Path(worktree_path).parts
-    for idx in range(len(parts) - 1, 0, -1):
-        if parts[idx] == ".worktrees":
-            return str(Path(*parts[:idx]))
+    normalized = normalize_repo_path(worktree_path)
+    root, marker, suffix = normalized.rpartition("/.worktrees")
+    if marker and (not suffix or suffix.startswith("/")):
+        return root or "/"
     return None
 
 
