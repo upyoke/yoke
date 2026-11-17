@@ -27,7 +27,7 @@ def test_native_windows_shell_kind_uses_the_user_path(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "platform", "win32")
     env = {"HOME": str(tmp_path), "SHELL": "/bin/bash", "COMSPEC": r"C:\Windows\cmd.exe"}
     assert state.current_shell(env) == "windows"
-    contract = state.resolve_path_state_contract(env=env)
+    contract = state.resolve_path_state_contract(target="windows", env=env)
     assert contract.shell == "windows"
     assert contract.shell_path == r"C:\Windows\cmd.exe"
     assert contract.startup_file == r"HKCU\Environment\Path"

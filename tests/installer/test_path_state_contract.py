@@ -8,10 +8,6 @@ import pytest
 
 from yoke_contracts.shell_path_state import resolve_path_state_contract
 
-POSIX_SHELL = pytest.mark.posix_only(
-    reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
-)
-
 
 def _startup_file(home: Path) -> str:
     env = {"HOME": str(home), "SHELL": "/bin/bash"}
@@ -27,7 +23,6 @@ def _startup_file(home: Path) -> str:
         ((), ".profile"),
     ],
 )
-@POSIX_SHELL
 def test_bash_startup_file_follows_login_read_order(tmp_path, present, expected):
     for name in present:
         (tmp_path / name).write_text("")
