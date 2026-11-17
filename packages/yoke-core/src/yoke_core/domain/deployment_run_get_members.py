@@ -20,7 +20,21 @@ from yoke_core.domain.deployment_run_member_presentation import (
 )
 
 
-COMPUTED_RUN_FIELDS = ("member_items", "membership_removals")
+LINEAGE_RUN_FIELDS = ("supersedes_run_id", "superseded_by_run_id")
+COMPUTED_RUN_FIELDS = ("member_items", "membership_removals", *LINEAGE_RUN_FIELDS)
+
+
+def run_lineage(run_id: str) -> dict[str, Any]:
+    """Read takeover links outside the portable snapshot contract."""
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT supersedes_run_id, superseded_by_run_id "
+            "FROM deployment_runs WHERE id=%s",
+            (run_id,),
+        ).fetchone()
+    if row is None:
+        raise LookupError(f"deployment run '{run_id}' not found")
+    return {name: row[name] for name in LINEAGE_RUN_FIELDS}
 
 
 def run_membership(run_id: str) -> dict[str, list[dict[str, Any]]]:

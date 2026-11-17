@@ -65,6 +65,7 @@ def deployment_runs_get(args: List[str]) -> int:
         usage=DEPLOYMENT_RUNS_GET_USAGE,
         description="Defaults to a bounded run and membership summary; select FIELD ... for detail or --full for the whole run. Computed fields: member_items (attached members, removed ones"
         " excluded) and membership_removals (reason, removed_at, later_run_id)."
+        " Read-only takeover links: supersedes_run_id and superseded_by_run_id."
         " carried_work is recorded at composition freeze; before that get"
         " derives it live and it stays unrecorded.",
     )

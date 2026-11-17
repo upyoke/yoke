@@ -118,3 +118,9 @@ Owners: `deployment_run_target_takeover`, `deployment_run_takeover_eligibility`,
 - [Deployments overview](index.md)
 - [Cutting runs](cutting-runs.md)
 - [Deployment QA continuity](../verification/deployment-qa-continuity.md)
+
+Read takeover lineage with `yoke deployment-runs get RUN-ID supersedes_run_id`
+and `yoke deployment-runs get RUN-ID superseded_by_run_id`. These read-only
+fields also appear in the default and `--full` reads; the human summary labels
+set links as `supersedes` and `superseded by`. They are outside the portable
+run snapshot and cannot be set through `deployment-runs update`.
