@@ -1,4 +1,8 @@
-"""Prove that every selected test ran exactly once across one Python leg."""
+"""Prove that every selected test ran exactly once across one Python leg.
+
+`collect` records the unsplit collection while the shards run; `compare`
+replays that manifest against every shard's JUnit report once they finish.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.tools.ci_shards import SHARD_COUNT, SUITE_PATHS
 
 MANIFEST_ENV = "YOKE_CI_COLLECTION_MANIFEST"
+COLLECTION_LOG = "collection-output.txt"
 
 
 def pytest_collection_finish(session):
@@ -66,8 +71,10 @@ def compare(expected: list[list[str]], reports: list[Path], python: str) -> dict
 
 
 def collect(destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    log = destination.parent / COLLECTION_LOG
     environment = dict(os.environ, **{MANIFEST_ENV: str(destination.resolve())})
-    with Path("collection-output.txt").open("w", encoding="utf-8") as output:
+    with log.open("w", encoding="utf-8") as output:
         result = subprocess.run(
             [sys.executable, "-m", "pytest", *SUITE_PATHS, "--collect-only",
              "-q", "-n", "0", "-p", "yoke_core.tools.ci_shard_coverage"],
@@ -75,34 +82,59 @@ def collect(destination: Path) -> None:
         )
     if result.returncode:
         raise ValueError(
-            "ci_shard_collection_failed: read collection-output.txt and repair "
-            "collection before checking shard coverage"
+            f"ci_shard_collection_failed: read {log} and repair collection "
+            "before checking shard coverage"
         )
+
+
+def _refuse(code: str, python: str, error: Exception, recovery: str) -> int:
+    print(compose_refusal(f"{code}: Python {python}: {error}",
+                          recovery=recovery))
+    return 1
+
+
+def load_manifest(path: Path) -> list[list[str]]:
+    if not path.is_file():
+        raise ValueError(
+            f"ci_shard_collection_missing: {path} was not downloaded; read the "
+            "shard-collection job for this Python leg, which owns the unsplit "
+            "collection"
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--reports", type=Path, required=True)
-    parser.add_argument("--python", required=True)
-    parser.add_argument("--shards", type=int, default=SHARD_COUNT)
-    parser.add_argument("--expected", type=Path,
-                        help="Replay a saved unsplit collection instead of collecting.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    collect_parser = commands.add_parser(
+        "collect", help="Write the unsplit collection manifest.")
+    collect_parser.add_argument("--python", required=True)
+    collect_parser.add_argument("--output", type=Path, required=True)
+    compare_parser = commands.add_parser(
+        "compare", help="Replay a collection manifest against shard reports.")
+    compare_parser.add_argument("--reports", type=Path, required=True)
+    compare_parser.add_argument("--python", required=True)
+    compare_parser.add_argument("--expected", type=Path, required=True)
+    compare_parser.add_argument("--shards", type=int, default=SHARD_COUNT)
     args = parser.parse_args(argv)
+    if args.command == "collect":
+        try:
+            collect(args.output)
+            tests = len(load_manifest(args.output))
+        except (OSError, ValueError) as error:
+            return _refuse("ci_shard_collection_failed", args.python, error, recovery=(
+                "read the collection log beside the manifest, repair collection on this commit, then verify it again"))
+        print("ci_shard_collection_recorded: "
+              + json.dumps({"python": args.python, "tests": tests}))
+        return 0
     try:
         paths = report_paths(args.reports, args.python, args.shards)
-        manifest = args.expected or Path("expected-tests.json")
-        if args.expected is None:
-            collect(manifest)
-        result = compare(json.loads(manifest.read_text(encoding="utf-8")),
-                         paths, args.python)
+        result = compare(load_manifest(args.expected), paths, args.python)
     except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as error:
-        print(compose_refusal(
-            f"ci_shard_coverage_failed: Python {args.python}: {error}",
-            recovery="download every shard report from this run, repair "
-            "collection/profile divergence or missing test execution, then "
-            "verify the corrected commit",
-        ))
-        return 1
+        return _refuse("ci_shard_coverage_failed", args.python, error, recovery=(
+            "download every shard report and the shard-collection manifest "
+            "from this run, repair collection/profile divergence or missing "
+            "test execution, then verify the corrected commit"))
     print("ci_shard_coverage_passed: " + json.dumps(result, sort_keys=True))
     return 0
 

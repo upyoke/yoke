@@ -51,8 +51,10 @@ def test_partial_fetch_keeps_versioning_and_git_test_history() -> None:
         checkout = _step(jobs[name], "actions/checkout")["with"]
         assert checkout["fetch-depth"] == 0
         assert checkout["filter"] == "blob:none"
-    for name in ("repo_contracts", "shard_coverage", "container"):
+    for name in ("repo_contracts", "shard_collection", "container"):
         assert _step(jobs[name], "actions/checkout")["with"]["fetch-depth"] == 0
+    # The replay reads only source and downloaded artifacts.
+    assert _step(jobs["shard_coverage"], "actions/checkout")["with"]["fetch-depth"] == 1
     for job in _jobs("yoke-tests-selection.yml").values():
         assert _step(job, "actions/checkout")["with"]["fetch-depth"] == 0
 
@@ -145,7 +147,7 @@ def test_full_ci_checks_and_refresh_run_beside_shared_collection() -> None:
     assert _names(checks).index(refresh["name"]) < _names(checks).index(
         "Share the timing profile with every shard"
     )
-    for name in ("test_shard", "shard_coverage", "browser_runtime"):
+    for name in ("test_shard", "shard_collection", "shard_coverage", "browser_runtime"):
         assert {"repo_contracts", "reuse_coverage"} <= set(jobs[name]["needs"])
         assert "needs.reuse_coverage.result == 'success'" in jobs[name]["if"]
     artifacts = [step["with"]["name"] for step in checks["steps"]

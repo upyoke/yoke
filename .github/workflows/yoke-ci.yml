@@ -181,45 +181,34 @@ jobs:
       matrix:
         python-version: ${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}
         shard: ${{ fromJSON(needs.repo_contracts.outputs.shards) }}
-
     steps:
       - name: Checkout
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 0
-          filter: blob:none
-
+        with: {fetch-depth: 0, filter: 'blob:none'}
       - name: Download assigned file groups
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: {name: ci-shard-groups, path: .yoke/tmp}
-
       - name: Use the shared timing profile
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: {name: ci-test-durations}
-
       - name: Download exact-commit product wheels
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: product-wheels
-          path: ${{ runner.temp }}/product-wheels
-
+        with: {name: product-wheels, path: '${{ runner.temp }}/product-wheels'}
       - name: Prepare the test runner
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: ./.github/actions/yoke-test-runner
         with:
           python-version: ${{ matrix.python-version }}
           pg-container: ${{ env.PG_CONTAINER }}
-
       - name: Check runner capacity
         if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.ci_shards check-runner-capacity
-
       - name: Run pytest
         id: pytest
         env:
@@ -229,7 +218,6 @@ jobs:
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
-
       - name: Upload pytest output
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         continue-on-error: true # shard-coverage names missing reports and blocks the run
@@ -244,22 +232,19 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           include-hidden-files: true
-
       - name: Stop Postgres
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           docker rm -f "$PG_CONTAINER" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
-  shard_coverage:
+  shard_collection:
+    # Collects the unsplit suite while the shards run; shard-coverage replays it.
     timeout-minutes: 15
-    name: shard-coverage
-    needs: [repo_contracts, reuse_coverage, test_shard]
+    name: shard-collection
+    needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}
+    strategy: {fail-fast: false, matrix: {python-version: '${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}'}}
     env:
       SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
       YOKE_CI_PYTHON_SCOPE: ${{ matrix.python-version == needs.repo_contracts.outputs.python_latest && 'all' || 'interpreter' }}
@@ -268,40 +253,56 @@ jobs:
       - name: Checkout
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 0
-      - name: Download every shard report
-        if: env.SUITE_ALREADY_PROVEN != 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: pytest-output-${{ matrix.python-version }}-*
-          path: shard-reports
+        with: {fetch-depth: 0}
       - name: Prepare collection runner
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: ./.github/actions/yoke-test-runner
-        with:
-          python-version: ${{ matrix.python-version }}
-          pg-container: ${{ env.PG_CONTAINER }}
-      - name: Compare execution with the unsplit collection
+        with: {python-version: '${{ matrix.python-version }}', pg-container: '${{ env.PG_CONTAINER }}'}
+      - name: Collect the unsplit suite
         if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-
-          uv run python -m yoke_core.tools.ci_shard_coverage
-          --reports shard-reports --python "${{ matrix.python-version }}"
+          uv run python -m yoke_core.tools.ci_shard_coverage collect
+          --python "${{ matrix.python-version }}" --output shard-collection/expected-tests.json
       - name: Upload collection evidence
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          overwrite: true
-          name: shard-collection-${{ matrix.python-version }}
-          path: |
-            expected-tests.json
-            collection-output.txt
-          retention-days: 7
+        with: {name: 'shard-collection-${{ matrix.python-version }}', path: shard-collection, retention-days: 7, overwrite: true}
       - name: Stop Postgres
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           docker rm -f "$PG_CONTAINER" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
+  shard_coverage:
+    # Replays shard-collection's manifest; needs no Postgres or dependency install.
+    timeout-minutes: 5
+    name: shard-coverage
+    needs: [repo_contracts, reuse_coverage, test_shard, shard_collection]
+    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
+    strategy: {fail-fast: false, matrix: {python-version: '${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}'}}
+    env:
+      SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
+    steps:
+      - name: Checkout
+        if: env.SUITE_ALREADY_PROVEN != 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: {fetch-depth: 1}
+      - name: Download every shard report
+        if: env.SUITE_ALREADY_PROVEN != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: {pattern: 'pytest-output-${{ matrix.python-version }}-*', path: shard-reports}
+      - name: Download the unsplit collection
+        if: env.SUITE_ALREADY_PROVEN != 'true'
+        continue-on-error: true # the comparison refuses ci_shard_collection_missing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: {name: 'shard-collection-${{ matrix.python-version }}', path: shard-collection}
+      - name: Compare execution with the unsplit collection
+        if: env.SUITE_ALREADY_PROVEN != 'true'
+        run: >-
+          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
+          yoke_core.tools.ci_shard_coverage compare
+          --reports shard-reports --python "${{ matrix.python-version }}"
+          --expected shard-collection/expected-tests.json
   browser_runtime:
     needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}

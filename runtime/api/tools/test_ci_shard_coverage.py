@@ -44,8 +44,10 @@ def test_missing_duplicate_and_unexpected_ids_are_named(tmp_path):
 
 def test_missing_report_names_the_shard(tmp_path, capsys):
     _report(tmp_path / 'pytest-output-3.11-1' / 'pytest-report.xml', [('a', 'b')])
-    assert coverage.main(['--reports', str(tmp_path), '--python', '3.11',
-                          '--shards', '2']) == 1
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text(json.dumps([['a', 'b', 'a.py::b']]))
+    assert coverage.main(['compare', '--reports', str(tmp_path), '--python', '3.11',
+                          '--shards', '2', '--expected', str(manifest)]) == 1
     message = capsys.readouterr().out
     assert 'ci_shard_reports_missing: pytest-output-3.11-2' in message
     assert 'Recovery:' in message
@@ -77,19 +79,68 @@ def test_collection_manifest_keeps_parameter_and_class_identity(tmp_path, monkey
         'tests/test_a.py::TestGroup::test_case[a.b::c]']]
 
 
-def test_failed_collection_names_its_log(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+def test_failed_collection_names_its_log(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(coverage.subprocess, 'run',
                         lambda *a, **kw: SimpleNamespace(returncode=2))
-    with pytest.raises(ValueError, match='collection-output.txt'):
-        coverage.collect(tmp_path / 'manifest.json')
+    destination = tmp_path / 'shard-collection' / 'expected-tests.json'
+    assert coverage.main(['collect', '--python', '3.14',
+                          '--output', str(destination)]) == 1
+    message = capsys.readouterr().out
+    assert 'ci_shard_collection_failed: Python 3.14' in message
+    assert str(destination.parent / 'collection-output.txt') in message
+    assert 'Recovery:' in message
+
+
+def test_collect_writes_the_manifest_its_replay_reads(tmp_path, monkeypatch, capsys):
+    destination = tmp_path / 'shard-collection' / 'expected-tests.json'
+
+    def collect_only(command, env, stdout, **_):
+        assert '--collect-only' in command and env[coverage.MANIFEST_ENV]
+        Path(env[coverage.MANIFEST_ENV]).write_text(json.dumps([['a', 'b', 'a.py::b']]))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(coverage.subprocess, 'run', collect_only)
+    assert coverage.main(['collect', '--python', '3.14',
+                          '--output', str(destination)]) == 0
+    assert 'ci_shard_collection_recorded' in capsys.readouterr().out
+    assert (destination.parent / 'collection-output.txt').is_file()
+    _report(tmp_path / 'pytest-output-3.14-1' / 'pytest-report.xml', [('a', 'b')])
+    assert coverage.main(['compare', '--reports', str(tmp_path), '--python', '3.14',
+                          '--shards', '1', '--expected', str(destination)]) == 0
+
+
+def test_missing_collection_manifest_names_its_job(tmp_path, capsys):
+    _report(tmp_path / 'pytest-output-3.14-1' / 'pytest-report.xml', [('a', 'b')])
+    assert coverage.main(['compare', '--reports', str(tmp_path), '--python', '3.14',
+                          '--shards', '1', '--expected',
+                          str(tmp_path / 'absent.json')]) == 1
+    message = capsys.readouterr().out
+    assert 'ci_shard_collection_missing' in message
+    assert 'shard-collection job' in message
+
+
+@pytest.mark.parametrize('executed, named', [
+    ([('a', 'kept')], 'missing (1):\na.py::dropped'),
+    ([('a', 'kept'), ('a', 'dropped'), ('a', 'dropped')], 'a.py::dropped (2 times)'),
+])
+def test_replayed_manifest_fails_a_dropped_or_duplicated_test(
+        tmp_path, capsys, executed, named):
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text(json.dumps([['a', 'kept', 'a.py::kept'],
+                                    ['a', 'dropped', 'a.py::dropped']]))
+    _report(tmp_path / 'pytest-output-3.14-1' / 'pytest-report.xml', executed)
+    assert coverage.main(['compare', '--reports', str(tmp_path), '--python', '3.14',
+                          '--shards', '1', '--expected', str(manifest)]) == 1
+    message = capsys.readouterr().out
+    assert 'ci_shard_coverage_failed: Python 3.14: ci_shard_coverage_mismatch' in message
+    assert named in message
 
 
 def test_saved_manifest_replay(tmp_path, capsys):
     manifest = tmp_path / 'manifest.json'
     manifest.write_text(json.dumps([['a', 'b', 'a.py::b']]))
     _report(tmp_path / 'pytest-output-3.14-1' / 'pytest-report.xml', [('a', 'b')])
-    assert coverage.main(['--reports', str(tmp_path), '--python', '3.14',
+    assert coverage.main(['compare', '--reports', str(tmp_path), '--python', '3.14',
                           '--shards', '1', '--expected', str(manifest)]) == 0
     assert 'ci_shard_coverage_passed' in capsys.readouterr().out
 
