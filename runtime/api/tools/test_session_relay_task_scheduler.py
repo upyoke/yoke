@@ -226,3 +226,12 @@ def test_scheduler_export_omitting_defaults_is_current_and_every_change_is_named
         "Task/Settings/StartWhenAvailable is 'false', expected 'true'; "
         "Task/Settings/ExecutionTimeLimit is missing"
     )
+
+
+def test_scheduler_export_naming_the_account_instead_of_its_sid_is_current(tmp_path):
+    expected = tasks.relay_task_document(relay_instance(tmp_path), user_sid=SID)
+    exported = expected.replace(SID, r"HOST\user", 1)  # the LogonTrigger's UserId
+    assert tasks._difference(exported, expected, account_name=r"host\USER") == ""
+    assert tasks._difference(exported, expected, account_name=r"HOST\other") == (
+        rf"Task/Triggers/LogonTrigger/UserId is 'HOST\\user', expected '{SID}'"
+    )

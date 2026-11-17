@@ -79,14 +79,18 @@ def _checked(argv: list[str], runner: Runner) -> str:
     return result.stdout.strip()
 
 
-def _user(runner: Runner) -> str:
-    # The SID is stable across renames and avoids locale-dependent account names.
+def _account(runner: Runner) -> tuple[str, str]:
+    """The current user's SID and ``DOMAIN\\user`` name from one read.
+
+    The task declares the SID, stable across renames; Task Scheduler may
+    export the same account by name.
+    """
     import csv
 
     rows = list(csv.reader(_checked(["whoami", "/user", "/fo", "csv", "/nh"], runner).splitlines()))
     if not rows or len(rows[0]) != 2 or not rows[0][1].startswith("S-1-"):
         raise _unavailable("cannot resolve the current user's SID")
-    return rows[0][1]
+    return rows[0][1], rows[0][0]
 
 
 #: Task Scheduler's End stops only the task's own process, so the runner joins
@@ -168,7 +172,7 @@ _SCHEMA_DEFAULTS = {
 }
 
 
-def _difference(observed: str, expected: str) -> str:
+def _difference(observed: str, expected: str, *, account_name: str = "") -> str:
     """Every declared task setting the registered task lacks; empty when current.
 
     Task Scheduler may add elements to a registered task, so only the settings
@@ -191,8 +195,10 @@ def _difference(observed: str, expected: str) -> str:
             for key, value in want.attrib.items()
             if have.attrib.get(key) != value
         ]
-        if text != (have.text or "").strip():
-            found.append(f"{path} is {(have.text or '').strip()!r}, expected {text!r}")
+        observed_text = (have.text or "").strip()
+        same_account = local(want.tag) == "UserId" and observed_text.casefold() == account_name.casefold()
+        if text != observed_text and not same_account:
+            found.append(f"{path} is {observed_text!r}, expected {text!r}")
         for child in want:
             found += compare(child, have.find(child.tag), f"{path}/{local(child.tag)}")
         return found
@@ -207,14 +213,16 @@ def relay_task_status(*, instance=None, home=None, environ=None, runner= subproc
     reason = ""
     available = True
     try:
-        sid = _user(runner)
+        sid, name = _account(runner)
         # Query the scheduler itself first: a failed task query must not hide a
         # policy/service restriction as an absent task.
         _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
         result = _run(["schtasks", "/Query", "/TN", selected.label, "/XML"], runner)
         present = result.returncode == 0
         if present:
-            difference = _difference(result.stdout, relay_task_document(selected, user_sid=sid))
+            difference = _difference(
+                result.stdout, relay_task_document(selected, user_sid=sid), account_name=name
+            )
             current = not difference
             name = selected.label.replace("'", "''")
             state = _checked([
@@ -243,7 +251,7 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     selected = instance or resolve_relay_instance()
     if refusal := door_relay_refusal(selected):
         raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
-    sid = _user(runner)
+    sid, _name = _account(runner)
     _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
     prior = relay_task_status(instance=selected, runner=runner)
     if not prior.supported:
