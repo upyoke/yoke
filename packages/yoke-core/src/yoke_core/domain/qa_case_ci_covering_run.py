@@ -166,6 +166,11 @@ def classify(
     return ATTACHED
 
 
+def candidate_request_id(head_sha: str) -> str:
+    """One QA identity; correlated dispatch owns payload binding and recovery."""
+    return f"qa-ci:{head_sha}"
+
+
 def dispatch_request_id(
     request_id: str, head_sha: str, run: Optional[WorkflowRun]
 ) -> str:
@@ -189,4 +194,5 @@ __all__ = [
     "classify",
     "find_run_for_tree",
     "dispatch_request_id",
+    "candidate_request_id",
 ]

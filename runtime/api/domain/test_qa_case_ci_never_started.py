@@ -83,7 +83,7 @@ def test_first_never_started_run_is_cancelled_and_redispatched_once(monkeypatch)
     assert result.exit_code == 0
     assert STALL in result.output
     dispatch.assert_called_once()
-    assert dispatch.call_args.kwargs["request_id"].endswith(":never-started-retry")
+    assert dispatch.call_args.kwargs["request_id"] == "qa-ci:" + "a" * 40
     assert cancel.call_args_list == [
         mock.call(project="yoke", repo="acme/widgets", run_id="77")
     ]

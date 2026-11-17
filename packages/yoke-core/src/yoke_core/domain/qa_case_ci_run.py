@@ -1,4 +1,5 @@
 """Run Command QA through CI, preserving item proofs and manual commit bindings."""
+
 from __future__ import annotations
 
 import json
@@ -231,9 +232,7 @@ def execute_ci_case(
                     repo=repo,
                     workflow=workflow,
                     branch=branch,
-                    request_id=qa_case_ci_covering_run.dispatch_request_id(
-                        f"qa-ci:{head_sha}", head_sha, covering_run
-                    ),
+                    request_id=qa_case_ci_covering_run.candidate_request_id(head_sha),
                     timeout_seconds=budget,
                     inputs=workflow_inputs,
                 )

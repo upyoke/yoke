@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from yoke_core.domain import qa_case_ci_lane as lane
+from yoke_core.domain.qa_case_ci_covering_run import candidate_request_id
 from yoke_core.domain.qa_case_execution_context import QaCaseExecutionError
 from yoke_core.domain.qa_case_execution import (
     required_case_command,
@@ -98,7 +99,7 @@ def execute_standalone_ci(
                 repo=repo,
                 workflow=workflow,
                 branch=ref,
-                request_id=f"qa-ci:{sha}",
+                request_id=candidate_request_id(sha),
                 timeout_seconds=budget.seconds,
                 inputs=inputs,
             )
