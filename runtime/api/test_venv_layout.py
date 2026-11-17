@@ -44,3 +44,18 @@ def test_windows_launcher_install_refuses_before_side_effects(monkeypatch, capsy
     assert "posix_launcher_shim_unsupported" in refusal
     assert "public Windows installer" in refusal
     assert "Traceback" not in refusal
+
+
+def test_product_smoke_environment_uses_native_paths_and_disposable_home(tmp_path):
+    import os
+    from tests.import_graph.onboard_wheel_smoke_support import _product_env
+
+    home = tmp_path / "home"
+    root = tmp_path / "venv"
+    env = _product_env(home / ".yoke", root)
+    assert env["PATH"].split(os.pathsep)[0] == str(layout.venv_scripts(root))
+    assert env["USERPROFILE"] == env["HOME"] == str(home)
+    assert env["APPDATA"] == str(home / "AppData" / "Roaming")
+    assert "PYTHONPATH" not in env
+    if os.name == "nt":
+        assert env["SYSTEMROOT"] == os.environ["SYSTEMROOT"]

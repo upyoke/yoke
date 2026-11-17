@@ -78,8 +78,11 @@ def _product_env(
         path_parts.append(str(extra_path))
     path_parts.append(os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH)
     return {
-        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA") if key in os.environ},
+        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP") if key in os.environ},
         "HOME": str(machine_home.parent),
+        "USERPROFILE": str(machine_home.parent),
+        "APPDATA": str(machine_home.parent / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(machine_home.parent / "AppData" / "Local"),
         "PATH": os.pathsep.join(path_parts),
         "XDG_BIN_HOME": str(venv_scripts(venv_dir)),
         "UV_TOOL_BIN_DIR": str(venv_scripts(venv_dir)),
