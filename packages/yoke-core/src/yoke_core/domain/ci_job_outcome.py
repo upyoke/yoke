@@ -58,6 +58,36 @@ def job_never_started(job: Mapping[str, Any]) -> bool:
     return conclusion in _UNSTARTED_JOB_CONCLUSIONS and not job_started(job)
 
 
+#: The shard step that refuses a slow runner before pytest runs. Its failure
+#: alone says the runner had no capacity, not anything about the tree.
+CAPACITY_STEP = "Check runner capacity"
+
+
+def _red_steps(job: Mapping[str, Any]) -> list[str]:
+    return [
+        str(step.get("name") or "")
+        for step in job.get("steps") or []
+        if isinstance(step, Mapping)
+        and str(step.get("conclusion") or "") in _RED_JOB_CONCLUSIONS
+    ]
+
+
+def _started_red(job: Mapping[str, Any]) -> bool:
+    return job_started(job) and str(job.get("conclusion") or "") in _RED_JOB_CONCLUSIONS
+
+
+def job_has_test_verdict(job: Mapping[str, Any]) -> bool:
+    """A started red job with a red step other than :data:`CAPACITY_STEP`."""
+    return _started_red(job) and any(
+        name != CAPACITY_STEP for name in _red_steps(job)
+    )
+
+
+def job_capacity_refused(job: Mapping[str, Any]) -> bool:
+    """A started red job whose only red step is :data:`CAPACITY_STEP`."""
+    return _started_red(job) and _red_steps(job) == [CAPACITY_STEP]
+
+
 def effective_conclusion(
     conclusion: str,
     jobs: Optional[Sequence[Mapping[str, Any]]],
@@ -126,10 +156,13 @@ def with_effective_conclusion(
 
 
 __all__ = [
+    "CAPACITY_STEP",
     "CI_JOB_NOT_STARTED",
     "CANCELLED_RECOVERY",
     "REDISPATCH_RECOVERY",
     "effective_conclusion",
+    "job_capacity_refused",
+    "job_has_test_verdict",
     "job_never_started",
     "job_started",
     "with_effective_conclusion",

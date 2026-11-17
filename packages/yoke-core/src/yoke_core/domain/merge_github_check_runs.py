@@ -45,6 +45,7 @@ from yoke_core.domain.merge_github_queue import (
 )
 from yoke_core.domain.merge_context import MergeContext
 from yoke_core.domain.merge_github_projection import unreadable_landing_field
+from yoke_core.domain.merge_queue_capacity_checks import with_capacity_refusals
 
 _LANDING_READ = {**PR_READ, **CONTENTS_READ, **CHECKS_READ, **STATUSES_READ}
 
@@ -319,7 +320,7 @@ def read_pr_landing_and_required_checks(
     try:
         return PrLandingProjection(
             state=_parse_landing_state(pull_request),
-            required_checks=_parse_required_checks(pull_request),
+            required_checks=with_capacity_refusals(ctx, _parse_required_checks(pull_request)),
         )
     except InvalidInstant:
         return _unreadable("pull-request landing read contains an invalid clock")

@@ -72,7 +72,7 @@ def redispatch_no_verdict_checks(
     if not run_ids:
         return (
             f"pull request {pr_num} cannot enter the merge queue: its "
-            f"required checks were cancelled or never started ({names}), but "
+            f"required checks reached no verdict ({names}), but "
             "ci_recovery_run_missing: at least one names no GitHub Actions run. "
             "Ask the check provider to replace that exact-head check, verify "
             "its required-check verdict, then retry `yoke merge item`."
@@ -81,7 +81,7 @@ def redispatch_no_verdict_checks(
     if auth_err or auth is None:
         return (
             f"pull request {pr_num} cannot enter the merge queue: its "
-            f"required checks were cancelled or never started ({names}) and "
+            f"required checks reached no verdict ({names}) and "
             f"could not be re-run: {auth_err or 'github auth unavailable'}. "
             "Restore the project's GitHub Actions write access, then re-run "
             "`yoke merge item`"
@@ -129,7 +129,7 @@ def redispatch_no_verdict_checks(
             )
         lane_head = run["head_sha"]
     print(
-        f"  Re-ran cancelled or never-started required checks ({names}) on "
+        f"  Re-ran no-verdict required checks ({names}) on "
         f"the same head via run(s) {', '.join(run_ids)}",
         flush=True,
     )
@@ -158,7 +158,7 @@ def redispatch_no_verdict_checks(
         if now() >= deadline:
             return (
                 f"pull request {pr_num} cannot enter the merge queue: its "
-                f"cancelled or never-started required checks ({names}) were "
+                f"no-verdict required checks ({names}) were "
                 f"re-run via run(s) {', '.join(run_ids)}, but GitHub had not "
                 f"replaced them within {REPLACED_CONFIRM_SECONDS}s. Re-run "
                 "`yoke merge item` after inspecting the accepted attempt; active or "

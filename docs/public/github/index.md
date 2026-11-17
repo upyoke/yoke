@@ -248,7 +248,8 @@ Cancelled terminal runs use the same command. Never-started jobs trigger a
 full run rerun; jobs that started use failed-job recovery. Cancellation
 recovery stops at three total run attempts: inspect job annotations and fix
 runner capacity, labels or workflow limits before a fresh declared attempt.
-Merge re-entry also recovers eligible cancelled checks on an already-armed,
+Merge re-entry also recovers eligible cancelled checks, and required checks
+whose job failed only at **Check runner capacity** (reported `capacity_refused`), on an already-armed,
 unadmitted PR without arming it twice. Active, successful and superseded runs
 are protected. Acceptance is not a passing check: resume the exact-head wait.
 A fresh `workflow_dispatch` is a new attempt; verify its head and that GitHub

@@ -20,7 +20,9 @@ green on the same pull request cannot auto-merge without this gate recording
 a new verdict. Re-running ``yoke merge item`` after a fix re-arms as usual.
 
 Not every red conclusion is a verdict. A required check that was cancelled
-or never started — its job queued until GitHub gave up on a runner — says
+or never started — its job queued until GitHub gave up on a runner — or whose
+runner refused at the capacity step before pytest ran
+(:data:`~yoke_core.domain.merge_queue_capacity_checks.CAPACITY_REFUSED`) says
 nothing about the head, so its recovery is not a fix on the lane: re-running
 ``yoke merge item`` re-runs those checks on the same head
 (:mod:`yoke_core.domain.merge_queue_entry_check_redispatch`).
@@ -35,6 +37,7 @@ from typing import Optional, Sequence
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.merge_github_check_runs import LandingCheck
+from yoke_core.domain.merge_queue_capacity_checks import CAPACITY_REFUSED
 from yoke_core.domain.merge_github_queue import (
     QueueEntryResult,
     leave_merge_queue,
@@ -44,6 +47,7 @@ from yoke_core.domain.merge_context import MergeContext
 
 RED_CONCLUSIONS = frozenset(
     {
+        CAPACITY_REFUSED,
         "cancelled",
         "error",
         "failure",
@@ -55,12 +59,15 @@ RED_CONCLUSIONS = frozenset(
 
 
 #: Required-check conclusions that carry no verdict about the head: the
-#: check was cancelled or never started, so the recovery is a re-run.
-NO_VERDICT_CONCLUSIONS = frozenset({"cancelled", "startup_failure", "stale"})
+#: check was cancelled, never started, or its runner refused for capacity
+#: before pytest ran, so the recovery is a re-run.
+NO_VERDICT_CONCLUSIONS = frozenset(
+    {CAPACITY_REFUSED, "cancelled", "startup_failure", "stale"}
+)
 
 
 def no_verdict_checks(failed: Sequence[LandingCheck]) -> tuple[LandingCheck, ...]:
-    """The red checks that were cancelled or never started."""
+    """The red checks that were cancelled, never started or capacity-refused."""
     return tuple(
         check for check in failed if check.conclusion in NO_VERDICT_CONCLUSIONS
     )
@@ -118,7 +125,8 @@ NO_EMPTY_COMMIT_RERUN = "Do not use empty commits to re-run unchanged inputs"
 def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
     if only_no_verdict(failed):
         return (
-            "they were cancelled or never started, which is no verdict about "
+            "they were cancelled, never started, or refused by runner capacity "
+            "before any test ran (ci_runner_slow), which is no verdict about "
             "the head — re-run `yoke merge item`, which re-runs them on the "
             "same head while eligible; the retry refuses active, superseded or "
             "repeatedly cancelled attempts with the current recovery step"

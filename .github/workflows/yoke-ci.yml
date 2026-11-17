@@ -282,22 +282,23 @@ jobs:
     strategy: {fail-fast: false, matrix: {python-version: '${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}'}}
     env:
       SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
+      SHARDS_PASSED: ${{ needs.test_shard.result == 'success' }} # a red shard already holds the verdict
     steps:
       - name: Checkout
-        if: env.SUITE_ALREADY_PROVEN != 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true' && env.SHARDS_PASSED == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: {fetch-depth: 1}
       - name: Download every shard report
-        if: env.SUITE_ALREADY_PROVEN != 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true' && env.SHARDS_PASSED == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: {pattern: 'pytest-output-${{ matrix.python-version }}-*', path: shard-reports}
       - name: Download the unsplit collection
-        if: env.SUITE_ALREADY_PROVEN != 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true' && env.SHARDS_PASSED == 'true'
         continue-on-error: true # the comparison refuses ci_shard_collection_missing
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: {name: 'shard-collection-${{ matrix.python-version }}', path: shard-collection}
       - name: Compare execution with the unsplit collection
-        if: env.SUITE_ALREADY_PROVEN != 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true' && env.SHARDS_PASSED == 'true'
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.ci_shard_coverage compare

@@ -113,8 +113,9 @@ the unchanged head if it remains mergeable.
 record; it returns control to the lane holder when a rebase is needed.
 An unreadable queue or file listing names the failed read and its repair;
 no re-enqueue is sent without the needed evidence. Other stopped landings
-require the holder's governed retry. A governed retry recovers cancelled
-or never-started required checks even when the open PR is already armed but
+require the holder's governed retry. A governed retry recovers cancelled,
+never-started or `capacity_refused` (runner-capacity refusal before pytest)
+required checks even when the open PR is already armed but
 unadmitted; it never sends a duplicate arming request. It verifies current
 head, newest workflow run and job evidence before one rerun POST. Active,
 successful, superseded and enqueued attempts are protected. After three

@@ -203,3 +203,18 @@ def test_red_check_recovery_fixes_any_failure_on_the_lane():
     assert "feedback promote" not in recovery
     assert "yoke say --steering" not in recovery
     assert "rerun-failed" not in recovery
+
+
+def test_a_capacity_refused_required_check_is_red_without_a_verdict():
+    refused = LandingCheck(
+        "test-shard (3.11, 12)", "completed", "capacity_refused", required=True, url=RUN_URL
+    )
+    record = _record(checks=(refused,))
+
+    assert checks_mod.failed_required_checks((refused,)) == (refused,)
+    assert checks_mod.only_no_verdict((refused,))
+    assert record.state == ENTRY_CHECKS_FAILED
+    recovery = checks_mod.red_checks_recovery([refused])
+    assert "ci_runner_slow" in recovery and "fix it on the lane" not in recovery
+    # Any real red verdict beside it keeps the lane-fix recovery.
+    assert not checks_mod.only_no_verdict((refused, FAILED_REQUIRED))

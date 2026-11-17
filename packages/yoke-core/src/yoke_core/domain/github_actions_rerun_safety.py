@@ -3,7 +3,7 @@
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_core.domain.github_actions_rest import rest_get
 from yoke_core.domain.github_actions_failed_jobs import list_run_jobs
-from yoke_core.domain.ci_job_outcome import job_started
+from yoke_core.domain.ci_job_outcome import job_has_test_verdict, job_started
 
 MAX_NO_VERDICT_ATTEMPTS = 3
 
@@ -102,17 +102,7 @@ def checked_run(
             "Only a completed cancelled or never-started run can be recovered; wait for active CI or inspect the current run.",
         )
     jobs = list_run_jobs(root.removeprefix("/repos/"), run_id, token=token)
-    real_failure = any(
-        job_started(job)
-        and job.get("conclusion") in {"failure", "timed_out"}
-        and any(
-            step.get("conclusion") in {"failure", "timed_out"}
-            and step.get("name") != "Check runner capacity"
-            for step in job.get("steps") or []
-        )
-        for job in jobs
-    )
-    if real_failure:
+    if any(job_has_test_verdict(job) for job in jobs):
         return _refused(
             "ci_rerun_verdict",
             "Started jobs failed; fix the cause on the lane, commit and rerun verification. No rerun was sent.",
