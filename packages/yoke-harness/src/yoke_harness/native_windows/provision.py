@@ -210,7 +210,7 @@ New-NetFirewallRule -Name YokeQaRdpLoopback -DisplayName 'Yoke QA RDP loopback' 
 $rule=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaRdpLoopback -ErrorAction Stop
 $port=$rule | Get-NetFirewallPortFilter -ErrorAction Stop
 $addresses=$rule | Get-NetFirewallAddressFilter -ErrorAction Stop
-if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or $port.LocalPort -ne '3389' -or (@($addresses.RemoteAddress | Sort-Object) -join ',') -ne '127.0.0.1,::1'){
+if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or $port.LocalPort -ne '3389' -or @($addresses.RemoteAddress).Count -ne 2 -or '127.0.0.1' -notin $addresses.RemoteAddress -or '::1' -notin $addresses.RemoteAddress){
  throw 'windows_rdp_firewall_failed: inspect the effective YokeQaRdpLoopback firewall rule'
 }
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
