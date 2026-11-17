@@ -159,7 +159,10 @@ def test_macos_label_parser_picks_latest_command_line_tools() -> None:
     )
 
 
-def test_install_git_tries_macos_terminal_clt_before_handoff() -> None:
+def test_install_git_tries_macos_terminal_clt_before_handoff(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        project_git_macos_tools, "MAC_CLT_PLACEHOLDER", tmp_path / "clt"
+    )
     state = {"installed": False, "calls": []}
 
     def _which(name: str) -> str | None:

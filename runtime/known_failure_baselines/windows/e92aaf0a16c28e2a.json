@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_operations_cli_project_git_prerequisite.py::test_install_git_tries_macos_terminal_clt_before_handoff",
- "reason": "assert True is False"
-}

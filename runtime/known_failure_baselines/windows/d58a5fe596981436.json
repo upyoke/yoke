@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_git_prerequisite.py::test_missing_git_install_action_runs_helper_then_continues",
- "reason": "AssertionError: assert 'What to do' == 'Clone a project from GitHub.'"
-}

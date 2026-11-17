@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_operations_cli_claims_path_register.py::test_register_refuses_a_malformed_path_before_dispatch[docs/*.py-path_malformed-planned]",
- "reason": "AssertionError: assert 'path_windows_reserved' == 'path_malformed'"
-}

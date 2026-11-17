@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from typing import List
@@ -185,7 +186,7 @@ def test_a_probe_that_cannot_run_refuses_nothing(tmp_path) -> None:
         ("docs/*.py", "path_malformed"),
         ("'docs/a.py'", "path_malformed"),
         ('"docs/a.py', "path_malformed"),
-        ("docs\\a.py", "path_malformed"),
+        *([("docs\\a.py", "path_malformed")] if os.name != "nt" else []),
     ],
 )
 def test_register_refuses_a_malformed_path_before_dispatch(

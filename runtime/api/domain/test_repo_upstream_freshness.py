@@ -8,7 +8,7 @@ behaviour being relied on is the git behaviour under test.
 
 from __future__ import annotations
 
-from runtime.api.domain.repo_upstream_freshness_test_support import (project as project)
+from runtime.api.domain.repo_upstream_freshness_test_support import project as project
 
 from runtime.api.domain.repo_upstream_freshness_test_support import (
     _advance_remote as _advance_remote,
@@ -47,6 +47,19 @@ def test_already_current_says_nothing(project):
     assert result.note == ""
     assert result.lane_base_ref == result.local_sha
     assert result.verified and result.local_branch_current
+
+
+def test_checkout_path_spellings_resolve_to_the_same_holder(project, monkeypatch):
+    from yoke_cli.config import repo_upstream_git
+
+    checkout, seed, default = project
+    remote_sha = _advance_remote(seed, default)
+    monkeypatch.setattr(
+        repo_upstream_git, "branch_checkout_path", lambda *_: checkout.as_posix() + "/."
+    )
+    result = refresh_base_branch(str(checkout), default)
+    assert result.state == freshness.STATE_FAST_FORWARDED
+    assert _git(checkout, "rev-parse", default) == remote_sha
 
 
 def test_local_ahead_keeps_its_commits_and_stays_the_lane_base(project):
@@ -148,7 +161,9 @@ def test_fetch_failure_reports_and_leaves_work_on_the_local_branch(project):
 
 def test_project_without_a_remote_is_silent(tmp_path):
     repo = tmp_path / "local-only"
-    subprocess.run(["git", "init", "-q", "--initial-branch=main", str(repo)], check=True)
+    subprocess.run(
+        ["git", "init", "-q", "--initial-branch=main", str(repo)], check=True
+    )
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
     _commit(repo, "README.md", "local\n")

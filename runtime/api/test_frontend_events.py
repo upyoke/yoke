@@ -62,6 +62,7 @@ def test_anonymous_sink_sanitizes_deduplicates_and_stamps_its_own_identity(
         (ORIGIN, "incorrect", "publishable_key_invalid"),
         ("", None, "origin_not_allowed"),
     ],
+    ids=["bad-origin", "bad-key", "empty-origin"],
 )
 def test_collector_refuses_bad_origin_and_key_by_name(client, origin, key, reason):
     admitted = headers(client, origin)
@@ -145,6 +146,14 @@ def oversized_event():
             "event_too_large",
         ),
         (b" " * 524_289, "application/json", 413, "payload_too_large"),
+    ],
+    ids=[
+        "content-type",
+        "json",
+        "empty-events",
+        "event-count",
+        "event-size",
+        "payload-size",
     ],
 )
 def test_collector_names_each_input_refusal(client, body, content_type, status, reason):
@@ -237,6 +246,7 @@ def test_attribution_captures_without_consent_into_signed_httponly_cookie(client
         ("::1", "::1"),
         ("localhost", "localhost"),
     ],
+    ids=["app", "stage", "public-suffix", "ipv4", "ipv6", "localhost"],
 )
 def test_site_domain_is_the_serving_hosts_registrable_domain(host, owner):
     assert frontend_events_config.site_domain(host) == owner

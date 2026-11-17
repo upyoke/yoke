@@ -74,7 +74,14 @@ def test_absolute_path_without_a_checkout_names_the_recovery(
 
 @pytest.mark.parametrize(
     "typed",
-    ["docs/CON", "docs/nul.txt", "lpt1/x.py", "docs/name.", "docs/name /x.py", "a/b:c.py"],
+    [
+        "docs/CON",
+        "docs/nul.txt",
+        "lpt1/x.py",
+        "docs/name.",
+        "docs/name /x.py",
+        "a/b:c.py",
+    ],
 )
 def test_reserved_windows_names_are_refused(typed: str, tmp_path: Path) -> None:
     with pytest.raises(paths.RepoPathInputError) as caught:
@@ -82,6 +89,23 @@ def test_reserved_windows_names_are_refused(typed: str, tmp_path: Path) -> None:
 
     assert caught.value.code == "path_windows_reserved"
     assert "Rename the file" in str(caught.value)
+
+
+@pytest.mark.parametrize("typed", ['"docs/a.py', "docs/*.py", "docs/a?.py"])
+def test_malformed_shapes_precede_windows_reserved_names(typed: str) -> None:
+    with pytest.raises(paths.RepoPathInputError) as caught:
+        paths.normalize_repo_paths([typed], windows=True)
+    assert caught.value.code == "path_malformed"
+
+
+def test_windows_git_advice_names_the_native_installer() -> None:
+    from yoke_cli.config.project_git_install_advice import install_advice
+
+    advice = install_advice(platform_name="win32", which=lambda name: None)
+    assert "Git for Windows" in advice.note
+    assert "https://gitforwindows.org/" in advice.note
+    assert "PATH" in advice.note and "new terminal" in advice.note
+    assert "WSL" not in advice.note
 
 
 def test_paths_differing_only_by_case_are_refused(tmp_path: Path) -> None:

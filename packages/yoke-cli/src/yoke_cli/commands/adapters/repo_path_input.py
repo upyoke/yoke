@@ -25,6 +25,12 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from yoke_contracts.claim_path_syntax import (
+    PATH_MALFORMED,
+    malformed_claim_paths,
+    malformed_paths_message,
+)
+
 PATH_WINDOWS_RESERVED = "path_windows_reserved"
 PATH_CASE_COLLISION = "path_case_collision"
 PATH_OUTSIDE_REPOSITORY = "path_not_project_relative"
@@ -56,12 +62,13 @@ def normalize_repo_paths(
         return list(paths)
     root = _repo_root(repo_root) if any(_is_absolute(p) for p in paths) else None
     selected = [_relative_posix(path, root) for path in paths]
+    malformed = malformed_claim_paths(selected)
+    if malformed:
+        raise RepoPathInputError(PATH_MALFORMED, malformed_paths_message(malformed))
     reserved = [path for path in selected if _reserved_segments(path)]
     if reserved:
         raise RepoPathInputError(PATH_WINDOWS_RESERVED, _reserved_message(reserved))
-    collisions = _input_collisions(selected) or _tracked_mismatches(
-        selected, repo_root
-    )
+    collisions = _input_collisions(selected) or _tracked_mismatches(selected, repo_root)
     if collisions:
         raise RepoPathInputError(PATH_CASE_COLLISION, _collision_message(collisions))
     return selected
@@ -133,7 +140,15 @@ def _tracked_mismatches(
         return []
     try:
         proc = subprocess.run(
-            ["git", "-C", root, "ls-files", "-z", "--", *(f":(icase){p}" for p in paths)],
+            [
+                "git",
+                "-C",
+                root,
+                "ls-files",
+                "-z",
+                "--",
+                *(f":(icase){p}" for p in paths),
+            ],
             capture_output=True,
             check=False,
         )
