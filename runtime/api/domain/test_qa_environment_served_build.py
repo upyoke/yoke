@@ -129,3 +129,13 @@ def test_roster_step_and_case_run_recheck_frozen_authorization(test_db, monkeypa
         get_case_execution_context(test_db, requirement_id=execution["roster"][0]["requirement_id"])
     with pytest.raises(QaExecutionTargetError, match="not authorized"):
         heartbeat_plan_execution(test_db, execution)
+
+
+def test_result_uses_the_executions_frozen_target(test_db, monkeypatch):
+    _setup(test_db, monkeypatch)
+    execution = _begin(test_db)
+    requirement = execution["roster"][0]["requirement_id"]
+    test_db.execute("UPDATE qa_requirements SET execution_target_json=NULL,execution_target_digest=NULL WHERE id=%s", (requirement,))
+    written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command",
+                            performed_by="7", created_at=utc_now(), verdict="pass")
+    assert test_db.execute("SELECT served_build_sha FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()[0] == SHA

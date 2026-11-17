@@ -90,14 +90,22 @@ def bind_run_build(conn: Any, columns: dict, *, run_id: int | None = None) -> No
         return
     requirement_id = columns.get("qa_requirement_id") or prior.get("qa_requirement_id")
     requirement = _one(conn, "SELECT * FROM qa_requirements WHERE id=%s", (requirement_id,))
-    if not requirement or not requirement.get("execution_target_json"):
+    if not requirement:
         return
-    target = json.loads(requirement["execution_target_json"])
-    expected = str(prior.get("served_build_sha") or "")
+    execution = None
     if _table_exists(conn, "qa_plan_executions"):
         from yoke_core.domain.qa_run_execution_evidence import _execution
 
         execution = _execution(conn, requirement, run_id)
-        if execution and execution.get("served_build_sha"):
-            expected = str(execution["served_build_sha"])
+    target = (execution or {}).get("execution_target")
+    if target is None and requirement.get("execution_target_json"):
+        target = json.loads(requirement["execution_target_json"])
+    if target is None:
+        if requirement.get("target_env"):
+            raise QaExecutionTargetError(
+                "qa_environment_identity_missing: result has no frozen target; "
+                "begin a case execution before recording its result"
+            )
+        return
+    expected = str((execution or {}).get("served_build_sha") or prior.get("served_build_sha") or "")
     columns.update(observe_build(conn, target, expected=expected))
