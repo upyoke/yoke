@@ -98,6 +98,7 @@ def test_bootstrap_writers_create_private_home_before_config_lock(
             assert stat.S_IMODE(path.stat().st_mode) == 0o700
 
 
+@pytest.mark.posix_only(reason="POSIX permission bits and chmod repair")
 def test_existing_writable_home_is_refused_with_exact_repair(tmp_path: Path):
     home = tmp_path / "machine home's directory"
     home.mkdir()
