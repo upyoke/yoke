@@ -23,6 +23,13 @@ ended. The carried walk keeps going on its own execution and may pass on the
 newer build. Once the owner ends or the walk settles, the next QA check wakes
 the member as usual.
 
+For manual-only QA, takeover notices tell a holder without a scheduled wake to
+check the evidence and schedule its own next recheck before parking; dispatch
+will not wake it for that evidence. A steering recipient must staff the item
+so its holder can do this. A manual-only holder with a future scheduled recheck
+gets no takeover notice. Members with automatic requirements still receive the
+successor dispatch guidance.
+
 QA tests whatever is deployed at the authorized destination. A newer build than
 the run delivered is normal, not drift: QA start reports a different served
 commit and proceeds, and each deployment-bound browser case records the commit

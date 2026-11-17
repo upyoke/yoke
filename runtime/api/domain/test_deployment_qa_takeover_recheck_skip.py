@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+import pytest
+
+from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
 from runtime.api.domain.deployment_qa_manual_wake_test_support import _requirement
 from runtime.api.domain.deployment_qa_stage_dispatch_wake_test_support import (
     _member,
@@ -16,12 +19,14 @@ from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _bodies,
     _claim,
     _project,
+    _recipients,
     seed_session,
 )
 from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.deployment_qa_manual_wake import MANUAL_WAKE_RECHECK_INSTRUCTION
 from yoke_core.domain.deployment_qa_takeover_notice import notify_moved_member_qa
 from yoke_core.domain.session_scheduled_wake import schedule_session_wake
-from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.work_claim_targets import make_item_target, make_steering_target
 
 OLD = "run-takeover-recheck-old"
 NEW = "run-takeover-recheck-new"
@@ -79,19 +84,55 @@ def test_manual_only_holder_with_a_future_recheck_is_not_woken(test_db: Any) -> 
     assert _moved(test_db, SOAKING) == []
     [body] = _moved(test_db, OTHER)
     assert f"to run {NEW}" in body, "a holder without a recheck still hears"
+    assert MANUAL_WAKE_RECHECK_INSTRUCTION in body
 
 
 def test_holder_without_a_future_recheck_is_notified(test_db: Any) -> None:
     _seed(test_db)
     _requirement(test_db, requirement_id=99211, run_id=NEW, member=SOAKING, wake_path="manual")
     _notify(test_db)
-    assert len(_moved(test_db, SOAKING)) == 1
+    [body] = _moved(test_db, SOAKING)
+    assert _recipients(test_db, f"deployment-qa-moved:{NEW}:{SOAKING}") == [HOLDER_A]
+    assert "manual-wake QA moved" in body
+    assert "No dispatch will wake you for it: check the evidence" in body
+    assert MANUAL_WAKE_RECHECK_INSTRUCTION in body
+    assert "dispatch will wake you;" not in body
 
 
-def test_recheck_holder_with_an_automatic_requirement_is_notified(test_db: Any) -> None:
+def test_manual_only_holderless_member_gets_staffing_notice(test_db: Any) -> None:
     _seed(test_db)
-    _requirement(test_db, requirement_id=99311, run_id=NEW, member=SOAKING, wake_path="manual")
+    test_db.execute("UPDATE work_claims SET released_at=%s", (utc_now(),))
+    _claim(
+        test_db,
+        session_id=HOLDER_B,
+        target_kind="steering",
+        scope_json=make_steering_target(PROJECT_YOKE).scope_json(),
+    )
+    _requirement(test_db, requirement_id=99221, run_id=NEW, member=SOAKING, wake_path="manual")
+    _notify(test_db)
+    [body] = _moved(test_db, SOAKING)
+    assert _recipients(test_db, f"deployment-qa-moved:{NEW}:{SOAKING}") == [HOLDER_B]
+    assert "Reaching the project's steering seat" in body
+    assert "No dispatch will wake the claim holder" in body
+    assert "staff this item so its holder can check the evidence" in body
+    assert MANUAL_WAKE_RECHECK_INSTRUCTION in body
+    assert "dispatch will wake you;" not in body
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_recheck_holder_with_an_automatic_requirement_is_notified(
+    test_db: Any, mixed: bool
+) -> None:
+    _seed(test_db)
+    if mixed:
+        _requirement(test_db, requirement_id=99311, run_id=NEW, member=SOAKING, wake_path="manual")
     _requirement(test_db, requirement_id=99312, run_id=NEW, member=SOAKING, wake_path=None)
     _schedule(test_db, HOLDER_A)
     _notify(test_db)
-    assert len(_moved(test_db, SOAKING)) == 1
+    [body] = _moved(test_db, SOAKING)
+    assert body == (
+        f"YOK-{SOAKING}'s QA moved from run {OLD} to run {NEW}. "
+        f"It opens when {NEW} reaches item QA stage 'item-qa'. "
+        "The successor's QA dispatch will wake you; do not act on the "
+        "predecessor's wake."
+    )

@@ -43,6 +43,18 @@ from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 #: What the owner column says when no live session holds the item.
 NO_OWNER = "no live claim holder; staff the item before waking it"
 
+#: One recheck instruction for both stage and takeover notices.
+MANUAL_WAKE_RECHECK_INSTRUCTION = (
+    "Evidence not available yet: before you park, schedule your next "
+    "recheck for whenever the evidence could plausibly exist (a date for "
+    "time-based evidence, a sensible interval for event-based evidence) "
+    "with `yoke sessions wake schedule --at UTC_INSTANT "
+    '--reason "check the required evidence"`, and schedule the next one '
+    "after every recheck that still finds none; parking refuses without "
+    "one. A takeover alone does not wake you once you hold a scheduled "
+    "recheck."
+)
+
 
 @dataclass(frozen=True)
 class ManualWakeRequirement:
@@ -92,14 +104,8 @@ class ManualWakeRequirement:
             "('yoke deployment-runs get', 'yoke qa requirement list', 'yoke db "
             f"read'): {self.wake_evidence} If it exists, run the member's cases: "
             f"'{self.run_command()}'. {holder_instruction}"
-            "Evidence not available yet: before you park, schedule your next "
-            "recheck for whenever the evidence could plausibly exist (a date for "
-            "time-based evidence, a sensible interval for event-based evidence) "
-            "with `yoke sessions wake schedule --at UTC_INSTANT "
-            '--reason "check the required evidence"`, and schedule the next one '
-            "after every recheck that still finds none; parking refuses without "
-            "one. A takeover alone does not wake you once you hold a scheduled "
-            f"recheck. Check 'yoke deployment-runs get {self.run_id}' for the "
+            f"{MANUAL_WAKE_RECHECK_INSTRUCTION} "
+            f"Check 'yoke deployment-runs get {self.run_id}' for the "
             "current state."
         )
 

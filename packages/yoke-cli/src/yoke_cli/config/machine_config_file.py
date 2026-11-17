@@ -51,7 +51,7 @@ def ensure_owner_only_directory(path: str | Path) -> Path:
             )
         # POSIX only: tighten an own directory left at the umask, never a
         # foreign one (root's chmod would otherwise succeed).
-        if hasattr(os, "getuid") and info.st_uid != os.getuid():
+        if not owner_private_path.is_current_user_owned_path(selected):
             raise MachineConfigFileError(
                 f"machine-state directory is not owned by the current user: {selected}"
             )
@@ -225,23 +225,16 @@ def _assert_secure_parent(path: Path) -> None:
         raise MachineConfigFileError(
             f"machine-config parent must be a directory: {path}"
         )
-    if owner_private_path.is_owner_private_directory(path):
-        return
-    if _WINDOWS:
-        raise MachineConfigFileError(
-            f"machine-config parent is not owner-only: {path}; "
-            f"{_REPAIR_WINDOWS_ACCESS}, then retry"
-        )
-    # POSIX admits a parent others may read but not write (for example a
-    # chosen YOKE_CONFIG_FILE under ~/.config); no shared helper owns that.
-    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+    if not owner_private_path.is_current_user_owned_path(path):
         raise MachineConfigFileError(
             f"machine-config parent is not owned by the current user: {path}"
         )
-    if stat.S_IMODE(info.st_mode) & 0o022:
+    if not owner_private_path.is_others_unwritable_directory(path):
+        repair = ("remove other users' write access" if _WINDOWS
+                  else f"run chmod 700 {shlex.quote(str(path))}")
         raise MachineConfigFileError(
             f"machine-config parent must not be group- or world-writable: {path}; "
-            f"run chmod 700 {shlex.quote(str(path))}, then retry"
+            f"{repair}, then retry"
         )
 
 
@@ -271,7 +264,7 @@ def _assert_config_target(path: Path) -> None:
         raise MachineConfigFileError(f"machine config must be a regular file: {path}")
     # Ownership only: the next write replaces the file owner-only, and
     # `yoke status` reports looser permissions as config_permissions.
-    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+    if not owner_private_path.is_current_user_owned_path(path):
         raise MachineConfigFileError(
             f"machine config is not owned by the current user: {path}"
         )
