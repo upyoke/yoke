@@ -146,7 +146,9 @@ def test_cursor_shell_gates_on_its_own_event_and_completes_on_post_tool_use() ->
     block = render_cursor_hooks_block()["hooks"]
     assert block["preToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
     assert "matcher" not in block["postToolUse"][0]
-    assert "evaluate PostToolUse" in block["postToolUse"][0]["command"]
+    assert "evaluate PostToolUse" in hook_command_source(
+        block["postToolUse"][0]["command"]
+    )
     assert "afterShellExecution" not in block
 
 

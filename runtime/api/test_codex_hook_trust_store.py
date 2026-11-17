@@ -155,7 +155,10 @@ def test_retired_worktree_loses_hook_and_project_trust_only(tmp_path: Path):
     state = _state(config)
     assert str(lane) not in state["projects"]
     assert str(live) in state["projects"]
-    assert all(not key.startswith(f"{lane}/") for key in state["hooks"]["state"])
+    assert all(
+        not key.startswith(f"{lane / '.codex/hooks.json'}:")
+        for key in state["hooks"]["state"]
+    )
     assert len(state["hooks"]["state"]) == 2
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -93,7 +94,7 @@ def test_command_edit_marks_persisted_trust_modified(monkeypatch, tmp_path: Path
     hooks = worktree / ".codex/hooks.json"
     document = json.loads(hooks.read_text(encoding="utf-8"))
     handler = document["hooks"]["SessionStart"][0]["hooks"][0]
-    handler["command"] += " changed"
+    handler["commandWindows" if os.name == "nt" else "command"] += " changed"
     hooks.write_text(json.dumps(document), encoding="utf-8")
 
     result = _run(monkeypatch, source, worktree, config)
@@ -109,7 +110,8 @@ def test_main_checkout_mismatch_fails_with_codex_retrust_recovery(
     source, worktree, config = _seed(tmp_path)
     hooks = source / ".codex/hooks.json"
     document = json.loads(hooks.read_text(encoding="utf-8"))
-    document["hooks"]["SessionStart"][0]["hooks"][0]["command"] += " changed"
+    handler = document["hooks"]["SessionStart"][0]["hooks"][0]
+    handler["commandWindows" if os.name == "nt" else "command"] += " changed"
     hooks.write_text(json.dumps(document), encoding="utf-8")
 
     result = _run(monkeypatch, source, worktree, config)
