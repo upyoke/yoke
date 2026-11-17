@@ -2,20 +2,9 @@
  "id": "windows-and-wsl",
  "title": "Windows and WSL",
  "status": "observed",
- "commands": [
-  "yoke wsl setup"
- ],
+ "commands": ["yoke wsl setup"],
  "page": "installation",
  "position": 2,
  "summary": "The native Windows installer uses uv-managed Python 3.12+; macOS/Linux remain 3.11+. --wsl teaches the separate Ubuntu route. Status, path doctor and uninstall report persistent user PATH and retain uv-owned entries. Native Windows acceptance and support remain pending. Shared platform owners handle process custody, links and file locks; POSIX uid access refuses explicitly on native Windows. Live browser identities require a symlink or junction rather than a copied profile.",
- "sources": [
-  "packaging/public-installer/install.ps1",
-  "packaging/public-installer/source/native_windows.py.inc",
-  "packages/yoke-contracts/src/yoke_contracts/windows_user_path.py",
-  "packages/yoke-contracts/src/yoke_contracts/platform_process.py",
-  "packages/yoke-contracts/src/yoke_contracts/platform_links.py",
-  "packages/yoke-contracts/src/yoke_contracts/platform_file_lock.py",
-  "packages/yoke-contracts/src/yoke_contracts/owner_private_path.py",
-  "packages/yoke-cli/src/yoke_cli/config/browser_profile.py"
- ]
+ "sources": ["packaging/public-installer/install.ps1", "packaging/public-installer/source/native_windows.py.inc", "packages/yoke-contracts/src/yoke_contracts/windows_user_path.py", "packages/yoke-contracts/src/yoke_contracts/platform_process.py", "packages/yoke-contracts/src/yoke_contracts/platform_links.py", "packages/yoke-contracts/src/yoke_contracts/platform_file_lock.py", "packages/yoke-contracts/src/yoke_contracts/owner_private_path.py", "packages/yoke-cli/src/yoke_cli/config/browser_profile.py"]
 }

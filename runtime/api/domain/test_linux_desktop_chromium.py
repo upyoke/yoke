@@ -239,8 +239,8 @@ def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, t
         lambda: {"XDG_DATA_DIRS": "/snap/data", "DISPLAY": ":11"},
     )
     monkeypatch.setattr(
-        host.subprocess,
-        "Popen",
+        host,
+        "spawn_group",
         lambda argv, **kw: launched.append((argv, kw.get("env"))),
     )
     monkeypatch.setattr(host.time, "sleep", lambda _s: None)
