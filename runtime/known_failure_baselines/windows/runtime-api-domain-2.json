@@ -98,7 +98,6 @@
 "runtime/api/domain/test_machine_config_writer.py::TestSetConnection::test_create_writes_valid_config_and_activates_first_env": "assert 438 == 384",
 "runtime/api/domain/test_machine_config_writer.py::TestSetCredential::test_token_stdin_stores_secret_owner_only": "AssertionError: assert (33206 & 511) == 384",
 "runtime/api/domain/test_machine_config_writer_concurrency.py::test_writer_waits_for_stable_lock_then_merges_latest_payload": "AssertionError: assert 438 == 384",
-"runtime/api/domain/test_machine_qa.py::test_baselines_keep_full_reset_distinct_from_shell_preconfiguration": "AssertionError: assert False",
 "runtime/api/domain/test_machine_scope_scratch.py::test_evidence_walk_finds_machine_scope_runs": "AssertionError: assert [] == [WindowsPath(...vidence.log')]",
 "runtime/api/domain/test_machine_screenshot_client.py::test_screenshot_cli_keeps_only_accepted_png_and_fails_error_receipt[verified]": "AssertionError: assert (33206 & 511) == 384",
 "runtime/api/domain/test_main_agent_packet.py::test_render_main_agent_block_full_leads_with_its_heading": "AssertionError: full block must lead with an ``=== ... ===`` heading to match the surrounding bootstrap render_full layout",
