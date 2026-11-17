@@ -19,6 +19,7 @@ from pathlib import Path
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,

@@ -20,7 +20,6 @@ destination.
 from __future__ import annotations
 
 from yoke_contracts.hook_runner.bash_paths import canonical_native_path
-from yoke_contracts.hook_runner.client_facts import read_client_fact, WRITE_TARGETS_KEY
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.hook_runner.shell_parse import (
@@ -89,9 +88,6 @@ def command_execution_cwd(
     payload: Mapping[str, Any], *, machine_home: str | None = None
 ) -> str:
     """Return the absolute directory the payload's command runs in, or ``""``."""
-    fact = read_client_fact(payload, WRITE_TARGETS_KEY)
-    if isinstance(fact, Mapping) and isinstance(fact.get("execution_cwd"), str):
-        return fact["execution_cwd"]
     cwd = _declared_cwd(payload, machine_home)
     parsed = _parse(payload)
     return _leading_cd_cwd(cwd, parsed, machine_home, _bindings(parsed))

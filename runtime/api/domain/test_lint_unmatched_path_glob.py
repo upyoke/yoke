@@ -240,7 +240,7 @@ def test_path_globs_use_the_executing_filesystem(
     if operand == "home":
         token = f"~/Downloads/{stem}*"
     elif operand == "absolute":
-        token = str(downloads / f"{stem}*")
+        token = (downloads / f"{stem}*").as_posix()
     else:
         token = f"../home/Downloads/{stem}*"
     payload = _payload(f"ls {token}", cwd=str(cwd))

@@ -81,6 +81,8 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
     )
     cwd = canonical_native_path(os.path.expanduser(cwd))
     for segment in shell.segments:
+        if segment.assignments and not segment.argv:
+            continue
         destination = cd_destination(segment.argv)
         moved = (
             advance_cwd(cwd, destination, shell=shell.shell)
@@ -233,7 +235,6 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
         {
             "paths": entries,
             "worktrees": sorted(worktrees),
-            "execution_cwd": cwd,
             "bash_paths": {
                 "windows": os.name == "nt",
                 "tmpdir": canonical_native_path(os.environ["TMPDIR"])

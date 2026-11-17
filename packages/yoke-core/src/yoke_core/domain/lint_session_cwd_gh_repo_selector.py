@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import is_absolute
+
 import re
 import shlex
 from pathlib import PurePath
@@ -48,7 +50,7 @@ def extract_gh_repo_selector_targets(command: str | ShellParse) -> List[str]:
         paths = shlex.split(match.group("path"))
     except ValueError:
         return []
-    return paths if len(paths) == 1 and PurePath(paths[0]).is_absolute() else []
+    return paths if len(paths) == 1 and is_absolute(paths[0]) else []
 
 
 __all__ = ["extract_gh_repo_selector_targets"]

@@ -22,7 +22,7 @@ not to the checkout root, so the suggestion never nests one lane's
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
-from yoke_contracts.hook_runner.bash_paths import canonical_native_path, join_path
+from yoke_contracts.hook_runner.bash_paths import lexical_client_path, join_path
 from typing import Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_path_authority import (
@@ -93,8 +93,8 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
         return claim.worktree_path
     try:
         rel = PurePosixPath(
-            canonical_native_path(main_target).replace("\\", "/")
-        ).relative_to(PurePosixPath(canonical_native_path(root).replace("\\", "/")))
+            lexical_client_path(main_target).replace("\\", "/")
+        ).relative_to(PurePosixPath(lexical_client_path(root).replace("\\", "/")))
     except (OSError, ValueError):
         return claim.worktree_path
     parts = rel.parts

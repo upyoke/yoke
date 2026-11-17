@@ -52,7 +52,8 @@ def capture_files_fact(payload: Mapping[str, object]) -> dict:
         for segment in parse_shell(command).segments:
             for raw in segment.argv:
                 if (
-                    "/" not in raw
+                    raw in files
+                    or "/" not in raw
                     or raw.startswith("-")
                     or len(files) >= _MAX_CAPTURE_FILES
                 ):

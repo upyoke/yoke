@@ -61,7 +61,10 @@ def lane_root():
     Absolute targets under ``/tmp`` are never claim-checked, so lanes that
     must be refused cannot live in a ``/tmp`` based ``tmp_path``.
     """
-    root = os.path.realpath(tempfile.mkdtemp(prefix="yoke-lane-", dir=Path.home()))
+    base = Path("/var/tmp")
+    if not base.is_dir():
+        base = Path(tempfile.gettempdir())
+    root = os.path.realpath(tempfile.mkdtemp(prefix="yoke-lane-", dir=base))
     yield Path(root)
     shutil.rmtree(root, ignore_errors=True)
 

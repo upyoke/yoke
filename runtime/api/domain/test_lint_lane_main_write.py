@@ -100,7 +100,7 @@ class TestMainWriteRefused:
         assert "BLOCKED" in verdict.reason
         assert str(wt) in verdict.reason
         assert str(target) in verdict.reason
-        assert f"{wt}/runtime/api/foo.py" in verdict.reason
+        assert str(wt / "runtime/api/foo.py") in verdict.reason
 
     def test_bash_redirect_to_main_denies(self, conn, repo):
         _seed_lane(conn, repo)

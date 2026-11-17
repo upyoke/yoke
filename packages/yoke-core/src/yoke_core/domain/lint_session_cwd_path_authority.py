@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import posixpath
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from yoke_contracts.hook_runner.bash_paths import (
-    canonical_native_path,
+    lexical_client_path,
     is_absolute,
     resolve_bash_path,
     is_under,
@@ -196,7 +196,7 @@ def recorded_repo_roots(conn: Any) -> List[str]:
 
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
-    normalized = normalize_repo_path(canonical_native_path(worktree_path))
+    normalized = normalize_repo_path(lexical_client_path(worktree_path))
     root, marker, _ = normalized.rpartition("/.worktrees/")
     if marker:
         return root or "/"

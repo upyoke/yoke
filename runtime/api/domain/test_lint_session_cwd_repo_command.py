@@ -22,7 +22,7 @@ CURRENT_SESSION = "sid-current"
 HOLDER_SESSION = "sid-holder"
 CURRENT_ITEM = 7301
 HELD_ITEM = 7302
-FOREIGN_CWD = "/__mapped_other_project__/.worktrees/unclaimed"
+FOREIGN_CWD = str((Path("/__mapped_other_project__") / ".worktrees" / "unclaimed").absolute())
 
 
 @pytest.fixture

@@ -113,6 +113,13 @@ def canonical_native_path(path: str) -> str:
     return os.path.realpath(path)
 
 
+def lexical_client_path(path: str) -> str:
+    """Use client-observed aliases when present; never probe authority disk."""
+    if _CLIENT_PATHS.get() is not None:
+        return canonical_native_path(path)
+    return ntpath.normpath(path) if windows_path(path) else posixpath.normpath(path)
+
+
 def is_under(path: str, root: str) -> bool:
     """Compare canonical paths using the executing client's separators and case."""
     if not path or not root:

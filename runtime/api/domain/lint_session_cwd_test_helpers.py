@@ -9,7 +9,7 @@ schema pre-seeds the ``yoke`` (id 1) and ``externalwebapp`` (id 2) project rows.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 from runtime.api.fixtures.dispatch_actor import register_session_actor
@@ -29,6 +29,11 @@ _PROJECT_IDS = {"yoke": 1, "externalwebapp": 2}
 
 def project_id(project: str = "yoke") -> int:
     return _PROJECT_IDS.get(project, 100)
+
+
+def _lane_path(repo_path, branch):
+    root = repo_path if isinstance(repo_path, PurePath) else Path(repo_path)
+    return str(root / ".worktrees" / branch)
 
 
 def seed_item(
@@ -66,7 +71,7 @@ def seed_item(
             conn,
             item_id=item_id,
             branch=branch,
-            path=str(Path(repo_path) / ".worktrees" / branch),
+            path=_lane_path(repo_path, branch),
             lane_role="integration" if workflow_id == "epic" else "implementation",
         )
 
@@ -96,7 +101,7 @@ def seed_epic_task(
         epic_id=epic_id,
         task_num=task_num,
         worktree=branch,
-        worktree_path=str(Path(repo_path) / ".worktrees" / branch),
+        worktree_path=_lane_path(repo_path, branch),
     )
 
 

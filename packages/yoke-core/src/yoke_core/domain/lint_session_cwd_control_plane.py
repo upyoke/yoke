@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.client_facts import yoke_source_root
-from yoke_contracts.hook_runner.bash_paths import canonical_native_path, resolve_bash_path, is_absolute, windows_path
+from yoke_contracts.hook_runner.bash_paths import canonical_native_path, resolve_bash_path, is_absolute, windows_path, is_under
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_session_cwd_host_command import (
     host_command_exemption_note,
@@ -95,9 +95,7 @@ def _pythonpath_matches_yoke(value: str, yoke_root: str) -> bool:
         if not is_absolute(candidate):
             continue
         resolved = resolve_bash_path(candidate).replace("\\", "/")
-        if resolved == resolved_root:
-            return True
-        if resolved.startswith(resolved_root.rstrip("/") + "/"):
+        if is_under(resolved, resolved_root):
             return True
     return False
 
