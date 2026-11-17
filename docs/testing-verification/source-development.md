@@ -43,6 +43,10 @@ Candidate Command QA provisions its disposable checkout through the existing
 test-environment setup, binds Python and Yoke to that exact candidate's
 environment, and records identity and origins before/after the case. Ordinary
 installed control-plane commands retain installed runtime selection.
+The disposable candidate launcher covers both shell commands and nested native
+subprocesses. On Windows it includes a native executable tied to the verified
+candidate interpreter, so a bare `yoke` subprocess cannot fall through to an
+ambient installed launcher. The temporary launchers are removed after the case.
 The project selected by scoped QA travels in the command environment into
 the declaration lookup, so disposable checkouts need no machine checkout
 mapping or manual ambient project export. Select it with `--project P` on
