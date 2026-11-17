@@ -65,7 +65,7 @@ def test_explicit_no_color_console(monkeypatch, setting, value):
 )
 @pytest.mark.parametrize("shell", ["cmd.exe", "powershell.exe", "pwsh.exe"])
 @pytest.mark.parametrize("surface", ["status", "setup"])
-def test_native_shell_output_capture(tmp_path, shell, surface):
+def test_native_shell_output_capture(tmp_path, shell, surface, request):
     executable = shutil.which(shell)
     if not executable:
         pytest.skip(f"{shell} is not installed on this Windows runner")
@@ -115,6 +115,7 @@ def test_native_shell_output_capture(tmp_path, shell, surface):
             argv, capture_output=True, stdin=subprocess.DEVNULL, env=env, timeout=30
         )
     except subprocess.TimeoutExpired as exc:
+        request.node.user_properties.append(("python_started", started_marker.exists()))
         if started_marker.exists():
             startup_seconds = float(started_marker.read_text()) - launched_at
             diagnostic = (
@@ -130,6 +131,7 @@ def test_native_shell_output_capture(tmp_path, shell, surface):
         )
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
     startup_seconds = float(started_marker.read_text()) - launched_at
+    request.node.user_properties.append(("python_startup_seconds", startup_seconds))
     print(f"WINDOWS_SHELL_START {shell} {surface}: {startup_seconds:.3f}s")
     output = result.stdout.decode("utf-8-sig")
     assert "José 東京" in output and "\x1b[" not in output
