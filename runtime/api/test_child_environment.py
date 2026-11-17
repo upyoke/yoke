@@ -8,6 +8,7 @@ import sys
 
 import pytest
 
+from yoke_contracts.process_environment import WINDOWS_SYSTEM_VARIABLES
 from yoke_contracts.testing import child_environment
 
 
@@ -43,7 +44,7 @@ def test_minimal_environment_keeps_system_variables_and_directory_boundaries(
 
 
 def test_minimal_environment_without_windows_variables(monkeypatch):
-    for name in child_environment.WINDOWS_SYSTEM_VARIABLES:
+    for name in WINDOWS_SYSTEM_VARIABLES:
         monkeypatch.delenv(name, raising=False)
     env = child_environment.minimal_child_environment()
     assert set(env) == {"PATH"}
@@ -61,3 +62,18 @@ def test_minimal_child_can_initialize_networking():
         capture_output=True, text=True, check=True, timeout=30,
     )
     assert json.loads(result.stdout) is True
+
+
+def test_delegated_service_child_keeps_os_startup_without_caller_authority(monkeypatch):
+    from yoke_core.api import service_client_shared_io
+
+    values = {name: f"system-{name}" for name in WINDOWS_SYSTEM_VARIABLES}
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("YOKE_API_TOKEN", "operator-secret")
+    monkeypatch.setenv("YOKE_SESSION_ID", "operator-session")
+    monkeypatch.setattr(service_client_shared_io, "_subprocess_backend_env", lambda: {})
+    env = service_client_shared_io._subprocess_service_env()
+    assert {name: env[name] for name in values} == values
+    assert "YOKE_API_TOKEN" not in env
+    assert "YOKE_SESSION_ID" not in env

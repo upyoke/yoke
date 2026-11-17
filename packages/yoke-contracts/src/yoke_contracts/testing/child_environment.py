@@ -8,7 +8,7 @@ import sys
 from collections.abc import Iterable
 
 
-WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
+from yoke_contracts.process_environment import system_startup_environment
 
 
 def minimal_child_environment(
@@ -19,7 +19,7 @@ def minimal_child_environment(
     Explicit entries come first so test shims and a child's virtualenv win.
     Split existing PATH values before passing them: each entry is one directory.
     """
-    env = {name: os.environ[name] for name in WINDOWS_SYSTEM_VARIABLES if name in os.environ}
+    env = system_startup_environment()
     directories = [*(os.fspath(path) for path in path_entries), str(Path(sys.executable).parent)]
     if system_root := env.get("SYSTEMROOT"):
         directories.append(str(Path(system_root) / "System32"))
