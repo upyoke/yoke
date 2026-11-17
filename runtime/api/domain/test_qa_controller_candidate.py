@@ -175,7 +175,7 @@ def test_stale_controller_hands_the_begun_execution_to_the_candidate(
     monkeypatch.setattr(handoff, "provision", lambda candidate: runtime)
     seen = {}
 
-    def candidate_child(argv, *, env, check):
+    def candidate_child(argv, *, env, check, stdout):
         request = json.loads(Path(argv[-2]).read_text())
         seen.update(argv=argv, env=env, request=request)
         Path(argv[-1]).write_text(

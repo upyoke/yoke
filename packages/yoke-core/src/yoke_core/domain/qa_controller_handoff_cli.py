@@ -88,6 +88,8 @@ def hand_off(
             [str(runtime.python), "-I", "-m", HANDOFF_MODULE, str(request), str(response)],
             env=env,
             check=False,
+            # The parent prints the one plan result on stdout; progress is stderr.
+            stdout=sys.stderr,
         )
         try:
             payload = json.loads(response.read_text())
