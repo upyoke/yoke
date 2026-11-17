@@ -2,11 +2,13 @@
 
     python -m runtime.known_failure_baseline_record --os windows --reports DIR
 
-``DIR`` holds the run's shard outputs: the ``pytest-output-<os>-<shard>``
-artifacts (their JUnit ``pytest-report.xml``), or saved job logs. Every failed
-or erroring test becomes an entry whose reason is its failure message; an
-entry the plugin reported as ``[XPASS(strict)] <node id> passed`` is deleted,
-and every other existing entry is kept. Read the result before committing: an
+``DIR`` holds one or more runs' shard outputs: the
+``pytest-output-<os>-<shard>`` artifacts (their JUnit ``pytest-report.xml``),
+or saved job logs. A test that fails wherever it ran becomes an entry whose
+reason is its failure message; an entry for a test that passed (or reported
+``[XPASS(strict)] <node id> passed``) is deleted; a test that both failed and
+passed across the reports is printed as flaky and never recorded, since a
+strict entry cannot hold it. Every other existing entry is kept. Read the result before committing: an
 entry is a promise that the test fails there for the stated reason, and a
 flaky test belongs in a fix, not in a strict baseline.
 """
@@ -77,6 +79,7 @@ def summary_entries(lines: Iterable[str]) -> tuple[dict[str, str], set[str]]:
 
 
 REPO_ROOT = BASELINE_DIR.parents[1]
+_EXPECTED = " known failure: "
 _PHASE_MESSAGE = re.compile(r'^failed on (?:setup|teardown) with "(.*)"$', re.DOTALL)
 
 
@@ -92,20 +95,45 @@ def junit_node_id(classname: str, name: str, root: Path = REPO_ROOT) -> str:
     return "::".join([classname.replace(".", "/") + ".py", name])
 
 
+def expected_reason(skipped) -> str | None:
+    """The baseline reason of a listed test's xfail or a listed module's skip."""
+    import ast
+
+    message = skipped.get("message") or ""
+    if _EXPECTED not in message:
+        try:  # a collection skip's text is its (path, line, message) tuple
+            message = str(ast.literal_eval((skipped.text or "").strip())[2])
+        except (ValueError, SyntaxError, TypeError, IndexError):
+            return None
+    if _EXPECTED not in message:
+        return None
+    return message.split(_EXPECTED, 1)[1].strip()
+
+
 def junit_entries(path: Path, root: Path = REPO_ROOT) -> tuple[dict[str, str], set[str]]:
-    """Failures with their first message line, and listed tests that passed."""
+    """Tests that failed, with their first message line, and tests that passed.
+
+    A listed test reported as an expected failure (xfail, or a listed module's
+    import skip) counts as failing; a listed test that XPASSed counts as passing.
+    """
     import xml.etree.ElementTree as ElementTree
 
     failures: dict[str, str] = {}
     passed: set[str] = set()
     for case in ElementTree.parse(path).getroot().iter("testcase"):
-        problems = [child for child in case if child.tag in {"failure", "error"}]
-        if not problems:
-            continue
         node_id = junit_node_id(case.get("classname", ""), case.get("name", ""), root)
-        texts = [f"{child.get('message') or ''}\n{child.text or ''}" for child in problems]
+        problems = [child for child in case if child.tag in {"failure", "error"}]
+        texts = [f"{child.get('message') or ''}\n{child.text or ''}" for child in case]
         if any(XPASS_MARK in text for text in texts):
             passed.add(node_id)
+            continue
+        if not problems:
+            skipped = case.find("skipped")
+            reason = None if skipped is None else expected_reason(skipped)
+            if reason is not None:
+                failures.setdefault(node_id, reason_text(reason))
+            elif skipped is None:
+                passed.add(node_id)
             continue
         message = problems[0].get("message") or ""
         if message == "collection failure":  # the exception is the text's last line
@@ -117,8 +145,6 @@ def junit_entries(path: Path, root: Path = REPO_ROOT) -> tuple[dict[str, str], s
         phase = _PHASE_MESSAGE.match(message)
         message = (phase.group(1) if phase else message).strip().splitlines()
         failures.setdefault(node_id, reason_text(message[0] if message else ""))
-    for node_id in passed:
-        failures.pop(node_id, None)
     return failures, passed
 
 
@@ -179,14 +205,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--reports", required=True, type=Path)
     args = parser.parse_args(argv)
     failures, passed = read_reports(args.reports)
-    entries = {k: v for k, v in load_baseline(args.os).items() if k not in passed}
-    added = {k: v for k, v in failures.items() if k not in entries}
+    existing = load_baseline(args.os)
+    entries = {k: v for k, v in existing.items() if k not in passed}
+    added = {k: v for k, v in failures.items() if k not in entries and k not in passed}
     entries.update(added)
     written = write_baseline(args.os, entries)
+    flaky = sorted(set(failures) & passed)
     print(
         f"{args.os}: {len(entries)} entries in {len(written)} files "
-        f"({len(added)} added, {len(passed)} removed as XPASS)"
+        f"({len(added)} added, {len(existing) - (len(entries) - len(added))} removed as passing)"
     )
+    for node_id in flaky:
+        print(f"flaky (failed and passed across these reports; not recorded): {node_id}")
     return 0
 
 

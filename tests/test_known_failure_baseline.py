@@ -234,6 +234,9 @@ def test_recorder_reads_exact_node_ids_from_junit(tmp_path) -> None:
     import pwd
 E   ModuleNotFoundError: No module named 'pwd'</error></testcase>
 <testcase classname="tests.test_a" name="test_ok"/>
+<testcase classname="tests.test_a" name="test_listed"><skipped type="pytest.xfail" message="windows known failure: module 'os' has no attribute 'getuid'"/></testcase>
+<testcase classname="" name="tests.test_c"><skipped message="collection skipped">('x', 0, "Skipped: windows known failure: No module named 'pwd'")</skipped></testcase>
+<testcase classname="tests.test_a" name="test_skip"><skipped message="needs Linux"/></testcase>
 </testsuite></testsuites>""",
         encoding="utf-8",
     )
@@ -242,5 +245,30 @@ E   ModuleNotFoundError: No module named 'pwd'</error></testcase>
         "tests/test_a.py::test_x[two words\\nline]": "AssertionError: assert 1 == 2",
         "tests/test_a.py::TestK::test_y": "OSError: nope",
         "tests/test_b.py": "ModuleNotFoundError: No module named 'pwd'",
+        "tests/test_a.py::test_listed": "module 'os' has no attribute 'getuid'",
+        "tests/test_c.py": "No module named 'pwd'",
     }
-    assert passed == {"tests/test_a.py::test_z"}
+    assert passed == {"tests/test_a.py::test_z", "tests/test_a.py::test_ok"}
+
+
+def test_recorder_reports_flaky_tests_without_recording_them(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(baseline, "BASELINE_DIR", tmp_path / "baselines")
+    monkeypatch.setattr(record, "BASELINE_DIR", tmp_path / "baselines")
+    write = record.write_baseline
+    monkeypatch.setattr(record, "write_baseline", lambda os_name, entries: write(os_name, entries, root=tmp_path / "baselines"))
+    (tmp_path / "baselines" / "windows").mkdir(parents=True)
+    (tmp_path / "baselines" / "windows" / "old.json").write_text(
+        '{"tests/test_known_failure_baseline.py::test_fixed": "was broken"}'
+    )
+    for run, outcome in (("one", "<failure message='boom'/>"), ("two", "")):
+        (tmp_path / run).mkdir()
+        (tmp_path / run / "pytest-report.xml").write_text(
+            "<testsuites><testsuite>"
+            f"<testcase classname='tests.test_known_failure_baseline' name='test_flaky'>{outcome}</testcase>"
+            "<testcase classname='tests.test_known_failure_baseline' name='test_stable'><failure message='always'/></testcase>"
+            "<testcase classname='tests.test_known_failure_baseline' name='test_fixed'/>"
+            "</testsuite></testsuites>"
+        )
+    assert record.main(["--os", "windows", "--reports", str(tmp_path)]) == 0
+    assert baseline.load_baseline("windows") == {"tests/test_known_failure_baseline.py::test_stable": "always"}
+    assert "flaky (failed and passed across these reports; not recorded): tests/test_known_failure_baseline.py::test_flaky" in capsys.readouterr().out

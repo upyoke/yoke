@@ -47,7 +47,7 @@
 "runtime/api/domain/test_deploy_core_container_github_app_custody.py::test_valid_rotation_keeps_key_group_readable": "AssertionError: assert (33206 & 511) == 416",
 "runtime/api/domain/test_deploy_pipeline_fleet_declarations.py::test_named_database_fleet_rehearses_its_own_project_and_model": "AssertionError: assert ['--checkout'...egistry', ...] == ['--checkout'...egistry', ...]",
 "runtime/api/domain/test_deploy_pipeline_liveness_cli.py::test_liveness_cli_reexecs_into_the_pinned_tree": "AssertionError: assert '\\\\pin\\\\.venv...s\\\\python.exe' == '/pin/.venv/bin/python3'",
-"runtime/api/domain/test_deploy_remote_atomic_file.py": "ModuleNotFoundError: No module named 'fcntl'",
+"runtime/api/domain/test_deploy_remote_atomic_file.py": "fails with no message",
 "runtime/api/domain/test_deployment_run_qa_machine_execution.py::test_deployment_plan_machine_case_uses_durable_serial_lease_and_evidence": "assert 0 == 1",
 "runtime/api/domain/test_discovery_scan.py::test_basic_file_creation": "FileNotFoundError: [Errno 2] No such file or directory: '\\\\tmp\\\\discovery-scan.YOK-42.5652'",
 "runtime/api/domain/test_discovery_scan.py::test_detects_item_scoped_ouroboros": "FileNotFoundError: [Errno 2] No such file or directory: '\\\\tmp\\\\discovery-scan.YOK-9999.5652'",

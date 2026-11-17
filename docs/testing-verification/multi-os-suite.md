@@ -59,16 +59,19 @@ The baselines only shrink:
 - an unlisted failure fails the run as usual. Fix it, or add an entry with
   the reason when the fix is real work.
 
-To refresh a baseline from a run, download the run's `pytest-output-<os>-*`
-artifacts (from the run's summary page) into one directory and record them:
+To refresh a baseline, download the `pytest-output-<os>-*` artifacts of one
+or more runs (from each run's summary page) into one directory and record
+them:
 
 ```text
 yoke dev run -- python3 -m runtime.known_failure_baseline_record \
   --os windows --reports /tmp/suite-windows
 ```
 
-The recorder adds each new failure with its failure message as the reason,
-deletes entries the run reported as `XPASS(strict)`, and keeps the rest.
-Review the diff before committing: a flaky test belongs in a fix, not a
-strict baseline. `tests/test_known_failure_baseline.py` refuses an entry with
+The recorder reads each shard's JUnit report. A test that failed wherever it
+ran becomes an entry with its failure message as the reason, an entry for a
+test that passed is deleted, and the rest are kept. A test that both failed
+and passed across the runs is printed as flaky and never recorded: a strict
+entry cannot hold it, so file it for a fix. Review the diff before
+committing. `tests/test_known_failure_baseline.py` refuses an entry with
 no reason, or one that names no test or module defined in a suite file.
