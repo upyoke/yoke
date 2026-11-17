@@ -13,13 +13,13 @@ from yoke_contracts.testing import child_environment
 
 @pytest.mark.parametrize("separator", [":", ";"])
 def test_minimal_environment_keeps_system_variables_and_directory_boundaries(
-    tmp_path, monkeypatch, separator
+    monkeypatch, separator
 ):
     values = {
-        "SYSTEMROOT": str(tmp_path / "Windows"),
+        "SYSTEMROOT": "Windows",
         "SYSTEMDRIVE": "C:",
-        "WINDIR": str(tmp_path / "Windows"),
-        "COMSPEC": str(tmp_path / "cmd.exe"),
+        "WINDIR": "Windows",
+        "COMSPEC": "cmd.exe",
         "PATHEXT": ".COM;.EXE;.BAT;.CMD",
     }
     for name, value in values.items():
@@ -29,7 +29,8 @@ def test_minimal_environment_keeps_system_variables_and_directory_boundaries(
     monkeypatch.setenv("PATH", "unwanted-operator-tools")
     monkeypatch.setattr(child_environment.os, "pathsep", separator)
     monkeypatch.setattr(child_environment.os, "defpath", separator.join(("default-a", "default-b")))
-    tools = (tmp_path / "mock", tmp_path / "scripts")
+    monkeypatch.setattr(child_environment.sys, "executable", str(Path("python") / "python.exe"))
+    tools = (Path("mock"), Path("scripts"))
     env = child_environment.minimal_child_environment((*tools, tools[0]))
     assert {name: env[name] for name in values} == values
     assert set(env) == {*values, "PATH"}
