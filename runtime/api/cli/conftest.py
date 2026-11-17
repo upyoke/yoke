@@ -14,9 +14,14 @@ from yoke_cli.transport.https import relay_https
 
 
 @pytest.fixture()
-def installed_self_host_prerequisites(monkeypatch):
+def installed_self_host_prerequisites(monkeypatch, tmp_path):
     """Bundle tests exercise file behavior without depending on host Docker."""
     from yoke_cli.self_host import prerequisites
+    from yoke_cli.config import distribution
+    from runtime.api.fixtures.machine_config_test import select_machine_config_file
+
+    select_machine_config_file(monkeypatch, tmp_path / "machine" / "config.json")
+    distribution.save(origin="https://api.stage.upyoke.com", channel="latest")
 
     monkeypatch.setattr(prerequisites, "check", lambda: None)
 

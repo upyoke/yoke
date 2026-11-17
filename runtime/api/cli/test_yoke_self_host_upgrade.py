@@ -21,7 +21,7 @@ from yoke_contracts.server_image import pinned_server_image
 
 
 @pytest.fixture(autouse=True)
-def packaged_install(monkeypatch):
+def packaged_install(monkeypatch, installed_self_host_prerequisites):
     monkeypatch.setattr(
         install_binding, "detect", lambda: {"kind": install_binding.KIND_PACKAGED_WHEEL}
     )
@@ -192,6 +192,7 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
     assert stat.S_IMODE(env_path.stat().st_mode) == 0o600
     assert report["version"] == selected_release.version
     assert report["image"] == selected_release.image
+    assert report["distribution_origin"] == selected_release.base_url
 
 
 def test_installer_failure_preserves_old_pin_and_skips_compose(
@@ -258,6 +259,7 @@ def test_command_previews_and_cancellation_changes_nothing(
     output = capsys.readouterr().out
     assert "preview (no changes made)" in output
     assert selected_release.image in output
+    assert f"distribution origin: {selected_release.base_url}" in output
     assert "cancelled; no changes were made" in output
 
 

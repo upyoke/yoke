@@ -187,11 +187,17 @@ yoke self-host upgrade --dir /path/to/yoke-server
 ```
 
 The command performs a read-only preflight and shows the current image, target
-release, exact target image, and ordered actions before asking you to type
+release, distribution origin, exact target image, and ordered actions before asking you to type
 `upgrade`. It then installs that release's CLI through the public installer
 channel, atomically rewrites `YOKE_SERVER_IMAGE`, runs `docker compose pull
 core`, refreshes the Compose template, and restarts through the private host handoff. Use `--yes` only when an automated run
-has already accepted that same plan.
+has already accepted that same plan. Setup and upgrade resolve releases from
+`settings.distribution.origin`; upgrade defaults to `settings.distribution.channel`.
+`--channel` changes the channel while preserving the recorded origin.
+`YOKE_INSTALL_BASE_URL` does not override the machine record. Missing or invalid
+metadata refuses before fetching; repair it with
+`yoke settings set distribution '{"origin":"URL","channel":"NAME"}'`.
+An explicit setup `--image` skips distribution resolution.
 
 An active source-checkout CLI refuses this command before preview or install,
 just as `yoke update` does. Update the checkout with git, then rebuild its
