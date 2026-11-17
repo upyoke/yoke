@@ -30,7 +30,7 @@ from runtime.api.domain.worktree_create_test_support import (_placeholder)
 
 
 class TestInit:
-    """cmd_init idempotency."""
+    """Flow convergence creates the deployment-run tables idempotently."""
 
     def test_init_creates_tables(self, db_path):
         conn = _conn(db_path)
@@ -42,8 +42,14 @@ class TestInit:
         assert "deployment_preview_environments" in tables
 
     def test_init_idempotent(self, db_path):
-        # calling init again should not raise
-        dr.cmd_init(db_path=db_path)
+        from yoke_core.domain.flow_init import converge_flow_catalog
+
+        conn = _conn(db_path)
+        try:
+            converge_flow_catalog(conn)
+            converge_flow_catalog(conn)
+        finally:
+            conn.close()
 
 
 class TestNextId:

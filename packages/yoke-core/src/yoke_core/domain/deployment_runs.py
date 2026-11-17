@@ -20,8 +20,6 @@ from yoke_core.domain.deployment_runs_schema import (  # noqa: F401
     _pipe_rows,
 )
 
-from yoke_core.domain.deployment_runs_schema_init import cmd_init as cmd_init
-
 # Run CRUD — read paths
 from yoke_core.domain.deployment_runs_crud_query import (  # noqa: F401
     cmd_find_by_item,
@@ -85,7 +83,6 @@ __all__ = [
     "cmd_create_run",
     "cmd_find_by_item",
     "cmd_get",
-    "cmd_init",
     "cmd_items",
     "cmd_lineage",
     "cmd_lineage_create",

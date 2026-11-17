@@ -20,7 +20,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import deployment_runs as dr
 from runtime.api.fixtures.file_test_db import apply_inline_ddl, init_test_db
 
 _MINIMAL_SCHEMA_DDL = """
@@ -110,9 +109,11 @@ def _apply_schema() -> None:
     repointed to the disposable per-test Postgres database.
     """
     apply_inline_ddl(_MINIMAL_SCHEMA_DDL)
-    dr.cmd_init()
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.flow_init import converge_flow_catalog
+    from yoke_core.domain.merge_queue_landing_record_schema import (
+        ensure_merge_queue_landing_record_schema,
+    )
 
     with connect() as conn:
         from runtime.api.api_workflow_test_helpers import (
@@ -127,6 +128,7 @@ def _apply_schema() -> None:
         conn.execute(
             f"ALTER TABLE items ALTER COLUMN workflow_version_id SET DEFAULT {int(version_id)}"
         )
+        ensure_merge_queue_landing_record_schema(conn)
         converge_flow_catalog(conn)
 
 

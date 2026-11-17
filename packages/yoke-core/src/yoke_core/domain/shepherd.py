@@ -12,7 +12,6 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.shepherd_init import cmd_init
 from yoke_core.domain.shepherd_verdict_log import (
     VALID_DISPOSITIONS,
     cmd_caveat_disposition,
@@ -25,7 +24,6 @@ __all__ = [
     "VALID_DISPOSITIONS",
     "cmd_caveat_disposition",
     "cmd_caveat_dispositions",
-    "cmd_init",
     "cmd_verdict_log",
     "cmd_verdict",
     "main",
@@ -35,7 +33,6 @@ _USAGE = """\
 Usage: shepherd <subcmd> [args...]
 
 Subcommands:
-  init
   verdict <item> <transition> <worker> <verdict> [caveats] [session_id]
   verdict-log <item_id>
   caveat-disposition <item> <transition> <attempt> <caveat_num> <caveat_text> <disposition> [resolution_details] [verdict_id]
@@ -62,9 +59,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     rest = args[1:]
     conn = connect()
     try:
-        if subcmd == "init":
-            print(cmd_init(conn), file=sys.stderr)
-        elif subcmd == "verdict":
+        if subcmd == "verdict":
             if len(rest) < 4:
                 _cli_usage_error(
                     "Usage: shepherd verdict <item> <transition> <worker> <verdict> "

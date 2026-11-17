@@ -105,12 +105,8 @@ CORE_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "API payload evidence is stored in evidence_json; no evidence column. "
-            "Created by the complete environment_bootstrap.run_bootstrap "
-            "initialization chain; schema.cmd_init alone does not create "
-            "item_dependencies. Review preparation must use full bootstrap; "
-            "ensure_core_schema/converge_core_schema alone omit this table. "
-            "Test a complete control plane with the full "
-            "bootstrap strategy, rather than a core-schema-only template. "
+            "Created by converge_core_schema on every boot "
+            "(shepherd_schema.create_shepherd_tables). "
             "Directional edges between items. The dependent waits on "
             "the blocker per gate_point ('activation', 'integration', "
             "'closure', or 'coordination_only' — the last attests "

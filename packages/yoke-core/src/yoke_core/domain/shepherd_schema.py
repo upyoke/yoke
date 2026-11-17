@@ -1,11 +1,17 @@
-"""Schema initialization for shepherd-owned tables."""
+"""Shepherd-owned tables: verdicts, caveat dispositions and item dependencies.
+
+Schema convergence (:mod:`yoke_core.domain.schema_creation`) is the only
+caller, so every database that boots carries these tables.
+"""
 
 from __future__ import annotations
 
-from yoke_core.domain.schema_common import _column_exists
+from typing import Any
+
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
-_INIT_SQL = """\
+_CREATE_SQL = """\
 CREATE TABLE IF NOT EXISTS shepherd_verdicts (
     id INTEGER PRIMARY KEY,
     public_ref TEXT,
@@ -49,27 +55,19 @@ CREATE TABLE IF NOT EXISTS item_dependencies (
 );
 CREATE INDEX IF NOT EXISTS idx_id_dependent ON item_dependencies(dependent_item_id);
 CREATE INDEX IF NOT EXISTS idx_id_blocking ON item_dependencies(blocking_item_id);
+CREATE INDEX IF NOT EXISTS idx_cd_item ON caveat_dispositions(public_ref);
 """
 
 
-def _ensure_dependency_metadata_columns(conn) -> None:
-    for col, default in [("rationale", "''"), ("evidence_json", "'{}'")]:
-        if _column_exists(conn, "item_dependencies", col):
-            continue
-        try:
-            conn.execute(
-                f"ALTER TABLE item_dependencies ADD COLUMN {col} TEXT NOT NULL DEFAULT {default}"
-            )
-        except Exception:
-            pass
+def create_shepherd_tables(conn: Any) -> None:
+    """Create the shepherd tables, their indexes and additive columns.
 
-
-def cmd_init(conn) -> str:
-    execute_schema_script(conn, _INIT_SQL)
-    if _column_exists(conn, "caveat_dispositions", "public_ref"):
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cd_item ON caveat_dispositions(public_ref)"
+    ``item_dependencies`` references ``items``, so this runs after the core
+    tables in dependency order.
+    """
+    execute_schema_script(conn, _CREATE_SQL)
+    for column, default in (("rationale", "''"), ("evidence_json", "'{}'")):
+        _add_column_if_not_exists(
+            conn, "item_dependencies", column, f"TEXT NOT NULL DEFAULT {default}"
         )
-    _ensure_dependency_metadata_columns(conn)
     conn.commit()
-    return "Shepherd tables initialized"
