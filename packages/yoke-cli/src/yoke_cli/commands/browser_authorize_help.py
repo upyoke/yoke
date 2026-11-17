@@ -99,10 +99,9 @@ Linux window-close detection requires xdotool and checks only the spawned PID.
 Declare sites for that identity first; --reset never wipes desktop
 browser state and is refused for a desktop-only invocation.
 
-Each identity's profile is kept with the project's machine-local capability
-secrets at owner-only permissions, keyed by project slug and identity name. On
-a Test Machine that keeps live identities (~/.yoke-browser-identities), the
-profile is that live store entry, so a full reset keeps the sign-in.
+Each identity's profile is saved owner-only in the live identity store
+~/.yoke-browser-identities/<project>/<identity>, outside ~/.yoke, which the
+first authorization creates; a Test Machine's full reset keeps the sign-in.
 
 Session cookies (no expiry) are given an explicit {lifetime}-day expiry when the
 window closes, so the sign-in survives Chromium reopening the profile.

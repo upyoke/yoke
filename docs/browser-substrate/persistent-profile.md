@@ -11,25 +11,24 @@ jar, and any criterion rendered behind a dashboard sign-in stayed
 
 ## Where the profile lives
 
-One profile directory per project **identity**, beside that project's other
-machine-local capability secrets. An identity is one persona's whole profile
+One profile directory per project **identity**, in the machine's live identity
+store. An identity is one persona's whole profile
 — every site that persona uses, signed in together. A project declares named
 identities in its `browser-control` capability settings
-(`yoke_contracts.browser_identity`); `default` always exists and keeps the
-project's original single-profile path, so a project that declares nothing
-behaves as before and a profile signed in before identities existed is the
-`default` identity's profile:
+(`yoke_contracts.browser_identity`); `default` always exists, so a project
+that declares nothing still has one profile. Every identity's profile lives in
+the machine's live identity store, outside `~/.yoke`:
 
 ```text
-~/.yoke/secrets/capability-secrets/<project>/browser-control/profile                     # default
-~/.yoke/secrets/capability-secrets/<project>/browser-control/identities/<name>/profile   # every other identity
+~/.yoke-browser-identities/<project>/<identity>
 ```
 
 It is a Chromium profile holding live session cookies, so it is owner-only
-(`0700`, including every parent up to the secrets root) and never reaches the
-database, the repository, QA artifacts, or a transcript. The path contract is
-`yoke_contracts.machine_config.capability_secrets.browser_profile_relative_path`;
-`yoke_cli.config.browser_profile` resolves, creates, and reports it.
+(`0700`, including the store root) and never reaches the database, the
+repository, QA artifacts, or a transcript. The path contract is
+`yoke_contracts.browser_identity.live_identity_store_relative_path`;
+`yoke_cli.config.browser_profile` resolves, creates, and reports it, creating
+the store with the first profile.
 
 `<project>` is the project **slug**, filesystem-normalized. Every caller —
 `yoke browser authorize` and each daemon-start path — resolves it through
@@ -242,9 +241,12 @@ by the time it is restored. A test machine keeps its identities live in
 (`LIVE_IDENTITY_STORE_HOME_ENTRY`), outside `~/.yoke`. The macOS and Linux full
 resets keep that store exactly as they keep live harness logins, and golden
 capture never includes it, while `~/.yoke` is still absent after a reset. When
-the store exists, `yoke_cli.config.browser_profile` makes each identity's
-capability-secrets path a link into it, so the installed product reads and
-refreshes the live sessions in place — a walk that fails or is aborted keeps
-whatever the site refreshed. A real profile found at the capability path when
-the store has none for that identity is moved into the store, never discarded;
-a profile in both places refuses with `browser_identity_store_conflict`.
+`yoke_cli.config.browser_profile` saves every identity profile there on every
+machine, creating the store owner-only with the first profile, so the
+installed product reads and refreshes the live sessions in place — a walk that
+fails or is aborted keeps whatever the site refreshed. A store that is a link,
+is not a directory, or cannot be created refuses with
+`browser_identity_store_unavailable` instead of saving a profile a reset would
+delete. A profile an earlier release saved at the capability-secrets path is
+moved into the store the first time its identity is used, never discarded; a
+profile in both places refuses with `browser_identity_store_conflict`.

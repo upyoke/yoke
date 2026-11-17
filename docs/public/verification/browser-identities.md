@@ -260,12 +260,13 @@ Sites rotate session cookies, so a sealed copy of a signed-in profile is stale
 by the time it is restored. A test machine therefore keeps its identities live
 in `~/.yoke-browser-identities`, outside `~/.yoke`. A full reset keeps that
 store the way it keeps harness logins, and golden capture never includes it,
-while `~/.yoke` itself is still absent after the reset. Once the walk installs
-Yoke, each identity's profile path links into the store, so the product reads
-and refreshes the live sessions in place and nothing is saved or restored.
-Create the store once during host provisioning, owner-only (`mkdir -m 700
-~/.yoke-browser-identities`). A profile already signed in at its
-capability-secrets path is moved into the store the first time it is resolved.
+while `~/.yoke` itself is still absent after the reset. Every identity profile
+is saved in that store, so the product reads and refreshes the live sessions
+in place and nothing is sealed or restored. The first `yoke browser authorize`
+creates the store owner-only; a store that is a link, is not a directory, or
+cannot be created refuses with `browser_identity_store_unavailable`. A profile
+an earlier release saved under `~/.yoke/secrets` is moved into the store the
+first time it is resolved.
 The Machine QA per-OS procedures at `.yoke/docs/verification/test-machines/browser-identities.md`
 (installed by the Machine QA) cover desktop preparation and the first sign-in.
 

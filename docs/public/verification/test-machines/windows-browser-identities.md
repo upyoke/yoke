@@ -10,9 +10,9 @@ Return to [native Windows provisioning](windows-native-host-provisioning.md).
 These identities belong to the standard Windows test user and its native
 headed Chromium. WSL browser profiles are separate and prove no native sign-in.
 
-Create `%USERPROFILE%\.yoke-browser-identities` once as the test user,
-restrict it to that user and Administrators/SYSTEM, and keep it outside
-`.yoke`. The native profile reset preserves this **live** identity store;
+The first authorization creates `%USERPROFILE%\.yoke-browser-identities`,
+restricted to the test user and Administrators/SYSTEM, outside `.yoke`. The
+native profile reset preserves this **live** identity store;
 golden capture excludes it. Restoring a copy of rotated cookies is not a
 valid way to preserve a sign-in.
 

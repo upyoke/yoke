@@ -1,4 +1,4 @@
-"""Named browser identities: separate profiles, the live store, and the human gate."""
+"""Named browser identities: separate profiles and the human gate."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import pytest
 from runtime.api.cli.browser_toolchain_test_support import install_fake_toolchain
 from yoke_contracts.browser_identity import (
     BrowserIdentityError,
-    LIVE_IDENTITY_STORE_HOME_ENTRY,
 )
 from yoke_cli.commands import browser_authorize, browser_verify
 from yoke_cli.config import browser_identities, browser_profile
@@ -44,37 +43,6 @@ def test_two_identities_persist_side_by_side(machine_home) -> None:
     assert browser_profile.remove_profile_dir("acme", identity="admin") == admin
     assert (member / "Cookies").read_text() == "member session"
     assert browser_profile.authorized_profile_dir("acme", identity="admin") is None
-
-def test_a_machine_with_a_live_store_links_each_identity_into_it(machine_home) -> None:
-    store = machine_home.parent / LIVE_IDENTITY_STORE_HOME_ENTRY
-    store.mkdir(mode=0o700)
-    assert browser_profile.authorized_profile_dir("acme", identity="admin") is None
-    profile = browser_profile.ensure_profile_dir("acme", identity="admin")
-    assert profile.is_symlink()
-    assert profile.resolve() == (store / "acme" / "admin").resolve()
-    (profile / "Cookies").write_text("refreshed by the site")
-    # A fresh ~/.yoke after a reset links straight back to the kept sign-in.
-    profile.unlink()
-    again = browser_profile.authorized_profile_dir("acme", identity="admin")
-    assert (again / "Cookies").read_text() == "refreshed by the site"
-
-def test_a_profile_signed_in_before_the_store_existed_is_adopted(machine_home) -> None:
-    legacy = browser_profile.ensure_profile_dir("acme")
-    (legacy / "Cookies").write_text("default sign-in")
-    store = machine_home.parent / LIVE_IDENTITY_STORE_HOME_ENTRY
-    store.mkdir(mode=0o700)
-    adopted = browser_profile.authorized_profile_dir("acme")
-    assert adopted == legacy and adopted.is_symlink()
-    assert (store / "acme" / "default" / "Cookies").read_text() == "default sign-in"
-
-
-def test_a_profile_in_both_places_refuses_by_name(machine_home) -> None:
-    browser_profile.ensure_profile_dir("acme", identity="admin")
-    store = machine_home.parent / LIVE_IDENTITY_STORE_HOME_ENTRY
-    (store / "acme" / "admin").mkdir(parents=True)
-    with pytest.raises(BrowserIdentityError, match="browser_identity_store_conflict"):
-        browser_profile.authorized_profile_dir("acme", identity="admin")
-
 
 @pytest.mark.parametrize(
     "clock", ["1970-01-01T00:00:00Z", "1970-01-01T05:29:59.123456+05:30"]

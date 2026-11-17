@@ -80,7 +80,7 @@ for a clean context. The OS assigns the port; the state publishes its endpoint:
  "startedAt": "2026-01-01T00:00:00.000Z",
  "health": "healthy",
  "port": 9222,
- "profileDir": "/Users/you/.yoke/secrets/capability-secrets/yoke/browser-control/profile"
+ "profileDir": "/Users/you/.yoke-browser-identities/yoke/default"
 }
 ```
 

@@ -21,11 +21,11 @@ before relying on an installed release. Before running it, read the complete
 A test machine keeps each project identity signed in live, outside the
 clean-home golden.
 
-1. As the test user, create the live identity store once:
-   `mkdir -m 700 ~/.yoke-browser-identities`. Never place it inside `~/.yoke`.
-   A full reset keeps it the way it keeps harness logins, and golden capture
-   never includes it, because a restored copy of a session is the cookies the
-   site has since rotated.
+1. The first authorization creates the live identity store
+   `~/.yoke-browser-identities` owner-only, outside `~/.yoke`. A full reset
+   keeps it the way it keeps harness logins, and golden capture never includes
+   it, because a restored copy of a session is the cookies the site has since
+   rotated. Never create or move it by hand.
 2. Agents use the registered test user and leased product operations to install
    the candidate and prepare its Chromium runtime and real headed desktop.
    Declare the project's identities and each identity's per-site sign-in
@@ -40,8 +40,8 @@ clean-home golden.
    through desktop control, prepare the desktop and run the declared checks; use project-approved test accounts
    and follow project-owned sign-in policy. Keep profile data on the host.
 4. Agents close each authorization window once signed in; the command checks each site
-   again and fails naming any still signed out. The identity's profile path
-   links into the store, so the sign-in already lives there: nothing is
+   again and fails naming any still signed out. The identity's profile
+   is saved in the store, so the sign-in already lives there: nothing is
    captured, sealed or restored.
 5. A reset removes `~/.yoke` and keeps the store. Once a walk installs the
    candidate, `yoke browser verify --project P --identity NAME` proves each
