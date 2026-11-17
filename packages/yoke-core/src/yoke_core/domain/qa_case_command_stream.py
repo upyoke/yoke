@@ -19,6 +19,7 @@ reaping when it times out or is interrupted.
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,6 +66,22 @@ def product_command_environment(
     out["PATH"] = os.pathsep.join(folders + ([existing] if existing else []))
     out["YOKE_PYTHON"] = sys.executable
     return out
+
+
+def python_bound_command(command: str, python: str, *, platform_name: str | None = None) -> str:
+    """Give native Windows shells both Python spellings for the bound interpreter.
+
+    A Windows venv only installs python.exe; PATH alone would let python3
+    escape to a global interpreter. Shell functions retain quoting and status.
+    """
+    if (platform_name or sys.platform) != "win32":
+        return command
+    executable = shlex.quote(Path(python).as_posix())
+    return (
+        f'python3() {{ {executable} "$@"; }}\n'
+        f'python() {{ {executable} "$@"; }}\n'
+        + command
+    )
 
 
 @dataclass(frozen=True)
@@ -138,7 +155,12 @@ def stream_command(
             print(binding.refusal, file=destination, flush=True)
         else:
             exit_code = run_watcher(
-                argv=[shell, "-c", command],
+                argv=[shell, "-c", python_bound_command(
+                    command,
+                    binding.python if binding else str(venv_python(
+                        Path(product_env["VIRTUAL_ENV"]), name="python3"
+                    )) if "VIRTUAL_ENV" in product_env else sys.executable,
+                )],
                 classifier=relay_every_line,
                 raw_capture=raw_capture,
                 progress_capture=progress_capture,

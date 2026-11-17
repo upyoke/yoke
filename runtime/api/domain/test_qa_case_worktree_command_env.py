@@ -298,3 +298,20 @@ def test_an_item_case_is_handed_no_deployment_subject(
 
     capture = Path(result["output_capture"]).read_text(encoding="utf-8")
     assert "subject:[]" in capture
+
+
+def test_windows_shell_python_spellings_preserve_identity_arguments_and_status():
+    import shlex
+    from yoke_contracts.project_command_shell import project_command_shell
+    from yoke_core.domain.qa_case_command_stream import python_bound_command
+
+    probe = "import sys; print(sys.executable); print(sys.argv[1]); raise SystemExit(7)"
+    for name in ("python", "python3"):
+        command = f"{name} -c {shlex.quote(probe)} 'two words'"
+        result = subprocess.run(
+            [project_command_shell(), "-c", python_bound_command(
+                command, sys.executable, platform_name="win32"
+            )], capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 7
+        assert result.stdout.splitlines() == [sys.executable, "two words"]
