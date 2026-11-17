@@ -1,6 +1,7 @@
 """Transient Windows handles cannot lose native capture envelopes."""
 
 import ctypes
+import errno
 import os
 from pathlib import Path
 import threading
@@ -74,7 +75,9 @@ def test_native_windows_capture_lock_records_sharing_error_and_recovers(tmp_path
                 temporary = tmp_path / 'replacement'
                 temporary.write_bytes(payload)
                 os.replace(temporary, path)
-        assert failure.value.winerror == 32
+        # MoveFileEx reports access denied; the CRT read exposes only EACCES.
+        assert failure.value.errno == errno.EACCES
+        assert failure.value.winerror == (5 if operation == 'replace' else None)
         print(f'{operation}: errno={failure.value.errno} winerror={failure.value.winerror}')
         timer = threading.Timer(0.05, lambda: kernel.CloseHandle(handle))
         timer.start()
