@@ -47,7 +47,9 @@ def connect(args: List[str]) -> int:
         usage=CONNECT_USAGE,
         description=(
             "Check the server's health and identity, then save the connection "
-            "and a credential file only you can read. If the check fails, "
+            "and a credential file only you can read, then install or reuse "
+            "its machine relay. --no-activate preserves the active connection. "
+            "If the server check fails, "
             "nothing is saved. Sign in by browser approval, a teammate invite "
             "code, or an explicit token. Plain HTTP works only for loopback, "
             "private IPs and *.ts.net, and warns that a network address sends "
