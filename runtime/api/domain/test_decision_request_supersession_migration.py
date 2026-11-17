@@ -1,17 +1,21 @@
 """Existing Postgres universes widen the status CHECK before replacement writes."""
 
-from importlib import import_module
+from pathlib import Path
 
 import pytest
 from psycopg.errors import CheckViolation, ForeignKeyViolation
 
 from runtime.api.fixtures.pg_testdb import test_database as database
+from yoke_core.domain import migrations
+from yoke_core.domain.migration_history import history_dir, load_migration_module
+
+
+ENTRY_NAME = "0112_decision_request_supersession"
 
 
 def test_existing_status_constraint_widens_and_replay_preserves_links():
-    migration = import_module(
-        "yoke_core.domain.migrations.0112_decision_request_supersession"
-    )
+    path = Path(history_dir(migrations)) / f"{ENTRY_NAME}.py"
+    migration = load_migration_module(path, ENTRY_NAME)
     with database() as conn:
         # A narrow standalone table reproduces the pre-migration constraint
         # without touching any production-schema fixtures or dependent tables.
