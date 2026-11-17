@@ -4,11 +4,6 @@
   "feedback": 96596,
   "fix_item": "YOK-5311"
  },
- "runtime/api/cli/test_onboard_wizard_resize_redraw.py::test_resizing_mid_flow_shows_each_screen_once": {
-  "reason": "terminal sometimes diverges from the wizard's screen after a resize",
-  "feedback": 96598,
-  "fix_item": "YOK-5313"
- },
  "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_hosting.py::test_skip_reaches_review_and_plans_the_skip": {
   "reason": "sometimes raises MachineConfigContractError checkout_identity_unavailable",
   "feedback": 96599,
