@@ -146,6 +146,7 @@
 "runtime/api/domain/test_machine_restore_debt.py::test_mission_replay_uses_accepted_contract_after_reset_and_new_debt": "AssertionError: assert 'shell-preconfigured' is None",
 "runtime/api/domain/test_machine_scope_scratch.py::test_evidence_walk_finds_machine_scope_runs": "AssertionError: assert [] == [WindowsPath(...vidence.log')]",
 "runtime/api/domain/test_machine_screenshot_client.py::test_screenshot_cli_keeps_only_accepted_png_and_fails_error_receipt[verified]": "AssertionError: assert (33206 & 511) == 384",
+"runtime/api/domain/test_main_agent_packet.py::test_render_main_agent_block_full_leads_with_its_heading": "Real ambient-Python interpreter notice is prepended to the main-agent heading; heading-first fixture does not isolate that notice. Fresh Windows suite 44148219633; transferred to YOK-5395.",
 "runtime/api/domain/test_migration_copy_orphan_restore.py::test_killed_driver_cannot_expose_a_copy_still_used_by_pg_restore": "Failed: copy lifetime proof requires PostgreSQL 17 client tools",
 "runtime/api/domain/test_migration_fleet_copy_lifetime.py::test_real_copy_is_owned_through_diagnostics_and_cleanup": "Failed: copy lifetime proof requires PostgreSQL 17 client tools",
 "runtime/api/domain/test_migration_fleet_preflight.py::TestRestorePointNamed::test_names_the_dump_then_restores_the_prior_value": "AssertionError: assert '\\\\tmp\\\\example.dump' == '/tmp/example.dump'",
