@@ -90,7 +90,7 @@ def test_one_pass_reads_fleet_and_question_state() -> None:
         PROJECT_POLICY_FUNCTION,
         STEERING_REPORT_FUNCTION,
     ]
-    assert output == REPORT_DIGEST + "\n"
+    assert output == REPORT_DIGEST + "\nfleet pass 2026-08-28T17:01:00+00:00\n"
     assert "project 1" not in output
 
 
@@ -103,7 +103,10 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
         duration=90,
     )
     assert code == 0
-    assert output == REPORT_DIGEST + "\n"
+    assert output == (
+        REPORT_DIGEST + "\nfleet pass 2026-08-28T17:01:00+00:00\n"
+        "fleet pass 2026-08-28T17:02:00+00:00\n"
+    )
     assert calls.count(STEERING_REPORT_FUNCTION) == 3
 
 
@@ -166,7 +169,9 @@ def test_a_status_change_during_cooldown_keeps_the_raw_delta() -> None:
     )
     assert code == 0
     assert output == (
-        f"{REPORT_DIGEST}\nfleet item YOK-1 status idea -> implementing\n"
+        f"{REPORT_DIGEST}\nfleet pass 2026-08-28T17:01:00+00:00\n"
+        "fleet item YOK-1 status idea -> implementing\n"
+        "fleet pass 2026-08-28T17:02:00+00:00\n"
     )
 
 
@@ -229,7 +234,7 @@ def test_a_report_without_digest_uses_the_full_body() -> None:
         duration=1,
     )
     assert code == 0
-    assert output == REPORT_BODY + "\n"
+    assert output == REPORT_BODY + "\nfleet pass 2026-08-28T17:01:00+00:00\n"
     assert "omitted fingerprint" not in output
 
 

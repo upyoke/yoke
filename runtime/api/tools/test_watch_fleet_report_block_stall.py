@@ -25,6 +25,7 @@ def test_a_stall_falling_due_mid_report_neither_tears_nor_reports(
     reset the classifier so the real report never reached progress.
     """
     monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.2")
+    monkeypatch.setenv("YOKE_WATCH_QUIET_HEARTBEAT_SECONDS", "2")
     stdout = RecordingStream()
     rc = run_probe_script(
         tmp_path,
@@ -47,14 +48,15 @@ def test_a_stall_falling_due_mid_report_neither_tears_nor_reports(
 def test_a_quiet_fleet_keeps_heartbeat_and_stall_diagnostics_raw(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A fleet that deliberately emits no changes must not wake for silence."""
-    monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.2")
+    """Completed passes keep a quiet fleet alive without progress wakes."""
+    monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.3")
     stdout = RecordingStream()
     rc = run_probe_script(
         tmp_path,
         "import time\n"
-        "print('fleet item YOK-1 status idea -> implementing', flush=True)\n"
-        "time.sleep(0.8)\n",
+        "for _ in range(12):\n"
+        "    print('fleet pass now', flush=True)\n"
+        "    time.sleep(0.05)\n",
         stdout,
     )
     assert rc == 0
@@ -62,4 +64,48 @@ def test_a_quiet_fleet_keeps_heartbeat_and_stall_diagnostics_raw(
     assert "still running" not in stdout.getvalue()
     raw = (tmp_path / "raw.log").read_text()
     assert "no progress for" in raw
-    assert "still running" in raw
+    assert "still running" not in raw
+    assert raw.count("fleet pass ") == 12
+    assert "fleet pass" not in (tmp_path / "progress.log").read_text()
+
+
+def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from yoke_core.domain import gate_stall_report, watch_runner
+    from yoke_core.tools import watch_tail
+    import os
+    import time
+    import pytest
+
+    monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.5")
+    monkeypatch.setattr(
+        gate_stall_report, "diagnose_quiet_run",
+        lambda _: gate_stall_report.StallReport(waiting_on="child process"),
+    )
+    pid_path = tmp_path / "child.pid"
+    stdout = RecordingStream()
+    started = time.monotonic()
+    rc = run_probe_script(
+        tmp_path,
+        "import os, pathlib, time\n"
+        f"pathlib.Path({str(pid_path)!r}).write_text(str(os.getpid()))\n"
+        "print('probe header', flush=True)\n"
+        "def read_snapshot():\n"
+        "    time.sleep(30)\n"
+        "read_snapshot()\n"
+        "print('fleet pass now', flush=True)\n",
+        stdout,
+    )
+    assert rc == watch_runner.STALL_ABORT_EXIT
+    assert time.monotonic() - started < 5
+    for path in ("raw.log", "progress.log"):
+        text = (tmp_path / path).read_text()
+        assert "aborted: fleet_probe_stalled" in text
+        assert "waiting_on=child process" in text
+        assert "fleet pass" not in text
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_path.read_text()), 0)
+    follower = RecordingStream()
+    assert watch_tail.follow(tmp_path / "progress.log", out=follower) == 0
+    assert "aborted: fleet_probe_stalled" in follower.getvalue()

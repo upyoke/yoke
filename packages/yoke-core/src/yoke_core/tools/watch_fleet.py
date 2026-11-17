@@ -1,13 +1,5 @@
 """Run the fleet-delta probe under the shared raw+progress watcher.
 
-A steering session's standing wake had no artifact behind it. The loop
-told Claude steerers to watch a "fleet-delta probe" that did not exist,
-so each session hand-rolled one: a shell loop piping a raw SQL read
-through ``jq`` against a scratch state file, with the steerer's session
-id and an item-id range baked into the command. That shape breaks the
-bare-adapter rule, cannot survive a handoff, and — having no exit
-sentinel — leaves its paired follower running after the command stops.
-
 This wrapper runs :mod:`yoke_core.domain.fleet_delta_probe` under the shared
 raw + progress contract. Its central tier table sends actionable deltas to
 the follower immediately, keeps routine churn raw until the next report
@@ -29,6 +21,8 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import fleet_delta_probe
+from yoke_core.domain.watch_child_drain import quiet_heartbeat_seconds
+from yoke_core.domain.watch_progress_stall import progress_stall_seconds
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.domain import watch_digest as _watch_digest
 from yoke_core.domain import watch_runner as _watch_runner
@@ -185,9 +179,10 @@ Healthy item transitions, claim churn, registrations, clean ends, and alarm
 clears stay silent at delta time and surface through the next report. Pull the
 full body with `yoke steering report get --full`. Removed holder, landing and run
 rows get one explanation in the next due report, using already-read facts.
-Quiet-heartbeat and progress-stall diagnostics stay in the raw capture;
-silence is expected while the fleet is unchanged. Complete reports are
-drained immediately and forwarded by the tail as one write.
+Each completed pass writes raw-only liveness. No child output within the quiet
+bound aborts and wakes steering with fleet_probe_stalled; restart the watcher.
+--interval must be below that bound. Progress-stall diagnostics stay raw.
+Complete reports are drained and forwarded by the tail as one write.
 
 examples:
   yoke watch fleet -- --project yoke
@@ -291,6 +286,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
     passthrough = _strip_separator(ns.passthrough)
+    interval = fleet_delta_probe._parse_args(passthrough).interval
+    quiet_bound = quiet_heartbeat_seconds(progress_stall_seconds())
+    if not 0 < interval < quiet_bound:
+        sys.stderr.write(
+            f"fleet_probe_interval_invalid: --interval must be positive and below "
+            f"the quiet bound ({quiet_bound:g}s); choose a smaller --interval\n"
+        )
+        return 2
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
