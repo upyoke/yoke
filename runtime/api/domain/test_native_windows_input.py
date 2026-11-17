@@ -15,7 +15,7 @@ from yoke_harness.native_windows.stdin_frame import (
     upload_received,
     upload_script,
 )
-from yoke_harness.native_windows.transport import WindowsTransport, encoded
+from yoke_harness.native_windows.transport import WindowsTransport, encoded, quote
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 
@@ -168,9 +168,13 @@ def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeyp
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows PowerShell")
 @pytest.mark.parametrize("payload", [b"", bytes(range(256)), " \r\n雪 \n ".encode()])
-def test_native_reader_finishes_without_stdin_eof(payload):
+@pytest.mark.parametrize("mode", ["read", "upload"])
+def test_native_reader_finishes_without_stdin_eof(payload, mode, tmp_path):
+    destination = tmp_path / "uploaded.bin"
     script = (
-        READ_FRAME_SCRIPT
+        upload_script(quote(str(destination)))
+        if mode == "upload"
+        else READ_FRAME_SCRIPT
         + "\n[Console]::Out.Write([Convert]::ToBase64String((Read-YokeFrame)))"
     )
     child = subprocess.Popen(
@@ -190,7 +194,12 @@ def test_native_reader_finishes_without_stdin_eof(payload):
         child.stdin.flush()
         # Deliberately do not close stdin until after process termination.
         assert child.wait(timeout=20) == 0
-        assert child.stdout.read().decode() == base64.b64encode(payload).decode()
+        output = child.stdout.read().decode()
+        if mode == "upload":
+            assert output.strip() == receipt(payload)
+            assert destination.read_bytes() == payload
+        else:
+            assert output == base64.b64encode(payload).decode()
     finally:
         if child.poll() is None:
             child.kill()
@@ -209,12 +218,13 @@ def test_native_reader_finishes_without_stdin_eof(payload):
         b"00000004:!!!!",
         b"00000004:YQ",
         b"00000004:YQ \n",
+        b"00000004:YWJj",
     ],
 )
 def test_native_reader_rejects_bad_or_truncated_frames(frame):
     script = (
         "$ErrorActionPreference='Stop';"
-        + READ_FRAME_SCRIPT
+        + READ_FRAME_SCRIPT.replace(str(MAX_BYTES), "2")
         + "\n$null=Read-YokeFrame; Write-Output 'ACCEPTED'"
     )
     result = subprocess.run(
