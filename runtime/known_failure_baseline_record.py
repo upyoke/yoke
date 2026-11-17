@@ -3,8 +3,8 @@
     python -m runtime.known_failure_baseline_record --os windows --reports DIR
 
 ``DIR`` holds the run's shard outputs: the ``pytest-output-<os>-<shard>``
-artifacts or saved job logs. Every ``FAILED``/``ERROR`` line of pytest's
-short test summary becomes an entry whose reason is its failure message; an
+artifacts (their JUnit ``pytest-report.xml``), or saved job logs. Every failed
+or erroring test becomes an entry whose reason is its failure message; an
 entry the plugin reported as ``[XPASS(strict)] <node id> passed`` is deleted,
 and every other existing entry is kept. Read the result before committing: an
 entry is a promise that the test fails there for the stated reason, and a
@@ -28,9 +28,22 @@ ENTRIES_PER_FILE = 300
 REASON_CHARACTERS = 200
 
 _TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ")
-_SUMMARY = re.compile(r"^(FAILED|ERROR) ((?:runtime|tests)/\S+?)(?: - (.*))?$")
+_SUMMARY = re.compile(r"^(FAILED|ERROR) ((?:runtime|tests)/\S.*)$")
 _TIMEOUT = re.compile(r"^subprocess\.TimeoutExpired: Command '\[?'?([^',\]]+).*timed out after (\S+) seconds")
 _XPASS = re.compile(re.escape(XPASS_MARK) + r" ((?:runtime|tests)/\S+) passed")
+
+
+def split_summary(rest: str) -> tuple[str, str]:
+    """Split ``<node id> - <message>``; a parametrized id may hold spaces."""
+    test_part = rest.partition("::")[2]
+    if "[" in test_part:
+        end = rest.find("] - ")
+        if end != -1:
+            return rest[: end + 1], rest[end + 4 :].strip()
+        if rest.endswith("]"):
+            return rest, ""
+    node_id, _, message = rest.partition(" - ")
+    return node_id, message.strip()
 
 
 def reason_text(message: str) -> str:
@@ -56,21 +69,76 @@ def summary_entries(lines: Iterable[str]) -> tuple[dict[str, str], set[str]]:
         match = _SUMMARY.match(line)
         if match is None:
             continue
-        _, node_id, message = match.groups()
-        message = (message or "").strip()
+        node_id, message = split_summary(match.group(2))
         failures.setdefault(node_id, reason_text(message))
     for node_id in passed:
         failures.pop(node_id, None)
     return failures, passed
 
 
-def read_reports(directory: Path) -> tuple[dict[str, str], set[str]]:
+REPO_ROOT = BASELINE_DIR.parents[1]
+_PHASE_MESSAGE = re.compile(r'^failed on (?:setup|teardown) with "(.*)"$', re.DOTALL)
+
+
+def junit_node_id(classname: str, name: str, root: Path = REPO_ROOT) -> str:
+    """The pytest node id of a JUnit testcase (xunit2 names no file)."""
+    if not classname:  # a module that failed, or was skipped, at collection
+        return name.replace(".", "/") + ".py"
+    parts = classname.split(".")
+    for cut in range(len(parts), 0, -1):
+        path = "/".join(parts[:cut]) + ".py"
+        if (root / path).is_file():
+            return "::".join([path, *parts[cut:], name])
+    return "::".join([classname.replace(".", "/") + ".py", name])
+
+
+def junit_entries(path: Path, root: Path = REPO_ROOT) -> tuple[dict[str, str], set[str]]:
+    """Failures with their first message line, and listed tests that passed."""
+    import xml.etree.ElementTree as ElementTree
+
     failures: dict[str, str] = {}
     passed: set[str] = set()
-    for path in sorted(p for p in directory.rglob("*") if p.suffix in {".txt", ".log"}):
-        found, xpassed = summary_entries(
-            path.read_text(encoding="utf-8", errors="replace").splitlines()
-        )
+    for case in ElementTree.parse(path).getroot().iter("testcase"):
+        problems = [child for child in case if child.tag in {"failure", "error"}]
+        if not problems:
+            continue
+        node_id = junit_node_id(case.get("classname", ""), case.get("name", ""), root)
+        texts = [f"{child.get('message') or ''}\n{child.text or ''}" for child in problems]
+        if any(XPASS_MARK in text for text in texts):
+            passed.add(node_id)
+            continue
+        message = problems[0].get("message") or ""
+        if message == "collection failure":  # the exception is the text's last line
+            message = next(
+                (line.strip() for line in reversed((problems[0].text or "").splitlines()) if line.strip()),
+                message,
+            )
+            message = message.removeprefix("E").strip()
+        phase = _PHASE_MESSAGE.match(message)
+        message = (phase.group(1) if phase else message).strip().splitlines()
+        failures.setdefault(node_id, reason_text(message[0] if message else ""))
+    for node_id in passed:
+        failures.pop(node_id, None)
+    return failures, passed
+
+
+def read_reports(directory: Path) -> tuple[dict[str, str], set[str]]:
+    """Every failure and XPASS in *directory*: JUnit reports, else summary text.
+
+    JUnit carries exact node ids; summary lines cut a parametrized id that
+    holds a newline, so they are read only when no report is present.
+    """
+    failures: dict[str, str] = {}
+    passed: set[str] = set()
+    reports = sorted(directory.rglob("*.xml"))
+    sources = reports or sorted(p for p in directory.rglob("*") if p.suffix in {".txt", ".log"})
+    for path in sources:
+        if path.suffix == ".xml":
+            found, xpassed = junit_entries(path)
+        else:
+            found, xpassed = summary_entries(
+                path.read_text(encoding="utf-8", errors="replace").splitlines()
+            )
         for node_id, reason in found.items():
             failures.setdefault(node_id, reason)
         passed |= xpassed

@@ -50,11 +50,14 @@
 "tests/installer/test_public_installer_dashboard.py::test_install_and_reinstall_restart_before_ready[False-True]": "yoke_public_installer.InstallError: product-boundary audit failed: `yoke status --json` did not return valid JSON (Extra data: line 1 column 4 (char 3)).",
 "tests/installer/test_public_installer_dashboard.py::test_install_and_reinstall_restart_before_ready[True-False]": "yoke_public_installer.InstallError: product-boundary audit failed: `yoke status --json` did not return valid JSON (Extra data: line 1 column 4 (char 3)).",
 "tests/installer/test_public_installer_dashboard.py::test_install_and_reinstall_restart_before_ready[True-True]": "yoke_public_installer.InstallError: product-boundary audit failed: `yoke status --json` did not return valid JSON (Extra data: line 1 column 4 (char 3)).",
+"tests/installer/test_public_installer_dashboard.py::test_restart_failure_never_reports_ready[0-not json-ui_restart_result_invalid]": "AssertionError: Regex pattern did not match.",
 "tests/installer/test_public_installer_dashboard.py::test_restart_failure_never_reports_ready[0-{\"ok\":false,\"restarted\":true}-ui_restart_result_invalid]": "AssertionError: Regex pattern did not match.",
 "tests/installer/test_public_installer_dashboard.py::test_restart_failure_never_reports_ready[0-{\"ok\":true,\"restarted\":\"yes\"}-ui_restart_result_invalid]": "AssertionError: Regex pattern did not match.",
 "tests/installer/test_public_installer_dashboard.py::test_restart_failure_never_reports_ready[1--ui_restart_failed]": "AssertionError: Regex pattern did not match.",
 "tests/installer/test_public_installer_helper_sources.py::test_group_writable_cached_helpers_are_evicted_once_and_reinstalled": "StopIteration",
 "tests/installer/test_public_installer_helper_sources.py::test_permissive_parent_umask_installs_safe_helpers_and_reuses_warm_cache": "StopIteration",
+"tests/installer/test_public_installer_libc.py::test_shim_allows_supported_hosts[Darwin-musl libc]": "FileNotFoundError: [WinError 2] The system cannot find the file specified",
+"tests/installer/test_public_installer_libc.py::test_shim_allows_supported_hosts[Linux-ldd (GNU libc) 2.36]": "FileNotFoundError: [WinError 2] The system cannot find the file specified",
 "tests/installer/test_public_installer_libc.py::test_shim_refuses_musl_before_any_download[False]": "FileNotFoundError: [WinError 2] The system cannot find the file specified",
 "tests/installer/test_public_installer_libc.py::test_shim_refuses_musl_before_any_download[True]": "FileNotFoundError: [WinError 2] The system cannot find the file specified",
 "tests/installer/test_public_installer_noninteractive_handoff.py::test_no_setup_skips_agent_mode": "FileNotFoundError: [WinError 2] The system cannot find the file specified",
@@ -107,5 +110,7 @@
 "tests/installer/test_shell_path_lifecycle.py::test_supported_shell_contexts_resolve_without_duplicate_path[bash]": "AssertionError: login",
 "tests/installer/test_supported_python.py::test_dry_run_resolves_stable_channel_and_writes_nothing": "assert \"--python '>=3.11,<3.15'\" in \"Resolved Yoke 1.2.3\\nInstall command: env 'UV_TOOL_DIR=<new private release>/tools' 'UV_TOOL_BIN_DIR=<new private release>/bin' uv tool install yoke-cli==1.2.3 --p",
 "tests/installer/test_supported_python.py::test_install_command_uses_only_supported_python": "AssertionError: assert '>=3.12,<3.15' == '>=3.11,<3.15'",
-"tests/installer/test_supported_python.py::test_supported_range_boundaries[3.11-True]": "AssertionError: assert ('3.11' in <SpecifierSet('<3.15,>=3.12')>) is True"
+"tests/installer/test_supported_python.py::test_supported_range_boundaries[3.11-True]": "AssertionError: assert ('3.11' in <SpecifierSet('<3.15,>=3.12')>) is True",
+"tests/installer/test_supported_python.py::test_unavailable_python_after_install_failure_names_recovery[Python download failed]": "assert 'supports Python >=3.11,<3.15' in \"supported_python_unavailable: Yoke supports Python >=3.12,<3.15. Automatic managed-Python download failed or is disabled. Check network access and uv's Python",
+"tests/installer/test_supported_python.py::test_unavailable_python_after_install_failure_names_recovery[Python downloads disabled]": "assert 'supports Python >=3.11,<3.15' in \"supported_python_unavailable: Yoke supports Python >=3.12,<3.15. Automatic managed-Python download failed or is disabled. Check network access and uv's Python"
 }

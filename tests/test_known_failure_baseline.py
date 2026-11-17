@@ -43,6 +43,8 @@ def _entry_problem(node_id: str, reason: object) -> str | None:
     path = REPO_ROOT / file_part
     if not path.is_file():
         return f"names missing file {file_part}"
+    if "[" in test_part and not test_part.endswith("]"):
+        return "has an unclosed [params] part"
     test = test_part.split("[", 1)[0]
     if separator and test not in _defined_tests(path):
         return f"names no test {test} in {file_part}"
@@ -78,6 +80,7 @@ def test_entry_check_rejects_missing_reason_file_and_test() -> None:
     assert "names no test" in _entry_problem(f"{this}::test_absent", "why")
     assert "separators" in _entry_problem("tests\\test_known_failure_baseline.py::x", "why")
     assert _entry_problem(real + "[C:\\temp]", "why") is None
+    assert "unclosed" in _entry_problem(real + "[/tmp/a", "why")
 
 
 def test_duplicate_entries_across_files_are_refused(tmp_path, monkeypatch) -> None:
@@ -194,6 +197,8 @@ def test_recorder_adds_failures_keeps_entries_and_drops_xpasses(tmp_path) -> Non
         "ERROR tests/a.py::test_y",
         "[gw0] [ 5%] FAILED tests/a.py::test_ignored_progress_line",
         "FAILED tests/a.py::test_bare",
+        "FAILED tests/a.py::test_p[/tmp/a dir - x] - assert 'D:\\tmp' == '/tmp'",
+        "ERROR tests/a.py::test_q[two words]",
         "FAILED tests/a.py::test_slow - subprocess.TimeoutExpired: Command '['/tmp/venv/bin/yoke', 'setup', '--x']' timed out after 120 seconds",
     ]
     failures, passed = record.summary_entries(lines)
@@ -201,6 +206,8 @@ def test_recorder_adds_failures_keeps_entries_and_drops_xpasses(tmp_path) -> Non
         "tests/a.py::test_x[1]": "AttributeError: module 'os' has no attribute 'getuid'",
         "tests/b.py": "ModuleNotFoundError: No module named 'pwd'",
         "tests/a.py::test_bare": "fails with no message",
+        "tests/a.py::test_p[/tmp/a dir - x]": "assert 'D:\\tmp' == '/tmp'",
+        "tests/a.py::test_q[two words]": "fails with no message",
         "tests/a.py::test_slow": "subprocess.TimeoutExpired: yoke timed out after 120 seconds",
     }
     assert passed == {"tests/a.py::test_y"}
@@ -212,3 +219,28 @@ def test_recorder_adds_failures_keeps_entries_and_drops_xpasses(tmp_path) -> Non
     for path in written:
         merged.update(json.loads(path.read_text(encoding="utf-8")))
     assert merged == entries
+
+
+def test_recorder_reads_exact_node_ids_from_junit(tmp_path) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("")
+    report = tmp_path / "pytest-report.xml"
+    report.write_text(
+        """<testsuites><testsuite>
+<testcase classname="tests.test_a" name="test_x[two words\\nline]"><failure message="AssertionError: assert 1 == 2&#10;more">t</failure></testcase>
+<testcase classname="tests.test_a.TestK" name="test_y"><error message='failed on setup with "OSError: nope"'>t</error></testcase>
+<testcase classname="tests.test_a" name="test_z"><error message="failed on teardown with &quot;[XPASS(strict)] tests/test_a.py::test_z passed: r&quot;">t</error></testcase>
+<testcase classname="" name="tests.test_b"><error message="collection failure">tests/test_b.py:1: in &lt;module&gt;
+    import pwd
+E   ModuleNotFoundError: No module named 'pwd'</error></testcase>
+<testcase classname="tests.test_a" name="test_ok"/>
+</testsuite></testsuites>""",
+        encoding="utf-8",
+    )
+    failures, passed = record.junit_entries(report, root=tmp_path)
+    assert failures == {
+        "tests/test_a.py::test_x[two words\\nline]": "AssertionError: assert 1 == 2",
+        "tests/test_a.py::TestK::test_y": "OSError: nope",
+        "tests/test_b.py": "ModuleNotFoundError: No module named 'pwd'",
+    }
+    assert passed == {"tests/test_a.py::test_z"}

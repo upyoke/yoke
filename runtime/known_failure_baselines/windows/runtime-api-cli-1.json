@@ -68,7 +68,7 @@
 "runtime/api/cli/test_github_app_machine_reconnect.py::test_reconnect_discovery_failure_preserves_cached_access_snapshot": "yoke_cli.config.github_machine.GitHubMachineError: machine-config parent is not owner-only: C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_reconnect_discovery_fa",
 "runtime/api/cli/test_github_app_user_tokens.py::test_credential_read_rejects_group_accessible_parent": "Failed: DID NOT RAISE <class 'yoke_cli.config.github_user_tokens.GitHubUserTokenError'>",
 "runtime/api/cli/test_github_app_user_tokens.py::test_credential_read_rejects_group_readable_file": "Failed: DID NOT RAISE <class 'yoke_cli.config.github_user_tokens.GitHubUserTokenError'>",
-"runtime/api/cli/test_github_credential_read_concurrency.py": "fails with no message",
+"runtime/api/cli/test_github_credential_read_concurrency.py": "ModuleNotFoundError: No module named 'fcntl'",
 "runtime/api/cli/test_github_helper_current_release.py::test_checkout_helper_survives_release_switch_and_prune": "subprocess.CalledProcessError: Command '['git', 'credential', 'fill']' returned non-zero exit status 128.",
 "runtime/api/cli/test_github_helper_python_version_change.py::test_orphaned_release_helper_is_rewritten[project_install]": "yoke_cli.config.github_project_setup.GitHubProjectSetupError: github-checkout-sign-in-convergence-failed: repo-local GitHub helper chain contains a user-managed value; inspect this checkout's origin a",
 "runtime/api/cli/test_github_helper_python_version_change.py::test_orphaned_release_helper_is_rewritten[refresh]": "AssertionError: assert 1 == 0",
@@ -104,7 +104,7 @@
 "runtime/api/cli/test_hook_resident_health.py::test_missing_unix_socket_transport_has_a_health_verdict": "AssertionError: assert False",
 "runtime/api/cli/test_hook_resident_health.py::test_missing_unix_socket_transport_reaches_canonical_fallback": "IndexError: list index out of range",
 "runtime/api/cli/test_hook_resident_health.py::test_missing_unix_socket_transport_uses_named_fallback": "Failed: DID NOT RAISE <class 'yoke_cli.hook_resident_client.ResidentUnavailable'>",
-"runtime/api/cli/test_hook_resident_upgrade.py": "fails with no message",
+"runtime/api/cli/test_hook_resident_upgrade.py": "ModuleNotFoundError: No module named 'fcntl'",
 "runtime/api/cli/test_hosted_machine_authorization_collect.py::test_agent_setup_collects_a_lapsed_code_approved_in_time": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_hosted_machine_authorization_collect.py::test_agent_setup_names_an_approval_collected_too_late": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_local_connection_repair.py::test_stale_actor_is_rerecorded_against_the_owned_cluster[False]": "yoke_cli.config.machine_config_mutation.MachineConfigWriteError: machine-config parent is not owner-only: C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_stale_ac",
@@ -158,7 +158,6 @@
 "runtime/api/cli/test_onboard_wizard_git_recovery_navigation.py::test_connected_clone_remote_back_returns_to_visibility_without_stale_error": "assert \"couldn't reach that repo\" in \"\\u2717 couldn't install git automatically.  cause: could not run sudo -n dnf install -y git because sudo was not found. what to do   \\u2022 choose install git, or",
 "runtime/api/cli/test_onboard_wizard_goldens_hosting.py::test_hosting_existing_credentials": "AssertionError: hosting_existing_credentials.svg drifted from its blessed golden. Re-bless with YOKE_WIZARD_GOLDEN_UPDATE=1 if the change is approved. First difference: byte 27676, expected line 157;",
 "runtime/api/cli/test_onboard_wizard_goldens_hosting.py::test_hosting_guided_credentials": "AssertionError: hosting_guided_credentials.svg drifted from its blessed golden. Re-bless with YOKE_WIZARD_GOLDEN_UPDATE=1 if the change is approved. First difference: byte 31411, expected line 157; ex",
-"runtime/api/cli/test_onboard_wizard_resize_redraw.py::test_resizing_mid_flow_shows_each_screen_once": "AssertionError: terminal diverged from the wizard's screen:\\n  \\n     \\u2600 Yoke  \\xb7 Set up your machine and onboard your projects\\n  \\n     \\u2714 Install \\u2500\\u2500\\u2500 \\u2714 Account \\u2500\\",
 "runtime/api/cli/test_operator_cli_checkout_refresh.py::test_current_release_records_failures_and_skips_source_checkouts[3]": "assert \"yoke project...s_f0\\\\failed'\" == 'yoke project...ds_f0\\\\failed'",
 "runtime/api/cli/test_operator_cli_checkout_refresh.py::test_current_release_records_failures_and_skips_source_checkouts[bad-json]": "assert \"yoke project...s_f2\\\\failed'\" == 'yoke project...ds_f2\\\\failed'",
 "runtime/api/cli/test_operator_cli_checkout_refresh.py::test_current_release_records_failures_and_skips_source_checkouts[failure1]": "assert \"yoke project...s_f1\\\\failed'\" == 'yoke project...ds_f1\\\\failed'",
@@ -298,5 +297,6 @@
 "runtime/api/cli/test_setup_agent_approvals.py::test_browser_step_ends_the_call_and_the_next_call_continues": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_setup_agent_approvals.py::test_github_sign_in_ends_the_call_and_resumes": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_setup_agent_approvals.py::test_github_sign_in_left_for_later_forgets_its_code": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
-"runtime/api/cli/test_setup_agent_approvals.py::test_new_approval_survives_a_later_refusal[github]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+"runtime/api/cli/test_setup_agent_approvals.py::test_new_approval_survives_a_later_refusal[github]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
+"runtime/api/cli/test_setup_agent_approvals.py::test_new_approval_survives_a_later_refusal[machine]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
 }
