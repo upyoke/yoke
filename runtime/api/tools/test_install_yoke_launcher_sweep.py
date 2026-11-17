@@ -19,6 +19,8 @@ from yoke_core.tools.install_yoke_launcher_sweep import (
 )
 
 
+pytestmark = pytest.mark.posix_only(reason="POSIX launcher shim")
+
 def _checkout(tmp_path: Path) -> Path:
     root = tmp_path / "checkout"
     root.mkdir()
@@ -45,7 +47,6 @@ def test_canonical_shim_path_uses_xdg_bin_home(tmp_path: Path) -> None:
     assert canonical_shim_path(env) == tmp_path / "bin" / "yoke"
 
 
-@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_enumerate_shadow_installs_skips_canonical(tmp_path: Path) -> None:
     canon = tmp_path / "canon"
     canon.mkdir()

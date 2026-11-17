@@ -86,7 +86,6 @@
 "runtime/api/tools/test_watch_print_only_contract.py::test_printing_a_wait_shape_launches_nothing[in-turn-yoke_core.tools.watch_fleet-_probe_argv]": "assert '--raw-capture C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_printing_a_wait_shape_lau0\\\\fleet.raw' in \"# watch_fleet wait_mode=in-turn\\n# watch",
 "runtime/api/tools/test_watch_pytest.py::TestLiveWrapperSmoke::test_runs_against_passing_test_and_splits_capture": "AssertionError: watch_pytest smoke failed (exit=3)",
 "runtime/api/tools/test_watch_pytest_lane.py::test_a_dirty_lane_behind_main_is_refused_untouched": "AssertionError: assert b'edited, not committed\\r\\n' == b'edited, not committed\\n'",
-"runtime/api/tools/test_watch_pytest_project_python.py::test_yoke_shaped_tree_uses_its_locked_interpreter": "AssertionError: assert ['C:\\\\Users\\\\...-m', 'pytest'] == ['C:\\\\Users\\\\...-m', 'pytest']",
 "runtime/api/tools/test_watch_pytest_tree_binding.py::TestRunTestsBinding::test_allow_flag_runs_and_prints_the_notice": "assert 1 == 0",
 "runtime/api/tools/test_watch_pytest_tree_binding.py::TestWatchPytestBinding::test_impacted_main_call_runs_untracked_lane_selection_in_one_tree": "AssertionError: assert 3 == 0",
 "runtime/api/tools/test_watch_runner_interruption.py": "AttributeError: module 'signal' has no attribute 'SIGHUP'",

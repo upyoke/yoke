@@ -9,7 +9,7 @@ from the shape of a release path, and be wrong the moment the layout moves.
 
 from __future__ import annotations
 
-from yoke_contracts.venv_layout import venv_console_script
+from yoke_contracts.venv_layout import venv_console_script, venv_scripts
 
 import json
 from pathlib import Path
@@ -33,7 +33,7 @@ def _installed_relay(tmp_path: Path) -> Path:
     """One relay state directory with a launcher and a release to select."""
     state_dir = tmp_path / "relay-instance"
     runtime = state_dir / "runtime"
-    (runtime / "bin").mkdir(parents=True)
+    venv_scripts(runtime).mkdir(parents=True)
     release = state_dir / "releases" / "deadbeef"
     packages = release / _release_packages_relative()
     (packages / "yoke_cli").mkdir(parents=True)
