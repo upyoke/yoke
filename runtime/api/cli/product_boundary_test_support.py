@@ -234,7 +234,7 @@ def _assert_clean_client_boundary(run: ProductCliRun) -> None:
     assert _repo_pythonpath(run) == [str(CLI_SRC), str(CONTRACTS_SRC), str(HARNESS_SRC)]
     assert not Path(str(run.boundary["cwd"])).resolve().is_relative_to(REPO_ROOT)
     assert Path(str(run.boundary["home"])).name == "home"
-    assert str(run.boundary["yoke_config"]).endswith("/home/.yoke/config.json")
+    assert Path(str(run.boundary["yoke_config"])).parts[-3:] == ("home", ".yoke", "config.json")
     assert run.boundary["yoke_config"] == run.boundary["yoke_machine_config_file"]
 
 
