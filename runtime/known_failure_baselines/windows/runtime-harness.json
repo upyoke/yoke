@@ -49,7 +49,6 @@
 "runtime/harness/test_hook_runner_codex_reminders.py::test_missed_startup_recovers_once_on_prompt[True-suppressed]": "AssertionError: assert ('outside every Yoke project' in 'Install: yoke setup --agent\\n## Yoke Orientation\\n\\nYour Session: session\\n\\nRoot: C:\\\\Users\\\\runneradmin\\nUse yoke help for commands.\\n') == T",
 "runtime/harness/test_hook_runner_deadline.py::test_pre_timeout_deny_still_renders_after_later_timeout": "AttributeError: module 'signal' has no attribute 'SIGALRM'. Did you mean: 'SIGABRT'?",
 "runtime/harness/test_hook_runner_deadline.py::test_timeout_does_not_wait_on_dispatch_telemetry_after_deadline": "AttributeError: module 'signal' has no attribute 'SIGALRM'. Did you mean: 'SIGABRT'?",
-"runtime/harness/test_hook_runner_deadline.py::test_total_deadline_fails_open_and_stops_unfinished_chain": "AttributeError: module 'signal' has no attribute 'SIGALRM'. Did you mean: 'SIGABRT'?",
 "runtime/harness/test_hook_runner_remote_entry.py::test_agent_type_from_request_reaches_payload_detection": "AttributeError: module 'signal' has no attribute 'SIGALRM'. Did you mean: 'SIGABRT'?",
 "runtime/harness/test_hook_runner_remote_entry.py::test_budget_clamps_to_server_ceiling": "AttributeError: module 'signal' has no attribute 'SIGALRM'. Did you mean: 'SIGABRT'?",
 "runtime/harness/test_hook_runner_remote_entry.py::test_client_policies_self_skip_with_degraded_markers": "AttributeError: module 'signal' has no attribute 'SIGALRM'. Did you mean: 'SIGABRT'?",
