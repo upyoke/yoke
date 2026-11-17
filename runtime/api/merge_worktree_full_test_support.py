@@ -100,6 +100,20 @@ class MergeEnv:
             "GIT_SSH_COMMAND": "ssh -oBatchMode=yes",
             "YOKE_GIT_COMMAND_TIMEOUT_SECONDS": TEST_GIT_TIMEOUT_SECONDS,
         }
+        if os.name == "nt":
+            home = self.tmpdir / "home"
+            temp = self.tmpdir / "tmp"
+            e.update({
+                "HOME": str(home),
+                "USERPROFILE": str(home),
+                "APPDATA": str(home / "AppData" / "Roaming"),
+                "LOCALAPPDATA": str(home / "AppData" / "Local"),
+                "TEMP": str(temp),
+                "TMP": str(temp),
+                "TMPDIR": str(temp),
+            })
+            for name in ("APPDATA", "LOCALAPPDATA", "TEMP"):
+                Path(e[name]).mkdir(parents=True, exist_ok=True)
         # YOKE_MACHINE_HOME must ride along: HOME passes through for
         # git, and without the per-test machine home the subprocess
         # resolves the OPERATOR's live ~/.yoke config — on an
