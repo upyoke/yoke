@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.api.domain.native_windows_fixture_cleanup import PROFILE_CLEANUP_SCRIPT
+from runtime.api.domain.native_windows_fixture_cleanup import AUTOLOGON_CLEARED_SCRIPT
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
@@ -253,34 +253,29 @@ if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyCon
                     tunnel.communicate(timeout=5)
         finally:
             cleanup = powershell(
-                PROFILE_CLEANUP_SCRIPT + "$password=''; $name='';\n" + AUTOLOGON_SCRIPT + rf"""
+                "$password=''; $name='';\n" + AUTOLOGON_SCRIPT + rf"""
 Set-ItemProperty $winlogon -Name AutoAdminLogon -Value '0'
 Unregister-ScheduledTask -TaskName YokeQaMachineSettings -Confirm:$false -ErrorAction SilentlyContinue
+# This dedicated job owns sshd; persistent hosts are excluded above.
+$service=Get-Service sshd -ErrorAction Stop
+if($service.Status -ne 'Stopped'){{$service.Stop()}}
+$service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(10))
+$service.Refresh()
+if($service.Status -ne 'Stopped'){{throw 'owned fixture sshd did not stop'}}
+Get-CimInstance Win32_Service -Filter "Name='sshd'" | Select-Object Name,State,ProcessId | ConvertTo-Json -Compress
 $account=Get-LocalUser -Name '{name}' -ErrorAction SilentlyContinue
 if($account){{
  try {{
-  # This job owns the disposable sshd service; no real lab service is stopped.
-  function Show-FixtureHolders {{
-   Get-CimInstance Win32_Service -Filter "Name='sshd'" | Select-Object Name,State,ProcessId | ConvertTo-Json -Compress
-   Get-CimInstance Win32_UserProfile -Filter ("SID='"+$account.SID.Value+"'") | Select-Object SID,LocalPath,Loaded,refCount | ConvertTo-Json -Compress
-   foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='sshd.exe' OR Name='powershell.exe' OR Name='conhost.exe'")){{
-    $owner=$null
-    try {{$owner=(Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid -ErrorAction Stop).Sid}} catch {{Write-Output ('OWNER_QUERY_UNAVAILABLE:'+$p.ProcessId)}}
-    if($p.Name -eq 'sshd.exe' -or $owner -eq $account.SID.Value){{
-     [PSCustomObject]@{{Name=$p.Name;PID=$p.ProcessId;Parent=$p.ParentProcessId;Created=$p.CreationDate;SID=$owner}} | ConvertTo-Json -Compress
-    }}
-   }}
-  }}
-  Show-FixtureHolders
-  $service=Get-Service sshd -ErrorAction Stop
-  $service.Stop()
-  $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(10))
-  $service.Refresh()
-  if($service.Status -ne 'Stopped'){{throw 'owned fixture sshd did not stop'}}
-  Show-FixtureHolders
-  Remove-YokeFixtureProfile $account.SID.Value
+  # GitHub decommissions the entire VM, including any still-loaded profile.
+  Get-CimInstance Win32_UserProfile -Filter ("SID='"+$account.SID.Value+"'") | Select-Object SID,LocalPath,Loaded,refCount | ConvertTo-Json -Compress
+  Write-Output 'DISPOSABLE_VM_DECOMMISSION_OWNS_RESIDUAL_PROFILE'
  }} finally {{Remove-LocalUser -Name '{name}'}}
 }}
-""", tmp_path, timeout=60,
+if(Get-LocalUser -Name '{name}' -ErrorAction SilentlyContinue){{throw 'owned fixture account remains'}}
+if(Get-ScheduledTask -TaskName YokeQaMachineSettings -ErrorAction SilentlyContinue){{throw 'owned fixture task remains'}}
+if((Get-Service sshd).Status -ne 'Stopped'){{throw 'owned fixture SSH service remains active'}}
+""" + AUTOLOGON_CLEARED_SCRIPT, tmp_path, timeout=60,
             )
+            with capsys.disabled():
+                print(cleanup.stdout)
             assert cleanup.returncode == 0, cleanup.stderr

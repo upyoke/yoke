@@ -7,6 +7,8 @@ permissions:
 jobs:
   complete_guest_setup:
     name: complete guest setup (windows-latest, ${{ matrix.ssh-client }})
+    # GitHub decommissions this entire VM after the job, including loaded profiles.
+    # Never move this fixture to a persistent/self-hosted runner.
     runs-on: windows-latest
     timeout-minutes: 25
     strategy:
