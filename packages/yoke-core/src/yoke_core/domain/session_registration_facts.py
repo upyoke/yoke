@@ -4,6 +4,7 @@ from typing import Any
 
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.sessions_analytics import SessionError
+from yoke_core.domain.db_savepoint import SavepointLostError
 
 
 def insert_refused(exc: Exception) -> SessionError:
@@ -24,18 +25,13 @@ def stamp_registration_prompt(
 ) -> None:
     if not first_prompt:
         return
-    from yoke_core.domain.db_helpers import instant_parameter
-    from yoke_core.domain import db_backend
+    from yoke_core.domain.session_recovery_facts import stamp_first_user_prompt
 
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
-        cursor = conn.execute(
-            "UPDATE harness_sessions SET first_user_prompt_at = "
-            f"COALESCE(first_user_prompt_at, {p}) WHERE session_id = {p}",
-            (instant_parameter(conn, now), session_id),
-        )
-        if cursor.rowcount != 1:
+        if not stamp_first_user_prompt(conn, session_id, now):
             raise ValueError("the registered session row is missing")
+    except SavepointLostError:
+        raise
     except Exception as exc:
         raise SessionError(
             "SESSION_PROMPT_STAMP_REFUSED",

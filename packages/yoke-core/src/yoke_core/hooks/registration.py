@@ -18,6 +18,7 @@ post-transient-end revival must not depend on lifecycle events firing.
 from __future__ import annotations
 
 from typing import Any, Optional
+from yoke_core.domain.db_savepoint import SavepointLostError
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 
@@ -324,8 +325,10 @@ def ensure_registered_from_hook(
             **({"first_user_prompt": True} if first_user_prompt else {}),
         )
         return outcome
+    except SavepointLostError:
+        raise
     except Exception as exc:  # safety net retains a named failure
         from yoke_core.hooks.registration_in_process import refuse_registration
         code = getattr(exc, "code", "SESSION_REGISTRATION_FAILED")
-        refuse_registration(session_id, code, str(exc), conn=conn)
+        refuse_registration(session_id, code, str(exc))
         return f"refused:{code}"

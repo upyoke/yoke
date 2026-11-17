@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from yoke_core.domain.db_savepoint import SavepointLostError
 
 
 def apply_hook_session_tail(
@@ -49,10 +50,12 @@ def apply_hook_session_tail(
                 project_id=project_id,
                 first_user_prompt=first_user_prompt,
             )
+        except SavepointLostError:
+            raise
         except Exception as exc:
             from yoke_core.hooks.registration_in_process import refuse_registration
             code = getattr(exc, "code", "SESSION_REGISTRATION_FAILED")
-            refuse_registration(session_id, code, str(exc), conn=conn)
+            refuse_registration(session_id, code, str(exc))
             outcome = f"refused:{code}"
         from yoke_core.domain.session_presentation_observation import (
             record_session_presentation,
