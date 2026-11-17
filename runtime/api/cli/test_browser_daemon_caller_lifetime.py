@@ -18,6 +18,8 @@ from yoke_harness import browser_client, browser_client_readiness
 
 
 FAKE_DAEMON = """
+import faulthandler
+faulthandler.dump_traceback_later(10)
 import argparse
 import json
 import os
@@ -164,7 +166,7 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
         caller.kill()
         output, errors = caller.communicate(timeout=10)
         logs = []
-        for name in (".daemon.log", "evaluator.log"):
+        for name in (".daemon.log", ".daemon-state.json", "evaluator.log"):
             for path in tmp_path.rglob(name):
                 logs.append(f"{path}:\n{path.read_text(errors='replace')}")
         pytest.fail(
