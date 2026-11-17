@@ -16,7 +16,7 @@ from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
 pytestmark = [
     pytest.mark.posix_only(reason="runs on the remote Linux test machine"),
     pytest.mark.skipif(
-        os.name == "posix" and os.getuid() == 0, reason="owner-only archive"
+        os.getuid() == 0, reason="owner-only archive"
     ),
 ]
 

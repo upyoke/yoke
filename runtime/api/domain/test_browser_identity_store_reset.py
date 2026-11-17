@@ -90,8 +90,9 @@ def _archive_run(home: Path, golden: Path, operation: str):
 
 
 @pytest.mark.posix_only(reason="runs on the POSIX test machine")
-@pytest.mark.skipif(os.name == "posix" and os.getuid() == 0, reason="archive fixture needs a non-root user")
 def test_linux_capture_omits_the_store_and_reset_keeps_it_live(tmp_path):
+    if os.getuid() == 0:
+        pytest.skip("archive fixture needs a non-root user")
     home, golden = tmp_path / "home", tmp_path / "golden"
     _write(home, COOKIES, "signed in at capture")
     _write(home, ".ssh/authorized_keys", "key")
