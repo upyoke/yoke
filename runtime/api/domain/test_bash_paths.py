@@ -106,6 +106,9 @@ def test_relayed_windows_paths_use_only_client_observations():
 
     @paths.with_client_paths
     def resolve(payload):
+        from yoke_core.domain.lint_session_cwd_target_extract import _resolve_target_paths
+
+        assert _resolve_target_paths(["/tmp"], "") == [r"C:\Users\runner\Temp"]
         assert paths.resolve_bash_path("/tmp", "D:/repo") == r"C:\Users\runner\Temp"
         assert paths.resolve_bash_path("/c/repo", "D:/repo") == r"C:\repo"
         assert (
