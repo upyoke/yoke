@@ -232,7 +232,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder (local-checkout)
+            await pilot.press("down", "enter")  # project: existing folder (local-checkout)
             # First input: checkout path, typed fast then Enter.
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
@@ -255,6 +255,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
     assert applied is not None
     assert applied["project_checkout"] == "/home/code/widget"
     assert applied["project_slug"] == "wdgt"
+    assert applied["project_mode"] == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
 
 
 def test_every_screen_keeps_enter_live_on_the_active_list() -> None:

@@ -49,8 +49,23 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 # --------------------------------------------------------------------------- #
 
 
-def test_skip_reaches_review_and_plans_the_skip() -> None:
+def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> None:
     """Declining hosting continues to Review and reports the skipped answer."""
+    from yoke_contracts.machine_config import checkout
+
+    # Recreate the captured failure: a nonexistent folder under a Git ancestor.
+    (tmp_path / ".git").mkdir()
+    checkout_path = "/home/code/widget"
+    def identity_path(value):
+        selected = Path(value)
+        return tmp_path / "widget" if selected.as_posix() == checkout_path else selected
+
+    monkeypatch.setattr(checkout, "Path", identity_path)
+
+    def refuse_host_checkout(*_args):
+        raise AssertionError("fictional wizard paths must not resolve host checkouts")
+
+    monkeypatch.setattr(checkout, "_git_worktrees", refuse_host_checkout)
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -58,8 +73,8 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
-            await type_text(pilot, "/home/code/widget")
+            await pilot.press("down", "enter")  # project: existing folder
+            await type_text(pilot, checkout_path)
             await pilot.press("enter")
             await accept_project_details(pilot)
             await pilot.press("enter")  # publish: No (preselected)
@@ -73,6 +88,8 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
 
     applied = spy.applied
     assert applied is not None
+    assert applied["project_checkout"] == checkout_path
+    assert applied["project_mode"] == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
     assert applied["hosting_choice"] == hosting_posture.POSTURE_UNDECIDED
 
 
