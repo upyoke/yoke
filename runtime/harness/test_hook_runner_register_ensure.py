@@ -35,6 +35,11 @@ import yoke_core.hooks.telemetry as telemetry
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def registration_executor(monkeypatch):
+    monkeypatch.setattr("yoke_core.hooks.helpers_identity.detect_executor", lambda: "claude-code")
+
+
 class TestEnsureRegisteredFromHook:
     def _patch_lookup(self, monkeypatch, found, stored_actor_id=None, ended=False):
         monkeypatch.setattr(
@@ -48,7 +53,7 @@ class TestEnsureRegisteredFromHook:
         monkeypatch.setattr(
             register_module,
             "_register_from_hook",
-            lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None: (
+            lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None, first_user_prompt=False: (
                 calls.append(
                     (
                         payload,
@@ -61,7 +66,7 @@ class TestEnsureRegisteredFromHook:
                         project_id,
                     )
                 )
-                or ("", "claude-code", "anthropic", "m", None)
+                or ("registered", "claude-code", "anthropic", "m", None)
             ),
         )
         drove = register_module.ensure_registered_from_hook(
@@ -70,7 +75,7 @@ class TestEnsureRegisteredFromHook:
             "s-1",
             transcript_path="/t/x.jsonl",
         )
-        assert drove is True
+        assert drove == "registered"
         assert calls == [
             ('{"session_id": "s-1"}', "s-1", "/t/x.jsonl", True, "", False, None, None),
         ]
@@ -81,7 +86,7 @@ class TestEnsureRegisteredFromHook:
         monkeypatch.setattr(
             register_module,
             "_register_from_hook",
-            lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None: (
+            lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None, first_user_prompt=False: (
                 calls.append(
                     (
                         sid,
@@ -92,7 +97,7 @@ class TestEnsureRegisteredFromHook:
                         project_id,
                     )
                 )
-                or ("", "codex", "openai", "m", None)
+                or ("registered", "codex", "openai", "m", None)
             ),
         )
         drove = register_module.ensure_registered_from_hook(
@@ -106,7 +111,7 @@ class TestEnsureRegisteredFromHook:
             actor_id=7,
             project_id=1,
         )
-        assert drove is True
+        assert drove == "registered"
         assert calls == [("s-r", False, "codex", True, 7, 1)]
 
     def test_skips_when_row_exists(self, monkeypatch):
@@ -117,7 +122,7 @@ class TestEnsureRegisteredFromHook:
             lambda *a, **k: pytest.fail("must not register an existing session"),
         )
         assert (
-            register_module.ensure_registered_from_hook(object(), "{}", "s-1") is False
+            register_module.ensure_registered_from_hook(object(), "{}", "s-1") == "exists"
         )
 
     def test_skips_when_lookup_failed(self, monkeypatch):
@@ -130,16 +135,16 @@ class TestEnsureRegisteredFromHook:
             lambda *a, **k: pytest.fail("must not register on unknown state"),
         )
         assert (
-            register_module.ensure_registered_from_hook(object(), "{}", "s-1") is False
+            register_module.ensure_registered_from_hook(object(), "{}", "s-1") == "refused:SESSION_REGISTRATION_FAILED"
         )
 
     def test_skips_blank_unknown_session_and_missing_conn(self):
-        assert register_module.ensure_registered_from_hook(object(), "{}", "") is False
+        assert register_module.ensure_registered_from_hook(object(), "{}", "") == "skipped:session_identity_missing"
         assert (
             register_module.ensure_registered_from_hook(object(), "{}", "unknown")
-            is False
+            == "skipped:session_identity_missing"
         )
-        assert register_module.ensure_registered_from_hook(None, "{}", "s-1") is False
+        assert register_module.ensure_registered_from_hook(None, "{}", "s-1") == "skipped:session_identity_missing"
 
     def test_register_failure_never_raises(self, monkeypatch):
         self._patch_lookup(monkeypatch, False)
@@ -149,7 +154,7 @@ class TestEnsureRegisteredFromHook:
 
         monkeypatch.setattr(register_module, "_register_from_hook", _boom)
         assert (
-            register_module.ensure_registered_from_hook(object(), "{}", "s-1") is False
+            register_module.ensure_registered_from_hook(object(), "{}", "s-1") == "refused:SESSION_REGISTRATION_FAILED"
         )
 
 
@@ -178,7 +183,7 @@ class TestFlushEnsureSessionWiring:
         monkeypatch.setattr(
             register_module,
             "ensure_registered_from_hook",
-            lambda conn, payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, force_reregister=False, actor_id=None, project_id=None: (
+            lambda conn, payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, force_reregister=False, actor_id=None, project_id=None, first_user_prompt=False: (
                 seen.append(
                     (
                         conn,
@@ -207,6 +212,7 @@ class TestFlushEnsureSessionWiring:
                 False,
                 5,
                 1,
+                False,
             ),
         )
         assert seen == [
@@ -240,7 +246,7 @@ class TestFlushEnsureSessionWiring:
         )
         telemetry.flush_hook_telemetry(
             [],
-            ensure_session=("s-77", "{}", "", True, "", False, False, None, None),
+            ensure_session=("s-77", "{}", "", True, "", False, False, None, None, False),
         )
 
     def test_ensure_crash_never_breaks_flush(self, monkeypatch):
@@ -283,6 +289,6 @@ class TestFlushEnsureSessionWiring:
                     },
                 )
             ],
-            ensure_session=("s-77", "{}", "", True, "", False, False, None, None),
+            ensure_session=("s-77", "{}", "", True, "", False, False, None, None, False),
         )
         assert len(flushed) == 1, "records must still flush after a probe crash"

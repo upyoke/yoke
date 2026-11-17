@@ -58,11 +58,12 @@ def _ensure_session_request(
         else (stdin_data or ""),
         _str_or(payload.get("transcript_path"), "") or "",
         not remote,
-        (context.executor_family or "") if remote else "",
+        context.executor_family or "",
         True,
         force and not preflight_complete,
         controls.actor_id if remote else None,
         payload.get("project_id") if isinstance(payload, dict) else None,
+        event_name == "UserPromptSubmit",
     )
 
 
@@ -101,7 +102,7 @@ def _observed_session_request(
     )
 
 
-def preflight_remote_registration(
+def preflight_hook_registration(
     *,
     event_name: str,
     context: Any,
@@ -110,11 +111,10 @@ def preflight_remote_registration(
     controls: Any,
     deadline: Any,
 ) -> bool:
-    """Register remote opening events before launch attestation reads the row."""
+    """Persist opening facts before orientation markers or deadline skips."""
     if (
-        controls is None
-        or not controls.remote
-        or event_name not in ("SessionStart", "UserPromptSubmit")
+        event_name not in ("SessionStart", "UserPromptSubmit")
+        or (controls is not None and not controls.flush_tail)
     ):
         return False
     ensure_session = _ensure_session_request(
@@ -133,11 +133,12 @@ def preflight_remote_registration(
         return False
     from yoke_core.hooks import telemetry as _telemetry
 
-    _telemetry.flush_hook_telemetry(
+    outcome = _telemetry.flush_hook_telemetry(
         [],
         deadline=deadline,
         ensure_session=ensure_session,
     )
+    record_registration_outcome(controls, outcome)
     return True
 
 
@@ -222,12 +223,14 @@ def flush_run_tail(
         preflight_complete=registration_preflight,
         driver=driver,
     )
-    _telemetry.flush_hook_telemetry(
+    outcome = _telemetry.flush_hook_telemetry(
         [] if defer else telem_records,
         deadline=deadline,
-        ensure_session=ensure_session,
+        ensure_session=None if registration_preflight else ensure_session,
         observed_session=None if defer else observed_session,
     )
+    if not registration_preflight:
+        record_registration_outcome(controls, outcome)
     if defer:
         from yoke_core.hooks.deferred_tail import deferred_flush
 
@@ -252,4 +255,14 @@ def flush_run_tail(
     )
 
 
-__all__ = ["flush_run_tail", "preflight_remote_registration"]
+def record_registration_outcome(controls, outcome: str) -> None:
+    if controls is None:
+        return
+    controls.registration_outcome = outcome
+    if isinstance(outcome, str) and outcome.startswith("refused:"):
+        marker = "session_registration_refused:" + outcome.split(":", 1)[1]
+        if marker not in controls.degraded:
+            controls.degraded.append(marker)
+
+
+__all__ = ["flush_run_tail", "preflight_hook_registration"]

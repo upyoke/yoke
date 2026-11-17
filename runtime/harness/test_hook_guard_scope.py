@@ -206,7 +206,7 @@ def test_engine_filters_by_local_membership_or_authorized_remote_context(
     seen = []
     monkeypatch.setattr(runner, "chain_for", lambda *_a: chain)
     monkeypatch.setattr(runner, "deduplicated_dispatch", lambda *_a, **_k: False)
-    monkeypatch.setattr(run_tail, "preflight_remote_registration", lambda **_k: None)
+    monkeypatch.setattr(run_tail, "preflight_hook_registration", lambda **_k: None)
     monkeypatch.setattr(run_tail, "flush_run_tail", lambda **_k: None)
     monkeypatch.setattr(
         runner._mode_gate, "apply_mode", lambda decision, *_a, **_k: decision

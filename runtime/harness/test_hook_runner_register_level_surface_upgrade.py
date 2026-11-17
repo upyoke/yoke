@@ -22,7 +22,7 @@ def test_existing_missing_version_with_wire_version_drives_reregister(monkeypatc
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **_kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
 
     drove = register_module.ensure_registered_from_hook(
@@ -38,7 +38,7 @@ def test_existing_missing_version_with_wire_version_drives_reregister(monkeypatc
         "s-version",
     )
 
-    assert drove is True
+    assert drove == "registered"
     assert calls == ["s-version"]
 
 
@@ -48,7 +48,7 @@ def test_existing_null_surface_with_wire_surface_drives_reregister(monkeypatch):
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **_kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
 
     drove = register_module.ensure_registered_from_hook(
@@ -57,7 +57,7 @@ def test_existing_null_surface_with_wire_surface_drives_reregister(monkeypatch):
         "s-surface",
     )
 
-    assert drove is True
+    assert drove == "registered"
     assert calls == ["s-surface"]
 
 
@@ -75,7 +75,7 @@ def test_wire_version_without_surface_does_not_drive_reregister(monkeypatch):
             '{"executor_version": "0.150.0"}',
             "s-version-only",
         )
-        is False
+        == "exists"
     )
 
 
@@ -111,7 +111,7 @@ def test_existing_resolved_surface_is_never_replaced(
             f'{{"entrypoint": "{wire_surface}"}}',
             "s-resolved-surface",
         )
-        is False
+        == "exists"
     )
 
 
@@ -121,7 +121,7 @@ def test_a_wire_level_without_model_facts_cannot_drive_reregister(monkeypatch):
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **_kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
 
     drove = register_module.ensure_registered_from_hook(
@@ -130,7 +130,7 @@ def test_a_wire_level_without_model_facts_cannot_drive_reregister(monkeypatch):
         "s-level",
     )
 
-    assert drove is False
+    assert drove == "exists"
     assert calls == []
 
 
@@ -176,7 +176,7 @@ def test_unresolved_level_drives_reregister_from_matching_option(monkeypatch, fa
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **_kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
 
     drove = register_module.ensure_registered_from_hook(
@@ -186,7 +186,7 @@ def test_unresolved_level_drives_reregister_from_matching_option(monkeypatch, fa
         project_id=1,
     )
 
-    assert drove is True
+    assert drove == "registered"
     assert calls == ["s-level-heal"]
 
 
@@ -205,7 +205,7 @@ def test_healed_level_stops_driving_reregister(monkeypatch):
         register_module.ensure_registered_from_hook(
             _Conn([row, *_NO_STORED_LEVELS]), "{}", "s-level-healed", project_id=1
         )
-        is False
+        == "exists"
     )
 
 
@@ -233,7 +233,7 @@ def test_unresolvable_level_does_not_drive_reregister(monkeypatch, executor, fac
             "s-level-unmapped",
             project_id=1,
         )
-        is False
+        == "exists"
     )
 
 
@@ -251,7 +251,7 @@ def test_existing_real_level_with_other_wire_level_skips(monkeypatch):
             '{"execution_level": "INTERN"}',
             "s-level-real",
         )
-        is False
+        == "exists"
     )
 
 
@@ -261,7 +261,7 @@ def test_actual_changed_model_refreshes_a_real_level(monkeypatch):
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
     row = _unresolved_row(
         "claude-code", model="claude-haiku-5-5", reasoning_effort="high"
@@ -271,6 +271,6 @@ def test_actual_changed_model_refreshes_a_real_level(monkeypatch):
         register_module.ensure_registered_from_hook(
             _Conn([row, *_NO_STORED_LEVELS]), "{}", "s-changed", project_id=1
         )
-        is True
+        == "registered"
     )
     assert calls == ["s-changed"]

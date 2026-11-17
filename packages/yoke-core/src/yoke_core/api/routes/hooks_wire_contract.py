@@ -67,6 +67,7 @@ class HookEvaluateResponse(BaseModel):
     outcome: str
     # Whether this evaluation leased the session's inbox. The resident
     # evaluator counts only such a round trip as a message probe.
+    registration_outcome: str = "skipped:no_registration"
     message_probe: bool = False
     model_confirmation: Optional[str] = None
     harness_title_confirmation: Optional[dict[str, Any]] = None

@@ -307,7 +307,7 @@ def test_runner_carries_the_actual_denier_to_the_remote_boundary(monkeypatch) ->
     )
     monkeypatch.setattr(runner._mode_gate, "apply_mode", lambda value, *_a, **_k: value)
     monkeypatch.setattr(
-        "yoke_core.hooks.run_tail.preflight_remote_registration",
+        "yoke_core.hooks.run_tail.preflight_hook_registration",
         lambda **_kwargs: None,
     )
     capability = AdapterCapability(

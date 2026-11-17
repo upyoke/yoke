@@ -26,6 +26,9 @@ def test_repeated_registration_preserves_real_refusals(
     closed = []
 
     class Connection:
+        def rollback(self):
+            pass
+
         def close(self):
             closed.append(True)
 
@@ -45,7 +48,7 @@ def test_repeated_registration_preserves_real_refusals(
 
     monkeypatch.setattr(session_orientation, "_startup_block_lines", lambda: [])
     facts = SessionModelFacts()
-    for _ in range(2):
+    for attempt in range(2):
         error = registration_in_process._register_in_process(
             "test-session",
             executor,
@@ -57,10 +60,10 @@ def test_repeated_registration_preserves_real_refusals(
         )
         orientation = session_dispatch_orientation.registration_failure_stdout(error)
         if refusal:
-            assert refusal in error and "open a new session" in error
+            assert error == f"refused:{refusal}"
             assert refusal in orientation and "Run:" in orientation
         else:
-            assert error == ""
+            assert error == ("registered" if attempt == 0 else "exists")
             assert "Session registration failed" not in orientation
             assert "scheduler will not see" not in orientation
     assert registered == (set() if refusal else {"test-session"})
@@ -81,6 +84,11 @@ def _no_real_anchor_writes(monkeypatch):
         "_record_process_anchor",
         lambda *_a, **_k: None,
     )
+
+
+@pytest.fixture(autouse=True)
+def registration_executor(monkeypatch):
+    monkeypatch.setattr("yoke_core.hooks.helpers_identity.detect_executor", lambda: "claude-code")
 
 
 class TestRegisterInProcess:
@@ -252,7 +260,7 @@ class TestEnsureForceReregister:
             register_module,
             "_register_from_hook",
             lambda payload, sid, **kw: (
-                calls.append((sid, kw)) or ("", "c", "a", "m", None)
+                calls.append((sid, kw)) or ("registered", "c", "a", "m", None)
             ),
         )
         drove = register_module.ensure_registered_from_hook(
@@ -262,7 +270,7 @@ class TestEnsureForceReregister:
             register_in_process=True,
             force_reregister=True,
         )
-        assert drove is True
+        assert drove == "registered"
         assert calls and calls[0][0] == "s-f"
 
 
@@ -284,9 +292,9 @@ class TestEnsureActorBackfill:
         monkeypatch.setattr(
             register_module,
             "_register_from_hook",
-            lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None: (
+            lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None, first_user_prompt=False: (
                 calls.append((sid, actor_id, project_id))
-                or ("", "claude", "anthropic", "m", None)
+                or ("registered", "claude", "anthropic", "m", None)
             ),
         )
         drove = register_module.ensure_registered_from_hook(
@@ -297,7 +305,7 @@ class TestEnsureActorBackfill:
             actor_id=4,
             project_id=1,
         )
-        assert drove is True
+        assert drove == "registered"
         assert calls == [("s-backfill", 4, 1)]
 
     def test_actor_bound_row_skips_even_with_verified_actor(self, monkeypatch):
@@ -315,5 +323,5 @@ class TestEnsureActorBackfill:
                 register_in_process=True,
                 actor_id=4,
             )
-            is False
+            == "exists"
         )

@@ -185,7 +185,8 @@
     "store": "local_jsonl",
     "location": "~/.cursor/projects/<checkout-slug>/agent-transcripts/<id>/<id>.jsonl",
     "project_match": "<checkout-slug> is yoke_contracts.harness_folder_trust.cursor_project_slug(checkout): the absolute path with dots dropped and each non-alphanumeric run collapsed to '-'",
-    "evidence": "yoke_contracts.cursor_session_map parses this layout and harness_folder_trust reproduces the slug, verified against entries Cursor wrote."
+    "evidence": "yoke_contracts.cursor_session_map parses this layout and harness_folder_trust reproduces the slug, verified against entries Cursor wrote.",
+    "session_start": "transcript_optional"
   },
   "machine_hooks": {
     "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",

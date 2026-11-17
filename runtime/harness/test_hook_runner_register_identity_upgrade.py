@@ -20,7 +20,7 @@ def test_existing_coarse_model_with_better_wire_model_drives_reregister(monkeypa
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **_kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
 
     drove = register_module.ensure_registered_from_hook(
@@ -29,7 +29,7 @@ def test_existing_coarse_model_with_better_wire_model_drives_reregister(monkeypa
         "s-model-measured",
     )
 
-    assert drove is True
+    assert drove == "registered"
     assert calls == ["s-model-measured"]
 
 
@@ -42,7 +42,7 @@ def test_a_differing_attestation_drives_reregister_on_every_harness(monkeypatch)
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda _p, sid, **_kw: calls.append(sid),
+        lambda _p, sid, **_kw: calls.append(sid) or ("registered", "claude", "anthropic", "m", None),
     )
 
     assert (
@@ -52,7 +52,7 @@ def test_a_differing_attestation_drives_reregister_on_every_harness(monkeypatch)
             '{"model": "claude-sonnet-4-6"}',
             "s-model-switched",
         )
-        is True
+        == "registered"
     )
     assert calls == ["s-model-switched"]
 
@@ -73,7 +73,7 @@ def test_a_stored_request_is_not_rewritten_by_a_later_one(monkeypatch):
             '{"requested_model": "haiku"}',
             "s-ask-stable",
         )
-        is False
+        == "exists"
     )
 
 
@@ -94,7 +94,7 @@ def test_agreeing_wire_model_does_not_drive_reregister(monkeypatch):
             '{"model": "cursor-grok-4.6-xhigh"}',
             "s-model-settled",
         )
-        is False
+        == "exists"
     )
 
 
@@ -104,7 +104,7 @@ def test_existing_placeholder_model_with_wire_model_drives_reregister(monkeypatc
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+        lambda payload, sid, **_kw: calls.append(sid) or ("registered", "c", "p", "m", None),
     )
 
     drove = register_module.ensure_registered_from_hook(
@@ -113,7 +113,7 @@ def test_existing_placeholder_model_with_wire_model_drives_reregister(monkeypatc
         "s-model",
     )
 
-    assert drove is True
+    assert drove == "registered"
     assert calls == ["s-model"]
 
 
@@ -134,7 +134,7 @@ def test_a_wire_tier_selector_never_drives_a_served_upgrade(monkeypatch):
             '{"model": "claude-fable-5[1m]"}',
             "s-model-tier",
         )
-        is False
+        == "exists"
     )
 
 
@@ -152,5 +152,5 @@ def test_wire_placeholder_model_does_not_drive_reregister(monkeypatch):
             '{"model": "<synthetic>"}',
             "s-model-placeholder",
         )
-        is False
+        == "exists"
     )

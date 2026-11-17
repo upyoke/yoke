@@ -163,6 +163,8 @@ CORE_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
+            "Wrong guess: events.context is a column; hook registration refusal "
+            "details live in events.envelope JSON under context. "
             "Event attribution reads items.project_id before the session owner; "
             "event-writer fixtures need an items table, even with no matching row. "
             "Append-only TELEMETRY ledger — diagnosis/audit only, never "

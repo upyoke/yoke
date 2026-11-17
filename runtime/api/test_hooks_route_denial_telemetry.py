@@ -231,7 +231,7 @@ def test_denial_during_skew_is_one_row_carrying_the_skew(monkeypatch) -> None:
     )
     monkeypatch.setattr(runner, "deduplicated_dispatch", lambda *_a, **_k: False)
     monkeypatch.setattr(
-        "yoke_core.hooks.run_tail.preflight_remote_registration",
+        "yoke_core.hooks.run_tail.preflight_hook_registration",
         lambda **_kwargs: None,
     )
     monkeypatch.setattr(

@@ -59,6 +59,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("project_id", "INTEGER"),
             ("org_id", "INTEGER"),
             ("offered_at", "TIMESTAMPTZ"),
+            ("first_user_prompt_at", "TIMESTAMPTZ"),
             ("last_heartbeat", "TIMESTAMPTZ"),
             ("turn_posture", "TEXT"),
             ("turn_posture_at", "TIMESTAMPTZ"),
@@ -78,6 +79,8 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": HARNESS_SESSION_NOTES
         + (
+            "Wrong guess: hook telemetry still re-exports service_client.register_session; "
+            "authoritative hooks registration uses registration_in_process._register_in_process. "
             " Terminal reads require ended_at and terminated_at; assuming ended_at alone "
             "or omitting terminated_at from scheduler fixtures loses terminal custody. "
             "launch_origin is yoke after launch binding, otherwise operator; native wakes require yoke origin. "
