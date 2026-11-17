@@ -73,8 +73,8 @@ def test_live_sessions_and_unregistered_launches_both_count(test_db) -> None:
     # Keyed by the machine, surface and model each worker draws on: two
     # in-flight launches on machine-2; the registered and failed launches and
     # the ended and terminated sessions do not count.
-    assert counts[("machine-1", "codex-cli", "gpt-6.1-sol")] == 2
-    assert counts[("machine-1", "claude-cli", "gpt-6.1-sol")] == 1
+    assert counts[("machine-1", "codex-cli", "gpt-6.2-sol")] == 2
+    assert counts[("machine-1", "claude-cli", "gpt-6.2-sol")] == 1
     assert counts[("machine-2", "claude-cli", OPUS)] == 2
     totals = surface_workers(counts)
     assert (totals["codex-cli"], totals["claude-cli"]) == (2, 3)

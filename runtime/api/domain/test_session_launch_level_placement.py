@@ -161,7 +161,7 @@ def test_an_idle_surface_above_full_headroom_is_spread_to_first(monkeypatch) -> 
     conn = level_connection(CLAUDE_OPUS, CODEX_SOL)
     add_surface(conn, "m1", "claude-cli", [weekly(60.0)])
     add_surface(conn, "m2", "codex-cli", [weekly(95.0)])
-    pin_live_workers(monkeypatch, {("m2", "codex-cli", "gpt-6.1-sol"): 1})
+    pin_live_workers(monkeypatch, {("m2", "codex-cli", "gpt-6.2-sol"): 1})
 
     placement = _place(conn)
 
@@ -260,7 +260,7 @@ def test_a_level_name_is_matched_case_insensitively() -> None:
     assert placement.level == LEVEL
     assert placement.levels_source == "universe"
     assert (
-        placement.to_dict()["chosen"]["label"] == "codex-cli gpt-6.1-sol medium on m2"
+        placement.to_dict()["chosen"]["label"] == "codex-cli gpt-6.2-sol medium on m2"
     )
 
 
