@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_hook_resident_budget.py::test_a_loading_resident_is_waited_on_only_inside_the_budget",
- "reason": "AttributeError: module 'socket' has no attribute 'AF_UNIX'"
-}

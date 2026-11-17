@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_install_bundle.py::test_hooks_subtrees_match_canonical_renderers_and_committed_files",
- "reason": "assert {'PermissionR...and'}]}], ...} == {'PermissionR...and'}]}], ...}"
-}

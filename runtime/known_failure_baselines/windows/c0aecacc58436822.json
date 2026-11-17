@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_codex_lane_hook_trust.py::test_mirroring_appends_a_separator_when_the_config_lacks_one",
- "reason": "tomllib.TOMLDecodeError: Invalid hex value (at line 3, column 19)"
-}

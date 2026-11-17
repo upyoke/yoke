@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agents_render_hooks.py::test_cursor_shell_gates_on_its_own_event_and_completes_on_post_tool_use",
- "reason": "AssertionError: assert 'evaluate PostToolUse' in 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAIAAk"
-}

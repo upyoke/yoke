@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_worktree_harness_enablement.py::test_rendered_hook_commands_export_the_lane_root",
- "reason": "assert 'YOKE_ROOT=' in '{\\n  \"_generated\": \"by yoke_core.domain.agents_render — do not hand-edit. Source: yoke_contracts.hook_runner.hook_ordering + yoke_core.domain.agents_render_hooks.\",\\n  \"hooks\":"
-}

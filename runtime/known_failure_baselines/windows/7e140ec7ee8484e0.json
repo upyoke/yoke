@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_doctor_hc_cursor_hooks.py::test_symlinked_config_parent_is_reported_as_unloadable[.cursor-.cursor/hooks.json]",
- "reason": "AssertionError: assert '.cursor/hooks.json contains symlink component .cursor' in '.cursor\\\\hooks.json contains symlink component .cursor; Cursor refuses project hook config paths containing symlinks;"
-}

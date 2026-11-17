@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_hook_guard_scope.py::test_privacy_guard_still_denies_outside_projects",
- "reason": "AssertionError:"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_hook_marker_project_context.py::test_command_capture_uses_case_project_instead_of_server_context",
- "reason": "AssertionError: assert 127 == 0"
-}
