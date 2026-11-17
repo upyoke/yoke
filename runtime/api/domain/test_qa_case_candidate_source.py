@@ -216,7 +216,11 @@ def test_candidate_check_after_the_case_refuses_drift_without_repairing(tmp_path
     from yoke_core.domain.qa_case_candidate_source import CandidateSource
 
     provision_stub_environment(tmp_path)
-    site = next((tmp_path / ".venv/lib").glob("python*/site-packages"))
+    site = next(
+        path
+        for pattern in ("Lib/site-packages", "lib/python*/site-packages")
+        for path in (tmp_path / ".venv").glob(pattern)
+    )
     metadata = site / "main_only-1.0.dist-info"
     metadata.mkdir()
     (metadata / "METADATA").write_text(
