@@ -160,7 +160,7 @@ class TestInProcessRegistrationStampsLevel:
             execution_level=level,
             project_id=_PROJECT_ID,
         )
-        assert error == ""
+        assert error == "registered"
         return _stored_level(connection, session_id)
 
     def test_shipped_options_label_the_session(self, conn):  # noqa: F811

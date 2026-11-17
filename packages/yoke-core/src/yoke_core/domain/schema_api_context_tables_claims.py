@@ -81,6 +81,8 @@ CLAIMS_TABLES: dict[str, dict] = {
         + (
             "Wrong guess: hook telemetry still re-exports service_client.register_session; "
             "authoritative hooks registration uses registration_in_process._register_in_process. "
+            " api_items_fixture_schema must include first_user_prompt_at for authoritative "
+            "UserPromptSubmit registration; a missing stamp column is a named refusal. "
             " Terminal reads require ended_at and terminated_at; assuming ended_at alone "
             "or omitting terminated_at from scheduler fixtures loses terminal custody. "
             "launch_origin is yoke after launch binding, otherwise operator; native wakes require yoke origin. "

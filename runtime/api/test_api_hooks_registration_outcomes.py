@@ -15,18 +15,7 @@ from yoke_core.domain.sessions_analytics import SessionError
 
 @pytest.fixture()
 def hooks_db():
-    for fixture in make_test_db_fixture():
-        from yoke_core.domain.schema_harness_session_columns import (
-            apply_harness_session_columns,
-        )
-
-        conn = db_helpers.connect()
-        try:
-            apply_harness_session_columns(conn)
-        finally:
-            conn.close()
-        yield fixture
-
+    yield from make_test_db_fixture()
 
 @pytest.fixture()
 def client(hooks_db):

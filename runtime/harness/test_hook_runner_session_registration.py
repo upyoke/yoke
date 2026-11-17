@@ -45,7 +45,7 @@ class TestRunnerArmsEnsureSession:
         # The MERGED payload rides the tuple (wire extras included), not
         # raw stdin.
         assert json.loads(payload_json)["transcript_path"] == "/t/z.jsonl"
-        assert rest == ["/t/z.jsonl", True, "", True, False, None, None]
+        assert rest == ["/t/z.jsonl", True, "claude", True, False, None, None, False]
 
     def test_sessionless_payload_does_not_arm(self, monkeypatch, tmp_path):
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
@@ -86,6 +86,7 @@ class TestRunnerArmsEnsureSession:
             force,
             actor_id,
             project_id,
+            first_user_prompt,
         ) = captured[0]["ensure_session"]
         assert session_id == "s-remote"
         assert record_anchor is False
@@ -96,6 +97,7 @@ class TestRunnerArmsEnsureSession:
         )
         assert actor_id == 3, "the verified token actor must ride the tuple"
         assert project_id is None
+        assert first_user_prompt is False
 
     def test_remote_registration_class_event_forces_reregister(self, monkeypatch):
         # SessionStart/UserPromptSubmit relays may carry a wire model; the
