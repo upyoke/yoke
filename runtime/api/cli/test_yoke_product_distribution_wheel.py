@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+
 from runtime.api.cli.yoke_product_distribution_wheel_test_support import (
     BASE_PATH as BASE_PATH,
     _assert_command as _assert_command,
@@ -36,8 +38,8 @@ def test_product_wheels_exercise_installer_plan_surfaces(
     assert not any(name.startswith("yoke-") for name in built_wheels)
 
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
-    yoke = venv_dir / "bin" / "yoke"
+    venv_python = venv_interpreter(venv_dir)
+    yoke = venv_console_script(venv_dir, "yoke")
     assert yoke.is_file()
 
     project = tmp_path / "external-project"

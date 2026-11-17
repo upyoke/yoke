@@ -107,7 +107,7 @@ def test_cleanup_failure_cannot_hide_the_primary_failure(tmp_path, monkeypatch):
 
 def test_windows_child_environment_is_isolated_and_startable(tmp_path, monkeypatch):
     monkeypatch.setattr(smoke, "WINDOWS", True)
-    monkeypatch.setattr(smoke, "venv_executable", lambda venv, name: venv / "Scripts" / f"{name}.exe")
+    monkeypatch.setattr(smoke, "venv_console_script", lambda venv, name: venv / "Scripts" / f"{name}.exe")
     monkeypatch.setenv("SYSTEMROOT", r"C:\Windows")
     monkeypatch.setenv("GH_TOKEN", "host-token")
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\host\AppData\Local")

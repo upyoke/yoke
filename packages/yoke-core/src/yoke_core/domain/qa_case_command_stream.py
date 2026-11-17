@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Optional, TextIO
 
-from yoke_core.domain.source_python_environment import venv_python
+from yoke_contracts.venv_layout import venv_python
 from yoke_core.domain import source_pythonpath as _source_pythonpath
 
 #: Capture-file and banner label. Names the surface an agent is reading,
@@ -54,7 +54,7 @@ def product_command_environment(
     folders = [str(Path(sys.executable).parent)]
     if cwd is not None and not _source_pythonpath.is_yoke_shaped_tree(Path(cwd)):
         prefix = Path(cwd) / ".venv"
-        project_python = venv_python(prefix)
+        project_python = venv_python(prefix, name="python3")
         if project_python.is_file():
             folders.insert(0, str(project_python.parent))
             out["VIRTUAL_ENV"] = str(prefix)

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Mapping, Optional
 
+from yoke_contracts.venv_layout import venv_python
 from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_core.tools.install_yoke_launcher_cleanup import (
     quarantine_shadow_launcher,
@@ -96,10 +97,10 @@ def _candidate_interpreters(checkout: Path, home: Optional[Path]) -> List[Path]:
     """Return distinct launcher interpreters in machine-preference order."""
     raw_candidates: List[Path] = []
     if home is not None:
-        raw_candidates.append(Path(home) / ".venv" / "bin" / "python3")
+        raw_candidates.append(venv_python(Path(home) / ".venv", name="python3"))
     raw_candidates.extend(
         [
-            Path(checkout) / ".venv" / "bin" / "python3",
+            venv_python(Path(checkout) / ".venv", name="python3"),
             Path(sys.executable),
         ]
     )

@@ -7,6 +7,8 @@ present but inert.
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+
 import json
 import os
 import subprocess
@@ -25,8 +27,8 @@ def smoke(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
-    yoke = venv_dir / "bin" / "yoke"
+    venv_python = venv_interpreter(venv_dir)
+    yoke = venv_console_script(venv_dir, "yoke")
     assert yoke.is_file()
 
     checkout = tmp_path / "fixture-checkout"

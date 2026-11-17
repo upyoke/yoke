@@ -1,5 +1,7 @@
 """Installed manual and automatic preflight execute without source imports."""
 
+from yoke_contracts.venv_layout import venv_console_script, venv_python
+
 from pathlib import Path
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
@@ -107,10 +109,10 @@ def smoke(tmp_path, product_wheelhouse, product_venv):
                     "import _run_preflight\n"
                     f"raise SystemExit(_run_preflight({args!r}))\n"
                 )
-                command = [str(product_venv / "bin" / "python"), "-c", script]
+                command = [str(venv_python(product_venv)), "-c", script]
             else:
                 command = [
-                    str(product_venv / "bin" / "yoke"),
+                    str(venv_console_script(product_venv, "yoke")),
                     "watch",
                     "preflight",
                     "--",
@@ -124,7 +126,7 @@ def smoke(tmp_path, product_wheelhouse, product_venv):
             proof.unlink()
     env["PREFLIGHT_CONTROLLED_FAILURE"] = "1"
     failure = _run(
-        [str(product_venv / "bin" / "yoke"), "watch", "preflight", "--", *args],
+        [str(venv_console_script(product_venv, "yoke")), "watch", "preflight", "--", *args],
         cwd=directory,
         env=env,
         check=False,

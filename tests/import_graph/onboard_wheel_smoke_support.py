@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_scripts
+
 import json
 import os
 from pathlib import Path
@@ -71,15 +73,16 @@ def _product_env(
 ) -> dict[str, str]:
     uv = shutil.which("uv")
     assert uv, "uv is an installer prerequisite"
-    path_parts = [str(venv_dir / "bin"), str(Path(uv).parent)]
+    path_parts = [str(venv_scripts(venv_dir)), str(Path(uv).parent)]
     if extra_path is not None:
         path_parts.append(str(extra_path))
-    path_parts.append(BASE_PATH)
+    path_parts.append(os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH)
     return {
+        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA") if key in os.environ},
         "HOME": str(machine_home.parent),
-        "PATH": ":".join(path_parts),
-        "XDG_BIN_HOME": str(venv_dir / "bin"),
-        "UV_TOOL_BIN_DIR": str(venv_dir / "bin"),
+        "PATH": os.pathsep.join(path_parts),
+        "XDG_BIN_HOME": str(venv_scripts(venv_dir)),
+        "UV_TOOL_BIN_DIR": str(venv_scripts(venv_dir)),
         "SHELL": "/bin/bash",
         "YOKE_MACHINE_HOME": str(machine_home),
         "PYTHONNOUSERSITE": "1",

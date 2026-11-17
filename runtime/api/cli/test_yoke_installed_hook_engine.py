@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script, venv_python
+
 import json
 import os
 import subprocess
@@ -20,7 +22,7 @@ def test_installed_hooks_register_emit_and_deny(
     venv = product_venv
     repo = _git_repo(tmp_path)
     env = _installed_env(tmp_path, venv, repo, test_db)
-    yoke = venv / "bin" / "yoke"
+    yoke = venv_console_script(venv, "yoke")
     session_id = "installed-hook-session"
 
     opened = _hook(
@@ -92,7 +94,7 @@ def test_installed_hook_chain_imports_and_missing_member_is_loud(
     venv = product_venv
     repo = _git_repo(tmp_path)
     env = _installed_env(tmp_path, venv, repo, test_db)
-    python = venv / "bin" / "python"
+    python = venv_python(venv)
     script = """
 import importlib
 import importlib.util

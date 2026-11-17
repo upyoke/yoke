@@ -1,5 +1,7 @@
 """Locked checkout checks reject stale, missing, and redirected environments."""
 
+from yoke_contracts.venv_layout import venv_python, venv_site_packages
+
 import os
 import json
 import subprocess
@@ -73,7 +75,7 @@ def lane(tmp_path, monkeypatch):
 def test_fresh_environment_reports_its_identity_and_ignores_ambient_redirect(lane):
     incoming = dict(os.environ, UV_PROJECT_ENVIRONMENT="/missing/main", UV_NO_DEV="1")
     binding = environment.resolve(lane, incoming)
-    assert binding.python == str(lane / ".venv/bin/python3")
+    assert binding.python == str(venv_python(lane / ".venv", name="python3"))
     assert Path(binding.evidence["prefix"]) == lane / ".venv"
     assert binding.evidence["version"] == sys.version.split()[0]
     assert binding.env["UV_PROJECT_ENVIRONMENT"] == str(lane / ".venv")
@@ -118,7 +120,7 @@ def test_python_requirement_mismatch_refuses_without_downloading(lane, tmp_path_
 
 
 def _extraneous_package(lane: Path) -> Path:
-    site = next((lane / ".venv/lib").glob("python*/site-packages"))
+    site = venv_site_packages(lane / ".venv")
     metadata = site / "main_only-1.0.dist-info"
     metadata.mkdir()
     (metadata / "METADATA").write_text(
@@ -298,7 +300,7 @@ def test_python_pin_mismatch_cannot_replace_the_environment(lane):
 def test_matching_python_request_keeps_the_candidate_interpreter(lane, python_request):
     (lane / ".python-version").write_text(python_request + "\n")
     assert environment.resolve(lane, os.environ).python == str(
-        lane / ".venv/bin/python3"
+        venv_python(lane / ".venv", name="python3")
     )
 
 

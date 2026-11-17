@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 import os
 import shlex
 import subprocess
@@ -49,7 +51,7 @@ def provision_stub_environment(root: Path) -> Path:
         text=True,
         check=True,
     )
-    return root / ".venv/bin/python3"
+    return venv_python(root / ".venv", name="python3")
 
 
 _STUB_BACKEND = """\
@@ -96,7 +98,7 @@ def provision_packaged_stub_environment(root: Path) -> Path:
             text=True,
             check=True,
         )
-    return root / ".venv/bin/python3"
+    return venv_python(root / ".venv", name="python3")
 
 
 __all__ = ["REPO_ROOT", "SOURCE_PYTHONPATH"]

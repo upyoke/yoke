@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 import builtins
 import importlib
 import tempfile
@@ -30,7 +32,7 @@ def verify_product_wheel_boot(
     with tempfile.TemporaryDirectory(prefix="yoke-wheel-boot-") as work:
         root = Path(work)
         create_venv(root)
-        python = root / "bin" / "python"
+        python = venv_python(root)
         run(
             [
                 str(python),

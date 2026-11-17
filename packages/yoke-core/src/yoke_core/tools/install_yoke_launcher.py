@@ -247,6 +247,8 @@ def install(
     stream=None,
 ) -> TargetChoice:
     """Run the install steps. Returns the chosen target."""
+    if os.name == "nt":
+        raise InstallError("posix_launcher_shim_unsupported: POSIX launcher shim; run the public Windows installer instead")
     out = stream if stream is not None else sys.stdout
     verify_python_version()
     cwd = (cwd or Path.cwd()).resolve()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+
 from runtime.api.cli.yoke_package_index_test_support import _record as _record
 
 
@@ -66,8 +68,8 @@ def test_pep503_simple_index_and_clean_venv_install(
         assert sha == record.sha256
 
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
-    yoke = venv_dir / "bin" / "yoke"
+    venv_python = venv_interpreter(venv_dir)
+    yoke = venv_console_script(venv_dir, "yoke")
     # The published index links remote wheels; the offline clean-venv proof
     # installs from the local closure (the same wheels plus third-party deps).
     assert yoke.is_file()

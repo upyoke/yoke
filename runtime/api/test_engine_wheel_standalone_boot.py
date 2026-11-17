@@ -26,6 +26,8 @@ package index and never cloned the repository.
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python as venv_interpreter
+
 import os
 import subprocess
 from pathlib import Path
@@ -40,7 +42,7 @@ def test_engine_wheel_boots_and_serves_standalone(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
+    venv_python = venv_interpreter(venv_dir)
 
     home = tmp_path / "home"
     home.mkdir()

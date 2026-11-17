@@ -6,6 +6,8 @@ installed packages. No engine or source-checkout package enters that view.
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python as venv_interpreter
+
 import json
 import os
 import subprocess
@@ -21,7 +23,7 @@ def smoke(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
+    venv_python = venv_interpreter(venv_dir)
     site_result = _run(
         [
             str(venv_python),
