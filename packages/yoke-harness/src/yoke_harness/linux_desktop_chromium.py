@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 import signal as signal
+from yoke_contracts.platform_process import spawn_group
+
 import subprocess
 import sys
 import time
@@ -118,12 +120,11 @@ def prepare():
     restarted = quit_chromium()
     for directory in user_data_dirs():
         (directory / "DevToolsActivePort").unlink(missing_ok=True)
-    subprocess.Popen(
+    spawn_group(
         [str(executable), "--remote-debugging-port=0"],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,
         env=_desktop_env(),
     )
     deadline = time.monotonic() + DEVTOOLS_READY_SECONDS

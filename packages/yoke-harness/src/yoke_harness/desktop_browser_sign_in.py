@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import posix_uid
+
 import json
-import os
 from pathlib import Path
 import platform
 import subprocess
@@ -46,7 +47,7 @@ def quit_browser(kind: str) -> None:
                 command, shell=True, text=True, capture_output=True, **kwargs
             )
 
-        result = quit_sign_in_apps(run, str(os.getuid()))
+        result = quit_sign_in_apps(run, str(posix_uid()))
         if not result.ok:
             raise RuntimeError(f"{result.error_code}: {result.evidence['recovery']}")
 

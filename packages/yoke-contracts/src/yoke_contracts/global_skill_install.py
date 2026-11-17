@@ -16,7 +16,10 @@ not record is never overwritten: install refuses with
 
 from __future__ import annotations
 
+from yoke_contracts.platform_links import link as create_link
+
 import os
+import shutil
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -125,9 +128,18 @@ def global_skill_ready(
         return False, f"global_skill_missing: {target}"
     if HARNESS_GLOBAL_SKILLS[harness_id].placement == "link":
         link = link_path(harness_id, home)
-        if not link.is_symlink() or link.resolve() != shared.resolve():
+        if not _placement_matches(link, shared):
             return False, f"global_skill_link_missing: {link}"
     return True, ""
+
+
+def _placement_matches(link: Path, shared: Path) -> bool:
+    if link.is_symlink() or link.is_junction():
+        return link.resolve() == shared.resolve()
+    # The copy fallback is valid only for a placement this installer owns.
+    copied = link / SKILL_FILE
+    return (str(link) in _owned_paths() and copied.is_file()
+            and copied.read_bytes() == (shared / SKILL_FILE).read_bytes())
 
 
 def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool:
@@ -146,15 +158,20 @@ def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool
 def _install_link(
     link: Path, shared: Path, owned: set, result: GlobalSkillResult
 ) -> bool:
-    if link.is_symlink() and link.resolve() == shared.resolve():
+    if _placement_matches(link, shared):
         return _record(link, result)
     if link.exists() or link.is_symlink():
         if str(link) not in owned:
             return _refuse(link, result)
-        link.unlink()
+        if link.is_junction():
+            link.rmdir()
+        elif link.is_dir() and not link.is_symlink():
+            shutil.rmtree(link)
+        else:
+            link.unlink()
     parents = _missing_parents(link)
     link.parent.mkdir(parents=True, exist_ok=True)
-    link.symlink_to(shared, target_is_directory=True)
+    create_link(shared, link)
     return _record(link, result, parents)
 
 

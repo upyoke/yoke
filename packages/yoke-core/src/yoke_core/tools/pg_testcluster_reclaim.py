@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import posix_uid
+
 import os
 from pathlib import Path
 import subprocess
@@ -45,7 +47,7 @@ def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
     for path in (root, data):
         if path.is_symlink() or getattr(path.lstat(), "st_file_attributes", 0) & 0x400:
             raise ValueError("cluster path is not a real directory")
-        if os.name != "nt" and path.stat().st_uid != os.getuid():
+        if os.name != "nt" and path.stat().st_uid != posix_uid():
             raise ValueError("cluster directory is not owned by this user")
     if os.name == "nt":
         from yoke_contracts.owner_private_path import is_owner_private_file

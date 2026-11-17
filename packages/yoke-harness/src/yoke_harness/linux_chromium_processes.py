@@ -1,5 +1,7 @@
 """Discover and gracefully stop only the native Chromium main processes."""
 
+from yoke_contracts.owner_private_path import posix_uid
+
 import os
 from pathlib import Path
 import signal
@@ -18,7 +20,7 @@ def browser_pids():
         if not process.name.isdigit():
             continue
         try:
-            if process.stat().st_uid != os.getuid():
+            if process.stat().st_uid != posix_uid():
                 continue
             if Path(os.readlink(process / "exe")).name not in {
                 "chrome",

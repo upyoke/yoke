@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.platform_process import pid_alive
+
 import errno
-import os
 import re
 import shutil
 import time
@@ -88,13 +89,7 @@ def _pid_for_run(run_dir: Path) -> int | None:
 
 
 def _pid_is_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    return pid_alive(pid)
 
 
 def _plain_run_dirs(global_root: Path) -> list[Path]:

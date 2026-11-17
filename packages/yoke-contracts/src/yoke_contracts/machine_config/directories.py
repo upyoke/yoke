@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.platform_paths import POSIX_TMP
+
 import os
 import tempfile
 from pathlib import Path
@@ -44,7 +46,7 @@ def shortest_temp_directory() -> Path | None:
     """
     bases = {
         os.fsencode(candidate): candidate
-        for candidate in (Path(tempfile.gettempdir()), Path("/tmp"))
+        for candidate in (Path(tempfile.gettempdir()), Path(POSIX_TMP))
         if candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK)
     }
     if not bases:

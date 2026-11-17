@@ -24,7 +24,8 @@ Liveness follows the harness manifest's ``agent_wake`` facts
 
 from __future__ import annotations
 
-import subprocess
+from yoke_contracts.platform_process import process_command_lines
+
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -67,18 +68,9 @@ def _recent_process_cmdlines() -> tuple[str, ...]:
 def list_process_cmdlines() -> tuple[str, ...]:
     """Return this machine's process command lines, or empty on failure."""
     try:
-        completed = subprocess.run(
-            ["ps", "-ax", "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        return tuple(" ".join(process.cmdline) for process in process_command_lines())
+    except OSError:
         return ()
-    if completed.returncode != 0:
-        return ()
-    return tuple(completed.stdout.splitlines())
 
 
 def _is_tail(line: str) -> bool:

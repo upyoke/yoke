@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import posix_uid
+
 from yoke_core.domain.relay_launchd_status import (
     RELAY_KEEP_ALIVE,
     RELAY_LAUNCHD_LABEL,
@@ -102,7 +104,7 @@ def install_relay_launchd(
             environ=source_env,
         ),
     )
-    domain = f"gui/{os.getuid() if uid is None else uid}"
+    domain = f"gui/{posix_uid() if uid is None else uid}"
     result = bootstrap_launchd_job(domain, paths.plist, run=run)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "unknown launchd error").strip()

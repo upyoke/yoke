@@ -16,6 +16,13 @@ else:
 _WINDOWS_PERMISSIONS = os.name == "nt"
 
 
+def posix_uid() -> int:
+    """Return the local POSIX uid; native Windows has no POSIX identity."""
+    if os.name == "nt":
+        raise OSError("platform_unsupported: POSIX uid unavailable on Windows; use the native Windows owner predicate")
+    return os.getuid()
+
+
 def _is_private(path: str | Path, *, directory: bool) -> bool:
     selected = Path(path)
     try:
@@ -89,5 +96,5 @@ def write_owner_private(path: str | Path, data: str | bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
-__all__ = ["is_owner_private_file", "is_owner_private_directory",
+__all__ = ["posix_uid", "is_owner_private_file", "is_owner_private_directory",
            "create_owner_private_directory", "write_owner_private"]

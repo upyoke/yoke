@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.platform_paths import POSIX_TMP
+
 from contextlib import contextmanager
 import json
 import os
@@ -186,7 +188,7 @@ def isolated_machine_home(
             if identity:
                 resolved["YOKE_SESSION_ID"] = identity
         # macOS TMPDIR can exceed PostgreSQL's Unix socket path limit.
-        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-", dir="/tmp" if sys.platform == "darwin" else None))
+        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-", dir=POSIX_TMP if sys.platform == "darwin" else None))
         resolved["YOKE_SCRATCH_ROOT"] = str(evidence)
         print(f"source machine home: disposable {destination}", file=sys.stderr)
         print(f"source evidence root: {evidence}", file=sys.stderr)

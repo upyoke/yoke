@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tempfile
+
 import os
 import sys
 
@@ -24,12 +26,10 @@ from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
 from yoke_core.engines.done_transition_satisfiers import check_done_satisfiers
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
-
 def _parent():
     from yoke_core.engines import done_transition as _dt
 
     return _dt
-
 
 def run(
     item_id: int,
@@ -62,7 +62,7 @@ def run(
     item_ref = public_item_target(item_id).public_ref
     result = mw.TransitionResult(item=item_ref)
     result_file = os.path.join(
-        os.environ.get("TMPDIR", "/tmp"),
+        os.environ.get("TMPDIR", tempfile.gettempdir()),
         f"done-transition-result.{item_ref}.json",
     )
 

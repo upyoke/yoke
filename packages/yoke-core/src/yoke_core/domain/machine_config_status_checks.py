@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts import owner_private_path
+
 import importlib.util
 import os
 import shutil
@@ -131,7 +133,7 @@ def permission_issues(path: Path) -> list[dict[str, str]]:
             message += " (0600)"
             hint = f"Run `chmod 600 {path}`."
         issues.append(issue("error", "config_permissions", message, hint))
-    if hasattr(os, "getuid") and path_stat.st_uid != os.getuid():
+    if not owner_private_path.is_current_user_owned_path(path):
         issues.append(
             issue("error", "config_owner", f"{path} is not owned by the current user")
         )

@@ -25,12 +25,13 @@ fixture root.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_process import GroupHandle, spawn_group, stop_group
+
 import http.client
 import json
 import os
 from pathlib import Path
 import shutil
-import signal
 import subprocess
 import sys
 import time
@@ -199,19 +200,18 @@ def start(mode: str) -> dict:
         _birth_local(mode)
     else:
         with open(root / "server.log", "ab", buffering=0) as log:
-            process = subprocess.Popen(
+            group = spawn_group(
                 [sys.executable, "-m", MODULE, "serve", mode],
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=subprocess.STDOUT,
-                start_new_session=True,
             )
         write_private(
             root / "identity.json",
-            json.dumps({"mode": mode, "pid": process.pid}) + "\n",
+            json.dumps({"mode": mode, "group": group.to_record()}) + "\n",
         )
         try:
-            _wait_ready(mode, process)
+            _wait_ready(mode, group.process)
         except AdmissionFixtureError:
             stop(mode)
             raise
@@ -232,20 +232,9 @@ def stop(mode: str) -> None:
     root = mode_root(mode)
     identity = root / "identity.json"
     if identity.is_file():
-        pid = int(json.loads(identity.read_text(encoding="utf-8"))["pid"])
+        record = json.loads(identity.read_text(encoding="utf-8"))["group"]
         try:
-            os.killpg(pid, signal.SIGTERM)
-            for _ in range(100):
-                try:
-                    os.killpg(pid, 0)
-                except PermissionError:
-                    # macOS reports EPERM for an exited process group.
-                    break
-                time.sleep(0.1)
-            else:
-                os.killpg(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+            stop_group(GroupHandle.from_record(record), timeout=10)
         except OSError as exc:
             raise AdmissionFixtureError(
                 f"machine_admission_cleanup_failed: {type(exc).__name__}: {exc}; "

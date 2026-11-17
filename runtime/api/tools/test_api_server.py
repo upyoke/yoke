@@ -16,7 +16,7 @@ from runtime.api.tools.api_server_test_support import (
 
 
 import io
-import signal
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -43,7 +43,7 @@ class PidFileTests(unittest.TestCase):
 
     def test_start_rejects_when_already_running(self) -> None:
         pid_file = self.repo_root / "runtime" / "api" / ".pid"
-        pid_file.write_text("9999\n", encoding="utf-8")
+        pid_file.write_text(json.dumps({"pid": 9999, "start_time": 1.0, "members": [[9999, 1.0]]}), encoding="utf-8")
 
         buf = io.StringIO()
         with (
@@ -57,7 +57,7 @@ class PidFileTests(unittest.TestCase):
 
     def test_start_cleans_up_stale_pid_file(self) -> None:
         pid_file = self.repo_root / "runtime" / "api" / ".pid"
-        pid_file.write_text("9999\n", encoding="utf-8")
+        pid_file.write_text(json.dumps({"pid": 9999, "start_time": 1.0, "members": [[9999, 1.0]]}), encoding="utf-8")
 
         launched = {}
 
@@ -65,28 +65,27 @@ class PidFileTests(unittest.TestCase):
             launched["args"] = args[0]
             launched["cwd"] = kwargs.get("cwd")
             launched["kwargs"] = kwargs
-            return _FakeProc(pid=1234)
+            return api_server.GroupHandle(1234, 1.0, ((1234, 1.0),), _FakeProc(pid=1234))
 
         buf = io.StringIO()
         with (
             self._patch_root(),
             mock.patch.object(api_server, "_is_alive", return_value=False),
             mock.patch(
-                "yoke_core.tools.api_server.subprocess.Popen", side_effect=fake_popen
+                "yoke_core.tools.api_server.spawn_group", side_effect=fake_popen
             ),
             redirect_stdout(buf),
         ):
             rc = api_server.cmd_start()
         self.assertEqual(rc, 0)
         self.assertIn("uvicorn", " ".join(launched["args"]))
-        self.assertEqual(pid_file.read_text(encoding="utf-8").strip(), "1234")
+        self.assertEqual(json.loads(pid_file.read_text(encoding="utf-8"))["pid"], 1234)
         popen_kwargs = launched["kwargs"]
         actual = (
             popen_kwargs["stdin"],
             popen_kwargs["stderr"],
-            popen_kwargs["start_new_session"],
         )
-        expected = (api_server.subprocess.DEVNULL, api_server.subprocess.STDOUT, True)
+        expected = (api_server.subprocess.DEVNULL, api_server.subprocess.STDOUT)
         self.assertEqual(actual, expected)
         self.assertIsNotNone(popen_kwargs["stdout"])
         self.assertIn("started (PID 1234)", buf.getvalue())
@@ -100,41 +99,22 @@ class PidFileTests(unittest.TestCase):
 
     def test_stop_sends_sigterm_and_removes_pid_file(self) -> None:
         pid_file = self.repo_root / "runtime" / "api" / ".pid"
-        pid_file.write_text("5678\n", encoding="utf-8")
-
-        killed = []
-
-        def fake_kill(pid, sig):
-            killed.append((pid, sig))
-
-        # cmd_stop calls _is_alive once, then _kill_existing calls it again before
-        # sending SIGTERM, and once more to observe the graceful shutdown.
-        alive_toggle = iter([True, True, False])
-
-        def fake_is_alive(pid):  # noqa: ARG001
-            try:
-                return next(alive_toggle)
-            except StopIteration:
-                return False
-
-        buf = io.StringIO()
-        with (
-            self._patch_root(),
-            mock.patch.object(api_server, "_is_alive", side_effect=fake_is_alive),
-            mock.patch("yoke_core.tools.api_server.os.kill", side_effect=fake_kill),
-            redirect_stdout(buf),
-        ):
+        record = {"pid": 5678, "start_time": 1.0, "members": [[5678, 1.0]]}
+        pid_file.write_text(json.dumps(record), encoding="utf-8")
+        with self._patch_root(), mock.patch.object(api_server, "stop_group") as stop:
             rc = api_server.cmd_stop()
         self.assertEqual(rc, 0)
-        self.assertEqual(killed[0], (5678, signal.SIGTERM))
+        self.assertEqual(stop.call_args.args[0].pid, record["pid"])
+        self.assertEqual(stop.call_args.kwargs, {"timeout": 5})
         self.assertFalse(pid_file.exists())
 
     def test_read_pid_handles_missing_and_garbage(self) -> None:
         pid_file = self.repo_root / "runtime" / "api" / ".pid"
         self.assertIsNone(api_server._read_pid(pid_file))
         pid_file.write_text("not-a-pid\n", encoding="utf-8")
-        self.assertIsNone(api_server._read_pid(pid_file))
-        pid_file.write_text("4321\n", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "api_process_identity_invalid"):
+            api_server._read_pid(pid_file)
+        pid_file.write_text(json.dumps({"pid": 4321, "start_time": 1.0, "members": [[4321, 1.0]]}), encoding="utf-8")
         self.assertEqual(api_server._read_pid(pid_file), 4321)
 
 

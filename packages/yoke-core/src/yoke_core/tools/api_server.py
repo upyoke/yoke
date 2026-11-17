@@ -8,12 +8,15 @@ PID file location: ``<repo_root>/runtime/api/.pid``.
 
 from __future__ import annotations
 
+import json
+from yoke_contracts.platform_process import GroupHandle, spawn_group, stop_group
+
+from yoke_contracts.platform_process import pid_alive
+
 import argparse
 import os
-import signal
 import subprocess
 import sys
-import time
 from pathlib import Path
 from typing import Optional, List
 
@@ -50,21 +53,16 @@ def _read_pid(pid_file: Path) -> Optional[int]:
     if not pid_file.is_file():
         return None
     try:
-        return int(pid_file.read_text(encoding="utf-8").strip())
-    except (ValueError, OSError):
-        return None
+        return GroupHandle.from_record(json.loads(pid_file.read_text(encoding="utf-8"))).pid
+    except (ValueError, TypeError, KeyError) as exc:
+        raise RuntimeError(
+            f"api_process_identity_invalid: {pid_file}; inspect and stop the recorded server, "
+            "then remove its invalid custody file and retry"
+        ) from exc
 
 
 def _is_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    return pid_alive(pid)
 
 
 def _kill_existing(pid_file: Path) -> None:
@@ -73,24 +71,9 @@ def _kill_existing(pid_file: Path) -> None:
     if old_pid is None:
         return
 
-    if _is_alive(old_pid):
-        print(f"Stopping Yoke API (PID {old_pid}) ...")
-        try:
-            os.kill(old_pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-
-        waited = 0
-        while _is_alive(old_pid) and waited < 5:
-            time.sleep(1)
-            waited += 1
-
-        if _is_alive(old_pid):
-            print(f"Force killing PID {old_pid} ...")
-            try:
-                os.kill(old_pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
+    print(f"Stopping Yoke API (PID {old_pid}) ...")
+    record = json.loads(pid_file.read_text(encoding="utf-8"))
+    stop_group(GroupHandle.from_record(record), timeout=5)
 
     try:
         pid_file.unlink()
@@ -126,7 +109,7 @@ def cmd_start() -> int:
     # Detach uvicorn from those pipes so the API keeps running for the
     # following health-check stage and for local operators after deploy.
     with log_file.open("ab") as log_handle:
-        proc = subprocess.Popen(
+        group = spawn_group(
             [
                 sys.executable,
                 "-m",
@@ -141,11 +124,10 @@ def cmd_start() -> int:
             stdin=subprocess.DEVNULL,
             stdout=log_handle,
             stderr=subprocess.STDOUT,
-            start_new_session=True,
         )
     pid_file.parent.mkdir(parents=True, exist_ok=True)
-    pid_file.write_text(f"{proc.pid}\n", encoding="utf-8")
-    print(f"Yoke API started (PID {proc.pid}). PID file: {pid_file}. Log: {log_file}")
+    pid_file.write_text(json.dumps(group.to_record()) + "\n", encoding="utf-8")
+    print(f"Yoke API started (PID {group.pid}). PID file: {pid_file}. Log: {log_file}")
     return 0
 
 
@@ -160,7 +142,7 @@ def cmd_stop() -> int:
     """Stop the Yoke API server if it is running."""
     pid_file = _pid_file()
     old_pid = _read_pid(pid_file)
-    if old_pid is None or not _is_alive(old_pid):
+    if old_pid is None:
         print("Yoke API is not running.")
         try:
             pid_file.unlink()

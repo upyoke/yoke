@@ -9,6 +9,8 @@ plus the GitHub-hosted image sentinels.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_paths import POSIX_TMP
+
 import argparse
 from collections.abc import Mapping, Sequence
 import os
@@ -19,7 +21,7 @@ import time
 
 
 DEFAULT_RUNNER_ROOT = Path("/opt/actions-runner")
-DEFAULT_TMP_ROOT = Path("/tmp")
+DEFAULT_TMP_ROOT = Path(POSIX_TMP)
 IMAGE_BUILDX_BUILDER = "yoke-core-builder"
 STALE_TMP_MIN_AGE_SECONDS = 6 * 60 * 60
 STALE_RUNNER_LOG_MIN_AGE_SECONDS = 24 * 60 * 60

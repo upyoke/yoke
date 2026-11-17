@@ -28,7 +28,8 @@ not an error: its QA check starts with a clean private profile.
 
 from __future__ import annotations
 
-import os
+from yoke_contracts.platform_links import link as create_link
+
 import shutil
 from pathlib import Path
 
@@ -104,12 +105,12 @@ def _link_live_identity(key: str, identity: str, *, create: bool) -> None:
         return
     target = root.parent / live_identity_store_relative_path(key, identity)
     link = _profile_path(key, identity)
-    if link.is_symlink():
-        if Path(os.readlink(link)) == target:
+    if link.is_symlink() or link.is_junction():
+        if link.resolve() == target.resolve():
             if create:
                 create_private_directory(target)
             return
-        link.unlink()
+        link.rmdir() if link.is_junction() else link.unlink()
     elif link.is_dir():
         if target.exists():
             raise BrowserIdentityError(
@@ -125,7 +126,12 @@ def _link_live_identity(key: str, identity: str, *, create: bool) -> None:
     if not target.is_dir():
         return
     ensure_private_capability_dir(link.parent)
-    link.symlink_to(target, target_is_directory=True)
+    if create_link(target, link) == "copy":
+        shutil.rmtree(link)
+        raise BrowserIdentityError(
+            "browser_identity_link_required: live profiles need a symlink or junction; "
+            "enable Windows Developer Mode or grant link creation access, then retry"
+        )
 
 
 def profile_dir(
@@ -161,7 +167,7 @@ def ensure_profile_dir(
     key = profile_project_key(project, directory=directory)
     _link_live_identity(key, identity, create=True)
     path = _profile_path(key, identity)
-    if path.is_symlink():
+    if path.is_symlink() or path.is_junction():
         return path
     return ensure_private_capability_dir(path)
 
@@ -248,9 +254,9 @@ def remove_profile_dir(
     target = _profile_path(key, identity)
     if not target.is_dir():
         return None
-    if target.is_symlink():
+    if target.is_symlink() or target.is_junction():
         shutil.rmtree(target.resolve())
-        target.unlink()
+        target.rmdir() if target.is_junction() else target.unlink()
     else:
         shutil.rmtree(target)
     return target

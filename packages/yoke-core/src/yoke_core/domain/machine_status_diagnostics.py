@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts import owner_private_path
+
 import importlib.util
 import os
 import shutil
@@ -237,7 +239,7 @@ def _permission_issues(path: Path) -> list[dict[str, str]]:
                 hint,
             )
         )
-    if hasattr(os, "getuid") and stat.st_uid != os.getuid():
+    if not owner_private_path.is_current_user_owned_path(path):
         issues.append(
             _issue("error", "config_owner", f"{path} is not owned by the current user")
         )

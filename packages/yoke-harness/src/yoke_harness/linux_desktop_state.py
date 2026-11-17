@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import posix_uid
+
 import json
 import os
 from pathlib import Path
@@ -29,7 +31,7 @@ def desktop_sessions(*, active_only=True):
         try:
             if (process / "comm").read_text().strip() != "xfce4-session":
                 continue
-            if process.stat().st_uid != os.getuid():
+            if process.stat().st_uid != posix_uid():
                 continue
             environment = dict(
                 field.split("=", 1)
@@ -110,7 +112,7 @@ def graphical_sessions():
             properties.get("Type") in {"x11", "wayland"}
             and properties.get("State") == "active"
             and properties.get("Class") == "user"
-            and properties.get("User") == str(os.getuid())
+            and properties.get("User") == str(posix_uid())
         ):
             sessions.append({"id": fields[0], **properties})
     return sessions
@@ -127,14 +129,14 @@ def rdp_connected(port=RDP_PORT):
 
 
 def ownership_file(*, create=True):
-    import fcntl
+    from yoke_contracts.platform_file_lock import acquire_exclusive
 
-    path = Path(f"/tmp/yoke-desktop-{os.getuid()}.json")
+    path = Path(f"/tmp/yoke-desktop-{posix_uid()}.json")
     fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | (os.O_CREAT if create else 0), 0o600)
     info = os.fstat(fd)
     if (
         not stat.S_ISREG(info.st_mode)
-        or info.st_uid != os.getuid()
+        or info.st_uid != posix_uid()
         or info.st_mode & 0o077
     ):
         os.close(fd)
@@ -143,14 +145,14 @@ def ownership_file(*, create=True):
             + RECOVERY
         )
     stream = os.fdopen(fd, "r+")
-    fcntl.flock(stream, fcntl.LOCK_EX)
+    acquire_exclusive(stream.fileno())
     return stream
 
 
 def owned_desktop():
     if (
         not Path("/proc").exists()
-        or not Path(f"/tmp/yoke-desktop-{os.getuid()}.json").exists()
+        or not Path(f"/tmp/yoke-desktop-{posix_uid()}.json").exists()
     ):
         return None
     with ownership_file(create=False) as stream:
@@ -274,7 +276,7 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
                 + [
                     "-S",
                     "env GDK_BACKEND=x11 /etc/xrdp/startwm.sh",
-                    pwd.getpwuid(os.getuid()).pw_name,
+                    pwd.getpwuid(posix_uid()).pw_name,
                 ],
                 input=password + "\n",
                 capture_output=True,

@@ -16,6 +16,11 @@ import sys
 import time
 
 
+if __package__:
+    from yoke_contracts.owner_private_path import posix_uid
+    from yoke_contracts.platform_process import detach_current_process, spawn_group_process
+
+
 TICK = 0.05
 TERM_GRACE = 0.5
 KILL_GRACE = 1.0
@@ -94,7 +99,7 @@ def _write_receipt(directory, receipt):
 
 
 def _supervise(directory, connection, argv, environment, timeout):
-    os.setsid()
+    detach_current_process()
     # Reparent orphaned grandchildren to this command owner, even after setsid.
     if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
         raise OSError("command subreaper unavailable")
@@ -108,13 +113,12 @@ def _supervise(directory, connection, argv, environment, timeout):
         (directory / "stdout").open("wb") as out,
         (directory / "stderr").open("wb") as err,
     ):
-        process = subprocess.Popen(
+        process = spawn_group_process(
             argv,
             env={**os.environ, **environment},
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=err,
-            start_new_session=True,
         )
         while True:
             _remember(owned)
@@ -216,7 +220,7 @@ def run_supervised(directory_name, argv, environment, timeout):
 
 def read_receipt(directory_name, wait_seconds):
     directory = Path(directory_name)
-    if directory.is_symlink() or directory.stat().st_uid != os.getuid():
+    if directory.is_symlink() or directory.stat().st_uid != posix_uid():
         raise RuntimeError("command custody directory owner invalid")
     deadline = time.monotonic() + wait_seconds
     while not (directory / "receipt.json").exists():

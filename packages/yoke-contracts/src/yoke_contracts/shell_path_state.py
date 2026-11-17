@@ -79,8 +79,9 @@ def current_shell(env: Mapping[str, str] | None = None) -> str:
     if not shell:
         try:
             import pwd
+            import getpass
 
-            shell = pwd.getpwuid(os.getuid()).pw_shell
+            shell = pwd.getpwnam(getpass.getuser()).pw_shell
         except (ImportError, KeyError):
             shell = ""
     return Path(shell).name if shell else "zsh"

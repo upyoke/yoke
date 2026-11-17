@@ -1,5 +1,6 @@
 """Verify normal command exit or interrupted-tree termination over SSH."""
 
+import inspect
 import json
 from pathlib import Path
 import shlex
@@ -7,10 +8,14 @@ import subprocess
 import uuid
 
 from yoke_harness import linux_command_supervisor as remote
+from yoke_contracts.owner_private_path import posix_uid
+from yoke_contracts.platform_process import detach_current_process, spawn_group_process
 
 
 def _program(expression, *arguments):
-    source = Path(remote.__file__).read_text()
+    helpers = "\n".join(inspect.getsource(function) for function in
+                        (posix_uid, detach_current_process, spawn_group_process))
+    source = Path(remote.__file__).read_text(encoding="utf-8") + "\n" + helpers
     return shlex.join(
         [
             "/usr/bin/python3",
