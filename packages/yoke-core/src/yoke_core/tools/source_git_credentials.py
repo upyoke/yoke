@@ -6,21 +6,32 @@ from typing import Mapping
 
 from yoke_contracts.git_credential_command import rebind_helper
 
+HELPER_PATTERN = r"^credential(\..*)?\.helper$"
+INSPECT_TIMEOUT_SECONDS = 10
+
 
 def snapshot_git_helpers(
     env: Mapping[str, str], selected: Path, snapshot: Path, root: Path | None = None
 ) -> dict[str, str]:
     """Replay the effective helper chain in a child-only Git config overlay."""
     resolved = dict(env)
-    result = subprocess.run(
-        ["git", "config", "--null", "--get-regexp", r"^credential(\..*)?\.helper$"],
-        env=resolved,
-        cwd=root,
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
+    command = ["git", "config", "--null", "--get-regexp", HELPER_PATTERN]
+    try:
+        result = subprocess.run(
+            command,
+            env=resolved,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=INSPECT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OSError(
+            "cannot inspect Git credential helpers for source isolation: "
+            f"`{' '.join(command)}` timed out after {INSPECT_TIMEOUT_SECONDS}s; "
+            "check that PATH resolves a responsive git and HOME is set"
+        ) from exc
     if result.returncode == 1:  # No configured helper.
         return resolved
     if result.returncode:
