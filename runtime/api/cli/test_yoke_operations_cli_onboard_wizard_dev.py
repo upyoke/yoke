@@ -19,6 +19,7 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
+    settle_checks,
     stub_path_doctor,
     type_text,
 )
@@ -69,8 +70,9 @@ def test_single_checkout_needs_no_github_or_official_project_access(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _pick_edit_yoke(pilot)
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
