@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_candidate_checkout.py::test_symlinked_temp_candidate_root_keeps_nested_project_labels",
- "reason": "AssertionError: assert 'environment:synced=services/platform-svc' in ('selection:uv_project=services/platform-svc extras= groups=', 'run:yoke watch pytest --', 'environment:synced=services\\\\platform-s"
-}

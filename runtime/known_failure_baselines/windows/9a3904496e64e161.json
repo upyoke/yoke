@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_candidate_checkout.py::test_member_case_binds_to_the_candidate_without_flags",
- "reason": "AssertionError: assert 'fail' == 'pass'"
-}

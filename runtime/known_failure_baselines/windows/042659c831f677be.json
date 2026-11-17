@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_case_worktree_command_env.py::test_an_item_case_is_handed_no_deployment_subject",
- "reason": "AssertionError: assert 'subject:[]' in '# watch_qa_case launch_error: [WinError 2] The system cannot find the file specified\\n'"
-}
