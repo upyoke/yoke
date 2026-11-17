@@ -11,11 +11,11 @@ from __future__ import annotations
 import os
 import re
 import shlex
-import stat
 import subprocess
 
 import pytest
 
+from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_core.domain import postgres_cluster, pytest_cluster_identity as test_postgres_cluster
 from yoke_core.tools import pg_testcluster
@@ -193,7 +193,7 @@ def test_long_root_starts_cluster_on_short_socket(monkeypatch):
         assert len(os.fsencode(socket_path)) <= (
             postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES
         )
-        assert stat.S_IMODE(spec.sock_dir.stat().st_mode) == 0o700
+        assert owner_private_path.is_owner_private_directory(spec.sock_dir)
         start = [argv for argv in calls if argv[-1] == "start"]
         assert start
         assert spec.socket_host in start[0][start[0].index("-o") + 1]
