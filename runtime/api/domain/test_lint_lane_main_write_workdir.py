@@ -108,7 +108,7 @@ def test_codex_declared_lane_workdir_allows(lane_repo, command):
 @pytest.mark.parametrize("command", RECORDED)
 def test_leading_cd_into_lane_allows(lane_repo, command, separator):
     repo, lane = lane_repo
-    verdict = _evaluate(f"cd {lane}{separator}{command}", cwd=repo)
+    verdict = _evaluate(f"cd {Path(lane).as_posix()}{separator}{command}", cwd=repo)
     assert verdict.allow is True, verdict.reason
 
 
@@ -132,12 +132,12 @@ def test_same_writes_on_main_still_deny(lane_repo, command):
     assert (
         _evaluate(command, cwd=lane, tool_input={"workdir": str(repo)}).allow is False
     )
-    assert _evaluate(f"cd {repo}\n{command}", cwd=lane).allow is False
+    assert _evaluate(f"cd {Path(repo).as_posix()}\n{command}", cwd=lane).allow is False
 
 
 def test_cd_out_of_the_lane_follows_the_shell(lane_repo):
     repo, lane = lane_repo
-    verdict = _evaluate(f"cd {lane} && cd ../..\n{COMPUTED_EDIT}", cwd=repo)
+    verdict = _evaluate(f"cd {Path(lane).as_posix()} && cd ../..\n{COMPUTED_EDIT}", cwd=repo)
     assert verdict.allow is False
     assert verdict.attempted_path == str(repo.resolve())
 
@@ -202,7 +202,7 @@ def test_client_answer_from_the_wrong_directory_cannot_move_a_lane_write(lane_re
             "worktrees": [str(lane)],
         },
     )
-    verdict = _evaluate(f"cd {lane}\n{RELATIVE_HEREDOC}", cwd=repo, **stale)
+    verdict = _evaluate(f"cd {Path(lane).as_posix()}\n{RELATIVE_HEREDOC}", cwd=repo, **stale)
     assert verdict.allow is True, verdict.reason
 
 
@@ -219,7 +219,7 @@ def test_client_answer_that_agrees_still_refuses_on_main(lane_repo):
 def test_client_walks_a_leading_cd_across_every_separator(tmp_path, separator):
     payload = {
         "cwd": "/session",
-        "tool_input": {"command": f"cd {tmp_path}{separator}{RELATIVE_HEREDOC}"},
+        "tool_input": {"command": f"cd {Path(tmp_path).as_posix()}{separator}{RELATIVE_HEREDOC}"},
     }
     assert execution_cwd(payload, parse_shell(extract_command(payload))) == str(tmp_path.resolve())
 
@@ -276,7 +276,7 @@ def test_relative_write_after_an_in_command_cd_to_scratch_allows(lane_repo, tmp_
     scratch = tmp_path / "yok-ci"
     command = (
         "yoke messages acknowledge M; "
-        f"mkdir -p {scratch} && cd {scratch} && gh run view 1 > job.log"
+        f"mkdir -p {Path(scratch).as_posix()} && cd {Path(scratch).as_posix()} && gh run view 1 > job.log"
     )
     verdict = _evaluate(command, cwd=repo)
     assert verdict.allow is True, verdict.reason
@@ -284,7 +284,7 @@ def test_relative_write_after_an_in_command_cd_to_scratch_allows(lane_repo, tmp_
 
 def test_relative_write_after_an_in_command_cd_to_main_denies(lane_repo):
     repo, lane = lane_repo
-    command = f"yoke messages acknowledge M; cd {repo} && gh run view 1 > job.log"
+    command = f"yoke messages acknowledge M; cd {Path(repo).as_posix()} && gh run view 1 > job.log"
     verdict = _evaluate(command, cwd=lane)
     assert verdict.allow is False
     assert verdict.attempted_path == str(repo.resolve() / "job.log")
@@ -293,8 +293,8 @@ def test_relative_write_after_an_in_command_cd_to_main_denies(lane_repo):
 def test_python_write_follows_the_cd_before_its_segment(lane_repo, tmp_path):
     repo, lane = lane_repo
     body = "python3 - <<'PY'\nopen('out.txt', 'w').write('x')\nPY"
-    assert _evaluate(f"echo start; cd {tmp_path} && {body}", cwd=repo).allow
-    assert not _evaluate(f"echo start; cd {repo} && {body}", cwd=lane).allow
+    assert _evaluate(f"echo start; cd {Path(tmp_path).as_posix()} && {body}", cwd=repo).allow
+    assert not _evaluate(f"echo start; cd {Path(repo).as_posix()} && {body}", cwd=lane).allow
 
 
 def test_segment_cwds_name_only_directories_a_later_cd_moved(tmp_path):

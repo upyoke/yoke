@@ -1,5 +1,7 @@
 """Repository scope, installed release protection, and the authority hook chain."""
 
+from pathlib import Path
+
 from contextlib import nullcontext
 from importlib import import_module
 
@@ -53,7 +55,7 @@ def test_external_diagnostics_pass_with_a_lane_claim(command):
 
 @pytest.mark.parametrize("target", ["/etc/passwd", HOME + "/.claude/jobs/job/result.json"])
 def test_external_paths_need_no_claim(target):
-    assert validate(f"touch {target}").allow
+    assert validate(f"touch {Path(target).as_posix()}").allow
 
 
 @pytest.mark.parametrize("target", [
@@ -61,7 +63,7 @@ def test_external_paths_need_no_claim(target):
     HOME + "/.codex/plugins/plugin/SKILL.md",
 ])
 def test_installed_tree_writes_stay_protected(target):
-    verdict = validate(f"touch {target}")
+    verdict = validate(f"touch {Path(target).as_posix()}")
     assert not verdict.allow
     assert verdict.failure_class == validator.SCOPE_FAILURE_CLASS
 

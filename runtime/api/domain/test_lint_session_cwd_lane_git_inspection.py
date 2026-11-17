@@ -216,7 +216,7 @@ class TestNeighbourLaneInspection:
 
     def test_inspection_of_own_lane_is_unaffected(self, conn, repo):
         _held, own = _neighbouring_lanes(conn, repo)
-        verdict = _bash_verdict(f"git -C {own} diff --stat")
+        verdict = _bash_verdict(f"git -C {Path(own).as_posix()} diff --stat")
         assert verdict.allow is True
 
 
@@ -272,7 +272,7 @@ def test_compound_reads_before_implementation(conn, repo, command, target):
     conn.execute("UPDATE items SET status = 'idea' WHERE id = %s", (NEIGHBOUR_ITEM,))
     conn.commit()
     lane = own if target == "own" else held
-    verdict = _bash_verdict(command.format(lane=lane))
+    verdict = _bash_verdict(command.format(lane=Path(lane).as_posix()))
     assert verdict.allow is True, verdict.reason
 
 
@@ -305,7 +305,7 @@ def test_compound_unsafe_calls_keep_lane_authority(conn, repo, command):
 )
 def test_inline_program_is_not_a_path(conn, repo, command):
     _held, own = _neighbouring_lanes(conn, repo)
-    verdict = _bash_verdict(command.format(lane=own))
+    verdict = _bash_verdict(command.format(lane=Path(own).as_posix()))
     assert verdict.allow is True, verdict.reason
 
 

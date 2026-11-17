@@ -87,7 +87,7 @@ class TestClaimedWorktreeAuthorized:
         fixture = "/" + "repo"
         body = (
             "*** Begin Patch\n"
-            f"*** Update File: {target}\n"
+            f"*** Update File: {Path(target).as_posix()}\n"
             "@@\n"
             f"+fixture = {fixture!r}\n"
             "*** End Patch"
@@ -227,7 +227,7 @@ class TestBashTargetExtraction:
             "session_id": "sid-1",
             "cwd": str(repo),
             "tool_input": {
-                "command": f"cp {claimed_file} {repo}/.worktrees/unclaimed/out.py",
+                "command": f"cp {claimed_file} {Path(repo).as_posix()}/.worktrees/unclaimed/out.py",
             },
         })
 

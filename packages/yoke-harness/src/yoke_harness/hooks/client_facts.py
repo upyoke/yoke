@@ -207,6 +207,9 @@ def collect_client_facts(
         try:
             facts.update(_COLLECTORS[key](obs))
         except Exception as exc:  # a missing fact must not fail the hook
+            from yoke_contracts.hook_runner.bash_paths import BashPathResolutionError
+            if key == cf.WRITE_TARGETS_KEY and isinstance(exc, BashPathResolutionError):
+                facts.update(cf.client_fact(key, {"path_resolution_error": str(exc)}))
             sys.stderr.write(
                 f"WARNING: {FAILURE_MARKER}: {key}: {type(exc).__name__}: {exc}; "
                 "the policies reading it apply their no-fact behaviour\n"

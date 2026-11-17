@@ -140,7 +140,7 @@ class TestClaimedLaneCommands:
 
         assert verdict.allow is False
         runnable = _runnable_command(verdict.reason)
-        assert runnable.startswith(f"git -C {lane} ")
+        assert runnable.startswith(f"git -C {Path(lane).as_posix()} ")
         assert _evaluate(runnable).allow is True
 
     def test_targetless_gh_command_names_claimed_repository(self, conn, repo):
@@ -157,7 +157,7 @@ class TestClaimedLaneCommands:
         assert verdict.allow is False
         command = _runnable_command(verdict.reason)
         assert command == (
-            f'gh pr view 42 --repo "$(git -C {lane} remote get-url origin)"'
+            f'gh pr view 42 --repo "$(git -C {Path(lane).as_posix()} remote get-url origin)"'
         )
         assert _evaluate(command).allow is True
 
@@ -174,7 +174,7 @@ class TestClaimedLaneCommands:
 
         assert verdict.allow is False
         command = _runnable_command(verdict.reason)
-        assert command.endswith(f'--repo "$(git -C {lane} remote get-url origin)"')
+        assert command.endswith(f'--repo "$(git -C {Path(lane).as_posix()} remote get-url origin)"')
         assert _evaluate(command).allow is True
 
     @pytest.mark.parametrize(
@@ -205,7 +205,7 @@ class TestClaimedLaneCommands:
             branch="claimed-lane",
         )
 
-        assert _evaluate(f"git -C {lane} status").allow is True
+        assert _evaluate(f"git -C {Path(lane).as_posix()} status").allow is True
 
     def test_arbitrary_shell_denial_offers_no_repository_command(
         self,
@@ -250,7 +250,7 @@ class TestForeignLaneCommands:
             branch="held-lane",
         )
 
-        verdict = _evaluate(f"git -C {lane} commit -m change")
+        verdict = _evaluate(f"git -C {Path(lane).as_posix()} commit -m change")
 
         assert verdict.allow is False
         assert str(lane) in verdict.reason
@@ -266,7 +266,7 @@ class TestForeignLaneCommands:
             branch="held-lane",
         )
 
-        assert _evaluate(f"git -C {lane} show HEAD --stat").allow is True
+        assert _evaluate(f"git -C {Path(lane).as_posix()} show HEAD --stat").allow is True
 
     def test_foreign_lane_file_read_names_exact_main_checkout(self, conn, repo):
         lane = _seed_lane(
@@ -277,7 +277,7 @@ class TestForeignLaneCommands:
             branch="held-lane",
         )
 
-        verdict = _evaluate(f"cat {lane}/README.md")
+        verdict = _evaluate(f"cat {Path(lane).as_posix()}/README.md")
 
         assert verdict.allow is True
         assert "Runnable command:" not in verdict.reason

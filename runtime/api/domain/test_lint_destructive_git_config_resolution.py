@@ -9,6 +9,8 @@ These tests run the real resolution path (no stubbed mode).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import dataclasses
 import pathlib
 import shutil
@@ -70,7 +72,7 @@ class ConfigResolutionTest(unittest.TestCase):
 
     def _gated_clean(self, repo: str):
         context = dataclasses.replace(
-            ldg._build_context_from_payload(_payload(f"git -C {repo} clean -f")),
+            ldg._build_context_from_payload(_payload(f"git -C {Path(repo).as_posix()} clean -f")),
             target_root=repo,
         )
         decision = ldg.evaluate(context)

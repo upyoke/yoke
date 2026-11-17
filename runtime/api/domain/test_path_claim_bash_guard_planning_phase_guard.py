@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from runtime.api.domain.path_claim_bash_guard_planning_phase_fixture import widener_db as widener_db  # noqa: F401
 
 from typing import Any, Dict
@@ -55,7 +57,7 @@ def test_matrix_planning_session_scratch_allows(tmp_path, widener_db, monkeypatc
     target = _dispatch_target(item_id=1844)
     v = bash_guard.evaluate_payload(
         _payload(
-            command=f"printf '%s' \"$b\" > {target}", cwd=str(tmp_path), session_id=sid
+            command=f"printf '%s' \"$b\" > {Path(target).as_posix()}", cwd=str(tmp_path), session_id=sid
         )
     )
     assert v.outcome == "allow"
@@ -70,7 +72,7 @@ def test_planning_scratch_without_client_scratch_root_fact_denies(
     target = _dispatch_target(item_id=1844)
     v = bash_guard.evaluate_payload(
         _payload(
-            command=f"printf '%s' \"$b\" > {target}",
+            command=f"printf '%s' \"$b\" > {Path(target).as_posix()}",
             cwd=str(tmp_path),
             session_id=sid,
             scratch_root="",
@@ -115,7 +117,7 @@ def test_matrix_impl_session_scratch_outside_claim_denies(
     )
     target = _dispatch_target(item_id=2024)
     v = bash_guard.evaluate_payload(
-        _payload(command=f"printf '%s' \"$b\" > {target}", cwd=str(wt), session_id=sid)
+        _payload(command=f"printf '%s' \"$b\" > {Path(target).as_posix()}", cwd=str(wt), session_id=sid)
     )
     assert v.outcome == "deny"
 
@@ -158,7 +160,7 @@ def test_planning_session_authors_scratch_for_unrelated_item(
     target = _dispatch_target(item_id=9999)
     v = bash_guard.evaluate_payload(
         _payload(
-            command=f"printf '%s' \"$b\" > {target}", cwd=str(tmp_path), session_id=sid
+            command=f"printf '%s' \"$b\" > {Path(target).as_posix()}", cwd=str(tmp_path), session_id=sid
         )
     )
     assert v.outcome == "allow"
@@ -176,7 +178,7 @@ def test_guard_uses_payload_session_id_without_env_var(
     target = _dispatch_target(item_id=1883)
     v = bash_guard.evaluate_payload(
         _payload(
-            command=f"printf '%s' \"$b\" > {target}", cwd=str(tmp_path), session_id=sid
+            command=f"printf '%s' \"$b\" > {Path(target).as_posix()}", cwd=str(tmp_path), session_id=sid
         )
     )
     assert v.outcome == "allow", (

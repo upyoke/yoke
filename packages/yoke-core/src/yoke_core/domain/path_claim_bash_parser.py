@@ -14,7 +14,7 @@ from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc as _has_unquoted_heredoc,
 )
 
-import os
+from yoke_contracts.hook_runner.bash_paths import join_path
 import shlex
 from dataclasses import dataclass
 from typing import List
@@ -169,7 +169,7 @@ def _extract_git_paths(args: List[str], cwd: str) -> List[Mutation]:
     out: List[Mutation] = []
     verb = f"git {sub}"
     for p in paths:
-        target = os.path.join(base, p)
+        target = join_path(base, p)
         if _is_tmp_path(target):
             continue
         out.append(Mutation(verb=verb, target_path=target))
@@ -187,7 +187,7 @@ def _split_git_global_options(args: List[str], cwd: str) -> tuple[str, List[str]
         token = args[i]
         if token in ("-C", "-c") and i + 1 < len(args):
             if token == "-C":
-                base = os.path.join(base or cwd, args[i + 1])
+                base = join_path(base or cwd, args[i + 1])
             i += 2
             continue
         if token.startswith(("--git-dir=", "--work-tree=")):

@@ -289,7 +289,7 @@ def test_external_cache_write_needs_no_home_evidence(
     tool_input = (
         {"file_path": target, "content": "wheel"}
         if tool_name == "Write"
-        else {"command": f"touch '{target}'"}
+        else {"command": f"touch '{Path(target).as_posix()}'"}
     )
     decision = _remote_evaluation(
         tool_name,

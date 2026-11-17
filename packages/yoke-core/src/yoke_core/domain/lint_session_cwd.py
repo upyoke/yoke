@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import with_client_paths, BashPathResolutionError
+
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
@@ -68,6 +70,7 @@ def _open_conn():
     return db_helpers.connect()
 
 
+@with_client_paths(refuse=lambda message: Verdict(allow=False, reason=message))
 def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -118,6 +121,8 @@ def evaluate_pre_tool_use(
                 tool_name=tool_name,
                 path_uses=path_uses,
             )
+    except BashPathResolutionError:
+        raise
     except Exception as exc:
         emit_fail_open(
             session_id=session_id,

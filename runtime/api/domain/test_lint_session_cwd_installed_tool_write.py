@@ -1,5 +1,7 @@
 """Installed tool read access never authorizes local writes."""
 
+from pathlib import Path
+
 import pytest
 
 from runtime.api.domain.lint_session_cwd_read_shaped_access_test_support import (
@@ -25,7 +27,7 @@ def test_local_write_cannot_borrow_installed_tool_read_access(
 ):
     lane = _seed_lane(conn, repo, session_id="sid-lane")
     other = _seed_lane(conn, repo, session_id="sid-other", item_id=2221)
-    verdict = _verdict(template.format(other=other), lane)
+    verdict = _verdict(template.format(other=Path(other).as_posix()), lane)
     assert not verdict.allow
     if "{other}" in template:
         assert verdict.failure_class in {"scope_mismatch", "foreign_lane"}
@@ -42,7 +44,7 @@ def test_local_write_cannot_borrow_installed_tool_read_access(
 ])
 def test_installed_tool_reads_and_lane_writes_are_allowed(conn, repo, template):
     lane = _seed_lane(conn, repo, session_id="sid-lane")
-    assert _verdict(template.format(lane=lane), lane).allow
+    assert _verdict(template.format(lane=Path(lane).as_posix()), lane).allow
 
 
 def _verdict(command, lane):

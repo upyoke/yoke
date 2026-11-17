@@ -1,6 +1,7 @@
 """Capacity inspection retains content, lane, and machine boundaries."""
 
 from yoke_contracts.testing.real_home_isolation import set_home
+from pathlib import Path
 
 from contextlib import nullcontext
 
@@ -122,8 +123,8 @@ def test_capacity_does_not_mutate_a_foreign_lane(isolated_authority, monkeypatch
         "occupying_claim",
         lambda _c, *, target, **_k: occupant if target.startswith(foreign) else None,
     )
-    assert evaluate(f"df -k {foreign} && touch {LANE}/out").outcome is Outcome.NOOP
-    assert evaluate(f"df -k {foreign} && touch {foreign}/out").outcome is Outcome.DENY
+    assert evaluate(f"df -k {Path(foreign).as_posix()} && touch {LANE}/out").outcome is Outcome.NOOP
+    assert evaluate(f"df -k {Path(foreign).as_posix()} && touch {Path(foreign).as_posix()}/out").outcome is Outcome.DENY
 
 
 def test_lane_write_is_allowed_whatever_the_item_status(isolated_authority):

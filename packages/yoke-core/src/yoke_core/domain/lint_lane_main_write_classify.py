@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import is_absolute, join_path, canonical_native_path
+
 import fnmatch
-import os
 import re
 from typing import Any, Mapping, Sequence
 
@@ -204,9 +205,9 @@ def _client_target(
     if target.startswith("~"):
         # No client home: only the client can say where this names.
         return client or (target, False)
-    if os.path.isabs(target) or not fallback_cwd.strip():
-        return client or (os.path.normpath(target), False)
-    target = os.path.normpath(os.path.join(fallback_cwd, target))
+    if is_absolute(target) or not fallback_cwd.strip():
+        return client or (canonical_native_path(target), False)
+    target = canonical_native_path(join_path(fallback_cwd, target))
     if client is not None and client[0] == target:
         return client
     return target, False

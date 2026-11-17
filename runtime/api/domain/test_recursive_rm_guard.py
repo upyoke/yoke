@@ -7,6 +7,8 @@ session's ``tmp.*`` entry in the shared macOS temp dir.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from yoke_contracts.hook_runner import recursive_rm_guard as guard
@@ -75,14 +77,14 @@ def test_literal_assignment_resolves_before_checking(roots):
 def test_shared_temp_glob_is_refused(roots):
     shared, scratch = roots
     assert _shape(f"rm -rf {shared}/tmp.*") == guard.SHARED_TEMP_SHAPE
-    assert _shape(f"rm -rf {scratch}/*") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -rf {Path(scratch).as_posix()}/*") == guard.SHARED_TEMP_SHAPE
     assert _shape("rm -rf *", cwd=str(shared)) == guard.SHARED_TEMP_SHAPE
 
 
 def test_shared_root_and_its_parent_are_refused(roots):
     shared, scratch = roots
     assert _shape(f"rm -rf {shared}") == guard.SHARED_TEMP_SHAPE
-    assert _shape(f"rm -r {scratch}/") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -r {Path(scratch).as_posix()}/") == guard.SHARED_TEMP_SHAPE
     assert _shape(f"rm -rf {shared.parent}") == guard.SHARED_TEMP_SHAPE
 
 

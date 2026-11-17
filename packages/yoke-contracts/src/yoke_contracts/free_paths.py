@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 from pathlib import Path
 
 
@@ -18,7 +20,7 @@ _ROOT = "/"
 
 
 def _abs(*parts: str) -> str:
-    return os.path.join(_ROOT, *parts)
+    return _ROOT + "/".join(parts)
 
 
 #: The discard family (``/dev/null`` and siblings).
@@ -42,6 +44,7 @@ def free_path_prefixes(
     prefixes: tuple[str, ...] = STATIC_FREE_PATH_PREFIXES,
 ) -> tuple[str, ...]:
     """Include this machine's canonical TMPDIR only when explicitly absolute."""
+    prefixes = tuple(resolve_bash_path(prefix) for prefix in prefixes)
     raw = os.environ.get("TMPDIR", "")
     if not raw or not Path(raw).is_absolute():
         return prefixes
@@ -53,7 +56,7 @@ def is_under_free_path_prefix(
     prefixes: tuple[str, ...] | None = None,
 ) -> bool:
     """Return whether *target* resolves under one of *prefixes*."""
-    resolved = str(Path(target).expanduser().resolve(strict=False))
+    resolved = resolve_bash_path(str(target))
     return any(
         resolved == prefix or resolved.startswith(prefix + os.sep)
         for prefix in (free_path_prefixes() if prefixes is None else prefixes)

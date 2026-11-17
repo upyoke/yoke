@@ -5,26 +5,26 @@ verdict integration. This sibling module owns the pure-extractor unit
 tests so the integration file stays under the repo's file-line cap.
 """
 
+from pathlib import Path
+
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
     extract_payload_targets,
     extract_payload_write_targets,
 )
 
-
 def test_shell_write_targets_ignore_read_operands():
     fixture = "/" + "fixture/input.txt"
     destination = "/" + "checkout/output.txt"
     commands = (
-        f"cat {fixture} && cp source {destination}",
-        f"cat {fixture} && mv source {destination}",
-        f"cat {fixture} | tee {destination}",
+        f"cat {fixture} && cp source {Path(destination).as_posix()}",
+        f"cat {fixture} && mv source {Path(destination).as_posix()}",
+        f"cat {fixture} | tee {Path(destination).as_posix()}",
     )
 
     for command in commands:
         payload = {"tool_name": "Bash", "tool_input": {"command": command}}
         assert extract_payload_write_targets(payload) == [destination]
-
 
 def test_apply_patch_extracts_directives_without_fixture_literals():
     lane_root = "/" + "claimed/lane"
@@ -73,7 +73,7 @@ def test_tool_alias_keeps_patch_content_out_of_target_paths():
     target = "/checkout/.worktrees/YOK-1/layout.tsx"
     body = (
         "*** Begin Patch\n"
-        f"*** Update File: {target}\n"
+        f"*** Update File: {Path(target).as_posix()}\n"
         "@@\n"
         "+<link rel=\"stylesheet\" />\n"
         "*** End Patch"
@@ -89,7 +89,7 @@ def test_python_heredoc_extracts_only_the_write_destination():
     command = (
         "python3 - <<'PY'\n"
         "from pathlib import Path\n"
-        f"target = Path({target!r})\n"
+        f"target = Path({Path(target).as_posix()!r})\n"
         f"fixture = {fixture!r}\n"
         "target.write_text(fixture)\n"
         "PY"
@@ -330,7 +330,7 @@ def test_glued_redirect_is_a_write_target():
     destination = "/" + "checkout/AGENTS.md"
     payload = {
         "tool_name": "Bash",
-        "tool_input": {"command": f"echo x >{destination}"},
+        "tool_input": {"command": f"echo x >{Path(destination).as_posix()}"},
     }
     assert extract_payload_write_targets(payload) == [destination]
 

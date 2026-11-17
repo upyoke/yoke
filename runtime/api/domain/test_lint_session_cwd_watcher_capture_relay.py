@@ -224,7 +224,7 @@ def test_relay_allows_external_job_paths_without_job_tmp_fact(
     assert (
         _remote_decision(
             "Bash",
-            {"command": f"touch {target}"},
+            {"command": f"touch {Path(target).as_posix()}"},
         )
         is Outcome.NOOP
     )

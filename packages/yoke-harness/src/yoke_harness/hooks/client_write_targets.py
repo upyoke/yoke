@@ -22,6 +22,10 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 from yoke_contracts.hook_runner import client_facts as cf
+from yoke_contracts.hook_runner.bash_paths import (
+    resolve_bash_path,
+    canonical_native_path,
+)
 from yoke_contracts.hook_runner.shell_parse import (
     ShellParse,
     advance_cwd,
@@ -75,7 +79,7 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
         if isinstance(declared, str) and declared
         else cwd_from_payload(dict(payload))
     )
-    cwd = os.path.realpath(os.path.expanduser(cwd))
+    cwd = canonical_native_path(os.path.expanduser(cwd))
     for segment in shell.segments:
         destination = cd_destination(segment.argv)
         moved = advance_cwd(cwd, destination) if destination is not None else ""
@@ -86,10 +90,7 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
 
 
 def _resolve(raw: str, cwd: str) -> str:
-    path = os.path.expanduser(raw)
-    if not os.path.isabs(path):
-        path = os.path.join(cwd, path)
-    return os.path.realpath(path)
+    return resolve_bash_path(raw, cwd)
 
 
 def _repo_root(path: str) -> str:
@@ -121,7 +122,11 @@ def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
         repo, ["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir"]
     )
     roots = (
-        [os.path.realpath(p) for p in probe.stdout.splitlines() if os.path.isabs(p)]
+        [
+            canonical_native_path(p)
+            for p in probe.stdout.splitlines()
+            if os.path.isabs(p)
+        ]
         if probe is not None and probe.returncode == 0
         else []
     )
@@ -166,9 +171,44 @@ def _worktrees(repo: str) -> list[str]:
 def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict:
     """Report resolution, ignore status and live lanes for every operand."""
     cwd = execution_cwd(payload, shell)
-    resolved = {
-        raw: _resolve(raw, cwd) for raw in _operands(payload, shell.command, cwd)
-    }
+    operands = _operands(payload, shell.command, cwd)
+    operands.extend(
+        token
+        for segment in shell.segments
+        for token in segment.argv
+        if _path_shaped(token)
+    )
+    resolved = {raw: _resolve(raw, cwd) for raw in dict.fromkeys(operands)}
+    mount_paths = {raw: path for raw, path in resolved.items() if raw.startswith("/")}
+    if os.name == "nt":
+        from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES
+
+        for root in STATIC_FREE_PATH_PREFIXES:
+            mount_paths[root] = _resolve(root, cwd)
+    canonical = {}
+    if os.name == "nt":
+        for raw, path in resolved.items():
+            if os.path.isabs(raw) and not raw.startswith("/"):
+                canonical[raw.replace("\\", "/").rstrip("/")] = path.replace(
+                    "\\", "/"
+                ).rstrip("/")
+        data = tool_input(dict(payload))
+        for raw in (
+            payload.get("cwd"),
+            data.get("workdir"),
+            data.get("working_directory"),
+            str(Path.home()),
+        ):
+            if isinstance(raw, str) and raw:
+                for ancestor in (Path(raw), *Path(raw).parents):
+                    canonical[str(ancestor).replace("\\", "/").rstrip("/")] = (
+                        canonical_native_path(str(ancestor))
+                        .replace("\\", "/")
+                        .rstrip("/")
+                    )
+        canonical[cwd.replace("\\", "/").rstrip("/")] = cwd.replace("\\", "/").rstrip(
+            "/"
+        )
     by_repo: dict[str, list[str]] = {}
     cwd_repo = _repo_root(cwd)
     for path in resolved.values():
@@ -185,7 +225,17 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
         for raw, path in resolved.items()
     }
     return cf.client_fact(
-        cf.WRITE_TARGETS_KEY, {"paths": entries, "worktrees": sorted(worktrees)}
+        cf.WRITE_TARGETS_KEY,
+        {
+            "paths": entries,
+            "worktrees": sorted(worktrees),
+            "execution_cwd": cwd,
+            "bash_paths": {
+                "windows": os.name == "nt",
+                "mount_paths": mount_paths,
+                "canonical": canonical,
+            },
+        },
     )
 
 

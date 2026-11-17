@@ -26,12 +26,11 @@ every guard agrees on what the command runs. PowerShell commands go through
 
 from __future__ import annotations
 
-import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 
+from yoke_contracts.hook_runner.bash_paths import expand_home, resolve_bash_path, BashPathResolutionError
 from yoke_contracts.hook_runner.command_extract import expand_variables
 from yoke_contracts.hook_runner.shell_expansion_scan import Heredoc, scan
 from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
@@ -220,22 +219,6 @@ def cd_destination(argv: tuple[str, ...] | list[str]) -> str | None:
     return operands[0] if len(operands) == 1 else None
 
 
-def expand_home(path: str, *, home: str | None = None) -> str:
-    """Expand the current user's ``~`` against ``home`` (default: this machine).
-
-    An empty ``home`` (the client sent none) leaves ``~`` unexpanded.
-    """
-    if home is None:
-        return os.path.expanduser(path)
-    if not home:
-        return path
-    if path == "~":
-        return home
-    if path.startswith("~/"):
-        return str(Path(home, path[2:]))
-    return path
-
-
 def advance_cwd(
     base: str,
     destination: str,
@@ -257,12 +240,12 @@ def advance_cwd(
     expanded = expand_home(destination, home=home)
     if expanded.startswith("~"):
         return ""
-    if not os.path.isabs(expanded):
-        if not base:
-            return ""
-        expanded = os.path.join(base, expanded)
+    if not base and not expanded.startswith(("/", "\\")) and not re.match(r"^[A-Za-z]:[/\\]", expanded):
+        return ""
     try:
-        return str(Path(expanded).resolve())
+        return resolve_bash_path(expanded, base, home=home)
+    except BashPathResolutionError:
+        raise
     except (OSError, ValueError):
         return ""
 

@@ -100,7 +100,7 @@ class TestWriteClassification:
                     "session_id": "sid-lane",
                     "tool_name": "Bash",
                     "cwd": str(repo),
-                    "tool_input": {"command": f"echo x >{target}"},
+                    "tool_input": {"command": f"echo x >{Path(target).as_posix()}"},
                 }
             )
         assert verdict.allow is False
@@ -212,7 +212,7 @@ def test_remote_metadata_fact_needs_no_corresponding_checkout(
         "session_id": "sid-lane",
         "tool_name": "Bash",
         "cwd": str(repo),
-        "tool_input": {"command": f"echo .DS_Store >> {target}"},
+        "tool_input": {"command": f"echo .DS_Store >> {Path(target).as_posix()}"},
         **cf.client_fact(
             cf.WRITE_TARGETS_KEY,
             {

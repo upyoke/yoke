@@ -14,7 +14,7 @@ asks for an absolute path or ``git -C`` instead of a guessed relative one.
 
 from __future__ import annotations
 
-import os
+from yoke_contracts.hook_runner.bash_paths import is_absolute, join_path
 import shlex
 from dataclasses import replace
 from typing import Iterator, List, Tuple
@@ -81,9 +81,9 @@ def rebase_targets(mutations: List, folder: str, base_cwd: str, unresolved: bool
         if mut.verb in _NON_PATH_VERBS:
             out.append(mut)
             continue
-        if folder != base_cwd and folder and not os.path.isabs(target):
+        if folder != base_cwd and folder and not is_absolute(target):
             if not target.startswith(("~", "$")):
-                target = os.path.join(folder, target)
+                target = join_path(folder, target)
         out.append(replace(mut, target_path=target, cwd_unresolved=unresolved))
     return out
 

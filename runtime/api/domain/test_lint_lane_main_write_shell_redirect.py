@@ -11,6 +11,8 @@ one resolved as a path denied a read-only inspection outright.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from runtime.api.domain.lint_lane_main_write_shell_redirect_test_support import (
     _bash as _bash,
     _seed_lane as _seed_lane,
@@ -149,7 +151,7 @@ def test_a_read_with_a_descriptor_redirect_is_allowed_on_main(
     _seed_lane(conn, repo)
 
     verdict = lint_lane_main_write.evaluate_pre_tool_use(
-        _bash(template.format(repo=repo), cwd=str(repo))
+        _bash(template.format(repo=Path(repo).as_posix()), cwd=str(repo))
     )
 
     assert verdict.allow is True
@@ -158,7 +160,7 @@ def test_a_read_with_a_descriptor_redirect_is_allowed_on_main(
 def test_a_real_file_redirect_beside_one_is_still_a_write(conn, repo) -> None:
     """Only the descriptor operand is exempt, not the command around it."""
     worktree = _seed_lane(conn, repo)
-    command = f"git -C {repo} log -1 > {repo / _CAT_HEREDOC_RELATIVE} 2>&1"
+    command = f"git -C {Path(repo).as_posix()} log -1 > {Path(repo / _CAT_HEREDOC_RELATIVE).as_posix()} 2>&1"
 
     with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
         verdict = lint_lane_main_write.evaluate_pre_tool_use(

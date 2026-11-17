@@ -306,9 +306,9 @@ def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None
     (tmp_path / "docs" / "deploy.md").write_text("ok\n", encoding="utf-8")
     checked = str(other.resolve())
     cases = [
-        (f"cd {other} && ls infra/Pulumi*.yaml*", True, ""),
-        (f"cd {other} && ls nomatch/*", False, checked),
-        (f"cd {other} && ls docs/deploy*", False, checked),
+        (f"cd {Path(other).as_posix()} && ls infra/Pulumi*.yaml*", True, ""),
+        (f"cd {Path(other).as_posix()} && ls nomatch/*", False, checked),
+        (f"cd {Path(other).as_posix()} && ls docs/deploy*", False, checked),
         ("S=/x; wc -l $S/*.md", True, ""),
         ("wc -l ${S}/*.md", True, ""),
         ("cd $D && ls a/*", True, ""),

@@ -1,5 +1,7 @@
 """Guard regression pairs: harmless inspection and actual unauthorized writes."""
 
+from pathlib import Path
+
 import shlex
 
 import pytest
@@ -52,7 +54,7 @@ def verdict(guard, command, cwd):
 )
 def test_main_git_state(lanes, verb, allowed):
     main, own, _ = lanes
-    result = verdict(lint_lane_main_write, f"git -C {main} {verb}", own)
+    result = verdict(lint_lane_main_write, f"git -C {Path(main).as_posix()} {verb}", own)
     assert result.allow is allowed
     if not allowed:
         assert "source write to the main checkout" in result.reason
@@ -85,7 +87,7 @@ def test_main_git_state(lanes, verb, allowed):
 )
 def test_foreign_lane_compounds(lanes, command, allowed):
     _, own, other = lanes
-    result = verdict(lint_session_cwd, command.format(other=other), own)
+    result = verdict(lint_session_cwd, command.format(other=Path(other).as_posix()), own)
     assert result.allow is allowed
     if not allowed:
         assert "worktree lane held by another session" in result.reason
@@ -153,7 +155,7 @@ def test_joinpath_writes(lanes, receiver, allowed):
     main, _, _ = lanes
     command = (
         "python3 - <<'PY'\nfrom pathlib import Path\nimport os\n"
-        f"p = {receiver.format(main=main)}\n"
+        f"p = {receiver.format(main=Path(main).as_posix())}\n"
         'p.joinpath("nested", "out.json").write_text("{}")\nPY'
     )
     result = verdict(lint_lane_main_write, command, main)
@@ -177,7 +179,7 @@ def test_joinpath_writes(lanes, receiver, allowed):
 def test_write_options_are_data(lanes, options):
     main, _, _ = lanes
     assert verdict(lint_lane_main_write, f"{options} /tmp/x", main).allow is True
-    result = verdict(lint_lane_main_write, f"{options} {main}/d", main)
+    result = verdict(lint_lane_main_write, f"{options} {Path(main).as_posix()}/d", main)
     assert result.allow is False
     assert "source write to the main checkout" in result.reason
     targets, unresolved = resolve_shell_write_operands(f"{options} /tmp/x")
@@ -194,7 +196,7 @@ def test_target_directory_option_keeps_write_target(command, operands, lanes):
 
     main, own, _ = lanes
     result = verdict(
-        lint_lane_main_write, f"{command} {operands.format(main=main)}", own
+        lint_lane_main_write, f"{command} {operands.format(main=Path(main).as_posix())}", own
     )
     assert result.allow is False
     assert "source write to the main checkout" in result.reason

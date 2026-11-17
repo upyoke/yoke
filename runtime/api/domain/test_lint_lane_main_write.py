@@ -112,7 +112,7 @@ class TestMainWriteRefused:
                     "session_id": "sid-lane",
                     "tool_name": "Bash",
                     "cwd": str(repo),
-                    "tool_input": {"command": f"echo hi > {target}"},
+                    "tool_input": {"command": f"echo hi > {Path(target).as_posix()}"},
                 }
             )
         assert verdict.allow is False
@@ -272,7 +272,7 @@ class TestUnaffectedCases:
                 "session_id": "sid-lane",
                 "tool_name": "Bash",
                 "cwd": str(repo),
-                "tool_input": {"command": f"cat {target}"},
+                "tool_input": {"command": f"cat {Path(target).as_posix()}"},
             }
         )
         assert verdict.allow is True
@@ -290,7 +290,7 @@ class TestSuppressionAndSubagent:
                     "tool_name": "Bash",
                     "cwd": str(repo),
                     "tool_input": {
-                        "command": f"touch {target} {SUPPRESSION_TOKEN}",
+                        "command": f"touch {Path(target).as_posix()} {SUPPRESSION_TOKEN}",
                     },
                 }
             )

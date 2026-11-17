@@ -29,6 +29,8 @@ and allows the call.
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import with_client_paths, BashPathResolutionError
+
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
@@ -106,6 +108,7 @@ def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
     return not (workflow is not None and status and workflow.is_before_implementation(status))
 
 
+@with_client_paths(refuse=lambda message: Verdict(allow=False, reason=message))
 def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     tool_name: Optional[str] = None,
@@ -160,6 +163,8 @@ def evaluate_pre_tool_use(
                     item_label=item_label(claim),
                 )
                 return Verdict(allow=True)
+    except BashPathResolutionError:
+        raise
     except Exception:
         return Verdict(allow=True)
 
