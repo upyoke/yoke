@@ -17,7 +17,7 @@ from yoke_contracts.machine_qa_host_control import (
 )
 
 RETENTION_FAILED = "golden_snapshot_retention_failed"
-SIDECAR_SUFFIXES = (".probes", ".manifest", ".harness-clis")
+SIDECAR_SUFFIXES = (".probes", ".probes.sha256", ".manifest", ".harness-clis")
 LINUX_CAPTURE_SPACE_CHECK = """\
     try:
         free = shutil.disk_usage(baseline.parent).free
@@ -185,7 +185,7 @@ def _recovery(destination: str, parent: str) -> str:
         f"Remove every other snapshot under {parent}, but keep {destination}, "
         "every golden another project registered for this host and user (yoke "
         "test-machine get --project P --test-machine TEST_MACHINE names it as "
-        "golden_baseline_path), and their .probes, .manifest "
+        "golden_baseline_path), and their .probes, .probes.sha256, .manifest "
         "and .harness-clis files. Do not capture again until those leftovers are gone."
     )
 
