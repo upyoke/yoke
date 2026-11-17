@@ -2,16 +2,9 @@
  "id": "windows-and-wsl",
  "title": "Windows and WSL",
  "status": "observed",
- "commands": [
-  "yoke wsl setup"
- ],
+ "commands": ["yoke wsl setup"],
  "page": "installation",
  "position": 2,
  "summary": "The native Windows installer uses uv-managed Python 3.12+; macOS/Linux remain 3.11+. --wsl teaches the separate Ubuntu route. Status, path doctor and uninstall report persistent user PATH and retain uv-owned entries. Native Windows acceptance and support remain pending. The source POSIX launcher shim installer refuses on Windows and directs users to the public Windows installer.",
- "sources": [
-  "packaging/public-installer/install.ps1",
-  "packaging/public-installer/source/native_windows.py.inc",
-  "packages/yoke-contracts/src/yoke_contracts/windows_user_path.py",
-  "packages/yoke-core/src/yoke_core/tools/install_yoke_launcher.py"
- ]
+ "sources": ["packaging/public-installer/install.ps1", "packaging/public-installer/source/native_windows.py.inc", "packages/yoke-contracts/src/yoke_contracts/windows_user_path.py", "packages/yoke-core/src/yoke_core/tools/install_yoke_launcher.py"]
 }
