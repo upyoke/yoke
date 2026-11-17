@@ -39,7 +39,7 @@ def test_a_registration_whose_folder_is_gone_anywhere_is_pruned(
 
     prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
-    assert str(adhoc) not in _listed(repo)
+    assert adhoc.as_posix() not in _listed(repo)
 
 
 def test_a_locked_registration_survives_the_prune(monkeypatch, tmp_path: Path):
@@ -52,7 +52,7 @@ def test_a_locked_registration_survives_the_prune(monkeypatch, tmp_path: Path):
 
     prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
-    assert str(held) in _listed(repo)
+    assert held.as_posix() in _listed(repo)
 
 
 def test_a_deploy_run_tree_gets_no_item_pass_line(monkeypatch, tmp_path: Path):

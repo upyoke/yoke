@@ -45,7 +45,7 @@ def _dedupe(paths: Iterable[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for raw in paths:
-        path = str(Path(raw)) if raw else ""
+        path = Path(raw).as_posix() if raw else ""
         if path and path not in seen:
             seen.add(path)
             out.append(path)
