@@ -40,7 +40,7 @@ def test_pulled_installer_outputs_with_older_local_manifest(
         first, ".gitignore", ".yoke/install-manifest.json\n.yoke/install-pending.json\n"
     )
     old = make_bundle()
-    old["files"].append(dict(path=rel, content="old release\n"))
+    old["files"] = [*old["files"], dict(path=rel, content="old release\n")]
     apply_bundle(first, old)
     _commit(first, "Install Yoke operating layer 1.0.0")
     _git(tmp_path, "clone", str(first), str(second))
