@@ -12,6 +12,8 @@ from yoke_contracts.machine_config.schema_connections import (
     configured_active_env,
 )
 
+from yoke_contracts.working_directory import current_directory
+
 PROJECT_CONNECTION: ContextVar[str] = ContextVar("project_connection", default="")
 SELECTION_REASON: ContextVar[str] = ContextVar(
     "connection_selection_reason", default=""
@@ -47,7 +49,7 @@ def checkout_connection(
     """Select the deepest registered checkout containing cwd or its Git primary."""
     from yoke_contracts.machine_config.checkout import main_checkout
 
-    current = Path(cwd or os.getcwd()).resolve()
+    current = Path(cwd or current_directory()).resolve()
     groups = connection_groups(payload)
     if not groups:
         return ""

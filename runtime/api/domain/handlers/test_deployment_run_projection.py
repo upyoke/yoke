@@ -100,6 +100,10 @@ def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(
             "run_membership",
             lambda _: {"member_items": [], "membership_removals": []},
         )
+        monkeypatch.setattr(
+            run_get_members, "run_lineage",
+            lambda _: {"supersedes_run_id": None, "superseded_by_run_id": None},
+        )
         outcome = handle_deployment_run_get(
             deployment_request(
                 function="deployment_runs.get",
@@ -118,6 +122,8 @@ def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(
             **expected,
             "member_items": [],
             "membership_removals": [],
+            "supersedes_run_id": None,
+            "superseded_by_run_id": None,
         }
         assert json.loads(readback.result["run"]["bound_sources"]) == bound
         assert readback.result["attestation_warnings"] == []

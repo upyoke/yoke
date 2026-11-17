@@ -21,11 +21,13 @@ from yoke_cli.commands.adapters.session_control_common import (
     SELECTOR_HELP,
     SELECTOR_SYNOPSIS,
     add_selector_arguments,
+    add_message_delivery_arguments,
     read_stdin_payload,
     selector_payload,
     write_message_detail_result,
     write_message_result,
 )
+from yoke_cli.transport.output_limit import full_output_requested
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageListState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
@@ -125,17 +127,6 @@ def session_message_preview(args: List[str]) -> int:
     )
 
 
-def _add_delivery_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--idempotency-key",
-        metavar="K",
-        help="Reuse a caller-generated key to avoid duplicate sends.",
-    )
-    parser.add_argument(
-        "--confirmation-token", metavar="T", help="Exact preview token."
-    )
-
-
 def session_message_send(args: List[str]) -> int:
     parser = _selector_parser(
         "yoke session-control message send",
@@ -145,7 +136,7 @@ def session_message_send(args: List[str]) -> int:
     parser.add_argument(
         "--stdin", action="store_true", help="Read the message body from stdin."
     )
-    _add_delivery_arguments(parser)
+    add_message_delivery_arguments(parser)
     parsed = parse_or_usage_error(parser, args, MESSAGE_SEND_USAGE)
     if parsed is None:
         return 2
@@ -176,7 +167,7 @@ def say(args: List[str]) -> int:
         action="store_true",
         help="Send the message body read from stdin.",
     )
-    _add_delivery_arguments(parser)
+    add_message_delivery_arguments(parser)
     parsed = parse_or_usage_error(parser, args, SAY_USAGE)
     if parsed is None:
         return 2
@@ -234,8 +225,9 @@ def session_message_list(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, MESSAGE_LIST_USAGE)
     if parsed is None:
         return 2
-    payload: dict[str, Any] = {"limit": parsed.limit}
-    payload["state"] = parsed.state
+    payload: dict[str, Any] = {"limit": parsed.limit, "state": parsed.state}
+    if full_output_requested():
+        payload["detail"] = "full"
     if parsed.recipient_session:
         payload["session_id"] = parsed.recipient_session
     return dispatch_and_emit(

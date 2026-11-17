@@ -98,6 +98,9 @@ def test_member_closure_is_explicit_and_preserves_the_diagnostic(monkeypatch):
         "run_membership",
         lambda _: {"member_items": [], "membership_removals": []},
     )
+    monkeypatch.setattr(deployment_run_get_members, "run_lineage", lambda _: {
+        "supersedes_run_id": None, "superseded_by_run_id": None,
+    })
     monkeypatch.setattr(deployment_run_get_members, "live_carried_work", lambda _: {})
     outcome = handle_deployment_run_get(
         deployment_request(

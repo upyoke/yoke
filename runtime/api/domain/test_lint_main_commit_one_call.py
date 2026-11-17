@@ -25,6 +25,7 @@ def _evaluate(command: str, *, staged: list[str], status: list[str] | None = Non
     payload = _payload(command)
     with (
         mock.patch.object(main_commit_client, "_branch", return_value="main"),
+        mock.patch.object(main_commit_client, "_repo_root", return_value="/client/checkout"),
         mock.patch.object(main_commit_client, "_staged", return_value=staged),
         mock.patch.object(
             main_commit_client, "_modified_and_untracked", return_value=status
