@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+from yoke_contracts.hook_runner.bash_paths import windows_path
 import shlex
 import tempfile
 from pathlib import PurePath
@@ -87,7 +88,7 @@ def is_path_like(token: str) -> bool:
         return False
     if _REGEX_METACHARS.search(token):
         return False
-    if _MID_STRING_COLON.match(token):
+    if _MID_STRING_COLON.match(token) and not windows_path(token):
         return False
     return True
 

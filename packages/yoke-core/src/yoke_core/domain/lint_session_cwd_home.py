@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from yoke_contracts.hook_runner.bash_paths import (
+    canonical_native_path,
+    join_path,
+    is_under,
+)
 
 
 _FREE_PATH_SUFFIXES = (
@@ -50,7 +55,7 @@ def expand_machine_home(target: str, *, machine_home: str | None) -> str:
     if target == "~":
         return home
     if target.startswith("~/"):
-        return str(Path(home, target[2:]))
+        return join_path(home, target[2:])
     return target
 
 
@@ -59,7 +64,7 @@ def home_free_path_prefixes(machine_home: str | None = None) -> tuple[str, ...]:
     home = _selected_home(machine_home)
     if not home:
         return ()
-    resolved = tuple(str(Path(home, suffix)) for suffix in _FREE_PATH_SUFFIXES)
+    resolved = tuple(join_path(home, suffix) for suffix in _FREE_PATH_SUFFIXES)
     if machine_home is None:
         return (*(f"~/{suffix}" for suffix in _FREE_PATH_SUFFIXES), *resolved)
     return resolved
@@ -74,13 +79,14 @@ def is_sanctioned_installed_read_path(
     home = _selected_home(machine_home)
     if not home:
         return False
-    resolved = str(Path(expand_machine_home(target, machine_home=home)).resolve())
+    resolved = canonical_native_path(expand_machine_home(target, machine_home=home))
     for suffix in _SANCTIONED_READ_DIR_SUFFIXES:
-        root = str(Path(home, suffix).resolve())
-        if resolved == root or resolved.startswith(root + os.sep):
+        root = canonical_native_path(join_path(home, suffix))
+        if is_under(resolved, root):
             return True
     files = [
-        str(Path(home, suffix).resolve()) for suffix in _SANCTIONED_READ_FILE_SUFFIXES
+        canonical_native_path(join_path(home, suffix))
+        for suffix in _SANCTIONED_READ_FILE_SUFFIXES
     ]
     if machine_home is None:
         xdg_bin_home = os.environ.get("XDG_BIN_HOME", "").strip()

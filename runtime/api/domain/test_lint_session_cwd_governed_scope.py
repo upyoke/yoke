@@ -6,6 +6,8 @@ from contextlib import nullcontext
 from importlib import import_module
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths
+
 
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_core.domain import lint_lane_main_write, lint_session_cwd
@@ -14,6 +16,8 @@ from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, Next, Outcome
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")
 
 REPO = "/governed/project"
 LANE = REPO + "/.worktrees/owned"

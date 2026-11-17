@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import os
+import posixpath
 from pathlib import Path, PurePosixPath
 from yoke_contracts.hook_runner.bash_paths import (
-    canonical_native_path, resolve_bash_path, windows_path,
+    canonical_native_path,
+    resolve_bash_path,
+    windows_path,
+    is_under,
 )
 from typing import Any, Iterable, List, Optional, Sequence
 
@@ -82,6 +86,9 @@ def is_yoke_watcher_capture_path(
 
 def is_dev_family_path(target: str) -> bool:
     """True for ``/dev/null`` and the rest of the ``/dev`` discard family."""
+    if target.startswith("/dev/") or target == "/dev":
+        normalized = posixpath.normpath(target)
+        return normalized == "/dev" or normalized.startswith("/dev/")
     return is_free_path(target, prefixes=(resolve_bash_path(DEV_FAMILY_PREFIX),))
 
 
@@ -97,7 +104,10 @@ def is_free_path(
     for cand in candidates:
         for prefix in active:
             prefix = resolve_bash_path(prefix)
-            if cand == prefix or cand.startswith(prefix.rstrip("/\\") + ("/" if windows_path(cand) and os.name != "nt" else os.sep)):
+            if cand == prefix or cand.startswith(
+                prefix.rstrip("/\\")
+                + ("/" if windows_path(cand) and os.name != "nt" else os.sep)
+            ):
                 return True
         if prefixes is None and is_yoke_watcher_capture_path(cand):
             return True
@@ -106,32 +116,16 @@ def is_free_path(
 
 def is_inside(target: str, root: str) -> bool:
     """``target`` is the same path as ``root`` or under it."""
-    if not target or not root:
-        return False
-    try:
-        t = canonical_native_path(target)
-        r = canonical_native_path(root)
-    except OSError:
-        return False
-    if windows_path(t) or windows_path(r):
-        t, r = t.replace("\\", "/").casefold(), r.replace("\\", "/").casefold()
-        return t == r or t.startswith(r.rstrip("/") + "/")
-    return t == r or t.startswith(r + os.sep)
+    return is_under(target, root)
 
 
 def is_inside_control_plane(target: str, repo_root: str) -> bool:
     """Return true for project control-plane paths outside ``.worktrees``."""
     if not is_inside(target, repo_root):
         return False
-    try:
-        r = Path(repo_root).resolve()
-        t = canonical_native_path(target)
-    except OSError:
-        return False
-    worktrees_dir = str(r / ".worktrees")
-    if t == worktrees_dir or t.startswith(worktrees_dir + os.sep):
-        return False
-    return True
+    from yoke_contracts.hook_runner.bash_paths import join_path
+
+    return not is_inside(target, join_path(repo_root, ".worktrees"))
 
 
 def outside_worktree_lanes(
@@ -144,7 +138,9 @@ def outside_worktree_lanes(
     answers "is this a checkout path outside every lane?", this one
     selects the targets no lane contains.
     """
-    lanes = [str(Path(root) / ".worktrees") for root in repo_roots]
+    from yoke_contracts.hook_runner.bash_paths import join_path
+
+    lanes = [join_path(root, ".worktrees") for root in repo_roots]
     return [t for t in targets if not any(is_inside(t, lane) for lane in lanes)]
 
 
@@ -209,7 +205,6 @@ def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
     if normalized.endswith("/.worktrees"):
         return normalized.removesuffix("/.worktrees") or "/"
     return None
-
 
 
 def _unique_repo_roots(worktree_paths: Iterable[str]) -> List[str]:

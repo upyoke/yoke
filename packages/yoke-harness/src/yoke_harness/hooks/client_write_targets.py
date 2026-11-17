@@ -166,7 +166,7 @@ def _worktrees(repo: str) -> list[str]:
     if result is None or result.returncode != 0:
         return []
     return [
-        line[len("worktree ") :]
+        canonical_native_path(line[len("worktree ") :])
         for line in result.stdout.splitlines()
         if line.startswith("worktree ") and os.path.isdir(line[len("worktree ") :])
     ]

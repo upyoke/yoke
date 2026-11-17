@@ -15,12 +15,23 @@ import shutil
 import subprocess
 from functools import lru_cache, wraps
 from contextvars import ContextVar
+from contextlib import contextmanager
 from collections.abc import Mapping
 from pathlib import Path
 
 _CLIENT_PATHS: ContextVar[Mapping | None] = ContextVar(
     "bash_client_paths", default=None
 )
+
+
+@contextmanager
+def client_path_scope(paths):
+    """Bind one executing client's observations for a complete guard call."""
+    token = _CLIENT_PATHS.set(paths)
+    try:
+        yield
+    finally:
+        _CLIENT_PATHS.reset(token)
 
 
 class BashPathResolutionError(ValueError):
@@ -42,7 +53,9 @@ def with_client_paths(function=None, *, refuse=None):
 
         fact = read_client_fact(payload, WRITE_TARGETS_KEY)
         paths = fact.get("bash_paths") if isinstance(fact, Mapping) else None
-        token = _CLIENT_PATHS.set(paths if isinstance(paths, Mapping) else None)
+        token = _CLIENT_PATHS.set(
+            paths if isinstance(paths, Mapping) else _CLIENT_PATHS.get()
+        )
         try:
             if isinstance(fact, Mapping) and fact.get("path_resolution_error"):
                 raise BashPathResolutionError(str(fact["path_resolution_error"]))
@@ -91,6 +104,19 @@ def canonical_native_path(path: str) -> str:
     return os.path.realpath(path)
 
 
+def is_under(path: str, root: str) -> bool:
+    """Compare canonical paths using the executing client's separators and case."""
+    if not path or not root:
+        return False
+    target, base = canonical_native_path(path), canonical_native_path(root)
+    if windows_path(target) or windows_path(base):
+        target, base = (
+            target.replace("\\", "/").casefold(),
+            base.replace("\\", "/").casefold(),
+        )
+    return target == base or target.startswith(base.rstrip("/") + "/")
+
+
 @lru_cache(maxsize=1)
 def git_cygpath() -> str:
     """Find cygpath beside Git for Windows, never Windows' WSL bash."""
@@ -115,6 +141,7 @@ def git_cygpath() -> str:
     )
 
 
+@lru_cache(maxsize=1024)
 def _mount_path(path: str) -> str:
     try:
         result = subprocess.run(
@@ -167,10 +194,12 @@ def join_path(base: str, path: str) -> str:
             if os.name == "nt" and not _CLIENT_PATHS.get()
             else joined.replace("\\", "/")
         )
-    return os.path.join(base, path)
+    return posixpath.join(base, path)
 
 
-def resolve_bash_path(path: str, cwd: str = "", *, home: str | None = None) -> str:
+def resolve_bash_path(
+    path: str, cwd: str = "", *, home: str | None = None, canonical: bool = True
+) -> str:
     expanded = expand_home(path, home=home)
     if expanded.startswith("~"):
         return expanded
@@ -189,7 +218,7 @@ def resolve_bash_path(path: str, cwd: str = "", *, home: str | None = None) -> s
                     observed = join_path(mounts[raw], expanded[len(raw) :].lstrip("/"))
                     break
         if isinstance(observed, str):
-            return canonical_native_path(observed)
+            return canonical_native_path(observed) if canonical else observed
         if facts or os.name != "nt":
             raise BashPathResolutionError(
                 "git_bash_client_path_required: the Windows client's mount resolution "
@@ -202,5 +231,12 @@ def resolve_bash_path(path: str, cwd: str = "", *, home: str | None = None) -> s
                 "git_bash_client_cwd_required: the executing client did not supply a directory; "
                 "set an explicit tool workdir and retry."
             )
-        expanded = join_path(cwd or os.getcwd(), expanded)
+        base = (
+            resolve_bash_path(cwd, home=home)
+            if windows and cwd.startswith("/")
+            else cwd
+        )
+        expanded = join_path(base or os.getcwd(), expanded)
+    if not canonical:
+        return ntpath.normpath(expanded) if windows else posixpath.normpath(expanded)
     return canonical_native_path(expanded)

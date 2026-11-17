@@ -31,15 +31,15 @@ def test_apply_patch_extracts_directives_without_fixture_literals():
     fixture_root = "/" + "repo"
     body = (
         "*** Begin Patch\n"
-        f"*** Update File: {lane_root}/source.py\n"
+        f"*** Update File: {Path(lane_root).as_posix()}/source.py\n"
         "@@\n"
         f"+fixture_root = {fixture_root!r}\n"
         "*** End Patch"
     )
     payload = {"tool_name": "apply_patch", "tool_input": {"command": body}}
 
-    assert extract_payload_targets(payload) == [f"{lane_root}/source.py"]
-    assert extract_payload_write_targets(payload) == [f"{lane_root}/source.py"]
+    assert extract_payload_targets(payload) == [f"{Path(lane_root).as_posix()}/source.py"]
+    assert extract_payload_write_targets(payload) == [f"{Path(lane_root).as_posix()}/source.py"]
 
 
 def test_relative_apply_patch_target_resolves_from_declared_workdir():

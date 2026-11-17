@@ -6,6 +6,8 @@ from pathlib import Path
 from contextlib import nullcontext
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths
+
 
 from yoke_contracts.hook_runner.session_cwd import client_machine_home_fact
 from yoke_core.domain import lint_session_cwd as guard
@@ -15,6 +17,8 @@ from yoke_core.domain.lint_shell_path_use import PathRole, analyze_shell_path_us
 from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, Outcome
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")
 
 
 HOME = "/clients/operator"

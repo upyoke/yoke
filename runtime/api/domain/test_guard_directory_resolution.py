@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.domain import test_lint_lane_main_write_workdir as workdir_guard
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 from yoke_contracts.hook_runner.command_extract import substitute_bound_variables
 from yoke_contracts.hook_runner.shell_parse import advance_cwd, parse_shell
 from yoke_core.domain.command_workdir import (
@@ -34,7 +35,7 @@ def _payload(command: str, cwd: str) -> dict:
 
 
 def _resolved(path) -> str:
-    return str(Path(path).resolve())
+    return resolve_bash_path(str(path))
 
 
 def test_mktemp_bound_cd_moves_the_execution_cwd(tmp_path):

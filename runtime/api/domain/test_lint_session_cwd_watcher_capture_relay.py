@@ -119,15 +119,15 @@ def test_relay_allows_background_launch_and_failure_capture_reads(
     raw = _capture("raw")
     progress = _capture("progress")
     launch = (
-        f"cd {claimed_worktree} && yoke watch merge "
-        f"--raw-capture {raw} --progress-capture {progress} -- "
+        f"cd {Path(claimed_worktree).as_posix()} && yoke watch merge "
+        f"--raw-capture {Path(raw).as_posix()} --progress-capture {Path(progress).as_posix()} -- "
         "merge-item YOK-2106"
     )
     launch_targets = extract_command_targets(launch)
 
-    assert str(raw) in launch_targets
-    assert str(progress) in launch_targets
-    assert extract_command_targets(f"tail -80 {raw}") == [str(raw)]
+    assert raw.as_posix() in launch_targets
+    assert progress.as_posix() in launch_targets
+    assert extract_command_targets(f"tail -80 {Path(raw).as_posix()}") == [raw.as_posix()]
 
     assert (
         _remote_decision(
@@ -139,7 +139,7 @@ def test_relay_allows_background_launch_and_failure_capture_reads(
     assert (
         _remote_decision(
             "Bash",
-            {"command": f"tail -80 {raw}"},
+            {"command": f"tail -80 {Path(raw).as_posix()}"},
         )
         is Outcome.NOOP
     )

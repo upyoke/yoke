@@ -36,6 +36,7 @@ def test_missing_git_for_windows_names_recovery(monkeypatch):
 
 
 def test_mount_conversion_uses_the_selected_git_installation(monkeypatch):
+    paths._mount_path.cache_clear()
     monkeypatch.setattr(paths, "git_cygpath", lambda: "C:/Git/usr/bin/cygpath.exe")
     calls = []
 
@@ -46,6 +47,7 @@ def test_mount_conversion_uses_the_selected_git_installation(monkeypatch):
     monkeypatch.setattr(paths.subprocess, "run", run)
     assert paths._mount_path("/usr/bin") == "C:\\Git\\usr\\bin"
     assert calls == [["C:/Git/usr/bin/cygpath.exe", "-w", "--", "/usr/bin"]]
+    paths._mount_path.cache_clear()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="real Git for Windows mount table")

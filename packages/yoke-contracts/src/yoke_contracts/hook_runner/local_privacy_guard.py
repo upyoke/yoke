@@ -103,7 +103,7 @@ def _expanded_path(
         value = str(home) + value[len("${HOME}") :]
     if not is_absolute(value) and (cwd is None or value.startswith("-")):
         return None
-    return resolve_bash_path(value, os.fspath(cwd) if cwd is not None else "", home=str(home))
+    return resolve_bash_path(value, os.fspath(cwd) if cwd is not None else "", home=str(home), canonical=False)
 
 
 def _stronger(
@@ -302,7 +302,7 @@ def classify_shell_command(
     base = os.fspath(cwd) if cwd is not None else ""
     strongest: LocalPrivacyFinding | None = None
     for segment, segment_cwd in zip(
-        parsed.segments, parsed.segment_cwds(base, home=str(home))
+        parsed.segments, parsed.segment_cwds(base, home=str(home), canonical=False)
     ):
         finding = _scan_segment(
             segment.argv,

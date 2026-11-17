@@ -21,15 +21,14 @@ not to the checkout root, so the suggestion never nests one lane's
 
 from __future__ import annotations
 
-import os
 from pathlib import Path, PurePosixPath
+from yoke_contracts.hook_runner.bash_paths import canonical_native_path, join_path
 from typing import Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_path_authority import (
     is_inside,
     is_inside_control_plane,
     repo_root_from_worktree_path,
-    resolve_for_display,
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
@@ -37,7 +36,8 @@ _WORKTREES_DIR = ".worktrees"
 
 
 def held_lane_for(
-    target: str, claims: Sequence[ClaimedWorktree],
+    target: str,
+    claims: Sequence[ClaimedWorktree],
 ) -> Optional[ClaimedWorktree]:
     """The held claim whose lane contains *target*, if any."""
     for claim in claims:
@@ -47,13 +47,13 @@ def held_lane_for(
 
 
 def _under_worktrees(target: str, repo_root: str) -> bool:
-    worktrees = str(Path(repo_root).resolve() / _WORKTREES_DIR)
-    resolved = resolve_for_display(target)
-    return resolved == worktrees or resolved.startswith(worktrees + os.sep)
+    return is_inside(target, join_path(repo_root, _WORKTREES_DIR))
 
 
 def is_lane_escape(
-    target: str, claims: Sequence[ClaimedWorktree], repo_root: str,
+    target: str,
+    claims: Sequence[ClaimedWorktree],
+    repo_root: str,
 ) -> bool:
     """True when *target* is under ``.worktrees`` but inside no held lane."""
     if held_lane_for(target, claims) is not None:
@@ -92,9 +92,9 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
     if not root:
         return claim.worktree_path
     try:
-        rel = PurePosixPath(os.path.normpath(main_target)).relative_to(
-            PurePosixPath(os.path.normpath(root))
-        )
+        rel = PurePosixPath(
+            canonical_native_path(main_target).replace("\\", "/")
+        ).relative_to(PurePosixPath(canonical_native_path(root).replace("\\", "/")))
     except (OSError, ValueError):
         return claim.worktree_path
     parts = rel.parts

@@ -24,11 +24,11 @@ here instead of restating the rules.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.client_facts import yoke_source_root
+from yoke_contracts.hook_runner.bash_paths import canonical_native_path, resolve_bash_path, is_absolute, windows_path
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_session_cwd_host_command import (
     host_command_exemption_note,
@@ -86,15 +86,18 @@ def _pythonpath_matches_yoke(value: str, yoke_root: str) -> bool:
     to the Yoke main root (or a subdirectory of it)."""
     if not value:
         return False
-    resolved_root = os.path.normpath(yoke_root)
-    for entry in value.split(":"):
+    resolved_root = canonical_native_path(yoke_root).replace("\\", "/")
+    separator = ";" if ";" in value or windows_path(value) else ":"
+    for entry in value.split(separator):
         candidate = entry.strip()
         if not candidate:
             continue
-        resolved = os.path.normpath(candidate)
+        if not is_absolute(candidate):
+            continue
+        resolved = resolve_bash_path(candidate).replace("\\", "/")
         if resolved == resolved_root:
             return True
-        if resolved.startswith(resolved_root + os.sep):
+        if resolved.startswith(resolved_root.rstrip("/") + "/"):
             return True
     return False
 
