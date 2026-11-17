@@ -110,21 +110,21 @@ def scan_source_glyphs(repo_root: Path) -> list[str]:
         except OSError:
             continue
         try:
-            rel = f.resolve().relative_to(repo_root.resolve())
+            rel = f.resolve().relative_to(repo_root.resolve()).as_posix()
         except ValueError:
-            rel = f
+            rel = str(f)
         for lineno, line in enumerate(text.splitlines(), start=1):
             for i, ch in enumerate(line):
                 cp = ord(ch)
                 if cp == _VS16:
                     base = line[i - 1] if i > 0 else ""
                     hits.append(
-                        f"{rel.as_posix()}:{lineno}: VS16 on text-default base "
+                        f"{rel}:{lineno}: VS16 on text-default base "
                         f"{base!r} ({_char_name(base)})"
                     )
                 elif _SKIN_LO <= cp <= _SKIN_HI:
                     hits.append(
-                        f"{rel.as_posix()}:{lineno}: skin-tone modifier {ch!r} ({_char_name(ch)})"
+                        f"{rel}:{lineno}: skin-tone modifier {ch!r} ({_char_name(ch)})"
                     )
     return hits
 
