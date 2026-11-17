@@ -16,11 +16,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class _RegistryServer:
     def __init__(self, *, expected_token: str) -> None:
         self.expected_token = expected_token
+        self.machine_reads: list[str] = []
         self.server: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
 
     def __enter__(self) -> str:
         expected = self.expected_token
+        machine_reads = self.machine_reads
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802
@@ -33,6 +35,30 @@ class _RegistryServer:
                     self.end_headers()
                     return
                 body = json.dumps([{"function_id": "status.run"}]).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self) -> None:  # noqa: N802
+                if self.path != "/v1/functions/call":
+                    self.send_error(404)
+                    return
+                if self.headers.get("Authorization") != f"Bearer {expected}":
+                    self.send_error(403)
+                    return
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                if request["function"] != "machine.show":
+                    self.send_error(400, "unexpected smoke function")
+                    return
+                machine_id = request["payload"]["machine_id"]
+                machine_reads.append(machine_id)
+                body = json.dumps({
+                    "success": True, "function": request["function"],
+                    "version": "v1", "request_id": request["request_id"],
+                    "result": {"machine": {"id": machine_id, "name": "smoke machine"}},
+                }).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
