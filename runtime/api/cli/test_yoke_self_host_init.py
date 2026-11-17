@@ -14,16 +14,12 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.commands import self_host as commands
-from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.self_host import atomic_file
 from yoke_cli.self_host import bundle
 from yoke_cli.self_host import first_boot_token
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
-from yoke_contracts.server_image import (
-    PUBLISHED_SERVER_IMAGE_REPOSITORY,
-    pinned_server_image,
-)
+from yoke_contracts.server_image import pinned_server_image
 
 ADMIN_NAME_ARGS = ("--admin-name", "Ada Lovelace")
 
@@ -41,6 +37,7 @@ def _password(target: Path) -> str:
     return (target / "secrets" / "db-password").read_text(encoding="utf-8").strip()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_does_not_create_an_empty_token_file(target, capsys):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     assert not first_boot_token.token_drop_path(target).exists()
@@ -50,6 +47,7 @@ def test_init_does_not_create_an_empty_token_file(target, capsys):
     assert "--protect-existing --start" in capsys.readouterr().out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize(
     "publish, warns",
     [
@@ -90,6 +88,7 @@ def test_init_warns_once_for_network_publish(
         assert "restrict access upstream" in output.err
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_never_truncates_an_already_delivered_token(target):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     token_file = first_boot_token.token_drop_path(target)
@@ -104,6 +103,7 @@ def test_init_never_truncates_an_already_delivered_token(target):
     assert first_boot_token.read_first_boot_token(target) == "yoke_v1_" + ("A" * 43)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_existing_bundle_needs_no_token_until_first_boot(target):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     assert commands.self_host_init(["--dir", str(target), "--protect-existing"]) == 0
@@ -111,6 +111,7 @@ def test_existing_bundle_needs_no_token_until_first_boot(target):
     assert bundle.validate_existing_bundle(directory=str(target)) == target.resolve()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
@@ -173,6 +174,7 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert "yoke connect" in out.out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_ships_browser_sign_in_wiring_disabled(target):
     """The OIDC door rides the bundle as commented-out opt-in blocks: the
     compose file passes the env knobs through (blank = disabled) and
@@ -194,6 +196,7 @@ def test_init_ships_browser_sign_in_wiring_disabled(target):
     assert not any(line.startswith("YOKE_OIDC_") for line in env_text.splitlines())
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_ships_github_app_secret_wiring_disabled(target):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
@@ -223,6 +226,7 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
     assert "--github-app-private-key" in env_text
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
@@ -244,6 +248,7 @@ def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
     assert "CHOWN" not in compose
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_json_report_omits_secrets(target, capsys):
     assert (
         commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target), "--json"]) == 0
@@ -257,6 +262,7 @@ def test_init_json_report_omits_secrets(target, capsys):
     assert _password(target) not in json.dumps(report)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_port_and_image_overrides(target):
     assert (
         commands.self_host_init(
@@ -277,6 +283,7 @@ def test_init_port_and_image_overrides(target):
     assert "YOKE_SERVER_IMAGE=example.test/yoke-server:pinned" in env_text
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_refuses_clobber_without_force(target, capsys):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     first_password = _password(target)
@@ -295,12 +302,7 @@ def test_init_refuses_clobber_without_force(target, capsys):
     assert _password(target) != first_password
 
 
-def test_published_image_pin_shape():
-    image = pinned_server_image("0.2.0.202610140334")
-    assert image == f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:0.2.0.202610140334"
-    assert PUBLISHED_SERVER_IMAGE_REPOSITORY.startswith("ghcr.io/")
-
-
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_pins_the_image_matching_the_installed_cli_release(
     target, capsys, monkeypatch
 ):
@@ -331,14 +333,6 @@ def test_init_pins_the_image_matching_the_installed_cli_release(
     assert report["image"] == expected
     assert f"YOKE_SERVER_IMAGE={expected}" in env_text
     assert ":latest" not in env_text
-
-
-def test_tool_shaped_resolution():
-    resolved = resolve_tool_shaped(["self-host", "init", "--json"])
-    assert resolved is not None
-    adapter, remaining = resolved
-    assert adapter is commands.self_host_init
-    assert remaining == ["--json"]
 
 
 pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")

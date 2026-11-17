@@ -68,7 +68,6 @@
 "runtime/api/domain/test_event_catalog.py::test_committed_catalog_doc_matches_the_code_catalog": "AssertionError: docs/event-catalog.md is stale; run python3 -m yoke_core.domain.event_catalog_render",
 "runtime/api/domain/test_file_line_check_merge.py::test_automatic_octopus_merge_hook_reads_all_parents": "AssertionError: yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.",
 "runtime/api/domain/test_file_line_check_merge.py::test_pre_merge_commit_hook_checks_inherited_and_combined_growth[0]": "AssertionError: yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.",
-"runtime/api/domain/test_first_boot_admin_token_delivery.py::test_token_returns_over_private_socket_and_never_enters_logs": "yoke_core.api.first_boot_admin_token_delivery.FirstBootTokenDeliveryError: self_host_token_handoff_failed: host did not confirm token storage; repair the bundle's owner-only secrets directory, then re",
 "runtime/api/domain/test_github_app_binding_http_security.py::test_https_binding_uses_default_server_app_and_never_persists_secrets": "AssertionError: assert 'configured GitHub App cannot access' in 'this platform cannot safely open the GitHub App private-key file'",
 "runtime/api/domain/test_github_app_group_secret_mount.py::test_accepts_service_group_read_only_secret_mount": "AttributeError: <module 'os' (frozen)> has no attribute 'getegid'",
 "runtime/api/domain/test_github_app_group_secret_mount.py::test_rejects_group_writable_secret_mount": "AttributeError: <module 'os' (frozen)> has no attribute 'getegid'",

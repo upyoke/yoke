@@ -297,6 +297,5 @@
 "runtime/api/domain/test_repo_upstream_freshness.py::test_default_branch_is_read_from_the_remote_when_unnamed": "AssertionError: assert 'behind_not_updated' == 'fast_forwarded'",
 "runtime/api/domain/test_repo_upstream_freshness.py::test_remote_ahead_fast_forwards_and_names_the_lane_base": "AssertionError: assert 'behind_not_updated' == 'fast_forwarded'",
 "runtime/api/domain/test_repo_upstream_freshness.py::test_unrelated_uncommitted_change_survives_the_fast_forward": "AssertionError: assert 'behind_not_updated' == 'fast_forwarded'",
-"runtime/api/domain/test_screen_sharing_view.py::test_forward_checks_the_declared_vnc_handshake": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/tmp\\\\yoke-desktop-mnlamvpz'",
-"runtime/api/domain/test_self_host_import_supervisor.py::test_supervisor_bounds_unconfirmed_bridge_wait": "ModuleNotFoundError: No module named 'pwd'"
+"runtime/api/domain/test_screen_sharing_view.py::test_forward_checks_the_declared_vnc_handshake": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/tmp\\\\yoke-desktop-mnlamvpz'"
 }

@@ -27,7 +27,8 @@ permissions work best when the checkout stays in Linux. Run your agent CLIs
 
 Host-side `yoke self-host init` (including `--start`), `upgrade`, `import` and
 `teardown`, and setup's **Host a server here**, refuse on native Windows before
-writing host files. From Windows PowerShell run `wsl --install -d Ubuntu`, then
+writing host files. Their `--help` and `-h` options show command help on native
+Windows without attempting to host a server. From Windows PowerShell run `wsl --install -d Ubuntu`, then
 open Ubuntu and install Yoke inside that distribution as above. Make Docker
 Engine with Compose available inside Ubuntu and follow [Self-host Yoke](../self-hosting/install.md)
 there. Keep the bundle and secrets in the Linux filesystem.

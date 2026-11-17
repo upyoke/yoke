@@ -42,6 +42,7 @@ def test_server_birth_reads_the_bundle_name(monkeypatch):
     assert server_entrypoint.first_admin_name() == "Ada Lovelace"
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_bundle_carries_the_name_into_env_and_compose(tmp_path):
     report = bundle.write_bundle(
         directory=str(tmp_path / "server"),

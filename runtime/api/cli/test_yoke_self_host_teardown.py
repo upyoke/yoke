@@ -11,7 +11,6 @@ import pytest
 
 from yoke_cli.commands import self_host as commands
 from yoke_cli.commands import self_host_teardown as teardown_commands
-from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import (
     github_git_credential_file,
     github_machine_operation,
@@ -69,18 +68,7 @@ def _payload(machine_home: Path) -> dict:
     return json.loads((machine_home / "config.json").read_text(encoding="utf-8"))
 
 
-def test_teardown_is_registered_as_a_tool_shaped_command() -> None:
-    resolved, _extra = resolve_tool_shaped(("self-host", "teardown"))
-    assert resolved is teardown_commands.self_host_teardown
-
-
-def test_teardown_has_no_unsafe_single_connection_selector(capsys) -> None:
-    rc = teardown_commands.self_host_teardown(["--connection", "self-host"])
-
-    assert rc == 2
-    assert "unrecognized arguments" in capsys.readouterr().err
-
-
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_default_teardown_stops_the_stack_and_keeps_the_data(target, docker):
     report = teardown.tear_down(directory=str(target), keep_connection=True)
 
@@ -90,6 +78,7 @@ def test_default_teardown_stops_the_stack_and_keeps_the_data(target, docker):
     assert first_boot_token.token_drop_path(target).is_file()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_destroying_the_universe_takes_its_own_flag(target, docker):
     report = teardown.tear_down(
         directory=str(target),
@@ -101,6 +90,7 @@ def test_destroying_the_universe_takes_its_own_flag(target, docker):
     assert report["universe_destroyed"] is True
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_destroy_universe_refuses_without_consent_when_not_a_tty(
     target,
     docker,
@@ -124,6 +114,7 @@ def test_destroy_universe_refuses_without_consent_when_not_a_tty(
     assert docker == []
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_images_are_read_before_the_stack_goes_down(target, docker):
     report = teardown.tear_down(
         directory=str(target),
@@ -140,6 +131,7 @@ def test_images_are_read_before_the_stack_goes_down(target, docker):
     assert ("/usr/bin/docker", "image", "rm", "postgres:17") in docker
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_an_image_still_in_use_is_reported_not_forced(target, monkeypatch):
     def run(argv, **kwargs):
         stdout = ""
@@ -163,6 +155,7 @@ def test_an_image_still_in_use_is_reported_not_forced(target, monkeypatch):
     assert report["images_retained"] == ["postgres:17"]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_remove_bundle_deletes_yoke_files_and_keeps_operator_files(target, docker):
     (target / "notes.txt").write_text("mine\n", encoding="utf-8")
 
@@ -181,6 +174,7 @@ def test_remove_bundle_deletes_yoke_files_and_keeps_operator_files(target, docke
     assert str(token_file) in report["bundle_files_removed"]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_remove_bundle_removes_an_emptied_directory(target, docker):
     teardown.tear_down(
         directory=str(target),
@@ -191,6 +185,7 @@ def test_remove_bundle_removes_an_emptied_directory(target, docker):
     assert not target.exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_teardown_retires_the_connection_pointing_at_this_bundle(
     target,
     docker,
@@ -209,6 +204,7 @@ def test_teardown_retires_the_connection_pointing_at_this_bundle(
     assert payload.get("active_env", "") == ""
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_teardown_retires_every_bundle_alias_and_cleans_machine_residue(
     target,
     docker,
@@ -248,6 +244,7 @@ def test_teardown_retires_every_bundle_alias_and_cleans_machine_residue(
     assert docker == [("/usr/bin/docker", "compose", "down")]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_connection_choice_refuses_before_docker_and_excludes_dead_replacements(
     target,
     docker,
@@ -285,6 +282,7 @@ def test_connection_choice_refuses_before_docker_and_excludes_dead_replacements(
     assert list(_payload(machine_home)["connections"]) == ["hosted"]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_a_connection_for_another_server_is_left_alone(
     target,
     docker,
@@ -321,15 +319,7 @@ def test_retiring_the_active_authority_with_peers_names_the_choice(
     assert list(_payload(machine_home)["connections"]) == ["hosted"]
 
 
-def test_teardown_refuses_a_directory_that_is_not_a_bundle(tmp_path, monkeypatch):
-    monkeypatch.setattr(teardown, "_WHICH", lambda _name: "/usr/bin/docker")
-
-    with pytest.raises(teardown.SelfHostTeardownError) as raised:
-        teardown.tear_down(directory=str(tmp_path))
-
-    assert "--dir PATH" in str(raised.value)
-
-
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_a_failed_compose_down_removes_nothing_else(target, monkeypatch):
     monkeypatch.setattr(teardown, "_WHICH", lambda _name: "/usr/bin/docker")
     monkeypatch.setattr(

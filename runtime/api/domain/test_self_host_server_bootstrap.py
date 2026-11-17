@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+
 import os
 from pathlib import Path
 import stat
 from types import SimpleNamespace
 
 import pytest
+
 
 from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
@@ -21,6 +23,11 @@ from yoke_core.tools.self_host_server_bootstrap import (
     assert_no_effective_linux_capabilities,
     assert_runtime_secrets_readable,
     materialize_self_host_runtime_secrets,
+)
+
+
+pytestmark = pytest.mark.posix_only(
+    reason="self-host server runs on Linux or WSL2"
 )
 
 

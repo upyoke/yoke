@@ -240,11 +240,6 @@ def _confirm_replace(directory: Path, *, assume_yes: bool) -> None:
 
 
 def self_host_import(args: List[str]) -> int:
-    try:
-        native_windows.refuse()
-    except native_windows.NativeWindowsError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
     parser = argparse.ArgumentParser(
         prog="yoke self-host import",
         description=(
@@ -284,6 +279,11 @@ def self_host_import(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
     if parsed is None:
         return 2
+    try:
+        native_windows.refuse()
+    except native_windows.NativeWindowsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if parsed.recover_credential:
         if parsed.archive:
             raise SelfHostImportError(
