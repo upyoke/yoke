@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -16,6 +17,9 @@ from yoke_contracts import terminal_detached_process
 
 _Error = TypeVar("_Error", bound=Exception)
 _EDITABLE_PACKAGES = ("yoke-contracts", "yoke-core", "yoke-cli", "yoke-harness")
+_WINDOWS = os.name == "nt"
+_LAUNCHER = "yoke.exe"
+_ASIDE_SUFFIX = ".replaced"
 _SOURCE_LINK_SNIPPET = (
     "import json, sys\n"
     "from pathlib import Path\n"
@@ -80,6 +84,7 @@ def _run_editable_install(
     )
     for package in packages:
         command.extend(["-e", str(package)])
+    moved = _set_running_launcher_aside(Path(sys.executable).parent)
     result = terminal_detached_process.run(
         command,
         cwd=root,
@@ -89,6 +94,9 @@ def _run_editable_install(
         check=False,
     )
     if result.returncode != 0:
+        for launcher, aside in moved:
+            if not launcher.exists():
+                aside.replace(launcher)
         raise error_type(
             f"editable install failed: {result.stderr.strip() or result.stdout.strip()}"
         )
@@ -103,6 +111,28 @@ def _run_editable_install(
         "packages": [str(package) for package in packages],
         "config_driven_pth": swap,
     }
+
+
+def _set_running_launcher_aside(scripts: Path) -> list[tuple[Path, Path]]:
+    """Let the install replace this environment's ``yoke.exe`` on Windows.
+
+    Windows refuses to delete a running executable -- this command, the local
+    relay or the hook evaluator may be running it -- but allows renaming it.
+    Copies set aside earlier are removed once nothing runs them.
+    """
+    if not _WINDOWS:
+        return []
+    for stale in scripts.glob(f"{_LAUNCHER}.*{_ASIDE_SUFFIX}"):
+        try:
+            stale.unlink()
+        except OSError:
+            pass  # Still running; a later install removes it.
+    launcher = scripts / _LAUNCHER
+    if not launcher.is_file():
+        return []
+    aside = launcher.with_name(f"{_LAUNCHER}.{uuid.uuid4().hex[:8]}{_ASIDE_SUFFIX}")
+    launcher.replace(aside)
+    return [(launcher, aside)]
 
 
 def _find_uv() -> str | None:

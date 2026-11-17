@@ -111,10 +111,12 @@ def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
     """Stop what onboarding started; a cleanup failure never hides the primary one.
 
     Each step runs even when an earlier one fails: a relay that cannot be
-    removed must not leave Postgres holding the scratch folder open.
+    removed must not leave Postgres holding the scratch folder open. The hook
+    replay started the resident hook evaluator, so it stops first.
     """
     first = None
     for name, argv in (
+        ("stop-hook-resident", [run.yoke, "hook", "resident", "stop"]),
         ("uninstall-local-relay", [run.yoke, "relay", "uninstall", "--json"]),
         ("stop-local-postgres", [run.yoke, "local-postgres", "stop", "--json"]),
     ):
@@ -138,7 +140,8 @@ def remove_scratch(scratch: Path, report: dict, *, primary_failure: bool) -> Non
     except OSError as exc:
         detail = (
             f"scratch_cleanup_failed: {exc}; a process the smoke started still holds "
-            "a scratch file. Inspect the uninstall-local-relay and stop-local-postgres captures"
+            "a scratch file. Inspect the stop-hook-resident, uninstall-local-relay and "
+            "stop-local-postgres captures"
         )
         if not primary_failure:
             raise SmokeFailure(detail) from exc

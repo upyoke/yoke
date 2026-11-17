@@ -68,7 +68,7 @@ def test_status_stage_refuses_a_config_outside_the_isolated_home(tmp_path, monke
         stages.status(run)
 
 
-def test_every_stage_runs_in_order_then_cleanup_stops_relay_and_postgres(
+def test_every_stage_runs_in_order_then_cleanup_stops_what_the_smoke_started(
     tmp_path, monkeypatch
 ):
     seen = []
@@ -82,7 +82,12 @@ def test_every_stage_runs_in_order_then_cleanup_stops_relay_and_postgres(
     run = stages.SmokeRun(tmp_path, tmp_path, Commands(tmp_path, {}), {})
     monkeypatch.setattr(run.commands, "run", lambda name, argv, **kwargs: seen.append(argv[1:3]))
     smoke.run_stages(run)
-    assert seen == [*stages.STAGE_NAMES, ["relay", "uninstall"], ["local-postgres", "stop"]]
+    assert seen == [
+        *stages.STAGE_NAMES,
+        ["hook", "resident"],
+        ["relay", "uninstall"],
+        ["local-postgres", "stop"],
+    ]
     assert run.report == {"stage": "source-tests", "ok": True}
 
 
@@ -153,7 +158,7 @@ def test_failed_relay_removal_still_stops_postgres(tmp_path, monkeypatch, primar
     else:
         with pytest.raises(SmokeFailure, match="relay_task_scheduler_unavailable"):
             smoke.cleanup(run, primary_failure=False)
-    assert seen == ["uninstall-local-relay", "stop-local-postgres"]
+    assert seen == ["stop-hook-resident", "uninstall-local-relay", "stop-local-postgres"]
 
 
 @pytest.mark.parametrize("primary_failure", [True, False])

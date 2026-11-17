@@ -66,8 +66,10 @@ environment. The product test cluster resolves already-installed embedded
 Postgres binaries, falling back to system PATH when none are installed. The
 pytest wrapper preserves executable access when it isolates machine config. The
 smoke uses a short disposable socket root, retains failed watcher/server
-captures, and stops that test cluster. Cleanup uninstalls the disposable local relay
-on every OS before stopping the local cluster and removing its scratch directory.
+captures, and stops that test cluster. Cleanup stops the resident hook evaluator and
+uninstalls the disposable local relay on every OS before stopping the local
+cluster and removing its scratch directory. Each cleanup step runs even when an
+earlier one fails, and none can replace the primary failure.
 
 Run through `qa.plan_execution.begin` using the standalone adapter:
 
