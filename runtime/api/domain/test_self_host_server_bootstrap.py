@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
-
 
 import os
 from pathlib import Path
 import stat
 from types import SimpleNamespace
+
+import pytest
 
 
 from yoke_contracts.self_host_bootstrap import (
