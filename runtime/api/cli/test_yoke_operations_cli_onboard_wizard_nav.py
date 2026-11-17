@@ -30,6 +30,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     stub_path_doctor,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 def _prompt() -> SetupPrompt:
@@ -49,10 +50,12 @@ def test_esc_steps_back_one_view() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await pilot.press("down")  # project: move off the default folder row
             await pilot.press("enter")  # -> checkout input
+            await wait_for_view(pilot, "project.folder", "Input")
             await pilot.press("escape")  # back to project mode list
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert app.query_one(Stepper).active == STEP_PROJECT
             lists = app.query("#onboard-body SelectionList")
             assert lists
@@ -69,10 +72,12 @@ def test_ctrl_left_bracket_steps_back_one_view() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await pilot.press("down")  # project: move off the default folder row
             await pilot.press("enter")  # -> checkout input
+            await wait_for_view(pilot, "project.folder", "Input")
             await pilot.press("ctrl+[")  # back to project mode list
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert app.query_one(Stepper).active == STEP_PROJECT
             lists = app.query("#onboard-body SelectionList")
             assert lists
