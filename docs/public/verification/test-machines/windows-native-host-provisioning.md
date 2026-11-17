@@ -5,19 +5,24 @@
 <!-- /yoke:breadcrumbs -->
 
 Native Windows 11 lab procedure, WSL absent; no Windows support claim.
-Follow [setup responsibilities](setup-responsibilities.md); use project inventory
-for hosts, accounts and evidence. Record observed results; mark untested steps unverified.
+Follow [setup responsibilities](setup-responsibilities.md); inventory holds
+hosts/accounts/evidence. Record results; mark untested steps unverified.
 
 ## 1. Create or identify the VM
 
 Retain the lab's manual exception and inventory/import work. Require Windows 11
-Enterprise x64, Trusted Launch, Windows_Client eligibility, four CPUs, 16 GiB RAM
+Enterprise x64, Trusted Launch, Windows_Client eligibility, 4 CPUs, 16 GiB RAM
 and a 128 GiB OS disk; Server is not a desktop target.
 
 Generate the machine password in Yoke's local secret store; invoke Azure from
 a controller that reads it privately and redacts errors. Never put passwords
 in argv, shell history, items or chat. Ben enters his own sign-ins later.
 Create budget/cost alerts; they do not power off the VM.
+
+If `az` fails with `AADSTS530035` (security defaults), the operator completes
+interactive `az login --tenant TENANT --scope https://management.core.windows.net//.default`
+and selects the inventory subscription. The lane retries the failed read,
+requires a fresh power-state receipt, then resumes; never bypass the policy.
 
 ```text
 az network vnet create -g yoke-test-machines -n windows-native-lab-vnet --subnet-name default
@@ -105,7 +110,7 @@ When administrator key SSH already works, add `--bootstrap-transport ssh` to run
 bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
 Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
 receipts under one 30-second deadline; only the complete verified script runs.
-Owned staging cleanup has a separate ten-second bound and preserves prior errors.
+Owned staging cleanup is bounded to ten seconds and preserves prior errors.
 Password frames never produce digests; readers do not wait for stdin EOF.
 
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
@@ -130,16 +135,18 @@ Administrators. Check native exits and the actual owner/DACL; recursive
 directory-style grants left the key file's DACL empty in CI. Controller SSH
 uses `-F none` for both Git and native OpenSSH; Windows `nul` is not a
 portable SSH config-file argument.
+For an existing key file, validate its trusted owner and repair explicit file
+grants **before** writing; an empty protected DACL otherwise denies the write.
+Keep final owner/exact-three-SID ACL checks; never take ownership/reset accounts.
 
 ### Bounded recovery when administrator SSH is unavailable
 
-Use an explicitly approved window: one start, maximum twenty minutes, reserve
-cleanup at minute seventeen, and verify `PowerState/deallocated` by minute twenty.
-Stop on ambiguity; a timeout is not permission to retry or kill guest processes.
-If OpenSSH is installed/running but TCP22 is blocked, inspect the managed
-`YokeQaSsh` firewall rule. `New-NetFirewallRule` requires `-DisplayName` even
-with `-Name`; omitting it can prompt instead of completing noninteractively.
-Save this nonsecret repair script as `ssh-firewall.ps1`:
+Within approved authority, cap each start at twenty minutes, reserve cleanup
+at minute seventeen and verify `PowerState/deallocated` by minute twenty.
+Stop on ambiguity; never infer retry/process-kill permission from timeout.
+If installed/running OpenSSH has blocked TCP22, inspect managed `YokeQaSsh`:
+`New-NetFirewallRule` needs `-DisplayName` even with `-Name`, otherwise it can
+prompt noninteractively. Save this nonsecret script as `ssh-firewall.ps1`:
 
 ```powershell
 $ErrorActionPreference='Stop'
@@ -159,8 +166,8 @@ az vm run-command create --resource-group GROUP --vm-name VM --name yoke-native-
 az vm run-command show --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --expand instanceView --query instanceView -o json
 ```
 
-Require terminal execution success, exit code zero and `YOKE_SSH_FIREWALL_READY`;
-ARM `Creating`/`Canceled` alone is not the guest result. Do not repeat removal or
+Require terminal success, exit code zero and `YOKE_SSH_FIREWALL_READY`;
+ARM `Creating`/`Canceled` is not the guest result. Do not repeat removal or
 create another guest invocation because the controller result is ambiguous.
 Verify external TCP22, then key-only administrator SSH before continuing.
 From a PowerShell controller (`KEY`, `ADMIN` and `HOST` are inventory values):
@@ -182,10 +189,9 @@ ssh -i KEY -o BatchMode=yes ADMIN@HOST "powershell.exe -NoProfile -NonInteractiv
 if($LASTEXITCODE -ne 0){throw 'administrator SSH audit failed'}
 ```
 
-Never kill a reported process. Run the provisioner only after this zero-count
-audit, retaining all three readiness receipts. Verify both users' actual token
-SIDs against `Get-LocalUser`, and administrator membership true only for ADMIN.
-Inspect the test SID's registered path/hive; do not assume a profile directory.
+Never kill reported processes. Provision only after the zero-count audit;
+retain all three readiness receipts. Compare actual token SIDs to `Get-LocalUser`,
+admin membership true only for ADMIN, and inspect the test SID's registered path/hive.
 
 ### RDP firewall failure and partial setup
 
@@ -200,6 +206,9 @@ Require a real forwarded RDP negotiation and independently blocked direct RDP.
 
 The profile-by-SID window failed at this rule and deallocated after 121 seconds.
 Registration, QA and an independent profile receipt remained unverified.
+The next window passed admin SSH/stale audit but failed rewriting that partial
+key file before ACL repair; deallocation was verified after 124 seconds,
+without registration. Prove recovery from the actual malformed ACL in CI.
 Preserve the partial account/profile and custody. Correct and run the **entire**
 guest provisioner on disposable `windows-latest`, including actual SSH and RDP
 forwarding, before requesting another VM window with exact-commit green evidence.
@@ -222,13 +231,11 @@ the project's lab policy. Reboot and prove a scheduled task with
 `LogonType=Interactive` runs as the standard user without an RDP client open.
 
 Register `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
-`desktop_host=127.0.0.1`, `desktop_port=3389` and `desktop_user=yokeqa`.
-`yoke test-machine desktop-access` returns the forwarded address and a private
-password-file path; use your existing RDP application. Native Windows does
-not add an RDP client to Yoke. Disconnect without signing out; if the desktop
-is locked or logged off, reconnect, unlock and return it to the console
-session before QA. Screenshots are taken **inside the VM** by a scheduled
-task using `CopyFromScreen`, then read back over SSH.
+`desktop_host=127.0.0.1`, `desktop_port=3389`, `desktop_user=yokeqa`.
+`yoke test-machine desktop-access` returns the forward and private password-file
+path for your existing RDP client; Yoke adds none. Disconnect without sign-out;
+if locked/logged off, reconnect, unlock and return to console before QA.
+Screenshots use scheduled `CopyFromScreen` **inside the VM**, read back over SSH.
 
 As the standard user install all harness CLIs from their vendors:
 
@@ -244,44 +251,37 @@ agent --version
 Sources: [Claude](https://code.claude.com/docs/en/setup),
 [Codex on Windows](https://developers.openai.com/codex/windows/),
 [Cursor native CLI](https://cursor.com/docs/cli/installation).
-Install and launch each vendor's Windows desktop app as the same user.
-Agents finish setup and navigation; Ben types his own harness and GitHub
-passwords. Prove each CLI makes a real request, and each desktop app visibly
-opens and is signed in, before capturing the golden. Install-only and
-`--version` checks do not prove account readiness. Follow
-[native browser identities](windows-browser-identities.md) for browser sign-ins.
+Install/launch each vendor's desktop app as the same user. Agents finish setup
+and navigation; Ben types his own harness/GitHub passwords. Before goldens,
+prove real CLI requests and visible signed-in desktop apps; installs/versions
+alone do not prove readiness. Follow [native browser identities](windows-browser-identities.md).
 
 ## 4. Settings journal and interrupted-case recovery
 
-The fixed `YokeQaMachineSettings` task runs as SYSTEM. Its program and durable
-journal live under `C:\ProgramData\YokeQa\private`, writable only by
-Administrators/SYSTEM. The standard test user can write requests under
-`C:\ProgramData\YokeQa\requests` and start the task; it cannot replace the
-program. The task accepts only capture/restore with a QA lease identifier.
-It records the local AppLocker policy, presence/value of `LongPathsEnabled`,
-machine certificate inventory and installed Programs/MSI tools **before**
-case mutations. It exports the machine public certificates privately.
+SYSTEM task `YokeQaMachineSettings` accepts only capture/restore with a QA lease
+identifier. Its program/journal in `C:\ProgramData\YokeQa\private` are writable
+only by Administrators/SYSTEM; the standard user can start it and write
+`C:\ProgramData\YokeQa\requests`, never replace the program. Before mutations
+it records AppLocker policy, `LongPathsEnabled` presence/value, machine
+certificate inventory and Programs/MSI tools; public certificates export privately.
 
-Before a case removes a baseline tool, the administrator must provide its
-versioned installer in the private recovery cache and a
-`tool-installers.json` catalog. Never remove a certificate with a private key
-without a project-approved private-key recovery procedure. A failed restore
-retains the journal and reports its reason; it never becomes a passing case.
+Before baseline-tool removal, the administrator supplies its versioned installer
+in the private recovery cache and `tool-installers.json`. Private-key certificate
+removal requires a project-approved recovery procedure. Failed restore retains
+the journal and reports its reason; it never becomes a passing case.
 
-Cleanup restores the saved policy, registry value, certificates and tools,
-then compares every inventory. The next serial QA lease restores an
-interrupted journal before capturing another. Keep the machine unavailable
-until restoration verifies. No VM snapshots are used. Do not manually delete
-the journal, declare a policy failure passed, or recapture a dirty machine.
+Cleanup restores policy, registry, certificates and tools and compares every
+inventory. The next serial lease restores an interrupted journal before capture;
+keep the machine unavailable until verified. Never use VM snapshots, delete the
+journal, pass a policy failure or recapture a dirty machine.
 
 ## 5. Register, capture and prove
 
-Register only after the VM exists and its standard user works. A native
-machine declares `os=windows`; a WSL machine has its own OS kind.
-Use a literal Windows path such as `C:\YokeQa\goldens\baseline` outside the
-test profile. Settings contain no credentials. Register the provider and
-resource identifier using the installed provider power contract, then prove
-start, address refresh and deallocation on last QA lease release.
+Register only when the VM exists and its standard user works: `os=windows`
+for native, a separate OS kind for WSL. Goldens use a literal Windows path
+outside the profile, such as `C:\YokeQa\goldens\baseline`; settings contain no
+credentials. Register provider/resource ID using the installed power contract;
+prove start, address refresh and deallocation on last QA lease release.
 
 ```text
 yoke test-machine settings-replace --project P --test-machine NAME --settings-file SETTINGS.json --new
@@ -290,12 +290,10 @@ yoke test-machine verify --project P --test-machine NAME
 yoke test-machine screenshot --project P --test-machine NAME
 ```
 
-Read each command's help before execution. Capture never overwrites an
-existing golden. Profile restore mirrors the captured profile, restores user
-PATH and the user-task roster, and preserves live harness/browser identities
-and locked Windows registry hives. Close test apps before capture/reset;
-copy failures leave the capture unsealed. Keep project baseline tools and
-fixtures in the project-owned inventory.
+Read command help first; never overwrite an existing golden. Restore mirrors
+the profile, restores user PATH/tasks and preserves live harness/browser
+identities and locked registry hives. Close apps before capture/reset; copy
+failures leave capture unsealed. Keep baseline tools/fixtures in project inventory.
 
 Record a scripted check with WSL absent, a real desktop PNG, a profile/PATH/
 scheduled-task reset roundtrip, an interrupted policy-case restoration and

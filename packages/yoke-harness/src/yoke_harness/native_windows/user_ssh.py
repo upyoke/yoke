@@ -15,12 +15,18 @@ if($sshGroup){
   throw 'windows_test_user_ssh_group_failed: inspect OpenSSH Users membership'
  }
 }
-Set-Content -LiteralPath "$homePath\.ssh\authorized_keys" -Value PUBLIC_KEY -Encoding ascii
 # OI/CI grants apply to directories; never remove child inheritance recursively.
 Invoke-YokeAcl "$homePath\.ssh" /inheritance:r /grant:r "${name}:(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
+$trusted=@($sid,'S-1-5-18','S-1-5-32-544')
+if(Test-Path -LiteralPath "$homePath\.ssh\authorized_keys"){
+ $existing=Get-Acl -LiteralPath "$homePath\.ssh\authorized_keys" -ErrorAction Stop
+ if($existing.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted){throw 'windows_test_key_owner_failed: inspect authorized_keys owner'}
+ # Partial setup can leave a protected empty DACL: repair before writing.
+ Invoke-YokeAcl "$homePath\.ssh\authorized_keys" /inheritance:r /grant:r "${name}:F" '*S-1-5-18:F' '*S-1-5-32-544:F'
+}
+Set-Content -LiteralPath "$homePath\.ssh\authorized_keys" -Value PUBLIC_KEY -Encoding ascii
 Invoke-YokeAcl "$homePath\.ssh\authorized_keys" /inheritance:r /grant:r "${name}:F" '*S-1-5-18:F' '*S-1-5-32-544:F'
 $acl=Get-Acl -LiteralPath "$homePath\.ssh\authorized_keys" -ErrorAction Stop
-$trusted=@($sid,'S-1-5-18','S-1-5-32-544')
 if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted){throw 'windows_test_key_owner_failed: inspect authorized_keys owner'}
 $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
 if($rules.Count -ne 3 -or @($rules | Where-Object {$_.IdentityReference.Value -notin $trusted -or $_.AccessControlType -ne 'Allow' -or $_.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl}).Count){
