@@ -56,7 +56,20 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             # Equivalent to the Azure guest bootstrap, without Azure or mocks
             # of any PowerShell command. Later stages use real framed SSH.
             return powershell(script, tmp_path, timeout=900)
-        return actual_admin_script(key, host, user, script, **kwargs)
+        try:
+            return actual_admin_script(key, host, user, script, **kwargs)
+        except subprocess.TimeoutExpired:
+            diagnostic = powershell(
+                "Get-Service sshd | Select-Object Name,Status; "
+                "Get-NetTCPConnection -LocalPort 22 -ErrorAction SilentlyContinue | Select-Object State,LocalAddress; "
+                "Get-Item 'C:\\ProgramData\\YokeQaProvision.ps1' -ErrorAction SilentlyContinue | Select-Object Length,LastWriteTime; "
+                "Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 15 -ErrorAction SilentlyContinue | Select-Object TimeCreated,Message | Format-List",
+                tmp_path,
+            )
+            with capsys.disabled():
+                print(diagnostic.stdout)
+                print(diagnostic.stderr)
+            raise RuntimeError("Real SSH guest stage timed out; inspect OpenSSH diagnostics") from None
 
     monkeypatch.setattr(provision, "admin_script", guest)
     ssh = ["ssh", "-F", os.devnull, "-i", str(key), "-o", "BatchMode=yes",

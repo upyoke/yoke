@@ -11,38 +11,16 @@ Record each step's machine, date and observed result; mark untested steps unveri
 
 ## 1. Create or identify the VM
 
-Use infrastructure as code or a recorded operator exception. The native Azure
-lab was created by hand under an operator exception; it is not an IaC-managed
-resource. Keep the exception with the project inventory and eventual import work.
-Use Windows 11 Enterprise x64, Trusted Launch, Windows_Client licensing and
-at least four CPUs, 16 GiB memory and a 128 GiB OS disk. Windows Server is not
-an equivalent desktop-app test target. Confirm the subscription's Windows
-client licensing eligibility before creation.
+This lab uses a recorded manual exception; retain its inventory/import work.
+Require Windows 11 Enterprise x64, Trusted Launch, Windows_Client eligibility,
+four CPUs, 16 GiB memory and a 128 GiB OS disk; Server is not a desktop target.
 
-Example Azure CLI sequence, with project-owned names and an approved Windows
-11 marketplace image URN from `az vm image list`:
+Generate the machine password in Yoke's local secret store; invoke Azure from
+a controller that reads it privately and redacts errors. Never put passwords
+in argv, shell history, items or chat. Ben enters his own sign-ins later.
+Create budget/cost alerts; they do not power off the VM.
 
-```powershell
-az group create --name GROUP --location eastus
-az network nsg create --resource-group GROUP --name NSG
-az network nsg rule create --resource-group GROUP --nsg-name NSG --name ssh --priority 100 --access Allow --protocol Tcp --source-address-prefixes '*' --destination-port-ranges 22
-az network public-ip create --resource-group GROUP --name IP --sku Standard --allocation-method Static
-az network vnet create --resource-group GROUP --name VNET --subnet-name SUBNET
-az network nic create --resource-group GROUP --name NIC --vnet-name VNET --subnet SUBNET --network-security-group NSG --public-ip-address IP
-az vm create --resource-group GROUP --name VM --nics NIC --image IMAGE_URN --size Standard_D4s_v4 --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --license-type Windows_Client --admin-username ADMIN --admin-password PASSWORD --os-disk-size-gb 128
-```
-
-The final placeholder describes the Azure API input, not a password to paste
-into shell history. Generate the machine password in Yoke's local secret store;
-invoke Azure from a controller process that reads it privately and redacts
-errors. Never print it, put it in an item, commit it, or send it in chat.
-Ben enters his own harness and GitHub credentials later.
-Create the subscription budget and cost alerts in the same approved creation
-operation. A budget is an alert, not a power-off mechanism.
-
-Under the recorded operator exception, create the network and VM with `az`.
-Use project-owned names and the authorized subscription; these examples use
-the existing `yoke-test-machines` resource group in `eastus`:
+Use project-owned names in the authorized subscription; for the existing lab:
 
 ```text
 az network vnet create -g yoke-test-machines -n windows-native-lab-vnet --subnet-name default
@@ -211,7 +189,7 @@ if($LASTEXITCODE -ne 0){throw 'administrator SSH audit failed'}
 Never kill a reported process. Run the provisioner only after this zero-count
 audit, retaining all three readiness receipts. Verify both users' actual token
 SIDs against `Get-LocalUser`, and administrator membership true only for ADMIN.
-Inspect the test SID's registered path/hive without assuming `C:\Users\yokeqa`.
+Inspect the test SID's registered path/hive; do not assume a profile directory.
 
 ### RDP firewall failure and partial setup
 
@@ -223,9 +201,8 @@ block, and refuses other RDP-capable allow rules. Keep NSG public3389 blocked;
 forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
 Require a real forwarded RDP negotiation and independently blocked direct RDP.
 
-The 2026-11-17 profile-by-SID window reached this invalid firewall rule, then
-verified deallocation after 121 seconds. No registration or native QA occurred;
-progress past profile setup alone was not an independent profile receipt.
+The profile-by-SID window failed at this rule and deallocated after 121 seconds.
+Registration, QA and an independent profile receipt remained unverified.
 Preserve the partial account/profile and custody. Correct and run the **entire**
 guest provisioner on disposable `windows-latest`, including actual SSH and RDP
 forwarding, before requesting another VM window with exact-commit green evidence.

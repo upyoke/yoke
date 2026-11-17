@@ -23,7 +23,8 @@ jobs:
         run: uv sync --all-packages --locked
       - name: Run complete native guest provisioning with real SSH and RDP
         run: >-
-          uv run --frozen python -m pytest --noconftest -n 0 -v -s
+          uv run --frozen python -m pytest --noconftest -n 0 -v -s --tb=short
+          runtime/api/domain/test_native_windows_profile.py::test_real_profile_creation_and_retry_preserve_password
           runtime/api/domain/test_native_windows_firewall.py
           --junitxml=native-windows-provisioning.xml
       - name: Retain exact-commit provisioning evidence
