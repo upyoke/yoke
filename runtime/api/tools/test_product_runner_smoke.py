@@ -178,7 +178,7 @@ def test_child_environment_excludes_host_authority(tmp_path, monkeypatch, window
     assert not {"YOKE_SESSION_ID", "YOKE_PG_DSN", "GH_TOKEN", "YOKE_ENV"} & env.keys()
     assert Path(env["YOKE_MACHINE_HOME"]).is_relative_to(tmp_path)
     assert env["SYSTEMROOT"] == str(tmp_path / "Windows")
-    assert Path(env["PATH"].split(os.pathsep)[0]) == runner.venv_executable(tmp_path / "venv", "yoke").parent
+    assert Path(env["PATH"].split(os.pathsep)[0]) == runner.venv_console_script(tmp_path / "venv", "yoke").parent
     if windows:
         assert env["PSMODULEPATH"] == "module-search"
         assert env["PSMODULEANALYSISCACHEPATH"] == "module-cache"
