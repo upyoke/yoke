@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import subprocess
+import sys
 from types import SimpleNamespace
 
 from yoke_core.domain import pack_catalog
@@ -67,9 +68,11 @@ def test_rendered_scaffold_backend_qualifies_with_declared_dependencies(
             "uv",
             "run",
             "--no-project",
+            "--python",
+            sys.executable,
             "--with-requirements",
             "app/requirements.txt",
-            "python3",
+            "python",
             "-m",
             "pytest",
             "app/tests",

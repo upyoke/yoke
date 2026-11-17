@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from yoke_contracts.venv_layout import venv_python
+from yoke_contracts.venv_layout import venv_python, venv_site_packages
 
 import os
 import shlex
 import subprocess
 import sys
+import sysconfig
 import venv
 from pathlib import Path
 
@@ -30,6 +31,18 @@ SOURCE_PYTHONPATH = os.pathsep.join(
 
 def provision_project_venv(root: Path) -> Path:
     """A non-uv project's own .venv whose python3 runs this test interpreter."""
+    if os.name == "nt":
+        environment = root / ".venv"
+        dependencies = dict.fromkeys(
+            sysconfig.get_path(kind) for kind in ("purelib", "platlib")
+        )
+        venv.EnvBuilder(with_pip=False).create(environment)
+        # The native redirector needs a real venv; share the test runner's
+        # installed pytest/plugins without an index or dependency install.
+        (venv_site_packages(environment) / "test-dependencies.pth").write_text(
+            "\n".join(dependencies) + "\n", encoding="utf-8",
+        )
+        return venv_python(environment, name="python3")
     python = root / ".venv" / "bin" / "python3"
     python.parent.mkdir(parents=True)
     python.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n')
