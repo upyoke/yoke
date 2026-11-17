@@ -16,11 +16,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class _RegistryServer:
     def __init__(self, *, expected_token: str) -> None:
         self.expected_token = expected_token
+        self.machine_reads: list[str] = []
         self.server: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
 
     def __enter__(self) -> str:
         expected = self.expected_token
+        machine_reads = self.machine_reads
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802
@@ -33,6 +35,30 @@ class _RegistryServer:
                     self.end_headers()
                     return
                 body = json.dumps([{"function_id": "status.run"}]).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self) -> None:  # noqa: N802
+                if self.path != "/v1/functions/call":
+                    self.send_error(404)
+                    return
+                if self.headers.get("Authorization") != f"Bearer {expected}":
+                    self.send_error(403)
+                    return
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                if request["function"] != "machine.show":
+                    self.send_error(400, "unexpected smoke function")
+                    return
+                machine_id = request["payload"]["machine_id"]
+                machine_reads.append(machine_id)
+                body = json.dumps({
+                    "success": True, "function": request["function"],
+                    "version": "v1", "request_id": request["request_id"],
+                    "result": {"machine": {"id": machine_id, "name": "smoke machine"}},
+                }).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -122,16 +148,29 @@ def _run(
     run_env = dict(env) if env is not None else os.environ.copy()
     if env is None:
         run_env.pop("PYTHONPATH", None)
-    result = subprocess.run(
-        command,
-        cwd=cwd,
-        env=run_env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            env=run_env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        logs = []
+        machine_home = run_env.get("YOKE_MACHINE_HOME")
+        if machine_home:
+            for name in (".daemon.log", "evaluator.log"):
+                for path in Path(machine_home).parent.rglob(name):
+                    logs.append(f"{path}:\n{path.read_text(errors='replace')}")
+        raise AssertionError(
+            f"command timed out after {timeout}s: {command!r}\n"
+            f"stdout:\n{exc.stdout!r}\nstderr:\n{exc.stderr!r}\n"
+            + "\n".join(logs)
+        ) from exc
     if check:
         assert result.returncode == 0, _format_result(result)
     return result
@@ -150,6 +189,7 @@ def _stub_native_provisioning(*, cwd: Path) -> Path:
     directory = cwd / "native-stub"
     directory.mkdir()
     (directory / "sitecustomize.py").write_text(
+        "import faulthandler; faulthandler.dump_traceback_later(45); "
         "import yoke_cli.config.onboard_session_relay as relay; "
         "relay.install = lambda _outcome=relay.RelayInstallOutcome, **kwargs: _outcome(installed=True, reused=False); "
         "import yoke_harness.browser_setup as browser; "

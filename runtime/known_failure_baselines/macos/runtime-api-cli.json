@@ -1,4 +1,2 @@
 {
-"runtime/api/cli/test_browser_daemon_caller_lifetime.py::test_setup_survives_caller_group_exit_and_serves_browser_step[persistent]": "AssertionError: persistent setup caller did not finish",
-"runtime/api/cli/test_browser_daemon_caller_lifetime.py::test_setup_survives_caller_group_exit_and_serves_browser_step[short]": "subprocess.TimeoutExpired: python3 timed out after 20 seconds"
 }
