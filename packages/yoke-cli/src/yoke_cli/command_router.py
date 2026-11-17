@@ -117,7 +117,10 @@ def _refuse_path_argument(exc: OSError, argv: Sequence[str]) -> int:
     paths = (exc.filename, exc.filename2)
     argument = next(
         (token for token in argv if any(
-            path is not None and os.fsdecode(path) in (token, token.split("::", 1)[0])
+            path is not None and os.fsdecode(path) in (
+                token, token.split("::", 1)[0],
+                os.path.abspath(token.split("::", 1)[0]),
+            )
             for path in paths
         )),
         None,

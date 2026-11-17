@@ -43,12 +43,13 @@ def test_watch_gate_refuses_long_path_arguments(route, capsys, argument):
 
 @pytest.mark.parametrize("code", [errno.EACCES, errno.ELOOP, errno.ENOENT, errno.EINVAL])
 @pytest.mark.parametrize("node_id", [False, True])
-def test_file_argument_os_errors_are_named(route, capsys, code, node_id):
+@pytest.mark.parametrize("absolute", [False, True])
+def test_file_argument_os_errors_are_named(route, capsys, code, node_id, absolute):
     path = "unusable.py"
     token = path + ("::TestThing::test_it" if node_id else "")
 
     def adapter(args):
-        raise OSError(code, "cannot use path", path)
+        raise OSError(code, "cannot use path", str(Path(path).absolute()) if absolute else path)
 
     assert route(["files", "read", token], adapter) == 2
     error = capsys.readouterr().err
@@ -91,3 +92,13 @@ def test_normal_paths_node_ids_and_keyword_expressions_pass_through(route, tmp_p
 
     assert route(["watch", "pytest", *arguments], adapter) == 0
     assert seen == arguments
+
+
+@pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000])
+def test_watch_command_boundary_refuses_long_arguments(route, capsys, argument):
+    assert router.route_command([
+        "watch", "pytest", "--print-streaming-pair", "--local", "--", argument,
+    ]) == 2
+    error = capsys.readouterr().err
+    assert "path_argument_unusable: ENAMETOOLONG" in error
+    assert "Traceback" not in error
