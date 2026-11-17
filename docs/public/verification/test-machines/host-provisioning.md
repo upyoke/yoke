@@ -29,14 +29,19 @@ unverified label; code-reviewed contracts do not substitute for live proof.
 
 ## Network access
 
-A Test Machine must be usable from anywhere, so QA works from any controller,
-including cloud sessions and other networks. Open SSH to every source address
-and authenticate with keys only: disable password and keyboard-interactive SSH,
-authorize the project's shared test-machine key, and sign in as the dedicated
-non-admin test account. Reach the desktop through the SSH forward
-(`desktop_route=ssh-forward`); never open a public RDP or VNC port, and do
-not limit SSH by source address. Audit the effective SSH and
-firewall policy, not just a successful login.
+Install Tailscale on every Test Machine, Macs included, join the operator tailnet,
+and register its verified MagicDNS name. Controllers join the same tailnet.
+Follow the one-time manual setup in each OS guide. Windows runs Tailscale unattended on the
+Windows host only, never WSL. Disable device key expiry for unattended access.
+
+Keep OpenSSH reachable from every internet source with public-key authentication
+only; disable password and keyboard-interactive authentication. Use the current
+dynamic public IP only for bootstrap SSH, with the cloud instance id as
+`HostKeyAlias`; never register it. Forward desktops over SSH
+(`desktop_route=ssh-forward`); open no public RDP/VNC port. Audit effective sshd,
+firewall policy. Golden reset never changes Tailscale state.
+Before rebuild, remove the old tailnet device, join again and verify the name
+has no `-1` suffix; clear the old host-key pin after verifying the new fingerprint.
 
 Hostnames, account names, infrastructure and credentials are project-owned.
 These procedures ship with Yoke; project records own the host inventory.
@@ -127,9 +132,25 @@ older validators reject unknown settings; the CLI names
 `test_machine_cloud_provider_serving_floor_required` (minimum serving version
 `next-release`). Existing AWS settings work without the optional field.
 
-Every power-on reads the current public IPv4 and rebinds the registered SSH
-host (and a matching desktop host) before login. After starting a VM, Yoke
-waits for SSH readiness. The last lease release stops EC2 or **deallocates**
-Azure, under the host's own lease; a reserved waiter's turn keeps it running.
-Azure's stopped-but-allocated state still bills. A release no client hears
-leaves the VM running until its next lease cycles; there is no idle sweep.
+Power starts the instance without reading or writing the registered host, then
+waits for SSH on MagicDNS. Last release stops EC2 or **deallocates** Azure under
+the host's lease; a reserved waiter's turn keeps it running. EC2 uses auto-assigned
+public IPv4 while running; no Elastic IP. Azure keeps the private subnet: its
+sole NIC IP configuration receives a Standard public IP named `VM-yoke-power`
+created on start, detached/deleted after deallocation, supplying outbound access.
+Basic public IP is retired; Standard is static and bills while it exists.
+A failed IP delete reports `test_machine_power_stop_failed`; repair permissions
+and retry verify/release, then confirm the IP is gone, even if already deallocated.
+Keep NSG TCP22 open from anywhere and desktop ports closed. The one-time IP/NSG setup uses the recorded operator exception.
+A permanent attachment refuses as unmanaged; detach/delete it after deallocation.
+
+For existing machines, join the tailnet first, deploy the no-rebind build, then
+settings-replace `host` with MagicDNS using the as-read token. Only afterward
+detach/delete the permanent Azure IP (existing native lab: `20.124.243.250`).
+Re-registering before deploy permits an old client to rebind to public IPv4.
+Upgrade clients: retired host_rebind calls refuse `function_version_skew` with a
+required client floor. The target-changed guard still refuses a changed lease
+target; do not bypass it. Stop each cloud lab, run `yoke test-machine verify`,
+and prove unchanged host, no remaining QA_HOST and no Azure public IP afterward.
+A release no client hears leaves the VM running until its next lease cycles;
+there is no idle sweep.

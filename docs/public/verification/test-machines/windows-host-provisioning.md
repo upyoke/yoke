@@ -30,8 +30,43 @@ prepare the test account. Separate operator users/homes remain outside capture,
 restore, inspection and logout. Open SSH to any address with key-only
 authentication and keep RDP behind the SSH forward, as
 [network access](host-provisioning.md#network-access) requires.
-Each lease start re-reads the instance public IPv4 and updates `host` before
-SSH; its last lease release stops the cloud host.
+A lease keeps the registered MagicDNS host unchanged; its last release stops the cloud host.
+
+### Join Tailscale before registration
+
+Install Tailscale on the host and join the operator's tailnet by completing its
+sign-in flow. Enable startup/unattended operation and disable device key expiry
+in the admin console. Controllers join the same tailnet and use MagicDNS.
+This is one-time manual machine setup.
+
+Install [Tailscale for Windows](https://tailscale.com/download/windows) on the
+Windows host only, never inside WSL. Run elevated PowerShell:
+`& 'C:\Program Files\Tailscale\tailscale.exe' up --unattended` and complete the
+sign-in URL. Require its service to stay connected after logout/reboot.
+
+Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
+resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
+then register it as `host`; keep a forwarded `desktop_host` on loopback.
+For cloud bootstrap, query the provider's **current** public IP and connect with
+`ssh -o HostKeyAlias=INSTANCE_ID USER@CURRENT_PUBLIC_IP`; never register that IP.
+Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
+EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
+Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
+without reading or changing the registered host. Golden reset never touches Tailscale.
+
+Before rebuilding, remove the old tailnet device first, then join the replacement
+with the same hostname; verify no `-1` suffix. Verify the new SSH fingerprint,
+then clear the old cloud instance-id pin using
+`ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine known_hosts file
+(physical hosts use the hostname pin). Re-read settings and use the as-read token
+with `settings-replace` for any change, then run `yoke test-machine verify`.
+If DNS/SSH fails, check Tailscale startup, device expiry, controller DNS and sshd;
+never fix reachability by changing the target while its lease is active.
+
+Existing public-IP registrations: join first, deploy the no-rebind build second,
+then settings-replace `host` with MagicDNS using the as-read token. Upgrading
+clients prevents old calls to the retired rebind function. Verify across a power
+cycle and require the same host with no remaining QA_HOST afterward.
 
 ## 2. Windows SSH, registration and desktop secrets
 
@@ -50,7 +85,7 @@ port, including RDP.
 Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` for
 updates with the as-read settings token. Declare `resource_name`, `os=wsl`,
-Windows `host` and `user`, and an absolute **Linux** `golden_baseline_path`
+Windows MagicDNS `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
 `desktop_route=ssh-forward`, the provisioned
 WSL xrdp port (default3390), and the dedicated WSL `desktop_user`. Optional `cloud_instance_id` (the
@@ -172,76 +207,9 @@ macOS Keychain checks do not apply to WSL.
 
 ## 6. Windows desktop and browser coverage
 
-Registered terminal QA uses tmux transcripts. GUI commands and
-`yoke test-machine screenshot --project P --test-machine NAME --json` start or
-reuse the same WSL XFCE display through the existing Linux desktop helper;
-the screenshot captures that display, including its actual headed browser.
-Declare the dedicated WSL user as `desktop_user` and its loopback xrdp port
-as `desktop_port`; the Windows SSH user remains the account owning the distro.
-The capability-owned fixture password is streamed on private stdin. Another
-user's ambiguous desktop refuses; no native Windows RDP login is needed.
-
-For a requested, announced personal application sign-in handoff, run:
-
-```text
-yoke test-machine desktop-access --project P --test-machine NAME --view
-```
-
-Read `--help`. Install FreeRDP's visible SDL client on the executing workstation
-(macOS: `brew install freerdp`; Linux: the distribution's `freerdp-sdl` package).
-The product opens the SSH forward and supplies the fixture credential on stdin,
-with the existing XFCE dimensions and color depth so xrdp reconnects that display.
-It creates no password file. Close the viewer or interrupt the retained command
-to close its forward. The user types only their own password or credential.
-Tests use agent captures; human viewing is never a test acceptance check.
-A connected viewer counts as human adoption: baseline reset/capture must wait
-until it closes, even when automation originally started XFCE.
-
-For the selected Server route, reuse Yoke's Linux XFCE/xrdp provisioner
-inside WSL with a separate loopback port. The executing operation runs its
-stdlib-only helper in the dedicated Linux user's home. Copy both
-`provision_linux_desktop.py` and `provision_windows_wsl_desktop.py` from the
-controller's `yoke_harness/host_provisioning/` package directory into that
-working directory first:
-
-```text
-python3 provision_windows_wsl_desktop.py --desktop-password-stdin
-python3 provision_windows_wsl_desktop.py --verify
-```
-
-The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
-Windows interop, with WSL3.0.1 or newer (the verified configuration support floor).
-It records actual Windows edition/build and WSL version,
-installs the existing Linux desktop packages, including the Chromium snap as
-the default browser that [browser approval gates](linux-browser-identities.md#browser-approval-gates)
-drive, and proves loopback/localhost access.
-The product streams its capability-owned desktop secret on private stdin, sets
-the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
-GUI-session operation uses the existing uploaded `xrdp-sesrun` helper; no host
-harness-package import is needed. No secret enters a file, argv or output. The
-operator never types sudo, sets a machine password or logs into either desktop.
-Agents prove candidate Chromium renders there before requesting only personal
-application sign-in. Success leaves `headed_application_proved=false` until that
-independent check. Provisioning starts no session; `--verify` refuses the secret flag.
-No Windows firewall, auto-logon or public listener change is made.
-The provisioner also owns persistent distro setup: it sets only
-`[general] instanceIdleTimeout=-1` in the registered Windows user's `.wslconfig`,
-preserving other keys and comments. This applies to that Windows user's WSL2
-distros. A changed configuration reports `restart_required=true`; save work and
-restart WSL before claiming it is applied. `--verify` checks the stored setting,
-not its activation or desktop persistence. Prove XFCE and candidate Chromium
-survive a gap longer than both default timers without a foreground keeper.
-[Microsoft's settings reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
-distinguishes distro idle shutdown (15000ms) from VM idle shutdown (60000ms).
-Systemd services alone do not keep WSL alive; no per-execution sleep is required.
-[Microsoft documents localhost access to WSL services](https://learn.microsoft.com/en-us/windows/wsl/networking)
-and [systemd prerequisites](https://learn.microsoft.com/en-us/windows/wsl/systemd).
-WSLg is a separate route: its [documented GUI prerequisites](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
-name Windows10/11. A version string alone proves no Server GUI support.
-
-### Live browser identities inside WSL
-
-Follow [WSL browser identities](windows-browser-identities.md) before saving.
+Complete [WSL desktop provisioning](windows-desktop-provisioning.md) before
+capture. It owns XFCE/xrdp, Chromium, unattended distro lifetime and personal
+browser sign-in handoffs; SSH, Tailscale and registration above remain unchanged.
 
 ## 7. Save and prove the Linux home
 
@@ -303,7 +271,3 @@ The first connection accepts the instance key once with `accept-new`; later
 address changes keep that identity. If the instance is rebuilt, verify its new
 key, then remove the old alias with `ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS`
 from the Yoke-managed Test Machine known_hosts file before reconnecting.
-A cloud instance without a public IPv4 refuses as
-`test_machine_power_no_public_address`: enable a public IPv4 in its subnet and
-rerun. `test_machine_host_rebind_refused` preserves the server refusal; fix its
-named cause, re-read the Test Machine and rerun under the host lease.

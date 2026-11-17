@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import time
 from dataclasses import dataclass
@@ -68,6 +67,7 @@ class AzureMachinePower:
         state = self._details()["powerState"]
         self.emit(f"  Azure VM {self.instance_id} is {state}")
         if state == "VM running":
+            self._attach_public_ip()
             return "running"
         if state not in (
             "VM stopped",
@@ -81,6 +81,7 @@ class AzureMachinePower:
             )
         if state in ("VM stopping", "VM deallocating"):
             self._wait("VM deallocated" if state == "VM deallocating" else "VM stopped")
+        self._attach_public_ip()
         if state != "VM starting":
             self._announce("start")
             self._run("start", timeout=600)
@@ -107,21 +108,106 @@ class AzureMachinePower:
             f"inspect it with `{self.read_command}` and retry"
         )
 
-    def address(self):
-        address = self._details().get("publicIps")
-        if not address:
-            return None
-        try:
-            return str(ipaddress.IPv4Address(address))
-        except ipaddress.AddressValueError:
-            raise AzureAdminError(
-                "Azure VM must expose one public IPv4; repair its public IP and retry"
-            ) from None
-
     def stop(self):
-        if self._details()["powerState"] == "VM deallocated":
+        if self._details()["powerState"] != "VM deallocated":
+            # A stopped but allocated VM still bills.
+            self._announce("deallocate")
+            self._run("deallocate", timeout=600)
+            self.emit(f"  deallocated Azure VM {self.instance_id}")
+        self._delete_public_ip()
+
+    @property
+    def public_ip_id(self):
+        group = "/".join(self.instance_id.split("/")[:5])
+        name = self.instance_id.rsplit("/", 1)[1]
+        return (
+            f"{group}/providers/Microsoft.Network/publicIPAddresses/{name}-yoke-power"
+        )
+
+    def _network(self, *args):
+        return run_checked(
+            self.runner.run,
+            [*self.command, "network", *args, "--output", "json"],
+            self.env,
+            action="network " + " ".join(args),
+            timeout=120,
+        )
+
+    def _ip_config(self):
+        details = self._details()
+        nics = details.get("networkProfile", {}).get("networkInterfaces", [])
+        if len(nics) != 1 or not details.get("location"):
+            raise AzureAdminError(
+                "Azure power needs one NIC and a location; inspect the VM network profile and retry"
+            )
+        result = self._network("nic", "show", "--ids", nics[0]["id"])
+        try:
+            configs = json.loads(result.stdout)["ipConfigurations"]
+            (config,) = configs
+            config_id = config["id"]
+        except (ValueError, KeyError, TypeError):
+            raise AzureAdminError(
+                "Azure power needs one NIC IP configuration; inspect the NIC and retry"
+            ) from None
+        attached = (config.get("publicIPAddress") or {}).get("id")
+        if attached and attached.lower() != self.public_ip_id.lower():
+            raise AzureAdminError(
+                f"NIC has unmanaged public IP {attached}; deallocate the VM, detach and delete "
+                "the permanent IP through IaC or a recorded operator exception, then retry"
+            )
+        return config_id, attached, details["location"]
+
+    def _attach_public_ip(self):
+        config_id, attached, location = self._ip_config()
+        if attached:
             return
-        # A stopped but allocated VM still bills: deallocate every allocated state.
-        self._announce("deallocate")
-        self._run("deallocate", timeout=600)
-        self.emit(f"  deallocated Azure VM {self.instance_id}")
+        self._network(
+            "public-ip",
+            "create",
+            "--resource-group",
+            self.instance_id.split("/")[4],
+            "--name",
+            self.public_ip_id.rsplit("/", 1)[1],
+            "--location",
+            location,
+            "--sku",
+            "Standard",
+            "--allocation-method",
+            "Static",
+        )
+        self._network(
+            "nic",
+            "ip-config",
+            "update",
+            "--ids",
+            config_id,
+            "--public-ip-address",
+            self.public_ip_id,
+        )
+        self.emit(f"  attached Azure public IP {self.public_ip_id}")
+
+    def _delete_public_ip(self):
+        config_id, attached, _ = self._ip_config()
+        if attached:
+            self._network(
+                "nic",
+                "ip-config",
+                "update",
+                "--ids",
+                config_id,
+                "--remove",
+                "publicIPAddress",
+            )
+        # Listing handles both an absent IP and a create whose attachment failed.
+        group = self.instance_id.split("/")[4]
+        result = self._network("public-ip", "list", "--resource-group", group)
+        try:
+            ips = json.loads(result.stdout)
+            exists = any(ip["id"].lower() == self.public_ip_id.lower() for ip in ips)
+        except (ValueError, KeyError, TypeError):
+            raise AzureAdminError(
+                "Azure public-ip list returned invalid resources; inspect and delete the power IP, then retry"
+            ) from None
+        if exists:
+            self._network("public-ip", "delete", "--ids", self.public_ip_id)
+            self.emit(f"  deleted Azure public IP {self.public_ip_id}")

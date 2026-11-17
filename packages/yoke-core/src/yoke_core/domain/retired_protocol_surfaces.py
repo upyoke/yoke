@@ -15,20 +15,27 @@ RETIRED_EVENTS = (
 RETIREMENT_FLOOR = "0.2.0.202610291830"
 
 
+RETIRED_SURFACE_FLOORS = {
+    ("function", "test_machine.host_rebind"): "next-release",
+    ("event", "test_machine.host_rebound"): "next-release",
+}
+
+
 def retired_surface_reason(kind, name):
-    if kind == "function":
-        names = {
-            family + "." + operation
-            for family, operations in RETIRED_FUNCTION_FAMILIES.items()
-            for operation in operations
-        }
-    else:
-        names = RETIRED_HOOKS if kind == "hook" else RETIRED_EVENTS
-    if name not in names:
+    floors = {
+        ("function", family + "." + operation): RETIREMENT_FLOOR
+        for family, operations in RETIRED_FUNCTION_FAMILIES.items()
+        for operation in operations
+    }
+    floors.update({("hook", name): RETIREMENT_FLOOR for name in RETIRED_HOOKS})
+    floors.update({("event", name): RETIREMENT_FLOOR for name in RETIRED_EVENTS})
+    floors.update(RETIRED_SURFACE_FLOORS)
+    floor = floors.get((kind, name))
+    if floor is None:
         return None
-    floor = RETIREMENT_FLOOR
+    update = "yoke update" if floor == "next-release" else f"yoke update --version {floor}"
     repair = (
-        f"Run yoke update --version {floor}, then yoke project refresh in "
+        f"Run {update}, then yoke project refresh in "
         "each registered checkout and use the current command from yoke --help."
     )
     return f"protocol_surface_removed: {kind} {name!r} was removed; required client floor {floor}. {repair}"

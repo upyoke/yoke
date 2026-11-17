@@ -58,13 +58,12 @@ def test_stopped_machine_starts_then_waits_for_an_ssh_login(monkeypatch, aws):
             (project, settings["resource_name"])
         ),
     )
-    runner = FakeRunner([_json(["stopped"]), OK, OK, _json([CLOUD["host"]])])
+    runner = FakeRunner([_json(["stopped"]), OK, OK])
     power_on("yoke", CLOUD, runner=runner, emit=lambda _l: None)
     assert _ec2_actions(runner) == [
         "describe-instances",
         "start-instances",
         "wait",
-        "describe-instances",
     ]
     assert waited == [("yoke", "windows-lab")]
 
@@ -75,9 +74,9 @@ def test_running_machine_skips_the_ssh_wait(monkeypatch, aws):
         "wait_for_ssh_login",
         lambda *a, **k: pytest.fail("no wait"),
     )
-    runner = FakeRunner([_json(["running"]), _json([CLOUD["host"]])])
+    runner = FakeRunner([_json(["running"])])
     power_on("yoke", CLOUD, runner=runner, emit=lambda _l: None)
-    assert _ec2_actions(runner) == ["describe-instances", "describe-instances"]
+    assert _ec2_actions(runner) == ["describe-instances"]
 
 
 def test_start_failure_refuses_with_named_code_and_recovery(aws):
@@ -169,84 +168,20 @@ def test_ssh_wait_without_the_machine_key_leaves_the_refusal_to_host_control(
     assert runner.calls == []
 
 
-@pytest.mark.parametrize("stored_host", [CLOUD["host"], "184.195.162.151"])
-def test_start_rebinds_before_ssh_and_preserves_other_settings(
-    monkeypatch, aws, ssh_key, stored_host
+def test_power_keeps_magicdns_host_without_address_read_or_dispatch(
+    monkeypatch, aws, ssh_key
 ):
-    from yoke_contracts.api.function_call import FunctionCallResponse
-
-    address = "184.195.162.151"
-    calls = []
-
-    def dispatch(function_id, payload):
-        calls.append((function_id, payload))
-        result = {"settings": {**CLOUD, "host": stored_host}, "settings_token": "token"}
-        return FunctionCallResponse(
-            success=True, function=function_id, version="v1", result=result
-        )
-
-    monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
-    runner = FakeRunner([_json(["stopped"]), OK, OK, _json([address]), OK])
-    returned = power_on("yoke", CLOUD, runner=runner, emit=lambda _: None)
-    writes = [payload for fn, payload in calls if fn == "test_machine.host_rebind"]
-    assert writes == (
-        [
-            {
-                "project": "yoke",
-                "test_machine": CLOUD["resource_name"],
-                "host": address,
-                "base_settings": "token",
-            }
-        ]
-        if stored_host != address
-        else []
-    )
-    assert returned == {**CLOUD, "host": address}
-    assert runner.calls[-1]["argv"][-2] == f"Administrator@{address}"
-
-
-def test_no_public_address_never_rebinds_or_probes(monkeypatch, aws):
     monkeypatch.setattr(
         cloud_machine_power, "_dispatch", lambda *a: pytest.fail("no dispatch")
     )
-    runner = FakeRunner([_json(["running"]), _json([None])])
-    with pytest.raises(HostControlLocalError) as refused:
-        power_on("yoke", CLOUD, runner=runner, emit=lambda _: None)
-    assert refused.value.code == "test_machine_power_no_public_address"
-    assert refused.value.phase == "power"
-    assert all(call["argv"][0] == "aws" for call in runner.calls)
-
-
-def test_rebind_refusal_keeps_server_diagnosis(monkeypatch, aws):
-    from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
-
-    monkeypatch.setattr(
-        cloud_machine_power,
-        "_call",
-        lambda *a: {"settings": CLOUD, "settings_token": "old"},
-    )
-    monkeypatch.setattr(
-        cloud_machine_power,
-        "_dispatch",
-        lambda *a: FunctionCallResponse(
-            success=False,
-            function="f",
-            version="v1",
-            error=FunctionError(
-                code="function_version_skew",
-                message="minimum serving version next-release",
-            ),
-        ),
-    )
-    with pytest.raises(HostControlLocalError) as refused:
-        power_on(
-            "yoke",
-            CLOUD,
-            runner=FakeRunner([_json(["running"]), _json(["184.195.162.151"])]),
-        )
-    assert refused.value.code == "test_machine_host_rebind_refused"
-    assert "function_version_skew" in str(refused.value)
-    assert "next-release" in str(refused.value)
+    settings = {**CLOUD, "host": "lab.example.ts.net"}
+    runner = FakeRunner([_json(["stopped"]), OK, OK, OK])
+    assert power_on("yoke", settings, runner=runner, emit=lambda _: None) is None
+    assert settings["host"] == "lab.example.ts.net"
+    assert _ec2_actions(runner)[:3] == ["describe-instances", "start-instances", "wait"]
+    assert len(runner.calls) == 4 and runner.calls[-1]["argv"][0] == "ssh"
+    assert runner.calls[-1]["argv"][-2] == "Administrator@lab.example.ts.net"
+    assert "PublicIpAddress" not in str(runner.calls)
 
 
 def test_native_windows_ssh_readiness_does_not_invoke_wsl(ssh_key):

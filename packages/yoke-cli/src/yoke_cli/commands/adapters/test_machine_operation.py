@@ -144,8 +144,7 @@ def _execute(
             execute_host_operation_contract,
         )
 
-        settings = _power().power_on(execution["project"], execution["settings"])
-        execution = {**execution, "settings": settings}
+        _power().power_on(execution["project"], execution["settings"])
         if registered := begin.result.get(
             REGISTERED_GOLDENS_KEY
         ):  # older servers: none
