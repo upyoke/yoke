@@ -55,7 +55,7 @@ def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> 
 
     # Recreate the captured failure: a nonexistent folder under a Git ancestor.
     (tmp_path / ".git").mkdir()
-    checkout_path = str(tmp_path / "widget")
+    checkout_path = (tmp_path / "widget").as_posix()
 
     def refuse_host_checkout(*_args):
         raise AssertionError("fictional wizard paths must not resolve host checkouts")
