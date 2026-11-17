@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from yoke_contracts import harness_folder_trust as trust
@@ -114,7 +115,7 @@ def _revert_codex_hook_trust(
     prefixes: tuple[str, ...] = ()
     if lanes_dir is not None:
         lanes = lanes_dir.expanduser()
-        prefixes = (f"{lanes}/", f"{lanes.resolve()}/")
+        prefixes = (f"{lanes}{os.sep}", f"{lanes.resolve()}{os.sep}")
 
     def owned(path: str) -> bool:
         return path in exact or (bool(prefixes) and path.startswith(prefixes))
