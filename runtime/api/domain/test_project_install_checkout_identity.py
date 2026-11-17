@@ -27,7 +27,7 @@ def _git(root, *args):
 
 @pytest.fixture
 def external_lane():
-    with tempfile.TemporaryDirectory(prefix="yoke-checkout-", dir="/tmp") as scratch:
+    with tempfile.TemporaryDirectory(prefix="yoke-checkout-") as scratch:
         yield Path(scratch) / "lane"
 
 
