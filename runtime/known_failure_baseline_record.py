@@ -29,7 +29,17 @@ REASON_CHARACTERS = 200
 
 _TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ")
 _SUMMARY = re.compile(r"^(FAILED|ERROR) ((?:runtime|tests)/\S+?)(?: - (.*))?$")
+_TIMEOUT = re.compile(r"^subprocess\.TimeoutExpired: Command '\[?'?([^',\]]+).*timed out after (\S+) seconds")
 _XPASS = re.compile(re.escape(XPASS_MARK) + r" ((?:runtime|tests)/\S+) passed")
+
+
+def reason_text(message: str) -> str:
+    """The failure message as a one-line reason; a timeout names its program."""
+    timeout = _TIMEOUT.match(message)
+    if timeout is not None:
+        program, seconds = timeout.groups()
+        message = f"subprocess.TimeoutExpired: {re.split(r'[\\/]+', program)[-1]} timed out after {seconds} seconds"
+    return message[:REASON_CHARACTERS].strip() or "fails with no message"
 
 
 def summary_entries(lines: Iterable[str]) -> tuple[dict[str, str], set[str]]:
@@ -47,8 +57,7 @@ def summary_entries(lines: Iterable[str]) -> tuple[dict[str, str], set[str]]:
             continue
         _, node_id, message = match.groups()
         message = (message or "").strip()
-        reason = message[:REASON_CHARACTERS].strip() or "fails with no message"
-        failures.setdefault(node_id, reason)
+        failures.setdefault(node_id, reason_text(message))
     for node_id in passed:
         failures.pop(node_id, None)
     return failures, passed

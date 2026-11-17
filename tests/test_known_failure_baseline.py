@@ -35,9 +35,9 @@ def _defined_tests(path: Path) -> set[str]:
 def _entry_problem(node_id: str, reason: object) -> str | None:
     if not isinstance(reason, str) or not reason.strip():
         return "has no reason"
-    if "\\" in node_id:
-        return "must use / separators"
     file_part, separator, test_part = node_id.partition("::")
+    if "\\" in file_part:
+        return "must use / separators"
     if not file_part.startswith(SUITE_ROOTS) or not file_part.endswith(".py"):
         return "is not a suite node id (path.py or path.py::test)"
     path = REPO_ROOT / file_part
@@ -77,6 +77,7 @@ def test_entry_check_rejects_missing_reason_file_and_test() -> None:
     assert "missing file" in _entry_problem("tests/test_absent.py::test_x", "why")
     assert "names no test" in _entry_problem(f"{this}::test_absent", "why")
     assert "separators" in _entry_problem("tests\\test_known_failure_baseline.py::x", "why")
+    assert _entry_problem(real + "[C:\\temp]", "why") is None
 
 
 def test_duplicate_entries_across_files_are_refused(tmp_path, monkeypatch) -> None:
@@ -193,12 +194,14 @@ def test_recorder_adds_failures_keeps_entries_and_drops_xpasses(tmp_path) -> Non
         "ERROR tests/a.py::test_y",
         "[gw0] [ 5%] FAILED tests/a.py::test_ignored_progress_line",
         "FAILED tests/a.py::test_bare",
+        "FAILED tests/a.py::test_slow - subprocess.TimeoutExpired: Command '['/tmp/venv/bin/yoke', 'setup', '--x']' timed out after 120 seconds",
     ]
     failures, passed = record.summary_entries(lines)
     assert failures == {
         "tests/a.py::test_x[1]": "AttributeError: module 'os' has no attribute 'getuid'",
         "tests/b.py": "ModuleNotFoundError: No module named 'pwd'",
         "tests/a.py::test_bare": "fails with no message",
+        "tests/a.py::test_slow": "subprocess.TimeoutExpired: yoke timed out after 120 seconds",
     }
     assert passed == {"tests/a.py::test_y"}
     entries = {f"runtime/api/cli/test_{n:03}.py::test": "why" for n in range(record.ENTRIES_PER_FILE + 1)}
