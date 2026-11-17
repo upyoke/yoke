@@ -174,6 +174,11 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         checks = rf"""
 $u=Get-LocalUser -Name '{name}'
 $p=Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\'+$u.SID.Value)
+$acl=Get-Acl (Join-Path $p.ProfileImagePath '.ssh\authorized_keys')
+$rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+if($rules.Count -ne 3 -or @($rules | Where-Object {{$_.IdentityReference.Value -notin @($u.SID.Value,'S-1-5-18','S-1-5-32-544') -or $_.AccessControlType -ne 'Allow'}}).Count){{throw 'unexpected authorized_keys DACL'}}
+$g=Get-LocalGroup -Name 'OpenSSH Users' -ErrorAction SilentlyContinue
+if($g -and @(Get-LocalGroupMember -Group $g.Name).SID.Value -notcontains $u.SID.Value){{throw 'SSH group membership missing'}}
 if(!(Test-Path -LiteralPath (Join-Path $p.ProfileImagePath 'NTUSER.DAT'))){{throw 'profile hive missing'}}
 $task=Get-ScheduledTask -TaskName YokeQaMachineSettings
 if($task.Principal.UserId -notin @('SYSTEM','S-1-5-18')){{throw 'recovery task is not SYSTEM'}}

@@ -114,21 +114,23 @@ The provisioner uses the capability-owned `test-machine.ssh_private_key` and
 stores `test-machine:VM.desktop_password`; it streams the password to the
 administrator over SSH stdin. It never embeds it in argv or the provisioned
 script. Keep administrator and standard-user passwords separate.
-Retries preserve an existing test account's password and require its stored
-`desktop_password`; restore custody if it is missing, rather than resetting the
-account. Profiles are created by the administrator through Windows
+Retries preserve the enabled non-admin account and require its stored
+`desktop_password`; restore missing custody, never reset or recreate the
+user. Interrupted setup can leave an account without a profile. Reuse it
+through `--bootstrap-transport ssh`. The administrator uses
 [`CreateProfile`](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createprofile)
-with a 260-character output buffer and resolved by SID, including directory
-suffixes. Require the registered directory/hive; sign-in remains unproven.
-An account can exist without a profile after interrupted setup. Preserve it and
-its stored password; rerun the same provisioner with `--bootstrap-transport ssh`.
-It resolves `ProfileList\<SID>\ProfileImagePath`, requires `NTUSER.DAT`, and
-accepts CreateProfile success or `ERROR_ALREADY_EXISTS` only after validation.
-Other HRESULTs, missing custody, a disabled account or unexpected privileges
-require investigation; never reset the password or delete/recreate the account.
-Correct named failures before retrying; require explicit readiness receipts,
-not merely Azure success. Controller SSH uses `-F none` for both Git and native
-OpenSSH; Windows `nul` is not a portable SSH config-file argument.
+with a 260-character output buffer and resolves
+`ProfileList\<SID>\ProfileImagePath`, Success or `ERROR_ALREADY_EXISTS`
+requires the registered directory and `NTUSER.DAT`; sign-in remains
+unproven. Investigate other HRESULTs, disabled accounts or unexpected
+privileges without changing credentials. Join the existing `OpenSSH Users`
+group and verify SID membership; retain sshd's Allow/Deny policy. Apply
+directory OI/CI grants **without** recursive inheritance removal, then
+plain `F` grants directly to `authorized_keys` for the user, SYSTEM and
+Administrators. Check native exits and the actual owner/DACL; recursive
+directory-style grants left the key file's DACL empty in CI. Controller SSH
+uses `-F none` for both Git and native OpenSSH; Windows `nul` is not a
+portable SSH config-file argument.
 
 ### Bounded recovery when administrator SSH is unavailable
 
