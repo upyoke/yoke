@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -212,6 +213,8 @@ class TestAgentsRenderRun(unittest.TestCase):
 
     def test_routes_through_renderer(self):
         captured: dict = {}
+        # The renderer writes a checkout on the serving machine: a local path.
+        fake_root = str(Path(tempfile.gettempdir()) / "fake-root")
 
         def fake_write_all(*, target_root, dry_run):
             captured["target_root"] = target_root
@@ -224,12 +227,12 @@ class TestAgentsRenderRun(unittest.TestCase):
         ):
             req = _request(
                 "agents.render.run",
-                {"target_root": "/tmp/fake-root", "dry_run": True},
+                {"target_root": fake_root, "dry_run": True},
             )
             outcome = orchestration_agents.handle_agents_render_run(req)
         self.assertTrue(outcome.primary_success)
         self.assertEqual(captured["dry_run"], True)
-        self.assertEqual(str(captured["target_root"]), "/tmp/fake-root")
+        self.assertEqual(str(captured["target_root"]), fake_root)
         self.assertEqual(
             outcome.result_payload["results"][".claude/agents/yoke-engineer.md"],
             "write",

@@ -14,6 +14,9 @@ def run_git(root: Path, *args: str, input_text: str | None = None) -> str:
     env = dict(os.environ)
     env["GIT_CONFIG_GLOBAL"] = os.devnull
     env["GIT_CONFIG_NOSYSTEM"] = "1"
+    # Command-line config (e.g. a caller's credential helpers) must not leak in.
+    env.pop("GIT_CONFIG_PARAMETERS", None)
+    env.pop("GIT_CONFIG_COUNT", None)
     result = subprocess.run(
         ["git", *args],
         cwd=root,
@@ -21,8 +24,11 @@ def run_git(root: Path, *args: str, input_text: str | None = None) -> str:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        check=True,
+        check=False,
         env=env,
+    )
+    assert result.returncode == 0, (
+        f"git {' '.join(args)} exited {result.returncode}: {result.stderr.strip()}"
     )
     return result.stdout
 

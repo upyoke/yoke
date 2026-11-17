@@ -141,6 +141,7 @@ def test_each_index_keeps_its_checkout_roots_after_chdir(
     assert select(["docs/readme.md"], other).pytest_paths() == ("specs/",)
 
 
+@pytest.mark.posix_only(reason="POSIX lets a process delete its working directory; Windows holds it open")
 def test_selection_survives_deleted_working_directory(
     monkeypatch, tmp_path, selector_roots
 ):

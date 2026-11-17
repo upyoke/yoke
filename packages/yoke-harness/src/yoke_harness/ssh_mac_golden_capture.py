@@ -94,7 +94,7 @@ def execute_golden_capture(
             "golden_destination_unsafe",
         )
     selected_path_state = path_state or resolve_path_state_contract(
-        env={"HOME": home, "SHELL": "/bin/zsh"}
+        env={"HOME": home, "SHELL": "/bin/zsh"}, posix_host=True
     )
     if selected_path_state.home != home:
         return HostActionResult(

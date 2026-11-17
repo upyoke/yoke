@@ -208,7 +208,9 @@ def test_an_unparseable_receipt_is_not_a_successful_capture() -> None:
 def test_the_capture_program_is_valid_zsh() -> None:
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
-            resolve_path_state_contract(env={"HOME": HOME, "SHELL": "/bin/zsh"})
+            resolve_path_state_contract(
+                env={"HOME": HOME, "SHELL": "/bin/zsh"}, posix_host=True
+            )
         )
     )
 
