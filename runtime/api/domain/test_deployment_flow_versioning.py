@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.domain import deployment_runs_schema_init
+from yoke_core.domain.deployment_runs_schema_init import create_deployment_run_tables
 
 from runtime.api.domain.deployment_flow_versioning_test_support import (
     ADVANCED_STAGES as ADVANCED_STAGES,
@@ -175,15 +175,10 @@ def _flow_lineage_reference(conn: Any) -> tuple[str, str] | None:
     return tuple(row) if row is not None else None
 
 
-def _complete_schema() -> None:
-    schema.cmd_init()
-    deployment_runs_schema_init.cmd_init()
-
-
 def test_flow_lineage_reference_matches_fresh_schema_after_boot_convergence(
     tmp_path: Path,
 ) -> None:
-    with init_test_db(tmp_path, apply_schema=_complete_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=schema.cmd_init) as db_path:
         conn = connect_test_db(db_path)
         try:
             expected = _flow_lineage_reference(conn)
@@ -201,7 +196,7 @@ def test_delivery_intent_constraint_matches_both_initialization_orders(
     tmp_path: Path,
     initializer: str,
 ) -> None:
-    with init_test_db(tmp_path / initializer, apply_schema=_complete_schema) as db_path:
+    with init_test_db(tmp_path / initializer, apply_schema=schema.cmd_init) as db_path:
         conn = connect_test_db(db_path)
         try:
             seed_project_identities(conn)
@@ -217,10 +212,9 @@ def test_delivery_intent_constraint_matches_both_initialization_orders(
                 converge_core_schema(conn)
                 converge_core_schema(conn)
             else:
-                conn.close()
-                deployment_runs_schema_init.cmd_init(db_path)
-                deployment_runs_schema_init.cmd_init(db_path)
-                conn = connect_test_db(db_path)
+                create_deployment_run_tables(conn)
+                create_deployment_run_tables(conn)
+                conn.commit()
 
             with pytest.raises(Exception) as exc_info:
                 conn.execute(

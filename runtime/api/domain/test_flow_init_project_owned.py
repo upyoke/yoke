@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import db_backend, deployment_runs_schema_init
+from yoke_core.domain import db_backend
 from yoke_core.domain.flow_init import cmd_init as flow_cmd_init
 
 
@@ -31,7 +31,6 @@ def _deployment_clock_schema():
         conn.execute("CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT)")
         conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT)")
         flow_cmd_init(conn)
-    deployment_runs_schema_init.cmd_init()
 
 
 def test_schema_init_does_not_seed_project_delivery_topology(
@@ -60,7 +59,10 @@ def test_missing_deployment_clock_columns_converge_as_native_instants(
 ):
     from runtime.api.fixtures.file_test_db import init_test_db
     from yoke_contracts.timestamps import parse_instant
-    from yoke_core.domain import db_backend, deployment_runs_schema_init
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.deployment_runs_schema_init import (
+        create_deployment_run_tables,
+    )
 
     stamp = parse_instant("2026-10-08T22:15:00.123456+05:45")
     clocks = ("current_stage_entered_at", "composition_frozen_at", "settling_at")
@@ -90,7 +92,8 @@ def test_missing_deployment_clock_columns_converge_as_native_instants(
                 if schema_owner == "flows":
                     flow_cmd_init(conn)
                 else:
-                    deployment_runs_schema_init.cmd_init()
+                    create_deployment_run_tables(conn)
+                    conn.commit()
             kinds = dict(
                 conn.execute(
                     "SELECT column_name, udt_name FROM information_schema.columns "

@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from yoke_core.domain import deployment_runs_schema_init
-
 import hashlib
 
 from pathlib import Path
@@ -23,7 +21,6 @@ from yoke_core.domain.schema_init import converge_core_schema
 
 def _apply_complete_control_plane_schema() -> None:
     schema.cmd_init()
-    deployment_runs_schema_init.cmd_init()
 
 def _column_map(conn) -> dict[str, frozenset[str]]:
     return {table: frozenset(_get_columns(conn, table)) for table in _get_tables(conn)}

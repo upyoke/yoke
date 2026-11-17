@@ -160,16 +160,13 @@ class TestSchemaGate:
         assert "schema current" in capsys.readouterr().out
 
     def test_runs_when_schema_files_changed(self, tmp_path):
-        conn = mock.MagicMock()
         with (
             mock.patch(
                 "yoke_contracts.machine_config.runtime.active_connection",
                 return_value={"transport": "local-postgres"},
             ),
             mock.patch.object(done_transition, "_run_git") as mock_git,
-            mock.patch.object(done_transition, "_connect", return_value=conn),
             mock.patch("yoke_core.domain.schema.cmd_init") as schema_init,
-            mock.patch("yoke_core.domain.shepherd.cmd_init") as shepherd_init,
         ):
             mock_git.return_value = mock.Mock(
                 returncode=0,
@@ -178,8 +175,6 @@ class TestSchemaGate:
             done_transition._schema_gate(merge_ran=True, project_repo=tmp_path)
 
         schema_init.assert_called_once()
-        shepherd_init.assert_called_once()
-        conn.close()
 
 
 class TestHandleAlreadyDone:

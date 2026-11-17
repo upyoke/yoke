@@ -51,13 +51,6 @@ def _project_id(conn, item_id: int) -> int:
     )
 
 
-def _ensure_dependency_schema(conn) -> None:
-    """The dependency table is shepherd-owned, not part of core cmd_init."""
-    from yoke_core.domain import shepherd_init
-
-    shepherd_init.cmd_init(conn)
-
-
 def _insert_dep(conn, *, dependent: int, blocking: int, satisfaction: str) -> None:
     conn.execute(
         "INSERT INTO item_dependencies "
@@ -104,7 +97,6 @@ class TestHardBlocksEval:
     def test_pass_when_no_blockers(self, db):
         conn = connect_test_db(db)
         try:
-            _ensure_dependency_schema(conn)
             insert_item(conn, id=8201, source=str(seed_human_actor(conn)))
         finally:
             conn.close()
@@ -122,7 +114,6 @@ class TestHardBlocksEval:
     def test_block_on_unsatisfied_activation_dependency(self, db):
         conn = connect_test_db(db)
         try:
-            _ensure_dependency_schema(conn)
             actor = seed_human_actor(conn)
             insert_item(conn, id=8202, source=str(actor))
             insert_item(conn, id=8210, status="implementing", source=str(actor))

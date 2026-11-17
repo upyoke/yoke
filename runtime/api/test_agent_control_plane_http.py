@@ -48,11 +48,6 @@ class TestAgentControlPlaneHttp(_ApiSuite):
 
     def test_dependency_adapter_uses_same_server_evaluator(self):
         register_gates(registry)
-        from runtime.api.fixtures.file_test_db import connect_test_db
-        from yoke_core.domain import shepherd_init
-
-        with connect_test_db(self._db_path) as conn:
-            shepherd_init.cmd_init(conn)
         code, received = self._through_http(
             lambda: hard_blocks(
                 [
@@ -71,11 +66,6 @@ class TestAgentControlPlaneHttp(_ApiSuite):
 
         merge_audit_snapshot.register(registry)
         from yoke_cli.commands.merge_audit import merge_audit
-        from runtime.api.fixtures.file_test_db import connect_test_db
-        from yoke_core.domain import shepherd_init
-
-        with connect_test_db(self._db_path) as conn:
-            shepherd_init.cmd_init(conn)
         code, received = self._through_http(
             lambda: merge_audit(
                 [
