@@ -196,6 +196,13 @@ def request_json(
     ) as exc:
         cause = getattr(exc, "reason", None)
         cause = cause if isinstance(cause, BaseException) else exc
+        # urllib wraps OSError from connect/send, including our typed deadlines.
+        if isinstance(
+            cause, (ResponseOpenDeadlineError, ResponseReadDeadlineError, TimeoutError)
+        ):
+            raise BoundedJsonHttpDeadlineError(
+                "JSON request exceeded its time limit"
+            ) from None
         certificate = certificate_diagnostic(exc, sensitive_values=secrets)
         detail = "JSON request endpoint is unreachable"
         if certificate is not None:
