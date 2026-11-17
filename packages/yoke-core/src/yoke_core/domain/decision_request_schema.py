@@ -38,7 +38,8 @@ def create_decision_request_tables(
             approval_mode TEXT NOT NULL DEFAULT 'any'
                 CHECK(approval_mode IN ('any', 'all')),
             status TEXT NOT NULL DEFAULT 'pending'
-                CHECK(status IN ('pending', 'resolved', 'withdrawn')),
+                CHECK(status IN ('pending', 'resolved', 'withdrawn', 'superseded')),
+            superseded_by_request_id INTEGER REFERENCES decision_requests(id),
             resolution_action TEXT,
             resolution_actor_id INTEGER REFERENCES actors(id),
             resolution_note TEXT,
@@ -84,6 +85,10 @@ def create_decision_request_tables(
     )
     _add_column_if_not_exists(
         conn, "decision_requests", "audience_id", "INTEGER REFERENCES audiences(id)"
+    )
+    _add_column_if_not_exists(
+        conn, "decision_requests", "superseded_by_request_id",
+        "INTEGER REFERENCES decision_requests(id)",
     )
     _add_column_if_not_exists(
         conn,

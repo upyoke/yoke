@@ -59,6 +59,23 @@ test("settled questions show the saved answer without controls after reload", as
   assert.doesNotMatch(inboxSection(main, "decided").textContent, /Later detail/);
 });
 
+test("superseded questions keep their answer and replacement pointer only in history", async () => {
+  const old = question({ status: "superseded", decided_by_you: true, actions: [],
+    resolution_action: "blue", superseded_by_request_id: question().id + 1 });
+  const replacement = question({ id: old.superseded_by_request_id });
+  const { main } = renderInbox("all", [old, replacement]);
+  await settle();
+  const history = inboxSection(main, "decided");
+  const waiting = inboxSection(main, "waiting");
+  assert.match(history.textContent, /Blue/);
+  assert.equal(byClass(history, "inbox-question-replacement")[0].textContent,
+    `Superseded by request ${replacement.id}`);
+  assert.equal(byClass(history, "inbox-question-option").length, 0);
+  assert.equal(byClass(history, "inbox-question-send").length, 0);
+  assert.equal(byClass(waiting, "inbox-question-card").length, 1);
+  assert.equal(byClass(waiting, "inbox-question-replacement").length, 0);
+});
+
 test("choice-only questions do not offer freeform input", async () => {
   const { main } = renderInbox("all", [question({ actions: ["blue", "green"] })]);
   await settle();

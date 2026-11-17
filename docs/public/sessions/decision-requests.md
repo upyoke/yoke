@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Decision requests
 <!-- /yoke:breadcrumbs -->
 
-Ask, answer and withdraw decision requests. A decision request is either an
+Ask, answer, withdraw and replace decision requests. A decision request is either an
 approval a requirement needs, or an operator question: a request that gates
 nothing and asks a person for a call. [Decisions and approvals](../guide/decisions.md)
 explains both for the people who answer them.
@@ -20,7 +20,7 @@ explains both for the people who answer them.
 | `yoke decision-requests get <request id>` | Show one request and its decisions to its originator or an authorized reviewer. |
 | `yoke decision-requests dispose-ended` | Withdraw pending requests whose subject has ended, and return a receipt. |
 
-`list` takes `--status pending`, `resolved` or `withdrawn`. Each command's
+`list` takes `--status pending`, `resolved`, `withdrawn` or `superseded`. Each command's
 `--help` lists every option.
 
 ## Ask a question
@@ -45,7 +45,7 @@ Write each option's detail as what happens if the person picks it.
 | `--recommend ID` | The recommended option. |
 | `--no-freeform` | Require a listed option. Needs at least one `--option`; with no options a written answer is required. |
 | `--item PREFIX-N` | The item being discussed; the requester need not hold it. |
-| `--replaces ID` | Withdraw this pending question and file the new one atomically. |
+| `--replaces ID` | Supersede a pending or resolved question from the same requesting session and file its replacement atomically. |
 | `--attach PATH` | Attach an image or PDF; repeat per file. Maximum 20 MiB per file and 64 MiB for the encoded attachment manifest. |
 | `--to PERSON` | Ask an actor id or unique human name in your organization; repeat per person. |
 | `--audience NAME` | Ask a named audience. |
@@ -116,21 +116,26 @@ requesting session is terminated or removed, it goes to the item's current
 holder. A failed delivery records `operator_question_undelivered` on the
 request and in the steering report; read the saved answer and relay it to the
 holder. The steering report names each departure once; see
-[Steering report](steering-report.md).
+[Steering coverage and outcomes](#steering-coverage-and-outcomes).
 
 ## Withdraw or replace
 
 Filed questions cannot be edited. The requesting session or steering may
-cancel a pending question, or replace it atomically:
+cancel a pending question. The requesting session may replace its pending
+or resolved question atomically:
 
 ```text
 yoke decision-requests withdraw 17 --reason "Direction changed"
 yoke decision-requests ask --replaces 17 --key choose-color --question "Which shade?"
 ```
 
-Replacement requires a pending operator question from the same requesting
-session; the old request's withdrawal reason names its replacement. Withdrawn
-questions leave both waiting lists and remain in session history.
+Replacement requires a pending or resolved operator question from the same
+requesting session. The old request becomes `superseded`; its
+`superseded_by_request_id` points to the new pending request. Any recorded
+answer, actor and resolution time stay on the old request as history.
+Withdrawn and superseded questions leave waiting lists and current decisions.
+`get` and `list` show the replacement link; steering's watched history points
+to the replacement. Withdrawn or superseded questions cannot be replaced again.
 
 A question stays open while its requesting session is idle between turns,
 until someone answers or withdraws it. `dispose-ended` withdraws pending
@@ -138,6 +143,37 @@ requests whose subject verifiably ended, such as a question whose item reached
 a terminal stage, or one whose requesting session has no item and was
 terminated or removed. It first abandons QA plan executions that stopped
 reporting progress. Reading the Inbox runs the same convergence.
+
+## Steering coverage and outcomes
+
+The steering report lists pending operator questions oldest first, with the
+request id, requesting session label, held item, age and question excerpt.
+Questions follow the same seat coverage as items and steering mail. A
+question's work is the item it names; failing that, the item its asking
+session holds a work claim on; failing that, its project. The seat covering
+that work sees it, so a document seat sees questions about its member items in
+any project, and a project seat does not see what a live document seat covers.
+A seat always sees the questions it filed. Questions from other sessions the
+operator started by hand never show: that operator answers in the session's
+own chat. When no live seat covers the work, the project seat for the owning
+project sees the question marked `unattended: no live seat for DOC` until a
+document seat is taken. Questions with no project show when addressed to you.
+The Inbox and `yoke decision-requests list` show every question. Answer,
+withdraw or replace the question to remove it. The hook update and fleet
+watcher name each departure once: `request N no longer waiting: answered
+(<option label>)`, `withdrawn`, or `superseded by request N`. A replacement
+preserves any old answer as linked history and leaves only the new pending
+question current. The watcher checks question status each poll; a change wakes
+steering and requests the outcome report immediately, ahead of the usual
+report interval. Failed answer delivery remains visible as
+`operator_question_undelivered`; read the saved answer and relay it to the
+current item holder. Question and delivery state enter the report fingerprint;
+age does not.
+
+Steering keeps every pending operator decision in both the Inbox and steering
+chat, and reconciles its question section against chat whenever it reports.
+When facts change, use `ask --replaces`; when the answer is no longer needed,
+withdraw the question. Record an answer from chat through resolve immediately.
 
 ## Related
 

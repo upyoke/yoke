@@ -249,7 +249,8 @@ PROJECT_TABLES: dict[str, dict] = {
             "modules are matched by this stored name. The wrong guess "
             "`migration_id` means `migration_name`; the wrong guess `failure` "
             "means `failure_reason`; and the wrong guess `source_description` "
-            "means `description`. There is NO `status`, "
+            "means `description`; the wrong guess `details` means "
+            "`author_verify_result` for rehearsal command stdout/stderr. There is NO `status`, "
             "NO `model`, NO `model_id`, NO `module_name`, and NO "
             "`module` or `applied_at` column."
         ),
