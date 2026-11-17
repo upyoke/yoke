@@ -58,7 +58,12 @@ Worked examples:
 
 With --test-machine, run on the operator workstation connected to the control
 plane. Yoke reads browser-control settings here, checks the named Test Machine
-lease, and runs this same command in its GUI session. A Linux or Windows WSL
+lease, and runs this same command in its GUI session. It takes an unleased host
+or borrows your own lease, starts stopped cloud machines and waits for SSH.
+The lease stays held through sign-in and viewer cleanup; only a lease this
+command acquired releases afterward, with stop-on-last-release. Before opening
+a viewer it checks Yoke on the login-shell PATH; test_machine_yoke_missing
+names the reset with --baseline shell-preconfigured needed to install it. A Linux or Windows WSL
 machine with a registered RDP desktop opens in the same FreeRDP viewer as
 `yoke test-machine desktop-access --view`: a window titled
 "Yoke desktop: MACHINE" appears, you sign in with the identity's declared

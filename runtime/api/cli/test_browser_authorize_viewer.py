@@ -76,6 +76,8 @@ def route(monkeypatch):
     monkeypatch.setattr(remote, "read_machine_capability_secret", lambda *args: None)
 
     def dispatch(**kwargs):
+        if kwargs["function_id"].startswith("claims."):
+            return SimpleNamespace(success=True, result={"claim": {"id": 42}}, error=None)
         result = (
             {"test_machine": "lab", "settings": state["settings"], "active_lease": None}
             if kwargs["function_id"] == "test_machine.get"
@@ -87,6 +89,10 @@ def route(monkeypatch):
         state["events"].append("gui")
         return state["result"]
 
+    from yoke_cli.commands import test_machine_desktop_lease as custody
+
+    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
     monkeypatch.setattr(remote, "call_dispatcher", dispatch)
     monkeypatch.setattr(gui, "run_gui_command", execute)
     return state

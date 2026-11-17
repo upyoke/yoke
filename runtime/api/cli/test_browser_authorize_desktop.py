@@ -191,6 +191,14 @@ def test_machine_desktop_flag_selects_requested_browser(
         ),
     )
 
+    from yoke_cli.commands import test_machine_desktop_lease as custody
+
+    def lease_dispatch(**kwargs):
+        return SimpleNamespace(success=True, result={"claim": {"id": 42}}, error=None)
+
+    monkeypatch.setattr(custody, "call_dispatcher", lease_dispatch)
+    monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
+
     def execute(**kwargs):
         argv.append(kwargs["argv"])
         return subprocess.CompletedProcess(
