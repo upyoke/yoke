@@ -9,6 +9,7 @@ and any leading ``cd``; the same bodies run on main still refuse.
 from __future__ import annotations
 
 import re
+import shlex
 import json
 from pathlib import Path
 from unittest import mock
@@ -163,7 +164,7 @@ def test_the_denials_own_recoveries_pass_the_guard(lane_repo, command):
         in_lane = re.search(r"Use instead:\s+(\S+)", reason).group(1)
         rewritten = command.replace(
             "runtime/api/dashboard_wrapping_rows.visual.mjs",
-            in_lane,
+            shlex.quote(Path(in_lane).as_posix()),
         )
         assert _evaluate(rewritten, cwd=repo).allow
 

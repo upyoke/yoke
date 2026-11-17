@@ -81,6 +81,7 @@ def extract_payload_path_uses(
                     [use.path],
                     cwd,
                     machine_home=machine_home,
+                    shell=parsed.shell if tool == "Bash" else "powershell",
                 )
             )
     return tuple(dict.fromkeys(resolved))

@@ -16,6 +16,8 @@ from yoke_contracts.hook_runner.bash_paths import (
     resolve_bash_path,
     is_under,
     client_path_facts,
+    is_absolute,
+    canonical_native_path,
 )
 from pathlib import Path
 
@@ -55,9 +57,9 @@ def free_path_prefixes(
         if facts is not None
         else os.environ.get("TMPDIR", "")
     )
-    if not raw or not Path(raw).is_absolute():
+    if not raw or not is_absolute(raw):
         return prefixes
-    return (*prefixes, str(Path(raw).resolve(strict=False)))
+    return (*prefixes, canonical_native_path(raw))
 
 
 def is_under_free_path_prefix(

@@ -117,7 +117,7 @@ def test_external_search_root_does_not_include_nested_names(tmp_path: Path, root
     (tree / "nested" / "Meeting.txt").write_text("needle\n")
     cwd = tmp_path / "repository"
     cwd.mkdir()
-    token = str(tree / "Meeting*")
+    token = (tree / "Meeting*").as_posix()
     repaired = glob_repair(f"rg -l needle '{token}'", token, str(cwd))[0]
     assert _selected_files(repaired, cwd) == {target.resolve()}
 

@@ -6,6 +6,8 @@ tests so the integration file stays under the repo's file-line cap.
 """
 
 from pathlib import Path
+import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths  # noqa: F401
 
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
@@ -41,7 +43,6 @@ def test_apply_patch_extracts_directives_without_fixture_literals():
     assert extract_payload_targets(payload) == [f"{Path(lane_root).as_posix()}/source.py"]
     assert extract_payload_write_targets(payload) == [f"{Path(lane_root).as_posix()}/source.py"]
 
-
 def test_relative_apply_patch_target_resolves_from_declared_workdir():
     body = (
         "*** Begin Patch\n"
@@ -60,14 +61,12 @@ def test_relative_apply_patch_target_resolves_from_declared_workdir():
         "/checkout/.worktrees/YOK-1/source.py"
     ]
 
-
 def test_tilde_target_resolves_against_explicit_machine_home():
     payload = {"tool_name": "Read", "tool_input": {"file_path": "~/Docs/ref.md"}}
 
     assert extract_payload_targets(
         payload, machine_home="/clients/alice",
     ) == ["/clients/alice/Docs/ref.md"]
-
 
 def test_tool_alias_keeps_patch_content_out_of_target_paths():
     target = "/checkout/.worktrees/YOK-1/layout.tsx"
@@ -81,7 +80,6 @@ def test_tool_alias_keeps_patch_content_out_of_target_paths():
     payload = {"tool": "apply_patch", "tool_input": {"patch": body}}
 
     assert extract_payload_targets(payload) == [target]
-
 
 def test_python_heredoc_extracts_only_the_write_destination():
     target = "/" + "checkout/runtime/output.py"
@@ -348,3 +346,5 @@ def test_stderr_fd_dup_is_not_a_write_target():
         "tool_input": {"command": "echo x >/tmp/out 2>&1"},
     }
     assert extract_payload_write_targets(payload) == ["/tmp/out"]
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")

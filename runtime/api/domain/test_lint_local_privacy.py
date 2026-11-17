@@ -13,7 +13,8 @@ describing, and does not need to in order to prove the classification.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import PurePosixPath
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths  # noqa: F401
 import shlex
 
 import pytest
@@ -36,7 +37,7 @@ from yoke_contracts.hook_runner.local_privacy_messages import (
 
 # A home directory that exists nowhere, so no assertion here can be satisfied
 # by — or accidentally reach — the machine running the suite.
-HOME = Path("/Users/synthetic-operator")
+HOME = PurePosixPath("/Users/synthetic-operator")
 REPO = "/Users/synthetic-operator/checkout"
 
 
@@ -272,3 +273,5 @@ def test_messages_avoid_tmp_and_unrelated_permission_advice(command: str) -> Non
     text = finding.test_isolation_reason()
     assert "/tmp" not in text
     assert "Full Disk Access" not in text
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")

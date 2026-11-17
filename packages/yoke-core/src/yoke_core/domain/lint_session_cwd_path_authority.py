@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import posixpath
-from pathlib import Path
+from pathlib import PurePosixPath, PureWindowsPath
 from yoke_contracts.hook_runner.bash_paths import (
     lexical_client_path,
+    windows_path,
+    canonical_native_path,
     is_absolute,
     resolve_bash_path,
     is_under,
@@ -63,13 +65,15 @@ def is_yoke_watcher_capture_path(
     try:
         from yoke_core.domain.project_scratch_dir import global_scratch_root
 
-        resolved = Path(resolve_for_display(target))
+        resolved_text = resolve_for_display(target)
+        path_type = PureWindowsPath if windows_path(resolved_text) else PurePosixPath
+        resolved = path_type(resolved_text)
         root = (
-            Path(scratch_root).expanduser().resolve()
+            path_type(canonical_native_path(scratch_root))
             if scratch_root
-            else global_scratch_root().resolve()
+            else path_type(global_scratch_root().resolve())
         )
-        if not root.is_absolute() or root == Path(root.anchor):
+        if not root.is_absolute() or root == path_type(root.anchor):
             return False
         parts = resolved.relative_to(root).parts
     except Exception:

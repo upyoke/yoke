@@ -112,6 +112,8 @@ def test_relayed_windows_paths_use_only_client_observations():
             paths.resolve_bash_path("../file", "C:/Users/RUNNER~1/repo")
             == r"C:\Users\runner\file"
         )
+        assert paths.resolve_bash_path("/tmp", "D:/repo", shell="powershell").replace("\\", "/") == "D:/tmp"
+        assert paths.join_path("D:/repo", "/sub", shell="powershell").replace("\\", "/") == "D:/sub"
         with pytest.raises(ValueError, match="git_bash_client_path_required"):
             paths.resolve_bash_path("/unobserved", "D:/repo")
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.shell_parse import parse_shell
@@ -86,7 +87,7 @@ def test_cd_after_an_earlier_command_moves_later_segments(tmp_path: Path) -> Non
 
 def test_unreadable_cd_makes_later_directories_unknown() -> None:
     parsed = parse_shell('cd "$WORK" && ls; cd /tmp && ls')
-    assert parsed.segment_cwds("/repo") == ["/repo", "", "", str(Path("/tmp").resolve())]
+    assert parsed.segment_cwds("/repo") == ["/repo", "", "", resolve_bash_path("/tmp")]
 
 
 def test_hook_context_parses_once_for_every_guard() -> None:

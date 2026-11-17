@@ -269,7 +269,7 @@ class TestEvaluatePayload(unittest.TestCase):
         wt = self._linked_worktree(repo)
         _modify(wt, "a.txt", "v2\n")
 
-        result = self._eval(f"git -C {Path(repo).as_posix()} worktree remove {wt}")
+        result = self._eval(f"git -C {Path(repo).as_posix()} worktree remove {Path(wt).as_posix()}")
 
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
@@ -280,7 +280,7 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
         wt = self._linked_worktree(repo)
 
-        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} worktree remove {wt}"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} worktree remove {Path(wt).as_posix()}"))
 
     def test_rm_rf_worktree_with_ignored_file_blocks(self):
         repo = self._repo(initial_files={".gitignore": "cache/\n", "a.txt": "v1\n"})

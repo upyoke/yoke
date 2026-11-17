@@ -156,7 +156,7 @@ class TestUnauthorizedTarget:
             "tool_input": {"file_path": target},
         })
         assert verdict.allow is False
-        assert verdict.offending_target.endswith("YOK-OTHER/file.py")
+        assert Path(verdict.offending_target).parts[-2:] == ("YOK-OTHER", "file.py")
         assert "BLOCKED" in verdict.reason
         assert "YOK-1691" in verdict.reason
 

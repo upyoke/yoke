@@ -2,6 +2,7 @@
 
 import shlex
 from unittest.mock import Mock
+from pathlib import Path
 
 import pytest
 
@@ -22,7 +23,7 @@ def test_commit_facts_use_tool_workdir(monkeypatch, field):
     assert local_policy_common.repo_cwd(payload) == "/lane"
     assert facts[CLIENT_GIT_COMMIT_FACTS_KEY]["repo_cwd"] == "/lane"
     assert all(call.args[0] == "/lane" for call in git.call_args_list)
-    assert local_policy_common.repo_cwd(payload, "/explicit") == "/explicit"
+    assert local_policy_common.repo_cwd(payload, "/explicit") == str(Path("/explicit").resolve())
 
 
 @pytest.mark.parametrize("via", ["main", "symlink", "linked-worktree"])

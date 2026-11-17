@@ -14,13 +14,13 @@ product-local HTTPS fallback enforce one contract.
 
 from __future__ import annotations
 
-from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, is_absolute
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, is_absolute, windows_path
 
 from dataclasses import dataclass
 from functools import partial
 import os
 import shlex
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Iterable, Sequence
 
 from yoke_contracts.hook_runner.local_privacy_command_parse import (
@@ -63,7 +63,7 @@ _PROTECTED_HOME_ROOTS = (
     ("Library", "CloudStorage"),
     ("Library", "Mobile Documents"),
 )
-_SYSTEM_PRIVACY_DATABASE = Path("/Library/Application Support/com.apple.TCC/TCC.db")
+_SYSTEM_PRIVACY_DATABASE = PurePosixPath("/Library/Application Support/com.apple.TCC/TCC.db")
 _GLOB_CHARS = frozenset("*?[")
 
 
@@ -158,13 +158,14 @@ def _path_finding(
         str(_SYSTEM_PRIVACY_DATABASE.parent) + os.sep
     ):
         return LocalPrivacyFinding(SYSTEM_PRIVACY_DATABASE, token, "Full Disk Access")
-    home_text = os.path.normpath(str(home))
+    separator = "\\" if windows_path(expanded) else "/"
+    home_text = _expanded_path(str(home), home) or str(home)
     if expanded == home_text:
         return LocalPrivacyFinding(HOME_DISCOVERY, token, "user home")
-    if not expanded.startswith(home_text + os.sep):
+    if not expanded.startswith(home_text + separator):
         return None
     relative = expanded[len(home_text) + 1 :]
-    parts = tuple(part for part in relative.split(os.sep) if part)
+    parts = tuple(part for part in relative.split(separator) if part)
     if parts and any(char in parts[0] for char in _GLOB_CHARS):
         return LocalPrivacyFinding(HOME_DISCOVERY, token, "user home")
     protected = _protected_root(parts)
@@ -172,7 +173,7 @@ def _path_finding(
         return None
     for checkout in checkout_roots:
         root = _expanded_path(checkout, home)
-        if root and (expanded == root or expanded.startswith(root + os.sep)):
+        if root and (expanded == root or expanded.startswith(root + separator)):
             try:
                 resolved_root = os.path.realpath(root)
                 if (

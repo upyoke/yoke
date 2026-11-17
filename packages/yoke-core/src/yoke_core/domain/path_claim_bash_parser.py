@@ -144,14 +144,14 @@ def _extract_verb_paths(verb: str, args: List[str]) -> List[Mutation]:
     return out
 
 
-def _extract_git_paths(args: List[str], cwd: str) -> List[Mutation]:
+def _extract_git_paths(args: List[str], cwd: str, *, shell: str = "bash") -> List[Mutation]:
     """Pull paths from ``git rm``/``git restore``/``git checkout --``.
 
     Read-only git inspection is an explicit allow case, including
     path-specific forms such as ``git diff -- path``. Relative paths join
     the ``-C`` directory, itself resolved from ``cwd``, as git does.
     """
-    base, args = _split_git_global_options(args, cwd)
+    base, args = _split_git_global_options(args, cwd, shell=shell)
     if not args:
         return []
     sub = args[0]
@@ -169,14 +169,14 @@ def _extract_git_paths(args: List[str], cwd: str) -> List[Mutation]:
     out: List[Mutation] = []
     verb = f"git {sub}"
     for p in paths:
-        target = join_path(base, p)
+        target = join_path(base, p, shell=shell)
         if _is_tmp_path(target):
             continue
         out.append(Mutation(verb=verb, target_path=target))
     return out
 
 
-def _split_git_global_options(args: List[str], cwd: str) -> tuple[str, List[str]]:
+def _split_git_global_options(args: List[str], cwd: str, *, shell: str = "bash") -> tuple[str, List[str]]:
     """Return the ``-C`` directory (``""`` when absent) and the subcommand on.
 
     Each ``-C DIR`` applies relative to the previous one, then to ``cwd``.
@@ -187,7 +187,7 @@ def _split_git_global_options(args: List[str], cwd: str) -> tuple[str, List[str]
         token = args[i]
         if token in ("-C", "-c") and i + 1 < len(args):
             if token == "-C":
-                base = join_path(base or cwd, args[i + 1])
+                base = join_path(base or cwd, args[i + 1], shell=shell)
             i += 2
             continue
         if token.startswith(("--git-dir=", "--work-tree=")):

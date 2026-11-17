@@ -27,6 +27,8 @@ derived from the live claim or the call itself.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import shlex
+from yoke_contracts.hook_runner.bash_paths import shell_path_spellings
 from typing import Sequence, Tuple
 
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
@@ -200,6 +202,7 @@ def format_derivation_guidance(
     """
     if derivation.fell_back_to_cwd:
         lane = lane_path or "<lane path>"
+        shell_lane = shlex.quote(shell_path_spellings(lane)[0]) if lane_path else lane
         return (
             "This command writes through a destination the guard cannot read "
             "— a variable, a command substitution, a heredoc, or another "
@@ -207,10 +210,10 @@ def format_derivation_guidance(
             "above. A path the command only mentions as string data is never "
             "treated as a write target, and an unreadable destination is "
             "refused rather than guessed. Run the call in the lane: declare "
-            f"{lane} as the call's workdir, or make `cd {lane}` the "
+            f"{lane} as the call's workdir, or make `cd {shell_lane}` the "
             "command's first statement (followed by `&&`, `;`, or a newline). "
             "For a commit whose message is computed, write the message to a "
-            f"free temp file and run `git -C {lane} commit -F "
+            f"free temp file and run `git -C {shell_lane} commit -F "
             f"{RECOVERY_MESSAGE_FILE}`; otherwise spell each destination as a "
             "literal absolute lane path."
         )

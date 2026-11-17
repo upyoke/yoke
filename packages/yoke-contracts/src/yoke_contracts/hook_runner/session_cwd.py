@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import PureWindowsPath, PurePosixPath
-from yoke_contracts.hook_runner.bash_paths import canonical_native_path, is_absolute, windows_path
+from yoke_contracts.hook_runner.bash_paths import lexical_client_path, is_absolute, windows_path
 from typing import Any, Mapping
 
 
@@ -50,7 +50,7 @@ def _valid_machine_home(root: object) -> str:
     value = _valid_root(root)
     if not value:
         return ""
-    resolved = canonical_native_path(value)
+    resolved = lexical_client_path(value)
     expected, actual = value, resolved
     if windows_path(value):
         expected, actual = value.replace("\\", "/").casefold(), resolved.replace("\\", "/").casefold()

@@ -12,7 +12,8 @@ Every path here is synthetic; the suite must not read the folders it describes.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths  # noqa: F401
 import shlex
 import subprocess
 import time
@@ -38,7 +39,7 @@ from yoke_harness.hooks.local_policy_common import (
 )
 
 
-HOME = Path("/Users/synthetic-operator")
+HOME = PurePosixPath("/Users/synthetic-operator")
 REPO = "/Users/synthetic-operator/checkout"
 # Captured at import time, before the autouse privacy guard replaces the name.
 _REAL_POPEN = subprocess.Popen
@@ -228,3 +229,5 @@ def test_the_installed_guard_keeps_the_real_popen_type_surface() -> None:
     assert subprocess.Popen is not _REAL_POPEN
     assert subprocess.Popen[bytes] is not None
     assert issubclass(subprocess.Popen, _REAL_POPEN)
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")

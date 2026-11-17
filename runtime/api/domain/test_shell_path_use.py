@@ -5,6 +5,7 @@ import shlex
 from pathlib import Path
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths  # noqa: F401
 
 from yoke_core.domain.lint_shell_path_use import PathRole, analyze_shell_path_use
 from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
@@ -36,6 +37,7 @@ def test_actual_operand_relationships(case):
         "/clients/operator/.private directory",
     ],
 )
+@pytest.mark.usefixtures("posix_client_paths")
 def test_quoting_and_normalization_preserve_capacity_role(target):
     payload = {
         "tool_name": "Bash",

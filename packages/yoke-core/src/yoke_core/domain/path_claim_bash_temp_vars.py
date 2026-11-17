@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import Collection, FrozenSet
 
-from yoke_core.domain.lint_session_cwd_path_authority import free_path_prefixes
+from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
 
 
 _VAR_NAME = r"[A-Za-z_][A-Za-z0-9_]*"
@@ -99,7 +99,7 @@ def _is_safe_mktemp_args(args: str) -> bool:
 def _is_safe_temp_target(target: str) -> bool:
     if target.startswith("${TMPDIR"):
         return True
-    return any(target.startswith(prefix) for prefix in free_path_prefixes())
+    return is_free_path(target)
 
 
 __all__ = ["is_temp_file_var_ref", "temp_file_vars"]

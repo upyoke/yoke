@@ -132,8 +132,8 @@ class TestExtractedTargetRefusal:
         assert verdict.derivation.source == COMMAND_TOKEN
         assert verdict.derivation.token == "docs/notes.md"
         assert "Extracted:     docs/notes.md" in verdict.reason
-        assert f"working directory {Path(repo).as_posix()} -> {Path(repo).as_posix()}/docs/notes.md" in verdict.reason
-        assert f"Main checkout: {Path(repo).as_posix()}" in verdict.reason
+        assert f"working directory {repo} -> {repo / 'docs/notes.md'}" in verdict.reason
+        assert f"Main checkout: {repo}" in verdict.reason
 
     def test_tool_target_refusal_names_the_file_path(self, conn, repo):
         _seed_lane(conn, repo)
@@ -149,7 +149,7 @@ class TestExtractedTargetRefusal:
             )
         assert verdict.allow is False
         assert verdict.derivation.source == TOOL_TARGET
-        assert f"Extracted:     {Path(target).as_posix()}" in verdict.reason
+        assert f"Extracted:     {target}" in verdict.reason
         assert "already an absolute path" in verdict.reason
 
 
@@ -161,7 +161,7 @@ class TestWorkingDirectoryFallbackRefusal:
         assert verdict.derivation.source == WORKING_DIRECTORY
         assert verdict.derivation.token == ""
         assert "no readable write destination" in verdict.reason
-        assert f"fell back to the working directory {Path(repo).as_posix()}" in verdict.reason
+        assert f"fell back to the working directory {repo}" in verdict.reason
         assert "Unresolved:    (root / rel).write_text(...)" in verdict.reason
 
     def test_fallback_guidance_differs_from_extracted_target(self, conn, repo):
@@ -262,7 +262,7 @@ class TestComputedCommitMessageRecovery:
         verdict = _evaluate(self._computed_commit(repo), repo)
         assert verdict.allow is False
         assert verdict.derivation.source == WORKING_DIRECTORY
-        assert f"fell back to the working directory {Path(repo).as_posix()}" in verdict.reason
+        assert f"fell back to the working directory {repo}" in verdict.reason
 
     def test_computed_commit_refusal_names_the_lane_recovery(self, conn, repo):
         lane = _seed_lane(conn, repo)
@@ -276,7 +276,7 @@ class TestComputedCommitMessageRecovery:
     ):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
-        assert f"declare {Path(lane).as_posix()} as the call's workdir" in verdict.reason
+        assert f"declare {lane} as the call's workdir" in verdict.reason
         assert f"make `cd {Path(lane).as_posix()}` the command's first statement" in verdict.reason
 
     def test_recovery_message_file_is_readable_from_a_claimed_lane(self):

@@ -199,14 +199,16 @@ def expand_home(path: str, *, home: str | None = None) -> str:
     return path
 
 
-def join_path(base: str, path: str) -> str:
+def join_path(base: str, path: str, *, shell: str = "bash") -> str:
     """Join parsed paths without applying the authority's drive semantics."""
+    if shell == "powershell" and windows_path(base):
+        return ntpath.join(base, path).replace("/", "\\")
     if is_absolute(path):
         return path
     if windows_path(base):
         joined = ntpath.join(base, path)
         return (
-            joined
+            joined.replace("/", "\\")
             if os.name == "nt" or (_CLIENT_PATHS.get() or {}).get("windows")
             else joined.replace("\\", "/")
         )
@@ -214,7 +216,7 @@ def join_path(base: str, path: str) -> str:
 
 
 def resolve_bash_path(
-    path: str, cwd: str = "", *, home: str | None = None, canonical: bool = True
+    path: str, cwd: str = "", *, home: str | None = None, canonical: bool = True, shell: str = "bash"
 ) -> str:
     expanded = expand_home(path, home=home)
     if expanded.startswith("~"):
@@ -225,6 +227,9 @@ def resolve_bash_path(
         if facts is not None
         else os.name == "nt" or windows_path(cwd) or windows_path(expanded)
     )
+    if windows and shell == "powershell":
+        native = ntpath.join(cwd or os.getcwd(), expanded)
+        return canonical_native_path(native) if canonical else ntpath.normpath(native)
     if windows and expanded.startswith("/") and not expanded.startswith("//"):
         mounts = facts.get("mount_paths", {}) if facts else {}
         observed = mounts.get(expanded)

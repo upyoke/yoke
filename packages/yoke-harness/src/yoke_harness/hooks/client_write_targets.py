@@ -95,8 +95,8 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
     return cwd
 
 
-def _resolve(raw: str, cwd: str) -> str:
-    return resolve_bash_path(raw, cwd)
+def _resolve(raw: str, cwd: str, shell: str = "bash") -> str:
+    return resolve_bash_path(raw, cwd, shell=shell)
 
 
 def _repo_root(path: str) -> str:
@@ -184,7 +184,7 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
         for token in segment.argv
         if _path_shaped(token)
     )
-    resolved = {raw: _resolve(raw, cwd) for raw in dict.fromkeys(operands)}
+    resolved = {raw: _resolve(raw, cwd, shell.shell if shell.command else "powershell") for raw in dict.fromkeys(operands)}
     mount_paths = {raw: path for raw, path in resolved.items() if raw.startswith("/")}
     if os.name == "nt":
         from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES

@@ -7,10 +7,11 @@ and shell tokens are classified by the production helpers.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest import mock
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths  # noqa: F401
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
@@ -193,6 +194,7 @@ class TestStrandedAdvisoryBounds:
     "ignored, allowed", [(True, True), (None, False), (False, False)]
 )
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
+@pytest.mark.usefixtures("posix_client_paths")
 def test_remote_metadata_fact_needs_no_corresponding_checkout(
     conn,
     monkeypatch,
@@ -205,14 +207,14 @@ def test_remote_metadata_fact_needs_no_corresponding_checkout(
     from yoke_contracts.hook_runner import client_facts as cf
 
     harness_family(harness)
-    repo = Path("/client-only/project")
+    repo = PurePosixPath("/client-only/project")
     lane = _seed_lane(conn, repo, mkdir=False)
     target = str(repo / ".git/info/exclude")
     payload = {
         "session_id": "sid-lane",
         "tool_name": "Bash",
         "cwd": str(repo),
-        "tool_input": {"command": f"echo .DS_Store >> {Path(target).as_posix()}"},
+        "tool_input": {"command": f"echo .DS_Store >> {target}"},
         **cf.client_fact(
             cf.WRITE_TARGETS_KEY,
             {

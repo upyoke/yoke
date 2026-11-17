@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
@@ -34,7 +36,7 @@ class TestDenyAndSuppression(unittest.TestCase):
 
     def test_token_records_attempt_still_denies(self):
         cmd = (
-            f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
+            f"git -C {Path(self.repo).as_posix()} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
         )
         result = ldg.evaluate_payload(_payload(cmd))
         self.assertIsNotNone(result)
@@ -45,7 +47,7 @@ class TestDenyAndSuppression(unittest.TestCase):
     def test_evaluate_token_still_denies_with_attempted_outcome(self):
         # The suppression token is audit-only; evaluate(record) still denies.
         cmd = (
-            f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
+            f"git -C {Path(self.repo).as_posix()} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
         )
         decision = ldg.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
@@ -58,7 +60,7 @@ class TestDenyAndSuppression(unittest.TestCase):
 
     def test_deny_emits_envelope(self):
         decision = ldg.evaluate(
-            _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
+            _record_for(_payload(f"git -C {Path(self.repo).as_posix()} reset --hard HEAD~1"))
         )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)

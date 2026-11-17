@@ -135,6 +135,7 @@ def _resolve_target_paths(
     cwd: str,
     *,
     machine_home: str | None = None,
+    shell: str = "bash",
 ) -> List[str]:
     out: List[str] = []
     for raw in paths:
@@ -142,7 +143,7 @@ def _resolve_target_paths(
         if is_absolute(expanded) and os.name != "nt" and not windows_path(cwd) and not windows_path(expanded):
             out.append(str(Path(expanded)))
         elif is_absolute(expanded) or cwd:
-            out.append(resolve_bash_path(expanded, cwd, home=machine_home))
+            out.append(resolve_bash_path(expanded, cwd, home=machine_home, shell=shell))
     return out
 
 
