@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts import terminal_detached_process
+from yoke_contracts import platform_file_sync, terminal_detached_process
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import os
@@ -81,7 +81,7 @@ def dump_postgres_to_directory(dsn: str, reason: str, backup_dir: Path) -> str:
         _fsync_file(partial)
         os.replace(partial, destination)
         published = True
-        _fsync_directory(root)
+        platform_file_sync.sync_directory(root)
         return str(destination)
     except Exception:
         if published:
@@ -153,18 +153,6 @@ def _fsync_file(path: Path) -> None:
     with path.open("rb") as stream:
         os.fsync(stream.fileno())
 
-
-def _fsync_directory(path: Path) -> None:
-    if os.name == "nt":
-        return
-    descriptor = os.open(
-        path,
-        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-    )
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
 
 
 __all__ = ["dump_postgres_to_directory"]
