@@ -237,21 +237,6 @@ def test_other_harnesses_defer_the_claude_background_limit() -> None:
 
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
 @pytest.mark.parametrize("windows", [False, True])
-def test_native_shell_matches_the_platform_contract(monkeypatch, executor, windows):
-    from yoke_harness import session_relay_environment as native
-
-    monkeypatch.setattr(native, "is_windows", lambda: windows)
-    environment = native.native_session_environment(
-        executor=executor, environ={"SHELL": "/bin/zsh"},
-    )
-    if windows:
-        assert "SHELL" not in environment
-    else:
-        assert environment["SHELL"] == "/bin/sh"
-
-
-@pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
-@pytest.mark.parametrize("windows", [False, True])
 def test_native_shell_selection_preserves_the_harness_os_contract(
     monkeypatch, executor, windows,
 ):
