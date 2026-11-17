@@ -12,6 +12,8 @@ import pytest
 
 from yoke_core.tools import install_yoke_launcher as isl
 
+pytestmark = pytest.mark.posix_only(reason="POSIX launcher shim")
+
 
 def _fake_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "yoke-repo"
@@ -101,7 +103,6 @@ def test_install_default_configures_every_harness(tmp_path: Path, install_env):
     assert called == [True]
 
 
-@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_install_happy_path_writes_launcher(tmp_path: Path, install_env):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
@@ -140,7 +141,6 @@ def test_install_converges_release_pinned_relay(tmp_path: Path, install_env):
     assert set(observed[0]) == {"stream"}
 
 
-@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_install_is_idempotent(tmp_path: Path, install_env):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
@@ -206,7 +206,6 @@ def test_install_skip_pip_and_skip_verify_avoid_subprocess(tmp_path: Path, monke
     assert calls == []
 
 
-@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_install_system_flag_picks_usr_local_bin(tmp_path: Path, install_env):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "write_launcher", lambda *a, **kw: None)

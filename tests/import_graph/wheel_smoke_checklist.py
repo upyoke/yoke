@@ -6,6 +6,8 @@ render stays a pure product-client flow with the engine present but inert.
 
 from __future__ import annotations
 
+from tests.import_graph.onboard_wheel_smoke_support import _product_env as base_product_env
+
 from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
 
 import json
@@ -20,7 +22,6 @@ from yoke_contracts.onboard_checklist import SCHEMA_VERSION
 
 
 MACHINE_ID = str(uuid4())
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 def smoke(
@@ -258,14 +259,8 @@ class _FunctionCallServer:
 
 
 def _product_env(machine_home: Path, venv_dir: Path) -> dict[str, str]:
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": ":".join([str(venv_dir / "bin"), BASE_PATH]),
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
+    env = base_product_env(machine_home, venv_dir)
+    return env
 
 
 def _tree_snapshot(root: Path) -> list[tuple[str, str, str]]:
