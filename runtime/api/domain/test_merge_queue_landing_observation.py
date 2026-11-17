@@ -232,3 +232,28 @@ def test_retained_entry_observes_current_failed_train(
         assert RUN_URL in observation.recovery
     else:
         assert observation.kind == WAITING
+
+
+def test_a_capacity_refused_shard_notice_names_the_no_verdict_rerun():
+    from yoke_core.domain.merge_queue_landing_observation import ejection_message
+    from yoke_core.domain.merge_queue_landing_notice import HOLDER
+
+    refused = LandingCheck(
+        name="test-shard (3.11, 12)",
+        status="completed",
+        conclusion="capacity_refused",
+        required=True,
+        url=RUN_URL,
+    )
+    observation = _classify(
+        _state(auto_merge_active=True, merge_state_status="blocked"),
+        NOT_QUEUED,
+        checks=(refused,),
+    )
+    text = ejection_message("ALP-1", "42", observation, HOLDER, "")
+
+    assert observation.kind == EJECTED
+    for said in (observation.recovery, text):
+        assert "refused by runner capacity" in said
+        assert "re-runs them on the same head" in said
+        assert "fix it on the lane" not in said.lower()

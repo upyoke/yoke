@@ -287,3 +287,16 @@ def test_collection_runs_beside_the_shards_and_coverage_replays_it() -> None:
     assert manifest["with"] == {"name": upload["with"]["name"], "path": "shard-collection"}
     # A missing manifest reaches the comparison, which refuses it by name.
     assert manifest["continue-on-error"] is True
+
+
+def test_shard_coverage_skips_its_steps_unless_every_shard_passed() -> None:
+    # A red shard (a capacity refusal included) already holds the verdict; a
+    # missing-report failure here would turn a no-verdict rerun into a verdict.
+    # The job itself still runs so its per-version required context resolves.
+    job = _yoke_ci()["jobs"]["shard_coverage"]
+    assert job["env"]["SHARDS_PASSED"] == "${{ needs.test_shard.result == 'success' }}"
+    assert "SHARDS_PASSED" not in str(job["if"])
+    for step in job["steps"]:
+        assert step["if"] == (
+            "env.SUITE_ALREADY_PROVEN != 'true' && env.SHARDS_PASSED == 'true'"
+        ), step["name"]

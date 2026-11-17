@@ -2,7 +2,7 @@
 
 Two shapes: a correlated workflow dispatch that would rejoin a run which
 concluded with no verdict, and a pull request whose required checks were
-cancelled or never started. Neither may be reused; neither needs a new
+cancelled, never started or refused for runner capacity. Neither may be reused; neither needs a new
 commit.
 """
 
@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from runtime.api.domain.ci_no_verdict_redispatch_test_support import (
     CANCELLED_REQUIRED as CANCELLED_REQUIRED,
+    CAPACITY_REFUSED_REQUIRED as CAPACITY_REFUSED_REQUIRED,
+    shard_job as shard_job,
     FAILED_REQUIRED as FAILED_REQUIRED,
     QUEUED_REQUIRED as QUEUED_REQUIRED,
     RUN_URL as RUN_URL,
@@ -17,6 +19,7 @@ from runtime.api.domain.ci_no_verdict_redispatch_test_support import (
 )
 
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -142,7 +145,7 @@ def test_cancelled_required_checks_teach_merge_reentry_not_a_lane_fix():
 
     assert only_no_verdict((CANCELLED_REQUIRED,))
     for text in (instruction, refusal):
-        assert "cancelled or never started" in text
+        assert "cancelled, never started, or refused by runner capacity" in text
         assert "re-runs them on the same head" in text
         assert "fix it on the lane" not in text.lower()
 
@@ -216,3 +219,48 @@ def test_checks_github_has_not_replaced_yet_refuse_with_reentry(monkeypatch):
 
     assert "had not replaced them" in refusal
     assert "Re-run `yoke merge item`" in refusal
+
+
+def test_capacity_refused_check_is_no_verdict_and_names_runner_capacity():
+    instruction = regate_instruction((CAPACITY_REFUSED_REQUIRED,))
+
+    assert only_no_verdict((CAPACITY_REFUSED_REQUIRED,))
+    assert "ci_runner_slow" in instruction
+    assert "fix it on the lane" not in instruction.lower()
+    assert not only_no_verdict((CAPACITY_REFUSED_REQUIRED, FAILED_REQUIRED))
+
+
+def test_merge_reentry_reruns_a_capacity_refused_shard(monkeypatch):
+    posts = _rerun_fakes(
+        monkeypatch, job=shard_job("Check runner capacity"), run_conclusion="failure"
+    )
+    reads = iter(
+        [
+            ((CAPACITY_REFUSED_REQUIRED,), None),
+            ((replace(CAPACITY_REFUSED_REQUIRED, status="queued", conclusion=""),), None),
+        ]
+    )
+
+    refusal = red_entry_checks_refusal(
+        CTX, "1774", read_checks=lambda _ctx, _pr: next(reads), sleep=lambda _s: None
+    )
+
+    assert refusal == ""
+    assert posts == [
+        ("POST", "/repos/o/r/actions/runs/37365021162/rerun-failed-jobs", "tok")
+    ]
+
+
+def test_a_shard_red_beyond_capacity_is_never_rerun(monkeypatch):
+    posts = _rerun_fakes(
+        monkeypatch,
+        job=shard_job("Check runner capacity", "Run pytest"),
+        run_conclusion="failure",
+    )
+
+    refusal = red_entry_checks_refusal(
+        CTX, "1774", read_checks=lambda _ctx, _pr: ((CAPACITY_REFUSED_REQUIRED,), None)
+    )
+
+    assert "ci_rerun_verdict" in refusal
+    assert posts == []

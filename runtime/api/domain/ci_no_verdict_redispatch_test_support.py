@@ -41,12 +41,34 @@ FAILED_REQUIRED = LandingCheck(
     url="https://github.com/o/r/actions/runs/37365021163/job/9",
 )
 
+CAPACITY_REFUSED_REQUIRED = LandingCheck(
+    name="test-shard (3.11, 12)",
+    status="completed",
+    conclusion="capacity_refused",
+    required=True,
+    url=RUN_URL,
+)
+
+
+def shard_job(*red_steps: str) -> dict:
+    """A started shard job whose named steps failed."""
+    return {
+        "id": 111944546142,
+        "runner_name": "runner",
+        "conclusion": "failure",
+        "steps": [{"name": "Checkout", "conclusion": "success"}]
+        + [{"name": name, "conclusion": "failure"} for name in red_steps],
+    }
+
+
 QUEUED_REQUIRED = LandingCheck(
     name="repo-contracts", status="queued", required=True, url=RUN_URL
 )
 
 
-def _rerun_fakes(monkeypatch, *, post_error=None, started=True):
+def _rerun_fakes(
+    monkeypatch, *, post_error=None, started=True, job=None, run_conclusion="cancelled"
+):
     posts = []
 
     def request(req, *, token, max_attempts=None):
@@ -64,7 +86,8 @@ def _rerun_fakes(monkeypatch, *, post_error=None, started=True):
         elif req.path.endswith("/jobs"):
             body = {
                 "jobs": [
-                    {
+                    job
+                    or {
                         "check_run_url": "https://api.github.com/repos/o/r/check-runs/7",
                         "runner_name": "runner" if started else "",
                         "steps": [{}] if started else [],
@@ -83,7 +106,7 @@ def _rerun_fakes(monkeypatch, *, post_error=None, started=True):
                 "head_sha": "1" * 40,
                 "head_branch": "ALP-1",
                 "status": "completed",
-                "conclusion": "cancelled",
+                "conclusion": run_conclusion,
                 "run_attempt": 1,
             }
         return SimpleNamespace(status=200, body=body)

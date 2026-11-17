@@ -142,11 +142,11 @@ before **Run pytest** and records CPU model, core count, and Python-loop timing.
 that limit the shard exits non-zero before pytest with
 `ci_runner_slow: runner refused before pytest` and the measured value and limit,
 in both the job log and uploaded `pytest-output.txt`. Restore runner capacity;
-no test verdict was produced. When only **Check runner capacity** failed,
-item-owned [CI recovery](../public/github/index.md#failed-ci-job-recovery)
-allows `rerun-failed` and sends `rerun-failed-jobs`, within the existing
-three-attempt limit. A failed **Run pytest** or any other failed step still
-refuses `ci_rerun_verdict`; fix the cause, commit and verify again.
+no test verdict was produced. Unless every shard passed, **shard-coverage** skips its steps, so a refused shard is the run's only red check.
+When only **Check runner capacity** failed, item-owned [CI recovery](../public/github/index.md#failed-ci-job-recovery)
+allows `rerun-failed` and sends `rerun-failed-jobs` within the three-attempt limit; landing reads report the check
+`capacity_refused`, which `yoke merge item` re-runs as no verdict. A failed **Run pytest** or any other
+failed step still refuses `ci_rerun_verdict`; fix the cause, commit and verify again.
 This admission check does not change test selection. Missing CPU-model telemetry does not block tests.
 The **Run pytest** step sets `PYTHONUNBUFFERED=1` so progress reaches the
 streaming log without Python output buffering.
