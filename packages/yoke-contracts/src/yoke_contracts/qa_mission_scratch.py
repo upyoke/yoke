@@ -68,7 +68,9 @@ STALE_OWNER_MARKER = ".yoke/qa-project-owner.json"
 def stale_owner_marker_remove_argv() -> list[str]:
     """Delete the stale owner marker, then its Yoke home if left empty."""
     return [
-        project_command_shell(),
+        # This argv runs on the POSIX Test Machine, which may be reached
+        # from a Windows controller. Its shell belongs to that remote host.
+        project_command_shell(platform_name="posix"),
         "-c",
         f'rm -f "$HOME/{STALE_OWNER_MARKER}" || exit 1; '
         'rmdir "$HOME/.yoke" 2>/dev/null; exit 0',

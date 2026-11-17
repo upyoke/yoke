@@ -14,14 +14,14 @@ class ProjectCommandShellUnavailable(RuntimeError):
     """Project commands cannot start until their declared shell is installed."""
 
 
-def project_command_shell() -> str:
+def project_command_shell(*, platform_name: str | None = None) -> str:
     """Use POSIX sh, or explicitly locate Git for Windows' bundled sh.
 
     Never select a different shell from PATH: Windows also ships unrelated
     sh commands (including WSL launchers) with different execution semantics.
     Git's cmd, bin and mingw64/bin layouts all identify its installation root.
     """
-    if sys.platform != "win32":
+    if (platform_name or sys.platform) != "win32":
         return "/bin/sh"
     roots: list[Path] = []
     git = shutil.which("git.exe")
