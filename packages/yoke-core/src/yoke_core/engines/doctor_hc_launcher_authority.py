@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from yoke_contracts.hook_shell_command import hook_command_source
 
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -141,8 +142,13 @@ def hook_config_yoke_problems(root: Path, canonical: Path) -> list[str]:
         except (OSError, json.JSONDecodeError):
             continue
         for command in _command_strings(payload):
-            for token in command.replace("'", " ").replace('"', " ").split():
-                if not (token.startswith("/") and token.endswith("/yoke")):
+            for token in (
+                hook_command_source(command).replace("'", " ").replace('"', " ").split()
+            ):
+                if not (
+                    Path(token).is_absolute()
+                    and Path(token).name in {"yoke", "yoke.exe"}
+                ):
                     continue
                 try:
                     resolved = Path(token).expanduser().resolve()
