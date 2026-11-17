@@ -308,7 +308,8 @@ def test_created_removal_and_help_share_effect_and_name_undo(test_db, capsys):
     _red_member(test_db)
     release_seeded_driver(test_db, RUN)
     test_db.execute(
-        "UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN,)
+        "UPDATE deployment_runs SET status='created',composition_frozen_at=NULL "
+        "WHERE id=%s", (RUN,)
     )
     test_db.commit()
     message = cmd_remove_item(RUN, ITEM, reason=REASON)
