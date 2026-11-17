@@ -132,3 +132,28 @@ def test_machine_private_directory_recurses_and_preserves_existing(tmp_path):
     before = owner_private_path.is_owner_private_directory(existing)
     assert create_private_directory(existing) == existing
     assert owner_private_path.is_owner_private_directory(existing) == before
+
+
+def test_private_write_retries_windows_sharing_violation(monkeypatch, tmp_path):
+    from yoke_contracts import filesystem_safety
+
+    path = tmp_path / 'secret'
+    owner_private_path.write_owner_private(path, b'before')
+    replace = os.replace
+    attempts = []
+
+    def busy(source, target):
+        attempts.append(target)
+        assert path.read_bytes() == b'before'
+        if len(attempts) < 3:
+            raise PermissionError(13, 'sharing violation')
+        replace(source, target)
+
+    monkeypatch.setattr(filesystem_safety, '_RETRY_SHARING_VIOLATIONS', True)
+    monkeypatch.setattr(filesystem_safety.time, 'sleep', lambda delay: None)
+    monkeypatch.setattr(os, 'replace', busy)
+    owner_private_path.write_owner_private(path, b'after')
+    assert path.read_bytes() == b'after'
+    assert owner_private_path.is_owner_private_file(path)
+    assert len(attempts) == 3
+    assert list(tmp_path.iterdir()) == [path]

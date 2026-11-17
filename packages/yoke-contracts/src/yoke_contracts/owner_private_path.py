@@ -8,8 +8,10 @@ import tempfile
 
 if __package__:
     from yoke_contracts import windows_private_directory
+    from yoke_contracts.filesystem_safety import retry_sharing_violations
 else:
     import _yoke_windows_private_directory as windows_private_directory
+    from _yoke_filesystem_safety import retry_sharing_violations
 
 _WINDOWS_PERMISSIONS = os.name == "nt"
 
@@ -78,7 +80,7 @@ def write_owner_private(path: str | Path, data: str | bytes) -> None:
             os.fsync(output.fileno())
         if not is_owner_private_file(temporary):
             raise OSError(f"owner_private_write_denied: {selected}; repair owner permissions and retry")
-        os.replace(temporary, selected)
+        retry_sharing_violations(lambda: os.replace(temporary, selected))
     except OSError as exc:
         raise OSError(f"owner_private_write_failed: {selected}; check parent access and close open destination handles: {exc}") from exc
     finally:
