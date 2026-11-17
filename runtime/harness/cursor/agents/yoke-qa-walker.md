@@ -85,8 +85,7 @@ that host and sign in again yourself. Without named identities, use the
 managed browser only if this walk installed Yoke; otherwise open each page with
 the brief's `yoke browser open` command, a visible window of the machine's
 operator identity, and drive it through screenshot and keystroke host
-commands. Never use the stock desktop browser (native Windows excepted until
-the launcher supports native Windows). Never install Yoke
+commands. Never use the stock desktop browser. Never install Yoke
 to get a browser, and never save or restore a browser profile. Name in the
 report the host, the browser actually used, the identity and the URL from the
 commands you ran.
