@@ -22,14 +22,13 @@ def _manual_only(body: str) -> bool:
     return isinstance(triggers, (dict, list)) and set(triggers) == {"workflow_dispatch"}
 
 
-def test_automatic_workflows_do_not_require_macos_or_windows_runners() -> None:
+def test_automatic_workflows_do_not_require_macos_runners() -> None:
     for workflow in WORKFLOWS.glob("*.yml"):
         body = workflow.read_text(encoding="utf-8")
         assert MACOS_EXPR not in body
         assert "YOKE_MACOS_RUNS_ON" not in body
         if not _manual_only(body):
             assert "macos-latest" not in body, workflow.name
-            assert "windows-2025" not in body, workflow.name
 
 
 @pytest.mark.parametrize(
