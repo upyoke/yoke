@@ -5,5 +5,6 @@
  "page": "frontier",
  "position": 2,
  "need": "Fleet report rows name the session, its person and machine; command identities remain unchanged.",
+ "current": "An armed merge-queue landing names ci_or_deploy as next actor with landing_in_progress even after the holder process exits. Decisions, dependencies, CI and deployment waits win first. The wait clears on landing; process presence still reports the exit for message delivery.",
  "sources": ["docs/public/sessions/steering-report.md"]
 }
