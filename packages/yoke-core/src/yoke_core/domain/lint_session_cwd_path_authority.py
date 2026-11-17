@@ -6,7 +6,7 @@ import os
 import posixpath
 from pathlib import Path, PurePosixPath
 from yoke_contracts.hook_runner.bash_paths import (
-    canonical_native_path,
+    canonical_native_path, is_absolute,
     resolve_bash_path,
     windows_path,
     is_under,
@@ -86,6 +86,8 @@ def is_yoke_watcher_capture_path(
 
 def is_dev_family_path(target: str) -> bool:
     """True for ``/dev/null`` and the rest of the ``/dev`` discard family."""
+    if not is_absolute(target):
+        return False
     if target.startswith("/dev/") or target == "/dev":
         normalized = posixpath.normpath(target)
         return normalized == "/dev" or normalized.startswith("/dev/")
