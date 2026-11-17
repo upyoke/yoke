@@ -152,7 +152,6 @@
 "runtime/api/domain/test_migration_merge_preflight.py::test_gate_refuses_non_sequential_lane_entry": "assert 'requires exactly 14 next' in \"lane migration history does not extend main: target entry '0013_existing' is replaced by '0013_existing' or carries different permanent bytes\"",
 "runtime/api/domain/test_migration_postgres_dump.py::test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv": "AssertionError: assert 438 == 384",
 "runtime/api/domain/test_migration_rehearsal_history.py::test_rehearsal_accepts_history_that_extends_main": "yoke_core.domain.migration_history.HistoryError: lane migration history does not extend main: target entry '0001_existing' is replaced by '0001_existing' or carries different permanent bytes",
-"runtime/api/domain/test_migration_rehearsal_observers.py::test_resource_guard_reaps_transfer_before_admission_release": "AssertionError: pass_fds not supported on Windows.",
 "runtime/api/domain/test_migration_validation_binding.py::test_written_binding_is_readable_without_an_exported_variable": "AssertionError: assert (33206 & 511) == 384",
 "runtime/api/domain/test_pack_bounded_installs.py::test_npm_zero_exit_incomplete_install_fails": "FileNotFoundError: [WinError 2] The system cannot find the file specified",
 "runtime/api/domain/test_pack_bounded_installs.py::test_rendered_workflow_install_steps_bound_failure": "FileNotFoundError: [WinError 2] The system cannot find the file specified",

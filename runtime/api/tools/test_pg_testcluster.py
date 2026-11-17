@@ -175,7 +175,8 @@ def test_long_root_starts_cluster_on_short_socket(monkeypatch):
     assert len(os.fsencode(root / "sock" / socket_name)) > (
         postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES
     )
-    root.mkdir()
+    # The lifecycle creates the root owner-private; a root made here first
+    # would carry inherited Windows ACLs the lifecycle refuses.
     monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", str(root))
     calls = []
 

@@ -12,6 +12,7 @@ from runtime.api.domain.migration_copy_lifetime_support import (
     copy_cluster as _copy_cluster,  # noqa: F401 -- registers copy_cluster
 )
 from yoke_cli.config import db_admin_dsn_exec
+from yoke_contracts import owner_private_path
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain import migration_validation_binding as binding
@@ -103,7 +104,7 @@ def test_provisioned_copy_and_binding_survive_the_source_process(
         assert snapshots and all(not path.exists() for path in snapshots)
         path = binding.binding_file(binding.YOKE_VALIDATION_DSN_ENV)
         assert path.parent == secret.parent
-        assert path.stat().st_mode & 0o777 == 0o600
+        assert owner_private_path.is_owner_private_file(path)
         validation_dsn = binding.read_binding(binding.YOKE_VALIDATION_DSN_ENV)
         assert (
             psycopg.conninfo.conninfo_to_dict(validation_dsn)["dbname"]

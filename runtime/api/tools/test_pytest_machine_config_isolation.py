@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import shutil
 
-from yoke_core.domain import postgres_binaries
+from yoke_core.domain import postgres_binaries, postgres_cluster_process
 from yoke_core.tools import _pytest_parallel, pg_testcluster
 
 
@@ -19,7 +19,7 @@ def test_embedded_executables_remain_available_after_machine_home_isolation(
     binaries = postgres_binaries.version_dir() / "bin"
     binaries.mkdir(parents=True)
     for name in ("initdb", "pg_isready"):
-        executable = binaries / name
+        executable = Path(postgres_cluster_process.executable(binaries, name))
         executable.touch()
         executable.chmod(0o700)
     original = {"YOKE_MACHINE_HOME": str(home), "PATH": os.defpath}
@@ -32,7 +32,10 @@ def test_embedded_executables_remain_available_after_machine_home_isolation(
         child.setenv("YOKE_MACHINE_HOME", isolated["YOKE_MACHINE_HOME"])
         child.setenv("PATH", isolated["PATH"])
         assert pg_testcluster._spec().bin_dir is None
-        assert shutil.which("pg_isready") == str(binaries / "pg_isready")
+        # Path equality, since which() on Windows returns PATHEXT's case.
+        assert Path(shutil.which("pg_isready")) == Path(
+            postgres_cluster_process.executable(binaries, "pg_isready")
+        )
 
 
 def test_without_embedded_binaries_isolation_preserves_system_path(monkeypatch):
