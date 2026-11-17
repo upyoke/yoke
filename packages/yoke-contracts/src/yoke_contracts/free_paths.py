@@ -29,7 +29,7 @@ def _abs(*parts: str) -> str:
     return _ROOT + "/".join(parts)
 
 
-_TEMP_PREFIX = _abs("tmp")
+TEMP_FAMILY_PREFIX = _abs("tmp")
 
 
 #: The discard family (``/dev/null`` and siblings).
@@ -38,7 +38,7 @@ DEV_FAMILY_PREFIX = _abs("dev")
 #: OS temp roots and the discard family. Home-derived free paths are
 #: resolved per executing machine by the guard and are not listed here.
 STATIC_FREE_PATH_PREFIXES = (
-    _TEMP_PREFIX,
+    TEMP_FAMILY_PREFIX,
     _abs("private", "tmp"),
     _abs("var", "folders"),
     _abs("private", "var", "folders"),
@@ -84,7 +84,7 @@ def free_temp_root() -> Path:
     return (
         root
         if is_under_free_path_prefix(root)
-        else Path(resolve_bash_path(_TEMP_PREFIX))
+        else Path(resolve_bash_path(TEMP_FAMILY_PREFIX))
     )
 
 
@@ -111,6 +111,7 @@ def private_free_path(filename: str, *, prefix: str) -> Path:
 
 __all__ = [
     "DEV_FAMILY_PREFIX",
+    "TEMP_FAMILY_PREFIX",
     "STATIC_FREE_PATH_PREFIXES",
     "free_path_prefixes",
     "free_temp_root",

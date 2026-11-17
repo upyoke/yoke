@@ -1,6 +1,7 @@
 """Epic multi-worktree coverage for ``resolve_item_worktree``."""
 
 from __future__ import annotations
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 import os
 import subprocess
@@ -78,7 +79,7 @@ class TestResolveEpicWorktree:
         assert result.scope == "item-lanes"
         assert result.exists is True
         assert result.has_multiple is True
-        assert result.paths == (str(path_a), str(path_b))
+        assert result.paths == (normalize_repo_path(str(path_a)), normalize_repo_path(str(path_b)))
         assert result.branches == (branch_a, branch_b)
         assert result.path == ""
         assert result.branch == ""
@@ -113,9 +114,9 @@ class TestResolveEpicWorktree:
         assert result.scope == "item-lanes"
         assert result.exists is True
         assert result.has_multiple is False
-        assert result.path == str(path)
+        assert result.path == normalize_repo_path(str(path))
         assert result.branch == branch
-        assert result.paths == (str(path),)
+        assert result.paths == (normalize_repo_path(str(path)),)
 
     def test_cli_rejects_singular_path_for_multiple_epic_lanes(
         self, git_repo, yoke_db, capsys,
@@ -163,5 +164,5 @@ class TestResolveEpicWorktree:
         assert exit_code == 1
         assert "resolves to 2 active worktree lanes" in captured.err
         assert paths_exit == 0
-        assert str(path_a) in captured.out
-        assert str(path_b) in captured.out
+        assert normalize_repo_path(str(path_a)) in captured.out
+        assert normalize_repo_path(str(path_b)) in captured.out

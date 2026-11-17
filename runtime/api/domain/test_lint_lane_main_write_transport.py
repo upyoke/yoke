@@ -61,10 +61,11 @@ def _stale_claim(conn, session_id="sid-lane"):
 
 
 class TestHttpsShapeDeniesRecordedLane:
+    @pytest.mark.usefixtures("posix_client_paths")
     def test_fresh_claim_denies_when_path_absent_on_evaluator(self, conn):
-        repo = Path("/client-host/yoke")
+        repo = PurePosixPath("/client-host/yoke")
         wt = _seed_lane(conn, repo, mkdir=False)
-        assert wt.is_dir() is False
+        assert Path(str(wt)).is_dir() is False
         target = repo / "runtime/api/foo.py"
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
             verdict = lint_lane_main_write.evaluate_pre_tool_use(
@@ -166,7 +167,7 @@ class TestStrandedAdvisoryBounds:
         assert first.allow is True
         assert second.allow is True
         assert emit_advisory.call_count == 2
-        assert emit_advisory.call_args.kwargs["lane_path"] == str(wt)
+        assert emit_advisory.call_args.kwargs["lane_path"] == wt.as_posix()
 
     def test_lane_absence_needs_the_client_worktree_list(self, conn, repo):
         """Without the client's worktree list a missing lane is not proven."""

@@ -277,7 +277,7 @@ class TestComputedCommitMessageRecovery:
     ):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
-        assert f"declare {lane} as the call's workdir" in verdict.reason
+        assert f"declare {Path(lane).as_posix()} as the call's workdir" in verdict.reason
         assert f"make `cd {Path(lane).as_posix()}` the command's first statement" in verdict.reason
 
     def test_recovery_message_file_is_readable_from_a_claimed_lane(self):

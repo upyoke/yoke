@@ -21,6 +21,7 @@ that flow through the heredoc-aware extractor still match.
 from __future__ import annotations
 
 import re
+from yoke_contracts.free_paths import TEMP_FAMILY_PREFIX, is_under_free_path_prefix
 from typing import Collection, FrozenSet
 
 from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
@@ -31,6 +32,12 @@ _MKTEMP_ASSIGN_RE = re.compile(rf"(?P<name>{_VAR_NAME})=\$\(\s*mktemp(?P<args>[^
 _VAR_REF_RE = re.compile(
     rf"""^['"]?\$(?:\{{(?P<braced>{_VAR_NAME})\}}|(?P<plain>{_VAR_NAME}))['"]?$"""
 )
+
+
+def is_tmp_path(path: str) -> bool:
+    """Only explicit Bash temp paths whose canonical target stays there are free."""
+    prefix = TEMP_FAMILY_PREFIX
+    return (path == prefix or path.startswith(prefix + "/")) and is_under_free_path_prefix(path, (prefix,))
 
 
 def temp_file_vars(command: str) -> FrozenSet[str]:
@@ -102,4 +109,4 @@ def _is_safe_temp_target(target: str) -> bool:
     return is_free_path(target)
 
 
-__all__ = ["is_temp_file_var_ref", "temp_file_vars"]
+__all__ = ["is_temp_file_var_ref", "is_tmp_path", "temp_file_vars"]

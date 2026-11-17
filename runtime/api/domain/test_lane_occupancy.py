@@ -69,7 +69,7 @@ class TestResolutionWithoutCheckoutMapping:
     def test_claimed_lane_resolves_with_no_machine_checkout(self, conn, repo):
         lane = _held_lane(conn, repo)
         claims = claimed_worktrees(conn, session_id=HOLDER)
-        assert [c.worktree_path for c in claims] == [str(lane)]
+        assert [c.worktree_path for c in claims] == [lane.as_posix()]
 
     def test_released_lane_contributes_no_authority(self, conn, repo):
         _held_lane(conn, repo)
@@ -93,7 +93,7 @@ class TestOccupancy:
         assert found is not None
         assert found.session_id == HOLDER
         assert found.item_id == HELD_ITEM
-        assert found.lane_path == str(lane)
+        assert found.lane_path == lane.as_posix()
 
     def test_own_lane_is_not_an_occupant(self, conn, repo):
         lane = _held_lane(conn, repo)
