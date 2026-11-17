@@ -38,21 +38,37 @@ runtime from each job's own start and finish times, not the run's wall clock.
 
 ## Known-failure baselines
 
-Tests that do not pass yet on an OS are listed in
-`runtime/known_failure_baselines/<os>.json` as
-`{"<node id>": "<reason>"}`. Node ids are relative to the repository root with
-`/` separators; an id without `[params]` covers every case of the test. The
-workflow sets `YOKE_KNOWN_FAILURE_BASELINE=1`, and the
-`runtime.known_failure_baseline` plugin then marks each listed test
-`xfail(strict=True)` on that OS only. Local runs never apply a baseline.
+Tests that do not pass yet on an OS are listed in the JSON files under
+`runtime/known_failure_baselines/<os>/`, one `"<node id>": "<reason>"` entry
+per line, grouped by test directory and split so each file stays inside the
+line limit. Node ids are relative to the repository root with `/`
+separators; an id without `[params]` covers every case of the test, and a bare
+`path.py` names a module that cannot be imported on that OS. The workflow sets
+`YOKE_KNOWN_FAILURE_BASELINE=1`, and the `runtime.known_failure_baseline`
+plugin then applies that OS's entries. Local runs never apply a baseline.
 
 The baselines only shrink:
 
-- a listed test that still fails is reported as xfailed;
-- a listed test that passes fails the run as `XPASS(strict)`: delete its
-  entry in the change that fixed it;
+- a listed test is `xfail(strict=True)`: a failure in its setup, call or
+  teardown reports as xfailed;
+- a listed test that passes every phase fails the run at teardown with
+  `[XPASS(strict)] <node id> passed`: delete its entry in the change that
+  fixed it;
+- a listed module's import error reports as skipped; once it imports, each of
+  its tests is a listed test;
 - an unlisted failure fails the run as usual. Fix it, or add an entry with
   the reason when the fix is real work.
 
-`tests/test_known_failure_baseline.py` refuses an entry with no reason or one
-that names no test defined in a suite file.
+To refresh a baseline from a run, download its shard outputs and record them:
+
+```text
+gh run download <run id> -p 'pytest-output-windows-*' -D /tmp/suite-windows
+yoke dev run -- python3 -m runtime.known_failure_baseline_record \
+  --os windows --reports /tmp/suite-windows
+```
+
+The recorder adds each new failure with its failure message as the reason,
+deletes entries the run reported as `XPASS(strict)`, and keeps the rest.
+Review the diff before committing: a flaky test belongs in a fix, not a
+strict baseline. `tests/test_known_failure_baseline.py` refuses an entry with
+no reason, or one that names no test or module defined in a suite file.

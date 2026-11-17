@@ -99,8 +99,8 @@ jobs:
           docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
-    timeout-minutes: 45
-    name: suite (${{ matrix.os }}, ${{ matrix.shard }}, ${{ matrix.crash }})
+    timeout-minutes: 25
+    name: suite (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ matrix.runner }}
     defaults:
@@ -116,9 +116,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows]
-        shard: [15]
-        crash: [with-worker-kill, without-worker-kill]
+        os: [windows, macos]
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
         include:
           - os: windows
             runner: windows-2025
@@ -163,18 +162,10 @@ jobs:
           git config --global init.defaultBranch main
       - name: Start the native test Postgres
         run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres start
-      - name: Reproduce the shard-15 hang under xdist (TEMPORARY DIAGNOSTIC)
+      - name: Run pytest
         env:
-          PYTEST_ADDOPTS: ""
-        run: |
-          cat diag/shard15-files-* > .yoke/tmp/ci-shard-files.txt
-          if [ "${{ matrix.crash }}" = with-worker-kill ]; then
-            # Same slot the killed test held: early in the queue, mid-run.
-            echo diag/test_diag_worker_kill.py >> .yoke/tmp/ci-shard-files.txt
-            extra=diag/
-          fi
-          YOKE_CI_SELECTION_FILE="$PWD/.yoke/tmp/ci-shard-files.txt" timeout 1500 uv run --frozen python -m pytest runtime/api/ runtime/harness/ tests/ ${extra:-} -p yoke_core.tools.ci_selection_collect -n 2 --dist loadfile --no-loadscope-reorder -v -o faulthandler_timeout=120 2>&1 | tee pytest-output.txt
-          echo "pytest exit: ${PIPESTATUS[0]}"
+          YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
+        run: uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
