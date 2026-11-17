@@ -115,7 +115,14 @@ def authenticated_remote(tmp_path):
 def own_credential_config(root: Path, url: str):
     credential = root / "git-credentials"
     endpoint = urlsplit(url)
-    credential.write_text(f"http://{FIXTURE_CREDENTIAL}@{endpoint.netloc}\n")
+    # git credential-store reads LF-terminated lines and keeps a trailing \r,
+    # so Windows' default CRLF text mode would corrupt the stored host.
+    credential.write_text(
+        f"http://{FIXTURE_CREDENTIAL}@{endpoint.netloc}\n", newline="\n"
+    )
     config = root / "gitconfig"
-    config.write_text(f"[credential]\n\thelper = store --file={credential}\n")
+    # Git config values treat ``\`` as an escape; Git for Windows takes ``/``.
+    config.write_text(
+        f"[credential]\n\thelper = store --file={credential.as_posix()}\n"
+    )
     return config

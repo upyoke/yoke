@@ -10,12 +10,20 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+
+import pytest
 from unittest import mock
 
 from yoke_contracts.machine_config.runtime import SCRATCH_ROOT_ENV
 from yoke_contracts.machine_config.scratch_roots import (
     scratch_path_roots,
     scratch_root_candidates,
+)
+
+
+# The /private canonical-twin rule is defined over POSIX roots (/tmp, /var).
+POSIX_PRIVATE_TWINS = pytest.mark.posix_only(
+    reason="POSIX private twins: /private canonical twins of /tmp and /var roots"
 )
 
 
@@ -33,12 +41,14 @@ class TestScratchPathRoots(unittest.TestCase):
     def test_os_temp_dir_present(self) -> None:
         self.assertIn(tempfile.gettempdir().rstrip("/"), scratch_path_roots())
 
+    @POSIX_PRIVATE_TWINS
     def test_var_roots_get_private_twin(self) -> None:
         with mock.patch.dict("os.environ", {SCRATCH_ROOT_ENV: "/var/yoke-test"}):
             roots = scratch_path_roots()
         self.assertIn("/var/yoke-test", roots)
         self.assertIn("/private/var/yoke-test", roots)
 
+    @POSIX_PRIVATE_TWINS
     def test_other_roots_get_no_twin(self) -> None:
         with mock.patch.dict("os.environ", {SCRATCH_ROOT_ENV: "/opt/yoke-test"}):
             roots = scratch_path_roots()
@@ -56,6 +66,7 @@ class TestScratchPathRoots(unittest.TestCase):
 
 
 class TestOverrideEnv(unittest.TestCase):
+    @POSIX_PRIVATE_TWINS
     def test_explicit_override_root_recognized(self) -> None:
         # Setting YOKE_SCRATCH_ROOT surfaces the override first in the
         # root list, with its /private twin.

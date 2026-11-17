@@ -63,9 +63,10 @@ def _body_text(app) -> str:
 
 
 def test_single_checkout_needs_no_github_or_official_project_access(
-    monkeypatch,
+    monkeypatch, tmp_path
 ) -> None:
-    _stub_detect(monkeypatch, [Path("/home/dev/forked-yoke")])
+    checkout = tmp_path / "forked-yoke"
+    _stub_detect(monkeypatch, [checkout])
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -81,7 +82,7 @@ def test_single_checkout_needs_no_github_or_official_project_access(
     assert applied is not None
     assert applied["machine_github_choice"] == "skip"
     assert applied["project_mode"] == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE
-    assert applied["project_checkout"] == "/home/dev/forked-yoke"
+    assert applied["project_checkout"] == str(checkout)
     assert applied["project_slug"] is None
     assert applied["project_public_item_prefix"] is None
 
@@ -120,8 +121,11 @@ def test_project_mode_preset_uses_selected_checkout(monkeypatch) -> None:
     assert spy.applied["project_checkout"] == checkout
 
 
-def test_multiple_checkouts_show_each_path_and_clone_option(monkeypatch) -> None:
-    _stub_detect(monkeypatch, [Path("/home/dev/yoke"), Path("/srv/my-yoke")])
+def test_multiple_checkouts_show_each_path_and_clone_option(
+    monkeypatch, tmp_path
+) -> None:
+    first, second = tmp_path / "dev" / "yoke", tmp_path / "srv" / "my-yoke"
+    _stub_detect(monkeypatch, [first, second])
     app, _spy = make_app()
 
     async def scenario() -> None:
@@ -130,8 +134,8 @@ def test_multiple_checkouts_show_each_path_and_clone_option(monkeypatch) -> None
             await pilot.pause()
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             values = [row.value for row in selection.rows]
-            assert "/home/dev/yoke" in values
-            assert "/srv/my-yoke" in values
+            assert str(first) in values
+            assert str(second) in values
             assert dev_flow._CLONE_SOURCE in values
             assert "No official Yoke access is required" in _body_text(app)
 

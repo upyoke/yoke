@@ -11,7 +11,6 @@ advisory (never-raising) disposition; the routing regressions live in
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 from yoke_contracts.api.function_call import FunctionCallResponse
@@ -27,8 +26,9 @@ def _resp(function_id, result=None, *, success=True):
     )
 
 
-def test_ensure_snapshot_resolves_checkout_and_relays_write(monkeypatch):
+def test_ensure_snapshot_resolves_checkout_and_relays_write(monkeypatch, tmp_path):
     calls = []
+    checkout = tmp_path / "repo" / "root"
 
     def fake(**kwargs):
         calls.append(kwargs)
@@ -42,7 +42,7 @@ def test_ensure_snapshot_resolves_checkout_and_relays_write(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
-        lambda project, **_kwargs: Path("/repo/root"),
+        lambda project, **_kwargs: checkout,
     )
     git_cmd = {}
 
@@ -59,7 +59,7 @@ def test_ensure_snapshot_resolves_checkout_and_relays_write(monkeypatch):
     assert fids[0] == "done_transition.item_field"
     assert "project.snapshot.ensure_at" in fids
     # HEAD is resolved from the transport-resolved machine-local checkout.
-    assert git_cmd["cmd"] == ["git", "-C", "/repo/root", "rev-parse", "HEAD"]
+    assert git_cmd["cmd"] == ["git", "-C", str(checkout), "rev-parse", "HEAD"]
     ensure = next(c for c in calls if c["function_id"] == "project.snapshot.ensure_at")
     assert ensure["payload"] == {"project": "yoke", "commit_sha": "abc123"}
 

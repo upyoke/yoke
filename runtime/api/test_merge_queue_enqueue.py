@@ -1,5 +1,7 @@
 """Queue admission exits after its durable handoff unless waiting is explicit."""
 
+from pathlib import Path
+
 from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.merge_queue_landing_test_helpers import (
@@ -88,7 +90,7 @@ def test_pending_retry_pushes_new_commits_before_reporting_ok(monkeypatch):
     pushed: dict = {}
 
     def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
-        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
+        pushed.update(checkout=Path(checkout), branch=branch, source_ref=source_ref)
 
     outcome = _pending_retry(monkeypatch, remote_sha=stale, push=push)
 
@@ -96,7 +98,7 @@ def test_pending_retry_pushes_new_commits_before_reporting_ok(monkeypatch):
     assert outcome.landing_pending
     assert outcome.commit_sha == LANE_SHA
     assert pushed == {
-        "checkout": CHECKOUT,
+        "checkout": Path(CHECKOUT),
         "branch": "YOK-200",
         "source_ref": LANE_SHA,
     }

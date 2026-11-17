@@ -10,6 +10,7 @@ a local branch by a fast-forward that can lose nothing.
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 from typing import Tuple
 
 from yoke_cli.config import credentialed_git
@@ -155,7 +156,9 @@ def fast_forward(
     this evaluation actually read.
     """
     holder = branch_checkout_path(repo_root, base_branch)
-    if holder and holder.rstrip("/") == repo_root.rstrip("/"):
+    # git prints C:/... on Windows while callers hold native paths: compare
+    # them as paths, not text.
+    if holder and Path(holder) == Path(repo_root):
         merged = git(repo_root, "merge", "--ff-only", upstream_sha)
         return (merged.returncode == 0), reason(merged)
     if holder:

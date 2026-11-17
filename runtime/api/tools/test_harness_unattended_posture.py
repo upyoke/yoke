@@ -43,7 +43,8 @@ from yoke_contracts.cursor_posture_install import (
     configure_cursor_unattended_posture,
 )
 
-CHECKOUT = "/repos/example"
+# A checkout on this machine: Codex trust keys local absolute paths.
+CHECKOUT = str(Path("/repos/example").absolute())
 UNATTENDED_CODEX_TEXT = (
     'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
 )

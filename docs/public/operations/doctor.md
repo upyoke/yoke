@@ -117,8 +117,10 @@ finding previews; neither a time window nor a candidate-row cap hides history.
 A statement timeout or exhausted clock budget reports incomplete evidence.
 
 HTTPS chunks carry one check and spend at most 60 seconds across at most
-two attempts, including retry delays. The remote roster has a 15-minute
-overall deadline. Failed chunks retain completed rows, the last cursor,
+two attempts, including retry delays. Functions called from inside a check,
+such as the install-readiness machine registry read, also use at most two
+attempts within that check's remaining budget. The remote roster has a
+15-minute overall deadline. Failed chunks retain completed rows, the last cursor,
 and the original error and request identity in a failing partial report.
 Transport errors and handler failures both continue native runtime and
 source checks; a failed hosted batch never suppresses local relay evidence.

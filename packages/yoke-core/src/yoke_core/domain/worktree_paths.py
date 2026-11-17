@@ -111,12 +111,22 @@ def _resolve_repo_root_from_cwd() -> Optional[str]:
     return _normalize_repo_root(_resolve_context_cwd())
 
 
+def git_output_path(text: str) -> str:
+    """Render a path git printed in this OS's native form.
+
+    Git for Windows prints ``C:/Users/...``; every local path Yoke builds
+    with :mod:`pathlib` or :mod:`os.path` is ``C:\\Users\\...``. Routing git's
+    text through :class:`~pathlib.Path` makes the two comparable.
+    """
+    return str(Path(text))
+
+
 def _normalize_repo_root(candidate: str) -> Optional[str]:
     """Resolve *candidate* to the owning main repo root."""
     r = _run(["git", "-C", candidate, "rev-parse", "--show-toplevel"])
     if r.returncode != 0:
         return None
-    repo_root = r.stdout.strip()
+    repo_root = git_output_path(r.stdout.strip())
 
     git_dir_r = _run(["git", "-C", repo_root, "rev-parse", "--git-dir"])
     common_dir_r = _run(["git", "-C", repo_root, "rev-parse", "--git-common-dir"])
@@ -166,22 +176,25 @@ def _strip_worktree_path(path: str) -> str:
     """Resolve a linked-worktree path back to its main repo root."""
     from yoke_core.domain import project_settings
 
-    candidate = path.rstrip("/") or path
+    candidate = Path(path)
     # Machine-local read: worktrees_dir is a checkout layout fact, not
     # shared project policy.
     worktrees_dir = project_settings.get_project_str(
-        project_settings.checkout_root(candidate),
+        project_settings.checkout_root(str(candidate)),
         "worktrees_dir",
     )
 
-    marker = f"/{worktrees_dir}/"
-    if marker in candidate:
-        return candidate.split(marker, 1)[0]
-    if "/.worktrees/" in candidate:
-        return candidate.split("/.worktrees/", 1)[0]
-    if "/.claude/worktrees/" in candidate:
-        return candidate.split("/.claude/worktrees/", 1)[0]
-    return candidate
+    parts = candidate.parts
+    for marker in (worktrees_dir, ".worktrees", ".claude/worktrees"):
+        marker_parts = Path(marker or "").parts
+        width = len(marker_parts)
+        if not width:
+            continue
+        # The marker must sit below the root and above a lane name.
+        for start in range(1, len(parts) - width):
+            if parts[start : start + width] == marker_parts:
+                return str(Path(*parts[:start]))
+    return str(candidate)
 
 
 def _resolve_live_state_root(main_root: str) -> str:
@@ -223,7 +236,7 @@ def resolve_worktree_root(
         cwd = _resolve_context_cwd()
     result = _run(["git", "-C", cwd, "rev-parse", "--show-toplevel"])
     if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
+        return git_output_path(result.stdout.strip())
     root = _resolve_root(cwd=cwd, claude_project_dir=claude_project_dir)
     if not root:
         raise RuntimeError(
@@ -271,9 +284,11 @@ def resolve_named_path(
     if mode == "main-file":
         if not rel_path:
             raise ValueError("main-file requires a relative path argument")
-        return os.path.join(
-            resolve_main_root(cwd=cwd, claude_project_dir=claude_project_dir),
-            rel_path,
+        return str(
+            Path(
+                resolve_main_root(cwd=cwd, claude_project_dir=claude_project_dir),
+                rel_path,
+            )
         )
 
     yoke_root = resolve_yoke_root(

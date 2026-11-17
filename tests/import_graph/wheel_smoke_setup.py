@@ -64,7 +64,8 @@ def smoke(
         env=env,
     )
 
-    with _registry_server(expected_token="product-token") as api_url:
+    registry = _registry_server(expected_token="product-token")
+    with registry as api_url:
         _run_onboard_flow(
             yoke=yoke,
             checkout=checkout,
@@ -76,6 +77,8 @@ def smoke(
             before_checkout=before_checkout,
             gh_marker=gh_marker,
         )
+    assert registry.machine_reads
+    assert set(registry.machine_reads) == {json.loads(config.read_text())["machine_id"]}
 
 
 def _run_onboard_flow(

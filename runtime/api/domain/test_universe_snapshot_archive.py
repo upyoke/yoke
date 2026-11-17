@@ -10,7 +10,7 @@ import psycopg
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend, universe_archive
+from yoke_core.domain import db_backend, postgres_client_runtime, universe_archive
 from yoke_core.domain import universe_snapshot_archive as engine
 
 
@@ -45,10 +45,16 @@ def test_snapshot_excludes_later_write_and_carries_writer_state(
         Path(report["artifact"]), tmp_path / "unpacked", max_dump_bytes=1 << 30
     )
     data = subprocess.run(
-        ["pg_restore", "--data-only", "--table=projects", "--file=-", str(dump)],
+        [
+            postgres_client_runtime.postgres_executable("pg_restore"),
+            "--data-only",
+            "--table=projects",
+            "--file=-",
+            str(dump),
+        ],
         check=True,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     ).stdout
     assert "after-snapshot" not in data
     intent = receipt["freeze_intent"]
