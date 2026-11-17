@@ -45,7 +45,6 @@
 "runtime/api/cli/test_setup_self_host_prerequisite_guidance.py::test_agent_receives_preparation_and_actionable_retry_before_any_bundle_write[compose-missing]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_setup_self_host_prerequisite_guidance.py::test_agent_receives_preparation_and_actionable_retry_before_any_bundle_write[docker-engine-not-running]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_setup_self_host_prerequisite_guidance.py::test_agent_receives_preparation_and_actionable_retry_before_any_bundle_write[docker-missing]": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
-"runtime/api/cli/test_stage_approval_adapter_client_boundary.py::test_stage_approval_adapter_imports_without_core": "NotADirectoryError: [WinError 267] The directory name is invalid",
 "runtime/api/cli/test_strategy_ingest.py::TestIngest::test_dispatches_from_direct_terminal_without_session": "RuntimeError: Could not determine home directory.",
 "runtime/api/cli/test_system_privileges.py::test_no_authority_preserves_callers_named_reason[False-True-True]": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'",
 "runtime/api/cli/test_system_privileges.py::test_no_authority_preserves_callers_named_reason[True-False-False]": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'",
