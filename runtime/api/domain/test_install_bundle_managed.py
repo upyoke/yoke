@@ -114,6 +114,11 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
     assert mm["blocks"]["doctrine"].startswith(authored)
     # ...and re-rendering that authored region reproduces the source file's block.
     assert render_block(authored) in agents_text
+    # The doctrine names the command that reads the architecture model.
+    assert (
+        "yoke project-structure get --project P --family architecture_model"
+        in mm["blocks"]["doctrine"]
+    )
 
     perms = bundle["claude_settings_permissions"]
     assert perms["allow"] == list(CLAUDE_PERMISSIONS["allow"])
