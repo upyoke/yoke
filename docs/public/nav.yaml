@@ -218,6 +218,7 @@ root:
           - {title: "Linux live state", summary: "Preserve live harness installations and recover reset state.", path: "verification/test-machines/linux-live-state.md"}
           - {title: "Codex on Linux", summary: "Configure scoped sandbox posture and recover embedded helpers.", path: "verification/test-machines/codex-on-linux.md"}
           - {title: "Windows host provisioning", summary: "Prepare a Windows test account and the WSL desktop route.", path: "verification/test-machines/windows-host-provisioning.md"}
+          - {title: "WSL desktop provisioning", summary: "Prepare XFCE, Chromium and unattended WSL desktop access.", path: "verification/test-machines/windows-desktop-provisioning.md"}
           - {title: "WSL browser identities", summary: "Authorize browser identities in the WSL test desktop.", path: "verification/test-machines/windows-wsl-browser-identities.md"}
           - {title: "Native Windows host provisioning", summary: "Prepare a Windows lab profile, native desktop and lease recovery journal.", path: "verification/test-machines/windows-native-host-provisioning.md"}
           - {title: "Native Windows provisioning recovery", summary: "Recover bounded administrator SSH, partial key ACLs and RDP setup.", path: "verification/test-machines/windows-native-provisioning-recovery.md"}

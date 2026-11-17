@@ -1,0 +1,82 @@
+# Windows WSL desktop provisioning
+
+<!-- yoke:breadcrumbs -->
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > WSL desktop provisioning
+<!-- /yoke:breadcrumbs -->
+
+[Windows WSL host provisioning](windows-host-provisioning.md) owns the ordered
+bare-host setup, network, registration and baseline procedure. Complete these
+desktop steps at its section 6, then return there to capture and prove the home.
+
+## Desktop and browser coverage
+
+Registered terminal QA uses tmux transcripts. GUI commands and
+`yoke test-machine screenshot --project P --test-machine NAME --json` start or
+reuse the same WSL XFCE display through the existing Linux desktop helper;
+the screenshot captures that display, including its actual headed browser.
+Declare the dedicated WSL user as `desktop_user` and its loopback xrdp port
+as `desktop_port`; the Windows SSH user remains the account owning the distro.
+The capability-owned fixture password is streamed on private stdin. Another
+user's ambiguous desktop refuses; no native Windows RDP login is needed.
+
+For a requested, announced personal application sign-in handoff, run:
+
+```text
+yoke test-machine desktop-access --project P --test-machine NAME --view
+```
+
+Read `--help`. Install FreeRDP's visible SDL client on the executing workstation
+(macOS: `brew install freerdp`; Linux: the distribution's `freerdp-sdl` package).
+The product opens the SSH forward and supplies the fixture credential on stdin,
+with the existing XFCE dimensions and color depth so xrdp reconnects that display.
+It creates no password file. Close the viewer or interrupt the retained command
+to close its forward. The user types only their own password or credential.
+Tests use agent captures; human viewing is never a test acceptance check.
+A connected viewer counts as human adoption: baseline reset/capture must wait
+until it closes, even when automation originally started XFCE.
+
+For the selected Server route, reuse Yoke's Linux XFCE/xrdp provisioner
+inside WSL with a separate loopback port. The executing operation runs its
+stdlib-only helper in the dedicated Linux user's home. Copy both
+`provision_linux_desktop.py` and `provision_windows_wsl_desktop.py` from the
+controller's `yoke_harness/host_provisioning/` package directory into that
+working directory first:
+
+```text
+python3 provision_windows_wsl_desktop.py --desktop-password-stdin
+python3 provision_windows_wsl_desktop.py --verify
+```
+
+The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
+Windows interop, with WSL3.0.1 or newer (the verified configuration support floor).
+It records actual Windows edition/build and WSL version,
+installs the existing Linux desktop packages, including the Chromium snap as
+the default browser that [browser approval gates](linux-browser-identities.md#browser-approval-gates)
+drive, and proves loopback/localhost access.
+The product streams its capability-owned desktop secret on private stdin, sets
+the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
+GUI-session operation uses the existing uploaded `xrdp-sesrun` helper; no host
+harness-package import is needed. No secret enters a file, argv or output. The
+operator never types sudo, sets a machine password or logs into either desktop.
+Agents prove candidate Chromium renders there before requesting only personal
+application sign-in. Success leaves `headed_application_proved=false` until that
+independent check. Provisioning starts no session; `--verify` refuses the secret flag.
+No Windows firewall, auto-logon or public listener change is made.
+The provisioner also owns persistent distro setup: it sets only
+`[general] instanceIdleTimeout=-1` in the registered Windows user's `.wslconfig`,
+preserving other keys and comments. This applies to that Windows user's WSL2
+distros. A changed configuration reports `restart_required=true`; save work and
+restart WSL before claiming it is applied. `--verify` checks the stored setting,
+not its activation or desktop persistence. Prove XFCE and candidate Chromium
+survive a gap longer than both default timers without a foreground keeper.
+[Microsoft's settings reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
+distinguishes distro idle shutdown (15000ms) from VM idle shutdown (60000ms).
+Systemd services alone do not keep WSL alive; no per-execution sleep is required.
+[Microsoft documents localhost access to WSL services](https://learn.microsoft.com/en-us/windows/wsl/networking)
+and [systemd prerequisites](https://learn.microsoft.com/en-us/windows/wsl/systemd).
+WSLg is a separate route: its [documented GUI prerequisites](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
+name Windows10/11. A version string alone proves no Server GUI support.
+
+### Live browser identities inside WSL
+
+Follow [WSL browser identities](windows-browser-identities.md) before saving.
