@@ -268,7 +268,13 @@ Keep private probe programs, raw reports, manifests and archives out of Git.
 Before every capture ATTEMPT, choose a distinct new destination PARENT outside
 the home, e.g. `/Users/Shared/yoke-golden-attempt-DATE-UNIQUE/home` or
 `/var/lib/yoke-golden-attempt-DATE-UNIQUE/home`. Check space and record every
-project's current golden and sidecars (`.manifest`, `.probes`, `.harness-clis`).
+project's current golden and sidecars (`.manifest`, `.probes`,
+`.probes.sha256`, `.harness-clis`). Linux and WSL capture read `.probes` back and
+refuse `golden_probes_write_unverified` unless its bytes and sha256 match what was
+sent, then seal that digest as `.probes.sha256`. Reset refuses
+`baseline_probes_unavailable` (missing, empty or unreadable, with the path) or
+`baseline_probes_invalid` with the parse error, byte count, sha256 and the
+sealed `expected_sha256`.
 Capture retention keeps every golden any project registered for the same host
 and user, and anything newer than the new golden; it deletes older unregistered
 siblings, including failed attempts. Interactive capture retains after local
