@@ -8,6 +8,11 @@ from pathlib import PureWindowsPath
 from types import SimpleNamespace
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_harness.native_windows.stdin_frame import (
+    frame_bytes,
+    upload_script,
+    upload_received,
+)
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 
@@ -87,14 +92,17 @@ class WindowsTransport(SshTestMachineTransport):
             )
         name = "yoke-qa-" + uuid4().hex + ".ps1"
         path = f"(Join-Path $env:TEMP {quote(name)})"
-        write = f"[IO.File]::WriteAllBytes({path},[Convert]::FromBase64String([Console]::In.ReadToEnd()))"
+        payload = command.encode("utf-8-sig")
+        write = upload_script(path)
         uploaded = super()._run(
             write,
-            input_text=base64.b64encode(command.encode("utf-8-sig")).decode("ascii"),
+            input_text=frame_bytes(payload),
             timeout=30,
         )
-        if uploaded.returncode:
-            return uploaded
+        if not upload_received(uploaded, payload):
+            raise RuntimeError(
+                "windows_script_upload_failed: verify the upload receipt before executing"
+            )
         return super()._run(
             f"try {{ & {path} }} finally {{ Remove-Item -LiteralPath {path} -Force }}",
             input_text=input_text,
@@ -162,13 +170,12 @@ $os=Get-CimInstance Win32_OperatingSystem
         )
 
     def _upload_bytes(self, path, content):
-        data = base64.b64encode(content).decode("ascii")
+        data = frame_bytes(content)
         result = self._run(
-            f"$p={quote(path)}; New-Item -ItemType Directory -Force (Split-Path $p) | Out-Null; "
-            "[IO.File]::WriteAllBytes($p,[Convert]::FromBase64String([Console]::In.ReadToEnd()))",
+            upload_script(quote(path)),
             input_text=data,
         )
-        if result.returncode:
+        if not upload_received(result, content):
             raise RuntimeError(
                 "windows_host_file_write_failed: repair the declared file's ACL and retry"
             )

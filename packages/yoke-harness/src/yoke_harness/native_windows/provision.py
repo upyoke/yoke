@@ -17,6 +17,12 @@ from yoke_contracts.machine_config.capability_secret_store import (
     store_machine_capability_secret,
 )
 from yoke_harness.native_windows.transport import encoded, quote
+from yoke_harness.native_windows.stdin_frame import (
+    READ_FRAME_SCRIPT,
+    frame_bytes,
+    upload_script,
+    upload_received,
+)
 from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
@@ -42,33 +48,47 @@ def admin_script(key, host, user, script, *, input_text=None):
         "ConnectTimeout=15",
         f"{user}@{host}",
     ]
-    write = f"[IO.File]::WriteAllBytes({quote(path)},[Convert]::FromBase64String([Console]::In.ReadToEnd()))"
+    payload = script.encode("utf-8-sig")
+    write = upload_script(quote(path))
     uploaded = subprocess.run(
         [
             *ssh,
             "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
             + encoded(write),
         ],
-        input=base64.b64encode(script.encode("utf-8-sig")).decode("ascii"),
+        input=frame_bytes(payload),
         capture_output=True,
         text=True,
         timeout=30,
     )
-    if uploaded.returncode:
+    if not upload_received(uploaded, payload):
         raise RuntimeError(
             "windows_admin_script_upload_failed: verify administrator SSH key access; "
             + uploaded.stderr[-800:]
         )
     return subprocess.run(
         [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
-        input=input_text,
+        input=frame_bytes(input_text.encode("utf-8"))
+        if input_text is not None
+        else None,
         capture_output=True,
         text=True,
         timeout=300,
     )
 
 
-def provision(project, machine, host, resource_group, admin_user, test_user):
+def provision(
+    project,
+    machine,
+    host,
+    resource_group,
+    admin_user,
+    test_user,
+    *,
+    bootstrap_transport="azure",
+):
+    if bootstrap_transport not in {"azure", "ssh"}:
+        raise ValueError("windows_bootstrap_transport_invalid: choose azure or ssh")
     key = machine_capability_secret_path(project, "test-machine", "ssh_private_key")
     public = subprocess.run(
         ["ssh-keygen", "-y", "-f", str(key)], check=True, capture_output=True, text=True
@@ -110,69 +130,90 @@ Write-Output 'Native OpenSSH stage: service'
 Restart-Service sshd
 Write-Output 'Native OpenSSH ready; password authentication disabled.'
 """.replace("PUBLIC_KEY", quote(public))
-    with tempfile.TemporaryDirectory(prefix="yoke-windows-provision-") as temporary:
-        path = Path(temporary) / "openssh.ps1"
-        # Azure's RunPowerShellScript wrapper permits prompts; the child must not.
-        path.write_text(
-            "& powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
-            + encoded(script)
-            + "\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n",
-            encoding="utf-8",
-        )
+    if bootstrap_transport == "ssh":
         announce_designed_wait(
-            "Azure Windows OpenSSH bootstrap",
-            max_wait_seconds=BOOTSTRAP_TIMEOUT_SECONDS,
-            cadence="Azure guest command completion",
+            "Windows OpenSSH bootstrap over administrator SSH",
+            max_wait_seconds=330,
+            cadence="script upload and SSH command completion",
         )
-        deadline = time.monotonic() + BOOTSTRAP_TIMEOUT_SECONDS
-        while True:
-            result = subprocess.run(
-                [
-                    "az",
-                    "vm",
-                    "run-command",
-                    "invoke",
-                    "--resource-group",
-                    resource_group,
-                    "--name",
-                    machine,
-                    "--command-id",
-                    "RunPowerShellScript",
-                    "--scripts",
-                    "@" + str(path),
-                    "--query",
-                    "value[].message",
-                    "-o",
-                    "tsv",
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=max(1, deadline - time.monotonic()),
-            )
-            if "Run command extension execution is in progress" not in result.stderr:
-                break
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise RuntimeError(
-                    "windows_openssh_bootstrap_busy: Azure still owns the previous guest command; wait for its completion before provisioning again"
-                )
-            print(
-                "windows_openssh_bootstrap_busy: waiting for the existing Azure guest command before retrying readiness.",
-                file=sys.stderr,
-                flush=True,
-            )
-            time.sleep(min(30, remaining))
+        result = admin_script(key, host, admin_user, script)
         if (
             result.returncode
             or "Native OpenSSH ready; password authentication disabled."
             not in result.stdout
         ):
             raise RuntimeError(
-                "windows_openssh_bootstrap_failed: inspect Azure run-command diagnostics and rerun provisioning; "
+                "windows_openssh_bootstrap_failed: inspect administrator SSH bootstrap diagnostics; "
                 + (result.stderr + result.stdout)[-2000:]
             )
         print("Native OpenSSH ready; password authentication disabled.")
+    else:
+        with tempfile.TemporaryDirectory(prefix="yoke-windows-provision-") as temporary:
+            path = Path(temporary) / "openssh.ps1"
+            # Azure's RunPowerShellScript wrapper permits prompts; the child must not.
+            path.write_text(
+                "& powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+                + encoded(script)
+                + "\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n",
+                encoding="utf-8",
+            )
+            announce_designed_wait(
+                "Azure Windows OpenSSH bootstrap",
+                max_wait_seconds=BOOTSTRAP_TIMEOUT_SECONDS,
+                cadence="Azure guest command completion",
+            )
+            deadline = time.monotonic() + BOOTSTRAP_TIMEOUT_SECONDS
+            while True:
+                result = subprocess.run(
+                    [
+                        "az",
+                        "vm",
+                        "run-command",
+                        "invoke",
+                        "--resource-group",
+                        resource_group,
+                        "--name",
+                        machine,
+                        "--command-id",
+                        "RunPowerShellScript",
+                        "--scripts",
+                        "@" + str(path),
+                        "--query",
+                        "value[].message",
+                        "-o",
+                        "tsv",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=max(1, deadline - time.monotonic()),
+                )
+                if (
+                    "Run command extension execution is in progress"
+                    not in result.stderr
+                ):
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError(
+                        "windows_openssh_bootstrap_busy: Azure still owns the previous guest command; wait for its completion before provisioning again"
+                    )
+                print(
+                    "windows_openssh_bootstrap_busy: waiting for the existing Azure guest command before retrying readiness.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(min(30, remaining))
+            if (
+                result.returncode
+                or "Native OpenSSH ready; password authentication disabled."
+                not in result.stdout
+            ):
+                raise RuntimeError(
+                    "windows_openssh_bootstrap_failed: inspect Azure run-command diagnostics and rerun provisioning; "
+                    + (result.stderr + result.stdout)[-2000:]
+                )
+            print("Native OpenSSH ready; password authentication disabled.")
     password = read_machine_capability_secret(
         project, "test-machine:" + machine, "desktop_password"
     )
@@ -183,7 +224,7 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
         )
     setup = r"""$ErrorActionPreference='Stop'
 $name=TEST_USER
-$password=[Console]::In.ReadToEnd().Trim()
+$password=[Text.Encoding]::UTF8.GetString((Read-YokeFrame))
 $secure=ConvertTo-SecureString $password -AsPlainText -Force
 if(Get-LocalUser -Name $name -ErrorAction SilentlyContinue){Set-LocalUser -Name $name -Password $secure}
 else {New-LocalUser -Name $name -Password $secure -PasswordNeverExpires | Out-Null}
@@ -216,7 +257,11 @@ if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
 """.replace("TEST_USER", quote(test_user)).replace("PUBLIC_KEY", quote(public))
     result = admin_script(
-        key, host, admin_user, setup + AUTOLOGON_SCRIPT, input_text=password
+        key,
+        host,
+        admin_user,
+        READ_FRAME_SCRIPT + setup + AUTOLOGON_SCRIPT,
+        input_text=password,
     )
     if result.returncode:
         # A setup command must never expose the streamed password in diagnostics.
@@ -254,6 +299,9 @@ def main():
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--admin-user", default="yokeadmin")
     parser.add_argument("--test-user", default="yokeqa")
+    parser.add_argument(
+        "--bootstrap-transport", choices=("azure", "ssh"), default="azure"
+    )
     args = parser.parse_args()
     try:
         provision(
@@ -263,6 +311,7 @@ def main():
             args.resource_group,
             args.admin_user,
             args.test_user,
+            bootstrap_transport=args.bootstrap_transport,
         )
     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
         print(
