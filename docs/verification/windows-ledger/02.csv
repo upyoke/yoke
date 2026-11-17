@@ -23,6 +23,7 @@ windows-1300bfaabf58510b9982,yoke github-actions variable delete,cli,local,must-
 windows-ace92c7e344f757fe802,yoke inbox list,cli,hosted-client,must-pass,,
 windows-078592f9b8413cf06842,yoke item landings list,cli,self-hosted-client,must-pass,,
 windows-ae6005f96a75837f1342,yoke merge-receipt commits attest,cli,hosted-client,must-pass,,
+windows-20bb46c4536d4cdc8d82,yoke models follow shipped,cli,hosted-client,must-pass,,
 windows-054c442d2d24d6799042,yoke projects level-summary get,cli,self-hosted-client,must-pass,,
 windows-4290b4f0114b05967742,yoke qa plan adopt,cli,self-hosted-client,must-pass,,
 windows-5620f29b8fdb7ce50942,yoke qa plan-cases sync,cli,local,must-pass,,

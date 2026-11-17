@@ -28,6 +28,7 @@ windows-10cb250637f0cc51f9e7,yoke github-actions workflow dispatch,cli,hosted-cl
 windows-771e9cbd825c7afa9ae7,yoke item-worktrees create,cli,hosted-client,must-pass,,
 windows-fca5ec93bdaeea003d27,yoke item-worktrees path-record,cli,local,must-pass,,
 windows-5ede746dd3444e806867,yoke merge review candidate evaluate,cli,local,must-pass,,
+windows-4bd78b512ec907a11927,yoke models follow-shipped,cli,hosted-client,must-pass,,
 windows-3634ba23cc8a2fa79ea7,yoke project-structure architecture-draft get,cli,hosted-client,must-pass,,
 windows-1df968059c9ee23895a7,yoke projects capability-settings merge,cli,local,must-pass,,
 windows-6ad7bf220bc3babaece7,yoke projects infrastructure list,cli,self-hosted-client,must-pass,,

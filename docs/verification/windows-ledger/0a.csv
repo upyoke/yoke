@@ -27,6 +27,7 @@ windows-4c7942219bbb7e3c5f4a,yoke item-worktrees release,cli,hosted-client,must-
 windows-459fc93225628673ea0a,yoke items merge provenance operator-correct,cli,hosted-client,must-pass,,
 windows-07240d2c54326286190a,yoke local-postgres stop,cli,self-hosted-client,must-pass,,
 windows-5a0038c47466663d090a,yoke messages acknowledge,cli,local,must-pass,,
+windows-05680c7d8571b829bf4a,yoke models follow shipped,cli,self-hosted-client,must-pass,,
 windows-dbfb4413ba10486cbe8a,yoke onboard checklist,cli,local,must-pass,,
 windows-2ef419d9b64fef4f56ca,yoke operator data repair,cli,self-hosted-client,must-pass,,
 windows-92db527ad7395131278a,yoke packs remove,cli,local,must-pass,,

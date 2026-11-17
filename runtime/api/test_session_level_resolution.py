@@ -168,6 +168,7 @@ class _LevelStoreConn:
                     json.dumps([record.to_dict() for record in RECORDS]),
                     "fixture",
                     None,
+                    "shipped",
                 )
             )
         else:

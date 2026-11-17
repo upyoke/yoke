@@ -129,6 +129,7 @@
 | `machine_authorization.resolve` | `none` |
 | `migration.content_identity.verify` | `none` |
 | `models.diff.run` | `none` |
+| `models.follow_shipped.run` | `none` |
 | `models.get.run` | `none` |
 | `models.level_proposal.run` | `none` |
 | `models.lookup.run` | `none` |
