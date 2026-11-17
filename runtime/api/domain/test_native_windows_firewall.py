@@ -165,6 +165,7 @@ $task=Get-ScheduledTask -TaskName YokeQaMachineSettings
 if($task.Principal.UserId -notin @('SYSTEM','S-1-5-18')){{throw 'recovery task is not SYSTEM'}}
 if(!(Test-Path 'C:\ProgramData\YokeQa\private\machine-settings.ps1')){{throw 'recovery program missing'}}
 if(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name DefaultPassword -ErrorAction SilentlyContinue){{throw 'plaintext autologon password'}}
+if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyContinue){{throw 'owned upload staging remains'}}
 'GUEST_SETUP_OK'
 """
         verified = powershell(checks, tmp_path)

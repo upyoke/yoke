@@ -23,7 +23,9 @@ foreach($allow in $allows){
  if(!$rdpPort){continue}
  $service=$allow | Get-NetFirewallServiceFilter -ErrorAction Stop
  $app=$allow | Get-NetFirewallApplicationFilter -ErrorAction Stop
- if($app.Package -and $app.Package -ne 'Any'){continue}
+ if($app.Package -and $app.Package -notin @('Any','*')){continue}
+ # Newer Windows rules can constrain app identity by family instead of SID.
+ if($allow.PackageFamilyName -and $allow.PackageFamilyName -ne 'Any' -and $allow.PackageFamilyName -notmatch '[*?]'){continue}
  # System denotes a kernel listener, not the svchost-hosted TermService.
  if($service.Service -eq 'TermService' -or ($service.Service -eq 'Any' -and $app.Program -in @('Any','%SystemRoot%\system32\svchost.exe',(Join-Path $env:WINDIR 'System32\svchost.exe')))){
   throw ('windows_rdp_firewall_failed: inspect RDP-capable inbound allow rule '+$allow.Name+'; do not widen network access')

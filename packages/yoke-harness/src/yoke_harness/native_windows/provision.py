@@ -54,31 +54,50 @@ def admin_script(key, host, user, script, *, input_text=None):
         f"{user}@{host}",
     ]
     payload = script.encode("utf-8-sig")
-    deadline = time.monotonic() + 30
-    for offset in range(0, len(payload), 2048):
-        chunk = payload[offset:offset + 2048]
-        write = upload_script(quote(path), offset=offset)
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise subprocess.TimeoutExpired("Windows script upload", 30)
-        uploaded = subprocess.run(
-            [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
-            input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
-        )
-        if not upload_received(uploaded, payload[:offset + len(chunk)]):
-            raise RuntimeError(
-                "windows_admin_script_upload_failed: verify administrator SSH key access; "
-                + uploaded.stderr[-800:]
+    failure = None
+    try:
+        deadline = time.monotonic() + 30
+        for offset in range(0, len(payload), 2048):
+            chunk = payload[offset:offset + 2048]
+            write = upload_script(quote(path), offset=offset)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired("Windows script upload", 30)
+            uploaded = subprocess.run(
+                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
+                input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
             )
-    return subprocess.run(
-        [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
-        input=frame_bytes(input_text.encode("utf-8"))
-        if input_text is not None
-        else None,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+            if not upload_received(uploaded, payload[:offset + len(chunk)]):
+                raise RuntimeError(
+                    "windows_admin_script_upload_failed: verify administrator SSH key access; "
+                    + uploaded.stderr[-800:]
+                )
+        return subprocess.run(
+            [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
+            input=frame_bytes(input_text.encode("utf-8"))
+            if input_text is not None
+            else None,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except BaseException as exc:
+        failure = exc
+        raise
+    finally:
+        try:
+            cleanup = "$ErrorActionPreference='Stop'; Remove-Item -LiteralPath " + quote(path) + " -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath " + quote(path) + "){throw 'owned staging cleanup failed'}"
+            removed = subprocess.run(
+                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(cleanup)],
+                capture_output=True, text=True, timeout=10,
+            )
+            if removed.returncode:
+                raise RuntimeError("windows_admin_staging_cleanup_failed: " + removed.stderr[-800:])
+        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+            if failure is None:
+                raise
+            failure.add_note("Owned Windows staging cleanup failed: " + str(exc))
+
 
 
 def provision(
@@ -137,7 +156,7 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
     if bootstrap_transport == "ssh":
         announce_designed_wait(
             "Windows OpenSSH bootstrap over administrator SSH",
-            max_wait_seconds=330,
+            max_wait_seconds=340,
             cadence="script upload and SSH command completion",
         )
         result = admin_script(key, host, admin_user, script)

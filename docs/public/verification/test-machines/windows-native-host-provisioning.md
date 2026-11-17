@@ -10,16 +10,14 @@ for hosts, accounts and evidence. Record observed results; mark untested steps u
 
 ## 1. Create or identify the VM
 
-This lab uses a recorded manual exception; retain its inventory/import work.
-Require Windows 11 Enterprise x64, Trusted Launch, Windows_Client eligibility,
-four CPUs, 16 GiB memory and a 128 GiB OS disk; Server is not a desktop target.
+Retain the lab's manual exception and inventory/import work. Require Windows 11
+Enterprise x64, Trusted Launch, Windows_Client eligibility, four CPUs, 16 GiB RAM
+and a 128 GiB OS disk; Server is not a desktop target.
 
 Generate the machine password in Yoke's local secret store; invoke Azure from
 a controller that reads it privately and redacts errors. Never put passwords
 in argv, shell history, items or chat. Ben enters his own sign-ins later.
 Create budget/cost alerts; they do not power off the VM.
-
-Use project-owned names in the authorized subscription; for the existing lab:
 
 ```text
 az network vnet create -g yoke-test-machines -n windows-native-lab-vnet --subnet-name default
@@ -65,9 +63,7 @@ authentication and disable password authentication in
 `C:\ProgramData\ssh\sshd_config`. Fresh Windows images can spend considerable time in Windows Update servicing;
 the provisioner announces and allows up to 90 minutes for the capability
 bootstrap. Let servicing settle after first boot, then retry when necessary.
-Slowness alone is not an installation error. Keep the Microsoft-serviced
-capability; use a pinned, signature-verified Microsoft MSI only after an
-actual capability installation error has been diagnosed.
+Use a pinned, signature-verified Microsoft MSI only after a diagnosed capability error.
 If Azure repeatedly refuses a new invocation with “Run command extension
 execution is in progress” after the bounded wait, stop the controller retry
 loop and record the stuck invocation. Check the VM agent and the invocation's
@@ -97,10 +93,9 @@ key for the administrator bootstrap in
 `C:\ProgramData\ssh\administrators_authorized_keys`, owned only by
 Administrators/SYSTEM. Validate the effective configuration and restart sshd.
 
-The source-owned provisioner performs those steps for an **existing** VM,
-creates the standard test account and its profile, authorizes the same public
-key in its `.ssh\authorized_keys`, prepares the golden directory and fixed
-recovery task, and enables RDP restricted by the SSH-only network route:
+For an **existing** VM the provisioner creates the standard account/profile,
+authorizes its `.ssh\authorized_keys`, prepares goldens and the fixed recovery
+task, and enables RDP through SSH forwarding:
 
 ```text
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
@@ -108,9 +103,10 @@ python -m yoke_harness.native_windows.provision --project P --machine VM --host 
 
 When administrator key SSH already works, add `--bootstrap-transport ssh` to run
 bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
-Uploads and password input use bounded length frames, so guest readers finish
-without waiting for stdin EOF. Uploaded files require a byte-count and SHA256
-receipt before execution; password input never produces a digest or receipt.
+Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
+receipts under one 30-second deadline; only the complete verified script runs.
+Owned staging cleanup has a separate ten-second bound and preserves prior errors.
+Password frames never produce digests; readers do not wait for stdin EOF.
 
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
 -- ...`; this deliberately persists the generated test-user password in Yoke.
@@ -196,7 +192,8 @@ Windows Firewall rejects **both** `::1` and `127.0.0.1` as explicit loopback
 address conditions. Do not replace the rejected IPv6 address with an IPv4 allow
 rule. The provisioner removes legacy `YokeQaRdpLoopback`, disables stable
 `RemoteDesktop-*` rules, requires all firewall profiles enabled/default inbound
-block, and refuses other RDP-capable allow rules. Keep NSG public3389 blocked;
+block, and refuses RDP-capable allow rules. Package SID/family constraints exclude
+packaged apps; `System` is a kernel listener, not TermService. Keep public3389 blocked;
 forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
 Require a real forwarded RDP negotiation and independently blocked direct RDP.
 
@@ -213,15 +210,13 @@ Prove the test user is not an Administrator and cannot modify the fixed
 administrator task or its program. Select **Windows Console Host** as the
 default terminal for this dedicated account; the terminal bridge reads its
 real console screen, rather than a transcript substituted for the desktop.
-Install Python 3, Git, Node.js/npm and the project's baseline tools natively.
-Do not install WSL, VirtualMachinePlatform or a Linux distro.
+Install Python 3, Git, Node.js/npm and baseline tools natively; no WSL,
+VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-Enable the standard user for Remote Desktop. Configure automatic logon for
-this dedicated disposable lab account using an LSA-protected password (for
-example Microsoft's Sysinternals Autologon), never a plaintext Winlogon
-`DefaultPassword`. Disable locking only for this dedicated test desktop under
+Configure automatic logon using an LSA-protected password (such as Microsoft's
+Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
 the project's lab policy. Reboot and prove a scheduled task with
 `LogonType=Interactive` runs as the standard user without an RDP client open.
 
