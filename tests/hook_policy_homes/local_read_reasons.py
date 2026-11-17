@@ -18,6 +18,8 @@ AUTHORITY_DATABASE = (
     "secret, cloud authority, connected-environment binding and tunnel, and "
     "the retired YOKE_DB token the DB-command guards pass along. The "
     "authority connects to its own database; no client state is involved. "
+    "Connection selection reads the evaluating process's own working directory "
+    "through current_directory, not the requesting client's folder. "
     "Its portable tunnel helpers validate that authority's private SSH key "
     "and launch the forward on that authority's OS, including Windows.",
     (
@@ -28,6 +30,7 @@ AUTHORITY_DATABASE = (
         _C + "ssh_identity:validate_identity",
         "yoke_contracts.machine_config.selection:connection_selection",
         "yoke_contracts.machine_config.selection:checkout_connection",
+        "yoke_contracts.working_directory:current_directory",
         _C + "cloud_db_secret_dsn:env_binding_selected",
         _C + "cloud_db_secret_dsn:resolve_dsn_from_env",
         _C + "cloud_db_secret_dsn:resolve_previous_dsn_from_env",
