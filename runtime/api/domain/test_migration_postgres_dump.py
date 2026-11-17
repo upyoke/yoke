@@ -72,6 +72,7 @@ def test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv(
 
     real_replace = postgres_dump_restore_point.os.replace
     real_fsync = postgres_dump_restore_point.os.fsync
+    real_sync = postgres_dump_restore_point.platform_file_sync.sync_directory
 
     def replace(source, destination):
         seen.update(
@@ -80,6 +81,10 @@ def test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv(
         )
         real_replace(source, destination)
 
+    def sync_directory(path):
+        seen["synced_directory"] = path
+        real_sync(path)
+
     def fsync(descriptor):
         seen.setdefault("fsync_modes", []).append(os.fstat(descriptor).st_mode)
         real_fsync(descriptor)
@@ -87,6 +92,9 @@ def test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv(
     monkeypatch.setattr(postgres_dump_restore_point.subprocess, "run", run)
     monkeypatch.setattr(postgres_dump_restore_point.os, "replace", replace)
     monkeypatch.setattr(postgres_dump_restore_point.os, "fsync", fsync)
+    monkeypatch.setattr(
+        postgres_dump_restore_point.platform_file_sync, "sync_directory", sync_directory
+    )
 
     backup = migration_apply_targets.dump_postgres_to_directory(
         dsn,
@@ -111,7 +119,9 @@ def test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv(
     assert stat.S_IMODE(backup_path.stat().st_mode) == 0o600
     assert stat.S_IMODE(backup_dir.stat().st_mode) == 0o700
     assert any(stat.S_ISREG(mode) for mode in seen["fsync_modes"])
-    assert any(stat.S_ISDIR(mode) for mode in seen["fsync_modes"])
+    assert seen["synced_directory"] == backup_dir
+    if os.name != "nt":
+        assert any(stat.S_ISDIR(mode) for mode in seen["fsync_modes"])
 
 
 def test_version_mismatch_is_actionable_and_redacts_connection_secrets(

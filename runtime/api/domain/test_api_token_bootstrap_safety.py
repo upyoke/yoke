@@ -118,14 +118,13 @@ def test_post_replace_directory_sync_failure_keeps_stored_token_active(
     monkeypatch,
 ):
     token_file = tmp_path / "platform-infrastructure-ci.token"
-    real_fsync = api_tokens_cli.os.fsync
+    def fail_directory_sync(path):
+        assert path == token_file.parent
+        raise OSError("simulated directory fsync failure")
 
-    def fail_directory_sync(descriptor):
-        if stat.S_ISDIR(api_tokens_cli.os.fstat(descriptor).st_mode):
-            raise OSError("simulated directory fsync failure")
-        return real_fsync(descriptor)
-
-    monkeypatch.setattr(api_tokens_cli.os, "fsync", fail_directory_sync)
+    monkeypatch.setattr(
+        api_tokens_cli.platform_file_sync, "sync_directory", fail_directory_sync
+    )
 
     assert api_tokens_cli.main(_service_args(raw_token_file=token_file)) == 1
     captured = capsys.readouterr()
