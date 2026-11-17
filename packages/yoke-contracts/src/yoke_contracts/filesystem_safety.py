@@ -6,6 +6,37 @@ import os
 from pathlib import Path
 import stat
 import tempfile
+import time
+from typing import Callable, TypeVar
+
+# Windows refuses to open, replace or delete a file while another handle holds
+# it without delete sharing, or while a replaced file is still delete-pending,
+# and reports that transient state as PermissionError. Elsewhere a
+# PermissionError is a real permission failure and is never retried.
+_RETRY_SHARING_VIOLATIONS = os.name == "nt"
+SHARING_RETRY_SECONDS = 2.0
+_Result = TypeVar("_Result")
+
+
+def retry_sharing_violations(operation: Callable[[], _Result]) -> _Result:
+    """Run a file operation, retrying Windows sharing violations briefly.
+
+    Another process reading the file (an editor, Codex itself, an antivirus
+    scan) holds it only for moments, so the operation is retried with backoff
+    for SHARING_RETRY_SECONDS before the last PermissionError is raised.
+    """
+    if not _RETRY_SHARING_VIOLATIONS:
+        return operation()
+    deadline = time.monotonic() + SHARING_RETRY_SECONDS
+    delay = 0.005
+    while True:
+        try:
+            return operation()
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.1)
 
 
 def first_symlink_component(
@@ -69,7 +100,7 @@ def atomic_replace_bytes(
         os.fsync(descriptor)
         os.close(descriptor)
         descriptor = -1
-        os.replace(temporary, target)
+        retry_sharing_violations(lambda: os.replace(temporary, target))
     finally:
         if descriptor >= 0:
             os.close(descriptor)
@@ -80,4 +111,9 @@ def atomic_replace_bytes(
                 pass
 
 
-__all__ = ["atomic_replace_bytes", "first_symlink_component"]
+__all__ = [
+    "SHARING_RETRY_SECONDS",
+    "atomic_replace_bytes",
+    "first_symlink_component",
+    "retry_sharing_violations",
+]

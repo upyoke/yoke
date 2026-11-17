@@ -1,9 +1,4 @@
 {
- "runtime/api/test_codex_config_transactions.py::test_public_writers_serialize_complete_updates": {
-  "reason": "a different case fails each run: concurrent replace hits PermissionError or a writer exits 1",
-  "feedback": 96596,
-  "fix_item": "YOK-5311"
- },
  "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_hosting.py::test_skip_reaches_review_and_plans_the_skip": {
   "reason": "sometimes raises MachineConfigContractError checkout_identity_unavailable",
   "feedback": 96599,

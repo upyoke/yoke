@@ -12,6 +12,7 @@ from typing import Any, Callable, Optional, TypeVar
 
 from filelock import FileLock, Timeout
 
+from yoke_contracts.filesystem_safety import retry_sharing_violations
 from yoke_contracts.refusal_recovery import compose_refusal
 
 TRUSTED_HASH_KEY = "trusted_hash"
@@ -26,7 +27,7 @@ class CodexHookTrustStoreError(RuntimeError):
 
 def read_config(path: Path) -> tuple[str, dict[str, Any]]:
     try:
-        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        text = _read_text(path) if path.is_file() else ""
         document = tomllib.loads(text) if text.strip() else {}
     except OSError as exc:
         raise CodexHookTrustStoreError(
@@ -185,7 +186,10 @@ def mutate(
         raise CodexHookTrustStoreError(
             compose_refusal(
                 f"could not update {target}: {exc}.",
-                recovery="check the directory permissions and available space, then retry.",
+                recovery=(
+                    "check the directory permissions and available space, close "
+                    "any program holding the file open, then retry."
+                ),
             )
         ) from exc
 
@@ -226,14 +230,14 @@ def _mutate_locked(
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary, mode)
-        if target.exists() and target.read_text(encoding="utf-8") != text:
+        if target.exists() and _read_text(target) != text:
             raise CodexHookTrustStoreError(
                 compose_refusal(
                     f"codex_config_changed: {target} changed during the update.",
                     recovery="retry after Codex finishes writing its configuration.",
                 )
             )
-        os.replace(temporary, target)
+        retry_sharing_violations(lambda: os.replace(temporary, target))
     except BaseException:
         try:
             os.unlink(temporary)
@@ -241,6 +245,10 @@ def _mutate_locked(
             pass
         raise
     return result
+
+
+def _read_text(path: Path) -> str:
+    return retry_sharing_violations(lambda: path.read_text(encoding="utf-8"))
 
 
 def _toml_string(value: str) -> str:
