@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from unittest import mock
-import os
+import shlex
+import sys
 import time
 
-import pytest
+from yoke_contracts.platform_process import pid_alive
 
 from yoke_core.domain import qa_case_execution
 
@@ -32,11 +33,16 @@ def test_command_case_timeout_reaps_the_whole_process_tree(
     """
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     pid_file = tmp_path / "grandchild.pid"
+    program = (
+        "import pathlib,subprocess,sys,time; "
+        "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(300)']); "
+        f"pathlib.Path({str(pid_file)!r}).write_text(str(child.pid)); time.sleep(300)"
+    )
     case = _case(
         "command",
         "worktree_run",
         {
-            "command": f"sleep 300 & echo $! > {pid_file}; sleep 300",
+            "command": shlex.join([Path(sys.executable).as_posix(), "-c", program]),
             "timeout_seconds": 1,
         },
     )
@@ -65,10 +71,7 @@ def test_command_case_timeout_reaps_the_whole_process_tree(
     grandchild_pid = int(pid_file.read_text().strip())
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
-        try:
-            os.kill(grandchild_pid, 0)
-        except ProcessLookupError:
+        if not pid_alive(grandchild_pid):
             break
         time.sleep(0.05)
-    with pytest.raises(ProcessLookupError):
-        os.kill(grandchild_pid, 0)
+    assert not pid_alive(grandchild_pid)
