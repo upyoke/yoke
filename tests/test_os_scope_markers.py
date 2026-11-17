@@ -74,6 +74,7 @@ def test_function_declarations_refuse(tmp_path, decorators, error):
 @pytest.mark.parametrize("source", [
     '@pytest.mark.skipif(os.name == "nt", reason="x")\ndef test_x(): pass',
     '@pytest.mark.xfail(sys.platform != "darwin", reason="x")\ndef test_x(): pass',
+    '@pytest.mark.skipif("sys.platform == \'win32\'", reason="x")\ndef test_x(): pass',
     'if platform.system() == "Windows":\n pytest.skip("x")',
     '@pytest.mark.skipif(condition=sys.platform == "win32", reason="x")\ndef test_x(): pass',
     'if runtime.WINDOWS:\n pytest.xfail("x")',
@@ -107,3 +108,17 @@ def test_baseline_scope_reads_module_function_and_alias(tmp_path, declaration):
     path.write_text('import pytest\n' + declaration + 'def test_x(): pass\n')
     assert scopes.scoped_off(path, "test_x", "windows")
     assert not scopes.scoped_off(path, "test_x", "linux")
+
+
+def test_scanner_checks_only_tracked_runtime_and_test_python(tmp_path):
+    for directory in ("runtime", "tests/nested", "other"):
+        (tmp_path / directory).mkdir(parents=True)
+        (tmp_path / directory / "test_native.py").write_text(
+            'import pytest, sys\n@pytest.mark.skipif(sys.platform == "win32", reason="native")\ndef test_x(): pass\n'
+        )
+    (tmp_path / "tests/untracked.py").write_text('if WINDOWS: pytest.skip("native")\n')
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "add", "runtime", "tests/nested", "other"], cwd=tmp_path, check=True)
+    assert scopes.scan_tracked(tmp_path) == [
+        "runtime/test_native.py:2", "tests/nested/test_native.py:2",
+    ]

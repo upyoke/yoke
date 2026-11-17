@@ -138,6 +138,11 @@ def scoped_off(path: Path, test: str, os_name: str) -> bool:
 
 
 def _os_condition(node, aliases):
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        try:
+            return _os_condition(ast.parse(node.value, mode="eval"), aliases)
+        except SyntaxError:
+            return False
     for child in ast.walk(node):
         if isinstance(child, ast.Name) and (child.id in aliases or
                 re.search(r"(?:^|_)(WINDOWS|POSIX|DARWIN|LINUX)(?:_|$)", child.id, re.I)):
