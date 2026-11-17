@@ -181,3 +181,12 @@ def test_windows_home_facts_validate_on_a_posix_authority():
         assert client_machine_home_fact("C:/") == {}
 
     validate(payload)
+
+
+def test_temp_filter_normalizes_parent_hops_and_client_aliases():
+    from yoke_core.domain.path_claim_bash_parser import _is_tmp_path
+
+    with paths.client_path_scope({"windows": False, "canonical": {"/tmp/link": "/repo"}}):
+        assert _is_tmp_path("/tmp/scratch.txt")
+        assert not _is_tmp_path("/tmp/../repo/source.py")
+        assert not _is_tmp_path("/tmp/link/source.py")

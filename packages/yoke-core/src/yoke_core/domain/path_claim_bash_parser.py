@@ -14,7 +14,7 @@ from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc as _has_unquoted_heredoc,
 )
 
-from yoke_contracts.hook_runner.bash_paths import join_path
+from yoke_contracts.hook_runner.bash_paths import join_path, is_under, resolve_bash_path
 import shlex
 from dataclasses import dataclass
 from typing import List
@@ -67,7 +67,7 @@ def _is_flag(token: str) -> bool:
 
 
 def _is_tmp_path(path: str) -> bool:
-    return path.startswith(POSIX_TMP + "/") or path == POSIX_TMP
+    return (path.startswith(POSIX_TMP + "/") or path == POSIX_TMP) and is_under(resolve_bash_path(path), resolve_bash_path(POSIX_TMP))
 
 
 def _strip_redirect_targets(tokens: List[str]) -> List[str]:
