@@ -7,7 +7,6 @@ import pytest
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.runtime_ports import structured_dispatch
-from yoke_core.domain import lint_main_commit
 from yoke_core.domain.lint_session_cwd_path_authority import (
     repo_root_from_worktree_path,
 )
