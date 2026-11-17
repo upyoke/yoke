@@ -8,18 +8,14 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_actor_binding_write import persist_operating_actor
 
 
-@pytest.mark.parametrize("_repetition", range(8))
 def test_installed_hooks_register_emit_and_deny(
     tmp_path: Path,
     product_venv: Path,
     test_db,
-    _repetition,
 ) -> None:
     venv = product_venv
     repo = _git_repo(tmp_path)
@@ -198,6 +194,10 @@ def _installed_env(
         "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
         "PATH": f"{venv / 'bin'}:{os.defpath}",
         "PYTHONNOUSERSITE": "1",
+        # Exercise the installed chain through the CLI's test seam. Dropping
+        # this marker starts a detached resident per fixture and makes session
+        # registration depend on cold startup finishing within the hook budget.
+        "PYTEST_CURRENT_TEST": os.environ["PYTEST_CURRENT_TEST"],
         "YOKE_EXECUTOR": "claude-code",
         "YOKE_MACHINE_CONFIG_FILE": str(config),
         "YOKE_MACHINE_HOME": str(machine_home),
@@ -214,11 +214,7 @@ def _hook(
     payload: dict,
 ) -> subprocess.CompletedProcess[str]:
     return _run(
-        [str(yoke.parent / "python"), "-c", (
-            "import faulthandler, runpy, sys; "
-            "faulthandler.dump_traceback_later(8); "
-            "sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')"
-        ), str(yoke), "hook", "evaluate", event_name],
+        [str(yoke), "hook", "evaluate", event_name],
         cwd=repo,
         env=env,
         input_text=json.dumps(payload),

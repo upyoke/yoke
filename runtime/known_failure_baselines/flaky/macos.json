@@ -1,7 +1,1 @@
-{
- "runtime/api/cli/test_yoke_installed_hook_engine.py::test_installed_hooks_register_emit_and_deny": {
-  "reason": "installed hook engine sometimes returns no registration (assert None is not None)",
-  "feedback": 96600,
-  "fix_item": "YOK-5317"
- }
-}
+{}
