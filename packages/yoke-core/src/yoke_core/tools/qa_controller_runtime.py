@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+import sysconfig
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from pathlib import Path
 
 from yoke_contracts.machine_config.paths import yoke_home
 from yoke_contracts.platform_fs import remove_tree
+from yoke_core.domain.relay_release_path import relay_venv_executable, relay_venv_python
 from yoke_core.tools.distribution_channel import join_public_url
 
 RUNTIMES_DIR_NAME = "qa-controller-runtimes"
@@ -53,15 +55,9 @@ def runtimes_root() -> Path:
     return yoke_home() / RUNTIMES_DIR_NAME
 
 
-def _bin(root: Path, name: str) -> Path:
-    if sys.platform == "win32":
-        return root / "Scripts" / f"{name}.exe"
-    return root / "bin" / name
-
-
 def _runtime(root: Path, version: str, commit: str) -> ControllerRuntime:
     return ControllerRuntime(
-        root, _bin(root, "python"), _bin(root, "yoke"), version, commit
+        root, relay_venv_python(root), relay_venv_executable(root), version, commit
     )
 
 
@@ -71,14 +67,13 @@ def _detail(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def _site_packages(root: Path) -> list[Path]:
-    if sys.platform == "win32":
-        return [root / "Lib" / "site-packages"]
-    return sorted((root / "lib").glob("python*/site-packages"))
+    # The venv is built by this interpreter, so its scheme names the layout.
+    return [Path(sysconfig.get_path("purelib", vars={"base": str(root), "platbase": str(root)}))]
 
 
 def verify_runtime(root: Path, version: str, commit: str) -> str:
     """Why *root* is not the candidate runtime, or ``""`` when it is."""
-    if not _bin(root, "python").is_file() or not _bin(root, "yoke").is_file():
+    if not relay_venv_python(root).is_file() or not relay_venv_executable(root).is_file():
         return f"{root} has no python and yoke executables"
     found = list(
         importlib.metadata.distributions(
@@ -90,9 +85,10 @@ def verify_runtime(root: Path, version: str, commit: str) -> str:
     dist = found[0]
     if dist.version != version:
         return f"{root} holds yoke-core {dist.version}, not {version}"
+    record = Path(str(dist.locate_file(f"yoke_core-{version}.dist-info/scm_version.json")))
     try:
-        node = str(json.loads(dist.read_text("scm_version.json") or "{}").get("node"))
-    except ValueError:
+        node = str(json.loads(record.read_text(encoding="utf-8")).get("node"))
+    except (OSError, ValueError, AttributeError):
         node = ""
     built = node[1:] if node.startswith("g") else node
     if built != commit:
@@ -122,7 +118,7 @@ def _install(tmp: Path, *, base_url: str, version: str, runner: Runner) -> None:
     ]
     installed = runner(
         [
-            str(_bin(tmp, "python")), "-I", "-m", "pip", "--isolated", "install",
+            str(relay_venv_python(tmp)), "-I", "-m", "pip", "--isolated", "install",
             "--disable-pip-version-check", "--no-input", "--only-binary", ":all:",
             *wheels,
         ],
@@ -155,7 +151,8 @@ def ensure_controller_runtime(
             json.dumps(
                 {"version": version, "source_commit": source_commit, "base_url": base_url},
                 sort_keys=True,
-            )
+            ),
+            encoding="utf-8",
         )
         if root.exists():
             remove_tree(root)

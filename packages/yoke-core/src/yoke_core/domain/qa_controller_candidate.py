@@ -20,6 +20,7 @@ refused as ``qa_controller_not_candidate`` before any host lease is taken.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from collections.abc import Mapping
@@ -69,9 +70,7 @@ def controller_runtime_identity() -> dict[str, Any]:
     if not commit:
         root = source_checkout_root(Path(yoke_core.__file__))
         if root is not None:
-            from yoke_cli.transport.source_build_skew import head_commit
-
-            commit = head_commit(str(root)) or ""
+            commit = _checkout_head(root)
             kind = "source_checkout"
     runtime_root = os.environ.get(CONTROLLER_RUNTIME_ENV, "").strip()
     return {
@@ -80,6 +79,34 @@ def controller_runtime_identity() -> dict[str, Any]:
         "kind": "candidate_runtime" if runtime_root else kind,
         **({"runtime_root": runtime_root} if runtime_root else {}),
     }
+
+
+def _checkout_head(root: Path) -> str:
+    import subprocess
+
+    from yoke_contracts.terminal_detached_process import run
+
+    try:
+        completed = run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    head = str(completed.stdout or "").strip()
+    return head if completed.returncode == 0 and _FULL_COMMIT.fullmatch(head) else ""
+
+
+def _fetch_json(url: str, base_url: str) -> dict[str, Any]:
+    from yoke_contracts.resilient_fetch import FetchError, fetch_bytes
+
+    try:
+        value = json.loads(fetch_bytes(url).body.decode("utf-8"))
+    except (FetchError, UnicodeDecodeError, ValueError) as exc:
+        raise _resolution_refusal(base_url, f"could not read {url}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise _resolution_refusal(base_url, f"{url} is not a JSON object")
+    return value
 
 
 def stamp_controller_runtime(evidence: Any) -> Any:
@@ -97,15 +124,10 @@ def stamp_submission(payload: Mapping[str, Any]) -> None:
 
 
 def _published_source_commit(base_url: str, version: str) -> str:
-    from yoke_cli.self_host.release_target import ReleaseTargetError, fetch_json
-
     url = (
         f"{base_url}/dist/releases/{quote(version, safe='')}/migration-history.json"
     )
-    try:
-        artifact = fetch_json(url, f"Yoke {version} release manifest").get("artifact")
-    except ReleaseTargetError as exc:
-        raise _resolution_refusal(base_url, f"{exc}") from exc
+    artifact = _fetch_json(url, base_url).get("artifact")
     commit = str((artifact or {}).get("source_commit") or "").strip()
     if not _FULL_COMMIT.fullmatch(commit):
         raise _resolution_refusal(
@@ -115,13 +137,8 @@ def _published_source_commit(base_url: str, version: str) -> str:
 
 
 def _channel_release(base_url: str, channel: str) -> tuple[str, str]:
-    from yoke_cli.self_host.release_target import ReleaseTargetError, fetch_json
-
     url = f"{base_url}/dist/channels/{quote(channel, safe='')}.json"
-    try:
-        pointer = fetch_json(url, f"{channel} release channel")
-    except ReleaseTargetError as exc:
-        raise _resolution_refusal(base_url, f"{exc}") from exc
+    pointer = _fetch_json(url, base_url)
     version = str(pointer.get("version") or "").strip()
     commit = str((pointer.get("migration_history") or {}).get("source_commit") or "")
     if not version or not _FULL_COMMIT.fullmatch(commit):

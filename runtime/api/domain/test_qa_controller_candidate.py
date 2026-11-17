@@ -59,14 +59,14 @@ def served(monkeypatch):
             "artifact": {"source_commit": "2" * 40}
         },
     }
-    from yoke_cli.self_host import release_target
+    from yoke_contracts import resilient_fetch
 
-    def fetch(url):
+    def fetch(url, **_):
         if url not in documents:
-            raise release_target.ReleaseTargetError(f"could not fetch {url}: 404")
-        return json.dumps(documents[url]).encode()
+            raise resilient_fetch.FetchError(f"HTTP 404 for {url}", url=url, attempts=1, retryable=False, status=404)
+        return SimpleNamespace(body=json.dumps(documents[url]).encode())
 
-    monkeypatch.setattr(release_target, "_FETCH_BYTES", fetch)
+    monkeypatch.setattr(resilient_fetch, "fetch_bytes", fetch)
     return documents
 
 

@@ -82,7 +82,8 @@ def hand_off(
                     "session_id": session_id,
                 },
                 default=str,
-            )
+            ),
+            encoding="utf-8",
         )
         completed = runner(
             [str(runtime.python), "-I", "-m", HANDOFF_MODULE, str(request), str(response)],
@@ -92,7 +93,7 @@ def hand_off(
             stdout=sys.stderr,
         )
         try:
-            payload = json.loads(response.read_text())
+            payload = json.loads(response.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             payload = None
     if not isinstance(payload, dict) or not (
@@ -122,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"usage: python -m {HANDOFF_MODULE} REQUEST RESPONSE", file=sys.stderr)
         return 2
     request, response = Path(args[0]), Path(args[1])
-    data = json.loads(request.read_text())
+    data = json.loads(request.read_text(encoding="utf-8"))
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
     from yoke_core.domain.qa_plan_execution import execute_plan
 
@@ -133,10 +134,12 @@ def main(argv: list[str] | None = None) -> int:
             **data["plan_kwargs"], adopted_execution=data["execution"], actor=actor
         )
     except QaPlanExecutionError as exc:
-        response.write_text(json.dumps({"error": str(exc)}))
+        response.write_text(json.dumps({"error": str(exc)}), encoding="utf-8")
         return 2
     result = {**result, CONTROLLER_RUNTIME_KEY: controller_runtime_identity()}
-    response.write_text(json.dumps({"result": result}, default=str))
+    response.write_text(
+        json.dumps({"result": result}, default=str), encoding="utf-8"
+    )
     return 0
 
 
