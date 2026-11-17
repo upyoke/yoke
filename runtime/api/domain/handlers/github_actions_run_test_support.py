@@ -60,3 +60,9 @@ def _make_request(
         target=TargetRef(kind=target_kind),
         payload=payload,
     )
+
+
+def _patch_rest(monkeypatch, fake) -> None:
+    """Serve both GitHub GET helpers from one fake keyed by path."""
+    for name in ("rest_get", "rest_get_found"):
+        monkeypatch.setattr(f"yoke_core.domain.github_actions_rest.{name}", fake)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from runtime.api.domain.handlers.github_actions_run_test_support import (
     _RESOLVED as _RESOLVED,
     _make_request as _make_request,
+    _patch_rest as _patch_rest,
 )
 
 
@@ -149,10 +150,7 @@ class TestHandleRunGet:
                 "html_url": "https://github.com/upyoke/yoke/actions/runs/123",
             }
 
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get",
-            fake_rest_get,
-        )
+        _patch_rest(monkeypatch, fake_rest_get)
         outcome = handle_run_get(
             _make_request(
                 {
@@ -195,10 +193,7 @@ class TestHandleRunGet:
                 "updated_at": "2999-01-01T00:00:00Z",
             }
 
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get",
-            fake_rest_get,
-        )
+        _patch_rest(monkeypatch, fake_rest_get)
         outcome = handle_run_get(_make_request())
 
         assert outcome.primary_success is True
@@ -238,10 +233,7 @@ class TestHandleRunGet:
                 "updated_at": "2000-01-01T00:00:00Z",
             }
 
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get",
-            fake_rest_get,
-        )
+        _patch_rest(monkeypatch, fake_rest_get)
         result = handle_run_get(_make_request()).result_payload
         assert result["status"] == status
         if not configured:
@@ -270,10 +262,7 @@ class TestHandleRunGet:
                 "updated_at": "2000-01-01T00:00:00Z",
             }
 
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get",
-            fake_rest_get,
-        )
+        _patch_rest(monkeypatch, fake_rest_get)
         outcome = handle_run_get(_make_request())
 
         assert outcome.primary_success is False
@@ -288,10 +277,7 @@ class TestHandleRunGet:
         def fake_rest_get(path, *, token):
             raise RestServerError("HTTP 503: brief outage", status=503)
 
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get",
-            fake_rest_get,
-        )
+        _patch_rest(monkeypatch, fake_rest_get)
         outcome = handle_run_get(_make_request())
         assert outcome.primary_success is False
         assert outcome.error.code == "rest_transport_error"
