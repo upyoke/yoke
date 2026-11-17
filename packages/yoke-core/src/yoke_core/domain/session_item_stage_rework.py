@@ -63,4 +63,9 @@ def items_returned_after_landing(
     return returned
 
 
-__all__ = ["items_returned_after_landing"]
+def owes_relanding(at_release: bool, returned_after_landing: bool) -> bool:
+    """Rework sent the landed item back before release; it must land again."""
+    return returned_after_landing and not at_release
+
+
+__all__ = ["items_returned_after_landing", "owes_relanding"]

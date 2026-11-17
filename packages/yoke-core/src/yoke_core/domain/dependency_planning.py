@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import db_backend
 from .dependencies import GatePoint
+from .dependency_merge_fact import read_returned_after_landing
 from .dependency_planning_results import (
     BlockerDetail,
     CandidateItem,
@@ -36,6 +37,7 @@ from .dependency_satisfaction import (
     evaluate_satisfaction,
     read_deployed_environment_fact,
 )
+from .dependency_types import Satisfaction
 from .dependency_workflow_context import workflow_from_joined_values
 from .frontier_workflow_versions import (
     FrontierWorkflowVersions,
@@ -212,6 +214,9 @@ def evaluate_batch_gates(
     deployed: Dict[Tuple[int, str], Optional[DeployedEnvironmentFact]] = {}
     all_rows = cursor.fetchall()
     total_rows = len(all_rows)
+    returned = read_returned_after_landing(
+        conn, {row[1] for row in all_rows if row[3] == Satisfaction.FACT_MERGED.value}
+    )
     for row in all_rows:
         (
             dep_item,
@@ -246,6 +251,7 @@ def evaluate_batch_gates(
             ),
             blocking_merged_at=blk_merged_at,
             dependency_created_at=dependency_created_at,
+            blocking_returned_after_landing=blk_item in returned,
         )
 
         if not result.satisfied:

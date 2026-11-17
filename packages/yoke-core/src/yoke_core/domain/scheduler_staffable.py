@@ -26,7 +26,7 @@ from .scheduler_types import (
     ScheduledStep,
     is_assignable_claim_state,
 )
-from .session_item_stage_rework import items_returned_after_landing
+from .session_item_stage_rework import items_returned_after_landing, owes_relanding
 from .workflow_item_binding_validation import read_pinned_items
 
 
@@ -40,11 +40,6 @@ class StaffingFacts:
     owed: frozenset[int] = frozenset()
     #: Epics a live session of another worker is working a task of.
     task_held: frozenset[int] = frozenset()
-
-
-def owes_relanding(at_release: bool, returned_after_landing: bool) -> bool:
-    """Rework sent the landed item back before release; it must land again."""
-    return returned_after_landing and not at_release
 
 
 def is_staffable(
@@ -176,7 +171,6 @@ def _live_run_owed(conn: Any, project_scope: Sequence[int]) -> set[int]:
 __all__ = [
     "StaffingFacts",
     "is_staffable",
-    "owes_relanding",
     "read_staffing_facts",
     "staffable_steps",
 ]

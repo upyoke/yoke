@@ -48,8 +48,10 @@ from yoke_core.domain.deployment_run_other_target_members import (
 )
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.runs import RunStatus
-from yoke_core.domain.scheduler_staffable import owes_relanding
-from yoke_core.domain.session_item_stage_rework import items_returned_after_landing
+from yoke_core.domain.session_item_stage_rework import (
+    items_returned_after_landing,
+    owes_relanding,
+)
 from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
