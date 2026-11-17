@@ -50,7 +50,7 @@ def test_mount_conversion_uses_the_selected_git_installation(monkeypatch):
     paths._mount_path.cache_clear()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="real Git for Windows mount table")
+@pytest.mark.windows_only(reason="real Git for Windows mount table")
 @pytest.mark.parametrize(
     "spelling", ["drive", "git-drive", "home", "relative", "tmp", "dev", "usr"]
 )
@@ -77,7 +77,7 @@ def test_windows_git_bash_spellings(tmp_path, spelling):
     )
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows short-name filesystem aliases")
+@pytest.mark.windows_only(reason="Windows short-name filesystem aliases")
 def test_windows_short_names_canonicalize_on_both_sides(tmp_path):
     import ctypes
 
