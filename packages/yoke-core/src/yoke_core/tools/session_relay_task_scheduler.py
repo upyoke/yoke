@@ -154,8 +154,22 @@ def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
+#: Task Scheduler schema defaults. An export omits an element holding its
+#: default, so an absent element matches a declared default.
+_SCHEMA_DEFAULTS = {
+    "Enabled": "true",
+    "AllowHardTerminate": "true",
+    "MultipleInstancesPolicy": "IgnoreNew",
+    "RunLevel": "LeastPrivilege",
+    "StartWhenAvailable": "false",
+    "DisallowStartIfOnBatteries": "true",
+    "StopIfGoingOnBatteries": "true",
+    "ExecutionTimeLimit": "PT72H",
+}
+
+
 def _difference(observed: str, expected: str) -> str:
-    """The first desired task setting the registered task lacks; empty when current.
+    """Every declared task setting the registered task lacks; empty when current.
 
     Task Scheduler may add elements to a registered task, so only the settings
     Yoke declares are compared.
@@ -168,22 +182,23 @@ def _difference(observed: str, expected: str) -> str:
     def local(tag: str) -> str:
         return tag.rsplit("}", 1)[-1]
 
-    def compare(want, have, path: str) -> str:
+    def compare(want, have, path: str) -> list[str]:
+        text = (want.text or "").strip()
         if have is None:
-            return f"{path} is missing"
-        for key, value in want.attrib.items():
-            if have.attrib.get(key) != value:
-                return f"{path}@{key} is {have.attrib.get(key)!r}, expected {value!r}"
-        if (want.text or "").strip() != (have.text or "").strip():
-            return f"{path} is {(have.text or '').strip()!r}, expected {(want.text or '').strip()!r}"
+            return [] if _SCHEMA_DEFAULTS.get(local(want.tag)) == text else [f"{path} is missing"]
+        found = [
+            f"{path}@{key} is {have.attrib.get(key)!r}, expected {value!r}"
+            for key, value in want.attrib.items()
+            if have.attrib.get(key) != value
+        ]
+        if text != (have.text or "").strip():
+            found.append(f"{path} is {(have.text or '').strip()!r}, expected {text!r}")
         for child in want:
-            found = compare(child, have.find(child.tag), f"{path}/{local(child.tag)}")
-            if found:
-                return found
-        return ""
+            found += compare(child, have.find(child.tag), f"{path}/{local(child.tag)}")
+        return found
 
     desired = ET.fromstring(expected)
-    return compare(desired, actual, local(desired.tag))
+    return "; ".join(compare(desired, actual, local(desired.tag)))
 
 
 def relay_task_status(*, instance=None, home=None, environ=None, runner= subprocess.run) -> RelayTaskStatus:

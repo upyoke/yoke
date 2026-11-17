@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import stat
 import sys
 import tempfile
 
@@ -127,8 +128,13 @@ def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
 
 def remove_scratch(scratch: Path, report: dict, *, primary_failure: bool) -> None:
     """Delete the scratch folder; a leftover process never hides the primary failure."""
+    def writable(function, path, _error):
+        os.chmod(path, stat.S_IWRITE)  # Windows refuses to delete Git's read-only objects.
+        function(path)
+
+    handler = {"onexc" if sys.version_info >= (3, 12) else "onerror": writable}
     try:
-        shutil.rmtree(scratch)
+        shutil.rmtree(scratch, **handler)
     except OSError as exc:
         detail = (
             f"scratch_cleanup_failed: {exc}; a process the smoke started still holds "

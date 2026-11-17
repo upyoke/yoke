@@ -209,3 +209,20 @@ def test_task_runner_containment_runs_on_windows():
     probe = f"exec({tasks._CONTAIN_RUNNER!r}, {{'__name__': '__main__'}}); print('contained')"
     result = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True, timeout=60)
     assert (result.returncode, result.stdout.strip()) == (0, "contained"), result.stderr
+
+
+def test_scheduler_export_omitting_defaults_is_current_and_every_change_is_named(tmp_path):
+    expected = tasks.relay_task_document(relay_instance(tmp_path), user_sid=SID)
+    exported = ET.fromstring(expected)
+    trigger = exported.find("t:Triggers/t:LogonTrigger", NS)
+    trigger.remove(trigger.find("t:Enabled", NS))
+    settings = exported.find("t:Settings", NS)
+    for name in ("Enabled", "AllowHardTerminate", "MultipleInstancesPolicy"):
+        settings.remove(settings.find(f"t:{name}", NS))
+    assert tasks._difference(ET.tostring(exported, encoding="unicode"), expected) == ""
+    settings.remove(settings.find("t:ExecutionTimeLimit", NS))
+    settings.find("t:StartWhenAvailable", NS).text = "false"
+    assert tasks._difference(ET.tostring(exported, encoding="unicode"), expected) == (
+        "Task/Settings/StartWhenAvailable is 'false', expected 'true'; "
+        "Task/Settings/ExecutionTimeLimit is missing"
+    )

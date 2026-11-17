@@ -161,7 +161,7 @@ def test_held_scratch_folder_never_hides_the_primary_failure(tmp_path, monkeypat
     def held(path):
         raise PermissionError(32, "The process cannot access the file", str(path))
 
-    monkeypatch.setattr(smoke.shutil, "rmtree", held)
+    monkeypatch.setattr(smoke.shutil, "rmtree", lambda path, **handler: held(path))
     report = {}
     if primary_failure:
         smoke.remove_scratch(tmp_path, report, primary_failure=True)
@@ -169,3 +169,13 @@ def test_held_scratch_folder_never_hides_the_primary_failure(tmp_path, monkeypat
     else:
         with pytest.raises(SmokeFailure, match="scratch_cleanup_failed"):
             smoke.remove_scratch(tmp_path, report, primary_failure=False)
+
+
+def test_scratch_removal_deletes_read_only_files(tmp_path):
+    scratch = tmp_path / "scratch"
+    (scratch / ".git" / "objects").mkdir(parents=True)
+    obj = scratch / ".git" / "objects" / "0a"
+    obj.write_text("object", encoding="utf-8")
+    obj.chmod(0o444)  # Git's object files are read-only; Windows refuses to delete them
+    smoke.remove_scratch(scratch, {}, primary_failure=False)
+    assert not scratch.exists()
