@@ -118,4 +118,141 @@ class SshTestMachineTransport:
         path_env = {"HOME": self.home, "SHELL": self.shell}
         if self.xdg_bin_home:
             path_env["XDG_BIN_HOME"] = self.xdg_bin_home
-        self.path_state: PathStateContract = resolve_path_state_contract(target="windows" if self.os == "windows" else "posix", env=path_env)
+        self.path_state: PathStateContract = resolve_path_state_contract(target="posix", env=path_env)
+
+    def _ssh_argv(self, command: str) -> list[str]:
+        # Windows OpenSSH has no multiplexing/control sockets.
+        options = SSH_OPTIONS if self._control_path is not None else tuple(
+            option for option in SSH_OPTIONS if not option.startswith(('ControlMaster=', 'ControlPersist='))
+        )
+        return [
+            "ssh",
+            "-i",
+            str(self._key_path),
+            *[part for option in options for part in ("-o", option)],
+            *getattr(self, "_host_key_options", []),
+            *(['-o', f'ControlPath={self._control_path}'] if self._control_path is not None else []),
+            f"{self._user}@{self._host}",
+            command,
+        ]
+
+    def _run(
+        self,
+        command: str,
+        *,
+        input_text: str | None = None,
+        timeout: int = 60,
+        debug_log: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        argv = self._ssh_argv(command)
+        if debug_log is not None:
+            argv[1:1] = ["-vvv", "-E", str(debug_log)]
+        started = time.monotonic()
+        try:
+            control_path = getattr(self, "_control_path", None)
+            warned = False
+            if control_path is not None and control_path.exists():
+                # A control request never executes a remote command. It also
+                # exposes ECONNREFUSED, which auto mode logs only at DEBUG.
+                try:
+                    probe = subprocess.run(
+                        argv[:1] + ["-O", "check"] + argv[1:-1],
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="backslashreplace",
+                        timeout=min(5, timeout / 2),
+                        check=False,
+                    )
+                    warned = probe.returncode != 0
+                except subprocess.TimeoutExpired:
+                    warned = True
+                if warned:
+                    print(SSH_REUSE_WARNING, file=sys.stderr)
+            result = subprocess.run(
+                argv,
+                input=input_text,
+                encoding="utf-8",
+                errors="backslashreplace",
+                capture_output=True,
+                timeout=max(0.001, timeout - (time.monotonic() - started)),
+                check=False,
+            )
+            if not warned and any(
+                marker in result.stderr for marker in _STALE_SOCKET_ERRORS
+            ):
+                print(SSH_REUSE_WARNING, file=sys.stderr)
+            return result
+        except subprocess.TimeoutExpired as exc:
+            stderr = _partial_output(exc.stderr, self.secret_values)
+            return subprocess.CompletedProcess(
+                argv,
+                returncode=TRANSPORT_FAILURE_EXIT,
+                stdout=_partial_output(exc.stdout, self.secret_values),
+                stderr=SSH_TIMEOUT_DIAGNOSTIC + (f": {stderr}" if stderr else ""),
+            )
+        except OSError as exc:
+            return subprocess.CompletedProcess(
+                argv,
+                returncode=TRANSPORT_FAILURE_EXIT,
+                stdout="",
+                stderr=f"{SSH_UNAVAILABLE_DIAGNOSTIC}: {type(exc).__name__}: "
+                + _partial_output(str(exc), self.secret_values),
+            )
+
+    def run_remote_command(
+        self,
+        command: str,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run one prepared shell command on the host."""
+        return self._run(command, timeout=timeout)
+
+    def probe_path(self, surface: str) -> Sequence[str]:
+        flag = "-lic" if surface == "login" else "-c"
+        probe = "printf '%s' \"$PATH\""
+        result = self._run(
+            f"{shlex.quote(self.shell)} {flag} {shlex.quote(probe)}",
+            timeout=20,
+        )
+        if result.returncode:
+            raise RuntimeError(f"host_control {surface} PATH probe failed")
+        return tuple(entry for entry in result.stdout.strip().split(":") if entry)
+
+    @classmethod
+    def from_contract(
+        cls,
+        contract: HostControlExecutionContract,
+    ) -> "SshTestMachineTransport":
+        """Attach the one registered machine-local credential."""
+        secrets: list[str] = []
+        secret_paths: dict[str, str] = {}
+        missing: list[str] = []
+        for key in sorted(TEST_MACHINE_SECRET_KEYS):
+            value = read_machine_capability_secret(
+                contract.project,
+                TEST_MACHINE_CAPABILITY,
+                key,
+            )
+            if value is None:
+                missing.append(key)
+                continue
+            secrets.append(value)
+            secret_paths[key] = str(
+                machine_capability_secret_path(
+                    contract.project,
+                    TEST_MACHINE_CAPABILITY,
+                    key,
+                )
+            )
+        if missing:
+            raise RuntimeError(
+                "host_control_credential_missing: "
+                + ", ".join(missing)
+                + f"; store the key on this executing machine with yoke projects capability secret set --project {contract.project} --cap-type test-machine --key ssh_private_key --value-file KEY_FILE"
+            )
+        return cls(
+            settings=contract.settings,
+            key_path=secret_paths["ssh_private_key"],
+            secret_values=tuple(secrets),
+        )

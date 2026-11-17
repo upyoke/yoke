@@ -197,3 +197,64 @@ def test_baselines_keep_full_reset_distinct_from_shell_preconfiguration() -> Non
     assert preconfigured.evidence["launcher_executable"] is True
     path_state = path_doctor.resolve_path_state_contract(target="posix",
         env={"HOME": control.home, "SHELL": control.shell}
+    )
+    assert preconfigured.evidence["path_state"] == {
+        "launcher": path_state.yoke_bin,
+        "launcher_present": True,
+        "tool_bin_dir": path_state.tool_bin_dir,
+        "login_path_present": True,
+        "ssh_path_present": True,
+    }
+    assert preconfigured.evidence["setup_operations"] == [
+        {"id": "installer.current-release-prepare", "outcome": "passed"},
+        {"id": "machine.path-prepare", "outcome": "passed"},
+    ]
+    assert control.full_reset_calls == 2
+
+    dirty = FakeHostControl(refuse_full_reset=True)
+    failed = run_host_baseline(dirty, "fresh-host")
+    assert not failed.ok
+    assert failed.error_code == "test_mac_reset_failed"
+    assert failed.evidence["paths"] == [
+        {"path": "/Users/tester", "outcome": "reset-failed"}
+    ]
+
+
+def test_terminal_contract_requires_entry_completion_and_structured_steps() -> None:
+    with pytest.raises(MachineQaExecutionError, match="entry_surface"):
+        validate_machine_method_config(
+            "terminal-check",
+            {"steps": [{"expect": "Welcome"}]},
+            entry_surface=None,
+            required_completion="onboard-complete",
+        )
+    with pytest.raises(MachineQaExecutionError, match="unknown"):
+        validate_machine_method_config(
+            "machine-state-check",
+            {"assertions": [{"command": "test -f ~/.yoke/config.json"}]},
+            entry_surface=None,
+            required_completion=None,
+        )
+    assert validate_machine_method_config(
+        "terminal-inspection",
+        {
+            "steps": [
+                {
+                    "key": "project-screen",
+                    "send": "Enter",
+                    "expect": "Project",
+                }
+            ],
+            "capture_checkpoints": ["project-screen"],
+        },
+        entry_surface="public-installer",
+        required_completion="project-screen",
+    )["capture_checkpoints"] == ["project-screen"]
+
+
+@pytest.mark.parametrize(
+    "method_id", ["command", "command-ci", "browser-check", "browser-inspection"]
+)
+def test_machine_method_reader_refuses_other_builtin_methods(method_id):
+    with pytest.raises(MachineQaExecutionError, match="unknown Machine QA method"):
+        machine_method_definition(method_id)

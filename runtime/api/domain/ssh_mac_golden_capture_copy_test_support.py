@@ -48,3 +48,25 @@ def _run_capture(home: Path, destination: Path, tmp_path: Path):
         resolve_full_reset_path_contract(
             resolve_path_state_contract(target="posix",
                 env={"HOME": "/Users/tester", "SHELL": "/bin/zsh"}
+            )
+        )
+    )
+    # Exercise the complete copier/manifest/finish on a disposable home, without
+    # accessing the real home or its privacy database. Admission has its own tests.
+    boundary = 'capture_step="$capture_phase_validate_home"'
+    script = script.replace(
+        boundary,
+        "validate_home() { return 0; }\n"
+        "assert_full_disk_access() { return 0; }\n"
+        "assert_home_ownership() { return 0; }\n"
+        "assert_no_yoke_residue() { return 0; }\n"
+        f"TMPDIR={shlex.quote(str(tmp_path))}\n" + boundary,
+        1,
+    )
+    return subprocess.run(
+        ["/bin/zsh", "-c", script, "capture", str(home), str(destination), "a" * 64],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env={**os.environ, "LANG": "en_ZZ.UTF-8", "LC_ALL": "en_ZZ.UTF-8"},
+    )

@@ -60,7 +60,6 @@ def test_fixture_runner_rejects_launcher_outside_bounded_home() -> None:
             "SHELL": "/bin/zsh",
             "XDG_BIN_HOME": "/opt/yoke/bin",
         },
-        posix_host=True,
     )
 
     with pytest.raises(

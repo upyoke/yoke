@@ -210,3 +210,11 @@ def test_the_capture_program_is_valid_zsh() -> None:
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
             resolve_path_state_contract(target="posix", env={"HOME": HOME, "SHELL": "/bin/zsh"})
+        )
+    )
+
+    checked = run_zsh_syntax_if_available(script)
+
+    if checked is None:
+        pytest.skip("zsh is required to syntax-check the macOS capture program")
+    assert checked.returncode == 0, checked.stderr

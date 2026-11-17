@@ -94,8 +94,7 @@ def test_rendered_program_stays_inside_one_explicit_home_for_any_shell() -> None
                 "SHELL": "/bin/bash",
                 "XDG_BIN_HOME": "/Users/tester/.custom/bin",
             },
-            posix_host=True,
-        )
+            )
     )
     script = render_full_reset_script(contract)
     assert "/Users/tester" not in script

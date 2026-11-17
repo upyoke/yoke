@@ -87,7 +87,7 @@ def _posix_shell(environ: Mapping[str, str]) -> str:
             shell = pwd.getpwuid(os.getuid()).pw_shell
         except (ImportError, KeyError):
             shell = ""
-    return Path(shell).name if shell else "zsh"
+    return PurePosixPath(shell).name if shell else "zsh"
 
 
 def default_startup_file(shell: str, home: PurePath) -> PurePath:
