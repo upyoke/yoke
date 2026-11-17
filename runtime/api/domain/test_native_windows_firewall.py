@@ -60,9 +60,9 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             return actual_admin_script(key, host, user, script, **kwargs)
         except subprocess.TimeoutExpired:
             diagnostic = powershell(
-                "Get-Service sshd | Select-Object Name,Status; "
-                "Get-NetTCPConnection -LocalPort 22 -ErrorAction SilentlyContinue | Select-Object State,LocalAddress; "
-                "Get-Item 'C:\\ProgramData\\YokeQaProvision.ps1' -ErrorAction SilentlyContinue | Select-Object Length,LastWriteTime; "
+                "Get-Service sshd | Format-List Name,Status; "
+                "Get-NetTCPConnection -LocalPort 22 -ErrorAction SilentlyContinue | Format-List State,LocalAddress; "
+                "Get-Item 'C:\\ProgramData\\YokeQaProvision.ps1' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
                 "Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 15 -ErrorAction SilentlyContinue | Select-Object TimeCreated,Message | Format-List",
                 tmp_path,
             )

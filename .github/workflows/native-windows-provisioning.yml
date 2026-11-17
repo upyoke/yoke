@@ -9,6 +9,9 @@ jobs:
     name: complete guest setup (windows-latest)
     runs-on: windows-latest
     timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
     env:
       YOKE_NATIVE_WINDOWS_PROVISIONING: "1"
     steps:
