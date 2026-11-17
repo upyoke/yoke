@@ -44,7 +44,7 @@ def test_capture_retains_before_submit_stops_host(
             stopped = True
             result = (
                 {"status": status, "golden_baseline_path": DESTINATION}
-                if submit_success else None
+                if submit_success else {}
             )
         else:
             assert phase == "abort"
@@ -103,7 +103,7 @@ def test_capture_retains_before_submit_stops_host(
             assert emitted[0].result["removed_snapshots"] == []
         else:
             assert emitted[0].success is False
-            assert emitted[0].result is None
+            assert emitted[0].result == {}
     else:
         assert events == ["begin", "cleanup", "abort"]
         assert emitted[0].error.code == "golden_snapshot_retention_failed"
