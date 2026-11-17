@@ -152,7 +152,7 @@ def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
     if result is None or result.returncode not in (0, 1):
         answers.update({path: None for path in source_paths})
     else:
-        ignored = {p for p in result.stdout.split("\0") if p}
+        ignored = {canonical_native_path(p) for p in result.stdout.split("\0") if p}
         answers.update({path: path in ignored for path in source_paths})
     return answers
 

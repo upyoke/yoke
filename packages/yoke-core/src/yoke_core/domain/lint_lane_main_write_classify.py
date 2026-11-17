@@ -141,7 +141,8 @@ def lane_path_exists_on_disk(
     live = live_worktrees(payload)
     if live is None:
         return True
-    return raw in {path.rstrip("/") for path in live}
+    normalized = canonical_native_path(raw).replace("\\", "/").rstrip("/").casefold()
+    return normalized in {canonical_native_path(path).replace("\\", "/").rstrip("/").casefold() for path in live}
 
 
 def is_write_operation(
