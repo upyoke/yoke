@@ -132,8 +132,8 @@ Write-Output 'PROFILE_OK'
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows account/profile APIs")
 def test_real_profile_creation_and_retry_preserve_password():
-    # The fixture creates only its unique account/profile on the disposable CI
-    # runner, then removes both by its captured SID even when assertions fail.
+    # The disposable runner bounds timeout fallout. Normal/failure exits attempt
+    # profile and account cleanup independently, retaining any cleanup error.
     result = powershell(
         r"""
 $name='yq'+[Guid]::NewGuid().ToString('N').Substring(0,14)
@@ -165,8 +165,8 @@ try {
 } finally {
  if(!$ownedSid){$owned=Get-LocalUser -Name $name -ErrorAction SilentlyContinue; if($owned){$ownedSid=$owned.SID.Value}}
  if($ownedSid){
-  Get-CimInstance Win32_UserProfile -Filter ("SID='"+$ownedSid+"'") | Remove-CimInstance
-  Remove-LocalUser -Name $name
+  try {Get-CimInstance Win32_UserProfile -Filter ("SID='"+$ownedSid+"'") | Remove-CimInstance}
+  finally {Remove-LocalUser -Name $name}
  }
 }
 """
