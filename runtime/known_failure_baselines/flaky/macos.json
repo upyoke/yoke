@@ -9,11 +9,6 @@
   "feedback": 96580,
   "fix_item": "YOK-5316"
  },
- "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_clone_outcome.py::test_clone_outcome_screen_uses_source_access_and_origin": {
-  "reason": "Textual screen sometimes not mounted in time: NoMatches '#onboard-body SelectionList'",
-  "feedback": 96597,
-  "fix_item": "YOK-5312"
- },
  "runtime/api/cli/test_yoke_installed_hook_engine.py::test_installed_hooks_register_emit_and_deny": {
   "reason": "installed hook engine sometimes returns no registration (assert None is not None)",
   "feedback": 96600,

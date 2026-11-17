@@ -230,6 +230,16 @@ async def advance_past_path(pilot) -> None:
     await pilot.pause()
 
 
+async def settle_checks(pilot, *, max_chained: int = 10) -> None:
+    """Drain chained checking workers until the wizard shows a settled view."""
+    for _ in range(max_chained):
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        if not pilot.app._checking:
+            return
+    raise AssertionError(f"wizard still checking after {max_chained} chained checks")
+
+
 async def skip_hosting(pilot) -> None:
     """Choose provider-level "Decide later", landing on Review."""
     await pilot.press("down")  # hosting: past "I host this myself"

@@ -4,11 +4,6 @@
   "feedback": 96596,
   "fix_item": "YOK-5311"
  },
- "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_clone_outcome.py::test_clone_outcome_screen_uses_source_access_and_origin": {
-  "reason": "Textual screen sometimes not mounted in time: NoMatches '#onboard-body SelectionList'",
-  "feedback": 96597,
-  "fix_item": "YOK-5312"
- },
  "runtime/api/cli/test_onboard_wizard_resize_redraw.py::test_resizing_mid_flow_shows_each_screen_once": {
   "reason": "terminal sometimes diverges from the wizard's screen after a resize",
   "feedback": 96598,
