@@ -124,6 +124,9 @@ def insert_qa_run(conn: Any, **columns: Any) -> QaRunWrite:
     from yoke_core.domain.qa_run_start_identity import stamp_start_commit
 
     stamp_start_commit(conn, columns)
+    from yoke_core.domain.qa_environment_served_build import bind_run_build
+
+    bind_run_build(conn, columns)
     _bind_evidence(conn, None, columns)
     p = marker(conn)
     names = list(columns)
@@ -173,6 +176,9 @@ def update_qa_run(
             columns["raw_result"] = retain_start_commit(
                 prior["raw_result"], columns["raw_result"]
             )
+    from yoke_core.domain.qa_environment_served_build import bind_run_build
+
+    bind_run_build(conn, columns, run_id=int(run_id))
     _bind_evidence(conn, int(run_id), columns)
     assignments = [f"{name}={p}" for name in columns]
     params: list[Any] = list(columns.values())

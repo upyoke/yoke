@@ -16,13 +16,11 @@ from yoke_core.domain.deployment_flow_policy import validate_release_stage_polic
 from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     HOSTS_APP_PATH,
-    QA_RESTRICT_EXECUTION_PATH,
     admin_connection_for_environment,
     endpoint_declaration_state,
     hosted_endpoints,
     production_declared_facts,
     refuse_invalid_endpoint_urls,
-    restricts_qa_to_self,
     serving_connection_for_environment,
     target_is_production,
 )
@@ -33,7 +31,6 @@ from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     _generic_endpoints,
     _yoke_endpoints,
-    require_runtime_target,
 )
 
 
@@ -74,32 +71,6 @@ def test_renamed_environment_matches_production_endpoints_and_gates(
     assert admin_connection_for_environment("blah", facts) == "prod-db-admin"
     assert serving_connection_for_environment("blah", facts) == "prod"
     assert target_is_production({"role": {"production": True}}) is True
-    monkeypatch.setenv("YOKE_ENVIRONMENT", "blah")
-    require_runtime_target(
-        {"environment": {"name": "blah"}},
-        runtime_settings=facts,
-    )
-    with pytest.raises(QaExecutionTargetError, match="cannot execute QA target"):
-        require_runtime_target(
-            {"environment": {"name": "other"}},
-            runtime_settings=facts,
-        )
-
-
-def test_production_refusal_of_a_stage_target_names_the_recovery(
-    monkeypatch,
-) -> None:
-    monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
-    with pytest.raises(QaExecutionTargetError) as caught:
-        require_runtime_target(
-            {"environment": {"name": "stage"}},
-            runtime_settings=_prod_facts(),
-        )
-    text = str(caught.value)
-    assert QA_RESTRICT_EXECUTION_PATH in text
-    assert "from the 'stage' control plane" in text
-    assert "deployment QA stage that targets 'stage'" in text
-
 
 def test_renamed_environment_matches_stage_endpoints() -> None:
     facts = _stage_facts()
@@ -126,11 +97,6 @@ def test_incomplete_endpoints_report_declared_scheme_less_hosts() -> None:
     assert "hosts.api='app.upyoke.com'" in text
     assert "replace declared-but-not-a-URL" in text
     assert "Recovery:" in text
-
-
-def test_undeclared_runtime_does_not_inherit_production_qa_gating() -> None:
-    require_runtime_target({"environment": {"name": "other"}})
-    assert restricts_qa_to_self({}) is False
 
 
 def test_flow_qa_target_may_omit_environment_to_follow_the_run() -> None:

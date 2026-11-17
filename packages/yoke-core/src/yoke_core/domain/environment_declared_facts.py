@@ -26,7 +26,6 @@ HOSTS_APP_PATH = "hosts.app"
 HOSTS_API_PATH = "hosts.api"
 DISTRIBUTION_BASE_URL_PATH = "distribution.base_url"
 DISTRIBUTION_CHANNEL_PATH = "distribution.channel"
-QA_RESTRICT_EXECUTION_PATH = "qa.restrict_execution_to_self"
 QA_HOSTED_RUNTIME_PATH = "qa.hosted_runtime"
 RELEASE_ENVIRONMENT_PATH = "release.environment"
 ADMIN_CONNECTION_PATH = "release.admin_connection"
@@ -237,10 +236,6 @@ def hosted_endpoints(
     }
 
 
-def restricts_qa_to_self(settings: Mapping[str, Any] | None) -> bool:
-    return declared_bool(settings, QA_RESTRICT_EXECUTION_PATH) is True
-
-
 def is_hosted_runtime(settings: Mapping[str, Any] | None) -> bool:
     return declared_bool(settings, QA_HOSTED_RUNTIME_PATH) is True
 
@@ -293,7 +288,6 @@ def production_declared_facts(
             HOSTS_API_PATH: api_url,
             DISTRIBUTION_BASE_URL_PATH: installer_base_url,
             DISTRIBUTION_CHANNEL_PATH: release_channel,
-            QA_RESTRICT_EXECUTION_PATH: True,
             QA_HOSTED_RUNTIME_PATH: True,
             RELEASE_ENVIRONMENT_PATH: True,
             ADMIN_CONNECTION_PATH: admin_connection,
@@ -318,7 +312,6 @@ __all__ = [
     "PREFLIGHT_EXECUTOR_PATH",
     "PRODUCTION_ROLE_PATH",
     "QA_HOSTED_RUNTIME_PATH",
-    "QA_RESTRICT_EXECUTION_PATH",
     "RELEASE_ENVIRONMENT_PATH",
     "SERVING_CONNECTION_PATH",
     "admin_connection_for_environment",
@@ -336,7 +329,6 @@ __all__ = [
     "load_environment_settings",
     "production_declared_facts",
     "require_declared_text",
-    "restricts_qa_to_self",
     "serving_connection_for_environment",
     "settings_from_projection",
     "target_is_production",

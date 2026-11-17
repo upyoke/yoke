@@ -112,14 +112,17 @@ environment's endpoints, or list the environment the endpoint belongs to in
 check. If a stored requirement still fails this check when it runs, the
 refusal names the requirement, its case, its item and any deployment run.
 
-When the plan's project declares `qa.restrict_execution_to_self: true` on the
-environment the control plane runs as, that control plane runs only QA that
-targets its own environment; Yoke's hosted Stage and Production declare it. There,
-a standalone `yoke qa plan run` whose case targets another environment refuses
-with `cannot execute QA target`. Run the plan from the target environment's own
-control plane (`yoke --env NAME qa plan run --plan PLAN --project P`), or prove the case
-through a deployment QA stage that targets that environment. Without the
-setting, a control plane may run a plan against any registered environment.
+The control plane records QA against environments the plan project owns or
+is authorized to use through a same-organization hosted-runtime bridge.
+Execution rechecks the frozen environment's registered identity; cross-org
+targets refuse. A declared `qa.identity_path` is read from the owning
+environment by ID, using its registered origin. Begin and result writes
+observe the full served SHA. Results store `served_build_sha` and
+`served_build_status`; environments without a path record `no_declared_path`.
+An unreadable answer refuses as `served_build_unobservable`; a changed build
+refuses as `served_build_changed`, naming both SHAs. Rerun the case in a new
+execution after restoring the target. Deployment and project targets retain
+their own identity proofs.
 
 
 Item materialization creates one requirement per environment and host baseline,

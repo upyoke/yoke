@@ -4,9 +4,7 @@ A plan reaches this through its own ``target_environment_id``; a case that
 belongs to no plan reaches it by naming the environment on the requirement.
 Both land on the same snapshot shape and the same authorization read, so a
 case outside a plan is bound to a real reviewed endpoint rather than
-dispatched at nothing. The runtime guard belongs to execution only: recording
-a requirement is a control-plane write, and the control plane may record a
-case for any environment its project owns.
+dispatched at nothing. The control plane records and executes cases for authorized environments.
 """
 
 from __future__ import annotations
@@ -22,15 +20,13 @@ from yoke_core.domain.environment_declared_facts import (
     hosted_endpoints,
     is_hosted_runtime,
     is_production,
-    load_environment_settings,
 )
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     _decode,
     _generic_endpoints,
     _mapping_rows,
-    require_runtime_target,
-    runtime_environment_name,
+    require_environment_target_access,
 )
 
 
@@ -70,10 +66,7 @@ def environment_execution_target(
         raise QaExecutionTargetError(str(exc)) from exc
     target = environment_target_snapshot(identity)
     if require_runtime_match:
-        runtime_settings = load_environment_settings(
-            conn, int(identity["project_id"]), runtime_environment_name()
-        )
-        require_runtime_target(target, runtime_settings=runtime_settings)
+        require_environment_target_access(conn, target)
     return target
 
 
@@ -104,7 +97,7 @@ def environment_target_snapshot(identity: Mapping[str, Any]) -> dict[str, Any]:
             "name": str(identity["project_name"]),
         },
         "site": {"name": str(identity["site_name"])},
-        "environment": {"name": environment_name},
+        "environment": {"id": int(identity["environment_id"]), "name": environment_name},
         "endpoints": endpoints,
         "role": {"production": is_production(settings)},
     }
@@ -145,8 +138,7 @@ def persistable_named_environment_target(
     An unregistered name stays unbound so authoring can defer the target. A
     name registered only on another project is refused rather than stored as
     a draft label that would later execute against the wrong universe.
-    Record writes pass ``require_runtime_match=False``; only a caller about
-    to execute against the target keeps the runtime guard.
+    Record writes pass ``require_runtime_match=False``; execution also rechecks the frozen target authorization.
     """
     name = str(environment_name or "").strip()
     if not name:

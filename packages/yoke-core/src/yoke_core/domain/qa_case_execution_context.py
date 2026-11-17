@@ -277,7 +277,7 @@ def get_case_execution_context(
         from yoke_core.domain.qa_execution_environment_target import (
             QaExecutionTargetError,
             require_requirement_target,
-            require_runtime_target,
+            require_environment_target_access,
             target_digest,
         )
 
@@ -285,7 +285,7 @@ def get_case_execution_context(
             raise QaCaseExecutionError(
                 "materialized QA case execution target digest does not match"
             )
-        require_runtime_target(execution_target)
+        require_environment_target_access(conn, execution_target)
         require_requirement_target(context, execution_target)
         if plan_id is None and row["deployment_stage"] is None:
             try:

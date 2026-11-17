@@ -20,7 +20,6 @@ from yoke_core.domain import qa_case_environment_coherence as case_coherence
 from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     hosted_endpoints,
-    restricts_qa_to_self,
 )
 from yoke_core.domain.qa_project_execution_target import (
     is_project_execution_target,
@@ -80,12 +79,8 @@ def runtime_environment_name() -> str:
     return str(selected or "development").strip().lower()
 
 
-def require_runtime_target(
-    target: Mapping[str, Any],
-    *,
-    runtime_settings: Mapping[str, Any] | None = None,
-) -> None:
-    """Refuse cross-environment dispatch when the runtime declares it must."""
+def require_environment_target_access(conn: Any, target: Mapping[str, Any]) -> None:
+    """Reauthorize a frozen environment; other target kinds own their identity."""
     if is_project_execution_target(target):
         return
     from yoke_core.domain.deployment_qa_execution_target import (
@@ -93,25 +88,21 @@ def require_runtime_target(
     )
 
     if is_deployment_execution_target(target):
-        # Deployment QA records remain on the connected control plane while
-        # cases intentionally observe a different deployed target.
         return
-    environment = target.get("environment")
-    if not isinstance(environment, Mapping):
-        raise QaExecutionTargetError("QA execution target has no environment identity")
-    runtime = runtime_environment_name()
-    selected = str(environment.get("name") or "").strip().lower()
-    if not selected:
-        raise QaExecutionTargetError("QA execution target has no environment name")
-    if restricts_qa_to_self(runtime_settings) and selected != runtime:
+    environment = target.get("environment") or {}
+    environment_id = environment.get("id")
+    project_id = (target.get("project") or {}).get("id")
+    if not environment_id or not project_id:
         raise QaExecutionTargetError(
-            f"runtime environment {runtime!r} cannot execute QA target "
-            f"{selected!r}: it declares qa.restrict_execution_to_self, so it "
-            "runs only QA that targets its own environment. Run the plan from "
-            f"the {selected!r} control plane (select its connection with "
-            f"`yoke --env NAME`), or prove the case through a deployment QA "
-            f"stage that targets {selected!r}."
+            "qa_environment_identity_missing: frozen target lacks registered identity; "
+            "rematerialize the requirement and begin a new execution"
         )
+    try:
+        hosted_identity.require_plan_environment_access(
+            conn, plan_project_id=int(project_id), environment_id=int(environment_id)
+        )
+    except ValueError as exc:
+        raise QaExecutionTargetError(str(exc)) from exc
 
 
 def _yoke_endpoints(
@@ -225,7 +216,7 @@ def validate_plan_target_environment(
     project_id: int,
     environment_id: int,
 ) -> None:
-    """Require an authorized environment compatible with this runtime."""
+    """Require an environment the plan project is authorized to observe."""
     try:
         target = hosted_identity.require_plan_environment_access(
             conn,
@@ -234,8 +225,6 @@ def validate_plan_target_environment(
         )
     except ValueError as exc:
         raise QaExecutionTargetError(str(exc)) from exc
-    # Authoring records a future destination on this control plane; dispatch
-    # enforces runtime restrictions when it resolves an execution target.
     del target
 
 
