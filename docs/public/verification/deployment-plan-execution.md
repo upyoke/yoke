@@ -26,25 +26,6 @@ plans supply cases without copies; stage targets supply `target_env` for correct
 [QA continuity](deployment-qa-continuity.md): item authority, release takeover,
 cross-build observations and exact-execution recovery.
 
-## Candidate controller
-
-Controller-side work (Machine host control, mission preparation and the
-walker's mission commands) runs the release's own Yoke code, not the CLI
-installed on the controller machine. After begin, before any host lease, a
-release-run execution whose target names an installer origin compares this
-controller's build commit with the candidate: the run's `release_lineage`
-served on the target's channel, or the release its deployed commit pins.
-A stale controller installs the candidate's published wheels into a private
-runtime under `~/.yoke/qa-controller-runtimes/` and hands it the begun
-execution; the installed CLI and its channel are never changed. The walker's
-review bundle names that runtime's `yoke`; run those commands exactly as shown.
-
-When the runtime cannot be provisioned, the command refuses
-`qa_controller_not_candidate` with the installed and candidate versions,
-aborts the unused execution and names the recovery. Machine case and mission
-preparation evidence record `controller_runtime` with the build's
-`source_commit`.
-
 ## Plan groups
 
 At `item-qa` entry, one attacher makes member QA; two or more make a driver-owned
