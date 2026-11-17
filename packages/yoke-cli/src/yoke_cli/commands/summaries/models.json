@@ -1,6 +1,7 @@
 {
   "models": "Read and publish the catalog of AI models.",
   "models diff": "Compare a proposed model catalog with the current one.",
+  "models follow-shipped": "Return the model catalog to Yoke's shipped defaults.",
   "models get": "Show the model catalog, or one model in it.",
   "models level-proposal": "Propose level changes from the model catalog.",
   "models lookup": "Show the catalog entry for one launch model name.",

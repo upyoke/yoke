@@ -12,6 +12,7 @@ from yoke_cli.self_host import secure_layout
 ADMIN_NAME_ARGS = ("--admin-name", "Ada Lovelace")
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_refuses_secrets_symlink_before_external_write(tmp_path, capsys):
     target = tmp_path / "bundle"
     target.mkdir()
@@ -29,6 +30,7 @@ def test_init_refuses_secrets_symlink_before_external_write(tmp_path, capsys):
     assert not (target / "docker-compose.yml").exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_refuses_tracked_worktree_symlink_to_external_bundle(
     tmp_path,
     capsys,
@@ -48,6 +50,7 @@ def test_init_refuses_tracked_worktree_symlink_to_external_bundle(
     assert list(external.iterdir()) == []
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_protect_existing_refuses_insecure_secrets_mode(tmp_path, capsys):
     target = tmp_path / "bundle"
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
@@ -71,6 +74,7 @@ def test_protect_existing_refuses_insecure_secrets_mode(tmp_path, capsys):
     assert (target / "secrets" / "db-password").read_bytes() == password
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_protect_existing_refuses_symlinked_database_secret(tmp_path, capsys):
     target = tmp_path / "bundle"
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
@@ -96,6 +100,7 @@ def test_protect_existing_refuses_symlinked_database_secret(tmp_path, capsys):
     assert password_path.is_symlink()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_protect_existing_refuses_exposed_database_secret(tmp_path, capsys):
     target = tmp_path / "bundle"
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
@@ -109,6 +114,7 @@ def test_protect_existing_refuses_exposed_database_secret(tmp_path, capsys):
     assert "chmod 600" in error
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_protect_existing_refuses_symlinked_env(tmp_path, capsys):
     target = tmp_path / "bundle"
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
@@ -132,6 +138,7 @@ def test_protect_existing_refuses_symlinked_env(tmp_path, capsys):
     assert env_path.is_symlink()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_force_replaces_env_symlink_without_touching_external_file(
     tmp_path,
     capsys,
@@ -161,6 +168,7 @@ def test_force_replaces_env_symlink_without_touching_external_file(
     assert not env_path.is_symlink()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_existing_validation_rechecks_bundle_owner_control(tmp_path, monkeypatch):
     target = tmp_path / "bundle"
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
@@ -178,6 +186,7 @@ def test_existing_validation_rechecks_bundle_owner_control(tmp_path, monkeypatch
         )
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_creates_owner_controlled_bundle_under_group_writable_umask(
     tmp_path, capsys
 ):
@@ -190,6 +199,7 @@ def test_init_creates_owner_controlled_bundle_under_group_writable_umask(
     assert target.stat().st_mode & 0o777 == 0o755
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_group_writable_bundle_refusal_names_recovery(tmp_path, capsys):
     target = tmp_path / "bundle"
     target.mkdir()

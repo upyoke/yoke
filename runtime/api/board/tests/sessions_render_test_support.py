@@ -14,8 +14,8 @@ from pathlib import Path
 from yoke_core.board.db import BoardDB
 from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from runtime.api.fixtures.file_test_db import (
     apply_inline_ddl,
     connect_test_db,
@@ -107,7 +107,7 @@ def make_render_db(tmp_path: Path):
     with init_test_db(tmp_path, apply_schema=_apply_render_schema) as db_path:
         with connect_test_db(db_path) as conn:
             create_model_reference_table(conn)
-            seed_initial_catalog(conn)
+            sync_shipped_catalog(conn)
         db = BoardDB(db_path)
         db.path = db_path
         yield db, render_sessions_section

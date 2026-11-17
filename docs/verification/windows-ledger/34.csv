@@ -17,6 +17,7 @@ windows-2d389c11dd402bb41e34,yoke github actions trigger-once,cli,self-hosted-cl
 windows-b78e0092cca6100e83b4,yoke github merge queue readiness,cli,hosted-client,must-pass,,
 windows-2938d331b407a2a67c34,yoke github-actions failed-log,cli,hosted-client,must-pass,,
 windows-f6d2478b0cd5a61ae4b4,yoke items structured field section-append,cli,self-hosted-client,must-pass,,
+windows-03f17ad757cb782b9c74,yoke models follow shipped,cli,local,must-pass,,
 windows-742925882bef3b6cdaf4,yoke models lookup,cli,self-hosted-client,must-pass,,
 windows-339b389958269340d934,yoke operator data-repair,cli,self-hosted-client,must-pass,,
 windows-4f170c8de28bc7a99af4,yoke organizations create,cli,hosted-client,must-pass,,

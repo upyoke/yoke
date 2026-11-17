@@ -16,8 +16,8 @@ from yoke_contracts.project_contract.project_keys import SESSION_ROUTING_CAPABIL
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.universe_levels import (
     create_universe_settings_table,
@@ -45,7 +45,7 @@ def create_level_store_tables(conn: Any) -> None:
     execute_schema_script(conn, PROJECT_CAPABILITIES_DDL)
     create_universe_settings_table(conn)
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     conn.commit()
 
 

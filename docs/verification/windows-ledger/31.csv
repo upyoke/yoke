@@ -18,6 +18,7 @@ windows-1e6762b2ecf522f40db1,yoke machine backup,cli,self-hosted-client,must-pas
 windows-c7d5b1a5beedae10ee71,yoke merge receipt commits attest,cli,local,must-pass,,
 windows-5e0575f968389d6284b1,yoke merge-review candidate evaluate,cli,self-hosted-client,must-pass,,
 windows-de18207a078ac05d13f1,yoke messages ack,cli,local,must-pass,,
+windows-3bc0f853c248e19bf6f1,yoke models follow-shipped,cli,local,must-pass,,
 windows-62ba7ecc00dae38141f1,yoke projects capability settings get,cli,hosted-client,must-pass,,
 windows-fb08c19a82216fb8b271,yoke projects capability settings set,cli,self-hosted-client,must-pass,,
 windows-be84147819e01e3479f1,yoke projects capability-secret set,cli,hosted-client,must-pass,,

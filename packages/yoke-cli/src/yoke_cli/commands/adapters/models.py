@@ -14,6 +14,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.models_shipped import write_read, write_shipped_notice
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -54,6 +55,7 @@ def _print_lookup(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     record = result.get("record")
     if not researched or not isinstance(record, dict):
         print(f"{result.get('model_id', '')} researched=false", file=stdout)
+        write_shipped_notice(result, stdout)
         return
     efforts = ",".join(record.get("reasoning_efforts") or ()) or "unpublished"
     windows = record.get("context_window_tokens") or ()
@@ -68,6 +70,7 @@ def _print_lookup(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         f"estimated={','.join(estimated) if estimated else '-'}",
         file=stdout,
     )
+    write_shipped_notice(result, stdout)
 
 
 def models_lookup(args: List[str]) -> int:
@@ -127,7 +130,7 @@ def models_get(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
+        json_mode=parsed.json_mode,        human_writer=None if parsed.json_mode else write_read,
     )
 
 
@@ -266,7 +269,7 @@ def models_revisions(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={},
         session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
+        json_mode=parsed.json_mode,        human_writer=None if parsed.json_mode else write_read,
     )
 
 

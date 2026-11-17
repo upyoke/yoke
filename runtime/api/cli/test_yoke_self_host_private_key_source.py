@@ -35,6 +35,7 @@ def _key_args(target: Path, source: Path) -> list[str]:
     ]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_private_key_source_refuses_symlink(tmp_path, capsys):
     target = _init_bundle(tmp_path, capsys)
     real_source = tmp_path / "real.pem"
@@ -50,6 +51,7 @@ def test_private_key_source_refuses_symlink(tmp_path, capsys):
     assert not (target / "secrets" / "github-app-private-key.pem").exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_private_key_source_refuses_group_world_access(tmp_path, capsys):
     target = _init_bundle(tmp_path, capsys)
     source = tmp_path / "source.pem"
@@ -62,6 +64,7 @@ def test_private_key_source_refuses_group_world_access(tmp_path, capsys):
     assert "chmod 600" in error
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_private_key_source_refuses_nonowner_metadata(tmp_path, monkeypatch):
     source = tmp_path / "source.pem"
     source.write_text(_PRIVATE_KEY, encoding="utf-8")
@@ -76,6 +79,7 @@ def test_private_key_source_refuses_nonowner_metadata(tmp_path, monkeypatch):
         protection._read_private_key_source(source)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_private_key_source_refuses_hardlink(tmp_path, capsys):
     target = _init_bundle(tmp_path, capsys)
     source = tmp_path / "source.pem"
@@ -87,6 +91,7 @@ def test_private_key_source_refuses_hardlink(tmp_path, capsys):
     assert "single-link regular file" in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_private_key_source_swap_after_open_reads_original_descriptor(
     tmp_path,
     capsys,

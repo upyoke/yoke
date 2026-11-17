@@ -161,7 +161,8 @@ See [DB reference](../databases/reference.md) for domain contracts and the CLI e
 - [Items](items.md) — Read item function identities and structured-write contracts.
 - [Project configuration](project-configuration.md) — Read configuration, strategy and shared-file operation contracts.
 - [QA](qa.md) — Read QA function identities and execution and evidence obligations.
-- [Runtime](runtime.md) — Read runtime function identities, actor roles and output authority.
+- [Runtime](runtime.md) — Read runtime function identities and output authority.
+- [Actors and org roles](actors.md) — Read actor roster, state and org-role rules and refusals.
 - [Tasks](tasks.md) — Read generated-task, dispatch and review operation contracts.
 - [Workflows](workflows.md) — Read workflow function identities, immutable pins and routing contracts.
 - [Worktrees](worktrees.md) — Read lane preparation, landing, merge and close-out contracts.

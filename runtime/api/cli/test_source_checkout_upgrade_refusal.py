@@ -1,5 +1,8 @@
 """Source-bound CLI commands preserve the checkout instead of reinstalling."""
 
+import json
+import sys
+
 import pytest
 
 from yoke_cli.commands import self_host
@@ -51,7 +54,15 @@ def test_commands_refuse_source_checkout_before_any_upgrade(
     )
     assert command(args) == 1
     captured = capsys.readouterr()
-    diagnostic = captured.out + captured.err
+    diagnostic = (
+        json.loads(captured.out)["error"] if "--json" in args
+        and command is self_update.update else captured.out + captured.err
+    )
+    if sys.platform == "win32" and command is self_host.self_host_upgrade:
+        assert "self_host_native_windows_requires_wsl2" in diagnostic
+        assert "WSL2" in diagnostic
+        assert module.read_bytes() == before
+        return
     assert "source checkout" in diagnostic
     assert str(checkout) in diagnostic
     assert "git workflow" in diagnostic
@@ -59,6 +70,7 @@ def test_commands_refuse_source_checkout_before_any_upgrade(
     assert module.read_bytes() == before
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_execution_rechecks_source_binding_and_preserves_bundle(
     source_checkout, tmp_path
 ):

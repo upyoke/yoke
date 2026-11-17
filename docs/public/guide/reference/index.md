@@ -28,6 +28,7 @@ Start with `yoke --help`, then narrow to a command group and action. Reading hel
 | Project configuration | [Project configuration](../../functions/project-configuration.md) |
 | QA | [QA](../../functions/qa.md) |
 | Runtime | [Runtime](../../functions/runtime.md) |
+| Actors and org roles | [Actors and org roles](../../functions/actors.md) |
 | Models | [Models](../../functions/models.md) |
 | Merge-queue attempts | [Landing attempts](../../functions/merge-queue-landing-attempts.md) |
 
