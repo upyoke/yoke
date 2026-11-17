@@ -43,7 +43,6 @@ class PrCreateRequest(BaseModel):
         None,
         description="Optional pull-request description (markdown).",
     )
-    draft: bool = Field(False, description="Open the PR as a draft.")
     project: str = Field(
         ...,
         min_length=1,
@@ -103,7 +102,6 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
             head=payload.head,
             base=payload.base,
             body=payload.body,
-            draft=payload.draft,
             token=resolved.token,
         )
     except RestTransportError as exc:

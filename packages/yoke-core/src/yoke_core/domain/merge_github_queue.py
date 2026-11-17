@@ -35,7 +35,7 @@ from yoke_core.domain.merge_github_graphql import (
 )
 from yoke_core.domain.merge_context import MergeContext
 from yoke_core.domain.merge_github_queue_projection import (
-    QueueMember, parse_queue_members,
+    QueueMember, parse_queue_members, MERGE_QUEUE_ENTRIES_QUERY,
 )
 
 
@@ -76,23 +76,6 @@ mutation($pullRequestId: ID!) {
   }
 }
 """
-
-_MERGE_QUEUE_ENTRIES_QUERY = """
-query($owner: String!, $name: String!, $branch: String!) {
-  repository(owner: $owner, name: $name) {
-    mergeQueue(branch: $branch) {
-      entries(first: 50) {
-        pageInfo { hasNextPage }
-        nodes {
-          state
-          pullRequest { number headRefName }
-        }
-      }
-    }
-  }
-}
-"""
-
 
 @dataclass(frozen=True)
 class QueueEntryResult:
@@ -226,6 +209,25 @@ def enter_merge_queue(
     )
 
 
+def mark_ready_for_review(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+    """Promote a draft before any landing mutation; name refusal and recovery."""
+    result = _mutate_pull_request(ctx, pr_num, """
+mutation($pullRequestId: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
+    pullRequest { number }
+  }
+}
+""")
+    if not result.success:
+        from dataclasses import replace
+
+        return replace(result, error_detail=(
+            f"pr_ready_for_review_failed: {result.error_detail or 'GitHub refused'}; "
+            f"mark PR {pr_num} ready on GitHub and re-run `yoke merge item`"
+        ))
+    return result
+
+
 def enqueue_pull_request(ctx, pr_num, *, expected_head_sha=""):
     """Direct entry regardless of REST readiness lag; pin the observed head."""
     return _mutate_pull_request(ctx, pr_num, _ENQUEUE_MUTATION, expected_head_sha=expected_head_sha)
@@ -292,6 +294,7 @@ def read_pr_landing_state(
     try:
         state = PrLandingState(
             merged=bool(body.get("merged")),
+            draft=bool(body.get("draft")),
             closed=str(body.get("state") or "") == "closed",
             auto_merge_active=body.get("auto_merge") is not None,
             merge_state_status=str(body.get("mergeable_state") or "").lower(),
@@ -321,7 +324,7 @@ def read_queue_members(
     owner, name = split_repo(auth.repo)
     data, err = graphql_with_auth(
         auth,
-        query=_MERGE_QUEUE_ENTRIES_QUERY,
+        query=MERGE_QUEUE_ENTRIES_QUERY,
         variables={"owner": owner, "name": name, "branch": base_branch},
         required_permissions=PR_READ,
         **({"request": request} if request is not None else {}),
@@ -341,6 +344,7 @@ __all__ = [
     "enqueue_pull_request",
     "graphql_with_auth",
     "leave_merge_queue",
+    "mark_ready_for_review",
     "read_pr_landing_state",
     "read_queue_members",
 ]
