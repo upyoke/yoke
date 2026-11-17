@@ -24,7 +24,7 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
     canonical_agents_dir.mkdir(parents=True)
     runtime_agents_dir = root / ".claude" / "agents"
     runtime_agents_dir.parent.mkdir(parents=True, exist_ok=True)
-    runtime_agents_dir.symlink_to("../runtime/harness/claude/agents")
+    runtime_agents_dir.symlink_to("../runtime/harness/claude/agents", target_is_directory=True)
     for name in (
         "yoke-product-manager",
         "yoke-product-designer",

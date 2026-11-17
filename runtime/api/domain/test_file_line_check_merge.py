@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -16,6 +17,20 @@ from runtime.api.domain.file_line_check_test_support import (
     _init_git_repo,
     _make_lines,
 )
+
+
+@pytest.mark.parametrize("width", [40, 64])
+def test_merge_parent_environment_accepts_windows_uppercase_hashes(tmp_path, monkeypatch, width):
+    from yoke_contracts.project_contract import file_line_git_scope as scope
+
+    monkeypatch.setattr(scope, "_git", lambda *args: ".git/MERGE_HEAD")
+    for key in tuple(os.environ):
+        if key.startswith("GITHEAD_"):
+            monkeypatch.delenv(key)
+    oid = ("ABCDEF0123" * 7)[:width]
+    monkeypatch.setenv(f"GITHEAD_{oid}", "incoming")
+
+    assert scope.merge_parent_refs(tmp_path) == (oid.lower(),)
 
 
 def git(repo: pathlib.Path, *args: str, check: bool = True):
