@@ -47,7 +47,7 @@ def test_default_startup_file_per_shell(tmp_path):
 
 def test_path_state_contract_closes_xdg_tools_markers_and_startup_files(tmp_path):
     tool_dir = tmp_path / "xdg-bin"
-    contract = doctor.resolve_path_state_contract(
+    contract = doctor.resolve_path_state_contract(target="posix",
         env={
             "HOME": str(tmp_path),
             "SHELL": "/bin/bash",

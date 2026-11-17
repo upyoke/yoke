@@ -14,6 +14,9 @@ from yoke_harness import golden_harness_clis as clis
 LATEST = {"claude-code": "2.1.300", "codex": "0.163.0", "cursor": "2026.10.19-6bbf2c4"}
 
 
+pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+
+
 class LocalHost:
     def __init__(self, home):
         self.home = home

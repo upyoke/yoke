@@ -31,7 +31,7 @@ def _temp_roster(path: Path) -> str:
 
 
 def _verify_bindings(home: Path, binary: str) -> tuple[str, ...]:
-    path_state = path_doctor.resolve_path_state_contract(
+    path_state = path_doctor.resolve_path_state_contract(target="posix",
         env={"HOME": str(home), "SHELL": binary}
     )
     return (

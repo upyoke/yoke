@@ -41,7 +41,6 @@
 "runtime/harness/test_machine_hooks_context_budget.py::test_exactly_one_evaluation_inside_and_outside_a_project[cursor-sessionEnd]": "AttributeError: 'NoneType' object has no attribute 'group'",
 "runtime/harness/test_machine_hooks_context_budget.py::test_exactly_one_evaluation_inside_and_outside_a_project[cursor-sessionStart]": "AttributeError: 'NoneType' object has no attribute 'group'",
 "runtime/harness/test_machine_hooks_context_budget.py::test_exactly_one_evaluation_inside_and_outside_a_project[cursor-stop]": "AttributeError: 'NoneType' object has no attribute 'group'",
-"runtime/harness/test_machine_qa_desktop_provisioning.py::test_desktop_fixture_password_stays_on_stdin": "ModuleNotFoundError: No module named 'pwd'",
 "runtime/harness/test_main_commit_tool_workdir.py::test_commit_facts_use_tool_workdir[workdir]": "AssertionError: assert 'D:\\\\explicit' == '/explicit'",
 "runtime/harness/test_main_commit_tool_workdir.py::test_commit_facts_use_tool_workdir[working_directory]": "AssertionError: assert 'D:\\\\explicit' == '/explicit'",
 "runtime/harness/test_qa_host_package_fixture.py::test_ambient_security_upgrade_is_rebased_without_package_mutation": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'",

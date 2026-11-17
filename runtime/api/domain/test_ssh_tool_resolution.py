@@ -15,6 +15,9 @@ from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
 from yoke_contracts.test_machine_types import HostActionResult
 
 
+pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+
+
 def _response(command, *, code="1", path="", exit_code=0, noise="", stderr=""):
     marker = re.search(r"YOKE_TOOL_PROBE_[a-f0-9]+", command)[0]
     return subprocess.CompletedProcess(

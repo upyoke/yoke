@@ -22,6 +22,7 @@ def test_non_linux_checks_are_not_applicable(monkeypatch, platform):
     assert [r.result for r in rec.results] == ["N/A", "N/A"]
 
 
+@pytest.mark.posix_only(reason='models paths on the POSIX test machine')
 @pytest.mark.parametrize(
     "root,verdict",
     [
@@ -40,6 +41,7 @@ def test_mount_warning_uses_bound_project_checkout(monkeypatch, root, verdict):
     assert root in rec.results[0].detail
 
 
+@pytest.mark.posix_only(reason='models paths on the POSIX test machine')
 def test_mount_check_follows_symlinks(monkeypatch, tmp_path):
     monkeypatch.setattr(checks.sys, "platform", "linux")
     checkout = tmp_path / "checkout"

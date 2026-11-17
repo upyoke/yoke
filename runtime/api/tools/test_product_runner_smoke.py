@@ -131,7 +131,7 @@ def test_replay_remaps_identity_and_paths_without_flattening_native_structure():
         payload, project=Path("/project"), session="fresh", command="git status --short"
     )
     assert replayed["session_id"] == replayed["conversation_id"] == "fresh"
-    assert replayed["cwd"] == "/project"
+    assert replayed["cwd"] == str(Path("/project"))
     assert replayed["tool_input"] == {
         "command": "git status --short",
         "description": "native description",
@@ -194,7 +194,7 @@ def test_native_corpus_has_all_events_without_account_data(harness):
         fixture["session_start"], project=Path("/project"), session="fresh"
     )
     if harness == "cursor":
-        assert replayed["workspace_roots"] == ["/project"]
+        assert replayed["workspace_roots"] == [str(Path("/project"))]
 
 
 @pytest.mark.parametrize("failed_selection", ["source", "windows"])

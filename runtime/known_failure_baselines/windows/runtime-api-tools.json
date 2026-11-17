@@ -26,8 +26,6 @@
 "runtime/api/tools/test_product_runner_linux_account.py::test_account_login_and_teardown_survive_failed_smoke[None]": "PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_account_login_and_teardow0\\\\yoke-smoke-1234'",
 "runtime/api/tools/test_product_runner_linux_account.py::test_account_login_and_teardown_survive_failed_smoke[systemctl]": "PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_account_login_and_teardow2\\\\yoke-smoke-1234'",
 "runtime/api/tools/test_product_runner_linux_account.py::test_account_login_and_teardown_survive_failed_smoke[userdel]": "PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_account_login_and_teardow1\\\\yoke-smoke-1234'",
-"runtime/api/tools/test_product_runner_smoke.py::test_native_corpus_has_all_events_without_account_data[cursor]": "AssertionError: assert ['\\\\project'] == ['/project']",
-"runtime/api/tools/test_product_runner_smoke.py::test_replay_remaps_identity_and_paths_without_flattening_native_structure": "AssertionError: assert '\\\\project' == '/project'",
 "runtime/api/tools/test_pulumi_exec.py::test_init_is_pinned_to_kms_key_with_ephemeral_authority": "assert 511 == 448",
 "runtime/api/tools/test_pulumi_exec.py::test_preview_forces_stack_uses_owner_only_temp_and_cleans_up": "assert 511 == 448",
 "runtime/api/tools/test_pulumi_exec.py::test_preview_json_output_is_durable_owner_only": "AssertionError: assert 438 == 384",

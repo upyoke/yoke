@@ -26,7 +26,7 @@ def test_zsh_program_verifies_shells_without_inheriting_dirty_path(
     binary = _require_zsh()
     home = tmp_path / "test-home"
     home.mkdir()
-    path_state = path_doctor.resolve_path_state_contract(
+    path_state = path_doctor.resolve_path_state_contract(target="posix",
         env={"HOME": str(home), "SHELL": binary}
     )
     tool_bin = Path(path_state.tool_bin_dir)

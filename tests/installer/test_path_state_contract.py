@@ -11,7 +11,7 @@ from yoke_contracts.shell_path_state import resolve_path_state_contract
 
 def _startup_file(home: Path) -> str:
     env = {"HOME": str(home), "SHELL": "/bin/bash"}
-    return resolve_path_state_contract(env=env, home=home).startup_file
+    return resolve_path_state_contract(target="posix", env=env, home=home).startup_file
 
 
 @pytest.mark.parametrize(
