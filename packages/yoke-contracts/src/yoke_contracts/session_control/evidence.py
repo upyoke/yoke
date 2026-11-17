@@ -114,6 +114,9 @@ _TEXT_FIELDS = frozenset(
         # attempt is otherwise identical to an ordinary stopped-session
         # resume, and the escalation is the half an operator would question.
         "wake_escalation",
+        # The command a held native's process is still running after its
+        # turn ended: the hold, and the seat's lever on it.
+        "running_native_background_command",
     }
 )
 _INTEGER_FIELDS = frozenset(
@@ -132,6 +135,8 @@ _INTEGER_FIELDS = frozenset(
         "requested_context_window_tokens",
         "running_native_pid",
         "running_native_silent_for_seconds",
+        "running_native_background_pid",
+        "running_native_background_count",
     }
 )
 NATIVE_STDERR_EXCERPT_MAX_BYTES = 4 * 1024

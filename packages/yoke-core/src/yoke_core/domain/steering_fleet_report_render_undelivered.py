@@ -103,6 +103,8 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         )
     if entry.delivery_state == ATTEMPT_FAILED:
         return f"never injected, last attempt failed ({entry.diagnostic})"
+    if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN and entry.held_turn_ended_at:
+        return _held_after_turn(entry)
     if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN:
         # Say what is holding it, whether that thing is moving, and what ends
         # the hold. The seat's only lever is the native itself, so the line
@@ -172,6 +174,32 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
             "only when that wake reports the transcript gone"
         )
     return ""
+
+
+def _held_after_turn(entry: UndeliveredMessages) -> str:
+    """A native whose turn ended but whose process a background command holds.
+
+    That native is not working and not stuck: it takes its next turn, and
+    delivers, when the command returns. So the line names the command, which
+    is the seat's lever -- ending it delivers now. Terminating the session
+    would lose the session for nothing.
+    """
+    ended = format_instant(entry.held_turn_ended_at)
+    child = entry.held_background_child
+    if child is None:
+        return (
+            f"never injected, wake held — turn ended at {ended}; process held "
+            f"by background task(s){_held_silence(entry)}; delivers when they "
+            "return; ending them delivers now"
+        )
+    pid, command = child
+    others = entry.held_background_count - 1
+    more = f" (+{others} more)" if others > 0 else ""
+    return (
+        f"never injected, wake held — turn ended at {ended}; process held by "
+        f"background child {pid} `{command}`{more}{_held_silence(entry)}; "
+        "delivers when it returns; ending it delivers now"
+    )
 
 
 def _held_silence(entry: UndeliveredMessages) -> str:

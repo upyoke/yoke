@@ -91,6 +91,11 @@ class UndeliveredMessages:
     #: is the difference between a turn that is working and one to look at.
     held_native_silent_for_seconds: int | None = None
     held_native_observed_at: datetime | None = None
+    #: Set when the holding native's turn ended (a Stop posture newer than
+    #: its last tool call), with the background commands its machine named.
+    held_turn_ended_at: datetime | None = None
+    held_background_child: tuple[int, str] | None = None
+    held_background_count: int = 0
     #: Positions in the actively draining machine queue, in claim order.
     wake_queue_positions: tuple[tuple[str, int], ...] = ()
     #: True when an explicit wake was requested for this recipient, the
@@ -266,11 +271,9 @@ def undelivered_messages(
             group.name_the_failure(result_code=result_code, evidence=evidence)
         elif state == WAKE_HELD_FOR_NATIVE_TURN:
             group.note_held_native(
+                record,
                 evidence=evidence,
                 observed_at=view.completed_at if view else None,
-                latest_tool_call_at=parse_stamp(
-                    record.get("latest_tool_call_started_at")
-                ),
                 current=current,
             )
     return tuple(
@@ -289,6 +292,9 @@ def undelivered_messages(
             failed_attempt_count=group.failed_attempt_count,
             held_native_silent_for_seconds=group.held_native_silent_for_seconds,
             held_native_observed_at=group.held_native_observed_at,
+            held_turn_ended_at=group.held_turn_ended_at,
+            held_background_child=group.held_background_child,
+            held_background_count=group.held_background_count,
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
             recipient_gone_at=group.recipient_gone_at,
