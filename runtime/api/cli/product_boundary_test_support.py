@@ -187,6 +187,14 @@ def _run_product_cli(
         "YOKE_MACHINE_CONFIG_FILE": str(config_path),
         "YOKE_MACHINE_HOME": str(yoke_home),
     }
+    if os.name == "nt":
+        env.update({
+            "USERPROFILE": str(home),
+            "APPDATA": str(home / "AppData" / "Roaming"),
+            "LOCALAPPDATA": str(home / "AppData" / "Local"),
+        })
+        for name in ("APPDATA", "LOCALAPPDATA"):
+            Path(env[name]).mkdir(parents=True, exist_ok=True)
     env.update(extra_env or {})
     result = run_load_tolerant_subprocess(
         [sys.executable, "-c", _HARNESS, *args],
