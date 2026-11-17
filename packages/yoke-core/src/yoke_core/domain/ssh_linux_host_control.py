@@ -86,8 +86,6 @@ class SshLinuxHostControl(SshLinuxHostOperations):
         import shlex
 
         resolved = value.replace("{yoke_bin}", shlex.quote(self.path_state.yoke_bin))
-        if "{" in resolved or "}" in resolved:
-            raise ValueError("entry surface contains an unregistered placeholder")
         return resolved
 
     def run_terminal_case(self, **kwargs) -> HostActionResult:
