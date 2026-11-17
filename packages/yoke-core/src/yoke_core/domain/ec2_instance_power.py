@@ -123,40 +123,6 @@ def ensure_instance_running(
     return state
 
 
-def instance_public_address(
-    runner: CommandRunner, instance_id: str, aws_env: dict
-) -> str | None:
-    """Read the instance's current public IPv4; a private-only instance has none."""
-    # map preserves nulls; a projection silently drops a private-only instance.
-    described = _run(
-        runner,
-        [
-            "describe-instances",
-            "--instance-ids",
-            instance_id,
-            "--query",
-            "map(&PublicIpAddress, Reservations[].Instances[])",
-            "--output",
-            "json",
-        ],
-        aws_env,
-        60,
-    )
-    _require_ok(described, instance_id, "describe-instances")
-    try:
-        addresses = json.loads(described.stdout or "[]")
-    except ValueError as exc:
-        raise Ec2InstancePowerError(
-            f"instance {instance_id}: describe-instances returned non-JSON: {exc}"
-        ) from exc
-    if not isinstance(addresses, list) or len(addresses) != 1:
-        raise Ec2InstancePowerError(
-            f"instance {instance_id}: describe-instances must match one instance; "
-            "check the recorded instance id"
-        )
-    return str(addresses[0]) if addresses[0] is not None else None
-
-
 def stop_instance(
     runner: CommandRunner,
     instance_id: str,
@@ -174,7 +140,6 @@ def stop_instance(
 __all__ = [
     "Ec2InstancePowerError",
     "ensure_instance_running",
-    "instance_public_address",
     "instance_state",
     "stop_instance",
 ]

@@ -27,7 +27,7 @@ def _power_error(code=SSH_UNAVAILABLE):
 
 def test_refresh_keeps_the_original_power_refusal(monkeypatch):
     world = World(monkeypatch, None)
-    original = _power_error("test_machine_power_no_public_address")
+    original = _power_error("test_machine_power_start_failed")
 
     def fail(*_):
         raise original
@@ -118,7 +118,7 @@ def test_refresh_ssh_failure_submits_unstarted_case_and_waits(
     ).fetchone()
 
 
-def test_material_factory_receives_the_rebound_host(monkeypatch):
+def test_material_factory_keeps_registered_host(monkeypatch):
     from yoke_core.domain import cloud_machine_power
 
     material = SimpleNamespace(project="p", settings={"host": "old"})
@@ -131,13 +131,13 @@ def test_material_factory_receives_the_rebound_host(monkeypatch):
     monkeypatch.setattr(
         host_control_runner, "materialize_test_machine_contract", lambda _: material
     )
-    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: {"host": "new"})
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: None)
     monkeypatch.setattr(
         host_control_runner, "_factory", lambda value: seen.append(value) or "control"
     )
     control, returned = host_control_runner.resolve_contract_host_control({})
     assert control == "control"
-    assert returned.settings == seen[0].settings == {"host": "new"}
+    assert returned.settings == seen[0].settings == {"host": "old"}
 
 
 @pytest.mark.parametrize("flag", [True, None])
@@ -177,7 +177,7 @@ def test_pause_recovery_names_file_only_for_recorded_uncertainty(
         assert "yoke test-machine reset" in str(caught.value)
 
 
-def test_cli_operation_uses_settings_returned_by_power(monkeypatch):
+def test_cli_operation_keeps_registered_settings(monkeypatch):
     from yoke_cli.commands.adapters import test_machine_operation as cli
     from yoke_core.domain import cloud_machine_power
     from yoke_contracts.api.function_call import FunctionCallResponse
@@ -192,7 +192,7 @@ def test_cli_operation_uses_settings_returned_by_power(monkeypatch):
     monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(cli, "build_actor", lambda **_: SimpleNamespace())
     monkeypatch.setattr(cli, "emit_response", lambda *_a, **_k: 0)
-    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: {"host": "new"})
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: None)
 
     def dispatch(**kwargs):
         result = (
@@ -232,4 +232,4 @@ def test_cli_operation_uses_settings_returned_by_power(monkeypatch):
         )
         == 0
     )
-    assert seen[0]["settings"]["host"] == "new"
+    assert seen[0]["settings"]["host"] == "old"

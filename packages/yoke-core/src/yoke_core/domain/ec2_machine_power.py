@@ -8,7 +8,6 @@ from typing import Callable
 from yoke_core.domain.deploy_remote import CommandRunner
 from yoke_core.domain.ec2_instance_power import (
     ensure_instance_running,
-    instance_public_address,
     instance_state,
     stop_instance,
 )
@@ -34,9 +33,6 @@ class Ec2MachinePower:
         return ensure_instance_running(
             self.runner, self.instance_id, self.env, self.emit
         )
-
-    def address(self):
-        return instance_public_address(self.runner, self.instance_id, self.env)
 
     def stop(self):
         if instance_state(self.runner, self.instance_id, self.env) in (

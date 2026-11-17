@@ -64,3 +64,25 @@ def test_removed_hook_entrypoint_refuses_before_evaluation():
     response = post_hooks_evaluate(None, request, BackgroundTasks())
     assert response.status_code == 400
     assert b"floor 0.2.0.202610291830" in response.body
+
+
+def test_host_rebind_refuses_old_clients_through_dispatch(test_db):
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain.yoke_function_dispatch import _dispatch_impl
+
+    response = _dispatch_impl(
+        FunctionCallRequest(
+            function="test_machine.host_rebind",
+            actor=ActorContext(session_id="fixture"),
+            target=TargetRef(kind="global"),
+            payload={},
+        )
+    )
+    assert not response.success
+    assert response.error.code == "function_version_skew"
+    assert "floor next-release" in response.error.message
+    assert "test_machine.host_rebind" in response.error.message

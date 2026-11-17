@@ -30,8 +30,43 @@ prepare the test account. Separate operator users/homes remain outside capture,
 restore, inspection and logout. Open SSH to any address with key-only
 authentication and keep RDP behind the SSH forward, as
 [network access](host-provisioning.md#network-access) requires.
-Each lease start re-reads the instance public IPv4 and updates `host` before
-SSH; its last lease release stops the cloud host.
+A lease keeps the registered MagicDNS host unchanged; its last release stops the cloud host.
+
+### Join Tailscale before registration
+
+Install Tailscale on the host and join the operator's tailnet by completing its
+sign-in flow. Enable startup/unattended operation and disable device key expiry
+in the admin console. Controllers join the same tailnet and use MagicDNS.
+This is one-time manual machine setup.
+
+Install [Tailscale for Windows](https://tailscale.com/download/windows) on the
+Windows host only, never inside WSL. Run elevated PowerShell:
+`& 'C:\Program Files\Tailscale\tailscale.exe' up --unattended` and complete the
+sign-in URL. Require its service to stay connected after logout/reboot.
+
+Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
+resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
+then register it as `host`; keep a forwarded `desktop_host` on loopback.
+For cloud bootstrap, query the provider's **current** public IP and connect with
+`ssh -o HostKeyAlias=INSTANCE_ID USER@CURRENT_PUBLIC_IP`; never register that IP.
+Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
+EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
+Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
+without reading or changing the registered host. Golden reset never touches Tailscale.
+
+Before rebuilding, remove the old tailnet device first, then join the replacement
+with the same hostname; verify no `-1` suffix. Verify the new SSH fingerprint,
+then clear the old cloud instance-id pin using
+`ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine known_hosts file
+(physical hosts use the hostname pin). Re-read settings and use the as-read token
+with `settings-replace` for any change, then run `yoke test-machine verify`.
+If DNS/SSH fails, check Tailscale startup, device expiry, controller DNS and sshd;
+never fix reachability by changing the target while its lease is active.
+
+Existing public-IP registrations: join first, deploy the no-rebind build second,
+then settings-replace `host` with MagicDNS using the as-read token. Upgrading
+clients prevents old calls to the retired rebind function. Verify across a power
+cycle and require the same host with no remaining QA_HOST afterward.
 
 ## 2. Windows SSH, registration and desktop secrets
 
@@ -50,7 +85,7 @@ port, including RDP.
 Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` for
 updates with the as-read settings token. Declare `resource_name`, `os=wsl`,
-Windows `host` and `user`, and an absolute **Linux** `golden_baseline_path`
+Windows MagicDNS `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
 `desktop_route=ssh-forward`, the provisioned
 WSL xrdp port (default3390), and the dedicated WSL `desktop_user`. Optional `cloud_instance_id` (the
@@ -303,7 +338,3 @@ The first connection accepts the instance key once with `accept-new`; later
 address changes keep that identity. If the instance is rebuilt, verify its new
 key, then remove the old alias with `ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS`
 from the Yoke-managed Test Machine known_hosts file before reconnecting.
-A cloud instance without a public IPv4 refuses as
-`test_machine_power_no_public_address`: enable a public IPv4 in its subnet and
-rerun. `test_machine_host_rebind_refused` preserves the server refusal; fix its
-named cause, re-read the Test Machine and rerun under the host lease.

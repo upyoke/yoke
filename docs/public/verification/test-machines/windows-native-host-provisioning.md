@@ -100,6 +100,48 @@ az vm start --resource-group GROUP --name VM
 az vm deallocate --resource-group GROUP --name VM
 ```
 
+### Tailscale and public IP lifetime
+
+Install [Tailscale for Windows](https://tailscale.com/download/windows) on Windows
+only, never WSL. In elevated PowerShell run
+`& 'C:\Program Files\Tailscale\tailscale.exe' up --unattended` and complete its
+sign-in flow. Disable device key expiry; prove service startup after logout/reboot.
+Join the controller to the same tailnet. Read `Self.DNSName` with
+`tailscale status --json`, trim its trailing dot, resolve it from the controller
+and prove OpenSSH key login. Register this MagicDNS name as `host`; forwarded
+`desktop_host` stays loopback. Golden reset never changes Tailscale.
+
+For bootstrap, read the current IP with `az network public-ip show --ids IP_ID`
+and SSH using `ssh -o HostKeyAlias=VM_RESOURCE_ID USER@CURRENT_PUBLIC_IP`.
+Never register that IP. Keep the private subnet, key-only SSH from anywhere
+(NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
+and bills until deleted. The NIC public IP supplies outbound on the private subnet.
+Registered power creates/attaches `VM-yoke-power` in the VM resource group/location
+on its sole NIC IP configuration before start, then deallocates/detaches/deletes
+it on last release. It waits for SSH without reading/changing the MagicDNS host.
+Before provider registration, create/attach a temporary IP for each start and
+attach it with `az network nic ip-config update --ids CONFIG_ID
+--public-ip-address IP_ID`; remove it after deallocation:
+
+```text
+az network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
+az network public-ip delete --ids IP_ID
+```
+
+Existing rollout: join first, deploy the no-rebind build, then settings-replace
+`host` using the as-read token. Upgrade clients, then detach/delete the old
+`20.124.243.250` by the commands above under the recorded operator exception.
+An unmanaged IP attachment refuses with that recovery. A failed delete reports
+`test_machine_power_stop_failed`: repair its named cause and retry verify/release.
+Prove start/verify/stop keeps the host unchanged, with no QA_HOST or public IP left.
+
+Before rebuilding, remove the old tailnet device, then join with the same name;
+require no `-1` suffix. Verify the new SSH fingerprint, then clear the old pin
+with `ssh-keygen -R VM_RESOURCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine
+known_hosts file. Re-read settings and use its token for any change; verify again.
+For DNS/SSH failures check Tailscale, device expiry, controller DNS and sshd;
+never change a live lease target to repair connectivity.
+
 ## 2. Provision OpenSSH and the standard test account
 
 Install the Microsoft-serviced Windows capability with
@@ -237,7 +279,7 @@ Register only when the VM exists and its standard user works: `os=windows`
 for native, a separate OS kind for WSL. Goldens use a literal Windows path
 outside the profile, such as `C:\YokeQa\goldens\baseline`; settings contain no
 credentials. Register provider/resource ID using the installed power contract;
-prove start, address refresh and deallocation on last QA lease release.
+prove start, unchanged MagicDNS host and IP deletion after last-lease deallocation.
 
 ```text
 yoke test-machine settings-replace --project P --test-machine NAME --settings-file SETTINGS.json --new

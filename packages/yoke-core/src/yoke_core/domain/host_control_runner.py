@@ -300,9 +300,7 @@ def resolve_contract_host_control(
     material = materialize_test_machine_contract(contract)
     from yoke_core.domain.cloud_machine_power import power_on
 
-    from dataclasses import replace
-
-    material = replace(material, settings=power_on(material.project, material.settings))
+    power_on(material.project, material.settings)
     return _factory(material), material
 
 

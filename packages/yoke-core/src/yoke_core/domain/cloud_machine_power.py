@@ -9,8 +9,7 @@ response (``cloud_machine_release_notice``), and the calling client, whatever
 command or process it is, stops it while holding the host's own lease.
 A release no client hears (a server-side reap) leaves the host running
 until its next lease cycles; by operator choice there is no sweep.
-Each power-on reads the instance's current public IPv4 and rebinds its
-registered host before SSH. Machines without the setting are never touched.
+Power never changes the registered MagicDNS host. Machines without the setting are never touched.
 """
 
 from __future__ import annotations
@@ -202,14 +201,14 @@ def power_on(
     *,
     runner: CommandRunner | None = None,
     emit: Callable[[str], None] = _emit,
-) -> Mapping[str, str]:
+) -> None:
     """Start a cloud Test Machine for its lease; no-op without an instance id.
 
     Raises ``HostControlLocalError`` naming the failed step and its recovery.
     """
     instance_id = str(settings.get("cloud_instance_id") or "")
     if not instance_id:
-        return settings
+        return
     name = str(settings["resource_name"])
     read_command = (
         f"yoke {settings.get('cloud_provider', 'aws')} admin-status --project {project}"
@@ -220,57 +219,24 @@ def power_on(
         ) as provider:
             read_command = provider.read_command
             prior = provider.start()
-            address = provider.address()
     except (Ec2InstancePowerError, AzureAdminError, AzureCliPrerequisiteError) as exc:
         raise _refused(
             "test_machine_power_start_failed",
             f"Test Machine {name}: {exc}",
             f"fix the named cause and rerun; inspect it with `{read_command}`",
         ) from exc
-    if address is None:
-        raise _refused(
-            "test_machine_power_no_public_address",
-            f"Test Machine {name} instance {instance_id} has no public IPv4",
-            f"assign one public IPv4, then rerun; inspect it with `{read_command}`",
-        )
-    if address != settings["host"]:
-        current = _call("test_machine.get", {"project": project, "test_machine": name})
-        if current["settings"]["host"] != address:
-            response = _dispatch(
-                "test_machine.host_rebind",
-                {
-                    "project": project,
-                    "test_machine": name,
-                    "host": address,
-                    "base_settings": current["settings_token"],
-                },
-            )
-            if not response.success:
-                error = response.error
-                raise _refused(
-                    "test_machine_host_rebind_refused",
-                    f"{error.code if error else 'unknown'}: "
-                    f"{error.message if error else 'no error'}",
-                    "fix the named server refusal, re-read the Test Machine and rerun",
-                )
-            emit(
-                f"Test Machine {name} moved from {settings['host']} to {address}; "
-                f"its registered host now names {address}"
-            )
-        settings = {**settings, "host": address}
     if prior != "running":
         wait_for_ssh_login(project, settings, emit, runner=runner)
-    return settings
+    return
 
 
 class CloudMachinePower(Protocol):
-    """One leased VM: start, current address, and release its allocation."""
+    """One leased VM: start and release its allocation."""
 
     read_command: str
     stop_command: str
 
     def start(self) -> str: ...
-    def address(self) -> str | None: ...
     def stop(self) -> None: ...
 
 
