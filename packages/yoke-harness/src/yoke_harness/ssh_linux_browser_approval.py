@@ -18,6 +18,7 @@ from typing import Any
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness import (
+    linux_platform_payload,
     linux_chromium_processes,
     linux_desktop_chromium,
     linux_devtools_page,
@@ -53,11 +54,13 @@ _CONFIRMATION_IMPORT = (
 def _host(control: Any, *arguments: str, desktop: bool = True) -> dict[str, Any]:
     program = "\n".join(
         [
-            Path(linux_devtools_page.__file__).read_text(),
-            Path(linux_chromium_processes.__file__).read_text(),
+            linux_platform_payload.source(),
+            Path(linux_devtools_page.__file__).read_text().replace("from __future__ import annotations", ""),
+            Path(linux_chromium_processes.__file__).read_text().replace("from __future__ import annotations", ""),
             f"CONNECTED_CONFIRMATION = {json.dumps(CONNECTED_CONFIRMATION)}",
             Path(linux_desktop_chromium.__file__)
             .read_text()
+            .replace("from __future__ import annotations", "")
             .replace(_DEVTOOLS_IMPORT, "")
             .replace(_CONFIRMATION_IMPORT, "")
             .replace(

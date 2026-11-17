@@ -1,6 +1,7 @@
 """Discover and gracefully stop only the native Chromium main processes."""
 
-from yoke_contracts.owner_private_path import posix_uid
+if __package__:
+    from yoke_contracts.owner_private_path import posix_uid
 
 import os
 from pathlib import Path

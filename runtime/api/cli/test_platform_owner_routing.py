@@ -9,7 +9,7 @@ import pytest
 
 from yoke_contracts import global_skill_install, owner_private_path
 from yoke_cli.config import browser_profile
-from yoke_harness import linux_command_custody
+from yoke_harness import linux_command_custody, linux_platform_payload, linux_desktop_state
 from yoke_core.domain import gate_stall_report, process_group_reaping
 
 
@@ -23,6 +23,31 @@ def test_posix_uid_names_native_windows_recovery(monkeypatch):
 def test_remote_program_carries_stdlib_owners_without_installed_yoke():
     command = linux_command_custody._program("print(posix_uid())")
     result = subprocess.run(shlex.split(command), capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().isdigit()
+
+
+@pytest.mark.posix_only(reason="SSH bootstrap executes POSIX process and file-lock boundaries")
+def test_desktop_payload_imports_no_installed_yoke_and_embeds_locking(tmp_path):
+    source = linux_platform_payload.source() + "\n" + Path(linux_desktop_state.__file__).read_text(encoding="utf-8").replace("from __future__ import annotations", "")
+    guard = """import builtins
+original_import = builtins.__import__
+def stdlib_import(name, *args, **kwargs):
+    if name.startswith('yoke_'):
+        raise ImportError('package forbidden in standalone payload: ' + name)
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = stdlib_import
+"""
+    exercise = """
+import tempfile, sys
+with tempfile.TemporaryFile() as lock:
+    acquire_exclusive(lock.fileno())
+process = spawn_group_process([sys.executable, '-c', 'pass'])
+assert process.wait() == 0
+print(posix_uid())
+"""
+    result = subprocess.run(["/usr/bin/python3", "-I", "-c", guard + source + exercise],
+                            capture_output=True, text=True, cwd=tmp_path)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip().isdigit()
 

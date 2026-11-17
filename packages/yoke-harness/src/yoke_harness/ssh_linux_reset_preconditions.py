@@ -13,9 +13,9 @@ from yoke_harness.ssh_mac_baseline_probes import (
 from yoke_contracts.test_machine_types import HostActionResult
 
 # Shared by the read-only admission call and the final check before teardown.
-from yoke_harness import linux_desktop_state
+from yoke_harness import linux_desktop_state, linux_platform_payload
 
-DESKTOP_PROGRAM = (
+DESKTOP_PROGRAM = linux_platform_payload.source() + (
     Path(linux_desktop_state.__file__)
     .read_text()
     .replace("from __future__ import annotations", "")

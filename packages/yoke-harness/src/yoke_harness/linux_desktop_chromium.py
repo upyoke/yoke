@@ -4,7 +4,8 @@ import json
 import os
 from pathlib import Path
 import signal as signal
-from yoke_contracts.platform_process import spawn_group
+if __package__:
+    from yoke_contracts.platform_process import spawn_group_process
 
 import subprocess
 import sys
@@ -120,7 +121,7 @@ def prepare():
     restarted = quit_chromium()
     for directory in user_data_dirs():
         (directory / "DevToolsActivePort").unlink(missing_ok=True)
-    spawn_group(
+    spawn_group_process(
         [str(executable), "--remote-debugging-port=0"],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,

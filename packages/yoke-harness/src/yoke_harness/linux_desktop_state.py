@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from yoke_contracts.owner_private_path import posix_uid
+if __package__:
+    from yoke_contracts.owner_private_path import posix_uid
+    from yoke_contracts.platform_file_lock import acquire_exclusive
 
 import json
 import os
@@ -17,7 +19,6 @@ RECOVERY = "Repair the registered fixture secret or xrdp/XFCE prerequisites, the
 RDP_PORT = 3389
 DESKTOP_READY_TIMEOUT_SECONDS = 15
 DESKTOP_POLL_INTERVAL_SECONDS = 0.2
-
 
 def desktop_sessions(*, active_only=True):
     active = {row["id"] for row in graphical_sessions()} if active_only else None
@@ -64,7 +65,6 @@ def desktop_sessions(*, active_only=True):
         except (FileNotFoundError, ProcessLookupError):
             continue
     return sessions
-
 
 def graphical_sessions():
     if not Path("/run/systemd/system").is_dir():
@@ -129,8 +129,6 @@ def rdp_connected(port=RDP_PORT):
 
 
 def ownership_file(*, create=True):
-    from yoke_contracts.platform_file_lock import acquire_exclusive
-
     path = Path(f"/tmp/yoke-desktop-{posix_uid()}.json")
     fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | (os.O_CREAT if create else 0), 0o600)
     info = os.fstat(fd)

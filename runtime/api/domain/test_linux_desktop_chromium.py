@@ -40,8 +40,16 @@ def _shipped_program(argv):
 def test_shipped_program_runs_with_only_the_host_stdlib(tmp_path):
     program = _shipped_program(["quit"])
     assert "from yoke_harness" not in program
+    guard = """import builtins
+original_import = builtins.__import__
+def stdlib_import(name, *args, **kwargs):
+    if name.startswith('yoke_'):
+        raise ImportError('package forbidden in standalone payload: ' + name)
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = stdlib_import
+"""
     result = subprocess.run(
-        [sys.executable, "-I", "-c", program, "unregistered"],
+        [sys.executable, "-I", "-c", guard + program, "unregistered"],
         capture_output=True,
         text=True,
         cwd=tmp_path,
@@ -240,7 +248,7 @@ def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, t
     )
     monkeypatch.setattr(
         host,
-        "spawn_group",
+        "spawn_group_process",
         lambda argv, **kw: launched.append((argv, kw.get("env"))),
     )
     monkeypatch.setattr(host.time, "sleep", lambda _s: None)
