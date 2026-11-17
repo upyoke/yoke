@@ -1,10 +1,8 @@
 """Module-owned Git repository templates for merge subprocess tests."""
 
-import os
 from pathlib import Path
 import shutil
 import subprocess
-import warnings
 
 import pytest
 
@@ -61,21 +59,28 @@ def copy_repository(tmp_path: Path, request, branch: str) -> None:
         "repo/.git/worktrees/worktree/gitdir",
         "worktree/.git",
     ):
-        _rewrite_in_place(tmp_path / relative, str(template), str(tmp_path))
+        _relocate_in_place(tmp_path / relative, template, tmp_path)
 
 
-def _rewrite_in_place(path: Path, old: str, new: str) -> None:
-    """Replace text inside an existing file without recreating it.
+def _relocate_in_place(path: Path, old: Path, new: Path) -> None:
+    """Point one Git pointer file from ``old`` to ``new`` without recreating it.
 
     Git for Windows marks a linked worktree's ``.git`` file Hidden, and
-    Windows denies a truncating create on a hidden file; opening the existing
-    file for update keeps its attributes and is allowed.
+    Windows denies a truncating create on a hidden file, so the existing file
+    is opened for update instead. Git spells a path with ``/`` in pointer
+    files and escapes ``\\`` in config, so every spelling is replaced.
     """
-    attributes = getattr(os.stat(path), "st_file_attributes", None)
-    if attributes is not None:  # YOK-5357 cause probe; removed once confirmed.
-        warnings.warn(f"YOK-5357 attributes {path.name}: {attributes:#x}")
+    spellings = {
+        str(old).replace("\\", "\\\\"): str(new).replace("\\", "\\\\"),
+        old.as_posix(): new.as_posix(),
+    }
     with path.open("r+", encoding="utf-8", newline="") as handle:
-        text = handle.read().replace(old, new)
+        original = handle.read()
+        text = original
+        for before, after in spellings.items():
+            text = text.replace(before, after)
+        if text == original:
+            raise AssertionError(f"{path} does not name the template {old}")
         handle.seek(0)
         handle.write(text)
         handle.truncate()
