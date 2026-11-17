@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_contracts import owner_private_path
-
 import importlib.util
 import os
 import shutil
@@ -124,7 +122,6 @@ def path_status(raw: str | Path, label: str) -> dict[str, Any]:
 def permission_issues(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
-    path_stat = path.stat()
     issues: list[dict[str, str]] = []
     if not owner_private_path.is_owner_private_file(path):
         message = f"{path} must be owner-only"

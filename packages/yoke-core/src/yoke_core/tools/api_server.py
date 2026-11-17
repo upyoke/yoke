@@ -168,11 +168,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[List[str]] = None) -> None:
     args = build_parser().parse_args(argv)
-    if args.command == "start":
+    try:
+        return _execute(args.command)
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"api_server_failed: {exc}; inspect the server log and repair its custody file before retrying", file=sys.stderr)
+        raise SystemExit(1) from exc
+
+
+def _execute(command: str) -> None:
+    if command == "start":
         sys.exit(cmd_start())
-    elif args.command == "restart":
+    elif command == "restart":
         sys.exit(cmd_restart())
-    elif args.command == "stop":
+    elif command == "stop":
         sys.exit(cmd_stop())
     sys.exit(1)
 

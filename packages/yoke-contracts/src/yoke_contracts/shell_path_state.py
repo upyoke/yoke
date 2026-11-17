@@ -79,9 +79,9 @@ def current_shell(env: Mapping[str, str] | None = None) -> str:
     if not shell:
         try:
             import pwd
-            import getpass
+            from yoke_contracts.owner_private_path import posix_uid
 
-            shell = pwd.getpwnam(getpass.getuser()).pw_shell
+            shell = pwd.getpwuid(posix_uid()).pw_shell
         except (ImportError, KeyError):
             shell = ""
     return Path(shell).name if shell else "zsh"

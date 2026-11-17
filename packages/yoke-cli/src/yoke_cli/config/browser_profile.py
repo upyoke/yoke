@@ -28,7 +28,7 @@ not an error: its QA check starts with a clean private profile.
 
 from __future__ import annotations
 
-from yoke_contracts.platform_links import link as create_link
+from yoke_contracts.platform_links import link as create_link, is_link, remove_link
 
 import shutil
 from pathlib import Path
@@ -105,12 +105,12 @@ def _link_live_identity(key: str, identity: str, *, create: bool) -> None:
         return
     target = root.parent / live_identity_store_relative_path(key, identity)
     link = _profile_path(key, identity)
-    if link.is_symlink() or link.is_junction():
+    if is_link(link):
         if link.resolve() == target.resolve():
             if create:
                 create_private_directory(target)
             return
-        link.rmdir() if link.is_junction() else link.unlink()
+        remove_link(link)
     elif link.is_dir():
         if target.exists():
             raise BrowserIdentityError(
@@ -167,7 +167,7 @@ def ensure_profile_dir(
     key = profile_project_key(project, directory=directory)
     _link_live_identity(key, identity, create=True)
     path = _profile_path(key, identity)
-    if path.is_symlink() or path.is_junction():
+    if is_link(path):
         return path
     return ensure_private_capability_dir(path)
 
@@ -254,9 +254,9 @@ def remove_profile_dir(
     target = _profile_path(key, identity)
     if not target.is_dir():
         return None
-    if target.is_symlink() or target.is_junction():
+    if is_link(target):
         shutil.rmtree(target.resolve())
-        target.rmdir() if target.is_junction() else target.unlink()
+        remove_link(target)
     else:
         shutil.rmtree(target)
     return target

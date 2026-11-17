@@ -16,7 +16,7 @@ not record is never overwritten: install refuses with
 
 from __future__ import annotations
 
-from yoke_contracts.platform_links import link as create_link
+from yoke_contracts.platform_links import link as create_link, is_link, remove_link
 
 import os
 import shutil
@@ -134,7 +134,7 @@ def global_skill_ready(
 
 
 def _placement_matches(link: Path, shared: Path) -> bool:
-    if link.is_symlink() or link.is_junction():
+    if is_link(link):
         return link.resolve() == shared.resolve()
     # The copy fallback is valid only for a placement this installer owns.
     copied = link / SKILL_FILE
@@ -163,9 +163,9 @@ def _install_link(
     if link.exists() or link.is_symlink():
         if str(link) not in owned:
             return _refuse(link, result)
-        if link.is_junction():
-            link.rmdir()
-        elif link.is_dir() and not link.is_symlink():
+        if is_link(link):
+            remove_link(link)
+        elif link.is_dir():
             shutil.rmtree(link)
         else:
             link.unlink()
