@@ -56,7 +56,7 @@ def receipt(payload):
     "payload", [b"", bytes(range(256)), " \n雪 secret \r\n ".encode()]
 )
 def test_frames_preserve_bytes_and_declare_encoded_size(payload):
-    header, data = frame_bytes(payload).split("\n", 1)
+    header, data = frame_bytes(payload).split(":", 1)
     assert len(header) == 8
     assert int(header, 16) == len(data)
     assert base64.b64decode(data, validate=True) == payload

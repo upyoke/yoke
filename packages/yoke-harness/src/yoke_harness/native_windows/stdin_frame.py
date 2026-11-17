@@ -37,10 +37,11 @@ function Read-YokeFrame {
  $raw=Read-YokeExact $stream ([int]$count)
  $data=[Text.Encoding]::ASCII.GetString($raw)
  $bytes=[Convert]::FromBase64String($data)
+ if($bytes.Length -gt MAX_BYTES){throw 'windows_stdin_frame_size_invalid: use a bounded payload'}
  if([Convert]::ToBase64String($bytes) -cne $data){throw 'windows_stdin_frame_encoding_invalid: use canonical base64'}
  return ,$bytes
 }
-""".replace("MAX_ENCODED", str(MAX_ENCODED))
+""".replace("MAX_ENCODED", str(MAX_ENCODED)).replace("MAX_BYTES", str(MAX_BYTES))
 
 
 def upload_script(path_expression: str) -> str:
