@@ -21,6 +21,7 @@ def test_capture_retains_before_submit_stops_host(monkeypatch, status, keep_stat
     stopped = False
     execution = {
         "project": "example", "settings": {"user": "tester"},
+        "lease_id": 1, "contract_digest": "digest",
         "golden_destination": DESTINATION,
     }
     keep_fields = {
@@ -62,7 +63,7 @@ def test_capture_retains_before_submit_stops_host(monkeypatch, status, keep_stat
         )
 
     monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(adapter, "build_actor", lambda **kwargs: ActorContext(actor_id="2"))
+    monkeypatch.setattr(adapter, "build_actor", lambda **kwargs: ActorContext(actor_id="2", session_id="holder"))
     monkeypatch.setattr(adapter, "call_dispatcher", dispatch)
     monkeypatch.setattr(adapter, "_power", lambda: SimpleNamespace(power_on=lambda *a: None))
     monkeypatch.setattr(retention, "retain_registered_golden", retain)
