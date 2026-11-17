@@ -58,4 +58,6 @@ def _key(conn: Any, gate_point: str) -> str:
         "AND blocking_item_id=%s AND gate_point=%s",
         (DEPENDENT, BLOCKER, gate_point),
     ).fetchone()
-    return notice.dependency_satisfied_key(DEPENDENT, BLOCKER, gate_point, row[0])
+    return notice.dependency_satisfied_key(
+        DEPENDENT, BLOCKER, gate_point, row[0], notice.blocker_landing(conn, BLOCKER)
+    )

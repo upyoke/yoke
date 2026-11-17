@@ -143,3 +143,87 @@ def test_completion_satisfies_merge_edge_without_clock_evidence():
         "fact:merged", "done", workflow=builtin_workflow_runtime("dash")
     ).satisfied
     assert not evaluate_satisfaction("fact:merged", "done").satisfied
+
+
+def _transition(conn, item_id, status, at):
+    conn.execute(
+        "INSERT INTO item_status_transitions "
+        "(item_id,task_num,from_status,to_status,source,created_at) "
+        "VALUES (%s,NULL,'idea',%s,'test',%s)",
+        (item_id, status, at),
+    )
+    conn.execute("UPDATE items SET status=%s WHERE id=%s", (status, item_id))
+
+
+def test_returned_blocker_owes_a_relanding_in_every_reader(test_db):
+    blocker, dependent = 9821, 9822
+    for item in (blocker, dependent):
+        insert_item(
+            test_db,
+            id=item,
+            project_sequence=item,
+            workflow_id="dash",
+            status="implementing",
+        )
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,created_at) "
+        "VALUES (%s,%s,'integration','fact:merged','test',%s)",
+        (dependent, blocker, CREATED),
+    )
+    from yoke_core.domain.project_identity import render_item_ref
+
+    dependent_ref = render_item_ref(test_db, dependent)
+
+    def blocked() -> bool:
+        readers = {
+            "pairs": bool(unsatisfied_dependency_pairs(test_db, [dependent])),
+            "batch": bool(
+                dependency_planning.evaluate_batch_gates(
+                    test_db, "integration", emit_events=False
+                )
+            ),
+            "item": dependency_planning.evaluate_item_gate(
+                test_db, dependent_ref, "integration"
+            ).is_blocked,
+            "hard": bool(evaluate_blockers(dependent, conn=test_db)),
+            "gate": bool(
+                dependencies.query_unsatisfied_at_gate(
+                    test_db, dependent_ref, "integration"
+                )
+            ),
+            "frontier": bool(dependencies.query_frontier_blocks(test_db, "integration")),
+            "health": bool(gating_blockers(test_db, [dependent])),
+            "notice": not _blocker_verdict(
+                test_db, blocker, "fact:merged", CREATED
+            ).satisfied,
+        }
+        assert len(set(readers.values())) == 1, readers
+        return next(iter(readers.values()))
+
+    land = "UPDATE items SET merged_at=%s WHERE id=%s"
+    test_db.execute(land, ("2026-01-03T00:00:00Z", blocker))
+    _transition(test_db, blocker, "release", "2026-01-03T00:01:00Z")
+    assert not blocked()
+    _transition(test_db, blocker, "implementing", "2026-01-03T00:02:00Z")
+    assert blocked()
+    [(_, _, verdict)] = unsatisfied_dependency_pairs(test_db, [dependent])
+    assert verdict.reason.startswith("merge_relanding_owed:")
+    test_db.execute(land, ("2026-01-03T01:00:00Z", blocker))
+    assert not blocked()
+    _transition(test_db, blocker, "release", "2026-01-03T01:01:00Z")
+    assert not blocked()
+
+
+def test_relanding_owed_only_before_release():
+    workflow = builtin_workflow_runtime("dash")
+    landed = dict(
+        blocking_merged_at="2026-01-03T00:00:00Z",
+        dependency_created_at=CREATED,
+        workflow=workflow,
+        blocking_returned_after_landing=True,
+    )
+    owed = evaluate_satisfaction("fact:merged", "implementing", **landed)
+    assert owed.reason.startswith("merge_relanding_owed:")
+    assert evaluate_satisfaction("fact:merged", "release", **landed).satisfied
+    assert evaluate_satisfaction("fact:merged", "done", **landed).satisfied

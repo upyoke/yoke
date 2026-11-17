@@ -15,7 +15,7 @@ from __future__ import annotations
 from functools import partial
 from typing import Any
 
-from yoke_contracts.timestamps import utc_now
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.dependency_explanation import unmet_gate_action
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
@@ -38,13 +38,30 @@ def _p(conn: Any) -> str:
 
 
 def dependency_satisfied_key(
-    dependent_id: int, blocker_id: int, gate_point: str, dependency_id: int
+    dependent_id: int,
+    blocker_id: int,
+    gate_point: str,
+    dependency_id: int,
+    landing: str,
 ) -> str:
-    """One notice per durable edge, allowing a newly created wait to notify again."""
+    """One notice per durable edge and blocker landing.
+
+    A newly created wait notifies again, and so does a blocker's next landing
+    after rework returned it: its dependent's gate closed and cleared again.
+    """
     return (
         f"dependency-satisfied:{int(dependent_id)}:{int(blocker_id)}:"
-        f"{gate_point}:{int(dependency_id)}"
+        f"{gate_point}:{int(dependency_id)}:{landing}"
     )
+
+
+def blocker_landing(conn: Any, blocker_id: int) -> str:
+    """The blocker's latest recorded landing as a stable key part, or ``""``."""
+    row = conn.execute(
+        f"SELECT merged_at FROM items WHERE id={_p(conn)}", (int(blocker_id),)
+    ).fetchone()
+    stamp = row[0] if row is not None else None
+    return parse_instant(stamp).isoformat() if stamp not in (None, "") else ""
 
 
 def _blocker_verdict(
@@ -172,6 +189,7 @@ def notify_satisfied_dependents(
     :func:`push_notice`'s vocabulary, with ``""`` for nobody addressable.
     """
     blocker_ref = render_item_ref(conn, blocking_item_id)
+    landing = blocker_landing(conn, blocking_item_id)
     now = utc_now()
     reports = []
     for (
@@ -211,7 +229,7 @@ def notify_satisfied_dependents(
                 remaining=remaining,
             ),
             idempotency_key=dependency_satisfied_key(
-                dependent_id, blocking_item_id, gate_point, edge_id
+                dependent_id, blocking_item_id, gate_point, edge_id, landing
             ),
             now=now,
         )
@@ -248,6 +266,7 @@ def notify_after_commit(
 __all__ = [
     "EVENT_DONE",
     "EVENT_MERGED",
+    "blocker_landing",
     "dependency_satisfied_key",
     "notify_after_commit",
     "notify_satisfied_dependents",

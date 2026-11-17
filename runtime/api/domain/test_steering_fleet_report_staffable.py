@@ -109,3 +109,36 @@ def test_landed_and_run_sections_keep_their_rows(seeded) -> None:
     ]
     assert [run.run_id for run in report.deployment_runs] == [RUN_ID]
     assert [red.requirement_id for red in report.deployment_runs[0].red] == [951]
+
+
+def _behind_returned_blocker(conn) -> None:
+    """Item 8 waits to activate on item 4, which rework sent back after landing."""
+    _item(conn, 8, "idea")
+    conn.execute(
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
+        "gate_point, satisfaction, source, rationale, created_at) "
+        "VALUES (8, 4, 'activation', 'fact:merged', 'operator', '', %s)",
+        (parse_instant("2026-08-26T07:00:00Z"),),
+    )
+    conn.commit()
+
+
+def test_dependent_behind_a_returned_blocker_is_not_available(seeded) -> None:
+    _behind_returned_blocker(seeded)
+
+    report = compose(seeded)
+
+    assert "YOK-8" not in {entry.public_ref for entry in report.available}
+
+
+def test_dependent_becomes_available_after_the_blocker_relands(seeded) -> None:
+    _behind_returned_blocker(seeded)
+    seeded.execute(
+        "UPDATE items SET merged_at=%s WHERE id=4",
+        (parse_instant("2026-08-26T10:00:00Z"),),
+    )
+    seeded.commit()
+
+    report = compose(seeded)
+
+    assert "YOK-8" in {entry.public_ref for entry in report.available}

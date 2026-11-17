@@ -13,22 +13,16 @@ from yoke_core.domain.dependency_types import (
     deployed_environment,
     satisfaction_is_known,
 )
-from yoke_core.domain.dependency_status_stage import (
-    evaluate_status_satisfaction,
-    require_authorable_status_stage,
-)
-from yoke_core.domain.environment_delivery_record import (
-    UnregisteredEnvironment,
-    require_registered_environment,
-    resolve_environment_id,
-)
+from yoke_core.domain.dependency_status_stage import evaluate_status_satisfaction
+from yoke_core.domain.environment_delivery_record import resolve_environment_id
 from yoke_core.domain.dependency_merge_fact import (
+    blocker_owes_relanding,
     evaluate_merge_state,
     evaluate_recorded_merge,
+    read_returned_after_landing,
 )
 from yoke_core.domain.schema_common import _get_columns, _table_exists
 from yoke_core.domain.workflow_runtime import WorkflowRuntime, builtin_workflow_runtime
-from yoke_core.domain.project_identity import render_item_ref
 
 
 @dataclass(frozen=True)
@@ -79,45 +73,6 @@ def read_deployed_environment_fact(
     return DeployedEnvironmentFact(environment, True, carried)
 
 
-def require_authorable_satisfaction(
-    conn: Any,
-    *,
-    blocking_item_id: int,
-    satisfaction: str,
-) -> None:
-    """Refuse unknown values, unknown stages, and unregistered environments."""
-    try:
-        Satisfaction.from_db(satisfaction)
-    except ValueError as exc:
-        raise ValueError(
-            f"unknown_satisfaction: {satisfaction!r}; accepted grammar: "
-            f"{SATISFACTION_GRAMMAR}"
-        ) from exc
-    environment = deployed_environment(satisfaction)
-    if environment is None:
-        require_authorable_status_stage(
-            conn, blocking_item_id=blocking_item_id, satisfaction=satisfaction
-        )
-        return
-    p = _placeholder(conn)
-    row = conn.execute(
-        f"SELECT project_id FROM items WHERE id={p}",
-        (int(blocking_item_id),),
-    ).fetchone()
-    if row is None:
-        raise LookupError(
-            f"blocking {render_item_ref(conn, blocking_item_id)} not found"
-        )
-    try:
-        require_registered_environment(
-            conn,
-            int(_row_value(row, "project_id", 0)),
-            environment,
-        )
-    except UnregisteredEnvironment as exc:
-        raise UnregisteredEnvironment(f"environment_unregistered: {exc}") from exc
-
-
 def evaluate_satisfaction(
     satisfaction: str,
     blocking_status: Optional[str],
@@ -128,6 +83,7 @@ def evaluate_satisfaction(
     workflow: Optional[WorkflowRuntime] = None,
     blocking_merged_at: Any = None,
     dependency_created_at: Any = None,
+    blocking_returned_after_landing: bool = False,
 ) -> GateResult:
     """Evaluate one value from the canonical satisfaction grammar."""
     if not satisfaction_is_known(satisfaction):
@@ -174,7 +130,13 @@ def evaluate_satisfaction(
     if status_result is not None:
         return status_result
     if satisfaction == Satisfaction.FACT_MERGED.value:
-        return evaluate_recorded_merge(blocking_merged_at, dependency_created_at)
+        return evaluate_recorded_merge(
+            blocking_merged_at,
+            dependency_created_at,
+            relanding_owed=blocker_owes_relanding(
+                blocking_status, blocking_returned_after_landing, workflow
+            ),
+        )
     merge_result = evaluate_merge_state(
         blocking_status, blocking_worktree, blocking_merged, workflow
     )
@@ -206,8 +168,10 @@ def evaluate_persisted_satisfaction(
     dependency_created_at: Any = None,
 ) -> GateResult:
     """Read any dynamic fact, then invoke the one pure evaluator."""
-    deployed = None
+    deployed, returned = None, frozenset[int]()
     if conn is not None and blocking_item_id is not None:
+        if satisfaction == Satisfaction.FACT_MERGED.value:
+            returned = read_returned_after_landing(conn, [blocking_item_id])
         deployed = read_deployed_environment_fact(
             conn,
             blocking_item_id=int(blocking_item_id),
@@ -222,6 +186,7 @@ def evaluate_persisted_satisfaction(
         workflow=workflow,
         blocking_merged_at=blocking_merged_at,
         dependency_created_at=dependency_created_at,
+        blocking_returned_after_landing=blocking_item_id in returned,
     )
 
 
@@ -288,6 +253,14 @@ def unsatisfied_dependency_pairs(
         )
     )
     completed = completed_deliveries(conn, blockers)
+    returned = read_returned_after_landing(
+        conn,
+        {
+            _row_value(row, "blocking_item_id", 1)
+            for row in rows
+            if _row_value(row, "satisfaction", 2) == Satisfaction.FACT_MERGED.value
+        },
+    )
     registered = registered_item_environments(conn, blockers)
     blocked: list[tuple[int, int, GateResult]] = []
     for row in rows:
@@ -327,6 +300,7 @@ def unsatisfied_dependency_pairs(
             workflow=workflow,
             blocking_merged_at=_row_value(row, "merged_at", 4),
             dependency_created_at=_row_value(row, "dependency_created_at", 11),
+            blocking_returned_after_landing=blocker in returned,
         )
         may_ship_together = (
             blocker in co_scheduled
@@ -343,6 +317,5 @@ __all__ = [
     "evaluate_persisted_satisfaction",
     "evaluate_satisfaction",
     "read_deployed_environment_fact",
-    "require_authorable_satisfaction",
     "unsatisfied_dependency_pairs",
 ]

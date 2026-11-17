@@ -277,3 +277,40 @@ def test_close_replay_without_receipt_wakes_a_deployed_dependent(test_db, monkey
     assert _recipients(test_db, _key(test_db, "closure")) == [HOLDER_A]
     [body] = _bodies(test_db, _key(test_db, "closure"))
     assert "closure gate fact:deployed:prod" in body
+
+
+def test_relanding_after_return_tells_the_dependent_again(test_db):
+    _items(test_db)
+    _edge(test_db, BLOCKER, "integration", "fact:merged")
+    _parked_dependent(test_db)
+    notice.notify_after_commit(
+        test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
+    )
+    first_key = _key(test_db, "integration")
+    test_db.execute(
+        "INSERT INTO item_status_transitions "
+        "(item_id,task_num,from_status,to_status,source,created_at) "
+        "VALUES (%s,NULL,'release','implementing','test',%s)",
+        (BLOCKER, "2026-01-04T00:00:00Z"),
+    )
+    test_db.commit()
+    assert (
+        notice.notify_after_commit(
+            test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
+        )[0]
+        == []
+    )
+    test_db.execute(
+        "UPDATE items SET merged_at=%s WHERE id=%s", ("2026-01-05T00:00:00Z", BLOCKER)
+    )
+    test_db.commit()
+
+    reports, advisory = notice.notify_after_commit(
+        test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
+    )
+
+    assert advisory == ""
+    assert len(reports) == 1
+    assert _key(test_db, "integration") != first_key
+    assert len(_bodies(test_db, first_key)) == 1
+    assert len(_bodies(test_db, _key(test_db, "integration"))) == 1

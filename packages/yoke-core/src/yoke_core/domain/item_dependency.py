@@ -8,7 +8,9 @@ from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
 
 from yoke_core.domain.db_helpers import instant_parameter, query_scalar
 from yoke_core.domain.dependency_cycles_read import refuse_cycles_through
-from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
+from yoke_core.domain.dependency_satisfaction_authoring import (
+    require_authorable_satisfaction,
+)
 from yoke_core.domain.item_dependency_upsert import (
     DependencyWrite,
     placeholder,
