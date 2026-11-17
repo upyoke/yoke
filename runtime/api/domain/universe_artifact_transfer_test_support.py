@@ -72,7 +72,9 @@ def _seed(conn, handle):
         "VALUES (%s,'test','manual','pass',now()) RETURNING id",
         (requirement,),
     ).fetchone()[0]
-    for source_handle in (handle, {"backend": "local", "path": "/absent/artifact"}):
+    # A server-local absolute path that does not exist on this machine.
+    absent = str(Path("/absent/artifact").absolute())
+    for source_handle in (handle, {"backend": "local", "path": absent}):
         conn.execute(
             "INSERT INTO qa_artifacts(qa_run_id,artifact_type,artifact_handle,created_at) "
             "VALUES (%s,'text',%s,now())",

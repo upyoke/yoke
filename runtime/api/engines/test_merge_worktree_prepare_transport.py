@@ -19,7 +19,6 @@ from runtime.api.engines.merge_worktree_prepare_transport_test_support import (
 )
 
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -115,7 +114,7 @@ class TestResolveContextRelays:
         monkeypatch.setattr(prep, "_find_worktree", lambda b, r: str(tmp_path))
         monkeypatch.setattr(
             "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
-            lambda slug, **_k: Path("/checkouts/acme"),
+            lambda slug, **_k: tmp_path / "checkouts" / "acme",
         )
         _no_bare_db(monkeypatch)
 
@@ -125,7 +124,7 @@ class TestResolveContextRelays:
         ctx = prep.resolve_context(args)
 
         assert ctx.project == "acme"
-        assert ctx.repo_root == "/checkouts/acme"
+        assert ctx.repo_root == str(tmp_path / "checkouts" / "acme")
         assert args.target == "trunk"
 
     def test_epic_ref_resolution_relays_item_detail_get(self, monkeypatch, tmp_path):

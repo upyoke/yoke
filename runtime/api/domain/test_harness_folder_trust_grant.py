@@ -20,7 +20,8 @@ from yoke_contracts.harness_folder_trust import (
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_contracts.codex_config_posture import parse_config
 
-CHECKOUT = "/repos/example"
+# A checkout on this machine: folder trust keys local absolute paths.
+CHECKOUT = str(Path("/repos/example").absolute())
 
 
 def _claude(tmp_path: Path, payload: dict) -> Path:

@@ -13,6 +13,7 @@ from yoke_core.tools import _watch_streaming_pair
 
 import io
 import shlex
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,12 @@ import pytest
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.uv_project import uv_project_root
+
+
+# Captures are files on this machine; the pasted shell line quotes each one.
+_RAW = Path(tempfile.gettempdir()) / "raw.log"
+_PROG = Path(tempfile.gettempdir()) / "prog.log"
+_RAW_Q, _PROG_Q = shlex.quote(str(_RAW)), shlex.quote(str(_PROG))
 
 
 @pytest.fixture(autouse=True)
@@ -37,8 +44,8 @@ def _pair_text(
         kind="pytest",
         wrapper_module=wrapper_module,
         wrapper_args=wrapper_args,
-        raw_capture=Path("/tmp/raw.log"),
-        progress_capture=Path("/tmp/prog.log"),
+        raw_capture=_RAW,
+        progress_capture=_PROG,
         out=out,
     )
     return out.getvalue()
@@ -67,18 +74,18 @@ def test_warns_that_the_two_printed_commands_are_a_bound_pair():
 def test_emits_background_and_progress_tail_invocations():
     text = _pair_text(["runtime/api/", "-k", "fast"])
     assert "yoke watch pytest" in text
-    assert "--raw-capture /tmp/raw.log" in text
-    assert "--progress-capture /tmp/prog.log" in text
+    assert f"--raw-capture {_RAW_Q}" in text
+    assert f"--progress-capture {_PROG_Q}" in text
     assert "ready-to-paste streaming pair" in text
     # Progress tail command points at the progress capture, not raw,
     # and uses the auto-exiting watch_tail follower so a Monitor
     # running this leaves no child tail process behind.
-    assert "yoke watch tail /tmp/prog.log" in text
+    assert f"yoke watch tail {_PROG_Q}" in text
     # Bare `tail -f` against the progress capture must NOT appear --
     # that was the orphan-Monitor source the watch_tail follower replaced.
-    assert "tail -f /tmp/prog.log" not in text
+    assert f"tail -f {_PROG_Q}" not in text
     # Post-completion inspection still points at the raw capture.
-    assert "tail -80 /tmp/raw.log" in text
+    assert f"tail -80 {_RAW_Q}" in text
 
 
 def test_pasteable_lines_use_the_console_script_not_a_bare_interpreter():
@@ -105,7 +112,7 @@ def test_wrapper_without_an_adapter_keeps_the_locked_module_form():
     text = _pair_text(["--item", "PREFIX-1"], "yoke_core.tools.watch_advance")
     assert "uv run --frozen python3 -m yoke_core.tools.watch_advance" in text
     # The progress leg has an adapter regardless of the wrapper's own form.
-    assert "yoke watch tail /tmp/prog.log" in text
+    assert f"yoke watch tail {_PROG_Q}" in text
 
 
 def test_command_lines_are_repo_root_anchored():
