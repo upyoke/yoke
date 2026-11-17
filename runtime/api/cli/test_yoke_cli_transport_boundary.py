@@ -30,7 +30,7 @@ print(json.dumps(forbidden))
 """
     result = subprocess.run(
         [sys.executable, "-c", script],
-        cwd="/tmp",
+        cwd=tmp_path,
         env=client_only_env(tmp_path),
         capture_output=True,
         text=True,
@@ -54,7 +54,7 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
 """
     result = subprocess.run(
         [sys.executable, "-c", script],
-        cwd="/tmp",
+        cwd=tmp_path,
         env=client_only_env(tmp_path),
         capture_output=True,
         text=True,
@@ -150,7 +150,7 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
 """
     result = subprocess.run(
         [sys.executable, "-c", script],
-        cwd="/tmp",
+        cwd=tmp_path,
         env=env,
         capture_output=True,
         text=True,
@@ -213,7 +213,7 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
 """
     result = subprocess.run(
         [sys.executable, "-c", script],
-        cwd="/tmp",
+        cwd=tmp_path,
         env=env,
         capture_output=True,
         text=True,
