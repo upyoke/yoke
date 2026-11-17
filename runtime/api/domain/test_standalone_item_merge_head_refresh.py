@@ -22,7 +22,7 @@ def test_readiness_uses_refreshed_item_only_for_actual_merge(monkeypatch, check)
     def assess(item, *_a, **_k):
         assert item is (stale if check else fresh)
         events.append("readiness")
-        return SimpleNamespace(ready=False, refusal=lambda: "stop at readiness")
+        return SimpleNamespace(ready=False, blockers=[], refusal=lambda: "stop at readiness")
     monkeypatch.setattr(cli, "refresh_recorded_head", refresh)
     monkeypatch.setattr(cli.readiness_gate, "assess", assess)
     monkeypatch.setattr(cli.readiness_gate, "print_check", lambda *_a, **_k: 1)

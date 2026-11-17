@@ -150,12 +150,14 @@ def land_item_through_merge_queue(
         )
 
     # The verification gate normally opened this pull request already.
-    pr_num, pr_err = ensure_landing_pull_request(
+    pr_num, pr_err, record_warning = ensure_landing_pull_request(
         ctx,
         public_ref,
         lane_head=commit_sha,
         item_public_ref=public_ref,
     )
+    if record_warning:
+        warnings.append(record_warning)
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
     # GitHub refuses re-enabling an armed or already-merged pull request.

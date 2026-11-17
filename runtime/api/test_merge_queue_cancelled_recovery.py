@@ -96,7 +96,7 @@ def test_active_merged_and_closed_pr_never_rerun(monkeypatch, state, enqueued):
         monkeypatch.setattr(
             route,
             "ensure_landing_pull_request",
-            lambda *a, **kw: ("", "PR closed; reopen before retry"),
+            lambda *a, **kw: ("", "PR closed; reopen before retry", ""),
         )
     land(wait_for_landing=False)
     assert posts == []

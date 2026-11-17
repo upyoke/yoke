@@ -7,7 +7,7 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<res
 ```
 
 - Follow the printed `wait_mode`: `in-turn` holds this turn until the command exits; a handed-back call still runs; keep reading it. Relay-launched, it exits with `landing_pending=true`: report the PR and the pending landing, stop. The landing notice wakes you to rerun.
-- `integration_dependency_blocked`: checkpoint, park naming the blocker, rerun after it lands.
+- `integration_dependency_blocked`: the merge opened and recorded the PR it printed; checkpoint, park naming the blocker, rerun after it lands.
 - Candidate review pending: report the request id and wait.
 - Exit 0 is not done; read the `[close-out]` block. Exit 9 names its recovery; a red check or failed QA case means fix, commit, rerun. Wait budget exhausted: checkpoint, park, keep the claim.
 - With a PR, hold before correcting: `yoke github merge-queue hold ITEM --json`.

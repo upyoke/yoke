@@ -56,6 +56,8 @@ Activation, integration and closure edges have directional meaning: the dependen
 - `closure` -- work and merge now; close only after the condition clears
 - `coordination_only` -- attested independent overlap; no lifecycle wait
 
+An edge holds the dependent only from its gate point on. Next-actor, the session roster's declared wait, the turn-end gate and claim holdings all read `gating_blockers`, which counts an activation edge always, an integration edge once the dependent has recorded its landing pull request, and a closure edge once the dependent has merged. Before that point the dependent works normally rather than parking.
+
 Release creation, batch compatibility and carried-item enrollment ignore closure
 edges. They still enforce activation and integration edges. Member close-out
 checks closure before writing `done`, so a release may wait at settling for a
