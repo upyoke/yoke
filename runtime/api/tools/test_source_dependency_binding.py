@@ -14,6 +14,7 @@ from pathlib import Path
 from runtime.api.tools.source_dev_run_cli_child_binding_test_support import (
     _stub_source_tree,
 )
+from yoke_contracts.venv_layout import venv_python
 from yoke_core.domain import source_python_environment as environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.domain import source_pythonpath as _source_pythonpath
@@ -69,7 +70,7 @@ def test_import_check_and_nested_local_watcher_see_locked_lane_dependency(
         source_dev_run, "_claimed_root", lambda *_args: (root, None)
     )
     # The original path binds candidate packages but keeps invoking dependencies.
-    invoking = environment.venv_python(
+    invoking = venv_python(
         _stub_source_tree(tmp_path / "invoking") / ".venv"
     )
     before = subprocess.run(
