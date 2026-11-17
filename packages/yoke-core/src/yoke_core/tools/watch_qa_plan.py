@@ -104,7 +104,9 @@ _PYTHON_BASENAME_RE = re.compile(r"^python(\d+(\.\d+)?)?$")
 def _looks_like_python_executable(token: str) -> bool:
     if token == "sys.executable":
         return True
-    base = token.rsplit("/", 1)[-1]
+    from yoke_contracts.process_ancestry import process_basename
+
+    base = process_basename(token)
     return bool(_PYTHON_BASENAME_RE.match(base))
 
 

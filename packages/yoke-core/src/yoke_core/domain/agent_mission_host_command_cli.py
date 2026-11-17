@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.public_ref import parse_public_item_ref
+from yoke_contracts.process_ancestry import process_basename
 
 import argparse
 import json
@@ -34,7 +35,7 @@ def approval_wait_warning(command: list[str], timeout_seconds: int) -> str | Non
         return None
     for index, value in enumerate(command[:-1]):
         if (
-            value.rsplit("/", 1)[-1] in _YOKE_EXECUTABLES
+            process_basename(value) in _YOKE_EXECUTABLES
             and command[index + 1] in _APPROVAL_WAITING_COMMANDS
         ):
             return (

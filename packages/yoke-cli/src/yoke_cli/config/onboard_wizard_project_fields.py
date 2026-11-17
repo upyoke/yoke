@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import PureWindowsPath
 from typing import Any
 
 
@@ -51,6 +52,6 @@ def slug_from_checkout(checkout: str | None) -> str:
     """Derive a safe default project slug from a checkout path."""
     if not checkout:
         return "project"
-    value = checkout.rstrip("/").split("/")[-1].strip().lower()
+    value = PureWindowsPath(checkout).name.strip().lower()
     cleaned = "".join(c if c.isalnum() or c == "-" else "-" for c in value)
     return "-".join(part for part in cleaned.split("-") if part) or "project"
