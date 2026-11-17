@@ -89,7 +89,7 @@ def test_import_check_and_nested_local_watcher_see_locked_lane_dependency(
         "else:\n"
         "    assert sys.argv[1:4] == ['watch','pytest','--local']\n"
         "    print('nested-local-watcher', sys.executable)\n"
-        "    subprocess.run(['python','-m','pytest'],check=True)\n"
+        "    subprocess.run([sys.executable,'-m','pytest'],check=True)\n"
     )
     # Locked fixture workload proves imports and Python identity, without pytest's own deps.
     binding = environment.resolve(root, os.environ)
@@ -102,7 +102,7 @@ def test_import_check_and_nested_local_watcher_see_locked_lane_dependency(
     (site / "pytest/__init__.py").touch()
     (site / "pytest/__main__.py").write_text(
         PROBE
-        + "\nimport subprocess\nsubprocess.run(['python', '-c', "
+        + "\nimport subprocess\nsubprocess.run([sys.executable, '-c', "
         + repr(PROBE)
         + "], check=True)\n"
     )
