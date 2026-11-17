@@ -43,6 +43,8 @@ def test_yoke_ci_has_no_runner_consuming_aggregate_tail() -> None:
     assert "test_shard:" in workflow
     assert "  container:" in workflow
     assert "reuse_coverage:" in workflow
+    assert "windows_smoke" not in _yoke_ci()["jobs"]
+    assert not (WORKFLOWS / "windows-smoke.yml").exists()
     assert "REUSE_WINDOW_HOURS:" in workflow
     assert "yoke_core.tools.yoke_ci_tree_reuse" in workflow
     assert "yoke_core.tools.ci_repo_contracts" in workflow
@@ -145,7 +147,6 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
         "attest-validated-release-provenance",
         "container",
         "browser_runtime / browser-runtime",
-        "windows_smoke / windows-smoke",
     } | {
         f"test-shard ({version}, {shard})"
         for version in versions

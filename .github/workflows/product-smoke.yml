@@ -27,6 +27,9 @@ jobs:
     name: ${{ matrix.os }} ${{ matrix.architecture }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +43,9 @@ jobs:
           - runner: macos-latest
             os: macOS 26
             architecture: arm64
+          - runner: windows-2025
+            os: Windows 2025Server
+            architecture: x86_64
     steps:
       - name: Disable Git symlink checkout
         run: git config --global core.symlinks false
@@ -59,6 +65,7 @@ jobs:
           sudo ldconfig
           env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
       - name: Verify native process identity, reactivation and stop custody
+        if: runner.os != 'Windows'
         run: |
           uv sync --all-packages --locked
           export YOKE_MACHINE_HOME="$RUNNER_TEMP/native-custody-machine"
@@ -82,6 +89,7 @@ jobs:
             runtime/harness/test_session_relay_liveness_pruning.py \
             runtime/harness/test_session_relay_liveness_pass_cost.py
       - name: Verify contributor checkout collection and tests
+        if: runner.os != 'Windows'
         run: |
           uv sync --all-packages --locked
           export YOKE_MACHINE_HOME="$RUNNER_TEMP/contributor-checkout-machine"
@@ -95,11 +103,18 @@ jobs:
         # snap transitional package, whose install fails on the runner.
         run: sudo -n apt-get remove -y libatk-bridge2.0-0t64 firefox
       - name: Install, onboard, replay hooks, and check source development
-        if: runner.os != 'Linux'
+        if: runner.os == 'macOS'
         env:
           SMOKE_EXPECTED_OS: ${{ matrix.os }}
           SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
         run: python3 runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
+      - name: Install the Windows candidate wheels and run yoke status
+        if: runner.os == 'Windows'
+        env:
+          SMOKE_EXPECTED_OS: ${{ matrix.os }}
+          SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        # Windows product onboarding is not ported; retain its install/status proof.
+        run: python runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence --through status
       # Linux relay setup needs a real systemd user manager: run the whole smoke
       # as a disposable account inside its own PAM login session (Linger=no).
       - name: Run Linux smoke in a disposable login account

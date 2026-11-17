@@ -22,13 +22,14 @@ def _manual_only(body: str) -> bool:
     return isinstance(triggers, (dict, list)) and set(triggers) == {"workflow_dispatch"}
 
 
-def test_automatic_workflows_do_not_require_macos_runners() -> None:
+def test_automatic_workflows_do_not_require_macos_or_windows_runners() -> None:
     for workflow in WORKFLOWS.glob("*.yml"):
         body = workflow.read_text(encoding="utf-8")
         assert MACOS_EXPR not in body
         assert "YOKE_MACOS_RUNS_ON" not in body
         if not _manual_only(body):
             assert "macos-latest" not in body, workflow.name
+            assert "windows-2025" not in body, workflow.name
 
 
 @pytest.mark.parametrize(
@@ -47,7 +48,7 @@ def test_manual_runner_exception_excludes_automatic_triggers(triggers, expected)
     assert _manual_only(f"on: {triggers}\n") is expected
 
 
-def test_product_smoke_remains_an_on_demand_three_runner_diagnostic():
+def test_product_smoke_remains_an_on_demand_four_runner_diagnostic():
     body = (WORKFLOWS / "product-smoke.yml").read_text(encoding="utf-8")
     assert _manual_only(body)
     matrix = parse_document(body)["jobs"]["smoke"]["strategy"]["matrix"]["include"]
@@ -57,6 +58,7 @@ def test_product_smoke_remains_an_on_demand_three_runner_diagnostic():
         ("ubuntu-24.04", "Ubuntu 24.04", "x86_64"),
         ("ubuntu-24.04-arm", "Ubuntu 24.04", "arm64"),
         ("macos-latest", "macOS 26", "arm64"),
+        ("windows-2025", "Windows 2025Server", "x86_64"),
     }
 
 
