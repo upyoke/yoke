@@ -49,7 +49,9 @@ def test_native_windows_and_git_guidance():
     from yoke_cli.config.project_git_install_advice import install_advice as git_advice
 
     assert_repair(str(NativeWindowsError()), "then install Yoke inside that distribution")
-    assert_repair(git_advice(platform_name="win32").note, "then rerun the installer")
+    note = git_advice(platform_name="win32").note
+    assert "winget install --id Git.Git -e" in note
+    assert "install_origin_unavailable" not in note
 
 
 def test_update_recoveries(monkeypatch):

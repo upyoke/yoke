@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-import stat
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -16,6 +16,7 @@ from runtime.api.cli.setup_agent_test_support import (
     isolate_agent_setup,
 )
 from yoke_cli.config import setup_agent_answers
+from yoke_contracts import owner_private_path
 
 pytest.importorskip("textual")
 
@@ -47,7 +48,7 @@ def test_store_is_private_and_keyed_by_question(agent):
     drive.walk(MACHINE_ONLY_ANSWERS[:4])
 
     path = setup_agent_answers.store_path()
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert owner_private_path.is_owner_private_file(path)
     record = json.loads(path.read_text(encoding="utf-8"))
     assert record["waiting_key"] == "github.machine"
     assert record["answers"] == {
@@ -267,10 +268,29 @@ def test_a_second_invocation_refuses_while_one_runs(agent):
     )
 
 
+@pytest.mark.posix_only(reason="POSIX mode bits")
 def test_a_store_with_loose_permissions_is_refused(agent):
     drive, _ = agent
     drive()
     os.chmod(setup_agent_answers.store_path(), 0o644)
+
+    code, lines = drive()
+
+    assert (code, lines[-1]["reason"]) == (2, "setup_agent_store_unreadable")
+    assert "yoke setup --agent --discard" in lines[-1]["recovery"]
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason="real Windows file security")
+def test_a_store_with_loose_acl_is_refused(agent):
+    drive, _ = agent
+    drive()
+    path = setup_agent_answers.store_path()
+    subprocess.run(
+        ["icacls", str(path), "/grant", "*S-1-1-0:(R)"],
+        check=True, capture_output=True,
+    )
+    assert not owner_private_path.is_owner_private_file(path)
 
     code, lines = drive()
 
