@@ -329,12 +329,6 @@ def test_queue_requires_main_ci_and_release_factory_checks() -> None:
                 }
             else:
                 contexts = {context}
-            if name == "windows_smoke":
-                # Retain reporting until the landed declaration is applied.
-                assert contexts == {"windows_smoke / windows-smoke"}
-                assert contexts.isdisjoint(required)
-                assert "if" not in job
-            else:
-                assert contexts <= required, (
-                    f"{filename}: require {sorted(contexts - required)} in the queue"
-                )
+            assert contexts <= required, (
+                f"{filename}: require {sorted(contexts - required)} in the queue"
+            )

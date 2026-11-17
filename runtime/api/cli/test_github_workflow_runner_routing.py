@@ -47,7 +47,7 @@ def test_manual_runner_exception_excludes_automatic_triggers(triggers, expected)
     assert _manual_only(f"on: {triggers}\n") is expected
 
 
-def test_product_smoke_remains_an_on_demand_three_runner_diagnostic():
+def test_product_smoke_remains_an_on_demand_four_runner_diagnostic():
     body = (WORKFLOWS / "product-smoke.yml").read_text(encoding="utf-8")
     assert _manual_only(body)
     matrix = parse_document(body)["jobs"]["smoke"]["strategy"]["matrix"]["include"]
@@ -57,6 +57,7 @@ def test_product_smoke_remains_an_on_demand_three_runner_diagnostic():
         ("ubuntu-24.04", "Ubuntu 24.04", "x86_64"),
         ("ubuntu-24.04-arm", "Ubuntu 24.04", "arm64"),
         ("macos-latest", "macOS 26", "arm64"),
+        ("windows-2025", "Windows 2025Server", "x86_64"),
     }
 
 
