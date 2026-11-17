@@ -170,6 +170,63 @@ Diagnose `NeedsLogin` before selecting a profile or reauthenticating. Successful
 repair commands alone do not prove unattended persistence: require a cold boot,
 SYSTEM running/self-IP evidence and independent private-route proof.
 
+### Unattended selection before registration
+
+Fresh hosts must complete this checkpoint after the SYSTEM unattended join and
+operator authentication, before registration. Keep every Tailscale CLI query
+as SYSTEM; the provisioner's private SYSTEM probe prevents administrator
+health checks from selecting another profile. Use the bounded start/cleanup
+window above and an operator-approved local profile display label `LABEL`.
+
+1. Capture `tailscale switch --list --json` and `tailscale status --json` only
+   in memory as SYSTEM. Require exactly one selected saved profile, `Running`,
+   `HaveNodeKey=true`, the expected node identity and self addresses with
+   Preferred assignments on live adapters. Stop on refusal or unavailable auth.
+2. Give the joined profile its approved label with
+   `tailscale set --nickname=LABEL`, only when the listed nickname differs.
+   This genuine edit forces a preference save; step 3 verifies the unattended
+   startup target. It changes profile display metadata, not hostname, auth or policy.
+   A repeated identical preference can be a no-op. If the label already matches
+   but startup selection is absent, stop for a different approved label.
+3. Recheck selected profile, label, unchanged node/key and live addresses.
+   For the observed FileStore version, check only presence/nonempty metadata
+   for `server-mode-start-key` in protected `server-state.conf`; its JSON value
+   is Base64 bytes. Never print values, dump preferences or edit state files.
+   Require the startup target, not just command exit zero.
+4. Record the guest boot time, deallocate and verify actual
+   `PowerState/deallocated`. Start a separate bounded window from that state;
+   require a fresh boot time different from the first. Without selection,
+   preference or provisioning changes, verify the same selected profile/label,
+   startup target, SYSTEM Running/key/live-address proof, standard-user tailnet
+   SSH and direct RDP TLS/NLA, plus blocked public3389. Deallocate and verify.
+   Only these independent receipts establish unattended persistence.
+
+Existing-profile recovery needs explicit scope before selecting a saved
+profile or changing its label. Do not repeat `up`, force authentication,
+override policy, take ownership or use `down` as an automatic repair.
+Retain fixed invocation stages, exit codes and output byte counts on refusal;
+classify exact known errors in memory, never emit raw CLI/state contents.
+
+Observed recovery selected the saved profile and reached Running/private
+routes, but unchanged `set --unattended=true` did not survive a distinct boot:
+the two windows deallocated in 273/183 seconds. SYSTEM metadata then measured
+the profile present/unselected and startup key absent (167 seconds). A guarded
+stop/start attempt refused without identifying its stage (232 seconds); the
+next read-only check found the active unselected profile NeedsLogin/no key
+(173 seconds), which did not prove saved credentials were deleted.
+
+An instrumented attempt proved the saved profile/key/node/live addresses
+before `down` refused: exit1, stdout0 bytes, stderr47 bytes (208 seconds).
+The pinned Windows disconnect-owner refusal has that exact length, but byte
+count alone does not prove its text or profile owner. No `up` followed.
+The approved genuine nickname edit then preserved identity and restored the
+startup target and private routes passed. The edit window ended with verified
+deallocation after 192 seconds.
+A distinct read-only coldboot retained profile/label/startup target and passed
+live identity/private routes/public denial; deallocation verified at 252 seconds.
+No fresh login, disconnect, policy override or direct state edit was needed
+for that successful repair. Desktop/tools/sign-ins/goldens/native QA remain.
+
 ## Standard-user host-facts failure
 
 A registered screenshot reached SSH as `winnative\yokeqa`, then reported

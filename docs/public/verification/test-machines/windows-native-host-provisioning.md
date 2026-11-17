@@ -106,8 +106,9 @@ az vm deallocate --resource-group GROUP --name VM
 Follow [tailnet bootstrap](tailnet-bootstrap.md) to start the deallocated VM,
 install/join Tailscale as SYSTEM through Azure Run Command, and have the
 operator approve the AuthURL and disable key expiry. The standard SSH user
-must remain standard. Install on Windows only, never WSL; prove connection
-after logout/reboot and resolve the reported MagicDNS name from the controller.
+must remain standard. Install on Windows only, never WSL. Complete
+[unattended selection and coldboot proof](windows-native-provisioning-recovery.md#unattended-selection-before-registration)
+before registration; resolve the reported MagicDNS name from the controller.
 Use the linked bootstrap SSH command with Yoke's known_hosts and the full VM
 resource ID as HostKeyAlias. Register MagicDNS as `host`; direct RDP uses
 that same tailnet name as `desktop_host`. A forwarded route uses loopback.
