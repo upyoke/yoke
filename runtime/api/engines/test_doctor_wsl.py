@@ -52,6 +52,7 @@ def test_mount_check_follows_symlinks(monkeypatch, tmp_path):
     assert rec.results[0].result == "WARN"
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize("running,verdict", [(True, "PASS"), (False, "WARN")])
 def test_wsl_systemd_warning(monkeypatch, running, verdict):
     monkeypatch.setattr(checks, "is_wsl", lambda: True)
@@ -64,6 +65,7 @@ def test_wsl_systemd_warning(monkeypatch, running, verdict):
         assert "yoke wsl setup" in rec.results[0].detail
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_linux_outside_wsl_is_not_applicable(monkeypatch):
     monkeypatch.setattr(checks, "is_wsl", lambda: False)
     rec = RecordCollector()
@@ -71,6 +73,7 @@ def test_linux_outside_wsl_is_not_applicable(monkeypatch):
     assert rec.results[0].result == "N/A"
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_unreadable_pid_one_warns(monkeypatch):
     monkeypatch.setattr(checks, "is_wsl", lambda: True)
 
@@ -84,6 +87,7 @@ def test_unreadable_pid_one_warns(monkeypatch):
     assert "wsl_pid1_unreadable" in rec.results[0].detail
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize(
     "platform,distro,kernel,expected",
     [
@@ -101,6 +105,7 @@ def test_wsl_detection(monkeypatch, platform, distro, kernel, expected):
     assert wsl.is_wsl() is expected
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_wsl_detection_without_proc(monkeypatch):
     monkeypatch.setattr(wsl.sys, "platform", "linux")
     monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
@@ -112,12 +117,14 @@ def test_wsl_detection_without_proc(monkeypatch):
     assert not wsl.is_wsl()
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize("comm,expected", [("systemd\n", True), ("init\n", False)])
 def test_pid_one_is_the_systemd_authority(monkeypatch, comm, expected):
     monkeypatch.setattr(Path, "read_text", lambda self: comm)
     assert wsl.systemd_running() is expected
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_checks_are_registered_and_declared_for_local_machine():
     for slug in ("windows-mount-checkout", "wsl-systemd"):
         assert slug in {hc.slug for hc in HEALTH_CHECKS}
