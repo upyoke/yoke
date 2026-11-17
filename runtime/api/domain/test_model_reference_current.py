@@ -9,9 +9,7 @@ from yoke_contracts.model_reference import (
     lookup_model_reference as _lookup_model_reference,
     validate_model_record,
 )
-from yoke_contracts.model_reference_cursor import CURSOR_RECORDS
 from yoke_contracts.model_reference_data import MODEL_RECORDS
-from yoke_contracts.model_reference_sources import CURSOR_MODELS_RULE
 from yoke_contracts.session_control.plan_limits import (
     CURSOR_MODELS_FAMILIES,
     CURSOR_MODELS_SCOPE,
@@ -46,9 +44,15 @@ def test_current_grok_selector_and_pool_price() -> None:
 
 
 def test_cursor_models_pool_rule_and_classifier_share_one_family_list() -> None:
-    assert all(family in CURSOR_MODELS_RULE.rule for family in CURSOR_MODELS_FAMILIES)
-    for record in CURSOR_RECORDS:
-        assert CURSOR_MODELS_RULE in record.subscription_rules
+    cursor_records = [r for r in MODEL_RECORDS if r.provider == "cursor"]
+    assert cursor_records
+    for record in cursor_records:
+        pool_rules = [
+            rule for rule in record.subscription_rules if rule.pool == "cursor-models"
+        ]
+        assert pool_rules, record.model_id
+        for rule in pool_rules:
+            assert all(family in rule.rule for family in CURSOR_MODELS_FAMILIES)
         for selector in (record.model_id, *record.aliases):
             assert cursor_scope_for_model(selector) == CURSOR_MODELS_SCOPE
 
