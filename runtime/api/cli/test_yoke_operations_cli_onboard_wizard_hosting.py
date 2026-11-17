@@ -35,6 +35,9 @@ from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     reach_provider_screen,
     stub_identity,
 )
+from runtime.api.cli.onboard_wizard_checkout_test_helpers import (  # noqa: E402
+    stub_local_checkout_identity,
+)
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     accept_project_details,
     advance_past_path,
@@ -57,6 +60,7 @@ def test_skip_reaches_review_and_plans_the_skip(monkeypatch) -> None:
         raise AssertionError("fictional wizard paths must not resolve host checkouts")
 
     monkeypatch.setattr(schema_projects, "main_checkout", refuse_host_checkout)
+    stub_local_checkout_identity(monkeypatch)
     app, spy = make_app()
 
     async def scenario() -> None:
