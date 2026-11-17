@@ -40,8 +40,9 @@ Record a chat answer with `yoke decision-requests resolve <request id> <option i
 
 ## Architecture Model
 
-Read the `architecture_model` payload before you change dependencies. An item whose
-`architecture_impact` is `uncertain` is not ready.
+Read the `architecture_model` payload
+(`yoke project-structure get --project P --family architecture_model`) before you change
+dependencies. An item whose `architecture_impact` is `uncertain` is not ready.
 
 ## Reading command output
 <!-- BEGIN GENERATED: read-recipe -->

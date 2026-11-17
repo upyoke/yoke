@@ -3,5 +3,6 @@
  "title": "Pull request",
  "status": "draft-copy",
  "page": "merging",
- "position": 0
+ "position": 0,
+ "summary": "The merge command marks a draft landing pull request ready for review before arming, enqueueing or merging it. The read-only readiness check reports that action in merge_will without blocking on the draft."
 }

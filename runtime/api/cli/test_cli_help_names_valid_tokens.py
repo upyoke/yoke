@@ -120,6 +120,13 @@ class TestItemFieldNames:
             ("detail", "yoke items detail get"),
             ("workflow", "yoke workflows item get"),
             ("progress_log", "yoke items progress-log get"),
+            ("Progress Log", "yoke items progress-log get"),
+            ("progress-log", "yoke items progress-log get"),
+            ("PROGRESS_LOG", "yoke items progress-log get"),
+            (
+                "architecture_model",
+                "yoke project-structure get --project P --family architecture_model",
+            ),
             *(
                 (token, "yoke claims work holder-get")
                 for token in (
@@ -140,6 +147,12 @@ class TestItemFieldNames:
 
     def test_refusal_suggests_a_near_miss_field(self):
         assert "status" in unknown_field_message("statuss")
+
+    def test_redirect_is_a_refusal_not_an_alias(self):
+        """A redirected spelling stays out of the accepted field set."""
+        for token in ("architecture_model", "progress_log"):
+            assert token not in ALLOWED_GET_FIELDS
+        assert "status" in ALLOWED_GET_FIELDS
 
     def test_handler_refusal_uses_the_shared_message(self):
         from yoke_core.domain.handlers import reads

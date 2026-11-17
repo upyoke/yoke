@@ -25,6 +25,7 @@ class PrLandingState:
     target_branch: str = ""
     queue_entry_state: str = "absent"
     auto_merge_enabled_at: datetime | None = None
+    draft: bool = False
 
     def __post_init__(self) -> None:
         if self.auto_merge_enabled_at is not None:

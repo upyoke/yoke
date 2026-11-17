@@ -9,6 +9,13 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.project_contract.installed_layer import (
+    INSTALLED_LAYER_AGENT_DIR_RELS,
+    INSTALLED_LAYER_DIR_RELS,
+    INSTALLED_LAYER_FILE_RELS,
+    INSTALLED_LAYER_MARKDOWN_RELS,
+)
+
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install.files import (
     ProjectInstallError,
@@ -101,12 +108,10 @@ class GitOwnership:
             "--no-renames",
             revision,
             "--",
-            ".agents/skills/yoke",
-            ".yoke/docs",
-            ".claude/agents",
-            ".codex/agents",
-            ".cursor/agents",
-            "AGENTS.md",
+            *INSTALLED_LAYER_DIR_RELS,
+            *INSTALLED_LAYER_AGENT_DIR_RELS,
+            *INSTALLED_LAYER_FILE_RELS,
+            *INSTALLED_LAYER_MARKDOWN_RELS,
         )
         if result.returncode:
             return
