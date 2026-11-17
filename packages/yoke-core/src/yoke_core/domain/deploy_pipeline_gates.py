@@ -206,6 +206,7 @@ def _check_ci_gate(
     branch: str,
     run_id: str = "RUN-ID",
     head_sha: str = "",
+    allow_merge_group_ci: bool = False,
     sd: Optional[str] = None,
 ) -> Tuple[bool, str]:
     """Check CI for the exact release commit before deploying.
@@ -230,6 +231,12 @@ def _check_ci_gate(
             workflow=ci_workflow,
         )
 
+    if allow_merge_group_ci and head_sha:
+        from yoke_core.domain.deploy_pipeline_queue_ci import queue_ci_proof
+
+        queue_proof = queue_ci_proof(project, head_sha, ci_workflow)
+        if queue_proof is not None:
+            return queue_proof
     subject = ci_recovery.ci_gate_subject(branch, head_sha)
     announce_designed_wait(
         f"CI gate {ci_workflow} on {subject} for {github_repo}",

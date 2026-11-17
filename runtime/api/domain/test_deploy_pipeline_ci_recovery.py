@@ -189,7 +189,8 @@ def test_no_verdict_refusal_names_a_same_tree_merge_queue_conclusion() -> None:
     assert "merge-queue run of yoke-ci" in message
     assert "gh-readonly-queue/main/pr-1425" in message
     assert "already concluded success" in message
-    assert "does not satisfy this gate" in message
+    assert "allow_merge_group_ci on this flow stage and the identical commit SHA" in message
+    assert "unsuccessful queue runs never satisfy the gate" in message
 
 
 def test_no_verdict_refusal_survives_a_listing_authority_error() -> None:

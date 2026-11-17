@@ -63,6 +63,7 @@ class CiGateTarget:
     branch: str
     token: str
     environment: str = ""
+    allow_merge_group_ci: bool = False
 
 
 def _waits_for_ci(stage: Any) -> bool:
@@ -150,7 +151,10 @@ def ci_gate_target(
     if not branch:
         return None
     auth = _auth(project, flow, CI_GATE_READ_PERMISSIONS)
-    return CiGateTarget(project, flow, auth.repo, workflow, branch, auth.token, env)
+    return CiGateTarget(
+        project, flow, auth.repo, workflow, branch, auth.token, env,
+        waits and all(s.get("allow_merge_group_ci") is True for s in stages if _waits_for_ci(s)),
+    )
 
 
 def _read(target: CiGateTarget, path: str, query: Dict[str, str]) -> Any:
@@ -182,7 +186,10 @@ def _proof_state(target: CiGateTarget, sha: str) -> str:
         {"head_sha": sha, "per_page": str(RUNS_PER_COMMIT)},
     )
     runs = data.get("workflow_runs") if isinstance(data, dict) else None
-    return _classify(proof_run(runs if isinstance(runs, list) else [], sha)).state
+    return _classify(proof_run(
+        runs if isinstance(runs, list) else [], sha,
+        allow_merge_group=target.allow_merge_group_ci,
+    )).state
 
 
 def dispatch_branch_ci(target: CiGateTarget) -> str:
@@ -254,7 +261,8 @@ def _untested(
         compose_refusal(
             f"release commit {lineage} {finding} in {target.workflow} on "
             f"{target.repo} (runs on any branch at exactly this commit count; "
-            "pull_request and merge_group runs do not), so flow "
+            "PR runs never count; successful merge_group runs count only with "
+            f"allow_merge_group_ci={target.allow_merge_group_ci}), so flow "
             f"'{target.flow}' would block at its CI gate. Nothing was bound.",
             recovery=how,
         ),
@@ -292,11 +300,7 @@ def bind_tested_release_source(
     retry: bool = False,
     source_flag: str = CREATE_SOURCE_FLAG,
 ) -> Optional[str]:
-    """The commit a new release binds, or ``None`` when its flow binds none.
-
-    *source_flag* is how the calling command names an explicit source, so
-    every recovery names a flag that command accepts.
-    """
+    """Bind the commit, naming the caller's *source_flag* in recovery."""
     if (release_lineage or "").strip():
         require_tested_lineage(
             project,
