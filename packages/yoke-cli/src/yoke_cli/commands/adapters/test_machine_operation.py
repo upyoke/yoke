@@ -246,7 +246,7 @@ def _execute(
                 json_mode=json_mode,
             )
     from yoke_harness.harness_cli_latest import warn_capture_behind_latest
-    if removed is not None:
+    if removed is not None and submit.success:
         submit = submit.model_copy(
             update={"result": {**submit.result, "removed_snapshots": removed}}
         )

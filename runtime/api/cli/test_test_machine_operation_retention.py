@@ -14,9 +14,12 @@ DESTINATION = "/goldens/tester-home-new"
 CURRENT = "/goldens/tester-home-current"
 
 
+@pytest.mark.parametrize("submit_success", [True, False])
 @pytest.mark.parametrize("status", ["verified", "error"])
 @pytest.mark.parametrize("keep_state", ["known", "missing", "unknown"])
-def test_capture_retains_before_submit_stops_host(monkeypatch, status, keep_state):
+def test_capture_retains_before_submit_stops_host(
+    monkeypatch, status, keep_state, submit_success,
+):
     events = []
     stopped = False
     execution = {
@@ -39,13 +42,17 @@ def test_capture_retains_before_submit_stops_host(monkeypatch, status, keep_stat
         elif phase == "submit":
             assert status == "error" or "retention" in events
             stopped = True
-            result = {"status": status, "golden_baseline_path": DESTINATION}
+            result = (
+                {"status": status, "golden_baseline_path": DESTINATION}
+                if submit_success else None
+            )
         else:
             assert phase == "abort"
             stopped = True
             result = {"released": True}
         return FunctionCallResponse(
-            success=True, function=function_id, version="v1", result=result,
+            success=phase != "submit" or submit_success,
+            function=function_id, version="v1", result=result,
         )
 
     def run(command, **kwargs):
@@ -86,10 +93,17 @@ def test_capture_retains_before_submit_stops_host(monkeypatch, status, keep_stat
 
     assert events.count("cleanup") == 1
     if status == "error":
-        assert events == ["begin", "submit", "cleanup"]
+        assert events == ["begin", "submit", *([] if submit_success else ["abort"]), "cleanup"]
     elif keep_state == "known":
-        assert events == ["begin", "retention", "ssh", "submit", "cleanup"]
-        assert emitted[0].result["removed_snapshots"] == []
+        assert events == [
+            "begin", "retention", "ssh", "submit",
+            *([] if submit_success else ["abort"]), "cleanup",
+        ]
+        if submit_success:
+            assert emitted[0].result["removed_snapshots"] == []
+        else:
+            assert emitted[0].success is False
+            assert emitted[0].result is None
     else:
         assert events == ["begin", "cleanup", "abort"]
         assert emitted[0].error.code == "golden_snapshot_retention_failed"
