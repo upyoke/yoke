@@ -73,7 +73,7 @@ def _leading_cd_cwd(
         moved = (
             ""
             if expanded.startswith("~")
-            else advance_cwd(cwd, expanded, bindings=bindings[index])
+            else advance_cwd(cwd, expanded, bindings=bindings[index], shell=parsed.shell)
         )
         if not moved:
             break

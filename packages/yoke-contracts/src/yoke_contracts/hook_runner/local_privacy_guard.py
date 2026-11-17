@@ -14,6 +14,8 @@ product-local HTTPS fallback enforce one contract.
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, is_absolute
+
 from dataclasses import dataclass
 from functools import partial
 import os
@@ -99,11 +101,9 @@ def _expanded_path(
         value = str(home) + value[len("$HOME") :]
     elif value == "${HOME}" or value.startswith("${HOME}/"):
         value = str(home) + value[len("${HOME}") :]
-    if not os.path.isabs(value):
-        if cwd is None or value.startswith("-"):
-            return None
-        value = os.path.join(os.fspath(cwd), value)
-    return os.path.normpath(value)
+    if not is_absolute(value) and (cwd is None or value.startswith("-")):
+        return None
+    return resolve_bash_path(value, os.fspath(cwd) if cwd is not None else "", home=str(home))
 
 
 def _stronger(

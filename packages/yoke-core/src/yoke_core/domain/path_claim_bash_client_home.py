@@ -22,11 +22,12 @@ def expand_client_home(mutations: List[Mutation], payload: Any) -> List[Mutation
     out = []
     for mut in mutations:
         target = mut.target_path
-        if mut.verb not in {"ambiguous", "suppressed"} and (is_absolute(target) or (home and target.startswith("~"))):
+        if mut.verb not in {"ambiguous", "suppressed"} and (
+            is_absolute(target) or (home and target.startswith("~"))
+        ):
             target = resolve_bash_path(target, home=home)
         out.append(replace(mut, target_path=target))
     return out
-
 
 
 __all__ = ["expand_client_home"]

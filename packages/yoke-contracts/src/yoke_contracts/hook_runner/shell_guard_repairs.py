@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
+
 import glob
 import os
 import re
@@ -75,8 +77,7 @@ def ripgrep_replace_repair(command: str | ShellParse) -> str | None:
 
 def expanded_glob_path(token: str, cwd: str) -> Path:
     """Expand the executing user's home before resolving relative operands."""
-    path = Path(os.path.expanduser(token))
-    return path if path.is_absolute() else Path(os.path.expanduser(cwd)) / path
+    return Path(resolve_bash_path(token, cwd))
 
 
 def _brace_alternatives(token: str):

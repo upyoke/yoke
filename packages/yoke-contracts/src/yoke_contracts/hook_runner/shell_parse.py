@@ -27,6 +27,7 @@ every guard agrees on what the command runs. PowerShell commands go through
 from __future__ import annotations
 
 import re
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -126,7 +127,7 @@ class ShellParse:
             destination = cd_destination(segment.argv)
             if destination is not None:
                 bound = bindings[index] if index < len(bindings) else None
-                base = advance_cwd(base, destination, home=home, bindings=bound)
+                base = advance_cwd(base, destination, home=home, bindings=bound, shell=self.shell)
         return out
 
 
@@ -225,6 +226,7 @@ def advance_cwd(
     *,
     home: str | None = None,
     bindings: Mapping[str, str] | None = None,
+    shell: str = BASH,
 ) -> str:
     """Directory after ``cd destination`` from ``base``; ``""`` when unknown.
 
@@ -243,6 +245,8 @@ def advance_cwd(
     if not base and not expanded.startswith(("/", "\\")) and not re.match(r"^[A-Za-z]:[/\\]", expanded):
         return ""
     try:
+        if shell == "powershell":
+            return os.path.realpath(expanded if os.path.isabs(expanded) else os.path.join(base, expanded))
         return resolve_bash_path(expanded, base, home=home)
     except BashPathResolutionError:
         raise

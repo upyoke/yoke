@@ -8,6 +8,7 @@ a control-plane process must use client observations instead of its mounts.
 from __future__ import annotations
 
 import ntpath
+import posixpath
 import os
 import re
 import shutil
@@ -31,6 +32,7 @@ def with_client_paths(function=None, *, refuse=None):
 
     if function is None:
         return lambda target: with_client_paths(target, refuse=refuse)
+
     @wraps(function)
     def wrapped(payload, *args, **kwargs):
         from yoke_contracts.hook_runner.client_facts import (
@@ -69,8 +71,12 @@ def is_absolute(path: str) -> bool:
 def canonical_native_path(path: str) -> str:
     """Canonicalize filesystem aliases locally; never probe foreign drives."""
     facts = _CLIENT_PATHS.get()
-    if facts and facts.get("windows"):
-        normalized = ntpath.normpath(path).replace("\\", "/")
+    if facts is not None:
+        normalized = (
+            ntpath.normpath(path).replace("\\", "/")
+            if facts.get("windows")
+            else posixpath.normpath(path)
+        )
         aliases = facts.get("canonical", {})
         for raw in sorted(aliases, key=len, reverse=True):
             if (
@@ -133,7 +139,13 @@ def _mount_path(path: str) -> str:
 
 
 def expand_home(path: str, *, home: str | None = None) -> str:
-    home = os.path.expanduser("~") if home is None else home
+    facts = _CLIENT_PATHS.get()
+    if home is None:
+        home = (
+            str(facts.get("home") or "")
+            if facts is not None
+            else os.path.expanduser("~")
+        )
     if not home:
         return path
     if path == "~":
@@ -149,7 +161,11 @@ def join_path(base: str, path: str) -> str:
         return path
     if windows_path(base):
         joined = ntpath.join(base, path)
-        return joined if os.name == "nt" and not _CLIENT_PATHS.get() else joined.replace("\\", "/")
+        return (
+            joined
+            if os.name == "nt" and not _CLIENT_PATHS.get()
+            else joined.replace("\\", "/")
+        )
     return os.path.join(base, path)
 
 
@@ -159,10 +175,9 @@ def resolve_bash_path(path: str, cwd: str = "", *, home: str | None = None) -> s
         return expanded
     facts = _CLIENT_PATHS.get()
     windows = (
-        bool(facts and facts.get("windows"))
-        or os.name == "nt"
-        or windows_path(cwd)
-        or windows_path(expanded)
+        bool(facts.get("windows"))
+        if facts is not None
+        else os.name == "nt" or windows_path(cwd) or windows_path(expanded)
     )
     if windows and expanded.startswith("/") and not expanded.startswith("//"):
         mounts = facts.get("mount_paths", {}) if facts else {}
@@ -170,7 +185,7 @@ def resolve_bash_path(path: str, cwd: str = "", *, home: str | None = None) -> s
         if observed is None:
             for raw in sorted(mounts, key=len, reverse=True):
                 if expanded.startswith(raw.rstrip("/") + "/"):
-                    observed = join_path(mounts[raw], expanded[len(raw):].lstrip("/"))
+                    observed = join_path(mounts[raw], expanded[len(raw) :].lstrip("/"))
                     break
         if isinstance(observed, str):
             return canonical_native_path(observed)
@@ -181,5 +196,10 @@ def resolve_bash_path(path: str, cwd: str = "", *, home: str | None = None) -> s
             )
         expanded = _mount_path(expanded)
     if not is_absolute(expanded):
+        if not cwd and facts is not None:
+            raise BashPathResolutionError(
+                "git_bash_client_cwd_required: the executing client did not supply a directory; "
+                "set an explicit tool workdir and retry."
+            )
         expanded = join_path(cwd or os.getcwd(), expanded)
     return canonical_native_path(expanded)

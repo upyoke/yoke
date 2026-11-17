@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from yoke_contracts.hook_runner.bash_paths import (
+    canonical_native_path,
+    is_absolute,
+    windows_path,
+)
 from typing import Optional, Tuple
 
 from yoke_core.domain.path_claim_target_context import ClaimContext
@@ -25,8 +29,13 @@ def path_is_under(path: Path, root: str) -> bool:
     if not root:
         return False
     try:
-        resolved_root = Path(root).expanduser().resolve()
-        path.relative_to(resolved_root)
+        text, root_text = canonical_native_path(str(path)), canonical_native_path(root)
+        if windows_path(text) or windows_path(root_text):
+            text, root_text = (
+                text.replace("\\", "/").casefold(),
+                root_text.replace("\\", "/").casefold(),
+            )
+        PurePosixPath(text).relative_to(PurePosixPath(root_text))
         return True
     except (OSError, ValueError):
         return False
@@ -41,7 +50,7 @@ def cwd_in_claim_domain(
     if not cwd:
         return False
     try:
-        resolved_cwd = Path(cwd).expanduser().resolve()
+        resolved_cwd = canonical_native_path(cwd)
     except OSError:
         return False
     for root in claim_domain_roots(ctx, effective_worktree):
@@ -70,10 +79,10 @@ def domain_root_for_absolute_target(
     ctx: ClaimContext,
     effective_worktree: str = "",
 ) -> Optional[str]:
-    if not os.path.isabs(target_path):
+    if not is_absolute(target_path):
         return None
     try:
-        resolved = Path(target_path).expanduser().resolve()
+        resolved = canonical_native_path(target_path)
     except OSError:
         return None
     for root in claim_domain_roots(ctx, effective_worktree):
@@ -98,7 +107,7 @@ def outside_claim_domain(
     ctx: ClaimContext,
     effective_worktree: str = "",
 ) -> bool:
-    if not os.path.isabs(target_path):
+    if not is_absolute(target_path):
         return False
     if domain_root_for_absolute_target(
         target_path=target_path,
@@ -123,7 +132,7 @@ def is_free_path_basename_redirect(
     when the harness cwd is a free-path directory; only basename scratch
     redirects are treated as session-temp writes.
     """
-    if os.path.isabs(target_path) or not is_basename_target(target_path):
+    if is_absolute(target_path) or not is_basename_target(target_path):
         return False
     if not cwd or cwd_in_claim_domain(cwd, ctx, effective_worktree):
         return False

@@ -27,9 +27,9 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-import os
 import sys
-from pathlib import PurePath
+from yoke_contracts.hook_runner.bash_paths import with_client_paths
+from yoke_core.domain.lint_session_cwd_path_authority import is_inside
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
@@ -75,11 +75,7 @@ def _matches_writer_verb(tokens: list[str]) -> bool:
 
 def _is_under(target: str, root: str) -> bool:
     """Compare as written: both paths name the client's filesystem."""
-    try:
-        PurePath(os.path.normpath(target)).relative_to(os.path.normpath(root))
-    except ValueError:
-        return False
-    return True
+    return is_inside(target, root)
 
 
 def _format_reason(
@@ -111,6 +107,7 @@ def _format_reason(
     return attach_check_id(body, check_id="lint-workspace-cwd-match")
 
 
+@with_client_paths(refuse=lambda message: (message, "denied"))
 def evaluate_payload(
     payload: dict, shell: ShellParse | None = None
 ) -> Optional[Tuple[str, str]]:

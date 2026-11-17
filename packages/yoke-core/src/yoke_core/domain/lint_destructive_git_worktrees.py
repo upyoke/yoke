@@ -5,15 +5,12 @@ from __future__ import annotations
 import os
 from glob import glob
 from pathlib import Path
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 from typing import Any, Iterable
 
 
 def _resolve_shell_path(raw: str, cwd: str) -> str:
-    expanded = os.path.expanduser(raw)
-    if os.path.isabs(expanded):
-        return os.path.normpath(expanded)
-    base = cwd if cwd else os.getcwd()
-    return os.path.normpath(os.path.join(base, expanded))
+    return resolve_bash_path(raw, cwd)
 
 
 def _path_mentions_worktrees(path: str) -> bool:

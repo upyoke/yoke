@@ -128,7 +128,7 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_subagent_fleet_messaging": _SERVER,
     _D + "lint_tc_label": _SERVER,
     _D + "lint_watcher_module_form": _SERVER,
-    _D + "lint_workspace_cwd_match": _SERVER,
+    _D + "lint_workspace_cwd_match": _facts(WRITE_TARGETS_KEY, CLIENT_MACHINE_HOME_KEY),
     _D + "lint_write_path": _SERVER,
     _D + "lint_yoke_adapter_stderr_visibility": _SERVER,
     _D + "lint_yoke_quoted_shell_substitution": _SERVER,

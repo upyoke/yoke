@@ -82,7 +82,7 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
     cwd = canonical_native_path(os.path.expanduser(cwd))
     for segment in shell.segments:
         destination = cd_destination(segment.argv)
-        moved = advance_cwd(cwd, destination) if destination is not None else ""
+        moved = advance_cwd(cwd, destination, shell=shell.shell) if destination is not None else ""
         if not moved:
             break
         cwd = moved
@@ -232,6 +232,7 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
             "execution_cwd": cwd,
             "bash_paths": {
                 "windows": os.name == "nt",
+                "home": canonical_native_path(str(Path.home())),
                 "mount_paths": mount_paths,
                 "canonical": canonical,
             },
