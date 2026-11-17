@@ -1,6 +1,7 @@
 """Recognize print-only invocations before the shared hook runner dispatches."""
 
 from yoke_contracts.hook_runner.shell_parse import parse_shell
+from yoke_contracts.process_ancestry import process_basename
 
 
 def is_help_only_command(command: str) -> bool:
@@ -15,7 +16,7 @@ def is_help_only_command(command: str) -> bool:
     # Every word, assignments included: an ``X=1`` prefix is not print-only.
     words = parsed.segments[0].tokens
     args = words[1:]
-    if words[0].rsplit("/", 1)[-1] == "yoke":
+    if process_basename(words[0]) == "yoke":
         from yoke_cli.commands.command_tree import listed_routes
         from yoke_cli.commands.group_help import can_route_group
 

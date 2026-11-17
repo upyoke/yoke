@@ -28,6 +28,8 @@ from yoke_harness.hooks.client_facts import event_chain
     'yoke watch pytest --help', 'yoke watch pytest -h', 'yoke --version',
     'yoke claims work acquire -h', 'yoke items --help',
     'claude --help', '/usr/local/bin/claude --version', 'pytest -h',
+    r'"C:\Users\ben\bin\yoke.exe" watch pytest --help',
+    r'"C:\Program Files\Yoke\yoke.exe" items --help',
 ])
 def test_print_only_commands(command):
     assert is_help_only_command(command)
@@ -49,6 +51,8 @@ def test_print_only_commands(command):
     'yoke items --help | head',
     'yoke watch pytest --help\nyoke watch pytest -- tests/',
     'claude --help "', '',
+    r'"C:\Users\ben\bin\yoke.exe" unknown --help',
+    r'"C:\Users\ben\bin\yoke.exe" items get SOME-1 --help',
 ])
 def test_other_work_keeps_ordinary_guards(command):
     assert not is_help_only_command(command)

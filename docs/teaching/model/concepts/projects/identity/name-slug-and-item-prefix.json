@@ -1,6 +1,7 @@
 {
  "id": "name-slug-and-item-prefix",
  "title": "Name, slug and item prefix",
+ "summary": "Onboarding suggests the Project ID from the checkout folder name, recognizing Windows drive paths, both path separators and trailing separators on every operating system. It lowercases the folder name and replaces punctuation with hyphens; an empty name defaults to project.",
  "status": "draft-copy",
  "page": "projects",
  "position": 0
