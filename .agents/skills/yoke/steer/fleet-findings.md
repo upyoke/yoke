@@ -28,6 +28,12 @@ yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-p
 - **Landed without close-out**: holder reruns `yoke merge item PREFIX-N`; never
   merge twice.
 - **Dead wait**: answer for the ended session.
+- **Unrelated failure report** (a lane's `yoke say --steering` naming a failure
+  outside its change): lanes never file items for these. Dedupe against open
+  items and earlier reports, vet the evidence, then file one fix item per
+  distinct new flake with `yoke feedback promote ENTRY --title TITLE`; link
+  repeat evidence with `--correlation-id`. Never add a dependency from the
+  reporting lane to that item.
 
 After root-cause-and-file, use the supported recovery and label it a workaround:
 

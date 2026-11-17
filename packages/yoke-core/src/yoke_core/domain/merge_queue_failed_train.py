@@ -19,6 +19,7 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.merge_github_queue import resolve_auth_detail
+from yoke_core.domain.merge_queue_entry_checks import UNRELATED_FAILURE_ROUTING
 from yoke_core.domain.merge_github_train_run import TrainRun, read_train_run
 from yoke_core.domain.merge_context import MergeContext
 
@@ -110,11 +111,7 @@ def _refusal(
         f"failed train for these unchanged inputs; {identity}; {compared}. "
         f"{inspect}. A failing or flaky test is a defect: fix it on the lane, "
         "commit, re-run the verification gate, then re-run yoke merge item. "
-        "If this item's change did not cause it, file it (yoke feedback "
-        "--to universe --category failed --evidence 'Flaky test: TEST, CI run URL, "
-        "observed outcomes' then yoke feedback promote ENTRY --title 'Fix flaky TEST'), "
-        "record the dependency, and park; the gate stays red until the fix lands. "
-        "Do not use empty commits to re-run unchanged inputs."
+        f"{UNRELATED_FAILURE_ROUTING}."
     )
 
 

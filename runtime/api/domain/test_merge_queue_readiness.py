@@ -280,6 +280,14 @@ def test_an_idle_open_pull_request_keeps_the_rerun_advice(checks) -> None:
     assert "re-run `yoke merge item`" in result.describe()
 
 
+def test_not_in_flight_routes_an_unrelated_failure_to_steering() -> None:
+    text = _open_unarmed().describe()
+
+    assert "yoke say --steering" in text
+    assert "feedback promote" not in text
+    assert "record the dependency" not in text
+
+
 def test_two_red_check_urls_appear_once_in_the_readback() -> None:
     checks = tuple(
         LandingCheck(name=name, status="completed", conclusion="failure", required=True, url=url)
