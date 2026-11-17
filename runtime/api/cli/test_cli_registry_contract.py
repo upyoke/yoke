@@ -192,6 +192,10 @@ def test_rendered_usage_drift_remains_detectable(usage, expected):
         ("yoke sample", "yoke sample --visible"),
         ("yoke sample --visible --unregistered", "yoke sample --visible"),
         ("yoke sample --visible", "yoke sample --visible --unregistered"),
+        (
+            "yoke sample --visible",
+            "yoke sample --visible\n       yoke sample --visible --unregistered",
+        ),
         ("yoke retired --visible", "yoke sample --visible"),
         ("yoke sample --visible", "yoke retired --visible"),
     ],
@@ -208,3 +212,31 @@ def test_parser_or_error_recipe_drift_remains_detectable(
 
     with pytest.raises(AssertionError):
         assert_adapter_usage(monkeypatch, adapter, {("sample",): (None, adapter)})
+
+
+@pytest.mark.parametrize("suffix", ["\nUse yoke other --external.", " -- --external"])
+def test_usage_prose_and_passthrough_options_belong_to_their_own_parser(
+    monkeypatch, suffix
+):
+    from yoke_cli.commands import _helpers
+
+    def adapter(args):
+        usage = "yoke sample --visible"
+        parser = argparse.ArgumentParser(prog="yoke sample", usage=usage)
+        parser.add_argument("--visible")
+        return _helpers.parse_or_usage_error(parser, args, usage + suffix)
+
+    assert_adapter_usage(monkeypatch, adapter, {("sample",): (None, adapter)})
+
+
+def test_usage_can_advertise_multiple_command_forms(monkeypatch):
+    from yoke_cli.commands import _helpers
+
+    def adapter(args):
+        usage = "yoke sample --visible\n       yoke sample --visible --alternate"
+        parser = argparse.ArgumentParser(prog="yoke sample", usage=usage)
+        parser.add_argument("--visible")
+        parser.add_argument("--alternate")
+        return _helpers.parse_or_usage_error(parser, args, usage)
+
+    assert_adapter_usage(monkeypatch, adapter, {("sample",): (None, adapter)})

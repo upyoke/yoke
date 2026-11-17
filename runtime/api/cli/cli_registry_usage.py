@@ -108,7 +108,16 @@ def assert_adapter_usage(monkeypatch, adapter, routes) -> None:
     if parser.prog in commands:
         accepted_commands.add(parser.prog)
     for usage in sorted(usages):
-        named = set(re.findall(r"(?<![\w-])--?[A-Za-z0-9][\w-]*", usage))
+        # Recipes may show several command forms, then explanatory prose.
+        forms = (
+            line.strip()
+            for line in usage.splitlines()
+            if line.lstrip().startswith("yoke ")
+        )
+        synopsis = " ".join(
+            re.split(r"\s--(?:\s|$)", form, maxsplit=1)[0] for form in forms
+        )
+        named = set(re.findall(r"(?<![\w-])--?[A-Za-z0-9][\w-]*", synopsis))
         missing = flags - named
         accepted = set(parser._option_string_actions)
         shared = {"--full", "--section", "--json", "--session-id"}
