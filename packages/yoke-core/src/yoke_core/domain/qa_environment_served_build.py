@@ -29,7 +29,10 @@ def observe_build(conn: Any, target: Mapping[str, Any], *, expected: str = "") -
         raise QaExecutionTargetError("qa_environment_unavailable: rematerialize the target")
     from yoke_core.domain.qa_execution_environment_target import _decode, _generic_endpoints
 
-    settings = _decode(row["settings"])
+    try:
+        settings = _decode(row["settings"])
+    except QaExecutionTargetError as exc:
+        _refuse("served_build_unobservable", str(exc))
     qa = settings.get("qa") or {}
     if not isinstance(qa, Mapping):
         _refuse("served_build_unobservable", "the owning environment qa settings are not an object")
@@ -40,7 +43,10 @@ def observe_build(conn: Any, target: Mapping[str, Any], *, expected: str = "") -
         return {"served_build_sha": None, "served_build_status": "no_declared_path"}
     if not isinstance(path, str) or probe.origin_relative_path_error(path):
         _refuse("served_build_unobservable", f"invalid qa.identity_path {path!r}")
-    endpoints = _generic_endpoints(row, settings)
+    try:
+        endpoints = _generic_endpoints(row, settings)
+    except QaExecutionTargetError as exc:
+        _refuse("served_build_unobservable", str(exc))
     origin = probe.origin_of(endpoints.get("api_url") or endpoints.get("app_url") or "")
     if not origin:
         _refuse("served_build_unobservable", "the owning environment declares no origin")
