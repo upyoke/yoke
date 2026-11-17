@@ -327,3 +327,6 @@ Windows smoke skips unmarked modules before import, then pytest filters tests.
 Add coverage in the test file you own; no shared roster
 needs editing. The required `windows-smoke` job retains collected node IDs and
 refuses an empty selection through pytest's no-tests exit status.
+
+The on-demand [full suite on Windows and macOS](testing-verification/multi-os-suite.md)
+runs every test there, with shrink-only known-failure baselines.

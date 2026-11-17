@@ -50,7 +50,7 @@ def test_order_routes_breadcrumbs_and_frozen_nodes(corpus):
     assert nav.immediate_children(tree, "guide/setup.md") == []
     with pytest.raises(FrozenInstanceError):
         tree.title = "Changed"
-    cases = json.loads((FIXTURES / "documentation_conformance.json").read_text())
+    cases = json.loads((FIXTURES / "documentation_conformance.json").read_text(encoding="utf-8"))
     for case in cases["routes"]:
         assert nav.route_for(case["path"]) == case["route"]
     assert nav.validate_navigation(corpus, complete=True) == []

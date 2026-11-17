@@ -90,7 +90,7 @@ def test_taught_manifest_and_router_paths_resolve():
     import re
 
     for path in _teaching_files(REPO_ROOT, TEACHING_GLOBS):
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert "runtime/harness/<harness_id>/manifest.json" not in text, path
         assert "~/.agents/skills/yoke/SKILL.md" not in text, path
         for match in re.finditer(r"runtime/harness/([\w-]+)/manifest\.json", text):

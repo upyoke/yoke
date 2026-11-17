@@ -68,7 +68,7 @@ def _called_function_ids() -> dict[str, set[str]]:
     for source in static.iterdir():
         if not source.name.endswith(".js"):
             continue
-        for function_id in _ids_in_source(source.read_text()):
+        for function_id in _ids_in_source(source.read_text(encoding="utf-8")):
             callers.setdefault(function_id, set()).add(source.name)
     return callers
 

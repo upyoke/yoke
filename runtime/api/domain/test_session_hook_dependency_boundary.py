@@ -21,7 +21,7 @@ def test_domain_imports_only_pure_hook_records_and_formatting():
     }
     forbidden = []
     for path in root.glob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             modules = []
             if isinstance(node, ast.ImportFrom) and node.module:
                 modules = [node.module]

@@ -85,7 +85,7 @@ def test_github_machine_help_and_registry(capsys) -> None:
                 continue
             if {"archive", "views", "__pycache__"} & set(source.parts):
                 continue
-            if "yoke github pr create" in source.read_text():
+            if "yoke github pr create" in source.read_text(encoding="utf-8"):
                 stale.append(str(source.relative_to(repo_root)))
     assert stale == []
 

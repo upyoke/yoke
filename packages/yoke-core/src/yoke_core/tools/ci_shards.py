@@ -93,8 +93,12 @@ def shard_number(value: str, *, default: int = 1) -> int:
     return int(text)
 
 
-def pytest_command(group: int) -> list[str]:
-    """The exact suite invocation for one shard."""
+def pytest_command(group: int, extra: Sequence[str] = ()) -> list[str]:
+    """The exact suite invocation for one shard, plus a caller's *extra* flags.
+
+    Extra flags travel on the command line, never through ``PYTEST_ADDOPTS``:
+    tests that start pytest themselves would inherit that variable.
+    """
     return [
         "uv",
         "run",
@@ -107,10 +111,11 @@ def pytest_command(group: int) -> list[str]:
         "--tb=short",
         "--durations=25",
         f"--junitxml={JUNIT_REPORT}",
+        *extra,
     ]
 
 
-def _run_shard(group: int) -> int:
+def _run_shard(group: int, extra: Sequence[str] = ()) -> int:
     """Run one shard, mirroring output to the uploaded log, and return its code.
 
     The log is written as the run proceeds rather than after it, so a shard
@@ -131,7 +136,7 @@ def _run_shard(group: int) -> int:
     with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
         log.write(assignment)
     process = subprocess.Popen(
-        pytest_command(group),
+        pytest_command(group, extra),
         env=environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -206,6 +211,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser("check-runner-capacity", help="Check capacity before pytest.")
     run = sub.add_parser("run", help="Run one shard of the suite.")
     run.add_argument("--group", type=int, required=True)
+    run.add_argument(
+        "pytest_args", nargs=argparse.REMAINDER,
+        help="Extra pytest flags after --, e.g. -- -v --max-worker-restart=0.",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.command == "fan-out":
@@ -213,7 +222,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "check-runner-capacity":
         return check_runner_capacity()
-    return _run_shard(args.group)
+    extra = args.pytest_args[1:] if args.pytest_args[:1] == ["--"] else args.pytest_args
+    return _run_shard(args.group, extra)
 
 
 __all__ = [

@@ -25,7 +25,7 @@ def _declares_plugins(tree: ast.Module) -> bool:
 def _plugin_contract_errors(root: Path) -> list[str]:
     """Read source without importing helpers or collecting their tests."""
     sources = {
-        path.relative_to(root).as_posix(): path.read_text()
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
         for directory in (root / "runtime", root / "tests")
         for path in sorted(directory.rglob("*.py"))
     }

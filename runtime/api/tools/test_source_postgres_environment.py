@@ -97,18 +97,23 @@ def test_evidence_cleanup_on_interrupt(tmp_path, monkeypatch, interruption):
     assert not evidence.exists()
 
 
-def test_sigterm_unwinds_and_restores_handler(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "stop_signal", source_machine_home.STOP_SIGNALS, ids=lambda sig: sig.name
+)
+def test_stop_signal_unwinds_and_restores_handler(tmp_path, monkeypatch, stop_signal):
+    # Raised in-process: on Windows os.kill(SIGTERM) is TerminateProcess and
+    # would end the test runner, while a real stop arrives as SIGBREAK.
     visited = []
     monkeypatch.setattr(reclaim, "destroy_evidence_clusters", visited.append)
-    previous = signal.getsignal(signal.SIGTERM)
+    previous = signal.getsignal(stop_signal)
     with pytest.raises(SystemExit) as ended:
         with source_machine_home.isolated_machine_home(
             {"YOKE_MACHINE_HOME": str(tmp_path), "YOKE_SESSION_ID": "fixture"}
         ):
-            os.kill(os.getpid(), signal.SIGTERM)
-    assert ended.value.code == 143
+            signal.raise_signal(stop_signal)
+    assert ended.value.code == 128 + stop_signal
     assert len(visited) == 1
-    assert signal.getsignal(signal.SIGTERM) == previous
+    assert signal.getsignal(stop_signal) == previous
 
 
 @pytest.mark.parametrize("root", ["/private-test-cluster", ""])

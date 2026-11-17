@@ -11,7 +11,7 @@ from yoke_core.domain import documentation_links as links
 from yoke_core.domain.documentation_navigation import route_for
 
 FIXTURES = Path(__file__).parent / "fixtures"
-CASES = json.loads((FIXTURES / "documentation_conformance.json").read_text())
+CASES = json.loads((FIXTURES / "documentation_conformance.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("case", CASES["headings"])

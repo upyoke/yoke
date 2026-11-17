@@ -11,7 +11,7 @@ def test_domain_does_not_import_handler_modules():
     for path in sorted(domain.rglob("*.py")):
         if "handlers" in path.relative_to(domain).parts:
             continue
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             modules = []
             if isinstance(node, ast.Import):
                 modules = [alias.name for alias in node.names]

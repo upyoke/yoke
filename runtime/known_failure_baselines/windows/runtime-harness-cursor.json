@@ -1,0 +1,3 @@
+{
+"runtime/harness/cursor/test_session_dispatch_cursor.py::test_cursor_dispatch_consumes_the_shared_orientation_body": "AssertionError: assert 'shared 11111...5 at \\\\repo\\n' == 'shared 11111...55 at /repo\\n'"
+}

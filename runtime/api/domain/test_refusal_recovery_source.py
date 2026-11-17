@@ -73,7 +73,7 @@ def test_no_hand_written_recovery_labels() -> None:
             or rel in HOOK_GUARD_MESSAGES
         ):
             continue
-        source = p.read_text()
+        source = p.read_text(encoding="utf-8")
         if "Recovery:" not in source:
             continue
         if p.suffix == ".py" and not any(

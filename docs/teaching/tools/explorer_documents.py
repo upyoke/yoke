@@ -7,7 +7,7 @@ REPO = Path(__file__).resolve().parents[3]
 
 
 def heading(path):
-    content = path.read_text()
+    content = path.read_text(encoding="utf-8")
     match = re.search(r'^# (.+)$', content, re.M)
     return match.group(1).strip() if match else path.stem.replace('-', ' ')
 
@@ -59,7 +59,7 @@ def add_documents(add):
 
 
 def rule_topics(add, path, start, end, scope):
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     headings = [(i, re.sub(r'^#+ ', '', line)) for i, line in enumerate(lines)
                 if start <= i < end and re.match(r'^#{1,2} ', line)
                 and line != '# Yoke — Project Rules']
@@ -79,7 +79,7 @@ def rule_topics(add, path, start, end, scope):
 
 def add_rules(add):
     project = REPO / 'AGENTS.md'
-    local = project.read_text().splitlines()
+    local = project.read_text(encoding="utf-8").splitlines()
     end = '<!-- END YOKE MANAGED BLOCK -->'
     # Everything through the managed block's end ships to installed projects,
     # including the portable field-note preamble; the rest is this repository's.
@@ -89,7 +89,7 @@ def add_rules(add):
 
 def add_sections(add, node, path):
     """Expose named sections of a real file without inventing prose categories."""
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     starts = [(i, line[3:]) for i, line in enumerate(lines) if line.startswith('## ')]
     for number, (start, title) in enumerate(starts):
         end = starts[number + 1][0] if number + 1 < len(starts) else len(lines)
@@ -108,7 +108,7 @@ def connect_document_links(nodes):
         if path.suffix != '.md':
             continue
         targets = set()
-        for link in re.findall(r'\]\(([^)]+)\)', path.read_text()):
+        for link in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding="utf-8")):
             destination = (path.parent / link.split('#')[0]).resolve()
             if destination.is_relative_to(REPO):
                 target = 'doc:' + destination.relative_to(REPO).as_posix()
@@ -124,7 +124,7 @@ def expand_prose_topics(nodes):
         document = node.get('document', '')
         if node['id'] in parents or node.get('source_only') or not document.endswith('.md'):
             continue
-        lines = (REPO / document.removeprefix('../../../')).read_text().splitlines()
+        lines = (REPO / document.removeprefix('../../../')).read_text(encoding="utf-8").splitlines()
         first, last = node.get('document_lines', [0, len(lines)])
         text = re.sub(r'<!--.*?-->', '', '\n'.join(lines[first:last]), flags=re.S)
         if len(text.split()) < 80:

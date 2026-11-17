@@ -15,7 +15,7 @@ def test_domain_invariants_do_not_import_api_modules() -> None:
     domain = Path(repo_root.__file__).parent
     forbidden = []
     for path in sorted(domain.glob("*.py")):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):
                 names = [node.module or ""]
             elif isinstance(node, ast.Import):

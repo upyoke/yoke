@@ -226,3 +226,19 @@ def test_shard_run_does_not_probe_capacity(tmp_path, monkeypatch) -> None:
         lambda *a, **kw: SimpleNamespace(stdout=StringIO("ok\n"), wait=lambda: 0),
     )
     assert ci_shards.main(["run", "--group", "1"]) == 0
+
+
+def test_extra_pytest_flags_travel_on_the_command_line(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("PYTEST_ADDOPTS", raising=False)
+    commands = []
+
+    def start(command, **kwargs):
+        commands.append((command, kwargs["env"].get("PYTEST_ADDOPTS")))
+        return SimpleNamespace(stdout=StringIO("ok\n"), wait=lambda: 0)
+
+    monkeypatch.setattr(ci_shards.subprocess, "Popen", start)
+    assert ci_shards.main(["run", "--group", "1", "--", "-v", "--max-worker-restart=0"]) == 0
+    # Not PYTEST_ADDOPTS: tests that start pytest would inherit it.
+    assert commands == [(ci_shards.pytest_command(1, ["-v", "--max-worker-restart=0"]), None)]
+    assert commands[0][0][-2:] == ["-v", "--max-worker-restart=0"]

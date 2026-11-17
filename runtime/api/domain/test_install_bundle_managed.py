@@ -188,6 +188,6 @@ def test_gitless_packaged_corpus_is_validated_before_delivery(tmp_path, packaged
     entries = docs_bundle_files(snapshot)
     assert any(e["path"] == ".yoke/docs/index.md" for e in entries)
     page = snapshot / "docs/public/index.md"
-    page.write_text(page.read_text() + "\n[Absent](absent.md)\n")
+    page.write_text(page.read_text(encoding="utf-8") + "\n[Absent](absent.md)\n")
     with pytest.raises(install_bundle.InstallBundleError, match="LINK_TARGET_MISSING"):
         docs_bundle_files(snapshot)

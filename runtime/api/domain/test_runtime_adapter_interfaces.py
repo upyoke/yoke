@@ -82,7 +82,7 @@ def test_domain_has_no_adapter_package_imports():
     domain = root / "packages/yoke-core/src/yoke_core/domain"
     violations = []
     for path in domain.rglob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):
                 modules = [node.module or ""]
             elif isinstance(node, ast.Import):

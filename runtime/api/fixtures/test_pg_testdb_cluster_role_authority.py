@@ -45,7 +45,7 @@ def test_cluster_role_mutations_request_authority_fixture():
     runtime_api = Path(__file__).resolve().parents[1]
     unprotected = []
     for path in runtime_api.rglob("test_*.py"):
-        module = ast.parse(path.read_text(), filename=str(path))
+        module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(module):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue

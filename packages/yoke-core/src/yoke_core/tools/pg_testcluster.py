@@ -123,15 +123,11 @@ def ensure_started() -> int:
     if mismatch:
         sys.stderr.write(f"recreating disposable test cluster: {mismatch}\n")
         destroy()
-    spec.sock_dir.mkdir(parents=True, exist_ok=True)
-    rc = postgres_cluster.initdb_if_needed(spec)
-    if rc != 0:
-        return rc
     if _is_ready() and not _settings_match():
         destroy()
-        rc = postgres_cluster.initdb_if_needed(spec)
-        if rc != 0:
-            return rc
+    # The shared lifecycle creates the root and socket directory owner-private
+    # before initdb; creating either here first would leave a Windows root
+    # with inherited ACLs that the lifecycle then refuses.
     return postgres_cluster.ensure_started(spec)
 
 
