@@ -119,6 +119,10 @@ def scan_source(source: str, path: str) -> list[PlatformHit]:
                 return first.value.strip().split(" ")[0].rsplit("/", 1)[-1] == "ps"
         return False
 
+    def is_mode(node):
+        return (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                and bool(node.value) and set(node.value) <= set("rwxabt+"))
+
     def text_io(node):
         if not isinstance(node, ast.Call):
             return False
@@ -132,8 +136,10 @@ def scan_source(source: str, path: str) -> list[PlatformHit]:
                for k in node.keywords):
             return False
         if tail == "open":
+            # builtins open(file, mode) and Path.open(mode) put the mode at different
+            # positions, so take the first of args[0:2] that reads as a mode string.
             mode = next((k.value for k in node.keywords if k.arg == "mode"),
-                        node.args[1] if len(node.args) > 1 else None)
+                        next((a for a in node.args[:2] if is_mode(a)), None))
             if isinstance(mode, ast.Constant) and isinstance(mode.value, str) and "b" in mode.value:
                 return False
             if len(node.args) > 3:  # builtins open's positional encoding
