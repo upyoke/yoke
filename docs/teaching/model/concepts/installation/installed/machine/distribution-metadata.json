@@ -5,7 +5,5 @@
  "page": "installation",
  "position": 3,
  "summary": "Install advice uses the connected service or recorded distribution origin. Missing origin raises InstallOriginUnavailable; callers teach origin and channel repair before their own install or retry step. No production origin is assumed.",
- "sources": [
-  "packages/yoke-cli/src/yoke_cli/config/install_advice.py"
- ]
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/install_advice.py"]
 }

@@ -215,7 +215,9 @@ def test_preview_reports_non_file_convergence_when_source_files_unchanged(
 
     assert cli_main([*base[:-1], "--force", "--no-commit", "--apply", "--json"]) == 0
     capsys.readouterr()
-    assert pre_commit.read_text(encoding="utf-8") == (git_hooks_layer.PRE_COMMIT_SHIM)
+    assert pre_commit.read_text(encoding="utf-8") == git_hooks_layer.render_git_hook(
+        git_hooks_layer.PRE_COMMIT_SHIM
+    )
     assert ".worktrees/" in (target / ".gitignore").read_text(encoding="utf-8")
 
 
