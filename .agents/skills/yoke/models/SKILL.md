@@ -14,7 +14,10 @@ Reads need no item; a refresh without a claimed item files `/yoke dash` first.
    level-summary get`) as its help says.
 2. Research official provider pages; unknown values stay null.
 3. Build the full catalog from the latest revision; validate, diff.
-4. An org admin publishes on the diff's `base_revision_id`, effective now or later.
+4. An org admin publishes on the diff's `base_revision_id`, effective now or later,
+   then publishes the same records to stage (`yoke --env stage models publish`),
+   and the lane copies them into `packages/yoke-contracts/src/yoke_contracts/model_reference_data.json`
+   so the shipped catalog a fresh database seeds equals the published one.
 5. Propose levels.
 6. Record the revision and approved levels in the item's Progress Log; close out through Dash.
 

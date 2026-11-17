@@ -20,9 +20,9 @@ Each level contains ordered base-model rows at their minimum effort:
 |---|---|---|
 | INTERN 🐣 | claude-haiku-5-5, gpt-6-luna, claude-sonnet-5-5, gpt-6.1-terra, grok-4.7 | low |
 | JUNIOR 🐥 | grok-4.7, gpt-6.1-terra, claude-sonnet-5-5 | high |
-| | claude-opus-5-5, gpt-6.1-sol, claude-fable-5-2, gpt-6-astra | low |
-| SENIOR 🦉 | claude-opus-5-5, gpt-6.1-sol, claude-fable-5-2, gpt-6-astra | medium |
-| PRINCIPAL 🦅 | claude-fable-5-2, gpt-6-astra | xhigh |
+| | claude-opus-5-5, gpt-6.2-sol, claude-fable-5-2, gpt-6.2-astra | low |
+| SENIOR 🦉 | claude-opus-5-5, gpt-6.2-sol, claude-fable-5-2, gpt-6.2-astra | medium |
+| PRINCIPAL 🦅 | claude-fable-5-2, gpt-6.2-astra | xhigh |
 
 ## Document shape
 
@@ -32,7 +32,7 @@ contracts; each option is exactly a base model and minimum effort:
 ```json
 [{"name":"SENIOR","glyph":"🦉","options":[
   {"model":"claude-opus-5-5","min_effort":"medium"},
-  {"model":"gpt-6.1-sol","min_effort":"medium"}
+  {"model":"gpt-6.2-sol","min_effort":"medium"}
 ]}]
 ```
 
