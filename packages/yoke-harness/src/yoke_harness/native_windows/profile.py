@@ -29,7 +29,7 @@ namespace YokeQa {
 }
 '@
  }
- $buffer=New-Object Text.StringBuilder 1024
+ $buffer=New-Object Text.StringBuilder 260
  $hr=[YokeQa.NativeProfile]::CreateProfile($sid,$name,$buffer,$buffer.Capacity)
  return [PSCustomObject]@{HResult=$hr;Path=$buffer.ToString()}
 }

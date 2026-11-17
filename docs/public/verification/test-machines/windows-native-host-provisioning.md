@@ -4,45 +4,20 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Native Windows host provisioning
 <!-- /yoke:breadcrumbs -->
 
-This is a lab procedure for native Windows 11, with WSL absent. It does not
-establish a Windows support claim. Follow [setup responsibilities](setup-responsibilities.md).
-Use the project inventory for host names, subscription, accounts and evidence.
-Record each step's machine, date and observed result; mark untested steps unverified.
+Native Windows 11 lab procedure, WSL absent; no Windows support claim.
+Follow [setup responsibilities](setup-responsibilities.md); use project inventory
+for hosts, accounts and evidence. Record observed results; mark untested steps unverified.
 
 ## 1. Create or identify the VM
 
-Use infrastructure as code or a recorded operator exception. The native Azure
-lab was created by hand under an operator exception; it is not an IaC-managed
-resource. Keep the exception with the project inventory and eventual import work.
-Use Windows 11 Enterprise x64, Trusted Launch, Windows_Client licensing and
-at least four CPUs, 16 GiB memory and a 128 GiB OS disk. Windows Server is not
-an equivalent desktop-app test target. Confirm the subscription's Windows
-client licensing eligibility before creation.
+Retain the lab's manual exception and inventory/import work. Require Windows 11
+Enterprise x64, Trusted Launch, Windows_Client eligibility, four CPUs, 16 GiB RAM
+and a 128 GiB OS disk; Server is not a desktop target.
 
-Example Azure CLI sequence, with project-owned names and an approved Windows
-11 marketplace image URN from `az vm image list`:
-
-```powershell
-az group create --name GROUP --location eastus
-az network nsg create --resource-group GROUP --name NSG
-az network nsg rule create --resource-group GROUP --nsg-name NSG --name ssh --priority 100 --access Allow --protocol Tcp --source-address-prefixes '*' --destination-port-ranges 22
-az network public-ip create --resource-group GROUP --name IP --sku Standard --allocation-method Static
-az network vnet create --resource-group GROUP --name VNET --subnet-name SUBNET
-az network nic create --resource-group GROUP --name NIC --vnet-name VNET --subnet SUBNET --network-security-group NSG --public-ip-address IP
-az vm create --resource-group GROUP --name VM --nics NIC --image IMAGE_URN --size Standard_D4s_v4 --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --license-type Windows_Client --admin-username ADMIN --admin-password PASSWORD --os-disk-size-gb 128
-```
-
-The final placeholder describes the Azure API input, not a password to paste
-into shell history. Generate the machine password in Yoke's local secret store;
-invoke Azure from a controller process that reads it privately and redacts
-errors. Never print it, put it in an item, commit it, or send it in chat.
-Ben enters his own harness and GitHub credentials later.
-Create the subscription budget and cost alerts in the same approved creation
-operation. A budget is an alert, not a power-off mechanism.
-
-Under the recorded operator exception, create the network and VM with `az`.
-Use project-owned names and the authorized subscription; these examples use
-the existing `yoke-test-machines` resource group in `eastus`:
+Generate the machine password in Yoke's local secret store; invoke Azure from
+a controller that reads it privately and redacts errors. Never put passwords
+in argv, shell history, items or chat. Ben enters his own sign-ins later.
+Create budget/cost alerts; they do not power off the VM.
 
 ```text
 az network vnet create -g yoke-test-machines -n windows-native-lab-vnet --subnet-name default
@@ -88,9 +63,7 @@ authentication and disable password authentication in
 `C:\ProgramData\ssh\sshd_config`. Fresh Windows images can spend considerable time in Windows Update servicing;
 the provisioner announces and allows up to 90 minutes for the capability
 bootstrap. Let servicing settle after first boot, then retry when necessary.
-Slowness alone is not an installation error. Keep the Microsoft-serviced
-capability; use a pinned, signature-verified Microsoft MSI only after an
-actual capability installation error has been diagnosed.
+Use a pinned, signature-verified Microsoft MSI only after a diagnosed capability error.
 If Azure repeatedly refuses a new invocation with “Run command extension
 execution is in progress” after the bounded wait, stop the controller retry
 loop and record the stuck invocation. Check the VM agent and the invocation's
@@ -120,10 +93,9 @@ key for the administrator bootstrap in
 `C:\ProgramData\ssh\administrators_authorized_keys`, owned only by
 Administrators/SYSTEM. Validate the effective configuration and restart sshd.
 
-The source-owned provisioner performs those steps for an **existing** VM,
-creates the standard test account and its profile, authorizes the same public
-key in its `.ssh\authorized_keys`, prepares the golden directory and fixed
-recovery task, and enables RDP restricted by the SSH-only network route:
+For an **existing** VM the provisioner creates the standard account/profile,
+authorizes its `.ssh\authorized_keys`, prepares goldens and the fixed recovery
+task, and enables RDP through SSH forwarding:
 
 ```text
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
@@ -131,9 +103,10 @@ python -m yoke_harness.native_windows.provision --project P --machine VM --host 
 
 When administrator key SSH already works, add `--bootstrap-transport ssh` to run
 bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
-Uploads and password input use bounded length frames, so guest readers finish
-without waiting for stdin EOF. Uploaded files require a byte-count and SHA256
-receipt before execution; password input never produces a digest or receipt.
+Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
+receipts under one 30-second deadline; only the complete verified script runs.
+Owned staging cleanup has a separate ten-second bound and preserves prior errors.
+Password frames never produce digests; readers do not wait for stdin EOF.
 
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
 -- ...`; this deliberately persists the generated test-user password in Yoke.
@@ -141,29 +114,110 @@ The provisioner uses the capability-owned `test-machine.ssh_private_key` and
 stores `test-machine:VM.desktop_password`; it streams the password to the
 administrator over SSH stdin. It never embeds it in argv or the provisioned
 script. Keep administrator and standard-user passwords separate.
-Retries preserve an existing test account's password and require its stored
-`desktop_password`; restore custody if it is missing, rather than resetting the
-account. Profiles are created by the administrator through Windows
+Preserve existing non-admin accounts and `desktop_password` custody. For
+partial setup rerun `--bootstrap-transport ssh`; never reset/recreate the
+account. The administrator uses
 [`CreateProfile`](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createprofile)
-and resolved by SID, including profile directory suffixes. Profile creation
-checks the registered directory and hive; it does not prove interactive sign-in.
-Read errors and rerun only after correcting the named failure. Azure returning
-success does not prove its script succeeded; the provisioner requires its
-explicit readiness message.
+with a 260-character output buffer and resolves
+`ProfileList\<SID>\ProfileImagePath`, Success or `ERROR_ALREADY_EXISTS`
+requires the registered directory and `NTUSER.DAT`; sign-in remains
+unproven. Investigate other HRESULTs, disabled accounts or unexpected
+privileges without changing credentials. Join the existing `OpenSSH Users`
+group and verify SID membership; retain sshd's Allow/Deny policy. Apply
+directory OI/CI grants **without** recursive inheritance removal, then
+plain `F` grants directly to `authorized_keys` for the user, SYSTEM and
+Administrators. Check native exits and the actual owner/DACL; recursive
+directory-style grants left the key file's DACL empty in CI. Controller SSH
+uses `-F none` for both Git and native OpenSSH; Windows `nul` is not a
+portable SSH config-file argument.
+
+### Bounded recovery when administrator SSH is unavailable
+
+Use an explicitly approved window: one start, maximum twenty minutes, reserve
+cleanup at minute seventeen, and verify `PowerState/deallocated` by minute twenty.
+Stop on ambiguity; a timeout is not permission to retry or kill guest processes.
+If OpenSSH is installed/running but TCP22 is blocked, inspect the managed
+`YokeQaSsh` firewall rule. `New-NetFirewallRule` requires `-DisplayName` even
+with `-Name`; omitting it can prompt instead of completing noninteractively.
+Save this nonsecret repair script as `ssh-firewall.ps1`:
+
+```powershell
+$ErrorActionPreference='Stop'
+Get-NetFirewallRule -Name YokeQaSsh -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -Name YokeQaSsh -DisplayName 'Yoke QA SSH' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -Profile Any -RemoteAddress Any -ErrorAction Stop | Out-Null
+$r=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaSsh -ErrorAction Stop
+$p=$r | Get-NetFirewallPortFilter -ErrorAction Stop
+if($r.Enabled -ne 'True' -or $r.Direction -ne 'Inbound' -or $r.Action -ne 'Allow' -or $p.LocalPort -ne '22'){throw 'effective SSH rule invalid'}
+Restart-Service sshd -ErrorAction Stop
+'YOKE_SSH_FIREWALL_READY'
+```
+
+Run **one managed Run Command v2**, retaining its named resource for audit:
+
+```text
+az vm run-command create --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --script @ssh-firewall.ps1 --timeout-in-seconds 120
+az vm run-command show --resource-group GROUP --vm-name VM --name yoke-native-ssh-recovery --expand instanceView --query instanceView -o json
+```
+
+Require terminal execution success, exit code zero and `YOKE_SSH_FIREWALL_READY`;
+ARM `Creating`/`Canceled` alone is not the guest result. Do not repeat removal or
+create another guest invocation because the controller result is ambiguous.
+Verify external TCP22, then key-only administrator SSH before continuing.
+From a PowerShell controller (`KEY`, `ADMIN` and `HOST` are inventory values):
+
+```powershell
+if(!(Test-NetConnection HOST -Port 22 -InformationLevel Quiet)){throw 'TCP22 unreachable'}
+$probe=@'
+$ErrorActionPreference='Stop'
+$id=[Security.Principal.WindowsIdentity]::GetCurrent()
+$expected=Get-LocalUser -Name 'ADMIN' -ErrorAction Stop
+if($id.User.Value -ne $expected.SID.Value -or !([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'wrong administrator token'}
+$stale=@(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {$_.CommandLine -match 'script0\.ps1'})
+$stale | Select-Object ProcessId,CreationDate
+if($stale.Count -ne 0){throw 'stale script0 process: report only, stop provisioning'}
+'YOKE_ADMIN_AND_STALE_AUDIT_OK'
+'@
+$encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($probe))
+ssh -i KEY -o BatchMode=yes ADMIN@HOST "powershell.exe -NoProfile -NonInteractive -EncodedCommand $encoded"
+if($LASTEXITCODE -ne 0){throw 'administrator SSH audit failed'}
+```
+
+Never kill a reported process. Run the provisioner only after this zero-count
+audit, retaining all three readiness receipts. Verify both users' actual token
+SIDs against `Get-LocalUser`, and administrator membership true only for ADMIN.
+Inspect the test SID's registered path/hive; do not assume a profile directory.
+
+### RDP firewall failure and partial setup
+
+Windows Firewall rejects **both** `::1` and `127.0.0.1` as explicit loopback
+address conditions. Do not replace the rejected IPv6 address with an IPv4 allow
+rule. The provisioner removes legacy `YokeQaRdpLoopback`, disables stable
+`RemoteDesktop-*` rules, requires all firewall profiles enabled/default inbound
+block, and refuses RDP-capable allow rules. Package SID/family constraints exclude
+packaged apps; `System` is a kernel listener, not TermService. Keep public3389 blocked;
+forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
+Require a real forwarded RDP negotiation and independently blocked direct RDP.
+
+The profile-by-SID window failed at this rule and deallocated after 121 seconds.
+Registration, QA and an independent profile receipt remained unverified.
+Preserve the partial account/profile and custody. Correct and run the **entire**
+guest provisioner on disposable `windows-latest`, including actual SSH and RDP
+forwarding, before requesting another VM window with exact-commit green evidence.
+After successful setup register **SETUP INCOMPLETE**, immediately deallocate,
+then run dispatched native QA separately. Failure means stop, deallocate, record
+the exact guest error and inspect it; never mark registration or QA complete.
 
 Prove the test user is not an Administrator and cannot modify the fixed
 administrator task or its program. Select **Windows Console Host** as the
 default terminal for this dedicated account; the terminal bridge reads its
 real console screen, rather than a transcript substituted for the desktop.
-Install Python 3, Git, Node.js/npm and the project's baseline tools natively.
-Do not install WSL, VirtualMachinePlatform or a Linux distro.
+Install Python 3, Git, Node.js/npm and baseline tools natively; no WSL,
+VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-Enable the standard user for Remote Desktop. Configure automatic logon for
-this dedicated disposable lab account using an LSA-protected password (for
-example Microsoft's Sysinternals Autologon), never a plaintext Winlogon
-`DefaultPassword`. Disable locking only for this dedicated test desktop under
+Configure automatic logon using an LSA-protected password (such as Microsoft's
+Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
 the project's lab policy. Reboot and prove a scheduled task with
 `LogonType=Interactive` runs as the standard user without an RDP client open.
 

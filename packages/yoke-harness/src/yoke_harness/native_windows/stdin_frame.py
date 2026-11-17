@@ -44,8 +44,23 @@ function Read-YokeFrame {
 """.replace("MAX_ENCODED", str(MAX_ENCODED)).replace("MAX_BYTES", str(MAX_BYTES))
 
 
-def upload_script(path_expression: str) -> str:
+def upload_script(path_expression: str, *, offset: int | None = None) -> str:
     """The path expression must already be a quoted PowerShell literal/expression."""
+    write = "[IO.File]::WriteAllBytes($p,$bytes)"
+    if offset is not None:
+        if offset < 0:
+            raise ValueError("windows_upload_offset_invalid")
+        # CreateNew owns the staging path; subsequent chunks cannot overwrite
+        # or silently append after a failed/ambiguous upload.
+        mode = "CreateNew" if offset == 0 else "Open"
+        write = f"""
+$file=[IO.File]::Open($p,[IO.FileMode]::{mode},[IO.FileAccess]::Write,[IO.FileShare]::None)
+try {{
+ if($file.Length -ne {offset}){{throw 'windows_upload_offset_mismatch'}}
+ $file.Position={offset}
+ $file.Write($bytes,0,$bytes.Length)
+}} finally {{$file.Dispose()}}
+"""
     return (
         READ_FRAME_SCRIPT
         + f"""
@@ -53,7 +68,7 @@ $ErrorActionPreference='Stop'
 $p={path_expression}
 $bytes=Read-YokeFrame
 New-Item -ItemType Directory -Force (Split-Path $p) | Out-Null
-[IO.File]::WriteAllBytes($p,$bytes)
+{write}
 $stored=[IO.File]::ReadAllBytes($p)
 $sha=[Security.Cryptography.SHA256]::Create()
 try {{$digest=([BitConverter]::ToString($sha.ComputeHash($stored))).Replace('-','').ToLowerInvariant()}}

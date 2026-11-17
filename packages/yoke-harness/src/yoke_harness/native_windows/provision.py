@@ -1,7 +1,6 @@
 """Provision an existing Azure Windows lab VM; no resource creation or passwords in argv."""
 
 import argparse
-import os
 import base64
 from pathlib import Path
 import secrets
@@ -9,6 +8,7 @@ import subprocess
 import tempfile
 import sys
 import time
+from uuid import uuid4
 
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config.capability_secret_store import (
@@ -26,6 +26,8 @@ from yoke_harness.native_windows.stdin_frame import (
 from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
+from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
 from yoke_harness.native_windows.profile import (
     SCRIPT as PROFILE_SCRIPT,
     missing_password_guard,
@@ -36,11 +38,11 @@ BOOTSTRAP_TIMEOUT_SECONDS = 5400
 
 
 def admin_script(key, host, user, script, *, input_text=None):
-    path = r"C:\ProgramData\YokeQaProvision.ps1"
+    path = rf"C:\ProgramData\YokeQaProvision-{uuid4().hex}.ps1"
     ssh = [
         "ssh",
         "-F",
-        os.devnull,
+        "none",
         *host_key_options({}),
         "-i",
         str(key),
@@ -53,32 +55,50 @@ def admin_script(key, host, user, script, *, input_text=None):
         f"{user}@{host}",
     ]
     payload = script.encode("utf-8-sig")
-    write = upload_script(quote(path))
-    uploaded = subprocess.run(
-        [
-            *ssh,
-            "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
-            + encoded(write),
-        ],
-        input=frame_bytes(payload),
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if not upload_received(uploaded, payload):
-        raise RuntimeError(
-            "windows_admin_script_upload_failed: verify administrator SSH key access; "
-            + uploaded.stderr[-800:]
+    failure = None
+    try:
+        deadline = time.monotonic() + 30
+        for offset in range(0, len(payload), 2048):
+            chunk = payload[offset:offset + 2048]
+            write = upload_script(quote(path), offset=offset)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired("Windows script upload", 30)
+            uploaded = subprocess.run(
+                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
+                input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
+            )
+            if not upload_received(uploaded, payload[:offset + len(chunk)]):
+                raise RuntimeError(
+                    "windows_admin_script_upload_failed: verify administrator SSH key access; "
+                    + uploaded.stderr[-800:]
+                )
+        return subprocess.run(
+            [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
+            input=frame_bytes(input_text.encode("utf-8"))
+            if input_text is not None
+            else None,
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
-    return subprocess.run(
-        [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
-        input=frame_bytes(input_text.encode("utf-8"))
-        if input_text is not None
-        else None,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    except BaseException as exc:
+        failure = exc
+        raise
+    finally:
+        try:
+            cleanup = "$ErrorActionPreference='Stop'; Remove-Item -LiteralPath " + quote(path) + " -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath " + quote(path) + "){throw 'owned staging cleanup failed'}"
+            removed = subprocess.run(
+                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(cleanup)],
+                capture_output=True, text=True, timeout=10,
+            )
+            if removed.returncode:
+                raise RuntimeError("windows_admin_staging_cleanup_failed: " + removed.stderr[-800:])
+        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+            if failure is None:
+                raise
+            failure.add_note("Owned Windows staging cleanup failed: " + str(exc))
+
 
 
 def provision(
@@ -137,7 +157,7 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
     if bootstrap_transport == "ssh":
         announce_designed_wait(
             "Windows OpenSSH bootstrap over administrator SSH",
-            max_wait_seconds=330,
+            max_wait_seconds=340,
             cadence="script upload and SSH command completion",
         )
         result = admin_script(key, host, admin_user, script)
@@ -240,28 +260,19 @@ PROFILE_CREATION
 Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $name -ErrorAction SilentlyContinue
 if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\$name"){throw 'windows_test_user_admin: remove the test user from Administrators and retry'}
 New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens','C:\ProgramData\YokeQa\requests','C:\ProgramData\YokeQa\private' | Out-Null
-Set-Content -LiteralPath "$homePath\.ssh\authorized_keys" -Value PUBLIC_KEY
-& icacls.exe "$homePath\.ssh" /inheritance:r /grant "${name}:(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
-& icacls.exe 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T | Out-Null
-& icacls.exe 'C:\ProgramData\YokeQa' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' "${name}:(OI)(CI)RX" | Out-Null
-& icacls.exe 'C:\ProgramData\YokeQa\private' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
-& icacls.exe 'C:\ProgramData\YokeQa\private' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
-& icacls.exe 'C:\ProgramData\YokeQa\requests' /grant "${name}:(OI)(CI)M" | Out-Null
+USER_SSH_ACCESS
+Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T
+Invoke-YokeAcl 'C:\ProgramData\YokeQa' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' "${name}:(OI)(CI)RX"
+Invoke-YokeAcl 'C:\ProgramData\YokeQa\private' /inheritance:r /grant '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
+Invoke-YokeAcl 'C:\ProgramData\YokeQa\requests' /grant "${name}:(OI)(CI)M"
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
-# RDP is reachable only by SSH local forwarding, including on the guest.
-Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Disable-NetFirewallRule
-Get-NetFirewallRule -Name YokeQaRdpLoopback -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule -Name YokeQaRdpLoopback -DisplayName 'Yoke QA RDP loopback' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -RemoteAddress 127.0.0.1,::1 -Profile Any -ErrorAction Stop | Out-Null
-$rule=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaRdpLoopback -ErrorAction Stop
-$port=$rule | Get-NetFirewallPortFilter -ErrorAction Stop
-$addresses=$rule | Get-NetFirewallAddressFilter -ErrorAction Stop
-if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or $port.LocalPort -ne '3389' -or @($addresses.RemoteAddress).Count -ne 2 -or '127.0.0.1' -notin $addresses.RemoteAddress -or '::1' -notin $addresses.RemoteAddress){
- throw 'windows_rdp_firewall_failed: inspect the effective YokeQaRdpLoopback firewall rule'
-}
+RDP_FIREWALL
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
 """.replace("TEST_USER", quote(test_user))
+        .replace("USER_SSH_ACCESS", USER_SSH_SCRIPT)
         .replace("PUBLIC_KEY", quote(public))
         .replace("PROFILE_CREATION", PROFILE_SCRIPT)
+        .replace("RDP_FIREWALL", RDP_FIREWALL_SCRIPT)
     )
     result = admin_script(
         key,
