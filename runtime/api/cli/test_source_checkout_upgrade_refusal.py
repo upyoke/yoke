@@ -1,5 +1,6 @@
 """Source-bound CLI commands preserve the checkout instead of reinstalling."""
 
+import json
 import sys
 
 import pytest
@@ -53,7 +54,10 @@ def test_commands_refuse_source_checkout_before_any_upgrade(
     )
     assert command(args) == 1
     captured = capsys.readouterr()
-    diagnostic = captured.out + captured.err
+    diagnostic = (
+        json.loads(captured.out)["error"] if "--json" in args
+        and command is self_update.update else captured.out + captured.err
+    )
     if sys.platform == "win32" and command is self_host.self_host_upgrade:
         assert "self_host_native_windows_requires_wsl2" in diagnostic
         assert "WSL2" in diagnostic
