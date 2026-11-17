@@ -46,6 +46,8 @@
             {"context": "attest-validated-release-provenance"},
             {"context": "container"},
             {"context": "browser_runtime / browser-runtime"},
+            {"context": "native_windows_provisioning / complete guest setup (windows-latest, git)"},
+            {"context": "native_windows_provisioning / complete guest setup (windows-latest, windows)"},
             {"context": "test-shard (3.11, 1)"},
             {"context": "test-shard (3.11, 2)"},
             {"context": "test-shard (3.11, 3)"},
