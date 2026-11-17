@@ -7,13 +7,20 @@ from typing import Any, Mapping
 
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import served_revision_probe as probe
-from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     require_environment_target_access,
+    _mapping_rows,
 )
 from yoke_core.domain.qa_project_execution_target import is_project_execution_target
 from yoke_core.domain.deployment_qa_execution_target import is_deployment_execution_target
+
+
+def _one(conn: Any, sql: str, params: tuple) -> dict | None:
+    rows = _mapping_rows(conn.execute(sql.replace("%s", marker(conn)), params))
+    return rows[0] if rows else None
 
 
 def observe_build(conn: Any, target: Mapping[str, Any], *, expected: str = "") -> dict:
@@ -21,7 +28,7 @@ def observe_build(conn: Any, target: Mapping[str, Any], *, expected: str = "") -
     require_environment_target_access(conn, target)
     if is_project_execution_target(target) or is_deployment_execution_target(target):
         return {"served_build_sha": None, "served_build_status": "target_owned_identity"}
-    row = query_one(
+    row = _one(
         conn, "SELECT url,settings FROM environments WHERE id=%s",
         (int(target["environment"]["id"]),),
     )
@@ -76,17 +83,17 @@ def observe_execution(conn: Any, execution: Mapping[str, Any]) -> dict:
 
 def bind_run_build(conn: Any, columns: dict, *, run_id: int | None = None) -> None:
     """Every result write proves the same build as its execution or run start."""
-    prior = query_one(conn, "SELECT * FROM qa_runs WHERE id=%s", (run_id,)) if run_id else {}
+    if not _table_exists(conn, "qa_requirements"):
+        return
+    prior = _one(conn, "SELECT * FROM qa_runs WHERE id=%s", (run_id,)) if run_id else {}
     if prior is None:
         return
     requirement_id = columns.get("qa_requirement_id") or prior.get("qa_requirement_id")
-    requirement = query_one(conn, "SELECT * FROM qa_requirements WHERE id=%s", (requirement_id,))
+    requirement = _one(conn, "SELECT * FROM qa_requirements WHERE id=%s", (requirement_id,))
     if not requirement or not requirement.get("execution_target_json"):
         return
     target = json.loads(requirement["execution_target_json"])
     expected = str(prior.get("served_build_sha") or "")
-    from yoke_core.domain.schema_common import _table_exists
-
     if _table_exists(conn, "qa_plan_executions"):
         from yoke_core.domain.qa_run_execution_evidence import _execution
 
