@@ -94,10 +94,13 @@ seconds before refusing.
 
 An armed PR with no queue entry can also stop when a required check never
 reports. After two refresh intervals from `autoMergeRequest.enabledAt`, a
-`BLOCKED` PR with no pending or failed required check becomes `STALLED`.
-The readback and stopped notice show `missing-required-checks=<names>` from
-rulesets and classic branch protection, or `missing-required-checks=unknown`
-if those names cannot be read. The alarm does not depend on reading names.
+`BLOCKED` PR with no pending or failed required check becomes `STALLED` only
+when rulesets and classic branch protection were read and name a required
+check absent from the head. The readback and stopped notice show
+`missing-required-checks=<names>`. If every required check reported, the
+armed landing remains admitted while GitHub re-forms its entry. A failed
+protection read reports `required_checks_unreadable` with the read error:
+restore protection/ruleset read access, then re-run observation.
 Merge-when-ready stays armed. A queued workflow run has no jobs, so no
 check runs: the stopped readback also lists the head commit's workflow runs,
 and while one is `queued` or `in_progress` for less than two hours its advice

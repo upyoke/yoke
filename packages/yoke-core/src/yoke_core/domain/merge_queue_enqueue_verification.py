@@ -15,6 +15,7 @@ from typing import Callable, Optional
 
 from yoke_core.domain.merge_queue_missing_checks import (
     ActiveWorkflowRun,
+    required_checks_unreadable,
     readback_missing_checks_stalled,
     missing_checks_description,
     missing_checks_recovery,
@@ -58,6 +59,7 @@ from yoke_core.domain.merge_context import MergeContext
 #: Grace before an absent queue entry is reported, in seconds.
 ADMISSION_CONFIRM_SECONDS = 10.0
 
+
 def landing_eligible(state: Optional[PrLandingState]) -> bool:
     """False once GitHub cannot create this pull request's merge commit."""
     if state is None:
@@ -79,6 +81,7 @@ class LandingReadback:
     checks_error: str = ""
     queue_recovery: dict = field(default_factory=dict)
     missing_checks: tuple[str, ...] | None = None
+    missing_checks_error: str = ""
     active_run: Optional[ActiveWorkflowRun] = None
 
     @property
@@ -103,10 +106,16 @@ class LandingReadback:
             return False
         if self.membership.in_queue:
             return True
-        if self.failed_required or readback_missing_checks_stalled(self):
+        if (
+            self.missing_checks_error
+            or self.failed_required
+            or readback_missing_checks_stalled(self)
+        ):
             return False
-        return self.state.auto_merge_active and landing_eligible(self.state) and (
-            not self.armed_ready()
+        return (
+            self.state.auto_merge_active
+            and landing_eligible(self.state)
+            and (not self.armed_ready())
         )
 
     def armed_ready(self) -> bool:
@@ -162,8 +171,7 @@ class LandingReadback:
         return (
             f"merge-when-ready={armed}, {queue}, "
             f"mergeStateStatus={merge_state.upper()}, "
-            f"failed-required-checks={checks}"
-            + missing_checks_description(self)
+            f"failed-required-checks={checks}" + missing_checks_description(self)
         )
 
     def recovery(self, *, target: str) -> str:
@@ -171,6 +179,8 @@ class LandingReadback:
         state = self.state
         if state is not None and state.closed:
             return "it is closed — reopen or recreate it and re-run `yoke merge item`"
+        if self.missing_checks_error:
+            return required_checks_unreadable(self.missing_checks_error)
         if readback_missing_checks_stalled(self):
             return missing_checks_recovery(self.missing_checks, self.active_run)
         failed = self.failed_required

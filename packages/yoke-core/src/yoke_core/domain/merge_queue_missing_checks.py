@@ -1,6 +1,6 @@
 """Detect an armed BLOCKED landing whose required checks never reported.
 
-Rules name a detected stop; they never decide whether to stop a landing.
+Protection reads confirm that a required check is absent before a stop.
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ class ActiveWorkflowRun:
     since: datetime
 
 
-def missing_checks_stalled(state, checks, *, now=None) -> bool:
-    """Decide only from the already-read PR facts, after GitHub's grace."""
+def missing_checks_candidate(state, checks, *, now=None) -> bool:
+    """Whether a blocked landing needs its protection rules read."""
     if (
         state is None
         or state.merged
@@ -51,12 +51,26 @@ def missing_checks_stalled(state, checks, *, now=None) -> bool:
     return age > LANDING_RECORD_STALE_SECONDS
 
 
+def missing_checks_stalled(state, checks, names, *, now=None) -> bool:
+    """A stall needs a named required check absent from the head."""
+    return bool(names) and missing_checks_candidate(state, checks, now=now)
+
+
+def required_checks_unreadable(error) -> str:
+    return (
+        f"required_checks_unreadable: {error}; restore protection/ruleset "
+        "read access, then re-run observation"
+    )
+
+
 def readback_missing_checks_stalled(readback) -> bool:
     member = readback.membership
     return (
         member is not None
         and not member.in_queue
-        and missing_checks_stalled(readback.state, readback.required_checks)
+        and missing_checks_stalled(
+            readback.state, readback.required_checks, readback.missing_checks
+        )
     )
 
 
@@ -67,7 +81,9 @@ def missing_checks_description(readback) -> str:
 
 
 def missing_checks_recovery(names, active_run=None, *, now=None) -> str:
-    checks = ", ".join(names or ()) or "the missing required check (names unreadable)"
+    if not names:
+        return "No named required check is missing; re-run observation"
+    checks = ", ".join(names)
     if active_run is not None:
         age = ((now or utc_now()) - active_run.since).total_seconds()
         if age < QUEUED_RUN_WAIT_SECONDS:
@@ -125,20 +141,24 @@ def read_active_workflow_run(ctx, head_sha, *, request=None):
             since = parse_instant(run.get("created_at"))
         except (TypeError, ValueError):
             continue
-        active.append(ActiveWorkflowRun(str(run.get("name") or ""), run["status"], since))
+        active.append(
+            ActiveWorkflowRun(str(run.get("name") or ""), run["status"], since)
+        )
     return min(active, key=lambda run: run.since, default=None)
 
 
 def missing_checks_facts(ctx, branch, checks, head_sha) -> dict:
-    """The names and active run a detected stall reports, read together."""
+    """Read protection facts before deciding whether this is a stall."""
+    names, error = read_missing_check_names(ctx, branch, checks)
     return {
-        "missing_checks": read_missing_check_names(ctx, branch, checks),
-        "active_run": read_active_workflow_run(ctx, head_sha),
+        "missing_checks": names,
+        "missing_checks_error": error or "",
+        "active_run": read_active_workflow_run(ctx, head_sha) if names else None,
     }
 
 
 def read_missing_check_names(ctx, branch, checks, *, request=None):
-    """Best-effort ruleset and classic protection read, only after detection."""
+    """Read the required names and retain any protection read failure."""
     from yoke_contracts.github_app_installation_permissions import (
         GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
     )
@@ -152,28 +172,28 @@ def read_missing_check_names(ctx, branch, checks, *, request=None):
 
     auth, error = resolve_auth_detail(ctx, GITHUB_CONTENTS_READ_PERMISSION_LEVELS)
     if auth is None or error or not branch:
-        return None
+        return None, error or "GitHub auth or target branch unavailable"
     owner, repo = split_repo(auth.repo)
     branch = quote(branch, safe="")
     names = set()
-    readable = True
+    errors = []
     for suffix in (f"rules/branches/{branch}", f"branches/{branch}"):
         try:
             response = (request or request_with_retry)(
                 RestRequest(method="GET", path=f"/repos/{owner}/{repo}/{suffix}"),
                 token=auth.token,
             )
-        except RestTransportError:
-            readable = False
+        except RestTransportError as exc:
+            errors.append(f"{suffix}: {exc}")
             continue
         body = response.body
         if suffix.startswith("rules/"):
             if not isinstance(body, list):
-                readable = False
+                errors.append(f"{suffix}: malformed rules response")
                 continue
             for rule in body:
                 if not isinstance(rule, dict):
-                    readable = False
+                    errors.append(f"{suffix}: malformed rules response")
                     continue
                 if rule.get("type") == "required_status_checks":
                     names.update(
@@ -190,10 +210,10 @@ def read_missing_check_names(ctx, branch, checks, *, request=None):
                 ).get("contexts", [])
             )
         else:
-            readable = False
+            errors.append(f"{suffix}: malformed branch response")
     reported = {check.name for check in checks or ()}
     missing = tuple(sorted(names - reported))
-    return missing if missing else (() if readable else None)
+    return (None, "; ".join(errors)) if errors else (missing, None)
 
 
 def complete_missing_checks_readback(ctx, pr_number, state, read_checks):
@@ -215,11 +235,11 @@ def complete_missing_checks_readback(ctx, pr_number, state, read_checks):
 
 
 def name_missing_checks(ctx, readback):
-    """Enrich the readback without letting protection reads change admission."""
+    """Read protection rules to decide missing-check admission and recovery."""
     member = readback.membership
     if member is None or member.in_queue:
         return readback
-    if readback_missing_checks_stalled(readback):
+    if missing_checks_candidate(readback.state, readback.required_checks):
         return replace(
             readback,
             **missing_checks_facts(
