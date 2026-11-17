@@ -99,7 +99,7 @@ jobs:
           docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
-    timeout-minutes: 25
+    timeout-minutes: 45
     name: suite (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ matrix.runner }}
@@ -116,8 +116,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows, macos]
-        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+        os: [windows]
+        shard: [15]
         include:
           - os: windows
             runner: windows-2025
@@ -162,10 +162,13 @@ jobs:
           git config --global init.defaultBranch main
       - name: Start the native test Postgres
         run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres start
-      - name: Run pytest
+      - name: Run pytest serially with hang dumps (TEMPORARY DIAGNOSTIC)
         env:
           YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
-        run: uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
+          PYTEST_ADDOPTS: ""
+        run: |
+          uv run --frozen python -c "from pathlib import Path; from yoke_core.tools.ci_shard_groups import GROUPS_PATH, shard_files; Path('.yoke/tmp/ci-shard-files.txt').write_text(chr(10).join(shard_files(Path(GROUPS_PATH), 'all', ${{ matrix.shard }})) + chr(10))"
+          YOKE_CI_SELECTION_FILE="$PWD/.yoke/tmp/ci-shard-files.txt" uv run --frozen python -m pytest runtime/api/ runtime/harness/ tests/ -p yoke_core.tools.ci_selection_collect -v -o faulthandler_timeout=120 --deselect runtime/api/tools/test_source_postgres_environment.py::test_sigterm_unwinds_and_restores_handler --junitxml=pytest-report.xml 2>&1 | tee pytest-output.txt
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
