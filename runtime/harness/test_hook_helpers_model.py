@@ -12,6 +12,8 @@ fallthrough). Shared fixtures live in ``conftest.py``.
 from __future__ import annotations
 
 import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from unittest import mock
 
 from yoke_core.hooks.helpers import (
@@ -39,22 +41,33 @@ class TestDetectRequestedModel:
     def test_codex_no_signal_is_unknown_never_fabricated(self, no_parent_argv):
         # No env -> honest placeholder. A concrete guess (the old "gpt-5.4"
         # literal) would be laundered into rows as a real request.
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ):
             assert detect_requested_model("codex") == "unknown"
 
     def test_codex_env_model_wins(self, no_parent_argv):
-        with mock.patch.dict(os.environ, {"CODEX_MODEL": "gpt-6"}, clear=True):
+        with mock.patch.dict(
+            os.environ,
+            {**{name: os.environ[name] for name in HOME_ENVS}, "CODEX_MODEL": "gpt-6"},
+            clear=True,
+        ):
             assert detect_requested_model("codex") == "gpt-6"
 
     def test_claude_default(self, no_parent_argv):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ):
             assert detect_requested_model() == "unknown"
 
     def test_claude_default_llm_model_fallback(self, no_parent_argv):
         """Claude Desktop exposes DEFAULT_LLM_MODEL but not CLAUDE_MODEL."""
         with mock.patch.dict(
             os.environ,
-            {"DEFAULT_LLM_MODEL": "claude-opus-4-7"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "DEFAULT_LLM_MODEL": "claude-opus-4-7",
+            },
             clear=True,
         ):
             assert detect_requested_model() == "claude-opus-4-7"
@@ -62,7 +75,11 @@ class TestDetectRequestedModel:
     def test_claude_model_takes_precedence_over_default_llm_model(self, no_parent_argv):
         with mock.patch.dict(
             os.environ,
-            {"CLAUDE_MODEL": "claude-sonnet-4-6", "DEFAULT_LLM_MODEL": "ignored"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "CLAUDE_MODEL": "claude-sonnet-4-6",
+                "DEFAULT_LLM_MODEL": "ignored",
+            },
             clear=True,
         ):
             assert detect_requested_model() == "claude-sonnet-4-6"
@@ -71,6 +88,7 @@ class TestDetectRequestedModel:
         with mock.patch.dict(
             os.environ,
             {
+                **{name: os.environ[name] for name in HOME_ENVS},
                 "YOKE_MODEL": "wins",
                 "CLAUDE_MODEL": "loses",
                 "DEFAULT_LLM_MODEL": "loses",
@@ -94,7 +112,10 @@ class TestDetectRequestedModel:
         ]
         with mock.patch.dict(
             os.environ,
-            {"DEFAULT_LLM_MODEL": TEST_MODEL_ID},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "DEFAULT_LLM_MODEL": TEST_MODEL_ID,
+            },
             clear=True,
         ):
             with mock.patch(
@@ -109,7 +130,9 @@ class TestDetectRequestedModel:
         Nothing downstream can recover the ask once the suffix is stripped:
         no provider response ever returns it.
         """
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ):
             with mock.patch(
                 "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "claude-opus-4-7[1m]"],
@@ -119,7 +142,12 @@ class TestDetectRequestedModel:
     def test_claude_model_env_wins_over_parent_argv(self):
         """Explicit env overrides still win over argv parsing."""
         with mock.patch.dict(
-            os.environ, {"CLAUDE_MODEL": "env-wins"}, clear=True
+            os.environ,
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "CLAUDE_MODEL": "env-wins",
+            },
+            clear=True,
         ):
             with mock.patch(
                 "yoke_core.hooks.helpers_model._read_parent_argv",
@@ -130,7 +158,10 @@ class TestDetectRequestedModel:
     def test_default_llm_model_used_when_argv_has_no_model_flag(self):
         with mock.patch.dict(
             os.environ,
-            {"DEFAULT_LLM_MODEL": TEST_MODEL_ID},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "DEFAULT_LLM_MODEL": TEST_MODEL_ID,
+            },
             clear=True,
         ):
             with mock.patch(
@@ -147,27 +178,35 @@ class TestDetectRequestedModel:
 
 class TestExtractModelFromArgv:
     def test_space_separated_flag(self):
-        assert _extract_model_from_argv(
-            ["claude", "--model", "claude-opus-4-7", "--verbose"]
-        ) == "claude-opus-4-7"
+        assert (
+            _extract_model_from_argv(
+                ["claude", "--model", "claude-opus-4-7", "--verbose"]
+            )
+            == "claude-opus-4-7"
+        )
 
     def test_equals_form(self):
-        assert _extract_model_from_argv(
-            ["claude", "--model=claude-sonnet-4-6"]
-        ) == "claude-sonnet-4-6"
+        assert (
+            _extract_model_from_argv(["claude", "--model=claude-sonnet-4-6"])
+            == "claude-sonnet-4-6"
+        )
 
     def test_preserves_variant_suffix(self):
-        assert _extract_model_from_argv(
-            ["claude", "--model", "claude-opus-4-7[1m]"]
-        ) == "claude-opus-4-7[1m]"
+        assert (
+            _extract_model_from_argv(["claude", "--model", "claude-opus-4-7[1m]"])
+            == "claude-opus-4-7[1m]"
+        )
 
     def test_empty_argv(self):
         assert _extract_model_from_argv([]) == ""
 
     def test_no_model_flag(self):
-        assert _extract_model_from_argv(
-            ["claude", "--verbose", "--output-format", "stream-json"]
-        ) == ""
+        assert (
+            _extract_model_from_argv(
+                ["claude", "--verbose", "--output-format", "stream-json"]
+            )
+            == ""
+        )
 
     def test_model_flag_without_value_at_end(self):
         # ``--model`` as the last token with no following value — don't crash
@@ -179,9 +218,10 @@ class TestExtractModelFromArgv:
         the request would mis-report every VS Code session, so the parser
         must normalize it to empty.
         """
-        assert _extract_model_from_argv(
-            ["claude", "--model", "default", "--verbose"]
-        ) == ""
+        assert (
+            _extract_model_from_argv(["claude", "--model", "default", "--verbose"])
+            == ""
+        )
 
     def test_default_placeholder_equals_form(self):
         assert _extract_model_from_argv(["claude", "--model=default"]) == ""
@@ -208,7 +248,9 @@ class TestDetectRequestedModelVscodeRegression:
         returned verbatim — otherwise every VS Code session records the
         placeholder as its request and they all look identical.
         """
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ):
             with mock.patch(
                 "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=[
@@ -228,7 +270,11 @@ class TestDetectRequestedModelVscodeRegression:
         """Some surfaces export ``CLAUDE_MODEL=default``; don't trust it."""
         with mock.patch.dict(
             os.environ,
-            {"CLAUDE_MODEL": "default", "DEFAULT_LLM_MODEL": "claude-opus-4-7"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "CLAUDE_MODEL": "default",
+                "DEFAULT_LLM_MODEL": "claude-opus-4-7",
+            },
             clear=True,
         ):
             assert detect_requested_model() == "claude-opus-4-7"
@@ -236,7 +282,11 @@ class TestDetectRequestedModelVscodeRegression:
     def test_bracket_placeholder_claude_model_env_is_skipped(self, no_parent_argv):
         with mock.patch.dict(
             os.environ,
-            {"CLAUDE_MODEL": "<synthetic>", "DEFAULT_LLM_MODEL": TEST_MODEL_ID},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "CLAUDE_MODEL": "<synthetic>",
+                "DEFAULT_LLM_MODEL": TEST_MODEL_ID,
+            },
             clear=True,
         ):
             assert detect_requested_model() == TEST_MODEL_ID
@@ -244,7 +294,10 @@ class TestDetectRequestedModelVscodeRegression:
     def test_placeholder_default_llm_model_env_is_skipped(self, no_parent_argv):
         with mock.patch.dict(
             os.environ,
-            {"DEFAULT_LLM_MODEL": "default"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "DEFAULT_LLM_MODEL": "default",
+            },
             clear=True,
         ):
             assert detect_requested_model() == "unknown"
@@ -254,10 +307,22 @@ def test_parent_model_probe_preserves_windows_argv(monkeypatch):
     from yoke_contracts.platform_process import ProcessInfo
     from yoke_harness.hooks import identity_runtime
     from yoke_core.hooks import helpers_model
-    entries = [ProcessInfo(42, 1, (r"C:\Program Files\Claude\claude.exe", "--model", "chosen"),
-                           123.5, "claude.exe", 10, "owner")]
+
+    entries = [
+        ProcessInfo(
+            42,
+            1,
+            (r"C:\Program Files\Claude\claude.exe", "--model", "chosen"),
+            123.5,
+            "claude.exe",
+            10,
+            "owner",
+        )
+    ]
     for owner in (identity_runtime, helpers_model):
         monkeypatch.setattr(owner.os, "getppid", lambda: 42)
-        monkeypatch.setattr(owner.platform_process, "process_command_lines", lambda: entries)
+        monkeypatch.setattr(
+            owner.platform_process, "process_command_lines", lambda: entries
+        )
         assert owner._read_parent_argv() == list(entries[0].cmdline)
         assert owner._extract_model_from_argv(owner._read_parent_argv()) == "chosen"

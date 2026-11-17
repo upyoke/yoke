@@ -10,10 +10,19 @@ import pytest
 
 def home_environment_violations(source: str) -> list[int]:
     """Find bare HOME overrides without inspecting subprocess environments."""
-    if "setenv" not in source and "clear=" not in source:
+    if "setenv" not in source and "clear" not in source:
         return []
     violations = []
-    for node in ast.walk(ast.parse(source)):
+    tree = ast.parse(source)
+    dependencies = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    dependencies.setdefault(target.id, set()).update(
+                        n.id for n in ast.walk(node.value) if isinstance(n, ast.Name)
+                    )
+    for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
             continue
         if node.func.attr == "setenv" and node.args:
@@ -34,11 +43,12 @@ def home_environment_violations(source: str) -> list[int]:
         if isinstance(values, ast.Dict):
             keys = {k.value for k in values.keys if isinstance(k, ast.Constant)}
             names = {n.id for n in ast.walk(values) if isinstance(n, ast.Name)}
-            if (
-                "HOME" in keys
-                and "USERPROFILE" not in keys
-                and "HOME_ENVS" not in names
-            ):
+            pending = list(names)
+            while pending:
+                for name in dependencies.get(pending.pop(), set()) - names:
+                    names.add(name)
+                    pending.append(name)
+            if not {"HOME", "USERPROFILE"}.issubset(keys) and "HOME_ENVS" not in names:
                 violations.append(node.lineno)
     return violations
 
@@ -49,6 +59,7 @@ def home_environment_violations(source: str) -> list[int]:
         'monkeypatch.setenv("HOME", str(tmp_path))',
         'mock.patch.dict(os.environ, {"HOME": "/tmp/home"}, clear=True)',
         'patch.dict("os.environ", {"HOME": home}, clear=True)',
+        "patch.dict(os.environ, {}, clear = True)",
     ],
 )
 def test_guard_refuses_a_planted_home_only_override(source):
