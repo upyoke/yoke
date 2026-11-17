@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -64,12 +65,18 @@ def test_explicit_no_color_console(monkeypatch, setting, value):
 )
 @pytest.mark.parametrize("shell", ["cmd.exe", "powershell.exe", "pwsh.exe"])
 @pytest.mark.parametrize("surface", ["status", "setup"])
-def test_native_shell_output_capture(tmp_path, shell, surface):
+def test_native_shell_output_capture(tmp_path, shell, surface, request):
     executable = shutil.which(shell)
     if not executable:
         pytest.skip(f"{shell} is not installed on this Windows runner")
     script = tmp_path / "capture.py"
-    common = "import sys; sys.stdout.reconfigure(encoding='cp1252', errors='strict'); "
+    started_marker = tmp_path / "python-started.txt"
+    shell_marker = tmp_path / "shell-started.txt"
+    common = (
+        "import pathlib, time; "
+        f"pathlib.Path({str(started_marker)!r}).write_text(str(time.time())); "
+        "import sys; sys.stdout.reconfigure(encoding='cp1252', errors='strict'); "
+    )
     if surface == "status":
         code = (
             "from yoke_cli.commands.adapters import config; "
@@ -96,15 +103,49 @@ def test_native_shell_output_capture(tmp_path, shell, surface):
             return "'" + text.replace("'", "''") + "'"
 
         command = (
-            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); & "
+            "[IO.File]::WriteAllText("
+            + quote(str(shell_marker))
+            + ", [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds().ToString()); "
+            + "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); & "
             + quote(sys.executable)
             + " "
             + quote(str(script))
             + "; exit $LASTEXITCODE"
         )
         argv = [executable, "-NoProfile", "-NonInteractive", "-Command", command]
-    result = subprocess.run(argv, capture_output=True, env=env, timeout=30)
+    launched_at = time.time()
+    try:
+        result = subprocess.run(
+            argv, capture_output=True, stdin=subprocess.DEVNULL, env=env, timeout=30
+        )
+    except subprocess.TimeoutExpired as exc:
+        request.node.user_properties.append(("python_started", started_marker.exists()))
+        if started_marker.exists():
+            startup_seconds = float(started_marker.read_text()) - launched_at
+            diagnostic = (
+                f"Python started after {startup_seconds:.3f}s; "
+                "output capture did not finish within 30s"
+            )
+        else:
+            diagnostic = "Python never started within 30s"
+        if shell != "cmd.exe":
+            if shell_marker.exists():
+                shell_seconds = float(shell_marker.read_text()) / 1000 - launched_at
+                diagnostic += f"; PowerShell command started after {shell_seconds:.3f}s"
+            else:
+                diagnostic += "; PowerShell command never started within 30s"
+        pytest.fail(
+            f"{shell} / {surface}: {diagnostic}; "
+            f"stdout={exc.stdout!r}; stderr={exc.stderr!r}",
+            pytrace=False,
+        )
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
+    startup_seconds = float(started_marker.read_text()) - launched_at
+    request.node.user_properties.append(("python_startup_seconds", startup_seconds))
+    if shell_marker.exists():
+        shell_seconds = float(shell_marker.read_text()) / 1000 - launched_at
+        request.node.user_properties.append(("shell_startup_seconds", shell_seconds))
+    print(f"WINDOWS_SHELL_START {shell} {surface}: {startup_seconds:.3f}s")
     output = result.stdout.decode("utf-8-sig")
     assert "José 東京" in output and "\x1b[" not in output
     print(f"WINDOWS_SHELL_CAPTURE {shell} {surface}: {output.strip()}")
