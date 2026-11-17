@@ -1,4 +1,4 @@
-# Manual product smoke on Linux, macOS and Windows
+# Manual product smoke on Linux and macOS
 
 Internal: for maintainers of the Yoke source repository.
 
@@ -7,16 +7,12 @@ machines, use [Real harness Machine QA](real-harness.md). That manual plan
 complements the disposable-runner hook replay below.
 
 The Yoke project plan `product-smoke` has one `command-ci` case bound to
-`product-smoke.yml`. Its manually dispatched matrix runs on four
-GitHub-hosted disposable runners. Nothing schedules it or attaches it to
+`product-smoke.yml`. Its manually dispatched matrix runs the complete smoke on
+all three GitHub-hosted disposable runners. Nothing schedules it or attaches it to
 changes, pull requests, merges, or deployment gates.
 
 The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-24.04`), Ubuntu 24.04 arm64
-(`ubuntu-24.04-arm`), macOS 26 arm64 (`macos-latest`), and Windows Server 2025
-x86_64 (`windows-2025`). Windows runs through `--through status`: it proves
-wheel installation and the empty-machine status refusal. Onboarding and hook
-replay are not ported there. The full Windows and macOS suites are also
-[on demand](multi-os-suite.md); neither adds a per-PR Windows check. Linux pins the
+(`ubuntu-24.04-arm`), and macOS 26 arm64 (`macos-latest`). Linux pins the
 [supported CI release](ci-shards.md). Available images are listed in
 [GitHub's runner image catalog](https://github.com/actions/runner-images) and
 [ARM runner catalog](https://github.com/actions/partner-runner-images). Linux's
@@ -40,8 +36,8 @@ missing libraries through passwordless sudo and validated them afterwards;
 "already present" cannot pass this branch check. The fixture never runs on the
 operator machine. macOS retains its ordinary browser setup path.
 
-Each job builds and installs the tree's product wheels into a fresh environment.
-Linux and macOS then onboard a Git project non-interactively into a fresh local universe with GitHub
+Each job builds and installs the tree's product wheels into a fresh environment,
+onboards a Git project non-interactively into a fresh local universe with GitHub
 adoption disabled, and replays native SessionStart and allowed/denied shell
 payloads through the exact commands in its installed `.claude/settings.json`,
 `.codex/hooks.json`, and `.cursor/hooks.json`. The proposed denied command is
@@ -76,7 +72,7 @@ yoke watch qa-plan -- --plan product-smoke --project P --checkout-path /absolute
 Read `yoke qa plan run --help` before choosing source bindings or continuation.
 The published ref must already name that exact commit. The runner records one
 standalone execution, frozen case, CI run URL, actual head SHA, and conclusion;
-all four jobs must pass for the case to pass. It publishes no lane and changes no
+all three jobs must pass for the case to pass. It publishes no lane and changes no
 item or deployment gate. GitHub registers a new dispatch workflow from the
 default branch, so its first real run follows its merge there.
 

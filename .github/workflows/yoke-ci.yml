@@ -306,6 +306,8 @@ jobs:
     needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
     uses: ./.github/workflows/browser-runtime-tests.yml
+  windows_smoke:
+    uses: ./.github/workflows/windows-smoke.yml
   container:
     timeout-minutes: 10
     name: container
