@@ -30,12 +30,14 @@ def test_current_directory_returns_process_directory():
     assert current_directory() == os.getcwd()
 
 
+@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
 def test_checkout_connection_names_deleted_directory(tmp_path):
     with deleted_directory(tmp_path):
         with pytest.raises(WorkingDirectoryMissing, match="working_directory_missing"):
             checkout_connection({})
 
 
+@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
 def test_command_refuses_deleted_directory(tmp_path, capsys):
     with deleted_directory(tmp_path):
         code = main(["items", "get", "X-1", "status"])
@@ -48,6 +50,7 @@ def test_command_refuses_deleted_directory(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
+@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
 def test_hook_allows_deleted_directory(tmp_path, monkeypatch, capsys, executor):
     monkeypatch.setenv("YOKE_EXECUTOR", executor)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)

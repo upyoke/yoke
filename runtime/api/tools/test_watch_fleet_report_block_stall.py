@@ -50,10 +50,13 @@ def test_a_quiet_fleet_keeps_heartbeat_and_stall_diagnostics_raw(
 ) -> None:
     """Completed passes keep a quiet fleet alive without progress wakes."""
     monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.3")
+    # Raw probe liveness and follower progress diagnostics have separate bounds.
+    monkeypatch.setenv("YOKE_WATCH_QUIET_HEARTBEAT_SECONDS", "2")
     stdout = RecordingStream()
     rc = run_probe_script(
         tmp_path,
         "import time\n"
+        "time.sleep(0.4)\n"
         "for _ in range(12):\n"
         "    print('fleet pass now', flush=True)\n"
         "    time.sleep(0.05)\n",
