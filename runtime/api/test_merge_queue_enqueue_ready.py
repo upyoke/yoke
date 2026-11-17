@@ -1,4 +1,4 @@
-"""A ready pull request is enqueued directly; arming alone never queues it."""
+"""Ready pull requests enter directly; armed PRs may await entry after checks pass."""
 
 from __future__ import annotations
 
@@ -153,3 +153,10 @@ def test_a_first_entry_passes_the_lane_head(monkeypatch):
     entries = _record_entries(monkeypatch)
     assert land(wait_for_landing=False).ok
     assert entries == [("42", LANE_SHA)]
+
+
+def test_direct_enqueue_ignores_rest_readiness_lag(monkeypatch):
+    sent = _github(monkeypatch, mergeable_state="blocked")
+    assert queue_mod.enqueue_pull_request(_ctx(), "7", expected_head_sha=HEAD).success
+    assert "enqueuePullRequest" in sent[0]["query"]
+    assert sent[0]["variables"]["expectedHeadOid"] == HEAD
