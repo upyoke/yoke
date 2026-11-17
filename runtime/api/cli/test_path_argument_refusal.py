@@ -27,10 +27,28 @@ def route(monkeypatch):
     return invoke
 
 
+@pytest.fixture
+def raising_path_checks(monkeypatch):
+    """Exercise raised OS errors even on Python versions that return False."""
+    def configure(argument):
+        for name in ("is_file", "is_dir"):
+            original = getattr(Path, name)
+
+            def check(path, *args, _original=original, **kwargs):
+                if path.name == argument:
+                    raise OSError(errno.ENAMETOOLONG, "File name too long", str(path))
+                return _original(path, *args, **kwargs)
+
+            monkeypatch.setattr(Path, name, check)
+
+    return configure
+
+
 @pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 5000], ids=["unsplit-list", "long-name"])
-def test_watch_gate_refuses_long_path_arguments(route, capsys, argument):
+def test_watch_gate_refuses_long_path_arguments(route, capsys, argument, raising_path_checks):
     from yoke_core.tools.gate_admission import is_heavy_invocation
 
+    raising_path_checks(argument)
     argv = ["watch", "pytest", "--print-streaming-pair", "--local", "--", argument]
     assert route(argv, lambda args: is_heavy_invocation(args[3:])) == 2
     error = capsys.readouterr().err
@@ -95,9 +113,12 @@ def test_normal_paths_node_ids_and_keyword_expressions_pass_through(route, tmp_p
 
 
 @pytest.mark.parametrize("argument", [" ".join(f"test_{i}.py" for i in range(128)), "x" * 4997 + ".py"], ids=["unsplit-list", "long-name"])
-def test_watch_command_boundary_refuses_long_arguments(route, capsys, argument, monkeypatch):
+def test_watch_command_boundary_refuses_long_arguments(
+    route, capsys, argument, monkeypatch, raising_path_checks
+):
     from yoke_core.tools import watch_pytest
 
+    raising_path_checks(argument)
     # Test the real watcher path checks without provisioning a project Python.
     monkeypatch.setattr(watch_pytest, "project_parallel_args", lambda args, **kw: args)
     monkeypatch.setattr(
