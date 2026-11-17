@@ -15,7 +15,7 @@ from runtime.api.domain.native_windows_fixture_cleanup import AUTOLOGON_CLEARED_
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
-from yoke_harness.native_windows.transport import encoded, quote
+from yoke_harness.native_windows.transport import WindowsTransport, encoded, quote
 
 pytestmark = pytest.mark.windows
 
@@ -172,6 +172,16 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
                     print(diagnostic.stderr)
             assert result.returncode == 0, result.stderr
             assert "TOKEN_OK" in result.stdout
+        # Exercise the production facts probe, not only the independent token
+        # assertion: standard SSH users cannot query Win32_OperatingSystem CIM.
+        transport = WindowsTransport(
+            settings={"os": "windows", "host": "127.0.0.1", "user": name},
+            key_path=key, secret_values=(custody["password"],),
+        )
+        assert transport.windows_facts["admin"] is False
+        assert transport.windows_facts["user"].split("\\")[-1].lower() == name
+        assert transport.windows_facts["build"].isdigit()
+        assert transport.home.lower().endswith("\\" + name)
         checks = rf"""
 $u=Get-LocalUser -Name '{name}'
 $p=Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\'+$u.SID.Value)

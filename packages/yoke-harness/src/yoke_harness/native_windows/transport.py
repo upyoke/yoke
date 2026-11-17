@@ -113,31 +113,50 @@ class WindowsTransport(SshTestMachineTransport):
     def _host_facts(self):
         result = self._run(
             r"""$identity=[Security.Principal.WindowsIdentity]::GetCurrent()
-$admin=([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole('Administrators')
-$os=Get-CimInstance Win32_OperatingSystem
+$admin=([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
 @{home=$env:USERPROFILE;shell='powershell.exe';os='Windows';admin=$admin;
-  edition=$os.Caption;build=$os.BuildNumber;user=$identity.Name} | ConvertTo-Json -Compress
+  edition=$version.EditionID;build=$version.CurrentBuildNumber;user=$identity.Name} | ConvertTo-Json -Compress
 """,
             timeout=20,
         )
-        try:
-            facts = json.loads(result.stdout)
-            valid = (
-                facts["os"] == "Windows"
-                and not facts["admin"]
-                and PureWindowsPath(facts["home"]).is_absolute()
-            )
-        except (ValueError, KeyError, TypeError):
-            valid = False
-        if result.returncode or not valid:
-            raise HostControlLocalError(
-                code="native_windows_test_user_required",
-                phase="host_facts_ssh",
-                detail="Native Windows QA requires a standard Windows SSH user.",
-                recovery_hint="Provision Windows OpenSSH and its standard test user; verify the authorized key and retry.",
-            )
-        self.windows_facts = facts
-        return facts
+        code = "native_windows_host_facts_failed"
+        detail = "Native Windows host-facts command failed."
+        recovery = "Repair the named SSH or PowerShell failure, then retry host facts."
+        if not result.returncode:
+            code = "native_windows_host_facts_invalid"
+            detail = "Native Windows host facts are not valid JSON."
+            recovery = "Repair the host-facts probe output and retry; it must describe Windows, an absolute home and a boolean admin field."
+            try:
+                facts = json.loads(result.stdout)
+            except ValueError:
+                pass
+            else:
+                detail = "Native Windows host facts have an invalid schema."
+                if (
+                    isinstance(facts, dict)
+                    and facts.get("os") == "Windows"
+                    and type(facts.get("admin")) is bool
+                    and isinstance(facts.get("home"), str)
+                    and PureWindowsPath(facts["home"]).is_absolute()
+                    and facts.get("shell") == "powershell.exe"
+                ):
+                    if facts["admin"] is False:
+                        self.windows_facts = facts
+                        return facts
+                    code = "native_windows_test_user_required"
+                    detail = "Native Windows QA requires a standard Windows SSH user; this token is an administrator."
+                    recovery = "Select the provisioned standard test user and retry; do not grant it administrator privileges."
+        raise HostControlLocalError(
+            code=code,
+            phase="host_facts_ssh",
+            detail=detail,
+            recovery_hint=recovery,
+            exit_code=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            secrets=self.secret_values,
+        )
 
     def probe_path(self, surface):
         if surface not in {"login", "ssh"}:
