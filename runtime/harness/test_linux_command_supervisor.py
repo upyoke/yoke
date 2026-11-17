@@ -4,13 +4,14 @@ import json
 import os
 from pathlib import Path
 import signal
+import shlex
 import subprocess
 import sys
 import time
 
 import pytest
 
-from yoke_harness import linux_command_supervisor as supervisor
+from yoke_harness import linux_command_supervisor as supervisor, linux_command_custody
 
 pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc custody")
 
@@ -18,7 +19,7 @@ pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc cus
 @pytest.mark.parametrize("code", [0, 3])
 def test_completed_command_keeps_exit_status_and_captures(tmp_path, code):
     directory = tmp_path / "custody"
-    source = Path(supervisor.__file__).read_text()
+    source = shlex.split(linux_command_custody._program(""))[2]
     source += "\nrun_supervised(*[json.loads(a) for a in sys.argv[1:]])"
     command = 'import os,sys; print(os.environ["DISPLAY"]); sys.stderr.write("detail"); sys.exit(int(sys.argv[1]))'
     result = subprocess.run(
@@ -62,7 +63,7 @@ def test_starter_releases_detached_daemon_only_after_success(tmp_path, code):
         "\nwhile not p.exists(): time.sleep(.02)"
         f"\ntime.sleep(.1); sys.exit({code})"
     )
-    source = Path(supervisor.__file__).read_text()
+    source = shlex.split(linux_command_custody._program(""))[2]
     source += "\nrun_supervised(*[json.loads(a) for a in sys.argv[1:]])"
     child_pid = None
     birth = None
@@ -111,7 +112,7 @@ def test_nested_term_ignoring_session_cannot_outlive_command(tmp_path, disconnec
     pidfile = tmp_path / "nested-pid"
     child = "import os,signal,time; from pathlib import Path; signal.signal(signal.SIGTERM,signal.SIG_IGN); Path(os.environ['PIDFILE']).write_text(str(os.getpid())); time.sleep(60)"
     parent = f"import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',{child!r}],start_new_session=True); time.sleep(60)"
-    source = Path(supervisor.__file__).read_text()
+    source = shlex.split(linux_command_custody._program(""))[2]
     source += "\nrun_supervised(*[json.loads(a) for a in sys.argv[1:]])"
     guardian = subprocess.Popen(
         [
