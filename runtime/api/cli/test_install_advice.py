@@ -99,7 +99,8 @@ def test_served_distribution_is_explicit(configure, monkeypatch):
     assert DISTRIBUTION_STAGE_URL in install_advice.install_command()
 
 
-def test_windows_guidance_names_unsupported_native_path(monkeypatch) -> None:
+@pytest.mark.windows
+def test_windows_git_guidance_uses_native_installers(monkeypatch) -> None:
     from yoke_contracts.api_urls import DISTRIBUTION_STAGE_URL
 
     monkeypatch.setenv("YOKE_INSTALL_BASE_URL", DISTRIBUTION_STAGE_URL)
@@ -110,8 +111,14 @@ def test_windows_guidance_names_unsupported_native_path(monkeypatch) -> None:
     )
 
     assert advice.command is None
-    assert "Install WSL" in advice.note
-    assert f"curl -fsSL {DISTRIBUTION_STAGE_URL}/install | sh" in advice.note
+    assert not advice.run_steps
+    assert "winget install --id Git.Git -e" in advice.note
+    assert "https://git-scm.com/download/win" in advice.note
+    assert "new terminal" in advice.note
+    assert "Try again" in advice.note
+    assert "WSL" not in advice.note
+    assert "not supported" not in advice.note
+    assert DISTRIBUTION_STAGE_URL not in advice.note
 
 
 def test_linux_without_known_package_manager_uses_generic_guidance() -> None:
