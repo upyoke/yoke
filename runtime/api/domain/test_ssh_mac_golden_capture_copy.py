@@ -233,7 +233,9 @@ def test_copy_diagnostics_preserve_multiline_paths_at_the_byte_limit():
 def test_capture_tars_use_a_host_supported_utf8_locale():
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
-            resolve_path_state_contract(env={"HOME": "/Users/tester", "SHELL": "/bin/zsh"})
+            resolve_path_state_contract(
+                env={"HOME": "/Users/tester", "SHELL": "/bin/zsh"}, posix_host=True
+            )
         )
     )
     assert script.count("LC_ALL=en_US.UTF-8 /usr/bin/tar ") == 2
