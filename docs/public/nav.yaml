@@ -208,6 +208,7 @@ root:
         path: verification/test-machines/index.md
         children:
           - {title: "Host provisioning", summary: "Choose an OS procedure and declare the project-owned host inventory.", path: "verification/test-machines/host-provisioning.md"}
+          - {title: "Tailnet bootstrap", summary: "Start cloud labs, join Tailscale and approve stable MagicDNS identities.", path: "verification/test-machines/tailnet-bootstrap.md"}
           - {title: "Setup responsibilities", summary: "Separate agent actions from personal credential entry.", path: "verification/test-machines/setup-responsibilities.md"}
           - {title: "Administrator commands", summary: "Use stored host credentials for bounded administrator commands.", path: "verification/test-machines/administrator-commands.md"}
           - {title: "macOS host provisioning", summary: "Prepare the test account, privacy permissions and terminal control.", path: "verification/test-machines/macos-host-provisioning.md"}

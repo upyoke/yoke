@@ -102,17 +102,15 @@ az vm deallocate --resource-group GROUP --name VM
 
 ### Tailscale and public IP lifetime
 
-Install [Tailscale for Windows](https://tailscale.com/download/windows) on Windows
-only, never WSL. In elevated PowerShell run
-`& 'C:\Program Files\Tailscale\tailscale.exe' up --unattended` and complete its
-sign-in flow. Disable device key expiry; prove service startup after logout/reboot.
-Join the controller to the same tailnet. Read `Self.DNSName` with
-`tailscale status --json`, trim its trailing dot, resolve it from the controller
-and prove OpenSSH key login. Register this MagicDNS name as `host`; forwarded
+Follow [tailnet bootstrap](tailnet-bootstrap.md) to start the deallocated VM,
+install/join Tailscale as SYSTEM through Azure Run Command, and have the
+operator approve the AuthURL and disable key expiry. The standard SSH user
+must remain standard. Install on Windows only, never WSL; prove connection
+after logout/reboot and resolve the reported MagicDNS name from the controller.
+Use the linked bootstrap SSH command with Yoke's known_hosts and the full VM
+resource ID as HostKeyAlias. Register MagicDNS as `host`; forwarded
 `desktop_host` stays loopback. Golden reset never changes Tailscale.
 
-For bootstrap, read the current IP with `az network public-ip show --ids IP_ID`
-and SSH using `ssh -o HostKeyAlias=VM_RESOURCE_ID USER@CURRENT_PUBLIC_IP`.
 Never register that IP. Keep the private subnet, key-only SSH from anywhere
 (NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
 and bills until deleted. The NIC public IP supplies outbound on the private subnet.

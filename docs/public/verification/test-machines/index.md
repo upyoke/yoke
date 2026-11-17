@@ -134,6 +134,7 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 
 <!-- yoke:contents -->
 - [Host provisioning](host-provisioning.md) — Choose an OS procedure and declare the project-owned host inventory.
+- [Tailnet bootstrap](tailnet-bootstrap.md) — Start cloud labs, join Tailscale and approve stable MagicDNS identities.
 - [Setup responsibilities](setup-responsibilities.md) — Separate agent actions from personal credential entry.
 - [Administrator commands](administrator-commands.md) — Use stored host credentials for bounded administrator commands.
 - [macOS host provisioning](macos-host-provisioning.md) — Prepare the test account, privacy permissions and terminal control.
