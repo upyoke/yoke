@@ -189,7 +189,7 @@ On each machine, confirm command help accepts `--protected` before proceeding.
     Show the operator this final text first, then update instruction 199 with
     `yoke workflow execution-instruction update`, preserving delivery settings:
 
-    > Release policy (Yoke + Platform). Stage gets frequent releases from main through `yoke-hosted-stage-release-qa` and is a durable home for real work. Production gets only a version that has already passed its Stage release QA, through `yoke-hosted-production-release-qa`. Production is never released ahead of Stage, except through the hotfix flow for an urgent production fix.
+    > Release policy (Yoke + Platform). Stage gets frequent releases from main through `yoke-hosted-stage-release-qa` and is a durable home for real work. Production gets only a version that has already passed its Stage release QA, through `yoke-hosted-production-queue-ci-qa`. Production is never released ahead of Stage, except through the hotfix flow for an urgent production fix.
 
     Record the final text and returned instruction in the Progress Log. Until
     this step, the operator's attended run overrides the old release policy.

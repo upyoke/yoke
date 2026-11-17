@@ -79,8 +79,11 @@ Repository-only rules; linked owners hold the detail.
   yoke --env CONTROL_PLANE-db-admin watch deploy -- SELF_REPLACING_RUN
   yoke --env CONTROL_PLANE watch deploy -- OTHER_RUN
   ```
-- Hosted routes: `yoke-hosted-stage-release-qa`, `yoke-hosted-production-release-qa`,
-  `yoke-hosted-production-hotfix-release`. Never hand-create release tags, hand-edit
+- Hosted routes: `yoke-hosted-stage-release-qa`, `yoke-hosted-production-queue-ci-qa`,
+  `yoke-hosted-production-queue-ci-visual-approval` (human visual approval),
+  `yoke-hosted-production-hotfix-release`. Normal production flows accept successful
+  merge-queue CI on the identical commit when no ordinary eligible run exists.
+  Never hand-create release tags, hand-edit
   `yoke-release-pin.txt` or dispatch component deploy workflows. Pin owner:
   [release pin recording](release-pin-recording.md).
 - One Yoke release ships Platform at the `main` commit the run bound at start; delivery-ready
