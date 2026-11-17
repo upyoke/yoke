@@ -87,21 +87,70 @@ def test_capture_handles_exit_during_descendant_snapshot(monkeypatch):
     assert processes.handle_from_pid(123, 1) is None
 
 
+class _FakeProcess:
+    """A verified member whose liveness ends once it is signalled."""
+
+    def __init__(self, live, events, pid=123, refuse=None):
+        self.pid, self.live, self.events, self.refuse = pid, live, events, refuse
+
+    def create_time(self):
+        return 1
+
+    def children(self, recursive):
+        return []
+
+    def send_signal(self, sig):
+        pytest.fail('adopted process may share the controller console')
+
+    def terminate(self):
+        self.events.append('terminate')
+        if self.refuse:
+            raise self.refuse(self.pid)
+        self.live.discard(self.pid)
+
+    def kill(self):
+        self.events.append('kill')
+        if self.refuse:
+            raise self.refuse(self.pid)
+        self.live.discard(self.pid)
+
+
+def _fake_tree(monkeypatch, live, process):
+    monkeypatch.setattr(processes, 'pid_alive', lambda pid, stamp=None: pid in live)
+    monkeypatch.setattr(psutil, 'Process', lambda pid: process)
+
+
 def test_windows_adopted_group_never_signals_shared_console(monkeypatch):
-    events = []
-    class Process:
-        pid = 123
-        def create_time(self):
-            return 1
-        def children(self, recursive):
-            return []
-        def send_signal(self, sig):
-            pytest.fail('adopted process may share the controller console')
-        def terminate(self):
-            events.append('terminate')
+    events, live = [], {123}
     monkeypatch.setattr(processes.os, 'name', 'nt')
-    monkeypatch.setattr(processes, 'pid_alive', lambda *args: True)
-    monkeypatch.setattr(psutil, 'Process', lambda pid: Process())
-    monkeypatch.setattr(psutil, 'wait_procs', lambda procs, timeout: (procs, []))
+    _fake_tree(monkeypatch, live, _FakeProcess(live, events))
     assert processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
     assert events == ['terminate']
+
+
+def test_member_exiting_during_stop_scan_counts_as_stopped(monkeypatch):
+    class Exiting(_FakeProcess):
+        def children(self, recursive):
+            raise psutil.NoSuchProcess(self.pid)
+    events, live = [], {123}
+    _fake_tree(monkeypatch, live, Exiting(live, events))
+    assert not processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
+    assert events == []
+
+
+def test_signal_refused_by_an_exiting_member_counts_as_stopped(monkeypatch):
+    class ExitsWhileRefusing(_FakeProcess):
+        def terminate(self):
+            self.live.discard(self.pid)  # Windows: an exiting process refuses signals.
+            raise psutil.AccessDenied(self.pid)
+    events, live = [], {123}
+    _fake_tree(monkeypatch, live, ExitsWhileRefusing(live, events))
+    assert processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
+
+
+def test_signal_refused_by_a_surviving_member_raises_permission_error(monkeypatch):
+    events, live = [], {123}
+    _fake_tree(monkeypatch, live, _FakeProcess(live, events, refuse=psutil.AccessDenied))
+    with pytest.raises(PermissionError, match=r'process_access_denied: PIDs \[123\]'):
+        processes.stop_group(processes.GroupHandle(123, 1, ((123, 1),)), 0)
+    assert events == ['terminate', 'kill']
