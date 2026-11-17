@@ -1,6 +1,8 @@
 """Run complete guest provisioning on a disposable GitHub Windows runner."""
 
 import os
+from pathlib import Path
+import shutil
 import socket
 import struct
 import subprocess
@@ -34,6 +36,15 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
     # unchanged; account/profile, firewall, sshd, LSA and task APIs are real.
     assert os.name == "nt" and os.environ.get("GITHUB_ACTIONS") == "true"
     assert os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+    client = os.environ["YOKE_NATIVE_WINDOWS_SSH_CLIENT"]
+    directory = (
+        Path(os.environ["WINDIR"]) / "System32/OpenSSH" if client == "windows"
+        else Path(os.environ["ProgramFiles"]) / "Git/usr/bin"
+    )
+    assert (directory / "ssh.exe").is_file(), "declared SSH client missing"
+    monkeypatch.setenv("PATH", str(directory) + os.pathsep + os.environ["PATH"])
+    with capsys.disabled():
+        print("SSH_CLIENT", client, shutil.which("ssh"))
     name = "yq" + uuid4().hex[:14]
     key = tmp_path / "key"
     subprocess.run(
@@ -72,7 +83,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             raise RuntimeError("Real SSH guest stage timed out; inspect OpenSSH diagnostics") from None
 
     monkeypatch.setattr(provision, "admin_script", guest)
-    ssh = ["ssh", "-F", os.devnull, "-i", str(key), "-o", "BatchMode=yes",
+    ssh = ["ssh", "-F", "none", "-i", str(key), "-o", "BatchMode=yes",
            "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=15"]
     tunnel = None
     try:

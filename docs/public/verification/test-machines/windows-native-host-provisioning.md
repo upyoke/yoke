@@ -4,10 +4,9 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Native Windows host provisioning
 <!-- /yoke:breadcrumbs -->
 
-This is a lab procedure for native Windows 11, with WSL absent. It does not
-establish a Windows support claim. Follow [setup responsibilities](setup-responsibilities.md).
-Use the project inventory for host names, subscription, accounts and evidence.
-Record each step's machine, date and observed result; mark untested steps unverified.
+Native Windows 11 lab procedure, WSL absent; no Windows support claim.
+Follow [setup responsibilities](setup-responsibilities.md); use project inventory
+for hosts, accounts and evidence. Record observed results; mark untested steps unverified.
 
 ## 1. Create or identify the VM
 
@@ -123,17 +122,17 @@ Retries preserve an existing test account's password and require its stored
 `desktop_password`; restore custody if it is missing, rather than resetting the
 account. Profiles are created by the administrator through Windows
 [`CreateProfile`](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createprofile)
-and resolved by SID, including profile directory suffixes. Profile creation
-checks the registered directory and hive; it does not prove interactive sign-in.
+with a 260-character output buffer and resolved by SID, including directory
+suffixes. Require the registered directory/hive; sign-in remains unproven.
 An account can exist without a profile after interrupted setup. Preserve it and
 its stored password; rerun the same provisioner with `--bootstrap-transport ssh`.
 It resolves `ProfileList\<SID>\ProfileImagePath`, requires `NTUSER.DAT`, and
 accepts CreateProfile success or `ERROR_ALREADY_EXISTS` only after validation.
 Other HRESULTs, missing custody, a disabled account or unexpected privileges
 require investigation; never reset the password or delete/recreate the account.
-Read errors and rerun only after correcting the named failure. Azure returning
-success does not prove its script succeeded; the provisioner requires its
-explicit readiness message.
+Correct named failures before retrying; require explicit readiness receipts,
+not merely Azure success. Controller SSH uses `-F none` for both Git and native
+OpenSSH; Windows `nul` is not a portable SSH config-file argument.
 
 ### Bounded recovery when administrator SSH is unavailable
 

@@ -1,7 +1,6 @@
 """Provision an existing Azure Windows lab VM; no resource creation or passwords in argv."""
 
 import argparse
-import os
 import base64
 from pathlib import Path
 import secrets
@@ -41,7 +40,7 @@ def admin_script(key, host, user, script, *, input_text=None):
     ssh = [
         "ssh",
         "-F",
-        os.devnull,
+        "none",
         *host_key_options({}),
         "-i",
         str(key),
