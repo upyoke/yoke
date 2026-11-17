@@ -34,6 +34,7 @@ from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
     workflow_dispatch_request_id as _workflow_dispatch_request_id,
     workflow_inputs as _workflow_inputs,
 )
+from yoke_core.domain import deploy_pipeline_github_workflow_retry as retry_walk
 from yoke_core.domain.deploy_pipeline_bound_inputs import bound_inputs_for_dispatch
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_release_commit_ref import dispatch_ref
@@ -59,6 +60,7 @@ def _dispatch_github_actions_workflow(
     timeout_min: int,
     fresh: bool,
     gate_branch: str,
+    retry_failed: bool = False,
     release_lineage: str,
     product_repo_path: str = "",
     image_tag: str = "",
@@ -103,9 +105,7 @@ def _dispatch_github_actions_workflow(
     timeout_sec = stage_timeout_min * 60
 
     if not github_repo:
-        print(
-            f"Error: no github_repo configured for project '{project}'", file=sys.stderr
-        )
+        print(f"Error: no github_repo configured for project '{project}'", file=sys.stderr)
         return 1, ""
 
     publish_product = name == "distribution-publish" and product_repo_path
@@ -204,20 +204,17 @@ def _dispatch_github_actions_workflow(
 
     if not ga_run_id and not already_complete:
 
-        def _trigger(inputs: Dict[str, str]) -> tuple[Any, str, Optional[bool]]:
+        def _trigger(scope: str) -> tuple[Any, str, Optional[bool]]:
             return run_correlated_or_oneshot_trigger(
                 github_actions=_github_actions,
                 trigger_with_retries=trigger_with_recovery_retries,
                 github_repo=github_repo,
                 workflow=workflow,
                 workflow_ref=workflow_ref,
-                workflow_inputs=inputs,
+                workflow_inputs=workflow_inputs,
                 request_id=(
                     _workflow_dispatch_request_id(
-                        project,
-                        run_id,
-                        name,
-                        retrigger_scope=retrigger_scope,
+                        project, run_id, name, retrigger_scope=scope
                     )
                     if correlation_input
                     else ""
@@ -228,7 +225,17 @@ def _dispatch_github_actions_workflow(
                 timeout_sec=timeout_sec,
             )
 
-        r, ga_run_id, _dispatched = _trigger(workflow_inputs)
+        r, ga_run_id, walk_error = retry_walk.dispatch_stage(
+            _trigger,
+            retrigger_scope,
+            walk=retry_failed and bool(correlation_input),
+            github_actions=_github_actions,
+            github_repo=github_repo,
+            project=project,
+            sd=sd,
+        )
+        if walk_error:
+            return 1, walk_error
         if not ga_run_id or r.returncode != 0:
             if not reconcile_by_head_sha or not head_sha or workflow_inputs:
                 diagnostic = (r.stderr or r.stdout or "").strip()
@@ -249,11 +256,8 @@ def _dispatch_github_actions_workflow(
                 return 1, lookup_error
 
     if already_complete:
-        # Reconcile-from-truth: a prior workflow run for the same head_sha
-        # already concluded success.  Emit the retroactive completion event
-        # with the workflow_run reference so the resume path is observable,
-        # and return the already-emitted sentinel so run_pipeline does not
-        # double-emit the generic success event.
+        # A prior run for this head_sha already succeeded: emit the reconciled
+        # completion and return the sentinel so run_pipeline does not re-emit.
         print(f"  Reconciled stage '{name}' from prior successful run {ga_run_id}")
         _emit_run_event(
             "DeploymentRunStageCompleted",
@@ -289,17 +293,15 @@ def _dispatch_github_actions_workflow(
     return 1, f"could not trigger or find workflow run for '{workflow}'"
 
 
+# Thin wrappers over `deploy_pipeline_github_workflow_lineage` that run
+# commands through this module's patchable ``_run_cmd``.
 def _resolve_release_lineage_sha(
     release_lineage: str,
     project_repo_path: str,
     gate_branch: str,
 ) -> tuple[str, str]:
-    """Resolve lineage through this module’s patchable command runner."""
     return _lineage_resolve_release_lineage_sha(
-        release_lineage,
-        project_repo_path,
-        gate_branch,
-        run_cmd=_run_cmd,
+        release_lineage, project_repo_path, gate_branch, run_cmd=_run_cmd
     )
 
 
@@ -308,12 +310,8 @@ def _verify_release_sha_in_checkout(
     project_repo_path: str,
     gate_branch: str,
 ) -> str:
-    """Thin wrapper — see `deploy_pipeline_github_workflow_lineage`."""
     return _lineage_verify_release_sha_in_checkout(
-        release_sha,
-        project_repo_path,
-        gate_branch,
-        run_cmd=_run_cmd,
+        release_sha, project_repo_path, gate_branch, run_cmd=_run_cmd
     )
 
 
@@ -323,7 +321,6 @@ def _resolve_publish_sha(
     *,
     image_tag: str = "",
 ) -> tuple[str, str]:
-    """Thin wrapper — see `deploy_pipeline_github_workflow_lineage`."""
     return _lineage_resolve_publish_sha(
         project_repo_path,
         gate_branch,

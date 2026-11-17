@@ -14,6 +14,7 @@ from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 
 EXIT_STAGE_FAILED = 1
 
@@ -182,7 +183,13 @@ def fail_pipeline_stage(
     )
     _report_failure_trace(run_id)
     print(
-        f"Error: stage '{stage_name}' failed (exit code: {exit_code})",
+        "Error: "
+        + compose_refusal(
+            f"stage '{stage_name}' failed (exit code: {exit_code})",
+            recovery=f"fix the cause, then resume this run with "
+            f"`{deploy_command(run_id)}`; it re-enters the failed stage, and a "
+            "failed GitHub workflow run is dispatched once more.",
+        ),
         file=sys.stderr,
     )
     return EXIT_STAGE_FAILED
