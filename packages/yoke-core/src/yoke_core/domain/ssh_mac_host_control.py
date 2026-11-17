@@ -78,6 +78,8 @@ class SshMacHostControl(SshMacTransport):
         self._pending_terminal_size = (columns, rows)
 
     def _resolve_entry_surface(self, entry_surface: str) -> str:
+        if "{yoke_bin}" not in entry_surface:
+            return entry_surface
         return entry_surface.replace(
             "{yoke_bin}",
             shlex.quote(self.path_state.yoke_bin),

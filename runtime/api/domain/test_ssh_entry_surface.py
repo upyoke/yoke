@@ -30,3 +30,9 @@ def test_entry_preserves_distribution_dict_and_quotes_launcher(resolve, launcher
     assert resolve(control, entry) == (
         f"{expected_launcher} --version; python3 -c 'config = {config}'"
     )
+
+
+def test_macos_entry_without_launcher_needs_no_path_state():
+    entry = 'python3 -c \'config = {"origin": "https://api.stage.upyoke.com"}\''
+
+    assert SshMacHostControl._resolve_entry_surface(SimpleNamespace(), entry) == entry
