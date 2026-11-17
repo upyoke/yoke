@@ -194,8 +194,6 @@ CLIENT_PATH_CANONICALIZATION = (
         "yoke_contracts.hook_runner.bash_paths:_mount_path",
         "yoke_contracts.hook_runner.shell_parse:advance_cwd",
         "yoke_contracts.free_paths:free_path_prefixes",
-        "yoke_contracts.hook_runner.session_cwd:_valid_machine_home",
-        "yoke_contracts.hook_runner.session_cwd:_valid_root",
         "yoke_contracts.machine_config.runtime:_machine_path",
         "yoke_contracts.machine_config.runtime:effective_temp_root",
         "yoke_contracts.machine_config.scratch_roots:fallback_scratch_root",

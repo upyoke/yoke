@@ -115,3 +115,54 @@ def test_relayed_windows_paths_use_only_client_observations():
 
     resolve(payload)
     assert paths.join_path("/repo", "file") == "/repo/file"
+
+
+def test_posix_client_aliases_resolve_before_parent_hops_and_keep_case():
+    from yoke_contracts.hook_runner.client_facts import client_fact, WRITE_TARGETS_KEY
+
+    payload = client_fact(
+        WRITE_TARGETS_KEY,
+        {
+            "bash_paths": {
+                "windows": False,
+                "home": "/client/home",
+                "canonical": {"/tmp/link": "/repo/sub"},
+            }
+        },
+    )
+
+    @paths.with_client_paths
+    def resolve(payload):
+        assert paths.resolve_bash_path("/tmp/link/../file") == "/repo/file"
+        assert paths.resolve_bash_path("/TMP/link/../file") == "/TMP/file"
+        assert paths.resolve_bash_path("~/file") == "/client/home/file"
+
+    resolve(payload)
+
+
+def test_windows_home_facts_validate_on_a_posix_authority():
+    from yoke_contracts.hook_runner.client_facts import client_fact, WRITE_TARGETS_KEY
+    from yoke_contracts.hook_runner.session_cwd import (
+        client_machine_home_fact,
+        client_machine_home,
+    )
+
+    payload = client_fact(
+        WRITE_TARGETS_KEY,
+        {
+            "bash_paths": {
+                "windows": True,
+                "canonical": {},
+                "mount_paths": {},
+            }
+        },
+    )
+
+    @paths.with_client_paths
+    def validate(payload):
+        native_home = "C:/Users/operator"
+        home_fact = client_machine_home_fact(native_home)
+        assert client_machine_home(home_fact) == native_home
+        assert client_machine_home_fact("C:/") == {}
+
+    validate(payload)

@@ -82,7 +82,11 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
     cwd = canonical_native_path(os.path.expanduser(cwd))
     for segment in shell.segments:
         destination = cd_destination(segment.argv)
-        moved = advance_cwd(cwd, destination, shell=shell.shell) if destination is not None else ""
+        moved = (
+            advance_cwd(cwd, destination, shell=shell.shell)
+            if destination is not None
+            else ""
+        )
         if not moved:
             break
         cwd = moved
@@ -186,29 +190,28 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
         for root in STATIC_FREE_PATH_PREFIXES:
             mount_paths[root] = _resolve(root, cwd)
     canonical = {}
-    if os.name == "nt":
-        for raw, path in resolved.items():
-            if os.path.isabs(raw) and not raw.startswith("/"):
-                canonical[raw.replace("\\", "/").rstrip("/")] = path.replace(
-                    "\\", "/"
-                ).rstrip("/")
-        data = tool_input(dict(payload))
-        for raw in (
-            payload.get("cwd"),
-            data.get("workdir"),
-            data.get("working_directory"),
-            str(Path.home()),
-        ):
-            if isinstance(raw, str) and raw:
-                for ancestor in (Path(raw), *Path(raw).parents):
-                    canonical[str(ancestor).replace("\\", "/").rstrip("/")] = (
-                        canonical_native_path(str(ancestor))
-                        .replace("\\", "/")
-                        .rstrip("/")
-                    )
-        canonical[cwd.replace("\\", "/").rstrip("/")] = cwd.replace("\\", "/").rstrip(
-            "/"
-        )
+    data = tool_input(dict(payload))
+    native_paths = [
+        cwd,
+        payload.get("cwd"),
+        data.get("workdir"),
+        data.get("working_directory"),
+        str(Path.home()),
+    ]
+    native_paths.extend(
+        raw if os.path.isabs(raw) else os.path.join(cwd, raw)
+        for raw in resolved
+        if not (os.name == "nt" and raw.startswith("/"))
+    )
+    for raw in native_paths:
+        if not isinstance(raw, str) or not raw:
+            continue
+        for ancestor in (Path(raw), *Path(raw).parents):
+            key = str(ancestor).replace("\\", "/").rstrip("/")
+            if key:
+                canonical[key] = (
+                    canonical_native_path(str(ancestor)).replace("\\", "/").rstrip("/") or "/"
+                )
     by_repo: dict[str, list[str]] = {}
     cwd_repo = _repo_root(cwd)
     for path in resolved.values():

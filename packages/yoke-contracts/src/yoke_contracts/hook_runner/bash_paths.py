@@ -72,19 +72,20 @@ def canonical_native_path(path: str) -> str:
     """Canonicalize filesystem aliases locally; never probe foreign drives."""
     facts = _CLIENT_PATHS.get()
     if facts is not None:
-        normalized = (
-            ntpath.normpath(path).replace("\\", "/")
-            if facts.get("windows")
-            else posixpath.normpath(path)
-        )
+        windows = bool(facts.get("windows"))
+        text = path.replace("\\", "/") if windows else path
         aliases = facts.get("canonical", {})
+        comparable = text.casefold() if windows else text
         for raw in sorted(aliases, key=len, reverse=True):
-            if (
-                normalized.casefold() == raw.casefold()
-                or normalized.casefold().startswith(raw.casefold() + "/")
-            ):
-                return aliases[raw] + normalized[len(raw) :]
-        return normalized
+            prefix = raw.casefold() if windows else raw
+            if comparable == prefix or comparable.startswith(prefix.rstrip("/") + "/"):
+                text = aliases[raw] + text[len(raw) :]
+                break
+        return (
+            ntpath.normpath(text).replace("\\", "/")
+            if windows
+            else posixpath.normpath(text)
+        )
     if windows_path(path) and os.name != "nt":
         return ntpath.normpath(path).replace("\\", "/")
     return os.path.realpath(path)
