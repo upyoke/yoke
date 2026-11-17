@@ -141,7 +141,8 @@ def test_cancel_at_finish_does_not_apply() -> None:
     assert app.exit_code == 0
 
 
-def test_local_checkout_collects_project_fields() -> None:
+def test_local_checkout_collects_project_fields(monkeypatch) -> None:
+    stub_local_checkout_identity(monkeypatch)
     app, spy = make_app()
 
     async def scenario() -> None:
