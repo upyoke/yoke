@@ -18,7 +18,9 @@ import subprocess
 
 import pytest
 
-from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import (
+    store_machine_capability_secret,
+)
 from yoke_harness import desktop_access, rdp_desktop_client as viewer
 
 
@@ -279,3 +281,21 @@ def test_view_path_does_not_materialize_password_file(tmp_path, monkeypatch):
         project="project", test_machine="lab", settings=SETTINGS, view=True
     ) == {"viewer": "closed"}
     assert calls[0][3] == PASSWORD
+
+
+@pytest.mark.parametrize("code", [1, 255])
+def test_failed_ssh_is_transport_failure_before_desktop_login(
+    tmp_path, monkeypatch, code
+):
+    monkeypatch.setattr(
+        desktop_access.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(
+            argv, code, "", "host unreachable"
+        ),
+    )
+    with pytest.raises(
+        desktop_access.DesktopAccessError,
+        match="desktop_transport_unavailable: host unreachable",
+    ):
+        desktop_access._prepare_desktop(SETTINGS, tmp_path / "key", PASSWORD)

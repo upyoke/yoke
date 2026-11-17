@@ -65,7 +65,12 @@ credential through `yoke projects capability secret set --project P --cap-type t
 
 Run `yoke test-machine desktop-access --project P --test-machine NAME --view` on the
 workstation holding the registered fixture credentials. Read the command's
-`--help` for route prerequisites, refusals, and cleanup.
+`--help` for route prerequisites, refusals, and cleanup. The command acquires
+an unleased host or borrows your existing lease and starts a stopped cloud
+machine before desktop work. Its own lease releases in cleanup, including
+failures; a borrowed lease stays with its caller. The last release stops cloud
+machines. SSH failures report `desktop_transport_unavailable` with the SSH
+error; `desktop_user_mismatch` means SSH succeeded as a different user.
 
 A session holding a live steering seat on the machine's project can run this
 command while a QA session leases the machine, to observe or assist that

@@ -3,5 +3,6 @@
  "title": "Headed authorization: explicit declared identity, native-only machine checks, and one Linux viewer",
  "status": "observed",
  "page": "browser-qa",
- "position": 3
+ "position": 3,
+ "summary": "Remote authorization holds the machine lease through sign-in, powers on stopped cloud hosts, and checks the login-shell Yoke installation before opening a viewer. A missing installation names the shell-preconfigured reset. SSH transport failures are distinct from a successful login as the wrong desktop user."
 }
