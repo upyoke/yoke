@@ -1,7 +1,4 @@
 {
-"runtime/api/tools/test_adopt_migration_content_identity.py::test_admin_surface_refuses_failed_or_mismatched_attestation_before_prepare": "assert 0 == 1",
-"runtime/api/tools/test_adopt_migration_content_identity.py::test_admin_surface_rejects_external_evidence_drift": "AssertionError: assert 1 == 0",
-"runtime/api/tools/test_adopt_migration_content_identity.py::test_admin_surface_verifies_then_explicitly_applies": "AssertionError: assert 1 == 0",
 "runtime/api/tools/test_adopt_migration_content_identity_fleet.py::test_omitted_database_operands_discover_fleet_from_selected_admin_authority": "AssertionError: assert 1 == 0",
 "runtime/api/tools/test_checkout_clean_room_smoke.py::test_write_machine_files_owner_only": "AssertionError: assert (33206 & 63) == 0",
 "runtime/api/tools/test_ci_generated_surfaces.py::test_shipped_generated_surfaces_match_sources[check_agent_render]": "AssertionError: agent-render drift:",
@@ -19,7 +16,6 @@
 "runtime/api/tools/test_local_test_route_notice.py::test_runner_reports_local_reason[False]": "AssertionError: assert 'running on t...lection.yml\\n' == 'running on t...lection.yml\\n'",
 "runtime/api/tools/test_local_test_route_notice.py::test_watch_reports_local_reason[False-False]": "AssertionError: assert '# watch_pytest local-run: this tree has no .github/workflows/yoke-tests-selection.yml\\n' in '# watch_pytest local-run: this tree has no .github\\\\workflows\\\\yoke-tests-selection",
 "runtime/api/tools/test_local_test_route_notice.py::test_watch_reports_local_reason[True-False]": "assert '# watch_pytest local-run: this tree has no .github/workflows/yoke-tests-selection.yml\\n' in '# watch_pytest local-run: this tree has no .github\\\\workflows\\\\yoke-tests-selection.yml\\n'",
-"runtime/api/tools/test_migration_admin_selected_readiness.py::test_adopter_activates_before_direct_database_connection": "AssertionError: assert 1 == 0",
 "runtime/api/tools/test_product_cli_no_checkout_smoke.py::test_execute_steps_offline_happy_path_report": "assert False",
 "runtime/api/tools/test_product_cli_no_checkout_smoke.py::test_missing_credential_step_detects_issue": "AssertionError: assert False",
 "runtime/api/tools/test_product_cli_no_checkout_smoke.py::test_writer_bootstrap_asserts_ok_envs_and_owner_only_config": "AssertionError: assert 'fail' == 'pass'",

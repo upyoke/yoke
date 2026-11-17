@@ -24,7 +24,7 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
     canonical_agents_dir.mkdir(parents=True)
     runtime_agents_dir = root / ".claude" / "agents"
     runtime_agents_dir.parent.mkdir(parents=True, exist_ok=True)
-    runtime_agents_dir.symlink_to("../runtime/harness/claude/agents", target_is_directory=True)
+    runtime_agents_dir.symlink_to(Path("../runtime/harness/claude/agents"), target_is_directory=True)
     for name in (
         "yoke-product-manager",
         "yoke-product-designer",
@@ -67,7 +67,7 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
             ), encoding="utf-8", newline="\n"
         )
         (root / ".claude" / "settings.json").symlink_to(
-            "../runtime/harness/claude/settings.json"
+            Path("../runtime/harness/claude/settings.json")
         )
 
     (root / ".gitignore").write_text(".worktrees/\n", encoding="utf-8", newline="\n")
