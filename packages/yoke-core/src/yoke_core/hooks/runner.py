@@ -186,6 +186,7 @@ def run_event(
         else:
             project_id = resolve_hook_project_scope(payload).require_project_id()
         chain = applicable_chain(chain, project_id)
+        payload["project_id"] = project_id  # registration uses the resolved authority scope
     except (ValueError, OSError, RuntimeError) as exc:
         # Scope resolution is infrastructure: the call proceeds, loudly.
         if controls is not None:

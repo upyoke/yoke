@@ -80,3 +80,40 @@ def test_tail_forwards_prompt_even_when_orientation_marker_was_consumed(executor
         )
     assert outcome == "exists"
     assert register.call_args.kwargs["first_user_prompt"] is True
+
+
+@pytest.mark.parametrize("outcome", ["registered", "exists", "skipped:relay_owned", "refused:ACTOR_REQUIRED"])
+def test_cursor_orientation_reports_only_registration_refusals(monkeypatch, outcome):
+    from yoke_core.hooks.session_dispatch_cursor import _render_orientation
+    from yoke_core.hooks.types import HookContext
+    from yoke_core.domain.session_orientation import CLIENT_ORIENTATION_PRESENT_KEY
+    monkeypatch.setattr("yoke_core.hooks.session_dispatch_orientation._connected_env_remediation", lambda _: None)
+    context = HookContext("SessionStart", "cursor", "cursor", {CLIENT_ORIENTATION_PRESENT_KEY: True})
+    text = _render_orientation(context, "/project", outcome)
+    if outcome.startswith("refused:"):
+        assert outcome in text
+        assert "repair the named cause" in text
+    else:
+        assert text == ""
+
+
+def test_local_prompt_registration_uses_resolved_project_scope(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from yoke_core.hooks import runner, run_tail, telemetry
+    from yoke_core.hooks.adapter_capability import AdapterCapability
+    from yoke_core.hooks.decision_render import render_claude_decision
+    monkeypatch.setattr("yoke_contracts.hook_runner.project_scope.resolve_hook_project_scope", lambda _: SimpleNamespace(require_project_id=lambda: 7))
+    monkeypatch.setattr("yoke_contracts.hook_runner.guard_scope.applicable_chain", lambda *a: [])
+    monkeypatch.setattr(runner, "deduplicated_dispatch", lambda *a, **k: False)
+    monkeypatch.setattr(run_tail, "flush_run_tail", lambda **k: None)
+    requests = []
+    monkeypatch.setattr(telemetry, "flush_hook_telemetry", lambda *a, **k: requests.append(k["ensure_session"]) or "registered")
+    controls = RunControls()
+    _text, code = runner.run_event("UserPromptSubmit", capability=AdapterCapability(
+        family="claude", payload_parser=json.loads, decision_renderer=render_claude_decision,
+    ), stdin_data=json.dumps({"session_id": "local-session", "cwd": "/project"}), controls=controls)
+    assert code == 0
+    assert requests[0][8] == 7
+    assert requests[0][9] is True
+    assert controls.registration_outcome == "registered"
