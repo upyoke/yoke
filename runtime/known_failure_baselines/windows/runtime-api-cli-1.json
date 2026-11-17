@@ -236,7 +236,6 @@
 "runtime/api/cli/test_python_venv_dependencies.py::test_present_venv_needs_no_package_authority": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'",
 "runtime/api/cli/test_python_venv_dependencies.py::test_root_and_interactive_install_reuse_os_authority": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'",
 "runtime/api/cli/test_python_venv_dependencies.py::test_successful_apt_must_supply_ensurepip": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'",
-"runtime/api/cli/test_session_relay_release_status.py::test_relay_lifecycle_reports_release_pin": "AssertionError: assert {'distributio...d': True, ...} == {'distributio...d': True, ...}",
 "runtime/api/cli/test_setup_agent_answers.py::test_a_run_fact_is_saved_at_once_and_survives_a_refusal": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_setup_agent_answers.py::test_a_second_invocation_refuses_while_one_runs": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
 "runtime/api/cli/test_setup_agent_answers.py::test_a_secret_input_never_takes_an_answer": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
