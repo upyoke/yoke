@@ -44,9 +44,14 @@ def verify_installed_wheels(root: Path) -> None:
             name = BytesParser().parsebytes(wheel.read(metadata))["Name"]
             installed = distribution(name)
             rows = list(csv.reader(io.StringIO(wheel.read(record).decode())))
+        try:
+            installed_record = installed.locate_file(record).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ValueError(
+                f"installed_wheel_record_mismatch: {name} RECORD unavailable; rebuild from the verified wheels"
+            ) from exc
         installed_rows = {
-            row[0]: row[1:]
-            for row in csv.reader(io.StringIO(installed.read_text("RECORD") or ""))
+            row[0]: row[1:] for row in csv.reader(io.StringIO(installed_record))
         }
         checked = 0
         for filename, digest, size in rows:
