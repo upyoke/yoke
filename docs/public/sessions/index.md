@@ -98,6 +98,8 @@ that exact process and retires Fleet's old `native_turn_running` label.
 The relay releases an unstarted job when stopping or when all settlement
 workers are busy. Its report records `relay_stopping` or `relay_workers_busy`;
 the job becomes eligible for the next poll without waiting for lease expiry.
+That hand-back is deferred, not a failed wake: it raises no failure notice
+unless the recipient's wake budget is already spent.
 A failed release report stays in the machine's pending reports and retries
 before new claims. Launch closure evidence calls claim time
 `attempt_claimed_at`; `native_started_at` records an observed native spawn.

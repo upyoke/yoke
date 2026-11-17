@@ -187,7 +187,7 @@ def delivery_state(
     ):
         return TURN_IN_FLIGHT
     if result_code:
-        if delivery_attempt_failed(result_code):
+        if delivery_attempt_failed(result_code, attempt_evidence):
             return ATTEMPT_FAILED
         if str(result_code) in WAKE_DEFERRED_RESULTS:
             if held_native_is_gone(record, attempt_evidence or {}):

@@ -13,7 +13,10 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.models import RecipientSelector
-from yoke_contracts.session_control.wake_delivery import delivery_attempt_diagnostic
+from yoke_contracts.session_control.wake_delivery import (
+    delivery_attempt_diagnostic,
+    wake_attempt_handed_back,
+)
 from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_recipient_scope import (
     owner_key,
@@ -59,6 +62,9 @@ def notify_failed_wake(
         return None
     evidence = json.loads(str(attempt[1] or "{}"))
     reason = delivery_attempt_diagnostic(attempt[0], evidence)
+    if not reason and exhausted and wake_attempt_handed_back(attempt[0], evidence):
+        # A hand-back is deferred, but a spent budget still owes its notice.
+        reason = f"the last wake was handed back ({evidence['result_code']})"
     if not reason:
         return None
     original = conn.execute(

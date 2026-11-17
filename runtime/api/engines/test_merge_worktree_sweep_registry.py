@@ -59,7 +59,7 @@ def test_a_deploy_run_tree_gets_no_item_pass_line(monkeypatch, tmp_path: Path):
     repo, _worktree, branch = _repo(tmp_path)
     driver = driver_worktree_path(repo, "run-20260101-009")
     _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
-    monkeypatch.setattr(_retirement, "_run_status", lambda _run_id: ("executing", ""))
+    monkeypatch.setattr(_retirement, "_run_record", lambda _run_id: ({"status": "executing"}, ""))
     git_io, lines = _install(monkeypatch, repo, _Conn(branch))
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")

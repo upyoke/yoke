@@ -132,6 +132,12 @@ def containment_basis(run_id: str) -> Dict[str, Any]:
     ]
 
 
+def current_member_refs(run_id: str) -> List[str]:
+    """Public refs of the members *run_id* still holds; released ones excluded."""
+    members = _call("deployment_runs.get", run_id, {"field": "member_items"})
+    return [str(member["ref"]) for member in members.get("value") or []]
+
+
 def run_pin(run_id: str) -> Dict[str, str]:
     """Return the run's project and pin without composing membership.
 

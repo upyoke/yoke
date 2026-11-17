@@ -23,7 +23,9 @@ item from the run it was just attached to.
 
 A takeover successor's enrollment also honors operator removals on every run
 it took over -- the run it supersedes and each never-started run it absorbs --
-but not transfer or set-aside entries; add-item clears them too.
+but not transfers, set-asides, or automatic lineage releases (a member whose
+candidate is outside the frozen lineage, "awaiting a later release"): a later
+run whose pin contains that candidate enrolls it. Add-item clears them too.
 """
 
 from __future__ import annotations
@@ -84,7 +86,21 @@ def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
     absorbs ``superseded_by_run_id`` = *run_id* before enrollment reads this,
     so walking that column back covers them all and their own predecessors.
     """
+    from yoke_core.domain.deployment_member_candidate_release import (
+        CORRECTION_RELEASE_REASON,
+    )
+    from yoke_core.domain.deployment_run_member_removal import (
+        REOPENED_REASON,
+        REPLACED_REASON,
+    )
     from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASON
+
+    awaiting_later_release = {
+        SET_ASIDE_REASON,
+        CORRECTION_RELEASE_REASON,
+        REPLACED_REASON,
+        REOPENED_REASON,
+    }
 
     if not _column_exists(conn, "deployment_runs", "superseded_by_run_id"):
         return []
@@ -100,7 +116,7 @@ def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
         for row in rows
         for entry in parse_membership_removals(row[1], str(row[0]))
         if not entry.get("transferred_to_run_id")
-        and entry.get("reason") != SET_ASIDE_REASON
+        and entry.get("reason") not in awaiting_later_release
     ]
 
 

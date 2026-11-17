@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from yoke_core.domain.deploy_pipeline_unknown_outcome import preserve_unknown_outcome
 from yoke_core.domain.deployment_driver_identity import driver_identity_operation
-
 import json
 import sys
 from yoke_core.domain.deploy_pipeline_hosted_bridge import start_hosted_consumer_proof
-
 from yoke_core.domain.deployment_start_timing import (
     timed_call,
     timed_pipeline,
@@ -31,6 +29,7 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _parse_stages,
     _resolve_script_dir,
     _set_deploy_stage,
+    stamp_held_members_complete,
 )
 from yoke_core.domain.deploy_pipeline_run_context import (
     EXIT_FINALIZATION_PENDING,  # noqa: F401 — public pipeline exit 4
@@ -334,7 +333,9 @@ def run_pipeline(
         stage_checks.report_missing_start_stage(flow_id, start_stage, stages)
         return EXIT_USAGE
 
-    _set_deploy_stage("complete", run_id, member_items, sd=sd)
+    if refusal := stamp_held_members_complete(run_id, member_items, sd=sd):
+        print(f"Error: {refusal}", file=sys.stderr)
+        return EXIT_STAGE_FAILED
 
     return _finalize(*finish, sd=sd, members=member_rows)
 
