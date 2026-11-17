@@ -11,7 +11,8 @@ from yoke_harness.native_windows.transport import WindowsTransport
 pytestmark = pytest.mark.windows
 
 FACTS = {"os": "Windows", "home": r"C:\Users\qa", "admin": False,
-         "shell": "powershell.exe"}
+         "shell": "powershell.exe", "edition": "Enterprise", "build": "26200",
+         "user": r"host\qa"}
 
 
 def control(stdout, returncode=0, stderr=""):
@@ -32,6 +33,8 @@ def test_host_facts_accept_only_standard_token():
 @pytest.mark.parametrize("change", [
     {"admin": None}, {"admin": 0}, {"admin": "false"},
     {"home": "relative"}, {"home": 4}, {"os": "Linux"}, {"shell": "cmd.exe"},
+    {"edition": None}, {"edition": ""}, {"build": 26200}, {"build": "abc"},
+    {"build": "٢٦٢٠٠"}, {"user": None},
 ])
 def test_host_facts_reject_malformed_schema(change):
     with pytest.raises(HostControlLocalError) as error:
@@ -44,6 +47,14 @@ def test_host_facts_reject_malformed_schema(change):
 def test_host_facts_reject_missing_or_non_object_output(stdout):
     with pytest.raises(HostControlLocalError) as error:
         control(stdout)._host_facts()
+    assert error.value.code == "native_windows_host_facts_invalid"
+
+
+@pytest.mark.parametrize("key", ["edition", "build", "user"])
+def test_host_facts_reject_missing_consumed_metadata(key):
+    facts = {k: v for k, v in FACTS.items() if k != key}
+    with pytest.raises(HostControlLocalError) as error:
+        control(json.dumps(facts))._host_facts()
     assert error.value.code == "native_windows_host_facts_invalid"
 
 

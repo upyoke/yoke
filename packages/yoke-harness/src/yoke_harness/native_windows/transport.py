@@ -140,6 +140,9 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
                     and isinstance(facts.get("home"), str)
                     and PureWindowsPath(facts["home"]).is_absolute()
                     and facts.get("shell") == "powershell.exe"
+                    and all(isinstance(facts.get(key), str) and facts[key]
+                            for key in ("edition", "build", "user"))
+                    and facts["build"].isascii() and facts["build"].isdigit()
                 ):
                     if facts["admin"] is False:
                         self.windows_facts = facts
