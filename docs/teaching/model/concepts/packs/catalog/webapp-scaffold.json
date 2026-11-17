@@ -4,7 +4,7 @@
   "status": "draft-copy",
   "sources": [
     "packs/webapp-scaffold/pack.json",
-    "packs/webapp-scaffold/versions/1.1.9/files/docs/development.md"
+    "packs/webapp-scaffold/versions/1.1.9/files/docs/packs/webapp-scaffold/development.md"
   ],
   "page": "packs",
   "position": 15
