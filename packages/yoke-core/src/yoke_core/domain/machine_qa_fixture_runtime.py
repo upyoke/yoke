@@ -7,9 +7,9 @@ from pathlib import PurePosixPath
 import shlex
 from typing import Callable, Protocol
 
-from yoke_contracts.shell_path_state import (
-    PathStateContract,
-    resolve_path_state_contract,
+from yoke_contracts.shell_path_state import PathStateContract
+from yoke_contracts.ssh_mac_full_reset_path_state import (
+    canonical_posix_path_state_contract,
 )
 
 from yoke_core.domain.host_control_runner import HostActionResult
@@ -135,9 +135,8 @@ class MachineQaFixtureRuntime:
         self._upload_remote = upload_text
         self._prepare_terminal_size = prepare_terminal_size
         self.home = str(selected_home)
-        self.path_state = path_state or resolve_path_state_contract(
-            env={"HOME": self.home, "SHELL": "/bin/zsh"}
-        )
+        # The host is POSIX; never build its paths with the controller's rules.
+        self.path_state = path_state or canonical_posix_path_state_contract(self.home)
         if self.path_state.home != self.home:
             raise MachineQaFixtureOperationError(
                 "fixture PATH contract does not match the bounded host home"
