@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_contracts.cursor_session_map import CURSOR_CONVERSATION_ENV_VAR
-from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.hooks import session_lifecycle_client
 from yoke_core.hooks import session_dispatch
 from yoke_contracts.session_model_facts import SessionModelFacts
 
-from runtime.api.fixtures.runtime import isolate_test_machine_and_session_identity
 
 
 def _pin_local_transport(monkeypatch) -> None:
@@ -38,131 +35,40 @@ def _pin_local_transport(monkeypatch) -> None:
     )
 
 
-def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
-    calls: list[tuple] = []
-
-    def fake_register(*args, **_kwargs):  # noqa: ANN001,ANN003
-        calls.append(args)
-        return None
-
+def test_codex_registration_preserves_target_scope_and_native_thread(monkeypatch):
     _pin_local_transport(monkeypatch)
-    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
-    monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
-    monkeypatch.setattr(
-        "yoke_core.hooks.target.target_service_client_path",
-        lambda root: "/Users/x/yoke/runtime/api/service_client.py",
-    )
-    monkeypatch.setattr(
-        "yoke_core.hooks.service_client.register_session",
-        fake_register,
-    )
-
-    err = session_dispatch._register_codex(
-        "/Users/x/externalwebapp",
-        "sid-codex",
-        "gpt-5.5",
-        "codex-desktop",
-    )
-
-    assert err == ""
-    assert calls == [
-        (
-            "/Users/x/yoke/runtime/api/service_client.py",
-            "sid-codex",
-            "codex",
-            "openai",
-            "gpt-5.5",
-            "/Users/x/externalwebapp",
-            "codex-desktop",
-            1,
-            None,
-            None,
-            None,
-        )
-    ]
-
-
-def test_codex_register_stamps_native_thread_id_from_env(monkeypatch) -> None:
-    calls: list[tuple] = []
-
-    def fake_register(*args, **_kwargs):  # noqa: ANN001,ANN003
-        calls.append(args)
-        return None
-
-    _pin_local_transport(monkeypatch)
-    # The harness running the suite exports its own executor; this is Codex.
     monkeypatch.delenv("YOKE_EXECUTOR", raising=False)
     monkeypatch.setenv("CODEX_THREAD_ID", "thread-42")
-    monkeypatch.setattr(
-        "yoke_core.hooks.target.target_service_client_path",
-        lambda root: "/Users/x/yoke/runtime/api/service_client.py",
-    )
-    monkeypatch.setattr(
-        "yoke_core.hooks.service_client.register_session",
-        fake_register,
-    )
-
-    err = session_dispatch._register_codex(
-        "/Users/x/externalwebapp",
-        "sid-codex",
-        "gpt-5.5",
-        "codex-desktop",
-    )
-
-    assert err == ""
-    assert calls[0][-1] == "thread-42"
+    calls = []
+    def register(*args, **kwargs):
+        calls.append((args, kwargs))
+        return "registered"
+    monkeypatch.setattr("yoke_core.hooks.registration_in_process._register_in_process", register)
+    facts = SessionModelFacts(requested_model="gpt-test")
+    assert session_dispatch._register_codex("/target", "session", facts, "codex-desktop") == "registered"
+    args, kwargs = calls[0]
+    assert args == ("session", "codex", "openai", facts, "/target", "codex-desktop")
+    assert kwargs["project_id"] == 1
+    assert kwargs["machine_scope"] is False
+    assert kwargs["native_thread_id"] == "thread-42"
 
 
-def test_universal_register_uses_target_service_client_path(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    calls: list[tuple] = []
-
-    def fake_register(*args, **_kwargs):  # noqa: ANN001,ANN003
-        calls.append(args)
-        return None
-
-    for name in AMBIENT_ENV_VARS:
-        monkeypatch.setenv(name, f"contaminating-{name.lower()}")
-    monkeypatch.setenv(CURSOR_CONVERSATION_ENV_VAR, "contaminating-conversation")
-    isolate_test_machine_and_session_identity(tmp_path / "register-case", monkeypatch)
-
+def test_universal_registration_preserves_target_and_scope(monkeypatch):
     _pin_local_transport(monkeypatch)
-    monkeypatch.setattr(
-        "yoke_core.hooks.target.target_service_client_path",
-        lambda root: "/Users/x/yoke/runtime/api/service_client.py",
-    )
-    monkeypatch.setattr(
-        "yoke_core.hooks.service_client.register_session",
-        fake_register,
-    )
-
-    err = session_lifecycle_client.register_harness_session(
-        root="/Users/x/externalwebapp",
-        session_id="sid-any",
-        executor="claude",
-        provider="anthropic",
-        model_facts=SessionModelFacts(requested_model="opus"),
-        entrypoint="claude-desktop",
-    )
-
-    assert err == ""
-    assert calls == [
-        (
-            "/Users/x/yoke/runtime/api/service_client.py",
-            "sid-any",
-            "claude",
-            "anthropic",
-            SessionModelFacts(requested_model="opus"),
-            "/Users/x/externalwebapp",
-            "claude-desktop",
-            1,
-            None,
-            None,
-            None,
-        )
-    ]
+    calls = []
+    def register(*args, **kwargs):
+        calls.append((args, kwargs))
+        return "exists"
+    monkeypatch.setattr("yoke_core.hooks.registration_in_process._register_in_process", register)
+    facts = SessionModelFacts(requested_model="model-test")
+    assert session_lifecycle_client.register_harness_session(
+        root="/target", session_id="session", executor="claude-code",
+        provider="anthropic", model_facts=facts, entrypoint="claude-desktop",
+    ) == "exists"
+    args, kwargs = calls[0]
+    assert args == ("session", "claude-code", "anthropic", facts, "/target", "claude-desktop")
+    assert kwargs["project_id"] == 1
+    assert kwargs["machine_scope"] is False
 
 
 def test_codex_touch_uses_target_service_client_path(monkeypatch) -> None:

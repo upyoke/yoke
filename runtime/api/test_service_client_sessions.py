@@ -156,7 +156,7 @@ class TestSessionBeginLevel:
             session_test_db,
             "codex",
             "--model",
-            "gpt-6.1-sol",
+            "gpt-6.2-sol",
             "--reasoning-effort",
             "medium",
             "--entrypoint",

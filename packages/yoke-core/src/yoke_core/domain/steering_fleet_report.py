@@ -248,19 +248,16 @@ def compose_report(
     )
     landed_open = seat_landed_open(item_facts.landed_open, members, seat_scope)
     holders = seat_claim_holders(item_facts.holders, members, landed_open)
-    from yoke_core.domain.steering_fleet_report_holders import with_session_state
+    from yoke_core.domain.steering_fleet_report_holders import (
+        with_session_state,
+        quiet_holders,
+    )
     from yoke_core.domain.session_state import session_needs_idle_alarm
 
     holders = with_session_state(
         holders, now=now, idle_after_seconds=idle_after_seconds
     )
-    quiet = tuple(
-        holder
-        for holder in holders
-        if holder.session_state["in_flight"]
-        or session_needs_idle_alarm(holder.session_state)
-    )
-    split = partition_quiet(conn, quiet=quiet, now=now)
+    split = partition_quiet(conn, quiet=quiet_holders(holders), now=now)
     stranded = item_facts.stranded if seat_scope.get("document") else facts.stranded
     stranded_ids = {entry.session_id for entry in stranded}
     landings = seat_landing_readbacks(
@@ -270,13 +267,20 @@ def compose_report(
         in_flight=split.in_flight,
         reads=request,
     )
+    holders = with_session_state(
+        holders,
+        now=now,
+        idle_after_seconds=idle_after_seconds,
+        landing_readbacks=landings,
+    )
     waiting = {
         row.item_id for row in landings if landing_wait_pending(row.to_dict())
     } | {holder.item_id for holder in holders if holder.landing_notice_pending}
     idle = tuple(
         holder
-        for holder in split.idle
+        for holder in holders
         if session_needs_idle_alarm(holder.session_state)
+        and holder.session_id not in {call.session_id for call in split.in_flight}
         and holder.session_id not in stranded_ids
         and holder.item_id not in waiting
     )

@@ -79,22 +79,15 @@ def evaluate_inprocess(
     from yoke_harness.hooks.identity import detect_executor
     from yoke_harness.hooks.shell_kind_stamp import stamp_shell_kind
 
-    if (
-        event_name in {"SessionStart", "UserPromptSubmit"}
-        and detect_executor() == "codex"
-    ):
+    from yoke_contracts.harness_session_transcripts import session_transcripts_for_harness
+    from yoke_contracts.executor_labels import canonical_harness_id
+    transcript_manifest = session_transcripts_for_harness(canonical_harness_id(detect_executor()))
+    if event_name == "SessionStart" and transcript_manifest.session_start == "transcript_required":
         from yoke_harness.hooks.relay_identity_guard import parse_hook_payload
-        from yoke_harness.hooks.identity_codex_runtime import codex_transcript_exists
-
-        payload = parse_hook_payload(stdin_data)
-        session_id = str(payload.get("session_id") or payload.get("thread_id") or "")
-        transcript_path = str(payload.get("transcript_path") or "")
-        unsaved = (
-            not transcript_path
-            if event_name == "SessionStart"
-            else session_id and not codex_transcript_exists(session_id, transcript_path)
-        )
-        if unsaved:
+        if not parse_hook_payload(stdin_data).get("transcript_path"):
+            from yoke_contracts.hook_runner.degraded import plain_allow_stdout
+            sys.stdout.write(plain_allow_stdout(event_name, detect_executor()))
+            sys.stderr.write("Yoke registration outcome: skipped:unsaved_transcript\n")
             if on_complete is not None and scope == "registered":
                 on_complete()
             return 0

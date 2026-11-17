@@ -13,9 +13,8 @@ from yoke_cli import hook_resident_client as client
 from yoke_cli import hook_resident_lifecycle as lifecycle
 from yoke_cli import hook_resident_paths as resident_paths
 
-pytestmark = pytest.mark.windows
 
-
+@pytest.mark.windows
 def test_restart_warms_a_real_evaluator_and_replaces_same_version(
     monkeypatch, tmp_path
 ):
@@ -41,7 +40,7 @@ def test_restart_warms_a_real_evaluator_and_replaces_same_version(
         lifecycle.stop_resident()
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX socket path limit")
+@pytest.mark.posix_only(reason='POSIX socket path limit')
 def test_long_tmpdir_still_binds_a_short_evaluator_socket(monkeypatch, tmp_path):
     long_home = tmp_path / ("nested-machine-home-" * 6)
     long_tmpdir = long_home / "tmp"
@@ -61,7 +60,7 @@ def test_long_tmpdir_still_binds_a_short_evaluator_socket(monkeypatch, tmp_path)
         lifecycle.stop_resident()
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX socket path limit")
+@pytest.mark.posix_only(reason='POSIX socket path limit')
 def test_unbindable_socket_path_refuses_with_its_recovery(monkeypatch, tmp_path):
     long_home = tmp_path / ("nested-machine-home-" * 6)
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: long_home)
@@ -78,12 +77,13 @@ def test_unbindable_socket_path_refuses_with_its_recovery(monkeypatch, tmp_path)
     assert unavailable.value.code == "YOKE_HOOK_RESIDENT_SOCKET_PATH_TOO_LONG"
 
 
+@pytest.mark.windows
 def test_missing_evaluator_is_a_successful_stop(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     lifecycle.stop_resident()
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows uses named pipes")
+@pytest.mark.posix_only(reason='Windows uses named pipes')
 def test_unsupported_transport_stops_cleanly_and_refuses_restart(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
@@ -95,6 +95,7 @@ def test_unsupported_transport_stops_cleanly_and_refuses_restart(monkeypatch, tm
         lifecycle.restart_resident()
 
 
+@pytest.mark.windows
 def test_process_discovery_requires_exact_module_and_machine_socket(
     monkeypatch, tmp_path
 ):
@@ -151,6 +152,7 @@ def test_process_discovery_requires_exact_module_and_machine_socket(
     assert lifecycle._resident_processes(paths) == [(101, 101.0), (105, 105.0)]
 
 
+@pytest.mark.windows
 def test_stop_does_not_signal_reused_pid(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, 1.0)])
@@ -162,6 +164,7 @@ def test_stop_does_not_signal_reused_pid(monkeypatch, tmp_path):
     stop.assert_not_called()
 
 
+@pytest.mark.windows
 def test_unreleased_lock_refuses_instead_of_claiming_stopped(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
@@ -175,6 +178,7 @@ def test_unreleased_lock_refuses_instead_of_claiming_stopped(monkeypatch, tmp_pa
     assert "close the harness sessions" in str(failure.value)
 
 
+@pytest.mark.windows
 def test_stop_delegates_escalation_with_start_time_custody(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, 1.0)])
@@ -188,6 +192,7 @@ def test_stop_delegates_escalation_with_start_time_custody(monkeypatch, tmp_path
     stop.assert_called_once_with(handle, timeout=lifecycle._STOP_SECONDS)
 
 
+@pytest.mark.windows
 def test_an_unkillable_resident_is_named_with_its_pid(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, 1.0)])
@@ -200,6 +205,7 @@ def test_an_unkillable_resident_is_named_with_its_pid(monkeypatch, tmp_path):
     assert "123" in str(failure.value)
 
 
+@pytest.mark.windows
 def test_restart_accepts_a_resident_a_live_hook_relaunched(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
@@ -209,6 +215,7 @@ def test_restart_accepts_a_resident_a_live_hook_relaunched(monkeypatch, tmp_path
     lifecycle.stop_resident(require_lock_release=False)
 
 
+@pytest.mark.windows
 def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
@@ -224,6 +231,7 @@ def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
         lifecycle.restart_resident()
 
 
+@pytest.mark.windows
 def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
@@ -237,6 +245,7 @@ def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
     assert "yoke hook resident restart" in str(failure.value)
 
 
+@pytest.mark.windows
 def test_cli_reports_unwritable_cache_without_retrying_path_creation(
     monkeypatch, capsys
 ):

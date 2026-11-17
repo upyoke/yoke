@@ -28,6 +28,7 @@ from yoke_cli.project_install.git_hooks import (
     POST_COMMIT_SHIM,
     BootstrapResult,
     install_post_commit_hook,
+    render_git_hook,
 )
 
 
@@ -61,7 +62,7 @@ class TestInstaller:
         install_post_commit_hook(fresh_repo, result)
         hook = _hook_path(fresh_repo)
         assert hook.exists()
-        assert hook.read_text() == POST_COMMIT_SHIM
+        assert hook.read_text() == render_git_hook(POST_COMMIT_SHIM)
         assert os.access(str(hook), os.X_OK)
         assert result.installed >= 1
         assert any("Created" in line for line in result.actions)

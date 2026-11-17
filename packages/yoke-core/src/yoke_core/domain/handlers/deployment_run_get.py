@@ -114,9 +114,11 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         )
     values: Dict[str, Any] = (
         computed.run_membership(resolved_run_id)
-        if requested is None or member_names
+        if requested is None or any(name not in computed.LINEAGE_RUN_FIELDS for name in member_names)
         else {}
     )
+    if requested is None or any(name in computed.LINEAGE_RUN_FIELDS for name in requested):
+        values.update(computed.run_lineage(resolved_run_id))
     if driver:
         values[DRIVER_ATTACHMENT_FIELD] = _recorded_driver(resolved_run_id)
     if field:

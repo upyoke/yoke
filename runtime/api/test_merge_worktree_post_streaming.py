@@ -35,11 +35,13 @@ class TestStreamingTestOutput:
         assert "line2" in transcript
         assert "line3" in transcript
 
-    def test_streaming_emits_before_process_exit(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("_iteration", range(20))
+    def test_streaming_emits_before_process_exit(
+        self, tmp_path: Path, _iteration: int
+    ) -> None:
         """First streamed output arrives before the subprocess exits."""
         driver = tmp_path / "stream_driver.py"
-        driver.write_text(textwrap.dedent("""\
-            import os
+        driver.write_text(textwrap.dedent(f"""\
             import sys
             from yoke_core.engines.merge_worktree import _run_streaming
 
@@ -47,12 +49,12 @@ class TestStreamingTestOutput:
                 [
                     sys.executable,
                     "-c",
-                    "import time; print('first', flush=True); time.sleep(2); print('second', flush=True)",
+                    "import sys; print('first', flush=True); sys.stdin.readline(); print('second', flush=True)",
                 ],
-                cwd="/tmp",
+                cwd={str(tmp_path)!r},
                 timeout=10,
             )
-            print(f"rc={rc}", flush=True)
+            print(f"rc={{rc}}", flush=True)
         """))
 
         env = os.environ.copy()
@@ -63,19 +65,21 @@ class TestStreamingTestOutput:
 
         proc = subprocess.Popen(
             [sys.executable, str(driver)],
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             env=env,
         )
+        assert proc.stdin is not None
         assert proc.stdout is not None
         try:
-            start = time.monotonic()
             first_line = proc.stdout.readline().strip()
-            elapsed = time.monotonic() - start
             assert first_line == "[tests] first"
-            assert elapsed < 1.5
             assert proc.poll() is None
+            proc.stdin.write("\n")
+            proc.stdin.close()
+            proc.stdin = None
             remainder = proc.communicate(timeout=10)[0]
             assert "[tests] second" in remainder
             assert "rc=0" in remainder

@@ -59,7 +59,7 @@ def test_resolved_history_is_filtered_before_description(conn, monkeypatch, hist
     monkeypatch.setattr(decision_request_rows, "request_rows", capture)
     assert questions.read_questions(conn, "steering", previous) == expected
     assert set(described) == {ids[0], ids[1], ids[-1]}
-    # Polls still retain all unconsumed resolved identities for departure tracking.
+    # Polls retain resolved identities for departure tracking until superseded.
     assert set(questions.question_states(conn, "steering", include_resolved=True)) == set(ids)
     conn.execute("UPDATE decision_requests SET status='pending' WHERE id=?", (ids[2],))
     assert ids[2] in {q.request_id for q in questions.read_questions(conn, "steering")}

@@ -35,9 +35,7 @@ from yoke_harness.ssh_mac_golden_capture_receipt import (
 from yoke_harness.ssh_mac_golden_capture_script import render_golden_capture_script
 
 
-@pytest.mark.skipif(
-    sys.platform != "darwin", reason="uses macOS tar metadata and ditto"
-)
+@pytest.mark.macos_only(reason='uses macOS tar metadata and ditto')
 def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
     tmp_path,
 ):
@@ -98,11 +96,10 @@ def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
     assert (restored / "link").readlink() == Path(odd_file.name)
 
 
-@pytest.mark.skipif(
-    sys.platform != "darwin" or os.geteuid() == 0,
-    reason="requires macOS and an unprivileged copier",
-)
+@pytest.mark.macos_only(reason='requires macOS and an unprivileged copier')
 def test_unreadable_file_fails_with_its_path_and_error_without_its_contents(tmp_path):
+    if os.geteuid() == 0:
+        pytest.skip("requires an unprivileged copier")
     home = tmp_path / "home"
     home.mkdir()
     unreadable = home / "unreadable"
@@ -128,7 +125,7 @@ def test_unreadable_file_fails_with_its_path_and_error_without_its_contents(tmp_
     assert outcome.evidence["refusal"] == refusal
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS AppleDouble metadata")
+@pytest.mark.macos_only(reason='uses macOS AppleDouble metadata')
 def test_container_attribute_larger_than_tar_header_limit_captures_and_restores(
     tmp_path,
 ):

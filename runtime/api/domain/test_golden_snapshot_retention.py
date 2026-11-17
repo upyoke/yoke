@@ -106,7 +106,7 @@ def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
     registered = parent / "testy-home-20261014T1230Z"
     for snapshot in (other_project, superseded, registered):
         snapshot.mkdir()
-        for suffix in (".probes", ".manifest"):
+        for suffix in (".probes", ".probes.sha256", ".manifest"):
             (parent / (snapshot.name + suffix)).write_text(suffix)
 
     removed = apply_retention(
@@ -117,14 +117,13 @@ def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
     )
 
     assert set(removed) == {
-        "testy-home-20261001",
-        "testy-home-20261001.probes",
-        "testy-home-20261001.manifest",
+        "testy-home-20261001" + suffix
+        for suffix in ("", ".probes", ".probes.sha256", ".manifest")
     }
     assert set(os.listdir(parent)) == {
         name + suffix
         for name in (other_project.name, registered.name)
-        for suffix in ("", ".probes", ".manifest")
+        for suffix in ("", ".probes", ".probes.sha256", ".manifest")
     }
 
 

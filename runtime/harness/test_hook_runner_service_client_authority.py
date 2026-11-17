@@ -8,7 +8,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.domain import machine_config, yoke_connected_env
 from yoke_core.hooks import service_client, target
 
@@ -58,7 +57,7 @@ def _write_machine_config(root: Path) -> Path:
     return binding
 
 
-def test_register_session_child_inherits_target_cwd_and_connected_env(
+def test_touch_session_child_inherits_target_cwd_and_connected_env(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -82,17 +81,9 @@ def test_register_session_child_inherits_target_cwd_and_connected_env(
         SimpleNamespace(run=fake_run, TimeoutExpired=subprocess.TimeoutExpired),
     )
 
-    err = service_client.register_session(
-        str(service_path),
-        "sid",
-        "codex",
-        "openai",
-        SessionModelFacts(requested_model="gpt-5"),
-        str(root),
-        "codex-desktop",
-    )
+    err = service_client.touch_session(str(service_path), str(root), "sid")
 
-    assert err is None
+    assert err == 0
     assert calls
     call = calls[0]
     env = call["env"]
@@ -104,7 +95,7 @@ def test_register_session_child_inherits_target_cwd_and_connected_env(
     assert env["PYTHONPATH"].split(os.pathsep)[0] == str(root)
 
 
-def test_register_session_child_imports_yoke_code_for_external_target(
+def test_touch_session_child_imports_yoke_code_for_external_target(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -130,17 +121,9 @@ def test_register_session_child_imports_yoke_code_for_external_target(
         SimpleNamespace(run=fake_run, TimeoutExpired=subprocess.TimeoutExpired),
     )
 
-    err = service_client.register_session(
-        str(service_path),
-        "sid",
-        "claude",
-        "anthropic",
-        SessionModelFacts(requested_model="opus"),
-        str(external_root),
-        "claude-desktop",
-    )
+    err = service_client.touch_session(str(service_path), str(external_root), "sid")
 
-    assert err is None
+    assert err == 0
     call = calls[0]
     env = call["env"]
     pythonpath = env["PYTHONPATH"].split(os.pathsep)

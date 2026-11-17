@@ -85,7 +85,9 @@ def test_fresh_hosted_refusal_names_requested_connect_url(platform, token):
 
 def test_missing_origin_teaches_repair_without_a_default(configure):
     configure("")
-    message = install_advice.install_command()
+    with pytest.raises(install_advice.InstallOriginUnavailable) as refused:
+        install_advice.install_command()
+    message = str(refused.value)
     assert message.startswith("install_origin_unavailable:")
     assert "yoke settings set distribution" in message
     assert DISTRIBUTION_PROD_URL not in message

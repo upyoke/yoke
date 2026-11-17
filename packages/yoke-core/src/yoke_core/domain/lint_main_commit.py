@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
+from yoke_core.domain.lint_session_cwd_path_authority import repo_root_from_worktree_path
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
@@ -38,8 +40,8 @@ def is_bookkeeping(filepath: str) -> bool:
     return _contract_is_bookkeeping(filepath)
 
 
-def _active_worktree_items() -> Optional[list[str]]:
-    """Return ``ref|title`` rows for in-flight items with active lanes."""
+def _active_worktree_items(repo_root: str) -> Optional[list[str]]:
+    """Return ``ref|title`` rows for in-flight items with lanes in this repo."""
     try:
         from yoke_contracts.api.function_call import TargetRef
         from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
@@ -59,6 +61,11 @@ def _active_worktree_items() -> Optional[list[str]]:
     rendered = []
     for row in rows:
         if not row.get("worktrees") or row.get("terminal"):
+            continue
+        if not any(
+            repo_root_from_worktree_path(str(lane.get("path") or "")) == repo_root
+            for lane in row["worktrees"]
+        ):
             continue
         ref = str(row.get("public_ref") or "")
         rendered.append(f"{ref}|{row.get('title') or ''}")
@@ -119,7 +126,10 @@ def evaluate_payload(payload: dict, shell: ShellParse) -> Optional[str]:
     if not non_bookkeeping:
         return None
 
-    active_items = _active_worktree_items()
+    repo_root = facts.get("repo_root")
+    if not isinstance(repo_root, str) or not repo_root:
+        return None
+    active_items = _active_worktree_items(normalize_repo_path(repo_root))
     if not active_items:
         return None
 

@@ -120,8 +120,12 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # born-with rows. The ordered audience migration retires the replaced
 # authority tables; decision_requests.audience_id has an additive boot lookup.
 # Timed self-wakes add a new table whose seven columns are born with it.
+# Boot convergence now creates shepherd_verdicts, caveat_dispositions and
+# item_dependencies, so their columns are born with them except the two
+# dependency metadata columns, which keep an additive boot lookup.
+# deployment_preview_environments.env_type converges additively on boot.
 _BORN_WITH_COLUMN_DIGEST = (
-    "e3cadf0a8104a0548c6098a89a12f4e4e4b7be038a0f163502d77e4aa2dbba15"
+    "b9423deacb37462806692dd2a046303a7587351ec33fe59971b5a819471579ee"
 )
 
 

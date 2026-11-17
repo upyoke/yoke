@@ -38,6 +38,7 @@ def git_facts(branch: str | None, staged: list[str]) -> dict:
             "schema": CLIENT_GIT_COMMIT_FACTS_SCHEMA,
             "is_git_commit": True,
             "repo_cwd": "/client/checkout",
+            "repo_root": "/client/checkout",
             "branch": branch,
             "staged_paths": staged,
             "staged_probe_ok": True,

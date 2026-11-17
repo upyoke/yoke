@@ -94,7 +94,6 @@ def _schema_refresh(ctx: MergeContext) -> None:
     _run_python_module = mw._run_python_module
     _print("[schema-gate] Running schema refresh...")
     _run_python_module("yoke_core.domain.schema", ["init"], capture=True)
-    _run_python_module("yoke_core.domain.shepherd", ["init"], capture=True)
     _print("[schema-gate] Schema refresh complete.")
 
 

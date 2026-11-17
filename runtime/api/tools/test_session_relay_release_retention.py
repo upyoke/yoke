@@ -21,7 +21,6 @@ from runtime.api.tools.session_relay_release_test_support import (
 from yoke_core.tools import session_relay_release_retention as retention
 from yoke_core.tools.session_relay_release import RelayReleaseError
 from yoke_core.tools.session_relay_release_install import pin_relay_release
-pytestmark = pytest.mark.windows
 
 THIRD_RELEASE = "0.2.0.202610140943"
 
@@ -36,6 +35,7 @@ def install(instance, version):
     return (instance.state_dir / "release").resolve()
 
 
+@pytest.mark.windows
 def test_third_install_keeps_exactly_current_and_previous(tmp_path):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
@@ -48,6 +48,7 @@ def test_third_install_keeps_exactly_current_and_previous(tmp_path):
     assert receipt["previous_release"] == str(previous)
 
 
+@pytest.mark.windows
 def test_failed_candidate_does_not_prune_any_release(tmp_path):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
@@ -66,6 +67,7 @@ def test_failed_candidate_does_not_prune_any_release(tmp_path):
     assert (instance.state_dir / "release").resolve() == current
 
 
+@pytest.mark.windows
 def test_running_release_stays_until_a_later_install(tmp_path):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
@@ -98,6 +100,7 @@ def test_running_release_stays_until_a_later_install(tmp_path):
     assert set((instance.state_dir / "releases").iterdir()) == {previous, current}
 
 
+@pytest.mark.windows
 def test_file_lease_preserves_packages_without_release_in_command(tmp_path):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
@@ -125,6 +128,7 @@ def test_file_lease_preserves_packages_without_release_in_command(tmp_path):
         process.communicate(timeout=5)
 
 
+@pytest.mark.windows
 def test_process_snapshot_failure_records_cleanup_recovery(tmp_path, monkeypatch):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
@@ -146,6 +150,7 @@ def test_process_snapshot_failure_records_cleanup_recovery(tmp_path, monkeypatch
     assert not (instance.state_dir / "release-pin-error.json").exists()
 
 
+@pytest.mark.posix_only(reason="symlink creation requires Windows Developer Mode")
 def test_symlink_in_releases_never_removes_its_target(tmp_path):
     instance = relay_instance(tmp_path)
     install(instance, RELEASE)
@@ -153,18 +158,14 @@ def test_symlink_in_releases_never_removes_its_target(tmp_path):
     outside.mkdir()
     (outside / "keep").touch()
     link = instance.state_dir / "releases" / "not-owned"
-    try:
-        link.symlink_to(outside, target_is_directory=True)
-    except OSError:
-        if sys.platform == "win32":
-            pytest.skip("symlink-specific test requires Developer Mode; copies are tested separately")
-        raise
+    link.symlink_to(outside, target_is_directory=True)
     install(instance, NEXT_RELEASE)
     install(instance, THIRD_RELEASE)
     assert (outside / "keep").exists()
     assert link.is_symlink()
 
 
+@pytest.mark.windows
 def test_installed_launcher_holds_selected_release_until_exit(tmp_path):
     instance = relay_instance(tmp_path)
     oldest = install(instance, RELEASE)
@@ -203,6 +204,7 @@ def test_installed_launcher_holds_selected_release_until_exit(tmp_path):
     assert not oldest.exists()
 
 
+@pytest.mark.windows
 def test_existing_install_receipts_converge_before_reuse_cleanup(tmp_path):
     instance = relay_instance(tmp_path)
     previous = install(instance, RELEASE)
@@ -219,6 +221,7 @@ def test_existing_install_receipts_converge_before_reuse_cleanup(tmp_path):
     assert json.loads(receipt_path.read_text())["previous_release"] == str(previous)
 
 
+@pytest.mark.windows
 def test_worker_lease_failure_names_recovery(tmp_path, monkeypatch):
     from yoke_harness import session_relay_release_lease as lease
     root = install(relay_instance(tmp_path), RELEASE)

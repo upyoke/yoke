@@ -268,10 +268,18 @@ Keep private probe programs, raw reports, manifests and archives out of Git.
 Before every capture ATTEMPT, choose a distinct new destination PARENT outside
 the home, e.g. `/Users/Shared/yoke-golden-attempt-DATE-UNIQUE/home` or
 `/var/lib/yoke-golden-attempt-DATE-UNIQUE/home`. Check space and record every
-project's current golden and sidecars (`.manifest`, `.probes`, `.harness-clis`).
+project's current golden and sidecars (`.manifest`, `.probes`,
+`.probes.sha256`, `.harness-clis`). Linux and WSL capture read `.probes` back and
+refuse `golden_probes_write_unverified` unless its bytes and sha256 match what was
+sent, then seal that digest as `.probes.sha256`. Reset refuses
+`baseline_probes_unavailable` (missing, empty or unreadable, with the path) or
+`baseline_probes_invalid` with the parse error, byte count, sha256 and the
+sealed `expected_sha256`.
 Capture retention keeps every golden any project registered for the same host
 and user, and anything newer than the new golden; it deletes older unregistered
-siblings, including failed attempts. A new basename does not preserve them. Never
+siblings, including failed attempts. Interactive capture retains after local
+verification and before submit releases the lease; begin protects the current
+registered goldens plus the new destination. A new basename does not preserve them. Never
 approve deletion merely to retry; preserve existing paths/evidence and use a
 separate parent, including on failure. An already lost snapshot is not preserved.
 
@@ -326,8 +334,8 @@ route/service; only diagnosed authentication calls for sign-in. Never reset
 credentials for an unknown exit. `test_machine_sign_in_app_quit_not_proved`
 requires quitting the named app through its UI before copying; never force past
 it. `golden_capture_copy_home_failed` retains `copy_stderr`; repair its cause
-and choose a new parent. `golden_snapshot_retention_failed` can follow successful
-registration: read removed/kept paths before any further capture. Verify's
+and choose a new parent. `golden_snapshot_retention_failed` aborts interactive
+capture before registration: read removed/kept paths before retrying. Verify's
 `registered_golden_missing` names each project whose registered golden is gone:
 capture a new golden for it. Never delete or move a registered golden by hand. A failed
 reset retains `reset_phase`, process state and `failed_calls` where available;

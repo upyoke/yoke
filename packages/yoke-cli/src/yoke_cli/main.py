@@ -43,6 +43,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         except KeyboardInterrupt:
             print("yoke: interrupted by Ctrl-C.", file=sys.stderr)
             return 130
+    from yoke_contracts.refusal_recovery import compose_refusal
+    from yoke_contracts.working_directory import (
+        WorkingDirectoryMissing,
+        current_directory,
+    )
+
+    try:
+        current_directory()
+    except WorkingDirectoryMissing as exc:
+        print(
+            compose_refusal(
+                str(exc), recovery="cd to the project checkout and retry"
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
     from yoke_cli.command_router import route_command
 
     return route_command(argv)

@@ -37,9 +37,9 @@ MACHINE_EXECUTABLE_TARGET_SCHEMAS = (
     DEPLOYMENT_TARGET_SCHEMA,
 )
 #: Identity a target may record about its environment. An environment
-#: snapshot carries the name alone; a deployment snapshot also records the
-#: registered environment row it resolved and which kind of destination it
-#: is, and both are part of the digest the runner honours.
+#: snapshot records its registered row and name; a deployment snapshot may
+#: also name the destination kind. These facts are part of the digest the
+#: runner honours.
 ENVIRONMENT_IDENTITY_KEYS = frozenset({"name", "id", "kind"})
 
 

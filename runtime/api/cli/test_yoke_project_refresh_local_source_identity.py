@@ -117,7 +117,7 @@ def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
     refreshed_receipt = json.loads(
         refreshed_files[INSTALLED_LAYER_RECEIPT_REL]["content"]
     )
-    assert hooks["pre-commit"]["content"] == selected
+    assert hooks["pre-commit"]["content"] == managed_git_hooks.render_git_hook(selected)
     assert refreshed["yoke_version"] != baseline["yoke_version"]
     assert refreshed_receipt["source_engine_release"] == refreshed["yoke_version"]
     assert refreshed_receipt["source_build"] == source_head

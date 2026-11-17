@@ -18,7 +18,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import db_backend
 from runtime.api.api_workflow_test_helpers import (
     install_workflow_registry_and_pin_items,
@@ -138,11 +137,14 @@ def _apply_schema() -> None:
         ensure_status_transition_schema(conn)
     finally:
         conn.close()
-    dr.cmd_init()
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.flow_init import converge_flow_catalog
+    from yoke_core.domain.merge_queue_landing_record_schema import (
+        ensure_merge_queue_landing_record_schema,
+    )
 
     with connect() as conn:
+        ensure_merge_queue_landing_record_schema(conn)
         converge_flow_catalog(conn)
 
 

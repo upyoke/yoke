@@ -14,6 +14,7 @@ site.
 
 from __future__ import annotations
 
+import re
 from difflib import get_close_matches
 from typing import Iterable, Sequence
 
@@ -125,7 +126,19 @@ _NON_FIELD_REDIRECTS: dict[str, str] = {
     "worktrees": "yoke item-worktrees get ITEM --lane-role implementation",
     "dependencies": "yoke items dependency list ITEM",
     "progress_log": "yoke items progress-log get ITEM",
+    "architecture_model": (
+        "yoke project-structure get --project P --family architecture_model"
+    ),
 }
+
+
+def _redirect_key(token: str) -> str:
+    """Fold a guessed field name to its redirect key.
+
+    ``Progress Log``, ``progress-log`` and ``PROGRESS_LOG`` all name the
+    same thing, so case, spaces and hyphens fold to one underscore form.
+    """
+    return re.sub(r"[\s-]+", "_", str(token).strip().casefold())
 
 
 def render_field_catalog(*, indent: str = "  ") -> str:
@@ -153,7 +166,7 @@ def unknown_field_message(token: str) -> str:
     on a real field.
     """
     lines = [f"unknown items column {token!r}"]
-    redirect = _NON_FIELD_REDIRECTS.get(str(token).strip().casefold())
+    redirect = _NON_FIELD_REDIRECTS.get(_redirect_key(token))
     if redirect:
         lines.append(f"{token!r} is not an items column; read it with: {redirect}")
     else:

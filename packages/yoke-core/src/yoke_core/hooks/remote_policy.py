@@ -79,6 +79,7 @@ class RunControls:
     flush_tail: bool = True
     degraded: list[str] = field(default_factory=list)
     denial_revisions: dict[str, str] = field(default_factory=dict)
+    registration_outcome: str = "skipped:no_registration"
     timed_out: bool = False
     final_outcome: str = ""
     message_probe: bool = False

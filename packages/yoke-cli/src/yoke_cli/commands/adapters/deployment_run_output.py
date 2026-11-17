@@ -17,6 +17,12 @@ def write_run_summary(result: Mapping[str, Any], stdout: TextIO) -> None:
         )
         if key in run
     }
+    for field, label in (
+        ("supersedes_run_id", "supersedes"),
+        ("superseded_by_run_id", "superseded by"),
+    ):
+        if run.get(field):
+            summary[label] = run[field]
     # Missing computed membership on older serving builds is unknown, never zero.
     for field, label in (
         ("member_items", "member_count"),

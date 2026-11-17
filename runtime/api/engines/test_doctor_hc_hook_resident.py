@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_cli.hook_resident_client import ResidentPaths
 from yoke_core.engines import doctor_hc_hook_resident as resident_hc
 from yoke_core.engines.doctor_applicability_declarations import (
@@ -22,7 +23,7 @@ from yoke_core.engines.doctor_https_local_scope import requested_local_machine_s
 @pytest.fixture
 def paths(monkeypatch, tmp_path):
     # pytest's per-test directory exceeds macOS's Unix socket path limit.
-    with tempfile.TemporaryDirectory(prefix="hr-", dir="/tmp") as short_dir:
+    with tempfile.TemporaryDirectory(prefix="hr-", dir=shortest_temp_directory()) as short_dir:
         paths = ResidentPaths(
             tmp_path,
             Path(short_dir) / "e.sock",
@@ -50,6 +51,7 @@ def test_doctor_reports_down_even_with_suppressed_warning(paths):
     assert not paths.socket.exists()  # Doctor must not start a resident.
 
 
+@pytest.mark.posix_only(reason="Windows residents use named pipes rather than Unix sockets")
 def test_doctor_reports_stale_socket_as_down(paths):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
         listener.bind(str(paths.socket))

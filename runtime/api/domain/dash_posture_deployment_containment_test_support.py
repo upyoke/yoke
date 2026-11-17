@@ -34,9 +34,6 @@ from yoke_core.domain.db_helpers import iso8601_now
 def dash_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
-        from yoke_core.domain.deployment_runs_schema_init import cmd_init
-
-        cmd_init(db_path)
         conn = connect_test_db(db_path)
         try:
             conn.execute(

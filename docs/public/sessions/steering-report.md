@@ -60,8 +60,10 @@ after CI passes, so that row reads `checks_pending`, "waiting on required checks
 without `!`. Entry decides liveness, not null arming alone.
 
   **The delivery is still on its way** in four, all of which end in *waiting* and none of which is a failure. *delivery attempt in flight* is an accepted resume that has not settled either way. *queued in the machine wake queue* names each waiting receipt’s position while a connected relay has attempted a wake there within three polls. Without recent progress, overdue receipts remain a finding. *queued for the recipient's next hook* is the ordinary case: no attempt is owed yet, because a hook has run since the send or the plane is still inside one poll of its own window. *recipient turn in flight since a fixed-six UTC instant* is a recipient with a current running call under the [shared call rule](model/reclaim.md) — the envelope lands on that call's own hook. A current call defers automatic wakes past the idle threshold, up to the shared 45-minute ceiling; an older open row no longer excuses silence. Returning from the call delivers through the existing hook. A verified native exit, or a park stamped after the call started, retires an orphaned call, ended sessions retain their supported recovery route, and explicit operator wakes retain their intentional semantics. None of these four borrows desktop *waiting for the operator to wake it* copy: a session that is already firing hooks, or sitting inside a call, is not waiting on a person who has not typed. A row that is open is only the half of that a clock can see; the other half is the state below, which the recipient's own machine reports rather than this one inferring it. These four are reported and never count toward `actionable`, and they are deliberately excluded from the report's fingerprint: every ordinary send passes through one of them, so hashing them would turn routine fleet traffic into changed-report wakes for mail about to land by itself. Reporting any of them as a failure sends the seat after a delivery already under way, and this section formerly dropped waiting states, which left a seat unable to tell an attempt in flight from one that had never been made.
-Parked holders are declared waits. A recorded native exit assigns the next action
-to parent or steering; process recovery is distinct from an idle-holder alarm.
+Named waits take priority over a recorded process exit. An armed landing reads
+`ci_or_deploy / landing_in_progress` until it lands; presence still shows the exit.
+Without a named wait, the next actor is parent or steering.
+Live failed or unarmed PRs still require holder action.
 Holder rows describe delivery rather than infer native liveness:
 
 - `mid-turn — message arrives at its next tool call` from running turn posture;
@@ -242,28 +244,6 @@ carry the recovery command and a null `execution_id`.
 
 ## Questions waiting on you
 
-The report lists pending operator questions oldest first, with the request id,
-requesting session label, held item, age and question excerpt. Questions follow
-the same seat coverage as items and steering mail. A question's work is the item
-it names; failing that, the item its asking session holds a work claim on;
-failing that, its project. The seat covering that work sees it, so a document
-seat sees questions about its member items in any project, and a project seat
-does not see what a live document seat covers. A seat always sees the questions
-it filed. Questions from other sessions the operator started by hand never show:
-that operator answers in the session's own chat. When no live seat covers the
-work, the project seat for the owning project sees the question marked
-`unattended: no live seat for DOC` until a document seat is taken. Questions with
-no project show when addressed to you. The Inbox and `yoke decision-requests
-list` show every question. Answer or withdraw the question to remove it. The hook update and fleet watcher name each departure
-once: `request N no longer waiting: answered (<option label>)`, `withdrawn`,
-or `consumed`. The watcher checks question status each poll; a change wakes
-steering and requests the outcome report immediately, ahead of the usual report
-interval. Failed answer delivery remains visible as
-`operator_question_undelivered`; read the saved answer and relay it to the current
-item holder. Question and delivery state enter the report fingerprint; age does not.
-See [Decision requests](decision-requests.md) for filing and answering.
-
-Steering keeps every pending operator decision in both the Inbox and steering
-chat, and reconciles this section against chat whenever it reports. When facts
-change, use `ask --replaces`; when the answer is no longer needed, withdraw the
-question. Record an answer from chat through resolve immediately.
+Pending questions appear oldest first with the requester, held item, age and
+question excerpt. [Decision requests](decision-requests.md#steering-coverage-and-outcomes)
+explains seat coverage, outcomes and answer delivery.

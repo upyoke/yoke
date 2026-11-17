@@ -103,18 +103,11 @@ jobs:
         # snap transitional package, whose install fails on the runner.
         run: sudo -n apt-get remove -y libatk-bridge2.0-0t64 firefox
       - name: Install, onboard, replay hooks, and check source development
-        if: runner.os == 'macOS'
+        if: runner.os != 'Linux'
         env:
           SMOKE_EXPECTED_OS: ${{ matrix.os }}
           SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
-        run: python3 runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
-      - name: Install the Windows candidate wheels and run yoke status
-        if: runner.os == 'Windows'
-        env:
-          SMOKE_EXPECTED_OS: ${{ matrix.os }}
-          SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
-        # Windows product onboarding is not ported; retain its install/status proof.
-        run: python runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence --through status
+        run: python runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
       # Linux relay setup needs a real systemd user manager: run the whole smoke
       # as a disposable account inside its own PAM login session (Linger=no).
       - name: Run Linux smoke in a disposable login account

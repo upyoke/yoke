@@ -36,6 +36,7 @@ from runtime.api.domain.run_success_member_settlement_test_support import (
 from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
+from yoke_contracts.deployment_member_removal_teaching import REMOVAL_EFFECT
 from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.deployment_run_completion_preconditions import (
     unresolved_blocking_qa,
@@ -73,7 +74,7 @@ def test_red_member_removal_retracts_only_its_outstanding_run_qa(
     ).fetchone()["status"] == ("failed" if failed else "succeeded")
     if failed:
         assert f"-- {RUN} --from-stage {ITEM_QA_STAGE}" in message
-    assert "a later release enrolls it" in message
+    assert REMOVAL_EFFECT in message
     assert not _still_member(test_db)
     row = test_db.execute(
         "SELECT retracted_at,retraction_rationale,waived_at FROM qa_requirements WHERE id=%s",
@@ -297,3 +298,30 @@ def test_settlement_releases_a_later_correction_without_closing_it(
         == "done"
     )
     assert not _claim_held(test_db, sibling)
+
+
+def test_created_removal_and_help_share_effect_and_name_undo(test_db, capsys):
+    from yoke_cli.commands.adapters.deployment_run_membership import (
+        deployment_runs_remove_item,
+    )
+
+    _red_member(test_db)
+    release_seeded_driver(test_db, RUN)
+    test_db.execute(
+        "UPDATE deployment_runs SET status='created',composition_frozen_at=NULL "
+        "WHERE id=%s", (RUN,)
+    )
+    test_db.commit()
+    message = cmd_remove_item(RUN, ITEM, reason=REASON)
+    assert REMOVAL_EFFECT in message
+    assert (
+        f"To undo now, run `yoke deployment-runs add-item {RUN} YOK-{ITEM}` "
+        "while this run is still created."
+    ) in message
+    assert "Resume this same run" not in message
+    with pytest.raises(SystemExit) as stopped:
+        deployment_runs_remove_item(["--help"])
+    assert stopped.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert REMOVAL_EFFECT in help_text
+    assert "while this run is still created." in help_text

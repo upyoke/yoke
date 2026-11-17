@@ -40,6 +40,7 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.merge_github_queue import (
     READY_TO_ENQUEUE,
     enter_merge_queue,
+    mark_ready_for_review,
     read_pr_landing_state,
 )
 from yoke_core.domain.merge_context import MergeContext
@@ -150,18 +151,25 @@ def land_item_through_merge_queue(
         )
 
     # The verification gate normally opened this pull request already.
-    pr_num, pr_err = ensure_landing_pull_request(
+    pr_num, pr_err, record_warning = ensure_landing_pull_request(
         ctx,
         public_ref,
         lane_head=commit_sha,
         item_public_ref=public_ref,
     )
+    if record_warning:
+        warnings.append(record_warning)
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
     # GitHub refuses re-enabling an armed or already-merged pull request.
     pre_state, pre_err = read_pr_landing_state(ctx, pr_num)
     if pre_err:
         warnings.append(pre_err)
+    if pre_state is not None and pre_state.draft:
+        ready = mark_ready_for_review(ctx, pr_num)
+        if not ready.success:
+            return fail_landing(pr_num, ready.error_detail, tuple(warnings))
+        emit(f"marked PR {pr_num} ready for review")
     already_merged = bool(pre_state is not None and pre_state.merged)
     already_armed = bool(
         pre_state is not None

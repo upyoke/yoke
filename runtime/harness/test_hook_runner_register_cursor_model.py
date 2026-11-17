@@ -54,5 +54,5 @@ def test_bare_family_id_does_not_drive_reregister_over_a_measurement(monkeypatch
             '{"model": "grok-4.6"}',
             "s-model-measured",
         )
-        is False
+        == "exists"
     )

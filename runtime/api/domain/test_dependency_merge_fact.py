@@ -81,6 +81,11 @@ def test_prior_landing_waits_until_relanding_or_done_in_all_readers(
         "VALUES (%s,%s,'integration','fact:merged','test',%s)",
         (dependent, blocker, CREATED),
     )
+    # The dependent has opened its pull request, so the integration gate is
+    # reached and the wait readers ask the same satisfaction question.
+    test_db.execute(
+        "UPDATE items SET merge_queue_pr_number='77' WHERE id=%s", (dependent,)
+    )
     from yoke_core.domain.project_identity import render_item_ref
 
     dependent_ref = render_item_ref(test_db, dependent)
@@ -170,6 +175,11 @@ def test_returned_blocker_owes_a_relanding_in_every_reader(test_db):
         "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,created_at) "
         "VALUES (%s,%s,'integration','fact:merged','test',%s)",
         (dependent, blocker, CREATED),
+    )
+    # The dependent has opened its pull request, so the integration gate is
+    # reached and the wait readers ask the same satisfaction question.
+    test_db.execute(
+        "UPDATE items SET merge_queue_pr_number='77' WHERE id=%s", (dependent,)
     )
     from yoke_core.domain.project_identity import render_item_ref
 

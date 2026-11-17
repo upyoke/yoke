@@ -108,10 +108,10 @@ def test_create_pull_request_posts_minimal_payload(monkeypatch):
     assert received[0]["url"].endswith("/repos/owner/repo/pulls")
     body = json.loads(received[0]["body"].decode("utf-8"))
     # body key omitted when no description given.
-    assert body == {"title": "T", "head": "feature-x", "base": "main", "draft": False}
+    assert body == {"title": "T", "head": "feature-x", "base": "main"}
 
 
-def test_create_pull_request_includes_body_and_draft(monkeypatch):
+def test_create_pull_request_includes_body(monkeypatch):
     received = _install_fake_urlopen(
         monkeypatch,
         [_FakeResponse(201, {"number": 8, "html_url": "https://x/pull/8"})],
@@ -123,7 +123,6 @@ def test_create_pull_request_includes_body_and_draft(monkeypatch):
         head="h",
         base="stage",
         body="## Summary\n\nDetails.",
-        draft=True,
         token="ghs_pull_request_test",
     )
 
@@ -132,7 +131,6 @@ def test_create_pull_request_includes_body_and_draft(monkeypatch):
         "title": "T",
         "head": "h",
         "base": "stage",
-        "draft": True,
         "body": "## Summary\n\nDetails.",
     }
 

@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "merging",
  "position": 2,
- "summary": "A deliberate hold waits across head changes until fresh arming or queue entry. A real stop reports failed disarming and names the hold command before correction and re-entry."
+ "summary": "A deliberate hold waits across head changes until fresh arming or queue entry. A real stop reports failed disarming and names the hold command before correction and re-entry. A missing-check stop requires readable protection rules naming a required check absent from the head; all reported checks keep an armed BLOCKED landing admitted. Unreadable rules report required_checks_unreadable and restoring read access; push advice requires a named missing check after the workflow wait grace."
 }

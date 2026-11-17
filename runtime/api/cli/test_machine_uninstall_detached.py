@@ -148,9 +148,7 @@ def test_finisher_runs_isolated_base_python_with_pure_package_roots(
         os.close(handoff.lock_descriptor)
 
 
-@pytest.mark.skipif(
-    os.name == "nt", reason="fixture uses POSIX symlinks and a shebang uv stand-in"
-)
+@pytest.mark.posix_only(reason='fixture uses POSIX symlinks and a shebang uv stand-in')
 def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()

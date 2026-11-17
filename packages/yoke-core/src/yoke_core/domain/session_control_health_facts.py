@@ -18,7 +18,11 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
-from yoke_core.domain.dependency_types import deployed_environment, is_coordination_only
+from yoke_core.domain.dependency_types import (
+    GatePoint,
+    deployed_environment,
+    is_activation_gate,
+)
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
@@ -83,6 +87,18 @@ def _claimed_items(
     return claimed
 
 
+def _gate_reached(row: Mapping[str, Any]) -> bool:
+    """Whether the dependent has reached the point this edge gates."""
+    gate_point = str(row["gate_point"])
+    if is_activation_gate(gate_point):
+        return True
+    if gate_point == GatePoint.INTEGRATION.value:
+        return bool(row["dependent_pr"] or row["dependent_merged_at"])
+    if gate_point == GatePoint.CLOSURE.value:
+        return bool(row["dependent_merged_at"])
+    return False
+
+
 def gating_blockers(
     conn: Any,
     item_ids: Sequence[int],
@@ -91,8 +107,11 @@ def gating_blockers(
 ) -> dict[int, dict[str, Any]]:
     """The first unsatisfied gating blocker per dependent item, if any.
 
-    Coordination-only edges are excluded: they attest that two items may
-    touch a shared path, and gate nothing, so a session holding one side is
+    An edge gates only once the dependent reaches its gate point: activation
+    always, integration once the dependent records a landing pull request
+    (it works, tests and opens that pull request first), closure once the
+    dependent has merged. Coordination-only edges gate nothing: they attest
+    that two items may touch a shared path, so a session holding one side is
     not waiting on the other. With woken_edges_only, deployment facts are
     excluded because they have no dependency-satisfaction wake.
     """
@@ -104,10 +123,13 @@ def gating_blockers(
     rows = conn.execute(
         "SELECT d.dependent_item_id,d.gate_point,d.satisfaction,"
         "d.blocking_item_id,b.status AS blocking_status,b.merged_at,"
+        "di.merge_queue_pr_number AS dependent_pr,"
+        "di.merged_at AS dependent_merged_at,"
         "b.workflow_id,b.workflow_version_id,wv.version,"
         "wv.definition_json,wv.definition_digest,"
         f"{primary_item_worktree_branch_sql('b.id')} AS lane_branch,d.created_at "
         "FROM item_dependencies d JOIN items b ON b.id=d.blocking_item_id "
+        "JOIN items di ON di.id=d.dependent_item_id "
         "LEFT JOIN workflow_versions wv ON wv.id=b.workflow_version_id "
         "WHERE d.dependent_item_id IN ("
         + ",".join(marker for _ in item_ids)
@@ -118,7 +140,7 @@ def gating_blockers(
     blockers: dict[int, dict[str, Any]] = {}
     for row in rows:
         dependent = int(row["dependent_item_id"])
-        if dependent in blockers or is_coordination_only(str(row["gate_point"])):
+        if dependent in blockers or not _gate_reached(row):
             continue
         if woken_edges_only and deployed_environment(str(row["satisfaction"])):
             continue

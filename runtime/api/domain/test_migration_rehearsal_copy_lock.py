@@ -14,8 +14,6 @@ from yoke_core.domain import migration_rehearsal_copy_lock as admission
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
-pytestmark = pytest.mark.windows
-
 
 def _hold(spec, home, entered, release):
     admission.machine_config.yoke_home = lambda: home
@@ -24,6 +22,7 @@ def _hold(spec, home, entered, release):
         assert release.wait(10)
 
 
+@pytest.mark.windows
 def test_separate_drivers_refuse_then_reuse_and_keep_stable_inode(
     tmp_path, monkeypatch
 ):
@@ -74,6 +73,7 @@ def test_separate_drivers_refuse_then_reuse_and_keep_stable_inode(
             process.join()
 
 
+@pytest.mark.windows
 def test_actual_postgres_identifier_truncation_coordinates(tmp_path, monkeypatch):
     monkeypatch.setattr(admission.machine_config, "yoke_home", lambda: tmp_path)
     spec = ClusterSpec(tmp_path / "cluster", "test")
@@ -85,6 +85,7 @@ def test_actual_postgres_identifier_truncation_coordinates(tmp_path, monkeypatch
     )
 
 
+@pytest.mark.windows
 def test_malformed_diagnostics_cannot_change_busy_admission(tmp_path, monkeypatch):
     monkeypatch.setattr(admission.machine_config, "yoke_home", lambda: tmp_path)
     spec = ClusterSpec(tmp_path / "cluster", "test")
@@ -133,10 +134,7 @@ def _until(predicate):
         time.sleep(0.01)
 
 
-@pytest.mark.skipif(
-    os.name == "nt",
-    reason="local fleet copy runs on a declared executor on native Windows",
-)
+@pytest.mark.posix_only(reason='local fleet copy runs on a declared executor on native Windows')
 @pytest.mark.parametrize("runner", ["restore", "dump", "declared"])
 def test_killed_parent_does_not_release_a_live_transfer(tmp_path, monkeypatch, runner):
     home = tmp_path / "home"
@@ -177,6 +175,7 @@ def test_killed_parent_does_not_release_a_live_transfer(tmp_path, monkeypatch, r
             os.kill(int(ready.read_text()), signal.SIGKILL)
 
 
+@pytest.mark.windows
 def test_interruption_reaps_child_before_releasing_admission(tmp_path, monkeypatch):
     monkeypatch.setattr(
         admission.machine_config, "yoke_home", lambda: tmp_path / "home"

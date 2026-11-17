@@ -11,6 +11,7 @@ from yoke_cli.project_install.files import ProjectInstallError, sha256_text
 from yoke_cli.project_install import checkout_gate
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.release_version import release_version
+from yoke_contracts.project_contract.source_installed_views import view_source
 
 
 class ReleasedBundleFiles:
@@ -104,8 +105,11 @@ def _source_path(rel: str) -> str | None:
         prefix = f".{harness}/skills/yoke/"
         if rel.startswith(prefix):
             return ".agents/skills/yoke/" + rel.removeprefix(prefix)
-    if rel.startswith(".yoke/docs/"):
-        return "docs/public/" + rel.removeprefix(".yoke/docs/")
+    if rel.startswith(".yoke/"):
+        source = view_source(rel)
+        return source if source != rel else None
+    if rel.startswith(".claude/rules/"):
+        return "runtime/harness/claude/rules/" + rel.removeprefix(".claude/rules/")
     for harness in ("claude", "codex", "cursor"):
         prefix = f".{harness}/agents/"
         if rel.startswith(prefix):

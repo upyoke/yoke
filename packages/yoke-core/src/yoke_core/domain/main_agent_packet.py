@@ -11,6 +11,7 @@ from yoke_contracts.runtime_ports.install_advice import get_install_advice
 import shutil
 
 install_command = get_install_advice().install_command
+InstallOriginUnavailable = get_install_advice().InstallOriginUnavailable
 
 MAIN_AGENT_ROLE = "main_agent"
 
@@ -53,10 +54,14 @@ def render_install_advisory_block() -> str:
     """
     if shutil.which("yoke"):
         return ""
+    try:
+        advice = install_command()
+    except InstallOriginUnavailable as exc:
+        advice = str(exc)
     return "\n".join(
         (
             INSTALL_ADVISORY_HEADING,
-            "    " + install_command(),
+            "    " + advice,
             INSTALL_ADVISORY_POINTER,
         )
     )

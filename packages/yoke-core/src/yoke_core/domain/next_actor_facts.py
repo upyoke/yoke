@@ -1,4 +1,4 @@
-"""Page-wide durable decision, dependency, deployment and CI action facts."""
+"""Page-wide durable decision, dependency, deployment, landing and CI facts."""
 
 from __future__ import annotations
 
@@ -10,6 +10,14 @@ from yoke_core.domain.actor_render import render_actor_names
 from yoke_core.domain.next_actor import action
 from yoke_core.domain.project_identity import placeholder
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.merge_queue_landing_attempt import (
+    OPEN_ATTEMPT_ENQUEUED_AT,
+    OPEN_ATTEMPT_JOIN,
+)
+from yoke_core.domain.turn_end_unfinished_work import (
+    lane_head_landed_sql,
+    waiting_on_landing,
+)
 
 
 def _rows(conn, sql, params):
@@ -187,6 +195,24 @@ def next_actor_facts(
                     stage=row["current_stage"],
                 ),
             )
+    if items:
+        for row in _rows(
+            conn,
+            "SELECT i.id,i.merge_queue_enqueued_at,i.merge_queue_landed_at,i.merged_at,"
+            f"{lane_head_landed_sql()} AS lane_head_landed,"
+            f"{OPEN_ATTEMPT_ENQUEUED_AT},"
+            "CASE WHEN open_attempt.enqueued_at IS NOT NULL "
+            "THEN open_attempt.pr_number ELSE i.merge_queue_pr_number END AS pr_number "
+            f"FROM items i {OPEN_ATTEMPT_JOIN} WHERE i.id IN ({slots(items)})",
+            items,
+        ):
+            if waiting_on_landing(row):
+                by_item[int(row["id"])]["landing_wait"] = action(
+                    "ci_or_deploy",
+                    "landing_in_progress",
+                    row["open_attempt_enqueued_at"] or row["merge_queue_enqueued_at"],
+                    pr_number=row["pr_number"],
+                )
     from yoke_core.domain.session_control_health_facts import gating_blockers
 
     for iid, blocker in gating_blockers(conn, items).items():

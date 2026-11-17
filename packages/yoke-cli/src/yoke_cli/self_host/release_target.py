@@ -16,8 +16,6 @@ from datetime import datetime
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.api_urls import (
-    DISTRIBUTION_BASE_URL_ENV,
-    DISTRIBUTION_PROD_URL,
     RELEASE_CHANNEL_ENV,
 )
 from yoke_contracts.engine_version import local_handshake_version
@@ -51,7 +49,7 @@ class ReleaseTarget:
 
 
 def current_release_target(
-    *, base_url: str | None = None, image_repository: str | None = None
+    *, base_url: str, image_repository: str | None = None
 ) -> ReleaseTarget:
     """Resolve the running CLI build to its release image.
 
@@ -90,7 +88,7 @@ def current_release_target(
 
 
 def channel_release_target(
-    *, channel: str | None = None, base_url: str | None = None
+    *, channel: str | None = None, base_url: str
 ) -> ReleaseTarget:
     """Resolve one distribution channel to its lockstep upgrade target."""
     selected_channel = release_channel(
@@ -284,17 +282,9 @@ def release_channel(value: str) -> str:
     return value
 
 
-def distribution_base_url(override: str | None) -> str:
-    """Select and validate one credential-free distribution origin."""
-    selected = (
-        str(
-            override
-            or os.environ.get(DISTRIBUTION_BASE_URL_ENV)
-            or DISTRIBUTION_PROD_URL
-        )
-        .strip()
-        .rstrip("/")
-    )
+def distribution_base_url(origin: str) -> str:
+    """Validate one explicit credential-free distribution origin."""
+    selected = str(origin).strip().rstrip("/")
     try:
         parsed = urllib.parse.urlparse(selected)
     except ValueError as exc:
@@ -306,7 +296,7 @@ def distribution_base_url(override: str | None) -> str:
     ):
         raise ReleaseTargetError(
             f"invalid Yoke distribution base URL {selected!r}; set "
-            f"{DISTRIBUTION_BASE_URL_ENV} to an HTTP(S) origin"
+            "the distribution origin to an HTTP(S) origin"
         )
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ReleaseTargetError(

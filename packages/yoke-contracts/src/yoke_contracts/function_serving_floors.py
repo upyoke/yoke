@@ -136,7 +136,6 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.case.submit": "next-release",
     "test_machine.case_execute": "next-release",
     "test_machine.desktop_access": "next-release",
-    "test_machine.host_rebind": "next-release",
     "test_machine.delete": "next-release",
     "test_machine.get": "next-release",
     "test_machine.golden_capture": "next-release",
@@ -171,6 +170,12 @@ class ArgumentFloor:
 
     minimum_serving_version: str
     older_form: str
+
+
+# Response fields are optional while older serving releases converge.
+FUNCTION_RESPONSE_FIELD_MINIMUM_SERVING_VERSIONS = {
+    "sessions.list": {"probe": "next-release", "first_user_prompt_at": "next-release"},
+}
 
 
 #: The ``test_machine`` argument replaced ``machine`` on these served functions;
@@ -317,6 +322,7 @@ def declared_minimum_serving_version(function_id: str) -> str:
 
 __all__ = [
     "ArgumentFloor",
+    "FUNCTION_RESPONSE_FIELD_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_MINIMUM_SERVING_VERSIONS",
     "TEST_MACHINE_ARGUMENT_FUNCTIONS",

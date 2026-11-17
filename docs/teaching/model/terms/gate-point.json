@@ -1,7 +1,7 @@
 {
  "id": "gate-point",
  "term": "Gate point",
- "definition": "The point where a dependency is enforced: activation before starting, integration before merging, or closure before finishing. Closure edges permit release creation and enrollment; member close-out still waits before done, which can hold a release at settling.",
+ "definition": "The point where a dependency is enforced: activation before starting, integration before merging, or closure before finishing. An edge holds only from its gate point: an integration edge lets the dependent work and open its pull request, and `yoke merge item` opens that pull request before refusing the merge. Closure edges permit release creation and enrollment; member close-out still waits before done, which can hold a release at settling.",
  "status": "draft",
  "sources": ["docs/public/items/model/dependencies.md"]
 }

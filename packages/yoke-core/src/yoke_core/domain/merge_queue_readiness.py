@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from yoke_contracts.timestamps import format_instant, parse_instant
@@ -11,6 +11,8 @@ from typing import Optional, Sequence
 from yoke_core.domain.merge_queue_missing_checks import (
     ActiveWorkflowRun,
     missing_checks_facts,
+    missing_checks_candidate,
+    required_checks_unreadable,
     missing_checks_stalled,
     missing_checks_recovery,
 )
@@ -75,6 +77,7 @@ class MergeQueueReadiness:
     failed_checks: tuple[LandingCheck, ...] = field(default=())
     warnings: tuple[str, ...] = field(default=())
     missing_checks: tuple[str, ...] | None = None
+    missing_checks_error: str = ""
     missing_checks_blocked: bool = False
     active_run: Optional[ActiveWorkflowRun] = None
 
@@ -121,7 +124,9 @@ class MergeQueueReadiness:
     def describe(self) -> str:
         """Render the facts without treating a consumed arming as cleared."""
         recovery = ""
-        if self.missing_checks_blocked:
+        if self.missing_checks_error:
+            recovery = "; " + required_checks_unreadable(self.missing_checks_error)
+        elif self.missing_checks_blocked:
             recovery = "; " + missing_checks_recovery(
                 self.missing_checks, self.active_run
             )
@@ -198,18 +203,11 @@ def classify_readiness(
     state_error: str = "",
     required_checks: Optional[Sequence[LandingCheck]] = None,
     checks_error: str = "",
+    missing_checks: tuple[str, ...] | None = None,
+    missing_checks_error: str = "",
+    active_run: Optional[ActiveWorkflowRun] = None,
 ) -> MergeQueueReadiness:
-    """Classify the coherent PR landing and required-check facts.
-
-    Required checks are the same terminal fact the landing notifier already
-    classifies (:mod:`yoke_core.domain.merge_queue_entry_checks`): GitHub
-    creates the queue entry only once a pull request's own required checks
-    pass, so one that has already concluded red while still merely armed —
-    ``queue_holding=armed_not_enqueued`` — is a landing that cannot happen,
-    not an ordinary wait. Reading only the arming field reported that state
-    as a healthy ``in_flight`` and left the notifier as the only place that
-    ever noticed.
-    """
+    """Classify the coherent PR, protection and check facts."""
     warnings = tuple(note for note in (state_error, checks_error) if note)
     failed_checks = failed_required_checks(required_checks)
     entry_state = state.queue_entry_state if state is not None else UNREADABLE
@@ -246,7 +244,9 @@ def classify_readiness(
         # concluded red: GitHub will never create the entry, whatever the
         # arming field still reports.
         landing_state, in_flight = ENTRY_CHECKS_FAILED, False
-    elif missing_checks_stalled(state, required_checks):
+    elif missing_checks_error:
+        landing_state, in_flight = UNREADABLE, None
+    elif missing_checks_stalled(state, required_checks, missing_checks):
         landing_state, in_flight = NOT_IN_FLIGHT, False
     elif state is not None and state.auto_merge_active:
         landing_state, in_flight = IN_FLIGHT, True
@@ -275,7 +275,12 @@ def classify_readiness(
         merged_at=state.merged_at if state is not None else None,
         failed_checks=failed_checks,
         warnings=warnings,
-        missing_checks_blocked=missing_checks_stalled(state, required_checks),
+        missing_checks_blocked=missing_checks_stalled(
+            state, required_checks, missing_checks
+        ),
+        missing_checks=missing_checks,
+        missing_checks_error=missing_checks_error,
+        active_run=active_run,
     )
 
 
@@ -293,20 +298,20 @@ def read_merge_queue_readiness(
     checks_error = ""
     if state is not None and not state.merged:
         required_checks, checks_error = reader.required_checks(ctx, pr_number)
-    readiness = classify_readiness(
+    facts = (
+        missing_checks_facts(ctx, target, required_checks, state.head_sha)
+        if missing_checks_candidate(state, required_checks)
+        else {}
+    )
+    return classify_readiness(
         pr_number=pr_number,
         target=target,
         state=state,
         state_error=state_error or "",
         required_checks=required_checks,
         checks_error=checks_error or "",
+        **facts,
     )
-    if readiness.missing_checks_blocked:
-        readiness = replace(
-            readiness,
-            **missing_checks_facts(ctx, target, required_checks, readiness.head_sha),
-        )
-    return readiness
 
 
 def not_started(*, target: str) -> MergeQueueReadiness:

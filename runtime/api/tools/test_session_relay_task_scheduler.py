@@ -1,6 +1,7 @@
 """Windows relay supervision contract; no scheduler or administrator needed."""
 
 import subprocess
+import sys
 from dataclasses import replace
 import xml.etree.ElementTree as ET
 
@@ -119,7 +120,11 @@ def test_disabled_and_changed_tasks_need_repair(tmp_path):
     assert "disabled" in status.reason
     runner.state = "3"
     runner.xml = runner.xml.replace("InteractiveToken", "Password")
-    assert "outdated" in tasks.relay_task_status(instance=instance, runner=runner).reason
+    reason = tasks.relay_task_status(instance=instance, runner=runner).reason
+    assert reason.startswith(
+        "relay_task_outdated: Task/Principals/Principal/LogonType is 'Password', "
+        "expected 'InteractiveToken'; retry `yoke relay install`"
+    )
 
 
 def test_windows_dispatch_and_unknown_os_refusal(monkeypatch):
@@ -191,3 +196,42 @@ def test_local_task_keeps_a_stable_interpreter_across_operator_cli_updates(tmp_p
     assert root.findtext("t:Actions/t:Exec/t:Command", namespaces=NS) == str(tasks.relay_runtime_python(instance.state_dir))
     body = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
     assert repr(str(launcher)) in body
+
+
+def test_task_runner_containment_joins_a_kill_on_close_job_only_as_the_task():
+    compile(tasks._CONTAIN_RUNNER, "task-runner.py", "exec")
+    assert "0x2000" in tasks._CONTAIN_RUNNER  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    exec(tasks._CONTAIN_RUNNER, {"__name__": "imported"})  # never contains an importer
+
+
+@pytest.mark.windows_only(reason="Win32 job objects")
+def test_task_runner_containment_runs_on_windows():
+    probe = f"exec({tasks._CONTAIN_RUNNER!r}, {{'__name__': '__main__'}}); print('contained')"
+    result = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True, timeout=60)
+    assert (result.returncode, result.stdout.strip()) == (0, "contained"), result.stderr
+
+
+def test_scheduler_export_omitting_defaults_is_current_and_every_change_is_named(tmp_path):
+    expected = tasks.relay_task_document(relay_instance(tmp_path), user_sid=SID)
+    exported = ET.fromstring(expected)
+    trigger = exported.find("t:Triggers/t:LogonTrigger", NS)
+    trigger.remove(trigger.find("t:Enabled", NS))
+    settings = exported.find("t:Settings", NS)
+    for name in ("Enabled", "AllowHardTerminate", "MultipleInstancesPolicy"):
+        settings.remove(settings.find(f"t:{name}", NS))
+    assert tasks._difference(ET.tostring(exported, encoding="unicode"), expected) == ""
+    settings.remove(settings.find("t:ExecutionTimeLimit", NS))
+    settings.find("t:StartWhenAvailable", NS).text = "false"
+    assert tasks._difference(ET.tostring(exported, encoding="unicode"), expected) == (
+        "Task/Settings/StartWhenAvailable is 'false', expected 'true'; "
+        "Task/Settings/ExecutionTimeLimit is missing"
+    )
+
+
+def test_scheduler_export_naming_the_account_instead_of_its_sid_is_current(tmp_path):
+    expected = tasks.relay_task_document(relay_instance(tmp_path), user_sid=SID)
+    exported = expected.replace(SID, r"HOST\user", 1)  # the LogonTrigger's UserId
+    assert tasks._difference(exported, expected, account_name=r"host\USER") == ""
+    assert tasks._difference(exported, expected, account_name=r"HOST\other") == (
+        rf"Task/Triggers/LogonTrigger/UserId is 'HOST\\user', expected '{SID}'"
+    )

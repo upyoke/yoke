@@ -27,14 +27,12 @@ SITES = {
     for site in ("google", "yoke", "paypal")
 }
 
-
 @pytest.fixture()
 def machine_home(tmp_path, monkeypatch):
     home = tmp_path / "machine-home"
     home.mkdir()
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     return home
-
 
 def test_two_identities_persist_side_by_side(machine_home) -> None:
     member = browser_profile.ensure_profile_dir("acme", identity="member")
@@ -46,7 +44,6 @@ def test_two_identities_persist_side_by_side(machine_home) -> None:
     assert browser_profile.remove_profile_dir("acme", identity="admin") == admin
     assert (member / "Cookies").read_text() == "member session"
     assert browser_profile.authorized_profile_dir("acme", identity="admin") is None
-
 
 def test_a_machine_with_a_live_store_links_each_identity_into_it(machine_home) -> None:
     store = machine_home.parent / LIVE_IDENTITY_STORE_HOME_ENTRY
@@ -60,7 +57,6 @@ def test_a_machine_with_a_live_store_links_each_identity_into_it(machine_home) -
     profile.unlink()
     again = browser_profile.authorized_profile_dir("acme", identity="admin")
     assert (again / "Cookies").read_text() == "refreshed by the site"
-
 
 def test_a_profile_signed_in_before_the_store_existed_is_adopted(machine_home) -> None:
     legacy = browser_profile.ensure_profile_dir("acme")
@@ -282,6 +278,12 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     from yoke_cli.commands import browser_authorize_remote as remote
     from yoke_harness import machine_gui_command as gui
     from yoke_harness import desktop_browser_sign_in as desktop
+
+    from contextlib import nullcontext
+    from yoke_cli.commands import test_machine_desktop_lease as custody
+
+    monkeypatch.setattr(custody, "desktop_lease", lambda **kw: nullcontext())
+    monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
 
     desktop_checks = []
 

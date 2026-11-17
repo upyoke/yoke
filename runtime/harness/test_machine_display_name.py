@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import subprocess
-import sys
 
 import pytest
 
@@ -46,7 +45,7 @@ def test_every_probe_command_is_an_absolute_path() -> None:
         assert command[0].startswith("/"), command
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="scutil is macOS-only")
+@pytest.mark.macos_only(reason='scutil is macOS-only')
 def test_the_operator_set_name_resolves_without_usr_sbin_on_path(monkeypatch) -> None:
     # The regression itself: same interpreter, same module, only PATH differs.
     operator_set = _local_host_name()

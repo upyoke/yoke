@@ -11,6 +11,7 @@ import pytest
 
 from runtime.api.domain.machine_operation_test_support import (
     MACHINE,
+    begin_operation,
     operation_request,
     run_operation,
 )
@@ -300,3 +301,23 @@ def test_capture_names_every_projects_golden_beside_it(
     assert submitted.result_payload["kept_golden_paths"] == sorted({destination, other})
     assert "kept_golden_paths_unknown" not in submitted.result_payload
 
+
+
+def test_capture_begin_protects_current_and_new_goldens(tmp_path, monkeypatch):
+    conn = make_conn()
+    configure_test_machine(conn, tmp_path, monkeypatch)
+    _declare_golden_baseline(conn)
+    other = "/Users/Shared/yoke-golden/tester-home-platform"
+    _register_in_second_project(
+        conn, json.dumps(validate_test_machine_settings(
+            {**TEST_MACHINE_SETTINGS, "golden_baseline_path": other}
+        )),
+    )
+
+    begun = begin_operation("golden_capture", control=FakeHostControl())
+
+    assert begun.primary_success, begun.error
+    destination = begun.result_payload["execution"]["golden_destination"]
+    assert begun.result_payload["kept_golden_paths"] == sorted({
+        GOLDEN_BASELINE_PATH, destination, other,
+    })

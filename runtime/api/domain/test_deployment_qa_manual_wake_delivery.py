@@ -33,7 +33,10 @@ from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     materialize_and_gate_deployment_qa_stage,
 )
-from yoke_core.domain.deployment_qa_manual_wake import ManualWakeRequirement
+from yoke_core.domain.deployment_qa_manual_wake import (
+    MANUAL_WAKE_RECHECK_INSTRUCTION,
+    ManualWakeRequirement,
+)
 from yoke_core.domain.deployment_qa_manual_notice import MANUAL_WAIT_PREFIX
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.work_claim_targets import make_item_target, make_steering_target
@@ -114,6 +117,7 @@ def test_parked_holder_gets_one_wake_per_manual_requirement(test_db: Any) -> Non
         assert EVIDENCE in body
         assert (f"yoke qa plan run --item {ref} --stage item-qa --project yoke") in body
         assert "schedule your next recheck for whenever the evidence" in body
+        assert MANUAL_WAKE_RECHECK_INSTRUCTION in body
         assert "parking refuses without one" in body
         assert "once you hold a scheduled recheck" in body
         assert "waiv" not in body

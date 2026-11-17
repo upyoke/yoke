@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "maintenance",
  "position": 0,
- "description": "Install and repair advice follows the connected hosted environment, or settings.distribution.origin for local and self-hosted connections. Missing distribution authority names the settings repair instead of choosing Production. Browser installation copy receives the command from the engine."
+ "description": "Install and repair advice follows the connected hosted environment, or settings.distribution.origin for local and self-hosted connections. Missing distribution authority names the settings repair instead of choosing Production. Browser installation copy receives the command from the engine. Self-host setup and paired upgrades resolve from settings.distribution.origin. Upgrades default to its recorded channel; --channel changes only the channel. The preview and JSON receipt expose the distribution origin. Explicit setup --image skips resolution."
 }

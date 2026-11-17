@@ -45,6 +45,7 @@ def conn() -> sqlite3.Connection:
             project_sequence INTEGER,
             status TEXT,
             merged_at TEXT,
+            merge_queue_pr_number TEXT,
             workflow_id TEXT,
             workflow_version_id INTEGER
         );
@@ -106,8 +107,8 @@ def conn() -> sqlite3.Connection:
     )
     for item_id, status in ((DEPENDENT, "implementing"), (BLOCKER, "implementing")):
         connection.execute(
-            "INSERT INTO items VALUES (?,?,?,?,?,?,?)",
-            (item_id, 1, item_id, status, None, "dash", WORKFLOW_VERSION),
+            "INSERT INTO items VALUES (?,?,?,?,?,?,?,?)",
+            (item_id, 1, item_id, status, None, None, "dash", WORKFLOW_VERSION),
         )
     connection.execute(
         "INSERT INTO work_claims VALUES (?,?,?,?,?,?)",

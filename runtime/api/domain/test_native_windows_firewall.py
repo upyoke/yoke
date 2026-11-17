@@ -29,7 +29,7 @@ def powershell(script, directory, timeout=300):
     )
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires native Windows PowerShell")
+@pytest.mark.windows_only(reason='requires native Windows PowerShell')
 def test_real_chunk_append_rejects_wrong_offset_and_preserves_prefix(tmp_path):
     from yoke_harness.native_windows.stdin_frame import frame_bytes, upload_received, upload_script
 

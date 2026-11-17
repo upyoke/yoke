@@ -184,24 +184,23 @@ def drain_watched_child(
     stall_abort_exit: int,
     outcome_only: bool = False,
 ) -> tuple[Optional[int], Optional[str], bool]:
-    """Drain *proc* stdout until exit, timeout, or nested-deadlock abort.
-
-    Returns ``(early_exit_code, last_summary, timed_out)``. When
-    *early_exit_code* is set the caller must return it immediately (abort
-    footer already written). Otherwise the caller waits on *proc* unless
-    *timed_out* is true.
-    """
+    """Drain until exit, timeout or stall; return (early_exit, summary, timed_out)."""
     assert proc.stdout is not None
     last_summary: Optional[str] = None
     timed_out = False
     progress_watch = ProgressEmitWatch.start(kind, now=clock())
     quiet_seconds = quiet_heartbeat_seconds(progress_watch.stall_seconds)
+    last_child_output_at = clock()
     with ChildSource(proc.stdout) as source:
         while True:
             now = clock()
             wait_seconds = progress_watch.next_wait_seconds(
                 now, quiet_seconds=quiet_seconds, deadline=deadline
             )
+            if kind == "fleet":
+                wait_seconds = min(
+                    wait_seconds, max(0.0, last_child_output_at + quiet_seconds - now)
+                )
             # A window that closes while the child is quiet still owes the
             # follower its digest, so the wait cannot outrun the window.
             due_in = digest.seconds_until_flush()
@@ -265,19 +264,21 @@ def drain_watched_child(
                     raw_f.write(timeout_line)
                     emit_immediate(timeout_line)
                     break
-                abort_exit = handle_quiet_period(
-                    root_pid=proc.pid,
-                    kind=kind,
-                    quiet_seconds=quiet_seconds,
-                    emit_immediate=emit_immediate,
-                    write_raw=raw_f.write,
-                    terminate_child=lambda: (
-                        process_group_reaping.terminate_process_group(proc)
-                    ),
-                    raw_capture=raw_capture,
-                    stall_abort_exit=stall_abort_exit,
-                    outcome_only=outcome_only,
-                )
+                abort_exit = None
+                if kind != "fleet" or now - last_child_output_at >= quiet_seconds:
+                    abort_exit = handle_quiet_period(
+                        root_pid=proc.pid,
+                        kind=kind,
+                        quiet_seconds=quiet_seconds,
+                        emit_immediate=emit_immediate,
+                        write_raw=raw_f.write,
+                        terminate_child=lambda: (
+                            process_group_reaping.terminate_process_group(proc)
+                        ),
+                        raw_capture=raw_capture,
+                        stall_abort_exit=stall_abort_exit,
+                        outcome_only=outcome_only,
+                    )
                 if abort_exit is not None:
                     _emit_classifier_held(
                         classifier,
@@ -289,6 +290,8 @@ def drain_watched_child(
                     )
                     return abort_exit, last_summary, False
             else:
+                if lines:
+                    last_child_output_at = now
                 for line in lines:
                     summary = _route_line(
                         line,
@@ -334,9 +337,7 @@ def drain_watched_child(
         emit_immediate=emit_immediate,
         partial=True,
     )
-    # Timeout stays in-band so the runner can write the normal summary +
-    # exit footer; only nested-deadlock abort returns an early exit code
-    # (handle_quiet_period already wrote that footer).
+    # Timeout stays in-band; stall abort already wrote the exit footer.
     return None, last_summary, timed_out
 
 

@@ -63,3 +63,20 @@ def parse_queue_members(
             return unreadable("entries.nodes.pullRequest.headRefName")
         members.append(QueueMember(str(number), head, node["state"]))
     return members, None
+
+
+MERGE_QUEUE_ENTRIES_QUERY = """
+query($owner: String!, $name: String!, $branch: String!) {
+  repository(owner: $owner, name: $name) {
+    mergeQueue(branch: $branch) {
+      entries(first: 50) {
+        pageInfo { hasNextPage }
+        nodes {
+          state
+          pullRequest { number headRefName }
+        }
+      }
+    }
+  }
+}
+"""

@@ -13,9 +13,9 @@ changes, pull requests, merges, or deployment gates.
 
 The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-24.04`), Ubuntu 24.04 arm64
 (`ubuntu-24.04-arm`), macOS 26 arm64 (`macos-latest`), and Windows Server 2025
-x86_64 (`windows-2025`). Windows runs through `--through status`: it proves
-wheel installation and the empty-machine status refusal. Onboarding and hook
-replay are not ported there. The full Windows and macOS suites are also
+x86_64 (`windows-2025`). Every job runs the same stages with the same
+assertions: install, status, onboard, hooks, dev-setup and source-tests
+(`runtime/api/tools/product_runner_stages.py`). The full Windows and macOS suites are also
 [on demand](multi-os-suite.md); neither adds a per-PR Windows check. Linux pins the
 [supported CI release](ci-shards.md). Available images are listed in
 [GitHub's runner image catalog](https://github.com/actions/runner-images) and
@@ -41,7 +41,7 @@ missing libraries through passwordless sudo and validated them afterwards;
 operator machine. macOS retains its ordinary browser setup path.
 
 Each job builds and installs the tree's product wheels into a fresh environment.
-Linux and macOS then onboard a Git project non-interactively into a fresh local universe with GitHub
+Every job then onboards a Git project non-interactively into a fresh local universe with GitHub
 adoption disabled, and replays native SessionStart and allowed/denied shell
 payloads through the exact commands in its installed `.claude/settings.json`,
 `.codex/hooks.json`, and `.cursor/hooks.json`. The proposed denied command is
@@ -56,7 +56,9 @@ UserPromptSubmit registered exactly one session (captures
 the harness's denial wire format and affirmative allow/deny evaluation receipts
 from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
 Claude denial uses exit 2 with the blocking reason on stderr; Codex and Cursor
-return their structured denial decisions on stdout.
+return their structured denial decisions on stdout. On Windows the replay runs
+the command each harness runs there: Codex's `commandWindows`, and the encoded
+PowerShell `command` for Claude and Cursor.
 Missing diagnostic telemetry means insufficient proof, not proof of a product
 fault. It then runs `yoke dev setup --editable-install` and a small
 `yoke watch pytest --local` subset through `uv run --frozen` in the source
@@ -64,8 +66,10 @@ environment. The product test cluster resolves already-installed embedded
 Postgres binaries, falling back to system PATH when none are installed. The
 pytest wrapper preserves executable access when it isolates machine config. The
 smoke uses a short disposable socket root, retains failed watcher/server
-captures, and stops that test cluster. Cleanup uninstalls the disposable local relay
-on macOS and Linux before stopping the local cluster and removing its scratch directory.
+captures, and stops that test cluster. Cleanup stops the resident hook evaluator and
+uninstalls the disposable local relay on every OS before stopping the local
+cluster and removing its scratch directory. Each cleanup step runs even when an
+earlier one fails, and none can replace the primary failure.
 
 Run through `qa.plan_execution.begin` using the standalone adapter:
 
@@ -93,8 +97,8 @@ and evidence. Each job uploads `product-smoke-evidence`: `report.json`, session
 and evaluation reads, exact command captures, and failure diagnostics.
 No hosted Yoke token, harness account, provider secret, or preinstalled relay
 supervisor is needed by the smoke jobs. Onboarding installs its own local
-relay: under launchd on macOS, and under the disposable account's systemd user
-manager on Linux. Harness login happens only when refreshing fixtures.
+relay: under launchd on macOS, under the disposable account's systemd user
+manager on Linux, and as a per-user Task Scheduler task on Windows. Harness login happens only when refreshing fixtures.
 Self-host bring-up and relay supervision are separate checks.
 
 ## Refresh native recordings

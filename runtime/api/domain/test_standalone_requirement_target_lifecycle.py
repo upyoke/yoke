@@ -96,7 +96,10 @@ def test_bound_item_case_reaches_gate_after_linked_review() -> None:
             actor_id="7",
             session_id="standalone-gate",
         )
-        assert execution["execution_target"]["environment"] == {"name": "local"}
+        assert execution["execution_target"]["environment"] == {
+            "name": "local",
+            "id": conn.execute("SELECT id FROM environments WHERE project_id=1 AND name='local'").fetchone()[0],
+        }
         with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
             added = qa_browser_writes.handle_qa_run_add(
                 FunctionCallRequest(

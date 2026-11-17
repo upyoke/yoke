@@ -46,7 +46,6 @@ from yoke_core.domain.deployment_runs_preview import (
     cmd_preview_claim,
     cmd_preview_release,
 )
-from yoke_core.domain.deployment_runs_schema_init import cmd_init
 from yoke_core.domain.deployment_runs_batch_compatibility import (
     cmd_check_batch_compatibility,
 )
@@ -64,11 +63,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     try:
-        if args.command == "init":
-            cmd_init()
-            return 0
-
-        elif args.command == "next-id":
+        if args.command == "next-id":
             print(cmd_next_id())
             return 0
 

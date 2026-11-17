@@ -321,7 +321,7 @@ def restore_missing_deployment_case_target(
     """Stamp the frozen destination onto an unbound case and its runner context."""
     from yoke_core.domain.qa_execution_environment_target import (
         require_requirement_target,
-        require_runtime_target,
+        require_environment_target_access,
     )
 
     try:
@@ -330,7 +330,7 @@ def restore_missing_deployment_case_target(
         raise ValueError(f"{MISSING_DIRECT_TARGET_REPAIR} ({exc})") from exc
     if bound is None:
         raise ValueError(MISSING_DIRECT_TARGET_REPAIR)
-    require_runtime_target(bound["target"])
+    require_environment_target_access(conn, bound["target"])
     require_requirement_target(context, bound["target"])
     context["execution_target"] = bound["target"]
     context["execution_target_digest"] = bound["digest"]

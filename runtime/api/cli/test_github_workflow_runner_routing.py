@@ -59,6 +59,16 @@ def test_product_smoke_remains_an_on_demand_four_runner_diagnostic():
         ("macos-latest", "macOS 26", "arm64"),
         ("windows-2025", "Windows 2025Server", "x86_64"),
     }
+    smoke_steps = {
+        step["if"]: step["run"]
+        for step in parse_document(body)["jobs"]["smoke"]["steps"]
+        if "product_runner_smoke.py" in step.get("run", "")
+        or "product_runner_linux_account.py" in step.get("run", "")
+    }
+    # Every leg runs the whole stage list: Linux through its disposable
+    # account, macOS and Windows directly; no leg stops at an early stage.
+    assert set(smoke_steps) == {"runner.os != 'Linux'", "runner.os == 'Linux'"}
+    assert not any("--through" in command for command in smoke_steps.values())
 
 
 def test_multi_os_suite_remains_an_on_demand_windows_and_macos_matrix():

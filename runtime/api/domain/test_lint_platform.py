@@ -22,6 +22,9 @@ pytestmark = pytest.mark.windows
     ('path.symlink_to(target)', 'symlink'),
     ('Path("/tmp")', 'tmp'),
     ('open(path)', 'encoding'),
+    ('open(path, "r")', 'encoding'),
+    ('path.open()', 'encoding'),
+    ('path.open("r")', 'encoding'),
     ('path.read_text()', 'encoding'),
     ('path.write_text("hello")', 'encoding'),
 ])
@@ -31,6 +34,7 @@ def test_flags_platform_calls(source, rule):
 
 @pytest.mark.parametrize('source', [
     'open(path, "rb")', 'open(path, mode="wb")',
+    'path.open("rb")', 'Path(x).open("a+b")', 'import gzip; gzip.open(f, "rb")',
     'open(path, encoding="utf-8")', 'path.read_text(encoding="utf-8")',
     'path.write_text("hi", encoding="utf-8")', 'import os; os.open(path, flags)',
     'import os\nif hasattr(os, "getuid"):\n os.getuid()',

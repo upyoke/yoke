@@ -116,7 +116,7 @@ def _stamp_requirement(
     if target is None:
         identity = _identity(conn, environment_id)
         target = environment_execution_target(
-            conn, identity, require_runtime_match=False
+            conn, identity
         )
     digest = target_digest(target)
     extra = {}

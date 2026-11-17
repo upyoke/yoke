@@ -27,7 +27,7 @@ def registration_failure_stdout(
     reason: str, *, event_name: str = "SessionStart"
 ) -> str:
     """Keep registration recovery in the same budgeted harness envelope."""
-    if not reason:
+    if not reason or reason in {"registered", "exists"} or reason.startswith("skipped:"):
         return ""
     from yoke_contracts.runtime_ports.hook_decision_render import get_hook_decision_render
     render_context_stdout = get_hook_decision_render().render_context_stdout
@@ -76,7 +76,7 @@ def _source_orientation(session_id, root, registration_failed, required):
         REQUIRED_LINES_KEY,
     )
 
-    if registration_failed:
+    if registration_failed and registration_failed not in {"registered", "exists"} and not registration_failed.startswith("skipped:"):
         required.append(f"WARNING: Session registration failed: {registration_failed}")
         required.append(
             _connected_env_remediation(registration_failed)

@@ -22,7 +22,7 @@ import psycopg
 import os
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional, Sequence
 
 from yoke_core.domain.process_group_reaping import descendant_pids
@@ -241,6 +241,13 @@ def handle_quiet_period(
     exit sentinel until the runner has written the final failure result.
     """
     report = diagnose_quiet_run(root_pid)
+    if kind == "fleet":
+        report = replace(
+            report,
+            reason="fleet_probe_stalled",
+            abort=True,
+            detail=f"waiting_on={report.waiting_on}; {report.detail}".rstrip("; "),
+        )
     heartbeat = report.heartbeat_line(kind=kind, quiet_seconds=quiet_seconds)
     if kind == "fleet":
         write_raw(heartbeat)

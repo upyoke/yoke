@@ -118,7 +118,8 @@ def test_opening_the_pull_request_binds_this_machines_github_authority(
     monkeypatch.setattr(
         "yoke_core.domain.merge_queue_landing_pull_request.ensure_landing_pull_request",
         lambda _ctx, _ref, lane_head="", item_public_ref="": (
-            ("213", None) if bound == ["enter"] and item_public_ref else ("", "unbound")
+            ("213", None, "") if bound == ["enter"] and item_public_ref
+            else ("", "unbound", "")
         ),
     )
 

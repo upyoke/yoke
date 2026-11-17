@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from yoke_contracts.browser_qa_contract import (
     browser_method_contract_violation,
 )
+
+_BASE_URL_IDENTIFIER = re.compile(r"(?<![A-Za-z0-9_])BASE_URL(?![A-Za-z0-9_])")
 
 
 class QaMethodConfigError(ValueError):
@@ -182,12 +185,12 @@ def validate_method_config(
             raise QaMethodConfigError("Command requires_base_url must be true or false")
         if (
             config_contract_id == "command"
-            and "BASE_URL" in config["command"]
+            and _BASE_URL_IDENTIFIER.search(config["command"])
             and requires_base_url is not True
         ):
-            # The runner injects BASE_URL only for a case that declares it,
-            # so a probe reading it without the declaration does not fail --
-            # it silently falls through to whatever default it hardcodes,
+            # The runner exports BASE_URL whenever a URL is supplied. Without
+            # the declaration, a reader may run without a URL and silently
+            # fall through to whatever default it hardcodes,
             # and quietly tests a different environment than the one the
             # stage deployed. Catch that while the case is still editable.
             raise QaMethodConfigError(

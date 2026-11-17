@@ -1,4 +1,4 @@
-"""Faked Azure CLI proof for start, rebinding and last-lease deallocation."""
+"""Faked Azure CLI proof for start, disposable public IPs and last-lease deallocation."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ pytestmark = pytest.mark.windows
 ID = "/subscriptions/sub/resourceGroups/lab/providers/Microsoft.Compute/virtualMachines/vm"
 SETTINGS = {
     "resource_name": "azure-lab",
-    "host": "192.0.2.1",
+    "host": "azure-lab.example.ts.net",
     "user": "test",
     "os": "linux",
     "operating_notes": "",
@@ -37,8 +37,42 @@ SETTINGS = {
 OK = CommandResult(0, "", "")
 
 
-def details(state="VM running", address=SETTINGS["host"]):
-    return CommandResult(0, json.dumps({"powerState": state, "publicIps": address}), "")
+NIC_ID = "/subscriptions/sub/resourceGroups/lab/providers/Microsoft.Network/networkInterfaces/nic"
+IP_ID = "/subscriptions/sub/resourceGroups/lab/providers/Microsoft.Network/publicIPAddresses/vm-yoke-power"
+CONFIG_ID = NIC_ID + "/ipConfigurations/primary"
+
+
+def data(value):
+    return CommandResult(0, json.dumps(value), "")
+
+
+def details(state="VM running"):
+    return data(
+        {
+            "powerState": state,
+            "location": "eastus",
+            "networkProfile": {
+                "networkInterfaces": [{"id": NIC_ID}],
+            },
+        }
+    )
+
+
+def nic(attached=False):
+    return data(
+        {
+            "ipConfigurations": [
+                {
+                    "id": CONFIG_ID,
+                    "publicIPAddress": {
+                        "id": IP_ID,
+                    }
+                    if attached
+                    else None,
+                }
+            ]
+        }
+    )
 
 
 @pytest.fixture
@@ -68,67 +102,117 @@ def controller(monkeypatch):
     return calls
 
 
-def test_start_rebinds_current_public_ip_before_login(controller):
+def test_start_attaches_disposable_ip_and_keeps_magicdns(controller):
     runner = FakeRunner(
-        [details("VM deallocated"), OK, details(), details(address="192.0.2.2")]
+        [details("VM deallocated"), details(), nic(), OK, OK, OK, details()]
     )
-    result = power.power_on("project", SETTINGS, runner=runner, emit=lambda _: None)
-    assert result["host"] == "192.0.2.2"
-    assert [call["argv"][2] for call in runner.calls] == [
-        "show",
-        "start",
-        "show",
-        "show",
+    assert (
+        power.power_on("project", SETTINGS, runner=runner, emit=lambda _: None) is None
+    )
+    actions = [call["argv"][1:3] for call in runner.calls]
+    assert actions == [
+        ["vm", "show"],
+        ["vm", "show"],
+        ["network", "nic"],
+        ["network", "public-ip"],
+        ["network", "nic"],
+        ["vm", "start"],
+        ["vm", "show"],
     ]
-    assert [fn for fn, _ in controller][-2:] == ["test_machine.host_rebind", "ssh"]
-    assert controller[-1][1]["host"] == result["host"]
+    assert "Standard" in runner.calls[3]["argv"]
+    assert IP_ID in runner.calls[4]["argv"]
+    assert [fn for fn, _ in controller] == ["projects.capability_settings.get", "ssh"]
+    assert controller[-1][1]["host"] == SETTINGS["host"]
     assert all(
         call["env"]["AZURE_CONFIG_DIR"] == "private-test-cache" for call in runner.calls
     )
 
 
-def test_running_azure_machine_refreshes_address_without_start_or_login(controller):
-    runner = FakeRunner([details(), details()])
+def test_running_azure_machine_keeps_existing_power_ip_without_start_or_login(
+    controller,
+):
+    runner = FakeRunner([details(), details(), nic(True)])
     assert (
-        power.power_on("project", SETTINGS, runner=runner, emit=lambda _: None)
-        == SETTINGS
+        power.power_on("project", SETTINGS, runner=runner, emit=lambda _: None) is None
     )
-    assert [call["argv"][2] for call in runner.calls] == ["show", "show"]
     assert not any(fn == "ssh" for fn, _ in controller)
+    assert not any("start" in call["argv"] for call in runner.calls)
 
 
-def test_last_release_deallocates_a_stopped_but_allocated_vm(controller):
-    runner = FakeRunner([details("VM stopped"), OK])
+def test_last_release_deallocates_detaches_and_deletes_ip(controller):
+    runner = FakeRunner(
+        [
+            details("VM stopped"),
+            OK,
+            details("VM deallocated"),
+            nic(True),
+            OK,
+            data([{"id": IP_ID}]),
+            OK,
+        ]
+    )
     stop_released(
         [{"project": "project", "test_machine": "azure-lab"}],
         runner=runner,
         emit=lambda _: None,
     )
-    assert [call["argv"][2] for call in runner.calls] == ["show", "deallocate"]
+    assert runner.calls[1]["argv"][1:3] == ["vm", "deallocate"]
+    assert "--remove" in runner.calls[4]["argv"]
+    assert runner.calls[-1]["argv"][1:4] == ["network", "public-ip", "delete"]
     assert controller[-1][0] == "claims.coordination_claim.release"
 
 
-def test_no_public_ip_refuses_before_ssh(controller):
-    with pytest.raises(HostControlLocalError) as error:
-        power.power_on(
-            "project",
-            SETTINGS,
-            runner=FakeRunner([details(), details(address="")]),
-            emit=lambda _: None,
-        )
-    assert error.value.code == "test_machine_power_no_public_address"
-    assert "yoke azure exec" in error.value.recovery_hint
-    assert not any(fn == "ssh" for fn, _ in controller)
+def test_failed_delete_is_reported_and_releases_shutdown_hold(controller):
+    runner = FakeRunner(
+        [
+            details("VM deallocated"),
+            details("VM deallocated"),
+            nic(),
+            data([{"id": IP_ID}]),
+            CommandResult(1, "", "delete denied"),
+        ]
+    )
+    messages = []
+    stop_released(
+        [{"project": "project", "test_machine": "azure-lab"}],
+        runner=runner,
+        emit=messages.append,
+    )
+    assert any(
+        "test_machine_power_stop_failed" in line and "delete denied" in line
+        for line in messages
+    )
+    assert controller[-1][0] == "claims.coordination_claim.release"
+
+
+def test_already_deallocated_vm_finishes_interrupted_ip_cleanup():
+    runner = FakeRunner(
+        [
+            details("VM deallocated"),
+            details("VM deallocated"),
+            nic(),
+            data([{"id": IP_ID}]),
+            OK,
+        ]
+    )
+    AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None).stop()
+    assert runner.calls[-1]["argv"][1:4] == ["network", "public-ip", "delete"]
+    assert not any("deallocate" in call["argv"] for call in runner.calls)
 
 
 def test_failed_start_names_azure_recovery(controller):
+    runner = FakeRunner(
+        [
+            details("VM stopped"),
+            details(),
+            nic(),
+            OK,
+            OK,
+            CommandResult(1, "", "Denied"),
+        ]
+    )
     with pytest.raises(HostControlLocalError) as error:
-        power.power_on(
-            "project",
-            SETTINGS,
-            runner=FakeRunner([details("VM stopped"), CommandResult(1, "", "Denied")]),
-            emit=lambda _: None,
-        )
+        power.power_on("project", SETTINGS, runner=runner, emit=lambda _: None)
     assert "Denied" in str(error.value)
     assert "azure exec" in error.value.recovery_hint
 
@@ -138,18 +222,41 @@ def test_waits_for_an_inflight_deallocation_before_start():
         [
             details("VM deallocating"),
             details("VM deallocated"),
-            OK,
             details(),
+            nic(),
+            OK,
+            OK,
+            OK,
             details(),
         ]
     )
     provider = AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None)
     assert provider.start() == "VM deallocating"
-    assert provider.address() == SETTINGS["host"]
+    assert runner.calls[6]["argv"][1:3] == ["vm", "start"]
+
+
+def test_unmanaged_static_ip_names_rollout_recovery():
+    runner = FakeRunner(
+        [
+            details(),
+            data(
+                {
+                    "ipConfigurations": [
+                        {"id": CONFIG_ID, "publicIPAddress": {"id": "permanent"}}
+                    ]
+                }
+            ),
+        ]
+    )
+    provider = AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None)
+    with pytest.raises(
+        AzureAdminError, match="unmanaged public IP.*operator exception"
+    ):
+        provider._attach_public_ip()
 
 
 def test_power_transition_timeout_names_recovery():
-    runner = FakeRunner([details("VM starting")])
+    runner = FakeRunner([details("VM starting"), details(), nic(True)])
     clock = iter([0, 601])
     provider = AzureMachinePower(
         runner, ("az",), {}, ID, "project", lambda _: None, clock=lambda: next(clock)
@@ -209,3 +316,15 @@ def test_fleet_report_names_cloud_provider(monkeypatch):
     lines = fleet.test_machine_lines(fleet.read_test_machines(conn, 1))
     assert "azure-lab (OS: linux · azure)" in lines[0]
     assert "aws-lab (OS: linux · aws)" in lines[0]
+
+
+@pytest.mark.parametrize("instance_id", [ID, ID.lower(), ID.upper()])
+def test_power_accepts_resource_id_casing_allowed_by_settings(instance_id):
+    runner = FakeRunner([details(), details(), nic(), OK, OK])
+    provider = AzureMachinePower(
+        runner, ("az",), {}, instance_id, "project", lambda _: None
+    )
+    assert provider.public_ip_id.lower() == IP_ID.lower()
+    assert provider.start() == "running"
+    create = runner.calls[3]["argv"]
+    assert create[create.index("--resource-group") + 1].lower() == "lab"

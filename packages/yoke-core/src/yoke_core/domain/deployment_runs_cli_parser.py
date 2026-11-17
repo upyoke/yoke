@@ -17,8 +17,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="command")
 
-    sub.add_parser("init", help="Create tables if not exist")
-
     sub.add_parser("next-id", help="Generate next run ID for today")
 
     cr = sub.add_parser("create-run", help="Create a new deployment run")

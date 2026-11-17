@@ -87,7 +87,7 @@ def test_installer_relay_uses_real_resolver_and_installation_token(
     minter.assert_called_once()
     rest.assert_called_once_with(
         "upyoke/yoke", title="Install Yoke", head="yoke-install/abc123def456",
-        base="main", body=None, draft=False, token="ghs_install",
+        base="main", body=None, token="ghs_install",
     )
 
 

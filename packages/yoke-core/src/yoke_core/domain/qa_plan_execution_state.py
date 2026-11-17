@@ -27,7 +27,6 @@ from yoke_core.domain.qa_plan_execution_store import (
     plan_execution_view,
     select_plan_execution,
 )
-from yoke_core.domain.qa_plan_execution_target_snapshot import require_execution_target
 from yoke_core.domain.qa_plan_execution_roster import expected_plan_case
 from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 
@@ -80,7 +79,9 @@ def advance_plan_execution(
         return case
     if execution["state"] != "active":
         raise QaPlanExecutionStateError("QA plan execution is not active")
-    require_execution_target(execution)
+    from yoke_core.domain.qa_environment_served_build import observe_execution
+
+    observe_execution(conn, execution)
 
     now = utc_now()
     conn.execute(

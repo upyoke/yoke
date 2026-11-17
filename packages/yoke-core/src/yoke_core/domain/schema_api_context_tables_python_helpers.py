@@ -152,11 +152,12 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
         "columns": [("ensure_merge_queue_landing_record_schema", "callable")],
         "notes": (
             "This production schema owner creates merge_queue_landing_records, "
-            "merge_queue_landing_attempts and merge_queue_landing_refreshes. Wrong guess: the relaxed test_db "
-            "fixture already contains these landing tables or the recovery column. "
-            "Deployment admission reads open attempts, including in partial fixtures. "
-            "Call this owner before admission or converting landing clocks in a test; "
-            "do not invent replacement table DDL or apply schema to a live database."
+            "merge_queue_landing_attempts and merge_queue_landing_refreshes. "
+            "Wrong guess: relaxed test_db or item_page_reads_test_support already "
+            "contains landing tables. Item overview next_actor_facts also reads "
+            "items.merged_at and item_landings (ensure_item_landings_schema). "
+            "Call the production owners in fixtures before reads; never invent "
+            "replacement table DDL or apply schema to a live database."
         ),
     },
     "yoke_core.domain.project_identity": {

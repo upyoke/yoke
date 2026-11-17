@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,7 @@ import pytest
 from yoke_contracts import windows_private_directory
 
 
-pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows DACL contract")
+pytestmark = pytest.mark.windows_only(reason='Windows DACL contract')
 
 
 def test_owner_private_directory_is_accepted(tmp_path: Path) -> None:

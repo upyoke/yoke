@@ -119,6 +119,8 @@ def check_queue_gates(readiness: Any, *, item: dict[str, Any], head: str) -> Non
     if error:
         readiness.merge_will.append(f"recheck pull request {pr_num}: {error}")
         return
+    if state is not None and state.draft:
+        readiness.merge_will.append(f"mark PR {pr_num} ready for review")
     if state is not None and (
         state.merged or (not state.closed and state.auto_merge_active)
     ):

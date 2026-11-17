@@ -43,14 +43,12 @@ _FLOW_INIT_MODULE = "yoke_core.domain.flow"
 
 INIT_MODULE_CHAIN: tuple = (
     "yoke_core.domain.schema",
-    "yoke_core.domain.shepherd",
     "yoke_core.domain.projects",
     "yoke_core.domain.project_structure_cli",
     _FLOW_INIT_MODULE,
     "yoke_core.domain.events_crud",
     "yoke_core.domain.qa",
-    "yoke_core.domain.deployment_runs",
-    # Finalize the progress view after QA/deployment tables exist. The first
+    # Finalize the progress view after the QA tables exist. The first
     # flow pass creates the tables needed by later modules; this idempotent
     # second pass replaces its bootstrap fallback with the full canonical view.
     _FLOW_INIT_MODULE,

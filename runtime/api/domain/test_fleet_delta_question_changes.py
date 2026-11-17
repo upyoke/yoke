@@ -59,7 +59,11 @@ def test_the_session_id_is_resolved_from_ambient_identity(monkeypatch: Any) -> N
     seen.append(out.getvalue())
     # Only the envelope addressed to the resolved session is reported, and
     # the second pass is what compares it against the first.
-    assert seen[0] == (f"fleet inbox m state=pending from=w\n{REPORT_DIGEST}\n")
+    assert seen[0] == (
+        f"fleet inbox m state=pending from=w\n{REPORT_DIGEST}\n"
+        "fleet pass 2026-08-28T17:01:00+00:00\n"
+        "fleet pass 2026-08-28T17:02:00+00:00\n"
+    )
 
 
 def test_question_edges_request_a_report_before_cooldown():

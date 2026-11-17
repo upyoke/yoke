@@ -30,9 +30,6 @@ from yoke_core.domain.qa_plan_execution_store import (
     lock_plan_execution,
     marker,
 )
-from yoke_core.domain.qa_plan_execution_target_snapshot import (
-    require_execution_target,
-)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -57,7 +54,9 @@ def heartbeat_plan_execution(
         execution["state"] == "waiting" and abort_request(execution)
     ):
         raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
-    require_execution_target(execution)
+    from yoke_core.domain.qa_environment_served_build import observe_execution
+
+    observe_execution(conn, execution)
     from yoke_core.domain.qa_plan_execution_reentry import (
         require_execution_custody,
         heartbeat_checkpoint,

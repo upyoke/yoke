@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 import asyncio
 from typing import Any
@@ -82,10 +82,14 @@ class PathFlow:
                 plan = {**plan, "login_verified": True, "login_resolved": resolved}
             missing = [tool for tool in path_doctor.TOOLS if not resolved.get(tool)]
             if missing:
+                try:
+                    recovery = f"Run the installer again: {install_command()}"
+                except InstallOriginUnavailable as exc:
+                    recovery = f"{exc}; then run the installer again"
                 raise RuntimeError(
                     "install_required_tool_missing: a fresh login shell cannot find "
                     + ", ".join(missing)
-                    + f". Run the installer again: {install_command()}; "
+                    + f". {recovery}; "
                     "then open a new terminal and retry Install."
                 )
             if not plan.get("login_verified"):

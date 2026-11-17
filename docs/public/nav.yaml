@@ -208,6 +208,7 @@ root:
         path: verification/test-machines/index.md
         children:
           - {title: "Host provisioning", summary: "Choose an OS procedure and declare the project-owned host inventory.", path: "verification/test-machines/host-provisioning.md"}
+          - {title: "Tailnet bootstrap", summary: "Start cloud labs, join Tailscale and approve stable MagicDNS identities.", path: "verification/test-machines/tailnet-bootstrap.md"}
           - {title: "Setup responsibilities", summary: "Separate agent actions from personal credential entry.", path: "verification/test-machines/setup-responsibilities.md"}
           - {title: "Administrator commands", summary: "Use stored host credentials for bounded administrator commands.", path: "verification/test-machines/administrator-commands.md"}
           - {title: "macOS host provisioning", summary: "Prepare the test account, privacy permissions and terminal control.", path: "verification/test-machines/macos-host-provisioning.md"}
@@ -218,6 +219,7 @@ root:
           - {title: "Linux live state", summary: "Preserve live harness installations and recover reset state.", path: "verification/test-machines/linux-live-state.md"}
           - {title: "Codex on Linux", summary: "Configure scoped sandbox posture and recover embedded helpers.", path: "verification/test-machines/codex-on-linux.md"}
           - {title: "Windows host provisioning", summary: "Prepare a Windows test account and the WSL desktop route.", path: "verification/test-machines/windows-host-provisioning.md"}
+          - {title: "WSL desktop provisioning", summary: "Prepare XFCE, Chromium and unattended WSL desktop access.", path: "verification/test-machines/windows-desktop-provisioning.md"}
           - {title: "WSL browser identities", summary: "Authorize browser identities in the WSL test desktop.", path: "verification/test-machines/windows-wsl-browser-identities.md"}
           - {title: "Native Windows host provisioning", summary: "Prepare a Windows lab profile, native desktop and lease recovery journal.", path: "verification/test-machines/windows-native-host-provisioning.md"}
           - {title: "Native Windows provisioning recovery", summary: "Recover bounded administrator SSH, partial key ACLs and RDP setup.", path: "verification/test-machines/windows-native-provisioning-recovery.md"}

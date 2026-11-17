@@ -39,6 +39,7 @@ def _register_in_process(
     native_thread_id: Optional[str] = None,
     driver: Optional[dict] = None,
     launch_id: Optional[str] = None,
+    first_user_prompt: bool = False,
 ) -> str:
     """Direct domain registration for server-side (remote) contexts.
 
@@ -57,6 +58,7 @@ def _register_in_process(
     ``execution_level`` is an explicit choice that wins when it names a
     real level.
     """
+    conn = None
     try:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.sessions_lifecycle_registry import register_session
@@ -94,17 +96,45 @@ def _register_in_process(
                 native_thread_id=native_thread_id,
                 driver=driver,
                 launch_id=launch_id,
+                first_user_prompt=first_user_prompt,
                 **level_kwargs,
             )
-        finally:
+        except SessionError as exc:
+            if exc.code == "SESSION_EXISTS":
+                return "exists"
+            raise
+        return "registered"
+    except Exception as exc:  # registration fails open, with durable refusal evidence
+        code = exc.code if isinstance(exc, SessionError) else "SESSION_REGISTRATION_FAILED"
+        refuse_registration(session_id, code, str(exc), conn=conn)
+        return f"refused:{code}"
+    finally:
+        if conn is not None:
             conn.close()
-        return ""
-    except SessionError as exc:
-        if exc.code == "SESSION_EXISTS":
-            return ""
-        return f"{exc.code}: {exc}"
-    except Exception as exc:  # noqa: BLE001 — best-effort net, mirror the wrapper
-        return str(exc)
 
 
-__all__ = ["_register_in_process"]
+def refuse_registration(session_id: str, code: str, reason: str, *, conn=None) -> None:
+    if conn is not None:
+        try:
+            conn.rollback()  # recover Postgres before writing the refusal event
+        except Exception:
+            conn = None
+    try:
+        emit_registration_refused(session_id, code, reason, conn=conn)
+    except Exception:
+        pass  # the hook response retains the refusal when telemetry is unavailable
+
+
+def emit_registration_refused(session_id: str, code: str, reason: str, *, conn=None) -> None:
+    from yoke_core.domain.events import emit_event
+
+    emit_event(
+        "SessionRegistrationRefused", event_kind="system", event_type="session_lifecycle",
+        source_type="hook", severity="WARN", outcome="refused", session_id=session_id,
+        context={"code": code, "outcome": f"refused:{code}", "reason": reason,
+                 "recovery": "repair the named registration cause and retry the hook"},
+        conn=conn,
+    )
+
+
+__all__ = ["_register_in_process", "emit_registration_refused", "refuse_registration"]

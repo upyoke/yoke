@@ -68,11 +68,15 @@ def test_stalled_readback_and_readiness_are_not_admitted():
     assert "push a new commit" in readback.recovery(target="main")
     assert "startup_failure" in readback.recovery(target="main")
     readiness = classify_readiness(
-        pr_number="42", target="main", state=state, required_checks=()
+        pr_number="42",
+        target="main",
+        state=state,
+        required_checks=(),
+        missing_checks=("signature-check",),
     )
     assert readiness.landing_state == "not_in_flight"
     assert readiness.needs_action
-    assert "missing-required-checks=unknown" in readiness.describe()
+    assert "missing-required-checks=signature-check" in readiness.describe()
 
 
 @pytest.mark.parametrize(
@@ -92,7 +96,9 @@ def test_stalled_readback_and_readiness_are_not_admitted():
     ],
 )
 def test_only_a_known_blocked_idle_landing_alarms(changes, checks):
-    assert not missing_checks_stalled(stalled_state(**changes), checks)
+    assert not missing_checks_stalled(
+        stalled_state(**changes), checks, ("signature-check",)
+    )
 
 
 @pytest.mark.parametrize(
@@ -132,18 +138,11 @@ def test_missing_names_from_rulesets_or_classic(monkeypatch, rules, classic):
         return SimpleNamespace(body=body)
 
     assert read_missing_check_names(None, "release/main", (), request=request) == (
-        "signature-check",
+        ("signature-check",),
+        None,
     )
     assert len(paths) == 2
     assert all("release%2Fmain" in path for path in paths)
-
-
-def test_unreadable_names_do_not_suppress_alarm(monkeypatch):
-    import yoke_core.domain.merge_github_queue as github
-
-    monkeypatch.setattr(github, "resolve_auth_detail", lambda *_: (None, "denied"))
-    assert read_missing_check_names(None, "main", ()) is None
-    assert missing_checks_stalled(stalled_state(), ())
 
 
 def test_observer_sends_one_notice_per_head_without_disarming(monkeypatch):
@@ -161,7 +160,7 @@ def test_observer_sends_one_notice_per_head_without_disarming(monkeypatch):
     import yoke_core.domain.merge_queue_missing_checks as missing
 
     monkeypatch.setattr(
-        missing, "read_missing_check_names", lambda *_: ("signature-check",)
+        missing, "read_missing_check_names", lambda *_: (("signature-check",), None)
     )
     monkeypatch.setattr(missing, "read_active_workflow_run", lambda *_: None)
     conn = observer_connection()
@@ -211,7 +210,7 @@ def test_admission_reuses_the_existing_check_projection_clock(monkeypatch):
     assert calls == ["projection"]
 
 
-def test_readiness_only_reads_names_after_detection(monkeypatch):
+def test_readiness_reads_names_to_decide_stall(monkeypatch):
     import yoke_core.domain.merge_queue_missing_checks as missing
     import yoke_core.domain.merge_queue_readiness as readiness
 
@@ -223,7 +222,7 @@ def test_readiness_only_reads_names_after_detection(monkeypatch):
 
     def names(*_):
         calls.append("names")
-        return ("signature-check",)
+        return ("signature-check",), None
 
     monkeypatch.setattr(missing, "read_missing_check_names", names)
     monkeypatch.setattr(missing, "read_active_workflow_run", lambda *_: None)
@@ -245,7 +244,10 @@ def test_grace_boundary_uses_the_arming_clock(offset, expected):
         auto_merge_enabled_at=FIXED_NOW
         - timedelta(seconds=LANDING_RECORD_STALE_SECONDS + offset)
     )
-    assert missing_checks_stalled(state, (), now=FIXED_NOW) is expected
+    assert (
+        missing_checks_stalled(state, (), ("signature-check",), now=FIXED_NOW)
+        is expected
+    )
 
 
 def queued_run(age_seconds, status="queued"):
@@ -282,7 +284,11 @@ def test_stalled_readback_with_queued_run_reports_queued():
     assert "queued since" in readback.recovery(target="main")
     readiness = replace(
         classify_readiness(
-            pr_number="42", target="main", state=stalled_state(), required_checks=()
+            pr_number="42",
+            target="main",
+            state=stalled_state(),
+            required_checks=(),
+            missing_checks=("signature-check",),
         ),
         active_run=queued_run(60),
     )
@@ -312,7 +318,9 @@ def test_active_run_read_by_head_picks_oldest_unfinished(monkeypatch):
     run = read_active_workflow_run(None, "cd" * 20, request=request)
     assert (run.name, run.status) == ("sig", "queued")
     assert run.since == datetime(2026, 11, 9, 11, tzinfo=timezone.utc)
-    assert seen == [("/repos/o/r/actions/runs", {"head_sha": "cd" * 20, "per_page": "100"})]
+    assert seen == [
+        ("/repos/o/r/actions/runs", {"head_sha": "cd" * 20, "per_page": "100"})
+    ]
 
 
 def test_unreadable_runs_keep_the_startup_advice(monkeypatch):

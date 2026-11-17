@@ -54,7 +54,7 @@ def test_registrar_bool_shape_does_not_supply_executor(
 
     hook_registration_tail.apply_hook_session_tail(
         object(),
-        ensure_session=("s", "{}", "", True, "", True, False, None, None),
+        ensure_session=("s", "{}", "", True, "", True, False, None, None, False),
         observed_session=("s", "{}", "codex", True),
     )
 
@@ -85,7 +85,7 @@ def test_registration_fact_failures_do_not_suppress_usage(monkeypatch, failure):
 
     hook_registration_tail.apply_hook_session_tail(
         object(),
-        ensure_session=("s", "{}", "", True, "", True, False, None, None),
+        ensure_session=("s", "{}", "", True, "", True, False, None, None, False),
         observed_session=("s", "{}", "claude", True),
     )
 

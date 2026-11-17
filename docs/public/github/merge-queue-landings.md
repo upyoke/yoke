@@ -41,8 +41,11 @@ gate (`merge.preflight.dependency_gate`). Queue admission only sees
 predecessors that are queue members, so this gate is what keeps an item from
 enqueuing while a predecessor is still being implemented. A blocked gate
 refuses with `integration_dependency_blocked`, naming each predecessor and its
-status; nothing is armed or enqueued. Wait for the predecessor's landing
-notice, then re-run the same command. A gate that cannot be read refuses with
+status; nothing is armed or enqueued. When that is the only blocker, the
+command first pushes the lane and opens (or reuses) and records its landing
+pull request, then prints it before the refusal; any other blocker refuses
+with nothing published, and `--check` never publishes. Wait for the
+predecessor's landing notice, then re-run the same command. A gate that cannot be read refuses with
 `integration_dependency_gate_unavailable` rather than landing.
 
 Control-plane upkeep reads the registered pull request about once a minute.
@@ -94,10 +97,13 @@ seconds before refusing.
 
 An armed PR with no queue entry can also stop when a required check never
 reports. After two refresh intervals from `autoMergeRequest.enabledAt`, a
-`BLOCKED` PR with no pending or failed required check becomes `STALLED`.
-The readback and stopped notice show `missing-required-checks=<names>` from
-rulesets and classic branch protection, or `missing-required-checks=unknown`
-if those names cannot be read. The alarm does not depend on reading names.
+`BLOCKED` PR with no pending or failed required check becomes `STALLED` only
+when rulesets and classic branch protection were read and name a required
+check absent from the head. The readback and stopped notice show
+`missing-required-checks=<names>`. If every required check reported, the
+armed landing remains admitted while GitHub re-forms its entry. A failed
+protection read reports `required_checks_unreadable` with the read error:
+restore protection/ruleset read access, then re-run observation.
 Merge-when-ready stays armed. A queued workflow run has no jobs, so no
 check runs: the stopped readback also lists the head commit's workflow runs,
 and while one is `queued` or `in_progress` for less than two hours its advice

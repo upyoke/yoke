@@ -18,12 +18,18 @@ This read reports landing blockers and their recovery without landing.
 Readiness covers the workflow stage, work claim, committed lane, integration
 dependencies, required QA, post-deploy QA answer, candidate review, and merge
 policy. Fix each named blocker before retrying.
+A draft landing PR is ready to land: the report says `mark PR N ready for review`
+under `merge_will`, and changes nothing.
 
 ## Land and record evidence
 
 ```text
 yoke merge item PREFIX-N --result "What changed" --verification "Passing evidence"
 ```
+
+The merge marks a draft landing PR ready for review before arming, enqueueing,
+or merging it. If GitHub refuses, `pr_ready_for_review_failed` names the reason
+and recovery; no arm, enqueue or merge follows that refusal.
 
 Provide concrete result and verification text. `--verification-status`
 accepts `approved`, `completed`, `passed`, or `satisfied`.

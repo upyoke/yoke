@@ -38,6 +38,7 @@ def _usage_drift(text: str) -> tuple[list[str], list[str]]:
         return [], []
     # Flags after a bare `--` pass through to another program, not this parser.
     own_usage = re.split(r"\s--(?:\s|$)", usage.group(1), maxsplit=1)[0]
+    shared = {"--help", "--full", "--section", "--json", "--session-id"}
     named = set(_FLAG.findall(own_usage)) - {"--help"}
     listed = {
         flag
@@ -45,7 +46,7 @@ def _usage_drift(text: str) -> tuple[list[str], list[str]]:
         if (m := _OPTION.match(line))
         for flag in _FLAG.findall(m.group(1))
     } - {"--help"}
-    return sorted(listed - named), sorted(named - listed)
+    return sorted(listed - named - shared), sorted(named - listed)
 
 
 def advertised_flags(usage):
@@ -107,9 +108,25 @@ def assert_adapter_usage(monkeypatch, adapter, routes) -> None:
     if parser.prog in commands:
         accepted_commands.add(parser.prog)
     for usage in sorted(usages):
-        missing = flags - set(re.findall(r"(?<![\w-])--?[\w-]+", usage))
+        # Recipes may show several command forms, then explanatory prose.
+        forms = (
+            line.strip()
+            for line in usage.splitlines()
+            if line.lstrip().startswith("yoke ")
+        )
+        synopsis = " ".join(
+            re.split(r"\s--(?:\s|$)", form, maxsplit=1)[0] for form in forms
+        )
+        named = set(re.findall(r"(?<![\w-])--?[A-Za-z0-9][\w-]*", synopsis))
+        missing = flags - named
+        accepted = set(parser._option_string_actions)
+        shared = {"--full", "--section", "--json", "--session-id"}
+        unsupported = named - accepted - shared
         prefix = re.match(r"yoke(?: [a-z][a-z0-9-]*)*", usage)
         named_command = prefix.group() if prefix else ""
-        if missing or named_command not in accepted_commands:
-            failures.append(f"{adapter.__name__}: missing={sorted(missing)}; {usage}")
+        if missing or unsupported or named_command not in accepted_commands:
+            failures.append(
+                f"{adapter.__name__}: missing={sorted(missing)}; "
+                f"unsupported={sorted(unsupported)}; {usage}"
+            )
     assert not failures, "\n".join(failures)

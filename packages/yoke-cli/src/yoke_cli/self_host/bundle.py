@@ -22,6 +22,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from yoke_cli.config import distribution
 from yoke_cli.self_host import first_boot_token
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
@@ -113,11 +114,14 @@ def write_bundle(
     matched_release = None
     if image is None:
         try:
-            matched_release = (
-                release_target.current_release_target(image_repository=image_repository)
-                if image_repository is not None
-                else release_target.current_release_target()
+            matched_release = release_target.current_release_target(
+                base_url=distribution.recorded()["origin"],
+                image_repository=image_repository,
             )
+        except distribution.DistributionError as exc:
+            raise SelfHostBundleError(
+                f"{exc}. Repair with `{distribution.SELECT_COMMAND}`, then retry."
+            ) from exc
         except release_target.ReleaseTargetError as exc:
             raise SelfHostBundleError(
                 "could not select the server image matched to this CLI: "

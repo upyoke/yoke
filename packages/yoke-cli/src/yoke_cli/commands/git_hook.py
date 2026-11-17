@@ -28,7 +28,7 @@ Transport honesty:
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 import os
 import pathlib
@@ -175,11 +175,14 @@ def git_pre_commit(args: List[str]) -> int:
     try:
         from yoke_harness.git_hooks.pre_commit import run
     except ImportError as exc:
+        try:
+            recovery = "Repair the machine CLI with the public installer: " + install_command()
+        except InstallOriginUnavailable as origin_error:
+            recovery = f"{origin_error}; then repair the machine CLI with the public installer"
         sys.stderr.write(
             "yoke (pre-commit): ERROR: requires yoke-harness; "
             f"install/repair the product hook package ({exc}).\n"
-            "Repair the machine CLI with the public installer: "
-            f"{install_command()}\n"
+            f"{recovery}\n"
         )
         return 1
     return int(run())

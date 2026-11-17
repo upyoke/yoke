@@ -21,6 +21,12 @@ from yoke_core.domain.main_agent_packet import (
 )
 
 
+@pytest.fixture(autouse=True)
+def distribution_origin(monkeypatch):
+    """Command-rendering tests explicitly supply their installer authority."""
+    monkeypatch.setenv("YOKE_INSTALL_BASE_URL", "https://distribution.example.invalid")
+
+
 @pytest.fixture
 def repo_root() -> Path:
     """Resolve the workspace-anchored live Yoke checkout root.

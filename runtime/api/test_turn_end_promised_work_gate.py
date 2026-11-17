@@ -302,22 +302,26 @@ def test_unavailable_evidence_without_claim_is_quiet(monkeypatch, family):
     assert gate.evaluate(_ctx(executor_family=family)).outcome is Outcome.ALLOW
 
 
-@pytest.mark.parametrize("gate_point,satisfaction,dependent,status,wait", [
-    ("integration", "fact:merged", 41, "implementing", True),
-    ("activation", "status:done", 41, "implementing", True),
-    ("integration", "status:done", 41, "done", False),
-    ("coordination_only", "status:done", 41, "implementing", False),
-    ("integration", "fact:deployed:prod", 41, "implementing", False),
-    ("activation", "status:done", 42, "implementing", False),
+@pytest.mark.parametrize("gate_point,satisfaction,dependent,status,pr,wait", [
+    ("integration", "fact:merged", 41, "implementing", "77", True),
+    ("integration", "fact:merged", 41, "implementing", None, False),
+    ("closure", "status:done", 41, "implementing", "77", False),
+    ("activation", "status:done", 41, "implementing", None, True),
+    ("integration", "status:done", 41, "done", "77", False),
+    ("coordination_only", "status:done", 41, "implementing", "77", False),
+    ("integration", "fact:deployed:prod", 41, "implementing", "77", False),
+    ("activation", "status:done", 42, "implementing", None, False),
 ])
 def test_dependency_wait_after_park_cleared(
-    monkeypatch, dependency_conn, gate_point, satisfaction, dependent, status, wait
+    monkeypatch, dependency_conn, gate_point, satisfaction, dependent, status, pr, wait
 ):
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
     conn = dependency_conn
     captured = _patch_db(monkeypatch, claim={"item_id": 41, "status": "implementing"})
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: conn)
     conn.execute("UPDATE items SET status=? WHERE id=42", (status,))
+    # An integration edge waits only once the dependent opened its pull request.
+    conn.execute("UPDATE items SET merge_queue_pr_number=? WHERE id=41", (pr,))
     conn.execute(
         "INSERT INTO item_dependencies "
         "(dependent_item_id,blocking_item_id,gate_point,satisfaction) VALUES (?,?,?,?)",

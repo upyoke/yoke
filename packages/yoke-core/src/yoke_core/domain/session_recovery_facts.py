@@ -6,7 +6,8 @@ Automatic-resume attempts are reserved before waking and keyed to the last
 real tool activity; only progress starts a fresh budget. Stop holds are
 counted per session and item with their own cooldown instant.
 
-Writers introspect minimal fixture schemas before writing. Native database
+Optional observation writers inspect fixture schemas; first-prompt writes
+report whether their session row exists. Native database
 instants and canonical owned observation fields retain microseconds;
 changing existing storage requires the governed migration, including the
 timestamp-derived resume key so formatting cannot refund spent attempts.
@@ -19,6 +20,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.schema_harness_session_constants import (
     SESSION_RECOVERY_COLUMNS,
     PROMISED_WORK_HOLDS_TABLE,
@@ -56,21 +58,23 @@ def promised_work_holds_table_present(conn: Any) -> bool:
     return bool(_columns(conn, PROMISED_WORK_HOLDS_TABLE))
 
 
-def stamp_first_user_prompt(conn: Any, session_id: str, at: datetime | str) -> None:
+def stamp_first_user_prompt(conn: Any, session_id: str, at: datetime | str) -> bool:
     """Record that this session's operator has now sent a prompt.
 
     Write-once: a later prompt must not move the stamp, because the fact
     is *when the conversation began*, and a probe is defined by never
     having one at all.
     """
-    if not session_id or not recovery_columns_present(conn):
-        return
+    if not session_id:
+        return False
     p = _p(conn)
-    conn.execute(
-        "UPDATE harness_sessions SET first_user_prompt_at = "
-        f"COALESCE(first_user_prompt_at, {p}) WHERE session_id = {p}",
-        (instant_parameter(conn, parse_instant(at)), session_id),
-    )
+    with savepoint(conn, "first_user_prompt", owns=False):
+        cursor = conn.execute(
+            "UPDATE harness_sessions SET first_user_prompt_at = "
+            f"COALESCE(first_user_prompt_at, {p}) WHERE session_id = {p}",
+            (instant_parameter(conn, parse_instant(at)), session_id),
+        )
+        return cursor.rowcount == 1
 
 
 def stamp_completed_work(conn: Any, session_id: str, at: datetime | str) -> None:

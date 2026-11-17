@@ -117,7 +117,14 @@ def _prepare_desktop(settings, key_path, password):
             ) from None
 
     user = run("id -un", timeout=20)
-    if user.returncode or user.stdout.strip() != settings["desktop_user"]:
+    if user.returncode:
+        detail = (user.stderr or "SSH command failed").strip()
+        if password:
+            detail = detail.replace(password, "[REDACTED]")
+        raise DesktopAccessError(
+            f"desktop_transport_unavailable: {detail}; check the registered SSH/WSL endpoint and retry"
+        )
+    if user.stdout.strip() != settings["desktop_user"]:
         raise DesktopAccessError(
             "desktop_user_mismatch: register the dedicated Linux/WSL user's desktop_user and xrdp port; rerun desktop-access"
         )

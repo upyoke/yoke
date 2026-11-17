@@ -23,10 +23,52 @@ enumerate, capture, restore, or log out another operator account.
 Check `id -un`, `scutil --get ComputerName`, `scutil --get LocalHostName`, and
 `stat -f %Su /dev/console`; the graphical console must belong to the test user.
 
+### Join Tailscale before registration
+
+Follow [tailnet bootstrap](tailnet-bootstrap.md) for provider start, current-IP
+SSH, stable lab naming and operator sign-in approval before these OS checks.
+
+Install Tailscale on the host and join the operator's tailnet by completing its
+sign-in flow. Enable startup/unattended operation and disable device key expiry
+in the admin console. Controllers join the same tailnet and use MagicDNS.
+This is one-time manual machine setup.
+
+Install the [standalone macOS client](https://tailscale.com/download/mac),
+open it and approve its VPN/system extension. Complete sign-in, enable launch
+at startup and prove reachability after logout/reboot. Existing test Macs join
+or retain this same tailnet; their system Tailscale state stays outside goldens.
+Use the client CLI at `/Applications/Tailscale.app/Contents/MacOS/Tailscale`
+for the status command below, or the installed `tailscale` command if available.
+
+Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
+resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
+then register it as `host`; keep a forwarded `desktop_host` on loopback.
+For cloud bootstrap, query the provider's **current** public IP and connect with
+the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
+never register that IP.
+Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
+EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
+Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
+without reading or changing the registered host. Golden reset never touches Tailscale.
+
+Before rebuilding, remove the old tailnet device first, then join the replacement
+with the same hostname; verify no `-1` suffix. Verify the new SSH fingerprint,
+then clear the old cloud instance-id pin using
+`ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine known_hosts file
+(physical hosts use the hostname pin). Re-read settings and use the as-read token
+with `settings-replace` for any change, then run `yoke test-machine verify`.
+If DNS/SSH fails, check Tailscale startup, device expiry, controller DNS and sshd;
+never fix reachability by changing the target while its lease is active.
+
+Existing public-IP registrations: join first, deploy the no-rebind build second,
+then settings-replace `host` with MagicDNS using the as-read token. Upgrading
+clients prevents old calls to the retired rebind function. Verify across a power
+cycle and require the same host with no remaining QA_HOST afterward.
+
 ## 2. Network, capability and desktop route
 
 Provision infrastructure through the project's IaC or an explicit operator
-exception. Register a stable DNS name, not a transient address. Open SSH to any
+exception. Register the verified MagicDNS name. Open SSH to any
 address with key-only authentication and keep VNC behind the SSH forward, as
 [network access](host-provisioning.md#network-access) requires; never forward
 VNC through a router. Enable Screen Sharing for the dedicated account when needed.

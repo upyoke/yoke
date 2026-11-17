@@ -75,7 +75,7 @@ def test_rebind_rewrites_stale_site_when_endpoints_already_match() -> None:
             target_environment="Yoke API/prod",
         )
         live = resolve_plan_execution_target(
-            conn, plan_id=int(plan["id"]), require_runtime_match=False
+            conn, plan_id=int(plan["id"])
         )
         assert live is not None
         stored = _stale_site_copy(live, site="yoke")
@@ -139,7 +139,7 @@ def test_rebind_still_refuses_stale_labels_when_host_moved() -> None:
             target_environment="Yoke API/prod",
         )
         live = resolve_plan_execution_target(
-            conn, plan_id=int(plan["id"]), require_runtime_match=False
+            conn, plan_id=int(plan["id"])
         )
         assert live is not None
         stored = _stale_site_copy(live, site="yoke")

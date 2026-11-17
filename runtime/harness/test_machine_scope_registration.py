@@ -60,7 +60,7 @@ def test_outside_project_registers_machine_scope_in_process(
             project_id=project,
             machine_id=str(uuid4()),
         )
-        == ""
+        == "registered"
     )
     row = registration.execute(
         "SELECT project_id, org_id, actor_id, executor FROM harness_sessions "
@@ -84,8 +84,8 @@ def test_inside_project_registers_project_scope(monkeypatch, harness, project):
         session_lifecycle_client, "_project_id_for_root", lambda root: project
     )
     monkeypatch.setattr(
-        "yoke_core.hooks.registration._register_in_process",
-        lambda *a, **kw: calls.append(kw) or "",
+        "yoke_core.hooks.registration_in_process._register_in_process",
+        lambda *a, **kw: calls.append(kw) or "registered",
     )
     assert (
         session_lifecycle_client.register_harness_session(
@@ -96,7 +96,7 @@ def test_inside_project_registers_project_scope(monkeypatch, harness, project):
             model_facts=SessionModelFacts(),
             native_thread_id="native",
         )
-        == ""
+        == "registered"
     )
     assert calls[0]["project_id"] == project
     assert calls[0]["machine_scope"] == (project is None)
@@ -104,7 +104,7 @@ def test_inside_project_registers_project_scope(monkeypatch, harness, project):
 
 def test_reinstall_keeps_scope(registration, harness):
     sid, machine = str(uuid4()), str(uuid4())
-    for project in [None, 1, None]:
+    for attempt, project in enumerate([None, 1, None]):
         assert (
             registration_in_process._register_in_process(
                 sid,
@@ -116,7 +116,7 @@ def test_reinstall_keeps_scope(registration, harness):
                 project_id=project,
                 machine_id=machine,
             )
-            == ""
+            == ("registered" if attempt == 0 else "exists")
         )
         row = registration.execute(
             "SELECT project_id, org_id FROM harness_sessions WHERE session_id=%s",

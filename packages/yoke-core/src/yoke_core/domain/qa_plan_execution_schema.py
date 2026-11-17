@@ -52,6 +52,8 @@ QA_PLAN_EXECUTION_COLUMNS = (
     "release_reason",
 )
 QA_PLAN_EXECUTION_TARGET_COLUMNS = (
+    "served_build_sha",
+    "served_build_status",
     "execution_target_json",
     "execution_target_digest",
 )
@@ -97,6 +99,8 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     session_id TEXT NOT NULL,
     roster_digest TEXT NOT NULL,
     roster_json TEXT NOT NULL,
+    served_build_sha TEXT,
+    served_build_status TEXT,
     execution_target_json TEXT,
     execution_target_digest TEXT,
     continues_execution_id TEXT,

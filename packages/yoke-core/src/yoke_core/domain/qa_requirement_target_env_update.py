@@ -78,7 +78,6 @@ def _prepare_target_env(
                 conn,
                 project_id=int(project_id),
                 environment_name=name,
-                require_runtime_match=False,
             )
     except QaExecutionTargetError as exc:
         return None, str(exc)

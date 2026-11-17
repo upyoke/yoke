@@ -144,3 +144,28 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
         query.assert_called_once_with(42, "body")
         self.assertIn("Checkpoint", outcome.result_payload["fields"]["body"])
         self.assertNotIn("sections", outcome.result_payload)
+
+    def test_non_field_spellings_refuse_naming_the_real_read(self):
+        """Familiar non-columns refuse with payload_invalid and name the read."""
+        cases = {
+            "architecture_model": (
+                "yoke project-structure get --project P --family architecture_model"
+            ),
+            "Progress Log": "yoke items progress-log get ITEM",
+            "progress-log": "yoke items progress-log get ITEM",
+            "PROGRESS_LOG": "yoke items progress-log get ITEM",
+        }
+        for token, read in cases.items():
+            with self.subTest(token=token), patch(
+                "yoke_core.domain.items_queries.query_item"
+            ) as query:
+                outcome = reads.handle_items_get(_request({"fields": [token]}))
+                query.assert_not_called()
+                self.assertFalse(outcome.primary_success)
+                self.assertEqual(outcome.error.code, "payload_invalid")
+                self.assertIn(read, outcome.error.message)
+
+    def test_unknown_token_still_gets_near_miss_suggestions(self):
+        outcome = reads.handle_items_get(_request({"fields": ["statuss"]}))
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertIn("Did you mean: status", outcome.error.message)

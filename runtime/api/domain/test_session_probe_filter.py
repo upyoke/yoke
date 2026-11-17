@@ -56,3 +56,12 @@ def test_probe_session_is_hidden_while_real_sessions_are_listed(test_db):
         ("s-probe",),
     ).fetchone()[0]
     assert int(kept) == 1, "the probe row stays in the database for audit"
+
+
+def test_exact_read_keeps_probe_audit_history(test_db):
+    insert_session(test_db, "short-probe", ended_at=instant_ago())
+    assert not any(row["session_id"] == "short-probe" for row in list_sessions())
+    rows = list_sessions(session_id="short-probe")
+    assert len(rows) == 1
+    assert rows[0]["probe"] is True
+    assert rows[0]["first_user_prompt_at"] is None

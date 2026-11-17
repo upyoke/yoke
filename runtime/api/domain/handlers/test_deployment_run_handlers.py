@@ -47,6 +47,10 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                 return_value=raw,
             ),
             patch(
+                "yoke_core.domain.deployment_run_get_members.run_lineage",
+                return_value={"supersedes_run_id": None, "superseded_by_run_id": None},
+            ),
+            patch(
                 "yoke_core.domain.deployment_run_get_members.run_membership",
                 return_value=_NO_MEMBERS,
             ),
@@ -101,6 +105,10 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             patch(
                 "yoke_core.domain.deployment_runs_crud_query.get_run",
                 return_value=raw,
+            ),
+            patch(
+                "yoke_core.domain.deployment_run_get_members.run_lineage",
+                return_value={"supersedes_run_id": None, "superseded_by_run_id": None},
             ),
             patch(
                 "yoke_core.domain.deployment_run_get_members.run_membership",

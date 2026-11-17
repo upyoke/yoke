@@ -61,7 +61,6 @@ def test_local_hook_stamps_mapped_project_or_none(monkeypatch, project):
         dispatch_dedup, "default_project_for_directory", lambda _: project
     )
     monkeypatch.setattr(session_hook_failure, "default_project_for_directory", lambda _: project)
-    monkeypatch.setattr(stdin, "_stamp_first_user_prompt", lambda _: None)
     calls = []
     monkeypatch.setattr(events, "emit_event", lambda *a, **kw: calls.append(kw))
     telemetry._emit_hook_event(

@@ -135,7 +135,11 @@ def _execute(
             ),
             json_mode=json_mode,
         )
+    submission = None
     try:
+        from yoke_harness.golden_snapshot_retention import (
+            SnapshotRetentionError, retain_after_verified_capture,
+        )
         from yoke_contracts.machine_qa_execution import HostControlExecutionContract
         from yoke_contracts.machine_qa_host_control import REGISTERED_GOLDENS_KEY
         from yoke_harness.host_operations import host_operations_for
@@ -144,8 +148,7 @@ def _execute(
             execute_host_operation_contract,
         )
 
-        settings = _power().power_on(execution["project"], execution["settings"])
-        execution = {**execution, "settings": settings}
+        _power().power_on(execution["project"], execution["settings"])
         if registered := begin.result.get(
             REGISTERED_GOLDENS_KEY
         ):  # older servers: none
@@ -155,7 +158,15 @@ def _execute(
             execution,
             probes_document=probes_document,
         )
+        removed = retain_after_verified_capture(
+            operation, True,
+            {**begin.result, **submission.payload,
+             "golden_baseline_path": execution.get("golden_destination")},
+            execution,
+        )
     except Exception as exc:
+        if submission is not None:
+            submission.cleanup_artifacts()
         released = abort_operation(
             actor=actor,
             project=project,
@@ -164,9 +175,10 @@ def _execute(
             execution=execution,
             reason="local_execution_failed",
         )
-        error_code, message, recovery_hint = host_control_failure(
-            exc,
-            phase=f"{operation}_execution",
+        error_code, message, recovery_hint = (
+            (exc.code, exc.detail, exc.recovery)
+            if isinstance(exc, SnapshotRetentionError)
+            else host_control_failure(exc, phase=f"{operation}_execution")
         )
         return emit_response(
             _local_execution_error(
@@ -234,27 +246,7 @@ def _execute(
                 json_mode=json_mode,
             )
     from yoke_harness.harness_cli_latest import warn_capture_behind_latest
-    from yoke_harness.golden_snapshot_retention import (
-        SnapshotRetentionError,
-        retain_after_verified_capture,
-    )
-
-    try:
-        removed = retain_after_verified_capture(
-            operation, submit.success, submit.result, execution
-        )
-    except SnapshotRetentionError as error:
-        return emit_response(
-            _local_execution_error(
-                operation,
-                error.detail,
-                error_code=error.code,
-                recovery_hint=error.recovery,
-                lease_released=True,
-            ),
-            json_mode=json_mode,
-        )
-    if removed is not None:
+    if removed is not None and submit.success:
         submit = submit.model_copy(
             update={"result": {**submit.result, "removed_snapshots": removed}}
         )

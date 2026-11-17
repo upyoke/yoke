@@ -125,9 +125,8 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert "POSTGRES_PASSWORD_FILE" in compose
 
     env_text = (target / ".env").read_text(encoding="utf-8")
-    assert (
-        f"YOKE_SERVER_IMAGE={release_target.current_release_target().image}" in env_text
-    )
+    expected = release_target.current_release_target(base_url="https://api.stage.upyoke.com")
+    assert f"YOKE_SERVER_IMAGE={expected.image}" in env_text
     assert "YOKE_API_PUBLISH=127.0.0.1:8765" in env_text
 
     gitignore = (target / ".gitignore").read_text(encoding="utf-8")
@@ -251,7 +250,7 @@ def test_init_json_report_omits_secrets(target, capsys):
     )
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True
-    assert report["image"] == release_target.current_release_target().image
+    assert report["image"] == release_target.current_release_target(base_url="https://api.stage.upyoke.com").image
     assert report["matched_cli_version"]
     assert len(report["source_commit"]) == 40
     assert str(target / ".gitignore") in report["files"]

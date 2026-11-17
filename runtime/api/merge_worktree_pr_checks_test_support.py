@@ -48,6 +48,7 @@ def _arm_pr_merge_environment(
     from yoke_core.engines import merge_worktree_pr
     from yoke_core.domain import merge_github_rest as merge_worktree_pr_rest
 
+    monkeypatch.setattr(merge_worktree_pr, "prepare_pull_request", lambda *a, **k: "")
     emitted: list[tuple[str, dict]] = []
 
     def _capture_event(event_name, **kw):

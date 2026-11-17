@@ -10,7 +10,7 @@ from yoke_contracts import platform_file_lock, windows_private_directory
 
 pytestmark = [
     pytest.mark.windows,
-    pytest.mark.skipif(os.name != "nt", reason="real Windows file security"),
+    pytest.mark.windows_only(reason='real Windows file security'),
 ]
 
 

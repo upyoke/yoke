@@ -186,6 +186,7 @@ def run_event(
         else:
             project_id = resolve_hook_project_scope(payload).require_project_id()
         chain = applicable_chain(chain, project_id)
+        payload["project_id"] = project_id  # registration uses the resolved authority scope
     except (ValueError, OSError, RuntimeError) as exc:
         # Scope resolution is infrastructure: the call proceeds, loudly.
         if controls is not None:
@@ -198,6 +199,16 @@ def run_event(
         return infrastructure_reply(
             event_name, capability.family, f"hook_scope_unavailable: {exc}"
         ), 0
+    from yoke_core.hooks.run_tail import preflight_hook_registration
+
+    registration_preflight = preflight_hook_registration(
+        event_name=event_name,
+        context=context,
+        payload=payload,
+        stdin_data=stdin_data,
+        controls=controls,
+        deadline=deadline,
+    )
     if deduplicated_dispatch(
         event_name,
         context=context,
@@ -208,16 +219,7 @@ def run_event(
         # dispatch already ran the chain. Render the empty (allow) decision
         # so the duplicate changes nothing.
         return capability.decision_renderer([], event_name)
-    from yoke_core.hooks.run_tail import preflight_remote_registration
 
-    registration_preflight = preflight_remote_registration(
-        event_name=event_name,
-        context=context,
-        payload=payload,
-        stdin_data=stdin_data,
-        controls=controls,
-        deadline=deadline,
-    )
     started_at = time.monotonic()
     decisions: list[HookDecision] = []
     extra_stdout_parts: list[str] = []
