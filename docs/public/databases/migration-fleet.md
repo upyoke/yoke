@@ -102,8 +102,10 @@ OS file lock identifies the physical local cluster and disposable database name.
 It refuses immediately with `rehearsal_copy_busy`, holder diagnostics and a retry
 after the holder finishes; the refused runner neither copies nor cleans up.
 Admission covers dump, restore, the entire pending-history batch, invariants or
-diagnostic callbacks, connection close and cleanup. Transfer and declared-command
-children retain admission if their parent dies, until the children stop. Stable
+diagnostic callbacks, connection close and cleanup. On POSIX, transfer and
+declared-command children keep admission if their parent dies, until they stop.
+Windows cannot hand the lock to a child, so there they run in a job that ends
+them with their parent; no child uses the copy without admission. Stable
 lock files are retained; metadata is diagnostic and never decides ownership.
 Distinct clusters and copy names proceed independently. This protects callers of
 the kernel, including `yoke watch preflight`, not manual/ad hoc database operations.
