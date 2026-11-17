@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, is_under
 from pathlib import Path
 
 
@@ -36,10 +36,6 @@ STATIC_FREE_PATH_PREFIXES = (
     DEV_FAMILY_PREFIX,
 )
 
-#: Free by definition, so it is the fallback when the OS temp root is not.
-FALLBACK_FREE_TEMP_ROOT = Path(_abs("tmp"))
-
-
 def free_path_prefixes(
     prefixes: tuple[str, ...] = STATIC_FREE_PATH_PREFIXES,
 ) -> tuple[str, ...]:
@@ -58,7 +54,7 @@ def is_under_free_path_prefix(
     """Return whether *target* resolves under one of *prefixes*."""
     resolved = resolve_bash_path(str(target))
     return any(
-        resolved == prefix or resolved.startswith(prefix + os.sep)
+        is_under(resolved, resolve_bash_path(prefix))
         for prefix in (free_path_prefixes() if prefixes is None else prefixes)
     )
 
@@ -70,7 +66,7 @@ def free_temp_root() -> Path:
     roots outside the allowlist fall back to ``/tmp``.
     """
     root = Path(tempfile.gettempdir())
-    return root if is_under_free_path_prefix(root) else FALLBACK_FREE_TEMP_ROOT
+    return root if is_under_free_path_prefix(root) else Path(resolve_bash_path("/tmp"))
 
 
 def private_free_path(filename: str, *, prefix: str) -> Path:
@@ -96,7 +92,6 @@ def private_free_path(filename: str, *, prefix: str) -> Path:
 
 __all__ = [
     "DEV_FAMILY_PREFIX",
-    "FALLBACK_FREE_TEMP_ROOT",
     "STATIC_FREE_PATH_PREFIXES",
     "free_path_prefixes",
     "free_temp_root",

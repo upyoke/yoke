@@ -237,7 +237,7 @@ def test_metadata_fact_does_not_bypass_destructive_git(conn, repo):
     }
     payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
     metadata = payload[WRITE_TARGETS_KEY]["value"]["paths"][
-        str(repo / ".git/info/exclude")
+        (repo / ".git/info/exclude").as_posix()
     ]
     assert metadata["ignored"] is True
     # The redirection is metadata; the reset still writes source.

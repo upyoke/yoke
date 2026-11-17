@@ -75,19 +75,11 @@ def _tree_is_free(tree: str) -> bool:
     directories pass through unconditionally.
     """
     try:
-        from yoke_core.domain.lint_session_cwd_path_authority import (
-            free_path_prefixes,
-        )
-    except Exception:
+        from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
+        return is_free_path(tree)
+    except (OSError, ValueError):
         return False
-    try:
-        resolved = str(Path(tree).resolve())
-    except OSError:
-        return False
-    for prefix in free_path_prefixes():
-        if resolved == prefix or resolved.startswith(prefix + os.sep):
-            return True
-    return False
+
 
 
 def evaluate_tree_binding(

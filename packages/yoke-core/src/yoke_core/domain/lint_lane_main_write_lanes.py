@@ -105,7 +105,7 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
         # No source equivalent: linked worktrees have a .git file. Without
         # client proof the write still refuses, but cannot be redirected there.
         return ""
-    return str(PurePosixPath(claim.worktree_path) / rel)
+    return join_path(claim.worktree_path, str(rel).replace("\\", "/"))
 
 
 __all__ = [
