@@ -31,7 +31,9 @@ container runtime on these runners: `yoke_core.tools.ci_suite_postgres start`
 fetches the product's own pinned Postgres engine, starts the disposable test
 cluster under the runner's temp directory and exports `YOKE_PG_DSN` to later
 steps. Each shard uploads `pytest-output-<os>-<shard>` with its log and JUnit
-report.
+report. The plan retains modules skipped before import on its collection OS
+so native runners still receive them, with conservative product-wheel fixture
+affinity because their fixture closure cannot be imported on the plan host.
 
 The free macOS runner pool caps concurrency, so macOS shards queue; read
 runtime from each job's own start and finish times, not the run's wall clock.

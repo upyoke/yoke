@@ -14,6 +14,17 @@ from yoke_core.tools.ci_shards import SHARD_COUNT, SUITE_PATHS
 
 FACTS_ENV = "YOKE_CI_SHARD_FACTS"
 GROUPS_PATH = ".yoke/tmp/ci-shard-groups.json"
+_SKIPPED_MODULES: set[str] = set()
+
+
+def pytest_sessionstart(session):
+    _SKIPPED_MODULES.clear()
+
+
+def pytest_collectreport(report):
+    if report.skipped and report.nodeid.endswith(".py"):
+        _SKIPPED_MODULES.add(report.nodeid)
+
 
 
 def pytest_collection_finish(session):
@@ -29,6 +40,11 @@ def pytest_collection_finish(session):
          "wheel": not PRODUCT_WHEEL_FIXTURES.isdisjoint(item.fixturenames)}
         for item in session.items
     ]
+    # A collection host cannot import another OS's native modules. Keep the
+    # files in every published scope so the native runners still execute them.
+    # Their fixture closure is unknown: retain conservative wheel affinity.
+    records.extend({"nodeid": path, "independent": False, "wheel": True}
+                   for path in sorted(_SKIPPED_MODULES))
     Path(destination).write_text(json.dumps(records) + "\n", encoding="utf-8")
 
 
