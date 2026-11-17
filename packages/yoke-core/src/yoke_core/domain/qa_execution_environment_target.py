@@ -144,7 +144,6 @@ def resolve_plan_execution_target(
     conn: Any,
     *,
     plan_id: int,
-    require_runtime_match: bool = True,
     allow_unbound: bool = False,
 ) -> dict[str, Any] | None:
     """Resolve a plan into one immutable environment or project snapshot."""
@@ -181,7 +180,7 @@ def resolve_plan_execution_target(
     )
 
     return environment_execution_target(
-        conn, row, require_runtime_match=require_runtime_match
+        conn, row
     )
 
 

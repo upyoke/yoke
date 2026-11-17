@@ -13,7 +13,7 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 from yoke_contracts.machine_qa_case_target import ENVIRONMENT_TARGET_SCHEMA
-from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
+from yoke_core.domain import db_backend
 from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     endpoint_declaration_state,
@@ -45,8 +45,6 @@ _IDENTITY_SQL = (
 def environment_execution_target(
     conn: Any,
     identity: Mapping[str, Any],
-    *,
-    require_runtime_match: bool = True,
 ) -> dict[str, Any]:
     """Assemble the immutable snapshot for one resolved environment row.
 
@@ -56,18 +54,14 @@ def environment_execution_target(
     """
     if identity["environment_id"] is None or identity["site_name"] is None:
         raise QaExecutionTargetError("QA plan execution environment is unavailable")
-    try:
-        hosted_identity.require_plan_environment_access(
-            conn,
-            plan_project_id=int(identity["project_id"]),
-            environment_id=int(identity["environment_id"]),
-        )
-    except ValueError as exc:
-        raise QaExecutionTargetError(str(exc)) from exc
-    target = environment_target_snapshot(identity)
-    if require_runtime_match:
-        require_environment_target_access(conn, target)
-    return target
+    require_environment_target_access(
+        conn,
+        {
+            "project": {"id": int(identity["project_id"])},
+            "environment": {"id": int(identity["environment_id"])},
+        },
+    )
+    return environment_target_snapshot(identity)
 
 
 def environment_target_snapshot(identity: Mapping[str, Any]) -> dict[str, Any]:
@@ -131,14 +125,13 @@ def persistable_named_environment_target(
     *,
     project_id: int,
     environment_name: str,
-    require_runtime_match: bool = True,
 ) -> dict[str, Any] | None:
     """Return the snapshot when *environment_name* is this project's to bind.
 
     An unregistered name stays unbound so authoring can defer the target. A
     name registered only on another project is refused rather than stored as
     a draft label that would later execute against the wrong universe.
-    Record writes pass ``require_runtime_match=False``; execution also rechecks the frozen target authorization.
+    Execution also rechecks the frozen target authorization.
     """
     name = str(environment_name or "").strip()
     if not name:
@@ -173,7 +166,6 @@ def persistable_named_environment_target(
         conn,
         project_id=int(project_id),
         environment_name=name,
-        require_runtime_match=require_runtime_match,
     )
 
 
@@ -193,7 +185,6 @@ def apply_named_target_to_requirement_row(
         conn,
         project_id=int(project_id),
         environment_name=str(row.get("target_env") or ""),
-        require_runtime_match=False,
     )
     if target is None:
         row["execution_target_json"] = None
@@ -230,7 +221,6 @@ def resolve_named_environment_execution_target(
     *,
     project_id: int,
     environment_name: str,
-    require_runtime_match: bool = True,
 ) -> dict[str, Any]:
     """Resolve the environment a case names into its execution target.
 
@@ -252,7 +242,7 @@ def resolve_named_environment_execution_target(
             f"{project_id} has not registered"
         )
     target = environment_execution_target(
-        conn, rows[0], require_runtime_match=require_runtime_match
+        conn, rows[0]
     )
     if not str(target["endpoints"].get("app_url") or "").strip():
         raise QaExecutionTargetError(

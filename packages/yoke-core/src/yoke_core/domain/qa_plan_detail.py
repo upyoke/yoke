@@ -40,7 +40,6 @@ def get_plan(
     execution_target = resolve_plan_execution_target(
         conn,
         plan_id=int(plan_id),
-        require_runtime_match=False,
         allow_unbound=True,
     )
     if deployment_run_id is not None:
