@@ -135,3 +135,37 @@ def test_scratch_home_socket_fits_under_the_windows_runner_temp_folder():
     scratch = r"C:\Users\runneradmin\AppData\Local\Temp" + "\\" + smoke.SCRATCH_PREFIX + "x" * 8
     socket = scratch + r"\home\.yoke\local-universe\sock\.s.PGSQL.5432"
     assert len(socket) <= 103  # postgres_cluster's macOS/Windows sun_path budget
+
+
+@pytest.mark.parametrize("primary_failure", [True, False])
+def test_failed_relay_removal_still_stops_postgres(tmp_path, monkeypatch, primary_failure):
+    run = stages.SmokeRun(tmp_path, tmp_path, Commands(tmp_path, {}), {})
+    seen = []
+
+    def command(name, argv, **kwargs):
+        seen.append(name)
+        if name == "uninstall-local-relay":
+            raise SmokeFailure("relay_task_scheduler_unavailable: step=uninstall-local-relay")
+
+    monkeypatch.setattr(run.commands, "run", command)
+    if primary_failure:
+        smoke.cleanup(run, primary_failure=True)
+    else:
+        with pytest.raises(SmokeFailure, match="relay_task_scheduler_unavailable"):
+            smoke.cleanup(run, primary_failure=False)
+    assert seen == ["uninstall-local-relay", "stop-local-postgres"]
+
+
+@pytest.mark.parametrize("primary_failure", [True, False])
+def test_held_scratch_folder_never_hides_the_primary_failure(tmp_path, monkeypatch, primary_failure):
+    def held(path):
+        raise PermissionError(32, "The process cannot access the file", str(path))
+
+    monkeypatch.setattr(smoke.shutil, "rmtree", held)
+    report = {}
+    if primary_failure:
+        smoke.remove_scratch(tmp_path, report, primary_failure=True)
+        assert report["scratch_cleanup_failure"].startswith("scratch_cleanup_failed")
+    else:
+        with pytest.raises(SmokeFailure, match="scratch_cleanup_failed"):
+            smoke.remove_scratch(tmp_path, report, primary_failure=False)

@@ -25,7 +25,14 @@ except ImportError:
 
 # Windows needs these to start Python, Git and uv at all; none carries authority.
 WINDOWS = os.name == "nt"
-WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
+# A real Windows session always carries these; PowerShell and COM expect them.
+WINDOWS_SYSTEM_VARIABLES = (
+    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT",
+    "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "PROGRAMDATA", "ALLUSERSPROFILE",
+    "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)", "COMMONPROGRAMW6432", "PUBLIC",
+    "COMPUTERNAME", "USERNAME", "USERDOMAIN", "OS", "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE", "PROCESSOR_IDENTIFIER", "PROCESSOR_LEVEL", "PROCESSOR_REVISION",
+)  # fmt: skip
 SCRATCH_PREFIX = "yps-"
 
 
@@ -96,21 +103,36 @@ def observed_runner() -> dict[str, str]:
 
 
 def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
-    """Stop what onboarding started; a cleanup failure never hides the primary one."""
+    """Stop what onboarding started; a cleanup failure never hides the primary one.
+
+    Each step runs even when an earlier one fails: a relay that cannot be
+    removed must not leave Postgres holding the scratch folder open.
+    """
+    first = None
+    for name, argv in (
+        ("uninstall-local-relay", [run.yoke, "relay", "uninstall", "--json"]),
+        ("stop-local-postgres", [run.yoke, "local-postgres", "stop", "--json"]),
+    ):
+        try:
+            run.commands.run(name, argv, cwd=run.project)
+        except SmokeFailure as exc:
+            first = first or exc
+    if first and not primary_failure:
+        raise first
+
+
+def remove_scratch(scratch: Path, report: dict, *, primary_failure: bool) -> None:
+    """Delete the scratch folder; a leftover process never hides the primary failure."""
     try:
-        run.commands.run(
-            "uninstall-local-relay",
-            [run.yoke, "relay", "uninstall", "--json"],
-            cwd=run.project,
+        shutil.rmtree(scratch)
+    except OSError as exc:
+        detail = (
+            f"scratch_cleanup_failed: {exc}; a process the smoke started still holds "
+            "a scratch file. Inspect the uninstall-local-relay and stop-local-postgres captures"
         )
-        run.commands.run(
-            "stop-local-postgres",
-            [run.yoke, "local-postgres", "stop", "--json"],
-            cwd=run.project,
-        )
-    except SmokeFailure:
         if not primary_failure:
-            raise
+            raise SmokeFailure(detail) from exc
+        report["scratch_cleanup_failure"] = detail
 
 
 def run_stages(run: SmokeRun) -> None:
@@ -159,10 +181,12 @@ def smoke(root: Path, output: Path) -> None:
             )
         # Keep the scratch prefix short: the local universe's Postgres socket
         # lives under the scratch HOME, and Windows' temp folder is already deep.
-        with tempfile.TemporaryDirectory(prefix=SCRATCH_PREFIX) as raw:
-            scratch = Path(raw).resolve()
+        scratch = Path(tempfile.mkdtemp(prefix=SCRATCH_PREFIX)).resolve()
+        try:
             commands = Commands(output, isolated_environment(scratch, scratch / "venv"))
             run_stages(SmokeRun(root, scratch, commands, report))
+        finally:
+            remove_scratch(scratch, report, primary_failure=sys.exc_info()[0] is not None)
     except Exception as exc:
         report["ok"] = False
         failure = str(exc)

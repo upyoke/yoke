@@ -102,6 +102,28 @@ jobs:
         # Remove Firefox too: otherwise apt swaps the image's Firefox for the
         # snap transitional package, whose install fails on the runner.
         run: sudo -n apt-get remove -y libatk-bridge2.0-0t64 firefox
+      - name: TEMPORARY YOK-5340 probe PowerShell and Task Scheduler timing
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: |
+          tasklist //v //fi "imagename eq Runner.Worker.exe" || true
+          python - <<'PROBE'
+          import os, subprocess, time
+          root = os.environ["SYSTEMROOT"]
+          keep = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
+          minimal = {k: os.environ[k] for k in keep if k in os.environ}
+          minimal["PATH"] = root + r"\System32;" + root + r"\System32\WindowsPowerShell\v1.0"
+          com = "$s=New-Object -ComObject Schedule.Service; $s.Connect(); $s.GetFolder('\\').GetTasks(0).Count"
+          for label, env in (("full", dict(os.environ)), ("minimal", minimal)):
+              for command in ("1", com):
+                  start = time.monotonic()
+                  try:
+                      r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+                                         env=env, capture_output=True, text=True, timeout=120)
+                      print(label, command[:12], round(time.monotonic() - start, 1), r.returncode, r.stdout.strip()[:80], r.stderr.strip()[:400], flush=True)
+                  except subprocess.TimeoutExpired:
+                      print(label, command[:12], "timeout 120", flush=True)
+          PROBE
       - name: Install, onboard, replay hooks, and check source development
         if: runner.os != 'Linux'
         env:
