@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from runtime.api.domain.native_windows_fixture_cleanup import PROFILE_CLEANUP_SCRIPT
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.profile import HELPERS, SCRIPT
 from yoke_harness.native_windows.transport import encoded
@@ -70,19 +71,18 @@ def test_profile_failure_stops_before_journal_install_and_redacts_secret(monkeyp
     assert len(calls) == 2
 
 
-def powershell(script):
-    return subprocess.run(
-        [
-            "powershell.exe",
-            "-NoProfile",
-            "-NonInteractive",
-            "-EncodedCommand",
-            encoded("$ErrorActionPreference='Stop';\n" + script),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=45,
-    )
+def powershell(script, *, timeout=45):
+    try:
+        return subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+             encoded("$ErrorActionPreference='Stop';\n" + script)],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or b""
+        if isinstance(output, bytes):
+            output = output.decode(errors="replace")
+        raise RuntimeError(f"native_profile_fixture_timeout after {timeout}s; stages: " + output[-1600:]) from None
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows PowerShell")
@@ -135,7 +135,7 @@ def test_real_profile_creation_and_retry_preserve_password():
     # The disposable runner bounds timeout fallout. Normal/failure exits attempt
     # profile and account cleanup independently, retaining any cleanup error.
     result = powershell(
-        r"""
+        PROFILE_CLEANUP_SCRIPT + r"""
 $name='yq'+[Guid]::NewGuid().ToString('N').Substring(0,14)
 $password=[Guid]::NewGuid().ToString('N')+'aA1!'
 $secure=ConvertTo-SecureString $password -AsPlainText -Force
@@ -146,7 +146,9 @@ try {
         + r"""
  $ownedSid=$account.SID.Value
  if(!(Test-Path -LiteralPath (Join-Path $homePath 'NTUSER.DAT'))){throw 'profile hive missing'}
+ Write-Output 'NATIVE_PROFILE_CREATED'
  $first=$homePath
+ Write-Output 'NATIVE_PROFILE_RETRY_BEGIN'
  $created=Invoke-YokeCreateProfile $ownedSid $name
  if($created.HResult -ne -2147024713){throw 'existing-profile result not surfaced'}
  Add-Type -AssemblyName System.DirectoryServices.AccountManagement
@@ -165,11 +167,12 @@ try {
 } finally {
  if(!$ownedSid){$owned=Get-LocalUser -Name $name -ErrorAction SilentlyContinue; if($owned){$ownedSid=$owned.SID.Value}}
  if($ownedSid){
-  try {Get-CimInstance Win32_UserProfile -Filter ("SID='"+$ownedSid+"'") | Remove-CimInstance}
+  try {Remove-YokeFixtureProfile $ownedSid}
   finally {Remove-LocalUser -Name $name}
  }
 }
-"""
+""",
+        timeout=80,  # existing45s functional budget plus30s cleanup and startup
     )
     assert result.returncode == 0, result.stderr
     assert "NATIVE_PROFILE_AND_PASSWORD_OK" in result.stdout

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.domain.native_windows_fixture_cleanup import PROFILE_CLEANUP_SCRIPT
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
@@ -252,14 +253,14 @@ if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyCon
                     tunnel.communicate(timeout=5)
         finally:
             cleanup = powershell(
-                "$password=''; $name='';\n" + AUTOLOGON_SCRIPT + rf"""
+                PROFILE_CLEANUP_SCRIPT + "$password=''; $name='';\n" + AUTOLOGON_SCRIPT + rf"""
 Set-ItemProperty $winlogon -Name AutoAdminLogon -Value '0'
 Unregister-ScheduledTask -TaskName YokeQaMachineSettings -Confirm:$false -ErrorAction SilentlyContinue
 $account=Get-LocalUser -Name '{name}' -ErrorAction SilentlyContinue
 if($account){{
- try {{Get-CimInstance Win32_UserProfile -Filter ("SID='"+$account.SID.Value+"'") | Remove-CimInstance}}
+ try {{Remove-YokeFixtureProfile $account.SID.Value}}
  finally {{Remove-LocalUser -Name '{name}'}}
 }}
-""", tmp_path,
+""", tmp_path, timeout=60,
             )
             assert cleanup.returncode == 0, cleanup.stderr
