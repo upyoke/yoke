@@ -26,6 +26,19 @@ def test_inherited_directory_is_refused(tmp_path: Path) -> None:
     assert windows_private_directory.is_private_directory(inherited) is False
 
 
+def test_protect_existing_directory_and_its_new_children(tmp_path: Path) -> None:
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    assert not windows_private_directory.is_private_directory(existing)
+
+    windows_private_directory.make_private_directory(existing)
+
+    assert windows_private_directory.is_private_directory(existing)
+    child = existing / "secret"
+    child.write_bytes(b"private")
+    assert windows_private_directory.is_private_file(child)
+
+
 def test_file_inherits_only_from_private_parent(tmp_path: Path) -> None:
     private = tmp_path / "private"
     private.mkdir(mode=0o700)

@@ -135,6 +135,7 @@ def test_repeated_hook_does_not_reread_setup(monkeypatch):
 
 @pytest.mark.parametrize("harness", ["claude", "codex", "cursor"])
 @pytest.mark.parametrize("in_project", [False, True])
+@pytest.mark.usefixtures("isolated_project_markers")
 def test_hook_scope_distinguishes_machine_state_from_project(
     monkeypatch, tmp_path, harness, in_project
 ):

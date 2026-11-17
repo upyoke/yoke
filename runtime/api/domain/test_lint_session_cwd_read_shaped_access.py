@@ -16,6 +16,7 @@ from runtime.api.domain.lint_lane_main_write_shell_redirect_test_support import 
 
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -35,7 +36,7 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
 #: per-test HOME lives under the temp root, which is itself a free path, so
 #: refusals of home paths could never be observed there. Nothing is written
 #: under it: ``/`` is not writable, so a stray write fails loudly.
-NON_TEMP_HOME = "/__yoke_test_home__"
+NON_TEMP_HOME = str(Path(Path.cwd().anchor) / "__yoke_test_home__")
 
 
 @pytest.fixture(autouse=True)

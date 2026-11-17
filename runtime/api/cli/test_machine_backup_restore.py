@@ -5,7 +5,10 @@ from __future__ import annotations
 from yoke_contracts.testing.real_home_isolation import set_home
 
 import json
-import stat
+from yoke_contracts.owner_private_path import (
+    is_owner_private_directory,
+    is_owner_private_file,
+)
 from types import SimpleNamespace
 
 import pytest
@@ -49,8 +52,8 @@ def test_round_trip_and_incremental_backup(machine):
     assert storage.restore(folder)["changed"] == 3
     assert {name: (home / name).read_bytes() for name in expected} == expected
     for name in expected:
-        assert stat.S_IMODE((home / name).stat().st_mode) == 0o600
-        assert stat.S_IMODE((home / name).parent.stat().st_mode) == 0o700
+        assert is_owner_private_file(home / name)
+        assert is_owner_private_directory((home / name).parent)
     secret.write_bytes(b"rotated")
     assert storage.backup(folder)["changed"] == 1
     assert (folder / "home/.yoke/secrets/token").read_bytes() == b"rotated"

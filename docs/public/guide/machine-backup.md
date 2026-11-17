@@ -41,7 +41,7 @@ yoke machine restore --from "$HOME/Backups/yoke-machine"
 Both commands work without a configured control plane. Restore verifies every
 included file before copying. A missing file or hash mismatch refuses with its
 name; contents and diffs are never printed. Existing differing files refuse
-unless you add `--replace`. Restored directories use mode `700` and files `600`.
+unless you add `--replace`. Restored directories and files are owner-private: directories use mode `700` and files `600` on POSIX; Windows uses protected ACLs allowing only the current user, SYSTEM and Administrators.
 Absolute credential and tunnel paths under the old home are updated for the
 new home. Other configuration values remain as saved; review project checkout
 locations if they moved.

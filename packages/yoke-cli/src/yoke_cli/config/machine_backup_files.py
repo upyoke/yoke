@@ -6,7 +6,13 @@ import hashlib
 import os
 from pathlib import Path
 import stat
-import tempfile
+
+from yoke_contracts import windows_private_directory
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory,
+    is_owner_private_file,
+    write_owner_private,
+)
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -64,29 +70,21 @@ def private_directory(path: Path, boundary: Path) -> None:
         pending.append(cursor)
         cursor = cursor.parent
     for directory in reversed(pending):
-        directory.mkdir(mode=0o700)
+        create_owner_private_directory(directory)
     cursor = path
     while cursor != boundary:
-        cursor.chmod(0o700)
+        if os.name == "nt":
+            windows_private_directory.make_private_directory(cursor)
+        else:
+            cursor.chmod(0o700)
         cursor = cursor.parent
 
 
 def write_changed(path: Path, data: bytes, *, boundary: Path) -> bool:
     no_symlinks(path)
     private_directory(path.parent, boundary)
-    if path.exists() and read_file(path, path.name) == data:
-        path.chmod(0o600)
+    unchanged = path.exists() and read_file(path, path.name) == data
+    if unchanged and is_owner_private_file(path):
         return False
-    temporary = None
-    try:
-        fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".backup-")
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        path.chmod(0o600)
-        return True
-    finally:
-        if temporary is not None:
-            Path(temporary).unlink(missing_ok=True)
+    write_owner_private(path, data)
+    return not unchanged

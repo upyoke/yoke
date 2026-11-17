@@ -164,6 +164,7 @@ def test_early_delivery_suppresses_prompt_orientation_but_keeps_lifecycle(
 
 @pytest.mark.parametrize("miss", ["missing", "suppressed", "denied", "interrupted"])
 @pytest.mark.parametrize("projectless", [False, True])
+@pytest.mark.usefixtures("isolated_project_markers")
 def test_missed_startup_recovers_once_on_prompt(lifecycle, miss, projectless):
     if projectless:
         lifecycle.root = lifecycle.root.parent / "outside"
