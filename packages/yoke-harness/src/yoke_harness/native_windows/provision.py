@@ -74,12 +74,14 @@ def provision(project, machine, host, resource_group, admin_user, test_user):
         ["ssh-keygen", "-y", "-f", str(key)], check=True, capture_output=True, text=True
     ).stdout.strip()
     script = r"""$ErrorActionPreference='Stop'
+Write-Output 'Native OpenSSH stage: capability'
 $sshDir=Join-Path $env:WINDIR 'System32\OpenSSH'
 if((Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0).State -ne 'Installed'){
  $installed=Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
  if($installed.RestartNeeded){throw 'windows_openssh_reboot_required: reboot the lab VM and rerun provisioning'}
 }
 Set-Service sshd -StartupType Automatic
+Write-Output 'Native OpenSSH stage: configuration'
 $config=Join-Path $env:ProgramData 'ssh\sshd_config'
 New-Item -ItemType Directory -Force (Split-Path $config) | Out-Null
 if(!(Test-Path -LiteralPath $config)){
@@ -96,14 +98,27 @@ if($LASTEXITCODE){throw 'windows_sshd_config_invalid: repair the key-only config
 Set-Content -LiteralPath "$env:ProgramData\ssh\administrators_authorized_keys" -Value PUBLIC_KEY
 & icacls.exe "$env:ProgramData\ssh\administrators_authorized_keys" /inheritance:r /grant '*S-1-5-32-544:F' '*S-1-5-18:F' | Out-Null
 if($LASTEXITCODE){throw 'windows_admin_key_acl_failed: repair Administrators/SYSTEM access and retry'}
-Get-NetFirewallRule -Name OpenSSH-Server-In-TCP -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule -Name YokeQaSsh -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -Profile Any -RemoteAddress Any -ErrorAction SilentlyContinue | Out-Null
+Write-Output 'Native OpenSSH stage: firewall'
+Get-NetFirewallRule -Name OpenSSH-Server-In-TCP,YokeQaSsh -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -Name YokeQaSsh -DisplayName 'Yoke QA SSH' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -Profile Any -RemoteAddress Any -ErrorAction Stop | Out-Null
+$rule=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaSsh -ErrorAction Stop
+$port=$rule | Get-NetFirewallPortFilter -ErrorAction Stop
+if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or $port.LocalPort -ne '22'){
+ throw 'windows_admin_ssh_firewall_failed: inspect the effective YokeQaSsh firewall rule'
+}
+Write-Output 'Native OpenSSH stage: service'
 Restart-Service sshd
 Write-Output 'Native OpenSSH ready; password authentication disabled.'
 """.replace("PUBLIC_KEY", quote(public))
     with tempfile.TemporaryDirectory(prefix="yoke-windows-provision-") as temporary:
         path = Path(temporary) / "openssh.ps1"
-        path.write_text(script, encoding="utf-8")
+        # Azure's RunPowerShellScript wrapper permits prompts; the child must not.
+        path.write_text(
+            "& powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+            + encoded(script)
+            + "\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n",
+            encoding="utf-8",
+        )
         announce_designed_wait(
             "Azure Windows OpenSSH bootstrap",
             max_wait_seconds=BOOTSTRAP_TIMEOUT_SECONDS,
@@ -190,7 +205,14 @@ Set-Content -LiteralPath "$homePath\.ssh\authorized_keys" -Value PUBLIC_KEY
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 # RDP is reachable only by SSH local forwarding, including on the guest.
 Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Disable-NetFirewallRule
-New-NetFirewallRule -Name YokeQaRdpLoopback -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -RemoteAddress 127.0.0.1,::1 -Profile Any -ErrorAction SilentlyContinue | Out-Null
+Get-NetFirewallRule -Name YokeQaRdpLoopback -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -Name YokeQaRdpLoopback -DisplayName 'Yoke QA RDP loopback' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -RemoteAddress 127.0.0.1,::1 -Profile Any -ErrorAction Stop | Out-Null
+$rule=Get-NetFirewallRule -PolicyStore ActiveStore -Name YokeQaRdpLoopback -ErrorAction Stop
+$port=$rule | Get-NetFirewallPortFilter -ErrorAction Stop
+$addresses=$rule | Get-NetFirewallAddressFilter -ErrorAction Stop
+if($rule.Enabled -ne 'True' -or $rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or $port.LocalPort -ne '3389' -or (@($addresses.RemoteAddress | Sort-Object) -join ',') -ne '127.0.0.1,::1'){
+ throw 'windows_rdp_firewall_failed: inspect the effective YokeQaRdpLoopback firewall rule'
+}
 Write-Output 'Native standard user, private golden directory and SSH-only desktop route ready.'
 """.replace("TEST_USER", quote(test_user)).replace("PUBLIC_KEY", quote(public))
     result = admin_script(
