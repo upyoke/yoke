@@ -93,11 +93,11 @@ def test_command_capture_uses_case_project_instead_of_server_context(
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     import shlex
     import sys
-    from subprocess import list2cmdline
-    import os
 
-    argv = [sys.executable, "-c", "print('caller-output')"]
-    command = list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+    from pathlib import Path
+
+    argv = [Path(sys.executable).as_posix(), "-c", "print('caller-output')"]
+    command = shlex.join(argv)
     result = stream_command(
         command,
         cwd=str(tmp_path),
