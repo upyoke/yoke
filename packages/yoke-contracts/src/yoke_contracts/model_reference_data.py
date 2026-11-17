@@ -1,10 +1,10 @@
-"""Shipped model catalog: the bundled copy of the published catalog content.
+"""Shipped model catalog: the defaults every install follows.
 
-``model_reference_data.json`` holds the records exactly as the latest
-published catalog revision returns them (`yoke models get --json`), so a fresh
-store seeds the same content an org admin published. Refresh it by publishing a
-researched revision with `/yoke models`, then copying that revision's records
-into the JSON file in the same change.
+``model_reference_data.json`` holds the records in the shape
+`yoke models get --json` returns them. Each boot appends them as a ``shipped``
+catalog revision while the universe follows shipped defaults
+(:mod:`yoke_core.domain.model_reference_shipped`). Refresh them in a Dash
+together with ``level_defaults.py``; the release carries them to every install.
 
 Records describe models only; the execution levels decide which model a worker
 launches. Unknown leaves stay null; an inferred rate is filled only with its

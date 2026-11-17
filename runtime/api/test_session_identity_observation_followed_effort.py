@@ -11,8 +11,8 @@ import pytest
 from yoke_contracts.session_model_facts import NOT_REPORTED_EFFORT, SessionModelFacts
 from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from yoke_core.domain.session_identity_observation import (
     ROW_COLUMNS,
     record_session_identity,
@@ -35,7 +35,7 @@ def conn() -> sqlite3.Connection:
     )
     create_universe_settings_table(connection)
     create_model_reference_table(connection)
-    seed_initial_catalog(connection)
+    sync_shipped_catalog(connection)
     connection.execute(
         "INSERT INTO harness_sessions (session_id, model, executor_surface) "
         "VALUES (?, 'gpt-6-astra', 'codex-desktop')",

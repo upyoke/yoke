@@ -9,9 +9,7 @@ from yoke_core.domain.event_registry_converge import converge_event_registry
 from yoke_core.domain.flow_init import (
     create_or_replace_item_progress_view,
 )
-from yoke_core.domain.model_reference_store import (
-    seed_initial_catalog,
-)
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.pack_projection import (
     converge_pack_catalog,
@@ -52,7 +50,7 @@ def project_code_owned_rows(conn) -> None:
     workflows and methods, so they come last.
     """
     converge_builtin_workflows(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     seed_builtin_qa_methods(conn)
     converge_pack_catalog(conn)
     converge_event_registry(conn)
