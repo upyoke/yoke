@@ -204,11 +204,12 @@ packaged apps; `System` is a kernel listener, not TermService. Keep public3389 b
 forward explicitly with `ssh -i KEY -N -L 127.0.0.1:LOCAL_PORT:127.0.0.1:3389 USER@HOST`.
 Require a real forwarded RDP negotiation and independently blocked direct RDP.
 
-The profile-by-SID window failed at this rule and deallocated after 121 seconds.
-Registration, QA and an independent profile receipt remained unverified.
-The next window passed admin SSH/stale audit but failed rewriting that partial
-key file before ACL repair; deallocation was verified after 124 seconds,
-without registration. Prove recovery from the actual malformed ACL in CI.
+Earlier windows failed at the loopback rule (121 seconds) and writing the
+partial key's empty DACL (124 seconds); each deallocated without registration.
+After malformed-ACL CI recovery passed, the next run completed provisioning,
+both SSH SID probes, profile/hive and blocked/forwarded RDP checks.
+It registered **SETUP INCOMPLETE** and verified deallocation after 145 seconds;
+tools, sign-ins, goldens and native QA remain unverified.
 Preserve the partial account/profile and custody. Correct and run the **entire**
 guest provisioner on disposable `windows-latest`, including actual SSH and RDP
 forwarding, before requesting another VM window with exact-commit green evidence.
@@ -235,7 +236,7 @@ Register `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
 `yoke test-machine desktop-access` returns the forward and private password-file
 path for your existing RDP client; Yoke adds none. Disconnect without sign-out;
 if locked/logged off, reconnect, unlock and return to console before QA.
-Screenshots use scheduled `CopyFromScreen` **inside the VM**, read back over SSH.
+Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
 
 As the standard user install all harness CLIs from their vendors:
 
