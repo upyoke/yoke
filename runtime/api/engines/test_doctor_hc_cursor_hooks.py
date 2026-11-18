@@ -28,7 +28,9 @@ def _seed(root: Path) -> bytes:
     agents.mkdir()
     native = root / ".cursor"
     native.mkdir()
-    (native / "agents").symlink_to("../runtime/harness/cursor/agents")
+    (native / "agents").symlink_to(
+        "../runtime/harness/cursor/agents", target_is_directory=True
+    )
     claude_project = root / ".claude/settings.json"
     claude_project.parent.mkdir(parents=True)
     claude_project.write_bytes(claude_content)

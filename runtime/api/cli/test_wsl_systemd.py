@@ -158,6 +158,7 @@ def test_unlaunchable_privileged_writer_teaches_recovery(setup, monkeypatch):
         wsl.setup()
 
 
+@pytest.mark.posix_only(reason="WSL distro: /etc/wsl.conf is written inside the Linux distribution, which keeps POSIX mode bits")
 def test_atomic_write_preserves_mode_and_settings(tmp_path):
     config = tmp_path / "wsl.conf"
     config.write_text("[network]\nhostname=example\n")
@@ -168,6 +169,7 @@ def test_atomic_write_preserves_mode_and_settings(tmp_path):
     assert config.stat().st_mode & 0o777 == 0o640
 
 
+@pytest.mark.posix_only(reason="WSL distro: /etc/wsl.conf is written inside the Linux distribution, which keeps POSIX mode bits")
 def test_atomic_write_creates_missing_config(tmp_path):
     config = tmp_path / "wsl.conf"
     wsl._enable(config)

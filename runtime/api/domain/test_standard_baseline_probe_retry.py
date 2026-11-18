@@ -59,6 +59,7 @@ def _run_probe(tmp_path, name):
     )
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_an_exact_ok_with_one_tool_event_retries_and_then_passes(tmp_path):
     runs = _harness(tmp_path, "agent", [[SHELL_CALL, OK_RESULT], [OK_RESULT]])
     result = _run_probe(tmp_path, "Cursor")
@@ -67,6 +68,7 @@ def test_an_exact_ok_with_one_tool_event_retries_and_then_passes(tmp_path):
     assert runs.read_text() == "2"
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_steady_tool_call_fails_after_one_retry_and_names_the_tool(tmp_path):
     runs = _harness(tmp_path, "agent", [[SHELL_CALL, OK_RESULT]])
     result = _run_probe(tmp_path, "Cursor")
@@ -78,6 +80,7 @@ def test_a_steady_tool_call_fails_after_one_retry_and_names_the_tool(tmp_path):
     assert record["event_types"] == ["tool_call:shellToolCall", "result"]
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize(
     "reply",
     [
@@ -94,6 +97,7 @@ def test_a_tool_call_with_another_fault_does_not_retry(tmp_path, reply):
     assert runs.read_text() == "1"
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_claude_tool_use_never_retries(tmp_path):
     tool_use = {"type": "assistant", "message": {"content": [{"type": "tool_use"}]}}
     runs = _harness(tmp_path, "claude", [[tool_use, OK_RESULT], [OK_RESULT]])

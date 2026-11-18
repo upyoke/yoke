@@ -79,8 +79,7 @@ def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None
             "deployment-runs",
             "execute",
             "run-20260616-009",
-            "--from-stage",
-            "hosted-release",
+            "--fresh",
         )
 
     assert rc == 0, err
@@ -90,8 +89,7 @@ def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None
             "-m",
             "yoke_core.domain.deploy_pipeline_liveness_cli",
             "run-20260616-009",
-            "--from-stage",
-            "hosted-release",
+            "--fresh",
         ],
         check=False,
     )

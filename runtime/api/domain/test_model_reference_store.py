@@ -19,15 +19,15 @@ from yoke_core.domain.model_reference_store import (
     revision_from_schedule,
     revision_get,
     revision_schedule,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 
 
 @pytest.fixture
 def catalog_db():
     conn = sqlite3.connect(":memory:")
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     yield conn
     conn.close()
 
@@ -51,6 +51,7 @@ def test_revision_effective_at_preserves_earlier_sessions(catalog_db):
         candidate,
         effective_at=effective,
         actor_id=1,
+        source="operator",
         source_note="Provider price update checked against official source",
         expected_base_revision_id=original["revision_id"],
     )
@@ -93,7 +94,7 @@ def test_revision_effective_at_preserves_earlier_sessions(catalog_db):
         revision_get(catalog_db, original["revision_id"])["revision_id"]
         == original["revision_id"]
     )
-    seed_initial_catalog(catalog_db)
+    sync_shipped_catalog(catalog_db)
     assert (
         revision_at(catalog_db, _future(3))["revision_id"] == published["revision_id"]
     )
@@ -107,6 +108,7 @@ def test_past_publication_cannot_change_started_session_price(catalog_db):
             _candidate(catalog_db),
             effective_at="2025-01-01T00:00:00Z",
             actor_id=1,
+            source="operator",
             source_note="A correction from an earlier source",
             expected_base_revision_id=original["revision_id"],
         )
@@ -120,6 +122,7 @@ def test_scheduled_catalog_is_publication_base(catalog_db):
         candidate,
         effective_at=_future(2),
         actor_id=1,
+        source="operator",
         source_note="Provider research",
         expected_base_revision_id=original["revision_id"],
     )
@@ -131,6 +134,7 @@ def test_scheduled_catalog_is_publication_base(catalog_db):
             candidate,
             effective_at=_future(3),
             actor_id=1,
+            source="operator",
             source_note="Second provider research",
             expected_base_revision_id=original["revision_id"],
         )
@@ -140,6 +144,7 @@ def test_scheduled_catalog_is_publication_base(catalog_db):
             candidate,
             effective_at=_future(1),
             actor_id=1,
+            source="operator",
             source_note="Second provider research",
             expected_base_revision_id=scheduled["revision_id"],
         )
@@ -159,6 +164,7 @@ def test_stale_preview_base_refuses_publication(catalog_db):
             _candidate(catalog_db),
             effective_at=_future(1),
             actor_id=1,
+            source="operator",
             source_note="Provider research",
             expected_base_revision_id="old-preview",
         )

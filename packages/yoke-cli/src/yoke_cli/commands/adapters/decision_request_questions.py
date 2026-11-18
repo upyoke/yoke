@@ -20,7 +20,7 @@ ASK_USAGE = (
     "[--context-file PATH] [--option ID=LABEL[::DETAIL] ...] [--recommend ID] "
     "[--to PERSON ...] [--audience NAME] [--no-freeform] [--item ITEM] [--replaces ID] [--attach PATH ...] [--session-id S] [--project P] [--json]"
 )
-LIST_USAGE = "yoke decision-requests list (--requesting-session SESSION-ID | --mine) [--status pending|resolved|withdrawn] [--session-id S] [--project P] [--json]"
+LIST_USAGE = "yoke decision-requests list (--requesting-session SESSION-ID | --mine) [--status pending|resolved|withdrawn|superseded] [--session-id S] [--project P] [--json]"
 USAGE_BY_FUNCTION_ID = {
     "decision_requests.ask": ASK_USAGE,
     "decision_requests.list": LIST_USAGE,
@@ -77,7 +77,7 @@ def decision_requests_ask(args):
     parser.add_argument(
         "--replaces",
         type=int,
-        help="Atomically withdraw this pending question and file its replacement.",
+        help="Atomically supersede a pending or resolved question from the same requesting session and file its replacement, preserving any answer.",
     )
     parser.add_argument("--attach", action="append", default=[], help=ATTACHMENT_HELP)
     parser.add_argument(
@@ -101,7 +101,7 @@ def decision_requests_ask(args):
         return 2
     try:
         attachments = upload_files(parsed.attach)
-        context = parsed.context_file.read_text() if parsed.context_file else ""
+        context = parsed.context_file.read_text(encoding="utf-8") if parsed.context_file else ""
     except ValueError as exc:
         parser.error(str(exc))
     except OSError as exc:
@@ -149,7 +149,7 @@ def decision_requests_list(args):
     )
     parser.add_argument(
         "--status",
-        choices=("pending", "resolved", "withdrawn"),
+        choices=("pending", "resolved", "withdrawn", "superseded"),
         help="Show only questions in this state.",
     )
     add_project_arg(parser)

@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import ast
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from runtime.os_scope_markers import scoped_off
 from runtime import known_failure_baseline as baseline
 from runtime import known_failure_baseline_record as record
+
+pytestmark = pytest.mark.windows
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SUITE_ROOTS = ("runtime/api/", "runtime/harness/", "tests/")
@@ -32,7 +34,7 @@ def _defined_tests(path: Path) -> set[str]:
     return names
 
 
-def _entry_problem(node_id: str, reason: object) -> str | None:
+def _entry_problem(node_id: str, reason: object, os_name: str | None = None) -> str | None:
     if not isinstance(reason, str) or not reason.strip():
         return "has no reason"
     file_part, separator, test_part = node_id.partition("::")
@@ -48,6 +50,8 @@ def _entry_problem(node_id: str, reason: object) -> str | None:
     test = test_part.split("[", 1)[0]
     if separator and test not in _defined_tests(path):
         return f"names no test {test} in {file_part}"
+    if os_name and scoped_off(path, test_part, os_name):
+        return f"is scoped off {os_name}; remove it from the baseline"
     return None
 
 
@@ -57,19 +61,12 @@ def test_every_entry_names_a_real_test_with_a_reason(os_name: str) -> None:
     problems = {
         node_id: problem
         for node_id, reason in entries.items()
-        if (problem := _entry_problem(node_id, reason)) is not None
+        if (problem := _entry_problem(node_id, reason, os_name)) is not None
     }
     assert problems == {}, baseline.BASELINE_DIR / os_name
 
 
-@pytest.mark.parametrize("os_name", OS_NAMES)
-def test_baseline_files_hold_one_entry_per_line(os_name: str) -> None:
-    for path in baseline.baseline_files(os_name):
-        lines = path.read_text(encoding="utf-8").splitlines()
-        assert len(lines) == len(json.loads("\n".join(lines))) + 2, path
-
-
-def test_entry_check_rejects_missing_reason_file_and_test() -> None:
+def test_entry_check_rejects_missing_reason_file_and_test(tmp_path, monkeypatch) -> None:
     this = "tests/test_known_failure_baseline.py"
     real = f"{this}::test_entry_check_rejects_missing_reason_file_and_test"
     assert _entry_problem(real, "why") is None
@@ -82,14 +79,16 @@ def test_entry_check_rejects_missing_reason_file_and_test() -> None:
     assert _entry_problem(real + "[C:\\temp]", "why") is None
     assert "unclosed" in _entry_problem(real + "[/tmp/a", "why")
 
+    monkeypatch.setattr(__import__(__name__, fromlist=["REPO_ROOT"]), "REPO_ROOT", tmp_path)
+    (tmp_path / "tests").mkdir()
+    scoped = tmp_path / "tests/scoped.py"
+    scoped.write_text('import pytest\npytestmark = pytest.mark.posix_only(reason="pipes")\ndef test_x(): pass\n')
+    for node in ("tests/scoped.py", "tests/scoped.py::test_x"):
+        assert "scoped off windows" in _entry_problem(node, "why", "windows")
+        assert _entry_problem(node, "why", "macos") is None
 
-def test_duplicate_entries_across_files_are_refused(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(baseline, "BASELINE_DIR", tmp_path)
-    (tmp_path / "windows").mkdir()
-    for name in ("a", "b"):
-        (tmp_path / "windows" / f"{name}.json").write_text('{"tests/x.py::t": "why"}')
-    with pytest.raises(pytest.UsageError, match="known_failure_baseline_duplicate"):
-        baseline.load_baseline("windows")
+    scoped.write_text('import pytest\n@pytest.mark.posix_only(reason="pipes")\ndef test_x(): pass\n')
+    assert "scoped off windows" in _entry_problem("tests/scoped.py::test_x", "why", "windows")
 
 
 class _Item(SimpleNamespace):
@@ -211,14 +210,6 @@ def test_recorder_adds_failures_keeps_entries_and_drops_xpasses(tmp_path) -> Non
         "tests/a.py::test_slow": "subprocess.TimeoutExpired: yoke timed out after 120 seconds",
     }
     assert passed == {"tests/a.py::test_y"}
-    entries = {f"runtime/api/cli/test_{n:03}.py::test": "why" for n in range(record.ENTRIES_PER_FILE + 1)}
-    entries["tests/b.py"] = "no pwd"
-    written = record.write_baseline("windows", entries, root=tmp_path)
-    assert [path.name for path in written] == ["runtime-api-cli-1.json", "runtime-api-cli-2.json", "tests.json"]
-    merged = {}
-    for path in written:
-        merged.update(json.loads(path.read_text(encoding="utf-8")))
-    assert merged == entries
 
 
 def test_recorder_reads_exact_node_ids_from_junit(tmp_path) -> None:
@@ -256,10 +247,7 @@ def test_recorder_reports_flaky_tests_without_recording_them(tmp_path, monkeypat
     monkeypatch.setattr(record, "BASELINE_DIR", tmp_path / "baselines")
     write = record.write_baseline
     monkeypatch.setattr(record, "write_baseline", lambda os_name, entries: write(os_name, entries, root=tmp_path / "baselines"))
-    (tmp_path / "baselines" / "windows").mkdir(parents=True)
-    (tmp_path / "baselines" / "windows" / "old.json").write_text(
-        '{"tests/test_known_failure_baseline.py::test_fixed": "was broken"}'
-    )
+    write("windows", {"tests/test_known_failure_baseline.py::test_fixed": "was broken"}, root=tmp_path / "baselines")
     for run, outcome in (("one", "<failure message='boom'/>"), ("two", "")):
         (tmp_path / run).mkdir()
         (tmp_path / run / "pytest-report.xml").write_text(
@@ -271,7 +259,9 @@ def test_recorder_reports_flaky_tests_without_recording_them(tmp_path, monkeypat
         )
     assert record.main(["--os", "windows", "--reports", str(tmp_path)]) == 0
     assert baseline.load_baseline("windows") == {"tests/test_known_failure_baseline.py::test_stable": "always"}
-    assert "flaky (failed and passed across these reports; not recorded): tests/test_known_failure_baseline.py::test_flaky" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "windows: 1 entries (1 added, 1 removed as passing; 1 files written, 1 deleted)" in out
+    assert "flaky (failed and passed across these reports; not recorded): tests/test_known_failure_baseline.py::test_flaky" in out
 
 
 @pytest.mark.parametrize("os_name", OS_NAMES)
@@ -280,21 +270,10 @@ def test_every_flaky_entry_names_a_real_test_its_feedback_and_fix_item(os_name: 
     problems = {
         node_id: problem
         for node_id, entry in flaky.items()
-        if (problem := _entry_problem(node_id, entry["reason"])) is not None
+        if (problem := _entry_problem(node_id, entry["reason"], os_name)) is not None
     }
     assert problems == {}
     assert not set(flaky) & set(baseline.load_baseline(os_name))
-
-
-def test_flaky_list_requires_feedback_and_fix_item(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(baseline, "FLAKY_DIR", tmp_path)
-    (tmp_path / "windows.json").write_text('{"tests/x.py::t": {"reason": "why", "feedback": 1}}')
-    with pytest.raises(pytest.UsageError, match="known_flaky_list_invalid"):
-        baseline.load_flaky("windows")
-    (tmp_path / "windows.json").write_text(
-        '{"tests/x.py::t": {"reason": "why", "feedback": 1, "fix_item": "YOK-9"}}'
-    )
-    assert baseline.load_flaky("windows")["tests/x.py::t"]["fix_item"] == "YOK-9"
 
 
 def test_flaky_tests_are_non_strict_and_teardown_failures_expected(monkeypatch) -> None:

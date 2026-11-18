@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import stat
 import subprocess
 import sys
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_harness.session_launch_containment import (
@@ -72,7 +72,7 @@ def test_registration_adopts_owner_only_launch_handle_and_reaper_stops_it(
             LAUNCH_ID, state_dir=tmp_path, custody_transferred=True
         )
         handle = native_handle_path(LAUNCH_ID)
-        assert stat.S_IMODE(handle.stat().st_mode) == 0o600
+        assert is_owner_private_file(handle)
         payload = json.loads(handle.read_text())
         assert payload["target_session_id"] == SESSION_ID
         assert payload["pid"] == process.pid

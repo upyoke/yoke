@@ -47,6 +47,7 @@ def _completed(argv, *, returncode=0, stdout=b"", stderr=b""):
     return subprocess.CompletedProcess(argv, returncode, stdout, stderr)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_streams_archive_through_private_handoff(
     import_files, monkeypatch, capsys
 ):
@@ -68,6 +69,7 @@ def test_import_streams_archive_through_private_handoff(
     assert "yoke_v1_ReplacementCredential" in capsys.readouterr().out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_json_mode_emits_machine_readable_credential(
     import_files, monkeypatch, capsys
 ):
@@ -89,6 +91,7 @@ def test_import_json_mode_emits_machine_readable_credential(
     assert json.loads(capsys.readouterr().out)["token_id"] == 11
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_refuses_running_core_before_starting_database(
     import_files, monkeypatch, capsys
 ):
@@ -107,6 +110,7 @@ def test_import_refuses_running_core_before_starting_database(
     assert "core service is not stopped" in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize("state", ("paused", "restarting"))
 def test_import_refuses_non_stopped_core_states(
     import_files, monkeypatch, capsys, state
@@ -125,6 +129,7 @@ def test_import_refuses_non_stopped_core_states(
     assert state in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_failed_container_never_echoes_stdout_secret(import_files, monkeypatch, capsys):
     directory, archive = import_files
     monkeypatch.setattr(
@@ -145,6 +150,7 @@ def test_failed_container_never_echoes_stdout_secret(import_files, monkeypatch, 
     assert "Exec stderr: diagnosed refusal" in error
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_malformed_success_teaches_safe_recovery(import_files, monkeypatch, capsys):
     directory, archive = import_files
     monkeypatch.setattr(
@@ -161,6 +167,7 @@ def test_malformed_success_teaches_safe_recovery(import_files, monkeypatch, caps
     assert "--recover-credential" in error
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_requires_owner_only_single_link_archive(
     import_files, monkeypatch, capsys
 ):
@@ -177,6 +184,7 @@ def test_import_requires_owner_only_single_link_archive(
     assert "chmod 600" in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_refuses_bundle_with_git_tracked_secrets(
     import_files, monkeypatch, capsys
 ):
@@ -199,6 +207,7 @@ def test_import_refuses_bundle_with_git_tracked_secrets(
     assert "Git already tracks" in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_requires_consent_when_non_interactive(
     import_files, monkeypatch, capsys
 ):
@@ -215,6 +224,7 @@ def test_import_requires_consent_when_non_interactive(
     assert "--yes" in error
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_prompt_collects_typed_replace_consent(
     import_files, monkeypatch, capsys
 ):
@@ -233,6 +243,7 @@ def test_import_prompt_collects_typed_replace_consent(
     assert "yoke_v1_ReplacementCredential" in capsys.readouterr().out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_import_prompt_refusal_cancels_before_any_compose_call(
     import_files, monkeypatch, capsys
 ):

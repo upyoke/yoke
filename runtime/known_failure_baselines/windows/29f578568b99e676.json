@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_session_relay_environment.py::test_a_foreign_binary_is_started_with_none_of_the_relay_python_state",
+ "reason": "AssertionError: assert '/Users/examp.../homebrew/bin' == '/Users/examp.../homebrew/bin'"
+}

@@ -34,6 +34,7 @@ import shutil
 
 import yaml
 
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_core.domain.pack_pulumi_sources import (
     PULUMI_PROGRAM_SUBDIRECTORY,
     pulumi_program_source,
@@ -118,8 +119,7 @@ def stage_file_backed_infra(
         stack_path = infra / f"Pulumi.{stack}.yaml"
         original = stack_path.read_text(encoding="utf-8")
         merged = merge_yoke_config(original, yoke_values, source=stack_path)
-        stack_path.write_text(merged, encoding="utf-8")
-        stack_path.chmod(0o600)
+        write_owner_private(stack_path, merged)
     return infra
 
 

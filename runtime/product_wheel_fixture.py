@@ -1,5 +1,7 @@
 """One isolated installed product environment shared across xdist workers."""
 
+from yoke_contracts.venv_layout import venv_python
+
 import os
 from pathlib import Path
 import subprocess
@@ -23,7 +25,7 @@ def product_venv(tmp_path_factory, pytestconfig, product_wheelhouse) -> Path:
     with FileLock(str(shared / "installed-product.lock")):
         if not sentinel.exists():
             create_seeded_pip_venv(directory)
-            python = directory / "bin" / "python"
+            python = venv_python(directory)
             env = {
                 key: value
                 for key, value in os.environ.items()

@@ -1,6 +1,0 @@
-{
-"tests/test_machine_qa_temp_state.py::test_cleanup_preserves_live_mission_scratch_and_removes_stale_siblings": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
-"tests/test_machine_qa_temp_state.py::test_cleanup_removes_run_artifacts_preserving_golden_home_and_other_users": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
-"tests/test_machine_qa_temp_state.py::test_foreign_owner_refuses_before_deleting_any_candidate": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?",
-"tests/test_path_state_contract_native.py::test_local_contract_observes_existing_bash_profile": "AssertionError: assert 'HKCU\\\\Environment\\\\Path' == 'C:\\\\Users\\\\r....bash_profile'"
-}

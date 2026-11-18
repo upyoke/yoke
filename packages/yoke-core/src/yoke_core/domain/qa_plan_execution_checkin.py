@@ -212,9 +212,9 @@ def paused_result(*, error, call, execution, target, actor, phase, cursor, resul
 
         try:
             capture = Path(error.evidence_path)
-            saved = json.loads(capture.read_text())
+            saved = json.loads(capture.read_text(encoding="utf-8"))
             saved["pause"] = evidence
-            capture.write_text(json.dumps(saved, ensure_ascii=False, indent=2) + "\n")
+            capture.write_text(json.dumps(saved, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
             recovery_file = error.evidence_path
         except (OSError, ValueError) as capture_error:
             evidence["capture_error"] = (
@@ -266,7 +266,7 @@ def restore_confirmed_pause(path, *, call, target, actor, execution_id, project)
     from pathlib import Path
 
     try:
-        saved = json.loads(Path(path).read_text())
+        saved = json.loads(Path(path).read_text(encoding="utf-8"))
         evidence = dict(saved["pause"])
         if evidence["execution_id"] != execution_id or evidence["phase"] != "checkin":
             raise ValueError(

@@ -166,3 +166,54 @@ def test_retained_clean_and_divergent_report_replay(tmp_path):
                 assert nodeid in str(error.value)
             for nodeid in evidence['selected']['duplicate']:
                 assert nodeid + ' (2 times)' in str(error.value)
+
+
+@pytest.mark.windows
+def test_native_module_collection_skip_is_expected_and_still_exactly_once(tmp_path):
+    import copy
+    import os
+    import subprocess
+    import sys
+    marker = "posix_only" if sys.platform == "win32" else "windows_only"
+    (tmp_path / "test_native.py").write_text(
+        f'import pytest\npytestmark = pytest.mark.{marker}(reason="native API")\n'
+        'raise AssertionError("module imported on wrong OS")\n'
+    )
+    (tmp_path / "test_local.py").write_text('def test_local(): pass\n')
+    destination = tmp_path / "expected.json"
+    environment = dict(os.environ, YOKE_CI_COLLECTION_MANIFEST=str(destination))
+    collect = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:xdist",
+         "-p", "runtime.os_scope_markers", "-p", "yoke_core.tools.ci_shard_coverage"],
+        cwd=tmp_path, env=environment, capture_output=True, text=True,
+    )
+    assert collect.returncode == 0, collect.stdout + collect.stderr
+    expected = json.loads(destination.read_text())
+    assert ["", "test_native", "test_native.py"] in expected
+    report = tmp_path / "report.xml"
+    run = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:xdist",
+         "-p", "runtime.os_scope_markers", f"--junitxml={report}"],
+        cwd=tmp_path, env=environment, capture_output=True, text=True,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert coverage.compare(expected, [report], "native") == {
+        "python": "native", "tests": 1, "collection_skips": 1, "reports": 1,
+    }
+    tree = ET.parse(report)
+    suite = tree.getroot().find("testsuite")
+    module = next(case for case in suite if case.attrib.get("name") == "test_native")
+    suite.remove(module)
+    tree.write(report)
+    with pytest.raises(ValueError, match=r"missing \(1\).*"):
+        coverage.compare(expected, [report], "native")
+    suite.extend([module, copy.deepcopy(module)])
+    tree.write(report)
+    with pytest.raises(ValueError, match=r"test_native.py \(2 times\)"):
+        coverage.compare(expected, [report], "native")
+    suite.remove(module)
+    other = next(case for case in suite if case.attrib.get("name") == "test_native")
+    other.remove(other.find("skipped"))
+    tree.write(report)
+    with pytest.raises(ValueError, match="ci_shard_collection_skip_invalid"):
+        coverage.compare(expected, [report], "native")

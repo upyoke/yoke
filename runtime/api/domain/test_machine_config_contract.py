@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shlex
 import json
-import stat
 import uuid
 
 import pytest
@@ -10,6 +9,7 @@ import pytest
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import schema_connections
 from yoke_contracts.machine_config import runtime as machine_runtime
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 def test_canonical_example_is_valid_machine_config() -> None:
@@ -57,7 +57,7 @@ def test_machine_id_is_created_once_and_written_privately(
 
     assert first == second == machine_runtime.machine_id(config)
     assert str(uuid.UUID(first)) == first
-    assert stat.S_IMODE(config.stat().st_mode) == 0o600
+    assert is_owner_private_file(config)
 
 
 def test_machine_id_initialization_requires_existing_config(tmp_path) -> None:

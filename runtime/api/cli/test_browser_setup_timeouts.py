@@ -1,5 +1,7 @@
 """Browser setup commands have bounded, named timeout failures."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import subprocess
 from types import SimpleNamespace
 
@@ -19,7 +21,7 @@ from yoke_harness import browser_setup
 def test_browser_bootstrap_timeout_names_step_and_recovery(
     tmp_path, monkeypatch, command, reason, seconds
 ):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("YOKE_BROWSER_AUTOINSTALL", "1")
     browser = tmp_path / "browser"
     browser.mkdir()

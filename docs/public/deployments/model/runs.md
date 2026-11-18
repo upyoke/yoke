@@ -62,6 +62,18 @@ work that reached the base under other commit ids adds nothing while failing eve
 ancestry test (the merge boundary's own "this lane adds nothing", asked of the same
 source). Both run against every source the host offers; an unreadable one names each.
 
+## Resuming a failed run
+
+Fix the cause, then run `yoke watch deploy -- RUN-ID` on the failed run. It
+re-enters the stage that failed and does not replay completed stages. A
+failed GitHub workflow stage dispatches exactly once more, under
+`retry:<failed GitHub run id>`. A repeat resume joins that retry, and a
+GitHub run that is still active (a stage can fail on a poll timeout while
+its run keeps going) or that succeeded is joined, not dispatched again.
+Other stages, including a failed item QA stage, simply run again.
+`--fresh` dispatches a new GitHub run even over an active one; use it only
+for a run that is stuck and will never start.
+
 How a run's membership is completed from its candidate, and what freezes before execution, is in [run composition](run-composition.md).
 
 ## Related

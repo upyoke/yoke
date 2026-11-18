@@ -96,7 +96,7 @@ def _profile(browser, executables):
 
 def _current(destination, content):
     try:
-        return destination.read_text() == content
+        return destination.read_text(encoding="utf-8") == content
     except OSError:
         return False
 
@@ -136,7 +136,7 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
     if not sys.platform.startswith("linux"):
         return True
     try:
-        if not RESTRICTION.exists() or RESTRICTION.read_text().strip() == "0":
+        if not RESTRICTION.exists() or RESTRICTION.read_text(encoding="utf-8").strip() == "0":
             return True
         result = terminal_detached_process.run(
             [str(toolchain.node), "-e", EXECUTABLES_JS],

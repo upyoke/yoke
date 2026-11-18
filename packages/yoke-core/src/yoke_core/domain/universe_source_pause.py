@@ -9,13 +9,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
+from yoke_contracts import platform_file_sync, windows_private_directory
 from yoke_contracts.machine_config.paths import yoke_home
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.refusal_recovery import compose_refusal
 
 _RESUMING: ContextVar[bool] = ContextVar("universe_resuming", default=False)
@@ -50,8 +51,8 @@ def operation(dsn: str, *, wait: bool = False):
     if _OPERATION.get() == str(target):
         yield
         return
-    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    descriptor = os.open(target, os.O_RDWR | os.O_CREAT, 0o600)
+    _private_pause_directory(target.parent)
+    descriptor = _open_private_lock(target)
     acquired = False
     try:
         try:
@@ -158,7 +159,7 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
     marker = _marker(dsn)
     try:
         state = (
-            json.loads(marker.read_text())
+            json.loads(marker.read_text(encoding="utf-8"))
             if marker.exists()
             else universe_source_services.plan(dsn)
         )
@@ -194,7 +195,7 @@ def resuming_source(dsn: str):
 
     with operation(dsn):
         marker = _marker(dsn)
-        state = json.loads(marker.read_text()) if marker.exists() else {}
+        state = json.loads(marker.read_text(encoding="utf-8")) if marker.exists() else {}
         frozen = state.get("database_pause")
         token = _RESUMING.set(True)
         try:
@@ -233,29 +234,31 @@ def resuming_source(dsn: str):
             _RESUMING.reset(token)
 
 
-def _save(marker, state):
-    marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    descriptor, temporary = tempfile.mkstemp(dir=marker.parent, prefix=".pause-")
+def _private_pause_directory(directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+
+def _open_private_lock(target: Path) -> int:
+    """Open the shared lock file, creating it owner-only on every platform."""
+    if os.name != "nt":
+        return os.open(target, os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        with os.fdopen(descriptor, "w") as handle:
-            json.dump(state, handle)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, marker)
-        directory = os.open(marker.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+        return windows_private_directory.create_private_file(target)
+    except FileExistsError:
+        return os.open(target, os.O_RDWR | os.O_BINARY)
+
+
+def _save(marker, state):
+    _private_pause_directory(marker.parent)
+    write_owner_private(marker, json.dumps(state))
+    platform_file_sync.sync_directory(marker.parent)
 
 
 def recover(dsn):
     """Finish an interrupted authorized pause before paused authentication."""
     if is_paused(dsn):
         try:
-            state = json.loads(_marker(dsn).read_text())
+            state = json.loads(_marker(dsn).read_text(encoding="utf-8"))
             frozen = state.get("database_pause")
             if frozen and not frozen["ready"]:
                 from yoke_core.domain import universe_database_pause as database
@@ -273,7 +276,7 @@ def connection_dsn(dsn):
     if _ALLOWED.get() and not _RESUMING.get() and is_paused(dsn):
         from yoke_core.domain.universe_database_pause import read_dsn
 
-        state = json.loads(_marker(dsn).read_text()).get("database_pause")
+        state = json.loads(_marker(dsn).read_text(encoding="utf-8")).get("database_pause")
         if state:
             return read_dsn(dsn, state)
     return dsn
@@ -282,7 +285,7 @@ def connection_dsn(dsn):
 def export_source(dsn):
     from yoke_core.domain import universe_database_pause as database
 
-    state = json.loads(_marker(dsn).read_text())["database_pause"]
+    state = json.loads(_marker(dsn).read_text(encoding="utf-8"))["database_pause"]
     database.confirm(dsn, state)
     return database.read_dsn(dsn, state), {
         "database": state["name"],

@@ -20,6 +20,7 @@ from yoke_harness.linux_desktop_session import desktop_command
 from yoke_harness.ssh_linux_reset_preconditions import DESKTOP_PROGRAM
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("display", [":10", ":10.0"])
 def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch, display):
     calls = []
@@ -47,6 +48,7 @@ def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch, display)
     assert host.stat().st_mode & 0o777 == 0o600
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("blocked", ["human", "rdp", "ambiguous"])
 def test_no_start_with_existing_human_or_ambiguous_desktop(host, monkeypatch, blocked):
     if blocked == "human":
@@ -62,6 +64,7 @@ def test_no_start_with_existing_human_or_ambiguous_desktop(host, monkeypatch, bl
         state.ensure_desktop(PASSWORD)
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_existing_human_xfce_is_reused_without_password(host, monkeypatch):
     monkeypatch.setattr(state, "desktop_sessions", lambda **kw: [SESSION])
     monkeypatch.setattr(
@@ -71,6 +74,7 @@ def test_existing_human_xfce_is_reused_without_password(host, monkeypatch):
     assert host.read_text() == ""
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("failure", ["missing", "refused", "unavailable", "timeout"])
 def test_start_refusals_preserve_output_redact_password_and_teach_product_recovery(
     host, monkeypatch, failure
@@ -161,6 +165,7 @@ def test_reset_ends_fixture_desktop_even_when_human_adopted_it(
     assert host.read_text() == ""
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize(
     "human", ["mounted", "child-mount", "xfce", "graphical", "rdp", "none"]
 )

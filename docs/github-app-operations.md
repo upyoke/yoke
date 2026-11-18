@@ -38,8 +38,9 @@ Owners and org admins retain their permission wildcards.
 Workflow dispatch asks GitHub for the exact run id and disables retries on the
 non-idempotent POST. Its idempotency key reuses the stage key when a
 non-failed re-drive joins the same dispatch, scopes a stale predecessor to
-that run, and gives `--fresh` and a failed-run `--from-stage` re-entry a new
-scope, so transport replay cannot suppress a deliberately new run.
+that run, gives `--fresh` a new scope, and resumes a failed stage under
+`retry:<failed run id>`, so transport replay cannot suppress a deliberately
+new run and a repeat resume cannot start a second one.
 
 Bootstrap each project service identity through the [canonical token entrypoint](public/self-hosting/install.md#restore-admin-access).
 Use source-dev/admin authority with `YOKE_ENV=prod-db-admin`; omit its `docker compose exec --user yoke core` prefix.

@@ -144,7 +144,7 @@ def publish(model, views: dict[str, str]) -> None:
         for name, text in views.items():
             fd, temp = tempfile.mkstemp(prefix=f".{name}.", suffix=".tmp", dir=VIEWS_ROOT)
             try:
-                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
                     handle.write(text)
                 os.chmod(temp, 0o644)
                 os.replace(temp, VIEWS_ROOT / name)

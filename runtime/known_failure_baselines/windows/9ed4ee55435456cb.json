@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_pack_bounded_installs.py::test_npm_zero_exit_incomplete_install_fails",
+ "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+}

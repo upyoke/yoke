@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script
+
 import json
 from pathlib import Path
 
@@ -19,7 +21,7 @@ def test_packaged_cli_gets_and_updates_customized_pack_over_https(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    yoke = venv_dir / "bin" / "yoke"
+    yoke = venv_console_script(venv_dir, "yoke")
     project = tmp_path / "external-project"
     project.mkdir()
     machine_home = tmp_path / "home" / ".yoke"
@@ -59,10 +61,7 @@ def test_packaged_cli_gets_and_updates_customized_pack_over_https(
         )
         assert applied_get["applied"] is True
         project_file = project / "sample-pack.txt"
-        project_file.write_text(
-            project_file.read_text(encoding="utf-8") + "project-owned\n",
-            encoding="utf-8",
-        )
+        project_file.write_bytes(project_file.read_bytes() + b"project-owned\n")
 
         preview_update = _pack_command(
             yoke,

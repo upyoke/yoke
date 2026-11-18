@@ -2,25 +2,27 @@
 
 from __future__ import annotations
 
+from runtime.product_wheel_environment import product_env as _product_env  # noqa: F401
+
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 class _RegistryServer:
     def __init__(self, *, expected_token: str) -> None:
         self.expected_token = expected_token
+        self.machine_reads: list[str] = []
         self.server: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
 
     def __enter__(self) -> str:
         expected = self.expected_token
+        machine_reads = self.machine_reads
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802
@@ -33,6 +35,30 @@ class _RegistryServer:
                     self.end_headers()
                     return
                 body = json.dumps([{"function_id": "status.run"}]).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self) -> None:  # noqa: N802
+                if self.path != "/v1/functions/call":
+                    self.send_error(404)
+                    return
+                if self.headers.get("Authorization") != f"Bearer {expected}":
+                    self.send_error(403)
+                    return
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                if request["function"] != "machine.show":
+                    self.send_error(400, "unexpected smoke function")
+                    return
+                machine_id = request["payload"]["machine_id"]
+                machine_reads.append(machine_id)
+                body = json.dumps({
+                    "success": True, "function": request["function"],
+                    "version": "v1", "request_id": request["request_id"],
+                    "result": {"machine": {"id": machine_id, "name": "smoke machine"}},
+                }).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -62,30 +88,6 @@ class _RegistryServer:
 def _registry_server(*, expected_token: str) -> _RegistryServer:
     return _RegistryServer(expected_token=expected_token)
 
-
-def _product_env(
-    machine_home: Path,
-    venv_dir: Path,
-    *,
-    extra_path: Path | None = None,
-) -> dict[str, str]:
-    uv = shutil.which("uv")
-    assert uv, "uv is an installer prerequisite"
-    path_parts = [str(venv_dir / "bin"), str(Path(uv).parent)]
-    if extra_path is not None:
-        path_parts.append(str(extra_path))
-    path_parts.append(BASE_PATH)
-    return {
-        "HOME": str(machine_home.parent),
-        "PATH": ":".join(path_parts),
-        "XDG_BIN_HOME": str(venv_dir / "bin"),
-        "UV_TOOL_BIN_DIR": str(venv_dir / "bin"),
-        "SHELL": "/bin/bash",
-        "YOKE_MACHINE_HOME": str(machine_home),
-        "PYTHONNOUSERSITE": "1",
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
-    }
 
 
 def _fake_external_command_bin(tmp_path: Path, marker: Path) -> Path:
@@ -146,16 +148,29 @@ def _run(
     run_env = dict(env) if env is not None else os.environ.copy()
     if env is None:
         run_env.pop("PYTHONPATH", None)
-    result = subprocess.run(
-        command,
-        cwd=cwd,
-        env=run_env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            env=run_env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        logs = []
+        machine_home = run_env.get("YOKE_MACHINE_HOME")
+        if machine_home:
+            for name in (".daemon.log", "evaluator.log"):
+                for path in Path(machine_home).parent.rglob(name):
+                    logs.append(f"{path}:\n{path.read_text(errors='replace')}")
+        raise AssertionError(
+            f"command timed out after {timeout}s: {command!r}\n"
+            f"stdout:\n{exc.stdout!r}\nstderr:\n{exc.stderr!r}\n"
+            + "\n".join(logs)
+        ) from exc
     if check:
         assert result.returncode == 0, _format_result(result)
     return result
@@ -174,6 +189,7 @@ def _stub_native_provisioning(*, cwd: Path) -> Path:
     directory = cwd / "native-stub"
     directory.mkdir()
     (directory / "sitecustomize.py").write_text(
+        "import faulthandler; faulthandler.dump_traceback_later(45); "
         "import yoke_cli.config.onboard_session_relay as relay; "
         "relay.install = lambda _outcome=relay.RelayInstallOutcome, **kwargs: _outcome(installed=True, reused=False); "
         "import yoke_harness.browser_setup as browser; "

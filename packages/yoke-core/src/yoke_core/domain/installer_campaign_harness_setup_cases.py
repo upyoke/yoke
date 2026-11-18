@@ -76,7 +76,7 @@ def run_probe() -> None:
                         ]
                     }
                 }
-            )
+            ), encoding="utf-8", newline="\n"
         )
         git("add", ".codex/hooks.json")
         git(
@@ -94,6 +94,7 @@ def run_probe() -> None:
             git("worktree", "add", "--detach", str(root / name))
         environment = {
             "HOME": str(home),
+            "USERPROFILE": str(home),
             "CODEX_HOME": str(home / ".codex"),
             "XDG_CONFIG_HOME": str(home / ".config"),
         }

@@ -9,9 +9,9 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
 import threading
 
+from yoke_contracts.owner_private_path import create_owner_private_temporary
 from yoke_harness.desktop_access import DesktopAccessError
 from yoke_harness.desktop_forward import desktop_forward
 
@@ -201,9 +201,10 @@ class DesktopView:
             # nextDrawable wait instead of pumping Cocoa input events.
             local_environment["SDL_RENDER_DRIVER"] = "opengl"
         try:
-            descriptor, log_path = tempfile.mkstemp(
+            descriptor, private_log = create_owner_private_temporary(
                 prefix="yoke-desktop-view-", suffix=".log"
             )
+            log_path = str(private_log)
         except OSError:
             raise DesktopAccessError(
                 "desktop_view_log_unavailable: repair the workstation temporary directory permissions and free space, then rerun desktop-access --view"

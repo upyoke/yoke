@@ -15,9 +15,11 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 _CLAUDE = {
     "hooks": {
-        "Stop": [{
-            "hooks": [{"type": "command", "command": "echo stopped"}],
-        }],
+        "Stop": [
+            {
+                "hooks": [{"type": "command", "command": "echo stopped"}],
+            }
+        ],
     },
 }
 _CURSOR = {
@@ -45,7 +47,9 @@ def _run(root: Path | None, monkeypatch: pytest.MonkeyPatch):
     )
     records = RecordCollector()
     check.hc_project_hook_config_validity(
-        None, DoctorArgs(project="external"), records,
+        None,
+        DoctorArgs(project="external"),
+        records,
     )
     assert len(records.results) == 1
     return records.results[0]
@@ -152,7 +156,10 @@ def test_symlinked_config_parent_fails(
     result = _run(tmp_path, monkeypatch)
 
     assert result.result == "FAIL"
-    assert f"{config_rel} crosses symlink component {parent_rel}" in result.detail
+    assert (
+        f"{config_rel.as_posix()} crosses symlink component {parent_rel.as_posix()}"
+        in result.detail
+    )
 
 
 @pytest.mark.parametrize(
@@ -173,7 +180,10 @@ def test_symlinked_config_leaf_fails(
     result = _run(tmp_path, monkeypatch)
 
     assert result.result == "FAIL"
-    assert f"{config_rel} crosses symlink component {config_rel}" in result.detail
+    assert (
+        f"{config_rel.as_posix()} crosses symlink component {config_rel.as_posix()}"
+        in result.detail
+    )
 
 
 @pytest.mark.parametrize(
@@ -193,7 +203,7 @@ def test_non_regular_config_leaf_fails_before_read(
     result = _run(tmp_path, monkeypatch)
 
     assert result.result == "FAIL"
-    assert f"{config_rel} is not a regular file" in result.detail
+    assert f"{config_rel.as_posix()} is not a regular file" in result.detail
 
 
 @pytest.mark.parametrize(
@@ -211,7 +221,7 @@ def test_malformed_json_fails(
     result = _run(tmp_path, monkeypatch)
 
     assert result.result == "FAIL"
-    assert f"{config_rel} is not valid JSON" in result.detail
+    assert f"{config_rel.as_posix()} is not valid JSON" in result.detail
 
 
 @pytest.mark.parametrize(
@@ -235,7 +245,7 @@ def test_non_object_top_level_fails(
     result = _run(tmp_path, monkeypatch)
 
     assert result.result == "FAIL"
-    assert f"{config_rel} top level must be a JSON object" in result.detail
+    assert f"{config_rel.as_posix()} top level must be a JSON object" in result.detail
 
 
 @pytest.mark.parametrize("version", [None, 0, True, 1.0, "1"])
@@ -247,7 +257,8 @@ def test_cursor_requires_integer_schema_version_one(
     _seed(tmp_path)
     payload = {**_CURSOR, "version": version}
     (tmp_path / ".cursor/hooks.json").write_text(
-        json.dumps(payload), encoding="utf-8",
+        json.dumps(payload),
+        encoding="utf-8",
     )
 
     result = _run(tmp_path, monkeypatch)

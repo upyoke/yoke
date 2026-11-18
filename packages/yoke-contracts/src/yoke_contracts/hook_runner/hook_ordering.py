@@ -247,8 +247,11 @@ _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
     "yoke_core.hooks.session_title",
     *_MODEL_DELIVERY,
 )
+# A terminal hook recovers a first prompt the prompt hook never stored.
+_PROMPT_ATTESTATION = "yoke_core.hooks.session_prompt_attestation"
 _STOP_CHAIN: tuple[str, ...] = (
     "yoke_core.hooks.session_title",
+    _PROMPT_ATTESTATION,
     "yoke_core.domain.turn_end_promised_work_gate",
     *_TURN_END_DELIVERY,
     "yoke_core.hooks.session_dispatch",
@@ -284,6 +287,7 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "SessionEnd": {
         "_default": (
+            _PROMPT_ATTESTATION,
             "yoke_core.domain.turn_end_promised_work_gate",
             *_LIFECYCLE_DISPATCH,
             "yoke_core.hooks.session_launch_attestation",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -18,10 +19,24 @@ from runtime.api.domain.file_line_check_test_support import (
 )
 
 
+@pytest.mark.parametrize("width", [40, 64])
+def test_merge_parent_environment_accepts_windows_uppercase_hashes(tmp_path, monkeypatch, width):
+    from yoke_contracts.project_contract import file_line_git_scope as scope
+
+    monkeypatch.setattr(scope, "_git", lambda *args: ".git/MERGE_HEAD")
+    for key in tuple(os.environ):
+        if key.startswith("GITHEAD_"):
+            monkeypatch.delenv(key)
+    oid = ("ABCDEF0123" * 7)[:width]
+    monkeypatch.setenv(f"GITHEAD_{oid}", "incoming")
+
+    assert scope.merge_parent_refs(tmp_path) == (oid.lower(),)
+
+
 def git(repo: pathlib.Path, *args: str, check: bool = True):
     return subprocess.run(
         ["git", "-C", str(repo), *args], check=check,
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8",
     )
 
 
@@ -43,7 +58,7 @@ def repo(tmp_path):
 def test_merge_uses_largest_parent_count(repo, checker, extra_growth):
     git(repo, "merge", "--no-commit", "--no-ff", "main")
     if extra_growth:
-        (repo / "big.py").write_text(_make_lines(401 + extra_growth))
+        (repo / "big.py").write_text(_make_lines(401 + extra_growth), encoding="utf-8", newline="\n")
         git(repo, "add", "big.py")
     verdict = checker.changed_files_check(repo_root=repo, staged=True)
     changes = verdict.hard_fails if extra_growth else verdict.warnings
@@ -55,7 +70,7 @@ def test_merge_uses_largest_parent_count(repo, checker, extra_growth):
 
 @pytest.mark.parametrize("checker", [core, harness])
 def test_non_merge_still_refuses_growth(repo, checker):
-    (repo / "big.py").write_text(_make_lines(401))
+    (repo / "big.py").write_text(_make_lines(401), encoding="utf-8", newline="\n")
     git(repo, "add", "big.py")
     verdict = checker.changed_files_check(repo_root=repo, staged=True)
     assert not verdict.ok
@@ -66,7 +81,7 @@ def test_non_merge_still_refuses_growth(repo, checker):
 def test_head_can_be_larger_than_merge_parent(repo, checker):
     _commit_file(repo, "big.py", _make_lines(402))
     git(repo, "merge", "--no-commit", "--no-ff", "main", check=False)
-    (repo / "big.py").write_text(_make_lines(402))
+    (repo / "big.py").write_text(_make_lines(402), encoding="utf-8", newline="\n")
     git(repo, "add", "big.py")
     assert checker.changed_files_check(repo_root=repo, staged=True).ok
 
@@ -78,7 +93,7 @@ def test_octopus_merge_reads_all_parents(repo, checker):
     git(repo, "checkout", "lane")
     git(repo, "merge", "--no-commit", "--no-ff", "other", "main")
     merge_head = pathlib.Path(git(repo, "rev-parse", "--git-path", "MERGE_HEAD").stdout.strip())
-    assert len((repo / merge_head).read_text().splitlines()) == 2
+    assert len((repo / merge_head).read_text(encoding="utf-8").splitlines()) == 2
     verdict = checker.changed_files_check(repo_root=repo, staged=True)
     assert verdict.ok
     assert next(c for c in verdict.warnings if c.path == "big.py").old_line_count == 401
@@ -89,7 +104,7 @@ def install_line_hook(repo, name):
     hook.write_text(
         f"#!{sys.executable}\nimport sys\nsys.path[:] = {sys.path!r}\n"
         "from yoke_harness.git_hooks.pre_commit import main\n"
-        "raise SystemExit(main())\n"
+        "raise SystemExit(main())\n", encoding="utf-8", newline="\n"
     )
     hook.chmod(0o755)
 
@@ -127,7 +142,7 @@ def test_plain_commit_finishes_conflicted_merge(repo, extra_growth):
     result = git(repo, "merge", "--no-ff", "main", check=False)
     assert result.returncode == 1
     assert "CONFLICT" in result.stdout
-    (repo / "big.py").write_text(_make_lines(401 + extra_growth))
+    (repo / "big.py").write_text(_make_lines(401 + extra_growth), encoding="utf-8", newline="\n")
     git(repo, "add", "big.py")
     install_line_hook(repo, "pre-commit")
     result = git(repo, "commit", "-m", "Resolve merge", check=False)

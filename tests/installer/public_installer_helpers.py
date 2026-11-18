@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +22,30 @@ PUBLISHED_RELEASE_RECORD = (
     b'"filename":"yoke_cli-1.2.3-py3-none-any.whl","sha256":"ab","size":1}]'
 )
 RunResult = subprocess.CompletedProcess[str]
+# install.py resolves the uv tool launcher by this name (install.py
+# _installed_yoke_candidates).
+YOKE_LAUNCHER = "yoke.cmd" if sys.platform == "win32" else "yoke"
+
+
+def current_os_answer(*, posix, windows):
+    """Return the installer's decided answer for the OS running this test."""
+    return windows if sys.platform == "win32" else posix
+
+
+def posix_sh() -> str:
+    """Return a POSIX sh: /bin/sh, or Git for Windows' sh on native Windows."""
+    if sys.platform != "win32":
+        return "/bin/sh"
+    git = shutil.which("git")
+    roots = Path(git).resolve().parents if git else ()
+    for root in list(roots)[:3]:
+        for candidate in (root / "usr" / "bin" / "sh.exe", root / "bin" / "sh.exe"):
+            if candidate.is_file():
+                return str(candidate)
+    pytest.fail(
+        "git_for_windows_sh_missing: no sh.exe beside git "
+        f"({git or 'git not on PATH'}); install Git for Windows and put git on PATH"
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -131,21 +157,33 @@ def run_shim(
     # WITHOUT putting its own directory on PATH: on CI that directory is the
     # .venv/bin where `pip install uv` drops a real uv, which would leak past the
     # "uv absent" scenarios. bin_dir stays first so test stubs always win.
-    python_exe = Path(sys.executable).resolve()
-    for _name in ("python3", "python"):
-        _link = bin_dir / _name
-        if not _link.exists():
-            _link.symlink_to(python_exe)
-    path = ":".join([str(bin_dir), "/usr/bin", "/bin"])
+    sh = posix_sh()
+    if sys.platform == "win32":
+        # Git for Windows' sh brings its own coreutils; the only shim branch
+        # that runs on Windows hands off to PowerShell before any python3.
+        path = os.pathsep.join([str(bin_dir), str(Path(sh).parent)])
+        platform_env = {
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", r"C:\Windows"),
+            "TMPDIR": bin_dir.parent.as_posix(),
+        }
+    else:
+        python_exe = Path(sys.executable).resolve()
+        for _name in ("python3", "python"):
+            _link = bin_dir / _name
+            if not _link.exists():
+                _link.symlink_to(python_exe)
+        path = ":".join([str(bin_dir), "/usr/bin", "/bin"])
+        platform_env = {}
     env = {
         "PATH": path,
         "YOKE_INSTALL_BASE_URL": "https://example.invalid",
         "YOKE_UV_BOOTSTRAP_TIMEOUT_SECONDS": "5",
+        **platform_env,
     }
     if env_extra:
         env.update(env_extra)
     return subprocess.run(
-        ["/bin/sh", str(INSTALL_SHIM_PATH), *args],
+        [sh, str(INSTALL_SHIM_PATH), *args],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

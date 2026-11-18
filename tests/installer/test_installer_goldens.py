@@ -33,7 +33,13 @@ from pathlib import Path
 from public_installer_helpers import (
     INSTALL_SHIM_PATH,
     branded_installer_glyphs as branded_installer_glyphs,
+    current_os_answer,
     load_installer,
+)
+import pytest
+
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
 )
 
 
@@ -68,6 +74,7 @@ def _assert_golden(name: str, captured: str) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@SHIM_BRANCH
 def test_shell_welcome(tmp_path: Path) -> None:
     captured = _run_shim_capture(
         tmp_path,
@@ -80,6 +87,7 @@ def test_shell_welcome(tmp_path: Path) -> None:
     _assert_golden("shell_welcome.txt", captured)
 
 
+@SHIM_BRANCH
 def test_shell_welcome_astral(tmp_path: Path) -> None:
     captured = _run_shim_capture(
         tmp_path,
@@ -92,6 +100,7 @@ def test_shell_welcome_astral(tmp_path: Path) -> None:
     _assert_golden("shell_welcome_astral.txt", captured)
 
 
+@SHIM_BRANCH
 def test_shell_welcome_plain(tmp_path: Path) -> None:
     captured = _run_shim_capture(
         tmp_path,
@@ -203,7 +212,12 @@ def _normalize(captured: str) -> str:
     return captured
 
 
-def _run_install(*, uv_stdout: str, uv_rc: int = 0, uv_stderr: str = "") -> str:
+def _run_install(
+    monkeypatch, *, uv_stdout: str, uv_rc: int = 0, uv_stderr: str = ""
+) -> str:
+    # The caller's shell already resolves the fake launcher's directory, so no
+    # PATH advice renders on any OS.
+    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/bin")
     installer_mod = load_installer("inst_golden")
     output = io.StringIO()
     options = installer_mod.InstallOptions(
@@ -228,16 +242,22 @@ def _run_install(*, uv_stdout: str, uv_rc: int = 0, uv_stderr: str = "") -> str:
     return _normalize(output.getvalue())
 
 
-def test_install_log() -> None:
-    captured = _run_install(uv_stdout="+ yoke-cli==0.1.1")
+def test_install_log(monkeypatch) -> None:
+    captured = _run_install(monkeypatch, uv_stdout="+ yoke-cli==0.1.1")
     _assert_golden("install_log.txt", captured)
 
 
-def test_install_log_already() -> None:
-    captured = _run_install(uv_stdout="yoke-cli v0.1.1 is already installed")
+def test_install_log_already(monkeypatch) -> None:
+    captured = _run_install(monkeypatch, uv_stdout="yoke-cli v0.1.1 is already installed")
     _assert_golden("install_log_already.txt", captured)
 
 
-def test_install_log_failure() -> None:
-    captured = _run_install(uv_stdout="", uv_rc=1, uv_stderr=_REASON_TEXT)
-    _assert_golden("install_log_failure.txt", captured)
+def test_install_log_failure(monkeypatch) -> None:
+    captured = _run_install(monkeypatch, uv_stdout="", uv_rc=1, uv_stderr=_REASON_TEXT)
+    # Native Windows reruns through install.ps1 (install.py _rerun_command).
+    _assert_golden(
+        current_os_answer(
+            posix="install_log_failure.txt", windows="install_log_failure_windows.txt"
+        ),
+        captured,
+    )

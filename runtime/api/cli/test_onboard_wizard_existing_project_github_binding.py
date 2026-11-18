@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -76,7 +77,13 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
         ),
     )
 
-    def detect_origin(result, _value):
+    def detect_origin(result, value):
+        assert Path(value).resolve() == checkout.resolve()
+        local_ref = existing_project_lookup.find_local_project_reference(
+            value, config_path=result.config_path,
+        )
+        assert local_ref is not None, value
+        assert local_ref.project_id == 37
         result.project_github_repo = "example-org/legacy"
         result.project_source_default_branch = "main"
         return "https://github.com/example-org/legacy.git", "https://github.com"

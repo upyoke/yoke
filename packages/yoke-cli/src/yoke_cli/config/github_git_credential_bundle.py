@@ -37,6 +37,7 @@ from yoke_contracts import (
     platform_file_lock,
     platform_file_sync,
     windows_private_directory,
+    windows_others_unwritable_directory,
 )
 
 _WINDOWS = os.name == "nt"
@@ -118,6 +119,10 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
         (
             Path(filesystem_safety.__file__),
             github_git_credential_launcher.BUNDLE_FILESYSTEM_SAFETY_NAME,
+        ),
+        (
+            Path(windows_others_unwritable_directory.__file__),
+            github_git_credential_launcher.BUNDLE_WINDOWS_OTHERS_UNWRITABLE_DIRECTORY_NAME,
         ),
         (
             Path(owner_private_path.__file__),

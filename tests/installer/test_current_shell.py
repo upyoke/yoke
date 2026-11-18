@@ -1,5 +1,7 @@
 """Account login-shell selection when headless launchers omit SHELL."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import builtins
 import json
 import subprocess
@@ -10,6 +12,10 @@ import pytest
 
 from yoke_contracts import shell_path_state as state
 
+POSIX_SHELL = pytest.mark.posix_only(
+    reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
+)
+
 
 def account_shell(monkeypatch, shell):
     def getpwuid(uid):
@@ -19,28 +25,44 @@ def account_shell(monkeypatch, shell):
     monkeypatch.setitem(sys.modules, "pwd", SimpleNamespace(getpwuid=getpwuid))
 
 
+def test_native_windows_shell_kind_uses_the_user_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    env = {"HOME": str(tmp_path), "SHELL": "/bin/bash", "COMSPEC": r"C:\Windows\cmd.exe"}
+    assert state.current_shell(env) == "windows"
+    contract = state.resolve_path_state_contract(target="windows", env=env)
+    assert contract.shell == "windows"
+    assert contract.shell_path == r"C:\Windows\cmd.exe"
+    assert contract.startup_file == r"HKCU\Environment\Path"
+    assert contract.supported_startup_files == ()
+
+
+@POSIX_SHELL
 def test_explicit_shell_takes_precedence(monkeypatch):
     account_shell(monkeypatch, "/bin/bash")
     assert state.current_shell({"SHELL": "/usr/local/bin/fish"}) == "fish"
 
 
+@POSIX_SHELL
 @pytest.mark.parametrize("env", [{}, {"SHELL": ""}])
 def test_missing_shell_uses_account_login_shell(monkeypatch, env):
     account_shell(monkeypatch, "/bin/bash")
     assert state.current_shell(env) == "bash"
 
 
+@POSIX_SHELL
 def test_default_environment_uses_account_login_shell(monkeypatch):
     monkeypatch.delenv("SHELL", raising=False)
     account_shell(monkeypatch, "/bin/bash")
     assert state.current_shell() == "bash"
 
 
+@POSIX_SHELL
 def test_empty_account_shell_uses_default(monkeypatch):
     account_shell(monkeypatch, "")
     assert state.current_shell({}) == "zsh"
 
 
+@POSIX_SHELL
 def test_unknown_uid_uses_default(monkeypatch):
     def missing(uid):
         raise KeyError(uid)
@@ -49,6 +71,7 @@ def test_unknown_uid_uses_default(monkeypatch):
     assert state.current_shell({}) == "zsh"
 
 
+@POSIX_SHELL
 def test_pwd_unavailable_uses_default(monkeypatch):
     original_import = builtins.__import__
 
@@ -61,22 +84,24 @@ def test_pwd_unavailable_uses_default(monkeypatch):
     assert state.current_shell({}) == "zsh"
 
 
+@POSIX_SHELL
 def test_headless_bash_contract_selects_bash_startup_files(tmp_path, monkeypatch):
     account_shell(monkeypatch, "/bin/bash")
-    contract = state.resolve_path_state_contract(env={"HOME": str(tmp_path)})
+    contract = state.resolve_path_state_contract(target="posix", home=tmp_path, env={"HOME": str(tmp_path)})
     assert contract.shell == "bash"
     assert contract.shell_path == "/bin/bash"
     assert contract.startup_file == str(tmp_path / ".profile")
     assert contract.ssh_startup_file == str(tmp_path / ".bashrc")
 
 
+@POSIX_SHELL
 def test_path_fix_without_shell_probes_bash(tmp_path, monkeypatch, capsys):
     from yoke_cli.commands.adapters import path_doctor as cli
     from yoke_cli.config import path_doctor as doctor
 
     account_shell(monkeypatch, "/bin/bash")
     monkeypatch.delenv("SHELL", raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
     tool_dir = tmp_path / "bin"
     tool_dir.mkdir()

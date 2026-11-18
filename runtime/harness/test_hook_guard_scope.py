@@ -165,13 +165,21 @@ def test_unmatched_glob_still_denies_outside_projects(scope_repos, executor):
     assert "glob" in result.stdout.lower()
 
 
-def test_privacy_guard_still_denies_outside_projects(scope_repos):
+def test_privacy_guard_still_denies_outside_projects(scope_repos, monkeypatch):
+    import shlex
+    from yoke_contracts.hook_runner import local_privacy_guard
+
     _, other = scope_repos
+    privacy_database = other / "system-privacy" / "TCC.db"
+    # This test owns guard applicability, independent of macOS's protected path.
+    monkeypatch.setattr(
+        local_privacy_guard, "_SYSTEM_PRIVACY_DATABASE", privacy_database
+    )
     payload = {
         "cwd": str(other),
         "tool_name": "Bash",
         "tool_input": {
-            "command": "cat /Library/Application\\ Support/com.apple.TCC/TCC.db",
+            "command": shlex.join(["cat", str(privacy_database)]),
         },
     }
     result = local_subset.evaluate_local_subset(

@@ -27,6 +27,7 @@ PRODUCT_AUTHZ_BY_ID = {
     # prices every project uses for sessions starting at its effective time.
     "models.publish.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "models.restore.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "models.follow_shipped.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "models.diff.run": AuthzSpec(ACTOR_SESSION, None),
     "models.level_proposal.run": AuthzSpec(ACTOR_SESSION, None),
     "models.revisions.run": AuthzSpec(ACTOR_SESSION, None),

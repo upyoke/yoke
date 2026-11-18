@@ -175,7 +175,7 @@ def test_parent_folder_trust_is_neither_reported_nor_touched(installed, family):
     report = uninstall(root, config_path=config)
     assert report["outcome"] == "complete", report
     assert {row["status"] for row in report["local_cleanup"]["trust"]} == {"removed"}
-    assert parent in target.read_text() and not trust.cursor_trust_file(root).exists()
+    assert json.dumps(parent)[1:-1] in target.read_text() and not trust.cursor_trust_file(root).exists()
     if family == "cursor":
         assert target.read_bytes() == before
 

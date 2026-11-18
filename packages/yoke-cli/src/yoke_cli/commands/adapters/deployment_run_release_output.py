@@ -95,7 +95,7 @@ def deployment_runs_release_output_record(args: List[str]) -> int:
     }
     if parsed.promotion_receipt_file:
         try:
-            receipt = json.loads(parsed.promotion_receipt_file.read_text())
+            receipt = json.loads(parsed.promotion_receipt_file.read_text(encoding="utf-8"))
             if not isinstance(receipt, dict):
                 raise ValueError("receipt must be a JSON object")
         except (OSError, ValueError) as exc:

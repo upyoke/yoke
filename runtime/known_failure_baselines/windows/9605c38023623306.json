@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_session_relay_candidate_isolation.py::test_candidate_installation_runs_isolated_from_the_running_release",
+ "reason": "yoke_core.tools.session_relay_release.RelayReleaseError: relay_release_install_failed: relay release install failed: FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\Ap"
+}

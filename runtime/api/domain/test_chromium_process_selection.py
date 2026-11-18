@@ -2,10 +2,13 @@
 
 from pathlib import Path
 
+import pytest
+
 from yoke_harness import linux_desktop_chromium as host
 from yoke_harness import linux_chromium_processes as processes
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_proc_selection_handles_flattened_titles_and_excludes_crashpad(
     tmp_path, monkeypatch
 ):
@@ -28,18 +31,18 @@ def test_proc_selection_handles_flattened_titles_and_excludes_crashpad(
         lambda value: tmp_path if str(value) == "/proc" else real_path(value),
     )
     monkeypatch.setattr(
-        host.os,
+        processes.os,
         "readlink",
         lambda path: "/snap/chromium/3560/" + programs[int(path.parent.name)][0],
     )
-    assert set(host.browser_pids()) == {101, 105}
+    assert set(processes.browser_pids()) == {101, 105}
 
 
 def test_quit_signals_only_selected_main_and_waits(monkeypatch):
     states = iter([[101], [101], []])
-    monkeypatch.setattr(host, "browser_pids", lambda: next(states))
+    monkeypatch.setattr(processes, "browser_pids", lambda: next(states))
     signals = []
-    monkeypatch.setattr(host.os, "kill", lambda *args: signals.append(args))
-    monkeypatch.setattr(host.time, "sleep", lambda delay: None)
+    monkeypatch.setattr(processes.os, "kill", lambda *args: signals.append(args))
+    monkeypatch.setattr(processes.time, "sleep", lambda delay: None)
     assert host.quit_chromium()
-    assert signals == [(101, host.signal.SIGTERM)]
+    assert signals == [(101, processes.signal.SIGTERM)]

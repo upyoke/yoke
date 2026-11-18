@@ -5,8 +5,8 @@ from __future__ import annotations
 from yoke_contracts.timestamps import format_instant, iso8601_now as _now_iso
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import write_owner_private
 
-import os
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -218,11 +218,8 @@ class ApplyReportWriter:
         onboard_checkout_ownership.refresh_snapshot(self.payload.get("input_snapshot"))
         try:
             create_private_directory(self.path.parent)
-            tmp_path = self.path.with_name(self.path.name + ".tmp")
             serialized = json.dumps(self.payload, indent=2, sort_keys=True) + "\n"
-            tmp_path.write_text(serialized, encoding="utf-8")
-            tmp_path.chmod(0o600)
-            os.replace(tmp_path, self.path)
+            write_owner_private(self.path, serialized)
         except OSError as exc:
             raise OnboardApplyReportError(
                 f"couldn't create report directory at {self.path.parent}: {exc}"

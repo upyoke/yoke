@@ -18,6 +18,7 @@ from yoke_contracts.model_reference import (
 )
 from yoke_contracts.model_reference_catalog import refuse_retired_record_keys
 from yoke_contracts.timestamps import format_instant
+from yoke_core.domain.model_reference_shipped import shipped_defaults_differ
 from yoke_core.domain.model_reference_store import revision_at, revision_get
 
 LOOKUP_FUNCTION_ID = "models.lookup.run"
@@ -46,6 +47,7 @@ class ModelsLookupResponse(BaseModel):
     record: Optional[Dict[str, Any]] = None
     revision_id: str
     effective_at: str
+    shipped_defaults_differ: Optional[bool] = None
 
 
 class ModelsGetResponse(BaseModel):
@@ -60,6 +62,8 @@ class ModelsGetResponse(BaseModel):
     published_by_actor_id: Optional[int] = None
     source_note: str
     source_revision_id: Optional[str] = None
+    source: str
+    shipped_defaults_differ: Optional[bool] = None
 
 
 class ModelsValidateResponse(BaseModel):
@@ -89,6 +93,7 @@ def handle_models_lookup(request: FunctionCallRequest) -> HandlerOutcome:
     with connect() as conn:
         try:
             revision = revision_at(conn, spec.at)
+            differ = shipped_defaults_differ(conn)
         except ModelReferenceError as exc:
             return _reference_error(exc)
     lookup = lookup_model_reference(spec.model_id, revision["records"])
@@ -97,9 +102,15 @@ def handle_models_lookup(request: FunctionCallRequest) -> HandlerOutcome:
             **lookup.to_dict(),
             "revision_id": revision["revision_id"],
             "effective_at": format_instant(revision["effective_at"]),
+            **_differ_field(differ),
         },
         primary_success=True,
     )
+
+
+def _differ_field(differ: Optional[bool]) -> Dict[str, bool]:
+    """Report an operator override only; a shipped-sourced universe follows defaults."""
+    return {} if differ is None else {"shipped_defaults_differ": differ}
 
 
 def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -116,6 +127,7 @@ def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
                 if spec.revision_id
                 else revision_at(conn, spec.at)
             )
+            differ = shipped_defaults_differ(conn)
         except ModelReferenceError as exc:
             return _reference_error(exc)
     metadata = {
@@ -125,6 +137,8 @@ def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
         "published_by_actor_id": revision["published_by_actor_id"],
         "source_note": revision["source_note"],
         "source_revision_id": revision["source_revision_id"],
+        "source": revision["source"],
+        **_differ_field(differ),
     }
     if spec.model_id:
         lookup = lookup_model_reference(spec.model_id, revision["records"])

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_session_relay_inventory.py::test_an_absolute_binary_resolves_only_when_it_is_executable",
+ "reason": "AssertionError: assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_an_absolute_binary_resolv0\\\\explicit\\\\not-executable' is None"
+}

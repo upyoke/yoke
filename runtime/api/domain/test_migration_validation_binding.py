@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_core.domain import migration_validation_binding as subject
 
 
@@ -24,7 +25,7 @@ def test_written_binding_is_readable_without_an_exported_variable(
 
     assert subject.read_binding(env_var) == dsn
     assert path == subject.binding_file(env_var)
-    assert path.stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(path)
 
 
 def test_exported_variable_wins_over_the_written_binding(monkeypatch) -> None:

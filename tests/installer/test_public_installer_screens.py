@@ -9,6 +9,7 @@ combinations a single golden does not.
 
 from __future__ import annotations
 
+
 import io
 import json
 import subprocess
@@ -19,9 +20,11 @@ from public_installer_helpers import (
     INSTALL_SHIM_PATH,
     RecordingRunner,
     branded_installer_glyphs as branded_installer_glyphs,
+    current_os_answer,
     load_installer,
     write_channel,
 )
+from tests.installer.public_installer_test_support import _installed_yoke_path
 
 
 def _options(installer_mod, **overrides):
@@ -52,17 +55,6 @@ def _status_ok(version: str = "2.0.0"):
         }
     )
     return subprocess.CompletedProcess(["yoke", "status", "--json"], 0, payload, "")
-
-
-def _installed_yoke_path(tmp_path: Path, monkeypatch) -> str:
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    yoke_bin = bin_dir / "yoke"
-    yoke_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    yoke_bin.chmod(0o755)
-    monkeypatch.setenv("XDG_BIN_HOME", str(bin_dir))
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    return str(yoke_bin)
 
 
 def test_display_version_normalizes_dev_build() -> None:
@@ -135,8 +127,11 @@ def test_failure_screen_prints_reason_and_rerun(tmp_path: Path) -> None:
     assert "☀ Install failed" in rendered
     assert "✗ Couldn't install Yoke." in rendered
     assert "error: failed to resolve yoke-cli from the index" in rendered
-    assert f"curl -fsSL {release['base_url']}/install | sh" in rendered
-    assert "curl -fsSL https://upyoke.com/install | sh" not in rendered
+    assert current_os_answer(
+        posix=f"curl -fsSL {release['base_url']}/install | sh",
+        windows=f"irm {release['base_url']}/install.ps1 | iex",
+    ) in rendered
+    assert "https://upyoke.com/install" not in rendered
     # The success screen never renders on a failed install.
     assert "☀ Starting Yoke setup…" not in rendered
 
@@ -175,7 +170,10 @@ def test_channel_resolution_failure_prints_reason_and_rerun() -> None:
     assert "missing-channel" in rendered
     assert "HTTP Error 403" in rendered
     assert "Try again:" in rendered
-    assert "curl -fsSL https://api.stage.upyoke.com/install | sh" in rendered
+    assert current_os_answer(
+        posix="curl -fsSL https://api.stage.upyoke.com/install | sh",
+        windows="irm https://api.stage.upyoke.com/install.ps1 | iex",
+    ) in rendered
     assert "Traceback" not in rendered
 
 
@@ -205,9 +203,10 @@ def test_non_default_channel_failure_stays_on_requested_origin() -> None:
     rendered = output.getvalue()
     assert runner.commands == []
     assert "https://api.stage.upyoke.com" not in rendered
-    assert (
-        "curl -fsSL https://upyoke.com/install | sh -s -- --channel stable" in rendered
-    )
+    assert current_os_answer(
+        posix="curl -fsSL https://upyoke.com/install | sh -s -- --channel stable",
+        windows="irm https://upyoke.com/install.ps1 | iex",
+    ) in rendered
 
 
 def test_stage_installer_channel_failure_uses_stage_default(
@@ -245,10 +244,10 @@ def test_stage_installer_channel_failure_uses_stage_default(
     rendered = output.getvalue()
     assert runner.commands == []
     assert "https://api.upyoke.com/install" not in rendered
-    assert (
-        "curl -fsSL https://stage.upyoke.com/install | sh -s -- --channel latest"
-        in rendered
-    )
+    assert current_os_answer(
+        posix="curl -fsSL https://stage.upyoke.com/install | sh -s -- --channel latest",
+        windows="irm https://stage.upyoke.com/install.ps1 | iex",
+    ) in rendered
 
 
 def test_default_origin_resolution_failure_prints_the_original_reason() -> None:
@@ -282,7 +281,10 @@ def test_default_origin_resolution_failure_prints_the_original_reason() -> None:
 
     rendered = output.getvalue()
     assert "channel record unavailable" in rendered
-    assert "curl -fsSL https://upyoke.com/install | sh" in rendered
+    assert current_os_answer(
+        posix="curl -fsSL https://upyoke.com/install | sh",
+        windows="irm https://upyoke.com/install.ps1 | iex",
+    ) in rendered
     assert "Traceback" not in rendered
     assert "AttributeError" not in rendered
 

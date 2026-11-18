@@ -2,8 +2,12 @@
 
 Linux CI owns the full suite's verdict. The on-demand ``yoke-suite`` workflow
 runs the same suite on Windows and macOS, where some tests do not pass yet.
-Each such test is listed, with the reason, in a JSON file under
-``runtime/known_failure_baselines/<os>/`` and expected to fail on that OS only:
+Each such test is listed, with the reason, in its own JSON file
+``runtime/known_failure_baselines/<os>/<hash>.json`` holding
+``{"node_id": ..., "reason": ...}``, where ``<hash>`` is the first 16 hex
+digits of the SHA-256 of the node id (see ``entry_file_name``). One file per
+entry lets parallel changes delete different entries without a merge
+conflict. A listed test is expected to fail on that OS only:
 
 - a listed test is marked ``xfail(strict=True)``; a failure in its setup,
   call or teardown is reported as xfailed;
@@ -16,8 +20,8 @@ Each such test is listed, with the reason, in a JSON file under
 - an unlisted failure fails the run as usual.
 
 A test that fails in some runs and passes in others cannot be held by a
-strict entry. It goes in ``runtime/known_failure_baselines/flaky/<os>.json``
-instead, as ``{"<node id>": {"reason": ..., "feedback": <entry id>, "fix_item": "YOK-N"}}``,
+strict entry. It goes in ``runtime/known_failure_baselines/flaky/<os>/<hash>.json``
+instead, as ``{"node_id": ..., "reason": ..., "feedback": <entry id>, "fix_item": "YOK-N"}``,
 naming the feedback entry that records it and the item that fixes it; the
 entry is deleted when that fix lands. A flaky test is marked
 ``xfail(strict=False)``: its failures never fail the run, and its passes do
@@ -34,6 +38,7 @@ runner fails may pass there, and a local run judges every test plainly.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -62,57 +67,72 @@ _PASSED_SO_FAR = pytest.StashKey[bool]()
 XPASS_MARK = "[XPASS(strict)]"
 
 
-def baseline_files(os_name: str) -> list[Path]:
-    return sorted((BASELINE_DIR / os_name).glob("*.json"))
+#: The keys of a known-failure entry file and of a flaky entry file.
+ENTRY_KEYS = frozenset({"node_id", "reason"})
+FLAKY_KEYS = frozenset({"node_id", "reason", "feedback", "fix_item"})
+
+
+def entry_file_name(node_id: str) -> str:
+    """The file an entry for *node_id* lives in: a node id is too long, and
+    may hold characters Windows forbids, to name a file itself."""
+    return hashlib.sha256(node_id.encode("utf-8")).hexdigest()[:16] + ".json"
+
+
+def entry_files(directory: Path) -> list[Path]:
+    return sorted(directory.glob("*.json")) if directory.is_dir() else []
+
+
+def _read_entries(directory: Path, keys: frozenset, code: str) -> dict[str, dict]:
+    """``{node id: entry}`` from *directory*'s one-entry files, refusing a
+    malformed file or one not named for its node id (so no id repeats)."""
+    entries: dict[str, dict] = {}
+    for path in entry_files(directory):
+        try:
+            entry = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise pytest.UsageError(
+                f"{code}_unreadable: {path} ({exc}); restore it as a JSON object "
+                f"with keys {sorted(keys)}"
+            ) from exc
+        if not (
+            isinstance(entry, dict) and entry.keys() == keys
+            and isinstance(entry["node_id"], str) and entry["node_id"]
+            and isinstance(entry["reason"], str) and entry["reason"].strip()
+        ):
+            raise pytest.UsageError(
+                f"{code}_invalid: {path} must be a JSON object with exactly the keys "
+                f"{sorted(keys)} and a nonempty node_id and reason"
+            )
+        expected = entry_file_name(entry["node_id"])
+        if path.name != expected:
+            raise pytest.UsageError(
+                f"{code}_misnamed: {path} holds {entry['node_id']!r}, whose file is "
+                f"{expected}; rename it (or write it with the recorder)"
+            )
+        entries[entry["node_id"]] = entry
+    return entries
 
 
 def load_baseline(os_name: str) -> dict[str, str]:
-    """The ``{node id: reason}`` baseline for *os_name*, merged across its files."""
-    entries: dict[str, str] = {}
-    for path in baseline_files(os_name):
-        try:
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            raise pytest.UsageError(
-                f"known_failure_baseline_unreadable: {path} ({exc}); restore it as a "
-                "JSON object mapping pytest node ids to reasons"
-            ) from exc
-        if not isinstance(loaded, dict):
-            raise pytest.UsageError(
-                f"known_failure_baseline_invalid: {path} must be a JSON object "
-                "mapping pytest node ids to reasons"
-            )
-        repeated = sorted(entries.keys() & loaded.keys())
-        if repeated:
-            raise pytest.UsageError(
-                f"known_failure_baseline_duplicate: {path} repeats {repeated[0]}; "
-                "keep each node id in one file"
-            )
-        entries.update(loaded)
-    return entries
+    """The ``{node id: reason}`` baseline for *os_name*, one file per entry."""
+    found = _read_entries(BASELINE_DIR / os_name, ENTRY_KEYS, "known_failure_baseline")
+    return {node_id: entry["reason"] for node_id, entry in found.items()}
 
 
 def load_flaky(os_name: str) -> dict[str, dict]:
-    """The ``{node id: {"reason", "feedback"}}`` flaky list for *os_name*."""
-    path = FLAKY_DIR / f"{os_name}.json"
-    if not path.is_file():
-        return {}
-    try:
-        entries = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise pytest.UsageError(f"known_flaky_list_unreadable: {path} ({exc}); restore its JSON") from exc
-    for node_id, entry in (entries.items() if isinstance(entries, dict) else [(None, None)]):
+    """The ``{node id: {"reason", "feedback", "fix_item"}}`` flaky list for *os_name*."""
+    found = _read_entries(FLAKY_DIR / os_name, FLAKY_KEYS, "known_flaky_list")
+    for node_id, entry in found.items():
         if not (
-            isinstance(entry, dict)
-            and isinstance(entry.get("reason"), str) and entry["reason"].strip()
-            and isinstance(entry.get("feedback"), int)
-            and re.fullmatch(r"[A-Z]+-\d+", str(entry.get("fix_item", "")))
+            isinstance(entry["feedback"], int) and not isinstance(entry["feedback"], bool)
+            and re.fullmatch(r"[A-Z]+-\d+", str(entry["fix_item"]))
         ):
             raise pytest.UsageError(
-                f"known_flaky_list_invalid: {path} entry {node_id!r} needs a reason, the "
-                "integer id of the feedback entry that records it, and its fix item (PREFIX-N)"
+                f"known_flaky_list_invalid: {FLAKY_DIR / os_name / entry_file_name(node_id)} "
+                "needs the integer id of the feedback entry that records it and its fix "
+                "item (PREFIX-N)"
             )
-    return entries
+    return {node_id: {k: v for k, v in entry.items() if k != "node_id"} for node_id, entry in found.items()}
 
 
 def baseline_reason(node_id: str, entries: dict[str, str]) -> str | None:

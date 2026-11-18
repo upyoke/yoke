@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import io
+import subprocess
 from types import SimpleNamespace
 
 import pytest
+
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory,
+    is_owner_private_directory,
+)
 
 from yoke_cli.config import github_binding_auth, machine_config, machine_config_file, writer
 from yoke_cli.config import github_git_credential_file as credential_file
@@ -16,6 +22,7 @@ from yoke_cli.config import github_machine_operation
 from runtime.api.cli.github_user_token_test_support import NOW, configured_credential
 
 
+@pytest.mark.posix_only(reason="POSIX mode bits: chmod 0775 opens the lock parent")
 def test_unsafe_operation_lock_parent_names_the_path(tmp_path, monkeypatch):
     parent = tmp_path / "secrets"
     parent.mkdir(mode=0o775)
@@ -30,16 +37,31 @@ def test_unsafe_operation_lock_parent_names_the_path(tmp_path, monkeypatch):
     assert parent.stat().st_mode & 0o777 == 0o775
 
 
+@pytest.mark.windows_only(reason="native Windows DACL: icacls grants Builtin Users read")
+def test_shared_windows_operation_lock_parent_names_the_path(tmp_path, monkeypatch):
+    parent = create_owner_private_directory(tmp_path / "secrets")
+    subprocess.run(["icacls", str(parent), "/grant", "*S-1-5-32-545:(R)"], check=True)
+    monkeypatch.setattr(
+        github_machine_operation, "operation_lock_target", lambda: parent / ".operation"
+    )
+    with pytest.raises(credential_store.GitHubCredentialStoreError) as caught:
+        with credential_store.machine_operation_lock(tmp_path / "config.json"):
+            pytest.fail("a shared lock parent must refuse")
+    assert f"directory permissions are unsafe: {parent}" in str(caught.value)
+    assert not is_owner_private_directory(parent), "the refusal must not repair access"
+    assert not (parent / ".operation.lock").exists()
+
+
 def test_refresh_lock_wraps_parent_creation_failure(tmp_path, monkeypatch):
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
-    original_mkdir = credential_file.Path.mkdir
+    original_create = credential_file.create_private_directory
 
-    def fail_secrets_parent(path, *args, **kwargs):
-        if path.name == "secrets":
+    def fail_secrets_parent(path):
+        if credential_file.Path(path).name == "secrets":
             raise OSError("raw mkdir detail")
-        return original_mkdir(path, *args, **kwargs)
+        return original_create(path)
 
-    monkeypatch.setattr(credential_file.Path, "mkdir", fail_secrets_parent)
+    monkeypatch.setattr(credential_file, "create_private_directory", fail_secrets_parent)
     with pytest.raises(credential_store.GitHubCredentialStoreError) as caught:
         with credential_store.machine_operation_lock(tmp_path / "config.json"):
             pytest.fail("a failed lock open must refuse")

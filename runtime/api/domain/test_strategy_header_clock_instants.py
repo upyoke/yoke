@@ -65,7 +65,7 @@ def test_archive_relocation_matches_equal_instant_and_preserves_bytes(tmp_path, 
     active = strategy_view_path(tmp_path, "MISSION")
     active.parent.mkdir(parents=True)
     text = header.render_file_text("MISSION", STAMP, BODY).replace(WIRE, OFFSET)
-    active.write_text(text)
+    active.write_text(text, encoding="utf-8", newline="\n")
     original = active.read_bytes()
     assert (
         files.relocate_generated_archive(

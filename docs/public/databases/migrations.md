@@ -50,6 +50,11 @@ matching release. Subsequent scripts retain their immutable bytes and ordered
 application. Remove dedicated tests with retired scripts and retain shared
 replay and baseline contracts.
 
+Rehearsal and merge history checks compare repository content through Git's
+clean filters. A `core.autocrlf=true` checkout can therefore carry CRLF without
+changing its integration identity; Git attributes such as `-text` still preserve
+byte differences. This comparison does not change the ledger's raw-byte digest.
+
 After a ledger collapses, rollback below the carrying release is unsupported.
 Recovery pairs a database restore point with its matching older release, or
 proceeds forward. Portable archives must match the current trusted schema;

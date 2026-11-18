@@ -16,6 +16,7 @@ from runtime.api.cli.setup_agent_approvals_test_support import (
     _saved,
 )
 from yoke_contracts.machine_authorization import HostedMachineAuthorizationError
+from yoke_contracts import owner_private_path
 from yoke_cli.config import (
     hosted_machine_authorization,
     setup_agent_answers,
@@ -67,7 +68,7 @@ def drive(tmp_path: Path, monkeypatch, capsys) -> AgentDriver:
 def _lapse_saved_code() -> None:
     record = _saved()
     record["pending_approval"]["expires_at"] = 0
-    setup_agent_answers._write_private(
+    owner_private_path.write_owner_private(
         setup_agent_answers.store_path(), json.dumps(record)
     )
 

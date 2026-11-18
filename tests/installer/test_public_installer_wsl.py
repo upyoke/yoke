@@ -8,7 +8,13 @@ import pytest
 from public_installer_helpers import (
     PUBLISHED_RELEASE_RECORD,
     RecordingRunner,
+    current_os_answer,
     load_installer,
+)
+
+# install.py runs `yoke wsl setup` only off native Windows; WSL itself is Linux.
+WSL_BRANCH = pytest.mark.posix_only(
+    reason="POSIX installer branch: WSL setup runs inside Linux; Windows installs through install.ps1"
 )
 
 
@@ -29,10 +35,12 @@ def test_installer_runs_wsl_setup_before_ready(monkeypatch):
     monkeypatch.setattr(installer, "_record_distribution", lambda binary: None)
     monkeypatch.setattr(installer, "_advise_path", lambda yoke_bin: None)
     installer.run()
-    assert ["/bin/yoke", "wsl", "setup"] in runner.commands
+    ran_wsl_setup = ["/bin/yoke", "wsl", "setup"] in runner.commands
+    assert ran_wsl_setup is current_os_answer(posix=True, windows=False)
     assert "is ready" in output.getvalue()
 
 
+@WSL_BRANCH
 def test_failed_wsl_setup_does_not_print_ready(monkeypatch):
     module = load_installer()
     output = io.StringIO()
@@ -73,6 +81,7 @@ def test_dry_run_does_not_execute_wsl_setup():
     assert runner.commands == []
 
 
+@WSL_BRANCH
 @pytest.mark.parametrize("unavailable", ["old_version", "interop"])
 def test_lifetime_warning_allows_installer_to_finish(monkeypatch, unavailable):
     from yoke_harness import wsl_systemd, wsl_lifetime

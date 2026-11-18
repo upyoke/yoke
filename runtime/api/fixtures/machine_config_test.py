@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 import os
 import tempfile
@@ -18,7 +20,7 @@ def select_machine_config_file(monkeypatch: Any, config_path: str | Path) -> Non
     inside the test directory after clearing the machine-home override.
     """
     selected = Path(config_path)
-    monkeypatch.setenv("HOME", str(selected.parent))
+    set_home(monkeypatch, str(selected.parent))
     monkeypatch.setenv("USERPROFILE", str(selected.parent))
     monkeypatch.delenv("YOKE_MACHINE_HOME", raising=False)
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(selected))

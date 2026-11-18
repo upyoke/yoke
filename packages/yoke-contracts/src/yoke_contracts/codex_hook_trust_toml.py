@@ -225,7 +225,7 @@ def _mutate_locked(
         prefix=f".{target.name}.yoke-", dir=target.parent
     )
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(updated)
             handle.flush()
             os.fsync(handle.fileno())
@@ -248,7 +248,7 @@ def _mutate_locked(
 
 
 def _read_text(path: Path) -> str:
-    return retry_sharing_violations(lambda: path.read_text(encoding="utf-8"))
+    return retry_sharing_violations(lambda: path.read_bytes().decode("utf-8"))
 
 
 def _toml_string(value: str) -> str:

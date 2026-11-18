@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 
 import pytest
@@ -125,7 +127,7 @@ def test_external_reference_read_survives_claim_acquisition(
     recorded_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     assert (
         _remote_decision(
@@ -149,7 +151,7 @@ def test_absolute_shell_read_uses_client_home_after_claim(
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     decision = _remote_evaluation(
         "Bash",
@@ -171,7 +173,7 @@ def test_sanctioned_installed_reads_expand_client_home(
     monkeypatch: pytest.MonkeyPatch,
     target: str,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     assert _remote_decision("Read", {"file_path": target}) is Outcome.NOOP
 
@@ -189,7 +191,7 @@ def test_home_derived_free_paths_expand_client_home(
     monkeypatch: pytest.MonkeyPatch,
     target: str,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     assert (
         _remote_decision(
@@ -205,7 +207,7 @@ def test_absolute_reference_read_allows_without_client_home(
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     assert (
         _remote_decision(
@@ -231,7 +233,7 @@ def test_server_home_and_client_dot_folder_reads_allow(
     monkeypatch: pytest.MonkeyPatch,
     target: str,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     assert _remote_decision("Read", {"file_path": target}) is Outcome.NOOP
 
@@ -241,7 +243,7 @@ def test_external_reference_writes_need_no_repository_claim(
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
 
     assert (
         _remote_decision(
@@ -280,7 +282,7 @@ def test_external_cache_write_needs_no_home_evidence(
     include_home,
     tool_name,
 ):
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
     # The relay sends canonical homes; /home is a root alias on macOS.
     client_home = Path(client_home).resolve()
     target = str(Path(client_home) / cache_root / "example/wheels/package.whl")
@@ -307,7 +309,7 @@ def test_external_home_paths_need_no_free_suffix_diagnosis(
     machine_home,
     suffix,
 ):
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
             "session_id": SESSION_ID,

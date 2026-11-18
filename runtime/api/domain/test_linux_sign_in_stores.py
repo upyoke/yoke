@@ -20,6 +20,8 @@ from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM, archive_operation
 from yoke_harness.ssh_mac_sign_in_apps import SIGN_IN_APP_QUIT_NOT_PROVED
 from yoke_harness.standard_baseline_probes import standard_probes
 
+pytestmark = pytest.mark.posix_only(reason="runs on the remote Linux test machine")
+
 SEALED_PROBES = standard_probes("linux")
 CLAUDE, CODEX, CURSOR = SIGN_INS = (
     ".claude/.credentials.json",

@@ -5,6 +5,8 @@ Every runner runs every stage in order (see :mod:`product_runner_stages`).
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script
+
 import argparse
 import json
 import os
@@ -15,23 +17,28 @@ import stat
 import sys
 import tempfile
 
+# CI starts this checkout tool with plain Python, before installing the product.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages/yoke-contracts/src"))
+
+from yoke_contracts.testing.child_environment import minimal_child_environment
+
 try:
-    from .product_runner_commands import Commands, SmokeFailure, venv_executable
+    from .product_runner_commands import Commands, SmokeFailure
     from .product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from .product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 except ImportError:
-    from product_runner_commands import Commands, SmokeFailure, venv_executable
+    from product_runner_commands import Commands, SmokeFailure
     from product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 
 # Windows needs these to start Python, Git and uv at all; none carries authority.
 WINDOWS = os.name == "nt"
-# A real Windows session always carries these; PowerShell and COM expect them.
+# Additional smoke startup facts beyond minimal_child_environment's OS variables.
 # The PowerShell module path and analysis cache keep the hooks' and relay's
 # cmdlet lookups from rebuilding a cache over every module on the runner image
 # (20-50 seconds per process); a user's own profile keeps that cache warm.
 WINDOWS_SYSTEM_VARIABLES = (
-    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT",
     "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "PROGRAMDATA", "ALLUSERSPROFILE",
     "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)", "COMMONPROGRAMW6432", "PUBLIC",
     "COMPUTERNAME", "USERNAME", "USERDOMAIN", "OS", "NUMBER_OF_PROCESSORS",
@@ -55,9 +62,10 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     else:
         home = scratch / "home"
         home.mkdir()
-    scripts = venv_executable(venv, "yoke").parent
+    scripts = venv_console_script(venv, "yoke").parent
     tools = [scripts, *(Path(found).parent for found in map(shutil.which, ("uv", "git")) if found)]
     env = {
+        **minimal_child_environment(tools),
         "HOME": str(home),
         "YOKE_MACHINE_HOME": str(home / ".yoke"),
         "XDG_BIN_HOME": str(scripts),
@@ -85,10 +93,9 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
         system = Path(env.get("SYSTEMROOT", r"C:\Windows")) / "System32"
         # Rendered Windows hooks start powershell.exe, which lives outside System32 proper.
         powershell = system / "WindowsPowerShell" / "v1.0"
-        env["PATH"] = os.pathsep.join(str(path) for path in (*tools, system, powershell))
+        env["PATH"] = os.pathsep.join((minimal_child_environment((*tools, system))["PATH"], str(powershell)))
     else:
-        defaults = (os.defpath, "/usr/local/bin", "/opt/homebrew/bin")
-        env["PATH"] = os.pathsep.join([*(str(path) for path in tools), *defaults])
+        env["PATH"] = minimal_child_environment((*tools, "/usr/local/bin", "/opt/homebrew/bin"))["PATH"]
         env["SHELL"] = "/bin/bash"
     return env
 

@@ -45,6 +45,7 @@ def run_cleanup(monkeypatch, tmp_path, *, inventory, ghost=True, survives=False)
     return commands, namespace, relay
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("empty_status", [0, 1])
 @pytest.mark.parametrize("ghost", [False, True])
 def test_reset_accepts_empty_definitions_and_evicts_loaded_fileless_relay(

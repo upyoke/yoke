@@ -113,7 +113,7 @@ def canonicalize_name(name: str) -> str:
 
 def version_mismatches(lock_path: Path, installed: Iterable[tuple[str, str]]) -> list[str]:
     """Report every unlocked or changed distribution, excluding workspace products."""
-    lock = tomllib.loads(lock_path.read_text())
+    lock = tomllib.loads(lock_path.read_text(encoding="utf-8"))
     products = {canonicalize_name(name) for name in lock["manifest"]["members"]}
     versions: dict[str, set[str]] = {}
     for package in lock["package"]:

@@ -211,18 +211,19 @@ def test_record_phase_still_raises_on_non_transport_failure(monkeypatch):
         )
 
 
-def test_resolve_env_repo_root_uses_checkout_for_project_slug(monkeypatch):
+def test_resolve_env_repo_root_uses_checkout_for_project_slug(
+    monkeypatch, tmp_path
+):
     """The checkout resolve must relay ``projects.get`` via
     ``checkout_for_project_slug`` (machine-local checkout mapping), never a
     bare local ``db_helpers.connect()`` the https transport refuses."""
-    from pathlib import Path
-
     from yoke_core.domain import project_checkout_locations as pcl
 
+    checkout = tmp_path / "checkouts" / "yoke"
     monkeypatch.setattr(
         pcl,
         "checkout_for_project_slug",
-        lambda project, **_k: Path("/checkouts/yoke") if project == "yoke" else None,
+        lambda project, **_k: checkout if project == "yoke" else None,
     )
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect",
@@ -230,9 +231,9 @@ def test_resolve_env_repo_root_uses_checkout_for_project_slug(monkeypatch):
     )
     root = orch._resolve_env_repo_root(
         {"project": "yoke"},
-        "/checkouts/yoke/.worktrees/branch",
+        str(checkout / ".worktrees" / "branch"),
     )
-    assert root == "/checkouts/yoke"
+    assert root == str(checkout)
 
 
 def test_resolve_env_repo_root_falls_back_to_worktree_path(monkeypatch):

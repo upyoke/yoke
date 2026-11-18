@@ -227,7 +227,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         Path(environ.get("ZDOTDIR") or home_path) if shell == "zsh" else home_path
     )
     startup = default_startup_file(shell, startup_home)
-    startup_text = startup.read_text() if startup.exists() else ""
+    startup_text = startup.read_text(encoding="utf-8") if startup.exists() else ""
     managed_block_present = MANAGED_BEGIN in startup_text
     future_adds_bin = bindir in startup_text
     future_resolved = verify_fresh_login(
@@ -245,7 +245,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     ssh_resolved: list[ToolResolution] = []
     ssh_needs_fix = False
     if ssh_startup is not None:
-        ssh_text = ssh_startup.read_text() if ssh_startup.exists() else ""
+        ssh_text = ssh_startup.read_text(encoding="utf-8") if ssh_startup.exists() else ""
         ssh_adds_bin = bindir in ssh_text
         ssh_managed_block_present = MANAGED_BEGIN in ssh_text
         ssh_resolved = verify_ssh_command(

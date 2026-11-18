@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
+
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 
 from yoke_core.domain.project_github_auth import (
     bind_local_github_user_token_provider,
@@ -39,6 +43,21 @@ def run() -> int:
         lambda: "transient-test-user-token",
         api_url="https://api.github.com",
     ):
+        # A seeded fixture lookup must work before testing merge mechanics.
+        # Keep the missing-ceremony refusal ahead of fixture diagnostics.
+        if os.environ.get(MERGE_CEREMONY_NONCE_ENV):
+            response = get_structured_dispatch().call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", public_ref="YOK-42"),
+                payload={},
+            )
+            if not response.success:
+                error = response.error
+                raise RuntimeError(
+                    "merge_fixture_item_lookup_failed: "
+                    f"{error.code if error else 'unknown'}: "
+                    f"{error.message if error else 'no error envelope'}"
+                )
         return main()
 
 

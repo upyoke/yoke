@@ -58,7 +58,7 @@ class TestResolution:
                 explicit_level=explicit,
                 levels=default_levels(),
                 records=RECORDS,
-                model="gpt-6-astra",
+                model="gpt-6.2-astra",
                 reasoning_effort="xhigh",
             )
             == "PRINCIPAL"
@@ -71,7 +71,7 @@ class TestResolution:
                 explicit_level="SENIOR",
                 levels=default_levels(),
                 records=RECORDS,
-                model="gpt-6-astra",
+                model="gpt-6.2-astra",
                 reasoning_effort="xhigh",
             )
             == "PRINCIPAL"

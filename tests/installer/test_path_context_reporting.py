@@ -9,6 +9,10 @@ from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
 from yoke_contracts.shell_path_state import shell_setup_files
 
+POSIX_SHELL = pytest.mark.posix_only(
+    reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
+)
+
 
 @pytest.fixture
 def shell_home(tmp_path, monkeypatch):
@@ -33,6 +37,7 @@ def shell_home(tmp_path, monkeypatch):
     return tmp_path, env, launcher
 
 
+@POSIX_SHELL
 def test_clean_contexts_show_winner_and_expected_in_every_command(shell_home, capsys):
     _, _, launcher = shell_home
     for command, args in ((cli.path_check, []), (cli.path_fix, ["--yes"]),
@@ -44,6 +49,7 @@ def test_clean_contexts_show_winner_and_expected_in_every_command(shell_home, ca
                     f"expected {launcher}") in output
 
 
+@POSIX_SHELL
 def test_late_override_survives_repair_until_manual_correction(shell_home, capsys):
     home, env, launcher = shell_home
     old = home / "oldtools"
@@ -100,6 +106,7 @@ def test_late_override_survives_repair_until_manual_correction(shell_home, capsy
     assert "shell_path_shadowed" not in capsys.readouterr().out
 
 
+@POSIX_SHELL
 def test_missing_owned_block_is_repaired_and_repeat_is_idempotent(shell_home, capsys):
     home, env, launcher = shell_home
     rc = home / ".bashrc"
@@ -143,6 +150,7 @@ def test_manual_recovery_names_context_startup_files(tmp_path, shell, context, s
     assert "yoke path fix" not in recovery
 
 
+@POSIX_SHELL
 def test_setup_failure_reports_remaining_context_without_repair_loop(shell_home, monkeypatch):
     from yoke_cli.config import onboard_apply_path
     from yoke_cli.config.onboard_wizard_path import PathFlow

@@ -104,8 +104,7 @@ class TestClassify:
         assert f"failure_reason={CI_RUN_NEVER_STARTED_REASON}" in message
         assert f"run=123 status={status} jobs=0" in message
         assert (
-            "`yoke --env <plane> watch deploy -- <RUN> --from-stage <STAGE> --fresh`"
-            in message
+            "`yoke --env <plane> watch deploy -- <RUN> --fresh`" in message
         )
         assert "run cancel" not in message
         assert "gh api" not in message

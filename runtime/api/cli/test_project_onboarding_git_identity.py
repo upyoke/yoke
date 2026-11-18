@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import os
 import subprocess
 from pathlib import Path
@@ -26,7 +28,7 @@ def clean_git_home(tmp_path: Path, monkeypatch) -> Path:
     for key in tuple(os.environ):
         if key.startswith("GIT_") or key == "EMAIL":
             monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))

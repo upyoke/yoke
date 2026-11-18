@@ -10,6 +10,7 @@ import stat
 from typing import Mapping
 
 from pydantic import ValidationError
+from yoke_contracts import owner_private_path
 from yoke_contracts.github_app_public import (
     GITHUB_APP_API_URL_ENV,
     GITHUB_APP_CLIENT_ID_ENV,
@@ -31,6 +32,7 @@ from yoke_contracts.github_origin import (
 GITHUB_APP_ISSUER_ENV = "YOKE_GITHUB_APP_ISSUER"
 GITHUB_APP_PRIVATE_KEY_FILE_ENV = "YOKE_GITHUB_APP_PRIVATE_KEY_FILE"
 GITHUB_APP_PRIVATE_KEY_MAX_BYTES = 1024 * 1024
+_WINDOWS = os.name == "nt"
 
 _PUBLIC_IDENTITY_ENV_NAMES = (
     GITHUB_APP_CLIENT_ID_ENV,
@@ -170,18 +172,7 @@ def has_github_app_runtime_configuration(
 
 
 def _read_restricted_secret(path: Path) -> str:
-    nofollow = getattr(os, "O_NOFOLLOW", 0)
-    if not nofollow:
-        raise GitHubAppControlPlaneConfigError(
-            "this platform cannot safely open the GitHub App private-key file"
-        )
-    flags = os.O_RDONLY | nofollow | getattr(os, "O_CLOEXEC", 0)
-    try:
-        descriptor = os.open(path, flags)
-    except OSError as exc:
-        raise GitHubAppControlPlaneConfigError(
-            f"GitHub App private-key file cannot be safely opened: {path}"
-        ) from exc
+    descriptor = _open_key_without_following_links(path)
     try:
         file_stat = os.fstat(descriptor)
         if not stat.S_ISREG(file_stat.st_mode):
@@ -192,28 +183,10 @@ def _read_restricted_secret(path: Path) -> str:
             raise GitHubAppControlPlaneConfigError(
                 "GitHub App private-key file exceeds the size limit"
             )
-        resolved_path = _resolved_open_file_path(descriptor, path)
-        effective_uid = os.geteuid()
-        mode = stat.S_IMODE(file_stat.st_mode)
-        service_owned_safe = file_stat.st_uid == effective_uid and not (mode & 0o077)
-        root_mount_safe = (
-            file_stat.st_uid == 0
-            and _is_under_runtime_secrets(resolved_path)
-            and not (mode & 0o022)
-        )
-        effective_groups = {os.getegid(), *os.getgroups()}
-        group_read_mount_safe = (
-            getattr(file_stat, "st_gid", -1) in effective_groups
-            and _is_under_runtime_secrets(resolved_path)
-            and bool(mode & 0o040)
-            and not (mode & 0o027)
-        )
-        if not (service_owned_safe or root_mount_safe or group_read_mount_safe):
-            raise GitHubAppControlPlaneConfigError(
-                "GitHub App private-key file must be owner-only for the service "
-                "user, root-owned read-only, or group-read-only for the service "
-                "group under /run/secrets"
-            )
+        if _WINDOWS:
+            _assert_windows_key_access(path, file_stat)
+        else:
+            _assert_posix_key_access(descriptor, path, file_stat)
         with os.fdopen(descriptor, "rb") as handle:
             descriptor = -1
             raw_value = handle.read(GITHUB_APP_PRIVATE_KEY_MAX_BYTES + 1)
@@ -232,6 +205,73 @@ def _read_restricted_secret(path: Path) -> str:
     if not value:
         raise GitHubAppControlPlaneConfigError("GitHub App private-key file is empty")
     return value
+
+
+def _open_key_without_following_links(path: Path) -> int:
+    """Open the key itself, never a symlink or Windows reparse point."""
+    try:
+        if _WINDOWS:
+            # Windows has no O_NOFOLLOW: refuse a link before opening, and the
+            # access check re-proves the opened file is this path's file.
+            if _is_link(os.lstat(path)):
+                raise OSError("the private-key path is a link")
+            return os.open(path, os.O_RDONLY | os.O_BINARY | os.O_NOINHERIT)
+        return os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except OSError as exc:
+        raise GitHubAppControlPlaneConfigError(
+            f"GitHub App private-key file cannot be safely opened: {path}"
+        ) from exc
+
+
+def _is_link(info: os.stat_result) -> bool:
+    attributes = getattr(info, "st_file_attributes", 0)
+    return stat.S_ISLNK(info.st_mode) or bool(
+        attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
+def _assert_windows_key_access(path: Path, opened: os.stat_result) -> None:
+    """Accept only an owner-private key whose path still names the opened file."""
+    if not owner_private_path.is_owner_private_file(path):
+        raise GitHubAppControlPlaneConfigError(
+            "GitHub App private-key file must be owner-only for the service "
+            "user; remove other users' access (icacls) so only your Windows "
+            "account, SYSTEM and Administrators remain"
+        )
+    current = os.lstat(path)
+    if _is_link(current) or (current.st_dev, current.st_ino) != (
+        opened.st_dev,
+        opened.st_ino,
+    ):
+        raise GitHubAppControlPlaneConfigError(
+            f"GitHub App private-key file cannot be safely opened: {path}"
+        )
+
+
+def _assert_posix_key_access(
+    descriptor: int, path: Path, file_stat: os.stat_result
+) -> None:
+    resolved_path = _resolved_open_file_path(descriptor, path)
+    mode = stat.S_IMODE(file_stat.st_mode)
+    service_owned_safe = file_stat.st_uid == os.geteuid() and not (mode & 0o077)
+    root_mount_safe = (
+        file_stat.st_uid == 0
+        and _is_under_runtime_secrets(resolved_path)
+        and not (mode & 0o022)
+    )
+    effective_groups = {os.getegid(), *os.getgroups()}
+    group_read_mount_safe = (
+        getattr(file_stat, "st_gid", -1) in effective_groups
+        and _is_under_runtime_secrets(resolved_path)
+        and bool(mode & 0o040)
+        and not (mode & 0o027)
+    )
+    if not (service_owned_safe or root_mount_safe or group_read_mount_safe):
+        raise GitHubAppControlPlaneConfigError(
+            "GitHub App private-key file must be owner-only for the service "
+            "user, root-owned read-only, or group-read-only for the service "
+            "group under /run/secrets"
+        )
 
 
 def _resolved_open_file_path(descriptor: int, configured_path: Path) -> Path:

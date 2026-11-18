@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 import sys
@@ -18,7 +20,7 @@ textual = pytest.importorskip("textual")
 
 @pytest.fixture(autouse=True)
 def _isolate_machine_side_effects(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path / "shell-home"))
+    set_home(monkeypatch, str(tmp_path / "shell-home"))
     monkeypatch.setenv("SHELL", "/bin/zsh")
     # Config/identity coverage isolates the separately tested shell boundary.
     monkeypatch.setattr(path_doctor, "update_shell", lambda: "already configured")

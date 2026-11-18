@@ -21,7 +21,7 @@ Answer only the asked scope; read that command's `--help` or skill first. Genera
 | `/yoke help` | utility | follow skill decision gates | show command reference |
 | `/yoke idea [--dry-run] [--workflow issue\|epic\|blitz\|task] {title}` | utility | follow skill decision gates | file a backlog item |
 | `/yoke implement {PREFIX-N} [--no-worktree] [--force] [--qa-bypass]` | stage | autonomous execution | implement and review an item |
-| `/yoke models lookup MODEL_ID \| get \| validate \| diff \| publish \| revisions \| restore \| level-proposal` | utility | follow skill decision gates | publish model catalog revisions and propose level changes |
+| `/yoke models lookup MODEL_ID \| get \| validate \| diff \| publish \| revisions \| restore \| follow-shipped \| level-proposal` | utility | follow skill decision gates | follow Yoke's model catalog or publish an override; propose level changes |
 | `/yoke onboard [--project P] [--run-id RUN]` | orchestrator | follow skill decision gates | plan dashes and hand off to steer |
 | `/yoke polish {PREFIX-N}` | stage | autonomous execution | review and finish implementation |
 | `/yoke refine {PREFIX-N}` | stage | follow skill decision gates | critique and improve item artifacts |

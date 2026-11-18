@@ -89,6 +89,11 @@ def test_list_mine_and_explicit_requester_are_distinct(calls):
     }
 
 
+def test_list_superseded_history(calls):
+    assert adapter.decision_requests_list(["--mine", "--status", "superseded"]) == 0
+    assert calls[-1]["payload"]["status"] == "superseded"
+
+
 def test_withdraw_keeps_cancellation_reason(calls):
     assert (
         adapter.decision_requests_withdraw(["17", "--reason", "Direction changed"]) == 0

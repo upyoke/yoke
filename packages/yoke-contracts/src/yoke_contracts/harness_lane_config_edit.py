@@ -44,10 +44,12 @@ def codex_plan(text: str, document: dict, selected):
     hooks = set()
     for key in all_hook_entries(document):
         raw = hook_path(key)
+        # Codex keys hooks by the OS-native hooks.json path (``\\`` on Windows).
+        hooks_file = Path(raw) if raw else None
         if (
-            raw
-            and raw.endswith("/.codex/hooks.json")
-            and selected(raw.removesuffix("/.codex/hooks.json"))
+            hooks_file is not None
+            and hooks_file.parts[-2:] == (".codex", "hooks.json")
+            and selected(str(hooks_file.parent.parent))
         ):
             hooks.add(key)
     updated, hook_count, project_count = filter_tables(text, hooks, projects)
@@ -61,7 +63,7 @@ def codex_plan(text: str, document: dict, selected):
 def edit_codex(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dict:
     def plan(text, document):
         updated, removed = codex_plan(text, document, selected)
-        receipt = _receipt(text.encode(), updated.encode(), removed)
+        receipt = _receipt(text.encode("utf-8"), updated.encode("utf-8"), removed)
         if updated != text and keep_backup and not dry_run:
             receipt["backup"] = backup(path)
         return (text if dry_run else updated), receipt
@@ -75,7 +77,8 @@ def edit_json(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dict
     path = path.resolve()
     lock = path.with_name(f".{path.name}.yoke.lock")
     with nullcontext() if dry_run else FileLock(str(lock), timeout=10, mode=0o600):
-        text = path.read_text(encoding="utf-8")
+        before = path.read_bytes()
+        text = before.decode("utf-8")
         document = json.loads(text)
         if not isinstance(document, dict) or not isinstance(
             document.get("projects", {}), dict
@@ -88,12 +91,12 @@ def edit_json(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dict
         for key in owned:
             del projects[key]
         body = json.dumps(document, indent=2) + "\n" if owned else text
-        receipt = _receipt(text.encode(), body.encode(), len(owned))
+        receipt = _receipt(before, body.encode("utf-8"), len(owned))
         if not owned or dry_run:
             return receipt
         if keep_backup:
             receipt["backup"] = backup(path)
-        _replace(path, text, body)
+        _replace(path, before, body)
         return receipt
 
 
@@ -116,17 +119,17 @@ def edit_cursor(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> di
     return receipt
 
 
-def _replace(path: Path, before: str, body: str) -> None:
+def _replace(path: Path, before: bytes, body: str) -> None:
     descriptor, temporary = tempfile.mkstemp(
         prefix=f".{path.name}.yoke-", dir=path.parent
     )
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(body)
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
-        if path.read_text(encoding="utf-8") != before:
+        if path.read_bytes() != before:
             raise ValueError(
                 "harness_lane_config_changed: retry after the harness finishes writing"
             )

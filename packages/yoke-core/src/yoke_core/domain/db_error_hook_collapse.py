@@ -74,7 +74,7 @@ def check_row_count_collapse(
     try:
         baseline: dict[str, int] = {}
         if os.path.isfile(baseline_file):
-            with open(baseline_file) as f:
+            with open(baseline_file, encoding="utf-8") as f:
                 baseline = json.load(f)
 
         conn = connect(db_path)
@@ -88,7 +88,7 @@ def check_row_count_collapse(
         conn.close()
 
         if not baseline:
-            with open(baseline_file, "w") as f:
+            with open(baseline_file, "w", encoding="utf-8", newline="\n") as f:
                 json.dump(current, f)
             return CollapseResult()
 

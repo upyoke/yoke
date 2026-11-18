@@ -20,6 +20,7 @@ from runtime.api.domain.github_app_server_verification_test_support import (
 )
 from runtime.api.fixtures import pg_testdb
 from yoke_contracts.github_app_public import GITHUB_APP_API_URL_ENV
+from yoke_contracts.owner_private_path import write_owner_private
 import yoke_core.api.main  # noqa: F401 - app-factory import anchor
 from yoke_core.api import app_factory
 from yoke_core.domain import (
@@ -101,11 +102,10 @@ def _envelope(*, request_id: str, user_token: str) -> dict[str, object]:
 
 def _configure_private_app(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     key = tmp_path / "github-app.pem"
-    key.write_text(
+    write_owner_private(
+        key,
         f"-----BEGIN PRIVATE KEY-----\n{APP_KEY_SENTINEL}\n-----END PRIVATE KEY-----\n",
-        encoding="utf-8",
     )
-    key.chmod(0o600)
     monkeypatch.setenv(GITHUB_APP_ISSUER_ENV, "123456")
     monkeypatch.setenv(GITHUB_APP_PRIVATE_KEY_FILE_ENV, str(key))
     monkeypatch.setenv(GITHUB_APP_API_URL_ENV, "https://api.github.com")

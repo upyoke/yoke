@@ -61,6 +61,7 @@ def _guidance(text):
     assert docker.SELF_HOST_GUIDE in text
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize(
     "failure", ["docker-missing", "compose-missing", "docker-engine-not-running", ""]
 )
@@ -100,6 +101,7 @@ def test_agent_receives_preparation_and_actionable_retry_before_any_bundle_write
     assert runtime_state["provisions"] == 1
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize(
     "failure", ["docker-missing", "compose-missing", "docker-engine-not-running", ""]
 )
@@ -143,6 +145,7 @@ def test_interactive_receives_same_guidance_and_only_provisions_when_ready(
     asyncio.run(scenario())
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_start_failure_keeps_bind_diagnosis_and_manual_colima_recovery(
     tmp_path, monkeypatch
 ):

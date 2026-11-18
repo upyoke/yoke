@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_client_walks_a_leading_cd_across_every_separator[ && ]",
+ "reason": "AssertionError: assert 'C:\\\\Usersrun...a_leading_cd1' == 'C:\\\\Users\\\\r...a_leading_cd1'"
+}

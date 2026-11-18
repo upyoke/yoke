@@ -19,7 +19,7 @@ from yoke_core.domain.universe_levels import write_universe_levels
 def _insert_session(conn, session_id, **kwargs):
     _base_insert_session(conn, session_id, **kwargs)
     conn.execute(
-        "UPDATE harness_sessions SET model='gpt-6.1-sol',reasoning_effort='medium' WHERE session_id=%s",
+        "UPDATE harness_sessions SET model='gpt-6.2-sol',reasoning_effort='medium' WHERE session_id=%s",
         (session_id,),
     )
     conn.commit()
@@ -32,7 +32,7 @@ def _levels(name: str, glyph: str) -> list[dict]:
             "glyph": glyph,
             "options": [
                 {
-                    "model": "gpt-6.1-sol",
+                    "model": "gpt-6.2-sol",
                     "min_effort": "medium",
                 }
             ],

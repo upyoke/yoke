@@ -1,12 +1,14 @@
 """Tests for shared symlink-component and atomic-file safety helpers."""
 
 import stat
+import subprocess
 from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 
 from yoke_contracts import filesystem_safety
+from yoke_contracts.owner_private_path import is_owner_private_file, write_owner_private
 
 
 def test_atomic_replace_cleans_unique_temporary_after_failure(
@@ -41,20 +43,52 @@ def test_first_symlink_component_can_exclude_materializable_leaf(
     ) == leaf
 
 
-def test_atomic_replace_preserves_existing_private_file_mode(
+def test_atomic_replace_keeps_an_existing_private_file_private(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "settings.json"
-    target.write_bytes(b"old\n")
-    target.chmod(0o600)
+    write_owner_private(target, b"old\n")
 
     filesystem_safety.atomic_replace_bytes(target, b"new\n")
 
     assert target.read_bytes() == b"new\n"
-    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    assert is_owner_private_file(target)
 
 
-def test_atomic_replace_preserves_private_mode_from_symlink_target(
+def test_atomic_replace_keeps_privacy_from_symlink_target(
+    tmp_path: Path,
+) -> None:
+    linked_target = tmp_path / "shared-settings.json"
+    write_owner_private(linked_target, b"shared\n")
+    materialized = tmp_path / "settings.json"
+    materialized.symlink_to(linked_target)
+
+    filesystem_safety.atomic_replace_bytes(materialized, b"local\n")
+
+    assert not materialized.is_symlink()
+    assert materialized.read_bytes() == b"local\n"
+    assert is_owner_private_file(materialized)
+    assert linked_target.read_bytes() == b"shared\n"
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits are preserved exactly; Windows has no mode bits")
+@pytest.mark.parametrize("mode", [0o600, 0o640])
+def test_atomic_replace_preserves_existing_posix_mode(
+    tmp_path: Path,
+    mode: int,
+) -> None:
+    target = tmp_path / "settings.json"
+    target.write_bytes(b"old\n")
+    target.chmod(mode)
+
+    filesystem_safety.atomic_replace_bytes(target, b"new\n")
+
+    assert target.read_bytes() == b"new\n"
+    assert stat.S_IMODE(target.stat().st_mode) == mode
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits are read through the symlink target")
+def test_atomic_replace_preserves_posix_mode_from_symlink_target(
     tmp_path: Path,
 ) -> None:
     linked_target = tmp_path / "shared-settings.json"
@@ -65,10 +99,29 @@ def test_atomic_replace_preserves_private_mode_from_symlink_target(
 
     filesystem_safety.atomic_replace_bytes(materialized, b"local\n")
 
-    assert not materialized.is_symlink()
-    assert materialized.read_bytes() == b"local\n"
     assert stat.S_IMODE(materialized.stat().st_mode) == 0o600
-    assert linked_target.read_bytes() == b"shared\n"
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: a non-private file stays inheritable")
+def test_atomic_replace_does_not_protect_a_shared_windows_file(
+    tmp_path: Path,
+) -> None:
+    # tmp_path is owner-private on Python 3.13+; share a folder so its files
+    # inherit another user's read access.
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    subprocess.run(
+        ["icacls", str(shared), "/grant", "*S-1-5-32-545:(OI)(CI)(R)"],
+        check=True, capture_output=True,
+    )
+    target = shared / "rendered.md"
+    target.write_bytes(b"old\n")
+    assert not is_owner_private_file(target)
+
+    filesystem_safety.atomic_replace_bytes(target, b"new\n")
+
+    assert target.read_bytes() == b"new\n"
+    assert not is_owner_private_file(target)
 
 
 @pytest.mark.windows

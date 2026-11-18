@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_watch_runner_interruption.py",
+ "reason": "AttributeError: module 'signal' has no attribute 'SIGHUP'"
+}

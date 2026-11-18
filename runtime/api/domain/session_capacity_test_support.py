@@ -44,11 +44,11 @@ def capacity_connection(
     conn = level_connection(*options)
     from yoke_core.domain.model_reference_store import (
         create_model_reference_table,
-        seed_initial_catalog,
     )
+    from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     ref = _seed_pinned_item(conn, status="implementing")
     for declaration in (
         "actor_id INTEGER DEFAULT 1",

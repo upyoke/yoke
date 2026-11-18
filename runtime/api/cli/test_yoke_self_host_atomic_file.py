@@ -17,6 +17,7 @@ def _mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_next_write_cleans_owned_orphan_without_following_symlink(tmp_path):
     target = tmp_path / "github-app-private-key.pem"
     orphan = tmp_path / "github-app-private-key.pem.crashed.tmp"
@@ -43,6 +44,7 @@ def test_next_write_cleans_owned_orphan_without_following_symlink(tmp_path):
     assert not lock_path.exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_persistent_lock_serializes_concurrent_writers(tmp_path, monkeypatch):
     target = tmp_path / "db-password"
     payloads = tuple(f"password-{index}\n".encode() for index in range(6))
@@ -85,6 +87,7 @@ def test_persistent_lock_serializes_concurrent_writers(tmp_path, monkeypatch):
     assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_dotfile_lock_uses_filename_lock_and_is_removed_after_success(tmp_path):
     target = tmp_path / ".env"
     assert atomic_file.target_lock_path(target) == tmp_path / ".env.lock"

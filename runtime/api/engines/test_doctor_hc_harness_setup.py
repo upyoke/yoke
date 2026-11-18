@@ -1,5 +1,7 @@
 """Doctor reports setup facets, live relay failures, and calls shared fix."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from types import SimpleNamespace
 
 from yoke_core.engines import doctor_hc_harness_setup as doctor
@@ -121,7 +123,7 @@ def test_setup_apply_reports_ready_after_relay_ran_before_scaffold(
 
     home = tmp_path / "home"
     (home / ".codex").mkdir(parents=True)
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     dirs = {"codex": ".codex", "claude-code": ".claude", "cursor": ".cursor"}
@@ -139,7 +141,12 @@ def test_setup_apply_reports_ready_after_relay_ran_before_scaffold(
     monkeypatch.setattr(doctor, "codex_home_without_codex", lambda: "")
 
     early = relay.reconcile_on_change(now=100)
-    assert ".codex/hooks.json" in json.dumps(early["failure"])
+    [refusal] = [
+        row for row in early["failure"]["rows"] if row["outcome"] == "refused"
+    ]
+    assert refusal["target_path"] == str(root)
+    # The OS error renders the path through repr (doubled \\ on Windows).
+    assert repr(str(root / ".codex" / "hooks.json")) in refusal["detail"]
 
     hooks = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "x"}]}]}}
     (root / ".codex").mkdir()

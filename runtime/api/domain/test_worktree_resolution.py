@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -46,7 +47,7 @@ class TestResolveItemWorktree:
         assert result.exists is True
         assert result.branch == TEST_ITEM_REF
         assert result.project == "yoke"
-        assert result.path.endswith(f".worktrees/{TEST_ITEM_REF}")
+        assert Path(result.path).parts[-2:] == (".worktrees", TEST_ITEM_REF)
 
     def test_unrecorded_item_has_no_resolved_lane(self, git_repo, yoke_db):
         conn = connect_test_db(yoke_db)

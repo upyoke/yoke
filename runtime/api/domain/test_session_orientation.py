@@ -195,9 +195,9 @@ def test_cursor_session_start_carries_the_startup_block(project: Path) -> None:
     assert "Main-session startup block (main_agent)" in out
 
 
+@pytest.mark.usefixtures("isolated_project_markers")
 def test_cwd_outside_a_managed_project_gets_global_orientation(tmp_path: Path) -> None:
-    # No .yoke dir: no project block, but the session still learns Yoke is
-    # here and that yoke-global leads to a project folder.
+    # No .yoke dir: global orientation leads the session to a project folder.
     out = so.orientation_for_hook("UserPromptSubmit", _payload(tmp_path))
     assert out is not None and "outside every Yoke project" in out
     assert "`yoke-global`" in out

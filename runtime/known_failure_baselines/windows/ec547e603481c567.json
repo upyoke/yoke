@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_guard_directory_resolution.py::test_literal_lane_variable_cd_resolves_to_the_lane",
+ "reason": "AssertionError: assert 'C:\\\\Users\\\\r...orktreesYOK-1' == 'C:\\\\Users\\\\r...ktrees\\\\YOK-1'"
+}

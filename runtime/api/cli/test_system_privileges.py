@@ -7,6 +7,8 @@ import pytest
 
 from yoke_harness import system_privileges as authority
 
+pytestmark = pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
+
 
 @pytest.mark.parametrize(
     "root,sudo,probe_ok,stdin_tty,stderr_tty,prefix,interactive",

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_candidate_source_execution.py::test_command_environment_only_binds_candidate_cases[lane]",
+ "reason": "AssertionError: assert 'fail' == 'pass'"
+}

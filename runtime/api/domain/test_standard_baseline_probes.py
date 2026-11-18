@@ -65,6 +65,7 @@ def _run_probe(probe, tmp_path):
     )
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize(
     "name,executable", [("Claude", "claude"), ("Codex", "codex"), ("Cursor", "agent")]
 )
@@ -122,6 +123,7 @@ def test_bypass_acceptance_is_read_without_setting_it(tmp_path, setting):
     assert config.read_bytes() == before
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 @pytest.mark.parametrize("readable", [True, False])
 def test_keychain_probe_discards_the_credential_and_uses_login_keychain(
     monkeypatch, capsys, readable
@@ -227,19 +229,19 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
 
     sealed = {}
     control = SimpleNamespace(
+        read_remote_text=sealed.get,
         check_terminal_bridge=lambda: HostActionResult(True, {}),
         os=os_name,
         home="/Users/tester" if os_name == "macos" else "/home/tester",
         path_state=None,
+        # macOS: no identity browser is running to close (exit 10).
         run_remote_command=lambda *a, **kw: SimpleNamespace(
-            returncode=1, stdout="", stderr=""
+            returncode=10 if os_name == "macos" else 1, stdout="", stderr=""
         ),
         run_command=lambda *a, **kw: SimpleNamespace(
             returncode=0, stdout="", stderr=""
         ),
-        upload_remote_text=lambda path, content: sealed.update(
-            path=path, content=content
-        ),
+        upload_remote_text=sealed.__setitem__,
         capture_screenshot=lambda: HostActionResult(
             True, {"width": 1280, "height": 720}
         ),
@@ -247,7 +249,7 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
     )
 
     def mac_archive(**kwargs):
-        sealed.update(content=kwargs["probes_document"])
+        sealed["/srv/golden.probes"] = kwargs["probes_document"]
         return HostActionResult(True, {})
 
     monkeypatch.setattr(ssh_mac_golden_capture, "execute_golden_capture", mac_archive)
@@ -260,7 +262,9 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
         else capture_linux_golden(control, "/srv/golden", None)
     )
     assert result.ok
-    assert json.loads(sealed["content"])["probes"] == standard_probes(os_name)
+    assert json.loads(sealed["/srv/golden.probes"])["probes"] == standard_probes(
+        os_name
+    )
     proof = (
         result.evidence["roundtrip_checks"][1]
         if os_name == "linux"
@@ -279,7 +283,7 @@ def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
     from yoke_harness import ssh_linux_baseline
     from yoke_contracts.test_machine_types import HostActionResult
 
-    state = {"input_present": True, "document": None, "reset": False}
+    state = {"input_present": True, "reset": False}
     input_calls = []
     monkeypatch.setattr(pathlib.Path, "glob", lambda *a: iter(["xfce.desktop"]))
     monkeypatch.setattr(
@@ -313,8 +317,10 @@ def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
             return SimpleNamespace(returncode=0, stdout='{"ok": true}')
 
         def upload_remote_text(self, path, content):
-            assert path == self.golden_baseline_path + ".probes"
-            state["document"] = content
+            state[path] = content
+
+        def read_remote_text(self, path):
+            return state.get(path)
 
         def run_command(self, argv, **kwargs):
             code = 0

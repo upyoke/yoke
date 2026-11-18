@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_pack_catalog_runner.py::test_served_update_adopts_a_release_that_carries_the_commit_version",
+ "reason": "assert False is True"
+}

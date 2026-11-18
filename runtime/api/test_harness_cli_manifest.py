@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 
@@ -131,22 +133,26 @@ def test_versioned_claude_bundles_choose_the_newest_executable(tmp_path, monkeyp
     from yoke_cli.config.path_harness_clis import managed_path_directories
 
     manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "claude-code")
-    monkeypatch.setenv("HOME", str(tmp_path))
-    for pattern in manifest.bundled_patterns:
+    set_home(monkeypatch, str(tmp_path))
+    for pattern in manifest.bundles_for_platform()[1]:
         selected = None
         for version in ("2.9.9", "2.10.2", "2.11.0"):
             bundled = Path(
                 pattern.replace("{version}", version).replace("*", "-darwin-arm64")
             ).expanduser()
             bundled.parent.mkdir(parents=True)
-            bundled.write_text("#!/bin/sh\n")
-            bundled.chmod(0o755 if version != "2.11.0" else 0o644)
+            if version == "2.11.0":
+                bundled.mkdir()
+            else:
+                bundled.write_text("#!/bin/sh\n")
+                bundled.chmod(0o755)
             if version == "2.10.2":
                 selected = str(bundled)
         resolution = resolve_harness_clis(
-            "", manifests=(replace(manifest, bundled_patterns=(pattern,)),)
+            "", manifests=(replace(manifest, bundled_patterns=(pattern,), windows_bundled_patterns=(pattern,)),)
         )[0]
         assert (resolution.path, resolution.source) == (selected, "bundled_versioned")
-        assert managed_path_directories("/tools", (resolution,)) == ("/tools",)
+        tools = str(tmp_path / "tools")
+        assert managed_path_directories(tools, (resolution,)) == (tools,)
     resolution = resolve_harness_clis("", manifests=(manifest,))[0]
     assert "2.10.2" in resolution.path

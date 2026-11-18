@@ -79,6 +79,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "merge.prune.authority_verdicts": "next-release",
     "merge_receipt.commits.attest": "next-release",
     "models.diff.run": "next-release",
+    "models.follow_shipped.run": "next-release",
     "models.level_proposal.run": "next-release",
     "models.publish.run": "next-release",
     "models.restore.run": "next-release",

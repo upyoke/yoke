@@ -288,6 +288,7 @@ project operator to repair the named definition or target if it persists.
 - [Starting state and activity](case-attachment-rules.md) — Declare Machine starting state and read case activity.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
 - [Deployment QA continuity](deployment-qa-continuity.md) — Continue existing QA through takeover and recover the exact execution.
+- [Candidate controller](candidate-controller.md) — Run release-run QA controller work on the candidate Yoke build.
 - [Failed item QA](failed-item-qa.md) — Keep correction ownership, wait for delivery and retest the qualifying candidate.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.
 - [Browser scenarios](browser-scenarios.md) — Author actions and assertions, then execute the Browser case.

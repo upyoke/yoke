@@ -114,7 +114,7 @@ def test_status_and_doctor_report_user_path_without_posix_shells(monkeypatch, tm
     assert not diagnosis.needs_fix
     assert diagnosis.contexts[0]["path"] == str(tmp_path)
     assert next(row.path for row in path_doctor.verify_fresh_login(env={}) if row.name == "yoke") == str(tmp_path / "yoke.cmd")
-    contract = shell_path_state.resolve_path_state_contract(env={"HOME": str(tmp_path)})
+    contract = shell_path_state.resolve_path_state_contract(target="windows", env={"HOME": str(tmp_path)})
     assert contract.yoke_bin.endswith("yoke.cmd")
     assert contract.supported_startup_files == ()
 

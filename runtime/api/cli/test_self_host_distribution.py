@@ -42,6 +42,7 @@ def _existing(tmp_path):
 
 @pytest.mark.parametrize("origin", [STAGE, PRODUCTION])
 @pytest.mark.parametrize("channel", [None, "stable"])
+@pytest.mark.posix_only(reason="server bundles run on Linux or WSL2; native Windows clients refuse hosting (decision 15871)")
 def test_upgrade_fetches_recorded_origin_and_selected_channel(
     machine, tmp_path, monkeypatch, origin, channel
 ):
@@ -66,6 +67,7 @@ def test_upgrade_fetches_recorded_origin_and_selected_channel(
 
 
 @pytest.mark.parametrize("origin", [STAGE, PRODUCTION])
+@pytest.mark.posix_only(reason="server bundles run on Linux or WSL2; native Windows clients refuse hosting (decision 15871)")
 def test_setup_fetches_installed_release_from_recorded_origin(
     machine, tmp_path, monkeypatch, origin
 ):
@@ -87,7 +89,12 @@ def test_setup_fetches_installed_release_from_recorded_origin(
     assert report["image"].endswith(f":{VERSION}")
 
 
-@pytest.mark.parametrize("operation", ["setup", "upgrade"])
+@pytest.mark.parametrize("operation", [
+    "setup",
+    pytest.param("upgrade", marks=pytest.mark.posix_only(
+        reason="server bundles run on Linux or WSL2; native Windows clients refuse hosting (decision 15871)"
+    )),
+])
 @pytest.mark.parametrize("config, code", [
     ({}, "distribution_origin_missing"),
     ({"settings": {"distribution": {"origin": "invalid", "channel": "latest"}}},
@@ -119,6 +126,7 @@ def test_distribution_refusal_names_repair_without_fetching(
     assert "yoke settings set distribution" in diagnostic
 
 
+@pytest.mark.posix_only(reason="server bundles run on Linux or WSL2; native Windows clients refuse hosting (decision 15871)")
 def test_explicit_image_needs_no_distribution(machine, tmp_path, monkeypatch):
     monkeypatch.setattr(
         release_target, "_FETCH_BYTES", lambda url: pytest.fail(f"unexpected fetch {url}")
@@ -126,6 +134,7 @@ def test_explicit_image_needs_no_distribution(machine, tmp_path, monkeypatch):
     assert _existing(tmp_path).is_dir()
 
 
+@pytest.mark.posix_only(reason="server bundles run on Linux or WSL2; native Windows clients refuse hosting (decision 15871)")
 def test_source_checkout_setup_still_resolves_git_image(machine, tmp_path, monkeypatch):
     _record(machine)
     monkeypatch.setattr(release_target, "local_handshake_version", lambda: "")

@@ -23,7 +23,7 @@ from runtime.api.fixtures.model_catalog import RECORDS
         ("claude-opus-5-5", "low", "JUNIOR"),
         ("claude-fable-5-2", "xhigh", "PRINCIPAL"),
         ("claude-fable-5-2", "medium", "SENIOR"),
-        ("gpt-6.1-sol", "medium", "SENIOR"),
+        ("gpt-6.2-sol", "medium", "SENIOR"),
         ("gpt-6-luna", "max", "INTERN"),
         ("claude-opus-4-8", "medium", "INTERN"),
         ("claude-opus-5", "medium", "INTERN"),

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import pwd
 import sys
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
     RECOVER_IMPORT_CREDENTIAL_ARG,
@@ -18,6 +18,10 @@ from yoke_core.tools.self_host_secret_materialization import (
     SelfHostServerBootstrapError,
     materialize_self_host_runtime_secrets,
 )
+
+
+if os.name != "nt":
+    import pwd
 
 
 SELF_HOST_RUNTIME_USER = "yoke"
@@ -106,6 +110,12 @@ def assert_no_effective_linux_capabilities(
 
 
 def main(argv: list[str] | None = None) -> int:
+    if os.name == "nt":
+        print(compose_refusal(
+            "self_host_server_bootstrap_platform_unsupported: requires a POSIX container runtime.",
+            recovery="Run this entrypoint inside the POSIX self-host container.",
+        ), file=sys.stderr)
+        return 1
     selected_args = list(sys.argv[1:] if argv is None else argv)
     if selected_args == ["--healthcheck"]:
         return _run_healthcheck_as_runtime_user()

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+from yoke_contracts.hook_shell_command import hook_command_source
 from pathlib import Path
 
 import pytest
@@ -130,12 +132,16 @@ def test_hosted_bundle_install_and_refresh_preserve_cursor_content(
         for entry in entries:
             assert entry in hooks["hooks"][event]
     commands = [
-        entry["command"]
+        hook_command_source(entry["command"])
         for entries in hooks["hooks"].values()
         for entry in entries
-        if "yoke hook evaluate" in entry["command"]
+        if "yoke hook evaluate" in hook_command_source(entry["command"])
     ]
-    assert commands and all("YOKE_EXECUTOR=cursor" in command for command in commands)
+    assert commands and all(
+        ("YOKE_EXECUTOR='cursor'" if os.name == "nt" else "YOKE_EXECUTOR=cursor")
+        in command
+        for command in commands
+    )
 
     cursor_md = (root / "CURSOR.md").read_text(encoding="utf-8")
     assert cursor_md.count("# Operator notes\n") == 1
@@ -174,8 +180,12 @@ def test_source_bundle_covers_cursor_managed_surfaces(
     root.mkdir()
     apply_bundle(root, bundle, operation="refresh", source="source-test")
     assert (root / ".cursor/agents/yoke-architect.md").is_file()
-    assert "YOKE_EXECUTOR=cursor" in (root / ".cursor/hooks.json").read_text(
-        encoding="utf-8"
+    assert (
+        "YOKE_EXECUTOR='cursor'" if os.name == "nt" else "YOKE_EXECUTOR=cursor"
+    ) in " ".join(
+        hook_command_source(entry["command"])
+        for entries in _read_json(root, ".cursor/hooks.json")["hooks"].values()
+        for entry in entries
     )
     assert "<!-- BEGIN YOKE MANAGED BLOCK -->" in (root / "AGENTS.md").read_text(
         encoding="utf-8"

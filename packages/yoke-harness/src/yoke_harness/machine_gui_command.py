@@ -22,6 +22,7 @@ from yoke_harness.native_windows.transport import (
     encoded,
     process_script,
 )
+from yoke_harness.native_windows.yoke_python import yoke_python_command
 
 
 class _Progress:
@@ -147,6 +148,25 @@ class _GuiSshControl(WindowsTransport):
         return result
 
 
+def check_yoke_installation(*, project, test_machine, settings, yoke_home):
+    """Check the login-shell PATH before opening any GUI desktop."""
+    control = _GuiSshControl(settings, yoke_home, None)
+    create_private_directory(control.known_hosts.parent)
+    command = (
+        "if (Get-Command yoke -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
+        if settings["os"] == "windows"
+        else shlex.join(["/bin/bash", "-lc", "command -v yoke"])
+    )
+    result = control._run(command, timeout=20)
+    if result.returncode:
+        raise RemoteExecRefusal(
+            "test_machine_yoke_missing",
+            f"Yoke is absent from test machine {test_machine}'s login-shell PATH",
+            f"Run `yoke test-machine reset --project {project} --test-machine "
+            f"{test_machine} --baseline shell-preconfigured`, then retry authorization.",
+        )
+
+
 def run_gui_command(
     *,
     settings: dict,
@@ -190,7 +210,13 @@ def run_gui_command(
                 "Repair the native SSH user profile and retry.",
             )
         control.home = home.stdout.strip()
-        result = desktop_script(control, process_script(argv), timeout=timeout)
+        # ProcessStartInfo finds only .exe on PATH; Yoke is the yoke.cmd shim.
+        script = (
+            yoke_python_command(argv)
+            if argv and argv[0] == "yoke"
+            else process_script(argv)
+        )
+        result = desktop_script(control, script, timeout=timeout)
         result.output_streamed = False
         return result
     if kind == "macos":

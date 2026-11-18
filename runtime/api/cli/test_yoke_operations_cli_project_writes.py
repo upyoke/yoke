@@ -10,6 +10,7 @@ from runtime.api.cli.yoke_operations_cli_projects_test_support import (_CAPTURED
 from runtime.api.cli.yoke_operations_cli_epic_task_test_support import (_run)
 from runtime.api.cli.yoke_operations_cli_epic_review_test_support import (_run_capture)
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 @pytest.fixture(autouse=True)
@@ -192,7 +193,7 @@ class TestProjectsCapabilitySecretSet:
             "path": str(path),
         }
         assert path.read_text(encoding="utf-8").strip() == secret
-        assert path.stat().st_mode & 0o077 == 0
+        assert is_owner_private_file(path)
 
     def test_ssh_private_key_writes_machine_file_without_secret_dispatch(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -270,4 +271,4 @@ class TestProjectsCapabilitySecretSet:
             "path": str(path),
         }
         assert path.read_text(encoding="utf-8").strip() == secret
-        assert path.stat().st_mode & 0o077 == 0
+        assert is_owner_private_file(path)

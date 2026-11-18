@@ -7,7 +7,6 @@ import json
 import re
 import shlex
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,10 +74,7 @@ def test_shell_metacharacters_survive_the_windows_shell():
     assert "%PATH%" not in wrapped and "$HOME" not in wrapped
 
 
-@pytest.mark.skipif(
-    sys.platform != "linux",
-    reason="Executes the Linux Bash process-substitution semantics used by WSL2",
-)
+@pytest.mark.linux_only(reason='Executes the Linux Bash process-substitution semantics used by WSL2')
 def test_long_commands_preserve_original_stdin_and_exit_status():
     stdin = '{"absent_paths": ["café", "two words"]}'
     program = "# long golden-like program\n" * 1000

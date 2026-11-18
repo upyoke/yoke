@@ -72,8 +72,8 @@ def test_capture_seals_screen_saver_check_and_reset_replays_it(
             return HostActionResult(True, {})
 
         def run_remote_command(self, command, **kwargs):
-            # Safari is not running on this host, so capture has nothing to quit.
-            return SimpleNamespace(returncode=1, stdout="", stderr="")
+            # No identity browser runs on this host, so capture has nothing to close.
+            return SimpleNamespace(returncode=10, stdout="", stderr="")
 
         def run_command(self, argv, **kwargs):
             if len(argv) > 3 and argv[3] == "cleanup":

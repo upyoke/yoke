@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 import sys
@@ -23,7 +25,7 @@ pytest.importorskip("textual")
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    set_home(monkeypatch, str(tmp_path / "home"))
     monkeypatch.delenv("YOKE_ENV", raising=False)
     monkeypatch.setattr(onboard_machine_setup, "prepare", lambda *_: None)
     # These gates exercise shell selection and questions, not the runner's PATH.

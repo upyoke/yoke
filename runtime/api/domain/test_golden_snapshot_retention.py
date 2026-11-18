@@ -22,7 +22,6 @@ from yoke_harness.ssh_mac_golden_capture_contract import (
     capture_refusal_recovery,
 )
 
-
 def _run(command: str, *, timeout: int = 60, input_text: str | None = None):
     return subprocess.run(
         ["/bin/sh", "-c", command],
@@ -32,7 +31,7 @@ def _run(command: str, *, timeout: int = 60, input_text: str | None = None):
         input=input_text,
     )
 
-
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_prune_leaves_only_the_registered_golden_on_a_user_root(tmp_path):
     parent = tmp_path / "yoketest"
     parent.mkdir()
@@ -72,7 +71,6 @@ def test_prune_leaves_only_the_registered_golden_on_a_user_root(tmp_path):
         "yoketest-home-20261014.manifest",
     }
 
-
 def test_a_shared_parent_keeps_another_users_golden():
     names = removable_snapshot_names(
         (
@@ -95,7 +93,7 @@ def test_a_shared_parent_keeps_another_users_golden():
         ".yoke-golden-temp",
     }
 
-
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
     # Two projects register one machine and share its golden parent. A
     # capture for one project prunes only snapshots no project registered.
@@ -106,7 +104,7 @@ def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
     registered = parent / "testy-home-20261014T1230Z"
     for snapshot in (other_project, superseded, registered):
         snapshot.mkdir()
-        for suffix in (".probes", ".manifest"):
+        for suffix in (".probes", ".probes.sha256", ".manifest"):
             (parent / (snapshot.name + suffix)).write_text(suffix)
 
     removed = apply_retention(
@@ -117,16 +115,14 @@ def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
     )
 
     assert set(removed) == {
-        "testy-home-20261001",
-        "testy-home-20261001.probes",
-        "testy-home-20261001.manifest",
+        "testy-home-20261001" + suffix
+        for suffix in ("", ".probes", ".probes.sha256", ".manifest")
     }
     assert set(os.listdir(parent)) == {
         name + suffix
         for name in (other_project.name, registered.name)
-        for suffix in ("", ".probes", ".manifest")
+        for suffix in ("", ".probes", ".probes.sha256", ".manifest")
     }
-
 
 def _seal(path):
     # Capture seals a golden read-only; macOS also keeps deny-delete ACLs.
@@ -141,7 +137,7 @@ def _seal(path):
             os.chmod(os.path.join(root, name), 0o555)
     os.chmod(path, 0o555 if path.is_dir() else 0o444)
 
-
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_sealed_retired_golden_is_removed(tmp_path):
     parent = tmp_path / "yoke-golden"
     parent.mkdir()
@@ -166,7 +162,6 @@ def test_a_sealed_retired_golden_is_removed(tmp_path):
     assert set(removed) == {sealed.name, probes.name}
     assert os.listdir(parent) == [registered.name]
 
-
 def test_a_failed_removal_names_the_remote_error_not_its_output():
     listing = "/g/testy/old\0/g/testy/current\0"
 
@@ -188,14 +183,12 @@ def test_a_failed_removal_names_the_remote_error_not_its_output():
     assert "rm: /g/testy/old: Operation not permitted" in raised.value.detail
     assert "progress" not in raised.value.detail
 
-
 def _verified(**fields):
     return {
         "status": "verified",
         "golden_baseline_path": "/Users/Shared/yoke-golden/testy-home-new",
         **fields,
     }
-
 
 def test_a_server_without_kept_goldens_keeps_every_snapshot():
     # An older server cannot name other projects' goldens, so nothing is
@@ -221,6 +214,7 @@ def test_an_unknown_registration_keeps_every_snapshot():
     assert "project 3 is unreadable" in raised.value.detail
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_symlink_blocks_removal_and_leaves_the_target(tmp_path):
     parent = tmp_path / "yoketest"
     parent.mkdir()
@@ -247,6 +241,7 @@ def test_a_symlink_blocks_removal_and_leaves_the_target(tmp_path):
     assert (outside / "kept").read_text() == "safe"
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_failed_removal_keeps_that_name_and_removes_the_rest(tmp_path):
     parent = tmp_path / "yoketest"
     parent.mkdir()
@@ -297,6 +292,7 @@ def test_sidecars_are_removed_before_their_folders():
     )
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_low_disk_refuses_with_the_named_reason(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
@@ -333,6 +329,7 @@ def test_mac_low_disk_recovery_names_the_cleanup():
     assert ".probes" in recovery
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_snapshot_newer_than_the_registered_golden_stays(tmp_path):
     parent = tmp_path / "yoketest"
     registered = parent / "yoketest-home-20261014"

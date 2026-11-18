@@ -13,14 +13,17 @@ live; never put their current state into a golden to repair a failed request.
 ## What survives
 
 Reset renames these live entries out of the home before clearing and restores
-them afterward with their modes, using the same mechanism as native Chromium:
+them afterward with their modes:
 
 - `.claude/.credentials.json`, `.codex/auth.json`, `.config/cursor/auth.json`
 
 - `.local/bin/claude`, `.local/share/claude`
 - `.local/bin/codex`, `.local/lib/node_modules/@openai`, `.codex/packages`
 - `.local/bin/agent`, `.local/bin/cursor-agent`, `.local/share/cursor-agent`
-- `snap/chromium/common/chromium`
+
+The browser identity store `.yoke-browser-identities` also stays live and is
+never captured; it is the machine's only saved browser login store. Every
+Chromium is asked to quit first, never killed, so its cookies are on disk.
 
 Capture omits these entries; reset ignores stale copies in older sealed
 archives. Working CLI links must resolve inside the preserved home installation

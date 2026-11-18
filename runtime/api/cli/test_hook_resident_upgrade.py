@@ -1,6 +1,5 @@
 """Self-exec crosses immutable generations without releasing resident ownership."""
 
-import fcntl
 import json
 import os
 from pathlib import Path
@@ -16,6 +15,7 @@ import pytest
 from runtime.api.cli.cli_release_runtime_test_support import candidate
 from runtime.api.cli.yoke_hook_resident_test_support import _request, _round_trip
 from yoke_cli.config import cli_release_runtime as runtime
+from yoke_contracts import platform_file_lock
 from yoke_contracts.hook_evaluator_protocol import receive_frame, send_frame
 
 
@@ -74,12 +74,16 @@ def _wait_revision(address, revision, process):
 def _leased(generation: Path) -> bool:
     with (generation / "lease").open("a+") as contender:
         try:
-            fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(contender.fileno())
         except BlockingIOError:
             return True
     return False
 
 
+@pytest.mark.posix_only(
+    reason="POSIX resident self-exec: Unix socket, pass_fds and os.execv; the "
+    "Windows resident serves a named pipe and exits so callers restart it"
+)
 def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
     tmp_path, monkeypatch
 ):
@@ -94,7 +98,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
     with tempfile.TemporaryDirectory(prefix="hook-upgrade-") as short:
         address = Path(short) / "resident.sock"
         with (tmp_path / "start.lock").open("a+") as held:
-            fcntl.flock(held, fcntl.LOCK_EX)
+            platform_file_lock.acquire_exclusive(held.fileno())
             lock_fd = held.fileno()
             environment = dict(os.environ)
             for name in ("PYTHONPATH", "PYTHONHOME", "YOKE_BUILD_SHA"):
@@ -153,7 +157,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
                 }
             with (tmp_path / "start.lock").open("a+") as contender:
                 with pytest.raises(BlockingIOError):
-                    fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    platform_file_lock.acquire_exclusive_nonblocking(contender.fileno())
             # The resident's lease protects its release even when current
             # points elsewhere, and the replaced release's lease did not
             # survive the exec.
@@ -170,7 +174,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
         assert process.returncode == 0, stderr
         assert not address.exists()
         with (tmp_path / "start.lock").open("a+") as contender:
-            fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(contender.fileno())
 
 
 def test_source_development_restart_keeps_its_interpreter(monkeypatch, tmp_path):

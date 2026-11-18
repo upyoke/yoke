@@ -204,14 +204,15 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 
 | Grant | Client | Target |
 |---|---|---|
-| Automation | Remote Login controller | System Events, Terminal, Safari |
-| Automation | Terminal.app | System Events, Safari |
+| Automation | Remote Login controller | System Events, Terminal |
+| Automation | Terminal.app | System Events |
 | Accessibility | Remote Login controller and Terminal.app | — |
 | Screen Recording | Terminal.app | — |
 
-SSH `osascript` browser approval uses the Remote Login controller. GUI-session
-commands (Safari approval helper and `--gui-session`) need Terminal → System
-Events. A checked Automation box alone does not prove consent: macOS can
+SSH `osascript` Terminal control uses the Remote Login controller.
+GUI-session commands (`--gui-session`) need Terminal → System Events. Safari
+needs no grant: browser approval runs in the operator identity's Chromium
+through the installed Yoke, not AppleScript. A checked Automation box alone does not prove consent: macOS can
 still hold an unanswered prompt. At the host console, open Terminal and run:
 
 ```sh
@@ -243,8 +244,9 @@ for denial, timeout and Terminal-window recovery.
 
 ## 8. Harness sign-in and acceptance set
 
-At the host console, sign the declared test browser identity into
-`https://app.upyoke.com` in Safari (or the declared self-hosted app URL).
+Sign the operator identity (the project's browser-control `default_identity`)
+into `https://app.upyoke.com` (or the declared self-hosted app URL) once with
+`yoke browser authorize --project P --identity NAME --test-machine NAME`.
 Complete password/2FA now and require the signed-in app page; a Google session
 alone is insufficient. Later approval should need only an existing account pick.
 Start each harness's vendor login flow from the test user's **GUI Terminal**;
@@ -254,7 +256,7 @@ requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
 After harness sign-in, run `yoke test-machine golden-capture` (section 9)
-to prove real requests and recapture. Safari sign-in stays live outside goldens.
+to prove real requests and recapture. Identity sign-ins stay live outside goldens.
 
 Once per machine, accept Claude's dangerous-mode prompt in the
 dedicated test context. Require `skipDangerousModePermissionPrompt=true` in

@@ -9,11 +9,14 @@ surfaces are readable while a lane claim is held without gaining writes.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from runtime.api.domain.lint_session_cwd_read_shaped_access_test_support import (HELD_ITEM as HELD_ITEM, HOLDER as HOLDER, _register as _register, _seed_lane as _seed_lane)
 from runtime.api.domain.lint_lane_main_write_shell_redirect_test_support import (conn as conn, repo as repo)
 
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -33,12 +36,12 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
 #: per-test HOME lives under the temp root, which is itself a free path, so
 #: refusals of home paths could never be observed there. Nothing is written
 #: under it: ``/`` is not writable, so a stray write fails loudly.
-NON_TEMP_HOME = "/__yoke_test_home__"
+NON_TEMP_HOME = str(Path(Path.cwd().anchor) / "__yoke_test_home__")
 
 
 @pytest.fixture(autouse=True)
 def _home_outside_temp_roots(monkeypatch):
-    monkeypatch.setenv("HOME", NON_TEMP_HOME)
+    set_home(monkeypatch, NON_TEMP_HOME)
 
 
 INTRUDER = "sid-intruder"

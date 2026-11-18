@@ -109,7 +109,7 @@ def _fact(
 
 def read_profile(path: str) -> dict[str, Any]:
     try:
-        payload = json.loads(Path(path).expanduser().read_text())
+        payload = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise ValueError(
             "setup_profile_unreadable: supply a readable confirmed profile JSON file."

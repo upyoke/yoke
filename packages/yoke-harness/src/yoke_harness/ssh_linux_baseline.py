@@ -26,7 +26,6 @@ from yoke_harness.ssh_mac_baseline_probes import (
     run_baseline_probes,
 )
 from yoke_harness.golden_snapshot_retention import LINUX_CAPTURE_SPACE_CHECK
-from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_contracts.test_machine_types import HostActionResult
 
 # A 2.3 GB home took over five minutes on a two-vCPU host; allow clear headroom.
@@ -310,17 +309,14 @@ def capture_linux_golden(
     captured = archive_operation(control, "capture", destination)
     if not captured.ok:
         return captured
-    try:
-        control.upload_remote_text(destination + GOLDEN_PROBES_SUFFIX, probes_document)
-    except RuntimeError:
+    from yoke_harness.golden_probes_sidecar import seal_golden_probes
+
+    sealed = seal_golden_probes(control, destination, probes_document)
+    if not sealed.ok:
         return HostActionResult(
-            False,
-            {
-                **captured.evidence,
-                "recovery": "Write the probes beside the golden or capture a new golden before resetting.",
-            },
-            "golden_probes_write_failed",
+            False, {**captured.evidence, **sealed.evidence}, sealed.error_code
         )
+    captured = HostActionResult(True, {**captured.evidence, **sealed.evidence})
     from yoke_harness.golden_harness_clis import record_golden_harness_clis
 
     recorded = record_golden_harness_clis(control, destination)

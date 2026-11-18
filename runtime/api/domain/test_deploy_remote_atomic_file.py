@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 import subprocess
 import time
@@ -10,6 +9,7 @@ import time
 import pytest
 
 from runtime.api.domain.deploy_remote_test_support import FakeRunner, _env
+from yoke_contracts import platform_file_lock
 from yoke_core.domain.deploy_remote import push_remote_file, remove_remote_file
 
 
@@ -94,6 +94,9 @@ class TestPushRemoteFile:
             " \"$HOME\"/'.docker/$(cat >&2)/config file' 600"
         )
 
+    @pytest.mark.posix_only(
+        reason="remote POSIX deploy host: runs its sh/python3 flock writer script"
+    )
     def test_writer_replaces_existing_file_without_partial_reader_view(
         self,
         tmp_path,
@@ -125,6 +128,9 @@ class TestPushRemoteFile:
         assert target.stat().st_mode & 0o777 == 0o600
         assert {path.name for path in tmp_path.iterdir()} == {target.name}
 
+    @pytest.mark.posix_only(
+        reason="remote POSIX deploy host: runs its sh/python3 flock writer script"
+    )
     def test_writer_cleans_stranded_temp_without_following_symlink(
         self,
         tmp_path,
@@ -163,6 +169,9 @@ class TestPushRemoteFile:
         assert sentinel.read_text(encoding="utf-8") == "keep\n"
         assert unrelated.read_text(encoding="utf-8") == "unrelated\n"
 
+    @pytest.mark.posix_only(
+        reason="remote POSIX deploy host: runs its sh/python3 flock writer script"
+    )
     def test_writer_lock_serializes_concurrent_replacements(self, tmp_path):
         target = tmp_path / "github-app-private-key.pem"
         runner = FakeRunner()
@@ -200,6 +209,9 @@ class TestPushRemoteFile:
         assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
         assert not (tmp_path / f"{target.name}.lock").exists()
 
+    @pytest.mark.posix_only(
+        reason="remote POSIX deploy host: runs its sh/python3 flock writer script"
+    )
     def test_writer_waiting_on_a_lock_the_holder_unlinks_takes_a_live_lock(
         self,
         tmp_path,
@@ -219,7 +231,7 @@ class TestPushRemoteFile:
         # Stand in for a holder that finishes and unlinks its lock while the
         # writer is still queued behind it.
         held = os.open(lock, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
-        fcntl.flock(held, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(held)
         writer = subprocess.Popen(
             ["sh", "-c", command],
             stdin=subprocess.PIPE,
@@ -252,6 +264,9 @@ class TestPushRemoteFile:
         assert target.read_text(encoding="utf-8") == "current-key\n"
         assert not lock.exists()
 
+    @pytest.mark.posix_only(
+        reason="remote POSIX deploy host: runs its sh/python3 flock writer script"
+    )
     def test_remove_cleans_target_and_stranded_writer_temp(self, tmp_path):
         target = tmp_path / "github-app-private-key.pem"
         target.write_text("old-key\n", encoding="utf-8")

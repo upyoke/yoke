@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_scripts, venv_console_script, venv_python
+
 import json
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_core.tools.checkout_clean_room_smoke_helpers import (
     SMOKE_EVENT_NAME,
     SMOKE_EVENT_TYPE,
@@ -71,8 +75,8 @@ def run_smoke(
             commands=commands,
             env=base_env(home),
         )
-        py = venv_dir / "bin" / "python"
-        yoke = venv_dir / "bin" / "yoke"
+        py = venv_python(venv_dir)
+        yoke = venv_console_script(venv_dir, "yoke")
         run(
             [str(py), "-m", "pip", "install", "--upgrade", "pip"],
             step="pip-upgrade",
@@ -92,7 +96,7 @@ def run_smoke(
             home=home,
             machine_home=machine_home,
             config_path=config_path,
-            venv_bin=venv_dir / "bin",
+            venv_bin=venv_scripts(venv_dir),
             env_name=env_name,
             session_id=session_id,
         )
@@ -222,17 +226,14 @@ def _write_machine_files(
     source_dsn: Path,
     payload: Mapping[str, Any],
 ) -> None:
-    machine_home.mkdir(parents=True, exist_ok=True)
-    secrets_dir.mkdir(parents=True, exist_ok=True)
-    copied_dsn.write_text(
-        source_dsn.read_text(encoding="utf-8").strip() + "\n",
-        encoding="utf-8",
+    create_private_directory(machine_home)
+    create_private_directory(secrets_dir)
+    write_owner_private(
+        copied_dsn, source_dsn.read_text(encoding="utf-8").strip() + "\n"
     )
-    copied_dsn.chmod(0o600)
     (machine_home / "tmp").mkdir(parents=True, exist_ok=True)
     (machine_home / "cache").mkdir(parents=True, exist_ok=True)
-    config_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    config_path.chmod(0o600)
+    write_owner_private(config_path, json.dumps(payload, indent=2) + "\n")
 
 
 def _cli_readback_report(

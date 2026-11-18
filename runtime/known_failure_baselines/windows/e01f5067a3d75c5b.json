@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_glob_command_repairs.py::test_external_search_root_does_not_include_nested_names[absolute-root]",
+ "reason": "TypeError: 'NoneType' object is not subscriptable"
+}

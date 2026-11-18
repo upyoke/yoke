@@ -59,7 +59,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
         ]),
     }
     recovery_tokens = dict([
-        ("harness-auth-missing", "npm install -g @openai/codex"),
+        ("harness-auth-missing", "install -g @openai/codex"),
         ("dashboard-stale", "yoke ui down"),
         ("session-hook-unobserved", "Start a new harness session"),
         ("foreign-install-binding", "yoke setup"),

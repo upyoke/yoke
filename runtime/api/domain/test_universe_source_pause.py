@@ -9,6 +9,7 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import (
     db_backend, universe_archive, universe_database_pause, universe_export,
+    universe_export_destination,
 )
 from yoke_core.domain import universe_source_pause as pause
 
@@ -89,7 +90,17 @@ def test_failed_export_leaves_source_paused(monkeypatch, tmp_path):
 def test_unwritable_destination_refuses_before_pausing(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     destination = tmp_path / "read-only"
-    destination.mkdir(mode=0o500)
+    destination.mkdir()
+    real_temporary_file = universe_export_destination.tempfile.TemporaryFile
+
+    def refuse_destination_probe(*args, **kwargs):
+        if kwargs.get("dir") == destination:
+            raise PermissionError("destination is not writable")
+        return real_temporary_file(*args, **kwargs)
+
+    monkeypatch.setattr(
+        universe_export_destination.tempfile, "TemporaryFile", refuse_destination_probe
+    )
     with pg_testdb.test_database() as source:
         source.commit()
         dsn = os.environ[db_backend.PG_DSN_ENV]
@@ -106,7 +117,8 @@ def test_unwritable_destination_refuses_before_pausing(monkeypatch, tmp_path):
             with psycopg.connect(dsn) as other:
                 assert other.execute("SELECT 42").fetchone()[0] == 42
         finally:
-            destination.chmod(0o700)
+            if pause.is_paused(dsn):
+                pause.resume(dsn)
 
 
 def test_resume_cannot_race_export(monkeypatch, tmp_path):

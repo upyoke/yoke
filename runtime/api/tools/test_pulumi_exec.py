@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from io import StringIO
 from pathlib import Path
-import stat
 
 import pytest
 
+from yoke_contracts.owner_private_path import (
+    is_owner_private_directory,
+    is_owner_private_file,
+)
 from yoke_core.tools.pulumi_exec import PulumiExecError
 from runtime.api.tools.pulumi_exec_support_test_support import (
     PROVIDER,
@@ -37,7 +40,7 @@ def test_init_is_pinned_to_kms_key_with_ephemeral_authority(tmp_path):
             {
                 "command": command,
                 "temp_root": temp_root,
-                "temp_mode": stat.S_IMODE(temp_root.stat().st_mode),
+                "temp_private": is_owner_private_directory(temp_root),
                 "env": kwargs["env"],
             }
         )
@@ -61,7 +64,7 @@ def test_init_is_pinned_to_kms_key_with_ephemeral_authority(tmp_path):
         "pulumi", "stack", "init", STACK,
         "--secrets-provider", PROVIDER, "--non-interactive",
     ]
-    assert calls[0]["temp_mode"] == 0o700
+    assert calls[0]["temp_private"] is True
     assert calls[0]["env"]["PULUMI_BACKEND_URL"] == (
         "s3://externalwebapp-pulumi-state?region=us-east-1"
     )
@@ -149,8 +152,8 @@ def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
             {
                 "command": command,
                 "root": cwd.parents[1],
-                "root_mode": stat.S_IMODE(cwd.parents[1].stat().st_mode),
-                "file_mode": stat.S_IMODE(stack_file.stat().st_mode),
+                "root_private": is_owner_private_directory(cwd.parents[1]),
+                "file_private": is_owner_private_file(stack_file),
                 "env": kwargs["env"],
             }
         )
@@ -167,8 +170,8 @@ def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
     assert calls[0]["command"] == [
         "pulumi", "preview", "--refresh", "--non-interactive", "--stack", STACK,
     ]
-    assert calls[0]["root_mode"] == 0o700
-    assert calls[0]["file_mode"] == 0o600
+    assert calls[0]["root_private"] is True
+    assert calls[0]["file_private"] is True
     assert calls[0]["env"]["PULUMI_BACKEND_URL"].startswith(
         "s3://externalwebapp-pulumi-state"
     )
@@ -204,7 +207,7 @@ def test_preview_json_output_is_durable_owner_only(tmp_path):
     )
     assert rc == 0
     assert output.read_text() == '{"steps":[]}\n'
-    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    assert is_owner_private_file(output)
 
 
 @pytest.mark.parametrize("operation", ["state-delete", "bash"])

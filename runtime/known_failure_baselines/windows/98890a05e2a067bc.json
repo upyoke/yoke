@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_candidate_source.py::test_candidate_check_after_the_case_refuses_drift_without_repairing",
+ "reason": "StopIteration"
+}

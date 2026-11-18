@@ -45,6 +45,7 @@ def test_the_store_is_kept_live_and_lives_outside_the_absent_yoke_home():
     )
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_mac_reset_keeps_the_live_store_and_capture_prunes_it(tmp_path):
     require_zsh()
     home, golden = tmp_path / "home", tmp_path / "golden"
@@ -88,8 +89,10 @@ def _archive_run(home: Path, golden: Path, operation: str):
     )
 
 
-@pytest.mark.skipif(os.getuid() == 0, reason="archive fixture needs a non-root user")
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_linux_capture_omits_the_store_and_reset_keeps_it_live(tmp_path):
+    if os.getuid() == 0:
+        pytest.skip("archive fixture needs a non-root user")
     home, golden = tmp_path / "home", tmp_path / "golden"
     _write(home, COOKIES, "signed in at capture")
     _write(home, ".ssh/authorized_keys", "key")
@@ -106,3 +109,65 @@ def test_linux_capture_omits_the_store_and_reset_keeps_it_live(tmp_path):
     assert not (home / ".yoke").exists()
     assert (home / "notes.txt").read_text() == "golden"
     assert STORE in json.loads(restored.stdout)["preserved_entries"]
+
+
+def _authorize_through_the_owner(home: Path, monkeypatch) -> Path:
+    """Create the profile the way ``yoke browser authorize`` does, with no store yet."""
+    from yoke_cli.config import browser_profile
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home / ".yoke"))
+    (home / ".yoke").mkdir(parents=True)
+    assert not (home / STORE).exists()
+    profile = browser_profile.ensure_profile_dir("acme", identity="admin")
+    (profile / "Default").mkdir()
+    (profile / "Default" / "Cookies").write_text("signed in by the operator")
+    return profile
+
+
+def _still_authorized(home: Path, monkeypatch) -> None:
+    from yoke_cli.config import browser_profile
+
+    assert not (home / ".yoke").exists()
+    (home / ".yoke").mkdir()
+    kept = browser_profile.authorized_profile_dir("acme", identity="admin")
+    assert kept == home / STORE / "acme" / "admin"
+    assert (kept / "Default" / "Cookies").read_text() == "signed in by the operator"
+
+
+@pytest.mark.skipif(os.getuid() == 0, reason="archive fixture needs a non-root user")
+def test_a_profile_authorized_on_a_fresh_linux_machine_survives_reset(
+    tmp_path, monkeypatch
+):
+    home, golden = tmp_path / "home", tmp_path / "golden"
+    _write(home, ".ssh/authorized_keys", "key")
+    captured = _archive_run(home, golden, "capture")
+    assert captured.returncode == 0, captured.stdout + captured.stderr
+    _authorize_through_the_owner(home, monkeypatch)
+    restored = _archive_run(home, golden, "reset")
+    assert restored.returncode == 0, restored.stdout + restored.stderr
+    _still_authorized(home, monkeypatch)
+
+
+def test_a_profile_authorized_on_a_fresh_mac_survives_reset(tmp_path, monkeypatch):
+    require_zsh()
+    home, golden = tmp_path / "home", tmp_path / "golden"
+    _write(golden, "Documents/note", "golden")
+    _authorize_through_the_owner(home, monkeypatch)
+    error = tmp_path / "restore-errors"
+    result = run_functions(
+        (
+            function_program(),
+            assignment("home", str(home)),
+            "failure_detail=''",
+            assignment("golden", str(golden)),
+            assignment("restore_error_log", str(error)),
+            assignment("restore_failure_report", str(error) + ".entries"),
+            ': > "$restore_error_log"',
+            ': > "$restore_failure_report"',
+            "clear_home_levels",
+            "restore_golden_levels",
+        ),
+        shell_home=tmp_path / "shell",
+    )
+    assert result.returncode == 0, result.stderr
+    _still_authorized(home, monkeypatch)

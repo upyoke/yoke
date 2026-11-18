@@ -22,7 +22,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("primary_arg", help="run-ID")
     parser.add_argument("--timeout", type=int, default=30, help="Timeout in minutes")
-    parser.add_argument("--from-stage", default="", help="Resume from this stage")
     parser.add_argument("--fresh", action="store_true", help="Skip existing-run search")
     parser.add_argument(
         "--product-repo-path",
@@ -62,7 +61,6 @@ def main(
             return runner(
                 args.primary_arg,
                 timeout_min=args.timeout,
-                from_stage=args.from_stage,
                 fresh=args.fresh,
                 image_tag=args.image_tag,
                 product_repo_path=args.product_repo_path,

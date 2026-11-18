@@ -1,9 +1,11 @@
 """Checkout helpers follow CLI publication without retaining pruned releases."""
 
-from pathlib import Path
 import shlex
 import shutil
 import sys
+import venv
+
+from yoke_contracts.venv_layout import venv_python
 
 from runtime.api.cli.cli_release_runtime_test_support import point_current
 from runtime.api.cli.github_stable_helper_test_support import (
@@ -24,14 +26,12 @@ def test_checkout_helper_survives_release_switch_and_prune(tmp_path, monkeypatch
     repo, config, credential = _configured_repo(tmp_path, monkeypatch)
     write_github_app_config(config, credential, "release-test-token")
     root = tmp_path / "install with spaces" / "yoke-cli-releases"
-    original_python = Path(sys.executable)
 
     def release(name):
         generation = root / "releases" / name
         environment = generation / "tools" / "yoke-cli"
-        python = environment / "bin" / "python3"
-        python.parent.mkdir(parents=True)
-        python.symlink_to(original_python)
+        venv.EnvBuilder(with_pip=False).create(environment)
+        python = venv_python(environment, name="python3")
         point_current(root, generation)
         monkeypatch.setattr(credentials.sys, "executable", str(python))
         monkeypatch.setattr(credentials.sys, "prefix", str(environment))

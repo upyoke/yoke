@@ -10,12 +10,11 @@ switch to disk.
 
 from __future__ import annotations
 
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_contracts.qa_evidence_plane import (
     administered_elsewhere_env,
@@ -143,21 +142,7 @@ def _signed_url(conn: Any, store: _Bucket, method: str) -> str:
 
 def _write_local(target: Path, content: bytes) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
-        dir=target.parent, prefix=f".{target.name}.", delete=False
-    )
-    temporary = Path(handle.name)
-    try:
-        os.chmod(temporary, 0o600)
-        handle.write(content)
-        handle.flush()
-        os.fsync(handle.fileno())
-        handle.close()
-        os.replace(temporary, target)
-    finally:
-        if not handle.closed:
-            handle.close()
-        temporary.unlink(missing_ok=True)
+    write_owner_private(target, content)
 
 
 def _local_write_refusal(project: str) -> str | None:

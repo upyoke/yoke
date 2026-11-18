@@ -248,7 +248,7 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
             if "tests" in md_file.relative_to(root).parts:
                 continue
             try:
-                content = md_file.read_text(errors="replace")
+                content = md_file.read_text(errors="replace", encoding="utf-8")
             except OSError:
                 continue
             if not any(marker in content for marker in _SKILL_EMIT_MARKERS):
@@ -270,7 +270,7 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
             if "/test" in rel_py:
                 continue
             try:
-                content = py_file.read_text(errors="replace")
+                content = py_file.read_text(errors="replace", encoding="utf-8")
             except OSError:
                 continue
             if not any(

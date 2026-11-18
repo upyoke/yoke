@@ -19,6 +19,7 @@ from yoke_contracts.self_host_bootstrap_output import (
 RAW_TOKEN = TOKEN_PREFIX + "B" * TOKEN_BODY_LENGTH
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_token_returns_over_private_socket_and_never_enters_logs(capsys):
     server, host = socket.socketpair()
     received = []

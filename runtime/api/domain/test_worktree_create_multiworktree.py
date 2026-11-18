@@ -11,6 +11,7 @@ from pathlib import Path
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -96,7 +97,7 @@ class TestCreateWorktreeMultiWorktree:
         assert not hasattr(result, "scope_entered")
         assert not hasattr(result, "scope_message")
         assert result.branch == "YOK-99202"
-        assert Path(result.path).as_posix().endswith(".worktrees/YOK-99202")
+        assert Path(result.path).parts[-2:] == (".worktrees", "YOK-99202")
         assert len(result.worktrees) == len(entries) + 1
         for wt_result, (expected_branch, expected_path) in zip(
             result.worktrees[1:],

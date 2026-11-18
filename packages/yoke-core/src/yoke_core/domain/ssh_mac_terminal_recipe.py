@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 
+from yoke_core.domain.machine_qa_operator_browser import reauthorize_command
 from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
 
 from pathlib import Path
@@ -147,6 +148,7 @@ def _run_interactive_recipe(
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
                     yoke_bin=yoke_bin,
+                    reauthorize_command=reauthorize_command(config),
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence

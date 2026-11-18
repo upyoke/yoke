@@ -26,6 +26,10 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
     byline.appendChild(relativeTime(documentNode, row.resolved_at || row.your_decision?.decided_at));
     line.appendChild(byline);
     card.appendChild(line);
+    if (row.status === "superseded" && row.superseded_by_request_id != null) {
+      card.appendChild(el(documentNode, "p", "review-context inbox-question-replacement",
+        `Superseded by request ${row.superseded_by_request_id}`));
+    }
     return card;
   }
   card.appendChild(el(documentNode, "h3", "review-title", facts.question || "Question unavailable"));

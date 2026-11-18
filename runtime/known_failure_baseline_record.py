@@ -8,9 +8,10 @@ or saved job logs. A test that fails wherever it ran becomes an entry whose
 reason is its failure message; an entry for a test that passed (or reported
 ``[XPASS(strict)] <node id> passed``) is deleted; a test that both failed and
 passed across the reports is printed as flaky and never recorded, since a
-strict entry cannot hold it; add it by hand to ``flaky/<os>.json`` with its
+strict entry cannot hold it; add it by hand under ``flaky/<os>/`` with its
 feedback entry and fix item. Tests already on that list are ignored. Every
-other existing entry is kept. Read the result before committing: an
+other existing entry is kept. Each entry is its own file, so only the files of
+added or deleted entries change. Read the result before committing: an
 entry is a promise that the test fails there for the stated reason, and a
 flaky test belongs in a fix, not in a strict baseline.
 """
@@ -20,15 +21,13 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from runtime.known_failure_baseline import BASELINE_DIR, PLATFORM_BASELINES, XPASS_MARK
+from runtime.known_failure_baseline import (
+    BASELINE_DIR, PLATFORM_BASELINES, XPASS_MARK, entry_file_name, entry_files,
+)
 
-#: Entries per file: each entry is one line, so a file stays inside the
-#: repository's file line limit.
-ENTRIES_PER_FILE = 300
 REASON_CHARACTERS = 200
 
 _TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ")
@@ -173,30 +172,28 @@ def read_reports(directory: Path) -> tuple[dict[str, str], set[str]]:
     return failures, passed
 
 
-def _group(node_id: str) -> str:
-    parts = node_id.split("::", 1)[0].split("/")[:-1]
-    return "-".join(parts[:3]) or "root"
+def entry_text(node_id: str, reason: str) -> str:
+    return json.dumps({"node_id": node_id, "reason": reason}, indent=1, ensure_ascii=False) + "\n"
 
 
-def write_baseline(os_name: str, entries: dict[str, str], root: Path = BASELINE_DIR) -> list[Path]:
-    """Replace *os_name*'s files with *entries*, grouped by test directory."""
+def write_baseline(os_name: str, entries: dict[str, str], root: Path = BASELINE_DIR) -> tuple[int, int]:
+    """Make *os_name*'s entry files hold exactly *entries*: write each new or
+    changed entry's file, delete each other file. Returns (written, deleted)."""
     directory = root / os_name
     directory.mkdir(parents=True, exist_ok=True)
-    for stale in directory.glob("*.json"):
-        stale.unlink()
-    groups: dict[str, list[str]] = defaultdict(list)
-    for node_id in sorted(entries):
-        groups[_group(node_id)].append(node_id)
-    written = []
-    for group, node_ids in sorted(groups.items()):
-        chunks = [node_ids[i : i + ENTRIES_PER_FILE] for i in range(0, len(node_ids), ENTRIES_PER_FILE)]
-        for index, chunk in enumerate(chunks, start=1):
-            name = group if len(chunks) == 1 else f"{group}-{index}"
-            path = directory / f"{name}.json"
-            body = {node_id: entries[node_id] for node_id in chunk}
-            path.write_text(json.dumps(body, indent=0, ensure_ascii=False) + "\n", encoding="utf-8")
-            written.append(path)
-    return written
+    wanted = {entry_file_name(node_id): entry_text(node_id, reason) for node_id, reason in entries.items()}
+    deleted = 0
+    for path in entry_files(directory):
+        if path.name not in wanted:
+            path.unlink()
+            deleted += 1
+    written = 0
+    for name, text in sorted(wanted.items()):
+        path = directory / name
+        if not path.is_file() or path.read_text(encoding="utf-8") != text:
+            path.write_text(text, encoding="utf-8", newline="\n")
+            written += 1
+    return written, deleted
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -213,11 +210,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     entries = {k: v for k, v in existing.items() if k not in passed}
     added = {k: v for k, v in failures.items() if k not in entries and k not in passed}
     entries.update(added)
-    written = write_baseline(args.os, entries)
+    written, deleted = write_baseline(args.os, entries)
     flaky = sorted(set(failures) & passed)
     print(
-        f"{args.os}: {len(entries)} entries in {len(written)} files "
-        f"({len(added)} added, {len(existing) - (len(entries) - len(added))} removed as passing)"
+        f"{args.os}: {len(entries)} entries ({len(added)} added, "
+        f"{len(existing) - (len(entries) - len(added))} removed as passing; "
+        f"{written} files written, {deleted} deleted)"
     )
     for node_id in flaky:
         print(f"flaky (failed and passed across these reports; not recorded): {node_id}")

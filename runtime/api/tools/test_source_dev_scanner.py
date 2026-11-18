@@ -23,10 +23,10 @@ def checkout(tmp_path: Path) -> Path:
     """A minimal Yoke source checkout with one commit and the build scanner."""
     root = tmp_path / "yoke"
     (root / "runtime/harness").mkdir(parents=True)
-    (root / "runtime/harness/README.md").write_text("")
-    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
+    (root / "runtime/harness/README.md").write_text("", encoding="utf-8", newline="\n")
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n', encoding="utf-8", newline="\n")
     (root / BUILD).parent.mkdir(parents=True)
-    (root / BUILD).write_text("")
+    (root / BUILD).write_text("", encoding="utf-8", newline="\n")
     _git("init", "-q", cwd=root)
     _git("add", ".", cwd=root)
     _git(

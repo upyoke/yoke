@@ -107,8 +107,8 @@ def render_event_catalog(repo_root: Path) -> Path:
     catalog_path = repo_root / EVENT_CATALOG_RELPATH
     assert_target_under_session_work_authority(catalog_path)
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = catalog_path.read_text() if catalog_path.exists() else ""
-    catalog_path.write_text(render_catalog_text(catalog_appendix(existing)))
+    existing = catalog_path.read_text(encoding="utf-8") if catalog_path.exists() else ""
+    catalog_path.write_text(render_catalog_text(catalog_appendix(existing)), encoding="utf-8", newline="\n")
     return catalog_path
 
 

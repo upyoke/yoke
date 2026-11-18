@@ -7,6 +7,7 @@ import tempfile
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_core.domain import postgres_binaries, postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
 from yoke_core.tools import pg_testcluster_reclaim as reclaim
@@ -65,7 +66,7 @@ def test_interrupt_destroys_real_evidence_postmaster(tmp_path, name):
 def test_real_prune_keeps_clients_then_reaps_idle_orphan(monkeypatch):
     import psycopg
 
-    evidence = Path(tempfile.mkdtemp(prefix="yoke-prune-proof-", dir="/tmp"))
+    evidence = Path(tempfile.mkdtemp(prefix="yoke-prune-proof-", dir=shortest_temp_directory()))
     spec = _spec(evidence / "yoke-pgtest-cluster")
     try:
         assert postgres_cluster.ensure_started(spec) == 0

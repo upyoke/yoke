@@ -5,7 +5,7 @@ written for a particular shell. Claude Code names its tools after the shell
 (``Bash`` runs Bash, Git Bash on Windows; ``PowerShell`` runs PowerShell).
 Codex (``Bash`` in its hook payload, ``shell`` natively) and Cursor
 (``Shell``, or its ``beforeShellExecution`` gate) run the machine's default
-shell: PowerShell on Windows, Bash elsewhere.
+shell when the payload names no shell: PowerShell on Windows, Bash elsewhere.
 
 This module is the single source. The renderer copies each harness's entry
 into ``runtime/harness/<dir>/manifest.json`` as ``shell_tools`` (see
@@ -64,11 +64,19 @@ def shell_tools(harness_id: str) -> Mapping[str, ShellDeclaration]:
         ) from None
 
 
-def shell_kind_for(harness_id: str, tool_name: str, *, windows: bool) -> ShellKind | None:
+def shell_kind_for(
+    harness_id: str, tool_name: str, *, windows: bool, shell: str | None = None
+) -> ShellKind | None:
     """Return the shell a harness's tool runs, or ``None`` for a non-shell tool."""
     declared = HARNESS_SHELL_TOOLS.get(harness_id, {}).get(tool_name)
     if declared is None:
         return None
+    if shell:
+        name = shell.replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".exe")
+        if name in {"bash", "zsh", "sh", "dash", "ksh"}:
+            return SHELL_KIND_BASH
+        if name in {"powershell", "pwsh"}:
+            return SHELL_KIND_POWERSHELL
     if declared == OS_DEFAULT:
         return SHELL_KIND_POWERSHELL if windows else SHELL_KIND_BASH
     return declared
@@ -90,7 +98,9 @@ def payload_shell_kind(payload: Mapping[str, object]) -> ShellKind:
 
 def manifest_shell_tools(harness_id: str) -> dict[str, str]:
     """The manifest ``shell_tools`` block: native tool name -> declaration."""
-    return {name or "(shell gate)": kind for name, kind in shell_tools(harness_id).items()}
+    return {
+        name or "(shell gate)": kind for name, kind in shell_tools(harness_id).items()
+    }
 
 
 __all__ = [

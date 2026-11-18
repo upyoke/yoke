@@ -23,9 +23,7 @@ from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_core.domain.handlers import machine_desktop_access as handler
 from yoke_harness import desktop_access as desktop
 
-
 pytestmark = pytest.mark.windows
-
 
 SETTINGS = {
     "resource_name": "lab",
@@ -40,7 +38,6 @@ SETTINGS = {
 }
 PASSWORD = "a-test-desktop-secret"
 
-
 @pytest.fixture
 def credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
@@ -51,7 +48,6 @@ def credentials(tmp_path, monkeypatch):
         "project", "test-machine:lab", "desktop_password", PASSWORD
     )
     return tmp_path
-
 
 def test_passwords_are_machine_owned_and_private(credentials):
     path = store_machine_capability_secret(
@@ -71,7 +67,6 @@ def test_passwords_are_machine_owned_and_private(credentials):
         == "other-secret"
     )
 
-
 @pytest.mark.parametrize(
     "change",
     [
@@ -89,7 +84,6 @@ def test_registration_rejects_invalid_routes_and_password_settings(change):
     with pytest.raises(TestMachineCapabilityError):
         validate_test_machine_settings({**SETTINGS, **change})
 
-
 def test_registration_requires_complete_route_and_keeps_cloud_identity():
     with pytest.raises(TestMachineCapabilityError, match="desktop_route_incomplete"):
         validate_test_machine_settings(
@@ -100,7 +94,6 @@ def test_registration_requires_complete_route_and_keeps_cloud_identity():
     )
     assert result["cloud_instance_id"] == "i-07b658cc018669344"
     assert result["desktop_user"] == "Administrator"
-
 
 def test_forward_printable_result_has_no_secret_and_leaves_a_private_copy(
     credentials, monkeypatch
@@ -134,7 +127,6 @@ def test_forward_printable_result_has_no_secret_and_leaves_a_private_copy(
     finally:
         path.unlink()
 
-
 def test_direct_route_uses_desktop_host_without_starting_ssh(credentials, monkeypatch):
     monkeypatch.setattr(
         desktop.subprocess,
@@ -160,7 +152,6 @@ def test_direct_route_uses_desktop_host_without_starting_ssh(credentials, monkey
     finally:
         Path(result["password_file"]).unlink()
 
-
 def test_failed_probe_closes_forward_and_removes_password_copy(
     credentials, monkeypatch
 ):
@@ -184,7 +175,6 @@ def test_failed_probe_closes_forward_and_removes_password_copy(
     assert not Path(control_path.removesuffix(".ssh")).exists()
     assert calls[-1][-3:] == ["-O", "exit", "sshuser@lab.example"]
 
-
 def test_missing_password_refuses_before_any_tunnel(credentials, monkeypatch):
     monkeypatch.setattr(
         desktop.subprocess,
@@ -196,7 +186,6 @@ def test_missing_password_refuses_before_any_tunnel(credentials, monkeypatch):
             project="project", test_machine="missing", settings=SETTINGS
         )
 
-
 def _request():
     return FunctionCallRequest(
         function="test_machine.desktop_access",
@@ -205,7 +194,6 @@ def _request():
         target={"kind": "global"},
         payload={"project": "project", "test_machine": "lab"},
     )
-
 
 def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     monkeypatch,
@@ -238,7 +226,6 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     result = handler.handle_desktop_access(_request()).result_payload
     assert set(result) == {"project", "test_machine", "settings"}
 
-
 def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys):
     from yoke_cli.commands.adapters import test_machine_desktop as cli
 
@@ -258,6 +245,9 @@ def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys
             )
         ),
     )
+    from yoke_cli.commands import test_machine_desktop_lease as custody
+    from contextlib import nullcontext
+    monkeypatch.setattr(custody, "desktop_lease", lambda **kw: nullcontext())
     monkeypatch.setattr(desktop, "_check_desktop", lambda *args: None)
     monkeypatch.setattr(
         desktop.subprocess,
@@ -275,7 +265,6 @@ def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys
         assert PASSWORD not in captured.out + captured.err + repr(calls)
     finally:
         Path(result["password_file"]).unlink()
-
 
 @pytest.mark.parametrize(
     "protocol,fragments",
@@ -304,7 +293,6 @@ def test_protocol_probe_handles_fragmented_handshakes(monkeypatch, protocol, fra
     desktop._check_desktop("localhost", 10000, protocol)
     assert not fragments
 
-
 def test_desktop_secret_literal_is_rejected_before_dispatch(monkeypatch, capsys):
     from yoke_cli.commands.adapters import projects_secret
 
@@ -324,7 +312,6 @@ def test_desktop_secret_literal_is_rejected_before_dispatch(monkeypatch, capsys)
     )
     assert result != 0
     assert PASSWORD not in capsys.readouterr().err
-
 
 def test_debug_secret_read_cannot_print_desktop_password(monkeypatch, capsys):
     from yoke_core.domain import projects_capability_secrets_command as cli

@@ -165,7 +165,7 @@ def test_setup_pairs_and_source_excerpts_are_real(explorer):
             start, end = node['document_lines']
             # Preview output need not exist in a clean source checkout.
             path = (TOOLS.parent / 'views' / node['document']).resolve()
-            assert 0 <= start < end <= len(path.read_text().splitlines())
+            assert 0 <= start < end <= len(path.read_text(encoding="utf-8").splitlines())
     assert any(n['type_label'] == 'Answer choice' for n in nodes.values())
     assert any(n['type_label'] == 'Reply field' for n in nodes.values())
     assert nodes['hook-event:PreToolUse']['parent'] == 'source:project-hooks'
@@ -188,7 +188,7 @@ def test_rules_combine_shared_topics_and_only_local_additions(explorer):
         'Yoke repository'}
     assert any(n['title'] == 'Rule loading and feedback' and
                n['guidance_scope'] == 'shared' for n in topics)
-    local = (TOOLS.parents[2] / 'AGENTS.md').read_text().splitlines()
+    local = (TOOLS.parents[2] / 'AGENTS.md').read_text(encoding="utf-8").splitlines()
     end = local.index('<!-- END YOKE MANAGED BLOCK -->')
     for node in topics:
         if node['guidance_scope'] == 'repository':

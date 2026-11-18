@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 from functools import cache
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
+
+from yoke_contracts.testing.child_environment import minimal_child_environment
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
 from runtime.api.load_tolerant_subprocess import (
@@ -174,10 +177,11 @@ def _run_product_cli(
         repo_root=REPO_ROOT,
         allowed_repo_paths=allowed_paths,
     )
+    git = shutil.which("git")
     env = {
+        **minimal_child_environment((Path(git).parent,) if git else ()),
         "HOME": str(home),
         "LC_ALL": "C",
-        "PATH": "/usr/bin:/bin",
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONNOUSERSITE": "1",
         "PYTHONPATH": os.pathsep.join((str(sitecustomize_dir), pythonpath)),
@@ -185,6 +189,14 @@ def _run_product_cli(
         "YOKE_MACHINE_CONFIG_FILE": str(config_path),
         "YOKE_MACHINE_HOME": str(yoke_home),
     }
+    if os.name == "nt":
+        env.update({
+            "USERPROFILE": str(home),
+            "APPDATA": str(home / "AppData" / "Roaming"),
+            "LOCALAPPDATA": str(home / "AppData" / "Local"),
+        })
+        for name in ("APPDATA", "LOCALAPPDATA"):
+            Path(env[name]).mkdir(parents=True, exist_ok=True)
     env.update(extra_env or {})
     result = run_load_tolerant_subprocess(
         [sys.executable, "-c", _HARNESS, *args],
@@ -224,7 +236,7 @@ def _assert_clean_client_boundary(run: ProductCliRun) -> None:
     assert _repo_pythonpath(run) == [str(CLI_SRC), str(CONTRACTS_SRC), str(HARNESS_SRC)]
     assert not Path(str(run.boundary["cwd"])).resolve().is_relative_to(REPO_ROOT)
     assert Path(str(run.boundary["home"])).name == "home"
-    assert str(run.boundary["yoke_config"]).endswith("/home/.yoke/config.json")
+    assert Path(str(run.boundary["yoke_config"])).parts[-3:] == ("home", ".yoke", "config.json")
     assert run.boundary["yoke_config"] == run.boundary["yoke_machine_config_file"]
 
 

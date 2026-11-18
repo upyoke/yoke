@@ -1,5 +1,7 @@
 """Desktop config resolution follows the host's platform and XDG directory."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 
 import pytest
@@ -14,7 +16,7 @@ def test_linux_claude_config_and_review_name_the_same_path(
 ):
     monkeypatch.setattr(posture.sys, "platform", "linux")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
     if wsl:
@@ -34,7 +36,7 @@ def test_linux_claude_config_and_review_name_the_same_path(
 
 def test_macos_claude_config_uses_application_support(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(posture.sys, "platform", "darwin")
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "ignored"))
     assert posture.claude_config_path() == (
         tmp_path / "Library/Application Support/Claude/claude_desktop_config.json"

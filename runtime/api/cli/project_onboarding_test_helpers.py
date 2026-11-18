@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import http.server
 import json
 import subprocess
@@ -22,7 +24,7 @@ def write_https_config(
     tmp_path: Path, token: str, api_url: str = "http://127.0.0.1:1",
 ) -> Path:
     machine_home = tmp_path / "machine-home"
-    machine_home.mkdir()
+    create_private_directory(machine_home)
     token_file = machine_home / "prod.token"
     token_file.write_text(token + "\n", encoding="utf-8")
     config = machine_home / "config.json"

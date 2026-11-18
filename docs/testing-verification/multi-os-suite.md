@@ -31,17 +31,26 @@ container runtime on these runners: `yoke_core.tools.ci_suite_postgres start`
 fetches the product's own pinned Postgres engine, starts the disposable test
 cluster under the runner's temp directory and exports `YOKE_PG_DSN` to later
 steps. Each shard uploads `pytest-output-<os>-<shard>` with its log and JUnit
-report.
+report. The plan retains modules skipped before import on its collection OS
+so native runners still receive them, with conservative product-wheel fixture
+affinity because their fixture closure cannot be imported on the plan host.
+Coverage manifests name these collection skips explicitly; each test and each
+module skip must appear exactly once in the shard reports.
 
 The free macOS runner pool caps concurrency, so macOS shards queue; read
 runtime from each job's own start and finish times, not the run's wall clock.
 
 ## Known-failure baselines
 
-Tests that do not pass yet on an OS are listed in the JSON files under
-`runtime/known_failure_baselines/<os>/`, one `"<node id>": "<reason>"` entry
-per line, grouped by test directory and split so each file stays inside the
-line limit. Node ids are relative to the repository root with `/`
+Tests that do not pass yet on an OS are listed under
+`runtime/known_failure_baselines/<os>/`, one entry per file:
+`<hash>.json` holds `{"node_id": "<node id>", "reason": "<reason>"}`, where
+`<hash>` is the first 16 hex digits of the SHA-256 of the node id
+(`runtime.known_failure_baseline.entry_file_name`). Node ids are too long, and
+may hold characters Windows forbids, to name a file themselves. Because each
+entry is its own file, parallel changes that delete different entries merge
+without conflict: to drop an entry, delete its file. The plugin refuses a
+malformed file or one not named for its node id. Node ids are relative to the repository root with `/`
 separators; an id without `[params]` covers every case of the test, and a bare
 `path.py` names a module that cannot be imported on that OS. The workflow sets
 `YOKE_KNOWN_FAILURE_BASELINE=1`, and the `runtime.known_failure_baseline`
@@ -62,8 +71,9 @@ The baselines only shrink:
 ### Flaky tests
 
 A test that fails in some runs and passes in others cannot be held by a
-strict entry. List it by hand in `runtime/known_failure_baselines/flaky/<os>.json`
-as `"<node id>": {"reason": ..., "feedback": <entry id>, "fix_item": "YOK-N"}`:
+strict entry. List it by hand as its own file
+`runtime/known_failure_baselines/flaky/<os>/<hash>.json`, named the same way,
+holding `{"node_id": ..., "reason": ..., "feedback": <entry id>, "fix_item": "YOK-N"}`:
 file a feedback note for it. `fix_item` is the live item the lane depends on
 under the [failure rules](../public/agents/rules.md#failures), or the item the
 operator decides on. A lane never files or promotes an item itself. A flaky
@@ -83,9 +93,21 @@ yoke dev run -- python3 -m runtime.known_failure_baseline_record \
 ```
 
 The recorder reads each shard's JUnit report. A test that failed wherever it
-ran becomes an entry with its failure message as the reason, an entry for a
-test that passed is deleted, and the rest are kept. A test that both failed
+ran becomes an entry file with its failure message as the reason, the file of
+an entry for a test that passed is deleted, and the rest are left untouched. A test that both failed
 and passed across the runs is printed as flaky and never recorded: a strict
 entry cannot hold it, so file it for a fix. Review the diff before
 committing. `tests/test_known_failure_baseline.py` refuses an entry with
 no reason, or one that names no test or module defined in a suite file.
+
+OS requirements use `pytest.mark.posix_only(reason="...")`, `windows_only`,
+`macos_only` or `linux_only`, with exactly one nonempty reason and one scope
+per test. A module-level `pytestmark` is read before import. Collection skips
+with `<marker>: <reason>`; the `windows` smoke marker cannot accompany a scope
+that excludes Windows. The tracked-source scanner refuses hand-written OS
+`skipif`/`xfail` conditions and OS-guarded `pytest.skip`/`pytest.xfail`.
+Root-user and missing-tool skips stay ordinary conditions.
+
+A test or module scoped off an OS must leave that OS's known-failure baseline;
+`tests/test_known_failure_baseline.py` refuses such entries. Scoping describes
+a native requirement, rather than suppressing a portability failure.

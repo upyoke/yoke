@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import browser_executable
+from yoke_cli.config.machine_config_file import MachineConfigFileError
+from yoke_contracts.owner_private_path import is_owner_private_directory
 from yoke_harness import browser_setup, browser_system_browser as system
 
 
@@ -39,9 +41,7 @@ def runtime(tmp_path, monkeypatch):
     return root, toolchain, executable, config
 
 
-def test_browser_setup_secures_the_machine_home_before_persisting(runtime, monkeypatch):
-    root, toolchain, executable, config = runtime
-    config.parent.chmod(0o755)
+def _probe_only_executable(monkeypatch, executable):
     monkeypatch.setattr(
         browser_setup.subprocess,
         "run",
@@ -52,9 +52,32 @@ def test_browser_setup_secures_the_machine_home_before_persisting(runtime, monke
             "",
         ),
     )
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits: setup tightens a 0755 machine home")
+def test_browser_setup_secures_the_machine_home_before_persisting(runtime, monkeypatch):
+    root, toolchain, executable, config = runtime
+    config.parent.chmod(0o755)
+    _probe_only_executable(monkeypatch, executable)
     browser_setup.ensure_browser_runtime(root, toolchain, emit=lambda _: None)
     assert config.parent.stat().st_mode & 0o777 == 0o700
+    assert is_owner_private_directory(config.parent)
     assert browser_executable.configured() == str(executable)
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: a shared machine home is refused")
+def test_browser_setup_refuses_a_shared_machine_home_before_persisting(
+    runtime, monkeypatch
+):
+    root, toolchain, executable, config = runtime
+    subprocess.run(
+        ["icacls", str(config.parent), "/grant", "*S-1-5-32-545:(R)"], check=True
+    )
+    _probe_only_executable(monkeypatch, executable)
+    with pytest.raises(MachineConfigFileError, match="remove other users' access"):
+        browser_setup.ensure_browser_runtime(root, toolchain, emit=lambda _: None)
+    assert not is_owner_private_directory(config.parent)
+    assert not config.exists()
 
 
 def test_blocked_download_saves_only_after_real_test_page_probe(runtime, monkeypatch):

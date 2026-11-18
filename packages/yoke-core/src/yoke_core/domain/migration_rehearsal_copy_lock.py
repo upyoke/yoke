@@ -1,9 +1,12 @@
 """Machine-wide admission for one physical rehearsal cluster/database pair.
 
-The stable file's flock is authority. Metadata only explains contention. Copy
-subprocesses inherit the open description: parent death cannot admit another
-driver while a surviving transfer still uses the copy. Never unlock explicitly
-or unlink the lock file; close each user's descriptor after its work stops.
+The stable file's flock is authority. Metadata only explains contention. On
+POSIX, copy subprocesses inherit the open description: parent death cannot
+admit another driver while a surviving transfer still uses the copy. Windows
+cannot hand a lock to a child, so copy subprocesses run in a kill-on-close job
+the admission holder owns: they die with it and never use the copy unadmitted.
+Never unlock explicitly or unlink the lock file; close each user's descriptor
+after its work stops.
 """
 
 from __future__ import annotations
@@ -26,6 +29,9 @@ from yoke_core.domain.postgres_cluster import ClusterSpec, SOCKET_PORT
 _DESCRIPTORS: ContextVar[tuple[int, ...]] = ContextVar(
     "rehearsal_copy_descriptors", default=()
 )
+_WINDOWS_JOB: ContextVar[object | None] = ContextVar(
+    "rehearsal_copy_windows_job", default=None
+)
 
 
 class RehearsalCopyBusy(RuntimeError):
@@ -37,14 +43,22 @@ def child_descriptors() -> tuple[int, ...]:
     return _DESCRIPTORS.get()
 
 
+def popen_copy_child(argv, **kwargs) -> subprocess.Popen:
+    """Start a copy-using subprocess that cannot outlive copy admission."""
+    job = _WINDOWS_JOB.get()
+    if job is not None:
+        from yoke_contracts.platform_process_windows import popen_in_job
+
+        return popen_in_job(argv, kwargs, job)
+    if os.name == "nt":
+        return subprocess.Popen(argv, **kwargs)
+    return subprocess.Popen(argv, pass_fds=child_descriptors(), **kwargs)
+
+
 def run_child(argv, *, timeout: float, **kwargs) -> subprocess.CompletedProcess:
     """Retain copy admission, and reap interrupted children before cleanup."""
-    with subprocess.Popen(
-        argv,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        **({"pass_fds": child_descriptors()} if os.name != "nt" else {}),
-        **kwargs,
+    with popen_copy_child(
+        argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs
     ) as process:
         try:
             stdout, stderr = process.communicate(timeout=timeout)
@@ -95,6 +109,14 @@ def _holder(path: Path) -> str:
         )
 
 
+def _windows_job():
+    if os.name != "nt" or _WINDOWS_JOB.get() is not None:
+        return None
+    from yoke_contracts.platform_process_windows import Job
+
+    return Job().kill_on_close()
+
+
 @contextmanager
 def copy_lock(spec: ClusterSpec, copy_name: str) -> Iterator[None]:
     """Refuse immediately when busy; hold through all operations and cleanup."""
@@ -120,9 +142,14 @@ def copy_lock(spec: ClusterSpec, copy_name: str) -> Iterator[None]:
         except OSError:
             pass
         token = _DESCRIPTORS.set((*child_descriptors(), descriptor))
+        job = _windows_job()
+        job_token = _WINDOWS_JOB.set(job) if job is not None else None
         try:
             yield
         finally:
+            if job_token is not None:
+                _WINDOWS_JOB.reset(job_token)
+                job.close()  # ends any copy user still running
             _DESCRIPTORS.reset(token)
     finally:
         os.close(descriptor)

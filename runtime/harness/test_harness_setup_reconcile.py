@@ -1,5 +1,7 @@
 """Late native installs converge existing checkouts without creating absent homes."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +16,7 @@ from yoke_harness import session_relay_harness_reconcile as relay
 def machine(monkeypatch, tmp_path):
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     from yoke_contracts.harness_machine_hooks import HarnessMachineHooks

@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 from typing import Any, Iterator, Mapping
 
-from yoke_contracts import terminal_detached_process
+from yoke_contracts import owner_private_path, terminal_detached_process
 
 _ACTIVE: ContextVar[Any] = ContextVar("setup_report_writer", default=None)
 
@@ -51,7 +51,7 @@ def checkout_binding(root: Path, branch: str) -> dict[str, Any]:
     if git_dir.returncode:
         return {}
     try:
-        manifest = json.loads((root / ".yoke/install-manifest.json").read_text())
+        manifest = json.loads((root / ".yoke/install-manifest.json").read_text(encoding="utf-8"))
         project_id = manifest["project_id"]
         if type(project_id) is not int or project_id <= 0:
             return {}
@@ -105,14 +105,12 @@ def verified_commits(root: Path, branch: str) -> tuple[str, ...]:
     reports = onboard_checklist.runs_dir() / onboard_apply_report.REPORTS_DIR_NAME
     for path in reports.glob("*.json"):
         try:
-            metadata = path.lstat()
             if (
-                path.is_symlink()
-                or metadata.st_mode & 0o077
-                or metadata.st_size > 2_000_000
+                not owner_private_path.is_owner_private_file(path)
+                or path.lstat().st_size > 2_000_000
             ):
                 continue
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             if (
                 not isinstance(payload, dict)
                 or payload.get("schema") != onboard_apply_report.SCHEMA_NAME

@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import socket
-import tempfile
-from pathlib import Path
 
 import pytest
 
-from yoke_cli.hook_resident_client import ResidentPaths
+from runtime.api.cli.hook_transport_test_support import resident_test_paths
 from yoke_core.engines import doctor_hc_hook_resident as resident_hc
 from yoke_core.engines.doctor_applicability_declarations import (
     DECLARATIONS,
@@ -21,14 +19,7 @@ from yoke_core.engines.doctor_https_local_scope import requested_local_machine_s
 
 @pytest.fixture
 def paths(monkeypatch, tmp_path):
-    # pytest's per-test directory exceeds macOS's Unix socket path limit.
-    with tempfile.TemporaryDirectory(prefix="hr-", dir="/tmp") as short_dir:
-        paths = ResidentPaths(
-            tmp_path,
-            Path(short_dir) / "e.sock",
-            tmp_path / "lock",
-            tmp_path / "log",
-        )
+    with resident_test_paths(monkeypatch) as paths:
         monkeypatch.setattr(resident_hc, "resident_paths", lambda: paths)
         yield paths
 
@@ -50,6 +41,9 @@ def test_doctor_reports_down_even_with_suppressed_warning(paths):
     assert not paths.socket.exists()  # Doctor must not start a resident.
 
 
+@pytest.mark.posix_only(
+    reason="POSIX AF_UNIX transport leaves stale filesystem sockets; named pipe closes remove it"
+)
 def test_doctor_reports_stale_socket_as_down(paths):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
         listener.bind(str(paths.socket))
@@ -99,3 +93,15 @@ def test_resident_check_is_registered_for_machine_local_execution():
     local, source = requested_local_machine_slugs({"only": resident_hc.SLUG})
     assert local == [resident_hc.SLUG]
     assert not source
+
+
+@pytest.mark.windows(
+    reason="Windows named pipe transport leaves no stale filesystem socket"
+)
+def test_doctor_reports_closed_named_pipe_as_down(paths):
+    from runtime.api.cli.hook_transport_test_support import resident_listener
+
+    with resident_listener(paths):
+        pass
+    assert _run().result == "FAIL"
+    assert "YOKE_HOOK_RESIDENT_UNREACHABLE" in _run().detail

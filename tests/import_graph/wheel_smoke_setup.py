@@ -6,6 +6,11 @@ a pure product-client flow with the engine present but inert.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import is_owner_private_file
+
+from yoke_contracts.venv_layout import venv_console_script, venv_python as venv_interpreter
+
 import json
 from pathlib import Path
 
@@ -27,8 +32,8 @@ def smoke(
     product_venv: Path,
 ) -> None:
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
-    yoke = venv_dir / "bin" / "yoke"
+    venv_python = venv_interpreter(venv_dir)
+    yoke = venv_console_script(venv_dir, "yoke")
     assert yoke.is_file()
     native_stub = _stub_native_provisioning(cwd=tmp_path)
 
@@ -38,7 +43,7 @@ def smoke(
     before_checkout = _tree_snapshot(checkout)
 
     machine_home = tmp_path / "home" / ".yoke"
-    machine_home.mkdir(parents=True)
+    create_private_directory(machine_home)
     config = machine_home / "config.json"
     token_file = machine_home / "token"
     token_file.write_text("product-token\n", encoding="utf-8")
@@ -59,7 +64,8 @@ def smoke(
         env=env,
     )
 
-    with _registry_server(expected_token="product-token") as api_url:
+    registry = _registry_server(expected_token="product-token")
+    with registry as api_url:
         _run_onboard_flow(
             yoke=yoke,
             checkout=checkout,
@@ -71,6 +77,8 @@ def smoke(
             before_checkout=before_checkout,
             gh_marker=gh_marker,
         )
+    assert registry.machine_reads
+    assert set(registry.machine_reads) == {json.loads(config.read_text())["machine_id"]}
 
 
 def _run_onboard_flow(
@@ -204,7 +212,7 @@ def _run_onboard_flow(
     assert stored_token.read_text("utf-8") == "product-token\n"
     assert "product-token" not in applied.stdout
     assert "product-token" not in config.read_text("utf-8")
-    assert config.stat().st_mode & 0o077 == 0
+    assert is_owner_private_file(config)
 
     # The stub answers only the registry, so /v1/health 404s: no control plane.
     status = _run(

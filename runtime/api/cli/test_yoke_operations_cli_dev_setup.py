@@ -14,6 +14,7 @@ import pytest
 
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import source_checkout_activation
+from yoke_contracts.machine_config.directories import create_private_directory
 
 
 @pytest.fixture(autouse=True)
@@ -212,13 +213,13 @@ def test_dev_setup_reused_local_postgres_marks_non_prod(
     checkout = _source_checkout(tmp_path)
     config = machine_home / "config.json"
     secret_path = machine_home / "secrets" / "source-dev-admin.dsn"
-    secret_path.parent.mkdir(parents=True)
-    secret_path.parent.chmod(0o700)
+    # Machine home and secrets are owner-private on every OS; a plain mkdir
+    # inherits tmp_path's shared ACL on Windows.
+    create_private_directory(secret_path.parent)
     secret_path.write_text(
         "postgresql://admin@localhost/yoke\n",
         encoding="utf-8",
     )
-    config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(
         json.dumps(
             {

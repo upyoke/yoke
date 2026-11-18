@@ -78,18 +78,12 @@ class SshMacHostControl(SshMacTransport):
         self._pending_terminal_size = (columns, rows)
 
     def _resolve_entry_surface(self, entry_surface: str) -> str:
-        placeholder = "{yoke_bin}"
-        if placeholder not in entry_surface:
-            if "{" in entry_surface or "}" in entry_surface:
-                raise ValueError("entry surface contains an unregistered placeholder")
+        if "{yoke_bin}" not in entry_surface:
             return entry_surface
-        resolved = entry_surface.replace(
-            placeholder,
+        return entry_surface.replace(
+            "{yoke_bin}",
             shlex.quote(self.path_state.yoke_bin),
         )
-        if "{" in resolved or "}" in resolved:
-            raise ValueError("entry surface contains an unregistered placeholder")
-        return resolved
 
     def run_terminal_case(
         self,

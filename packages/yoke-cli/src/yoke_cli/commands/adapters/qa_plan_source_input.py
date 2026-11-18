@@ -12,7 +12,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
 
 def case_payload(parsed):
-    raw = sys.stdin.read() if parsed.stdin else Path(parsed.cases_file).read_text()
+    raw = sys.stdin.read() if parsed.stdin else Path(parsed.cases_file).read_text(encoding="utf-8")
     document = json.loads(raw)
     revision = parsed.source_revision
     if isinstance(document, dict):

@@ -21,13 +21,14 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
     gate_needs_desktop_browser,
 )
 from yoke_core.domain.ssh_linux_operator_gate import checkpoint, run_operator_gate
+from yoke_core.domain.machine_qa_operator_browser import reauthorize_command
 from yoke_contracts.runtime_ports.ssh_linux_browser_approval import get_ssh_linux_browser_approval
 from yoke_contracts.runtime_ports.ssh_linux_terminal import get_ssh_linux_terminal
 from yoke_contracts.test_machine_types import HostActionResult
 
 
 
-prepare_desktop_chromium = get_ssh_linux_browser_approval().prepare_desktop_chromium
+prepare_desktop = get_ssh_linux_browser_approval().prepare_desktop
 LinuxTerminal = get_ssh_linux_terminal().LinuxTerminal
 LinuxTerminalWindowError = get_ssh_linux_terminal().LinuxTerminalWindowError
 
@@ -64,7 +65,7 @@ def _interactive(
     try:
         environment = None
         if any(gate_needs_desktop_browser(action) for action in config["actions"]):
-            prepared = prepare_desktop_chromium(control)
+            prepared = prepare_desktop(control)
             if not prepared.ok:
                 return prepared
             environment = prepared.evidence["environment"]
@@ -110,6 +111,7 @@ def _interactive(
                     rows,
                     allowed_operator_urls,
                     progress_callback,
+                    reauthorize_command(config),
                 )
                 if failed is None and (
                     gate_needs_desktop_browser(action)

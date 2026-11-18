@@ -19,6 +19,10 @@ from dataclasses import asdict, dataclass
 from typing import Literal
 
 TranscriptStoreClass = Literal["local_jsonl", "unverified"]
+#: How a terminal hook recovers a first prompt the prompt hook never stored:
+#: ``claude_user_rows`` reads this session's own transcript rows; ``deferred``
+#: means no reader exists yet and ``prompt_attestation_evidence`` says why.
+PromptAttestation = Literal["claude_user_rows", "deferred"]
 
 
 @dataclass(frozen=True)
@@ -30,6 +34,8 @@ class HarnessSessionTranscripts:
     project_match: str
     evidence: str
     session_start: Literal["transcript_optional", "transcript_required"] = "transcript_optional"
+    prompt_attestation: PromptAttestation = "deferred"
+    prompt_attestation_evidence: str = ""
 
     def to_json(self) -> dict[str, object]:
         return asdict(self)
@@ -50,6 +56,13 @@ HARNESS_SESSION_TRANSCRIPTS: dict[str, HarnessSessionTranscripts] = {
             "yoke_harness.session_relay_claude_transcript derives the same "
             "key for stopped-session wake; read on claude-cli."
         ),
+        prompt_attestation="claude_user_rows",
+        prompt_attestation_evidence=(
+            "Each row carries sessionId and timestamp; an operator prompt is a "
+            "type=user row that is not isMeta, isSidechain or isCompactSummary "
+            "and is not only tool results. Read on claude-cli 2.1.326 "
+            "(YOK-5351 Stage receiving QA)."
+        ),
     ),
     "codex": HarnessSessionTranscripts(
         session_start="transcript_required",
@@ -63,6 +76,11 @@ HARNESS_SESSION_TRANSCRIPTS: dict[str, HarnessSessionTranscripts] = {
             "Read on codex-cli: the rollout's first row is session_meta with "
             "cwd; yoke_contracts.harness_turn_record_capability reads the "
             "same files."
+        ),
+        prompt_attestation_evidence=(
+            "Deferred: no terminal-hook reader for Codex rollouts. Codex "
+            "UserPromptSubmit stamped the first prompt in YOK-5351 Stage QA; "
+            "a lost Codex prompt hook still leaves the session marked probe."
         ),
     ),
     "cursor": HarnessSessionTranscripts(
@@ -79,6 +97,10 @@ HARNESS_SESSION_TRANSCRIPTS: dict[str, HarnessSessionTranscripts] = {
             "yoke_contracts.cursor_session_map parses this layout and "
             "harness_folder_trust reproduces the slug, verified against "
             "entries Cursor wrote."
+        ),
+        prompt_attestation_evidence=(
+            "Deferred: Cursor agent transcripts carry no per-row timestamp, "
+            "so a terminal hook cannot attest when the first prompt arrived."
         ),
     ),
 }

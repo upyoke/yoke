@@ -131,6 +131,9 @@ def _execute_issued_contract(
 
         register_test_machine_host_control()
         submission = execute_machine_case_contract(execution)
+        from yoke_core.domain.qa_controller_candidate import stamp_submission
+
+        stamp_submission(submission.payload)
     except BaseException as exc:
         released = _abort_issued_contract(
             abort_function=abort_function,

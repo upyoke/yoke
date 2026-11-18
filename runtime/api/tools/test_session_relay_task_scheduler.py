@@ -204,7 +204,7 @@ def test_task_runner_containment_joins_a_kill_on_close_job_only_as_the_task():
     exec(tasks._CONTAIN_RUNNER, {"__name__": "imported"})  # never contains an importer
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Win32 job objects")
+@pytest.mark.windows_only(reason="Win32 job objects")
 def test_task_runner_containment_runs_on_windows():
     probe = f"exec({tasks._CONTAIN_RUNNER!r}, {{'__name__': '__main__'}}); print('contained')"
     result = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True, timeout=60)

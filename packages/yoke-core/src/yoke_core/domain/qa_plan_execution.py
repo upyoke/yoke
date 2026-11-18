@@ -58,8 +58,19 @@ def execute_plan(
     recovery_file: Optional[str] = None,
     replacements: Optional[list[dict[str, Any]]] = None,
     actor: Optional[ActorContext] = None,
+    adopted_execution: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Resume and execute one server-authorized immutable ordered roster."""
+    """Resume and execute one server-authorized immutable ordered roster.
+
+    ``adopted_execution`` is the view a stale controller already began and
+    handed to this candidate runtime (``qa_controller_handoff_cli``); it is
+    run as is, with no second materialize, begin or resume.
+    """
+    plan_kwargs = {
+        key: value
+        for key, value in locals().items()
+        if key not in {"actor", "adopted_execution", "recovery_file", "replacements"}
+    }
     target, begin_payload = (
         (
             TargetRef(kind="item", public_ref=public_ref, project_id=project)
@@ -97,6 +108,7 @@ def execute_plan(
         (deployment_run_id or deployment_stage)
         and not resume_execution_id
         and requirement_id is None
+        and adopted_execution is None
     ):
         materialize_payload = {"plan": plan, "project": project}
         if deployment_stage:
@@ -117,7 +129,7 @@ def execute_plan(
     ):
         if value:
             begin_payload[key] = value
-    if recovery_file:
+    if recovery_file and adopted_execution is None:
         from yoke_core.domain.qa_plan_execution_checkin import restore_confirmed_pause
 
         restore_confirmed_pause(
@@ -129,7 +141,7 @@ def execute_plan(
             project=project or target.project_id or _checkout_project(checkout_path),
         )
     try:
-        execution = _call_plan_function(
+        execution = adopted_execution or _call_plan_function(
             function_id=(
                 "qa.plan_execution.resume"
                 if resume_execution_id
@@ -187,7 +199,19 @@ def execute_plan(
         begun = validate_begun_execution(
             execution, test_machine=test_machine, base_url=base_url, public_ref=public_ref
         )
-        if (
+        from yoke_core.domain.qa_controller_candidate import (
+            require_candidate_controller,
+        )
+
+        # Before any host lease: a stale controller never runs this roster.
+        candidate = require_candidate_controller(
+            execution, adopted=adopted_execution is not None
+        )
+        if candidate is not None:
+            from yoke_core.domain.qa_controller_handoff_cli import provision
+
+            handoff_runtime = provision(candidate)
+        elif (
             execution.get("deployment_run_id")
             and deployment_stage
             and not resume_execution_id
@@ -200,14 +224,17 @@ def execute_plan(
             report_start_identity(
                 execution, run_id=execution["deployment_run_id"], stage=deployment_stage
             )
-        from yoke_core.domain.qa_standalone_command import preflight_standalone_runners
+        if candidate is None:
+            from yoke_core.domain.qa_standalone_command import (
+                preflight_standalone_runners,
+            )
 
-        preflight_standalone_runners(
-            begun.requirements,
-            checkout_path=checkout_path,
-            expected_branch=expected_branch,
-            expected_sha=expected_sha,
-        )
+            preflight_standalone_runners(
+                begun.requirements,
+                checkout_path=checkout_path,
+                expected_branch=expected_branch,
+                expected_sha=expected_sha,
+            )
     except QaPlanExecutionError as exc:
         raise release_unusable_execution(
             _call_plan_function,
@@ -219,6 +246,15 @@ def execute_plan(
             actor=resolved_actor,
             error=exc,
         ) from exc
+    if candidate is not None:
+        from yoke_core.domain.qa_controller_handoff_cli import hand_off
+
+        return hand_off(
+            handoff_runtime,
+            execution=execution,
+            plan_kwargs=plan_kwargs,
+            session_id=str(resolved_actor.session_id or ""),
+        )
     from yoke_core.domain.qa_plan_execution_run import execute_begun_plan
 
     return execute_begun_plan(

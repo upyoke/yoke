@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import json
 import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
@@ -274,7 +276,9 @@ def test_schema_converge_global_env_is_selected_then_restored() -> None:
     out, err = io.StringIO(), io.StringIO()
 
     with (
-        patch.dict(os.environ, {}, clear=True),
+        patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ),
         patch(
             "yoke_cli.config.machine_config.active_env",
             side_effect=lambda *, explicit_env: explicit_env,

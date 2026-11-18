@@ -150,14 +150,14 @@ def mutation():
     """Serialize ledger read, selective consumption and atomic replacement."""
     path = ledger_path()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with path.with_suffix(".lock").open("a") as lock:
+    with path.with_suffix(".lock").open("a", encoding="utf-8", newline="\n") as lock:
         platform_file_lock.acquire_exclusive_nonblocking(lock.fileno())
         entries = read()
         before = deepcopy(entries)
         yield entries
         if entries != before:
             tmp = path.with_suffix(path.suffix + ".yoke-tmp")
-            tmp.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+            tmp.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8", newline="\n")
             os.replace(tmp, path)
 
 

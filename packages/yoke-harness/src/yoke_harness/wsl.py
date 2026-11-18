@@ -13,11 +13,11 @@ def is_wsl() -> bool:
     if os.environ.get("WSL_DISTRO_NAME"):
         return True
     try:
-        return "microsoft" in Path("/proc/sys/kernel/osrelease").read_text().lower()
+        return "microsoft" in Path("/proc/sys/kernel/osrelease").read_text(encoding="utf-8").lower()
     except OSError:
         return False
 
 
 def systemd_running() -> bool:
     """PID 1 is authoritative; a configured boot flag needs a restart."""
-    return Path("/proc/1/comm").read_text().strip() == "systemd"
+    return Path("/proc/1/comm").read_text(encoding="utf-8").strip() == "systemd"

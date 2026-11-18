@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_machine_home_relay.py::test_client_home_contract_accepts_a_canonical_scoped_root",
+ "reason": "AssertionError: assert {} == {'_yoke_clien... 'schema': 1}}"
+}

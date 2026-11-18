@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from pathlib import Path
 from unittest import mock
 
@@ -21,22 +23,45 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def test_captures_codex_thread_id_for_codex_executor():
-    with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "thread-42"}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {
+            **{name: os.environ[name] for name in HOME_ENVS},
+            "CODEX_THREAD_ID": "thread-42",
+        },
+        clear=True,
+    ):
         assert client_native_thread_id("codex-desktop") == "thread-42"
 
 
 def test_ignores_codex_env_for_claude_executor():
-    with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "thread-42"}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {
+            **{name: os.environ[name] for name in HOME_ENVS},
+            "CODEX_THREAD_ID": "thread-42",
+        },
+        clear=True,
+    ):
         assert client_native_thread_id("claude-code") is None
 
 
 def test_none_when_unset():
-    with mock.patch.dict(os.environ, {}, clear=True):
+    with mock.patch.dict(
+        os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+    ):
         assert client_native_thread_id("codex-cli") is None
 
 
 def test_relay_identity_payload_carries_native_thread_id():
-    with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "thread-42"}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {
+            **{name: os.environ[name] for name in HOME_ENVS},
+            "CODEX_THREAD_ID": "thread-42",
+        },
+        clear=True,
+    ):
         payload = relay_identity_payload(
             "SessionStart",
             {"session_id": "thread-42"},
@@ -48,7 +73,11 @@ def test_relay_identity_payload_carries_native_thread_id():
 
 
 def test_codex_relay_rejects_a_different_chats_native_thread_id():
-    with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "sender"}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {**{name: os.environ[name] for name in HOME_ENVS}, "CODEX_THREAD_ID": "sender"},
+        clear=True,
+    ):
         assert client_native_thread_id("codex-desktop", "destination") is None
 
 

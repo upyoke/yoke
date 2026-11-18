@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from yoke_contracts import terminal_detached_process
+from yoke_contracts import platform_file_sync, terminal_detached_process
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import (
+    create_owner_private_temporary,
+    is_owner_private_directory,
+)
 
 import os
 import re
 import stat
 import subprocess
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import BinaryIO, Optional
@@ -77,11 +80,10 @@ def dump_postgres_to_directory(dsn: str, reason: str, backup_dir: Path) -> str:
             )
         if partial.stat().st_size == 0:
             raise RuntimeError(f"pg_dump backup file is empty using {executable}")
-        partial.chmod(0o600)
         _fsync_file(partial)
         os.replace(partial, destination)
         published = True
-        _fsync_directory(root)
+        platform_file_sync.sync_directory(root)
         return str(destination)
     except Exception:
         if published:
@@ -101,8 +103,17 @@ def _ensure_private_directory(backup_dir: Path) -> None:
         raise RuntimeError(
             f"Postgres backup path is not a private directory: {backup_dir}"
         )
+    if os.name == "nt":
+        # Windows has no mode to tighten; an existing folder must already be private.
+        if not is_owner_private_directory(backup_dir):
+            raise RuntimeError(
+                f"Postgres backup directory is not owner-private: {backup_dir}; "
+                "remove other users' access (icacls) so only your account, "
+                "SYSTEM and Administrators can open it, then retry"
+            )
+        return
     backup_dir.chmod(0o700)
-    if os.name != "nt" and stat.S_IMODE(backup_dir.stat().st_mode) != 0o700:
+    if stat.S_IMODE(backup_dir.stat().st_mode) != 0o700:
         raise RuntimeError(
             f"Postgres backup directory permissions are not 0700: {backup_dir}"
         )
@@ -112,16 +123,13 @@ def _private_output(backup_dir: Path, reason: str) -> tuple[BinaryIO, Path, Path
     safe_reason = _sanitize_reason(reason)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     prefix = f".postgres.{timestamp}.{safe_reason}."
-    descriptor, partial_name = tempfile.mkstemp(
+    descriptor, partial = create_owner_private_temporary(
         prefix=prefix,
         suffix=_PARTIAL_SUFFIX,
-        dir=backup_dir,
+        directory=backup_dir,
     )
-    partial = Path(partial_name)
     published_name = partial.name[1 : -len(_PARTIAL_SUFFIX)] + ".sql"
     try:
-        if hasattr(os, "fchmod"):
-            os.fchmod(descriptor, 0o600)
         output = os.fdopen(descriptor, "wb")
     except Exception:
         os.close(descriptor)
@@ -150,21 +158,10 @@ def _sanitize_reason(reason: str) -> str:
 
 
 def _fsync_file(path: Path) -> None:
-    with path.open("rb") as stream:
+    # Windows flushes only through a handle with write access.
+    with path.open("r+b") as stream:
         os.fsync(stream.fileno())
 
-
-def _fsync_directory(path: Path) -> None:
-    if os.name == "nt":
-        return
-    descriptor = os.open(
-        path,
-        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-    )
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
 
 
 __all__ = ["dump_postgres_to_directory"]

@@ -137,9 +137,9 @@ SKILLS: tuple[Skill, ...] = (
         "models",
         "utility",
         False,
-        "publish model catalog revisions and propose level changes",
+        "follow Yoke's model catalog or publish an override; propose level changes",
         "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
-        " | level-proposal",
+        " | follow-shipped | level-proposal",
     ),
     Skill(
         "onboard",

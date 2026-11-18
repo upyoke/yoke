@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import os
 import shutil
-import stat
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
+from yoke_contracts.owner_private_path import is_owner_private_directory
 from yoke_core.domain import postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
+
+EXE = ".exe" if os.name == "nt" else ""
 
 
 def _completed(stdout: str = "", returncode: int = 0):
@@ -29,9 +32,9 @@ def test_binary_resolution_path_vs_pinned_dir(tmp_path):
     from_path = _spec(tmp_path)
     pinned = _spec(tmp_path, bin_dir=tmp_path / "engine" / "bin")
 
-    assert postgres_cluster.binary(from_path, "initdb") == "initdb"
+    assert postgres_cluster.binary(from_path, "initdb") == f"initdb{EXE}"
     assert postgres_cluster.binary(pinned, "initdb") == str(
-        tmp_path / "engine" / "bin" / "initdb"
+        tmp_path / "engine" / "bin" / f"initdb{EXE}"
     )
 
 
@@ -51,7 +54,7 @@ def test_socket_path_at_platform_limit_stays_with_cluster_root():
 def test_socket_fallback_skips_unwritable_shorter_root(monkeypatch, tmp_path):
     long_root = tmp_path / ("nested-machine-home-" * 8) / "local-universe"
     with tempfile.TemporaryDirectory(
-        prefix="yoke-fallback-test-", dir="/tmp"
+        prefix="yoke-fallback-test-", dir=shortest_temp_directory()
     ) as short_temp:
         preferred = Path(short_temp)
         monkeypatch.setattr(tempfile, "gettempdir", lambda: str(preferred))
@@ -69,7 +72,7 @@ def test_socket_fallback_skips_unwritable_shorter_root(monkeypatch, tmp_path):
 def test_dsn_targets_unix_socket_with_superuser(tmp_path):
     spec = _spec(tmp_path)
     assert postgres_cluster.dsn(spec) == (
-        f"host={spec.sock_dir} user=clusteruser dbname=postgres"
+        f"host={spec.socket_host} user=clusteruser dbname=postgres"
     )
     assert postgres_cluster.dsn(spec, dbname="other").endswith("dbname=other")
 
@@ -131,7 +134,7 @@ def test_initdb_recovers_partial_nonempty_data_dir(monkeypatch, tmp_path):
     assert postgres_cluster.initdb_if_needed(spec) == 0
     assert calls == [
         [
-            "initdb",
+            f"initdb{EXE}",
             "-D",
             str(partial_data),
             "-U",
@@ -163,10 +166,12 @@ def test_server_options_render_socket_only_plus_settings(tmp_path):
     )
     opts = postgres_cluster.server_options(spec)
 
-    assert f"-k {spec.sock_dir}" in opts
-    assert "-c listen_addresses=''" in opts
-    assert "-c max_connections=50" in opts
-    assert "-c fsync=off" in opts
+    # pg_ctl hands -o to cmd.exe on Windows, where '' would reach Postgres verbatim.
+    no_listen = "-c listen_addresses=" + ("" if os.name == "nt" else "''")
+    assert opts == (
+        f"-k {spec.socket_host} -p {postgres_cluster.SOCKET_PORT} {no_listen}"
+        " -c max_connections=50 -c fsync=off"
+    )
 
 
 def test_start_server_uses_pinned_binaries_and_options(monkeypatch, tmp_path):
@@ -180,7 +185,7 @@ def test_start_server_uses_pinned_binaries_and_options(monkeypatch, tmp_path):
 
     assert postgres_cluster.start_server(spec).returncode == 0
     argv = calls[0]
-    assert argv[0] == str(tmp_path / "engine" / "bin" / "pg_ctl")
+    assert argv[0] == str(tmp_path / "engine" / "bin" / f"pg_ctl{EXE}")
     assert argv[argv.index("-o") + 1] == postgres_cluster.server_options(spec)
     assert argv[-2:] == ["-w", "start"]
 
@@ -217,7 +222,7 @@ def test_ensure_started_skips_start_when_ready(monkeypatch, tmp_path):
     assert postgres_cluster.ensure_started(spec) == 0
     assert calls == ["initdb"]
     assert spec.sock_dir.is_dir()
-    assert stat.S_IMODE(spec.sock_dir.stat().st_mode) == 0o700
+    assert is_owner_private_directory(spec.sock_dir)
 
 
 def test_ensure_started_rejects_symlink_socket_directory(tmp_path):
@@ -245,7 +250,7 @@ def test_live_lifecycle_on_scratch_root():
     ``tmp_path``: unix socket paths cap at ~103 bytes and the nested
     pytest tmp dir blows the limit on macOS.
     """
-    scratch = Path(tempfile.mkdtemp(prefix="yoke-pgcore-", dir="/tmp"))
+    scratch = Path(tempfile.mkdtemp(prefix="yoke-pgcore-", dir=shortest_temp_directory()))
     spec = _spec(
         scratch,
         superuser="lifecycleuser",

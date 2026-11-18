@@ -55,7 +55,7 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "COPY packages ./packages" not in dependencies
     assert "ARG YOKE_ENGINE_VERSION" not in dependencies
     for manifest in (ROOT / "packages").glob("yoke-*/pyproject.toml"):
-        assert f"COPY {manifest.relative_to(ROOT)} " in dependencies
+        assert f"COPY {manifest.relative_to(ROOT).as_posix()} " in dependencies
     assert builder.count("uv build --wheel --package") == 1
     assert "--all-packages" not in builder
     for package in ("contracts", "cli", "harness", "core"):
@@ -110,7 +110,7 @@ def test_cached_backend_install_uses_every_declared_build_requirement(monkeypatc
     assert command is not None
     expected = set()
     for manifest in (ROOT / "packages").glob("yoke-*/pyproject.toml"):
-        assert f"COPY {manifest.relative_to(ROOT)} " in tools
+        assert f"COPY {manifest.relative_to(ROOT).as_posix()} " in tools
         expected.update(tomllib.loads(manifest.read_text())["build-system"]["requires"])
     calls = []
     monkeypatch.chdir(ROOT)

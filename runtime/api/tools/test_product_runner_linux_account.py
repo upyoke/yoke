@@ -66,6 +66,7 @@ def test_linux_child_uses_verified_home_without_inheriting_tokens(monkeypatch, t
     assert "GH_TOKEN" not in env
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("teardown_failure", [None, "userdel", "systemctl"])
 def test_account_login_and_teardown_survive_failed_smoke(monkeypatch, tmp_path, teardown_failure):
     scratch = tmp_path / "account"

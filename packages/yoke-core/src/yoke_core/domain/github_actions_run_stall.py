@@ -50,7 +50,7 @@ def pending_run_message(
         f"updated_at={updated_text}; "
         "the QA case gate force-cancels a run that never starts and "
         "redispatches it; a deploy stage re-drives with "
-        "`yoke --env <plane> watch deploy -- <RUN> --from-stage <STAGE> --fresh` "
+        "`yoke --env <plane> watch deploy -- <RUN> --fresh` "
         "(without --fresh the re-drive reattaches to this stuck run; GitHub "
         "may refuse to cancel it, and a superseded release bridge exits "
         "before its tag)"

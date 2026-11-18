@@ -20,6 +20,21 @@ from yoke_contracts import harness_unattended_posture as posture
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 
 
+@pytest.mark.parametrize("names", [("HOME",), ("HOME", "USERPROFILE")])
+def test_set_home_moves_all_native_resolvers(monkeypatch, tmp_path, names):
+    monkeypatch.setattr(isolation, "HOME_ENVS", names)
+    home = tmp_path / "moved-home"
+    isolation.set_home(monkeypatch, home)
+    assert all(os.environ[name] == str(home) for name in names)
+
+
+def test_set_home_moves_native_path_resolution(monkeypatch, tmp_path):
+    home = tmp_path / "moved-home"
+    isolation.set_home(monkeypatch, home)
+    assert Path.home() == home
+    assert Path(os.path.expanduser("~")) == home
+
+
 def test_every_home_resolver_lands_in_the_isolated_home(tmp_path: Path):
     home = isolation.isolated_home(tmp_path)
     resolved = [

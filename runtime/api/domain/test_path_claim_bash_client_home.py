@@ -7,6 +7,8 @@ machine-home fact.
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 from typing import Dict
 
@@ -73,7 +75,7 @@ def test_tilde_redirect_resolves_under_the_client_home(tmp_path, monkeypatch):
     (worktree / "runtime/api/domain").mkdir(parents=True)
     authority_home = tmp_path.resolve() / "authority-home"
     authority_home.mkdir()
-    monkeypatch.setenv("HOME", str(authority_home))
+    set_home(monkeypatch, str(authority_home))
     assert Path.home() == authority_home
 
     verdict = evaluate_payload(
@@ -92,7 +94,7 @@ def test_tilde_redirect_outside_the_claim_names_the_client_path(tmp_path, monkey
     (worktree / "runtime/api/domain").mkdir(parents=True)
     authority_home = tmp_path.resolve() / "authority-home"
     authority_home.mkdir()
-    monkeypatch.setenv("HOME", str(authority_home))
+    set_home(monkeypatch, str(authority_home))
 
     verdict = evaluate_payload(
         _payload("echo x > ~/YOK-1577/docs/oof.md", worktree, client_home),

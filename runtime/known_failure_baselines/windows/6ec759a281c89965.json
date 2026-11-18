@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_pack_remove.py::test_apply_drops_only_the_pack_record_and_keeps_every_file",
+ "reason": "AssertionError: assert {'.yoke\\\\packs.json'} == {'.yoke/packs.json'}"
+}

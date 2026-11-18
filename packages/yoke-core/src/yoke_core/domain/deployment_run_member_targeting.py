@@ -28,8 +28,36 @@ def supplemental_qa_run(conn: Any, *, run_id: str, item_id: int) -> bool:
     from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
 
     flow = item_completion_flow(conn, int(item_id))
-    return int(item_id) in supplemental_item_ids(
-        conn, run_id=run_id, completion_flows={int(item_id): flow}
+    return str(run_id) in supplemental_run_ids(
+        conn, run_ids=(str(run_id),), completion_flow=flow
+    )
+
+
+def supplemental_run_ids(
+    conn: Any, *, run_ids, completion_flow: str
+) -> frozenset[str]:
+    """Which of these runs answer QA for one completion flow, in one read.
+
+    The same environment comparison as :func:`supplemental_item_ids`, asked
+    across an item's whole membership history instead of once per run.
+    """
+    from yoke_core.domain import db_backend
+
+    ids = tuple(dict.fromkeys(str(value) for value in run_ids))
+    if not completion_flow or not ids:
+        return frozenset()
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT dr.id,re.name,ce.name FROM deployment_runs dr "
+        "JOIN deployment_flows df ON df.id=dr.flow "
+        f"JOIN deployment_flows cf ON cf.id={marker} "
+        "LEFT JOIN environments re ON re.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
+        "LEFT JOIN environments ce ON ce.id=cf.target_environment_id "
+        f"WHERE dr.id IN ({','.join(marker for _ in ids)})",
+        (str(completion_flow), *ids),
+    ).fetchall()
+    return frozenset(
+        str(row[0]) for row in rows if row[1] and row[2] and str(row[1]) != str(row[2])
     )
 
 

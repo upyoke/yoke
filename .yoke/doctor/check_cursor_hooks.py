@@ -139,19 +139,19 @@ def hc_cursor_hook_surfacing(conn, args: DoctorArgs, rec: RecordCollector) -> No
         )
         if symlink is not None:
             problems.append(
-                f"{project_path} contains symlink component "
-                f"{symlink.relative_to(root)}; "
+                f"{project_path.as_posix()} contains symlink component "
+                f"{symlink.relative_to(root).as_posix()}; "
                 "Cursor refuses project hook config paths containing symlinks"
             )
         elif not hooks_file.is_file():
-            problems.append(f"{project_path} is not a regular file")
+            problems.append(f"{project_path.as_posix()} is not a regular file")
     for rel, expected_target in _NATIVE_AGENT_LINKS:
         link = root / rel
         if not link.is_symlink():
             problems.append(f"{rel} is not a symlink")
             continue
         try:
-            actual = str(link.readlink())
+            actual = link.readlink().as_posix()
         except OSError as exc:
             problems.append(f"{rel} unreadable: {exc}")
             continue
@@ -182,23 +182,25 @@ def cursor_hook_config_diagnostics(root: Path) -> List[str]:
         )
         if symlink is not None:
             problems.append(
-                f"{project_path} contains symlink component "
-                f"{symlink.relative_to(root)}; "
+                f"{project_path.as_posix()} contains symlink component "
+                f"{symlink.relative_to(root).as_posix()}; "
                 "Cursor may reject this project config"
             )
             continue
         if not native.is_file():
-            problems.append(f"{project_path} is missing or not a regular file")
+            problems.append(
+                f"{project_path.as_posix()} is missing or not a regular file"
+            )
             continue
         if not canonical.is_file():
             problems.append(
-                f"canonical {canonical_path} is missing or not a regular file"
+                f"canonical {canonical_path.as_posix()} is missing or not a regular file"
             )
             continue
         try:
             if native.read_bytes() != canonical.read_bytes():
                 problems.append(
-                    f"{project_path} differs from canonical {canonical_path}"
+                    f"{project_path.as_posix()} differs from canonical {canonical_path.as_posix()}"
                 )
         except OSError as exc:
             problems.append(

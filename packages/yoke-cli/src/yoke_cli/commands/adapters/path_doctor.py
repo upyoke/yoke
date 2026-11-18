@@ -20,6 +20,15 @@ def _resolutions(resolved: list[doctor.ToolResolution]) -> dict[str, str | None]
     return {res.name: res.path for res in resolved}
 
 
+def _probe_errors(diag: doctor.PathDiagnosis) -> dict[str, dict[str, str]]:
+    return {
+        context: {res.name: res.error for res in resolved if res.error}
+        for context, resolved in (
+            ("login", diag.future_resolved), ("ssh", diag.ssh_resolved)
+        )
+    }
+
+
 def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
     return {
         "current_shell": diag.current_shell,
@@ -43,6 +52,7 @@ def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
         "managed_path_dirs": list(diag.managed_path_dirs),
         "harness_clis": [row.to_json() for row in diag.harness_clis],
         "contexts": list(diag.contexts),
+        "probe_errors": _probe_errors(diag),
         "needs_fix": diag.needs_fix,
     }
 
@@ -85,10 +95,17 @@ def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
         ("future yoke", diag.future_resolved),
         ("ssh yoke", diag.ssh_resolved),
     ):
-        winner = _resolutions(resolved).get("yoke") or "not found"
+        error = next((res.error for res in resolved if res.name == "yoke"), "")
+        winner = error or _resolutions(resolved).get("yoke") or "not found"
         lines.append(
             f"{label:14}: {winner}; expected {diag.preferred_yoke_path}"
         )
+        if error:
+            startup = diag.startup_file if label == "future yoke" else diag.ssh_startup_file
+            lines.append(
+                f"  recovery: Inspect {startup} and files it sources. Fix the shell "
+                "startup failure, then rerun `yoke path verify`."
+            )
     if diag.yoke_shadowed_by:
         lines.append(
             "shell_path_shadowed: the current terminal still selects "
@@ -171,6 +188,7 @@ def path_fix(args: List[str]) -> int:
                     "verified": verified,
                     "contexts": list(diag.contexts),
                     "resolved": _resolutions(diag.future_resolved),
+                    "probe_errors": _probe_errors(diag),
                 }
             )
         )
@@ -207,6 +225,7 @@ def path_verify(args: List[str]) -> int:
                 {
                     "resolved": _resolutions(diag.future_resolved),
                     "ssh_resolved": _resolutions(diag.ssh_resolved),
+                    "probe_errors": _probe_errors(diag),
                     "contexts": list(diag.contexts),
                     "verified": not diag.needs_fix,
                 },

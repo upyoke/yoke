@@ -1,4 +1,4 @@
-"""Retire old goldens after a verified capture is registered.
+"""Retire old goldens after a capture is verified while its lease is held.
 
 Cross-project registrations protect every live baseline. Failed captures
 never retire snapshots; removal refuses when registrations are unknown.
@@ -17,7 +17,7 @@ from yoke_contracts.machine_qa_host_control import (
 )
 
 RETENTION_FAILED = "golden_snapshot_retention_failed"
-SIDECAR_SUFFIXES = (".probes", ".manifest", ".harness-clis")
+SIDECAR_SUFFIXES = (".probes", ".probes.sha256", ".manifest", ".harness-clis")
 LINUX_CAPTURE_SPACE_CHECK = """\
     try:
         free = shutil.disk_usage(baseline.parent).free
@@ -54,7 +54,7 @@ LINUX_CAPTURE_SPACE_CHECK = """\
 
 
 class SnapshotRetentionError(Exception):
-    """The new golden is registered and retired snapshots are still present."""
+    """A verified capture still has retired snapshots that could not be removed."""
 
     def __init__(self, detail: str, recovery: str) -> None:
         super().__init__(detail)
@@ -181,11 +181,11 @@ def retention_summary(removed: Sequence[str], kept: Sequence[str]) -> str:
 
 def _recovery(destination: str, parent: str) -> str:
     return (
-        f"The registered golden {destination} is already recorded. "
+        f"Preserve the verified capture {destination} and check its registration. "
         f"Remove every other snapshot under {parent}, but keep {destination}, "
         "every golden another project registered for this host and user (yoke "
         "test-machine get --project P --test-machine TEST_MACHINE names it as "
-        "golden_baseline_path), and their .probes, .manifest "
+        "golden_baseline_path), and their .probes, .probes.sha256, .manifest "
         "and .harness-clis files. Do not capture again until those leftovers are gone."
     )
 
@@ -253,7 +253,7 @@ def retain_after_verified_capture(
     result: dict[str, Any] | None,
     execution: dict[str, Any],
 ) -> list[str] | None:
-    """Delete retired snapshots after a verified golden capture is registered."""
+    """Delete retired snapshots after local verification, before lease release."""
     payload = result or {}
     destination = payload.get("golden_baseline_path")
     if not (
@@ -278,7 +278,7 @@ def retain_after_verified_capture(
             f"Retired snapshots under {parent} were kept: this server does not "
             "name the goldens other projects registered for this machine "
             f"({KEPT_GOLDEN_PATHS_KEY}), so deleting could remove one of them. "
-            "Retention needs a server from the release that adds that field.",
+            "Serving floor: next-release with capture keep paths in operation.begin. ",
             _recovery(destination, parent),
         )
     return retain_registered_golden(execution, destination, kept_paths)
@@ -322,7 +322,7 @@ def retain_registered_golden(
     except Exception as exc:
         raise SnapshotRetentionError(
             "Retired snapshots could not be removed after "
-            f"{destination} was registered ({type(exc).__name__}).",
+            f"{destination} was captured ({type(exc).__name__}).",
             _recovery(destination, str(PurePosixPath(destination).parent)),
         ) from exc
 

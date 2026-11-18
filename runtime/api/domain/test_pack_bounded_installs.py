@@ -12,7 +12,7 @@ from yoke_core.domain import pack_catalog
 from runtime.api.domain.pack_bounded_install_helpers import ROOT, run_fragment, shell_functions
 
 VERSIONS = {
-    "webapp-scaffold": ("1.1.7", "1.1.8"),
+    "webapp-scaffold": ("1.1.8", "1.1.9"),
     "smoke-testing": ("1.1.1", "1.1.2"),
 }
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
@@ -20,7 +21,7 @@ def _repo_root(explicit_root: Optional[str] = None) -> Path:
 
 
 def _discovery_file(public_ref: str) -> Path:
-    return Path("/tmp") / f"discovery-scan.{public_ref}.{os.getpid()}"
+    return Path(tempfile.gettempdir()) / f"discovery-scan.{public_ref}.{os.getpid()}"
 
 
 def _item_context_matcher(public_ref: str) -> Callable[[str], bool]:
@@ -112,7 +113,9 @@ def run_scan(
         f"DISCOVERY_FILE={discovery_file}\n"
         f"UNREVIEWED_OUROBOROS={ouro_count}\n"
         "---\n"
-        f"{scan_output}"
+        f"{scan_output}",
+        encoding="utf-8",
+        newline="\n",
     )
 
     stdout.write("\n")

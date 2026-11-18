@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_shell_path_use.py::test_github_api_routes_and_local_file_operands[gh api > /tmp/out /x-targets10]",
+ "reason": "AssertionError: assert {'D:\\\\tmp\\\\out'} == {'\\\\tmp\\\\out'}"
+}

@@ -20,6 +20,8 @@ from typing import Optional
 
 import pytest
 
+from yoke_contracts.testing.child_environment import minimal_child_environment
+
 # Mock gh scripts and DB helpers live in support modules to keep this file small,
 # and are surfaced here as the shared fixture API for merge-worktree suites.
 from runtime.api.merge_worktree_test_mocks import (
@@ -78,7 +80,7 @@ class MergeEnv:
     ) -> dict:
         """Build environment dict for subprocess calls."""
         e = {
-            "PATH": self.test_path,
+            **minimal_child_environment(self.test_path.split(os.pathsep)),
             "MOCK_GH_LOG": str(self.gh_log),
             "MOCK_GH_ORIGIN": str(self.origin),
             "YOKE_DB": str(self.db_path),
@@ -98,6 +100,20 @@ class MergeEnv:
             "GIT_SSH_COMMAND": "ssh -oBatchMode=yes",
             "YOKE_GIT_COMMAND_TIMEOUT_SECONDS": TEST_GIT_TIMEOUT_SECONDS,
         }
+        if os.name == "nt":
+            home = self.tmpdir / "home"
+            temp = self.tmpdir / "tmp"
+            e.update({
+                "HOME": str(home),
+                "USERPROFILE": str(home),
+                "APPDATA": str(home / "AppData" / "Roaming"),
+                "LOCALAPPDATA": str(home / "AppData" / "Local"),
+                "TEMP": str(temp),
+                "TMP": str(temp),
+                "TMPDIR": str(temp),
+            })
+            for name in ("APPDATA", "LOCALAPPDATA", "TEMP"):
+                Path(e[name]).mkdir(parents=True, exist_ok=True)
         # YOKE_MACHINE_HOME must ride along: HOME passes through for
         # git, and without the per-test machine home the subprocess
         # resolves the OPERATOR's live ~/.yoke config — on an
@@ -232,7 +248,7 @@ def merge_env(tmp_path: Path, request) -> MergeEnv:
     _write_mock_gh(mock_dir)
 
     # Build PATH: mock gh first, then scripts dir, then system PATH
-    test_path = f"{mock_dir}:{SCRIPTS_DIR}:{os.environ['PATH']}"
+    test_path = os.pathsep.join((str(mock_dir), str(SCRIPTS_DIR), *os.get_exec_path()))
 
     yoke_root.mkdir(parents=True, exist_ok=True)
 

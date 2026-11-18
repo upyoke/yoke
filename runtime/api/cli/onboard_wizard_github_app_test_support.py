@@ -12,6 +12,7 @@ from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
 
 from runtime.api.cli.onboard_wizard_test_helpers import advance_past_path
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view
 
 
 def stub_github_app_access(
@@ -114,6 +115,7 @@ async def connect_github_app(app: Any, pilot: Any) -> None:
 
 async def select_connected_repository(app: Any, pilot: Any) -> None:
     """Choose App binding and acknowledge exact-repository access."""
+    await wait_for_view(pilot, "project.github", "SelectionList")
     index = next(
         index
         for index, row in enumerate(steps.PROJECT_GITHUB_ROWS)

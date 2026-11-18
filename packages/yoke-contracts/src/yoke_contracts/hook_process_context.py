@@ -188,11 +188,12 @@ def activate_process_context(
     """Activate one request and capture its stdout/stderr independently."""
     stdout_bytes = io.BytesIO()
     stderr_bytes = io.BytesIO()
+    # The client owns native stdout translation; wire text must stay unchanged.
     stdout = io.TextIOWrapper(
-        stdout_bytes, encoding="utf-8", errors="replace", write_through=True
+        stdout_bytes, encoding="utf-8", errors="replace", newline="", write_through=True
     )
     stderr = io.TextIOWrapper(
-        stderr_bytes, encoding="utf-8", errors="replace", write_through=True
+        stderr_bytes, encoding="utf-8", errors="replace", newline="", write_through=True
     )
     active = _ActiveContext(process, stdout_bytes, stderr_bytes, stdout, stderr)
     token = _CURRENT.set(active)

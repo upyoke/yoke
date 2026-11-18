@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from unittest import mock
 
 import pytest
@@ -100,12 +102,12 @@ def test_leading_absolute_cd_to_main_still_denies(tmp_path):
 
 def _client_bash(command, *, cwd, client_home, monkeypatch):
     """Build the payload as the client would, with its home and write facts."""
-    monkeypatch.setenv("HOME", str(client_home))
+    set_home(monkeypatch, str(client_home))
     payload = _bash("sid-lane", command, cwd=cwd)
     payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
     payload.update(client_machine_home_fact(str(client_home)))
     # The authority evaluating the payload has a different home of its own.
-    monkeypatch.setenv("HOME", str(client_home.parent / "authority-home"))
+    set_home(monkeypatch, str(client_home.parent / "authority-home"))
     return payload
 
 

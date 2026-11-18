@@ -156,7 +156,7 @@ def run_census(
                         "format_shapes": shapes if column["type"] == "text" else {},
                     }
                 )
-            output.write_text(json.dumps(report, indent=2) + "\n")
+            output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
             print(
                 f"instant-census table={table} columns={len(columns)} "
                 f"rows={values['row_count']}",
@@ -169,7 +169,7 @@ def run_census(
         print(str(exc), file=sys.stderr)
         return 1
     finally:
-        output.write_text(json.dumps(report, indent=2) + "\n")
+        output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def census(environment: str, output: Path) -> int:

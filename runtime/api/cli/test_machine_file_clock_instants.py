@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 from yoke_contracts import timestamps
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_cli import hook_latency_benchmark as benchmark
 from yoke_cli.commands import universe_ui
 from yoke_cli.config import (
@@ -39,7 +40,7 @@ def test_onboarding_lock_formats_before_creating_file(machine, monkeypatch):
         payload = json.loads(path.read_text())
         assert payload["created_at"] == WIRE
         assert payload["run_id"] == OPAQUE
-        assert path.stat().st_mode & 0o777 == 0o600
+        assert is_owner_private_file(path)
     assert not path.exists()
     monkeypatch.setattr(timestamps, "utc_now", lambda: datetime(2026, 10, 9))
     with pytest.raises(timestamps.InvalidInstant):
@@ -55,7 +56,7 @@ def test_local_core_and_checklist_generate_canonical_clock_without_touching_opaq
     assert payload["updated_at"] == WIRE
     assert payload["prose"] == OPAQUE
     assert payload["clock_looking_context"] == WIRE
-    assert path.stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(path)
     record = onboard_checklist._new_record("sample")
     assert record["created_at"] == WIRE
     assert record["updated_at"] == WIRE

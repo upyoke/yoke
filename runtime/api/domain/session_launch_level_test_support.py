@@ -6,8 +6,8 @@ from typing import Any
 import json
 from yoke_core.domain.model_reference_store import (
     create_model_reference_table,
-    seed_initial_catalog,
 )
+from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
 from yoke_contracts.session_control.native_models import models_reading, native_model
 from runtime.api.domain.session_launch_test_support import NOW
 
@@ -44,7 +44,7 @@ SURFACE_VERSIONS = {
 }
 
 CLAUDE_OPUS = {"model": "claude-opus-5-5", "min_effort": "high"}
-CODEX_SOL = {"model": "gpt-6.1-sol", "min_effort": "medium"}
+CODEX_SOL = {"model": "gpt-6.2-sol", "min_effort": "medium"}
 CURSOR_GROK = {"model": "grok-4.7", "min_effort": "high"}
 CURSOR_OPUS = {"model": "claude-opus-5-5", "min_effort": "medium"}
 NATIVE_MODELS = {
@@ -52,7 +52,7 @@ NATIVE_MODELS = {
         native_model("claude-opus-5-5", reasoning_efforts=["low", "medium", "high"])
     ],
     "codex-cli": [
-        native_model("gpt-6.1-sol", reasoning_efforts=["low", "medium", "high"])
+        native_model("gpt-6.2-sol", reasoning_efforts=["low", "medium", "high"])
     ],
     "cursor-cli": [
         native_model("grok-4.7-high", reasoning_efforts=["high"]),
@@ -65,7 +65,7 @@ def level_connection(*options: dict[str, Any]):
     """A launch universe whose one stored level, SENIOR, has ``options``."""
     conn = launch_connection()
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     create_universe_settings_table(conn)
     conn.execute(
         "CREATE TABLE project_capabilities "

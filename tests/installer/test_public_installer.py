@@ -1,3 +1,5 @@
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from tests.installer.public_installer_test_support import (
     _installed_yoke_path as _installed_yoke_path,
     _options as _options,
@@ -11,8 +13,10 @@ from pathlib import Path
 
 from public_installer_helpers import (
     RecordingRunner,
+    YOKE_LAUNCHER,
     branded_installer_glyphs as branded_installer_glyphs,
     load_installer,
+    current_os_answer,
     write_channel,
 )
 
@@ -162,12 +166,12 @@ def test_installed_yoke_resolution_uses_uv_tool_bin_before_ambient(
     installer_mod = load_installer()
     tool_bin = tmp_path / "uv-bin"
     tool_bin.mkdir()
-    yoke_bin = tool_bin / "yoke"
+    yoke_bin = tool_bin / YOKE_LAUNCHER
     yoke_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     yoke_bin.chmod(0o755)
     monkeypatch.delenv("UV_TOOL_BIN_DIR", raising=False)
     monkeypatch.delenv("XDG_BIN_HOME", raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    set_home(monkeypatch, str(tmp_path / "home"))
     uv_dir = subprocess.CompletedProcess(
         ["uv", "tool", "dir", "--bin"],
         0,
@@ -301,4 +305,7 @@ def test_uv_install_failure_redacts_index_credentials(tmp_path: Path) -> None:
     assert "installer-user" not in message
     assert "installer-user" not in rendered
     assert "https://example.invalid/simple/yoke-cli/" in message
-    assert "curl -fsSL https://example.invalid/install | sh" in rendered
+    assert current_os_answer(
+        posix="curl -fsSL https://example.invalid/install | sh",
+        windows="irm https://example.invalid/install.ps1 | iex",
+    ) in rendered

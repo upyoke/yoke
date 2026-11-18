@@ -2,7 +2,7 @@
 
 The harness manifest's ``shell_tools`` says which shell each shell tool runs;
 ``os_default`` tools (Codex, Cursor) run PowerShell on Windows and Bash
-elsewhere. Only this machine knows its operating system, so the client
+elsewhere unless the payload names its command shell. Only this machine knows its operating system, so the client
 resolves the kind here and writes it to the payload before any evaluation,
 local or relayed. The native tool name stays as sent: the evaluating side
 canonicalizes it (``hook_tool_names.canonicalize_shell_payload``), so a server
@@ -22,7 +22,9 @@ from yoke_contracts.harness_shell_tools import (
 )
 
 
-def stamp_shell_kind(stdin_data: str, executor: str, *, windows: bool | None = None) -> str:
+def stamp_shell_kind(
+    stdin_data: str, executor: str, *, windows: bool | None = None
+) -> str:
     """Return hook stdin with the shell kind stamped on a shell-tool payload."""
     if not stdin_data:
         return stdin_data
@@ -38,8 +40,15 @@ def stamp_shell_kind(stdin_data: str, executor: str, *, windows: bool | None = N
         if payload.get("hook_event_name") not in CURSOR_SHELL_EVENTS:
             return stdin_data
         tool_name = ""
+    shell = payload.get("shell")
+    tool_input = payload.get("tool_input")
+    if isinstance(tool_input, dict) and isinstance(tool_input.get("shell"), str):
+        shell = tool_input["shell"]
     kind = shell_kind_for(
-        harness_id, tool_name, windows=is_windows() if windows is None else windows
+        harness_id,
+        tool_name,
+        windows=is_windows() if windows is None else windows,
+        shell=shell if isinstance(shell, str) else None,
     )
     if kind is None:
         return stdin_data

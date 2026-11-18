@@ -58,7 +58,12 @@ Worked examples:
 
 With --test-machine, run on the operator workstation connected to the control
 plane. Yoke reads browser-control settings here, checks the named Test Machine
-lease, and runs this same command in its GUI session. A Linux or Windows WSL
+lease, and runs this same command in its GUI session. It takes an unleased host
+or borrows your own lease, starts stopped cloud machines and waits for SSH.
+The lease stays held through sign-in and viewer cleanup; only a lease this
+command acquired releases afterward, with stop-on-last-release. Before opening
+a viewer it checks Yoke on the login-shell PATH; test_machine_yoke_missing
+names the reset with --baseline shell-preconfigured needed to install it. A Linux or Windows WSL
 machine with a registered RDP desktop opens in the same FreeRDP viewer as
 `yoke test-machine desktop-access --view`: a window titled
 "Yoke desktop: MACHINE" appears, you sign in with the identity's declared
@@ -73,16 +78,9 @@ finishes. A machine leased by another session refuses
 until released. Without --test-machine, this host keeps local behavior. Without a
 remote route, --declarations-json still supplies settings locally.
 
-On Linux and macOS Test Machines, --test-machine also checks the installer's
-desktop browser: snap Chromium or Safari, using the same identity's declared
-sites and account names. It reads that browser's own cookies headless and
-opens native tabs for expired sites, or always opens an explicit --url. Close the desktop browser windows
-to finish. Unreadable cookies or unreachable probes refuse before opening
-tabs; allow native cookie-store access and unlock the user's keyring first.
-Desktop sign-ins stay live through resets and are never captured into golden
-snapshots. Automation identity profiles keep their existing behavior.
-Use --desktop-browser without --test-machine to check only this host's native
-browser, or combine both flags to check only the Test Machine's native browser.
+The identity profile is the Test Machine's only saved login: missions,
+managed steps and the installer's approval link all open in it through
+`yoke browser open`, so one sign-in per identity serves every browser use.
 If default has no sites but other identities do, an omitted --identity refuses
 with browser_identity_required and names the choices before opening any window.
 Site, origin and account instructions print on the workstation before its viewer.
@@ -91,13 +89,10 @@ Linux remote progress streams while authorization runs, including verification;
 A connected Linux viewer refuses linux_desktop_viewer_connected: close the open
 "Yoke desktop: MACHINE" viewer or let browser authorize finish, then retry.
 Linux window-close detection requires xdotool and checks only the spawned PID.
-Declare sites for that identity first; --reset never wipes desktop
-browser state and is refused for a desktop-only invocation.
 
-Each identity's profile is kept with the project's machine-local capability
-secrets at owner-only permissions, keyed by project slug and identity name. On
-a Test Machine that keeps live identities (~/.yoke-browser-identities), the
-profile is that live store entry, so a full reset keeps the sign-in.
+Each identity's profile is saved owner-only in the live identity store
+~/.yoke-browser-identities/<project>/<identity>, outside ~/.yoke, which the
+first authorization creates; a Test Machine's full reset keeps the sign-in.
 
 Session cookies (no expiry) are given an explicit {lifetime}-day expiry when the
 window closes, so the sign-in survives Chromium reopening the profile.

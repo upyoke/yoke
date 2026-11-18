@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import time
@@ -10,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts import platform_process
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 
 
@@ -109,8 +109,13 @@ def test_stalled_dump_kills_and_reaps_the_copy_process(tmp_path) -> None:
             timeout=0.8,
             progress_file=dump,
         )
-    with pytest.raises(ProcessLookupError):
-        os.kill(int(pid_file.read_text()), 0)
+    # A Windows venv python.exe is a launcher: the recorded pid is its child,
+    # which the launcher's own job ends just after the launcher is reaped.
+    copy_pid = int(pid_file.read_text())
+    deadline = time.monotonic() + 5
+    while platform_process.pid_alive(copy_pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not platform_process.pid_alive(copy_pid)
 
 
 def test_failed_dump_removes_partial_archive(monkeypatch, tmp_path) -> None:

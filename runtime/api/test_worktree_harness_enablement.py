@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from yoke_contracts.hook_shell_command import hook_command_source
+from yoke_contracts.harness_machine_hooks import entry_commands
 
 from yoke_core.domain.agents_render_claude import render_claude_settings_json
 from yoke_core.domain.agents_render_codex import render_codex_hooks_json
@@ -32,7 +34,13 @@ def test_rendered_hook_commands_export_the_lane_root() -> None:
         render_codex_hooks_json(),
         render_cursor_hooks_json(),
     ):
-        assert "YOKE_ROOT=" in rendered
+        commands = [
+            hook_command_source(command)
+            for entries in json.loads(rendered)["hooks"].values()
+            for entry in entries
+            for command in entry_commands(entry)
+        ]
+        assert commands and all("YOKE_ROOT=" in command for command in commands)
 
 
 def test_lane_preparation_runs_declared_operations(tmp_path: Path, monkeypatch) -> None:

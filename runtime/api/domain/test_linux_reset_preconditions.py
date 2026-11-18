@@ -1,5 +1,7 @@
 """Linux reset ends the desktop first and keeps live sign-ins through a failed clear."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 import os
@@ -11,6 +13,8 @@ import sys
 import pytest
 
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
+
+pytestmark = pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 
 
 @pytest.fixture
@@ -38,7 +42,7 @@ def archive_home(tmp_path):
 
 
 def execute_reset(monkeypatch, home, golden, program=_ARCHIVE_PROGRAM):
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setattr(
         sys,
         "argv",

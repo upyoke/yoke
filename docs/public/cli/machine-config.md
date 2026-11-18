@@ -13,6 +13,12 @@ how unattended launches use harness permissions.
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
+A selected config's parent directory must belong to your account and prevent
+other users from writing. Shared read access and inherited Windows permissions
+are allowed when they grant no write access to other users. On Windows, remove
+other users' write access to repair an unsafe parent. Machine homes, secrets
+and lock files keep their stricter owner-private permissions.
+
 A connection's `protected` boolean means it holds real data, regardless of its
 name or deployment target. Set it with `yoke connection set ENV --protected`;
 clear it with `--unprotected`. `yoke dev db-admin setup` accepts the same flags.

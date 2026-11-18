@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 
 import pytest
@@ -41,7 +43,7 @@ def conn():
 def client_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / "client-home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(SERVER_HOME))
+    set_home(monkeypatch, str(SERVER_HOME))
     monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
         lint_session_cwd_path_authority,

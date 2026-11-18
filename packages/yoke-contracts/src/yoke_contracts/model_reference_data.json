@@ -1,0 +1,1450 @@
+[
+  {
+    "aliases": [
+      "grok-4.7"
+    ],
+    "api_price": {
+      "cache_read_per_million_usd": 0.5,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": null,
+      "checked_at": "2026-11-09",
+      "conditions": "Standard pool rate. Fast is $4/$1/$12. Long context (>256k input tokens, up to 500k) bills the whole request at 2x standard ($4/$1/$12), or 3x standard ($6/$1.5/$18) with Fast. Plus and legacy Start are fixed at medium effort, standard speed.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 6.0,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      256000,
+      500000
+    ],
+    "display_name": "Grok 4.7",
+    "model_id": "cursor-grok-4.7",
+    "operator_notes": null,
+    "provider": "cursor",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://cursor.com/docs/models/grok-4-7",
+      "https://cursor.com/help/models-and-usage/grok-4-7"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "cursor-models",
+        "rule": "Cursor now sells a new Ultra ($200/mo, 50x Plus usage) whose usage comes from one weekly pool for Cursor models (Grok 4.7, Grok 4.6, Grok 4.5, Composer 2.5), shared across Agent, CLI, Cloud Agents, Grok Bot and Grok apps. Legacy Ultra keeps working as before with two monthly pools (Cursor Models and Other Models) plus on-demand usage. Neither pool size is published in dollars or tokens; models draw at different rates and the settings/dashboard is the only reading of what remains. Third-party models are billed at API list price. Usage beyond the pool bills at the listed standard rates.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [
+      "grok-4.6"
+    ],
+    "api_price": {
+      "cache_read_per_million_usd": 0.5,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": null,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard pool rate. Fast variant is 2x ($4/$1/$12).",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 6.0,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [],
+    "display_name": "Grok 4.6",
+    "model_id": "cursor-grok-4.6",
+    "operator_notes": null,
+    "provider": "cursor",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "replacement_model_id": "cursor-grok-4.7",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://cursor.com/docs/models/grok-4-6"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "cursor-models",
+        "rule": "Cursor now sells a new Ultra ($200/mo, 50x Plus usage) whose usage comes from one weekly pool for Cursor models (Grok 4.7, Grok 4.6, Grok 4.5, Composer 2.5), shared across Agent, CLI, Cloud Agents, Grok Bot and Grok apps. Legacy Ultra keeps working as before with two monthly pools (Cursor Models and Other Models) plus on-demand usage. Neither pool size is published in dollars or tokens; models draw at different rates and the settings/dashboard is the only reading of what remains. Third-party models are billed at API list price. Usage beyond the pool bills at the listed standard rates.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [
+      "grok-4.5"
+    ],
+    "api_price": {
+      "cache_read_per_million_usd": 0.5,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": null,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard pool rate. Fast variant listed at $4/$1/$18.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 6.0,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [],
+    "display_name": "Grok 4.5",
+    "model_id": "cursor-grok-4.5",
+    "operator_notes": null,
+    "provider": "cursor",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "replacement_model_id": "cursor-grok-4.6",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "cursor-models",
+        "rule": "Cursor now sells a new Ultra ($200/mo, 50x Plus usage) whose usage comes from one weekly pool for Cursor models (Grok 4.7, Grok 4.6, Grok 4.5, Composer 2.5), shared across Agent, CLI, Cloud Agents, Grok Bot and Grok apps. Legacy Ultra keeps working as before with two monthly pools (Cursor Models and Other Models) plus on-demand usage. Neither pool size is published in dollars or tokens; models draw at different rates and the settings/dashboard is the only reading of what remains. Third-party models are billed at API list price. Usage beyond the pool bills at the listed standard rates.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [
+      "cursor-composer-2.5"
+    ],
+    "api_price": {
+      "cache_read_per_million_usd": 0.2,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": null,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard pool rate. Fast variant listed at $3/$0.5/$15.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 0.5,
+      "output_per_million_usd": 2.5,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [],
+    "display_name": "Composer 2.5",
+    "model_id": "composer-2.5",
+    "operator_notes": null,
+    "provider": "cursor",
+    "reasoning_efforts": [],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "cursor-models",
+        "rule": "Cursor now sells a new Ultra ($200/mo, 50x Plus usage) whose usage comes from one weekly pool for Cursor models (Grok 4.7, Grok 4.6, Grok 4.5, Composer 2.5), shared across Agent, CLI, Cloud Agents, Grok Bot and Grok apps. Legacy Ultra keeps working as before with two monthly pools (Cursor Models and Other Models) plus on-demand usage. Neither pool size is published in dollars or tokens; models draw at different rates and the settings/dashboard is the only reading of what remains. Third-party models are billed at API list price. Usage beyond the pool bills at the listed standard rates.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.2,
+      "cache_write_long_per_million_usd": 8.0,
+      "cache_write_per_million_usd": 5.0,
+      "checked_at": "2026-09-23",
+      "conditions": "Standard API. Fast mode is $8/$40; cache hits are 0.05x input.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 4.0,
+      "output_per_million_usd": 20.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Opus 5.5",
+    "model_id": "claude-opus-5-5",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://cursor.com/docs/models-and-pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage).",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.5,
+      "cache_write_long_per_million_usd": 10.0,
+      "cache_write_per_million_usd": 6.25,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard API. Fast mode is $10/$50. Writes: 5m=1.25x, 1h=2x.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 5.0,
+      "output_per_million_usd": 25.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Opus 5",
+    "model_id": "claude-opus-5",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": "claude-opus-5-5",
+    "source_urls": [
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://cursor.com/docs/models-and-pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort",
+      "https://platform.claude.com/docs/en/models/opus-5-5/migration-guide"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage).",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.2,
+      "cache_write_long_per_million_usd": 4.0,
+      "cache_write_per_million_usd": 2.5,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard API. $2/$10 is the standing Sonnet 5 price.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 10.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Sonnet 5",
+    "model_id": "claude-sonnet-5",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": "claude-sonnet-5-5",
+    "source_urls": [
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://cursor.com/docs/models-and-pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort",
+      "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage).",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.5,
+      "cache_write_long_per_million_usd": 10.0,
+      "cache_write_per_million_usd": 6.25,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard API. Fast mode is $10/$50.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 5.0,
+      "output_per_million_usd": 25.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Opus 4.8",
+    "model_id": "claude-opus-4-8",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": "claude-opus-5-5",
+    "source_urls": [
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://cursor.com/docs/models-and-pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort",
+      "https://platform.claude.com/docs/en/models/opus-4-8/overview"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage).",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [
+      "claude-fable-5.1"
+    ],
+    "api_price": {
+      "cache_read_per_million_usd": 0.25,
+      "cache_write_long_per_million_usd": 20.0,
+      "cache_write_per_million_usd": 12.5,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard API. Cache hits are 0.025x input, not 0.1x.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 10.0,
+      "output_per_million_usd": 50.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Fable 5.1",
+    "model_id": "claude-fable-5-1",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": "claude-fable-5-2",
+    "source_urls": [
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage). Ultra also has a separate weekly limit for Fable; claude.com/pricing lists Fable at 50% of weekly limits.",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 1.0,
+      "cache_write_long_per_million_usd": 20.0,
+      "cache_write_per_million_usd": 12.5,
+      "checked_at": "2026-09-07",
+      "conditions": "Standard API. Cache hits are the standard 0.1x input.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 10.0,
+      "output_per_million_usd": 50.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Fable 5",
+    "model_id": "claude-fable-5",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": "claude-fable-5-2",
+    "source_urls": [
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage). Ultra also has a separate weekly limit for Fable; claude.com/pricing lists Fable at 50% of weekly limits.",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 1.0,
+      "cache_write_long_per_million_usd": 25.0,
+      "cache_write_per_million_usd": 12.5,
+      "checked_at": "2026-11-09",
+      "conditions": "Standard rate. Cache write $12.50 is 30-minute retention; 12-hour write $25.00. Prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch and Flex are 50%; Fast is 2x; Ultrafast is 6x (US data residency and global processing only).",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 10.0,
+      "output_per_million_usd": 50.0,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-17",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6 Astra",
+    "model_id": "gpt-6-astra",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": "gpt-6.2-astra",
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6-astra",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://learn.chatgpt.com/docs/models"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-29",
+        "consumption_weight": {
+          "cached_input_per_million": 25.0,
+          "checked_at": "2026-09-29",
+          "estimate_basis": null,
+          "input_per_million": 250.0,
+          "is_estimate": false,
+          "output_per_million": 1250.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.1,
+      "cache_write_long_per_million_usd": 5.0,
+      "cache_write_per_million_usd": 2.5,
+      "checked_at": "2026-11-09",
+      "conditions": "Standard rate. Cached input bills at 5% of the uncached input rate. Cache write $2.50 is 30-minute retention; 12-hour write $5.00. API prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch and Flex are 50%; Fast is 2x; Ultrafast is 6x. Regional processing adds a 10% premium where available. Codex and ChatGPT Work default to a 500K context window with no long-context surcharge on subscription usage.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 10.0,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-17",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6.1 Sol",
+    "model_id": "gpt-6.1-sol",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": "gpt-6.2-sol",
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://learn.chatgpt.com/docs/models"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-29",
+        "consumption_weight": {
+          "cached_input_per_million": 2.5,
+          "checked_at": "2026-09-29",
+          "estimate_basis": null,
+          "input_per_million": 50.0,
+          "is_estimate": false,
+          "output_per_million": 250.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.2,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": 2.5,
+      "checked_at": "2026-09-29",
+      "conditions": "Standard rate. Prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch and Flex are 50%; Fast is 2x.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 10.0,
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-6-sol"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6 Sol",
+    "model_id": "gpt-6-sol",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": "gpt-6.1-sol",
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6-sol",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-29",
+        "consumption_weight": {
+          "cached_input_per_million": 5.0,
+          "checked_at": "2026-09-29",
+          "estimate_basis": null,
+          "input_per_million": 50.0,
+          "is_estimate": false,
+          "output_per_million": 250.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.01,
+      "cache_write_long_per_million_usd": 0.25,
+      "cache_write_per_million_usd": 0.125,
+      "checked_at": "2026-11-09",
+      "conditions": "Standard rate. Cached input bills at 10% of the uncached input rate. Cache write $0.125 is 30-minute retention; 12-hour write $0.25. Prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch and Flex are 50%; Fast is 2x. Regional processing adds a 10% premium where available.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 0.1,
+      "output_per_million_usd": 0.5,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6 Luna",
+    "model_id": "gpt-6-luna",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6-luna",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-29",
+        "consumption_weight": {
+          "cached_input_per_million": 0.25,
+          "checked_at": "2026-09-29",
+          "estimate_basis": null,
+          "input_per_million": 2.5,
+          "is_estimate": false,
+          "output_per_million": 12.5,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.4,
+      "cache_write_long_per_million_usd": 10.0,
+      "cache_write_per_million_usd": 5.0,
+      "checked_at": "2026-11-09",
+      "conditions": "Official API rate, promotional until 2026-11-30 (Codex credit promo stated 'at least through November 21, 2026'). Cache write $5.00 (30m); 12-hour write $10.00. Prompts over 272K input bill at 2x input and 1.5x output.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 4.0,
+      "output_per_million_usd": 20.0,
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-5.6 Sol",
+    "model_id": "gpt-5.6-sol",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": "gpt-6.1-sol",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": {
+          "cached_input_per_million": 10.0,
+          "checked_at": "2026-09-07",
+          "estimate_basis": null,
+          "input_per_million": 100.0,
+          "is_estimate": false,
+          "output_per_million": 500.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.2,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": 2.5,
+      "checked_at": "2026-09-07",
+      "conditions": "Cursor Other Models list. Fast and long-context 2x.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 12.0,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-5.6 Terra",
+    "model_id": "gpt-5.6-terra",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": "gpt-6.1-terra",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": {
+          "cached_input_per_million": 5.0,
+          "checked_at": "2026-09-07",
+          "estimate_basis": null,
+          "input_per_million": 50.0,
+          "is_estimate": false,
+          "output_per_million": 300.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.02,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": 0.25,
+      "checked_at": "2026-09-07",
+      "conditions": "Cursor Other Models list. Fast and long-context 2x.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 0.2,
+      "output_per_million_usd": 1.2,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [],
+    "display_name": "GPT-5.6 Luna",
+    "model_id": "gpt-5.6-luna",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": "gpt-6-luna",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": {
+          "cached_input_per_million": 0.5,
+          "checked_at": "2026-09-07",
+          "estimate_basis": null,
+          "input_per_million": 5.0,
+          "is_estimate": false,
+          "output_per_million": 30.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.5,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": 6.25,
+      "checked_at": "2026-09-07",
+      "conditions": "Cursor Other Models list.",
+      "effective_at": null,
+      "estimate_basis": "The Cursor Other Models list publishes no cache-write rate for this model. Every GPT-5.6 entry on the same list writes at 1.25x its base input rate ($4 to $5, $2 to $2.50, $0.20 to $0.25), so the estimate is 1.25x input. Replace it with the published rate if one appears.",
+      "estimated_fields": [
+        "cache_write_per_million_usd"
+      ],
+      "input_per_million_usd": 5.0,
+      "output_per_million_usd": 30.0,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-5.5",
+    "model_id": "gpt-5.5",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "replacement_model_id": "gpt-6.1-sol",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.25,
+      "cache_write_long_per_million_usd": null,
+      "cache_write_per_million_usd": 3.125,
+      "checked_at": "2026-09-07",
+      "conditions": "Cursor Other Models list.",
+      "effective_at": null,
+      "estimate_basis": "The Cursor Other Models list publishes no cache-write rate for this model. Every GPT-5.6 entry on the same list writes at 1.25x its base input rate ($4 to $5, $2 to $2.50, $0.20 to $0.25), so the estimate is 1.25x input. Replace it with the published rate if one appears.",
+      "estimated_fields": [
+        "cache_write_per_million_usd"
+      ],
+      "input_per_million_usd": 2.5,
+      "output_per_million_usd": 15.0,
+      "source_url": "https://cursor.com/docs/models-and-pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-5.4",
+    "model_id": "gpt-5.4",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "replacement_model_id": "gpt-5.6-terra",
+    "source_urls": [
+      "https://cursor.com/docs/models-and-pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers",
+      "https://developers.openai.com/api/docs/guides/latest-model"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      },
+      {
+        "checked_at": "2026-09-07",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "cursor",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "other-models",
+        "rule": "Ultra includes Other Models usage charged at each model's API price, then on-demand at the same rates. Requests are not downgraded. The included monthly amount is not published.",
+        "source_url": "https://cursor.com/docs/models-and-pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.01,
+      "cache_write_long_per_million_usd": 0.2,
+      "cache_write_per_million_usd": 0.125,
+      "checked_at": "2026-10-08",
+      "conditions": "Prompts up to 100,000 tokens. Above 100,000: input $0.50, output $2.50, cache read $0.05, 5m write $0.625, 1h write $1 per MTok.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 0.1,
+      "output_per_million_usd": 0.5,
+      "source_url": "https://platform.claude.com/docs/en/models/haiku-5-5/overview"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Haiku 5.5",
+    "model_id": "claude-haiku-5-5",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+      "https://platform.claude.com/docs/en/build-with-claude/effort"
+    ],
+    "subscription_rules": []
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.1,
+      "cache_write_long_per_million_usd": 4.0,
+      "cache_write_per_million_usd": 2.5,
+      "checked_at": "2026-10-08",
+      "conditions": "Standard API pricing; batch input/output 50% discount.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 10.0,
+      "source_url": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-10-12",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Sonnet 5.5",
+    "model_id": "claude-sonnet-5-5",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+      "https://platform.claude.com/docs/en/build-with-claude/effort"
+    ],
+    "subscription_rules": []
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.2,
+      "cache_write_long_per_million_usd": 16.0,
+      "cache_write_per_million_usd": 10.0,
+      "checked_at": "2026-11-09",
+      "conditions": "Standard API. Fast mode is $16/$80. Cache hits are 0.025x input. Requires 30-day data retention (no ZDR unless authorized).",
+      "effective_at": "2026-11-09",
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 8.0,
+      "output_per_million_usd": 40.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-09",
+    "context_window_tokens": [
+      1000000
+    ],
+    "display_name": "Claude Fable 5.2",
+    "model_id": "claude-fable-5-2",
+    "operator_notes": null,
+    "provider": "anthropic",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://platform.claude.com/docs/en/models/fable-5-2/overview",
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://platform.claude.com/docs/en/build-with-claude/effort",
+      "https://www.anthropic.com/claude-fable-and-mythos-5-2"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": null,
+        "estimate_basis": null,
+        "harness": "claude",
+        "is_estimate": false,
+        "plan": "ultra",
+        "pool": "included",
+        "rule": "Ultra (the renamed Max 20x plan, $200/month) gives 10 times the Pro plan's usage every week. Verified Ultra accounts have no five-hour limit; unverified accounts get a temporary limit. A weekly limit applies across all models. No token-to-percent conversion is published, and the page reserves further discretionary limiting (weekly/monthly caps, model and feature usage). Ultra also has a separate weekly limit for Fable; claude.com/pricing lists Fable at 50% of weekly limits.",
+        "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.05,
+      "cache_write_long_per_million_usd": 2.5,
+      "cache_write_per_million_usd": 1.25,
+      "checked_at": "2026-11-09",
+      "conditions": "Standard rate. Cached input bills at 5% of the uncached input rate. Cache write $1.25 is 30-minute retention; 12-hour write $2.50. Prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch and Flex are 50%; Fast is 2x. Regional processing adds a 10% premium where available. No Ultrafast pricing published.",
+      "effective_at": "2026-10-26",
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 1.0,
+      "output_per_million_usd": 5.0,
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-6.1-terra"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-17",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6.1 Terra",
+    "model_id": "gpt-6.1-terra",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://developers.openai.com/api/docs/pricing"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-09",
+        "consumption_weight": {
+          "cached_input_per_million": 1.25,
+          "checked_at": "2026-11-09",
+          "estimate_basis": null,
+          "input_per_million": 25.0,
+          "is_estimate": false,
+          "output_per_million": 125.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.1,
+      "cache_write_long_per_million_usd": 5.0,
+      "cache_write_per_million_usd": 2.5,
+      "checked_at": "2026-11-17",
+      "conditions": "Standard rate. Cached input bills at 5% of the uncached input rate. Cache write $2.50 is 30-minute retention; 12-hour write $5.00. Prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch is 50%; no Flex rate published. Fast is 2x. Ultrafast is 3x through 2027-02-28, then 6x from 2027-03-01 (US inference residency only). Background requests are 30% below Standard (2-hour window) or 40% below (8-hour window). Regional processing adds a 10% premium where available. API rejects reasoning effort none. Codex defaults to a 500K context window.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 10.0,
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-6.2-sol"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-17",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6.2 Sol",
+    "model_id": "gpt-6.2-sol",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6.2-sol",
+      "https://developers.openai.com/api/docs/pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://learn.chatgpt.com/docs/models"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-17",
+        "consumption_weight": {
+          "cached_input_per_million": 2.5,
+          "checked_at": "2026-11-17",
+          "estimate_basis": null,
+          "input_per_million": 50.0,
+          "is_estimate": false,
+          "output_per_million": 250.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  },
+  {
+    "aliases": [],
+    "api_price": {
+      "cache_read_per_million_usd": 0.4,
+      "cache_write_long_per_million_usd": 20.0,
+      "cache_write_per_million_usd": 10.0,
+      "checked_at": "2026-11-17",
+      "conditions": "Standard rate. Cached input bills at 5% of the uncached input rate. Cache write $10.00 is 30-minute retention; 12-hour write $20.00. Prompts over 272K input bill at 2x input and cache rates and 1.5x output. Batch is 50%; no Flex rate published. Fast is 2x. Ultrafast is 3x through 2027-02-28, then 6x from 2027-03-01 (US inference residency only). Background requests are 30% below Standard (2-hour window) or 40% below (8-hour window). Regional processing adds a 10% premium where available. API rejects reasoning effort none. Codex defaults to a 272K context window.",
+      "effective_at": null,
+      "estimate_basis": null,
+      "estimated_fields": [],
+      "input_per_million_usd": 8.0,
+      "output_per_million_usd": 40.0,
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-6.2-astra"
+    },
+    "benchmarks": [],
+    "checked_at": "2026-11-17",
+    "context_window_tokens": [
+      1050000
+    ],
+    "display_name": "GPT-6.2 Astra",
+    "model_id": "gpt-6.2-astra",
+    "operator_notes": null,
+    "provider": "openai",
+    "reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+    ],
+    "replacement_model_id": null,
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-6.2-astra",
+      "https://developers.openai.com/api/docs/pricing",
+      "https://learn.chatgpt.com/docs/pricing",
+      "https://developers.openai.com/api/docs/guides/latest-model",
+      "https://learn.chatgpt.com/docs/models"
+    ],
+    "subscription_rules": [
+      {
+        "checked_at": "2026-11-17",
+        "consumption_weight": {
+          "cached_input_per_million": 10.0,
+          "checked_at": "2026-11-17",
+          "estimate_basis": null,
+          "input_per_million": 200.0,
+          "is_estimate": false,
+          "output_per_million": 1000.0,
+          "source_url": "https://learn.chatgpt.com/docs/pricing",
+          "unit": "credits"
+        },
+        "estimate_basis": null,
+        "harness": "codex",
+        "is_estimate": false,
+        "plan": "pro",
+        "pool": "included",
+        "rule": "ChatGPT meters plan usage in credits at a published per-model rate; local CLI messages and cloud chats share one plan allowance. Reaching the limit allows purchasing further credits. No credit-to-included-percent conversion is published, and message ranges vary with task size.",
+        "source_url": "https://learn.chatgpt.com/docs/pricing"
+      }
+    ]
+  }
+]

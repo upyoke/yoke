@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
-
 import os
 import shutil
 import sys
@@ -106,16 +104,13 @@ def install_advice(
         )
 
     if name.startswith("win") or name in {"cygwin", "msys"}:
-        try:
-            recovery = f"rerun {install_command()}"
-        except InstallOriginUnavailable as exc:
-            recovery = f"{exc}; then rerun the installer"
         return GitInstallAdvice(
             "Windows",
             None,
-            "Native Windows onboarding is not supported. Install WSL, open "
-            f"Ubuntu, then {recovery}. "
-            "Inside WSL, install git with that distro's package manager.",
+            "Install Git for Windows with `winget install --id Git.Git -e` "
+            "or the installer at https://git-scm.com/download/win. "
+            "Enable Git on PATH, open a new terminal after installation, "
+            "then choose Try again.",
         )
 
     if "linux" in name:

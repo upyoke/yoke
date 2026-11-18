@@ -12,6 +12,7 @@ import pytest
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.qa_artifact_read_test_support import seed_s3_configuration
 from runtime.api.shared_file_test_support import fake_object_store
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_contracts.shared_files import (
     SharedFilePathError,
     shared_file_content_type,
@@ -84,7 +85,7 @@ def test_server_disk_round_trip_without_records() -> None:
     assert stored.backend == "local"
     assert stored.address == str(target)
     assert target.read_bytes() == HTML
-    assert target.stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(target)
     assert read == HTML
     assert before == after
 

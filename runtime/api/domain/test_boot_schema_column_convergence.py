@@ -47,6 +47,8 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
         ("test_machine_verifications", "capability_type"),
         ("harness_sessions", "execution_level"),
         ("qa_plan_executions", "test_machine_lease_id"),
+        # 0113 backfills shipped|operator from published_by_actor_id.
+        ("model_reference_revisions", "source"),
     }
 )
 # Digest of columns that shipped with their table and therefore have no

@@ -68,12 +68,11 @@ def record_phase_timing(timing: HookPhaseTiming) -> None:
     """Append private diagnostics; an unwritable log never blocks a hook."""
     from yoke_cli.hook_resident_client import resident_paths
 
+    # Windows has no O_NOFOLLOW; the log lives in the owner-private resident
+    # state folder, so only its owner could place a link there.
+    flags = os.O_CREAT | os.O_WRONLY | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(
-            resident_paths().log,
-            os.O_CREAT | os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW,
-            0o600,
-        )
+        descriptor = os.open(resident_paths().log, flags, 0o600)
         try:
             os.write(descriptor, (timing.summary() + "\n").encode("utf-8"))
         finally:

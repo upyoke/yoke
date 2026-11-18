@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 from pathlib import Path
 import subprocess
@@ -83,7 +85,7 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
 ):
     home = tmp_path / "browser-runtime"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     cache = resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None)
     modules = home / "node_modules/playwright"
     if installed:
