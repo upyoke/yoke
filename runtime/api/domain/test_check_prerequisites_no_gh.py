@@ -90,9 +90,9 @@ def _seed_minimal_repo(root: Path) -> None:
             [
                 "Bash",
                 "Edit(**)",
-                "Read(*)",
-                "Grep(*)",
-                "Glob(*)",
+                "Read",
+                "Grep",
+                "Glob",
             ]
         )
     )

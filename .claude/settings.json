@@ -86,9 +86,9 @@
     "allow": [
       "Bash",
       "Edit(**)",
-      "Read(*)",
-      "Grep(*)",
-      "Glob(*)",
+      "Read",
+      "Grep",
+      "Glob",
       "Monitor"
     ]
   },
