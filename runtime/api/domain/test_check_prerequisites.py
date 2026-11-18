@@ -60,9 +60,9 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
                 [
                     "Bash",
                     "Edit(**)",
-                    "Read(*)",
-                    "Grep(*)",
-                    "Glob(*)",
+                    "Read",
+                    "Grep",
+                    "Glob",
                 ]
             ), encoding="utf-8", newline="\n"
         )

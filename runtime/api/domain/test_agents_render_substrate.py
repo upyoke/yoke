@@ -193,8 +193,14 @@ def test_render_claude_settings_json_has_generated_marker_and_hooks() -> None:
     assert "do not hand-edit" in payload["_generated"]
     assert "hooks" in payload and isinstance(payload["hooks"], dict)
     assert "permissions" in payload and "allow" in payload["permissions"]
-    assert "Write(**)" not in payload["permissions"]["allow"]
-    assert "Edit(**)" in payload["permissions"]["allow"]
+    assert payload["permissions"]["allow"] == [
+        "Bash",
+        "Edit(**)",
+        "Read",
+        "Grep",
+        "Glob",
+        "Monitor",
+    ]
     assert payload.get("autoMemoryEnabled") is False
     # Every PreToolUse entry routes through the stable Yoke CLI; the
     # per-policy chain (lint_session_cwd, etc.) is dispatched inside the

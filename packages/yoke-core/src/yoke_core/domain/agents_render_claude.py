@@ -26,15 +26,15 @@ from yoke_contracts.hook_shell_command import hook_shell_command
 #
 # File-editing access is Edit(**) only. Claude's file-permission matcher
 # ignores Write(**) and warns that Edit rules cover every file-editing tool.
-# Sibling allow entries stay as-is: Bash and Monitor are tool-level gates,
-# and Read(*) / Grep(*) / Glob(*) are those tools' own path forms.
+# Bash, Read, Grep, Glob and Monitor are bare tool names, which allow every
+# use of the tool; Claude warns that a "(*)" path form adds nothing.
 CLAUDE_PERMISSIONS: dict = {
     "allow": [
         "Bash",
         "Edit(**)",
-        "Read(*)",
-        "Grep(*)",
-        "Glob(*)",
+        "Read",
+        "Grep",
+        "Glob",
         "Monitor",
     ]
 }
