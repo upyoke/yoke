@@ -77,9 +77,16 @@ class _GuiSshControl(WindowsTransport):
         )
 
     def _run(self, command, *, input_text=None, timeout=60):
+        streamed = self.stream_output and timeout >= 1920 and input_text is None
         if self.settings["os"] == "wsl":
-            from yoke_contracts.windows_wsl_command import windows_wsl_command
+            from yoke_contracts.windows_wsl_command import (
+                windows_wsl_command,
+                windows_wsl_input,
+            )
 
+            # Windows caps a process command line at 32,767 characters; the
+            # desktop helper alone exceeds it once encoded. Send it over stdin.
+            command, input_text = windows_wsl_input(command, input_text)
             command = windows_wsl_command(command)
         elif self.settings["os"] == "windows":
             command = (
@@ -95,15 +102,19 @@ class _GuiSshControl(WindowsTransport):
             cloud_instance_id=self.settings.get("cloud_instance_id"),
         )
         try:
-            if self.stream_output and timeout >= 1920 and input_text is None:
+            if streamed:
                 output = _Progress(sys.stderr if self.json_mode else sys.stdout)
                 errors = _Progress(sys.stderr, control_lines=True)
                 process = subprocess.Popen(
-                    argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    argv,
+                    stdin=subprocess.PIPE if input_text is not None else None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
                 result = _stream_command(
                     argv,
                     process=process,
+                    input_text=input_text,
                     redaction_secret=self.desktop_password,
                     stdout=output,
                     stderr=errors,
