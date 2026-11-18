@@ -10,7 +10,9 @@ from typing import Any
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_cli.commands import test_machine_desktop_lease as custody
 from yoke_cli.commands.adapters import test_machine_exec as adapter
+from yoke_core.domain import cloud_machine_power
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_harness.test_machine_remote_exec import (
     RemoteExecRefusal,
@@ -141,6 +143,11 @@ def cli(monkeypatch, tmp_path):
         lambda session_id=None: type("Actor", (), {"session_id": "mine"})(),
     )
     monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: Path(tmp_path))
+    held = FunctionCallResponse(
+        success=True, function="c", version="v1", result={"claim": {"id": 7}}
+    )
+    monkeypatch.setattr(custody, "call_dispatcher", lambda **_: held)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",
         lambda **kwargs: (

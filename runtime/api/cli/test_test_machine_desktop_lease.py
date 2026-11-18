@@ -44,6 +44,7 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
             test_machine="lab",
             settings={"cloud_instance_id": "stopped"},
             actor=SimpleNamespace(session_id="own"),
+            reason="desktop access",
             detail={"active_lease": lease},
         ):
             events.append("desktop")
@@ -71,6 +72,7 @@ def test_foreign_holder_refuses_without_power(monkeypatch):
             test_machine="lab",
             settings={},
             actor=SimpleNamespace(session_id="own"),
+            reason="desktop access",
             detail={"active_lease": {"id": 12, "session_id": "other"}},
         ):
             pytest.fail("desktop opened")
@@ -86,6 +88,7 @@ def test_steering_assistance_leaves_foreign_lease_unchanged(monkeypatch):
         test_machine="lab",
         settings={},
         actor=SimpleNamespace(session_id="own"),
+        reason="desktop access",
         operator_access={"lease_id": 12},
     ):
         pass

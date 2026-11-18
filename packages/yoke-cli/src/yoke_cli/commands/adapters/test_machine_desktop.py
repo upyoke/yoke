@@ -125,6 +125,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
             ),
             settings=route["settings"],
             actor=actor,
+            reason="desktop access",
             operator_access=operator_access,
         ):
             result = open_desktop_access(

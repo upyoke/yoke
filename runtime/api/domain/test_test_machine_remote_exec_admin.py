@@ -8,7 +8,9 @@ import sys
 
 import pytest
 
+from yoke_cli.commands import test_machine_desktop_lease as custody
 from yoke_cli.commands.adapters import test_machine_exec as adapter
+from yoke_core.domain import cloud_machine_power
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_harness import test_machine_admin as admin
 from yoke_harness.test_machine_remote_exec import RemoteExecRefusal, run_remote_command
@@ -29,6 +31,11 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
         adapter, "build_actor", lambda **_: type("Actor", (), {"session_id": "mine"})()
     )
     monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: tmp_path)
+    lease = FunctionCallResponse(
+        success=True, function="lease", version="v1", result={"claim": {"id": 7}}
+    )
+    monkeypatch.setattr(custody, "call_dispatcher", lambda **_: lease)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(
         adapter,
         "call_dispatcher",

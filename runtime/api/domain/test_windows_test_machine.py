@@ -202,10 +202,17 @@ def test_windows_golden_command_forwards_private_ssh_log(tmp_path, monkeypatch):
 
 
 def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
+    from yoke_cli.commands import test_machine_desktop_lease as custody
     from yoke_cli.commands.adapters import test_machine_exec as adapter
     from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain import cloud_machine_power
 
     calls = []
+    lease = FunctionCallResponse(
+        success=True, function="lease", version="v1", result={"claim": {"id": 7}}
+    )
+    monkeypatch.setattr(custody, "call_dispatcher", lambda **kw: lease)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(
         adapter, "build_actor", lambda **kw: SimpleNamespace(session_id="mine")

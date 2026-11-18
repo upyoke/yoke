@@ -134,7 +134,10 @@ older validators reject unknown settings; the CLI names
 
 Power starts the instance without reading or writing the registered host, then
 waits for SSH on MagicDNS. Last release stops EC2 or **deallocates** Azure under
-the host's lease; a reserved waiter's turn keeps it running. EC2 uses auto-assigned
+the host's lease; a reserved waiter's turn keeps it running.
+`yoke test-machine exec`, desktop access and browser authorization each take
+the host's lease for their duration (or borrow the caller's own), power a
+stopped host on, and release afterwards; a foreign lease refuses them. EC2 uses auto-assigned
 public IPv4 while running; no Elastic IP. Azure keeps the private subnet: its
 sole NIC IP configuration receives a Standard public IP named `VM-yoke-power`
 created on start, detached/deleted after deallocation, supplying outbound access.

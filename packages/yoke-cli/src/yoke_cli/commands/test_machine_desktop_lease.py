@@ -1,4 +1,8 @@
-"""Hold a desktop command's host custody before starting its cloud machine."""
+"""Hold a host command's lease before starting its cloud machine.
+
+Desktop access, browser sign-in and ``yoke test-machine exec`` share this one
+lease-then-power-on path; releasing the last lease stops the cloud machine.
+"""
 
 from contextlib import contextmanager
 
@@ -29,7 +33,14 @@ def _call(function, payload, actor):
 
 @contextmanager
 def desktop_lease(
-    *, project, test_machine, settings, actor, detail=None, operator_access=None
+    *,
+    project,
+    test_machine,
+    settings,
+    actor,
+    reason,
+    detail=None,
+    operator_access=None,
 ):
     """Borrow the caller's lease or an authorized assist; release only our own."""
     claim_id = None
@@ -52,7 +63,7 @@ def desktop_lease(
                 {
                     "project_id": project,
                     "key": f"QA_HOST:{test_machine}",
-                    "reason": "desktop access and browser sign-in",
+                    "reason": reason,
                 },
                 actor,
             )["claim"]["id"]
@@ -60,13 +71,13 @@ def desktop_lease(
         try:
             _power().power_on(project, settings)
         except Exception as exc:
-            code, message, recovery = host_control_failure(exc, phase="desktop_power")
+            code, message, recovery = host_control_failure(exc, phase="lease_power_on")
             raise RuntimeError(f"{code}: {message}. {recovery}") from exc
         yield
     finally:
         if claim_id is not None:
             _call(
                 "claims.coordination_claim.release",
-                {"claim_id": claim_id, "reason": "desktop command finished"},
+                {"claim_id": claim_id, "reason": f"finished: {reason}"},
                 actor,
             )
