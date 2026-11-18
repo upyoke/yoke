@@ -81,7 +81,8 @@ with URL-encoded release and filename segments (including `%2B` for `+`).
 The relay installs a newly served release in the background and keeps
 polling and claiming wakes on its current release until the install verifies;
 relay status shows the install in flight with its served build, start time and
-elapsed time. A fetch failure preserves the prior release and records its named
+elapsed time, and the relay log records the install's start and outcome with
+the polls completed while it ran. A fetch failure preserves the prior release and records its named
 cause and recovery in relay status. The relay does not retry the same served
 build; a newer served build or `yoke relay install` starts the next attempt.
 Repair that cause before reinstalling; an HTTP 403

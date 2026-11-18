@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 import sys
 import threading
@@ -115,3 +116,41 @@ def test_relay_status_shows_the_install_in_flight_and_the_last_failure(
     assert fields["Last release install failure"].startswith(
         "0.2.0.202611180002: relay_release_fetch_failed at "
     )
+
+
+def test_install_log_counts_polls_completed_while_it_ran(tmp_path, caplog) -> None:
+    finish = threading.Event()
+    cycles: list[int] = []
+    replacement = tmp_path / "venv" / "bin" / "yoke"
+
+    def pin(build: str, **_kwargs):
+        assert finish.wait(10)
+        return replacement
+
+    def cycle(**_kwargs) -> ServeOnceOutcome:
+        cycles.append(1)
+        if len(cycles) == 4:
+            finish.set()
+            time.sleep(0.1)
+        control_plane_payload.observe_server_build("0.2.0.202611180002")
+        return ServeOnceOutcome("active", 1)
+
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_release_pin")
+    outcome = serve_forever(
+        state_dir=tmp_path,
+        cycle=cycle,
+        idle_tick_seconds=0.01,
+        install_signals=False,
+        pinned_release="0.2.0.202611180001",
+        pin_served_release=pin,
+        reload_exec=lambda argv=None, **_kw: None,
+    )
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert outcome.reason == "served_build_changed"
+    assert any("install started for 0.2.0.202611180002" in line for line in messages)
+    verified = [line for line in messages if "install verified" in line]
+    assert len(verified) == 1 and "outcome=switching" in verified[0]
+    polls = int(verified[0].split("polls_during_install=")[1].split()[0])
+    assert polls >= 2
+    assert "release_pin" not in observe_relay_health(tmp_path)

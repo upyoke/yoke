@@ -15,9 +15,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import subprocess
 import threading
+import time
 from typing import Any
 
 from yoke_contracts.timestamps import iso8601_now, parse_instant, utc_now
@@ -25,6 +27,8 @@ from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_health import _LOCK, _health_path, _load, _write
 
 RELEASE_PIN_CANCELLED = "relay_release_install_cancelled"
+
+_LOGGER = logging.getLogger(__name__)
 
 # Longest a stopping daemon waits for a killed install to remove its candidate.
 # A candidate left behind is pruned by the next verified install.
@@ -103,6 +107,8 @@ class _Attempt:
     served_build: str
     runner: InterruptibleRunner
     thread: threading.Thread
+    started: float = 0.0
+    polls: int = 0
     replacement: Path | None = None
     error: BaseException | None = None
 
@@ -134,7 +140,9 @@ class ReleasePinner:
             or self._attempt is not None
         ):
             return
-        attempt = _Attempt(served_build, InterruptibleRunner(), threading.Thread())
+        attempt = _Attempt(
+            served_build, InterruptibleRunner(), threading.Thread(), time.monotonic()
+        )
         attempt.thread = threading.Thread(
             target=self._run,
             args=(attempt,),
@@ -143,14 +151,33 @@ class ReleasePinner:
         )
         self._attempt = attempt
         record_release_pin_started(self._state_dir, served_build)
+        _LOGGER.warning(
+            "%s relay release install started for %s; "
+            "class=relay_release_install outcome=installing",
+            iso8601_now(),
+            served_build,
+        )
         attempt.thread.start()
 
     def settle(self) -> Path | None:
         """Return the replacement once a pin succeeds; record a failure once."""
         attempt = self._attempt
-        if attempt is None or attempt.thread.is_alive():
+        if attempt is None:
+            return None
+        if attempt.thread.is_alive():
+            attempt.polls += 1
             return None
         self._attempt = None
+        _LOGGER.warning(
+            "%s relay release install %s for %s; class=relay_release_install "
+            "elapsed_seconds=%.1f polls_during_install=%d outcome=%s",
+            iso8601_now(),
+            "failed" if attempt.error is not None else "verified",
+            attempt.served_build,
+            time.monotonic() - attempt.started,
+            attempt.polls,
+            "kept_prior_release" if attempt.error is not None else "switching",
+        )
         if attempt.error is not None:
             exc = attempt.error
             code = str(getattr(exc, "code", "") or "release_pin_failed")
