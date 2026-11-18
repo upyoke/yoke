@@ -3,7 +3,8 @@
 A run row appears with the checklist's first write, so the module once
 activated — and printed its execution-ready sentence — over a run blocked at
 its first hosting step. These drive the handler against real checklist runs:
-only a checklist with nothing open activates, and the reported facts name the
+only a run whose first item is done activates, Overview counts only the rows
+it can check (never machine rows), and the reported facts name the
 blocker, the next step, and the outcomes the universe can actually show. A
 project that deployed is past onboarding whatever its checklist says: its run
 is closed as superseded on the row itself, naming the deployment.
@@ -11,7 +12,7 @@ is closed as superseded on the row itself, naming the deployment.
 
 from __future__ import annotations
 
-from runtime.api.fixtures.backlog_inserts import insert_deployment_run
+from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
 
 from uuid import uuid4
 
@@ -23,7 +24,9 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.onboard_checklist import (
     BRANCH_LOCAL_CHECKOUT,
     FIRST_ITEM_DONE_ROW_ID,
+    MACHINE_ROW_IDS,
     ROW_IDS,
+    ROW_SPECS,
     STATUS_BLOCKED,
     STATUS_VERIFIED,
 )
@@ -31,6 +34,7 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers.overview_activation import (
     handle_overview_activation_get,
 )
+from yoke_core.domain.overview_onboard_progress import UNCHECKED_ROW_IDS
 from yoke_core.domain.project_onboarding_run_supersede import (
     SUPERSEDED_BY_KEY,
 )
@@ -39,6 +43,8 @@ from yoke_core.domain.project_onboarding_runs import get_run, init_run
 HOSTING_ROW_ID = "hosting-setup"
 SCAFFOLD_ROW_ID = "scaffold-install"
 BLOCKER_TEXT = "aws-admin capability row absent"
+CHECKED_ROW_IDS = [row_id for row_id in ROW_IDS if row_id not in UNCHECKED_ROW_IDS]
+MACHINE_STEPS = {spec.step for spec in ROW_SPECS if spec.row_id in MACHINE_ROW_IDS}
 
 
 def _onboard(actor_id=None):
@@ -96,9 +102,32 @@ def test_saved_completion_does_not_activate_current_readiness(test_db):
     _seed_run(test_db, "saved-done", row_status=_finished_statuses())
     module = _onboard()
     assert module["state"] != "activated"
+    assert module["onboard"]["run_status"] == "open"
     assert module["onboard"]["setup_readiness"]["ready"] is False
-    assert module["onboard"]["next"] == {"step": "1", "title": "Package install"}
+    assert module["onboard"]["next"]["step"] not in MACHINE_STEPS
     assert module["onboard"]["scaffold_installed"] is False
+
+
+def test_first_item_done_completes_without_machine_observations(test_db):
+    insert_item(test_db, id=41, status="done", workflow_id="dash")
+    _seed_run(test_db, "first-done", row_status=_finished_statuses())
+    module = _onboard()
+    onboard = module["onboard"]
+    assert onboard["run_status"] == "complete"
+    assert module["state"] == "activated"
+    assert onboard["next"] is None
+    assert onboard["steps_total"] == len(CHECKED_ROW_IDS)
+
+
+def test_first_item_pending_stays_open_and_never_names_a_machine_row(test_db):
+    insert_item(test_db, id=41, status="implementing", workflow_id="dash")
+    _seed_run(test_db, "first-pending", row_status=_finished_statuses())
+    onboard = _onboard()["onboard"]
+    assert onboard["run_status"] == "open"
+    assert onboard["next"] is not None
+    assert onboard["next"]["step"] not in MACHINE_STEPS
+    assert onboard["steps_total"] == len(CHECKED_ROW_IDS)
+    assert onboard["steps_done"] < onboard["steps_total"]
 
 
 def test_overview_uses_the_same_refreshed_rows_as_checklist(test_db):
@@ -106,7 +135,9 @@ def test_overview_uses_the_same_refreshed_rows_as_checklist(test_db):
     current = get_run("saved-choice", conn=test_db)
     overview = _onboard()["onboard"]
     assert overview["setup_readiness"] == current["setup_readiness"]
-    assert overview["steps_total"] == len(current["rows"])
+    assert overview["steps_total"] == len(
+        [row for row in current["rows"] if row["row_id"] not in UNCHECKED_ROW_IDS]
+    )
     assert overview["steps_done"] < overview["steps_total"]
 
 
@@ -195,7 +226,7 @@ def test_superseded_old_checklist_needs_no_current_rows(test_db):
     progress = module["onboard"]
     assert module["state"] == "activated"
     assert progress["run_status"] == "superseded"
-    assert progress["steps_total"] == len(ROW_IDS)
+    assert progress["steps_total"] == len(CHECKED_ROW_IDS)
     assert progress["setup_readiness"]["ready"] is False
     assert progress["next"] is None
     assert progress["blocker"] is None
@@ -217,7 +248,7 @@ def test_active_legacy_checklist_reads_with_current_rows(test_db):
         ("incomplete-checklist", SCAFFOLD_ROW_ID),
     )
     test_db.commit()
-    assert _onboard()["onboard"]["steps_total"] == len(ROW_IDS)
+    assert _onboard()["onboard"]["steps_total"] == len(CHECKED_ROW_IDS)
 
 
 def test_unreadable_checklist_degrades_only_onboarding_module(test_db):

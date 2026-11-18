@@ -1,5 +1,11 @@
 """Refresh checklist facts for Overview without treating saved choices as checks.
 
+Overview reads a run with no machine and no install permission, so it can
+check only the project rows: machine rows and ``project-permission`` read
+``unknown`` there whatever the operator's machine says. The card counts and
+names only the rows it can check, and completes when the project's first
+item is done.
+
 Deployment supersession records that a project already reached delivery. It
 remains separate from current setup_readiness, which requires fresh facts.
 """
@@ -9,6 +15,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_contracts.onboard_checklist import (
+    FIRST_ITEM_DONE_ROW_ID,
+    MACHINE_ROW_IDS,
     STATUS_BLOCKED,
     STATUS_CONFIGURED,
     STATUS_VERIFIED,
@@ -19,6 +27,7 @@ from yoke_core.domain.project_onboarding_run_supersede import (
     supersede_overtaken_runs,
     superseded_by,
 )
+from yoke_core.domain.project_onboarding_next_action import select_next_action
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_onboarding_runs import (
     ProjectOnboardingRunError,
@@ -31,6 +40,10 @@ ENVIRONMENTS_TABLE = "environments"
 STRATEGY_DOCS_TABLE = "strategy_docs"
 
 SCAFFOLD_ROW_ID = "scaffold-install"
+
+#: Rows Overview cannot check: it holds no machine observations and no
+#: install permission, so these read ``unknown`` there, never as progress.
+UNCHECKED_ROW_IDS = MACHINE_ROW_IDS | {"project-permission"}
 
 #: Scaffold-row statuses that mean a Pack was actually installed. The mapped
 #: existing-app ending writes ``not-needed`` instead, and claiming an install
@@ -65,29 +78,34 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     except ProjectOnboardingRunError as exc:
         return {"error": {"code": str(exc).partition(":")[0], "message": str(exc)}}
     rows = current["rows"]
-    open_rows = [row for row in rows if row["status"] not in TERMINAL_STATUSES]
-    blocked = [row for row in rows if row["status"] == STATUS_BLOCKED]
+    checked = [row for row in rows if row["row_id"] not in UNCHECKED_ROW_IDS]
+    open_rows = [row for row in checked if row["status"] not in TERMINAL_STATUSES]
+    blocked = [row for row in checked if row["status"] == STATUS_BLOCKED]
     superseded = superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
-    action = current["next_action"]
+    status = RUN_STATUS_SUPERSEDED if superseded else _run_status(rows, blocked)
+    # Readiness over the checked rows only: the selector returns any unmet
+    # required checked row before it offers the first item.
+    action = (
+        select_next_action(checked, {"ready": True})
+        if status in (RUN_STATUS_OPEN, RUN_STATUS_BLOCKED)
+        else None
+    )
     return {
-        "run_status": (
-            RUN_STATUS_SUPERSEDED
-            if superseded
-            else _run_status(rows, open_rows, blocked)
-        ),
+        "run_status": status,
         "superseded_by": superseded,
         "setup_readiness": current["setup_readiness"],
-        "steps_done": len(rows) - len(open_rows),
-        "steps_total": len(rows),
-        # A superseded run has nothing next: its project moved on to delivery.
+        "steps_done": len(checked) - len(open_rows),
+        "steps_total": len(checked),
+        # A finished run has nothing next: its first item is done, or its
+        # project moved on to delivery.
         "next": (
             {
                 "step": next(
-                    row["step"] for row in rows if row["row_id"] == action["row_id"]
+                    row["step"] for row in checked if row["row_id"] == action["row_id"]
                 ),
                 "title": action["title"],
             }
-            if action and not superseded
+            if action
             else None
         ),
         "blocker": _blocker(blocked[0]) if blocked and not superseded else None,
@@ -104,21 +122,24 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
 def run_is_complete(progress: Optional[Mapping[str, Any]]) -> bool:
     """Whether *progress* describes a finished checklist.
 
-    Finished means nothing left open, or a run its project's deployments
-    superseded.
+    Finished means the project's first item is done, or a run its project's
+    deployments superseded.
     """
     return bool(progress) and progress.get("run_status") in FINISHED_RUN_STATUSES
 
 
 def _run_status(
     rows: List[Dict[str, str]],
-    open_rows: List[Dict[str, str]],
     blocked: List[Dict[str, str]],
 ) -> str:
-    """A run with no rows at all is open, never complete by vacuum."""
+    """Complete when the first item is done; a blocker outranks completion."""
     if blocked:
         return RUN_STATUS_BLOCKED
-    return RUN_STATUS_COMPLETE if rows and not open_rows else RUN_STATUS_OPEN
+    first_item_done = any(
+        row["row_id"] == FIRST_ITEM_DONE_ROW_ID and row["status"] == STATUS_VERIFIED
+        for row in rows
+    )
+    return RUN_STATUS_COMPLETE if first_item_done else RUN_STATUS_OPEN
 
 
 def _step(row: Mapping[str, str]) -> Dict[str, str]:
@@ -162,6 +183,7 @@ __all__ = [
     "SCAFFOLD_INSTALLED_STATUSES",
     "SCAFFOLD_ROW_ID",
     "STRATEGY_DOCS_TABLE",
+    "UNCHECKED_ROW_IDS",
     "read_onboard_progress",
     "run_is_complete",
 ]
