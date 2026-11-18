@@ -77,6 +77,7 @@ def _row(monkeypatch, run_id: str) -> dict:
         page_size=10,
         cursor=None,
         actor_id=None,
+        visible_project_ids=None,
     )
     return next(row for row in page["rows"] if row["id"] == run_id)
 

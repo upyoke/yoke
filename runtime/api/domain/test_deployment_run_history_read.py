@@ -207,7 +207,7 @@ def test_history_query_keeps_bound_project_carried_item_routes(monkeypatch):
             "run-20260908-051",
         ),
     )
-    row = _read(conn, search="run-20260908-051")["rows"][0]
+    row = _read(conn, search="run-20260908-051", visible_project_ids={1, 2})["rows"][0]
     assert row["carried_work"]["bound_projects"] == [
         {
             "project_id": 2,

@@ -8,7 +8,6 @@ from typing import Any, Collection, Optional, Sequence
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.deployment_run_project_scope import run_project_scope
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.deployment_run_list_read import present_deployment_runs
@@ -204,11 +203,9 @@ def read_deployment_run_history(
     page_size: int,
     cursor: Optional[str],
     actor_id: Optional[int],
-    visible_project_ids: Optional[set[int]] = None,
+    visible_project_ids: Optional[set[int]],
 ) -> dict[str, Any]:
     """Return complete unfinished runs plus one compact completed page."""
-    if visible_project_ids is None and actor_id is not None:
-        visible_project_ids = actor_visible_project_ids(conn, actor_id)
     if visible_project_ids is not None:
         project_ids = (
             visible_project_ids

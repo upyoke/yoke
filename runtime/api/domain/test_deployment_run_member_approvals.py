@@ -165,6 +165,7 @@ def test_project_selection_includes_mixed_run_with_all_members(test_db):
             page_size=50,
             cursor=None,
             actor_id=None,
+            visible_project_ids={1, platform_id},
         )
         row = next(row for row in history["rows"] if row["id"] == run_id)
         assert {item["id"] for item in row["member_items"]} == {
