@@ -1,9 +1,11 @@
 """Declared merge-queue GitHub config: load and diff.
 
 The repository file ``.yoke/merge-queue.json`` is the operator-edited
-source of truth for the merge-queue ruleset parameters and
-``allow_auto_merge``. Doctor diffs live GitHub state against that file;
-apply lives in :mod:`yoke_core.domain.merge_queue_declaration_apply`.
+source of truth for the merge-queue ruleset parameters,
+``allow_auto_merge`` and, when present, the repository's Actions policies
+(:mod:`yoke_core.domain.actions_policy_declaration`). Doctor diffs live
+GitHub state against that file; apply lives in
+:mod:`yoke_core.domain.merge_queue_declaration_apply`.
 """
 
 from __future__ import annotations
@@ -15,6 +17,11 @@ from typing import Any, Mapping, Optional, Sequence
 from yoke_contracts.project_contract.merge_queue import (
     DECLARATION_RELATIVE_PATH,
     DECLARATION_SCHEMA,
+)
+from yoke_core.domain.actions_policy_declaration import (
+    ACTIONS_POLICIES_KEY,
+    ActionsPolicyDeclarationError,
+    validate_actions_policies,
 )
 
 _RULESET_BODY_KEYS = (
@@ -89,7 +96,15 @@ def validate_declaration(
         raise MergeQueueDeclarationError(
             f"{source} requires repository.allow_auto_merge"
         )
-    return dict(payload)
+    declared = dict(payload)
+    if ACTIONS_POLICIES_KEY in declared:
+        try:
+            declared[ACTIONS_POLICIES_KEY] = validate_actions_policies(
+                declared[ACTIONS_POLICIES_KEY], source=source,
+            )
+        except ActionsPolicyDeclarationError as exc:
+            raise MergeQueueDeclarationError(str(exc)) from None
+    return declared
 
 
 def _rule_by_type(

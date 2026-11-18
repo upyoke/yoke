@@ -216,10 +216,11 @@ variable and needs only Variables: read.
 write paths: creating a brand-new repository for you during onboarding (**off
 by default**, gated behind an explicit allow flag; otherwise Yoke blocks with
 manual instructions), creating the deployment **environment** on your
-repository for automated deploys (silently skipped if not granted), and applying the declared merge-queue ruleset
-plus ``allow_auto_merge`` from ``.yoke/merge-queue.json`` via
-``yoke github merge-queue apply`` (fails closed when Administration is
-absent). Doctor also needs Administration: write to read the full declared
+repository for automated deploys (silently skipped if not granted), and applying the declared merge-queue ruleset,
+``allow_auto_merge`` and any declared ``actions_policies`` from
+``.yoke/merge-queue.json`` via ``yoke github merge-queue apply`` (fails
+closed when Administration is absent; a refused Actions policy read or write
+names this grant). Doctor also needs Administration: write to read the full declared
 queue settings: GitHub hides bypass actors without this authority even on
 GET requests. Doctor remains read-only; hidden auto-merge or bypass fields
 fail as unreadable with an access recovery, rather than as drift or a pass.

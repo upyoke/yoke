@@ -1,0 +1,10 @@
+{
+ "id": "actions-policies",
+ "title": "Declared Actions policies",
+ "status": "observed",
+ "summary": "An actions_policies list in .yoke/merge-queue.json hands the repository's own GitHub Actions policies to the declaration: merge-queue apply creates or updates each by name and deletes undeclared repository policies, and Doctor reports the differences as drift. Without the key Yoke leaves them alone. A public repository whose required check runs on pull_request_target declares an event policy scoped to that one workflow, because GitHub blocks the event by default and the check would never report.",
+ "sources": ["docs/public/github/merge-queue-landings.md", "packages/yoke-core/src/yoke_core/domain/actions_policy_declaration.py", "packages/yoke-core/src/yoke_core/domain/actions_policy_apply.py", "runtime/api/test_actions_policy_declaration.py", "runtime/api/test_actions_policy_apply.py"],
+ "related": "merging/landing",
+ "page": "repositories",
+ "position": 5
+}

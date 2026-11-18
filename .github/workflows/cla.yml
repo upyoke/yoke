@@ -27,6 +27,12 @@ name: cla
 # pull_request_target runs the base branch's workflow definition with write
 # permissions. This job never checks out or executes pull-request code, so
 # that elevation is safe here.
+#
+# GitHub blocks pull_request_target in public repositories unless an Actions
+# event policy allows it. The `cla-pull-request-target` policy in
+# .yoke/merge-queue.json allows it for this workflow alone, applied with
+# `yoke github merge-queue apply`. If this workflow gains an event, add it to
+# that policy's allowed_events too.
 
 on:
   issue_comment:

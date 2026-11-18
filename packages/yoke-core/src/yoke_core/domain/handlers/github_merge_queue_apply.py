@@ -2,7 +2,9 @@
 
 Reads the landed gate declaration, checks any transported content matches,
 and idempotently PUTs the ruleset plus
-``allow_auto_merge`` onto the project's bound GitHub repository. Requires
+``allow_auto_merge`` onto the project's bound GitHub repository. A
+declaration naming ``actions_policies`` also converges every
+repository-level Actions policy onto that list. Requires
 Administration: write on the App (privileged opt-in), matching environment
 create.
 """
@@ -60,6 +62,10 @@ class MergeQueueApplyResponse(BaseModel):
     changed: bool
     drift_before: List[str] = Field(default_factory=list)
     remaining_drift: List[str] = Field(default_factory=list)
+    actions_policies_managed: bool = Field(
+        False,
+        description="Whether the declaration owns the repository's Actions policies.",
+    )
 
 
 def handle_merge_queue_apply(request: FunctionCallRequest) -> HandlerOutcome:
