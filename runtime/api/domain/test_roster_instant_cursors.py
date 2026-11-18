@@ -102,6 +102,7 @@ def test_native_pages_preserve_exact_ties_and_nullable_review_order(
             page_size=1,
             cursor=cursor,
             actor_id=None,
+            visible_project_ids=None,
         )
         rows.extend(page["rows"])
         cursor = page["next_cursor"]

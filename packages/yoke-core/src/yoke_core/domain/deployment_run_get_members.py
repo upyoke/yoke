@@ -37,7 +37,9 @@ def run_lineage(run_id: str) -> dict[str, Any]:
     return {name: row[name] for name in LINEAGE_RUN_FIELDS}
 
 
-def run_membership(run_id: str) -> dict[str, list[dict[str, Any]]]:
+def run_membership(
+    run_id: str, *, visible: set[int] | None = None
+) -> dict[str, list[dict[str, Any]]]:
     """Attached members without the removed ones, and every recorded removal."""
     conn = connect()
     try:
@@ -48,11 +50,15 @@ def run_membership(run_id: str) -> dict[str, list[dict[str, Any]]]:
         ).fetchone()
         if row is None:
             raise LookupError(f"deployment run '{run_id}' not found")
-        removed = removed_member_items(conn, [dict(row)]).get(run_id, [])
+        removed = removed_member_items(
+            conn, [dict(row)], visible_project_ids=visible
+        ).get(run_id, [])
         excluded = {entry["id"] for entry in removed}
         members = [
             member
-            for member in _member_items(conn, [run_id]).get(run_id, [])
+            for member in _member_items(
+                conn, [run_id], visible_project_ids=visible
+            ).get(run_id, [])
             if member["id"] not in excluded
         ]
         return {"member_items": members, "membership_removals": removed}

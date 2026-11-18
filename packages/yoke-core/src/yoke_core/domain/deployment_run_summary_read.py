@@ -9,6 +9,7 @@ from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.db_helpers import connect, instant_parameter
 from yoke_core.domain.deployment_run_history_read import decode_cursor, encode_cursor
 from yoke_core.domain.deployment_run_project_scope import run_project_scope
+from yoke_core.domain.deployment_run_project_presentation import scope_run_fields
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.json_helper import dumps_pretty
 
@@ -86,7 +87,7 @@ def list_run_summaries(
             params.extend([value, value, run_id])
         where = "WHERE " + " AND ".join(clauses) if clauses else ""
         rows = conn.execute(
-            "SELECT dr.id, p.slug AS project, dr.flow, e.name AS target_environment, "
+            "SELECT dr.id, dr.project_id, p.slug AS project, dr.flow, e.name AS target_environment, "
             "dr.status, dr.current_stage, dr.created_at, dr.release_lineage "
             "FROM deployment_runs dr JOIN projects p ON p.id = dr.project_id "
             "LEFT JOIN environments e ON e.id = dr.target_environment_id "
@@ -95,6 +96,8 @@ def list_run_summaries(
         ).fetchall()
         projected = [dict(row) for row in rows]
         for row in projected:
+            scope_run_fields(row, visible)
+            row.pop("project_id", None)
             row["created_at"] = format_instant(row["created_at"])
         return summary_page(projected, limit)
     finally:

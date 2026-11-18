@@ -96,11 +96,16 @@ def test_member_closure_is_explicit_and_preserves_the_diagnostic(monkeypatch):
     monkeypatch.setattr(
         deployment_run_get_members,
         "run_membership",
-        lambda _: {"member_items": [], "membership_removals": []},
+        lambda _, *, visible: {"member_items": [], "membership_removals": []},
     )
-    monkeypatch.setattr(deployment_run_get_members, "run_lineage", lambda _: {
-        "supersedes_run_id": None, "superseded_by_run_id": None,
-    })
+    monkeypatch.setattr(
+        deployment_run_get_members,
+        "run_lineage",
+        lambda _: {
+            "supersedes_run_id": None,
+            "superseded_by_run_id": None,
+        },
+    )
     monkeypatch.setattr(deployment_run_get_members, "live_carried_work", lambda _: {})
     outcome = handle_deployment_run_get(
         deployment_request(
@@ -111,7 +116,7 @@ def test_member_closure_is_explicit_and_preserves_the_diagnostic(monkeypatch):
     )
     assert outcome.primary_success
     assert outcome.result_payload["member_closure"] == diagnostic
-    read.assert_called_once_with(RUN)
+    read.assert_called_once_with(RUN, visible_item_ids=None)
 
 
 def test_retry_lineage_deadline_refuses_instead_of_skipping_the_guard(monkeypatch):

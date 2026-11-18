@@ -116,6 +116,7 @@ def _read(conn, **overrides):
         "page_size": 50,
         "cursor": None,
         "actor_id": 7,
+        "visible_project_ids": {1},
     }
     options.update(overrides)
     return read_deployment_run_history(conn, **options)

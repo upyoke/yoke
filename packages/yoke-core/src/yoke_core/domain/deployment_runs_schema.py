@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from yoke_core.domain import db_backend
+from yoke_core.domain.schema_common import _column_exists
+
 from yoke_core.domain.deployment_run_pipe_format import pipe_row, pipe_rows
 from yoke_core.domain.runs import RunStatus
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
@@ -125,3 +130,54 @@ def _run_named_columns(
         )
     )
     return columns, env_join
+
+
+def history_run_columns(conn: Any) -> tuple[str, str]:
+    def column(name: str) -> str:
+        return f"dr.{name}" if _column_exists(conn, "deployment_runs", name) else "NULL"
+
+    if _column_exists(conn, "deployment_runs", "target_environment_id"):
+        environment = "e.name"
+        environment_join = (
+            " LEFT JOIN environments e ON e.id = dr.target_environment_id"
+        )
+    else:
+        environment = "NULL"
+        environment_join = ""
+    sources = (
+        bound_sources_column("dr", include_preparation_receipt=False)
+        if db_backend.connection_is_postgres(conn)
+        and _column_exists(conn, "deployment_runs", "bound_sources")
+        else f"{column('bound_sources')} AS bound_sources"
+    )
+    fields = ", ".join(
+        (
+            "dr.id",
+            "dr.project_id",
+            "p.slug AS project",
+            "dr.flow",
+            "df.name AS flow_name",
+            f"{column('target_tier')} AS target_tier",
+            f"{environment} AS target_environment",
+            "dr.status",
+            f"{column('current_stage')} AS current_stage",
+            "dr.created_at",
+            f"{column('started_at')} AS started_at",
+            f"{column('completed_at')} AS completed_at",
+            f"{column('carried_work')} AS carried_work",
+            sources,
+            f"{column('candidate_containment')} AS candidate_containment",
+            f"{column('membership_removals')} AS membership_removals",
+            # The identity a run froze. Without these three scalars a reader
+            # cannot tell whether evidence still answers for the run.
+            f"{column('release_lineage')} AS release_lineage",
+            f"{column('artifact_identity')} AS artifact_identity",
+            f"{column('composition_frozen_at')} AS composition_frozen_at",
+            "df.stages",
+        )
+    )
+    joins = (
+        " FROM deployment_runs dr JOIN projects p ON p.id = dr.project_id "
+        "JOIN deployment_flows df ON df.id = dr.flow" + environment_join
+    )
+    return fields, joins
