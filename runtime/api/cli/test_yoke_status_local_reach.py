@@ -52,3 +52,18 @@ def test_inside_a_project_status_names_it() -> None:
         )
     )
     assert "  project: id=1 scope=1 board=/r/BOARD.md" in text
+
+
+def test_a_selfhost_status_identity_line_names_no_portability_mode() -> None:
+    from yoke_contracts.runtime_identity import with_runtime_identity
+
+    report = _report(
+        {"env": "selfhost-lab", "transport": "https", "authority_kind": "selfhost"}
+    )
+    report["install"] = {"kind": "wheel", "version": "1.2.3"}
+    text = render_human(with_runtime_identity(report))
+    identity_line = next(
+        line for line in text.splitlines() if line.startswith("  identity: ")
+    )
+    assert "mode=" not in identity_line
+    assert "env=selfhost-lab transport=https" in text
