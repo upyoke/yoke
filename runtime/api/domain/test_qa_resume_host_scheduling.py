@@ -29,6 +29,9 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
         "yoke_core.domain.qa_resume_machine.execution_machine", lambda *a: retained
     )
     monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_host_leases.execution_host_leases", lambda *a: []
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.get_claim",
         lambda *a: SimpleNamespace(target=SimpleNamespace(test_machine="test-mac")),
     )
@@ -63,6 +66,9 @@ def test_resumed_single_platform_keeps_live_lease(monkeypatch):
     case = {"project": "example", "method_config": {"os": "linux"}}
     monkeypatch.setattr(
         "yoke_core.domain.qa_resume_machine.execution_machine", lambda *a: "linux-lab"
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_host_leases.execution_host_leases", lambda *a: []
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.get_claim",
@@ -119,7 +125,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         advance_plan_execution,
         finish_plan_execution,
     )
-    from yoke_core.domain.qa_host_turns import record_host_wait
+    from yoke_core.domain.qa_host_set_turns import record_host_wait
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
     from runtime.api.domain.machine_qa_session_seed import seed_qa_session

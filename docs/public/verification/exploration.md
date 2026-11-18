@@ -81,8 +81,9 @@ For a mission that needs two hosts at once, also declare
 driving host. Every name must be registered and listed once. Each host uses its
 registered OS; the declared case platform must match at least one host in the
 set. Platform words in instructions do not constrain the host set. The plan runner
-acquires the complete set in sorted name order through each host's FIFO;
-contention releases partial acquisitions before waiting. Both leases remain
+acquires the complete set in sorted name order through each host's FIFO,
+only once every host is free or reserved for it; otherwise it waits on every
+host at one queue place. Both leases remain
 held and heartbeated through the walk and independent review. Mission access
 refuses if either lease has been lost; completion or abort releases both.
 

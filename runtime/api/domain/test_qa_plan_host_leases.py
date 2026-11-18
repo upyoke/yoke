@@ -54,35 +54,6 @@ def test_case_holds_both_hosts_and_releases_them_after_completion(
     )
 
 
-def test_partial_acquisition_releases_first_host_and_queues_second(
-    test_db, tmp_path, monkeypatch
-):
-    _seed(test_db, tmp_path, monkeypatch, simultaneous=True, driver=MACHINES[1])
-    seed_qa_session(test_db, SESSION, "busy-host", messageable=True)
-    held = acquire(test_db, make_qa_admission_target(MACHINES[1]), "busy-host")
-    execution = _begin(test_db)
-    response = _case_begin(execution)
-    assert response.primary_success, response.error
-    assert response.result_payload["state"] == "waiting"
-    assert response.result_payload["host_wait"]["test_machine"] == MACHINES[1]
-    assert not execution_host_leases(test_db, execution)
-    assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL AND target_kind='qa_admission'"
-        ).fetchone()[0]
-        == 1
-    )
-    release(test_db, held.id, "ready")
-    resumed = _begin(test_db)
-    assert resumed["id"] == execution["id"]
-    response = _case_begin(resumed)
-    assert response.primary_success, response.error
-    leases = execution_host_leases(test_db, resumed)
-    assert [claim.target.test_machine for claim in leases] == list(MACHINES)
-    # Consuming one FIFO reservation must not cancel the companion host.
-    assert all(claim.is_active for claim in leases)
-
-
 def test_mission_review_retains_and_heartbeats_every_host(
     test_db, tmp_path, monkeypatch
 ):

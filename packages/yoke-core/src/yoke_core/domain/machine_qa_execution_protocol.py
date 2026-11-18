@@ -56,11 +56,14 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
         lease: CoordinationClaim,
         test_machine: str,
         contention: ClaimContention | None = None,
+        test_machines: tuple[str, ...] = (),
     ) -> None:
         super().__init__(held_host(lease, test_machine))
         self.lease = lease
         self.test_machine = test_machine
         self.contention = contention
+        #: Every host the refused case needs; its plan waits on all of them.
+        self.test_machines = test_machines
 
 
 class _CommitDeferredConnection:

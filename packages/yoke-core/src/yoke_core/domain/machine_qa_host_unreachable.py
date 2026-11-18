@@ -84,7 +84,7 @@ def wait_if_host_unreachable(
     )
     from yoke_contracts.timestamps import format_instant
     from yoke_core.domain.qa_host_health import unhealthy_rationale
-    from yoke_core.domain.qa_host_turns import record_host_wait
+    from yoke_core.domain.qa_host_set_turns import record_host_wait
 
     test_machine = contract.settings["resource_name"]
     recorded = record_test_machine_verification(

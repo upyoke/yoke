@@ -8,7 +8,8 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_host_turn_inheritance import inherited_host_place
-from yoke_core.domain.qa_host_turns import host_line, join_host_line, record_host_wait
+from yoke_core.domain.qa_host_set_turns import record_host_wait
+from yoke_core.domain.qa_host_turns import host_line, join_host_line
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 MACHINE = "test-mac"

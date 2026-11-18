@@ -6,7 +6,9 @@ it for the oldest live waiter and wakes that session, and the waiter's next
 acquire consumes the reservation. Scoped QA plan executions and manual
 acquires share one line, ordered by when each session first queued; a
 walk recovering an aborted shared walk takes that walk's place
-(``qa_host_turn_inheritance``).
+(``qa_host_turn_inheritance``). A plan execution waits on every host of its
+case at one place, and an unconsumed reservation passes to an older waiter
+that joins later (``qa_host_set_turns``).
 """
 
 from __future__ import annotations
@@ -76,7 +78,7 @@ def host_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
         "SELECT w.* FROM qa_test_machine_waits w JOIN harness_sessions s "
         "ON s.session_id=w.session_id "
         f"WHERE w.test_machine={_p(conn)} AND w.state='waiting' AND s.ended_at IS NULL "
-        "ORDER BY w.queued_at, w.id",
+        "ORDER BY w.queued_at, COALESCE(w.qa_plan_execution_id, w.session_id), w.id",
         (test_machine,),
     )
     return [dict(row) for row in rows]
@@ -112,7 +114,10 @@ def join_host_line(
     execution_id: str | None = None,
     queued_at: Any = None,
 ) -> dict[str, Any]:
-    """Queue *session_id* at *queued_at* or now; a queued session keeps its place."""
+    """Queue *session_id* at *queued_at* or now; a queued session keeps its place.
+
+    A live wait moves only earlier, to a *queued_at* before its own.
+    """
     p = _p(conn)
     test_machine = str(target.test_machine)
     lock_host_turn(conn, target)
@@ -146,12 +151,20 @@ def join_host_line(
             f"qa_plan_execution_id=COALESCE({p},qa_plan_execution_id) WHERE id={p}",
             (resume_command, rationale, execution_id, wait_id),
         )
+        if queued_at is not None:
+            place = instant_parameter(conn, queued_at)
+            conn.execute(
+                f"UPDATE qa_test_machine_waits SET queued_at={p} "
+                f"WHERE id={p} AND queued_at>{p}",
+                (place, wait_id, place),
+            )
     return host_wait_view(conn, wait_id)
 
 
 def reserve_host_turn(conn: Any, target: Any) -> None:
     """Reserve a free, healthy host for the oldest live waiter.
 
+    A host reserved for a younger waiter passes to the older one first.
     An unhealthy host keeps its line waiting and stays free for the operator
     verify or golden capture that heals it; that operation's release serves
     the line.
@@ -160,8 +173,12 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
         return
     from yoke_core.domain.coordination_claims import active_claim, acquire
     from yoke_core.domain.qa_host_health import host_unhealthy
+    from yoke_core.domain.qa_host_set_turns import pass_to_older_waiter
 
-    if active_claim(conn, target) is not None:
+    held = active_claim(conn, target)
+    if held is not None:
+        # Releasing a passed reservation serves the line through this function.
+        pass_to_older_waiter(conn, held)
         return
     if host_unhealthy(conn, target.test_machine) is not None:
         return
@@ -188,7 +205,11 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
     from yoke_contracts.session_control.models import RecipientSelector
     from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
     from yoke_core.domain.session_message_service import send_message
+    from yoke_core.domain.qa_host_set_turns import awaits_other_hosts
 
+    if awaits_other_hosts(conn, wait):
+        # The reservation that completes the execution's host set wakes it.
+        return
     open_requirement = (
         " The requirement is still open; restore its declared starting state "
         "before walking."
@@ -247,8 +268,10 @@ def cancel_host_waits(
     *,
     session_id: str | None = None,
     execution_ids: Iterable[str] = (),
+    test_machines: Iterable[str] = (),
 ) -> None:
-    """Leave every line the session or executions wait in.
+    """Leave every line the session or executions wait in, or only the
+    lines of *test_machines* when named.
 
     Every matching wait is cancelled before any reservation is released, so
     a released turn never passes to another wait this same call removes.
@@ -264,6 +287,10 @@ def cancel_host_waits(
         params = tuple(executions)
     else:
         return
+    machines = sorted(str(value) for value in test_machines)
+    if machines:
+        where += f" AND test_machine IN ({','.join([p] * len(machines))})"
+        params = (*params, *machines)
     if not _has_line(conn):
         return
     rows = query_rows(
@@ -287,60 +314,3 @@ def cancel_host_waits(
             release(
                 conn, int(row["claim_id"]), HOST_WAIT_CANCELLED_REASON, commit=False
             )
-
-
-def record_host_wait(
-    conn: Any,
-    execution: dict[str, Any],
-    *,
-    test_machine: str,
-    rationale: str,
-    commit: bool = True,
-) -> dict:
-    """Keep the cursor open, queue the execution's session, release its hosts."""
-    from yoke_core.domain.machine_qa_capability import host_claim_target
-    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
-    from yoke_core.domain.qa_host_turn_inheritance import inherited_host_place
-
-    p = _p(conn)
-    execution_id = str(execution["id"])
-    target = host_claim_target(test_machine)
-    moved = query_rows(
-        conn,
-        f"SELECT test_machine FROM qa_test_machine_waits WHERE qa_plan_execution_id={p} "
-        f"AND state IN {_LIVE} AND test_machine<>{p}",
-        (execution_id, test_machine),
-    )
-    machines = {test_machine} | {str(row["test_machine"]) for row in moved}
-    for name in sorted(machines):
-        lock_host_turn(conn, host_claim_target(name))
-    if moved:
-        # One execution waits on one host: moving hosts leaves the old line.
-        cancel_host_waits(conn, execution_ids=[execution_id])
-    # Queue before releasing: release atomically grants the next FIFO turn.
-    wait = join_host_line(
-        conn,
-        target,
-        session_id=str(execution["session_id"]),
-        actor_id=int(execution["actor_id"]),
-        resume_command=_plan_resume_command(conn, execution),
-        rationale=rationale,
-        execution_id=execution_id,
-        queued_at=inherited_host_place(conn, execution, test_machine),
-    )
-    finish_plan_execution(
-        conn,
-        execution,
-        state="waiting",
-        reason=f"waiting for QA host {test_machine}",
-        commit=False,
-    )
-    reserve_host_turn(conn, target)
-    if commit:
-        conn.commit()
-    return {
-        "state": "waiting",
-        "execution_id": execution_id,
-        "cursor_ordinal": int(execution["cursor_ordinal"]),
-        "host_wait": host_wait_view(conn, wait["id"]),
-    }

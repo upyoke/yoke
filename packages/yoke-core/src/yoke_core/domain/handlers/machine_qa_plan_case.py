@@ -115,13 +115,14 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=request.actor.session_id,
             )
         except MachineQaProtocolLeaseHeld as held:
-            from yoke_core.domain.qa_host_turns import record_host_wait
+            from yoke_core.domain.qa_host_set_turns import record_host_wait
 
             waiting = record_host_wait(
                 conn,
                 execution,
                 test_machine=held.test_machine,
                 rationale=f"lease {held.lease.id} held by {held.lease.session_id}",
+                test_machines=held.test_machines,
             )
             contention = held.contention and held.contention.in_line(
                 waiting["host_wait"]
@@ -129,13 +130,14 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             waiting["lease_context"] = waiting_claim_evidence(held.lease, contention)
             return HandlerOutcome(primary_success=True, result_payload=waiting)
         except TestMachineHostUnhealthy as unhealthy:
-            from yoke_core.domain.qa_host_turns import record_host_wait
+            from yoke_core.domain.qa_host_set_turns import record_host_wait
 
             waiting = record_host_wait(
                 conn,
                 execution,
                 test_machine=unhealthy.test_machine,
                 rationale=str(unhealthy),
+                test_machines=unhealthy.test_machines,
             )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
         from yoke_core.domain.qa_plan_execution_reentry import record_case_admitted

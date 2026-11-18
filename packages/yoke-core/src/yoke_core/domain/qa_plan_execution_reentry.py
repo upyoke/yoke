@@ -303,3 +303,11 @@ def heartbeat_checkpoint(execution):
         evidence["case_inflight"] = cursor
     evidence.update(resumed=True, checkin_cursor=cursor)
     return PAUSE_REASON + canonical(evidence)
+
+
+def admitted_case(execution) -> int | None:
+    """The cursor whose host admission this execution last recorded."""
+    reason = str(execution.get("release_reason") or "")
+    if not reason.startswith(PAUSE_REASON):
+        return None
+    return json.loads(reason[len(PAUSE_REASON) :]).get("case_admitted")
