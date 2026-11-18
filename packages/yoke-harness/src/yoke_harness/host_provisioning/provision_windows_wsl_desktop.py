@@ -3,6 +3,8 @@
 xrdp listens on WSL loopback, which Windows localhost forwarding carries to
 127.0.0.1 on the host. A port proxy on the host's Tailscale address forwards
 to it, and one firewall rule admits that port only on the Tailscale interface.
+The proxy binds only while that address exists, and Windows starts IP Helper
+before Tailscale at boot, so a SYSTEM startup task rebinds it once Tailscale is up.
 """
 
 from __future__ import annotations
@@ -158,6 +160,29 @@ def prove_windows_localhost(port: int) -> None:
 
 
 TAILNET_RULE = "YokeWslDesktopTailnet"
+# Runs at every boot: wait for the Tailscale address, then restart IP Helper
+# so the port proxy binds to it if it is not already listening there.
+REBIND_SCRIPT = r"""$port={port}
+function Listening($ip){{ @(Get-NetTCPConnection -State Listen -LocalAddress $ip -LocalPort $port -ErrorAction SilentlyContinue).Count -gt 0 }}
+for($i=0;$i -lt 120;$i++){{
+ $a=@(Get-NetIPAddress -InterfaceAlias Tailscale -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {{$_.IPAddress -like '100.*'}})
+ if($a.Count -eq 1){{
+  if(Listening $a[0].IPAddress){{exit 0}}
+  Restart-Service iphlpsvc -Force; Start-Sleep 5
+  if(Listening $a[0].IPAddress){{exit 0}}
+ }}
+ Start-Sleep 5
+}}
+exit 1
+"""
+
+
+def rebind_argument(port: int) -> str:
+    """The startup task's powershell.exe arguments, compared verbatim on verify."""
+    encoded = base64.b64encode(REBIND_SCRIPT.format(port=port).encode("utf-16-le"))
+    return "-NoProfile -NonInteractive -EncodedCommand " + encoded.decode("ascii")
+
+
 TAILNET_SCRIPT = r"""
 $ErrorActionPreference='Stop'
 $port={port}
@@ -172,14 +197,18 @@ if('{mode}' -eq 'apply'){{
  netsh interface portproxy add v4tov4 listenaddress=$ip listenport=$port connectaddress=127.0.0.1 connectport=$port | Out-Null
  Get-NetFirewallRule -Name {rule} -ErrorAction SilentlyContinue | Remove-NetFirewallRule
  New-NetFirewallRule -Name {rule} -DisplayName 'Yoke WSL desktop (Tailscale only)' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -InterfaceAlias Tailscale -Profile Any | Out-Null
+ $principal=New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+ Register-ScheduledTask -TaskName {rule} -Action (New-ScheduledTaskAction -Execute powershell.exe -Argument '{rebind}') -Trigger (New-ScheduledTaskTrigger -AtStartup) -Principal $principal -Force | Out-Null
 }}
+$task=Get-ScheduledTask -TaskName {rule} -ErrorAction SilentlyContinue
+if(!$task -or $task.State -eq 'Disabled' -or $task.Principal.UserId -notin @('SYSTEM','NT AUTHORITY\SYSTEM') -or @($task.Triggers | Where-Object {{$_.CimClass.CimClassName -eq 'MSFT_TaskBootTrigger'}}).Count -ne 1 -or @($task.Actions).Count -ne 1 -or $task.Actions[0].Arguments -ne '{rebind}'){{throw 'windows_wsl_tailnet_rebind_not_proved: startup task {rule} must rebind the port proxy once Tailscale is up; rerun Pack provisioning'}}
 $proxies=@(netsh interface portproxy show v4tov4 | Select-String "\s$port\s" | ForEach-Object {{,($_.ToString().Trim() -split '\s+')}})
 if($proxies.Count -ne 1 -or $proxies[0][0] -ne $ip -or $proxies[0][2] -ne '127.0.0.1' -or $proxies[0][3] -ne "$port"){{throw "windows_wsl_tailnet_proxy_not_proved: one port proxy must forward $ip`:$port to 127.0.0.1`:$port; rerun Pack provisioning"}}
 $rule=Get-NetFirewallRule -Name {rule} -ErrorAction SilentlyContinue
 $interfaces=@($rule | Get-NetFirewallInterfaceFilter | ForEach-Object InterfaceAlias)
 if(!$rule -or $rule.Enabled -ne 'True' -or $interfaces.Count -ne 1 -or $interfaces[0] -ne 'Tailscale'){{throw 'windows_wsl_tailnet_firewall_not_proved: rule {rule} must admit the port only on the Tailscale interface; rerun Pack provisioning'}}
 $client=[Net.Sockets.TcpClient]::new()
-try{{ if(-not $client.ConnectAsync($ip,$port).Wait(5000) -or -not $client.Connected){{throw "windows_wsl_tailnet_unreachable: $ip`:$port did not accept; inspect the IP Helper service and the port proxy"}} }} finally {{ $client.Dispose() }}
+try{{ if(-not $client.ConnectAsync($ip,$port).Wait(5000) -or -not $client.Connected){{throw "windows_wsl_tailnet_unreachable: $ip`:$port did not accept; run Start-ScheduledTask {rule} as administrator, then inspect the IP Helper service and the port proxy"}} }} finally {{ $client.Dispose() }}
 Write-Output $ip
 """
 
@@ -187,7 +216,10 @@ Write-Output $ip
 def expose_on_tailnet(port: int, *, verify_only: bool) -> str:
     """Return the tailnet address that now reaches the WSL desktop."""
     script = TAILNET_SCRIPT.format(
-        port=port, rule=TAILNET_RULE, mode="verify" if verify_only else "apply"
+        port=port,
+        rule=TAILNET_RULE,
+        mode="verify" if verify_only else "apply",
+        rebind=rebind_argument(port),
     )
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],

@@ -60,10 +60,15 @@ installs the existing Linux desktop packages and proves loopback/localhost
 access. xrdp stays on WSL loopback; on the Windows host the wrapper adds one
 port proxy from the host's Tailscale IPv4 address to `127.0.0.1` on the same
 port and one inbound firewall rule, `YokeWslDesktopTailnet`, admitting that
-port only on the `Tailscale` interface. Its output names the
-`tailnet_listener`; `--verify` proves the proxy, the rule and a connection.
-Run it from the Windows administrator's SSH session so `netsh` and
-`New-NetFirewallRule` can apply. Like the Linux provisioner, it requires `--browser-project` and
+port only on the `Tailscale` interface. The proxy binds only while that
+address exists, and Windows starts IP Helper before Tailscale at boot, so the
+wrapper also registers the SYSTEM startup task `YokeWslDesktopTailnet`. The task
+waits for the Tailscale address and restarts IP Helper if the proxy is not
+listening there. Its output names the `tailnet_listener`; `--verify` proves the
+proxy, the rule, the task and a connection. If a connection fails after a
+reboot, run `Start-ScheduledTask YokeWslDesktopTailnet` as administrator.
+Run it from the Windows administrator's SSH session so `netsh`,
+`New-NetFirewallRule` and `Register-ScheduledTask` can apply. Like the Linux provisioner, it requires `--browser-project` and
 `--browser-identity` naming the operator identity (the project's
 browser-control `default_identity`). It installs the XFCE helpers and selects
 `xfce4-terminal` and the Yoke identity launcher as XFCE defaults. The launcher
