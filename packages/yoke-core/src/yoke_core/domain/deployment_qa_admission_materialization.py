@@ -6,6 +6,8 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.qa_case_starting_state import declares_starting_state
+
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     require_case_target,
@@ -38,11 +40,7 @@ def admitted_source_requirement_id(case_key: Any) -> int | None:
 def admitted_requirement_identity_clause(
     requirement: Mapping[str, Any], *, marker: str = "%s"
 ) -> tuple[str, tuple[Any, ...]]:
-    """Match the identity admission preserves for a source obligation.
-
-    Plans retain plan/case identity; direct copies use the source key.
-    Callers scope the member, run, and target.
-    """
+    """Match the source obligation within the caller’s member, run and target."""
     plan_id = requirement.get("plan_id")
     if plan_id is not None:
         return f"plan_id={marker} AND plan_case_key={marker}", (
@@ -132,7 +130,10 @@ def materialize_admitted_requirement(
                 f"admitted QA requirement {source_id} lacks its frozen method "
                 "snapshot; converge requirement snapshots before freezing the run"
             )
-        if requirement.get("host_baseline"):
+        if requirement.get("host_baseline") and (
+            not declares_starting_state(requirement)
+            or requirement.get("baseline_position") is not None
+        ):
             raise QaPlanError(
                 f"admitted QA requirement {source_id} uses a grouped host baseline; "
                 "admit its attached plan instead"

@@ -17,9 +17,7 @@ from yoke_core.domain.machine_qa_case_result import MachineCaseResult
 
 
 def _contract(*, baselines, starting_state="baseline", ends_chain=True):
-    case = case_contract(
-        host_baseline="fresh-host" if starting_state != "as_is" else None
-    ).model_copy(
+    case = case_contract(host_baseline="fresh-host").model_copy(
         update={
             "requirement_id": 11,
             "starting_state": starting_state,

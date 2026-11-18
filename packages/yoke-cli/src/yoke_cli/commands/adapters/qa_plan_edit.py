@@ -55,8 +55,8 @@ of an existing case is refused when saving would reset its stored value.
 stage_reason is optional descriptive metadata: creates_or_destroys_data or
 changes_infrastructure. It does not restrict target_envs.
 
-Machine-run cases declare host_baselines, starting_state "inherit" (never the
-first case), or "as_is" with a starting_state_reason.
+Test Machine cases declare host_baselines or starting_state "inherit" to use
+the preceding case's machine. Use shell-preconfigured when a case needs Yoke.
 
 A case that can only be judged after real production traffic sets wake_path
 "manual" with a one-line wake_evidence a registered read can confirm; its stage

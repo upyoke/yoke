@@ -44,7 +44,7 @@ def _case(
         "method_config": _method_config(method_id),
         "host_baselines": host_baselines or [],
         **(
-            {"starting_state": "as_is", "starting_state_reason": "fixture host"}
+            {"host_baselines": ["fresh-host"]}
             if method_id == "machine-state-check" and not host_baselines
             else {}
         ),

@@ -20,7 +20,6 @@ def require_abort_reset(
     baseline = case.get("host_baseline")
     if (
         operation != "reset"
-        or case.get("starting_state") == "as_is"
         or not baseline
         or list(baselines) != [baseline]
         or case.get("project") != project

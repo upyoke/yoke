@@ -170,21 +170,6 @@ def qa_requirement_add(args: List[str]) -> int:
         help="Machine case: registered baseline to reset to first, e.g. fresh-host.",
     )
     parser.add_argument(
-        "--starting-state",
-        dest="starting_state",
-        choices=("as_is",),
-        default=None,
-        metavar="as_is",
-        help="Machine case: run on the machine as found, with no reset.",
-    )
-    parser.add_argument(
-        "--starting-state-reason",
-        dest="starting_state_reason",
-        default=None,
-        metavar="TEXT",
-        help="Why the machine as found is the right starting state.",
-    )
-    parser.add_argument(
         "--workflow-transition",
         dest="workflow_transition_id",
         default=None,
@@ -250,8 +235,6 @@ def qa_requirement_add(args: List[str]) -> int:
         "suite_id",
         "workflow_transition_id",
         "host_baseline",
-        "starting_state",
-        "starting_state_reason",
     ):
         value = getattr(parsed, key)
         if value is not None:

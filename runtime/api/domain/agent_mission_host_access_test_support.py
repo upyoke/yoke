@@ -61,7 +61,7 @@ ITEM = 7851
 
 
 @pytest.fixture
-def mission(test_db, tmp_path, monkeypatch, request):
+def mission(test_db, tmp_path, monkeypatch):
     configure_test_machine(test_db, tmp_path, monkeypatch)
     replace_test_machine_settings(
         test_db,
@@ -86,14 +86,7 @@ def mission(test_db, tmp_path, monkeypatch, request):
                     "test_machine": DRIVER,
                     "test_machines": [DRIVER, COMPANION],
                 },
-                **(
-                    {
-                        "starting_state": "as_is",
-                        "starting_state_reason": "Preserve host",
-                    }
-                    if getattr(request, "param", None) == "as_is"
-                    else {"host_baselines": ["fresh-host"]}
-                ),
+                "host_baselines": ["fresh-host"],
             }
         ],
     )

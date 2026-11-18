@@ -22,7 +22,7 @@ from yoke_core.domain.qa_plan_execution_reentry import PAUSE_REASON
         ("baseline", "fresh-host", {"restored": True, "baseline": "other"}, False),
         ("as_is", None, {"restored": False, "reason": "no declared baseline"}, True),
         ("inherit", None, {"restored": False, "reason": "no declared baseline"}, True),
-        ("as_is", "unused", {"restored": False, "reason": "as found"}, True),
+        ("inherit", "fresh-host", {"restored": False, "baseline": "fresh-host"}, False),
         ("as_is", None, {}, False),
         ("baseline", "fresh-host", {}, False),
     ],
@@ -80,7 +80,7 @@ def test_non_host_interruption_does_not_owe_another_cases_restore():
     conn.execute.assert_not_called()
 
 
-def test_remove_member_with_as_is_cleanup_releases_host(test_db, tmp_path, monkeypatch):
+def test_remove_member_after_baseline_cleanup_releases_host(test_db, tmp_path, monkeypatch):
     from runtime.api.domain.qa_member_machine_partitions_test_support import (
         MEMBER,
         RUN,
@@ -121,8 +121,8 @@ def test_remove_member_with_as_is_cleanup_releases_host(test_db, tmp_path, monke
             {
                 "evidence": {
                     "starting_state_restore": {
-                        "restored": False,
-                        "reason": "no declared starting state to restore",
+                        "restored": True,
+                        "baseline": case["host_baseline"],
                     }
                 }
             }

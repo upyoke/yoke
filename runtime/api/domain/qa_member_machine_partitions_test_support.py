@@ -110,12 +110,8 @@ def _seed(
                 },
                 "entry_surface": "printf done",
                 "required_completion": "complete",
-                "starting_state": "inherit" if inherit and position == 2 else "as_is",
-                "starting_state_reason": (
-                    None
-                    if inherit and position == 2
-                    else "The check reads host identity only and needs no reset."
-                ),
+                "starting_state": "inherit" if inherit and position == 2 else "baseline",
+                "host_baselines": [] if inherit and position == 2 else ["fresh-host"],
             }
             for position, test_machine in enumerate(machines, 1)
         ],

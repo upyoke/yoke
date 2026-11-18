@@ -36,7 +36,7 @@ class MachineQaCaseContract(BaseModel):
     expected_outcome: str
     method_config: dict[str, Any]
     host_baseline: str | None
-    starting_state: Literal["baseline", "inherit", "as_is"] | None = None
+    starting_state: Literal["baseline", "inherit"] | None = None
     starting_state_reason: str | None = None
     #: False only while the next case of the same plan run inherits this
     #: case's machine; the runner restores the chain's starting state after
@@ -96,7 +96,6 @@ class MachineQaCaseContract(BaseModel):
                 raise ValueError(
                     "Command host admission requires method_config.test_machine"
                 )
-        else:
-            require_materialized_starting_state(self)
+        require_materialized_starting_state(self)
         require_continuity_state(self)
         return self

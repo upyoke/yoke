@@ -29,7 +29,8 @@ def mission_case(**overrides):
         "project": "example",
         "public_ref": MEMBER_REF,
         "workflow_transition_id": "reviewing-implementation",
-        "starting_state": "as_is",
+        "starting_state": "baseline",
+        "host_baseline": "shell-preconfigured",
         **overrides,
     }
 

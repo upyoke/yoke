@@ -11,9 +11,9 @@ from yoke_core.domain.qa_plan_management import create_plan
 from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 
 RUN_ID = "run-starting-state"
-AS_IS = {
-    "starting_state": "as_is",
-    "starting_state_reason": "keeps the session a person opened",
+SHELL_BASELINE = {
+    "starting_state": "baseline",
+    "host_baseline": "shell-preconfigured",
 }
 NOW = "2026-10-16T00:00:00Z"
 
@@ -60,25 +60,17 @@ def _update(conn: Any, requirement_id: int, value: Any):
     )
 
 
-def test_unrun_admitted_copy_is_redeclared_as_is_and_back(test_db) -> None:
+def test_unrun_admitted_copy_is_redeclared_and_back(test_db) -> None:
     plan = create_plan(test_db, project="yoke", slug="human-session")
     requirement_id = _mission(test_db, plan_id=plan["id"])
 
-    result = _update(test_db, requirement_id, AS_IS)
+    result = _update(test_db, requirement_id, SHELL_BASELINE)
 
     assert result.ok, result.message
-    assert _stored(test_db, requirement_id) == (
-        "as_is",
-        AS_IS["starting_state_reason"],
-        None,
-    )
-    back = {"starting_state": "baseline", "host_baseline": "shell-preconfigured"}
+    assert _stored(test_db, requirement_id) == ("baseline", None, "shell-preconfigured")
+    back = {"starting_state": "baseline", "host_baseline": "fresh-host"}
     assert _update(test_db, requirement_id, back).ok
-    assert _stored(test_db, requirement_id) == (
-        "baseline",
-        None,
-        "shell-preconfigured",
-    )
+    assert _stored(test_db, requirement_id) == ("baseline", None, "fresh-host")
 
 
 def test_impossible_declarations_refuse_by_name(test_db) -> None:
@@ -86,13 +78,13 @@ def test_impossible_declarations_refuse_by_name(test_db) -> None:
 
     missing_reason = _update(test_db, requirement_id, {"starting_state": "as_is"})
     inherit = _update(test_db, requirement_id, {"starting_state": "inherit"})
-    unknown = _update(test_db, requirement_id, {**AS_IS, "baseline": "x"})
+    unknown = _update(test_db, requirement_id, {**SHELL_BASELINE, "baseline": "x"})
     not_json = apply_requirement_update(
         test_db, requirement_id, "starting_state", "as_is"
     )
 
     assert missing_reason.error_code == "payload_invalid"
-    assert "starting_state_reason" in missing_reason.message
+    assert "as_is" in missing_reason.message
     assert "yoke qa plan edit" in inherit.message
     assert "unknown keys baseline" in unknown.message
     assert not_json.error_code == "payload_invalid"
@@ -109,7 +101,7 @@ def test_a_recorded_run_closes_the_window(test_db) -> None:
     )
     test_db.commit()
 
-    result = _update(test_db, requirement_id, AS_IS)
+    result = _update(test_db, requirement_id, SHELL_BASELINE)
 
     assert result.error_code == "starting_state_case_executed"
     assert "1 recorded QA runs" in result.message
@@ -132,7 +124,7 @@ def test_a_live_roster_holding_the_case_refuses_with_the_abort(test_db) -> None:
     )
     test_db.commit()
 
-    result = _update(test_db, requirement_id, AS_IS)
+    result = _update(test_db, requirement_id, SHELL_BASELINE)
 
     assert result.error_code == "starting_state_case_executed"
     assert "live QA execution exec-live" in result.message
@@ -143,7 +135,7 @@ def test_plan_owned_item_row_refuses_toward_the_plan(test_db) -> None:
     plan = create_plan(test_db, project="yoke", slug="plan-owned")
     requirement_id = _mission(test_db, plan_id=plan["id"], item=True)
 
-    result = _update(test_db, requirement_id, AS_IS)
+    result = _update(test_db, requirement_id, SHELL_BASELINE)
 
     assert result.error_code == "starting_state_plan_owned"
     assert "yoke qa plan edit" in result.message

@@ -184,7 +184,7 @@ def test_command_watcher_heartbeats_plan_at_interval(monkeypatch):
     assert calls == ["heartbeat"]
 
 
-@pytest.mark.parametrize("baselines", [(), ("shell-preconfigured",)])
+@pytest.mark.parametrize("baselines", [("fresh-host",), ("shell-preconfigured",)])
 @pytest.mark.parametrize("operation", ["reset", "screenshot"])
 def test_declared_command_acquires_lease_and_can_begin_nested_operation(
     test_db, tmp_path, monkeypatch, operation, baselines

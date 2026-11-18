@@ -13,7 +13,7 @@ def test_welcome_mission_preserves_the_isolated_refusal_proof():
         ) if case["case_key"] == "welcome-frame"
     )
     assert case["method_id"] == "exploratory-mission"
-    assert case["starting_state"] == "as_is"
+    assert case["host_baselines"] == ["fresh-host"]
     assert "HOME=/var/empty" in case["entry_surface"]
     assert "XDG_BIN_HOME=/var/empty/.local/bin" in case["entry_surface"]
     assert "PATH=/usr/bin:/bin:/usr/sbin:/sbin" in case["entry_surface"]

@@ -59,20 +59,15 @@ def test_declared_chain_is_stored_and_fans_out_from_its_opening_case() -> None:
                     "open", 1, host_baselines=["fresh-host", "shell-preconfigured"]
                 ),
                 _machine_case("follow", 2, starting_state="inherit"),
-                _machine_case(
-                    "found", 3, starting_state="as_is", starting_state_reason="lab"
-                ),
             ],
         )
         cases = {case["case_key"]: case for case in plan_cases(conn, plan["id"])}
     assert cases["open"]["starting_state"] == "baseline"
     assert cases["follow"]["starting_state"] == "inherit"
-    assert cases["found"]["starting_state_reason"] == "lab"
     assert cases["follow"]["materialized_baselines"] == [
         "fresh-host",
         "shell-preconfigured",
     ]
-    assert cases["found"]["materialized_baselines"] == [None]
 
 
 def test_materialization_refuses_a_stored_case_with_no_declaration() -> None:
@@ -120,9 +115,9 @@ def _add(conn, item_id: int, **start):
 @pytest.mark.parametrize(
     ("start", "expected"),
     [
-        ({}, "declares no starting state; pass --host-baseline NAME"),
+        ({}, "declares no starting state"),
         ({"starting_state": "inherit"}, "belongs to no plan"),
-        ({"starting_state": "as_is"}, "without a starting_state_reason"),
+        ({"starting_state": "as_is"}, "is not one of"),
         ({"host_baseline": "fresh-hose"}, "available baselines"),
     ],
 )
@@ -142,8 +137,8 @@ def test_direct_add_refuses_a_machine_case_without_a_usable_start(
     [
         ({"host_baseline": "fresh-host"}, ("fresh-host", "baseline", None)),
         (
-            {"starting_state": "as_is", "starting_state_reason": "lab host"},
-            (None, "as_is", "lab host"),
+            {"host_baseline": "shell-preconfigured"},
+            ("shell-preconfigured", "baseline", None),
         ),
     ],
 )

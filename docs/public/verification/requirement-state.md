@@ -271,7 +271,7 @@ executions with reason `deployment-member-removed`.
 A runner checked in on a host case, or a mission walk holding its Test Machine,
 instead keeps custody and heartbeat authority under the cooperative abort `yoke
 qa plan abort` records. Its check-in reports `abort_requested`; its cleanup
-proof (`as_is` needs no restore) or the walk's `yoke qa mission walk-end`
+proof or the walk's `yoke qa mission walk-end`
 settles it and frees the host, which no waiting execution gets first. A gone
 runner's recovery: "Stopping a host case" in `yoke qa plan run --help`. The runner's abort response returns the execution's `release_reason`. When it
 names the removal, `yoke qa plan run` reports the case as `case_outcome:

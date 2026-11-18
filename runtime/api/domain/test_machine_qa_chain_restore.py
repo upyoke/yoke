@@ -45,13 +45,12 @@ def test_a_failed_reset_leaves_the_case_unstarted_and_blocked(monkeypatch) -> No
     assert row["evidence"]["starting_state_reset"]["ok"] is False
 
 
-def test_an_as_is_chain_records_that_nothing_can_be_restored(monkeypatch) -> None:
-    contract = _contract(baselines=[], starting_state="as_is")
-    row, reached, _ = _run(monkeypatch, contract)
-    assert reached == []
-    restore = row["evidence"]["starting_state_restore"]
-    assert restore["restored"] is False
-    assert "no declared starting state" in restore["reason"]
+def test_an_inheriting_chain_tail_runs_before_cleanup(monkeypatch) -> None:
+    contract = _contract(baselines=[], starting_state="inherit")
+    row, reached, ran = _run(monkeypatch, contract)
+    assert reached == ["fresh-host"]
+    assert ran == [11]
+    assert row["evidence"]["starting_state_restore"]["restored"] is True
 
 
 def test_a_local_error_still_restores_and_says_so(monkeypatch) -> None:

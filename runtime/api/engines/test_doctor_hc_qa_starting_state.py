@@ -79,3 +79,23 @@ def test_retired_plan_is_not_a_finding() -> None:
         )
         verdict, _ = _run(conn)
     assert verdict == "PASS"
+
+
+def test_stored_host_command_without_baseline_is_reported() -> None:
+    with test_database() as conn:
+        plan = create_plan(conn, project="yoke", slug="stored-command")
+        replace_plan_cases(
+            conn, plan_id=plan["id"],
+            cases=[{
+                **_machine_case("command", 1),
+                "method_id": "command",
+                "method_config": {"command": "true"},
+            }],
+        )
+        conn.execute(
+            "UPDATE qa_plan_cases SET method_config=%s WHERE plan_id=%s",
+            ('{"command":"true","test_machine":"linux-lab"}', plan["id"]),
+        )
+        verdict, detail = _run(conn)
+    assert verdict == "FAIL"
+    assert "case 'command' declares no starting state" in detail

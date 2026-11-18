@@ -6,8 +6,7 @@ result, or live roster has touched the case, nothing has been judged against
 it yet, and correcting the declaration rewrites no evidence. That is the one
 window this write is open in; afterwards a corrected case replaces it.
 
-The value is one JSON object carrying the three columns that must agree:
-``{"starting_state": "as_is", "starting_state_reason": "..."}`` or
+The value is one JSON object naming the baseline:
 ``{"starting_state": "baseline", "host_baseline": "fresh-host"}``. ``inherit``
 depends on the plan's case order, which a single row cannot see, so the plan
 is where that declaration lives.
@@ -28,6 +27,7 @@ from typing import Any
 from yoke_contracts.qa_case_starting_state import (
     INHERIT,
     StartingStateError,
+    chain_baselines,
     normalize_starting_state,
 )
 from yoke_core.domain.db_helpers import query_one, query_rows
@@ -72,8 +72,8 @@ def _execution_refusal(conn: Any, row: Mapping[str, Any]) -> str:
             return (
                 f"requirement {req_id} has {int(found['n'])} {what}, and its "
                 "starting state is part of what they judged. Add a corrected "
-                "case with `yoke qa requirement add ... --starting-state as_is "
-                "--starting-state-reason TEXT`, then retire this one with `yoke "
+                 "case with `yoke qa requirement add ... --host-baseline NAME`, "
+                "then retire this one with `yoke "
                 f"qa requirement supersede --requirement-id {req_id} "
                 "--superseded-by-requirement-id NEW --rationale TEXT`."
             )
@@ -140,6 +140,10 @@ def prepare_starting_state(
         )
     baseline = str(declared.get("host_baseline") or "").strip() or None
     try:
+        chain_baselines([{
+            **row, **declared, "case_key": subject,
+            "host_baselines": [baseline] if baseline else [],
+        }])
         state, reason = normalize_starting_state(
             case_key=f"requirement {int(req_id)}",
             runner_id=row["runner_id"],

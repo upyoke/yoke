@@ -128,3 +128,12 @@ def test_public_bundle_passes_its_database_to_mission_selection(monkeypatch):
     )
     assert observed == [conn]
     assert result["dispatch"]["dispatch_kind"] == "main_agent_mission"
+
+
+def test_fresh_host_does_not_infer_browser_identities():
+    assert walker_identity_dispatch(
+        {"host_baseline": "fresh-host"},
+        "host-command",
+        browser_settings=_settings(),
+        execution_target={"endpoints": {"base_url": "https://shop.example"}},
+    ) == ([], [], "", None)
