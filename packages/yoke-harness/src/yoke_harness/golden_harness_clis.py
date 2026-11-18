@@ -49,7 +49,7 @@ def _host_program(control: Any, action: str, payload: Any, timeout: int) -> Any:
         raise RuntimeError(
             f"harness_cli_{action}_failed: {payload[0] if action == 'install' else 'probe'} "
             f"host exit {result.returncode}: "
-            f"{result.stderr.strip()[:400]}; repair the test user's CLI installation "
+            f"{result.stderr.strip()[-400:]}; repair the test user's CLI installation "
             "and /usr/bin/python3, then rerun the QA plan"
         )
     lines = result.stdout.strip().splitlines()
@@ -139,6 +139,25 @@ def install_harness_clis(
             ],
             INSTALL_TIMEOUT_SECONDS,
         )
+        disk = receipt.get("host_disk_error")
+        if disk:
+            installs.append({"harness_id": harness_id, **receipt})
+            return HostActionResult(
+                False,
+                {
+                    "detail": f"{harness_id} {latest[harness_id]} install stopped: "
+                    f"the host refused a write ({disk['errno']}: {disk['message']}: "
+                    f"{disk['filename']})",
+                    "installs": installs,
+                    "held_back": held_back,
+                    "recovery": "Free or grow the disk behind the test user's home "
+                    "(on WSL, the Windows volume that holds the distribution's "
+                    "ext4.vhdx), restart the host (WSL: `wsl --shutdown`) so its "
+                    "filesystem mounts read-write again, then rerun the QA plan. "
+                    "Do not capture this home as a golden.",
+                },
+                "harness_cli_host_disk_failed",
+            )
         probe = receipt["probe"]
         observed[harness_id] = probe["version"]
         diagnostic = receipt.get("failed_probe", probe)

@@ -19,6 +19,11 @@ exception before provision. For a cloud host, use an image/instance supporting
 Windows and WSL2 nested virtualization; declare the provider's nested-
 virtualization option and validate it on the host. Do not infer support from an
 instance family name. Apply the project's cost gate and query current costs.
+Size the Windows system volume for Windows plus the WSL distribution's
+`ext4.vhdx`, which grows with every golden and CLI install and never shrinks on
+its own. When that volume fills, Linux remounts its root read-only and a golden
+refresh stops with `harness_cli_host_disk_failed`: grow the volume, extend the
+Windows partition, run `wsl --shutdown`, then rerun the QA plan.
 Record the instance's `cloud_instance_id` (section 3): a lease then starts the
 host through the project's aws-admin key and waits for SSH, and the end of
 its last lease stops it, so it runs only while QA holds it. Never start it
