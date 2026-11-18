@@ -293,7 +293,7 @@ def test_verification_release_failure_rolls_back_receipt(
 
     assert not rejected.primary_success
     receipt = conn.execute(
-        "SELECT status,receipt_json FROM test_machine_verifications WHERE project_id=1"
+        "SELECT status,receipt_json FROM test_machine_verifications"
     ).fetchone()
     assert receipt["status"] == "configured_unverified"
     assert receipt["receipt_json"] == "{}"

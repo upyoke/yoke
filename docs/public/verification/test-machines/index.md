@@ -24,7 +24,7 @@ The three scripted methods use Yoke's approved `host_control` runner and
 require `test-machine`. Exploratory mission uses `agent_mission` and formally
 requires both `test-machine` and `browser-control`; an undeclared substrate is
 not provisioned. Yoke contains no project host or credential. Those remain in
-project-owned capability records and machine-local capability secret files.
+the universe Test Machine registry and controller-local, per-machine secret files.
 
 Every machine-run case declares the state it starts from: `host_baselines`
 naming `fresh-host` or `shell-preconfigured` (reset before, restored after),
@@ -82,14 +82,14 @@ decision and never satisfies an all-pass aggregate.
 These four methods ship in core Yoke and are available without installing a pack.
 The installer exploration example is owned by core Yoke and feeds the saved
 `installer-exploration` plan. Host procedures ship under
-`.yoke/docs/verification/test-machines/`; project records own hosts and credentials.
+`.yoke/docs/verification/test-machines/`; the universe owns host registrations and each controller keeps its own credentials.
 
 ## Host prerequisites
 
 [macOS](macos-host-provisioning.md), [Linux](linux-host-provisioning.md) and
 [Windows/WSL2](windows-host-provisioning.md) each provide the complete ordered
 procedure and its audit. [Browser identities](browser-identities.md) links to
-the live identity procedure for each OS. Capability records own QA leases; capacity
+the live identity procedure for each OS. Test Machines have universe-wide QA leases; capacity
 registrations own launches and relays, independently.
 
 Local browser captures do not take a Test Machine lease. Every browser profile

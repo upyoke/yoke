@@ -35,7 +35,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
     documentNode,
     "p",
     "subtitle muted",
-    `${detail.capability_type} · composite · ${detail.project}`,
+    detail.power_project ? `Power project ${detail.power_project}` : "Universe Test Machine",
   ));
   header.appendChild(copy);
   const actions = el(
@@ -80,7 +80,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
       result = await callFunction(
         context.client,
         "test_machine.verify",
-        { project: detail.project, test_machine: detail.test_machine },
+        { test_machine: detail.test_machine },
       );
     } catch (error) {
       result = {
@@ -180,7 +180,7 @@ function renderMissing(documentNode, main, project) {
     documentNode,
     "p",
     "empty",
-    "No test machines are configured for this project.",
+    "No Test Machines are registered in this universe.",
   ));
   const back = el(documentNode, "a", "btn", "Back to capabilities");
   back.href = buildUniverseRoute("capabilities", project);
@@ -203,7 +203,7 @@ async function loadMachineDetail(
     result = await callFunction(
       context.client,
       "test_machine.get",
-      { project, test_machine: machine },
+      { test_machine: machine },
     );
   } catch (error) {
     result = {
@@ -295,13 +295,13 @@ export async function renderTestMachineDetail(
   const reload = () => renderTestMachineDetail(
     context, main, project, navigation,
   );
-  main.replaceChildren(el(documentNode, "p", "empty", "loading capability…"));
+  main.replaceChildren(el(documentNode, "p", "empty", "Loading Test Machines…"));
   let result;
   try {
     result = await callFunction(
       context.client,
       "test_machine.list",
-      { project },
+      {},
     );
   } catch (error) {
     result = {

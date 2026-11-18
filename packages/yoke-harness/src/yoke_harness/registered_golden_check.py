@@ -1,9 +1,8 @@
 """Find every golden registered for a Test Machine's home before verify.
 
-Several projects can register one host and user, and each resets that home
-from its own golden. A golden folder removed by hand leaves its project unable
-to reset, and nothing else notices until that reset fails, so verify looks
-for every registered golden first and refuses by name when one is missing.
+Several registrations can share a host and user, with a separate golden
+for each. Verify checks every registered golden so a missing one is found
+before the next reset.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ PHASE = "registered_golden_check"
 def check_registered_goldens(
     run: Any, registered: Sequence[dict[str, str]], *, os_name=None
 ) -> None:
-    """Refuse, naming each project and path, when a registered golden is gone."""
+    """Name the machine and path of every missing golden."""
     if not registered:
         return
     quoted = " ".join(shlex.quote(entry["path"]) for entry in registered)
@@ -51,7 +50,7 @@ def check_registered_goldens(
     if not missing:
         return
     named = "; ".join(
-        f"project {entry['project']} ({entry['test_machine']}) registers "
+        f"Test Machine {entry['test_machine']} registers "
         f"{entry['path']}"
         for entry in missing
     )
@@ -61,8 +60,8 @@ def check_registered_goldens(
         phase=PHASE,
         detail=f"A registered golden is missing on this host: {named}.",
         recovery_hint=(
-            "Capture a new golden for each named project: yoke test-machine "
-            f"golden-capture --project {first['project']} --test-machine "
+            "Capture a new golden for each named machine. Start with yoke test-machine "
+            f"golden-capture --test-machine "
             f"{first['test_machine']}. Never delete or move a registered "
             "golden by hand."
         ),

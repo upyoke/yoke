@@ -9,9 +9,7 @@ from runtime.api.fixtures.session_zones import SESSION_ZONES
 from pydantic import ValidationError
 
 from yoke_contracts.timestamps import parse_instant, temporal_wire
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as machine_type,
-)
+from yoke_core.domain.machine_qa_host_rows import test_machine_id as machine_id
 from yoke_core.domain import machine_operation_recording as operations
 from yoke_core.domain import machine_verification_recording as verification
 from yoke_core.domain.handlers.machine_qa_operation import (
@@ -21,8 +19,8 @@ from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
     test_machine_detail as machine_detail,
 )
-from yoke_core.domain.machine_qa_capability_rows import (
-    test_machine_capability_rows as machine_rows,
+from yoke_core.domain.machine_qa_host_rows import (
+    test_machine_rows as machine_rows,
 )
 from runtime.api.domain.machine_qa_test_support import make_conn
 
@@ -39,7 +37,7 @@ OPAQUE = {
 def seed(conn):
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={
             "resource_name": MACHINE,
             "host": "test.example",
@@ -63,7 +61,6 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
     def record(lease):
         return verification.record_test_machine_verification(
             test_db,
-            1,
             test_machine=MACHINE,
             status="verified",
             checks=[OPAQUE],
@@ -74,13 +71,13 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
 
     first = record(11)
     assert first["checked_at"] == STAMP
-    assert machine_rows(test_db, project_id=1)[0].verified_at == STAMP
-    assert isinstance(machine_rows(test_db, project_id=1)[0].created_at, datetime)
+    assert machine_rows(test_db)[0].verified_at == STAMP
+    assert isinstance(machine_rows(test_db)[0].created_at, datetime)
     clock[0] += timedelta(microseconds=1)
     second = record(12)
     row = test_db.execute(
-        "SELECT checked_at,updated_at,receipt_json FROM test_machine_verifications WHERE project_id=1 AND capability_type=%s",
-        (machine_type(MACHINE),),
+        "SELECT checked_at,updated_at,receipt_json FROM test_machine_verifications WHERE test_machine_id=%s",
+        (machine_id(test_db, MACHINE),),
     ).fetchone()
     assert row[:2] == (clock[0], clock[0])
     history = json.loads(row[2])["host_control_submission_history"]
@@ -89,15 +86,14 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
     clock[0] += timedelta(microseconds=1)
     record(13)
     latest = test_db.execute(
-        "SELECT receipt_json FROM test_machine_verifications WHERE project_id=1 AND capability_type=%s",
-        (machine_type(MACHINE),),
+        "SELECT receipt_json FROM test_machine_verifications WHERE test_machine_id=%s",
+        (machine_id(test_db, MACHINE),),
     ).fetchone()[0]
     assert json.loads(latest)["host_control_submission_history"][0] == history[0]
     for lease, expected in [(11, first), (12, second)]:
         assert (
             verification.recorded_test_machine_verification(
                 test_db,
-                1,
                 test_machine=MACHINE,
                 lease_id=lease,
                 contract_digest=str(lease) * 64,
@@ -105,7 +101,7 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
             == expected
         )
     assert (
-        machine_detail(test_db, project="yoke", test_machine=MACHINE)["verification"][
+        machine_detail(test_db, test_machine=MACHINE)["verification"][
             "checked_at"
         ]
         == clock[0]
@@ -123,7 +119,6 @@ def test_operation_receipt_replay_and_order_use_native_instants(
     monkeypatch.setattr(operations, "utc_now", lambda: clock[0])
     first = operations.record_test_machine_operation(
         test_db,
-        1,
         test_machine=MACHINE,
         operation="reset",
         status="verified",
@@ -134,15 +129,14 @@ def test_operation_receipt_replay_and_order_use_native_instants(
     )
     assert first["performed_at"] == STAMP
     row = test_db.execute(
-        "SELECT performed_at,updated_at,receipt_json FROM test_machine_operation_receipts WHERE project_id=1 AND capability_type=%s",
-        (machine_type(MACHINE),),
+        "SELECT performed_at,updated_at,receipt_json FROM test_machine_operation_receipts WHERE test_machine_id=%s",
+        (machine_id(test_db, MACHINE),),
     ).fetchone()
     assert row[:2] == (STAMP, STAMP)
     assert json.loads(row[2]) == {"checks": [OPAQUE]}
     assert (
         operations.recorded_test_machine_operation(
             test_db,
-            1,
             test_machine=MACHINE,
             operation="reset",
             lease_id=21,
@@ -153,7 +147,6 @@ def test_operation_receipt_replay_and_order_use_native_instants(
     clock[0] += timedelta(microseconds=1)
     operations.record_test_machine_operation(
         test_db,
-        1,
         test_machine=MACHINE,
         operation="bridge_diagnose",
         status="error",
@@ -163,7 +156,7 @@ def test_operation_receipt_replay_and_order_use_native_instants(
         contract_digest="b" * 64,
     )
     rows = operations.test_machine_operation_receipts(
-        test_db, 1, capability_type=machine_type(MACHINE)
+        test_db, machine_id(test_db, MACHINE)
     )
     assert [row["performed_at"] for row in rows] == [clock[0], STAMP]
 
@@ -174,7 +167,6 @@ def test_sqlite_receipt_adapter_keeps_native_replay_and_canonical_storage(monkey
     monkeypatch.setattr(verification, "utc_now", lambda: STAMP)
     receipt = verification.record_test_machine_verification(
         conn,
-        1,
         test_machine=MACHINE,
         status="verified",
         checks=[OPAQUE],
@@ -188,7 +180,7 @@ def test_sqlite_receipt_adapter_keeps_native_replay_and_canonical_storage(monkey
     assert tuple(stored) == ("1969-12-30T23:59:59.123456Z",) * 2
     assert (
         verification.recorded_test_machine_verification(
-            conn, 1, test_machine=MACHINE, lease_id=31, contract_digest="c" * 64
+            conn, test_machine=MACHINE, lease_id=31, contract_digest="c" * 64
         )
         == receipt
     )

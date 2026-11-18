@@ -52,9 +52,9 @@ from yoke_core.domain.machine_qa_operation_lease import (
     begin_operation_execution,
     finish_operation_execution,
     operation_mission,
+    operation_caller_project,
     repeated_mission_receipt,
 )
-
 
 OperatorOperation = Literal[
     "verify", "reset", "golden_capture", "bridge_diagnose", "screenshot"
@@ -75,6 +75,7 @@ class TestMachineOperationShape(BaseModel):
 
 
 class TestMachineOperationBeginRequest(TestMachineOperationShape):
+    project: str | None = None
     test_machine: str | None = None
 
 
@@ -152,16 +153,17 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = db_helpers.connect()
     try:
+        project = parsed.project or operation_caller_project(conn, request.actor.session_id)
         destination, golden_fields = operation_golden_inputs(
             conn,
-            project=parsed.project,
+            project=project,
             test_machine=parsed.test_machine,
             operation=parsed.operation,
             destination=parsed.destination,
         )
         contract = begin_operation_execution(
             conn,
-            project=parsed.project,
+            project=project,
             actor=request.actor,
             test_machine=parsed.test_machine,
             plan_execution_id=parsed.plan_execution_id,

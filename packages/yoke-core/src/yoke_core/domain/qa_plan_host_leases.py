@@ -151,15 +151,13 @@ def begin_case_host_contract(
             (str(execution["id"]),),
         )
         execution["test_machine_lease_id"] = None
-    from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
+    from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 
     platforms = {}
     if any(case_machines(row) for row in execution["roster"]):
         platforms = {
             row.test_machine: row.settings["os"]
-            for row in test_machine_capability_rows(
-                conn, project_id=int(case["project_id"])
-            )
+            for row in test_machine_rows(conn)
         }
     arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
     deferred = commit_deferred_connection(conn)

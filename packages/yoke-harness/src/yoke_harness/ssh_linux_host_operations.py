@@ -36,18 +36,14 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
     @classmethod
     def from_contract(cls, contract):
         from yoke_contracts.machine_config.capability_secret_store import (
-            read_machine_capability_secret,
-        )
-        from yoke_contracts.machine_config.test_machine import (
-            test_machine_capability_type,
+            read_test_machine_secret,
         )
         from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
         from yoke_harness.linux_desktop_state import RDP_PORT
 
         control = super().from_contract(contract)
-        control.desktop_password = read_machine_capability_secret(
-            contract.project,
-            test_machine_capability_type(contract.settings["resource_name"]),
+        control.desktop_password = read_test_machine_secret(
+            contract.settings["resource_name"],
             DESKTOP_PASSWORD_KEY,
         )
         control.desktop_port = int(contract.settings.get("desktop_port", RDP_PORT))

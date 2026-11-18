@@ -56,13 +56,13 @@ def route(monkeypatch, tmp_path):
     monkeypatch.setattr(
         remote, "build_actor", lambda: SimpleNamespace(session_id="own")
     )
-    monkeypatch.setattr(remote, "read_machine_capability_secret", lambda *args: None)
+    monkeypatch.setattr(remote, "read_test_machine_secret", lambda *args: None)
 
     def dispatch(**kwargs):
         state["calls"].append(kwargs)
-        if kwargs["function_id"].startswith("claims."):
+        if kwargs["function_id"] in {"test_machine.lease_acquire", "claims.coordination_claim.release"}:
             return SimpleNamespace(
-                success=True, result={"claim": {"id": 42}}, error=None
+                success=True, result={"claim_id": 42}, error=None
             )
         result = (
             {
@@ -134,7 +134,7 @@ def test_remote_reads_settings_and_forwards_options_without_local_browser(
     assert [c["function_id"] for c in route["calls"]] == [
         "test_machine.get",
         "projects.capability_settings.get",
-        "claims.coordination_claim.acquire_if_free",
+        "test_machine.lease_acquire",
         "claims.coordination_claim.release",
     ]
     argv = route["argv"][0]["argv"]

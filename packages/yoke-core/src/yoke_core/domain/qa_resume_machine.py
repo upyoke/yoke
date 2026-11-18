@@ -36,14 +36,12 @@ def execution_machine(
         return None
 
     from yoke_core.domain.machine_qa_case_platform import case_platform
-    from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
+    from yoke_core.domain.machine_qa_host_rows import test_machine_rows
     from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
     hosts = {
         row.test_machine: row.settings["os"]
-        for row in test_machine_capability_rows(
-            conn, project_id=int(case["project_id"])
-        )
+        for row in test_machine_rows(conn)
     }
 
     platform = case_platform(case, hosts)

@@ -68,7 +68,7 @@ def _seed(
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine=MACHINES[1],
         settings={**TEST_MACHINE_SETTINGS, "resource_name": MACHINES[1]},
         base_settings=None,

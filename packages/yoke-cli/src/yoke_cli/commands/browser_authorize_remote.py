@@ -14,11 +14,10 @@ from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_contracts.machine_config.capability_secret_store import (
-    read_machine_capability_secret,
+    read_test_machine_secret,
 )
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
-    test_machine_capability_type,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_cli.transport.test_machine_response_field import read_test_machine_field
@@ -45,7 +44,7 @@ def _read(function, payload, actor):
         f"{error.message if error else function + ' returned no result'}. "
         + (
             (error.recovery_hint if error else None)
-            or "Check `yoke env list` and `yoke test-machine list --project P`, then retry."
+            or "Check `yoke env list` and `yoke test-machine list`, then retry."
         )
     )
 
@@ -73,7 +72,7 @@ def _desktop_command(project, test_machine, settings) -> str:
     }
     flag = " --view" if viewable else ""
     return (
-        f"yoke test-machine desktop-access --project {project} "
+        f"yoke test-machine desktop-access "
         f"--test-machine {test_machine}{flag}"
     )
 
@@ -143,7 +142,7 @@ def authorize_remote(parsed) -> int:
         actor = build_actor()
         detail = _read(
             "test_machine.get",
-            {"project": project, "test_machine": parsed.test_machine},
+            {"test_machine": parsed.test_machine},
             actor,
         )
         test_machine = read_test_machine_field(detail, function_id="test_machine.get")
@@ -223,9 +222,8 @@ def authorize_remote(parsed) -> int:
             viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
             try:
                 desktop_password = (
-                    read_machine_capability_secret(
-                        project,
-                        test_machine_capability_type(test_machine),
+                    read_test_machine_secret(
+                        test_machine,
                         "desktop_password",
                     )
                     if detail["settings"].get("os") in {"linux", "wsl"}

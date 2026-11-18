@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_contracts.machine_qa_host_control import GOLDEN_CAPTURE_OPERATION
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
@@ -31,7 +30,7 @@ HOST_WAIT_TEACHING = (
 
 def host_heal_commands(test_machine: str) -> str:
     """Repair readiness without replacing the machine's sealed baseline."""
-    return f"`yoke test-machine verify --test-machine {test_machine} --project PROJECT`"
+    return f"`yoke test-machine verify --test-machine {test_machine}`"
 
 
 def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
@@ -39,14 +38,13 @@ def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
     if not _table_exists(conn, "test_machine_verifications"):
         return None
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    capability = test_machine_capability_type(test_machine)
     facts = [
         (parse_instant(row["checked_at"]), str(row["status"]), row["error_code"])
         for row in query_rows(
             conn,
             "SELECT status,error_code,checked_at FROM test_machine_verifications "
-            f"WHERE capability_type={p} AND checked_at IS NOT NULL",
-            (capability,),
+            f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={p}) AND checked_at IS NOT NULL",
+            (test_machine,),
         )
     ]
     if _table_exists(conn, "test_machine_operation_receipts"):
@@ -55,8 +53,8 @@ def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
             for row in query_rows(
                 conn,
                 "SELECT performed_at FROM test_machine_operation_receipts "
-                f"WHERE capability_type={p} AND operation={p} AND status='verified'",
-                (capability, GOLDEN_CAPTURE_OPERATION),
+                f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={p}) AND operation={p} AND status='verified'",
+                (test_machine, GOLDEN_CAPTURE_OPERATION),
             )
         ]
     if not facts:

@@ -104,6 +104,15 @@ class AzureMachinePower:
             f"inspect it with `{self.read_command}` and retry"
         )
 
+    def stop(self):
+        if self._details()["powerState"] != "VM deallocated":
+            # A stopped but allocated VM still bills.
+            self._announce("deallocate")
+            self._run("deallocate", timeout=600)
+            self._wait("VM deallocated")
+            self.emit(f"  deallocated Azure VM {self.instance_id}")
+        self._delete_public_ip()
+
     @property
     def public_ip_id(self):
         group = "/".join(self.instance_id.split("/")[:5])

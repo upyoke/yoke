@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import store_test_machine_secret
 from yoke_harness import desktop_access, desktop_forward, screen_sharing_view as sharing
 
 PASSWORD = "fixture-secret"
@@ -143,8 +143,8 @@ def test_no_terminal_holds_the_route_until_the_clipboard_clears(mac, monkeypatch
 
 def test_desktop_access_view_routes_macos_vnc_to_screen_sharing(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    store_machine_capability_secret(
-        "project", "test-machine:test-mac", "desktop_password", PASSWORD
+    store_test_machine_secret(
+        "test-mac", "desktop_password", PASSWORD
     )
     monkeypatch.setattr(
         desktop_access, "_prepare_desktop", lambda *a: pytest.fail("XFCE prepared")

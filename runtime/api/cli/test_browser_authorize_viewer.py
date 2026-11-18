@@ -73,11 +73,11 @@ def route(monkeypatch):
     monkeypatch.setattr(
         remote, "build_actor", lambda: SimpleNamespace(session_id="own")
     )
-    monkeypatch.setattr(remote, "read_machine_capability_secret", lambda *args: None)
+    monkeypatch.setattr(remote, "read_test_machine_secret", lambda *args: None)
 
     def dispatch(**kwargs):
-        if kwargs["function_id"].startswith("claims."):
-            return SimpleNamespace(success=True, result={"claim": {"id": 42}}, error=None)
+        if kwargs["function_id"] in {"test_machine.lease_acquire", "claims.coordination_claim.release"}:
+            return SimpleNamespace(success=True, result={"claim_id": 42}, error=None)
         result = (
             {"test_machine": "lab", "settings": state["settings"], "active_lease": None}
             if kwargs["function_id"] == "test_machine.get"
@@ -138,7 +138,7 @@ def test_missing_client_prints_view_command_and_still_authorizes(
     out = capsys.readouterr().out
     assert "desktop_rdp_client_missing" in out
     assert "sdl-freerdp" in out
-    assert "yoke test-machine desktop-access --project acme --test-machine lab --view" in out
+    assert "yoke test-machine desktop-access --test-machine lab --view" in out
     assert route["events"] == ["gui"]
 
 
@@ -152,7 +152,7 @@ def test_no_desktop_route_prints_command_without_view(route, capsys):
     assert authorize() == 0
     out = capsys.readouterr().out
     assert "desktop_route_missing" in out
-    assert "Run `yoke test-machine desktop-access --project acme --test-machine lab`." in out
+    assert "Run `yoke test-machine desktop-access --test-machine lab`." in out
     assert "--view" not in out
     assert "Sign in on its desktop" in out
     assert route["events"] == ["gui"]
@@ -197,7 +197,7 @@ def test_mac_vnc_refusal_prints_view_only_where_screen_sharing_opens(
     out = capsys.readouterr().out
     flag = " --view" if platform == "darwin" else ""
     assert (
-        f"Run `yoke test-machine desktop-access --project acme --test-machine lab{flag}`."
+        f"Run `yoke test-machine desktop-access --test-machine lab{flag}`."
         in out
     )
     assert route["events"] == ["gui"]

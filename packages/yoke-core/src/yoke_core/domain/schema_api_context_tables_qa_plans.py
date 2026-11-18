@@ -20,10 +20,26 @@ QA_PLAN_TABLES = {
             "the execution's host lease until verification heals the host."
         ),
     },
+    "test_machines": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("name", "TEXT"),
+            ("settings", "TEXT"),
+            ("power_project_id", "INTEGER"),
+            ("verified_at", "TIMESTAMPTZ"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("yoke_started_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "One universe-wide row per name. power_project_id selects the "
+            "project whose cloud administration credentials start and stop it. "
+            "It is not a project_id scope. Receipts join on test_machine_id; "
+            "the release marker is recorded in yoke_started_at."
+        ),
+    },
     "test_machine_operation_receipts": {
         "columns": [
-            ("project_id", "INTEGER"),
-            ("capability_type", "TEXT"),
+            ("test_machine_id", "INTEGER"),
             ("operation", "TEXT"),
             ("status", "TEXT"),
             ("performed_at", "TIMESTAMPTZ"),
@@ -35,7 +51,7 @@ QA_PLAN_TABLES = {
         ],
         "notes": (
             "There is no id column. Machine reset-debt evidence reads the "
-            "composite key project_id, capability_type, operation; each row "
+            "composite key test_machine_id and operation; each row "
             "holds that operation's latest receipt, not an append-only history."
         ),
     },

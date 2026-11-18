@@ -214,14 +214,14 @@ def test_machine_password_is_read_from_exact_capability_and_added_to_redaction(
     )
     monkeypatch.setattr(
         capability_secrets,
-        "read_machine_capability_secret",
+        "read_test_machine_secret",
         lambda *a: calls.append(a) or PASSWORD,
     )
     contract = SimpleNamespace(
         project="project", settings={"resource_name": "lab", "desktop_port": "3390"}
     )
     assert SshLinuxHostOperations.from_contract(contract) is control
-    assert calls == [("project", "test-machine:lab", "desktop_password")]
+    assert calls == [("lab", "desktop_password")]
     assert control.desktop_password == PASSWORD
     assert PASSWORD in control.secret_values and control.desktop_port == 3390
 
@@ -235,8 +235,8 @@ def test_linux_desktop_access_runs_shared_startup_before_opening_route(
 
     key = tmp_path / "key"
     key.write_text("key")
-    monkeypatch.setattr(desktop, "read_machine_capability_secret", lambda *a: PASSWORD)
-    monkeypatch.setattr(desktop, "machine_capability_secret_path", lambda *a: key)
+    monkeypatch.setattr(desktop, "read_test_machine_secret", lambda *a: PASSWORD)
+    monkeypatch.setattr(desktop, "test_machine_secret_path", lambda *a: key)
     calls = []
 
     def ensure(control):

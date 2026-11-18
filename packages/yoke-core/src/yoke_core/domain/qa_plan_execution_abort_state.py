@@ -204,7 +204,7 @@ HOST_RESTORE_RECOVERY = (
     "without a baseline records that no restoration is required. Keep the "
     "runner connected and retry only after that proof is recorded. If the "
     "runner is gone or cleanup fails, stop that runner, then have the lease "
-    "holder or a covering steering seat run `yoke test-machine reset --project P "
+    "holder or a covering steering seat run `yoke test-machine reset "
     "--test-machine TEST_MACHINE --baseline BASELINE` with the interrupted case's declared "
     "baseline, and retry this abort. The reset must succeed after cancellation "
     "was recorded; it retains the lease until abort settles. Without a declared "

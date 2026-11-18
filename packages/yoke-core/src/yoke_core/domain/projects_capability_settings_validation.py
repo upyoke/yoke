@@ -11,10 +11,6 @@ from yoke_contracts.project_contract.project_keys import (
     SESSION_ROUTING_CAPABILITY,
 )
 from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
-from yoke_contracts.machine_config.test_machine import (
-    is_test_machine_capability_type,
-    test_machine_capability_type,
-)
 from yoke_core.domain import json_helper
 from yoke_core.domain.migration_model_fleet import (
     CAPABILITY_TYPE as MIGRATION_FLEET_CAPABILITY_TYPE,
@@ -77,24 +73,8 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         parse_identity_declarations(payload)
         declared_default_identity(payload)
         return json_helper.dumps_compact(payload)
-    if cap_type == TEST_MACHINE_CAPABILITY:
-        raise ValueError(
-            "test-machine capability type must name a machine as test-machine:<name>"
-        )
-    if is_test_machine_capability_type(cap_type):
-        from yoke_core.domain.machine_qa_capability import (
-            validate_test_machine_json,
-        )
-
-        canonical = validate_test_machine_json(raw_json)
-        settings = json_helper.loads_text(canonical)
-        expected = test_machine_capability_type(settings["resource_name"])
-        if cap_type != expected:
-            raise ValueError(
-                f"test-machine capability type must be {expected!r} for its "
-                "resource_name"
-            )
-        return canonical
+    if cap_type == TEST_MACHINE_CAPABILITY or cap_type.startswith("test-machine:"):
+        raise ValueError("Test Machines are universe resources; use yoke test-machine settings-replace")
     if cap_type == RELEASE_PIN_CAPABILITY:
         from yoke_core.domain.release_pin_capability import validate_json_string
 

@@ -20,9 +20,9 @@ def completed(stdout="", returncode=0):
 
 def test_missing_secret_cannot_reset_existing_account(monkeypatch):
     store = Mock()
-    monkeypatch.setattr(provision, "machine_capability_secret_path", lambda *a: "key")
-    monkeypatch.setattr(provision, "read_machine_capability_secret", lambda *a: None)
-    monkeypatch.setattr(provision, "store_machine_capability_secret", store)
+    monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: "key")
+    monkeypatch.setattr(provision, "read_test_machine_secret", lambda *a: None)
+    monkeypatch.setattr(provision, "store_test_machine_secret", store)
     monkeypatch.setattr(
         provision.subprocess, "run", lambda *a, **kw: completed("PUBLIC")
     )
@@ -42,9 +42,9 @@ def test_missing_secret_cannot_reset_existing_account(monkeypatch):
 
 def test_profile_failure_stops_before_journal_install_and_redacts_secret(monkeypatch):
     calls = []
-    monkeypatch.setattr(provision, "machine_capability_secret_path", lambda *a: "key")
+    monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: "key")
     monkeypatch.setattr(
-        provision, "read_machine_capability_secret", lambda *a: "private password"
+        provision, "read_test_machine_secret", lambda *a: "private password"
     )
     monkeypatch.setattr(
         provision.subprocess, "run", lambda *a, **kw: completed("PUBLIC")

@@ -76,7 +76,7 @@ def test_case_begin_lease_contention_records_a_nonterminal_waiting_run(
     rows = materialize_installer_campaign(test_db, item_id=4203)
     replace_test_machine_settings(
         test_db,
-        project="yoke",
+        power_project="yoke",
         settings=TEST_MACHINE_SETTINGS,
         base_settings=None,
     )
@@ -147,7 +147,7 @@ def test_single_case_begin_contention_preserves_rerun_identity(
     rows = materialize_installer_campaign(test_db, item_id=4204)
     replace_test_machine_settings(
         test_db,
-        project="yoke",
+        power_project="yoke",
         settings=TEST_MACHINE_SETTINGS,
         base_settings=None,
     )

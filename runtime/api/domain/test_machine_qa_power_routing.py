@@ -222,7 +222,6 @@ def test_cli_operation_keeps_registered_settings(monkeypatch):
     assert (
         cli._execute(
             operation="reset",
-            project="yoke",
             test_machine="lab",
             baseline=None,
             destination=None,

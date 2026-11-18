@@ -26,7 +26,7 @@ test("machine timestamps use compact prototype-relative labels", () => {
   assert.equal(machineRelativeAge(null, now), "recently");
 });
 
-test("Test Machine detail matches capability, lease, method, and receipt prototype", async () => {
+test("Test Machine detail shows its power project, lease, method, and receipt prototype", async () => {
   const prepared = context();
   const main = prepared.documentNode.createElement("main");
   await renderTestMachineDetail(prepared.value, main, "yoke");
@@ -44,7 +44,7 @@ test("Test Machine detail matches capability, lease, method, and receipt prototy
     byClass(main, "test-machine-columns")[0].classList.contains("split"),
     true,
   );
-  assert.match(rendered, /test-machine:mac-mini-lab · composite · yoke/);
+  assert.match(rendered, /Power project yoke/);
   assert.match(rendered, /Terminal\.app · PTY · screenshots · post-install shell/);
   assert.match(rendered, /fresh-host · shell-preconfigured/);
   assert.match(
@@ -236,7 +236,7 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
     "Edit Test Machine mac-mini-lab settings",
   );
   const rendered = text(main);
-  assert.match(rendered, /Secret values never enter the browser/);
+  assert.match(rendered, /Import credentials on the executing machine/);
   assert.match(rendered, /The SSH key and each machine's desktop password stay on the executing workstation/);
   assert.match(
     rendered,
@@ -244,7 +244,7 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   );
   assert.match(
     rendered,
-    /capability secret set --project yoke --cap-type test-machine/,
+    /test-machine secret set --test-machine mac-mini-lab/,
   );
   assert.match(rendered, /--key ssh_private_key --value-stdin/);
   assert.match(rendered, /runner subprocess only/);
@@ -266,7 +266,8 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   assert.equal(
     prepared.requests.some(
       (request) => request.function === "test_machine.settings_replace" &&
-        request.payload.test_machine === "mac-mini-lab",
+        request.payload.test_machine === "mac-mini-lab" &&
+        !("project" in request.payload),
     ),
     true,
   );
@@ -275,7 +276,7 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
 test("Test Machine fleet chooser opens the selected machine", async () => {
   const second = structuredClone(detail);
   second.test_machine = "mac-studio-lab";
-  second.capability_type = "test-machine:mac-studio-lab";
+  second.id = 9;
   second.display_name = "Test Machine · mac-studio-lab";
   second.settings.resource_name = second.test_machine;
   second.settings.host = "mac-studio-lab.local";

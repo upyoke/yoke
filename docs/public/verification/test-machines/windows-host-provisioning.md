@@ -94,8 +94,7 @@ the applicable profile and allow any source address. Open no other public
 inbound port; the WSL desktop's only inbound rule is the Tailscale-only rule in
 [desktop provisioning](windows-desktop-provisioning.md).
 
-Register `test-machine:<name>` through `yoke test-machine settings-replace
---project P --test-machine NAME --settings-file FILE --new`; read `--help` for
+Register the Test Machine by name through `yoke test-machine settings-replace --test-machine NAME --settings-file FILE --new`; read `--help` for
 updates with the as-read settings token. Declare `resource_name`, `os=wsl`,
 Windows MagicDNS `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
@@ -108,9 +107,9 @@ infrastructure facts. Capacity registration is independent.
 On every QA execution workstation, store capability-owned credentials:
 
 ```text
-yoke projects capability secret set --project P --cap-type test-machine --key ssh_private_key --value-file KEY_FILE
-yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE
-yoke test-machine get --project P --test-machine NAME
+yoke test-machine secret set --test-machine NAME --key ssh_private_key --value-file KEY_FILE
+yoke test-machine secret set --test-machine NAME --key desktop_password --value-file PASSWORD_FILE
+yoke test-machine get --test-machine NAME
 ```
 
 Read each command's `--help`. Desktop and SSH usernames may differ; their
@@ -144,7 +143,7 @@ Ubuntu. This stops every running WSL distribution, not just this fixture.
 Prove the default Linux `id -u` is nonzero and PID1 is systemd. Registered host
 operations enter `wsl.exe --cd ~ -e /bin/bash -lc`; home/baseline paths are Linux
 paths and the operation preserves the Linux program's exit status.
-Confirm from the workstation with `yoke test-machine exec --project P --test-machine
+Confirm from the workstation with `yoke test-machine exec --test-machine
 NAME -- 'id -u; uname -a'`; read `--help`. Ad hoc exec uses its workstation SSH
 agent and refuses another session's lease.
 
@@ -232,10 +231,10 @@ Choose a new absolute Linux destination outside the Linux home; never reuse a
 Windows path or overwrite a saved baseline:
 
 ```text
-yoke test-machine golden-capture --project P --test-machine NAME --destination /var/lib/yoke-golden-DATE-UNIQUE/home
-yoke test-machine verify --project P --test-machine NAME
-yoke test-machine reset --project P --test-machine NAME --baseline fresh-host
-yoke test-machine get --project P --test-machine NAME
+yoke test-machine golden-capture --test-machine NAME --destination /var/lib/yoke-golden-DATE-UNIQUE/home
+yoke test-machine verify --test-machine NAME
+yoke test-machine reset --test-machine NAME --baseline fresh-host
+yoke test-machine get --test-machine NAME
 ```
 
 Read each command's `--help`. Capture runs standard probes before registering

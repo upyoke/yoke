@@ -5,13 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
-from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
-)
-from yoke_contracts.machine_config.test_machine import (
-    is_test_machine_capability_type,
-    test_machine_resource_name,
-)
 from yoke_contracts.project_contract.project_keys import (
     PROJECT_POLICY_CAPABILITY,
     SESSION_ROUTING_CAPABILITY,
@@ -25,7 +18,6 @@ from yoke_core.domain.migration_model_fleet import (
 
 KIND_DECLARED_MODEL = "declared_model"
 KIND_PROVIDER_ACCESS = "provider_access"
-KIND_TEST_RESOURCE = "test_resource"
 
 
 _DEFAULT_DEFINITION: dict[str, Any] = {
@@ -87,31 +79,15 @@ CAPABILITY_TYPE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "display_label": "Browser control",
         "display_order": 60,
     },
-    TEST_MACHINE_CAPABILITY: {
-        "display_label": "Test Machine",
-        "display_type": "test-mac",
-        "display_order": 0,
-        "detail_view": TEST_MACHINE_CAPABILITY,
-        "kind": KIND_TEST_RESOURCE,
-        "settings_summary": "test_machine",
-        "state_model": "test_machine",
-        "used_by": "machine_methods",
-    },
+
 }
 
 
 def capability_type_definition(capability_type: str) -> dict[str, Any]:
     """Return a complete caller-owned definition for one stored type."""
     definition = CAPABILITY_TYPE_DEFINITIONS.get(capability_type)
-    machine = None
-    if definition is None and is_test_machine_capability_type(capability_type):
-        definition = CAPABILITY_TYPE_DEFINITIONS[TEST_MACHINE_CAPABILITY]
-        machine = test_machine_resource_name(capability_type)
     result = dict(_DEFAULT_DEFINITION)
     result.update(definition or {})
-    if machine is not None:
-        result["display_label"] = f"Test Machine · {machine}"
-        result["display_type"] = capability_type
     result["display_label"] = result["display_label"] or capability_type.replace(
         "-", " "
     )
@@ -123,6 +99,5 @@ __all__ = [
     "CAPABILITY_TYPE_DEFINITIONS",
     "KIND_DECLARED_MODEL",
     "KIND_PROVIDER_ACCESS",
-    "KIND_TEST_RESOURCE",
     "capability_type_definition",
 ]

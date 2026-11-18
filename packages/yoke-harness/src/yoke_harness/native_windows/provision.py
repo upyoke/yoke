@@ -12,9 +12,9 @@ from uuid import uuid4
 
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config.capability_secret_store import (
-    machine_capability_secret_path,
-    read_machine_capability_secret,
-    store_machine_capability_secret,
+    test_machine_secret_path,
+    read_test_machine_secret,
+    store_test_machine_secret,
 )
 from yoke_harness.native_windows.transport import encoded, quote
 from yoke_harness.native_windows.stdin_frame import (
@@ -113,7 +113,7 @@ def provision(
 ):
     if bootstrap_transport not in {"azure", "ssh"}:
         raise ValueError("windows_bootstrap_transport_invalid: choose azure or ssh")
-    key = machine_capability_secret_path(project, "test-machine", "ssh_private_key")
+    key = test_machine_secret_path(machine, "ssh_private_key")
     public = subprocess.run(
         ["ssh-keygen", "-y", "-f", str(key)], check=True, capture_output=True, text=True
     ).stdout.strip()
@@ -238,8 +238,8 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
                     + (result.stderr + result.stdout)[-2000:]
                 )
             print("Native OpenSSH ready; password authentication disabled.")
-    password = read_machine_capability_secret(
-        project, "test-machine:" + machine, "desktop_password"
+    password = read_test_machine_secret(
+        machine, "desktop_password"
     )
     if not password:
         absent = admin_script(key, host, admin_user, missing_password_guard(test_user))
@@ -248,8 +248,8 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
                 "windows_existing_user_secret_required: verify account absence or restore its stored secret; no password was reset"
             )
         password = secrets.token_urlsafe(32) + "aA1!"
-        store_machine_capability_secret(
-            project, "test-machine:" + machine, "desktop_password", password
+        store_test_machine_secret(
+            machine, "desktop_password", password
         )
     setup = (
         r"""$ErrorActionPreference='Stop'

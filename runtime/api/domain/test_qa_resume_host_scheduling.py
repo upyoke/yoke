@@ -127,7 +127,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
     seed_qa_session(test_db, "session-machine-plan", messageable=True)
     replace_test_machine_settings(
         test_db,
-        project="yoke",
+        power_project="yoke",
         test_machine="linux-lab",
         settings={**TEST_MACHINE_SETTINGS, "resource_name": "linux-lab", "os": "linux"},
         base_settings=None,

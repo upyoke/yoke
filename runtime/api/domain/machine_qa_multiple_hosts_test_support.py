@@ -13,9 +13,9 @@ from runtime.api.domain.machine_qa_test_support import make_conn
 
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError as MachineCapabilityError,
-    test_machine_capability_type as _machine_type,
 )
 
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
     VERIFICATION_CHECKS,
@@ -62,13 +62,13 @@ def _settings(test_machine: str, *, notes: str = "") -> dict[str, str]:
 def _register_fleet(conn):
     first = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings=_settings(MACHINES[0]),
         base_settings=None,
     )
     second = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine=MACHINES[1],
         settings=_settings(MACHINES[1]),
         base_settings=None,

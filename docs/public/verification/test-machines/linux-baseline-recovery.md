@@ -33,7 +33,7 @@ Capture outside the home in a separate new parent for EVERY attempt. Retention
 can delete unregistered siblings; preserve old/failed snapshots and sidecars:
 
 ```text
-yoke test-machine golden-capture --project P --test-machine NAME --destination /var/lib/yoke-golden-DATE-UNIQUE/home
+yoke test-machine golden-capture --test-machine NAME --destination /var/lib/yoke-golden-DATE-UNIQUE/home
 ```
 
 The default dated sibling does not preserve unregistered snapshots; use the
@@ -61,9 +61,9 @@ Reset ends an open fixture desktop rather than requiring manual logout.
 These are destructive provisioning commands, not read-only reachability checks:
 
 ```text
-yoke test-machine verify --project P --test-machine NAME
-yoke test-machine reset --project P --test-machine NAME --baseline fresh-host
-yoke test-machine get --project P --test-machine NAME
+yoke test-machine verify --test-machine NAME
+yoke test-machine reset --test-machine NAME --baseline fresh-host
+yoke test-machine get --test-machine NAME
 ```
 
 Read `--help`. Verify reaches both baselines and leaves `shell-preconfigured`

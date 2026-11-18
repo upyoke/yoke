@@ -56,6 +56,7 @@ def begin_operation(
                 {
                     "project": "yoke",
                     "operation": operation,
+                    "test_machine": MACHINE,
                     **(begin_payload or {}),
                 }
             )
@@ -78,6 +79,7 @@ def run_operation(
                 {
                     "project": "yoke",
                     "operation": operation,
+                    "test_machine": MACHINE,
                     **(begin_payload or {}),
                 }
             )
@@ -102,7 +104,7 @@ def run_operation(
 
 
 def operation_receipts(conn: Any) -> list[dict[str, Any]]:
-    return machine_detail(conn, project="yoke", test_machine=MACHINE)["operations"]
+    return machine_detail(conn, test_machine=MACHINE)["operations"]
 
 
 __all__ = [

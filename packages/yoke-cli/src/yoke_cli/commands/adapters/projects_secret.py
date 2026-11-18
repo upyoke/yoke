@@ -22,7 +22,6 @@ from yoke_contracts.machine_config.capability_secrets import (
     is_browser_sign_in_secret,
     is_machine_local_capability_secret,
 )
-from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
 PROJECTS_CAPABILITY_SECRET_SET_USAGE = (
     "yoke projects capability secret set --project NAME --cap-type TYPE "
@@ -38,14 +37,11 @@ def projects_capability_secret_set(args: List[str]) -> int:
             "Store a project capability secret. GitHub authentication is not "
             "a project capability secret: repository access uses App binding "
             "rows, and the App private key is control-plane deployment "
-            "configuration. aws-admin secrets, ssh.private_key, the test-machine "
-            "SSH key and test-machine:NAME.desktop_password are stored "
+            "configuration. aws-admin secrets and ssh.private_key are stored "
             "on this machine under ~/.yoke/secrets. browser-control keys named "
             "sign-in.IDENTITY.SITE.FIELD also stay machine-local for automatic "
             "first-party test-account sign-in. Those keys require --value-file "
-            "or --value-stdin. desktop_password is the "
-            "machine administrator password, used for desktop access and "
-            "test-machine exec --admin on macOS and Linux. VALUE is the default "
+            "or --value-stdin. VALUE is the default "
             "input; --value-file and --value-stdin import the secret value "
             "without printing it."
         ),
@@ -97,14 +93,8 @@ def projects_capability_secret_set(args: List[str]) -> int:
             "GitHub capability secrets are retired; connect or bind the "
             "repository through the GitHub App"
         )
-    if parsed.key == DESKTOP_PASSWORD_KEY and (
-        not is_machine_local_capability_secret(parsed.cap_type, parsed.key)
-        or parsed.value is not None
-    ):
-        return usage_error(
-            "desktop_password requires --cap-type test-machine:NAME and "
-            "--value-file FILE or --value-stdin; never put the machine administrator password in argv"
-        )
+    if parsed.cap_type == "test-machine" or parsed.cap_type.startswith("test-machine:"):
+        return usage_error("import Test Machine secrets with yoke test-machine secret set")
     if (
         is_browser_sign_in_secret(parsed.cap_type, parsed.key)
         and parsed.value is not None

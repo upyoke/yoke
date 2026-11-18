@@ -37,7 +37,7 @@ def test_a_failed_bridge_leaves_the_ssh_surface_passed() -> None:
     assert bridge["status"] == SURFACE_FAILED
     assert "SSH still works" in bridge["recovery"]
     assert (
-        f"yoke test-machine bridge-diagnose --project yoke --test-machine {MACHINE}"
+        f"yoke test-machine bridge-diagnose --test-machine {MACHINE}"
         in bridge["recovery"]
     )
 
@@ -52,7 +52,7 @@ def test_a_failed_transport_reports_the_bridge_as_not_run() -> None:
 
     assert surfaces["ssh"]["status"] == SURFACE_FAILED
     assert (
-        f"yoke test-machine exec --project yoke --test-machine {MACHINE} -- /usr/bin/true"
+        f"yoke test-machine exec --test-machine {MACHINE} -- /usr/bin/true"
         in surfaces["ssh"]["recovery"]
     )
     assert surfaces["terminal_bridge"] == {
@@ -65,7 +65,7 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
     conn = make_conn()
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={
             "resource_name": MACHINE,
             "host": "test-mac.example.ts.net",
@@ -77,7 +77,6 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
     )
     record_test_machine_verification(
         conn,
-        1,
         test_machine=MACHINE,
         status="error",
         checks=[
@@ -87,7 +86,7 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
         error_code="terminal_app_control_unavailable",
     )
 
-    verification = read_test_machine_detail(conn, project="yoke", test_machine=MACHINE)[
+    verification = read_test_machine_detail(conn, test_machine=MACHINE)[
         "verification"
     ]
 

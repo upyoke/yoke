@@ -10,13 +10,15 @@ from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers import machine_desktop_access as handler
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_analytics_core import SessionError
+from runtime.api.fixtures.backlog_insert_support import ensure_project_id
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.timestamps import utc_now
 
 
 @pytest.fixture
 def route(monkeypatch):
     detail = {
-        "project": "example",
+        "power_project": "example",
         "test_machine": "lab",
         "settings": {"desktop_route": "direct"},
         "active_lease": {
@@ -32,10 +34,12 @@ def route(monkeypatch):
         "handle_get",
         lambda req: HandlerOutcome(primary_success=True, result_payload=detail),
     )
-    conn = SimpleNamespace(close=lambda: None)
+    conn = SimpleNamespace(
+        close=lambda: None,
+        execute=lambda sql, params: SimpleNamespace(fetchone=lambda: (1, "example")),
+    )
     monkeypatch.setattr(handler.db_helpers, "connect", lambda: conn)
     monkeypatch.setattr(handler.actors, "actor_name", lambda conn, actor: "Operator")
-    monkeypatch.setattr(handler, "resolve_project_id", lambda conn, project: 1)
 
     def seat(conn, *, caller_session_id, project_id, action):
         if caller_session_id != "steering":
@@ -54,7 +58,7 @@ def request(session_id="steering", actor_id="3"):
         request_id="desktop-assistance",
         actor={"session_id": session_id, "actor_id": actor_id},
         target={"kind": "global"},
-        payload={"project": "example", "test_machine": "lab"},
+        payload={"test_machine": "lab"},
     )
 
 
@@ -85,6 +89,14 @@ def test_seat_holder_access_audit_persists_through_event_schema(route, monkeypat
     with test_database() as conn:
         conn.execute(
             "INSERT INTO actors(id,kind,created_at) VALUES(3,'human','2026-01-01T00:00:00Z')"
+        )
+        now = utc_now()
+        project_id = ensure_project_id(conn, "example", ts=now)
+        conn.execute(
+            "INSERT INTO harness_sessions "
+            "(session_id, project_id, executor, provider, workspace, offered_at, last_heartbeat) "
+            "VALUES (%s, %s, 'codex', 'openai', '/tmp', %s, %s)",
+            (route["active_lease"]["session_id"], project_id, now, now),
         )
         conn.commit()
         monkeypatch.setattr(handler.db_helpers, "connect", db_backend.connect)
@@ -119,7 +131,7 @@ def test_access_without_a_seat_remains_bound_to_the_lease_holder(route, session_
 
 
 @pytest.mark.parametrize("seat_project,allowed", [(1, True), (2, False)])
-def test_live_seat_must_cover_the_machine_project(monkeypatch, seat_project, allowed):
+def test_live_seat_must_cover_the_lease_holders_project(monkeypatch, seat_project, allowed):
     from runtime.api.domain.session_message_support_test_support import (
         message_connection,
     )
@@ -129,10 +141,10 @@ def test_live_seat_must_cover_the_machine_project(monkeypatch, seat_project, all
     conn = message_connection()
     seat(conn, project=seat_project)
     detail = {
-        "project": "alpha",
+        "power_project": "beta",
         "test_machine": "lab",
         "settings": {"desktop_route": "direct"},
-        "active_lease": {"id": 17, "session_id": "holder"},
+        "active_lease": {"id": 17, "session_id": "s2"},
     }
     monkeypatch.setattr(
         handler,
@@ -140,7 +152,6 @@ def test_live_seat_must_cover_the_machine_project(monkeypatch, seat_project, all
         lambda req: HandlerOutcome(primary_success=True, result_payload=detail),
     )
     monkeypatch.setattr(handler.db_helpers, "connect", lambda: conn)
-    monkeypatch.setattr(handler, "resolve_project_id", lambda c, project: 1)
     monkeypatch.setattr(handler.actors, "actor_name", lambda c, actor: "Operator")
     monkeypatch.setattr(
         handler, "emit_event", lambda *a, **kw: SimpleNamespace(ok=True)
@@ -198,7 +209,7 @@ def test_cli_passes_only_route_to_viewer_and_reports_assistance(monkeypatch, cap
     )
     assert (
         cli.test_machine_desktop_access(
-            ["--project", "example", "--test-machine", "lab", "--view"]
+            ["--test-machine", "lab", "--view"]
         )
         == 0
     )

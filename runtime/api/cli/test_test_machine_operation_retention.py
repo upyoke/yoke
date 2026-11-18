@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from yoke_cli.commands.adapters import test_machine_operation as adapter
+from yoke_core.domain import cloud_machine_power
 from yoke_contracts.api.function_call import ActorContext, FunctionCallResponse
 from yoke_harness import golden_snapshot_retention as retention
 
@@ -72,7 +73,7 @@ def test_capture_retains_before_submit_releases_lease(
     monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(adapter, "build_actor", lambda **kwargs: ActorContext(actor_id="2", session_id="holder"))
     monkeypatch.setattr(adapter, "call_dispatcher", dispatch)
-    monkeypatch.setattr(adapter, "_power", lambda: SimpleNamespace(power_on=lambda *a: None))
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *args: None)
     monkeypatch.setattr(retention, "retain_registered_golden", retain)
     monkeypatch.setattr(
         "yoke_harness.test_machine_operations.execute_host_operation_contract",
@@ -86,7 +87,7 @@ def test_capture_retains_before_submit_releases_lease(
     monkeypatch.setattr(adapter, "emit_response", lambda response, **kw: emitted.append(response) or 0)
 
     adapter._execute(
-        operation="golden_capture", project="example", test_machine=None,
+        operation="golden_capture", test_machine=None,
         baseline=None, destination=None, probes_document=None,
         session_id=None, json_mode=True,
     )

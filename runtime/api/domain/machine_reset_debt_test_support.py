@@ -40,7 +40,6 @@ def verified_reset(conn, test_machine, baseline, project_id=1):
 
     record_test_machine_operation(
         conn,
-        project_id,
         test_machine=test_machine,
         operation="reset",
         status="verified",

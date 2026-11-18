@@ -18,21 +18,13 @@ from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.domain.capability_type_definitions import (
     KIND_DECLARED_MODEL,
     KIND_PROVIDER_ACCESS,
-    KIND_TEST_RESOURCE,
     capability_type_definition,
-)
-from yoke_core.domain.capabilities_test_machine_read import (
-    read_test_machine_facts,
 )
 from yoke_core.domain.migration_model_capability_validation import (
     CAPABILITY_TYPE as MIGRATION_MODEL_CAPABILITY_TYPE,
 )
 from yoke_core.domain.project_github_binding_state import INSTALLATION_ACTIVE
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.machine_qa_capability import (
-    TEST_MACHINE_BASELINES,
-    TEST_MACHINE_FEATURES_BY_OS,
-)
 
 
 #: Capability types that declare a model of the project's world rather
@@ -137,21 +129,6 @@ def _migration_model_summary(settings: Dict[str, Any]) -> str:
     return ", ".join(parts)
 
 
-def _test_machine_summary(settings: Dict[str, Any]) -> str:
-    resource = _display_safe(settings.get("resource_name"))
-    features = " + ".join(
-        feature.replace(".app", "")
-        for feature in TEST_MACHINE_FEATURES_BY_OS.get(settings.get("os"), ())[:2]
-    )
-    parts = [
-        resource,
-        _display_safe(settings.get("os")) or "OS requires next-release",
-        features,
-        f"baselines ×{len(TEST_MACHINE_BASELINES)}",
-    ]
-    return " · ".join(part for part in parts if part)
-
-
 def summarize_settings(cap_type: str, settings_json: Any) -> str:
     """A one-line curated non-secret summary of a settings document."""
     try:
@@ -165,8 +142,6 @@ def summarize_settings(cap_type: str, settings_json: Any) -> str:
         return _github_summary(parsed)
     if summary_model == "migration_model":
         return _migration_model_summary(parsed)
-    if summary_model == "test_machine":
-        return _test_machine_summary(parsed)
     parts: List[str] = []
     repo_slug = _repo_slug_safe(parsed.get("repo"))
     if repo_slug:
@@ -242,16 +217,6 @@ def list_capabilities(
             for raw in rows
         ):
             github_freshness = _github_freshness_by_project(conn)
-        machine_projects = [
-            int(dict(raw)["project_id"])
-            for raw in rows
-            if capability_type_definition(str(dict(raw)["type"]))["state_model"]
-            == "test_machine"
-        ]
-        machine_status, active_machines, machine_method_count = read_test_machine_facts(
-            conn, machine_projects
-        )
-
         result: List[Dict[str, Any]] = []
         for raw in rows:
             row = dict(raw)
@@ -267,25 +232,11 @@ def list_capabilities(
                 ):
                     verified_at = overlay
                     verified_source = VERIFIED_SOURCE_REPO_BINDING
-            project_id = int(row["project_id"])
-            machine_key = (project_id, cap_type)
-            if definition["state_model"] == "test_machine" and (
-                machine_key in active_machines
-            ):
-                state = STATE_IN_USE
-            elif definition["state_model"] == "test_machine" and (
-                machine_status.get(machine_key) == STATE_ERROR
-            ):
-                state = STATE_ERROR
-            elif kind == KIND_DECLARED_MODEL or verified_at:
+            if kind == KIND_DECLARED_MODEL or verified_at:
                 state = STATE_READY
-            elif kind == KIND_TEST_RESOURCE:
-                state = STATE_CONFIGURED_UNVERIFIED
             else:
                 state = STATE_CONFIGURED_UNVERIFIED
             used_by = str(definition["used_by"])
-            if used_by == "machine_methods":
-                used_by = f"Machine methods ×{machine_method_count}"
             result.append(
                 {
                     "type": cap_type,
@@ -295,7 +246,7 @@ def list_capabilities(
                     "detail_view": definition["detail_view"],
                     "kind": kind,
                     "state": state,
-                    "active_item_ref": active_machines.get(machine_key),
+                    "active_item_ref": None,
                     "project_id": row.get("project_id"),
                     "project": row.get("project"),
                     "settings_summary": summarize_settings(
@@ -325,7 +276,6 @@ __all__ = [
     "GENERIC_SUMMARY_KEYS",
     "KIND_DECLARED_MODEL",
     "KIND_PROVIDER_ACCESS",
-    "KIND_TEST_RESOURCE",
     "STATE_CONFIGURED_UNVERIFIED",
     "STATE_ERROR",
     "STATE_IN_USE",

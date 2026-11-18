@@ -1,0 +1,10 @@
+{
+ "id": "test-machine-registration",
+ "title": "Test Machine registration and credentials",
+ "status": "observed",
+ "page": "test-machine-setup",
+ "position": 12,
+ "summary": "Register each Test Machine once per universe. Use yoke test-machine list and get to inspect the shared fleet. Cloud registrations use --power-project on settings-replace to select the project whose AWS or Azure admin capability powers the VM. Import SSH and desktop credentials on each execution controller with yoke test-machine secret set. Files are scoped by machine name in the controller's private secret store.",
+ "sources": ["docs/public/verification/test-machines/host-provisioning.md", "packages/yoke-core/src/yoke_core/domain/machine_qa_host_schema.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_secret_import.py"],
+ "commands": ["yoke test-machine list", "yoke test-machine settings-replace", "yoke test-machine secret set"]
+}

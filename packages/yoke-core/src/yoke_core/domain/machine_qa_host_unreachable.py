@@ -89,7 +89,6 @@ def wait_if_host_unreachable(
     test_machine = contract.settings["resource_name"]
     recorded = record_test_machine_verification(
         commit_deferred_connection(conn),
-        contract.project_id,
         test_machine=test_machine,
         status="error",
         checks=[result.evidence],

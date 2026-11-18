@@ -83,7 +83,6 @@ class MachineQaLease:
         if not self.baseline.ok and self.conn is not None and self.owns_lease:
             record_test_machine_verification(
                 self.conn,
-                self.material.project_id,
                 test_machine=self.material.settings["resource_name"],
                 status="error",
                 checks=[self.baseline.evidence],

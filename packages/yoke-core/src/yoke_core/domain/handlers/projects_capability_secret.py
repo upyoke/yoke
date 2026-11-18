@@ -64,6 +64,16 @@ def handle_projects_capability_secret_set(
             ),
         )
 
+    if parsed.cap_type == "test-machine" or parsed.cap_type.startswith("test-machine:"):
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="test_machine_secret_local_only",
+                message="Test Machine secrets belong to the controller. Import with yoke test-machine secret set.",
+                jsonpath="$.payload.cap_type",
+            ),
+        )
+
     if parsed.source == "machine_file":
         if not is_machine_local_capability_secret(parsed.cap_type, parsed.key):
             return HandlerOutcome(

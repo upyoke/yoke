@@ -94,7 +94,7 @@ def test_accepted_admitted_copies_auto_close_the_member(
     plan_id = _plan(test_db, f"source-{admission}")
     if grouped:
         replace_test_machine_settings(
-            test_db, project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
+            test_db, power_project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
         )
         replace_plan_cases(
             test_db,

@@ -12,9 +12,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
 from yoke_core.domain import json_helper
 from yoke_core.domain.capabilities_list_read import (
     CAPABILITY_LIST_FIELDS,
@@ -65,14 +62,6 @@ class TestScopeAndSummary:
             )
             == "primary (governed_module)"
         )
-        assert (
-            summarize_settings(
-                _machine_type("mac-mini-lab"),
-                '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","os":"macos","operating_notes":""}',
-            )
-            == "mac-mini-lab · macos · Terminal + PTY · baselines ×2"
-        )
 
     def test_path_and_key_material_shaped_values_are_suppressed(self, test_db):
         assert summarize_settings("ssh", '{"host": "/etc/ssh/config"}') == ""
@@ -92,16 +81,6 @@ class TestScopeAndSummary:
             settings='{"anything": "value"}',
         )
         assert list_capabilities()[0]["settings_summary"] == ""
-
-    def test_capability_type_definition_projects_display_metadata(self, test_db):
-        machine_type = _machine_type("mac-mini-lab")
-        _insert_capability(test_db, machine_type)
-        row = list_capabilities()[0]
-        assert (row["display_label"], row["display_order"], row["detail_view"]) == (
-            "Test Machine · mac-mini-lab",
-            0,
-            "test-machine",
-        )
 
     def test_unknown_capability_type_gets_neutral_display_metadata(self, test_db):
         _insert_capability(test_db, "custom-provider")

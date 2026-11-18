@@ -35,7 +35,7 @@ def captured_plan_review(conn, item_id: int, *, unfinished_case: bool = False):
     seed_human_reviewer(conn, project_id)
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings=TEST_MACHINE_SETTINGS,
         base_settings=None,
     )

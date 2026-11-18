@@ -25,10 +25,9 @@ from yoke_contracts.machine_qa_host_control import (
     VERIFY_OPERATION,
 )
 
-from yoke_core.domain.machine_qa_capability_rows import (
-    TestMachineCapabilityRow,
+from yoke_core.domain.machine_qa_host_rows import (
+    TestMachineRow,
     select_test_machine_row,
-    test_machine_capability_rows,
 )
 from yoke_core.domain.machine_qa_shared_home import (
     leased_shared_home,
@@ -45,16 +44,12 @@ def selected_test_machine_row(
     *,
     project: str,
     test_machine: str | None,
-) -> TestMachineCapabilityRow:
-    """Return the one machine a project-and-name pair addresses."""
+) -> TestMachineRow:
+    """Resolve a shared machine under the supplied project context."""
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
-    return select_test_machine_row(
-        test_machine_capability_rows(conn, project_id=identity.id),
-        project=identity.slug,
-        test_machine=test_machine,
-    )
+    return select_test_machine_row(conn, test_machine=test_machine)
 
 
 def timestamped_golden_directory_name(user: str) -> str:
@@ -64,7 +59,7 @@ def timestamped_golden_directory_name(user: str) -> str:
 
 
 def resolve_golden_capture_destination(
-    row: TestMachineCapabilityRow,
+    row: TestMachineRow,
     *,
     requested: str | None = None,
 ) -> str:
@@ -92,7 +87,7 @@ def resolve_golden_capture_destination(
 
 def record_captured_golden_baseline(
     conn: Any,
-    row: TestMachineCapabilityRow,
+    row: TestMachineRow,
     *,
     destination: str,
 ) -> bool:
@@ -126,10 +121,9 @@ def kept_golden_fields(
 ) -> dict[str, Any]:
     """Name every registered golden beside a capture so retention keeps it.
 
-    Several projects can register the same host and user, each with its own
-    golden in the same parent. Retention runs on the operator's machine and
-    can only see the capturing project, so the server names every golden
-    registered for this host and user in that parent. A registration it cannot
+    Several registrations can share a host and user, with separate goldens in
+    the same parent. The server names every golden registered for this host and
+    user in that parent so the client can retain them. A registration it cannot
     read, or another name for this home that is leased now, makes the answer
     unknown rather than incomplete.
     """
@@ -162,8 +156,7 @@ def registered_golden_fields(conn: Any, settings: Mapping[str, str]) -> dict[str
     return {
         REGISTERED_GOLDENS_KEY: [
             {
-                "project": row.project,
-                "test_machine": row.test_machine,
+                    "test_machine": row.test_machine,
                 "path": row.settings[GOLDEN_BASELINE_PATH_KEY],
             }
             for row in shared_home_registrations(conn, settings)

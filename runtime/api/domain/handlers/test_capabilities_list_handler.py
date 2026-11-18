@@ -15,17 +15,7 @@ from runtime.api.domain.handlers.capabilities_list_test_support import (
     insert_github_binding as _insert_github_binding,
     iso_timestamp as _iso,
 )
-from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
 from yoke_core.domain.capabilities_list_read import list_capabilities
-from yoke_core.domain.work_claim_targets import (
-    make_item_target,
-    make_qa_admission_target,
-)
-
-MACHINE_TYPE = _machine_type("mac-mini-lab")
 
 
 class TestKindAndStateDerivation:
@@ -52,78 +42,14 @@ class TestKindAndStateDerivation:
         assert rows[0]["verified_at"] == stamp
         assert rows[0]["verified_source"] == "capability"
 
-    def test_test_machine_is_a_ready_test_resource(self, test_db):
-        _insert_capability(
-            test_db,
-            MACHINE_TYPE,
-            settings=(
-                '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","os":"macos","operating_notes":""}'
-            ),
-            verified_at=_iso(2),
-        )
-        row = list_capabilities()[0]
-        assert (row["kind"], row["state"]) == ("test_resource", "ready")
-        assert row["display_type"] == MACHINE_TYPE
-        assert row["active_item_ref"] is None
-        assert row["used_by_summary"].startswith("Machine methods ×")
-
-    def test_test_machine_in_use_names_the_claimed_item(self, test_db):
-        _insert_capability(
-            test_db,
-            MACHINE_TYPE,
-            settings=(
-                '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","os":"macos","operating_notes":""}'
-            ),
-            verified_at=_iso(2),
-        )
-        item = insert_item(
-            test_db,
-            id=41,
-            project_sequence=2001,
-            title="Prove the installer campaign",
-        )
-        now = _iso()
+    def test_universe_test_machines_are_not_project_capabilities(self, test_db):
         test_db.execute(
-            "INSERT INTO harness_sessions("
-            "session_id,executor,provider,model,workspace,project_id,"
-            "offered_at,last_heartbeat"
-            ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                "session-machine",
-                "codex",
-                "openai",
-                "gpt",
-                "/tmp/yoke-capability-test",
-                1,
-                now,
-                now,
-            ),
-        )
-        target = make_item_target(int(item["id"]))
-        test_db.execute(
-            "INSERT INTO work_claims("
-            "session_id,target_kind,scope,claimed_at,last_heartbeat"
-            ") VALUES (%s,%s,%s,%s,%s)",
-            ("session-machine", target.kind, target.scope_json(), now, now),
-        )
-        test_db.execute(
-            "INSERT INTO work_claims("
-            "session_id,target_kind,scope,claimed_at,last_heartbeat"
-            ") VALUES (%s,'qa_admission',%s,%s,%s)",
-            (
-                "session-machine",
-                make_qa_admission_target("mac-mini-lab").scope_json(),
-                now,
-                now,
-            ),
+            "INSERT INTO test_machines (name, settings, power_project_id, created_at) "
+            "VALUES ('mac-mini-lab', '{}', 1, now())"
         )
         test_db.commit()
+        assert list_capabilities() == []
 
-        row = list_capabilities()[0]
-        assert row["state"] == "in_use"
-        assert row["active_item_ref"] == "YOK-2001"
 
 
 class TestGithubFreshnessOverlay:

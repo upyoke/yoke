@@ -36,19 +36,17 @@ def _holding_execution(conn: Any, test_machine: str) -> str | None:
 
 
 def read_test_machines(conn: Any, project_id: int) -> tuple[tuple[str, str], ...]:
-    if not _table_exists(conn, "project_capabilities"):
+    if not _table_exists(conn, "test_machines"):
         return ()
     rows = conn.execute(
-        "SELECT type, settings FROM project_capabilities WHERE project_id = %s "
-        "AND type LIKE %s ORDER BY type",
-        (project_id, "test-machine:%"),
+        "SELECT name, settings FROM test_machines ORDER BY name",
     ).fetchall()
     result = []
     for row in rows:
         settings = json.loads(str(row[1] or "{}"))
         result.append(
             (
-                str(row[0]).split(":", 1)[1],
+                str(row[0]),
                 str(settings.get("os") or "requires next-release serving build")
                 + (
                     f" · {settings.get('cloud_provider', 'aws')}"
@@ -79,7 +77,7 @@ def read_reset_debts(conn, project_id) -> tuple[ResetDebt, ...]:
         debts.append(
             ResetDebt(
                 name,
-                None if execution_id else reset_command(project_id, name, baseline),
+                None if execution_id else reset_command(name, baseline),
                 execution_id,
             )
         )

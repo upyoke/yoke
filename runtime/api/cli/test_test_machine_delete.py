@@ -4,8 +4,8 @@ import pytest
 
 from yoke_cli.commands.adapters import test_machine_delete as cli
 from yoke_contracts.machine_config.capability_secret_store import (
-    store_machine_capability_secret,
-    read_machine_capability_secret,
+    store_test_machine_secret,
+    read_test_machine_secret,
     MachineCapabilitySecretError,
 )
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
@@ -17,8 +17,7 @@ def response(success=True):
         function="test_machine.delete",
         version="v1",
         result={
-            "project": "example",
-            "capability_type": "test-machine:lab",
+            "test_machine": "lab",
             "deleted": True,
         }
         if success
@@ -29,9 +28,9 @@ def response(success=True):
 
 @pytest.mark.parametrize(
     "args",
-    [[], ["--project", "example"], ["--project", "example", "--test-machine", "lab"]],
+    [[], ["--confirm"], ["--test-machine", "lab"]],
 )
-def test_requires_explicit_project_name_and_confirmation(args, monkeypatch):
+def test_requires_machine_name_and_confirmation(args, monkeypatch):
     monkeypatch.setattr(
         cli, "dispatch_and_emit", lambda **_: pytest.fail("must not dispatch")
     )
@@ -48,44 +47,32 @@ def test_dispatches_delete_and_registers_cleanup(monkeypatch):
     )
     assert (
         cli.test_machine_delete(
-            ["--project", "example", "--test-machine", "lab", "--confirm"]
+            ["--test-machine", "lab", "--confirm"]
         )
         == 0
     )
     assert calls[0]["function_id"] == "test_machine.delete"
-    assert calls[0]["payload"] == {"project": "example", "test_machine": "lab"}
+    assert calls[0]["payload"] == {"test_machine": "lab"}
     assert calls[0]["response_recovery"] is cli._cleanup
 
 
 def test_success_cleans_named_secrets_only_and_tolerates_absence(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
-    for project, cap, key in [
-        ("example", "test-machine:lab", "desktop_password"),
-        ("example", "test-machine", "ssh_private_key"),
-        ("other", "test-machine:lab", "desktop_password"),
-        ("example", "test-machine:other", "desktop_password"),
-    ]:
-        store_machine_capability_secret(project, cap, key, "private fixture")
+    for name in ("lab", "other"):
+        for key in ("ssh_private_key", "desktop_password"):
+            store_test_machine_secret(name, key, "private fixture")
+
     assert cli._cleanup(response(), None).success
-    assert (
-        read_machine_capability_secret(
-            "example", "test-machine:lab", "desktop_password"
-        )
-        is None
-    )
-    for project, cap, key in [
-        ("example", "test-machine", "ssh_private_key"),
-        ("other", "test-machine:lab", "desktop_password"),
-        ("example", "test-machine:other", "desktop_password"),
-    ]:
-        assert read_machine_capability_secret(project, cap, key) == "private fixture"
+    for key in ("ssh_private_key", "desktop_password"):
+        assert read_test_machine_secret("lab", key) is None
+        assert read_test_machine_secret("other", key) == "private fixture"
     assert cli._cleanup(response(), None).success
 
 
 def test_server_refusal_keeps_credentials(monkeypatch):
     monkeypatch.setattr(
         cli,
-        "delete_machine_capability_secrets",
+        "delete_test_machine_secrets",
         lambda *_: pytest.fail("must not delete"),
     )
     failed = response(False)
@@ -96,7 +83,7 @@ def test_local_failure_reports_server_success_and_recovery(monkeypatch):
     def fail(*_):
         raise MachineCapabilitySecretError("directory unavailable")
 
-    monkeypatch.setattr(cli, "delete_machine_capability_secrets", fail)
+    monkeypatch.setattr(cli, "delete_test_machine_secrets", fail)
     result = cli._cleanup(response(), None)
     assert not result.success
     assert result.result["deleted"] is True

@@ -78,11 +78,10 @@ def _record(conn: Any, operation: str, status: str, error: str | None = None) ->
         error_code=error,
     )
     if operation == "verify":
-        record_test_machine_verification(conn, _project_id(conn), **common)
+        record_test_machine_verification(conn, **common)
     else:
         record_test_machine_operation(
             conn,
-            _project_id(conn),
             operation=operation,
             lease_id=1,
             contract_digest="d" * 64,

@@ -11,7 +11,7 @@ from yoke_contracts.harness_hook_approval import hook_approval
 from yoke_contracts.onboarding_invocation import onboard_command
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
-from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
+from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 from yoke_core.domain.machine_registry import MachineRecord, marker
 from yoke_core.domain.overview_harness_hook_health import (
     harness_targets,
@@ -134,37 +134,28 @@ def _host_label(value: str) -> str:
     return value.strip().split(".", 1)[0].lower()
 
 
-def _test_machines(
-    conn: Any, names: set[str], visible: set[int]
-) -> list[dict[str, Any]]:
-    """Test-machine capabilities whose host is this machine, with their route.
-
-    The capability, not the machine row, records how to reach a Test Machine: its
-    host and login user. A capability matches when its host's first DNS label
-    is this machine's name or relay hostname, so an agent reading the machine
-    finds the command that drives it.
-    """
-    if not names or not _table_exists(conn, "project_capabilities"):
+def _test_machines(conn: Any, names: set[str]) -> list[dict[str, Any]]:
+    """Find universe Test Machines reached at this registered machine's address."""
+    if not names or not _table_exists(conn, "test_machines"):
         return []
     try:
-        rows = test_machine_capability_rows(conn)
+        rows = test_machine_rows(conn)
     except TestMachineCapabilityError as exc:
         return [{"error": str(exc)}]
     return [
         {
-            "project": row.project,
+            "power_project": row.power_project,
             "test_machine": row.test_machine,
-            "capability_type": row.capability_type,
             "host": row.settings["host"],
             "user": row.settings["user"],
             "os": row.settings["os"],
             "exec_command": (
-                f"yoke test-machine exec --project {row.project} "
+                "yoke test-machine exec "
                 f"--test-machine {row.test_machine} -- <command>"
             ),
         }
         for row in rows
-        if row.project_id in visible and _host_label(row.settings["host"]) in names
+        if _host_label(row.settings["host"]) in names
     ]
 
 
@@ -271,7 +262,7 @@ def machine_detail(
             installed_surfaces=(relay or {}).get("surface_versions") or {},
         ),
         "projects": _projects(conn, project_ids, reports, sessions),
-        "test_machines": _test_machines(conn, host_names, visible),
+        "test_machines": _test_machines(conn, host_names),
         "running_sessions": [row for row in sessions if row["ended_at"] is None],
         "recent_sessions": sessions[:20],
         "recent_launches": launches[:20],

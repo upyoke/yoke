@@ -281,7 +281,7 @@ runner; the lease holder or a project steering seat can reset retained machines
 to the interrupted case's baseline:
 
 ```text
-yoke test-machine reset --project P --test-machine NAME --baseline BASELINE
+yoke test-machine reset --test-machine NAME --baseline BASELINE
 ```
 
 Then retry the same scoped abort command. Only a successful reset receipt for

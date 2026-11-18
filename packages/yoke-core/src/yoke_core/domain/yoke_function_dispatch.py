@@ -1,7 +1,6 @@
 """Dispatch registered functions with permission, claim and replay gates.
 
-The public response boundary renders every internal item join key as a
-project-qualified public ref. Handlers retain integer join keys internally."""
+The response boundary renders internal item keys as project-qualified refs."""
 
 from __future__ import annotations
 
@@ -9,6 +8,7 @@ from typing import Any, Optional, Tuple
 
 from pydantic import ValidationError
 
+from yoke_core.domain import machine_idle_notice as release_notice
 from yoke_core.domain import yoke_function_dispatch_idempotency as idempotency_module
 from yoke_core.domain.yoke_function_actor_identity import (
     bind_actor_identity,
@@ -328,7 +328,9 @@ def dispatch(
     ambient_session_id: Optional[str] = None,
 ) -> FunctionCallResponse:
     with dispatch_observation(request) as mark_observed:
-        response = _dispatch_impl(request, ambient_session_id=ambient_session_id)
+        with release_notice.collect_released_hosts() as hosts:
+            response = _dispatch_impl(request, ambient_session_id=ambient_session_id)
+        response = release_notice.released_hosts_response(response, hosts)
         from yoke_core.domain.function_response_refs import public_response
 
         response = public_response(response)

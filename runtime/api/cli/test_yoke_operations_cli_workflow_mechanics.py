@@ -176,24 +176,19 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
     result, request = _run(
         "test-machine",
         "list",
-        "--project",
-        "yoke",
     )
     assert result == 0
     assert request.function == "test_machine.list"
-    assert request.payload == {"project": "yoke"}
+    assert request.payload == {}
 
     result, request = _run(
         "test-machine",
         "get",
-        "--project",
-        "yoke",
         "--test-machine",
         "mac-mini-lab",
     )
     assert result == 0
     assert request.payload == {
-        "project": "yoke",
         "test_machine": "mac-mini-lab",
     }
 
@@ -209,7 +204,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
     result, request = _run(
         "test-machine",
         "settings-replace",
-        "--project",
+        "--power-project",
         "yoke",
         "--test-machine",
         "mac-mini-lab",
@@ -219,7 +214,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
     )
     assert result == 0
     assert request.payload == {
-        "project": "yoke",
+        "power_project": "yoke",
         "test_machine": "mac-mini-lab",
         "settings": settings,
         "base_settings": None,

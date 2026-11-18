@@ -40,6 +40,7 @@ windows-649e7b3cb8e1141a9e86,yoke session-control launch get,cli,local,must-pass
 windows-02cca52205d5e47f7dc6,yoke sessions keepalive release,cli,hosted-client,must-pass,,
 windows-763e9d0990a63b189706,yoke steering report get,cli,self-hosted-client,must-pass,,
 windows-2302e017d1a474b54b86,yoke strategy doc get,cli,local,must-pass,,
+windows-ea4791655bc54ee7bc06,yoke test-machine secret set,cli,self-hosted-client,must-pass,,
 windows-7a17a50958d2ee7eea46,yoke tokens list,cli,hosted-client,must-pass,,
 windows-ba60b10ce94366405cc6,yoke ui up,cli,local,must-pass,,
 windows-99a455b2218f2b86f286,yoke watch tail,cli,hosted-client,must-pass,,

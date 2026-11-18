@@ -121,7 +121,7 @@ def test_verification_begin_local_submit_persists_and_releases(
         == 0
     )
     receipt = conn.execute(
-        "SELECT status,receipt_json FROM test_machine_verifications WHERE project_id=1"
+        "SELECT status,receipt_json FROM test_machine_verifications"
     ).fetchone()
     assert receipt["status"] == "verified"
     assert "top-secret" not in receipt["receipt_json"]
@@ -187,12 +187,12 @@ def test_direct_hosted_operation_points_to_cli(
     # The refusal names the operation the caller dispatched, which is the
     # function id itself rather than anything in the payload.
     outcome = handle_operation_on_control_plane(
-        _verify_request(f"test_machine.{operation}", {"project": "yoke"})
+        _verify_request(f"test_machine.{operation}", {})
     )
 
     assert not outcome.primary_success
     assert outcome.error.code == "host_control_client_required"
-    assert f"yoke test-machine {command} --project yoke" in outcome.error.message
+    assert f"yoke test-machine {command}" in outcome.error.message
 
 
 def test_direct_hosted_case_points_to_credential_owning_cli() -> None:
@@ -276,6 +276,7 @@ def test_cli_verify_local_failure_aborts_server_lease(
         version="v1",
         result={
             "execution": {
+                "project": "yoke",
                 "lease_id": 19,
                 "contract_digest": "digest-19",
             },
@@ -311,8 +312,6 @@ def test_cli_verify_local_failure_aborts_server_lease(
 
     exit_code = test_machine_cli.test_machine_verify(
         [
-            "--project",
-            "yoke",
             "--json",
         ]
     )

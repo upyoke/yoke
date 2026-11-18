@@ -13,9 +13,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_capability_type,
-)
 from yoke_core.domain.handlers.qa_case_execution import (
     handle_case_execution_begin,
 )
@@ -275,8 +272,8 @@ def test_mission_needs_its_test_machine_but_no_browser_row(
     assert "browser-control" not in message
 
     test_db.execute(
-        "INSERT INTO project_capabilities(created_at, project_id,type) VALUES('2026-01-01T00:00:00Z', 1,%s)",
-        (_machine_capability_type("mac-mini-lab"),),
+        "INSERT INTO test_machines(created_at, power_project_id, name, settings) VALUES('2026-01-01T00:00:00Z', 1,%s,'{}')",
+        ("mac-mini-lab",),
     )
     context = get_case_execution_context(
         test_db,

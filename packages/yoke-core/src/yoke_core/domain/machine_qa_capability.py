@@ -27,15 +27,12 @@ from yoke_contracts.test_machine_verification_surfaces import verification_surfa
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.capability_type_definitions import (
-    capability_type_definition,
-)
 from yoke_core.domain.coordination_claim_keys import QA_HOST_KEY_PREFIX
 from yoke_core.domain.coordination_claims import active_claim
-from yoke_core.domain.machine_qa_capability_rows import (
-    TestMachineCapabilityRow,
+from yoke_core.domain.machine_qa_host_rows import (
+    TestMachineRow,
     select_test_machine_row,
-    test_machine_capability_rows,
+    test_machine_rows,
 )
 from yoke_core.domain.machine_operation_recording import (
     test_machine_operation_receipts,
@@ -44,7 +41,6 @@ from yoke_core.domain.machine_qa_capability_settings import (
     replace_test_machine_settings,
 )
 from yoke_core.domain.project_identity import (
-    resolve_project,
     unresolved_item_ref,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
@@ -181,15 +177,15 @@ def host_end_state(checks: list[dict[str, Any]]) -> str | None:
 def _test_machine_detail(
     conn: Any,
     *,
-    row: TestMachineCapabilityRow,
+    row: TestMachineRow,
 ) -> dict[str, Any]:
     """Return the exact secret-free projection needed by the Test Machine screen."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     verification = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
         "FROM test_machine_verifications "
-        f"WHERE project_id={marker} AND capability_type={marker}",
-        (row.project_id, row.capability_type),
+        f"WHERE test_machine_id={marker}",
+        (row.id,),
     ).fetchone()
     receipt = json.loads(str(verification[2] or "{}")) if verification else {}
     resource_name = row.settings["resource_name"]
@@ -214,14 +210,14 @@ def _test_machine_detail(
         if verification is not None
         else ("verified" if row.verified_at else "configured_unverified")
     )
-    definition = capability_type_definition(row.capability_type)
     return {
-        "project_id": row.project_id,
-        "project": row.project,
+        "id": row.id,
+        "power_project_id": row.power_project_id,
+        "power_project": row.power_project,
+        "yoke_started": row.yoke_started,
         "test_machine": row.test_machine,
-        "capability_type": row.capability_type,
         "kind": TEST_MACHINE_CAPABILITY,
-        "display_name": definition["display_label"],
+        "display_name": f"Test Machine · {row.test_machine}",
         "runner_id": HOST_CONTROL_EXECUTOR_ID,
         "settings": row.settings,
         "settings_token": row.settings_token,
@@ -243,7 +239,7 @@ def _test_machine_detail(
             "host_end_state": host_end_state(list(receipt.get("checks") or [])),
             "surfaces": verification_surfaces(
                 list(receipt.get("checks") or []),
-                project=row.project,
+                project=row.power_project or "",
                 test_machine=row.test_machine,
                 os=row.settings["os"],
             ),
@@ -255,11 +251,7 @@ def _test_machine_detail(
                 else None
             ),
         },
-        "operations": test_machine_operation_receipts(
-            conn,
-            row.project_id,
-            capability_type=row.capability_type,
-        ),
+        "operations": test_machine_operation_receipts(conn, row.id),
         "secrets": [
             {"key": key, "stored": None, "scope": "executing_machine"}
             for key in sorted(TEST_MACHINE_SECRET_KEYS)
@@ -267,7 +259,6 @@ def _test_machine_detail(
         + [
             {
                 "key": DESKTOP_PASSWORD_KEY,
-                "cap_type": row.capability_type,
                 "stored": None,
                 "scope": "executing_machine",
             }
@@ -293,35 +284,16 @@ def _test_machine_detail(
     }
 
 
-def test_machine_detail(
-    conn: Any,
-    *,
-    project: str,
-    test_machine: str | None = None,
-) -> dict[str, Any]:
+def test_machine_detail(conn: Any, *, test_machine: str | None = None) -> dict[str, Any]:
     """Return one selected machine, allowing omission only for one-row fleets."""
-    identity = resolve_project(conn, project, required=False)
-    if identity is None:
-        raise TestMachineCapabilityError(f"project {project!r} not found")
-    rows = test_machine_capability_rows(conn, project_id=identity.id)
-    selected = select_test_machine_row(
-        rows,
-        project=identity.slug,
-        test_machine=test_machine,
-    )
+    selected = select_test_machine_row(conn, test_machine=test_machine)
     return _test_machine_detail(conn, row=selected)
 
 
-def test_machine_list(conn: Any, *, project: str) -> dict[str, Any]:
-    """Return every independently readable machine registered by a project."""
-    identity = resolve_project(conn, project, required=False)
-    if identity is None:
-        raise TestMachineCapabilityError(f"project {project!r} not found")
-    rows = test_machine_capability_rows(conn, project_id=identity.id)
+def test_machine_list(conn: Any) -> dict[str, Any]:
+    """Return every Test Machine registered in the universe."""
     return {
-        "project_id": int(identity.id),
-        "project": identity.slug,
-        "test_machines": [_test_machine_detail(conn, row=row) for row in rows],
+        "test_machines": [_test_machine_detail(conn, row=row) for row in test_machine_rows(conn)],
     }
 
 

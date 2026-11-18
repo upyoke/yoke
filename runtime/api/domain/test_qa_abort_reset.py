@@ -108,14 +108,13 @@ def test_unrelated_or_failed_reset_cannot_settle_abort(test_db, failed_restore, 
 
         replace_test_machine_settings(
             test_db,
-            project="yoke",
+            power_project="yoke",
             test_machine="other-host",
             base_settings=None,
             settings={**candidate.settings, "resource_name": "other-host"},
         )
     record_test_machine_operation(
         test_db,
-        candidate.project_id,
         test_machine="other-host" if change == "wrong_machine" else test_machine,
         operation="reset",
         status="error" if change == "failed" else "verified",

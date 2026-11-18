@@ -9,9 +9,6 @@ from runtime.api.qa_catalog_test_support import (
     CATALOG_CASES,
     create_release_readiness_plan,
 )
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
 from yoke_core.domain.qa_catalog_reads import get_method, list_methods, list_plans
 from yoke_core.domain.qa_command_plan_registration import (
     ensure_registered_command_plan,
@@ -34,7 +31,7 @@ MACHINE_SETTINGS = (
     '"operating_notes":"","resource_name":"mac-mini-lab",'
     '"user":"yoke-test"}'
 )
-MACHINE_TYPE = _machine_type("mac-mini-lab")
+MACHINE_NAME = "mac-mini-lab"
 
 
 def test_builtin_methods_seed_with_real_contracts() -> None:
@@ -181,13 +178,13 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             ],
         )
         conn.execute(
-            "INSERT INTO project_capabilities("
-            "project_id,type,settings,verified_at,created_at"
+            "INSERT INTO test_machines("
+            "power_project_id,name,settings,verified_at,created_at"
             ") VALUES(1,%s,%s,%s,%s) "
-            "ON CONFLICT(project_id,type) DO UPDATE SET "
+            "ON CONFLICT(name) DO UPDATE SET "
             "verified_at=EXCLUDED.verified_at",
             (
-                MACHINE_TYPE,
+                MACHINE_NAME,
                 MACHINE_SETTINGS,
                 "2026-07-26T16:00:00Z",
                 "2026-07-26T15:00:00Z",
@@ -195,12 +192,12 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         )
         conn.execute(
             "INSERT INTO test_machine_verifications("
-            "project_id,capability_type,status,checked_at,receipt_json,error_code,updated_at"
-            ") VALUES(1,%s,'verified',%s,'{}',NULL,%s) "
-            "ON CONFLICT(project_id,capability_type) DO UPDATE SET "
+            "test_machine_id,status,checked_at,receipt_json,error_code,updated_at"
+            ") VALUES((SELECT id FROM test_machines WHERE name=%s),'verified',%s,'{}',NULL,%s) "
+            "ON CONFLICT(test_machine_id) DO UPDATE SET "
             "status=EXCLUDED.status, checked_at=EXCLUDED.checked_at, "
             "updated_at=EXCLUDED.updated_at",
-            (MACHINE_TYPE, "2026-07-26T16:00:00Z", "2026-07-26T16:00:00Z"),
+            (MACHINE_NAME, "2026-07-26T16:00:00Z", "2026-07-26T16:00:00Z"),
         )
         register_session_actor(conn, "machine-session")
         conn.execute(
@@ -231,7 +228,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             ("2026-07-26T16:10:00Z",),
         )
         conn.execute(
-            "UPDATE test_machine_verifications SET status='error' WHERE project_id=1"
+            "UPDATE test_machine_verifications SET status='error'"
         )
         error_state = next(
             row["required_capabilities"][0]["state"]
@@ -239,7 +236,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             if row["id"] == "machine-state-check"
         )
         conn.execute(
-            "UPDATE test_machine_verifications SET status='configured_unverified' WHERE project_id=1"
+            "UPDATE test_machine_verifications SET status='configured_unverified'"
         )
         configured_state = next(
             row["required_capabilities"][0]["state"]
@@ -247,23 +244,23 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             if row["id"] == "machine-state-check"
         )
         conn.execute(
-            "UPDATE test_machine_verifications SET status='verified' WHERE project_id=1"
+            "UPDATE test_machine_verifications SET status='verified'"
         )
         ready_state = next(
             row["required_capabilities"][0]["state"]
             for row in list_methods(conn, project="yoke")
             if row["id"] == "machine-state-check"
         )
-        conn.execute("DELETE FROM test_machine_verifications WHERE project_id=1")
+        conn.execute("DELETE FROM test_machine_verifications")
         fallback_ready_state = next(
             row["required_capabilities"][0]["state"]
             for row in list_methods(conn, project="yoke")
             if row["id"] == "machine-state-check"
         )
         conn.execute(
-            "UPDATE project_capabilities SET verified_at=NULL "
-            "WHERE project_id=1 AND type=%s",
-            (MACHINE_TYPE,),
+            "UPDATE test_machines SET verified_at=NULL "
+            "WHERE name=%s",
+            (MACHINE_NAME,),
         )
         fallback_configured_state = next(
             row["required_capabilities"][0]["state"]
@@ -271,8 +268,8 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             if row["id"] == "machine-state-check"
         )
         conn.execute(
-            "DELETE FROM project_capabilities WHERE project_id=1 AND type=%s",
-            (MACHINE_TYPE,),
+            "DELETE FROM test_machines WHERE name=%s",
+            (MACHINE_NAME,),
         )
         missing_state = next(
             row["required_capabilities"][0]["state"]
@@ -295,9 +292,8 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
     scripted_machine_methods = [
         row for row in machine_methods if row["runner_id"] == "host_control"
     ]
-    assert all(
-        row["required_capabilities"]
-        == [
+    for row in scripted_machine_methods:
+        assert row["required_capabilities"] == [
             {
                 "kind": "test-machine",
                 "label": "Test Machine",
@@ -305,8 +301,6 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
                 "context": expected_context,
             }
         ]
-        for row in scripted_machine_methods
-    )
     mission = next(
         row for row in methods if row["runner_id"] == "agent_mission"
     )

@@ -18,7 +18,7 @@ import subprocess
 import pytest
 
 from yoke_contracts.machine_config.capability_secret_store import (
-    store_machine_capability_secret,
+    store_test_machine_secret,
 )
 from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_harness import desktop_access, rdp_desktop_client as viewer
@@ -259,11 +259,11 @@ def test_wrong_default_wsl_user_refuses_before_desktop_login(tmp_path, monkeypat
 
 def test_view_path_does_not_materialize_password_file(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    store_machine_capability_secret(
-        "project", "test-machine", "ssh_private_key", "test-key"
+    store_test_machine_secret(
+        "lab", "ssh_private_key", "test-key"
     )
-    store_machine_capability_secret(
-        "project", "test-machine:lab", "desktop_password", PASSWORD
+    store_test_machine_secret(
+        "lab", "desktop_password", PASSWORD
     )
     monkeypatch.setattr(
         desktop_access, "_prepare_desktop", lambda *a: (RECEIPT, geometry)

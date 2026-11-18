@@ -53,7 +53,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     documentNode,
     "p",
     "muted",
-    "Only non-secret project capability settings are saved here. Secret values never enter the browser.",
+    "Manage Test Machine settings here. Import credentials on the executing machine.",
   ));
   const fields = el(documentNode, "div", "test-machine-fields");
   const inputs = {};
@@ -64,6 +64,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["os", "Operating system"],
     ["operating_notes", "Operating notes"],
     ["golden_baseline_path", "Golden baseline path"],
+    ["power_project", "Cloud power project"],
     ["cloud_provider", "Cloud provider (aws or azure; default aws)"],
     ["cloud_instance_id", "Cloud instance id (Azure: full VM resource id)"],
     ["desktop_route", "Desktop route (direct or ssh-forward)"],
@@ -74,11 +75,11 @@ export function machineSettingsDialog(context, detail, close, saved) {
   ]) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");
-    input.value = detail.settings[key] || "";
+    input.value = (key === "power_project" ? detail.power_project : detail.settings[key]) || "";
     let explanation = "";
     if (key === "resource_name") {
       input.readOnly = true;
-      explanation = "The resource name is this capability row's identity.";
+      explanation = "The resource name is this Test Machine's identity.";
     }
     if (key === "os") {
       explanation =
@@ -122,7 +123,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
       documentNode,
       "code",
       null,
-      `yoke projects capability secret set --project ${detail.project} --cap-type ${secret.cap_type || "test-machine"} --key ${secret.key} --value-stdin`,
+      `yoke test-machine secret set --test-machine ${detail.test_machine} --key ${secret.key} --value-stdin`,
     ));
     credentials.appendChild(row);
   }
@@ -165,13 +166,15 @@ export function machineSettingsDialog(context, detail, close, saved) {
         context.client,
         "test_machine.settings_replace",
         {
-          project: detail.project,
           test_machine: detail.test_machine,
+          power_project: inputs.power_project.value.trim() || null,
           settings: Object.fromEntries(
             Object.entries(inputs)
               .filter(([key, input]) => (
-                ["resource_name", "host", "user", "os", "operating_notes"].includes(key)
-                || input.value.trim()
+                key !== "power_project" && (
+                  ["resource_name", "host", "user", "os", "operating_notes"].includes(key)
+                  || input.value.trim()
+                )
               ))
               .map(([key, input]) => [key, input.value]),
           ),

@@ -4,11 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
-)
 from yoke_contracts.machine_config.capability_secret_store import (
-    store_machine_capability_secret,
+    store_test_machine_secret,
 )
 from yoke_core.domain.qa_plan_attachments import (
     attach_plan_to_item,
@@ -113,15 +110,14 @@ def configure_test_machine(
     seed_qa_session(conn, *ACTING_SESSIONS)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
-    store_machine_capability_secret(
-        "yoke",
-        TEST_MACHINE_CAPABILITY,
+    store_test_machine_secret(
+        TEST_MACHINE_SETTINGS["resource_name"],
         "ssh_private_key",
         "top-secret",
     )
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings=TEST_MACHINE_SETTINGS,
         base_settings=None,
     )

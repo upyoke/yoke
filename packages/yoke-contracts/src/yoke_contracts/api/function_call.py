@@ -174,6 +174,11 @@ class FunctionCallResponse(BaseModel):
     warnings: List[FunctionWarning] = Field(default_factory=list)
     error: Optional[FunctionError] = None
     event_ids: List[int] = Field(default_factory=list)
+    #: Yoke-started Test Machines this call left free, as
+    #: {"power_project", "test_machine"}; the caller rechecks before stopping.
+    test_machines_to_stop: List[Dict[str, str]] = Field(
+        default_factory=list, exclude_if=lambda value: not value
+    )
 
     @field_serializer("result")
     def _wire_result(self, value: Dict[str, Any]) -> Dict[str, Any]:

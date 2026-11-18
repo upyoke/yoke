@@ -1,75 +1,60 @@
-"""Fleet readiness projection for the test-machine QA requirement kind."""
+"""Universe Test Machine readiness for QA capability requirements."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.capabilities_list_read import (
-    STATE_CONFIGURED_UNVERIFIED,
-    STATE_ERROR,
-    STATE_IN_USE,
-    STATE_READY,
-)
-from yoke_core.domain.capabilities_test_machine_read import (
-    read_test_machine_facts,
-)
-from yoke_core.domain.machine_qa_capability_rows import (
-    test_machine_capability_rows,
-)
+from yoke_core.domain.coordination_claims import active_claim
+from yoke_core.domain.machine_qa_capability import _holder_item, host_claim_target
+from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 
 
 def test_machine_capability_context(
-    conn: Any,
-    *,
-    project_id: int,
+    conn: Any, *, test_machine: str | None = None
 ) -> dict[str, Any]:
-    """Return fleet availability while preserving per-machine serial limits."""
-    rows = test_machine_capability_rows(conn, project_id=project_id)
-    if not rows:
+    """Report readiness of all Test Machines or the specifically required host."""
+    if not _table_exists(conn, "test_machines"):
         return {"state": "not_configured"}
-    verification, active_items, _method_count = read_test_machine_facts(
-        conn,
-        [project_id],
-    )
-    keys = [(project_id, row.capability_type) for row in rows]
-    busy = [key for key in keys if key in active_items]
-    free = [
-        row for row in rows if (project_id, row.capability_type) not in active_items
+    machines = [
+        machine for machine in test_machine_rows(conn)
+        if test_machine is None or machine.test_machine == test_machine
     ]
-    context: dict[str, Any] = {
-        "state": STATE_CONFIGURED_UNVERIFIED,
-        "concurrency_mode": "serial_per_machine",
-        "machines_total": len(keys),
-        "oses": sorted({row.settings["os"] for row in rows}),
-        "machines_in_use": len(busy),
+    if not machines:
+        return {"state": "not_configured"}
+
+    verifications = dict(
+        conn.execute("SELECT test_machine_id, status FROM test_machine_verifications").fetchall()
+    )
+    leases = {
+        machine.id: active_claim(conn, host_claim_target(machine.test_machine))
+        for machine in machines
     }
-    if len(busy) == len(keys):
+    busy = sum(lease is not None for lease in leases.values())
+    context = {
+        "state": "configured_unverified",
+        "concurrency_mode": "serial_per_machine",
+        "machines_total": len(machines),
+        "oses": sorted({machine.settings["os"] for machine in machines}),
+        "machines_in_use": busy,
+    }
+    if busy == len(machines):
+        refs = (
+            _holder_item(conn, session_id=lease.session_id)
+            for lease in leases.values() if lease is not None
+        )
         context.update(
-            {
-                "state": STATE_IN_USE,
-                "wait_reason": "all_machine_leases_in_use",
-                "active_lease": {
-                    "public_ref": next(
-                        (active_items[key] for key in busy if active_items[key]),
-                        None,
-                    ),
-                },
-            }
+            state="in_use",
+            wait_reason="all_machine_leases_in_use",
+            active_lease={"public_ref": next((item["ref"] for item in refs if item), None)},
         )
-    elif any(
-        verification.get(
-            (project_id, row.capability_type), "verified" if row.verified_at else None
-        )
-        == "verified"
-        for row in free
-    ):
-        context["state"] = STATE_READY
-    elif free and all(
-        verification.get((project_id, row.capability_type)) == STATE_ERROR
-        for row in free
-    ):
-        context["state"] = STATE_ERROR
+    else:
+        statuses = [
+            verifications.get(machine.id, "verified" if machine.verified_at else None)
+            for machine in machines if leases[machine.id] is None
+        ]
+        if "verified" in statuses:
+            context["state"] = "ready"
+        elif all(status == "error" for status in statuses):
+            context["state"] = "error"
     return context
-
-
-__all__ = ["test_machine_capability_context"]

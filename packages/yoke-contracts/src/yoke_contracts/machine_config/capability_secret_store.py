@@ -83,19 +83,63 @@ def list_machine_capability_secret_keys(project_slug: str, cap_type: str) -> lis
     )
 
 
-def delete_machine_capability_secrets(project_slug: str, cap_type: str) -> None:
-    """Remove only this project's named test-machine secret directory."""
-    import shutil
+def test_machine_secret_path(name: str, key: str) -> Path:
+    """Return the controller-local credential path for a universe Test Machine."""
+    from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
+    from yoke_contracts.machine_config.test_machine import validate_test_machine_resource_name
 
-    if not cap_type.startswith("test-machine:"):
-        raise MachineCapabilitySecretError(
-            "only named test-machine secrets can be deleted"
-        )
-    directory = (
+    if key not in {"ssh_private_key", DESKTOP_PASSWORD_KEY}:
+        raise ValueError(f"{key!r} is not a Test Machine secret key")
+    return (
         machine_config.yoke_home()
         / machine_contract.SECRETS_DIR_NAME
-        / contract.capability_secret_directory_relative_path(project_slug, cap_type)
+        / contract.CAPABILITY_SECRETS_DIR_NAME
+        / "test-machines"
+        / validate_test_machine_resource_name(name)
+        / key
     )
+
+
+def test_machine_secret_import_command(name: str, key: str) -> str:
+    return (
+        "yoke test-machine secret set "
+        f"--test-machine {name} --key {key} --value-file FILE"
+    )
+
+
+def read_test_machine_secret(name: str, key: str) -> str | None:
+    path = test_machine_secret_path(name, key)
+    if not path.is_file():
+        return None
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError) as exc:
+        raise MachineCapabilitySecretError(
+            f"Test Machine {name!r} secret {key} is unreadable; "
+            f"re-import it with {test_machine_secret_import_command(name, key)}"
+        ) from exc
+    if not value:
+        raise MachineCapabilitySecretError(
+            f"Test Machine {name!r} secret {key} is empty; "
+            f"re-import it with {test_machine_secret_import_command(name, key)}"
+        )
+    return value
+
+
+def store_test_machine_secret(name: str, key: str, secret: str) -> Path:
+    path = test_machine_secret_path(name, key)
+    value = secret.strip()
+    if not value:
+        raise MachineCapabilitySecretError(f"Test Machine {name!r} secret {key} is empty")
+    _write_secret(path, value)
+    return path
+
+
+def delete_test_machine_secrets(name: str) -> None:
+    """Remove this controller's credentials for a deleted machine."""
+    import shutil
+
+    directory = test_machine_secret_path(name, "ssh_private_key").parent
     _refuse_unisolated_test_write(directory)
     try:
         shutil.rmtree(directory)
@@ -103,7 +147,7 @@ def delete_machine_capability_secrets(project_slug: str, cap_type: str) -> None:
         pass
     except OSError as exc:
         raise MachineCapabilitySecretError(
-            f"local secret cleanup failed for {cap_type}: {directory}"
+            f"local secret cleanup failed for Test Machine {name!r}: {directory}"
         ) from exc
 
 

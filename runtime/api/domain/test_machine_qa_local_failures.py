@@ -21,8 +21,8 @@ from yoke_core.domain.host_control_runner import materialize_test_machine_contra
 
 def _detail(test_machine: str = "lab") -> dict[str, Any]:
     return {
-        "project": "yoke",
-        "capability_type": f"test-machine:{test_machine}",
+        "test_machine": test_machine,
+        "power_project": "yoke",
         "secrets": [
             {
                 "key": "ssh_private_key",
@@ -31,7 +31,6 @@ def _detail(test_machine: str = "lab") -> dict[str, Any]:
             },
             {
                 "key": "desktop_password",
-                "cap_type": f"test-machine:{test_machine}",
                 "stored": None,
                 "scope": "executing_machine",
             },
@@ -42,14 +41,12 @@ def _detail(test_machine: str = "lab") -> dict[str, Any]:
 def test_cli_attests_only_its_own_machine_secret_presence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from types import SimpleNamespace
+
     monkeypatch.setattr(
         test_machine_cli,
-        "list_machine_capability_secret_keys",
-        lambda _project, capability: {
-            "test-machine": ["ssh_private_key"],
-            "test-machine:lab": ["desktop_password"],
-            "test-machine:other": [],
-        }[capability],
+        "test_machine_secret_path",
+        lambda name, key: SimpleNamespace(is_file=lambda: name == "lab"),
     )
     response = FunctionCallResponse(
         success=True,
@@ -59,7 +56,7 @@ def test_cli_attests_only_its_own_machine_secret_presence(
     )
 
     attested = test_machine_cli._attest_secret_presence(
-        response, "yoke", "test_machine.list"
+        response, "test_machine.list"
     )
 
     secret = attested.result["test_machines"][0]["secrets"][0]
@@ -70,7 +67,7 @@ def test_cli_attests_only_its_own_machine_secret_presence(
     }
     assert response.result["test_machines"][0]["secrets"][0]["stored"] is None
     assert attested.result["test_machines"][0]["secrets"][1]["stored"] is True
-    assert attested.result["test_machines"][1]["secrets"][1]["stored"] is False
+    assert all(not secret["stored"] for secret in attested.result["test_machines"][1]["secrets"])
 
 
 def test_missing_local_credential_has_specific_recovery(
@@ -96,7 +93,7 @@ def test_missing_local_credential_has_specific_recovery(
 
     assert caught.value.code == "host_control_credential_missing"
     assert caught.value.phase == "credential_materialization"
-    assert "capability secret set --project yoke" in caught.value.recovery_hint
+    assert "yoke test-machine secret set --test-machine mac-mini-lab" in caught.value.recovery_hint
 
 
 def test_operation_adapter_preserves_connection_failure_result(
@@ -148,7 +145,7 @@ def test_operation_adapter_preserves_connection_failure_result(
         refuse,
     )
 
-    exit_code = test_machine_cli.test_machine_verify(["--project", "yoke", "--json"])
+    exit_code = test_machine_cli.test_machine_verify(["--json"])
 
     assert exit_code == 1
     emitted = json.loads(capsys.readouterr().out)

@@ -82,7 +82,7 @@ def test_verify_cli_cleans_local_artifacts_after_rejected_submission(
         ),
     )
 
-    exit_code = test_machine_cli.test_machine_verify(["--project", "yoke", "--json"])
+    exit_code = test_machine_cli.test_machine_verify(["--json"])
 
     assert exit_code == 1
     assert not artifact.exists()

@@ -15,7 +15,7 @@ def test_local_failure_reports_accepted_abort_lease_state(monkeypatch, released)
                 success=True,
                 function="test_machine.operation.begin",
                 version="v1",
-                result={"execution": {"lease_id": 1, "contract_digest": "digest"}},
+                result={"execution": {"project": "example", "lease_id": 1, "contract_digest": "digest"}},
             ),
             FunctionCallResponse(
                 success=True,
@@ -45,7 +45,6 @@ def test_local_failure_reports_accepted_abort_lease_state(monkeypatch, released)
     assert (
         adapter._execute(
             operation="screenshot",
-            project="example",
             test_machine=None,
             baseline=None,
             destination=None,
@@ -95,7 +94,7 @@ def test_operation_receipt_status_controls_exit(monkeypatch, operation, status, 
         lambda *args: warned.append(args),
     )
     assert adapter._execute(
-        operation=operation, project="example", test_machine=None, baseline=None,
+        operation=operation, test_machine=None, baseline=None,
         destination=None, probes_document=None, session_id=None, json_mode=True,
     ) == expected
     assert emitted[0].result["status"] == status

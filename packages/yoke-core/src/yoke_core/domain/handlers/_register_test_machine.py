@@ -13,6 +13,9 @@ from yoke_core.domain import agent_mission_recording as _agent_mission
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers import machine_power_ownership
+
+    machine_power_ownership.register(registry)
     from yoke_core.domain.handlers.machine_qa_delete import register as register_delete
 
     register_delete(registry)

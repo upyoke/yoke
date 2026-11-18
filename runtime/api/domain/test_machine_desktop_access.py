@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.machine_config.capability_secret_store import (
-    read_machine_capability_secret,
-    store_machine_capability_secret,
+    read_test_machine_secret,
+    store_test_machine_secret,
 )
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.machine_config.test_machine import (
@@ -37,28 +37,28 @@ PASSWORD = "a-test-desktop-secret"
 @pytest.fixture
 def credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    store_machine_capability_secret(
-        "project", "test-machine", "ssh_private_key", "fake-key"
+    store_test_machine_secret(
+        "lab", "ssh_private_key", "fake-key"
     )
-    store_machine_capability_secret(
-        "project", "test-machine:lab", "desktop_password", PASSWORD
+    store_test_machine_secret(
+        "lab", "desktop_password", PASSWORD
     )
     return tmp_path
 
 def test_passwords_are_machine_owned_and_private(credentials):
-    path = store_machine_capability_secret(
-        "project", "test-machine:other", "desktop_password", "other-secret"
+    path = store_test_machine_secret(
+        "other", "desktop_password", "other-secret"
     )
     assert is_owner_private_file(path)
     assert (
-        read_machine_capability_secret(
-            "project", "test-machine:lab", "desktop_password"
+        read_test_machine_secret(
+            "lab", "desktop_password"
         )
         == PASSWORD
     )
     assert (
-        read_machine_capability_secret(
-            "project", "test-machine:other", "desktop_password"
+        read_test_machine_secret(
+            "other", "desktop_password"
         )
         == "other-secret"
     )
@@ -98,14 +98,14 @@ def _request():
         request_id="desktop-test",
         actor={"session_id": "caller"},
         target={"kind": "global"},
-        payload={"project": "project", "test_machine": "lab"},
+        payload={"test_machine": "lab"},
     )
 
 def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     monkeypatch,
 ):
     detail = {
-        "project": "project",
+        "power_project": "project",
         "test_machine": "lab",
         "settings": SETTINGS,
         "active_lease": {"session_id": "holder"},
@@ -122,16 +122,17 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
         raise SessionError("steering_seat_required", "requires a live steering seat")
 
     monkeypatch.setattr(
-        handler.db_helpers, "connect", lambda: SimpleNamespace(close=lambda: None)
+        handler.db_helpers, "connect", lambda: SimpleNamespace(
+            close=lambda: None,
+            execute=lambda *_: SimpleNamespace(fetchone=lambda: (1, "project")),
+        )
     )
-    monkeypatch.setattr(handler, "resolve_project_id", lambda conn, project: 1)
     monkeypatch.setattr(handler, "require_operator_seat", no_seat)
     refused = handler.handle_desktop_access(_request())
     assert refused.error.code == "steering_seat_required"
     detail["active_lease"] = {"session_id": "caller"}
     result = handler.handle_desktop_access(_request()).result_payload
     assert set(result) == {"project", "test_machine", "settings"}
-
 
 @pytest.mark.parametrize(
     "protocol,fragments",

@@ -37,9 +37,9 @@ Simultaneous machine-QA cases keep their declared driver and check platforms
 across the full host set; see [host-set authoring](exploration.md#authoring-shape).
 
 When verification marks a host unhealthy, repair the named failure and run
-`yoke test-machine verify --project P --test-machine NAME` to wake the waiting line.
+`yoke test-machine verify --test-machine NAME` to wake the waiting line.
 Keep the sealed baseline unchanged during this recovery. Run
-`yoke test-machine reset --project P --test-machine NAME` for an authorized reset;
+`yoke test-machine reset --test-machine NAME` for an authorized reset;
 read each command's `--help`.
 
 Test Machine reads, operation receipts and desktop routes name the host in
@@ -58,12 +58,12 @@ section describes before retrying QA. Test Machines need at least 40 GiB.
 
 The named machine's `desktop_password` secret is its administrator password,
 used for desktop access and macOS/Linux administrator commands. Run one setup
-command with `yoke test-machine exec --project P --test-machine NAME --admin -- COMMAND ARGS...`.
+command with `yoke test-machine exec --test-machine NAME --admin -- COMMAND ARGS...`.
 Read its `--help`; product code reads the stored secret, supplies it on private
 stdin to sudo, and redacts output. The command receives no stdin. Import the
-credential through `yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE`.
+credential through `yoke test-machine secret set --test-machine NAME --key desktop_password --value-file PASSWORD_FILE`.
 
-Run `yoke test-machine desktop-access --project P --test-machine NAME --view` on the
+Run `yoke test-machine desktop-access --test-machine NAME --view` on the
 workstation holding the registered fixture credentials. Read the command's
 `--help` for route prerequisites, refusals, and cleanup. The command acquires
 an unleased host or borrows your existing lease and starts a stopped cloud

@@ -10,8 +10,7 @@ import socket
 import subprocess
 import time
 
-from yoke_contracts.machine_config.capability_secret_store import machine_capability_secret_path
-from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
+from yoke_contracts.machine_config.capability_secret_store import test_machine_secret_path
 from yoke_contracts.machine_config.desktop_access import validate_desktop_settings
 
 #: Seconds the forward has to start accepting on its local port.
@@ -42,12 +41,13 @@ def _wait_for_listener(process, port, error):
 
 @contextmanager
 def _held_forward(project, settings, route, port, error, ssh_args):
-    key = machine_capability_secret_path(
-        project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
+    key = test_machine_secret_path(
+        settings["resource_name"], "ssh_private_key"
     )
     if not key.is_file():
         raise error(
-            "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
+            "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
+            f"--test-machine {settings['resource_name']} --key ssh_private_key --value-file FILE"
         )
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))

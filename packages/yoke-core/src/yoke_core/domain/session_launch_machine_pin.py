@@ -80,13 +80,14 @@ def _matching_machines(conn: Any, value: str) -> dict[str, _Candidate]:
 
 
 def _names_test_machine(conn: Any, value: str) -> bool:
-    from yoke_core.domain.machine_qa_host_registrar import host_registrations
+    from yoke_core.domain.schema_common import _table_exists
 
-    lowered = value.lower()
-    return any(
-        registration.resource_name.lower() == lowered
-        for registration in host_registrations(conn)
-    )
+    if not _table_exists(conn, "test_machines"):
+        return False
+    p = marker(conn)
+    return conn.execute(
+        f"SELECT 1 FROM test_machines WHERE LOWER(name)=LOWER({p})", (value,)
+    ).fetchone() is not None
 
 
 def _candidate_lines(candidates: dict[str, _Candidate]) -> list[str]:

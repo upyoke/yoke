@@ -38,6 +38,11 @@ def _ec2_actions(runner: FakeRunner) -> list[str]:
 @pytest.fixture
 def aws(monkeypatch):
     monkeypatch.setattr(cloud_machine_power, "_aws_env", lambda project: {"P": project})
+    monkeypatch.setattr(
+        cloud_machine_power, "_call",
+        lambda function, _payload: {"power_project": "yoke", "settings": CLOUD}
+        if function == "test_machine.get" else {},
+    )
 
 
 def test_machine_without_instance_id_is_never_touched(monkeypatch):
@@ -108,7 +113,7 @@ def ssh_key(monkeypatch, tmp_path):
     key = tmp_path / "ssh_private_key"
     key.write_text("key", encoding="utf-8")
     monkeypatch.setattr(
-        cloud_machine_power, "machine_capability_secret_path", lambda *a: key
+        cloud_machine_power, "test_machine_secret_path", lambda *a: key
     )
     return key
 
@@ -160,7 +165,7 @@ def test_ssh_wait_without_the_machine_key_leaves_the_refusal_to_host_control(
 ):
     monkeypatch.setattr(
         cloud_machine_power,
-        "machine_capability_secret_path",
+        "test_machine_secret_path",
         lambda *a: tmp_path / "missing",
     )
     runner = _LoginRunner([])
@@ -168,7 +173,7 @@ def test_ssh_wait_without_the_machine_key_leaves_the_refusal_to_host_control(
     assert runner.calls == []
 
 
-def test_power_keeps_magicdns_host_without_address_read_or_dispatch(
+def test_power_keeps_magicdns_host_without_public_address_read(
     monkeypatch, aws, ssh_key
 ):
     monkeypatch.setattr(

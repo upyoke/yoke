@@ -9,7 +9,7 @@
  "surface": "Pack README → host-provisioning → per-OS procedure; settings contract.",
  "gap": "Setup support exists; improve discovery instead of building another provisioner. Keep project-specific infrastructure/accounts and private fixture policy out of a universal user recipe.",
  "review": "Source guidance updated; provisioning evidence distinguishes passing runtime/restores from unresolved Windows desktop proof.",
- "recipes": ["yoke test-machine settings-replace --help", "yoke test-machine list --project P --json", "yoke test-machine get --project P --test-machine NAME --json"],
+ "recipes": ["yoke test-machine settings-replace --help", "yoke test-machine list --json", "yoke test-machine get --test-machine NAME --json"],
  "plan_notes": ["JOURNEYS row 13"],
  "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machines/windows-host-provisioning.md"],
  "position": 1

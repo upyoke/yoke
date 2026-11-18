@@ -119,7 +119,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     third = "mac-pro-lab"
     replace_test_machine_settings(
         test_db,
-        project="yoke",
+        power_project="yoke",
         test_machine=third,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": third},
         base_settings=None,

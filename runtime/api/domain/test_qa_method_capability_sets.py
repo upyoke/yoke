@@ -8,9 +8,6 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
 from yoke_core.domain.qa_case_execution_context import (
     QaCaseExecutionError,
     get_case_execution_context,
@@ -60,8 +57,8 @@ def test_case_admission_names_every_missing_capability() -> None:
         ).fetchone()
         requirement_id = int(row["id"])
         conn.execute(
-            "INSERT INTO project_capabilities(created_at, project_id,type) VALUES('2026-01-01T00:00:00Z', 1,%s)",
-            (_machine_type("mac-mini-lab"),),
+            "INSERT INTO test_machines(created_at, power_project_id, name, settings) VALUES('2026-01-01T00:00:00Z', 1,%s,'{}')",
+            ("mac-mini-lab",),
         )
         with pytest.raises(QaCaseExecutionError) as exc_info:
             get_case_execution_context(

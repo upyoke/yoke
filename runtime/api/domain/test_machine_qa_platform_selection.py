@@ -86,7 +86,7 @@ def _fleet():
     _register_fleet(conn)
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine="z-linux",
         settings={**_settings("z-linux"), "os": "linux"},
         base_settings=None,

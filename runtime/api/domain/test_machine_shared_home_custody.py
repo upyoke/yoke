@@ -41,7 +41,7 @@ def _machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     conn = make_conn()
     configure_test_machine(conn, tmp_path, monkeypatch)
     conn.execute(
-        "UPDATE project_capabilities SET settings=? WHERE type LIKE 'test-machine:%'",
+        "UPDATE test_machines SET settings=?",
         (_settings(golden_baseline_path=GOLDEN_BASELINE_PATH),),
     )
     conn.execute(
@@ -54,9 +54,9 @@ def _machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def _register_platform(conn, name: str, settings: str) -> None:
     conn.execute(
-        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
+        "INSERT INTO test_machines(power_project_id,name,settings,created_at) "
         "VALUES(2,?,?,'2026-08-02T00:00:00Z')",
-        (f"test-machine:{name}", settings),
+        (name, settings),
     )
     conn.commit()
 
@@ -87,12 +87,14 @@ def test_a_differently_named_registration_of_the_same_home_is_kept(
     [{"host": "other-mac.local"}, {"user": "someone-else"}],
     ids=["other-host", "other-user"],
 )
-def test_the_same_name_on_another_home_is_not_kept(
+def test_a_registration_on_another_home_is_not_kept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str]
 ) -> None:
     conn = _machine(tmp_path, monkeypatch)
     _register_platform(
-        conn, MACHINE, _settings(golden_baseline_path=OTHER_GOLDEN, **overrides)
+        conn, "platform-mac", _settings(
+            resource_name="platform-mac", golden_baseline_path=OTHER_GOLDEN, **overrides
+        )
     )
 
     submitted, execution = run_operation("golden_capture", control=FakeHostControl())
@@ -157,8 +159,8 @@ def test_verify_begin_names_every_golden_registered_for_this_home(
 
     assert begun.primary_success, begun.error
     assert begun.result_payload["registered_goldens"] == [
-        {"project": "yoke", "test_machine": MACHINE, "path": GOLDEN_BASELINE_PATH},
-        {"project": "platform", "test_machine": "platform-mac", "path": OTHER_GOLDEN},
+        {"test_machine": MACHINE, "path": GOLDEN_BASELINE_PATH},
+        {"test_machine": "platform-mac", "path": OTHER_GOLDEN},
     ]
 
 

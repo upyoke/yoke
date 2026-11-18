@@ -177,7 +177,7 @@ while custody remains held. Keep the runner connected: it stops between steps,
 finishes cleanup, restores the declared starting baseline and records proof.
 Retry abort after cleanup; success means restoration is confirmed and the lease
 released. Failed restore retains custody: stop the runner, then the lease holder
-or a covering steering seat runs yoke test-machine reset --project P --test-machine
+or a covering steering seat runs yoke test-machine reset --test-machine
 TEST_MACHINE --baseline BASELINE using the interrupted case's declared baseline. Retry
 abort after this successful reset; older or failed receipts cannot settle it.
 A case without a baseline still needs its runner's no-restore cleanup receipt.

@@ -32,18 +32,18 @@ def test_core_material_contains_exact_machine_password_without_printing_it(
 ):
     calls = []
 
-    def read(project, capability, key):
-        calls.append((project, capability, key))
+    def read(name, key):
+        calls.append((name, key))
         return PASSWORD if key == "desktop_password" else "shared-private-key"
 
-    monkeypatch.setattr(runner, "read_machine_capability_secret", read)
+    monkeypatch.setattr(runner, "read_test_machine_secret", read)
     monkeypatch.setattr(
-        runner, "machine_capability_secret_path", lambda *a: tmp_path / "key"
+        runner, "test_machine_secret_path", lambda *a: tmp_path / "key"
     )
     material = runner.materialize_test_machine_contract(
         {"project_id": 1, "project": "project", "settings": {**SETTINGS, "os": os_name}}
     )
-    assert calls[-1] == ("project", "test-machine:lab", "desktop_password")
+    assert calls[-1] == ("lab", "desktop_password")
     assert material.secrets["desktop_password"] == PASSWORD
     assert PASSWORD not in repr(material)
     monkeypatch.setattr(

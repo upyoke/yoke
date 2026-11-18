@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from yoke_contracts.coordination_claim_recovery import holder_release_command
 from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.machine_idle_notice import note_released_host
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_plan_execution_store import marker as _p
@@ -241,6 +242,7 @@ def host_claim_released(conn: Any, claim: Any) -> None:
             (instant_parameter(conn, utc_now()), claim.id),
         )
         reserve_host_turn(conn, claim.target)
+    note_released_host(conn, claim.target)
 
 
 def cancel_host_waits(

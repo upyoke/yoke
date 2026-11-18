@@ -29,7 +29,7 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
     def dispatch(**kw):
         name = kw["function_id"]
         events.append(name)
-        return SimpleNamespace(success=True, result={"claim": {"id": 12}}, error=None)
+        return SimpleNamespace(success=True, result={"claim_id": 12}, error=None)
 
     def power(*args):
         events.append("power")
@@ -55,7 +55,7 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
     expected = ["power"] + ([] if failure == "power" else ["desktop"])
     if not borrowed:
         expected = [
-            "claims.coordination_claim.acquire_if_free",
+            "test_machine.lease_acquire",
             *expected,
             "claims.coordination_claim.release",
         ]
@@ -113,7 +113,7 @@ def test_authorize_powers_before_precheck_and_viewer_and_releases_after_sign_in(
         events.append("sign-in")
         assert (
             route["calls"][-1]["function_id"]
-            == "claims.coordination_claim.acquire_if_free"
+            == "test_machine.lease_acquire"
         )
         return route["result"]
 
@@ -165,7 +165,7 @@ def test_installed_yoke_probe_uses_login_shell_without_desktop(
     assert commands == ["/bin/bash -lc 'command -v yoke'"]
     assert caught.value.code == "test_machine_yoke_missing"
     assert (
-        "yoke test-machine reset --project acme --test-machine lab --baseline shell-preconfigured"
+        "yoke test-machine reset --test-machine lab --baseline shell-preconfigured"
         in caught.value.recovery
     )
 
@@ -191,7 +191,7 @@ def test_desktop_access_holds_lease_until_view_returns(monkeypatch, capsys, fail
             else (
                 {"active_lease": None}
                 if function == "test_machine.get"
-                else {"claim": {"id": 12}}
+                else {"claim_id": 12}
             )
         )
         return SimpleNamespace(success=True, result=result, error=None)
@@ -213,12 +213,12 @@ def test_desktop_access_holds_lease_until_view_returns(monkeypatch, capsys, fail
     )
     monkeypatch.setattr(desktop_access, "open_desktop_access", view)
     assert cli.test_machine_desktop_access(
-        ["--project", "acme", "--test-machine", "lab", "--view"]
+        ["--test-machine", "lab", "--view"]
     ) == int(fails)
     assert events == [
         "test_machine.desktop_access",
         "test_machine.get",
-        "claims.coordination_claim.acquire_if_free",
+        "test_machine.lease_acquire",
         "power",
         "desktop",
         "claims.coordination_claim.release",

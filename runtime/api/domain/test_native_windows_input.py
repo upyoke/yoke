@@ -192,9 +192,9 @@ def test_file_upload_frames_binary_and_checks_receipt(monkeypatch):
 
 def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeypatch):
     scripts = []
-    monkeypatch.setattr(provision, "machine_capability_secret_path", lambda *a: "key")
+    monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: "key")
     monkeypatch.setattr(
-        provision, "read_machine_capability_secret", lambda *a: " secret "
+        provision, "read_test_machine_secret", lambda *a: " secret "
     )
 
     def run(argv, **kwargs):

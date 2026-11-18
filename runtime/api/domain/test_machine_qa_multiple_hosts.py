@@ -17,8 +17,8 @@ from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.machine_qa_test_support import make_conn
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError as MachineCapabilityError,
-    test_machine_capability_type as _machine_type,
 )
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
     VERIFICATION_CHECKS,
@@ -48,16 +48,12 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
     conn = make_conn()
     first, _second = _register_fleet(conn)
 
-    listing = list_test_machines(conn, project="yoke")
+    listing = list_test_machines(conn)
     assert [row["test_machine"] for row in listing["test_machines"]] == list(MACHINES)
-    assert [row["capability_type"] for row in listing["test_machines"]] == [
-        _machine_type(test_machine) for test_machine in MACHINES
-    ]
-    with pytest.raises(MachineCapabilityError, match="pass --test-machine TEST_MACHINE"):
-        read_test_machine_detail(conn, project="yoke")
+    with pytest.raises(MachineCapabilityError, match="pass --test-machine NAME"):
+        read_test_machine_detail(conn)
     selected = read_test_machine_detail(
         conn,
-        project="yoke",
         test_machine=MACHINES[1],
     )
     assert selected["test_machine"] == MACHINES[1]
@@ -70,22 +66,14 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
     for test_machine in MACHINES:
         record_test_machine_verification(
             conn,
-            1,
             test_machine=test_machine,
             status="verified",
             checks=[{"name": "connection", "ok": True}],
             error_code=None,
         )
-    with pytest.raises(MachineCapabilityError, match="multiple test machines"):
-        replace_test_machine_settings(
-            conn,
-            project="yoke",
-            settings=_settings(MACHINES[0], notes="rack two"),
-            base_settings=first["settings_token"],
-        )
     updated = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine=MACHINES[0],
         settings=_settings(MACHINES[0], notes="rack two"),
         base_settings=first["settings_token"],
@@ -93,14 +81,14 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
 
     assert updated["test_machine"] == MACHINES[0]
     statuses = {
-        str(row["capability_type"]): str(row["status"])
+        str(row["name"]): str(row["status"])
         for row in conn.execute(
-            "SELECT capability_type,status FROM test_machine_verifications"
+            "SELECT m.name,v.status FROM test_machine_verifications v JOIN test_machines m ON m.id=v.test_machine_id"
         )
     }
     assert statuses == {
-        _machine_type(MACHINES[0]): "configured_unverified",
-        _machine_type(MACHINES[1]): "verified",
+        MACHINES[0]: "configured_unverified",
+        MACHINES[1]: "verified",
     }
 
 
@@ -111,7 +99,6 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
     for test_machine in MACHINES:
         record_test_machine_verification(
             conn,
-            1,
             test_machine=test_machine,
             status="verified",
             checks=[{"name": "connection", "ok": True}],
@@ -127,7 +114,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         baselines=HOST_BASELINES,
     )
     assert first.settings["resource_name"] == MACHINES[0]
-    assert read_fleet_context(conn, project_id=1) == {
+    assert read_fleet_context(conn) == {
         "state": "ready",
         "concurrency_mode": "serial_per_machine",
         "machines_total": 2,
@@ -144,7 +131,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         baselines=HOST_BASELINES,
     )
     assert second.settings["resource_name"] == MACHINES[1]
-    assert read_fleet_context(conn, project_id=1)["state"] == "in_use"
+    assert read_fleet_context(conn)["state"] == "in_use"
     with pytest.raises(MachineQaProtocolLeaseHeld):
         begin_host_control_execution(
             conn,
@@ -175,7 +162,6 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
     seed_qa_session(conn, "automatic", "pinned", "missing")
     record_test_machine_verification(
         conn,
-        1,
         test_machine=MACHINES[0],
         status="error",
         checks=[{"name": "terminal_bridge", "ok": False}],
@@ -183,7 +169,6 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
     )
     record_test_machine_verification(
         conn,
-        1,
         test_machine=MACHINES[1],
         status="verified",
         checks=[{"name": "connection", "ok": True}],
@@ -214,7 +199,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
     assert "last verification error terminal_bridge_failed" in str(
         pinned.selection_reason
     )
-    with pytest.raises(MachineCapabilityError, match="has no test machine"):
+    with pytest.raises(MachineCapabilityError, match="is unregistered"):
         begin_host_control_execution(
             conn,
             project="yoke",
@@ -235,29 +220,15 @@ def test_a_selector_cannot_name_different_settings() -> None:
     with pytest.raises(MachineCapabilityError, match="does not match"):
         replace_test_machine_settings(
             conn,
-            project="yoke",
+            power_project="yoke",
             test_machine="mac-pro-lab",
             settings=_settings(MACHINES[0]),
             base_settings=None,
         )
 
 
-def test_generic_capability_writes_require_the_machine_suffix() -> None:
+def test_generic_capability_writes_cannot_register_a_machine() -> None:
     settings_json = json.dumps(_settings(MACHINES[0]))
-
-    with pytest.raises(ValueError, match="test-machine:<name>"):
-        canonicalize_capability_settings("test-machine", settings_json)
-    with pytest.raises(ValueError, match="must be"):
-        canonicalize_capability_settings(
-            _machine_type(MACHINES[1]),
-            settings_json,
-        )
-    assert (
-        json.loads(
-            canonicalize_capability_settings(
-                _machine_type(MACHINES[0]),
-                settings_json,
-            )
-        )["resource_name"]
-        == MACHINES[0]
-    )
+    for kind in ("test-machine", _machine_type(MACHINES[0])):
+        with pytest.raises(ValueError, match="use yoke test-machine settings-replace"):
+            canonicalize_capability_settings(kind, settings_json)

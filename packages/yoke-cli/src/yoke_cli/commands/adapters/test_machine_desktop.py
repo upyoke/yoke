@@ -16,7 +16,7 @@ from yoke_cli.transport.test_machine_response_field import read_test_machine_fie
 from yoke_contracts.api.function_call import TargetRef
 
 DESKTOP_ACCESS_USAGE = (
-    "yoke test-machine desktop-access --project P --test-machine "
+    "yoke test-machine desktop-access --test-machine "
     "TEST_MACHINE [--view] [--session-id S]"
 )
 
@@ -61,17 +61,12 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "Remove the private password copy after use. "
             "Takes an unleased host or borrows your own lease, starts a stopped cloud machine "
             "before desktop work, and releases only its acquired lease in cleanup. "
-            "Cloud machines stay running after release. "
+            "Last release stops a cloud machine Yoke started. "
             " A session holding a live steering seat on the project can assist an actively leased "
             "desktop without taking or releasing its lease; any other session must own the lease and "
             "otherwise receives steering_seat_required. The output names the assisting operator, "
             "seat and lease; authorization is audited in the holder's session history."
         ),
-    )
-    parser.add_argument(
-        "--project",
-        required=True,
-        help="Project that owns the test machine.",
     )
     parser.add_argument(
         "--test-machine",
@@ -96,7 +91,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
     response = call_dispatcher(
         function_id="test_machine.desktop_access",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "test_machine": parsed.test_machine},
+        payload={"test_machine": parsed.test_machine},
         actor=actor,
     )
     if not response.success:

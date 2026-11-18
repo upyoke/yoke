@@ -31,6 +31,21 @@ from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_executio
 from yoke_core.domain.schema_common import _table_exists
 
 
+def operation_caller_project(conn: Any, session_id: str) -> str:
+    """Resolve the caller's QA project for a universe host operation."""
+    row = conn.execute(
+        "SELECT p.slug FROM harness_sessions s JOIN projects p ON p.id=s.project_id "
+        f"WHERE s.session_id={marker(conn)}",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        raise MachineQaProtocolError(
+            "test_machine_operation_project_context_required: run the operation "
+            "from a session in a project so Yoke can record its QA context"
+        )
+    return str(row[0])
+
+
 def operation_mission(
     conn: Any,
     *,

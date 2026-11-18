@@ -20,7 +20,7 @@ from yoke_core.domain.qa_plan_execution_store import lock_plan_execution, roster
 
 def _capture(conn, item_id):
     existing = conn.execute(
-        "SELECT 1 FROM project_capabilities WHERE type LIKE 'test-machine%' LIMIT 1"
+        "SELECT 1 FROM test_machines LIMIT 1"
     ).fetchone()
     if existing is None:
         return captured_plan_review(conn, item_id)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
@@ -43,10 +45,7 @@ def test_artifact_answer_without_recorded_path_names_no_test_machine() -> None:
     )
 
 
-def test_list_from_a_server_without_test_machines_refuses(monkeypatch) -> None:
-    monkeypatch.setattr(
-        test_machine_cli, "list_machine_capability_secret_keys", lambda *_: []
-    )
+def test_list_from_a_server_without_test_machines_refuses() -> None:
     response = FunctionCallResponse(
         success=True,
         function="test_machine.list",
@@ -55,8 +54,32 @@ def test_list_from_a_server_without_test_machines_refuses(monkeypatch) -> None:
     )
 
     with pytest.raises(SystemExit) as refused:
-        test_machine_cli._attest_secret_presence(response, "yoke", "test_machine.list")
+        test_machine_cli._attest_secret_presence(response, "test_machine.list")
 
     assert "test_machine.list returned no 'test_machines' field" in str(
         refused.value.code
     )
+
+
+
+def test_human_fleet_listing_fits_without_serializing_receipts() -> None:
+    machines = [
+        {
+            "test_machine": name,
+            "os": "linux",
+            "power_project": "cloud-team",
+            "active_lease": None,
+            "verification": {"status": "verified", "checks": ["evidence" * 4000]},
+        }
+        for name in ("build", "install", "desktop", "terminal")
+    ]
+    response = FunctionCallResponse(
+        success=True, function="test_machine.list", version="v1",
+        result={"test_machines": machines},
+    )
+    output = io.StringIO()
+    test_machine_cli._write_fleet(response, output, io.StringIO())
+    assert output.getvalue().splitlines() == [
+        "Test Machine\tOS\tPower project\tState",
+        *[f"{row['test_machine']}\tlinux\tcloud-team\tverified" for row in machines],
+    ]
