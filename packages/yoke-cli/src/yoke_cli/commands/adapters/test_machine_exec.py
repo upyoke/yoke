@@ -3,7 +3,10 @@
 The endpoint is the test-machine capability's own host and user, read through
 the registered ``test_machine.get``; SSH runs from this machine with its
 ssh-agent identity. A host another session holds under its QA lease is
-refused rather than disturbed mid-run.
+refused rather than disturbed mid-run. Otherwise the command holds the host's
+lease for its duration (borrowing the caller's own lease when it has one),
+powers a stopped cloud machine on, and releases afterwards, so the last
+release stops the machine again.
 """
 
 from __future__ import annotations
@@ -66,6 +69,10 @@ def test_machine_exec(args: List[str]) -> int:
             "remote login shell exactly as `ssh` sends them. Uses this "
             "machine's ssh-agent identity and pins host keys in a "
             "Yoke-managed known_hosts file; ~/.ssh is never read."
+            " Holds the machine's lease for the command (borrowing your own "
+            "lease when you hold it), powers a stopped cloud machine on, and "
+            "releases afterwards, which stops it again; another session's "
+            "lease refuses."
             " Streams stdout and stderr live, retaining only the last 64 KiB "
             "of each for failure diagnosis."
             " On macOS, keychain-backed harness CLIs (claude, cursor-agent) "
@@ -124,6 +131,9 @@ def test_machine_exec(args: List[str]) -> int:
         run_remote_command,
     )
 
+    from yoke_cli.commands.test_machine_desktop_lease import desktop_lease
+
+    test_machine = read_test_machine_field(detail, function_id="test_machine.get")
     try:
         admin_options = {}
         if parsed.admin:
@@ -131,9 +141,7 @@ def test_machine_exec(args: List[str]) -> int:
 
             admin_options["administrator_password"] = administrator_password(
                 project=parsed.project,
-                test_machine=read_test_machine_field(
-                    detail, function_id="test_machine.get"
-                ),
+                test_machine=test_machine,
                 os_name=settings["os"],
             )
         if settings["os"] == "wsl":
@@ -147,16 +155,27 @@ def test_machine_exec(args: List[str]) -> int:
                 "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
                 + encoded("$ErrorActionPreference='Stop'; " + process_script(command))
             ]
-        completed = run_remote_command(
-            host=str(settings["host"]),
-            cloud_instance_id=settings.get("cloud_instance_id"),
-            user=str(settings["user"]),
-            command=command,
-            yoke_home=machine_config.yoke_home(),
-            **admin_options,
-        )
+        with desktop_lease(
+            project=parsed.project,
+            test_machine=test_machine,
+            settings=settings,
+            actor=actor,
+            reason="test-machine exec",
+            detail=detail,
+        ):
+            completed = run_remote_command(
+                host=str(settings["host"]),
+                cloud_instance_id=settings.get("cloud_instance_id"),
+                user=str(settings["user"]),
+                command=command,
+                yoke_home=machine_config.yoke_home(),
+                **admin_options,
+            )
     except RemoteExecRefusal as refusal:
         return _refuse(refusal.code, str(refusal), refusal.recovery)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return _REFUSED_EXIT
     if parsed.admin and completed.returncode:
         _refuse(
             "test_machine_admin_command_failed",

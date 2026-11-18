@@ -211,6 +211,7 @@ def authorize_remote(parsed) -> int:
             test_machine=test_machine,
             settings=detail["settings"],
             actor=actor,
+            reason="browser sign-in",
             detail=detail,
         ):
             check_yoke_installation(
