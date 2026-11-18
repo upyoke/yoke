@@ -1,7 +1,5 @@
 """Recovery recipes use executable method contracts and fail closed."""
 
-from yoke_contracts.testing.real_home_isolation import set_home
-
 from io import BytesIO
 from pathlib import Path
 from subprocess import CompletedProcess
@@ -15,6 +13,7 @@ from urllib import request
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_contracts.codex_config_posture import plan
 from yoke_core.domain.installer_campaign_regression_cases import (
     INSTALLER_RECOVERY_CASES,
