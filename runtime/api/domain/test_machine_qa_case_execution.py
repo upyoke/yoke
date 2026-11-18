@@ -29,12 +29,13 @@ def test_terminal_bridge_verification_exercises_all_control_surfaces() -> None:
     commands = []
 
     def run(command: str, **_kwargs):
-        commands.append(command)
+        script = _kwargs.get("input_text", "")
+        commands.append(f"{command}\n{script}" if script else command)
         stdout = (
             "yoke-terminal-bridge-ready"
             if command.startswith("tmux capture-pane")
             else "445"
-            if "return id of front window" in command
+            if "return id of front window" in _kwargs.get("input_text", "")
             else "cG5n"
             if command.startswith("/bin/test -s ")
             else ""
@@ -81,7 +82,7 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
             if command == "if command -v tmux >/dev/null 2>&1; then printf tmux; "
             "elif command -v screen >/dev/null 2>&1; then printf screen; fi"
             else "445"
-            if "return id of front window" in command
+            if "return id of front window" in _kwargs.get("input_text", "")
             else ""
         ),
         stderr="",
