@@ -59,7 +59,7 @@ def test_hook_runner_telemetry_rows_carry_runner_metadata() -> None:
 
 
 def test_committed_catalog_doc_matches_the_code_catalog() -> None:
-    committed = (_REPO_ROOT / EVENT_CATALOG_RELPATH).read_text()
+    committed = (_REPO_ROOT / EVENT_CATALOG_RELPATH).read_text(encoding="utf-8")
     assert committed == render_catalog_text(catalog_appendix(committed)), (
         "docs/event-catalog.md is stale; run "
         "python3 -m yoke_core.domain.event_catalog_render"
@@ -75,13 +75,13 @@ def test_render_preserves_the_appendix_and_escapes_cell_pipes(
     )
     target = tmp_path / EVENT_CATALOG_RELPATH
     target.parent.mkdir(parents=True)
-    target.write_text(f"old table\n{APPENDIX_SENTINEL}\n\n## Hand notes\n")
+    target.write_text(f"old table\n{APPENDIX_SENTINEL}\n\n## Hand notes\n", encoding="utf-8", newline="\n")
 
     render_event_catalog(tmp_path)
-    first = target.read_text()
+    first = target.read_text(encoding="utf-8")
     render_event_catalog(tmp_path)
 
-    assert target.read_text() == first
+    assert target.read_text(encoding="utf-8") == first
     assert first.endswith(f"{APPENDIX_SENTINEL}\n\n## Hand notes\n")
     assert "old table" not in first
     assert "preflight\\|worktree" in first

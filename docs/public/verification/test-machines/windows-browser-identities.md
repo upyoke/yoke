@@ -10,40 +10,54 @@ Return to [native Windows provisioning](windows-native-host-provisioning.md).
 These identities belong to the standard Windows test user and its native
 headed Chromium. WSL browser profiles are separate and prove no native sign-in.
 
-Create `%USERPROFILE%\.yoke-browser-identities` once as the test user,
-restrict it to that user and Administrators/SYSTEM, and keep it outside
-`.yoke`. The native profile reset preserves this **live** identity store;
-golden capture excludes it. Restoring a copy of rotated cookies is not a
-valid way to preserve a sign-in.
+The first authorization creates `%USERPROFILE%\.yoke-browser-identities`,
+restricted to the test user and Administrators/SYSTEM, outside `.yoke`. The
+native profile reset preserves this **live** identity store; golden capture
+excludes it. Restoring a copy of rotated cookies is not a valid way to
+preserve a sign-in.
 
-Declare each project identity and its per-site sign-in checks in the project's
-`browser-control` capability; see [browser identities](browser-identities.md).
-Install the candidate and prepare its Windows Chromium runtime through leased
-product operations. First prove that the browser visibly renders on the
-native desktop; an SSH process or an Edge sign-in does not prove that.
+Declare each project identity, its per-site sign-in checks and the project's
+`default_identity` (the operator identity) in the `browser-control`
+capability; see [browser identities](browser-identities.md).
 
-As the test user, in the native desktop, run:
+## Sign in once per identity
 
-```text
-yoke browser authorize --project P --identity NAME
-```
-
-Read `--help`. The command checks declared sites and opens authorization only
-for expired ones. Agents drive setup and navigation; Ben enters his own
-password or credential. No automated browser runs while authorization owns
-the profile. Keep cookies and profile contents on the VM, outside evidence.
-Close authorization through its product flow so the command verifies each
-site and preserves the identity in its live store.
-
-After a profile reset and candidate install, prove continuity with:
+From the operator workstation, after a reset and candidate install:
 
 ```text
-yoke browser verify --project P --identity NAME
+yoke browser authorize --project P --identity NAME --test-machine windows-native-lab
 ```
+
+Read `--help`. The command checks declared sites and opens sign-in on the
+test user's desktop only for expired ones. Agents drive setup and navigation;
+Ben enters his own password or credential. No automated browser runs while
+authorization owns the profile. Keep cookies and profile contents on the VM,
+outside evidence.
+
+## One login for every page
+
+The identity profiles are the machine's only login store. Every browser page
+Machine QA shows on native Windows opens in them, signed in:
+
+- **Installer approval.** A recipe whose step is a `machine_browser_approval`
+  gate starts the installer in the interactive desktop with
+  `$env:BROWSER='yoke.cmd browser open --project P --identity NAME %s'`, the
+  resolved Yoke's folder first on `Path`, and `YOKE_MACHINE_HOME` cleared, so
+  the launcher reads the test user's own store. The approval driver then runs
+  `yoke browser devtools` over SSH with the Python named in the installer's
+  `yoke.cmd` shim; DevTools listens on loopback, so nothing is forwarded.
+- **Desktop mission page.** A mission's `yoke browser open` host command starts
+  in the test user's desktop through a scheduled task, never SSH session zero.
+- **Managed step.** `yoke qa browser setup`, `step` and `stop` host commands
+  start there the same way and copy the identity's sign-in state.
+
+An expired login lands the approval tab on the sign-in page; the gate refuses
+`machine_browser_sign_in_required` and names
+`yoke browser authorize --project P --identity NAME --test-machine windows-native-lab`.
+A missing or rewritten `yoke.cmd` refuses `windows_yoke_shim_unreadable`:
+reinstall Yoke on the test machine. Admission gates refuse
+`native_windows_admission_gate_unsupported`; run them on Linux or macOS.
 
 Newly refreshed sessions stay in the live store whether QA passes, fails or is
-interrupted. Reauthorize an expired identity on the same native desktop;
-request a human gate only for the credential Ben must enter, naming the
-machine, identity, site, account and resume point. A missing desktop, browser
-runtime or identity retains its named failure and recovery. Never export a
-personal host browser profile or silently substitute a WSL profile.
+interrupted, and a second reset keeps them. Never export a personal host
+browser profile or silently substitute a WSL profile.

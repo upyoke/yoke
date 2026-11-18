@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,14 +23,17 @@ def test_landed_lane_removes_only_its_codex_path_trust(monkeypatch, tmp_path: Pa
     codex_home = tmp_path / "codex-home"
     codex_home.mkdir()
     config = codex_home / "config.toml"
+    # Codex keys trust by OS-native paths; JSON quoting is valid TOML quoting
+    # and escapes Windows backslashes.
+    hook_key = json.dumps(f"{lane / '.codex' / 'hooks.json'}:session_start:0:0")
     config.write_text(
-        f'''[hooks.state."{lane}/.codex/hooks.json:session_start:0:0"]
+        f'''[hooks.state.{hook_key}]
 trusted_hash = "lane"
 
-[projects."{lane}"]
+[projects.{json.dumps(str(lane))}]
 trust_level = "trusted"
 
-[projects."{main}"]
+[projects.{json.dumps(str(main))}]
 trust_level = "trusted"
 ''',
         encoding="utf-8",
@@ -61,5 +66,7 @@ trust_level = "trusted"
 
     text = config.read_text(encoding="utf-8")
     assert preserved == ()
-    assert str(lane) not in text
-    assert f'[projects."{main}"]' in text
+    document = tomllib.loads(text)
+    assert document.get("hooks", {}).get("state", {}) == {}
+    assert set(document["projects"]) == {str(main)}
+    assert f"[projects.{json.dumps(str(main))}]" in text

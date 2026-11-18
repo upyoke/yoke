@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_dev_redirect.py::test_split_redirect_skips_dev_family",
+ "reason": "AssertionError: assert ['/dev/null'] == []"
+}

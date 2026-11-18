@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_shell_path_use_authority.py::test_read_shapes_need_no_capacity_exemption[df -k /clients/operator/.yoke && cat ~/.yoke/config-private.json]",
+ "reason": "assert <Outcome.DENY: 'deny'> is <Outcome.NOOP: 'noop'>"
+}

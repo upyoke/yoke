@@ -9,8 +9,8 @@ import stat
 import sys
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
-from typing import Mapping
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from typing import Literal, Mapping
 
 from yoke_contracts.harness_cli_manifest import harness_cli_executables
 
@@ -43,7 +43,7 @@ class PathStateContract:
     posix_paths: bool = False
 
     def __post_init__(self) -> None:
-        path_type = PurePosixPath if self.posix_paths else Path
+        path_type = PureWindowsPath if self.shell == "windows" else PurePosixPath
         suffix = ".exe" if self.shell == "windows" else ""
         expected = tuple(
             str(
@@ -75,6 +75,10 @@ def current_shell(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
     if sys.platform == "win32":
         return "windows"
+    return _posix_shell(environ)
+
+
+def _posix_shell(environ: Mapping[str, str]) -> str:
     shell = environ.get("SHELL")
     if not shell:
         try:
@@ -83,10 +87,10 @@ def current_shell(env: Mapping[str, str] | None = None) -> str:
             shell = pwd.getpwuid(os.getuid()).pw_shell
         except (ImportError, KeyError):
             shell = ""
-    return Path(shell).name if shell else "zsh"
+    return PurePosixPath(shell).name if shell else "zsh"
 
 
-def default_startup_file(shell: str, home: Path) -> Path:
+def default_startup_file(shell: str, home: PurePath) -> PurePath:
     if shell == "zsh":
         return home / ".zprofile"
     if shell == "bash":
@@ -94,7 +98,7 @@ def default_startup_file(shell: str, home: Path) -> Path:
             (
                 home / name
                 for name in (".bash_profile", ".bash_login", ".profile")
-                if (home / name).exists()
+                if isinstance(home, Path) and (home / name).exists()
             ),
             home / ".profile",
         )
@@ -103,7 +107,7 @@ def default_startup_file(shell: str, home: Path) -> Path:
     return home / ".profile"
 
 
-def default_ssh_startup_file(shell: str, home: Path) -> Path | None:
+def default_ssh_startup_file(shell: str, home: PurePath) -> PurePath | None:
     if shell == "zsh":
         return home / ".zshenv"
     if shell == "bash":
@@ -111,7 +115,7 @@ def default_ssh_startup_file(shell: str, home: Path) -> Path | None:
     return None
 
 
-def startup_files_for_shell(shell: str, home: Path) -> tuple[Path, ...]:
+def startup_files_for_shell(shell: str, home: PurePath) -> tuple[PurePath, ...]:
     login = default_startup_file(shell, home)
     ssh = default_ssh_startup_file(shell, home)
     files = [login] if ssh is None else [login, ssh]
@@ -128,7 +132,7 @@ def startup_files_for_shell(shell: str, home: Path) -> tuple[Path, ...]:
     return tuple(dict.fromkeys(files))
 
 
-def supported_startup_files(home: Path) -> tuple[Path, ...]:
+def supported_startup_files(home: PurePath) -> tuple[PurePath, ...]:
     candidates = [
         path
         for shell in SUPPORTED_SHELLS
@@ -140,18 +144,36 @@ def supported_startup_files(home: Path) -> tuple[Path, ...]:
 
 def resolve_path_state_contract(
     *,
+    target: Literal["windows", "posix"],
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
 ) -> PathStateContract:
     environ = dict(os.environ if env is None else env)
+    if target not in ("windows", "posix"):
+        raise ValueError("PATH contract target must be windows or posix")
+    windows = target == "windows"
+    path_type = PureWindowsPath if windows else PurePosixPath
     requested_home = environ.get("HOME") or str(Path.home())
-    home_path = home or Path(requested_home)
+    home_path = home if home is not None else path_type(requested_home)
     environ["HOME"] = str(home_path)
 
-    shell = current_shell(environ)
-    windows = sys.platform == "win32"
+    shell = (
+        "windows"
+        if windows
+        else (
+            _posix_shell(environ)
+            if home is not None
+            else PurePosixPath(environ.get("SHELL") or "/bin/zsh").name
+        )
+    )
     suffix = ".exe" if windows else ""
-    bindir = tool_bin_dir(environ)
+    bindir = str(
+        path_type(
+            environ.get("UV_TOOL_BIN_DIR")
+            or environ.get("XDG_BIN_HOME")
+            or home_path / ".local" / "bin"
+        )
+    )
     ssh_startup = default_ssh_startup_file(shell, home_path)
     return PathStateContract(
         home=str(home_path),
@@ -174,13 +196,13 @@ def resolve_path_state_contract(
         harness_clis=HARNESS_CLIS,
         tool_paths=tuple(
             str(
-                Path(bindir)
+                path_type(bindir)
                 / (tool + (".cmd" if tool == "yoke" and suffix else suffix))
             )
             for tool in TOOLS
         ),
-        yoke_bin=str(Path(bindir) / ("yoke.cmd" if suffix else "yoke")),
-        posix_paths=False,
+        yoke_bin=str(path_type(bindir) / ("yoke.cmd" if suffix else "yoke")),
+        posix_paths=not windows,
     )
 
 

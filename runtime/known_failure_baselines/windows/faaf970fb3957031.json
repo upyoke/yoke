@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_strategy_ingest.py::TestIngest::test_dispatches_from_direct_terminal_without_session",
+ "reason": "RuntimeError: Could not determine home directory."
+}

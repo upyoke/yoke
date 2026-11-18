@@ -171,7 +171,7 @@ def resolve_harness_capabilities(
         "source": "shared_registry",
     }
     try:
-        with open(manifest_path) as f:
+        with open(manifest_path, encoding="utf-8") as f:
             manifest = json.load(f)
         if not isinstance(manifest, dict):
             raise ValueError("manifest root must be an object")

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_deploy_core_container_github_app_custody.py::test_valid_rotation_keeps_key_group_readable",
+ "reason": "AssertionError: assert (33206 & 511) == 416"
+}

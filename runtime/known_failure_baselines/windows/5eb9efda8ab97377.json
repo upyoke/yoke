@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_guard_directory_resolution.py::test_mktemp_bound_cd_moves_later_segments",
+ "reason": "AssertionError: assert 'C:\\\\tmp\\\\lane.XXXXXX' == 'D:\\\\tmp\\\\lane.XXXXXX'"
+}

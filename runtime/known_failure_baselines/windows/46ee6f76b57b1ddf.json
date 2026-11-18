@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_golden_snapshot_retention.py::test_prune_leaves_only_the_registered_golden_on_a_user_root",
+ "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+}

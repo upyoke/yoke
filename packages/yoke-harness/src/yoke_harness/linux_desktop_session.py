@@ -28,7 +28,7 @@ print(json.dumps(receipt))
 
 
 def ensure_desktop(control, *, restart=False):
-    source = Path(linux_desktop_state.__file__).read_text()
+    source = Path(linux_desktop_state.__file__).read_text(encoding="utf-8")
     program = (
         source
         + "\nimport sys\ntry:\n"

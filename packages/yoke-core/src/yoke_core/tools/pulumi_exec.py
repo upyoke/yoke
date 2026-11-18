@@ -136,7 +136,7 @@ def execute_pulumi_command(
         )
         if any(arg == "--target" or arg.startswith("--target=") for arg in argv):
             # stage_file_backed_infra already refused unparseable YAML.
-            declaration = yaml.safe_load((infra_root / "Pulumi.yaml").read_text())
+            declaration = yaml.safe_load((infra_root / "Pulumi.yaml").read_text(encoding="utf-8"))
             project_name = (
                 declaration.get("name") if isinstance(declaration, Mapping) else None
             )

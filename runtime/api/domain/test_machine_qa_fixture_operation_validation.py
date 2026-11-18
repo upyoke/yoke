@@ -54,7 +54,7 @@ def test_workspace_reset_stays_inside_runner_owned_paths() -> None:
 
 def test_fixture_runner_rejects_launcher_outside_bounded_home() -> None:
     remote = FakeRemote()
-    path_state = path_doctor.resolve_path_state_contract(
+    path_state = path_doctor.resolve_path_state_contract(target="posix",
         env={
             "HOME": "/Users/tester",
             "SHELL": "/bin/zsh",

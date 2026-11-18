@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_session_orientation.py::test_orientation_warns_when_installed_teaching_is_behind",
+ "reason": "assert '`yoke project install C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_orientation_warns_when_in0`' in \"Yoke operating layer 0.1.1+launch.24 is be"
+}

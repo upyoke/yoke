@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestRelativeTargetAfterCd::test_unclaimed_file_in_sub_folder_widens_lane_relative_path",
+ "reason": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/var/tmp\\\\yoke-lane-2rgz5eep'"
+}

@@ -20,6 +20,7 @@ from yoke_contracts.machine_qa_failures import (
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_contracts.runtime_ports.test_machine_temp_state import get_test_machine_temp_state
 from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
+from yoke_core.domain.qa_controller_candidate import stamp_controller_runtime
 from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
 
@@ -77,7 +78,9 @@ def prepare_mission(
         "baseline": baseline_name,
         "ok": True,
         "error_code": None,
-        "evidence": {"baseline_outcome": outcome, "scratch_created": False},
+        "evidence": stamp_controller_runtime(
+            {"baseline_outcome": outcome, "scratch_created": False}
+        ),
         "scratch_path": mission_scratch_path(str(contract.plan_execution_id)),
     }
     secrets: tuple[str, ...] = ()

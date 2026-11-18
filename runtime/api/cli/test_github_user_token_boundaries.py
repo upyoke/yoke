@@ -18,6 +18,7 @@ from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credential_document as credential_document
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_cli.config import github_user_tokens, machine_config
+from yoke_contracts import owner_private_path
 
 
 def test_explicit_config_outside_default_home_uses_default_secret_authority(
@@ -30,8 +31,7 @@ def test_explicit_config_outside_default_home_uses_default_secret_authority(
     )
     config = tmp_path / "operator-config" / "config.json"
     config.parent.mkdir()
-    config.write_bytes(original_config.read_bytes())
-    config.chmod(0o600)
+    owner_private_path.write_owner_private(config, original_config.read_bytes())
     monkeypatch.setattr(
         credential_document, "_default_machine_home", lambda: home,
     )

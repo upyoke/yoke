@@ -123,7 +123,7 @@ def _catalogue() -> dict[str, list[str]]:
         value = json.loads(
             files("yoke_cli.project_install")
             .joinpath("released_bundle_hashes.json")
-            .read_text()
+            .read_text(encoding="utf-8")
         )
         if not isinstance(value, dict) or not all(
             isinstance(k, str)

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_setup_agent_startup.py::test_install_progress_precedes_check_and_apply_needs_no_event_loop",
+ "reason": "AssertionError: (1, [{'setup': 'agent', 'version': 1, 'state': 'failed', 'reason': 'setup_step_failed', 'recovery': 'AssertionError: assert False\\n +  where False = <built-in method startswith of str"
+}

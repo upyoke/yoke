@@ -184,6 +184,9 @@ def execute_plan_machine_case(
                     payload={"execution_id": execution_id},
                 ),
             )
+        from yoke_core.domain.qa_controller_candidate import stamp_submission
+
+        stamp_submission(submission.payload)
         submitted = _dispatch(
             "test_machine.plan_case.submit",
             target=target,

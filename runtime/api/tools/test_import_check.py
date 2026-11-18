@@ -209,7 +209,7 @@ def test_run_passes_when_every_module_resolves(
     assert import_check.run(["one", "two"], root=root) == 0
     captured = capsys.readouterr()
     assert "all 2 module(s) imported" in captured.out
-    assert "packages/yoke-core/src/yoke_core/ok.py" in captured.out
+    assert str(Path("packages/yoke-core/src/yoke_core/ok.py")) in captured.out
 
 
 def test_a_tree_that_is_not_a_checkout_refuses_rather_than_probing(

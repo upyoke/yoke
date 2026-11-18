@@ -108,7 +108,7 @@ class CopyInspection:
     def save(self) -> None:
         if self.dump is not None:
             (self.output / f"{self.dump.stem}.resources.json").write_text(
-                json.dumps(self.report, indent=2) + "\n",
+                json.dumps(self.report, indent=2) + "\n", encoding="utf-8", newline="\n",
             )
 
     def inspect(self, conn: Any, _copy_dsn: str) -> str | None:

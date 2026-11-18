@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_sign_in_stores.py::test_a_sign_in_an_older_golden_sealed_is_never_restored",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

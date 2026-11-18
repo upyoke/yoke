@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_shell_path_use_authority.py::test_client_home_never_resolves_against_server_home",
+ "reason": "AssertionError: assert 'D:\\\\clients\\\\operator\\\\.yoke' == '/clients/operator/.yoke'"
+}

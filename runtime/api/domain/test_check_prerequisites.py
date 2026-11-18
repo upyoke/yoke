@@ -24,7 +24,7 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
     canonical_agents_dir.mkdir(parents=True)
     runtime_agents_dir = root / ".claude" / "agents"
     runtime_agents_dir.parent.mkdir(parents=True, exist_ok=True)
-    runtime_agents_dir.symlink_to("../runtime/harness/claude/agents")
+    runtime_agents_dir.symlink_to(Path("../runtime/harness/claude/agents"), target_is_directory=True)
     for name in (
         "yoke-product-manager",
         "yoke-product-designer",
@@ -34,7 +34,7 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
         "yoke-simulator",
         "yoke-boss",
     ):
-        (canonical_agents_dir / f"{name}.md").write_text("ok\n")
+        (canonical_agents_dir / f"{name}.md").write_text("ok\n", encoding="utf-8", newline="\n")
 
     for rel_path in (
         "packages/yoke-core/src/yoke_core/domain/check_prerequisites.py",
@@ -45,11 +45,11 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
     ):
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("# stub\n")
+        path.write_text("# stub\n", encoding="utf-8", newline="\n")
 
     hook = root / ".git" / "hooks" / "pre-commit"
     hook.parent.mkdir(parents=True)
-    hook.write_text("# yoke-pre-commit\n")
+    hook.write_text("# yoke-pre-commit\n", encoding="utf-8", newline="\n")
     hook.chmod(0o755)
 
     if include_settings:
@@ -64,14 +64,14 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
                     "Grep(*)",
                     "Glob(*)",
                 ]
-            )
+            ), encoding="utf-8", newline="\n"
         )
         (root / ".claude" / "settings.json").symlink_to(
-            "../runtime/harness/claude/settings.json"
+            Path("../runtime/harness/claude/settings.json")
         )
 
-    (root / ".gitignore").write_text(".worktrees/\n")
-    (root / "AGENTS.md").write_text("rules\n")
+    (root / ".gitignore").write_text(".worktrees/\n", encoding="utf-8", newline="\n")
+    (root / "AGENTS.md").write_text("rules\n", encoding="utf-8", newline="\n")
 
 
 def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
@@ -119,13 +119,13 @@ def test_pre_commit_hook_uses_common_git_dir_for_linked_worktree(
     common_git = tmp_path.joinpath("common.git")
     linked_git_dir = common_git.joinpath("worktrees", "item-worktree")
     linked_git_dir.mkdir(parents=True)
-    linked_git_dir.joinpath("commondir").write_text("../..\n")
+    linked_git_dir.joinpath("commondir").write_text("../..\n", encoding="utf-8", newline="\n")
     tmp_path.joinpath(".git").write_text(
-        f"gitdir: {linked_git_dir.relative_to(tmp_path)}\n"
+        f"gitdir: {linked_git_dir.relative_to(tmp_path)}\n", encoding="utf-8", newline="\n"
     )
     hook = common_git.joinpath("hooks", "pre-commit")
     hook.parent.mkdir(parents=True)
-    hook.write_text("# yoke-pre-commit\n")
+    hook.write_text("# yoke-pre-commit\n", encoding="utf-8", newline="\n")
     hook.chmod(0o755)
 
     def fake_which(name: str):
@@ -293,7 +293,7 @@ def test_requires_canonical_agents_with_legacy_claude_present(
     _seed_repo(tmp_path)
     # Replace the seeded AGENTS.md with a CLAUDE.md-only legacy layout.
     (tmp_path / "AGENTS.md").unlink()
-    (tmp_path / "CLAUDE.md").write_text("legacy rules\n")
+    (tmp_path / "CLAUDE.md").write_text("legacy rules\n", encoding="utf-8", newline="\n")
 
     def fake_which(name: str):
         if name == "git":

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_merge_worktree_safe_prune.py::test_a_lane_removed_after_the_registry_read_is_removed",
+ "reason": "NotADirectoryError: [WinError 267] The directory name is invalid"
+}

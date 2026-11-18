@@ -73,7 +73,7 @@ def test_red_member_removal_retracts_only_its_outstanding_run_qa(
         "SELECT status FROM deployment_runs WHERE id=%s", (RUN,)
     ).fetchone()["status"] == ("failed" if failed else "succeeded")
     if failed:
-        assert f"-- {RUN} --from-stage {ITEM_QA_STAGE}" in message
+        assert f"watch deploy -- {RUN}`" in message
     assert REMOVAL_EFFECT in message
     assert not _still_member(test_db)
     row = test_db.execute(
@@ -235,7 +235,7 @@ def test_failed_item_qa_resume_excludes_removed_member(test_db, monkeypatch):
         deploy_pipeline.stage_receipt, "dispatch_step_runner_with_receipt", dispatch
     )
     assert (
-        deploy_pipeline.run_pipeline(RUN, from_stage=ITEM_QA_STAGE, sd="/tmp/sd") == 0
+        deploy_pipeline.run_pipeline(RUN, sd="/tmp/sd") == 0
     )
     assert dispatched == [(ITEM_QA_STAGE, [])]
     assert not _still_member(test_db)

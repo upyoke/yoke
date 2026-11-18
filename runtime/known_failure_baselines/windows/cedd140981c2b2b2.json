@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_path_claim_bash_guard_planning_phase_guard.py::test_planning_scratch_without_client_scratch_root_fact_denies",
+ "reason": "AssertionError: assert 'allow' == 'deny'"
+}

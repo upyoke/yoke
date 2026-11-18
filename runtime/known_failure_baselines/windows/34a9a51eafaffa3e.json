@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_destructive_git_modes.py::TestDenyAndSuppression::test_evaluate_token_still_denies_with_attempted_outcome",
+ "reason": "AssertionError: <Outcome.NOOP: 'noop'> is not <Outcome.DENY: 'deny'>"
+}

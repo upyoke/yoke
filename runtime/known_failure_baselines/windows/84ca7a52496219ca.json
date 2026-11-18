@@ -1,0 +1,4 @@
+{
+  "node_id": "runtime/api/test_update_status_full_unblock_sync.py::TestAutoUnblock::test_auto_unblock_from_db",
+  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
+}

@@ -127,7 +127,7 @@ may not type: `human_purpose` must be `password_entry`, and any other purpose
 refuses as `human_action_misclassified`. The gate refuses `keys`,
 `ready_text` and `wait_seconds`, prints one line (`kind: human_action`,
 `self_approving: false`) naming the step and where to type, then waits up to
-1800 seconds. On Linux only browser approval starts the desktop Chromium.
+1800 seconds. On Linux only browser approval starts the desktop session.
 
 A prompt that never appears fails its step as `terminal_action_not_ready`,
 with the evidence naming `step` and `waiting_for`. When the command under the
@@ -152,29 +152,30 @@ machine_browser_approval_context_invalid with recovery. Self-hosted
 machine/code links preserve the exact wizard-opened path. Coordinate validation
 does not grant approval authority; keep the selected fixture boundary.
 
-With the dedicated-machine approval exception, the visible native browser
-helper (Safari on macOS, the desktop Chromium on a Linux test machine; one
-shared matcher in `yoke_contracts.machine_browser_approval`) also accepts the
+With the dedicated-machine approval exception, the identity-browser approval
+driver (one driver for Linux, WSL and macOS, finding the tab through each
+identity browser's DevTools port; one shared matcher in
+`yoke_contracts.machine_browser_approval`) also accepts the
 declared origin's `/orgs/<org>/machine-approval/<code>` redirect from `/connect`.
 The code must match the displayed Match code exactly. The redirect may carry
 one canonical `selection=all` or a comma-separated list of unique positive
 project IDs. Unknown, repeated, empty or encoded query parameters, extra path
 segments, fragments and other origins refuse.
-The helper presses the visible approval control only in an exact validated
+The driver presses the visible approval control only in an exact validated
 tab, then observes same-origin navigation or the visible "Machine connected"
 confirmation in that same tab. An unchanged page without that confirmation
 is not approval evidence: the gate then fails as
 `machine_browser_approval_not_confirmed` even when the terminal reaches its
-completion text, keeping the helper's own code in
+completion text, keeping the driver's own code in
 `browser_automation_error_code` beside `browser_approval` and a recovery. Full hosted setup still requires the
 run-bound case verdict and independent inspection review.
 
-On Linux the gate first starts the fixture desktop and its Chromium with a
-loopback DevTools port and runs the installer's tmux session on that desktop,
-so the wizard's link opens in the browser the operator signed in to. The step
+On Linux the gate first starts the fixture desktop and runs the installer's
+tmux session there with `BROWSER` set to `yoke browser open` for the operator
+identity, so the wizard's link opens in that signed-in identity browser. The step
 always attaches a desktop screenshot. A host without a desktop refuses
 `headless_linux_browser_approval_unavailable`; the Machine QA
-[Linux browser approval gates](../public/verification/test-machines/linux-host-provisioning.md#browser-approval-gates)
+[Linux browser approval gates](../public/verification/test-machines/linux-browser-identities.md#browser-approval-gates)
 list every refusal and its recovery.
 
 ## Real machine admission fixture

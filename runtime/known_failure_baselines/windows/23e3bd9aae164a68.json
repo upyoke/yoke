@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_guard_directory_resolution_client.py::test_git_c_still_wins_over_cd",
+ "reason": "AssertionError: assert 'D:\\\\checkout...ktrees\\\\YOK-1' == '/checkout/.worktrees/YOK-1'"
+}

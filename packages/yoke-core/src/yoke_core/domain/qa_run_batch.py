@@ -53,7 +53,7 @@ def cmd_run_add_batch(
     """
     # Read and parse JSON file
     try:
-        with open(json_file, "r") as f:
+        with open(json_file, "r", encoding="utf-8") as f:
             payload = json.load(f)
     except (OSError, json.JSONDecodeError) as exc:
         print(f"Error: cannot read/parse --json-file: {exc}", file=sys.stderr)

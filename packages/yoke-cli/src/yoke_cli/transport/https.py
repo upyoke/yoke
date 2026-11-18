@@ -10,7 +10,9 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-from yoke_contracts.doctor_budget import CHUNK_ATTEMPTS, CHUNK_BUDGET_S
+from yoke_contracts.doctor_budget import (
+    CHUNK_ATTEMPTS, CHUNK_BUDGET_S, remaining_budget,
+)
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
 from yoke_cli.config.machine_config import active_connection
@@ -177,22 +179,22 @@ def _relay_attempts(
     # Every attempt carries the same request_id.
     body = json.dumps(payload).encode("utf-8")
     budget = attempt_budget(max_attempts)
-    doctor_call = request.function == "doctor.run.run"
-    if doctor_call:
+    bounded_call = request.function == "doctor.run.run" or remaining_budget() is not None
+    if bounded_call:
         timeout_s = min(timeout_s, CHUNK_BUDGET_S)
         deadline = deadline_after(timeout_s)
         budget = min(budget, CHUNK_ATTEMPTS)
     attempt = 0
     for attempt in range(budget):
-        if doctor_call and time.monotonic() >= deadline:
+        if bounded_call and time.monotonic() >= deadline:
             return _refuse(
                 request,
                 connection,
-                "doctor_chunk_budget_exhausted: retry the focused check; "
+                "doctor_retry_budget_exhausted: retry the focused check; "
                 "completed Doctor rows remain in the partial report",
                 sensitive_values=sensitive_values,
             ), attempt
-        if attempt and not doctor_call:
+        if attempt and not bounded_call:
             deadline = deadline_after(timeout_s)
         http_request = urllib.request.Request(
             connection.functions_url,
@@ -208,7 +210,7 @@ def _relay_attempts(
                 http_request,
                 deadline=deadline,
                 timeout_s=min(timeout_s, deadline - time.monotonic())
-                if doctor_call
+                if bounded_call
                 else timeout_s,
             )
             with opened as resp:
@@ -234,7 +236,7 @@ def _relay_attempts(
                 and should_retry_connection(attempt, budget=budget)
             ):
                 backoff = connection_backoff_seconds(attempt)
-                if doctor_call and backoff >= deadline - time.monotonic():
+                if bounded_call and backoff >= deadline - time.monotonic():
                     return response, attempt + 1
                 write_retry_notice(
                     f"server returned {exc.code}", attempt, backoff, budget=budget
@@ -259,11 +261,11 @@ def _relay_attempts(
         except _NETWORK_ERRORS as exc:
             if should_retry_connection(attempt, connection.api_url, exc, budget):
                 backoff = connection_backoff_seconds(attempt)
-                if doctor_call and backoff >= deadline - time.monotonic():
+                if bounded_call and backoff >= deadline - time.monotonic():
                     return _refuse(
                         request,
                         connection,
-                        "doctor_chunk_budget_exhausted",
+                        "doctor_retry_budget_exhausted",
                         sensitive_values=sensitive_values,
                     ), attempt + 1
                 write_retry_notice("relay unreachable", attempt, backoff, budget=budget)

@@ -52,9 +52,9 @@ def compute_union_merge(filepath: str, cwd: str, run_git) -> Optional[UnionMerge
         base_path = os.path.join(tmpdir, "base")
         ours_path = os.path.join(tmpdir, "ours")
         theirs_path = os.path.join(tmpdir, "theirs")
-        Path(base_path).write_text(base.stdout)
-        Path(ours_path).write_text(ours.stdout)
-        Path(theirs_path).write_text(theirs.stdout)
+        Path(base_path).write_text(base.stdout, encoding="utf-8", newline="\n")
+        Path(ours_path).write_text(ours.stdout, encoding="utf-8", newline="\n")
+        Path(theirs_path).write_text(theirs.stdout, encoding="utf-8", newline="\n")
 
         # git merge-file --union modifies ours_path in-place
         subprocess.run(
@@ -66,7 +66,7 @@ def compute_union_merge(filepath: str, cwd: str, run_git) -> Optional[UnionMerge
             base=base.stdout,
             ours=ours.stdout,
             theirs=theirs.stdout,
-            text=Path(ours_path).read_text(),
+            text=Path(ours_path).read_text(encoding="utf-8"),
         )
 
 

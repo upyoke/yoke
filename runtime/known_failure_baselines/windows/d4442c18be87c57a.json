@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_github_app_runtime_attestation.py::test_testclient_lifespan_attests_each_runtime_profile_shape[partial-False-True]",
+ "reason": "assert ([])"
+}

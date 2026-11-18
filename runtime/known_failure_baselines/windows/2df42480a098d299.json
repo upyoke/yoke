@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_browser_qa_happy_path.py::TestHappyPath::test_capture_scratch_is_separate_from_persisted_handle",
+ "reason": "AssertionError: assert 'qa/test/1/C:...\\\\1\\\\home.png' == 'qa/test/1/home.png'"
+}

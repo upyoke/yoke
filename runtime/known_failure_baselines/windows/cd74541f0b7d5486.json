@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_operations_cli_render.py::TestBoardRebuild::test_human_mode_prints_status_not_json",
+ "reason": "AssertionError: assert 'Board rebuil...p\\\\BOARD.md\\n' == 'Board rebuil...mp/BOARD.md\\n'"
+}

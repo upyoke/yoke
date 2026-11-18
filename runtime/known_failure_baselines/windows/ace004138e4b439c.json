@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_browser_persistent_profile.py::test_daemon_start_passes_the_profile_directory",
+ "reason": "AssertionError: assert ['--profile-d...rofiles/acme'] == ['--profile-d...ofiles\\\\acme']"
+}

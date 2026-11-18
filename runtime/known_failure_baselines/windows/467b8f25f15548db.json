@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_session_orientation_setup_facts.py::test_hook_scope_distinguishes_machine_state_from_project[False-cursor]",
+ "reason": "AssertionError: assert [WindowsPath(...runneradmin')] == [None]"
+}

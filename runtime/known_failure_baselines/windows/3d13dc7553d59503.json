@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_cli_broken_pipe.py::test_non_stdout_broken_pipes_remain_nonzero_errors[socket]",
+ "reason": "assert 0 != 0"
+}

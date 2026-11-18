@@ -67,6 +67,25 @@ class SshNativeWindowsHostControl(SshNativeWindowsHostOperations):
         )
         return resolved
 
+    def run_command(self, argv, *, required_session_context=None, timeout=60):
+        """Show Yoke's browser pages on the test user's desktop.
+
+        An SSH command runs in session zero, where no window is visible and
+        OpenSSH ends its children with the session. ``yoke browser open`` and
+        the managed ``yoke qa browser`` commands therefore start in the
+        interactive desktop through the scheduled-task handoff, with the
+        installed Yoke's Python.
+        """
+        operations = get_ssh_windows_host_operations()
+        if not operations.opens_identity_page(argv):
+            return super().run_command(
+                argv, required_session_context=required_session_context, timeout=timeout
+            )
+        script = operations.yoke_python_command([self.path_state.yoke_bin, *argv[1:]])
+        result = operations.desktop_script(self, script, timeout=timeout)
+        result.desktop_session = "interactive"
+        return result
+
     def run_terminal_case(self, **kwargs):
         from yoke_contracts.runtime_ports.ssh_windows_host_operations import (
             get_ssh_windows_host_operations,

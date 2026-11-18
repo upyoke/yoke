@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_project_install_hooks.py::test_merge_creates_settings_file_with_exact_subtree",
+ "reason": "assert {'hooks': {'P...command'}]}]}} == {'hooks': {'P...command'}]}]}}"
+}

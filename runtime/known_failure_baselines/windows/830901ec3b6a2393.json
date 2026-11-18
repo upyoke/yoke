@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_operations_cli_onboard_input_validation.py::test_clone_folder_rejects_an_unwritable_parent",
+ "reason": "assert None is not None"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_the_denials_own_recoveries_pass_the_guard[cat > runtime/api/dashboard_wrapping_rows.visual.mjs <<'EOF'\\nimport assert from \"node:assert/strict\";\\nEOF]",
+ "reason": "assert False"
+}

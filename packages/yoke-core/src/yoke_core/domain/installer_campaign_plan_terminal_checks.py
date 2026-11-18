@@ -111,7 +111,7 @@ COLD_START_HOSTED = terminal_case(
     "terminal-check",
     instructions=(
         "Run the public {{environment_display_name}} installer; connect to {{app_url}}. Let the Test Machine's "
-        "visible Safari approve the Match code automatically; no operator browser "
+        "operator identity browser approve the Match code automatically; no operator browser "
         "action is needed or wanted. Finish onboarding and the parent handoff for both "
         "PATH states. Parallel manual approval consumes the code and breaks the gate."
     ),
@@ -143,7 +143,7 @@ HOSTED_CONNECT = terminal_case(
     instructions=(
         "Launch the current installed release against the {{environment_display_name}} hosted "
         "platform, use the browser approval path, and continue only after the "
-        "automated Safari approval has granted the one-time machine "
+        "automated identity-browser approval has granted the one-time machine "
         "authorization. No operator browser action is needed."
     ),
     expected_outcome=(

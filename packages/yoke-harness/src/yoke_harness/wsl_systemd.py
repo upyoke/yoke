@@ -72,7 +72,7 @@ def _read(path: Path) -> str:
                 "wsl_config_symlink: /etc/wsl.conf must be a regular file. "
                 "Replace the symlink with its intended configuration, then rerun yoke wsl setup."
             )
-        return path.read_text() if path.exists() else ""
+        return path.read_text(encoding="utf-8") if path.exists() else ""
     except OSError as exc:
         raise RuntimeError(f"wsl_config_unreadable: {exc}. {RECOVERY}") from exc
 

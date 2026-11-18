@@ -62,12 +62,12 @@ def _git_connection_label(config: Mapping[str, Any]) -> str:
             gitfile = parent / ".git"
             if not gitfile.is_file():
                 continue
-            text = gitfile.read_text().strip()
+            text = gitfile.read_text(encoding="utf-8").strip()
             if text.startswith("gitdir: "):
                 gitdir = (parent / text.removeprefix("gitdir: ")).resolve()
                 common = gitdir / "commondir"
                 if common.is_file():
-                    primary = (gitdir / common.read_text().strip()).resolve().parent
+                    primary = (gitdir / common.read_text(encoding="utf-8").strip()).resolve().parent
             break
     except OSError as exc:
         raise credential_store.GitHubCredentialStoreError(

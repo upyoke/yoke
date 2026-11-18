@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_cli_broken_pipe.py::test_non_stdout_broken_pipes_remain_nonzero_errors[subprocess]",
+ "reason": "assert 'BrokenPipeError' in 'Traceback (most recent call last):\\n  File \"<string>\", line 6, in <module>\\n    operation()\\n    ~~~~~~~~~^^\\n  File \"D:\\\\a\\\\yoke\\\\yoke\\\\packages\\\\yoke-cli\\\\src\\\\yoke_cli\\"
+}

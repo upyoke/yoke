@@ -8,6 +8,7 @@ import pytest
 
 from public_installer_helpers import (
     RecordingRunner,
+    current_os_answer,
     load_installer,
     write_channel,
     write_published_release,
@@ -17,6 +18,9 @@ from yoke_core.tools import ci_shards
 from packaging.specifiers import SpecifierSet
 
 PYPI_INDEX = "https://pypi.org/simple/"
+# Native Windows needs Python 3.12+ (install.py PYTHON_CONSTRAINT); CI's 3.11
+# endpoint covers macOS/Linux.
+CONSTRAINT = current_os_answer(posix=">=3.11,<3.15", windows=">=3.12,<3.15")
 
 
 def test_install_command_uses_generated_index_config() -> None:
@@ -56,7 +60,7 @@ def test_install_command_uses_only_supported_python() -> None:
     command = installer_mod.Installer(_options(installer_mod)).install_command(
         "yoke-cli"
     )
-    assert command[command.index("--python") + 1] == ">=3.11,<3.15"
+    assert command[command.index("--python") + 1] == CONSTRAINT
     assert ci_shards.python_versions() == ["3.11", "3.14"]
     output = dict(line.split("=", 1) for line in ci_shards.fan_out_lines())
     assert json.loads(output["python_versions"]) == ci_shards.python_versions()
@@ -80,7 +84,7 @@ def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path) -> None:
     rendered = output.getvalue()
     assert "Resolved Yoke 1.2.3" in rendered
     assert "uv tool install yoke-cli==1.2.3" in rendered
-    assert "--python '>=3.11,<3.15'" in rendered
+    assert f"--python '{CONSTRAINT}'" in rendered
     assert "--with yoke-contracts==1.2.3" in rendered
     assert "--with yoke-harness==1.2.3" in rendered
     assert "--with yoke-core==1.2.3" in rendered
@@ -129,8 +133,8 @@ def test_unavailable_python_after_install_failure_names_recovery(reason):
         installer.install_command("yoke-cli"),
         ["uv", "python", "find", "--no-python-downloads", module.PYTHON_CONSTRAINT],
     ]
-    assert "supports Python >=3.11,<3.15" in str(failure.value)
-    assert "uv python install '>=3.11,<3.15'" in str(failure.value)
+    assert f"supports Python {CONSTRAINT}" in str(failure.value)
+    assert f"uv python install '{CONSTRAINT}'" in str(failure.value)
     assert "yoke update" in str(failure.value)
     assert reason in str(failure.value)
 
@@ -162,7 +166,7 @@ def test_package_install_failure_with_available_python_keeps_package_diagnostic(
     [
         ("3.9", False),
         ("3.10", False),
-        ("3.11", True),
+        ("3.11", current_os_answer(posix=True, windows=False)),
         ("3.12", True),
         ("3.13.9", True),
         ("3.14", True),

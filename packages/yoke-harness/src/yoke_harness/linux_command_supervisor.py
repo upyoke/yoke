@@ -30,7 +30,7 @@ def _processes():
         if not entry.name.isdigit():
             continue
         try:
-            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+            fields = (entry / "stat").read_text(encoding="utf-8").rsplit(")", 1)[1].split()
             result[int(entry.name)] = (int(fields[1]), fields[19], fields[0])
         except (OSError, ValueError, IndexError):
             continue
@@ -89,7 +89,7 @@ def _terminate(owned):
 
 def _write_receipt(directory, receipt):
     temporary = directory / "receipt.tmp"
-    temporary.write_text(json.dumps(receipt))
+    temporary.write_text(json.dumps(receipt), encoding="utf-8", newline="\n")
     temporary.replace(directory / "receipt.json")
 
 
@@ -199,7 +199,7 @@ def run_supervised(directory_name, argv, environment, timeout):
                     for name, position in positions.items()
                 ):
                     continue
-                receipt = receipt_path.read_text()
+                receipt = receipt_path.read_text(encoding="utf-8")
                 sys.stderr.write("\n" + RECEIPT_MARKER + receipt + "\n")
                 sys.stderr.flush()
                 return
@@ -223,7 +223,7 @@ def read_receipt(directory_name, wait_seconds):
         if time.monotonic() >= deadline:
             raise RuntimeError("command custody unsettled")
         time.sleep(TICK)
-    return json.loads((directory / "receipt.json").read_text())
+    return json.loads((directory / "receipt.json").read_text(encoding="utf-8"))
 
 
 def receipt_settled(receipt):
@@ -251,7 +251,7 @@ def read_result(directory_name, wait_seconds):
     return {
         "receipt": receipt,
         **{
-            name: (directory / name).read_text(errors="backslashreplace")
+            name: (directory / name).read_text(errors="backslashreplace", encoding="utf-8")
             for name in ("stdout", "stderr")
             if (directory / name).exists()
         },

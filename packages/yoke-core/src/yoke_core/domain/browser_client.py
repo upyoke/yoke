@@ -116,7 +116,7 @@ class DaemonState:
         if not p.exists():
             return None
         try:
-            data = json.loads(p.read_text())
+            data = json.loads(p.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return None
         return cls(

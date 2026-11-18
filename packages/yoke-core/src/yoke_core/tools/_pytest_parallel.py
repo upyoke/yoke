@@ -211,6 +211,7 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
     from pathlib import Path
 
     from yoke_core.domain import administered_postgres, postgres_binaries
+    from yoke_core.domain.postgres_cluster_process import executable
     from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
     inherited_binaries = env.get("YOKE_PG_BIN_DIR")
@@ -222,7 +223,7 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
     env = shared_postgres_environment(env)
     isolated = administered_postgres.environment_with_administered_target_inventory(env)
     # Keep executable access after hiding the machine config that owns it.
-    if binaries is not None and (binaries / "initdb").is_file():
+    if binaries is not None and Path(executable(binaries, "initdb")).is_file():
         isolated["PATH"] = os.pathsep.join(
             [str(binaries), isolated.get("PATH", os.defpath)]
         )

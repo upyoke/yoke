@@ -42,7 +42,7 @@ def convert(root: Path) -> int:
         writes[target] = dump(record)
 
     concepts = [
-        (path, json.loads(path.read_text()))
+        (path, json.loads(path.read_text(encoding="utf-8")))
         for path in sorted((root / "concepts").glob("*.json"))
     ]
     concepts.sort(key=lambda pair: pair[1].get("parent") is not None)
@@ -69,7 +69,7 @@ def convert(root: Path) -> int:
         ("scenarios", "scenario", "lessons"),
     ]:
         for path in sorted((root / kind).glob("*.json")):
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             if owner_key not in data:
                 continue
             sources.append(path)
@@ -79,7 +79,7 @@ def convert(root: Path) -> int:
                 add(root / kind / owner["id"], record, position)
 
     for path in sorted((root / "evidence").glob("*.json")):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         if "records" not in data:
             continue
         sources.append(path)
@@ -95,7 +95,7 @@ def convert(root: Path) -> int:
         path = root / f"{kind}.json"
         if path.exists():
             sources.append(path)
-            for position, record in enumerate(json.loads(path.read_text())["records"]):
+            for position, record in enumerate(json.loads(path.read_text(encoding="utf-8"))["records"]):
                 add(root / kind, record, position)
 
     for path in sorted(root.rglob("*.json")):
@@ -106,7 +106,7 @@ def convert(root: Path) -> int:
 
     for target, text in writes.items():
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+        target.write_text(text, encoding="utf-8", newline="\n")
     for source in sources:
         if source not in writes:
             source.unlink()

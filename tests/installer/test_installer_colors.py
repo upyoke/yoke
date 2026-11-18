@@ -10,6 +10,10 @@ import pytest
 from public_installer_helpers import INSTALL_SHIM_PATH, load_installer
 from tests.installer.installer_goldens_test_support import _run_shim_capture
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
+)
+
 
 @pytest.mark.parametrize("colorterm", [None, "", "256color", "truecolor", "24bit"])
 def test_python_colors_require_explicit_truecolor(monkeypatch, colorterm):
@@ -31,6 +35,7 @@ def test_python_colors_require_explicit_truecolor(monkeypatch, colorterm):
     )
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize("colorterm", ["", "256color", "truecolor", "24bit"])
 def test_shell_welcome_colors(tmp_path, colorterm):
     captured = _run_shim_capture(
@@ -41,6 +46,7 @@ def test_shell_welcome_colors(tmp_path, colorterm):
     assert "Your operating system for software delivery" in captured
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize("colorterm", ["", "truecolor", "24bit"])
 @pytest.mark.parametrize("force_color", ["0", "1"])
 def test_completion_uses_default_body_foreground(colorterm, force_color):

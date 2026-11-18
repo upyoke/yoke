@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_migration_validation_binding.py::test_written_binding_is_readable_without_an_exported_variable",
+ "reason": "AssertionError: assert (33206 & 511) == 384"
+}

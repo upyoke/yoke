@@ -1,4 +1,4 @@
-"""Expired human sign-ins release machine automation and close native windows."""
+"""Expired human sign-ins release machine automation."""
 
 import json
 import os
@@ -8,7 +8,6 @@ import pytest
 
 from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_harness import browser_human_gate as gate
-from yoke_harness import desktop_browser_sign_in as desktop
 from yoke_harness.browser_sign_in_limits import AUTHORIZATION_LIMIT_MS, SHUTDOWN_MS
 
 
@@ -43,20 +42,3 @@ def test_invalid_timestamp_cannot_hold_gate_forever(tmp_path, started_at):
     marker.write_text(json.dumps({"pid": os.getpid(), "started_at": started_at}))
     assert gate.active_human_gate(tmp_path) is None
     assert not marker.exists()
-
-
-@pytest.mark.parametrize("kind", ["Safari", "Chromium"])
-def test_desktop_timeout_quits_browser_before_reporting_failure(monkeypatch, kind):
-    calls = []
-    times = iter([0, 0, AUTHORIZATION_LIMIT_MS / 1000])
-    monkeypatch.setattr(desktop.time, "monotonic", lambda: next(times))
-    monkeypatch.setattr(desktop.time, "sleep", lambda _: None)
-    monkeypatch.setattr(desktop, "window_count", lambda _: 1)
-    monkeypatch.setattr(desktop.platform_process, "spawn_group", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        desktop, "quit_browser", lambda selected: calls.append(selected)
-    )
-    with pytest.raises(RuntimeError, match="desktop_browser_sign_in_timeout") as error:
-        desktop.sign_in_window(kind, ["https://example.test"])
-    assert calls == [kind]
-    assert "without resetting" in str(error.value)

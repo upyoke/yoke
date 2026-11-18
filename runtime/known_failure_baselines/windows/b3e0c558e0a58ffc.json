@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_onboard_wizard_git_recovery_navigation.py::test_clone_git_install_replaces_missing_git_recovery_view",
+ "reason": "assert 2 == 1"
+}

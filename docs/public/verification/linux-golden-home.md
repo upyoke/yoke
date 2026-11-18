@@ -15,13 +15,15 @@ registered golden refuses `golden_capture_destination_collision`; retry after
 the UTC second changes or pass a different absolute `--destination`. An explicit
 destination is used as given. The first capture requires an explicit destination.
 
-## Required desktop browser state
+## Required browser sign-in state
 
-Desktop Chromium browser sign-ins are kept live through Linux reset and are
-never captured into golden snapshots. The existing snap Chromium sign-in store
-under ~/snap/chromium/common/chromium is preserved only when present; reset
-must not restore stale sign-in state from an older golden. Chromium is stopped
-before preservation so its on-disk state is flushed.
+The browser identity store `~/.yoke-browser-identities` is the machine's only
+saved browser login store. It is kept live through Linux reset and never
+captured into golden snapshots; reset must not restore stale sign-in state
+from an older golden. Every Chromium is asked to quit, never killed, before
+capture or reset so its on-disk state is flushed. The desktop's identity
+launcher `~/.local/share/applications/yoke-identity-browser.desktop` and its
+`mimeapps.list` selection are ordinary home state the golden keeps.
 
 Require a reset receipt and real browser sign-in proof against the selected
 release before relying on this contract. This procedure alone does not prove

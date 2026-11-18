@@ -121,7 +121,7 @@ def attest(
 
 
 def validate_wheels(root: Path, version: str, source: str) -> list[Path]:
-    records = json.loads((root / "release-records.json").read_text())
+    records = json.loads((root / "release-records.json").read_text(encoding="utf-8"))
     expected = {r["filename"] for r in records}
     wheels = sorted((root / "wheels").glob("*.whl"))
     if (
@@ -156,7 +156,7 @@ def validate_wheels(root: Path, version: str, source: str) -> list[Path]:
             metadata = BytesParser().parsebytes(wheel.read(metadata_paths[0]))
             if metadata["Version"] != version or metadata["Name"] != record["name"]:
                 raise ValueError("main_wheel_metadata_mismatch: rerun the main factory")
-    evidence = json.loads((root / "migration-history-record.json").read_text())[
+    evidence = json.loads((root / "migration-history-record.json").read_text(encoding="utf-8"))[
         "artifact"
     ]
     if evidence["source_commit"] != source or evidence["engine_version"] != version:
@@ -191,7 +191,7 @@ def promote(args) -> dict[str, str]:
         f"yoke-image-{args.source_sha}",
         args.destination,
     )
-    record = json.loads((args.destination / "image.json").read_text())
+    record = json.loads((args.destination / "image.json").read_text(encoding="utf-8"))
     repository = f"ghcr.io/{args.repo.split('/')[0].lower()}/yoke-server"
     if (
         record["source_sha"] != args.source_sha
@@ -225,7 +225,7 @@ def main(argv=None) -> int:
     try:
         result = promote(args)
         if args.kind != "check-wheels":
-            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8", newline="\n") as out:
                 out.writelines(f"{key}={value}\n" for key, value in result.items())
         print(f"Main artifact validation passed: {args.kind} {args.source_sha}")
     except (

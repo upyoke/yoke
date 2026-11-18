@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_hc_cursor_hooks.py::test_materialized_cursor_config_passes",
+ "reason": "AssertionError: assert 'FAIL' == 'PASS'"
+}

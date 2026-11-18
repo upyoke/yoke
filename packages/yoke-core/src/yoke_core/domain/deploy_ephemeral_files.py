@@ -31,7 +31,7 @@ def render_webapp_template(project_root: Path, relative: str, values: dict) -> s
         raise EphemeralDeployError(
             f"[ephemeral] project-owned Pack file missing: {template}"
         )
-    return render_pack_text(template.read_text(), values)
+    return render_pack_text(template.read_text(encoding="utf-8"), values)
 
 
 def routing_values(policy: EphemeralPolicy) -> dict:

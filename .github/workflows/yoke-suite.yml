@@ -9,7 +9,7 @@ name: yoke-suite
 # groups and exact-commit product wheels. Each OS then runs the same
 # ci_shards groups with the product's own native Postgres engine
 # (yoke_core.tools.ci_suite_postgres) instead of a container. Known failures
-# live in runtime/known_failure_baselines/<os>.json and run as strict xfails,
+# live one per file in runtime/known_failure_baselines/<os>/ and run as strict xfails,
 # so a fixed test fails the run until its entry is deleted.
 #
 # Dispatch-only: macOS runners stay out of automatic CI

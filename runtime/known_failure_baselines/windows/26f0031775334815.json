@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_merge_worktree_post.py::TestCleanupTrap::test_yok495_cleanup_trap_removes_trial_branch",
+ "reason": "ImportError: no pq wrapper available (merge child env, YOK-5369); then FileNotFoundError: [WinError 2] running the MSYS path that `which git` returns"
+}

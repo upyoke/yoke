@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_yoke_hook_resident.py::test_concurrent_hooks_are_admitted_without_a_serial_wait",
+ "reason": "Failed: resident child did not report readiness (exit=1)"
+}

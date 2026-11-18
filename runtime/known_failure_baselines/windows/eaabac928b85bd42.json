@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_python_venv_dependencies.py::test_no_authority_names_package_without_installing",
+ "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
+}

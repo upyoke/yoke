@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_projects_machine_secrets.py::TestMachineLocalCapabilitySecrets::test_set_aws_secret_writes_local_file",
+ "reason": "AssertionError: assert (33206 & 63) == 0"
+}

@@ -77,7 +77,7 @@ def emit_output_lines(lines: Sequence[str], *, write_github_output: bool) -> Non
     """Append *lines* to ``$GITHUB_OUTPUT``, or print them when there is none."""
     destination = os.environ.get("GITHUB_OUTPUT") if write_github_output else None
     if destination:
-        with Path(destination).open("a", encoding="utf-8") as handle:
+        with Path(destination).open("a", encoding="utf-8", newline="\n") as handle:
             handle.write("".join(f"{line}\n" for line in lines))
         return
     print("\n".join(lines))
@@ -129,11 +129,11 @@ def _run_shard(group: int, extra: Sequence[str] = ()) -> int:
     files = shard_files(Path(GROUPS_PATH), os.environ.get("YOKE_CI_PYTHON_SCOPE", "all"), group)
     selection = Path(".yoke/tmp/ci-shard-files.txt")
     selection.parent.mkdir(parents=True, exist_ok=True)
-    selection.write_text("\n".join(files) + "\n", encoding="utf-8")
+    selection.write_text("\n".join(files) + "\n", encoding="utf-8", newline="\n")
     environment = dict(os.environ, **{SELECTION_FILE_ENV: str(selection.resolve())})
     assignment = f"CI shard {group}/{SHARD_COUNT}: {len(files)} assigned files\n"
     print(assignment, end="", flush=True)
-    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
+    with Path(OUTPUT_LOG).open("a", encoding="utf-8", newline="\n") as log:
         log.write(assignment)
     process = subprocess.Popen(
         pytest_command(group, extra),
@@ -144,7 +144,7 @@ def _run_shard(group: int, extra: Sequence[str] = ()) -> int:
         bufsize=1,
     )
     assert process.stdout is not None
-    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
+    with Path(OUTPUT_LOG).open("a", encoding="utf-8", newline="\n") as log:
         for line in process.stdout:
             sys.stdout.write(line)
             sys.stdout.flush()
@@ -157,7 +157,7 @@ def check_runner_capacity() -> int:
     measurements = runner_capacity()
     capacity = "CI runner capacity: " + json.dumps(measurements, sort_keys=True)
     print(capacity, flush=True)
-    with Path(OUTPUT_LOG).open("w", encoding="utf-8") as log:
+    with Path(OUTPUT_LOG).open("w", encoding="utf-8", newline="\n") as log:
         log.write(capacity + "\n")
         elapsed = measurements["python_loop_seconds"]
         if elapsed > MAX_PYTHON_LOOP_SECONDS:
@@ -180,7 +180,7 @@ def runner_capacity() -> dict:
         model = next(
             (
                 line.partition(":")[2].strip()
-                for line in cpuinfo.read_text().splitlines()
+                for line in cpuinfo.read_text(encoding="utf-8").splitlines()
                 if line.startswith("model name")
             ),
             model,

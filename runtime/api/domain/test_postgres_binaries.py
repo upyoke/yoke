@@ -8,6 +8,7 @@ runtime dirs.
 from __future__ import annotations
 
 import hashlib
+import os
 import tarfile
 import urllib.error
 from pathlib import Path
@@ -16,6 +17,8 @@ import pytest
 
 from yoke_core.domain import postgres_binaries as pb
 from yoke_contracts import resilient_fetch
+
+INITDB = "initdb.exe" if os.name == "nt" else "initdb"
 
 
 @pytest.fixture(autouse=True)
@@ -68,14 +71,14 @@ def test_installed_bin_dir_requires_initdb(tmp_path):
     bin_dir = pb.version_dir("1.2.3") / "bin"
     bin_dir.mkdir(parents=True)
     assert pb.installed_bin_dir("1.2.3") is None  # dir alone is not enough
-    (bin_dir / "initdb").write_text("#!/bin/sh\n", encoding="utf-8")
+    (bin_dir / INITDB).write_text("#!/bin/sh\n", encoding="utf-8")
     assert pb.installed_bin_dir("1.2.3") == bin_dir
 
 
 def test_ensure_binaries_short_circuits_without_fetch(monkeypatch):
     bin_dir = pb.version_dir("1.2.3") / "bin"
     bin_dir.mkdir(parents=True)
-    (bin_dir / "initdb").write_text("#!/bin/sh\n", encoding="utf-8")
+    (bin_dir / INITDB).write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(
         pb,
         "fetch_binaries",
@@ -98,7 +101,7 @@ def _fixture_release(
     payload_root = releases_root / f"payload-{version}"
     inner = payload_root / f"postgresql-{version}-{target}"
     (inner / "bin").mkdir(parents=True)
-    initdb = inner / "bin" / "initdb"
+    initdb = inner / "bin" / INITDB
     initdb.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     initdb.chmod(0o755)
     (inner / "lib").mkdir()
@@ -120,7 +123,7 @@ def test_fetch_binaries_verifies_unpacks_and_installs(tmp_path):
     bin_dir = pb.fetch_binaries("9.9.9", "aarch64-apple-darwin", base_url=base_url)
 
     assert bin_dir == pb.version_dir("9.9.9") / "bin"
-    initdb = bin_dir / "initdb"
+    initdb = bin_dir / INITDB
     assert initdb.is_file()
     assert initdb.stat().st_mode & 0o111  # exec bit survives unpack
     # No staging residue next to the installed version dir.

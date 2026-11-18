@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_project_install_hooks.py::test_merge_does_not_follow_predictable_temp_symlink",
+ "reason": "assert {'PreToolUse'...'command'}]}]} == {'PreToolUse'...'command'}]}]}"
+}

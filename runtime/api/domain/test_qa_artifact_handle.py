@@ -99,10 +99,10 @@ class TestAddressesAndPresence:
         handle = local_handle(str(target))
         assert handle_address(handle, repo_root="/elsewhere") == str(target)
 
-    def test_local_relative_address_joins_repo_root(self) -> None:
+    def test_local_relative_address_joins_repo_root(self, tmp_path: Path) -> None:
         handle = local_handle("tests/browser/baselines/home.png")
-        assert handle_address(handle, repo_root="/repo") == (
-            "/repo/tests/browser/baselines/home.png"
+        assert handle_address(handle, repo_root=str(tmp_path)) == str(
+            tmp_path / "tests" / "browser" / "baselines" / "home.png"
         )
 
     def test_s3_handles_are_present_without_network(self) -> None:

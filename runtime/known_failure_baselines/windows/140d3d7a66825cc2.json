@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_guard_directory_resolution.py::test_guard_allows_a_variable_cd_out_of_main[L={lane}; cd $L && echo x > f.py]",
+ "reason": "AssertionError: BLOCKED: source write to the main checkout while an implementation lane is held."
+}

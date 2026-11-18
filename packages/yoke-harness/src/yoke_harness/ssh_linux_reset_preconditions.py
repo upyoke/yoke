@@ -14,7 +14,7 @@ from yoke_harness import linux_desktop_state
 
 DESKTOP_PROGRAM = (
     Path(linux_desktop_state.__file__)
-    .read_text()
+    .read_text(encoding="utf-8")
     .replace("from __future__ import annotations", "")
 )
 

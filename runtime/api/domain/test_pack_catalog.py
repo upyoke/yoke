@@ -252,7 +252,7 @@ def test_catalog_allows_file_ownership_to_move_between_immutable_versions(
         documentation="shared.txt",
     )
     former = tmp_path / "packs" / "former-owner" / "pack.json"
-    descriptor = json.loads(former.read_text())
+    descriptor = json.loads(former.read_text(encoding="utf-8"))
     descriptor["latest_version"] = "2.0.0"
     descriptor["versions"]["2.0.0"] = {
         "source": "versions/2.0.0/files",
@@ -277,8 +277,8 @@ def test_catalog_allows_file_ownership_to_move_between_immutable_versions(
     }
     latest_root = tmp_path / "packs" / "former-owner" / "versions" / "2.0.0" / "files"
     latest_root.mkdir(parents=True)
-    (latest_root / "README.md").write_text("Former owner\n")
-    former.write_text(json.dumps(descriptor))
+    (latest_root / "README.md").write_text("Former owner\n", encoding="utf-8", newline="\n")
+    former.write_text(json.dumps(descriptor), encoding="utf-8", newline="\n")
     _write_pack(
         tmp_path,
         slug="new-owner",

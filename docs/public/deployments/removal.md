@@ -59,7 +59,7 @@ run records the removal, and continues with the others. A member missing
 without a recorded removal still fails loudly.
 
 A failed item-QA run stays failed after removal; resume it with
-`yoke watch deploy -- RUN-ID --from-stage item-qa`. Removal takes over the
+`yoke watch deploy -- RUN-ID`. Removal takes over the
 QA copies the failure retired, so the resume never restores them.
 
 ## The owner's notice

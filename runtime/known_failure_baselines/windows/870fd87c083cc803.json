@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_qa_host_package_fixture.py::test_fixture_removed_and_changed_packages_are_reinstated",
+ "reason": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'"
+}

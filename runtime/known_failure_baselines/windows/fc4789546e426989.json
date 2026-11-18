@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_archive_tool_version_refusal.py::test_catalog_reader_distinguishes_tool_version_from_corrupt_payload[True]",
+ "reason": "AssertionError: assert 'archive_tool_version_unsupported' in 'the universe archive could not be inspected: [WinError 193] %1 is not a valid Win32 application'"
+}

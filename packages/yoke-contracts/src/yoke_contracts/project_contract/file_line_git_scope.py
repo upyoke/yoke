@@ -34,6 +34,7 @@ def _git(repo_root: Path, *args: str) -> str:
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         errors="replace",
     )
     if result.returncode != 0:
@@ -72,6 +73,7 @@ def resolve_file_line_git_scope(
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             errors="replace",
         )
         configured = result.stdout.strip() if result.returncode == 0 else ""
@@ -110,9 +112,9 @@ def merge_parent_refs(repo_root: Path) -> tuple[str, ...]:
         return tuple(merge_head.read_text(encoding="ascii").split())
     except FileNotFoundError:
         return tuple(
-            match.group(1)
+            match.group(1).lower()
             for name in os.environ
-            if (match := re.fullmatch(r"GITHEAD_([0-9a-f]{40}|[0-9a-f]{64})", name))
+            if (match := re.fullmatch(r"GITHEAD_([0-9a-fA-F]{40}|[0-9a-fA-F]{64})", name))
         )
 
 

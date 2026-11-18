@@ -150,7 +150,7 @@ def install_dependencies() -> None:
 
 
 def _publish_env(values: dict[str, str]) -> None:
-    with Path(os.environ["GITHUB_ENV"]).open("a") as target:
+    with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8", newline="\n") as target:
         target.writelines(f"{key}={value}\n" for key, value in values.items())
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import locale
 import subprocess
 import sys
 import threading
@@ -117,7 +118,8 @@ def test_large_output_keeps_only_each_tail_and_bounded_memory(tmp_path, monkeypa
         "Not logged in · Please run /login",
     ],
 )
-def test_failure_tail_preserves_keychain_diagnosis(tmp_path, capsys, stream, signature):
+def test_failure_tail_preserves_keychain_diagnosis(tmp_path, capsys, monkeypatch, stream, signature):
+    monkeypatch.setattr(locale, "getpreferredencoding", lambda _setlocale=False: "cp1252")
     program = (
         "import os, sys; "
         f"os.write({stream}, b'x' * {DIAGNOSTIC_TAIL_BYTES * 2}); "

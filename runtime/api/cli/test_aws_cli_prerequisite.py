@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import subprocess
 import types
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -88,6 +88,28 @@ def test_installed_but_unreachable_cli_teaches_the_path_fix(
     recovery = "\n".join(caught.value.detail_lines)
     assert "/opt/homebrew/bin" in recovery
     assert "PATH" in recovery
+    assert 'export PATH="/opt/homebrew/bin:$PATH"' in recovery
+
+
+def test_windows_path_fix_is_a_powershell_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(prerequisite, "_WHICH", lambda _name: None)
+    monkeypatch.setattr(prerequisite, "_SYSTEM", lambda: "Windows")
+    monkeypatch.setattr(
+        prerequisite,
+        "_first_known_location",
+        lambda: PureWindowsPath(r"C:\Program Files\Amazon\AWSCLIV2\aws.exe"),
+    )
+
+    with pytest.raises(prerequisite.AwsCliPrerequisiteError) as caught:
+        prerequisite.check_aws_cli()
+
+    recovery = "\n".join(caught.value.detail_lines)
+    assert (
+        r'$env:Path = "C:\Program Files\Amazon\AWSCLIV2;$env:Path"' in recovery
+    )
+    assert "export PATH" not in recovery
 
 
 def test_broken_cli_refuses_with_what_the_executable_reported(

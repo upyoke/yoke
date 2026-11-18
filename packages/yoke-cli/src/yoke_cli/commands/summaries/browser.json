@@ -1,5 +1,7 @@
 {
   "browser": "Sign project browser profiles in and check them.",
   "browser authorize": "Sign a project browser identity in to its sites.",
+  "browser devtools": "Drive the approval tab in an identity browser.",
+  "browser open": "Open a page in an identity's own browser window.",
   "browser verify": "Check which sites a browser identity is signed in to."
 }

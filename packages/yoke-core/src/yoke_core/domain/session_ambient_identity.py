@@ -273,7 +273,7 @@ def contested_anchor_session_ids() -> List[str]:
 
         found: List[str] = []
         for path in anchors_dir().glob("*.json"):
-            rec = json.loads(path.read_text())
+            rec = json.loads(path.read_text(encoding="utf-8"))
             for item in rec.get("contending_session_ids") or ():
                 if item:
                     found.append(str(item))

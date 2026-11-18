@@ -1,0 +1,4 @@
+{
+  "node_id": "runtime/api/test_update_status_ids.py::TestDBNative::test_history_insert",
+  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
+}

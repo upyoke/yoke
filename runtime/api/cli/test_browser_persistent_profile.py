@@ -26,17 +26,10 @@ def machine_home(tmp_path, monkeypatch):
     return home
 
 
-def test_profile_path_is_per_project_under_capability_secrets(machine_home) -> None:
+def test_profile_path_is_per_project_in_the_live_store(machine_home) -> None:
     directory = browser_profile.profile_dir("acme")
 
-    assert directory == (
-        machine_home
-        / "secrets"
-        / "capability-secrets"
-        / "acme"
-        / "browser-control"
-        / "profile"
-    )
+    assert directory == machine_home.parent / ".yoke-browser-identities" / "acme" / "default"
     assert browser_profile.profile_dir("other") != directory
 
 

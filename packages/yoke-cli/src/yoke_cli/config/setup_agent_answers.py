@@ -10,7 +10,7 @@ can skip whole steps on a later run. Secret answers never reach this file: a
 secret answer is refused before it is staged. The one exception is a pending
 browser approval's short-lived device code, which the next invocation needs to
 ask whether the person approved; it is deleted once that approval completes,
-fails or expires, and the file stays private (0600). One invocation at a time
+fails or expires, and the file stays owner-private. One invocation at a time
 holds the store's lock.
 """
 
@@ -18,11 +18,10 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 from pathlib import Path
 from typing import Any
 
-from yoke_contracts import platform_file_lock
+from yoke_contracts import owner_private_path, platform_file_lock
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from yoke_cli.config import onboard_checklist
@@ -191,7 +190,7 @@ class AnswerStore:
             "pending_approval": self.pending_approval,
             "facts": self.facts,
         }
-        _write_private(
+        owner_private_path.write_owner_private(
             store_path(), json.dumps(record, indent=2, sort_keys=True) + "\n"
         )
         self.existed = True
@@ -241,10 +240,10 @@ def _lock() -> int:
 
 def _load(path: Path) -> tuple[dict[str, Any], bool]:
     try:
-        info = path.stat()
+        path.stat()
     except FileNotFoundError:
         return {}, False
-    if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+    if not owner_private_path.is_owner_private_file(path):
         raise _unreadable(f"{path} must be owned by you with mode 0600")
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
@@ -261,17 +260,6 @@ def _unreadable(detail: str) -> AnswerStoreError:
         f"the saved agent setup cannot be used: {detail}; "
         "run `yoke setup --agent --discard` and start again",
     )
-
-
-def _write_private(path: Path, text: str) -> None:
-    temporary = path.with_name(f".{path.name}.tmp")
-    fd = os.open(temporary, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, STORE_MODE)
-    with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        stream.write(text)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.chmod(temporary, STORE_MODE)
-    os.replace(temporary, path)
 
 
 __all__ = [

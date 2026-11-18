@@ -18,7 +18,7 @@ def test_generated_marker_qualifies_microseconds_and_preserves_authored_bytes(
     path = tmp_path / "BOARD.md"
     authored = "# Authored notes\n\nZoë — keep these bytes\n"
     if existing:
-        path.write_text(authored)
+        path.write_text(authored, encoding="utf-8", newline="\n")
     monkeypatch.setattr(timestamps, "utc_now", lambda: CLOCK)
     monkeypatch.setattr(engine, "utc_now", lambda: CLOCK)
     monkeypatch.setattr(owner, "fetch_and_render", lambda *args: "### Live board\n")

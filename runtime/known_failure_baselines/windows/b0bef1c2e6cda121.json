@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_reset_desktop_preference.py::test_restore_preserves_terminal_selected_after_golden_capture[False]",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

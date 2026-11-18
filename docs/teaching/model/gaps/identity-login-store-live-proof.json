@@ -1,0 +1,7 @@
+{
+ "id": "identity-login-store-live-proof",
+ "title": "Prove one identity login store on real test machines",
+ "status": "observed",
+ "text": "Source makes the identity profiles in ~/.yoke-browser-identities each test machine's only browser login store, adds yoke browser open, and approves installer requests in the operator identity's browser on Linux, WSL, macOS and native Windows. Source tests do not prove real hosts. Still owed on linux-lab, test-mac-pro, windows-lab (WSL) and windows-native-lab: reset, one authorize per identity, then a managed step, a desktop mission page and an installer approval sharing one login with no second sign-in; logins surviving a second reset; and the expired-login refusal on the approval page.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/browser_profile.py", "packages/yoke-cli/src/yoke_cli/commands/browser_open.py", "packages/yoke-harness/src/yoke_harness/identity_browser_approval.py", "packages/yoke-core/src/yoke_core/domain/machine_qa_operator_browser.py", "runtime/api/domain/test_browser_identity_store_reset.py", "docs/public/verification/test-machines/browser-identities.md"]
+}

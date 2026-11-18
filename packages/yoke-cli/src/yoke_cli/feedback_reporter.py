@@ -19,21 +19,21 @@ def harness_email(harness=None, home=None):
     try:
         if harness not in ("claude", "claude-code"):
             raise ValueError("not the active harness")
-        value = json.loads((home / ".claude.json").read_text()).get("oauthAccount", {}).get("emailAddress")
+        value = json.loads((home / ".claude.json").read_text(encoding="utf-8")).get("oauthAccount", {}).get("emailAddress")
         if value:
             return value
     except (OSError, ValueError, TypeError, AttributeError):
         pass
     if harness == "cursor":
         try:
-            return json.loads((home / ".cursor/cli-config.json").read_text()).get("authInfo", {}).get("email") or None
+            return json.loads((home / ".cursor/cli-config.json").read_text(encoding="utf-8")).get("authInfo", {}).get("email") or None
         except (OSError, ValueError, TypeError, AttributeError):
             return None
     try:
         if harness != "codex":
             return None
         codex_home = Path(os.environ.get("CODEX_HOME") or home / ".codex")
-        data = json.loads((codex_home / "auth.json").read_text())
+        data = json.loads((codex_home / "auth.json").read_text(encoding="utf-8"))
         token = (data.get("tokens") or {}).get("id_token", "")
         claim = token.split(".")[1]
         value = json.loads(base64.urlsafe_b64decode(claim + "=" * (-len(claim) % 4))).get("email")

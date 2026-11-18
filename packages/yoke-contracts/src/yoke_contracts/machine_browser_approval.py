@@ -41,7 +41,12 @@ class BrowserApprovalResult:
 
 
 def missing_approval_tab(
-    *, browser: str, expected_origin: str, user_code: str, observed: list[str]
+    *,
+    browser: str,
+    expected_origin: str,
+    user_code: str,
+    observed: list[str],
+    reauthorize_command: str,
 ) -> BrowserApprovalResult:
     """Explain a missing exact tab without exposing codes or URL parameters."""
     paths = []
@@ -83,12 +88,12 @@ def missing_approval_tab(
             "state": "sign_in_required" if sign_in_required else "browser_tab_missing",
             "observed_tab_paths": paths,
             "recovery": (
-                "Run browser authorize with the declared identity and --desktop-browser "
-                "on the Test Machine; the operator completes the identity-provider "
-                "sign-in. Keep it live through reset; never golden-capture or wipe it."
+                "The identity browser's login expired. From the operator "
+                f"workstation run `{reauthorize_command}` and sign in once, then "
+                "rerun with a fresh request. Never sign in inside this window."
                 if sign_in_required
                 else "The exact approval tab is absent. Check that the installer opens "
-                "links in the same signed-in browser profile, then rerun with a fresh request."
+                "links through `yoke browser open` (BROWSER), then rerun with a fresh request."
             ),
         },
         "machine_browser_sign_in_required"

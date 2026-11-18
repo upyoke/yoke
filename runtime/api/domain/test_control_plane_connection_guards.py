@@ -90,6 +90,14 @@ def test_a_connection_from_the_factory_carries_the_bound(db_path: str) -> None:
     assert configured == IDLE_IN_TRANSACTION_SESSION_TIMEOUT
 
 
+def _backend_state(conn: psycopg.Connection, pid: int) -> str | None:
+    row = conn.execute(
+        "SELECT state FROM pg_stat_activity WHERE pid = %s", (pid,)
+    ).fetchone()
+    conn.rollback()  # pg_stat_activity is snapshotted per transaction
+    return row[0] if row else None
+
+
 def test_an_abandoned_transaction_releases_its_run_row_lock(
     db_path: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -105,16 +113,27 @@ def test_an_abandoned_transaction_releases_its_run_row_lock(
     abandoned = connect_test_db(db_path)
     waiting = connect_test_db(db_path)
     try:
+        backend, bound = abandoned.execute(
+            f"SELECT pg_backend_pid(), current_setting('{IDLE_IN_TRANSACTION_SETTING}')"
+        ).fetchone()
+        assert bound == "1s"
         abandoned.execute(
             "SELECT status FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,)
         )
+        assert _backend_state(waiting, backend) == "idle in transaction"
         # Nothing on the client's side ends this transaction; only the server's
         # own bound can, which is the whole point.
         time.sleep(REAP_WAIT_SECONDS)
 
-        with pytest.raises(psycopg.errors.IdleInTransactionSessionTimeout) as raised:
+        # The server ended that backend on its own; this session lives on, so
+        # no crash or restart did it.
+        assert _backend_state(waiting, backend) is None
+        # POSIX clients still read the FATAL; Windows ones see only the close.
+        with pytest.raises(
+            (psycopg.errors.IdleInTransactionSessionTimeout, psycopg.OperationalError)
+        ):
             abandoned.execute("SELECT 1")
-        assert "idle-in-transaction timeout" in str(raised.value)
+        assert abandoned.closed
 
         # The lock went with the backend, so the next driver simply proceeds.
         assert lock_run(waiting, run_id) == "created"

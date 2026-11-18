@@ -14,7 +14,12 @@ from public_installer_helpers import (
     write_uv_stub,
 )
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
+)
 
+
+@SHIM_BRANCH
 @pytest.mark.parametrize("uv_present", [False, True])
 def test_shim_refuses_musl_before_any_download(tmp_path: Path, uv_present: bool):
     bin_dir = linux_stub_bin(tmp_path)
@@ -74,6 +79,7 @@ def test_python_helper_allows_glibc_with_musl_loader_installed(monkeypatch, caps
     assert "Resolved Yoke 1.2.3" in capsys.readouterr().out
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize(
     "os_name,banner", [("Linux", "ldd (GNU libc) 2.36"), ("Darwin", "musl libc")]
 )

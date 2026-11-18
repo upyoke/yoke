@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_linux_desktop_state.py::test_only_active_logged_in_fixture_graphical_sessions[x11-active-greeter-fixture-False]",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

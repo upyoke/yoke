@@ -1,0 +1,4 @@
+{
+  "node_id": "runtime/api/test_update_status_full_derive_project.py::TestAutoDerive::test_in_flight_promotes_planned_parent",
+  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
+}

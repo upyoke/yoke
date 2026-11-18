@@ -86,7 +86,7 @@ def detect_stray_db(
 
 def _append_log(path: str, line: str) -> None:
     try:
-        with open(path, "a") as f:
+        with open(path, "a", encoding="utf-8", newline="\n") as f:
             f.write(line + "\n")
     except OSError:
         pass

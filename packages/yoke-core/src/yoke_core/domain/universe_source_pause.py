@@ -159,7 +159,7 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
     marker = _marker(dsn)
     try:
         state = (
-            json.loads(marker.read_text())
+            json.loads(marker.read_text(encoding="utf-8"))
             if marker.exists()
             else universe_source_services.plan(dsn)
         )
@@ -195,7 +195,7 @@ def resuming_source(dsn: str):
 
     with operation(dsn):
         marker = _marker(dsn)
-        state = json.loads(marker.read_text()) if marker.exists() else {}
+        state = json.loads(marker.read_text(encoding="utf-8")) if marker.exists() else {}
         frozen = state.get("database_pause")
         token = _RESUMING.set(True)
         try:
@@ -252,7 +252,7 @@ def recover(dsn):
     """Finish an interrupted authorized pause before paused authentication."""
     if is_paused(dsn):
         try:
-            state = json.loads(_marker(dsn).read_text())
+            state = json.loads(_marker(dsn).read_text(encoding="utf-8"))
             frozen = state.get("database_pause")
             if frozen and not frozen["ready"]:
                 from yoke_core.domain import universe_database_pause as database
@@ -270,7 +270,7 @@ def connection_dsn(dsn):
     if _ALLOWED.get() and not _RESUMING.get() and is_paused(dsn):
         from yoke_core.domain.universe_database_pause import read_dsn
 
-        state = json.loads(_marker(dsn).read_text()).get("database_pause")
+        state = json.loads(_marker(dsn).read_text(encoding="utf-8")).get("database_pause")
         if state:
             return read_dsn(dsn, state)
     return dsn
@@ -279,7 +279,7 @@ def connection_dsn(dsn):
 def export_source(dsn):
     from yoke_core.domain import universe_database_pause as database
 
-    state = json.loads(_marker(dsn).read_text())["database_pause"]
+    state = json.loads(_marker(dsn).read_text(encoding="utf-8"))["database_pause"]
     database.confirm(dsn, state)
     return database.read_dsn(dsn, state), {
         "database": state["name"],

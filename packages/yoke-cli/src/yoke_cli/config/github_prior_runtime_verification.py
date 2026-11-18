@@ -7,6 +7,7 @@ import stat
 from pathlib import Path
 
 from yoke_cli.config import github_git_credential_launcher
+from yoke_contracts import owner_private_path
 
 RELEASES_ROOT_NAME = "yoke-cli-releases"
 
@@ -73,7 +74,9 @@ def verified_prior_runtime_helper(
         python_info = python.stat()
         if not stat.S_ISREG(python_info.st_mode) or not os.access(python, os.X_OK):
             return False
-        if python != current_python and stat.S_IMODE(python_info.st_mode) & 0o022:
+        if python != current_python and not owner_private_path.is_others_unwritable_file(
+            python.resolve(strict=True)
+        ):
             return False
         flags = (
             os.O_RDONLY
@@ -91,7 +94,7 @@ def verified_prior_runtime_helper(
         info = os.fstat(descriptor)
         if (
             not stat.S_ISREG(info.st_mode)
-            or stat.S_IMODE(info.st_mode) & 0o022
+            or not owner_private_path.is_others_unwritable_file(helper)
             or info.st_size > 256 * 1024
         ):
             return False

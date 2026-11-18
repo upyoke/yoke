@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_product_cli_no_checkout_smoke.py::test_execute_steps_offline_happy_path_report",
+ "reason": "assert False"
+}

@@ -311,15 +311,14 @@ and needs its own membership decision.
 
 ## Resuming a failed run on the same id
 
-`yoke watch deploy -- RUN-ID --from-stage STAGE` (or `deployment-runs execute
---from-stage`) is the same-run resume. It re-enters `status=executing` at
-that stage, leaves completed earlier stages unreplayed (including a
-successful hosted-release), and keeps existing failed receipts. A
-github-actions-workflow stage re-entered on a failed run dispatches once
-under a fresh scope instead of resuming that stage's failed GitHub run. A
-re-drive of a run that is not failed keeps the base request id and joins the
-dispatch already started. A field
-update of `status` or a `--retry-of` new run is not this path.
+`yoke watch deploy -- RUN-ID` on a failed run is the same-run resume. It
+re-enters `status=executing` at the stage that failed, leaves completed
+stages unreplayed, and keeps existing failed receipts. A failed
+github-actions-workflow stage walks its recorded dispatches: it joins a run
+still active or succeeded and dispatches past a failed one under
+`retry:<failed run id>`, so a repeat resume joins that retry. A re-drive of
+a run that is not failed joins the dispatch already started. A field update
+of `status` or a `--retry-of` new run is not this path.
 
 ## No-Flow Fast Path
 

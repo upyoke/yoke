@@ -246,6 +246,8 @@ Use repeatable `--managed-root PATH` for additional verified lane roots,
 including installed checkouts no longer mapped on this machine, or for roots
 reserved for QA fixtures Yoke creates. Ownership follows the path, with no ledger or new record store. Before changing a config it writes an exact timestamped
 `CONFIG.yoke-backup-TIMESTAMP` beside it and reports before/after bytes.
+Those counts describe exact UTF-8 file bytes, including existing CRLF endings.
+Codex edits preserve unaffected bytes; JSON updates write LF endings on every OS.
 Paths outside those roots stay untouched even when deleted. A malformed config, failed backup or write refuses
 with `harness_lane_config_cleanup_failed` and the recovery command. Repair
 the named file or permissions and rerun; successful files need no repeat work.

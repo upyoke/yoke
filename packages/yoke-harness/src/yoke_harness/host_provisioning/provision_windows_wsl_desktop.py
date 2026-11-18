@@ -105,7 +105,7 @@ def windows_facts() -> dict:
         raise desktop.ProvisionFailure(
             "windows_wsl_required: run inside the registered Windows user's WSL2 Ubuntu"
         )
-    if Path("/proc/1/comm").read_text().strip() != "systemd":
+    if Path("/proc/1/comm").read_text(encoding="utf-8").strip() != "systemd":
         raise desktop.ProvisionFailure(
             "windows_wsl_systemd_required: have the operator enable the declared "
             "systemd prerequisite and reopen WSL before rerunning"
@@ -155,14 +155,19 @@ def main() -> int:
     parser.add_argument("--verify", action="store_true", help="Readiness check only")
     parser.add_argument("--rdp-port", type=int, default=DEFAULT_WSL_RDP_PORT)
     parser.add_argument("--desktop-password-stdin", action="store_true")
+    parser.add_argument("--browser-project", help="Project slug of the operator identity")
+    parser.add_argument("--browser-identity", help="Operator identity name")
     args = parser.parse_args()
     if not 1 <= args.rdp_port <= 65535 or args.rdp_port == desktop.DEFAULT_RDP_PORT:
         parser.error("--rdp-port needs a valid port separate from native Windows RDP")
     if args.verify and args.desktop_password_stdin:
         parser.error("--verify does not accept a password or start a desktop")
-    if not args.verify and not args.desktop_password_stdin:
+    if not args.verify and not (
+        args.desktop_password_stdin and args.browser_project and args.browser_identity
+    ):
         parser.error(
-            "provisioning requires --desktop-password-stdin from the capability store"
+            "provisioning requires --desktop-password-stdin from the capability store "
+            "and --browser-project/--browser-identity naming the operator identity"
         )
     try:
         password = (
@@ -172,7 +177,9 @@ def main() -> int:
         home = desktop.prerequisites()
         lifetime = configure_instance_lifetime(verify_only=args.verify)
         if not args.verify:
-            desktop.provision(home, args.rdp_port)
+            desktop.provision(
+                home, args.rdp_port, args.browser_project, args.browser_identity
+            )
         result = desktop.verify(home, args.rdp_port)
         prove_windows_localhost(args.rdp_port)
         if password is not None:
@@ -185,7 +192,8 @@ def main() -> int:
             display_route="WSL XFCE through Windows localhost RDP",
             operator_next_step=(
                 "The product opens WSL XFCE with its capability-owned secret. "
-                "Prove candidate Chromium renders there, then request only personal application sign-in."
+                "Authorize the operator identity with `yoke browser authorize "
+                "--test-machine`; web links then open signed in through `yoke browser open`."
             ),
             headed_application_proved=False,
         )

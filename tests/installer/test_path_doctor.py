@@ -14,7 +14,12 @@ from yoke_cli.config import path_doctor as doctor
 from yoke_cli.main import main as yoke_main
 from yoke_cli.product_boundary_teaching import generate_teaching_audit
 
+POSIX_SHELL = pytest.mark.posix_only(
+    reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
+)
 
+
+@POSIX_SHELL
 def test_update_shell_failure_names_recovery(tmp_path, monkeypatch):
     from yoke_contracts import shell_path_state as path_state_contract
 
@@ -45,9 +50,10 @@ def test_default_startup_file_per_shell(tmp_path):
     )
 
 
+@POSIX_SHELL
 def test_path_state_contract_closes_xdg_tools_markers_and_startup_files(tmp_path):
     tool_dir = tmp_path / "xdg-bin"
-    contract = doctor.resolve_path_state_contract(
+    contract = doctor.resolve_path_state_contract(target="posix",
         env={
             "HOME": str(tmp_path),
             "SHELL": "/bin/bash",
@@ -72,6 +78,7 @@ def test_path_state_contract_closes_xdg_tools_markers_and_startup_files(tmp_path
     )
 
 
+@POSIX_SHELL
 def test_diagnose_reports_off_path(tmp_path, monkeypatch):
     monkeypatch.setattr(
         doctor,
@@ -91,6 +98,7 @@ def test_diagnose_reports_off_path(tmp_path, monkeypatch):
     assert diag.ssh_needs_fix is True
 
 
+@POSIX_SHELL
 def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
     tool_dir = tmp_path / ".local" / "bin"
     tool_dir.mkdir(parents=True)
@@ -126,6 +134,7 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
     )
 
 
+@POSIX_SHELL
 def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
     tool_dir = tmp_path / ".local" / "bin"
     other_dir = tmp_path / "other" / "bin"
@@ -198,6 +207,7 @@ def test_fresh_login_probe_observes_operator_rc(tmp_path):
     assert {row.name: row.path for row in ssh}["yoke"] is None
 
 
+@POSIX_SHELL
 def test_ssh_probe_reads_bashrc_like_sshd(tmp_path):
     bash = shutil.which("bash")
     if not bash:

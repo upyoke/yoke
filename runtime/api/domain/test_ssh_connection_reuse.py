@@ -27,6 +27,7 @@ def control(tmp_path, monkeypatch, *, host="test-host", user="tester", key="key"
     )
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_private_socket_shared_across_calls_and_transport_instances(tmp_path, monkeypatch):
     first = control(tmp_path, monkeypatch)
     second = control(tmp_path, monkeypatch)
@@ -43,6 +44,7 @@ def test_private_socket_shared_across_calls_and_transport_instances(tmp_path, mo
         assert control(tmp_path, monkeypatch, **settings)._control_path != first._control_path
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_unusable_socket_directory_teaches_recovery(tmp_path, monkeypatch):
     monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path,))
     directory = tmp_path / f"ssh-{transport.os.getuid()}"
@@ -51,12 +53,14 @@ def test_unusable_socket_directory_teaches_recovery(tmp_path, monkeypatch):
         transport._control_socket("host", "user", tmp_path / "key")
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_long_socket_path_teaches_recovery(tmp_path, monkeypatch):
     monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path / ("x" * 90),))
     with pytest.raises(RuntimeError, match="host_control_ssh_socket_unavailable.*temp_root"):
         transport._control_socket("host", "user", tmp_path / "key")
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 @pytest.mark.parametrize("diagnostic", transport._STALE_SOCKET_ERRORS)
 def test_stale_master_warns_before_native_fallback_executes_once(tmp_path, monkeypatch, capsys, diagnostic):
     instance = control(tmp_path, monkeypatch)
@@ -82,6 +86,7 @@ def test_stale_master_warns_before_native_fallback_executes_once(tmp_path, monke
     assert "host_control_ssh_stale_socket" in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 @pytest.mark.parametrize("code,diagnostic", [
     (255, "Connection reset by peer"),
     (255, "mux_client_read_packet: read header failed: Broken pipe"),
@@ -102,6 +107,7 @@ def test_ambiguous_disconnects_and_remote_failures_never_replay(tmp_path, monkey
     assert result.returncode == code and result.stderr == diagnostic
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_native_fallback_result_is_never_replayed(tmp_path, monkeypatch):
     instance = control(tmp_path, monkeypatch)
     calls = []
@@ -115,6 +121,7 @@ def test_native_fallback_result_is_never_replayed(tmp_path, monkeypatch):
     assert len(calls) == 1
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_live_master_check_does_not_execute_remote_command(tmp_path, monkeypatch, capsys):
     instance = control(tmp_path, monkeypatch)
     instance._control_path.touch()
@@ -133,6 +140,7 @@ def test_live_master_check_does_not_execute_remote_command(tmp_path, monkeypatch
     assert capsys.readouterr().err == ""
 
 
+@pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_long_configured_root_uses_existing_short_scratch_candidate(tmp_path, monkeypatch):
     long_root = tmp_path / ("x" * 90)
     monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (long_root, tmp_path))

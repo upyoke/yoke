@@ -29,7 +29,7 @@ def _git(repo: Path, *args: str) -> None:
         ["git", "-C", str(repo), *args],
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
     )
 
 
@@ -37,7 +37,7 @@ def _initialize_lane(apply_env: dict, *, replacement: bool = False) -> str:
     repo = Path(apply_env["worktree"])
     modules = repo / TEST_MIGRATION_MODULES_DIR
     body = (modules / "sample_migration.py").read_text(encoding="utf-8")
-    (modules / "0001_existing.py").write_text(body, encoding="utf-8")
+    (modules / "0001_existing.py").write_text(body, encoding="utf-8", newline="\n")
     _git(repo, "init", "-q", "-b", "main")
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
@@ -49,7 +49,7 @@ def _initialize_lane(apply_env: dict, *, replacement: bool = False) -> str:
         identifier = "0001_replacement"
     else:
         identifier = "0002_next"
-    (modules / f"{identifier}.py").write_text(body, encoding="utf-8")
+    (modules / f"{identifier}.py").write_text(body, encoding="utf-8", newline="\n")
     return identifier
 
 

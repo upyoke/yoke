@@ -11,7 +11,6 @@ from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 import io
 import json
-from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
@@ -159,14 +158,15 @@ def test_orchestrator_forwards_item_project_to_run_preflight(
     assert captured["project"] == want_project
 
 
-def test_worktree_preflight_resolves_project_checkout(monkeypatch):
+def test_worktree_preflight_resolves_project_checkout(monkeypatch, tmp_path):
     normalized: List[str] = []
+    checkout = tmp_path / "externalwebapp-repo"
 
     # Project-checkout resolution routes through the transport-aware relay
     # helper so it works over an https control plane, not a local connection.
     monkeypatch.setattr(
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
-        lambda project, **_kw: Path("/tmp/externalwebapp-repo"),
+        lambda project, **_kw: checkout,
     )
     monkeypatch.setattr(
         worktree_preflight,
@@ -200,7 +200,7 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
         item_id=_FIXTURE_ITEM_REF, project="externalwebapp", no_worktree=True
     )
     assert result.ok is True
-    assert normalized == ["/tmp/externalwebapp-repo"]
+    assert normalized == [str(checkout)]
 
 
 # ---------------------------------------------------------------------------

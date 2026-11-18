@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.domain import source_pythonpath, source_postgres_environment
+from yoke_core.domain import postgres_cluster_process, source_pythonpath, source_postgres_environment
 from yoke_core.tools import pg_testcluster, pg_testcluster_reclaim as reclaim
 from yoke_cli.config import db_admin_box_hop as hop, db_admin_box_mac_host as mac_leg
 
@@ -24,7 +24,7 @@ def test_windows_executable_commands_keep_source_binding(monkeypatch):
 
 
 def test_windows_source_resources_find_initdb_exe(monkeypatch, tmp_path):
-    monkeypatch.setattr(source_postgres_environment, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(postgres_cluster_process, "_WINDOWS", True)
     binaries = tmp_path / "postgres" / source_postgres_environment.POSTGRES_VERSION / "bin"
     binaries.mkdir(parents=True)
     (binaries / "initdb.exe").touch()

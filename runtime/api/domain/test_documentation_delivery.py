@@ -22,13 +22,13 @@ def _corpus(root):
     tree = nav.load_navigation(root)
     for node in nav.iter_nodes(tree):
         path = root / node.path
-        path.write_text(render_page(tree, node, path.read_text()))
+        path.write_text(render_page(tree, node, path.read_text(encoding="utf-8")), encoding="utf-8", newline="\n")
     return root
 
 
 def _git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, encoding="utf-8"
     ).stdout.strip()
 
 
@@ -36,9 +36,9 @@ def _git(root, *args):
 def candidate(tmp_path):
     root = tmp_path / "source"
     _corpus(root / "docs/public")
-    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n', encoding="utf-8", newline="\n")
     (root / "runtime/harness").mkdir(parents=True)
-    (root / "runtime/harness/marker").write_text("source fixture")
+    (root / "runtime/harness/marker").write_text("source fixture", encoding="utf-8", newline="\n")
     _git(root, "init", "-q")
     _git(root, "add", "-A")
     _git(
@@ -60,7 +60,7 @@ def candidate(tmp_path):
                 source_commit=commit,
                 built_at="2026-10-16T12:00:00Z",
             )
-        )
+        ), encoding="utf-8", newline="\n"
     )
     return root, commit, proof
 
@@ -71,12 +71,12 @@ def test_complete_snapshot_and_tracked_source(candidate, tmp_path):
     from yoke_core.domain.install_bundle_managed import docs_bundle_files
 
     scratch = root / "docs/public/scratch.md"
-    scratch.write_text("# Untracked scratch\n[Broken](absent.md)\n")
+    scratch.write_text("# Untracked scratch\n[Broken](absent.md)\n", encoding="utf-8", newline="\n")
     assert validation.validate_public_corpus(root / "docs/public") == []
     assert not any(e["path"].endswith("scratch.md") for e in docs_bundle_files(root))
     snapshot = _corpus(tmp_path / "snapshot")
     assert validation.validate_public_corpus(snapshot) == []
-    (snapshot / "unlisted.md").write_text("# Unlisted\n")
+    (snapshot / "unlisted.md").write_text("# Unlisted\n", encoding="utf-8", newline="\n")
     assert "UNLISTED_PAGE" in {
         r.code for r in validation.validate_public_corpus(snapshot)
     }
@@ -95,7 +95,7 @@ def test_complete_snapshot_and_tracked_source(candidate, tmp_path):
 def test_public_refusal_identifies_target_and_repair(tmp_path, text, code):
     root = _corpus(tmp_path)
     path = root / "index.md"
-    path.write_text(path.read_text() + "\n" + text)
+    path.write_text(path.read_text(encoding="utf-8") + "\n" + text, encoding="utf-8", newline="\n")
     refusals = validation.validate_public_corpus(root)
     assert code in {r.code for r in refusals}
     assert all(r.target and r.detail and r.repair for r in refusals)
@@ -105,24 +105,24 @@ def test_advisory_and_portable_examples_do_not_refuse(tmp_path):
     root = _corpus(tmp_path)
     path = root / "index.md"
     path.write_text(
-        path.read_text()
+        path.read_text(encoding="utf-8")
         + "\n"
         + "a" * 20_001
         + "\n"
         + "Scratch /tmp/example.txt; home /"
         + "Users/me/.local/bin/yoke\n"
         + "machine_id: 00000000-0000-0000-0000-000000000001\n"
-        + "Example machine_id: ab12cd34-ef56-7890-ab12-cd34ef567890\n"
+        + "Example machine_id: ab12cd34-ef56-7890-ab12-cd34ef567890\n", encoding="utf-8", newline="\n"
     )
     tree = nav.load_navigation(root)
-    path.write_text(render_page(tree, tree, path.read_text()))
+    path.write_text(render_page(tree, tree, path.read_text(encoding="utf-8")), encoding="utf-8", newline="\n")
     assert validation.validate_public_corpus(root) == []
 
 
 def test_stale_derived_blocks_are_inspected(candidate):
     root, _, _ = candidate
     page = root / "docs/public/guide/setup.md"
-    page.write_text("# Setup\n")
+    page.write_text("# Setup\n", encoding="utf-8", newline="\n")
     assert "STALE_NAV_BLOCK" in {
         r.code for r in validation.validate_public_corpus(page.parents[1])
     }
@@ -179,12 +179,12 @@ def test_candidate_mismatch(candidate, kind, tmp_path):
             "Change candidate",
         )
     elif kind == "dirty":
-        (root / "docs/public/index.md").write_text("# Dirty\n")
+        (root / "docs/public/index.md").write_text("# Dirty\n", encoding="utf-8", newline="\n")
     elif kind == "other-dirty":
-        (root / "new-source.py").write_text("uncommitted source change")
+        (root / "new-source.py").write_text("uncommitted source change", encoding="utf-8", newline="\n")
     else:
         receipt = tmp_path / "receipt.json"
-        receipt.write_text(json.dumps(dict(source_build="a" * 40)))
+        receipt.write_text(json.dumps(dict(source_build="a" * 40)), encoding="utf-8", newline="\n")
     refusals = validation.verify_candidate(
         root, commit, receipt=receipt, consumer_evidence=proof
     )
@@ -232,9 +232,9 @@ def test_consumer_proof_contract(candidate, value):
     elif value == "unreadable":
         proof.unlink()
     elif value == "invalid-json":
-        proof.write_text("{")
+        proof.write_text("{", encoding="utf-8", newline="\n")
     else:
-        proof.write_text(json.dumps(value).replace("MATCH", commit))
+        proof.write_text(json.dumps(value).replace("MATCH", commit), encoding="utf-8", newline="\n")
     refusals = validation.verify_candidate(root, commit, consumer_evidence=proof)
     assert [r.code for r in refusals] == ["CONSUMER_PROOF_MISSING"]
     assert (
@@ -246,7 +246,7 @@ def test_consumer_proof_contract(candidate, value):
 def test_publication_cache_tracks_content_and_refuses_gitless_changes(tmp_path):
     source = _corpus(tmp_path / "docs/public")
     validate_docs_for_bundle(tmp_path)
-    (source / "index.md").write_text("# Root\n\n[Absent](absent.md)\n")
+    (source / "index.md").write_text("# Root\n\n[Absent](absent.md)\n", encoding="utf-8", newline="\n")
     before = (source / "index.md").read_bytes()
     with pytest.raises(InstallBundleError, match="LINK_TARGET_MISSING"):
         validate_docs_for_bundle(tmp_path)
@@ -267,17 +267,17 @@ def test_retired_scan_false_positives_and_anchored_matches(candidate):
     for rel, text in fixtures.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text)
+        path.write_text(text, encoding="utf-8", newline="\n")
     _git(root, "add", "-A")
     assert scan_retired_references(root) == []
     (root / "examples.txt").write_text(
-        "docs/" + "public/" + "reference/x.md\n.yoke/" + "docs/" + "guides/x.md\n"
+        "docs/" + "public/" + "reference/x.md\n.yoke/" + "docs/" + "guides/x.md\n", encoding="utf-8", newline="\n"
     )
     (root / "docs/public/guide/setup.md").write_text(
-        "# Setup\n[Retired](../install.md)\n"
+        "# Setup\n[Retired](../install.md)\n", encoding="utf-8", newline="\n"
     )
     assert len(scan_retired_references(root)) == 3
-    (root / "docs/public/nav.yaml").write_text("sections:\n  pages: []\n")
+    (root / "docs/public/nav.yaml").write_text("sections:\n  pages: []\n", encoding="utf-8", newline="\n")
     assert len(scan_retired_references(root)) == 5
 
 
@@ -285,7 +285,7 @@ def test_private_navigation_metadata_is_not_published(tmp_path):
     root = _corpus(tmp_path)
     path = root / "nav.yaml"
     path.write_text(
-        path.read_text().replace("Corpus", "/" + "Users/alice/private/manual")
+        path.read_text(encoding="utf-8").replace("Corpus", "/" + "Users/alice/private/manual"), encoding="utf-8", newline="\n"
     )
     refusals = [
         r
@@ -301,7 +301,7 @@ def test_private_navigation_metadata_is_not_published(tmp_path):
 def test_malformed_receipt_cli_is_bounded(candidate, tmp_path, capsys, build):
     root, commit, proof = candidate
     receipt = tmp_path / "receipt.json"
-    receipt.write_text(json.dumps({"source_build": build}))
+    receipt.write_text(json.dumps({"source_build": build}), encoding="utf-8", newline="\n")
     args = ["verify-candidate", "--root", str(root), "--commit", commit]
     args += ["--receipt", str(receipt), "--consumer-evidence", str(proof)]
     assert validation.main(args) == 1

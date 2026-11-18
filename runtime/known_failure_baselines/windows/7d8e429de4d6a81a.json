@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_project_install_checkout_identity.py::test_git_lane_resolves_main_and_accepts_parent_canonical_link[external]",
+ "reason": "AssertionError: assert WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/pytest-0/popen-gw1/test_git_lane_resolves_main_an0/main cafÃ©') == WindowsPath('C:/Users/runneradmin/A"
+}

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_onboard_publication_receipts.py::test_installer_proof_survives_later_install_failure",
+ "reason": "YOK-5388 private-receipt fix: verified_commits rejects Windows receipt permissions; transferred from YOK-5363 by steering"
+}

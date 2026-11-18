@@ -1,4 +1,4 @@
-"""Runtime interface for ssh linux browser approval."""
+"""Runtime interface for the Linux desktop a browser approval runs on."""
 
 from __future__ import annotations
 
@@ -11,8 +11,7 @@ from yoke_contracts.runtime_ports.loader import load_port
 class SshLinuxBrowserApproval(Protocol):
     """Operations and values supplied by the executing adapter."""
 
-    approve_machine_in_desktop_chromium: Callable[..., Any]
-    prepare_desktop_chromium: Callable[..., Any]
+    prepare_desktop: Callable[..., Any]
 
 
 def get_ssh_linux_browser_approval() -> SshLinuxBrowserApproval:

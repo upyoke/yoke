@@ -104,10 +104,10 @@ def authorize(*extra):
     )
 
 
-def test_desktop_only_and_omitted_identity_are_resolved_before_viewer(route, capsys):
-    assert authorize("--desktop-browser", "--json") == 0
+def test_identity_only_and_omitted_identity_are_resolved_before_viewer(route, capsys):
+    assert authorize("--json") == 0
     argv = route["argv"][0]["argv"]
-    assert "--desktop-browser" in argv and "--include-desktop-browser" not in argv
+    assert not any("desktop-browser" in part for part in argv)
     assert "https://shop.example.com" in capsys.readouterr().err
     route["argv"].clear()
     assert (

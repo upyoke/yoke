@@ -53,16 +53,19 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         commands.append(command)
         if " hardcopy -h " in command:
             return completed(command, stdout=next(transcripts))
-        if 'tell application "Safari"' in command:
-            return completed(
-                command,
-                stdout=(
-                    "https://app.stage.upyoke.com/connect?user_code=K7F2\n"
-                    if "return tabURLs" in command
-                    else "approved|https://app.stage.upyoke.com/connect?user_code=K7F2|"
-                    "https://app.stage.upyoke.com/orgs/acme/frontier\n"
-                ),
+        if command.startswith("yoke browser devtools "):
+            entry = "https://app.stage.upyoke.com/connect?user_code=K7F2"
+            reply = (
+                {"ok": True, "urls": [entry], "identity_browsers": 1}
+                if " tabs " in command
+                else {
+                    "ok": True,
+                    "state": "approved",
+                    "starting_url": entry,
+                    "result_url": "https://app.stage.upyoke.com/orgs/acme/frontier",
+                }
             )
+            return completed(command, stdout=json.dumps(reply) + "\n")
         return completed(command)
 
     monotonic = iter((0.0, 0.0, 1.0))
@@ -84,6 +87,8 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         progress_callback=lambda: heartbeats.append(True),
         allowed_base_urls=("https://app.stage.upyoke.com",),
         yoke_bin="yoke",
+        reauthorize_command="yoke browser authorize --project acme "
+        "--identity operator --test-machine test-mac-pro",
     )
 
     assert result.ok is True
@@ -99,7 +104,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         "timeout_seconds": 60,
     }
     assert event == {
-        "approval_automation": "self_approving_visible_safari",
+        "approval_automation": "self_approving_visible_chromium",
         "code": "K7F2",
         "event": "machine_qa.operator_gate",
         "kind": "machine_browser_approval",
@@ -108,7 +113,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     }
     assert result.browser_evidence == {
         "approval_entry": "/connect",
-        "browser": "Safari",
+        "browser": "Chromium",
         "result_url": "https://app.stage.upyoke.com/orgs/acme/frontier",
         "visible_control": "Approve machine",
     }

@@ -12,12 +12,20 @@ from yoke_harness.ssh_native_windows_host_operations import (
 )
 from yoke_harness.native_windows.terminal import run_native_terminal_case
 from yoke_harness.native_windows.terminal import WindowsTerminal
+from yoke_harness.native_windows.desktop import desktop_script
+from yoke_harness.native_windows.yoke_python import (
+    opens_identity_page,
+    yoke_python_command,
+)
 
 __all__ = [
     "SshWindowsHostOperations",
     "SshNativeWindowsHostOperations",
     "run_native_terminal_case",
     "WindowsTerminal",
+    "desktop_script",
+    "opens_identity_page",
+    "yoke_python_command",
 ]
 from yoke_contracts.windows_wsl_command import windows_wsl_command, windows_wsl_input
 

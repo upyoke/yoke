@@ -70,7 +70,7 @@ def _record_request(req: "RestRequest") -> None:
         query_str = "&".join(f"{k}={v}" for k, v in sorted(req.query.items()))
         line += f"?{query_str}"
     try:
-        with open(log_path, "a", encoding="utf-8") as f:
+        with open(log_path, "a", encoding="utf-8", newline="\n") as f:
             f.write(line + "\n")
     except OSError:
         pass
@@ -108,7 +108,7 @@ def load_fake_response(req: "RestRequest", fake_dir: str) -> "RestResponse":
             f"(method={req.method!r} path={req.path!r})"
         )
     try:
-        payload = _json.loads(path.read_text())
+        payload = _json.loads(path.read_text(encoding="utf-8"))
     except ValueError as exc:
         raise RestTransportError(
             f"REST fake response file is not valid JSON: {path}: {exc}"

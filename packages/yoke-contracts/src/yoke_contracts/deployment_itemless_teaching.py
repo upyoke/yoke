@@ -99,11 +99,12 @@ Retry a failed or cancelled run without following a moving branch:
   yoke --env CONTROL-PLANE watch deploy -- RETRY-ID
 
 Resume the same failed run without minting a new run or replaying completed stages:
-  yoke --env CONTROL-PLANE watch deploy -- RUN-ID --from-stage STAGE
-That re-enters executing at STAGE. A github-actions-workflow stage re-entered
-this way dispatches once under a fresh scope instead of resuming the failed
-GitHub run. A re-drive of a run that is not failed still joins the dispatch
-already started. `--retry-of` is a new run of the same candidate.
+  yoke --env CONTROL-PLANE watch deploy -- RUN-ID
+That re-enters executing at the stage that failed. A github-actions-workflow
+stage that failed dispatches once more under retry:<failed GitHub run id>; a
+repeat resume joins that retry, and a GitHub run still active or succeeded is
+joined, not dispatched again. A re-drive of a run that is not failed joins the
+dispatch already started. `--retry-of` is a new run of the same candidate.
 
 """
     + CREATE_RETRY_GUIDANCE

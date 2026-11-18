@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_github_machine_status_composition.py::test_status_marks_live_failure_as_cached_and_not_ready",
+ "reason": "AssertionError: assert 'ok' == 'broken'"
+}

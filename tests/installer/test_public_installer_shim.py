@@ -13,6 +13,10 @@ from public_installer_helpers import (
     write_uv_stub,
 )
 
+SHIM_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install shim branch; Windows installs through install.ps1"
+)
+
 
 _bin = linux_stub_bin
 
@@ -33,6 +37,7 @@ def test_git_bash_hands_off_to_powershell(tmp_path: Path, kernel: str) -> None:
     assert "--no-setup" in result.stdout
 
 
+@SHIM_BRANCH
 def test_missing_uv_without_curl_prints_manual_and_rerun(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     # No uv, no curl: cannot install uv, so name the manual command + rerun.
@@ -50,6 +55,7 @@ def test_missing_uv_without_curl_prints_manual_and_rerun(tmp_path: Path) -> None
     )
 
 
+@SHIM_BRANCH
 def test_missing_uv_failure_redacts_configured_origin_credentials(
     tmp_path: Path,
 ) -> None:
@@ -74,6 +80,7 @@ def test_missing_uv_failure_redacts_configured_origin_credentials(
     assert "<configured-yoke-origin>/install" in rendered
 
 
+@SHIM_BRANCH
 def test_prompt_answer_never_gates_uv_install(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     prompt_in = tmp_path / "prompt-in"
@@ -102,6 +109,7 @@ def test_prompt_answer_never_gates_uv_install(tmp_path: Path) -> None:
     assert "was installed but is not on PATH" in result.stderr
 
 
+@SHIM_BRANCH
 def test_missing_uv_installs_automatically_via_astral(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     log = tmp_path / "commands.log"
@@ -147,6 +155,7 @@ def test_missing_uv_installs_automatically_via_astral(tmp_path: Path) -> None:
     assert "HANDOFF_OK" in result.stdout
 
 
+@SHIM_BRANCH
 @pytest.mark.parametrize(
     ("args", "input_text"),
     [(("--yes",), ""), ((), "y\n")],
@@ -176,6 +185,7 @@ def test_uv_installer_override_metacharacters_never_execute(
     assert not sentinel.exists()
 
 
+@SHIM_BRANCH
 def test_present_uv_hands_off_to_install_py(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -193,6 +203,7 @@ def test_present_uv_hands_off_to_install_py(tmp_path: Path) -> None:
     assert "--yes" in result.stdout
 
 
+@SHIM_BRANCH
 def test_present_uv_exports_authoritative_tool_bin_and_isolates_helper(
     tmp_path: Path,
 ) -> None:
@@ -223,6 +234,7 @@ def test_present_uv_exports_authoritative_tool_bin_and_isolates_helper(
     )
 
 
+@SHIM_BRANCH
 def test_dry_run_forwards_dry_run_flag_to_helper(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -236,6 +248,7 @@ def test_dry_run_forwards_dry_run_flag_to_helper(tmp_path: Path) -> None:
     assert "onboard" not in result.stdout.lower()
 
 
+@SHIM_BRANCH
 def test_uv_install_ignores_prompt_endpoints_and_leaves_stdin_untouched(
     tmp_path: Path,
 ) -> None:
@@ -291,6 +304,7 @@ def test_uv_install_ignores_prompt_endpoints_and_leaves_stdin_untouched(
     assert "astral.sh/uv/install.sh" in log.read_text(encoding="utf-8")
 
 
+@SHIM_BRANCH
 def test_interactive_success_auto_launches_onboard_without_gate(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)

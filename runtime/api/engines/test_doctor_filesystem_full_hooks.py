@@ -54,14 +54,14 @@ class TestHookExecutability:
         agents_dir.mkdir(parents=True)
         hook = tmp_path / ".agents" / "hooks" / "exists.sh"
         hook.parent.mkdir(parents=True)
-        hook.write_text("#!/bin/sh\n")
+        hook.write_text("#!/bin/sh\n", encoding="utf-8", newline="\n")
         hook.chmod(0o644)
         (agents_dir / "yoke-hook.md").write_text(
-            '---\ncommand: ".agents/hooks/exists.sh"\n---\n'
+            '---\ncommand: ".agents/hooks/exists.sh"\n---\n', encoding="utf-8", newline="\n"
         )
-        with patch(
-            "yoke_core.engines.doctor_report._resolve_repo_root",
-            return_value=str(tmp_path),
+        with (
+            patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)),
+            patch("yoke_project_checks.check_agents_hooks.os.access", return_value=False),
         ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "FAIL"
@@ -72,10 +72,10 @@ class TestHookExecutability:
         agents_dir.mkdir(parents=True)
         hook = tmp_path / ".agents" / "hooks" / "exists.sh"
         hook.parent.mkdir(parents=True)
-        hook.write_text("#!/bin/sh\n")
+        hook.write_text("#!/bin/sh\n", encoding="utf-8", newline="\n")
         hook.chmod(0o755)
         (agents_dir / "yoke-hook.md").write_text(
-            '---\ncommand: ".agents/hooks/exists.sh"\n---\n'
+            '---\ncommand: ".agents/hooks/exists.sh"\n---\n', encoding="utf-8", newline="\n"
         )
         with patch(
             "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -88,7 +88,7 @@ class TestHookExecutability:
         agents_dir = tmp_path / ".claude" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "yoke-hook.md").write_text(
-            '---\ncommand: "bash missing.sh"\n---\n'
+            '---\ncommand: "bash missing.sh"\n---\n', encoding="utf-8", newline="\n"
         )
         with patch(
             "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -101,7 +101,7 @@ class TestHookExecutability:
         agents_dir = tmp_path / ".claude" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "yoke-hook.md").write_text(
-            '---\ncommand: "python3 -m yoke_core.domain.observe_pre"\n---\n'
+            '---\ncommand: "python3 -m yoke_core.domain.observe_pre"\n---\n', encoding="utf-8", newline="\n"
         )
         with patch(
             "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -130,7 +130,7 @@ class TestSelfTest:
     def test_fails_when_check_prerequisites_fails(self, tmp_path):
         script = tmp_path / "runtime" / "api" / "domain" / "check_prerequisites.py"
         script.parent.mkdir(parents=True)
-        script.write_text("def main():\n    return 0\n")
+        script.write_text("def main():\n    return 0\n", encoding="utf-8", newline="\n")
         with (
             patch(
                 "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -148,7 +148,7 @@ class TestSelfTest:
     def test_passes_when_check_prerequisites_succeeds(self, tmp_path):
         script = tmp_path / "runtime" / "api" / "domain" / "check_prerequisites.py"
         script.parent.mkdir(parents=True)
-        script.write_text("def main():\n    return 0\n")
+        script.write_text("def main():\n    return 0\n", encoding="utf-8", newline="\n")
         with (
             patch(
                 "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -173,7 +173,7 @@ class TestStaleSessions:
     def test_passes_when_registry_disabled(self, tmp_path):
         data_root = tmp_path / "data"
         data_root.mkdir()
-        (data_root / "config").write_text("session_registry_enabled=false\n")
+        (data_root / "config").write_text("session_registry_enabled=false\n", encoding="utf-8", newline="\n")
         with patch(
             "yoke_core.engines.doctor_report._resolve_repo_root",
             return_value=str(tmp_path),
@@ -184,7 +184,7 @@ class TestStaleSessions:
     def test_passes_when_registry_enabled_but_no_sessions_dir(self, tmp_path):
         data_root = tmp_path / "data"
         data_root.mkdir()
-        (data_root / "config").write_text("session_registry_enabled=true\n")
+        (data_root / "config").write_text("session_registry_enabled=true\n", encoding="utf-8", newline="\n")
         with patch(
             "yoke_core.engines.doctor_report._resolve_repo_root",
             return_value=str(tmp_path),
@@ -196,9 +196,9 @@ class TestStaleSessions:
         data_root = tmp_path / "data"
         sessions_dir = data_root / "sessions"
         sessions_dir.mkdir(parents=True)
-        (data_root / "config").write_text("session_registry_enabled=true\n")
+        (data_root / "config").write_text("session_registry_enabled=true\n", encoding="utf-8", newline="\n")
         stale = sessions_dir / "old.session"
-        stale.write_text("session")
+        stale.write_text("session", encoding="utf-8", newline="\n")
         old_epoch = 1_700_000_000
         os.utime(stale, (old_epoch, old_epoch))
         with (
@@ -219,9 +219,9 @@ class TestStaleSessions:
         data_root = tmp_path / "data"
         sessions_dir = data_root / "sessions"
         sessions_dir.mkdir(parents=True)
-        (data_root / "config").write_text("session_registry_enabled=true\n")
+        (data_root / "config").write_text("session_registry_enabled=true\n", encoding="utf-8", newline="\n")
         fresh = sessions_dir / "new.session"
-        fresh.write_text("session")
+        fresh.write_text("session", encoding="utf-8", newline="\n")
         fresh_epoch = 1_700_020_000
         os.utime(fresh, (fresh_epoch, fresh_epoch))
         with (

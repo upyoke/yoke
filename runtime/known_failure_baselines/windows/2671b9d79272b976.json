@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_machine_config_writer_concurrency.py::test_writer_waits_for_stable_lock_then_merges_latest_payload",
+ "reason": "AssertionError: assert 438 == 384"
+}

@@ -1,6 +1,7 @@
 """Installer delegates shell setup without inheriting its temporary PATH."""
 
 import io
+import os
 import subprocess
 import pytest
 from public_installer_helpers import RecordingRunner, load_installer
@@ -57,7 +58,7 @@ def test_installer_names_shell_failure_before_ready(monkeypatch):
 
 
 def test_rerun_from_unreloaded_shell_succeeds_with_new_terminal_hint(monkeypatch):
-    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/bin:/bin")
+    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", os.pathsep.join(["/usr/bin", "/bin"]))
     _, installer = _installer(monkeypatch, RecordingRunner())
     installer.run()
     assert "Open a new terminal to use Yoke." in installer.stdout.getvalue()
@@ -65,12 +66,16 @@ def test_rerun_from_unreloaded_shell_succeeds_with_new_terminal_hint(monkeypatch
 
 @pytest.mark.parametrize(
     ("inherited", "hint"),
-    [("/usr/bin:/bin", True), ("/tmp/bin:/usr/bin:/bin", False)],
+    [
+        (os.pathsep.join(["/usr/bin", "/bin"]), True),
+        (os.pathsep.join(["/tmp/bin", "/usr/bin", "/bin"]), False),
+    ],
+    ids=["caller-path-lacks-bin", "caller-path-has-bin"],
 )
 def test_path_hint_follows_the_callers_path(monkeypatch, inherited, hint):
     # The shim puts the bin dir on the installer's own PATH, so yoke always
     # resolves there; only the caller's PATH decides whether the hint is needed.
-    monkeypatch.setenv("PATH", "/tmp/bin:/usr/bin:/bin")
+    monkeypatch.setenv("PATH", os.pathsep.join(["/tmp/bin", "/usr/bin", "/bin"]))
     monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", inherited)
     _, installer = _installer(monkeypatch, RecordingRunner())
     installer.which = lambda _: "/tmp/bin/yoke"

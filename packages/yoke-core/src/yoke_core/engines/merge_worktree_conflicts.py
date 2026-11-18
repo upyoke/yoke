@@ -141,7 +141,7 @@ def _resolve_additive_conflict(filepath: str, cwd: str) -> bool:
         return False
 
     target = os.path.join(cwd, filepath)
-    Path(target).write_text(union.text)
+    Path(target).write_text(union.text, encoding="utf-8", newline="\n")
     _run_git(["add", filepath], cwd=cwd, capture=True)
     _print(
         f"Auto-resolving additive conflict: {filepath} (both sides preserved via union merge)"

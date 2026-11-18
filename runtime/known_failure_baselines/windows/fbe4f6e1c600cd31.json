@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/tools/test_pulumi_exec_file_backed.py::test_init_accepts_any_stack_name_and_stores_nothing",
+ "reason": "AssertionError: assert 'infra/Pulumi.scratch-file-stack.yaml' in 'Created stack\\nPulumi stack initialized. Add these top-level lines to C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runnerad"
+}

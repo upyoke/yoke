@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_idea_readiness_check_function_owners.py::TestVerifyFunctionOwners::test_yoke_core_reference_does_not_alias_runtime_path",
+ "reason": "AssertionError: assert 'packages\\\\yo...omain\\\\foo.py' == 'packages/yok...domain/foo.py'"
+}

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import Callable
 
-from yoke_contracts import shell_path_state as path_doctor
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 from yoke_contracts.runtime_ports.ssh_mac_baseline_probes import get_ssh_mac_baseline_probes
 
@@ -29,12 +29,16 @@ class HostBaselineResult:
     error_code: str | None = None
 
 
-def _path_state(control: HostControl) -> path_doctor.PathStateContract:
-    env = {"HOME": control.home}
-    if control.xdg_bin_home:
-        env["XDG_BIN_HOME"] = control.xdg_bin_home
-    env["SHELL"] = control.shell
-    return path_doctor.resolve_path_state_contract(env=env)
+def _host_tool_paths(control: HostControl) -> tuple[str, str]:
+    """The POSIX test host's tool dir and launcher.
+
+    Built with POSIX rules, never the controller's: a Windows controller
+    would otherwise check a macOS host for a backslashed ``yoke.cmd``.
+    """
+    tool_dir = control.xdg_bin_home or str(
+        PurePosixPath(control.home) / ".local" / "bin"
+    )
+    return tool_dir, str(PurePosixPath(tool_dir) / "yoke")
 
 
 def reach_fresh_host(control: HostControl) -> HostBaselineResult:
@@ -90,12 +94,10 @@ def reach_shell_preconfigured(control: HostControl) -> HostBaselineResult:
         cleanup_attempts = [fixture.close()]
         if not cleanup_attempts[0].ok:
             cleanup_attempts.append(fixture.close())
-        path_state = _path_state(control)
-        tool_dir = path_state.tool_bin_dir
+        tool_dir, launcher = _host_tool_paths(control)
         observed = {
             surface: list(control.probe_path(surface)) for surface in ("login", "ssh")
         }
-        launcher = path_state.yoke_bin
         launcher_check = control.run_machine_assertions(
             [{"argv": [HOST_TEST_COMMAND, "-x", launcher]}]
         )

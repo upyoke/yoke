@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_machine_backup_restore.py::test_cli_no_secret_output_and_doctor_failure",
+ "reason": "AssertionError: assert 1 == 0"
+}

@@ -16,7 +16,7 @@ def prior_deployment_qa_refusals(
     stages: list[dict[str, Any]],
     start_stage: str,
 ) -> list[str]:
-    """Prevent resume/from-stage from skipping an earlier scoped QA gate.
+    """Prevent a resume from skipping an earlier scoped QA gate.
 
     Server-side implementation: the caller already holds a connection to
     the database that serves this control plane.

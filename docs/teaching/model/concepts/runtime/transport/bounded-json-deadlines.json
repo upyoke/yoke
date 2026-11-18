@@ -2,6 +2,6 @@
  "id": "bounded-json-deadlines",
  "title": "Bounded JSON request deadlines",
  "status": "observed",
- "summary": "JSON clients share one absolute deadline across DNS, connect, send, headers and body. Expired operations report a deadline failure, including when urllib wraps a connect or send deadline in URLError; genuine connection refusals remain network failures. This applies to private HTTP and HTTPS, replay-safe reads and caller-owned mutations on every OS.",
- "sources": ["packages/yoke-contracts/src/yoke_contracts/bounded_json_http.py", "runtime/api/cli/test_bounded_json_http_open_deadlines.py", "runtime/api/cli/test_loopback_http_deadline.py"]
+ "summary": "JSON clients share one absolute deadline across DNS, connect, send, headers and body. Expired operations report a deadline failure, including when urllib wraps a connect or send deadline in URLError; genuine connection refusals remain network failures. This applies to private HTTP and HTTPS, replay-safe reads and caller-owned mutations on every OS. HTTPS functions called inside Doctor checks share the active check deadline and spend at most two attempts including retry delays, so install-readiness registry failures cannot consume the ordinary relay retry schedule.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/bounded_json_http.py", "runtime/api/cli/test_bounded_json_http_open_deadlines.py", "runtime/api/cli/test_loopback_http_deadline.py", "packages/yoke-cli/src/yoke_cli/transport/https.py", "runtime/api/cli/test_doctor_retry_budget.py", "docs/public/operations/doctor.md"]
 }
