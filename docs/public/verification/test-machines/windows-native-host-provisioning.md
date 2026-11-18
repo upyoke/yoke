@@ -126,28 +126,16 @@ a different Windows Tailscale profile; do not use it as a harmless health check.
 For `NeedsLogin`, preserve saved profiles and diagnose before reauthentication;
 see [the observed recovery](windows-native-provisioning-recovery.md#tailscale-query-context-and-preserved-state).
 
-Never register the bootstrap public IP. Keep the private subnet, key-only
-SSH from anywhere (NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
-and bills until deleted. The NIC public IP supplies outbound on the private subnet.
-Registered power attaches `VM-yoke-power` in the VM resource group/location to its
-sole NIC IP configuration, then starts and waits for MagicDNS SSH. The VM and
-public IP stay allocated when the lease ends. Follow the
-[manual stop procedure](host-provisioning.md#stop-a-cloud-test-machine)
-to deallocate a registered VM and clean up its public IP.
-
-Before registration, attach a temporary IP for each start. Use the NIC's
+Register the private MagicDNS name. Keep key-only SSH (TCP 22) and no public
+RDP. The Standard public IP supplies outbound traffic and bills until deleted.
+Registered power attaches `VM-yoke-power` to the sole NIC IP configuration,
+starts the VM and waits for MagicDNS SSH. Both stay allocated after lease release.
+Use the [manual stop procedure](host-provisioning.md#stop-a-cloud-test-machine).
+Before registration, attach the bootstrap IP for each start. Use the NIC's
 resource group, NIC name and IP configuration name.
-
-```text
-az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address IP_ID
-```
-
-After deallocation, detach and delete the public IP.
-
-```text
-az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address null
-az network public-ip delete --ids IP_ID
-```
+`az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address IP_ID`.
+After deallocation, use the same stop procedure's detach and delete commands
+with the bootstrap IP.
 
 For existing-VM host/IP cutover, unmanaged-IP failures, host replacement and
 DNS/SSH repair, follow [tailnet recovery](windows-native-provisioning-recovery.md#tailnet-cutover-and-host-replacement).
