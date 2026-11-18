@@ -169,6 +169,23 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
         ("qa_runs", "performed_by"),
         ("qa_requirements", "item_id"),
     )
+    return {
+        ITEM_CI_VERDICT: _fact(
+            ITEM_CI_VERDICT,
+            ci,
+            "{count} passing CI run(s) recorded against this item",
+            "no passing CI run is recorded against this item",
+        ),
+        **load_delivery_facts(conn, item_id),
+    }
+
+
+def load_delivery_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
+    """The delivery facts alone: what a landed item's done gate waits on.
+
+    The steering report classifies every landed item from these; asking
+    :func:`load_item_facts` there also counted CI runs it never reads.
+    """
     # Completion authority is one predicate: a succeeded run of the item's
     # own flow, or another project's succeeded run that bound this project's
     # source. Counting only the own flow here left a cross-project member
@@ -183,12 +200,6 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
         and latest_member_delivery_ready(conn, item_id=int(item_id), run=candidate)
     )
     return {
-        ITEM_CI_VERDICT: _fact(
-            ITEM_CI_VERDICT,
-            ci,
-            "{count} passing CI run(s) recorded against this item",
-            "no passing CI run is recorded against this item",
-        ),
         ITEM_DEPLOYMENT_RUN_SUCCEEDED: _fact(
             ITEM_DEPLOYMENT_RUN_SUCCEEDED,
             deployed,
@@ -210,5 +221,6 @@ __all__ = [
     "ITEM_DEPLOYMENT_RUN_SUCCEEDED",
     "ITEM_INDEPENDENT_MEMBER_DELIVERED",
     "ITEM_NO_DEPLOYMENT_TARGET",
+    "load_delivery_facts",
     "load_item_facts",
 ]

@@ -32,7 +32,7 @@ from typing import Any, Sequence
 
 from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
-from yoke_core.domain.gate_satisfier_item_facts import load_item_facts
+from yoke_core.domain.gate_satisfier_item_facts import load_delivery_facts
 from yoke_core.domain import db_backend
 from yoke_core.domain.delivery_landing_custody import (
     ENROLLABLE_CUSTODY_STATES,
@@ -160,7 +160,7 @@ def landed_without_closeout(
     whether they are parked, because close-out is a claim-holding step: a
     landing a live session holds is that session's to finish, and only a
     landing nobody holds needs a seat. Whether close-out is owed at all is
-    the item's own done-gate facts (:func:`load_item_facts`): a landing whose
+    the item's own done-gate delivery facts (:func:`load_delivery_facts`): a landing whose
     gate waits only on its flow's next release owes nobody a command,
     whatever its holder is doing.
     It also carries which release holds the landing, because a holder can only
@@ -239,7 +239,7 @@ def landed_without_closeout(
                 delivered_to=delivered_to,
                 owed_elsewhere=tuple((o.label(), o.target) for o in owed),
                 returned_after_landing=item_id in returned,
-                delivery_gate=landed_gate(load_item_facts(conn, item_id)),
+                delivery_gate=landed_gate(load_delivery_facts(conn, item_id)),
             )
         )
     return tuple(
