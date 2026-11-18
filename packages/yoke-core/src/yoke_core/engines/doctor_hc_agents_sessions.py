@@ -53,7 +53,9 @@ def hc_stale_sessions(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Check if session registry is enabled
     enabled = False
     if config_path.is_file():
-        for line in config_path.read_text(errors="replace", encoding="utf-8").splitlines():
+        for line in config_path.read_text(
+            errors="replace", encoding="utf-8"
+        ).splitlines():
             if line.strip().startswith("session_registry_enabled="):
                 enabled = line.strip().split("=", 1)[1].strip() == "true"
 
@@ -117,7 +119,16 @@ def hc_stale_session_reclaimer_alive(
     ).fetchone()
 
     if row is None or row["latest"] is None:
-        # No sweep events at all — may be a fresh deployment
+        # The sweep runs from session-start hooks, so a universe where no
+        # harness session has ever started has had nothing to sweep.
+        if (
+            not _table_exists(conn, "harness_sessions")
+            or not conn.execute(
+                "SELECT 1 AS present FROM harness_sessions LIMIT 1"
+            ).fetchone()
+        ):
+            rec.record(slug, label, "N/A", "no harness session has started yet")
+            return
         rec.record(
             slug,
             label,

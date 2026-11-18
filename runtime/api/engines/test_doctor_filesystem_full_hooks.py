@@ -284,9 +284,20 @@ class TestStaleSessionReclaimerAlive:
             )
             """
         )
+        conn.execute("CREATE TABLE harness_sessions (session_id TEXT)")
+        conn.execute("INSERT INTO harness_sessions VALUES ('sess-started')")
         rec = _run_hc(hc_stale_session_reclaimer_alive, conn=conn)
         assert rec.results[0].result == "WARN"
         assert "HarnessSessionStaleSweepCompleted" in rec.results[0].detail
+
+    def test_not_applicable_before_any_session_started(self):
+        """A fresh universe has had no session start to fire the sweep."""
+        conn = _make_conn()
+        conn.execute("CREATE TABLE events (event_name TEXT, created_at TIMESTAMPTZ)")
+        conn.execute("CREATE TABLE harness_sessions (session_id TEXT)")
+        rec = _run_hc(hc_stale_session_reclaimer_alive, conn=conn)
+        assert rec.results[0].result == "N/A"
+        assert rec.results[0].detail == "no harness session has started yet"
 
     def test_passes_with_recent_sweep_event(self):
         conn = _make_conn()

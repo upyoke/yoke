@@ -127,9 +127,17 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         (str(args.project or ""),) * 3,
     )
     inspected = 0
+    without_origin = 0
     for project in projects:
         repo = checkout_for_project_id(int(project["id"]))
         if not repo or not Path(repo).is_dir():
+            continue
+        # A checkout set up without a remote (setup's Skip GitHub) has no
+        # remote branches to go stale.
+        if _base._run(
+            ["git", "-C", str(repo), "remote", "get-url", "origin"]
+        ).returncode:
+            without_origin += 1
             continue
         inspected += 1
         target = str(project["default_branch"] or "main")
@@ -227,7 +235,9 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             "HC-stale-remote-branches",
             "Stale remote branches",
             "N/A",
-            "this runner has no checkout for it",
+            "no origin remote"
+            if without_origin
+            else "this runner has no checkout for it",
         )
         return
 

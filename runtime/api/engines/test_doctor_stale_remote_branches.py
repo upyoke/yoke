@@ -29,6 +29,7 @@ def remote(monkeypatch, tmp_path):
     monkeypatch.setattr(checks, "checkout_for_project_id", lambda _: str(tmp_path))
     remote = Mock(return_value=_make_completed())
     monkeypatch.setattr(checks._credentialed_git, "run", remote)
+    monkeypatch.setattr(checks._base, "_run", Mock(return_value=_make_completed()))
     return remote
 
 
@@ -37,6 +38,15 @@ def test_no_checkout_is_not_applicable(conn, monkeypatch, remote):
     result = _run_hc(checks.hc_stale_remote_branches, conn, fix=True).results[0]
     assert result.result == "N/A"
     assert result.detail == "this runner has no checkout for it"
+    remote.assert_not_called()
+
+
+def test_checkout_without_origin_is_not_applicable(conn, monkeypatch, remote):
+    """Setup's Skip GitHub leaves no remote, which is a valid shape."""
+    monkeypatch.setattr(checks._base, "_run", Mock(return_value=_make_completed(2)))
+    result = _run_hc(checks.hc_stale_remote_branches, conn, fix=True).results[0]
+    assert result.result == "N/A"
+    assert result.detail == "no origin remote"
     remote.assert_not_called()
 
 
