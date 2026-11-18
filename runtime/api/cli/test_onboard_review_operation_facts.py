@@ -182,5 +182,7 @@ def test_prior_shell_file_inventory_stays_behind_show_all(monkeypatch):
         hosting_verification=None,
     )
     assert flow._review_status_lines() == []
-    flow._review_show_all = True
-    assert any("/home/person/.profile" in line for line in flow._review_status_lines())
+    assert any(
+        "/home/person/.profile" in line
+        for line in flow._review_status_lines(show_all=True)
+    )
