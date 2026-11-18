@@ -126,3 +126,31 @@ def test_qa_baselines_refuse_an_unknown_host_os():
 
     with pytest.raises(ValueError, match="host_baseline_os_unsupported"):
         run_host_baseline(SimpleNamespace(os="plan9"), "fresh-host")
+
+
+def test_console_install_failure_keeps_the_tail_of_both_streams(monkeypatch, console):
+    uv_lines = [f"uv line {n}" for n in range(60)]
+
+    def failing(control, script, *, timeout=60, hidden=False):
+        return subprocess.CompletedProcess(
+            [], 1, "\n".join(uv_lines),
+            "python_bootstrap_failed: uv exited 2 while preparing Python 3.12.16",
+        )
+
+    monkeypatch.setattr(baseline, "desktop_script", failing)
+    result = baseline.reach_baseline(_Control(), "shell-preconfigured")
+    recovery = result.evidence["recovery"]
+    assert result.error_code == "windows_baseline_install_failed"
+    assert "python_bootstrap_failed: uv exited 2" in recovery
+    assert "uv line 59" in recovery and "uv line 20" in recovery
+    assert "uv line 19\n" not in recovery
+    assert recovery.index("install stderr") < recovery.index("install stdout")
+
+
+def test_silent_console_install_failure_still_names_a_recovery(monkeypatch, console):
+    monkeypatch.setattr(
+        baseline, "desktop_script",
+        lambda control, script, **kw: subprocess.CompletedProcess([], 3, "", ""),
+    )
+    result = baseline.reach_baseline(_Control(), "shell-preconfigured")
+    assert "exited 3 without output" in result.evidence["recovery"]

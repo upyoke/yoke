@@ -7,6 +7,9 @@ from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
+from yoke_harness.native_windows.profile_links import (
+    removed_links, stale_link_sweep_script,
+)
 
 
 # Windows services and signed-in apps keep this state live outside the mirror.
@@ -141,6 +144,7 @@ Assert-YokeUserPath $state.user_path_snapshot
 $source=Join-Path $golden 'profile'; $target=$profileRoot
 """
         + copy
+        + stale_link_sweep_script(control.home, PRESERVED_DIRECTORIES)
         + r"""$pathKey=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
 try {Restore-YokeUserPath $pathKey $state.user_path_snapshot} finally {$pathKey.Dispose()}
 $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
@@ -176,6 +180,11 @@ def profile_operation(control, operation, path):
             "profile": control.home,
             "preserved_identity_paths": list(PRESERVED_DIRECTORIES),
             **(
+                {"stale_links_removed": removed_links(result.stdout)}
+                if operation == "reset"
+                else {}
+            ),
+            **(
                 {}
                 if ok
                 else {
@@ -185,6 +194,24 @@ def profile_operation(control, operation, path):
             ),
         },
         None if ok else "windows_profile_" + operation + "_failed",
+    )
+
+
+INSTALL_OUTPUT_LINES = 40
+
+
+def install_output(result):
+    """Keep the end of both install streams: the installer's refusal lands on
+    stderr while uv's own explanation streams to stdout."""
+    parts = [
+        f"install {label} (last {INSTALL_OUTPUT_LINES} lines):\n"
+        + "\n".join(text.splitlines()[-INSTALL_OUTPUT_LINES:])
+        for label, text in (("stderr", result.stderr), ("stdout", result.stdout))
+        if (text or "").strip()
+    ]
+    return "\n".join(parts) or (
+        f"The console install exited {result.returncode} without output; "
+        "rerun it from the test user's desktop PowerShell to read its failure."
     )
 
 
@@ -222,7 +249,7 @@ def reach_baseline(control, name):
             {
                 "install_surface": "windows-console",
                 "reset": reset,
-                "recovery": installed.stderr or installed.stdout,
+                "recovery": install_output(installed),
             },
             "windows_baseline_install_failed",
         )
