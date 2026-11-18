@@ -45,9 +45,10 @@ drops any stored cookie it cannot decrypt when it opens a profile.
 
 Close every authorization window to finish. On macOS, where Chromium may stay
 running without a window, Yoke asks it to shut down after the last window
-closes. If no macOS window opens in 30 seconds, or the browser runs for 30
-minutes, the command stops it and names the condition; if it still holds the
-profile 10 seconds later, quit the named PID and rerun without --reset.
+closes. If no macOS or Linux window opens in 30 seconds, or the browser runs
+for 30 minutes, the command stops it and names the condition; if it still
+holds the profile 10 seconds later, quit the named PID and rerun without
+--reset.
 
 Worked examples:
 
@@ -88,7 +89,9 @@ Linux remote progress streams while authorization runs, including verification;
 --json reserves stdout for the final receipt and sends progress to stderr.
 A connected Linux viewer refuses linux_desktop_viewer_connected: close the open
 "Yoke desktop: MACHINE" viewer or let browser authorize finish, then retry.
-Linux window-close detection requires xdotool and checks only the spawned PID.
+Linux window detection requires xdotool and counts the windows of every
+Chromium main process the launch started or that runs this profile, so a
+launcher such as /usr/bin/chromium-browser whose child draws the window counts.
 
 Each identity's profile is saved owner-only in the live identity store
 ~/.yoke-browser-identities/<project>/<identity>, outside ~/.yoke, which the
