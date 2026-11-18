@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import urllib.error
 
 import pytest
@@ -163,7 +164,9 @@ def test_network_failure_names_its_class_and_errno(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def reset(req, timeout=None):
-        raise urllib.error.URLError(ConnectionResetError(54, "peer reset"))
+        raise urllib.error.URLError(
+            ConnectionResetError(errno.ECONNRESET, "peer reset")
+        )
 
     monkeypatch.setattr(yoke_transport, "open_no_redirect", reset)
     response = relay_https(
