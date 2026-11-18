@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_sign_in_stores.py::test_chromium_that_does_not_quit_refuses_before_clearing",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_registered_golden_check.py::test_a_missing_or_symlinked_golden_is_named_by_path",
- "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
-}

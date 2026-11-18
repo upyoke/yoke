@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_reset_preconditions.py::test_symlinked_live_credential_refuses_before_teardown",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_persistent_host_operations.py::test_capture_omits_link_outside_the_home",
- "reason": "AssertionError: Traceback (most recent call last):"
-}

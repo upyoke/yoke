@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_system_privileges.py::test_select_first_available_authority[False-True-False-True-True-prefix2-True]",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_reset_preconditions.py::test_reset_ends_open_desktop_before_clearing_home[True]",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

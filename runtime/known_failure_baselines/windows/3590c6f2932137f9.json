@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_github_app_group_secret_mount.py::test_rejects_group_writable_secret_mount",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'getegid'"
-}

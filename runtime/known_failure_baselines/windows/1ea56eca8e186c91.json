@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_desktop_state.py::test_xfce_process_must_belong_to_active_fixture_login[True-True-False]",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'getuid'"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_golden_snapshot_retention.py::test_a_symlink_blocks_removal_and_leaves_the_target",
- "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
-}

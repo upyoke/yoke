@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_browser_system_dependencies.py::test_install_success_still_requires_libraries_to_validate",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
-}

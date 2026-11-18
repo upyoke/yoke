@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agent_mission_stale_owner_marker.py::test_the_host_needs_no_yoke_on_path",
- "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
-}

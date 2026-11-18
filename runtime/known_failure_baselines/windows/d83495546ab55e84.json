@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_desktop_session.py::test_no_start_with_existing_human_or_ambiguous_desktop[rdp]",
- "reason": "ModuleNotFoundError: No module named 'pwd'"
-}
