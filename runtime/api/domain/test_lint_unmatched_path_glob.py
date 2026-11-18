@@ -291,8 +291,9 @@ def test_home_glob_repair_enumerates_expanded_parent(tmp_path: Path, monkeypatch
     cwd = tmp_path / "repository"
     cwd.mkdir()
     reason = _eval("ls ~/Downloads/Meeting*.pdf", cwd=str(cwd))[0]
-    assert str(notes) in reason
-    assert f"'{downloads}'" in reason
+    # Repair commands and their candidates use Bash spellings on every host.
+    assert notes.as_posix() in reason
+    assert f"'{downloads.as_posix()}'" in reason
     assert "Checked pattern:" in reason
 
 
