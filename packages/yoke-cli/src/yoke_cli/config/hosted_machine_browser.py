@@ -28,7 +28,7 @@ class BrowserOpenResult:
     """What happened when the approval URL was handed to a browser.
 
     ``method`` names the opener that succeeded (``BROWSER``, ``webbrowser``,
-    ``open``, ``wslview`` or ``explorer.exe``); ``reason`` carries every failed attempt in order so the
+    ``open``, ``wslview`` or ``powershell.exe``); ``reason`` carries every failed attempt in order so the
     diagnostic log and the waiting view can say why nothing opened.
     """
 
@@ -84,8 +84,9 @@ def open_url(
     Otherwise Linux verifies the default browser or opens QA's shared Chromium runtime.
     Windows over SSH has no desktop and opens nothing, so the printed link
     and code carry the sign-in.
-    macOS runs ``open``; WSL tries ``wslview`` and ``explorer.exe`` to reach
-    the Windows browser; other platforms use ``webbrowser.open``. Every
+    macOS runs ``open``; WSL tries ``wslview``, then PowerShell's
+    ``Start-Process``, to reach the Windows browser; other platforms use
+    ``webbrowser.open``. Every
     failed attempt is retained for the caller's diagnostics.
 
     An injected *browser_open* replaces the whole real chain: its failure is
@@ -118,18 +119,20 @@ def open_url(
         except Exception as exc:  # noqa: BLE001 - every failure is recorded
             attempts.append(f"webbrowser.open raised {type(exc).__name__}: {exc}")
     if is_wsl and native_fallback:
-        for executable in ("wslview", "explorer.exe"):
+        for executable in ("wslview", "powershell.exe"):
             path = shutil.which(executable)
             if path is None:
                 attempts.append(f"{executable} unavailable on PATH")
                 continue
+            argv, run_env = _wsl_launch(path, executable, url, env)
             try:
                 completed = terminal_detached_process.run(
-                    [path, url],
+                    argv,
                     capture_output=True,
                     text=True,
                     timeout=_BROWSER_OPEN_TIMEOUT_SECONDS,
                     check=False,
+                    env=run_env,
                 )
             except (OSError, subprocess.SubprocessError) as exc:
                 attempts.append(f"{executable} failed: {type(exc).__name__}: {exc}")
@@ -163,6 +166,31 @@ def open_url(
 
 
 _BROWSER_VARIABLE_TIMEOUT_SECONDS = 300.0
+_WSL_URL_VARIABLE = "YOKE_OPEN_URL"
+# ``Start-Process`` exits 0 only when Windows accepted the URL, so its exit
+# status is an honest answer to whether the browser opened. The URL travels
+# in the environment (forwarded by ``WSLENV``) so Windows quoting never sees it.
+_POWERSHELL_START_URL = f"Start-Process $env:{_WSL_URL_VARIABLE}"
+
+
+def _wsl_launch(
+    path: str, executable: str, url: str, env: Mapping[str, str]
+) -> tuple[list[str], dict[str, str] | None]:
+    """Return the argv and environment that hand *url* to Windows."""
+    if executable != "powershell.exe":
+        return [path, url], None
+    wslenv = [
+        part
+        for part in env.get("WSLENV", "").split(":")
+        if part and part.split("/")[0] != _WSL_URL_VARIABLE
+    ]
+    run_env = {
+        **env,
+        _WSL_URL_VARIABLE: url,
+        "WSLENV": ":".join([*wslenv, _WSL_URL_VARIABLE]),
+    }
+    argv = [path, "-NoProfile", "-NonInteractive", "-Command", _POWERSHELL_START_URL]
+    return argv, run_env
 
 
 def _open_with_browser_variable(

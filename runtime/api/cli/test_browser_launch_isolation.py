@@ -22,7 +22,11 @@ URL = "https://example.invalid/?token=t"
         (["/usr/bin/open", URL], "open"),
         (["/usr/bin/xdg-open", URL], "xdg-open"),
         (["wslview", URL], "wslview"),
-        ([r"C:\Windows\explorer.exe", URL], "explorer.exe"),
+        (
+            ["/mnt/c/WINDOWS/powershell.exe", "-Command", "Start-Process $env:U"],
+            "powershell Start-Process",
+        ),
+        (["powershell.exe", "-Command", "Get-Date"], None),
         (["cmd", "/c", "start", "", URL], "cmd start"),
         (f"open '{URL}'", "open"),
         (["git", "open"], None),
@@ -64,4 +68,12 @@ def test_a_child_process_browser_fails_at_teardown(guard):
 
 def test_ordinary_subprocesses_still_run(guard):
     subprocess.run(["true"], check=True)
+    assert guard.verdict() is None
+
+
+def test_a_fake_launcher_under_tmp_path_is_allowed(guard, tmp_path):
+    fake = tmp_path / "powershell.exe"
+    fake.write_text("#!/bin/sh\nexit 0\n")
+    fake.chmod(0o755)
+    subprocess.run([str(fake), "-Command", "Start-Process $env:U"], check=True)
     assert guard.verdict() is None
