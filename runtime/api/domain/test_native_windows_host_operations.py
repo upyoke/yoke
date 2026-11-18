@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.machine_config.test_machine import validate_golden_baseline_path
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.native_windows.baseline import golden_path, profile_operation
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import WindowsTransport, command
@@ -99,8 +100,34 @@ def test_desktop_task_uses_interactive_user_and_is_cleaned():
 
 
 def test_journal_requires_a_lease_before_any_write():
-    with pytest.raises(RuntimeError, match="windows_journal_lease_required"):
+    with pytest.raises(HostControlLocalError) as caught:
         journal_operation(SimpleNamespace(), "capture")
+    assert caught.value.code == "windows_journal_lease_required"
+
+
+def test_journal_start_failure_reaches_the_redacted_mission_receipt():
+    from yoke_core.domain.agent_mission_preparation import prepare_mission
+
+    contract = SimpleNamespace(
+        baselines=("shell-preconfigured",), plan_execution_id="example",
+        lease_id=17, contract_digest="digest",
+    )
+    control = SimpleNamespace(
+        qa_lease_id=17, secret_values=("private-test-credential",),
+        upload_remote_text=lambda *_: None,
+        _run=lambda _: completed(returncode=5, stderr="Access denied private-test-credential"),
+    )
+
+    result = prepare_mission(
+        contract,
+        execution_factory=lambda *_a, **_kw: journal_operation(control, "restore"),
+        scratch_factory=lambda *_a, **_kw: pytest.fail("scratch should not be reached"),
+    )["preparation"]
+    evidence = result["evidence"]
+    assert result["error_code"] == "windows_journal_task_unavailable"
+    assert evidence["preparation_failure"]["phase"] == "windows_machine_settings_restore"
+    assert evidence["preparation_failure"]["stderr"] == "Access denied [REDACTED]"
+    assert evidence["baseline_outcome"]["state"] == "not_started"
 
 
 def test_interrupted_journal_recovers_before_capture_and_cleanup_retries():
