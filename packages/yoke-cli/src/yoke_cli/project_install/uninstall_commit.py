@@ -115,3 +115,44 @@ def commit(root: Path, paths: list[str]) -> dict[str, Any]:
             "Repair git, then stage and commit the removed Yoke layer before "
             f"retrying project uninstall if its manifest remains. {exc}"
         ) from exc
+
+
+def fold(root: Path, paths: list[str], removal: dict[str, Any]) -> dict[str, Any]:
+    """Land a complete cleanup's last removals in the same removal commit.
+
+    The removal commit precedes ownership cleanup so a commit failure keeps
+    recovery evidence; once cleanup completes, its ignore-policy deletion
+    joins that commit instead of adding a second one.
+    """
+    if removal.get("status") != "created" or removal.get("sha") != (
+        checkout_gate.run_git(root, "rev-parse", "HEAD").stdout.strip()
+    ):
+        return commit(root, paths)
+    staged = _tracked(root, installed_output_paths.normalized(paths))
+    for path in staged:
+        added = checkout_gate.run_git(root, "add", "-A", "--", path)
+        if added.returncode != 0:
+            _fold_failed(root, added)
+    amended = checkout_gate.run_git(
+        root,
+        *checkout_gate.commit_identity_args(root),
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--amend",
+        "--no-edit",
+        "--no-verify",
+    )
+    if amended.returncode != 0:
+        _fold_failed(root, amended)
+    sha = checkout_gate.run_git(root, "rev-parse", "HEAD").stdout.strip()
+    return {**removal, "sha": sha, "paths": [*removal.get("paths", []), *staged]}
+
+
+def _fold_failed(root: Path, result: Any) -> None:
+    detail = result.stderr.strip() or result.stdout.strip()
+    raise ProjectInstallError(
+        f"project_uninstall_commit_failed: the removal commit in {root} lacks "
+        "the .yoke/.gitignore deletion. Repair git, then run `git add -A .yoke "
+        f"&& git commit --amend --no-edit` there. {detail}"
+    )

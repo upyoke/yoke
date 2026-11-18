@@ -17,7 +17,10 @@ from yoke_core.domain.project_install_test_helpers import (
 )
 from runtime.api.cli.project_uninstall_test_support import git, read_json
 
-IGNORE_POLICY = "BOARD.md\ninstall-manifest.json\ninstall-pending.json\n"
+IGNORE_POLICY = (
+    "BOARD.md\nBOARD.md.ts\nBOARD.md.lock/\nstrategy/\n"
+    "install-manifest.json\ninstall-pending.json\n"
+)
 
 
 @pytest.fixture
@@ -85,14 +88,34 @@ def onboard(root, config, monkeypatch):
 def test_onboarded_checkout_uninstalls_completely(machine, monkeypatch):
     root, config = machine
     onboard(root, config, monkeypatch)
+    (root / ".yoke/BOARD.md.ts").write_text("1\n")
+    (root / ".yoke/BOARD.md.lock").mkdir()
+    (root / ".yoke/strategy").mkdir()
+    (root / ".yoke/strategy/MASTER-PLAN.md").write_text("plan\n")
+    assert not git(root, "status", "--porcelain")
+    commits = int(git(root, "rev-list", "--count", "HEAD"))
     report = uninstall(root, config_path=config)
+    # One removal commit; only the named strategy view stays, untracked.
+    assert int(git(root, "rev-list", "--count", "HEAD")) == commits + 1
+    assert git(root, "log", "-1", "--format=%s") == "Uninstall Yoke operating layer"
+    assert git(root, "status", "--porcelain", "--untracked-files=all") == (
+        "?? .yoke/strategy/MASTER-PLAN.md"
+    )
+    assert report["board_views_removed"] == [
+        ".yoke/BOARD.md",
+        ".yoke/BOARD.md.lock",
+        ".yoke/BOARD.md.ts",
+    ]
+    assert [w for w in report["warnings"] if "_kept:" in w] == [
+        "project_uninstall_strategy_views_kept: .yoke/strategy/MASTER-PLAN.md "
+        "stay on disk untracked as your planning content; commit or delete them."
+    ]
     assert report["outcome"] == "complete", report["warnings"]
     assert report["local_cleanup"]["registration"]["reason"] == "owned_exact_entry"
     assert machine_config.project_id(root, config) is None
     assert ".yoke/.gitignore" in report["contract_files_removed"]
     assert not (root / ".yoke/.gitignore").exists()
     assert not files.manifest_path(root).exists()
-    assert not git(root, "status", "--porcelain", "--untracked-files=no")
     assert (root / "app.txt").read_text() == "operator code\n"
 
 
@@ -121,10 +144,12 @@ def test_partial_uninstall_retries_to_completion(machine, monkeypatch):
         if entry["checkout"] != str(root)
     ]
     config.write_text(json.dumps(payload, indent=2) + "\n")
+    commits = int(git(root, "rev-list", "--count", "HEAD"))
     retry = uninstall(root, config_path=config)
     assert retry["outcome"] == "complete", retry["warnings"]
     assert retry["local_cleanup"]["registration"]["reason"] == "no_exact_registration"
     assert ".yoke/.gitignore" in retry["contract_files_removed"]
     assert not files.manifest_path(root).exists()
-    assert not git(root, "status", "--porcelain", "--untracked-files=no")
+    assert int(git(root, "rev-list", "--count", "HEAD")) == commits + 1
+    assert not git(root, "status", "--porcelain", "--untracked-files=all")
     assert git(root, "log", "-1", "--format=%s") == "Uninstall Yoke operating layer"

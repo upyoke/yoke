@@ -5,9 +5,10 @@ and removes Yoke-marked git hook shims. Source-link checkouts (the
 Yoke source repo) refuse entirely: the dev layer there is the repo's
 own tracked content, not an installed copy. Split from
 :mod:`project_install`, which owns install/refresh and the apply core.
-After the removal commit, retire only exclusive installer-owned checkout
-registration and folder trust; preserve unresolved ownership, the manifest
-and the ``.yoke/.gitignore`` that keeps it ignored for a retry.
+It retires only exclusive installer-owned checkout registration and folder
+trust; a partial cleanup preserves unresolved ownership, the manifest and the
+``.yoke/.gitignore`` that keeps it ignored for a retry. Either way the
+removal lands as one commit.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from typing import Any, Dict, List
 
 from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
-from yoke_cli.project_install import uninstall_commit
+from yoke_cli.project_install import uninstall_commit, uninstall_local_views
 from yoke_cli.project_install.installed_output_paths import YOKE_GITIGNORE_REL
 from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import skill_discovery
@@ -181,7 +182,8 @@ def uninstall(
         if manifest.get("worktrees_ignore_added") and not shared_scope
         else {"removed": False, "deleted_file": False}
     )
-    # A partial cleanup keeps ownership evidence for the same command's retry.
+    # Commit before retiring ownership: a commit failure leaves the manifest,
+    # registration and trust in place for the same command's retry.
     commit_report = uninstall_commit.commit(root, commit_paths)
     local_cleanup = owned_cleanup.cleanup(root, manifest, config_path)
     if shared_scope:
@@ -197,7 +199,10 @@ def uninstall(
             reasons.add(code)
             warnings.append(f"{code}: {row['recovery']}")
     (root / PENDING_REL).unlink(missing_ok=True)
+    board_views_removed: List[str] = []
     if local_cleanup["complete"]:
+        # Deleting the ignore policy would expose the generated board views.
+        board_views_removed = uninstall_local_views.remove_board_views(root)
         ignore_removed, ignore_skipped, ignore_absent, ignore_warnings = (
             remove_manifest_files(root, ignore_record)
         )
@@ -207,11 +212,10 @@ def uninstall(
         warnings.extend(ignore_warnings)
         files_layer.manifest_path(root).unlink()
         files_layer.remove_empty_parents(root, files_layer.MANIFEST_REL)
-        manifest_commit = uninstall_commit.commit(
-            root, [files_layer.MANIFEST_REL, *ignore_removed]
+        commit_report = uninstall_commit.fold(
+            root, [files_layer.MANIFEST_REL, *ignore_removed], commit_report
         )
-        if manifest_commit["status"] == "created":
-            commit_report = manifest_commit
+        warnings.extend(uninstall_local_views.kept_warnings(root))
     report = {
         "operation": "uninstall",
         MODE_KEY: MODE_COPY,
@@ -231,6 +235,7 @@ def uninstall(
             manifest.get(DISCARDED_PRIOR_STRATEGY_RECORDS_KEY) or []
         ),
         "strategy_files_preserved": strategy_preserved,
+        "board_views_removed": board_views_removed,
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
         "git_hooks_preserved_reason": shared_scope,
