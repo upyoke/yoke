@@ -257,3 +257,32 @@ def test_native_windows_command_keeps_stdin_paths_and_exit_status(
         "stdin": '{"hook":"input"}',
         "args": ["hook", "evaluate", "PreToolUse"],
     }
+
+
+def test_tracked_project_hooks_stay_posix_while_machine_hooks_go_native(monkeypatch):
+    """Decision 15934: tracked repo hook files never depend on the host OS."""
+    from yoke_contracts import hook_shell_command as shell_os
+    from yoke_contracts.harness_machine_hooks import machine_hooks_for_harness
+    from yoke_contracts.machine_hooks_render import render_user_hook_entries
+    from yoke_core.domain import agents_render_hooks
+
+    def project_commands():
+        return (
+            agents_render_hooks._claude_command("Stop"),
+            agents_render_hooks._cursor_command("Stop"),
+            agents_render_hooks._cursor_command("PreToolUse"),
+        )
+
+    posix = project_commands()
+    monkeypatch.setattr(shell_os.os, "name", "nt")
+    assert project_commands() == posix
+    assert all(" -EncodedCommand " not in command for command in posix)
+    for harness in ("claude-code", "cursor"):
+        entries = render_user_hook_entries(machine_hooks_for_harness(harness))
+        commands = [
+            handler["command"]
+            for event_entries in entries.values()
+            for entry in event_entries
+            for handler in entry.get("hooks", [entry])
+        ]
+        assert commands and all(" -EncodedCommand " in c for c in commands)

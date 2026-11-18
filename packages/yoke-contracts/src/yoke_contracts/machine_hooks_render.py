@@ -68,19 +68,19 @@ def _owner_env(config_owner: Optional[str]) -> str:
 def evaluate_hook_command(
     harness_id: str, verb: str, *, config_owner: Optional[str]
 ) -> str:
-    """The standard ``yoke hook evaluate`` command for one harness."""
+    """The standard POSIX ``yoke hook evaluate`` command for one harness.
+
+    Tracked project files hold this form on every host (decision 15934):
+    Claude Code runs hooks through Git Bash on Windows. Machine-local user
+    hooks and installed projects select their native Windows form separately.
+    """
     parts = [
         f'{ROOT_VARIABLE}="{HOOK_ROOT_EXPRESSIONS[harness_id]}"',
         _IDENTITY_ENV[harness_id],
         _owner_env(config_owner),
         f"{YOKE_HOOK_EVALUATE} {verb}",
     ]
-    command = hook_shell_command("env " + " ".join(part for part in parts if part))
-    if harness_id == "codex":
-        return command  # Codex selects its separate commandWindows field.
-    return hook_command_for_os(
-        command, windows_hook_command(harness_id, verb, config_owner)
-    )
+    return hook_shell_command("env " + " ".join(part for part in parts if part))
 
 
 def cwd_resilient_hook_command(verb: str, *, config_owner: str) -> str:
@@ -117,18 +117,25 @@ def cwd_resilient_hook_command(verb: str, *, config_owner: str) -> str:
         f'env {ROOT_VARIABLE}="$root" {_IDENTITY_ENV["cursor"]} '
         f"{_owner_env(config_owner)} {YOKE_HOOK_EVALUATE} {verb}"
     )
-    return hook_command_for_os(
-        hook_shell_command(body),
-        windows_hook_command("cursor", verb, config_owner, resilient=True),
-    )
+    return hook_shell_command(body)
 
 
 def _user_command(spec: HarnessMachineHooks, event: MachineHookEvent) -> str:
     if spec.harness_id == "cursor":
         # User hooks spawn from ~/.cursor, so every event resolves its root.
-        return cwd_resilient_hook_command(event.verb, config_owner=spec.config_owner)
-    return evaluate_hook_command(
+        return hook_command_for_os(
+            cwd_resilient_hook_command(event.verb, config_owner=spec.config_owner),
+            windows_hook_command(
+                "cursor", event.verb, spec.config_owner, resilient=True
+            ),
+        )
+    command = evaluate_hook_command(
         spec.harness_id, event.verb, config_owner=spec.config_owner
+    )
+    if spec.harness_id == "codex":
+        return command  # Codex selects its separate commandWindows field.
+    return hook_command_for_os(
+        command, windows_hook_command(spec.harness_id, event.verb, spec.config_owner)
     )
 
 
