@@ -32,6 +32,11 @@ def _run(control: Any, operation: str) -> dict:
         ["/usr/bin/python3", "-c", source, operation, control.home, *protected],
         timeout=120,
     )
+    return temp_receipt(result)
+
+
+def temp_receipt(result: Any) -> dict:
+    """Read a host's temp or disk receipt, failing closed on any doubt."""
     try:
         receipt = json.loads(result.stdout)
         if not isinstance(receipt, dict) or not isinstance(receipt.get("ok"), bool):
@@ -61,8 +66,12 @@ def clear_baseline_temp_state(control: Any) -> HostActionResult:
 
 
 def require_mission_disk_space(control: Any) -> dict:
-    """Refuse before packages or mission scratch can consume a full disk."""
-    receipt = _run(control, "disk")
+    """POSIX hosts: refuse before packages or scratch can consume a full disk."""
+    return refuse_unadmitted_disk(_run(control, "disk"))
+
+
+def refuse_unadmitted_disk(receipt: dict) -> dict:
+    """Raise the named disk refusal unless the receipt admits the mission."""
     if not receipt["ok"]:
         raise HostControlLocalError(
             code=receipt.get("error_code") or "test_machine_disk_preflight_failed",

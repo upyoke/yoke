@@ -5,6 +5,7 @@ import sqlite3
 import subprocess
 
 from runtime.api.domain.machine_qa_operator_double import FakeOperatorOperations
+from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
@@ -35,7 +36,7 @@ BASELINE_PATHS = frozenset(
 )
 
 
-class FakeHostControl(FakeOperatorOperations):
+class FakeHostControl(PosixMissionOperations, FakeOperatorOperations):
     os = "macos"
     home = "/Users/tester"
     shell = "/bin/zsh"

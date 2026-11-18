@@ -25,6 +25,9 @@ PRESERVED_DIRECTORIES = (
     "AppData/Roaming/Cursor",
     "AppData/Local/Google",
     "AppData/Local/YokeQa",
+    # A walk's secret staging outlives any reset inside the walk; walk-end
+    # removes it (native_windows/mission.py).
+    "AppData/Local/YokeQaMission",
     "AppData/Local/Temp",
 )
 PRESERVED_FILES = (

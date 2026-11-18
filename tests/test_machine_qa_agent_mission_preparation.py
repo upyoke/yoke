@@ -15,10 +15,6 @@ from yoke_harness.qa_host_package_fixture import restore_host_packages
 
 @pytest.fixture
 def mission(monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.domain.agent_mission_preparation.require_mission_disk_space",
-        lambda control: {"ok": True},
-    )
     contract = SimpleNamespace(
         baselines=["fresh-host"],
         continues_execution_id=None,
@@ -31,7 +27,10 @@ def mission(monkeypatch):
         name="fresh-host", ok=True, error_code=None, evidence={"restore_proved": True}
     )
     execution = SimpleNamespace(
-        control=SimpleNamespace(),
+        control=SimpleNamespace(
+            mission_scratch_path=lambda execution_id: f"/tmp/{execution_id}",
+            require_mission_disk_space=lambda: {"ok": True},
+        ),
         material=SimpleNamespace(secrets={"credential": "private-token"}),
         reach_baseline=lambda name: baseline,
     )

@@ -9,11 +9,11 @@ from typing import Any
 import pytest
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from yoke_contracts.qa_mission_scratch import (
-    MISSION_SCRATCH_ROOT,
-    MissionScratchIdentityError,
-    mission_scratch_path,
-    stale_owner_marker_remove_argv,
+from yoke_contracts.qa_mission_scratch import MissionScratchIdentityError
+from yoke_harness.posix_mission_operations import (
+    POSIX_MISSION_SCRATCH_ROOT as MISSION_SCRATCH_ROOT,
+    posix_mission_scratch_path as mission_scratch_path,
+    posix_stale_owner_marker_remove_argv as stale_owner_marker_remove_argv,
 )
 from yoke_core.domain import agent_mission_walk_cli, machine_qa_mission_walk
 from yoke_core.domain.agent_mission_review import agent_mission_dispatch_contract
@@ -271,8 +271,11 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
     )
     for expected in ("walk_start_command", "walk_end_command"):
         assert walker[expected] in walker["prompt"]
-    assert mission_scratch_path(EXECUTION_ID) in walker["prompt"]
-    assert "never a loose path under /tmp" in walker["prompt"]
+    # The host's OS owns the scratch location; walk-start reports it.
+    assert "scratch_path" not in walker
+    assert MISSION_SCRATCH_ROOT not in walker["prompt"]
+    assert "the `scratch_path` walk-start prints" in walker["prompt"]
+    assert "never a loose path in a temp directory" in walker["prompt"]
     assert "Clean up everything the walk creates" in walker["prompt"]
     assert "report anything you could not remove" in walker["prompt"]
     assert "one walker at a time" in contract["prompt"]

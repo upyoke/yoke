@@ -147,14 +147,13 @@ def test_mission_recovers_before_scratch_and_commands(monkeypatch, ok):
     )
     execution = SimpleNamespace(
         material=SimpleNamespace(secrets={}),
-        control=object(),
+        control=SimpleNamespace(
+            mission_scratch_path=lambda execution_id: "scratch",
+            require_mission_disk_space=lambda: {},
+        ),
         reach_baseline=lambda name: (
             calls.append(name) or SimpleNamespace(ok=ok, error_code=None, evidence={})
         ),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.agent_mission_preparation.require_mission_disk_space",
-        lambda c: {},
     )
     result = prepare_mission(
         contract,

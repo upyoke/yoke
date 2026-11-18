@@ -13,7 +13,9 @@ def test_posix_shell_is_fixed(monkeypatch):
 
 
 def test_remote_posix_shell_does_not_use_the_windows_controller(monkeypatch):
-    from yoke_contracts.qa_mission_scratch import stale_owner_marker_remove_argv
+    from yoke_harness.posix_mission_operations import (
+        posix_stale_owner_marker_remove_argv as stale_owner_marker_remove_argv,
+    )
 
     monkeypatch.setattr(shells.sys, "platform", "win32")
     monkeypatch.setattr(shells.shutil, "which", lambda name: None)

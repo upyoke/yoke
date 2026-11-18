@@ -14,6 +14,7 @@ from yoke_contracts.machine_qa_failures import (
     HostControlLocalError,
     bounded_machine_qa_diagnostic,
 )
+from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_host_baselines import SshHostBaselines
 from yoke_harness.ssh_linux_memory import check_linux_memory
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
@@ -30,7 +31,9 @@ from yoke_harness.ssh_tool_resolution import probe_reset_tools, tools_present
 from yoke_contracts.test_machine_types import HostActionResult
 
 
-class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
+class SshLinuxHostOperations(
+    PosixMissionOperations, SshHostBaselines, SshTestMachineTransport
+):
     """Home restore, user probes and tmux on one credential-bound SSH host."""
 
     @classmethod

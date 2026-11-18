@@ -18,7 +18,9 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_harness.posix_mission_operations import (
+    posix_mission_scratch_path as mission_scratch_path,
+)
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )

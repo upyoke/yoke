@@ -29,7 +29,9 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
 
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_harness.posix_mission_operations import (
+    posix_mission_scratch_path as mission_scratch_path,
+)
 
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,

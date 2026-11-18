@@ -11,7 +11,6 @@ from typing import Any, Optional
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
-from yoke_contracts.qa_mission_scratch import MISSION_SCRATCH_ROOT
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.runtime_ports.remote_file_copy import get_remote_file_copy
 
@@ -62,7 +61,7 @@ def execute_agent_mission_host_copy(
         source,
         destination,
         max_bytes=MAX_ARTIFACT_BYTES,
-        refused_root=MISSION_SCRATCH_ROOT,
+        refused_root=execution.control.mission_scratch_root,
     )
     return {
         "from": source,

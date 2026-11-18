@@ -15,7 +15,7 @@ from runtime.api.domain.agent_mission_host_access_test_support import (
     DRIVER,
 )
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
-from yoke_contracts.qa_mission_scratch import MISSION_SCRATCH_ROOT
+from yoke_harness.posix_mission_operations import POSIX_MISSION_SCRATCH_ROOT as MISSION_SCRATCH_ROOT
 from yoke_core.domain import agent_mission_host_copy_cli
 from yoke_core.domain.agent_mission_host_copy_cli import (
     execute_agent_mission_host_copy,

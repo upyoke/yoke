@@ -59,7 +59,6 @@ ssh_windows_host_operations = "yoke_harness.ssh_windows_host_operations"
 terminal_control = "yoke_harness.terminal_control"
 test_machine_operations = "yoke_harness.test_machine_operations"
 test_machine_remote_exec = "yoke_harness.test_machine_remote_exec"
-test_machine_temp_state = "yoke_harness.test_machine_temp_state"
 usage_attestation = "yoke_harness.usage_attestation"
 
 [tool.setuptools_scm]

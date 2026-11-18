@@ -73,7 +73,8 @@ golden directory and sidecars, live browser identity store and restored home.
 The receipt reports removed entries and `temp_cleanup.freed_bytes`. Reset and
 verify refuse `test_machine_cleanup_live_lease` while a mission owns the host;
 finish or abort it before resetting. Every mission requires 1 GiB free on the
-home and temporary filesystems before packages or scratch are staged.
+home and temporary filesystems (the system drive on native Windows) before
+packages or scratch are staged.
 `test_machine_disk_space_low` records the minimum and observed space; finish
 or abort the mission, run `yoke test-machine reset --test-machine NAME`,
 and grow the disk as in [disk sizing and online resize](#disk-sizing-and-online-resize)
