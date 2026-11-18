@@ -26,6 +26,11 @@ for password-free native authorization and personal sign-in handoffs. [Codex dev
 requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
+For fixtures covering the desktop surfaces, also open Claude, Codex in the
+ChatGPT app, and Cursor as the test user. Finish each app’s first-run prompts
+and verify the signed-in account. Keep desktop and CLI checks separate, and
+verify each required desktop sign-in again after the golden reset.
+
 After harness sign-in, run `yoke test-machine golden-capture` (section 9)
 to prove real requests and recapture. Identity sign-ins stay live outside goldens.
 
