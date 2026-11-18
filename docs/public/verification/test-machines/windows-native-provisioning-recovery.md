@@ -258,8 +258,12 @@ interactive logon; foreign tasks remain protected. Reset preserves task XML
 and full paths, recreates missing saved folders, and removes newly added owned
 tasks. Task failures retain bounded, redacted Scheduler diagnostics.
 
-Runtime uploads also use bounded offset frames and cumulative length/hash
-receipts before execution or file commit; failed staging is cleaned up.
+Runtime uploads use bounded offset frames and cumulative length/hash receipts.
+Cleanup failure refuses with `windows_admin_staging_cleanup_failed`; completed
+command diagnostics remain privately on the exception's `primary_result`.
+Restore administrator SSH, inspect those diagnostics privately, then verify
+this invocation's owned staging removal before retrying. A cleanup timeout
+does not prove the primary command failed or that guest removal hung.
 Disposable Windows guest checks passed with both Git and native OpenSSH:
 the actual standard-SSH journal task returned its restore receipt, task/XML/PATH
 reset restored state, a deleted nested task folder was recreated, and attempted
@@ -268,7 +272,9 @@ full lab readiness still requires live proof. A subsequent registered capture
 did execute interactively and produced a real 1024×768 PNG. It showed Windows
 first-run privacy setup, not a ready desktop; the lease released and Azure
 deallocation verified. Decision request 15878 selects **Windows defaults** to
-match a typical user. Complete those prompts before desktop/app acceptance.
+match a typical user. A later observed private Windows App session accepted
+those displayed defaults and reached the Windows 11 desktop. Desktop/app
+acceptance and the remaining lab proof are still required.
 
 ## Native feature evidence
 
