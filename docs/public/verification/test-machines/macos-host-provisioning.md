@@ -17,9 +17,9 @@ name and project slug; these values and credentials are project-owned.
 
 Use a Mac with at least 40 GiB on its system volume
 ([disk sizing](host-provisioning.md#disk-sizing-and-online-resize)). Create one
-dedicated test user and choose its short name before registering the
-capability. Set a deliberate computer name. Never rename the test user or
-enumerate, capture, restore, or log out another operator account.
+dedicated Administrator account in Users & Groups and choose its short name
+before registration. Stored-password setup needs administrator access. Set a
+deliberate computer name. Keep every other account outside the fixture.
 Check `id -un`, `scutil --get ComputerName`, `scutil --get LocalHostName`, and
 `stat -f %Su /dev/console`; the graphical console must belong to the test user.
 
@@ -40,13 +40,21 @@ or retain this same tailnet; their system Tailscale state stays outside goldens.
 Use the client CLI at `/Applications/Tailscale.app/Contents/MacOS/Tailscale`
 for the status command below, or the installed `tailscale` command if available.
 
-Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
+Complete the [Remote Login setup](#3-remote-login-and-full-disk-access) before
+proving SSH. Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
-then register it as `host`; the direct desktop route uses that name too.
+then register it as `host`. For a physical Mac, read the ED25519 fingerprint at
+the console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare it
+with the fingerprint of the key from `ssh-keyscan -t ed25519 HOST`. Add that
+entry under the exact MagicDNS hostname to
+`~/.yoke/test-machine/known_hosts` after the fingerprints match. Prove the
+machine key works using the Yoke file and strict host-key checking. If SSH
+refuses it, check the Remote Login allowlist and the test account’s authorized
+keys and ownership in [step 3](#3-remote-login-and-full-disk-access).
 For cloud bootstrap, query the provider's **current** public IP and connect with
 the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
 never register that IP.
-Keep key-only internet SSH open from anywhere; desktops stay on the tailnet.
+Use key-only public SSH for cloud bootstrap and keep desktops on private routes.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id and waits for SSH on the registered MagicDNS name.
 Cloud hosts stay running after lease release. See the
@@ -70,10 +78,14 @@ cycle and require the same host with no remaining QA_HOST afterward.
 ## 2. Network, capability and desktop route
 
 Provision infrastructure through the project's IaC or an explicit operator
-exception. Register the verified MagicDNS name. Open SSH to any
-address with key-only authentication and keep VNC off public networks, as
-[network access](host-provisioning.md#network-access) requires; never forward
-VNC through a router or open it in a cloud security group. Enable Screen Sharing for the dedicated account when needed.
+exception. Register the verified MagicDNS name and follow the
+[network access requirements](host-provisioning.md#network-access).
+Declare `desktop_route=direct` as the default route for a physical Mac reachable over the
+tailnet. Keep VNC off the public internet. In Screen Sharing settings, allow
+the dedicated `desktop_user` to connect and control the desktop. Use its account
+password for authenticated Screen Sharing. If the viewer requires a VNC-only
+password, enable **VNC viewers may control screen with password** and set a
+separate VNC-only password. [Apple Screen Sharing settings](https://support.apple.com/guide/mac-help/mh11848/mac)
 
 Register the Test Machine by name using `yoke test-machine settings-replace --test-machine NAME --settings-file FILE --new`; read `--help` before
 an update, which uses the as-read settings token. Declare `resource_name`,
@@ -81,8 +93,10 @@ an update, which uses the as-read settings token. Declare `resource_name`,
 outside that user's home. Desktop settings are `desktop_route=direct`,
 `desktop_protocol=vnc`, `desktop_port=5900`, and `desktop_user`, with no
 `desktop_host` so Screen Sharing reaches the MagicDNS host over the tailnet. A
-host outside the tailnet uses `desktop_route=ssh-forward`. A relay capacity registration is a
-separate identity; ordinary work must use a different home from test resets.
+host outside the tailnet uses `desktop_route=ssh-forward`. Set
+`operating_notes` to record the model, architecture, OS version, console and
+routing constraints. Keep credentials out of these notes. Register relay
+capacity under a separate identity with its own home.
 
 On every QA execution workstation, import the Test Machine's SSH private key:
 
@@ -93,8 +107,9 @@ yoke test-machine get --test-machine NAME
 yoke test-machine exec --test-machine NAME -- /usr/bin/true
 ```
 
-Read each command's `--help`. The shared public key authorizes all project test
-hosts. Secret values never enter settings, prompts, command arguments or logs.
+Stage the desktop password in an owner-only file and remove that copy after
+a successful import. Read each command’s `--help`. Keep secret values out
+of settings, prompts, command arguments and logs.
 `exec` uses the workstation's SSH agent; an unavailable agent is not proof that
 the capability-owned private key is missing. A serial host lease held by
 another session must be released before preparation or ad hoc access.
@@ -108,8 +123,10 @@ password copy after closing access.
 
 ## 3. Remote Login and Full Disk Access
 
-Enable Remote Login for the dedicated user and install the shared public key
-in `~/.ssh/authorized_keys` (directory 0700, file 0600, test-user-owned).
+Enable Remote Login for the dedicated user and install the machine's public key
+as its own line in `~/.ssh/authorized_keys`. Set the directory to mode 0700
+and the file to mode 0600, both owned by the dedicated account. Confirm the
+account is on the Remote Login allowlist before attempting SSH.
 On current macOS use System Settings → General → Sharing; Monterey uses
 System Preferences → Sharing. Menu placement differs by release.
 Allow full disk access for remote users. The capture/restore process needs
@@ -125,11 +142,14 @@ whole-home operation. A revoked system grant survives a home restore as revoked.
 ## 4. Unattended login and power
 
 For an operator-approved unattended test rig, turn FileVault off, enable
-automatic login for the dedicated user, and turn screen lock off. These are
-security choices for a dedicated fixture, not defaults for personal Macs.
-Observe `fdesetup status` and `defaults read
-/Library/Preferences/com.apple.loginwindow autoLoginUser`.
-Disable system, display and disk sleep permanently:
+automatic login for the dedicated user in Users & Groups, and set the password
+delay in Lock Screen to Never. Use these settings only on a dedicated fixture.
+Require `fdesetup status` to report FileVault off. Verify `defaults read
+/Library/Preferences/com.apple.loginwindow autoLoginUser` and
+`stat -f %Su /dev/console` both name the dedicated user.
+In General → Software Update → Automatic Updates, disable automatic macOS
+downloads and installation for a fixture whose OS is managed manually.
+Disable system, display and disk sleep permanently.
 
 ```text
 sudo pmset -a sleep 0 displaysleep 0 disksleep 0
@@ -175,14 +195,27 @@ its curtain can lock the physical display while the remote viewer looks unlocked
 Install Command Line Tools once with `xcode-select --install`, finish the
 dialog locally, then prove `git --version` returns immediately. Full Xcode is
 not required. A bare Mac's Git shim can raise a dialog nobody sees over SSH.
-Keep the existing GNU `screen`; the macOS bridge uses Terminal.app.
+Keep the existing GNU `screen`. The macOS bridge uses Terminal.app.
+
+Install [Homebrew](https://docs.brew.sh/Installation) as the dedicated account.
+On Apple silicon, use a native arm64 Terminal and the `/opt/homebrew` prefix.
+On Intel, use `/usr/local`. Follow the installer's `brew shellenv` instructions
+and prove `brew --version` in a new login Terminal. For unattended Apple
+silicon setup, download the signed `Homebrew.pkg` from the official release,
+check it with `pkgutil --check-signature`, then use the registered administrator
+command to run `installer -pkg PACKAGE -target /` while the test user is the
+active console user. Run later `brew` commands as the test account.
 
 Install the required harness apps and vendor CLIs as the test user. Use the
 current [Claude installer](https://code.claude.com/docs/en/setup),
 [Codex CLI installer](https://developers.openai.com/codex/cli), and
 [Cursor installer](https://cursor.com/docs/cli/installation). Reopen a login
 Terminal and check that each prints its version. A non-login SSH PATH may omit `.local/bin`;
-that is not an absent CLI. Declare actual executable paths for probes.
+that is not an absent CLI. Declare actual executable paths for probes. Open each
+desktop app from the test account once and complete its first-run prompts in the
+GUI. Homebrew can install the Claude, ChatGPT (Codex) and Cursor desktop apps
+with `brew install --cask claude chatgpt cursor`. Leave credential prompts open
+for the operator and resume when they confirm.
 Check each vendor's current supported OS list before choosing coverage. An
 existing executable does not prove that the host supports a new installation.
 Golden refresh proves each installed CLI with `--version` in the GUI session.
@@ -199,16 +232,21 @@ new golden. With no runnable version, refresh stops naming the harness and
 error; install a supported version as the test user, prove `--version` in
 Terminal, then rerun the plan. Installer success alone proves nothing.
 
-Self-host cases need Docker. Install Colima and the Docker CLI with Compose v2
-as the test user, keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
+Self-host cases need Docker. Run `brew install colima docker docker-compose`
+as the test user. Add the prefix's `lib/docker/cli-plugins` directory to
+`cliPluginsExtraDirs` in `~/.docker/config.json`, keeping other settings.
+Use the `docker compose` plugin interface. [Docker Compose version history](https://docs.docker.com/compose/intro/history/)
+Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
 under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
-or `/opt/homebrew/bin` (Apple silicon). Colima does not survive a reset or a
-reboot, so each case that needs Docker runs `colima start` itself. Prove it once:
+or `/opt/homebrew/bin` (Apple silicon). Keep the shared folder owner-only
+and outside golden retention directories. Colima stops across a reset or reboot.
+Each Docker case starts it again. Prove Docker once, then stop the fixture VM:
 
 ```text
-colima start
+colima start --vm-type vz  # Apple silicon
 docker run --rm hello-world
 docker compose version
+colima stop
 ```
 
 ## 7. Effective privacy and terminal control
@@ -220,11 +258,19 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 |---|---|---|
 | Automation | Remote Login controller | System Events, Terminal |
 | Automation | Terminal.app | System Events |
-| Accessibility | Remote Login controller and Terminal.app | — |
-| Screen Recording | Terminal.app | — |
+| Device Control and Data Access (Accessibility on older macOS) | Remote Login controller and Terminal.app | — |
+| Screen & System Audio Recording (Screen Recording on older macOS) | Terminal.app | — |
 
 SSH `osascript` Terminal control uses the Remote Login controller.
-GUI-session commands (`--gui-session`) need Terminal → System Events. Safari
+The helper shows separate macOS consent prompts for System Events and
+Terminal as the bridge reaches each step. Allow each on the fixture console,
+then retry the bridge to verify it. In macOS 27, **Device Control and Data
+Access** replaces the **Accessibility** row in Privacy & Security. If the
+helper is absent from that list, use **+**, press Command+Shift+G, and enter
+`/usr/libexec/sshd-keygen-wrapper`. Enable the helper's toggle. A grant for
+Terminal alone still leaves the remote keystroke check refused.
+GUI-session commands (`--gui-session`)
+need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium
 through the installed Yoke, not AppleScript. A checked Automation box alone does not prove consent: macOS can
 still hold an unanswered prompt. At the host console, open Terminal and run:
@@ -247,7 +293,10 @@ yoke test-machine bridge-diagnose --test-machine NAME
 yoke test-machine screenshot --test-machine NAME --json
 ```
 
-Read `--help`; these take the host lease. Diagnosis creates/drives a temporary
+Read `--help`. These operations take the host lease. If the bridge reports
+`terminal_display_locked`, unlock the dedicated account at the physical
+console, confirm that Terminal is open, and rerun without Screen Sharing.
+Diagnosis creates and drives a temporary
 Terminal window and checks transport, console/lock, AppleEvents, secure entry,
 display geometry, launch/focus, input, transcript and real capture in order.
 Unreached checks are not run. Screen Recording proof requires window content,
@@ -256,42 +305,5 @@ Before probing GUI-session commands, read the mandatory
 [macOS automation diagnostics](browser-identities.md#macos-automation-diagnostics)
 for denial, timeout and Terminal-window recovery.
 
-## 8. Harness sign-in and acceptance set
-
-Sign the operator identity (the project's browser-control `default_identity`)
-into `https://app.upyoke.com` (or the declared self-hosted app URL) once with
-`yoke browser authorize --project P --identity NAME --test-machine NAME`.
-Complete password/2FA now and require the signed-in app page; a Google session
-alone is insufficient. Later approval should need only an existing account pick.
-Start each harness's vendor login flow from the test user's **GUI Terminal**;
-the operator types passwords only where asked. Follow the [browser identity procedure](macos-baseline-recovery.md#11-live-browser-identities)
-for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
-requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
-is separate from app presence. A login-status line or credential file is
-insufficient: every harness must answer a real request without tool calls.
-After harness sign-in, run `yoke test-machine golden-capture` (section 9)
-to prove real requests and recapture. Identity sign-ins stay live outside goldens.
-
-Once per machine, accept Claude's dangerous-mode prompt in the
-dedicated test context. Require `skipDangerousModePermissionPrompt=true` in
-its vendor settings before saving; a restore brings back the captured value.
-This deliberate fixture choice does not authorize unrelated bypasses.
-
-Before capture, prove steps 1–7, keychain readability in the GUI context,
-screen saver 0, and real requests from Claude, Codex and Cursor. Golden capture
-uses the standard macOS probes when no file is supplied. A custom `--probes-file`
-must include every standard check and may add requirements. The standard set
-includes native real requests, bypass acceptance, GUI keychain readability,
-and screen-saver Never. The exact names are `Claude real request`,
-`Codex real request`, `Cursor real request`, `Claude bypass accepted`,
-`macOS login keychain readable`, and `macOS screen saver disabled`.
-Missing names refuse as `baseline_standard_probes_missing`. Capture always
-runs/seals the canonical standard programs plus extras; an older sidecar is
-never carried forward implicitly. Native output and Keychain contents stay on
-the host. Extra probes name absolute argv and optional
-`expect_output_contains`; use macOS's guaranteed `/bin/test` for file checks.
-
-## 9. Save and prove the baseline
-
-Continue with [macOS baseline capture and recovery](macos-baseline-recovery.md)
-for save, restore, and live browser identity proof.
+Continue with [harness sign-in and baseline recovery](macos-baseline-recovery.md#8-harness-sign-in-and-acceptance-set)
+to sign in, seal and prove the setup, and add QA plans.

@@ -222,7 +222,8 @@ def test_screen_sharing_curtain_has_its_own_recovery(monkeypatch, process):
 def test_window_launch_failure_retains_osascript_cause(monkeypatch, diagnose):
     class LaunchFailureMac(FakeMac):
         def __call__(self, command, **kwargs):
-            if "set targetTab" in command and "terminal-app-ready" in command:
+            script = kwargs.get("input_text") or ""
+            if "set targetTab" in script and "terminal-app-ready" in script:
                 return subprocess.CompletedProcess(
                     command,
                     1,

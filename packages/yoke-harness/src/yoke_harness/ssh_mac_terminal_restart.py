@@ -66,7 +66,7 @@ def _wait_for_window() -> str:
     count = shlex.quote(TERMINAL_VISIBLE_WINDOW_COUNT)
     return (
         f"i=0; n=; while [ $i -lt {RELAUNCH_WAIT_SECONDS} ]; do "
-        f"n=$(/usr/bin/osascript -e {count} 2>/dev/null); "
+        f"n=$(printf '%s\\n' {count} | /usr/bin/osascript 2>/dev/null); "
         '[ -n "$n" ] && [ "$n" -gt 0 ] && { echo "$n"; exit 0; }; '
         '/bin/sleep 1; i=$((i+1)); done; echo "${n:-none}"; exit 1'
     )
@@ -153,7 +153,11 @@ def relaunch_terminal_app(run: Callable[..., object]) -> HostActionResult:
     """Start Terminal without its saved windows and wait for its first window."""
     launched = run(RELAUNCH_COMMAND, timeout=30)
     if launched.returncode == 0:
-        opened = run(_wait_for_window(), timeout=RELAUNCH_WAIT_SECONDS + 15)
+        opened = run(
+            "/bin/sh -s",
+            input_text=_wait_for_window(),
+            timeout=RELAUNCH_WAIT_SECONDS + 15,
+        )
         windows = (opened.stdout or "").strip()
         if opened.returncode == 0 and windows.isdigit():
             return HostActionResult(

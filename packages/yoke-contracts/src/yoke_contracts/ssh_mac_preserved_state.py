@@ -15,10 +15,17 @@ OS_MANAGED_HOME_ENTRIES = (
     "Library/Group Containers/group.com.apple.secure-control-center-preferences/"
     "Library/Preferences/group.com.apple.secure-control-center-preferences.av.plist",
 )
-REQUIRED_PRESERVED_HOME_ENTRIES = (
-    ".ssh",
-    "Library/Application Support/com.apple.TCC",
+# On macOS 27, Full Disk Access permits metadata reads but not opening these
+# generated CoreSpeech artifacts. Keep the exact cache roots live.
+_CORE_SPEECH_CACHE_ROOT = (
+    "Library/Group Containers/group.com.apple.CoreSpeech/Caches/"
+    "onDeviceCompilationCaches"
 )
+OS_PROTECTED_CACHE_HOME_ENTRIES = (
+    f"{_CORE_SPEECH_CACHE_ROOT}/speakerRecognition",
+    f"{_CORE_SPEECH_CACHE_ROOT}/secondPassChecker",
+)
+REQUIRED_PRESERVED_HOME_ENTRIES = (".ssh",)
 # The live harness logins. Claude and Cursor keep theirs in the login Keychain
 # (Claude falls back to its credentials file); Codex keeps its in auth.json, or
 # in the Keychain when configured for it. A restored copy of any of them is the
@@ -34,8 +41,10 @@ HARNESS_LOGIN_HOME_ENTRIES = (
 LIVE_IDENTITY_HOME_ENTRIES = (LIVE_IDENTITY_STORE_HOME_ENTRY,)
 PRESERVED_HOME_ENTRIES = (
     *REQUIRED_PRESERVED_HOME_ENTRIES,
+    "Library/Application Support/com.apple.TCC",
     *HARNESS_LOGIN_HOME_ENTRIES,
     *OS_MANAGED_HOME_ENTRIES,
+    *OS_PROTECTED_CACHE_HOME_ENTRIES,
     *LIVE_IDENTITY_HOME_ENTRIES,
 )
 # Entries an earlier release kept live and a sealed baseline may still declare.
@@ -81,6 +90,7 @@ def render_preserved_state_contract() -> str:
     return "\n".join(
         (
             "os_managed_entries=(" + shlex.join(OS_MANAGED_HOME_ENTRIES) + ")",
+            "os_protected_cache_entries=(" + shlex.join(OS_PROTECTED_CACHE_HOME_ENTRIES) + ")",
             "os_managed_owner="
             + shlex.quote(":".join(map(str, OS_MANAGED_FILE_OWNER))),
             "os_managed_manifest_line="
@@ -109,18 +119,22 @@ def render_preserved_state_contract() -> str:
 
 
 _VALIDATION_FUNCTIONS = r"""
+assert_preserved_state_ancestors() {
+  local parent="${1:h}"
+  while [[ "$parent" != "$home" ]]; do
+    if [[ -L "$parent" || ( -e "$parent" && ! -d "$parent" ) ]]; then
+      failure_detail="$os_managed_invalid_prefix$parent"
+      return 1
+    fi
+    parent="${parent:h}"
+  done
+}
+
 assert_os_managed_preserved_state() {
-  local suffix target parent owner
+  local suffix target owner
   for suffix in "${os_managed_entries[@]}"; do
     target="$home/$suffix"
-    parent="${target:h}"
-    while [[ "$parent" != "$home" ]]; do
-      if [[ -L "$parent" || ( -e "$parent" && ! -d "$parent" ) ]]; then
-        failure_detail="$os_managed_invalid_prefix$parent"
-        return 1
-      fi
-      parent="${parent:h}"
-    done
+    assert_preserved_state_ancestors "$target" || return 1
     lexists "$target" || continue
     if [[ ! -f "$target" || -L "$target" ]]; then
       failure_detail="$os_managed_invalid_prefix$target"
@@ -131,6 +145,15 @@ assert_os_managed_preserved_state() {
       return 1
     }
     if [[ "$owner" != "$os_managed_owner" ]]; then
+      failure_detail="$os_managed_invalid_prefix$target"
+      return 1
+    fi
+  done
+  for suffix in "${os_protected_cache_entries[@]}"; do
+    target="$home/$suffix"
+    assert_preserved_state_ancestors "$target" || return 1
+    lexists "$target" || continue
+    if [[ -L "$target" || ! -d "$target" || ! -O "$target" ]]; then
       failure_detail="$os_managed_invalid_prefix$target"
       return 1
     fi

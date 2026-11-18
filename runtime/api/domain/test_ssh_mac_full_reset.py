@@ -108,7 +108,7 @@ def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
     assert rows[GOLDEN_BASELINE_PATH] == "restored"
     assert rows[FULL_DISK_ACCESS_PROBE_PATH] == "readable"
     assert rows[f"{HOME}/.ssh"] == "preserved"
-    assert rows[f"{HOME}/Library/Application Support/com.apple.TCC"] == "preserved"
+    assert rows[f"{HOME}/Library/Application Support/com.apple.TCC"] == "preserved-if-present"
     assert rows[f"{HOME}/.yoke"] == "absent"
     assert rows[f"{HOME}/.local/bin/yoke"] == "absent"
     # The shared tool directory is reported for what it is, not claimed gone:

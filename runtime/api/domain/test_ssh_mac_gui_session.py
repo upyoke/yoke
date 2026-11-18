@@ -39,7 +39,10 @@ def test_terminal_app_command_returns_output_and_exit_code(
 ) -> None:
     commands: list[str] = []
 
-    def run(command: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def run(
+        command: str, *, input_text: str | None = None, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        command = input_text if input_text is not None else command
         commands.append(command)
         if "return id of targetWindow" in command:
             return _completed(command, stdout="445")
@@ -79,7 +82,10 @@ def test_terminal_app_command_returns_output_and_exit_code(
 
 
 def test_terminal_command_keeps_real_exit_code_when_output_is_missing() -> None:
-    def run(command: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def run(
+        command: str, *, input_text: str | None = None, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        command = input_text if input_text is not None else command
         if "return id of targetWindow" in command:
             return _completed(command, stdout="445")
         if command.startswith("if /bin/test -f "):

@@ -96,7 +96,8 @@ def test_window_close_kills_its_tty_processes_and_reports_the_outcome(
     commands: list[str] = []
 
     def run(command: str, **_kwargs) -> subprocess.CompletedProcess:
-        commands.append(command)
+        assert command == "/usr/bin/osascript"
+        commands.append(_kwargs["input_text"])
         return subprocess.CompletedProcess(command, 0, answer, "")
 
     assert close_terminal_app_window(run, window_id=445) is closed

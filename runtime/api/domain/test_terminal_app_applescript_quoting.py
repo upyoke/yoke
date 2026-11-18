@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
 import shutil
 import subprocess
 import sys
@@ -29,9 +28,8 @@ class _Host:
         self.scripts: list[str] = []
 
     def __call__(self, command: str, **_kwargs) -> subprocess.CompletedProcess[str]:
-        argv = shlex.split(command)
-        assert argv[:2] == ["/usr/bin/osascript", "-e"]
-        script = argv[2]
+        assert command == "/usr/bin/osascript"
+        script = _kwargs["input_text"]
         self.scripts.append(script)
         if "whose frontmost is true" in script:
             stdout = "Terminal|7"
@@ -63,11 +61,13 @@ def _assert_compiles(script: str, tmp_path) -> None:
 def test_window_command_keeps_non_ascii_literal(tmp_path):
     host = _Host()
 
-    launch = open_terminal_app_window(host, command=COMMAND)
+    command = COMMAND + " " + ("x" * 24_000)
+    launch = open_terminal_app_window(host, command=command)
 
     assert launch.window_id == 7
     _assert_compiles(host.scripts[0], tmp_path)
     _assert_literal(host.scripts[0], PROMPT)
+    assert 'x' * 24_000 in host.scripts[0]
 
 
 @pytest.mark.parametrize(

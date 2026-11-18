@@ -84,10 +84,9 @@ def test_reset_keeps_each_live_login_and_restores_everything_else(tmp_path):
 
 
 @pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
-def test_a_host_without_harness_logins_still_verifies_its_required_entries(tmp_path):
+def test_required_entries_allow_absent_harness_logins_and_legacy_tcc(tmp_path):
     home = tmp_path / "home"
     (home / ".ssh").mkdir(parents=True)
-    (home / "Library/Application Support/com.apple.TCC").mkdir(parents=True)
     result = run_functions(
         (
             *_program(home),

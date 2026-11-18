@@ -40,7 +40,10 @@ class TerminalHost:
         self.pgrep_rc = pgrep_rc
         self.commands: list[str] = []
 
-    def __call__(self, command: str, *, timeout: int = 60) -> SimpleNamespace:
+    def __call__(
+        self, command: str, *, timeout: int = 60, input_text: str | None = None
+    ) -> SimpleNamespace:
+        command = input_text if input_text is not None else command
         self.commands.append(command)
         if "process_tree()" in command:
             self.running = not self.dies_when_killed
@@ -115,9 +118,17 @@ def test_an_unreadable_process_table_is_not_taken_as_stopped() -> None:
 def test_relaunch_skips_saved_windows_and_waits_for_the_first_window() -> None:
     commands: list[str] = []
 
-    def run(command: str, *, timeout: int = 60) -> SimpleNamespace:
+    def run(
+        command: str, *, timeout: int = 60, input_text: str | None = None
+    ) -> SimpleNamespace:
         commands.append(command)
-        return _done(0, "1\n" if "whose visible is true" in command else "")
+        if command == RELAUNCH_COMMAND:
+            return _done(0)
+        assert command == "/bin/sh -s"
+        assert input_text is not None
+        assert "whose visible is true" in input_text
+        assert "| /usr/bin/osascript" in input_text
+        return _done(0, "1\n")
 
     result = relaunch_terminal_app(run)
 
@@ -137,7 +148,9 @@ def test_relaunch_skips_saved_windows_and_waits_for_the_first_window() -> None:
 def test_relaunch_without_a_window_fails_by_name(
     open_result, wait_result, expected
 ) -> None:
-    def run(command: str, *, timeout: int = 60) -> SimpleNamespace:
+    def run(
+        command: str, *, timeout: int = 60, input_text: str | None = None
+    ) -> SimpleNamespace:
         return open_result if command == RELAUNCH_COMMAND else wait_result
 
     result = relaunch_terminal_app(run)
@@ -230,7 +243,8 @@ def test_reset_stops_system_events_even_after_terminal_quits(quits, killed, ok, 
     order = []
 
     def run(command, **kwargs):
-        app = "events" if "System Events" in command else "terminal"
+        payload = kwargs.get("input_text", command)
+        app = "events" if "System Events" in payload else "terminal"
         order.append(app)
         return (events if app == "events" else terminal)(command, **kwargs)
 

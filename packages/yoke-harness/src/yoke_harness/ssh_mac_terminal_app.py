@@ -36,12 +36,8 @@ _CONTROL_KEY_CODES = {
 def run_osascript(
     run: RunRemote, lines: Sequence[str], *, timeout: int = 20
 ) -> subprocess.CompletedProcess[str]:
-    """Execute one bounded AppleScript through the controlled Mac transport."""
-    apple = "\n".join(lines)
-    return run(
-        "/usr/bin/osascript -e " + shlex.quote(apple),
-        timeout=timeout,
-    )
+    """Send AppleScript on stdin so large scripts fit through an SSH master."""
+    return run("/usr/bin/osascript", input_text="\n".join(lines), timeout=timeout)
 
 
 @dataclass(frozen=True)

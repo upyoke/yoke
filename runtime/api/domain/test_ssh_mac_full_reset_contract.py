@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_contracts.ssh_mac_preserved_state import OS_MANAGED_HOME_ENTRIES
+from yoke_contracts.ssh_mac_preserved_state import (
+    OS_MANAGED_HOME_ENTRIES,
+    OS_PROTECTED_CACHE_HOME_ENTRIES,
+)
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     run_zsh_syntax_if_available,
@@ -65,6 +68,7 @@ def test_preserved_and_absent_surface_contract() -> None:
         ".claude/.credentials.json",
         ".codex/auth.json",
         *OS_MANAGED_HOME_ENTRIES,
+        *OS_PROTECTED_CACHE_HOME_ENTRIES,
         ".yoke-browser-identities",
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES

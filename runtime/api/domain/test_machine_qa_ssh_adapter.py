@@ -82,7 +82,7 @@ def test_full_reset_ssh_path_never_invokes_remote_python_or_clt(
             stdout = "/Users/tester\n/bin/zsh\n\n"
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = closed_reset_stdout(restored_entries=22)
-        elif "whose visible is true" in remote:
+        elif remote == "/bin/sh -s" and "whose visible is true" in kwargs.get("input", ""):
             stdout = "1\n"
         else:
             stdout = ""
@@ -112,7 +112,10 @@ def test_full_reset_ssh_path_never_invokes_remote_python_or_clt(
     remote_commands = [str(argv[-1]) for argv, _kwargs in calls]
     assert all("python" not in command.casefold() for command in remote_commands)
     assert all("CommandLineTools" not in command for command in remote_commands)
-    uploads = [kwargs.get("input") for _argv, kwargs in calls if kwargs.get("input")]
+    uploads = [
+        kwargs["input"] for argv, kwargs in calls
+        if str(argv[-1]).startswith("/bin/zsh -fc ") and kwargs.get("input")
+    ]
     assert uploads == [FULL_RESET_SCRIPT]
     assert "top-secret" not in repr(calls)
 
@@ -131,7 +134,7 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
             stdout = f"/Users/tester\n/bin/bash\n{xdg_bin_home}\n"
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = closed_reset_stdout(restored_entries=22)
-        elif "whose visible is true" in remote:
+        elif remote == "/bin/sh -s" and "whose visible is true" in kwargs.get("input", ""):
             stdout = "1\n"
         else:
             stdout = ""
@@ -176,7 +179,10 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
     expected_script = render_full_reset_script(
         resolve_full_reset_path_contract(control.path_state)
     )
-    uploads = [kwargs.get("input") for _argv, kwargs in calls if kwargs.get("input")]
+    uploads = [
+        kwargs["input"] for argv, kwargs in calls
+        if str(argv[-1]).startswith("/bin/zsh -fc ") and kwargs.get("input")
+    ]
     assert uploads == [expected_script]
     assert result.evidence["path_state"]["tool_bin_dir"] == xdg_bin_home
     assert result.evidence["path_state"]["launcher"] == (f"{xdg_bin_home}/yoke")
@@ -226,7 +232,10 @@ def test_fixture_file_transfers_use_guaranteed_mac_primitives(
     assert all("python" not in command.casefold() for command in remote_commands)
     assert any("/usr/bin/base64 <" in command for command in remote_commands)
     assert any("/usr/bin/base64 -D" in command for command in remote_commands)
-    uploads = [kwargs.get("input") for _argv, kwargs in calls if kwargs.get("input")]
+    uploads = [
+        kwargs["input"] for argv, kwargs in calls
+        if str(argv[-1]).startswith("/bin/zsh -fc ") and kwargs.get("input")
+    ]
     assert uploads == [
         base64.b64encode(b"replacement fixture").decode("ascii"),
     ]

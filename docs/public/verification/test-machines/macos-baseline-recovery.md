@@ -6,6 +6,58 @@
 
 Complete [macOS host provisioning](macos-host-provisioning.md) first.
 
+## 8. Harness sign-in and acceptance set
+
+Sign the operator identity (the project's browser-control `default_identity`)
+into `https://app.upyoke.com` (or the declared self-hosted app URL) once with
+`yoke browser authorize --project P --identity NAME --test-machine NAME`.
+The remote command can open a viewer on the controller. To keep the window
+on the fixture, run `yoke browser authorize --project P --identity NAME
+--declarations-json "$DECLARATIONS"` directly in the test user’s GUI Terminal.
+Use the browser-control `settings_json` from the project’s capability settings
+and keep it private. Complete password and MFA, then close the authorization
+window so Yoke checks both Google and the app. Later approval should need only
+an existing account pick.
+Start each harness's vendor login flow from the test user's **GUI Terminal**;
+the operator types passwords only where asked. Open one sign-in window at a
+time and wait for the operator to confirm before opening the next. Follow the
+[browser identity procedure](#11-live-browser-identities)
+for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
+requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
+is separate from app presence. A login-status line or credential file is
+insufficient: every harness must answer a real request without tool calls.
+For fixtures covering the desktop surfaces, also open Claude, Codex in the
+ChatGPT app, and Cursor as the test user. Finish each app’s first-run prompts
+and verify the signed-in account. Keep desktop and CLI checks separate, and
+verify each required desktop sign-in again after the golden reset.
+
+After harness sign-in, run `yoke test-machine golden-capture` (section 9)
+to prove real requests and recapture. Identity sign-ins stay live outside goldens.
+
+From the dedicated test user's GUI Terminal, run
+`cd ~ && claude --dangerously-skip-permissions` once. If Claude asks whether
+to trust the folder, choose **Yes, I trust this folder** for the test home.
+If macOS asks whether Terminal may access the test user's Desktop folder,
+allow it on the fixture. Accept Claude's dangerous-mode prompt and confirm
+Claude shows bypass permissions on. Quit the interactive session.
+Require `skipDangerousModePermissionPrompt=true` in
+its vendor settings before saving; a restore brings back the captured value.
+This deliberate fixture choice does not authorize unrelated bypasses.
+
+Before capture, prove steps 1–7, keychain readability in the GUI context,
+screen saver 0, and real requests from Claude, Codex and Cursor. Golden capture
+uses the standard macOS probes when no file is supplied. A custom `--probes-file`
+must include every standard check and may add requirements. The standard set
+includes native real requests, bypass acceptance, GUI keychain readability,
+and screen-saver Never. The exact names are `Claude real request`,
+`Codex real request`, `Cursor real request`, `Claude bypass accepted`,
+`macOS login keychain readable`, and `macOS screen saver disabled`.
+Missing names refuse as `baseline_standard_probes_missing`. Capture always
+runs/seals the canonical standard programs plus extras; an older sidecar is
+never carried forward implicitly. Native output and Keychain contents stay on
+the host. Extra probes name absolute argv and optional
+`expect_output_contains`; use macOS's guaranteed `/bin/test` for file checks.
+
 ## 9. Save a clean home
 
 Keep signed-in vendor state but remove Yoke/uv state through the registered
@@ -19,9 +71,18 @@ a profile's cookies as it closes, so capture and reset first find each
 identity browser's main process with `/bin/ps`, send it SIGTERM (Chromium's
 clean shutdown) and wait up to 30 seconds; they never force-quit it. If a previous golden exists, reset first, then make
 the operator preparations above and re-save. The first bare home needs no
-Yoke installation before capture. Never seal a home containing Yoke residue.
-Choose a new absolute destination outside the test home, in a separate new parent for EACH attempt; retention can
-delete unregistered siblings. Preserve old/failed captures and sidecars:
+Yoke installation before capture. If browser authorization used a temporary
+Yoke install with no universe or registered projects, run
+`yoke uninstall --projects none --yes` as the test user. Check the deferred
+uninstall log for `CLI: done` and require the launcher to disappear. An
+`uninstall_backup_not_applicable` refusal means omit the backup flag. If
+`cli_release_in_use` occurs, identify the process holding the release lease
+with `lsof`, stop the owned command or service, and retry. Clear the Yoke and
+uv paths named by capture while preserving the live browser identity and
+harness state. Never seal a home containing Yoke residue.
+On the host, create a private parent directory outside the test home for each
+attempt. Retention can delete unregistered siblings. Pass a new child path
+inside that existing directory and preserve old or failed captures and sidecars.
 
 ```text
 yoke test-machine golden-capture --test-machine NAME --destination /opt/yoke-golden-DATE-UNIQUE/home
@@ -51,8 +112,15 @@ repair it. The manifest also seals the whole preserved list as
 copies of preserved entries are never restored; a present declaration may name
 only kept entries, and every entry it declares must be absent from the golden.
 An entry kept only since the golden was sealed stays inert in it and the live
-copy is kept.
-Only the dedicated test home is captured; system settings/other homes are not.
+copy is kept. macOS also keeps the generated CoreSpeech `speakerRecognition`
+and `secondPassChecker` directories under its `onDeviceCompilationCaches`
+folder live. macOS 27 denies opening these artifacts even with Full Disk
+Access. Capture and reset leave them in place and verify that each present
+cache is a real directory owned by the fixture account.
+The historical per-user `Library/Application Support/com.apple.TCC`
+directory stays live when present. Some fresh macOS 27 accounts have no such
+directory. Verify Full Disk Access and the Terminal bridge directly. Only the
+dedicated test home is captured.
 
 | Named refusal | Recovery |
 | --- | --- |
@@ -122,3 +190,15 @@ procedure.
 
 Before sign-in, follow the complete [macOS sign-in
 procedure](browser-identities.md#macos-sign-in-procedure).
+
+## Add per-machine QA plans
+
+After registration and the saved-state proof, use `yoke qa plan create --help`
+and `yoke qa plan-cases --help` to build deterministic checks and exploratory
+missions for the new machine. Bind each to its machine name and select cases
+its OS and architecture support. Where the host meets the local-mode minimum,
+require successful embedded PostgreSQL startup. Prove the current Cursor CLI
+with a real request. Start install coverage on `fresh-host`. Checks that
+require an installed CLI start their own `shell-preconfigured` chain when
+`starting_state_lacks_yoke` blocks a clean-host plan. Attach each plan with
+`yoke qa item-plan attach --help`.

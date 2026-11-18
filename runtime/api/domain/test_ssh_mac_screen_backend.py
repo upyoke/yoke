@@ -61,10 +61,11 @@ def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
         command: str,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
-        commands.append(command)
+        script = str(_kwargs.get("input_text", ""))
+        commands.append(f"{command}\n{script}" if script else command)
         if command == _BACKEND_PROBE:
             return _completed(command, stdout="screen")
-        if "return id of front window" in command:
+        if "return id of front window" in script:
             return _completed(command, stdout="445")
         if " hardcopy -h " in command:
             return _completed(command, stdout=f"setup\n{expected}\n")

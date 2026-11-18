@@ -49,6 +49,7 @@ class GuiHost:
         self.commands: list[str] = []
 
     def __call__(self, command: str, **_kwargs) -> subprocess.CompletedProcess:
+        command = _kwargs.get("input_text", command)
         self.commands.append(command)
         if "set targetTab to do script" in command:
             return _done(command, stdout="441\n")
