@@ -28,6 +28,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Optional
 
+from yoke_contracts.hook_shell_command import hook_command_source
 from yoke_contracts.harness_machine_hooks import (
     HARNESS_BY_USER_OWNER,
     HARNESS_MACHINE_HOOKS,
@@ -46,7 +47,7 @@ from yoke_contracts.hook_runner.config_owner import (
 )
 
 _USER_OWNER_PATTERN = re.compile(
-    rf"(?<![\w-]){re.escape(CONFIG_OWNER_ENV_VAR)}="
+    rf"(?<![\w-]){re.escape(CONFIG_OWNER_ENV_VAR)}=[\'\"]?"
     rf"(?:{'|'.join(re.escape(owner) for owner in HARNESS_BY_USER_OWNER)})(?![\w-])"
 )
 _FOLDER_ENV_VARS = ("CLAUDE_PROJECT_DIR", "CURSOR_PROJECT_DIR")
@@ -91,7 +92,9 @@ def _hooks_block(path: Path, harness_id: str) -> Optional[dict[str, Any]]:
         validate_hooks_subtree(
             hooks,
             label=f"{path} hooks",
-            entry_format=HOOK_FORMAT_CURSOR if harness_id == "cursor" else HOOK_FORMAT_NESTED,
+            entry_format=HOOK_FORMAT_CURSOR
+            if harness_id == "cursor"
+            else HOOK_FORMAT_NESTED,
         )
     except (OSError, UnicodeError, ValueError, ProjectInstallError):
         return None
@@ -115,20 +118,37 @@ def _config_owns(
     if hooks is None:
         return False
     evaluate = _evaluate_pattern(verb)
-    marker = f"{CONFIG_OWNER_ENV_VAR}={owner}" if owner else ""
+    marker = (
+        re.compile(
+            rf"{re.escape(CONFIG_OWNER_ENV_VAR)}=['\"]?{re.escape(owner)}(?![\w-])"
+        )
+        if owner
+        else None
+    )
 
     def counts(command: str) -> bool:
+        command = hook_command_source(command)
         if not evaluate.search(command):
             return False
-        return marker in command if marker else not _USER_OWNER_PATTERN.search(command)
+        return (
+            bool(marker.search(command))
+            if marker
+            else not _USER_OWNER_PATTERN.search(command)
+        )
 
     return all(
-        any(counts(command) for entry in hooks.get(native, []) for command in entry_commands(entry))
+        any(
+            counts(command)
+            for entry in hooks.get(native, [])
+            for command in entry_commands(entry)
+        )
         for native in native_events
     )
 
 
-def _session_folder(environment: Mapping[str, str], payload: Mapping[str, Any]) -> Optional[Path]:
+def _session_folder(
+    environment: Mapping[str, str], payload: Mapping[str, Any]
+) -> Optional[Path]:
     candidates: list[object] = [environment.get(key) for key in _FOLDER_ENV_VARS]
     candidates.append(payload.get("cwd"))
     roots = payload.get("workspace_roots")
@@ -165,7 +185,9 @@ def project_config_owns(
     )
 
 
-def _cursor_owns(verb: str, environment: Mapping[str, str], folder: Optional[Path]) -> bool:
+def _cursor_owns(
+    verb: str, environment: Mapping[str, str], folder: Optional[Path]
+) -> bool:
     cursor = HARNESS_MACHINE_HOOKS["cursor"]
     if project_config_owns(cursor, verb, folder):
         return True
@@ -197,7 +219,9 @@ def should_skip_config_duplicate(
             and under_cursor
             and _cursor_owns(verb, environment, folder)
         )
-    if owner == CLAUDE_CONFIG_OWNER and is_cursor_imported_claude_hook(environment, payload):
+    if owner == CLAUDE_CONFIG_OWNER and is_cursor_imported_claude_hook(
+        environment, payload
+    ):
         return verb in CURSOR_DUAL_CONFIG_RUNNER_EVENTS and _cursor_owns(
             verb, environment, folder
         )

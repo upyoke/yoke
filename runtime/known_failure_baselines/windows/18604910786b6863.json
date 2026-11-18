@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_codex_hook_trust_store.py::test_retired_worktree_loses_hook_and_project_trust_only",
- "reason": "yoke_contracts.codex_hook_trust_toml.CodexHookTrustStoreError: C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_retired_worktree_loses_ho0\\config.toml is not valid"
-}

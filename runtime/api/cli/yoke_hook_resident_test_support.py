@@ -75,10 +75,13 @@ def _request(
 
 
 def _round_trip(socket_path: str, request: HookEvaluatorRequest) -> dict:
-    peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    from yoke_cli.hook_resident_client import _connect
+    from yoke_cli.hook_resident_paths import ResidentPaths
+
+    paths = ResidentPaths(Path("."), Path(socket_path), Path("lock"), Path("log"))
+    peer = _connect(paths, time.monotonic() + 10)
     try:
         peer.settimeout(10)
-        peer.connect(socket_path)
         send_frame(peer, request.to_mapping())
         return receive_frame(peer)
     finally:

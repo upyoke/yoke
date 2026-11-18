@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agents_render_hooks.py::test_generated_hook_commands_use_non_login_shell_with_launcher_path",
- "reason": "assert False"
-}

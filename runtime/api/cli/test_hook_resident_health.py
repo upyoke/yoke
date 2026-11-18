@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import io
 import os
-import socket
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from yoke_contracts import platform_file_lock
+
+from runtime.api.cli.hook_transport_test_support import (
+    resident_test_paths,
+    resident_listener,
+    accept_peer,
+)
 
 from yoke_cli.commands.adapters import hooks
 from yoke_cli import hook_resident_client as client
@@ -139,6 +144,9 @@ def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, ca
     assert "WARNING:" not in capsys.readouterr().err
 
 
+@pytest.mark.posix_only(
+    reason="POSIX AF_UNIX transport absence; Windows uses named pipes"
+)
 def test_missing_unix_socket_transport_uses_named_fallback(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
@@ -150,6 +158,9 @@ def test_missing_unix_socket_transport_uses_named_fallback(monkeypatch, tmp_path
     assert failure.value.log_path == tmp_path / "hook-evaluator" / "evaluator.log"
 
 
+@pytest.mark.posix_only(
+    reason="POSIX AF_UNIX transport absence; Windows uses named pipes"
+)
 def test_missing_unix_socket_transport_has_a_health_verdict(monkeypatch, tmp_path):
     monkeypatch.delattr(health.socket, "AF_UNIX", raising=False)
     assert health.resident_revision_problem(tmp_path / "socket", "expected").startswith(
@@ -157,6 +168,9 @@ def test_missing_unix_socket_transport_has_a_health_verdict(monkeypatch, tmp_pat
     )
 
 
+@pytest.mark.posix_only(
+    reason="POSIX AF_UNIX transport absence; Windows uses named pipes"
+)
 def test_missing_unix_socket_transport_reaches_canonical_fallback(
     monkeypatch, tmp_path
 ):
@@ -193,13 +207,10 @@ def test_missing_unix_socket_transport_reaches_canonical_fallback(
         ("unknown", "unknown", "", "", "YOKE_HOOK_REVISION_UNKNOWN"),
     ],
 )
-@pytest.mark.posix_only(reason='resident health requires Unix sockets')
 def test_health_reads_identity_without_evaluating_or_restarting(
     monkeypatch, loaded, expected, version, installed, reason
 ):
-    import tempfile
     import threading
-    from pathlib import Path
     from yoke_contracts.hook_evaluator_protocol import receive_frame
     from yoke_harness import hook_resident_probe
 
@@ -208,14 +219,12 @@ def test_health_reads_identity_without_evaluating_or_restarting(
     )
     monkeypatch.setattr(hook_resident_probe, "_LOADED_VERSION", version)
     frames = []
-    with tempfile.TemporaryDirectory(dir="/tmp", prefix="hh-") as directory:
-        address = Path(directory) / "socket"
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
-            listener.bind(str(address))
-            listener.listen()
+    with resident_test_paths(monkeypatch) as paths:
+        address = paths.socket
+        with resident_listener(paths) as listener:
 
             def answer():
-                peer, _ = listener.accept()
+                peer = accept_peer(listener)
                 with peer:
                     frame = receive_frame(peer)
                     frames.append(frame)

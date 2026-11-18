@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from yoke_contracts.codex_hook_trust_store import (
@@ -50,7 +51,8 @@ def test_changed_file_is_retrusted(tmp_path):
     env, hooks, config = _codex(tmp_path)
     ensure_machine_hooks(["codex"], env)
     document = json.loads(hooks.read_text())
-    document["hooks"]["Stop"][0]["hooks"][0]["command"] += " --stale"
+    handler = document["hooks"]["Stop"][0]["hooks"][0]
+    handler["commandWindows" if os.name == "nt" else "command"] += " --stale"
     hooks.write_text(json.dumps(document))
     assert not inspect_hook_file_trust(hooks, config_path=config).approved
 

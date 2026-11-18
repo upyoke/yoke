@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_codex_hook_trust_command.py::test_dry_run_reports_counts_without_changing_config",
- "reason": "AssertionError: assert 1 == 0"
-}

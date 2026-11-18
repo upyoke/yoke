@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agents_render_substrate.py::test_render_claude_settings_json_has_generated_marker_and_hooks",
- "reason": "AssertionError: expected yoke hook evaluate PreToolUse on every entry, got: ['powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMA"
-}

@@ -16,9 +16,14 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.hook_shell_command import hook_command_source
+
 from yoke_cli.commands.adapters.hook_config_dedup import should_skip_config_duplicate
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS, entry_commands
-from yoke_contracts.hook_context_compose import delivered_message_ids, reply_is_well_formed
+from yoke_contracts.hook_context_compose import (
+    delivered_message_ids,
+    reply_is_well_formed,
+)
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_core.domain.agents_render_hooks import (
     render_claude_hooks_block,
@@ -29,7 +34,7 @@ from yoke_core.hooks.hook_context_compose import composed_additional_context
 from yoke_core.hooks.types import HookDecision, Outcome
 from yoke_contracts.machine_hooks_render import render_user_hook_entries
 
-_OWNER = re.compile(r"YOKE_HOOK_CONFIG_OWNER=([\w-]+)")
+_OWNER = re.compile(r"YOKE_HOOK_CONFIG_OWNER=[\'\"]?([\w-]+)")
 _EVALUATE = re.compile(r"yoke hook evaluate (\w+)")
 
 
@@ -51,21 +56,32 @@ def _fired(harness_id: str, native_event: str, *, in_project: bool) -> list[str]
     ]
     if harness_id == "cursor":
         # Cursor also fires the imported user-level ~/.claude/settings.json.
-        verb = next(e.verb for e in HARNESS_MACHINE_HOOKS["cursor"].events if e.native_event == native_event)
+        verb = next(
+            e.verb
+            for e in HARNESS_MACHINE_HOOKS["cursor"].events
+            if e.native_event == native_event
+        )
         claude = render_user_hook_entries(HARNESS_MACHINE_HOOKS["claude-code"])
-        fired += [c for entry in claude.get(verb, [])[:1] for c in entry_commands(entry)]
+        fired += [
+            c for entry in claude.get(verb, [])[:1] for c in entry_commands(entry)
+        ]
     return fired
 
 
 def _environment(harness_id: str, root: Path, owner: str) -> dict[str, str]:
     env = {"YOKE_HOOK_CONFIG_OWNER": owner, "HOME": str(root / "home")}
-    env["CURSOR_PROJECT_DIR" if harness_id == "cursor" else "CLAUDE_PROJECT_DIR"] = str(root)
+    env["CURSOR_PROJECT_DIR" if harness_id == "cursor" else "CLAUDE_PROJECT_DIR"] = str(
+        root
+    )
     return env
 
 
 def _write_project(root: Path, harness_id: str) -> None:
     if harness_id == "claude-code":
-        path, doc = root / ".claude/settings.json", {"hooks": render_claude_hooks_block()}
+        path, doc = (
+            root / ".claude/settings.json",
+            {"hooks": render_claude_hooks_block()},
+        )
     elif harness_id == "codex":
         path, doc = root / ".codex/hooks.json", {"hooks": render_codex_hooks_block()}
     else:
@@ -74,7 +90,9 @@ def _write_project(root: Path, harness_id: str) -> None:
     path.write_text(json.dumps(doc), encoding="utf-8")
 
 
-def _evaluations(harness_id: str, native_event: str, root: Path, *, in_project: bool) -> int:
+def _evaluations(
+    harness_id: str, native_event: str, root: Path, *, in_project: bool
+) -> int:
     payload = {"session_id": "s-1", "cwd": str(root)}
     if harness_id == "cursor":
         payload["conversation_id"] = "s-1"  # Cursor payload provenance
@@ -85,6 +103,7 @@ def _evaluations(harness_id: str, native_event: str, root: Path, *, in_project: 
     payload = json.dumps(payload)
     count = 0
     for command in _fired(harness_id, native_event, in_project=in_project):
+        command = hook_command_source(command)
         owner = _OWNER.search(command)
         verb = _EVALUATE.search(command).group(1)
         env = _environment(harness_id, root, owner.group(1) if owner else "")
@@ -104,7 +123,9 @@ _CASES = [
 
 
 @pytest.mark.parametrize(("harness_id", "native_event"), _CASES)
-def test_exactly_one_evaluation_inside_and_outside_a_project(tmp_path, harness_id, native_event):
+def test_exactly_one_evaluation_inside_and_outside_a_project(
+    tmp_path, harness_id, native_event
+):
     outside = tmp_path / "outside"
     outside.mkdir()
     assert _evaluations(harness_id, native_event, outside, in_project=False) == 1
@@ -137,7 +158,9 @@ def test_machine_scope_delivery_stays_within_the_inline_budget(harness_id):
     decisions.append(
         HookDecision(
             Outcome.ALLOW,
-            audit_fields={"additionalContext": "Outside a Yoke project: machine guards only."},
+            audit_fields={
+                "additionalContext": "Outside a Yoke project: machine guards only."
+            },
         )
     )
     composed = composed_additional_context(decisions, harness_id=harness_id)

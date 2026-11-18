@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
+
+from yoke_contracts.codex_hook_trust_toml import _toml_string
 
 import pytest
 
@@ -64,7 +67,9 @@ def _config(path: Path, trusted: dict) -> Path:
     """Write a Codex config carrying the given ``key -> hash`` trust."""
     lines = ['model = "gpt-5.6-luna"\n']
     for key, value in trusted.items():
-        lines.append(f'\n[hooks.state."{key}"]\ntrusted_hash = "{value}"\n')
+        lines.append(
+            f'\n[hooks.state.{_toml_string(str(key))}]\ntrusted_hash = "{value}"\n'
+        )
     path.write_text("".join(lines), encoding="utf-8")
     return path
 
@@ -242,7 +247,9 @@ def test_a_missing_config_blocks_without_raising(tmp_path: Path):
 
 def test_a_quote_in_a_lane_path_stays_valid_toml(tmp_path: Path):
     source = _checkout(tmp_path, "checkout")
-    worktree = _checkout(tmp_path / "checkout" / ".worktrees", 'la"ne')
+    worktree = _checkout(
+        tmp_path / "checkout" / ".worktrees", "la=ne" if os.name == "nt" else 'la"ne'
+    )
     config = _config(tmp_path / "config.toml", _trust_for(source))
 
     result = mirror_hook_trust(str(source), str(worktree), config_path=config)

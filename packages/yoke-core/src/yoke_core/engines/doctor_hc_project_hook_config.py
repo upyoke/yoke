@@ -54,8 +54,8 @@ def _load_payload(root: Path, relative: Path, issues: list[str]) -> Any:
         symlink = first_symlink_component(root, path, include_leaf=True)
         if symlink is not None:
             issues.append(
-                f"- {relative} crosses symlink component "
-                f"{symlink.relative_to(root)}; Cursor refuses this config path"
+                f"- {relative.as_posix()} crosses symlink component "
+                f"{symlink.relative_to(root).as_posix()}; Cursor refuses this config path"
             )
             return _UNREADABLE
     # Resolve through a link rather than describing it: the Cursor-scanned
@@ -64,17 +64,17 @@ def _load_payload(root: Path, relative: Path, issues: list[str]) -> Any:
     try:
         info = path.stat()
     except OSError as exc:
-        issues.append(f"- {relative} is unreadable: {exc}")
+        issues.append(f"- {relative.as_posix()} is unreadable: {exc}")
         return _UNREADABLE
     if not stat.S_ISREG(info.st_mode):
-        issues.append(f"- {relative} is not a regular file")
+        issues.append(f"- {relative.as_posix()} is not a regular file")
         return _UNREADABLE
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        issues.append(f"- {relative} is unreadable: {exc}")
+        issues.append(f"- {relative.as_posix()} is unreadable: {exc}")
     except json.JSONDecodeError as exc:
-        issues.append(f"- {relative} is not valid JSON: {exc}")
+        issues.append(f"- {relative.as_posix()} is not valid JSON: {exc}")
     return _UNREADABLE
 
 
@@ -86,16 +86,16 @@ def _validate_payload(
     if payload is _UNREADABLE:
         return
     if not isinstance(payload, dict):
-        issues.append(f"- {relative} top level must be a JSON object")
+        issues.append(f"- {relative.as_posix()} top level must be a JSON object")
         return
     if relative == _CURSOR_CONFIG:
         version = payload.get("version")
         if type(version) is not int or version != 1:
-            issues.append(f"- {relative} must declare schema version 1")
+            issues.append(f"- {relative.as_posix()} must declare schema version 1")
     try:
         validate_hooks_subtree(
             payload.get("hooks"),
-            label=f"{relative} hooks",
+            label=f"{relative.as_posix()} hooks",
             entry_format=hook_entry_format(relative),
         )
     except ProjectInstallError as exc:
@@ -108,7 +108,7 @@ def _validate_payload(
                     handler, codex=relative == Path(".codex/hooks.json")
                 )
                 if problem:
-                    issues.append(f"- {relative}: {problem}")
+                    issues.append(f"- {relative.as_posix()}: {problem}")
 
 
 def hc_project_hook_config_validity(
@@ -132,7 +132,7 @@ def hc_project_hook_config_validity(
     for relative in _CONFIG_PATHS:
         if relative in _OPTIONAL_CONFIGS and not (selected / relative).exists():
             continue
-        checked.append(str(relative))
+        checked.append(relative.as_posix())
         _validate_payload(
             relative,
             _load_payload(selected, relative, issues),

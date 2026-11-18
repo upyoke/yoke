@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_codex_lane_hook_trust.py::test_mirroring_twice_writes_nothing_the_second_time",
- "reason": "AssertionError: assert False is True"
-}

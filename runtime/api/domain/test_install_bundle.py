@@ -190,7 +190,15 @@ def test_hooks_subtrees_match_canonical_renderers_and_committed_files(
     committed_codex = json.loads(
         (root / "runtime/harness/codex/hooks.json").read_text("utf-8")
     )
-    assert bundle["hooks"]["claude_settings_hooks"] == committed_claude["hooks"]
+    from yoke_cli.project_install.hook_platform import native_bundle_hooks
+
+    committed = native_bundle_hooks(
+        {"hooks": {"claude_settings_hooks": committed_claude["hooks"]}}
+    )
+    assert (
+        bundle["hooks"]["claude_settings_hooks"]
+        == committed["hooks"]["claude_settings_hooks"]
+    )
     assert bundle["hooks"]["codex_hooks"] == committed_codex["hooks"]
 
 

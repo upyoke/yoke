@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_hook_folder_scope.py::test_outside_orientation_and_machine_guards_are_local",
- "reason": "assert 'deny' in '{\"permission\": \"allow\"}'"
-}

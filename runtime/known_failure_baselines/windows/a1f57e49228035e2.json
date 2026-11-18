@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agents_render_hooks.py::test_cursor_stop_and_session_end_resolve_an_existing_root",
- "reason": "assert 'YOKE_ROOT=\"$root\"' in 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAIAAkAGIAaQBuAD0ASgBvAGk"
-}

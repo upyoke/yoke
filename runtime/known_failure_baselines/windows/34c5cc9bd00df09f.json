@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_doctor_hc_project_hook_config.py::test_a_flat_codex_hook_entry_fails",
- "reason": "AssertionError: assert '.codex/hooks.json hooks.Stop' in '- .codex\\\\hooks.json hooks.Stop contains an invalid matcher/hooks entry'"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_hook_resident.py::test_revision_change_requests_resident_reexec",
- "reason": "Failed: resident child did not report readiness (exit=1)"
-}

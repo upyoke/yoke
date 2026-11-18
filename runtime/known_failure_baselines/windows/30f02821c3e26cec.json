@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_hook_resident_budget.py::test_a_loading_resident_keeps_the_default_stop_signal",
- "reason": "OSError: [WinError 123] The filename, directory name, or volume label syntax is incorrect"
-}

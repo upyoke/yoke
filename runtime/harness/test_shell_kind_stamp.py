@@ -73,7 +73,9 @@ def test_evaluator_canonicalizes_an_unstamped_shell_payload() -> None:
 
 def test_codex_and_cursor_shells_follow_the_client_os() -> None:
     codex = {"tool_name": "Bash", "tool_input": {"command": "ls"}}
-    assert _stamped(codex, "codex", windows=True)[SHELL_KIND_PAYLOAD_KEY] == "powershell"
+    assert (
+        _stamped(codex, "codex", windows=True)[SHELL_KIND_PAYLOAD_KEY] == "powershell"
+    )
     assert _stamped(codex, "codex", windows=False)[SHELL_KIND_PAYLOAD_KEY] == "bash"
     gate = {"hook_event_name": "beforeShellExecution", "command": "dir"}
     stamped = _stamped(gate, "cursor", windows=True)
@@ -91,11 +93,48 @@ def test_non_shell_tools_and_foreign_input_pass_through() -> None:
 def test_unstamped_payload_falls_back_to_the_tool_name() -> None:
     assert payload_shell_kind({"tool_name": "PowerShell"}) == "powershell"
     assert payload_shell_kind({"tool_name": "Bash"}) == "bash"
-    assert payload_shell_kind({SHELL_KIND_PAYLOAD_KEY: "bash", "tool_name": "PowerShell"}) == "bash"
+    assert (
+        payload_shell_kind({SHELL_KIND_PAYLOAD_KEY: "bash", "tool_name": "PowerShell"})
+        == "bash"
+    )
 
 
 def test_claude_machine_hook_matches_both_shell_tools() -> None:
-    (pre,) = [e for e in HARNESS_MACHINE_HOOKS["claude-code"].events if e.verb == "PreToolUse"]
+    (pre,) = [
+        e for e in HARNESS_MACHINE_HOOKS["claude-code"].events if e.verb == "PreToolUse"
+    ]
     assert set(pre.matcher.split("|")) == {
         name for name, kind in HARNESS_SHELL_TOOLS["claude-code"].items() if name
     }
+
+
+@pytest.mark.parametrize("windows", [True, False])
+@pytest.mark.parametrize("tool", ["Bash", "Shell", ""])
+@pytest.mark.parametrize(
+    "shell,expected",
+    [
+        ("zsh", "bash"),
+        ("/bin/bash", "bash"),
+        (r"C:\Program Files\PowerShell\7\pwsh.exe", "powershell"),
+    ],
+)
+def test_cursor_payload_shell_overrides_os_default(windows, tool, shell, expected):
+    payload = {
+        "hook_event_name": "beforeShellExecution",
+        "shell": shell,
+        "command": "git status",
+    }
+    if tool:
+        payload["tool_name"] = tool
+    assert (
+        _stamped(payload, "cursor", windows=windows)[SHELL_KIND_PAYLOAD_KEY] == expected
+    )
+
+
+def test_tool_input_shell_overrides_the_inherited_shell():
+    payload = {
+        "tool_name": "Shell",
+        "shell": "pwsh",
+        "tool_input": {"shell": "/bin/zsh", "command": "cat *.py"},
+    }
+    assert _stamped(payload, "cursor", windows=True)[SHELL_KIND_PAYLOAD_KEY] == "bash"

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_doctor_hc_worktree_hook_trust.py::test_main_checkout_is_checked_without_linked_worktrees",
- "reason": "AssertionError: Codex hooks will not fire in the main checkout:"
-}
