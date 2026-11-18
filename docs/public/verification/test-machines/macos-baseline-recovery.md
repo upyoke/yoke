@@ -112,7 +112,11 @@ repair it. The manifest also seals the whole preserved list as
 copies of preserved entries are never restored; a present declaration may name
 only kept entries, and every entry it declares must be absent from the golden.
 An entry kept only since the golden was sealed stays inert in it and the live
-copy is kept.
+copy is kept. macOS also keeps the generated CoreSpeech `speakerRecognition`
+and `secondPassChecker` directories under its `onDeviceCompilationCaches`
+folder live. macOS 27 denies opening these artifacts even with Full Disk
+Access. Capture and reset leave them in place and verify that each present
+cache is a real directory owned by the fixture account.
 Only the dedicated test home is captured; system settings/other homes are not.
 
 | Named refusal | Recovery |

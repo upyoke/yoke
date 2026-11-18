@@ -19,6 +19,7 @@ from yoke_contracts.ssh_mac_preserved_state import (
     OS_MANAGED_HOME_ENTRIES,
     OS_MANAGED_MANIFEST_KEY,
     OS_MANAGED_MANIFEST_VALUE,
+    OS_PROTECTED_CACHE_HOME_ENTRIES,
     render_preserved_state_contract,
 )
 
@@ -183,3 +184,66 @@ def test_absent_optional_os_state_does_not_block_validation(tmp_path):
         shell_home=tmp_path / "shell",
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+def test_protected_caches_are_neither_captured_nor_restored(tmp_path):
+    home, golden = tmp_path / "home", tmp_path / "golden"
+    for entry in OS_PROTECTED_CACHE_HOME_ENTRIES:
+        for root, content in ((home, "live cache"), (golden, "old cache")):
+            target = root / entry / "compiled"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+    neighbor = Path(OS_PROTECTED_CACHE_HOME_ENTRIES[0]).parent / "ordinary"
+    (home / neighbor).write_text("old state")
+    (golden / neighbor).write_text("captured state")
+    error_log = tmp_path / "restore-errors"
+
+    result = run_functions(
+        (
+            *_contract(home),
+            assignment("golden", str(golden)),
+            assignment("restore_error_log", str(error_log)),
+            assignment("restore_failure_report", str(error_log) + ".entries"),
+            ': > "$restore_error_log"',
+            ': > "$restore_failure_report"',
+            "assert_os_managed_preserved_state || exit 1",
+            f"cd -- {shlex.quote(str(home))}",
+            "list_capture_entries",
+            "cd /",
+            "clear_home_levels",
+            "restore_golden_levels",
+            "assert_os_managed_preserved_state",
+        ),
+        shell_home=tmp_path / "shell",
+    )
+
+    assert result.returncode == 0, result.stderr
+    entries = set(result.stdout.split("\0"))
+    for entry in OS_PROTECTED_CACHE_HOME_ENTRIES:
+        assert f"./{entry}" not in entries
+        assert f"./{entry}/compiled" not in entries
+        assert (home / entry / "compiled").read_text() == "live cache"
+    assert f"./{neighbor}" in entries
+    assert (home / neighbor).read_text() == "captured state"
+    assert error_log.read_text() == ""
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+@pytest.mark.parametrize("kind", ["file", "symlink", "symlink_ancestor"])
+def test_protected_cache_rejects_an_invalid_path(tmp_path, kind):
+    home = tmp_path / "home"
+    target = home / OS_PROTECTED_CACHE_HOME_ENTRIES[0]
+    target.parent.mkdir(parents=True)
+    if kind == "file":
+        target.touch()
+    elif kind == "symlink":
+        target.symlink_to("somewhere", target_is_directory=True)
+    else:
+        target.parent.rename(target.parent.with_name("original"))
+        target.parent.symlink_to("original", target_is_directory=True)
+    result = run_functions(
+        (*_contract(home), "assert_os_managed_preserved_state"),
+        shell_home=tmp_path / "shell",
+    )
+    assert result.returncode != 0
