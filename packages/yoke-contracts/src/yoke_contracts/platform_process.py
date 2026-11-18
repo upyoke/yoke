@@ -21,6 +21,9 @@ import psutil
 
 @dataclass(frozen=True)
 class ProcessInfo:
+    """One observed process. ``start_time`` is its start_identity, not a clock
+    reading; ``created_at`` is the wall-clock creation epoch, for time reads."""
+
     pid: int
     ppid: int
     cmdline: tuple[str, ...]
@@ -28,6 +31,25 @@ class ProcessInfo:
     name: str
     rss_kb: int
     username: str
+    created_at: float
+
+
+# psutil's own reuse check reads these platforms' kernel start unadjusted.
+_MONOTONIC_START = psutil.LINUX or psutil.OSX or psutil.BSD
+
+
+def start_identity(process: psutil.Process) -> float:
+    """Return the clock-stable start token that identifies this process.
+
+    psutil's create_time() shifts with the wall clock on Linux and macOS (by
+    the boot-time delta each importer sees), so two readers either side of a
+    clock step disagree. Record and compare only this value, by exact
+    equality: the raw kernel start on Linux/macOS/BSD, the never-adjusted
+    FILETIME creation on Windows.
+    """
+    if _MONOTONIC_START:
+        return process._proc.create_time(monotonic=True)
+    return process.create_time()
 
 
 def _info(process: psutil.Process) -> ProcessInfo:
@@ -36,20 +58,21 @@ def _info(process: psutil.Process) -> ProcessInfo:
             raise psutil.ZombieProcess(process.pid)
         argv = tuple(process.cmdline())
         return ProcessInfo(
-            process.pid, process.ppid(), argv, process.create_time(),
+            process.pid, process.ppid(), argv, start_identity(process),
             (Path(argv[0]).name if argv else process.name()),
             process.memory_info().rss // 1024, process.username(),
+            process.create_time(),
         )
 
 
 def pid_alive(pid: int, start_time: float | None = None) -> bool:
-    """Check liveness, optionally rejecting reuse of a recorded PID."""
+    """Check liveness, optionally rejecting reuse of a recorded start_identity."""
     if pid <= 0:
         return False
     try:
         process = psutil.Process(pid)
         return (process.is_running() and process.status() != psutil.STATUS_ZOMBIE
-                and (start_time is None or process.create_time() == float(start_time)))
+                and (start_time is None or start_identity(process) == float(start_time)))
     except psutil.NoSuchProcess:
         return False
     except psutil.AccessDenied as exc:
@@ -123,7 +146,7 @@ def handle_from_pid(pid: int, start_time: float) -> GroupHandle | None:
         members = [(pid, float(start_time))]
         for child in root.children(recursive=True):
             try:
-                members.append((child.pid, child.create_time()))
+                members.append((child.pid, start_identity(child)))
             except psutil.NoSuchProcess:
                 continue
         if not pid_alive(pid, start_time):
@@ -164,7 +187,7 @@ def spawn_group(argv, **popen_kwargs) -> GroupHandle:
         return spawn(argv, popen_kwargs)
     process = spawn_group_process(argv, **popen_kwargs)
     try:
-        stamp = psutil.Process(process.pid).create_time()
+        stamp = start_identity(psutil.Process(process.pid))
     except psutil.NoSuchProcess:
         process.wait()
         raise OSError("process_spawn_exited: child exited before custody; inspect child output")
@@ -186,11 +209,15 @@ def _signal(process: psutil.Process, kill: bool, denied: set[int]) -> None:
         denied.add(process.pid)
 
 
-def _survivors(processes, timeout: float) -> list[psutil.Process]:
-    """Poll exact identities until all exit or the timeout passes."""
+def _survivors(processes, timeout: float) -> list[tuple[psutil.Process, float]]:
+    """Poll (process, start_identity) pairs until all exit or the timeout passes.
+
+    Identities are captured while each process is verified live: an exited
+    process has no start to read back.
+    """
     deadline = time.monotonic() + timeout
     while True:
-        alive = [p for p in processes if pid_alive(p.pid, p.create_time())]
+        alive = [(p, stamp) for p, stamp in processes if pid_alive(p.pid, stamp)]
         if not alive or time.monotonic() >= deadline:
             return alive
         time.sleep(0.02)
@@ -199,7 +226,7 @@ def _survivors(processes, timeout: float) -> list[psutil.Process]:
 def stop_group(handle: GroupHandle, timeout: float) -> bool:
     """Return whether running members were found; terminate then kill after timeout.
 
-    Identity uses exact creation time equality, never a PID-only or fuzzy match.
+    Identity uses exact start_identity equality, never a PID-only or fuzzy match.
     A member that exits while the stop runs counts as stopped, including one
     whose exit made Windows deny a signal or Darwin deny killpg with EPERM. A
     survivor of a refused signal raises PermissionError; other survivors raise
@@ -215,14 +242,17 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
                 continue
             try:
                 process = psutil.Process(pid)
-                if process.create_time() != stamp:
+                if start_identity(process) != stamp:
                     continue
                 descendants = process.children(recursive=True)
             except psutil.NoSuchProcess:
                 continue  # Exited after the liveness check: nothing left to stop.
-            processes[pid] = process
+            processes[pid] = (process, stamp)
             for child in descendants:
-                processes[child.pid] = child
+                try:
+                    processes[child.pid] = (child, start_identity(child))
+                except psutil.NoSuchProcess:
+                    continue
         denied: set[int] = set()
         group_refused = False
         # Only a live, verified leader authorizes signalling a POSIX group.
@@ -240,24 +270,24 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
         # Restored/adopted PIDs can share our console and must never get a break.
         if os.name == "nt" and handle._job is not None and handle.pid in processes:
             try:
-                processes[handle.pid].send_signal(signal.CTRL_BREAK_EVENT)
+                processes[handle.pid][0].send_signal(signal.CTRL_BREAK_EVENT)
                 console_stop = True
             except (OSError, psutil.Error):
                 pass  # No attached console: the verified tree still stops below.
         if not console_stop:
-            for process in reversed(list(processes.values())):
+            for process, _ in reversed(list(processes.values())):
                 _signal(process, False, denied)
         alive = _survivors(processes.values(), timeout)
         if handle._job is not None:
             handle._job.terminate()
-        for process in alive:
+        for process, _ in alive:
             _signal(process, True, denied)
-        alive = _survivors(alive, timeout)
-        refused = [p.pid for p in alive if group_refused or p.pid in denied]
+        alive = [p.pid for p, _ in _survivors(alive, timeout)]
+        refused = [pid for pid in alive if group_refused or pid in denied]
         if refused:
             raise PermissionError(f"process_access_denied: PIDs {refused} refused stop; run as their owner and retry")
         if alive:
-            raise TimeoutError(f"process_stop_timeout: PIDs {[p.pid for p in alive]}; close their owner and retry")
+            raise TimeoutError(f"process_stop_timeout: PIDs {alive}; close their owner and retry")
         if handle.process is not None:
             handle.process.wait(timeout=timeout)
         return bool(processes) or job_running
@@ -269,5 +299,5 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
             handle._job = None
 
 
-__all__ = ["ProcessInfo", "GroupHandle", "pid_alive", "process_command_lines",
+__all__ = ["ProcessInfo", "GroupHandle", "start_identity", "pid_alive", "process_command_lines",
            "ancestors", "handle_from_pid", "spawn_group", "stop_group", "spawn_group_process", "detach_current_process"]

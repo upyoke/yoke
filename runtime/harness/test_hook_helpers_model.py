@@ -317,6 +317,7 @@ def test_parent_model_probe_preserves_windows_argv(monkeypatch):
             "claude.exe",
             10,
             "owner",
+            123.5,
         )
     ]
     for owner in (identity_runtime, helpers_model):

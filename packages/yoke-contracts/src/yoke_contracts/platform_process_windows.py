@@ -122,13 +122,13 @@ def _resume(process, api):
 
 
 def spawn(argv, kwargs):
-    from yoke_contracts.platform_process import GroupHandle
+    from yoke_contracts.platform_process import GroupHandle, start_identity
 
     job = Job()
     kwargs["creationflags"] = kwargs.get("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP
     try:
         process = popen_in_job(argv, kwargs, job)
-        stamp = psutil.Process(process.pid).create_time()
+        stamp = start_identity(psutil.Process(process.pid))
         return GroupHandle(process.pid, stamp, ((process.pid, stamp),), process, job)
     except BaseException:
         job.close()

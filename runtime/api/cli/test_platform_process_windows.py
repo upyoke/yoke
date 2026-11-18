@@ -35,7 +35,7 @@ def test_windows_spawn_assigns_before_resuming(monkeypatch):
     monkeypatch.setattr(windows.subprocess, 'CREATE_NEW_PROCESS_GROUP', 512, raising=False)
     monkeypatch.setattr(windows.subprocess, 'Popen', popen)
     monkeypatch.setattr(windows.psutil, 'Process', lambda pid: SimpleNamespace(
-        create_time=lambda: 12.5, threads=lambda: [SimpleNamespace(id=456)]))
+        create_time=lambda: 12.5, _proc=SimpleNamespace(create_time=lambda monotonic=False: 12.5), threads=lambda: [SimpleNamespace(id=456)]))
     handle = windows.spawn(['program'], {})
     assert handle.pid == 123 and handle.start_time == 12.5
     assert handle.process is process and handle._job is job

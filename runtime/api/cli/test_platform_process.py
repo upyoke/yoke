@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 
 import psutil
 import pytest
@@ -18,10 +19,20 @@ def test_snapshot_and_ancestry_observe_current_process():
     own = next(p for p in processes.process_command_lines() if p.pid == os.getpid())
     assert own.cmdline and own.start_time > 0 and own.rss_kb > 0 and own.username
     assert processes.pid_alive(own.pid, own.start_time)
+
     assert not processes.pid_alive(own.pid, own.start_time + 0.001)
     assert processes.ancestors(own.pid)[0].pid == os.getppid()
     assert processes.handle_from_pid(own.pid, own.start_time + 1) is None
     assert not processes.pid_alive(-1)
+
+
+def test_wall_clock_drift_keeps_identity_and_reuse_still_reads_dead(monkeypatch):
+    """A clock step shifts create_time(), never the recorded start_identity."""
+    identity = processes.start_identity(psutil.Process(os.getpid()))
+    drifted = psutil.Process(os.getpid()).create_time() + 1.0
+    monkeypatch.setattr(psutil.Process, "create_time", lambda self: drifted)
+    assert processes.pid_alive(os.getpid(), identity)
+    assert not processes.pid_alive(os.getpid(), identity + 1.0)
 
 
 def test_spawn_stop_and_restore_record():
@@ -92,6 +103,8 @@ class _FakeProcess:
 
     def __init__(self, live, events, pid=123, refuse=None):
         self.pid, self.live, self.events, self.refuse = pid, live, events, refuse
+
+    _proc = SimpleNamespace(create_time=lambda monotonic=False: 1)
 
     def create_time(self):
         return 1

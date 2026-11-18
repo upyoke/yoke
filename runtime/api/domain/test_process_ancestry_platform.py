@@ -10,7 +10,7 @@ pytestmark = pytest.mark.windows
 
 
 def entry(pid, ppid, name, started=123.5):
-    return platform_process.ProcessInfo(pid, ppid, (name,), started, name, 10, "owner")
+    return platform_process.ProcessInfo(pid, ppid, (name,), started, name, 10, "owner", started)
 
 
 @pytest.mark.parametrize("name", ["codex-code-mode-host", "claude bg-pty-host",
