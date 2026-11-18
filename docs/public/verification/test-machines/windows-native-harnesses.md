@@ -117,6 +117,15 @@ auth tabs, retain each signed-in app, and run a small real request through each
 CLI before sealing goldens. Record the visible app and request outcome without
 credentials; versions and login-status commands alone are insufficient.
 
+The canonical golden checks also require **Claude bypass accepted**, separately
+from login. In an empty QA folder under this dedicated user's profile, the
+operator runs `& "$env:USERPROFILE\.local\bin\claude.exe" --dangerously-skip-permissions`
+and personally reviews the one-time warning. Bypass mode allows commands without
+Claude's usual permission prompts; accept only under the project's lab policy.
+Exit without submitting a task afterward. The probe requires the actual recorded
+boolean `skipDangerousModePermissionPrompt=true` in that session's Claude config;
+do not write the preference directly or weaken the check to seal a golden.
+
 ## Verified standard-user transfer
 
 Standard-user file uploads and large desktop/SSH scripts also use verified SFTP,
