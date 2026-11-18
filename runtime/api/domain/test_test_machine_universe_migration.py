@@ -9,7 +9,7 @@ from yoke_core.domain import migrations
 from yoke_core.domain.migration_history import load_migration_module
 
 
-NAMES = ("linux-lab", "mac-lab", "windows-lab", "windows-native-lab")
+NAMES = ("linux-lab", "test-mac-pro", "test-mac-studio", "windows-lab", "windows-native-lab")
 NOW = "2026-11-18T14:00:00Z"
 
 
@@ -95,7 +95,7 @@ def test_cutover_preserves_settings_owner_and_receipts_on_replay(legacy):
     ).fetchall() == [(name, "reset", 42, "digest") for name in NAMES]
     legacy.execute("DELETE FROM test_machines WHERE name=?", (NAMES[0],))
     for table in ("test_machine_verifications", "test_machine_operation_receipts"):
-        assert legacy.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 3
+        assert legacy.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == len(NAMES) - 1
 
 
 def test_duplicate_universe_names_refuse_before_writes(legacy):

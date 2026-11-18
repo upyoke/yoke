@@ -20,6 +20,23 @@ QA_PLAN_TABLES = {
             "the execution's host lease until verification heals the host."
         ),
     },
+    "test_machines": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("name", "TEXT"),
+            ("settings", "TEXT"),
+            ("power_project_id", "INTEGER"),
+            ("verified_at", "TIMESTAMPTZ"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("yoke_started_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "One universe-wide row per name. power_project_id selects the "
+            "project whose cloud administration credentials start and stop it. "
+            "It is not a project_id scope. Receipts join on test_machine_id; "
+            "the release marker is recorded in yoke_started_at."
+        ),
+    },
     "test_machine_operation_receipts": {
         "columns": [
             ("test_machine_id", "INTEGER"),
