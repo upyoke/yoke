@@ -23,9 +23,10 @@ from browser history before redemption and is never a request URL. The CLI
 passes the link directly to the browser and never prints it, including in JSON.
 Expired, used, or invalid links name `browser_sign_in_expired`,
 `browser_sign_in_used`, or `browser_sign_in_invalid` and tell you to run
-`yoke ui up` again. Actor disablement also blocks redemption. Agents, machines
-without a display and `--no-browser` receive a named browser reason and the
-recovery: run `yoke ui up` from your own terminal on a machine with a display.
+`yoke ui up` again. Actor disablement also blocks redemption. Agents and
+machines without a display receive a named browser reason, such as
+`browser_display_unavailable`, and the recovery: run `yoke ui up` from your own
+terminal on a machine with a display. `--no-browser` prints no recovery.
 The signed-out page teaches this CLI path.
 
 **With company sign-in.** `yoke ui up` opens the server's own URL, and the

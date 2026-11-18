@@ -3,8 +3,8 @@
  "title": "Keep workbench sign-in tokens out of command output and teach human-terminal recovery.",
  "status": "observed",
  "form": "Do",
- "verification": "Source and command regression tests cover text/JSON, local/self-host, agent mode, no-browser and opener failures. Source-review regression tests verify generated and explicit fixture tokens never appear in output.",
+ "verification": "Source and command regression tests cover text/JSON, local/self-host, agent mode, a quiet no-browser and opener failures, which name only the opener's reason code. Source-review regression tests verify generated and explicit fixture tokens never appear in output.",
  "topics": ["security/credentials/connection-tokens", "workbench/identity"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/universe_ui.py", "runtime/api/cli/test_yoke_universe_ui_output.py", "runtime/api/tools/test_review_browser_admission.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/universe_ui.py", "runtime/api/cli/test_yoke_universe_ui_output.py", "runtime/api/cli/test_browser_admission_reason.py", "runtime/api/tools/test_review_browser_admission.py"],
  "position": 7
 }

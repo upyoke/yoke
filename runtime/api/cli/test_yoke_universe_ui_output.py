@@ -70,13 +70,23 @@ def test_admission_only_reaches_human_browser(
     assert seen == (
         [] if outcome in {"disabled", "agent", "unregistered-agent"} else [url]
     )
-    if outcome != "opened":
-        assert "your own terminal" in output
-        assert "browser_" in output
+    expected_reason = {
+        "headless": "browser_display_unavailable",
+        "exception": "browser_open_failed",
+        "agent": "browser_agent_mode",
+        "unregistered-agent": "browser_agent_mode",
+        "disabled": "browser_open_disabled",
+    }.get(outcome)
+    if outcome == "disabled":
+        assert "Run `yoke ui up`" not in output
+    elif expected_reason and not json_mode:
+        assert f"{expected_reason}: Run `yoke ui up`" in output
     if json_mode:
         result = json.loads(captured.out)
         assert result["browser_opened"] is (outcome == "opened")
         assert result["ok"] is (outcome not in {"headless", "exception"})
+        assert result.get("browser_reason") == expected_reason
+        assert ("recovery" in result) is (outcome not in {"opened", "disabled"})
 
 
 @pytest.mark.parametrize("json_mode", [False, True])
