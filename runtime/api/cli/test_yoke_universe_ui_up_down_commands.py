@@ -148,6 +148,39 @@ class TestUp:
         assert commands.ui_up(["--json"]) == 0
         assert opened == ["http://127.0.0.1:9999/?token=stub-token"]
 
+    def test_a_failed_browser_names_the_recovery_once(self, monkeypatch, capsys):
+        monkeypatch.setattr(commands.daemon, "status", running_report)
+        monkeypatch.setattr(
+            commands,
+            "open_url",
+            lambda _url: hosted_machine_browser.BrowserOpenResult(opened=False),
+        )
+
+        assert commands.ui_up([]) == 1
+        lines = capsys.readouterr().out.splitlines()
+        hints = [line for line in lines if "Run `yoke ui up`" in line]
+        assert len(hints) == 1
+        assert hints[0].startswith("browser_open_failed: ")
+        assert lines[0].startswith("yoke ui: serving the local universe")
+        assert "Stop it with `yoke ui down`." in lines
+
+
+class TestStatus:
+    def test_a_running_daemon_hints_how_to_sign_in(
+        self,
+        monkeypatch,
+        machine_home,
+        capsys,
+    ):
+        write_local_connection()
+        monkeypatch.setattr(commands.daemon, "status", running_report)
+
+        assert commands.ui_status([]) == 0
+        assert (
+            "Run `yoke ui up` from your own terminal to open the browser "
+            "and sign in." in capsys.readouterr().out.splitlines()
+        )
+
 
 class TestDown:
     def test_down_reports_the_stopped_pid(

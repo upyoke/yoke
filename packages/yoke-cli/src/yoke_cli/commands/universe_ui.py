@@ -108,6 +108,11 @@ def ui_status(
         print(json.dumps({"ok": True, **report}, sort_keys=True), flush=True)
         return 0
     _print_status(report)
+    if report.get("running"):
+        print(
+            "Run `yoke ui up` from your own terminal to open the browser and sign in.",
+            flush=True,
+        )
     return 0
 
 
@@ -264,7 +269,6 @@ def _print_status(report: Dict[str, object]) -> None:
         "yoke ui: serving the local universe as pid "
         f"{report.get('pid')} on env {report.get('env')}"
     )
-    print("Run `yoke ui up` from your own terminal to open the browser and sign in.")
     if not report.get("serving"):
         print(
             "The process is alive but not yet accepting connections; "
