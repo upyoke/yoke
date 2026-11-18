@@ -144,3 +144,54 @@ def test_eof_cancels_without_a_traceback_or_removal(inventory, monkeypatch):
     )
     with pytest.raises(UninstallError, match="uninstall_cancelled"):
         removal.run(backup=None, projects=None, non_interactive=False, ask=ask)
+
+
+def test_self_host_warning_names_self_hosted_server_data(inventory, monkeypatch):
+    value = replace(inventory, bundles=((inventory.home / "self-host", None),))
+    monkeypatch.setattr(removal, "inspect", lambda: value)
+    monkeypatch.setattr(removal.steps, "back_up", lambda inv, emit: None)
+    monkeypatch.setattr(removal.steps, "remove", lambda inv, selected, emit: 0)
+    output = []
+    removal.run(backup=True, projects="none", non_interactive=True, emit=output.append)
+    assert "only copy of its self-hosted server data" in output[0]
+    assert "local universe" not in output[0]
+
+
+def test_local_universe_warning_names_local_universe_data(inventory, monkeypatch):
+    value = replace(inventory, local_universe=True)
+    monkeypatch.setattr(removal, "inspect", lambda: value)
+    monkeypatch.setattr(removal.steps, "back_up", lambda inv, emit: None)
+    monkeypatch.setattr(removal.steps, "remove", lambda inv, selected, emit: 0)
+    output = []
+    removal.run(backup=True, projects="none", non_interactive=True, emit=output.append)
+    assert "only copy of its local universe data" in output[0]
+
+
+@pytest.mark.parametrize("answer", ["n", "no", ""])
+def test_other_backup_answer_cancels_cleanly(inventory, monkeypatch, answer):
+    value = replace(inventory, bundles=((inventory.home / "self-host", None),))
+    monkeypatch.setattr(removal, "inspect", lambda: value)
+    monkeypatch.setattr(
+        removal.steps, "back_up", lambda *args: pytest.fail("must not back up")
+    )
+    monkeypatch.setattr(
+        removal.steps, "remove", lambda *args: pytest.fail("must not uninstall")
+    )
+    questions, output = [], []
+
+    def ask(question):
+        questions.append(question)
+        return answer
+
+    assert (
+        removal.run(
+            backup=None,
+            projects=None,
+            non_interactive=False,
+            ask=ask,
+            emit=output.append,
+        )
+        == 0
+    )
+    assert len(questions) == 1
+    assert output[-1] == "yoke uninstall cancelled; no changes were made"

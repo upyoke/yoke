@@ -33,8 +33,9 @@ def run(
             ) from exc
 
     if inventory.owns_data:
+        held = "self-hosted server data" if inventory.bundles else "local universe data"
         emit(
-            "WARNING: This machine holds the only copy of its local universe data. "
+            f"WARNING: This machine holds the only copy of its {held}. "
             "Uninstall deletes that data permanently."
         )
         if backup is None:
@@ -47,9 +48,8 @@ def run(
                 "Data: back up first / uninstall without backing up [backup/no-backup]: "
             )
             if choice.strip().lower() not in {"backup", "no-backup"}:
-                raise UninstallError(
-                    "uninstall_backup_choice_invalid: rerun and choose backup or no-backup."
-                )
+                emit("yoke uninstall cancelled; no changes were made")
+                return 0
             backup = choice.strip().lower() == "backup"
     elif backup is not None:
         raise UninstallError(
