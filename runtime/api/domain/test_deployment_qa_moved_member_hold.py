@@ -56,7 +56,7 @@ def _materialize(conn):
         return handle_materialize(_item_call())
 
 
-def _freeze_successor(conn) -> None:
+def _freeze_successor(conn, *, url="https://preview.example.test") -> None:
     conn.execute(
         "UPDATE deployment_runs SET status='executing', current_stage='deploy', "
         "composition_frozen_at=(SELECT composition_frozen_at FROM deployment_runs "
@@ -80,7 +80,7 @@ def _freeze_successor(conn) -> None:
         correlation_id=str(receipt["correlation_id"]),
         status="ready",
         target_name="stage",
-        observed_url="https://preview.example.test",
+        observed_url=url,
         observed_release_lineage="c" * 40,
         executor_receipt="test://successor-ready",
         commit=False,
@@ -140,5 +140,9 @@ def test_takeover_tells_each_moved_owner_once(test_db, monkeypatch):
         [body] = _bodies(test_db, f"deployment-qa-moved:{NEW}:{item_id}")
         assert render_item_ref(test_db, item_id) in body
         assert f"to run {NEW}" in body
-        assert "item QA stage 'item-qa'" in body
-        assert "do not act on the predecessor's wake" in body
+        if item_id == PASSED:
+            assert "Recorded passes carry; nothing to re-run." in body
+            assert "QA dispatch will wake" not in body
+        else:
+            assert "item QA stage 'item-qa'" in body
+            assert "do not act on the predecessor's wake" in body

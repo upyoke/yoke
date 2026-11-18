@@ -130,8 +130,10 @@ def member_plan_credited(conn: Any, run_id: str, item_id: int, plan_id: int) -> 
     if plan_owners(conn, run_id).get(plan_id) is None:
         return False
     rows = conn.execute(
-        "SELECT DISTINCT deployment_stage FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_member_item_id=%s AND plan_id=%s AND retracted_at IS NULL",
+        "SELECT DISTINCT q.deployment_stage FROM qa_requirements q "
+        "JOIN deployment_runs r ON r.id=q.deployment_run_id WHERE r.id=%s "
+        "AND r.composition_frozen_at IS NOT NULL AND q.deployment_member_item_id=%s "
+        "AND q.plan_id=%s AND q.retracted_at IS NULL",
         (str(run_id), int(item_id), int(plan_id)),
     ).fetchall()
     return bool(rows) and all(

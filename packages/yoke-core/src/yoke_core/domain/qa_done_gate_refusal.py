@@ -57,7 +57,7 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
             errors.extend(
                 [
                     f"  - Post-deploy plan {row['plan_slug']}: {plan_credit_wait_reason(row)}",
-                    f"    Run: {row['recovery']}",
+                    f"    Next: {row['recovery']}",
                 ]
             )
             continue

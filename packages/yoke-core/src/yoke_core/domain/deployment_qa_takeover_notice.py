@@ -37,8 +37,14 @@ def moved_member_body(
     new_id: str,
     stage_name: str,
     manual_only: bool,
+    fully_passed: bool,
 ) -> str:
     """One notice: QA moved, and the predecessor wake is no longer the command."""
+    if fully_passed:
+        return (
+            f"{item_ref}'s QA moved from run {old_id} to run {new_id}. "
+            "Recorded passes carry; nothing to re-run."
+        )
     if manual_only:
         instruction = (
             "No dispatch will wake you for it: check the evidence. "
@@ -151,6 +157,7 @@ def notify_moved_member_qa(
     from yoke_contracts.public_ref import format_item_ref
     from yoke_core.domain.merge_queue_landing_notice import addressable_items
 
+    from yoke_core.domain.deployment_qa_carried_passes import fully_passed_member_cases
     from yoke_core.domain.deployment_qa_plan_ownership import (
         open_walk_members,
         plan_only_members,
@@ -168,6 +175,7 @@ def notify_moved_member_qa(
     rows = [
         row for row in _member_rows(conn, item_ids) if int(row["id"]) not in skipped
     ]
+    fully_passed = fully_passed_member_cases(conn, new_id, [int(row["id"]) for row in rows])
     by_project: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         by_project.setdefault(int(row["project_id"]), []).append(row)
@@ -202,6 +210,7 @@ def notify_moved_member_qa(
                             new_id=new_id,
                             stage_name=stage_name,
                             manual_only=item_id in manual_members,
+                            fully_passed=item_id in fully_passed,
                         ),
                         idempotency_key=f"deployment-qa-moved:{new_id}:{item_id}",
                     )

@@ -90,6 +90,7 @@ def _miss(
     stage: str,
     target_env: str,
     *,
+    carried_ids: list[int],
     conn: Any,
 ) -> dict:
     from yoke_core.domain.deployment_qa_plan_groups import run_groups
@@ -104,13 +105,20 @@ def _miss(
             f"this item's landing enrolls it and runs plan {slug} as a plan group"
         )
     )
-    if run:
+    if carried_ids:
+        requirements = ", ".join(f"#{rid}" for rid in carried_ids)
+        if len(carried_ids) == 1:
+            proof = f"The pass on requirement {requirements} carries"
+        else:
+            proof = f"The passes on requirements {requirements} carry"
+        command = f"Do not re-run. {proof} when {run_id} reaches {stage}."
+    elif run:
         from yoke_core.domain.deployment_qa_plan_ownership import plan_owners
         from yoke_core.domain.project_identity import render_item_ref
 
         if plan_owners(conn, run_id).get(plan_id) is not None:
             command = f"yoke qa plan run --item {render_item_ref(conn, item_id)} --stage {stage}"
-    if run and (current := run.get("current_stage")):
+    if run and not carried_ids and (current := run.get("current_stage")):
         names = [entry.get("name") for entry in _stages(conn, run)]
         if (
             current in names
@@ -158,12 +166,18 @@ def _miss(
         "plan_slug": slug,
         "plan_case_key": None,
         "target_env": target_env or None,
+        "carried": bool(carried_ids),
         "recovery": command,
     }
 
 
 def plan_credit_wait_reason(miss: dict) -> str:
     """Name the target-qualified credit still owed, without implying failure."""
+    if miss.get("carried"):
+        return (
+            f"Awaiting {miss['deployment_run_id']} reaching {miss['deployment_stage']} "
+            f"to credit the carried pass for plan {miss['plan_slug']}; do not re-run."
+        )
     target = miss.get("target_env") or "target"
     groups = ", ".join(miss.get("group_ids") or [])
     subject = f"group {groups}" if groups else f"plan {miss['plan_slug']} QA credit"
@@ -196,6 +210,7 @@ def other_target_plan_wait(conn: Any, *, item_id: int, run_id: str) -> str:
 def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
     """One unsatisfied row per owed plan no closed QA credits to this item."""
     from yoke_core.domain.deployment_item_completion_runs import latest_qa_member_run
+    from yoke_core.domain.deployment_qa_carried_passes import carried_plan_passes
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
     from yoke_core.domain.deployment_qa_plan_groups import (
         lineage_run_ids,
@@ -227,9 +242,21 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
                 )
             )
             if not credited:
-                stage = item_qa_stage_name(_stages(conn, run)) if run else "item-qa"
+                stages = _stages(conn, run) if run else []
+                stage = item_qa_stage_name(stages)
+                definition = next((row for row in stages if row.get("name") == stage), {})
+                carried_ids = (
+                    carried_plan_passes(
+                        conn, str(run["id"]), int(item_id), plan_id, definition
+                    )
+                    if run
+                    else []
+                )
                 misses.append(
-                    _miss(item_id, plan_id, slug, run, stage, target_env, conn=conn)
+                    _miss(
+                        item_id, plan_id, slug, run, stage, target_env,
+                        carried_ids=carried_ids, conn=conn,
+                    )
                 )
                 break
     return misses

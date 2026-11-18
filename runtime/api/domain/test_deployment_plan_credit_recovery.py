@@ -36,6 +36,7 @@ def test_recovery_waits_only_before_the_plan_stage(monkeypatch, member_owned, cu
         {"id": run_id, "current_stage": current},
         stage,
         "stage",
+        carried_ids=[],
         conn=object(),
     )
 
