@@ -68,6 +68,18 @@ def profile_copy_script(control, destination):
     ]
     excluded_files = ",".join(quote(value) for value in files)
     return f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
+# The resident Codex sandbox service holds its provisioning guard during reset.
+# Robocopy accepts literal paths here but rejects a wildcard in an absolute path.
+foreach($root in @($source,$target)){{
+ $codex=Join-Path $root '.codex'
+ if(Test-Path -LiteralPath $codex -PathType Container){{
+  $entry=Get-Item -LiteralPath $codex -Force
+  if(!($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)){{
+   $files+=@(Get-ChildItem -LiteralPath $codex -File -Force -Filter '.codex-provisioning-*.guard' |
+     Select-Object -ExpandProperty FullName)
+  }}
+ }}
+}}
 $logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')
