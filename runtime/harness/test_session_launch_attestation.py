@@ -15,6 +15,11 @@ from yoke_core.domain.session_launch_binding_evidence import (
 )
 from yoke_core.domain.session_launch_types import LaunchRegistrationInjection
 from yoke_core.hooks import session_launch_attestation as launch_hook
+from yoke_core.hooks.decision_render import (
+    render_claude_decision,
+    render_codex_decision,
+    render_cursor_decision,
+)
 from yoke_core.hooks.types import HookContext, Outcome
 
 
@@ -291,12 +296,23 @@ def test_taken_over_launch_names_the_holder_and_stops_opening_worker(monkeypatch
     from yoke_core.domain.session_launch_types import SessionLaunchError
 
     def refuse(conn, **kwargs):
-        raise SessionLaunchError("launch_taken_over", "active claim belongs to session replacement-worker; stop and coordinate")
+        raise SessionLaunchError(
+            "launch_taken_over",
+            "active claim belongs to session replacement-worker; stop and coordinate",
+        )
 
     monkeypatch.setattr(launch_hook, "_prepare_or_record_refusal", refuse)
-    for family in ("codex", "claude", "cursor"):
+    for family, render in (
+        ("codex", render_codex_decision),
+        ("claude", render_claude_decision),
+        ("cursor", render_cursor_decision),
+    ):
         decision = launch_hook.evaluate_launch_attestation(
             _record("SessionStart", family), connect=_Connection,
         )
         assert "replacement-worker" in decision.message
-        assert "Stop now" in decision.audit_fields["additionalContext"]
+        output, exit_code = render([decision], "SessionStart")
+        assert exit_code == 0
+        assert "launch_taken_over" in output
+        assert "replacement-worker" in output
+        assert "Stop now" in output
