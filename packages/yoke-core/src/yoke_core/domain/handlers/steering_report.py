@@ -108,18 +108,35 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             "the steering report reads as the steering claim holder",
             "$.actor.session_id",
         )
+    from yoke_core.domain.steering_report_handler_timing import HandlerTiming
 
+    timing = HandlerTiming()
+    outcome = _handle_get(request, payload, session_id, timing)
+    # Telemetry only, attached to every reply this request produced.
+    outcome.telemetry.update(
+        timing.telemetry(
+            build="full" if payload.full or payload.read_delta else "headline",
+            deliver=payload.deliver,
+        )
+    )
+    return outcome
+
+
+def _handle_get(
+    request: FunctionCallRequest,
+    payload: SteeringReportGetRequest,
+    session_id: str,
+    timing: Any,
+) -> HandlerOutcome:
+    """The request's reply, each phase timed on ``timing``."""
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.project_identity import resolve_project_id
     from yoke_core.domain.session_launch_store import utc_now
-    from yoke_core.domain.steering_fleet_report_compose import (
-        combined_dict,
-        compose_held_reports,
-    )
-    from yoke_core.domain.steering_fleet_report_projection import report_dict
-    from yoke_core.domain.steering_fleet_report_render import report_body
+    from yoke_core.domain.steering_fleet_report_compose import compose_held_reports
 
-    conn = connect()
+    with timing.phase("connect"):
+        connection = connect()
+    conn = timing.counted(connection)
     try:
         ref = _requested_project_ref(request)
         project_id: int | None = None
@@ -131,7 +148,8 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         now = utc_now()
         from yoke_core.domain.steering_fleet_report_delivery import _last_report
 
-        _, prior_fingerprint = _last_report(conn, session_id)
+        with timing.phase("claim"):
+            _, prior_fingerprint = _last_report(conn, session_id)
         if payload.questions_only:
             from yoke_core.domain.steering_fleet_report_delivery import (
                 _held_project_ids,
@@ -164,105 +182,127 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
                 _last_report,
             )
 
-            held_projects = _held_project_ids(conn, session_id)
-            if not held_projects or (
-                project_id is not None and project_id not in held_projects
-            ):
-                return _claim_required(project_id)
-            if (
-                claim_report_composition(
+            with timing.phase("claim"):
+                held_projects = _held_project_ids(conn, session_id)
+                if not held_projects or (
+                    project_id is not None and project_id not in held_projects
+                ):
+                    return _claim_required(project_id)
+                boundary = claim_report_composition(
                     conn,
                     session_id=session_id,
                     now=now,
                     question_change=payload.question_change,
                 )
-                is None
-            ):
+            if boundary is None:
                 return HandlerOutcome(
                     telemetry={"steering_report": "composition_skipped"},
                     result_payload={"composition_skipped": True, "delivered": False},
                 )
-        combined = compose_held_reports(
-            conn,
-            session_id=session_id,
-            now=now,
-            project_id=project_id,
-            include_inventory=payload.full or payload.read_delta,
-            reuse_schedule=True,
-            prior_fingerprint=prior_fingerprint,
-        )
+        with timing.phase("compose"):
+            combined = compose_held_reports(
+                conn,
+                session_id=session_id,
+                now=now,
+                project_id=project_id,
+                include_inventory=payload.full or payload.read_delta,
+                reuse_schedule=True,
+                prior_fingerprint=prior_fingerprint,
+            )
         if not combined.sections:
             return _claim_required(project_id)
-        if payload.deliver:
-            from yoke_core.domain.steering_fleet_report_watcher import watcher_dict
-
-            _, prior_fingerprint = _last_report(conn, session_id)
-            result = watcher_dict(combined, prior_fingerprint)
-        elif not payload.full and not payload.read_delta:
-            result = {
-                "composed_at": combined.composed_at,
-                "actionable": combined.actionable,
-                "fingerprint": combined.fingerprint(),
-            }
-        elif project_id is not None:
-            report = combined.sections[0].report
-            result = {
-                **report_dict(report),
-                "body": report_body(report, combined.slow_paths),
-                "slow_paths": [row.to_dict() for row in combined.slow_paths],
-            }
-        else:
-            result = combined_dict(combined)
-        if payload.read_delta:
-            from yoke_core.domain.steering_fleet_report_read import report_read_delta
-
-            try:
-                result["delta_body"] = report_read_delta(
-                    conn,
-                    session_id=session_id,
-                    combined=combined,
-                    full=payload.full,
-                )
-            except ValueError as exc:
-                conn.rollback()
-                return _error("steering_report_read_state_invalid", str(exc))
+        with timing.phase("render"):
+            result = _render(conn, payload, session_id, project_id, combined)
+        if isinstance(result, HandlerOutcome):
+            return result
         if payload.deliver:
             from yoke_core.domain.steering_fleet_report_delivery import (
                 record_report_delivery,
             )
 
-            result["delivered"] = record_report_delivery(
-                conn,
-                session_id=session_id,
-                fingerprint=str(result["fingerprint"]),
-                now=combined.composed_at,
-            )
+            with timing.phase("record"):
+                result["delivered"] = record_report_delivery(
+                    conn,
+                    session_id=session_id,
+                    fingerprint=str(result["fingerprint"]),
+                    now=combined.composed_at,
+                )
         if not payload.full and not payload.deliver:
-            summary = {
-                key: result[key]
-                for key in ("composed_at", "actionable", "fingerprint", "project_id")
-                if key in result
-            }
-            summary["scopes"] = [
-                {
-                    "project_id": section.report.project_id,
-                    "counts": {
-                        key: len(value)
-                        for key, value in report_dict(section.report).items()
-                        if isinstance(value, list)
-                    },
-                }
-                for section in combined.sections
-            ]
-            summary["detail_read"] = "yoke steering report get --full"
-            if payload.read_delta:
-                summary["delta_body"] = result.get("delta_body", "")
-            result = summary
+            result = _summary(payload, result, combined)
         return HandlerOutcome(
             telemetry={"steering_report": "composed"}, result_payload=result
         )
     finally:
-        conn.close()
+        connection.close()
+
+
+def _render(conn, payload, session_id, project_id, combined):
+    """The reply body for this request shape, or a refusal outcome."""
+    from yoke_core.domain.steering_fleet_report_compose import combined_dict
+    from yoke_core.domain.steering_fleet_report_delivery import _last_report
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
+    from yoke_core.domain.steering_fleet_report_render import report_body
+
+    if payload.deliver:
+        from yoke_core.domain.steering_fleet_report_watcher import watcher_dict
+
+        _, prior_fingerprint = _last_report(conn, session_id)
+        result = watcher_dict(combined, prior_fingerprint)
+    elif not payload.full and not payload.read_delta:
+        result = {
+            "composed_at": combined.composed_at,
+            "actionable": combined.actionable,
+            "fingerprint": combined.fingerprint(),
+        }
+    elif project_id is not None:
+        report = combined.sections[0].report
+        result = {
+            **report_dict(report),
+            "body": report_body(report, combined.slow_paths),
+            "slow_paths": [row.to_dict() for row in combined.slow_paths],
+        }
+    else:
+        result = combined_dict(combined)
+    if payload.read_delta:
+        from yoke_core.domain.steering_fleet_report_read import report_read_delta
+
+        try:
+            result["delta_body"] = report_read_delta(
+                conn,
+                session_id=session_id,
+                combined=combined,
+                full=payload.full,
+            )
+        except ValueError as exc:
+            conn.rollback()
+            return _error("steering_report_read_state_invalid", str(exc))
+    return result
+
+
+def _summary(payload, result, combined):
+    """The headline reply: identity, per-scope counts and the detail read."""
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
+
+    summary = {
+        key: result[key]
+        for key in ("composed_at", "actionable", "fingerprint", "project_id")
+        if key in result
+    }
+    summary["scopes"] = [
+        {
+            "project_id": section.report.project_id,
+            "counts": {
+                key: len(value)
+                for key, value in report_dict(section.report).items()
+                if isinstance(value, list)
+            },
+        }
+        for section in combined.sections
+    ]
+    summary["detail_read"] = "yoke steering report get --full"
+    if payload.read_delta:
+        summary["delta_body"] = result.get("delta_body", "")
+    return summary
 
 
 __all__ = [

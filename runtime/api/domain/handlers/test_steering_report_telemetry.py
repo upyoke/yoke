@@ -36,17 +36,42 @@ def _held(test_db, monkeypatch):
 
 def test_composed_skipped_and_question_replies_are_labeled(test_db, monkeypatch):
     _held(test_db, monkeypatch)
-    assert handle_get(_request()).telemetry == {"steering_report": "composed"}
-    assert handle_get(_payload_request({"questions_only": True})).telemetry == {
-        "steering_report": "questions_only"
-    }
+    assert handle_get(_request()).telemetry["steering_report"] == "composed"
+    questions = handle_get(_payload_request({"questions_only": True}))
+    assert questions.telemetry["steering_report"] == "questions_only"
     monkeypatch.setattr(
         "yoke_core.domain.steering_fleet_report_delivery.claim_report_composition",
         lambda *_a, **_k: None,
     )
     skipped = handle_get(_payload_request({"deliver": True}))
     assert skipped.result_payload["composition_skipped"] is True
-    assert skipped.telemetry == {"steering_report": "composition_skipped"}
+    assert skipped.telemetry["steering_report"] == "composition_skipped"
+
+
+def _ms(telemetry, key):
+    suffix = "" if key == "statements" else "_ms"
+    value = telemetry[f"steering_report_{key}{suffix}"]
+    assert value.isdigit(), (key, value)
+    return int(value)
+
+
+def test_full_and_deliver_builds_carry_phase_timings(test_db, monkeypatch):
+    _held(test_db, monkeypatch)
+    full = handle_get(_request())
+    assert full.telemetry["steering_report_build"] == "full"
+    assert full.telemetry["steering_report_deliver"] == "false"
+    assert _ms(full.telemetry, "statements") > 0
+    for phase in ("connect", "claim", "compose", "render", "cpu", "db"):
+        assert _ms(full.telemetry, phase) <= _ms(full.telemetry, "wall"), phase
+    assert "steering_report_record_ms" not in full.telemetry
+    deliver = handle_get(_payload_request({"deliver": True}))
+    assert deliver.telemetry["steering_report"] == "composed"
+    assert deliver.telemetry["steering_report_build"] == "headline"
+    assert deliver.telemetry["steering_report_deliver"] == "true"
+    assert _ms(deliver.telemetry, "record") <= _ms(deliver.telemetry, "wall")
+    # Telemetry never reaches the reply.
+    for reply in (full, deliver):
+        assert not any(key.startswith("steering_report_") for key in reply.result_payload)
 
 
 def test_call_event_carries_the_handler_label(monkeypatch):
