@@ -42,11 +42,11 @@ for the status command below, or the installed `tailscale` command if available.
 
 Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
-then register it as `host`; keep a forwarded `desktop_host` on loopback.
+then register it as `host`; the direct desktop route uses that name too.
 For cloud bootstrap, query the provider's **current** public IP and connect with
 the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
 never register that IP.
-Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
+Keep key-only internet SSH open from anywhere; desktops stay on the tailnet.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id and waits for SSH on the registered MagicDNS name.
 Cloud hosts stay running after lease release. See the
@@ -71,17 +71,18 @@ cycle and require the same host with no remaining QA_HOST afterward.
 
 Provision infrastructure through the project's IaC or an explicit operator
 exception. Register the verified MagicDNS name. Open SSH to any
-address with key-only authentication and keep VNC behind the SSH forward, as
+address with key-only authentication and keep VNC off public networks, as
 [network access](host-provisioning.md#network-access) requires; never forward
-VNC through a router. Enable Screen Sharing for the dedicated account when needed.
+VNC through a router or open it in a cloud security group. Enable Screen Sharing for the dedicated account when needed.
 
 Register `test-machine:<name>` using `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` before
 an update, which uses the as-read settings token. Declare `resource_name`,
 `os=macos`, `host`, `user`, and an eventual absolute `golden_baseline_path`
-outside that user's home. Desktop settings are `desktop_route=ssh-forward`,
-`desktop_protocol=vnc`, `desktop_port`, and `desktop_user`; optional
-`desktop_host` names a separate endpoint. A relay capacity registration is a
+outside that user's home. Desktop settings are `desktop_route=direct`,
+`desktop_protocol=vnc`, `desktop_port=5900`, and `desktop_user`, with no
+`desktop_host` so Screen Sharing reaches the MagicDNS host over the tailnet. A
+host outside the tailnet uses `desktop_route=ssh-forward`. A relay capacity registration is a
 separate identity; ordinary work must use a different home from test resets.
 
 On every QA execution workstation, store the project's shared SSH private key:
@@ -102,9 +103,9 @@ another session must be released before preparation or ad hoc access.
 For operator desktop access, use `yoke test-machine desktop-access --project P
 --test-machine NAME`. Read `--help`, open its returned address in Screen Sharing,
 and use the password from its private mode-0600 `password_file`, never output
-the file. If the route uses SSH forwarding, close the returned control socket
-after use: `ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`.
-Remove only that command's temporary password copy after closing access.
+the file. On the SSH-forward fallback the address works while the command runs;
+press Enter there to close the forward. Remove only that command's temporary
+password copy after closing access.
 
 ## 3. Remote Login and Full Disk Access
 

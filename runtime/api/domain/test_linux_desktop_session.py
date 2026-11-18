@@ -258,9 +258,16 @@ def test_linux_desktop_access_runs_shared_startup_before_opening_route(
 
     monkeypatch.setattr(desktop.subprocess, "run", run)
     monkeypatch.setattr(desktop, "_check_desktop", lambda *a: calls.append("route"))
-    result = desktop.open_desktop_access(
+    from yoke_harness import rdp_certificate_pin
+
+    monkeypatch.setattr(
+        rdp_certificate_pin, "pinned_certificate", lambda *a, **kw: "ab" * 32
+    )
+    announced = []
+    desktop.open_desktop_access(
         project="project",
         test_machine="lab",
+        announce=announced.append,
         settings={
             "os": "linux",
             "host": "lab.invalid",
@@ -271,6 +278,7 @@ def test_linux_desktop_access_runs_shared_startup_before_opening_route(
             "desktop_user": "test",
         },
     )
+    [result] = announced
     try:
         assert calls == ["identity", "ensure", "route"]
         assert result["desktop_session"] == "started"

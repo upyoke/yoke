@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-import tempfile
-import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -95,96 +91,6 @@ def test_registration_requires_complete_route_and_keeps_cloud_identity():
     assert result["cloud_instance_id"] == "i-07b658cc018669344"
     assert result["desktop_user"] == "Administrator"
 
-def test_forward_printable_result_has_no_secret_and_leaves_a_private_copy(
-    credentials, monkeypatch
-):
-    calls = []
-    monkeypatch.setattr(
-        desktop.subprocess,
-        "run",
-        lambda argv, **kw: calls.append(argv) or subprocess.CompletedProcess(argv, 0),
-    )
-    probes = []
-    monkeypatch.setattr(desktop, "_check_desktop", lambda *args: probes.append(args))
-    result = desktop.open_desktop_access(
-        project="project", test_machine="lab", settings=SETTINGS
-    )
-    path = Path(result["password_file"])
-    try:
-        assert set(result) == {"address", "user", "password_file"}
-        assert PASSWORD not in json.dumps(result) + repr(calls)
-        assert path.parent == Path(tempfile.gettempdir())
-        assert path.read_text().strip() == PASSWORD
-        assert is_owner_private_file(path)
-        assert result["user"] == "Administrator"
-        assert result["address"].startswith("rdp://127.0.0.1:")
-        assert probes[0][0] == "127.0.0.1"
-        assert "ExitOnForwardFailure=yes" in calls[0]
-        assert "IdentitiesOnly=yes" in calls[0]
-        assert "-F" in calls[0]
-        assert "sshuser@lab.example" == calls[0][-1]
-        assert ":[127.0.0.1]:3389" in calls[0][calls[0].index("-L") + 1]
-    finally:
-        path.unlink()
-
-def test_direct_route_uses_desktop_host_without_starting_ssh(credentials, monkeypatch):
-    monkeypatch.setattr(
-        desktop.subprocess,
-        "run",
-        lambda *a, **kw: pytest.fail("direct route starts SSH"),
-    )
-    probes = []
-    monkeypatch.setattr(desktop, "_check_desktop", lambda *args: probes.append(args))
-    result = desktop.open_desktop_access(
-        project="project",
-        test_machine="lab",
-        settings={
-            **SETTINGS,
-            "desktop_route": "direct",
-            "desktop_protocol": "vnc",
-            "desktop_host": "desktop.example",
-            "desktop_port": "5900",
-        },
-    )
-    try:
-        assert result["address"] == "vnc://desktop.example:5900"
-        assert probes == [("desktop.example", 5900, "vnc")]
-    finally:
-        Path(result["password_file"]).unlink()
-
-def test_failed_probe_closes_forward_and_removes_password_copy(
-    credentials, monkeypatch
-):
-    calls = []
-    monkeypatch.setattr(
-        desktop.subprocess,
-        "run",
-        lambda argv, **kw: calls.append(argv) or subprocess.CompletedProcess(argv, 0),
-    )
-
-    def fail(*args):
-        raise OSError(PASSWORD)
-
-    monkeypatch.setattr(desktop, "_check_desktop", fail)
-    with pytest.raises(
-        desktop.DesktopAccessError, match="desktop_unreachable"
-    ) as caught:
-        desktop.open_desktop_access(project="project", test_machine="lab", settings=SETTINGS)
-    assert PASSWORD not in str(caught.value)
-    control_path = calls[0][calls[0].index("-S") + 1]
-    assert not Path(control_path.removesuffix(".ssh")).exists()
-    assert calls[-1][-3:] == ["-O", "exit", "sshuser@lab.example"]
-
-def test_missing_password_refuses_before_any_tunnel(credentials, monkeypatch):
-    monkeypatch.setattr(
-        desktop.subprocess,
-        "run",
-        lambda *a, **kw: pytest.fail("missing secret starts SSH"),
-    )
-    with pytest.raises(desktop.DesktopAccessError, match="desktop_password_missing"):
-        desktop.open_desktop_access(
-            project="project", test_machine="missing", settings=SETTINGS
-        )
 
 def _request():
     return FunctionCallRequest(
@@ -226,45 +132,6 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     result = handler.handle_desktop_access(_request()).result_payload
     assert set(result) == {"project", "test_machine", "settings"}
 
-def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys):
-    from yoke_cli.commands.adapters import test_machine_desktop as cli
-
-    calls = []
-    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(
-        cli, "build_actor", lambda **kw: SimpleNamespace(session_id="caller")
-    )
-    monkeypatch.setattr(
-        cli,
-        "call_dispatcher",
-        lambda **kw: (
-            calls.append(kw)
-            or SimpleNamespace(
-                success=True,
-                result={"project": "project", "test_machine": "lab", "settings": SETTINGS},
-            )
-        ),
-    )
-    from yoke_cli.commands import test_machine_desktop_lease as custody
-    from contextlib import nullcontext
-    monkeypatch.setattr(custody, "desktop_lease", lambda **kw: nullcontext())
-    monkeypatch.setattr(desktop, "_check_desktop", lambda *args: None)
-    monkeypatch.setattr(
-        desktop.subprocess,
-        "run",
-        lambda argv, **kw: subprocess.CompletedProcess(argv, 0),
-    )
-    assert (
-        cli.test_machine_desktop_access(["--project", "project", "--test-machine", "lab"])
-        == 0
-    )
-    captured = capsys.readouterr()
-    result = json.loads(captured.out)
-    try:
-        assert calls[0]["payload"] == {"project": "project", "test_machine": "lab"}
-        assert PASSWORD not in captured.out + captured.err + repr(calls)
-    finally:
-        Path(result["password_file"]).unlink()
 
 @pytest.mark.parametrize(
     "protocol,fragments",

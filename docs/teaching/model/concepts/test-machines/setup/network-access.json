@@ -1,10 +1,10 @@
 {
  "id": "network-access",
- "title": "Network access: usable from anywhere",
+ "title": "Network access: usable from anywhere, desktops on the tailnet",
  "status": "draft-copy",
- "sources": ["docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machines/windows-host-provisioning.md", "packages/yoke-harness/src/yoke_harness/desktop_access.py"],
+ "sources": ["docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machines/windows-host-provisioning.md", "packages/yoke-harness/src/yoke_harness/desktop_access.py", "packages/yoke-harness/src/yoke_harness/rdp_certificate_pin.py", "packages/yoke-harness/src/yoke_harness/host_provisioning/linux_desktop_listener.py"],
  "commands": ["yoke test-machine desktop-access"],
  "page": "test-machine-setup",
  "position": 7,
- "summary": "A test machine must be usable from anywhere so QA runs from any controller, including cloud sessions and other networks. SSH is open to every source address with key-only authentication: password and keyboard-interactive SSH disabled, the project's shared test-machine key authorized, and a dedicated non-admin test account. The desktop goes through the SSH forward (desktop_route=ssh-forward); no public RDP or VNC port is opened and SSH is not limited by source address. The rule lives once in the host-provisioning index under Network access and each OS guide links to it."
+ "summary": "A test machine must be usable from anywhere so QA runs from any controller, including cloud sessions and other networks. SSH is open to every source address with key-only authentication: password and keyboard-interactive SSH disabled, the project's shared test-machine key authorized, and a dedicated non-admin test account. The desktop has two routes and never opens RDP or VNC to the public internet. desktop_route=direct is the default for a host on the tailnet: the controller connects to the registered MagicDNS host, whose desktop port each OS guide confines to the Tailscale interface, and a direct RDP route pins the host's self-signed certificate on first use. desktop_route=ssh-forward is the fallback for a host reached only by its public SSH address: desktop-access holds an ssh -N -L forward while it runs. SSH is not limited by source address. The rule lives once in the host-provisioning index under Network access and each OS guide links to it."
 }

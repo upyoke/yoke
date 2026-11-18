@@ -111,11 +111,11 @@ Use the [Linux installer](https://tailscale.com/download/linux), enable the
 
 Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
-then register it as `host`; keep a forwarded `desktop_host` on loopback.
+then register it as `host`; the direct desktop route uses that name too.
 For cloud bootstrap, query the provider's **current** public IP and connect with
 the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
 never register that IP.
-Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
+Keep key-only internet SSH open from anywhere; desktops stay on the tailnet.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id and waits for SSH on the registered MagicDNS name.
 Cloud hosts stay running after lease release. See the
@@ -141,7 +141,7 @@ cycle and require the same host with no remaining QA_HOST afterward.
 Authorize the project's shared public SSH key in the test account's
 `~/.ssh/authorized_keys` (directory0700, file0600, both test-user-owned).
 Disable password/keyboard-interactive SSH; retain public-key access. Open SSH
-to any address and keep RDP behind the SSH forward, as
+to any address and keep RDP off public networks, as
 [network access](host-provisioning.md#network-access) requires; audit the
 effective SSH and firewall policy, not just successful login.
 
@@ -167,16 +167,19 @@ artifacts or source. `exec` uses the workstation's SSH agent; host operations
 resolve capability secrets. A serial host lease held by another session
 requires waiting before preparation/access.
 
-After step4, declare `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
-`desktop_port=3389`, `desktop_user=TESTUSER`; the default forwarded desktop host
-is remote loopback. Operator access uses `yoke test-machine desktop-access
---project P --test-machine NAME`; read `--help`. Open its returned loopback address
-in an RDP client, no gateway, Xorg session, with the registered test user and
-password from the private `password_file`. Close its tunnel after use with
-`ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`; remove only
-its temporary password copy. No public RDP ingress is needed. For an announced
-personal sign-in handoff with a visible FreeRDP SDL viewer, add `--view`; the
-product supplies the password on stdin and closes its forward with the viewer.
+After step4, declare `desktop_protocol=rdp`, `desktop_route=direct`,
+`desktop_port=3389`, `desktop_user=TESTUSER` with no `desktop_host`, so the
+desktop is the registered MagicDNS host. A host outside the tailnet declares
+`desktop_route=ssh-forward` instead; its default desktop host is remote loopback.
+Operator access uses `yoke test-machine desktop-access --project P
+--test-machine NAME`; read `--help`. Open its returned address in an RDP
+client, no gateway, Xorg session, with the registered test user and password
+from the private `password_file`; on the direct route compare the printed
+`certificate_sha256` with the certificate your client shows. An SSH-forward
+address works while the command runs; press Enter to close it. Remove only the
+temporary password copy. For an announced personal sign-in handoff with a
+visible FreeRDP SDL viewer, add `--view`; the product supplies the password on
+stdin and closes any forward with the viewer.
 Read `--help` for the required client. Agent captures prove test rendering.
 
 ## 3. Harness installation and sign-in
@@ -241,8 +244,11 @@ Provisioning requires `--browser-project` and `--browser-identity`, naming the
 operator identity (the project's browser-control `default_identity`);
 `--verify` takes neither. It requires Ubuntu24.04 and passwordless sudo,
 installs XFCE, xfce4-terminal, xfce4-helpers, xdg-utils, GTK's launcher tools,
-xorgxrdp/xrdp, dbus-x11, scrot, xdotool and venv support. It refuses another
-`.xsession` choice and proves active services and loopback-only RDP. It sets
+xorgxrdp/xrdp, dbus-x11, scrot, xdotool, nftables and venv support. It refuses
+another `.xsession` choice and proves active services. xrdp listens on every
+interface, and a persisted nftables table (`yoke-desktop-firewall.service`,
+loaded before xrdp) drops RDP arriving anywhere but `lo` and `tailscale0`;
+`--verify` proves both. It sets
 `TerminalEmulator=xfce4-terminal` and `WebBrowser=yoke-identity-browser` in
 `~/.config/xfce4/helpers.rc`, preserving unrelated helpers. The XFCE browser
 helper uses `gtk-launch` to open the existing identity launcher

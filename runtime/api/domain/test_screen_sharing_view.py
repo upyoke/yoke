@@ -153,9 +153,15 @@ def test_desktop_access_view_routes_macos_vnc_to_screen_sharing(tmp_path, monkey
     monkeypatch.setattr(
         sharing, "view_screen_sharing", lambda *a: calls.append(a) or {"viewer": "closed"}
     )
-    assert desktop_access.open_desktop_access(
-        project="project", test_machine="test-mac", settings=SETTINGS, view=True
-    ) == {"viewer": "closed"}
+    announced = []
+    desktop_access.open_desktop_access(
+        project="project",
+        test_machine="test-mac",
+        settings=SETTINGS,
+        announce=announced.append,
+        view=True,
+    )
+    assert announced == [{"viewer": "closed"}]
     assert calls[0][3] == PASSWORD
 
 

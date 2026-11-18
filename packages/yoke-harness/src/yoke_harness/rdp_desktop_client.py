@@ -84,6 +84,19 @@ def _client_failure(code, evidence, log_path):
     return f"desktop_view_failed: {reason}; FreeRDP exited {code}; retained log: {log_path}; {recovery}"
 
 
+def _certificate_option(host, port, settings):
+    """SSH's verified host key vouches for the loopback forward; direct pins TOFU."""
+    if settings["desktop_route"] == "ssh-forward":
+        return "/cert:ignore"
+    from yoke_cli.config import machine_config
+    from yoke_harness.rdp_certificate_pin import pinned_certificate
+
+    fingerprint = pinned_certificate(
+        host, port, DesktopAccessError, yoke_home=machine_config.yoke_home()
+    )
+    return f"/cert:fingerprint:sha256:{fingerprint}"
+
+
 class DesktopView:
     """One FreeRDP viewer. Close stops the client and its SSH forward."""
 
@@ -181,10 +194,7 @@ class DesktopView:
             f"/u:{user}",
             "/d:",
             "/from-stdin:force",
-            # Only the loopback SSH route trusts SSH's verified host key.
-            "/cert:ignore"
-            if settings["desktop_route"] == "ssh-forward"
-            else "/cert:deny",
+            _certificate_option(host, port, settings),
             "/log-level:INFO",
             "/timeout:15000",
             # SDL retains /size as local window dimensions and negotiates the

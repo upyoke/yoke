@@ -1,4 +1,4 @@
-"""Core desktop routes retain loopback safety and distinguish setup from UI proof."""
+"""Core desktop provisioners keep RDP off public networks and distinguish setup from UI proof."""
 
 import importlib.util
 import io
@@ -19,31 +19,17 @@ def provisioners(monkeypatch):
     root = Path(__file__).resolve().parents[2]
     scripts = root / "packages/yoke-harness/src/yoke_harness/host_provisioning"
     loaded = []
-    for name in ("provision_linux_desktop", "provision_windows_wsl_desktop"):
+    for name in (
+        "linux_desktop_listener",
+        "provision_linux_desktop",
+        "provision_windows_wsl_desktop",
+    ):
         spec = importlib.util.spec_from_file_location(name, scripts / f"{name}.py")
         module = importlib.util.module_from_spec(spec)
         monkeypatch.setitem(sys.modules, name, module)
         spec.loader.exec_module(module)
         loaded.append(module)
-    return loaded
-
-
-def test_listener_configuration_preserves_other_sections(provisioners):
-    linux, _ = provisioners
-    port = linux.DEFAULT_RDP_PORT + 1
-    content = "[Globals]\nport=3389\n[session]\nport=-1\n"
-    assert linux.localhost_config(content, port) == (
-        f"[Globals]\nport=tcp://127.0.0.1:{port}\n[session]\nport=-1\n"
-    )
-    linux.prove_listener(f"LISTEN 0 2 127.0.0.1:{port} 0.0.0.0:*", port)
-
-
-@pytest.mark.parametrize("address", ["0.0.0.0", "[::]", "127.0.0.2"])
-def test_non_loopback_desktop_listener_is_refused(provisioners, address):
-    linux, _ = provisioners
-    port = linux.DEFAULT_RDP_PORT
-    with pytest.raises(linux.ProvisionFailure, match="loopback_not_proved"):
-        linux.prove_listener(f"LISTEN 0 2 {address}:{port} 0.0.0.0:*", port)
+    return loaded[1:]
 
 
 @pytest.mark.parametrize("verify", [False, True])
@@ -65,7 +51,15 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     monkeypatch.setattr(
         linux, "provision", lambda *args: calls.append(("provision", *args))
     )
-    monkeypatch.setattr(linux, "verify", lambda *args: {"ok": True})
+    monkeypatch.setattr(
+        linux, "verify", lambda *args: calls.append(("verify", *args)) or {"ok": True}
+    )
+    monkeypatch.setattr(
+        windows,
+        "expose_on_tailnet",
+        lambda port, verify_only: calls.append(("tailnet", port, verify_only))
+        or "100.64.0.7",
+    )
     monkeypatch.setattr(linux, "desktop_password_input", lambda: "fixture-secret")
     monkeypatch.setattr(
         linux,
@@ -98,13 +92,13 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     assert result["wsl_lifetime"]["persistence_proved"] is False
     assert result["wsl_lifetime"]["restart_required"] is not verify
     assert "fixture-secret" not in json.dumps(result)
+    port = windows.DEFAULT_WSL_RDP_PORT
+    assert result["tailnet_listener"] == f"100.64.0.7:{port}"
     assert calls == [
-        *(
-            []
-            if verify
-            else [("provision", home, windows.DEFAULT_WSL_RDP_PORT, "acme", "operator")]
-        ),
-        ("localhost", windows.DEFAULT_WSL_RDP_PORT),
+        *([] if verify else [("provision", home, port, "acme", "operator", "127.0.0.1")]),
+        ("verify", home, port, "127.0.0.1"),
+        ("localhost", port),
+        ("tailnet", port, verify),
         *([] if verify else [("password", "fixture-secret")]),
     ]
 
