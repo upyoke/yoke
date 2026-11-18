@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any
 import time
 
-from yoke_core.domain.machine_qa_plan_case_execution import _dispatch, _waiting_case
+from yoke_core.domain.machine_qa_plan_case_execution import (
+    MachinePlanCaseDispatchError,
+    _dispatch,
+    _waiting_case,
+)
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 
 
@@ -54,7 +58,47 @@ def begin_command_host(
 
     # The Command reaches the host itself, so its leased host must be up first.
     power_on(str(begun["execution"]["project"]), begun["execution"]["settings"])
+    reset_command_host(begun["execution"])
     return None
+
+
+def reset_command_host(raw_contract: dict[str, Any]) -> dict[str, Any] | None:
+    """Reach the baseline the admitted Command case declares, if it names one.
+
+    Plan admission already put the case's ``host_baseline`` in the contract's
+    ``baselines`` exactly as it does for a machine case; the Command runs on
+    the operator's machine, so the reset happens here before it starts.
+    """
+    from yoke_core.domain.machine_qa_chain_restore import (
+        STARTING_STATE_RESET_FAILED,
+        baseline_receipt,
+    )
+    from yoke_core.domain.machine_qa_execution_contract import (
+        HostControlExecutionContract,
+    )
+    from yoke_core.domain.machine_qa_local_execution import _execution
+
+    contract = HostControlExecutionContract.model_validate(raw_contract)
+    if not contract.baselines:
+        return None
+    baseline = contract.baselines[0]
+    reset = baseline_receipt(
+        baseline,
+        _execution(contract).reach_baseline,
+        failure_code=STARTING_STATE_RESET_FAILED,
+    )
+    if not reset["ok"]:
+        host = contract.settings["resource_name"]
+        raise MachinePlanCaseDispatchError(
+            f"Command case could not reset {host} to {baseline!r} before it "
+            f"ran: {reset.get('diagnostic') or reset.get('evidence')}",
+            error_code=reset.get("error_code") or STARTING_STATE_RESET_FAILED,
+            recovery_hint=(
+                f"repair {host} (`yoke test-machine verify --project "
+                f"{contract.project} --test-machine {host}`), then rerun the plan"
+            ),
+        )
+    return reset
 
 
 def command_liveness(requirement, check_in):

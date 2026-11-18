@@ -27,6 +27,12 @@ declares no host starting state. Authoring, `qa.requirement.add`, and materializ
 - `"starting_state": "as_is"` with `"starting_state_reason"`: run on the
   machine as found, for the stated reason.
 
+A Command case whose `method_config.test_machine` names a host may declare
+`host_baselines` (`--host-baseline`); plan admission resets that host to the
+baseline before the command runs, and a failed reset stops the plan with the
+host repair step. With no baseline the Command runs on the host as found. It
+never declares `inherit` or `as_is`.
+
 On macOS, a failed captured-entry copy retries once to handle entries a live
 service recreates during restore. A persistent failure retains the named
 unrestored-entry receipt and copier diagnostic. Inspect that entry and repair

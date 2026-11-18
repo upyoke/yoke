@@ -108,6 +108,7 @@ def test_command_uses_existing_plan_case_admission(monkeypatch, state):
         }
 
     monkeypatch.setattr(commands, "_dispatch", dispatch)
+    monkeypatch.setattr(commands, "reset_command_host", calls.append)
     result = commands.begin_command_host(
         {"requirement_id": 1, "method_config": {"test_machine": "linux-lab"}},
         execution_id="plan-execution",
@@ -121,6 +122,41 @@ def test_command_uses_existing_plan_case_admission(monkeypatch, state):
         assert result["case_outcome"] == "waiting"
     else:
         assert result is None
+
+
+def _contract(monkeypatch, baselines, reach):
+    from yoke_core.domain import machine_qa_execution_contract as contracts
+    from yoke_core.domain import machine_qa_local_execution as local
+
+    contract = SimpleNamespace(
+        baselines=baselines, project="yoke", settings={"resource_name": "linux-lab"}
+    )
+    monkeypatch.setattr(
+        contracts.HostControlExecutionContract,
+        "model_validate",
+        classmethod(lambda cls, raw: contract),
+    )
+    monkeypatch.setattr(
+        local, "_execution", lambda _: SimpleNamespace(reach_baseline=reach)
+    )
+
+
+@pytest.mark.parametrize("baselines", [[], ["shell-preconfigured"]])
+def test_command_resets_only_the_baseline_it_declares(monkeypatch, baselines):
+    reached = []
+    ok = SimpleNamespace(ok=True, error_code=None, evidence={})
+    _contract(monkeypatch, baselines, lambda name: reached.append(name) or ok)
+    commands.reset_command_host({})
+    assert reached == baselines
+
+
+def test_command_reset_failure_refuses_with_recovery(monkeypatch):
+    failed = SimpleNamespace(ok=False, error_code="baseline_failed", evidence={})
+    _contract(monkeypatch, ["fresh-host"], lambda _: failed)
+    with pytest.raises(commands.MachinePlanCaseDispatchError) as refusal:
+        commands.reset_command_host({})
+    assert "could not reset linux-lab to 'fresh-host'" in str(refusal.value)
+    assert "yoke test-machine verify" in str(refusal.value)
 
 
 def test_command_watcher_heartbeats_plan_at_interval(monkeypatch):
@@ -137,9 +173,10 @@ def test_command_watcher_heartbeats_plan_at_interval(monkeypatch):
     assert calls == ["heartbeat"]
 
 
+@pytest.mark.parametrize("baselines", [(), ("shell-preconfigured",)])
 @pytest.mark.parametrize("operation", ["reset", "screenshot"])
 def test_declared_command_acquires_lease_and_can_begin_nested_operation(
-    test_db, tmp_path, monkeypatch, operation
+    test_db, tmp_path, monkeypatch, operation, baselines
 ):
     from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
     from runtime.api.domain.agent_mission_qa_test_support import ACTOR, _request
@@ -166,6 +203,7 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
                 "instructions": "Run a leased host operation.",
                 "expected_outcome": "Pass.",
                 "method_config": {"test_machine": "mac-mini-lab", "command": "true"},
+                "host_baselines": list(baselines),
             }
         ],
     )
@@ -204,6 +242,8 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
     )
     assert admitted.primary_success, admitted.error
     assert admitted.result_payload["state"] == "ready"
+    # Admission names the declared baseline, so the Command resets it first.
+    assert admitted.result_payload["execution"]["baselines"] == list(baselines)
     nested = begin(operation)
     assert nested.primary_success, nested.error
 
