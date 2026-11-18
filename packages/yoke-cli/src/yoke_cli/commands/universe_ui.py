@@ -211,7 +211,9 @@ def ui_up(args: List[str]) -> int:
     else:
         if report.get("mode") == "self-host":
             print(
-                f"yoke ui: self-host workbench on env {report.get('env')}", flush=True
+                f"yoke ui: self-host workbench on env {report.get('env')} "
+                f"at {report.get('url')}",
+                flush=True,
             )
         else:
             _print_status(report)

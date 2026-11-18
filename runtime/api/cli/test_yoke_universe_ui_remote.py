@@ -73,7 +73,9 @@ def test_up_opens_server_door_with_active_credential(
     report = json.loads(capsys.readouterr().out)
     assert report["browser_opened"] is True
     assert report["mode"] == "self-host"
+    assert report["url"] == "https://team.example"
     assert "private_url" not in report
+    assert "#" not in json.dumps(report)
     assert seen == ["https://team.example" + path]
 
 
@@ -99,7 +101,11 @@ def test_no_browser_teaches_human_terminal_without_printing_link(
     )
     assert commands.ui_up(["--no-browser"]) == 0
     output = capsys.readouterr().out
+    assert output.startswith(
+        "yoke ui: self-host workbench on env team at https://team.example\n"
+    )
     assert code not in output
+    assert "#" not in output
     assert "browser_open_disabled" in output
     assert "your own terminal" in output
 
