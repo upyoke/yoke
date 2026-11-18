@@ -137,19 +137,22 @@ _SUPERSEDED_LAUNCH_CODES = frozenset(
 )
 
 
-def _superseded_launch_stop_context(
-    code: str, *, launch_state: str | None = None
-) -> str | None:
+def _superseded_launch_stop_context(refusal: SessionLaunchError) -> str | None:
     """Tell a superseded launch native to stop now, on its first hook."""
-    if code == "invalid_state" and launch_state in _REGISTRATION_PENDING_STATES:
+    code = refusal.code
+    if code == "invalid_state" and refusal.launch_state in _REGISTRATION_PENDING_STATES:
         return None
     if code not in _SUPERSEDED_LAUNCH_CODES:
         return None
+    reason = (
+        f"{refusal} "
+        if code == "launch_taken_over"
+        else "Another attempt already bound, or the launch was reconciled, retried, or taken over. "
+    )
     return (
         "## Yoke launch superseded\n\n"
         f"This launch attempt is no longer the live one for its work ({code}). "
-        "Another attempt already bound, or the launch was reconciled, retried, "
-        "or taken over. You hold no work claim and carry no mandate to execute. "
+        f"{reason}You hold no work claim and carry no mandate to execute. "
         "Do not read the backlog, adopt an item, or write to the checkout. "
         "Stop now: end this turn without taking further action."
     )
@@ -225,9 +228,7 @@ def evaluate_launch_attestation(
     except SessionLaunchError as exc:
         audit: dict[str, Any] = {"session_launch_error": exc.code}
         if record.event_name in SESSION_OPENING_STDOUT_EVENTS:
-            stop_context = _superseded_launch_stop_context(
-                exc.code, launch_state=exc.launch_state
-            )
+            stop_context = _superseded_launch_stop_context(exc)
             if stop_context is not None:
                 audit["additionalContext"] = stop_context
         return HookDecision(
