@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.machine_config.capability_secret_store import (
-    store_machine_capability_secret,
+    store_test_machine_secret,
 )
 from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_harness import desktop_access as desktop
@@ -27,8 +27,8 @@ pytestmark = pytest.mark.windows
 @pytest.fixture
 def credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    store_machine_capability_secret("project", "test-machine", "ssh_private_key", "fake-key")
-    store_machine_capability_secret("project", "test-machine:lab", "desktop_password", PASSWORD)
+    store_test_machine_secret("lab", "ssh_private_key", "fake-key")
+    store_test_machine_secret("lab", "desktop_password", PASSWORD)
     return tmp_path
 
 
@@ -171,13 +171,13 @@ def test_cli_dispatch_never_contains_a_password(credentials, forward, monkeypatc
     monkeypatch.setattr(custody, "desktop_lease", lambda **kw: nullcontext())
     monkeypatch.setattr(desktop, "_hold_forward", lambda: None)
     assert (
-        cli.test_machine_desktop_access(["--project", "project", "--test-machine", "lab"])
+        cli.test_machine_desktop_access(["--test-machine", "lab"])
         == 0
     )
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     try:
-        assert calls[0]["payload"] == {"project": "project", "test_machine": "lab"}
+        assert calls[0]["payload"] == {"test_machine": "lab"}
         assert PASSWORD not in captured.out + captured.err + repr(calls)
     finally:
         Path(result["password_file"]).unlink()

@@ -46,7 +46,8 @@ def _held_forward(project, settings, route, port, error, ssh_args):
     )
     if not key.is_file():
         raise error(
-            "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
+            "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
+            f"--test-machine {settings['resource_name']} --key ssh_private_key --value-file FILE"
         )
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))

@@ -184,7 +184,8 @@ def _ready_desktop_view(project, test_machine, settings):
     )
     if not key_path.is_file():
         raise DesktopAccessError(
-            "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
+            "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
+            f"--test-machine {test_machine} --key ssh_private_key --value-file FILE"
         )
     receipt, run = _prepare_desktop(settings, key_path, password)
     return password, receipt, run
@@ -260,7 +261,8 @@ def open_desktop_access(
         key_path = test_machine_secret_path(test_machine, "ssh_private_key")
         if not key_path.is_file():
             raise DesktopAccessError(
-                "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
+                "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
+                f"--test-machine {test_machine} --key ssh_private_key --value-file FILE"
             )
         receipt, _ = _prepare_desktop(settings, key_path, password)
         session_evidence = {"desktop_session": receipt["desktop_session"]}
