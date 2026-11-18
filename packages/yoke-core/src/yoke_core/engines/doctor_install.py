@@ -64,7 +64,9 @@ SESSION_REQUIRED_DETAIL = (
 )
 
 
-HARNESS_AUTH_PROBE_TIMEOUT_S = 5
+# In-session `claude auth status` takes ~5.2s on WSL2 (QA run 71550); three
+# harness probes at this bound still fit doctor's 45s check budget.
+HARNESS_AUTH_PROBE_TIMEOUT_S = 12
 
 
 def harness_auth(manifest, executable: str) -> tuple[bool, str]:
@@ -72,37 +74,38 @@ def harness_auth(manifest, executable: str) -> tuple[bool, str]:
 
     Signed out is the CLI's own answer; a probe that timed out, failed or
     printed nothing readable is a probe failure and earns no re-login advice.
-    Native auth documents hold private account data, so stdout is never echoed.
+    Native auth output holds private account data, so it is never echoed.
     """
     probe = _run([executable, *manifest.auth_args], timeout=HARNESS_AUTH_PROBE_TIMEOUT_S)
     command = f"`{shlex.join((manifest.executable, *manifest.auth_args))}`"
+    code = probe.returncode
     signed_out = (
         f"HARNESS_SIGNED_OUT: {manifest.executable} is not signed in. "
         f"{manifest.sign_in_recovery(executable)}"
     )
-    if probe.returncode == 124:
+    if code == 124:
         return False, _probe_failed(command, f"timed out after {HARNESS_AUTH_PROBE_TIMEOUT_S}s")
-    if probe.returncode != 0:
-        if not manifest.auth_signed_in_key:
-            # Without a status document the exit code is the CLI's answer.
-            return False, f"{signed_out} ({command} exited {probe.returncode})"
-        return False, _probe_failed(command, f"exited {probe.returncode}", probe.stderr)
-    if manifest.auth_signed_in_key:
-        try:
-            document = json.loads(probe.stdout)
-            signed_in = document.get(manifest.auth_signed_in_key) is True
-        except (ValueError, AttributeError):
-            return False, _probe_failed(command, "exited 0 without a JSON status document")
-        if not signed_in:
-            return False, signed_out
+    if not manifest.auth_signed_in_key:
+        # Without a status document the exit code is the CLI's answer.
+        if code == 0:
+            return True, f"{manifest.executable} is signed in."
+        return False, f"{signed_out} ({command} exited {code})"
+    # A signed-out CLI may exit non-zero while still printing its document.
+    try:
+        document = json.loads(probe.stdout)
+        signed_in = document.get(manifest.auth_signed_in_key) is True
+    except (ValueError, TypeError, AttributeError):
+        return False, _probe_failed(command, f"exited {code} without a JSON status document")
+    if not signed_in:
+        return False, signed_out
+    if code != 0:
+        return False, _probe_failed(command, f"exited {code}")
     return True, f"{manifest.executable} is signed in."
 
 
-def _probe_failed(command: str, outcome: str, stderr: str = "") -> str:
-    reason = next((line.strip() for line in (stderr or "").splitlines() if line.strip()), "")
-    return f"HARNESS_AUTH_PROBE_FAILED: {command} {outcome}" + (
-        f": {reason[:160]}" if reason else "."
-    )
+def _probe_failed(command: str, outcome: str) -> str:
+    # Neither stream is echoed: both can carry private account data.
+    return f"HARNESS_AUTH_PROBE_FAILED: {command} {outcome}."
 
 
 def installed_harness_clis() -> dict[str, str]:

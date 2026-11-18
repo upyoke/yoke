@@ -60,10 +60,37 @@ def test_a_failed_probe_names_its_exit_code_not_a_login(monkeypatch):
     signed_in, detail = doctor_install.harness_auth(CLAUDE, "/bin/claude")
     assert signed_in is False
     assert detail == (
-        "HARNESS_AUTH_PROBE_FAILED: `claude auth status --json` exited 1: "
-        "EACCES: permission denied, open '/x'"
+        "HARNESS_AUTH_PROBE_FAILED: `claude auth status --json` exited 1 without "
+        "a JSON status document."
     )
     assert "auth login" not in detail
+
+
+def test_a_signed_out_cli_that_exits_non_zero_still_names_the_login(monkeypatch):
+    # Claude Code 2.1.327 signed out: exit 1, empty stderr, loggedIn false.
+    probe(monkeypatch, 1, json.dumps({"loggedIn": False, "authMethod": "none"}))
+    signed_in, detail = doctor_install.harness_auth(CLAUDE, "/bin/claude")
+    assert signed_in is False
+    assert detail.startswith("HARNESS_SIGNED_OUT")
+    assert "`/bin/claude auth login`" in detail
+
+
+def test_a_signed_in_document_with_a_failing_exit_is_a_probe_failure(monkeypatch):
+    probe(monkeypatch, 2, json.dumps(ACCOUNT), "config lock busy")
+    signed_in, detail = doctor_install.harness_auth(CLAUDE, "/bin/claude")
+    assert signed_in is False
+    assert detail == (
+        "HARNESS_AUTH_PROBE_FAILED: `claude auth status --json` exited 2."
+    )
+    assert "person@example.com" not in detail and "lock" not in detail
+
+
+def test_the_probe_budget_covers_a_slow_in_session_cli_within_the_check_budget():
+    from yoke_contracts.doctor_budget import CHECK_BUDGET_S
+    from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
+
+    assert doctor_install.HARNESS_AUTH_PROBE_TIMEOUT_S > 5.4
+    assert doctor_install.HARNESS_AUTH_PROBE_TIMEOUT_S * len(HARNESS_CLI_MANIFESTS) < CHECK_BUDGET_S
 
 
 @pytest.mark.parametrize("stdout", ["", "Logged in as person@example.com", "[]"])
