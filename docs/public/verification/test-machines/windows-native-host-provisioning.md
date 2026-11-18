@@ -245,31 +245,19 @@ VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-The provisioner configures automatic logon for the dedicated lab user, stores
-the password in LSA, and disables that account's workstation and screen-saver
-locks. Reboot once. With the RDP viewer closed, run
-`yoke test-machine verify --test-machine VM`. The console check
-requires an interactive task, Explorer in its nonzero console session, and
-access to the unlocked display. Recheck the console after a golden reset.
+Provisioning stores the lab account's autologon password in LSA and disables
+its locks. Reboot, close the viewer and run `yoke test-machine verify --test-machine VM`.
+The probe checks Explorer and an unlocked display in the interactive console.
 
-Follow [first Tailscale login and bootstrap desktop](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop)
-for the localhost SSH/RDP route, password custody and device approval.
+Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
+Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet
+proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
+`yoke test-machine desktop-access` to reconnect and unlock.
 
-After tailnet proof, register `desktop_protocol=rdp`, `desktop_route=direct`,
-`desktop_host=MAGICDNS`, `desktop_port=3389`, `desktop_user=yokeqa`.
-For SSH bootstrap use `desktop_route=ssh-forward`, `desktop_host=127.0.0.1`.
-`yoke test-machine desktop-access` returns the private address or forward and
-private password-file path for your [controller RDP client](windows-native-controller.md).
-
-Use `yoke test-machine desktop-access` to reconnect and unlock. Disconnect
-without signing out. The account-specific `YokeQa-ReturnToConsole` task moves
-its disconnected session back to the console. It runs as SYSTEM with a
-fixed action and a task ACL restricted to SYSTEM and Administrators. The
-action targets the disconnected lab session and uses `/dest:console` as the
-destination. See [Microsoft's tscon reference](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tscon).
-If the return fails, inspect the task's Last Run Result and confirm the console
-is free before rerunning provisioning. `yoke test-machine screenshot` captures
-the VM's Windows desktop with the viewer closed.
+Disconnect without signing out. The administrator-owned `YokeQa-ReturnToConsole`
+task returns this account to the console. If it fails, check Task Scheduler's
+Last Run Result and confirm the console is free. With the viewer closed,
+`yoke test-machine screenshot` captures the desktop, including after reset.
 
 Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
 before capturing goldens.

@@ -81,7 +81,7 @@ try {
  Set-ItemProperty "$hive\Control Panel\Desktop" -Name ScreenSaveActive -Value '0'
  Set-ItemProperty "$hive\Control Panel\Desktop" -Name ScreenSaverIsSecure -Value '0'
  $policy="$hive\Software\Microsoft\Windows\CurrentVersion\Policies\System"
- New-Item -Path $policy -Force | Out-Null
+ if (!(Test-Path -LiteralPath $policy)) { New-Item -Path $policy -Force | Out-Null }
  New-ItemProperty $policy -Name DisableLockWorkstation -PropertyType DWord -Value 1 -Force | Out-Null
 } finally {
  if ($loaded) {
