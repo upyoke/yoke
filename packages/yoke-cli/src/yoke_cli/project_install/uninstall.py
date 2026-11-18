@@ -189,9 +189,13 @@ def uninstall(
         warnings.append(
             f"project_uninstall_{shared_scope}: Git hooks and the worktree ignore entry may serve other checkouts; resolve sharing or checkout identity, then rerun project uninstall."
         )
+    # One refusal per reason: every harness row repeats the registration's.
+    reasons = {f"project_uninstall_{shared_scope}"} if shared_scope else set()
     for row in [local_cleanup["registration"], *local_cleanup["trust"]]:
-        if row["status"] in {"preserved", "failed"}:
-            warnings.append(f"project_uninstall_{row['reason']}: {row['recovery']}")
+        code = f"project_uninstall_{row['reason']}"
+        if row["status"] in {"preserved", "failed"} and code not in reasons:
+            reasons.add(code)
+            warnings.append(f"{code}: {row['recovery']}")
     (root / PENDING_REL).unlink(missing_ok=True)
     if local_cleanup["complete"]:
         ignore_removed, ignore_skipped, ignore_absent, ignore_warnings = (

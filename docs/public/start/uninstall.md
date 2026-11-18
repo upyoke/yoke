@@ -81,6 +81,11 @@ that onboarding or install wrote is installer-owned; one made by
 `yoke project register` stays, and the warning names the machine config entry
 to delete before you rerun. Shared roots, Git worktrees and unproven
 registration are preserved with named reasons.
+A checkout registered on one connection only is retired from that connection
+whichever connection is active, so projects from different universes that share
+a project number uninstall independently; a checkout registered on two
+connections is preserved as `checkout_shared_with_other_connection`. Each
+reason is reported once, however many harnesses it covers.
 The removal commit records only files Git already tracked; ignored local views,
 including the install manifest, never enter history. Strategy documents stay on
 disk, untracked.
@@ -94,7 +99,7 @@ the checkout registered. The same command removes that exact registration
 only after checking for uncommitted work and shared checkout scope; it changes
 no source files or folder trust. If the selected folder still exists but is no
 longer a Git repository, the command skips Git guards and removes only its exact
-registration on the active connection, preserving every file, layer, trust
+registration (on the active connection, else its only one), preserving every file, layer, trust
 entry and other registration. Missing folders are outside this cleanup path.
 A `.yoke` directory in a Git repository without its manifest
 refuses with `project_uninstall_manifest_missing`: recover the manifest before
