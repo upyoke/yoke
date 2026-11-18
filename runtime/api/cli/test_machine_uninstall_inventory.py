@@ -4,6 +4,7 @@ import json
 import subprocess
 import os
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -269,7 +270,15 @@ def test_worker_stop_checks_process_identity_before_signalling(
         stderr=subprocess.DEVNULL,
     )
     try:
+        deadline = time.monotonic() + 10
         started = process_start_time(process.pid)
+        while started is None and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+            started = process_start_time(process.pid)
+        assert started is not None, (
+            f"PID {process.pid} never appeared with a start identity "
+            f"(exit status: {process.poll()})"
+        )
         record = {
             "pid": process.pid,
             "process_start_time": str(float(started) + 1) if stale_identity else started,
