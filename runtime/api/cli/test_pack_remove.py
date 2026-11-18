@@ -42,7 +42,7 @@ def _write_project(root: Path) -> None:
         },
     )
     for name in ("base.txt", "app.txt", "extra.txt"):
-        (root / name).write_text(name)
+        (root / name).write_text(name, encoding="utf-8", newline="\n")
 
 
 def _fakes(monkeypatch, *, dependencies=None, unreadable=(), reports=None):
@@ -68,7 +68,7 @@ def _fakes(monkeypatch, *, dependencies=None, unreadable=(), reports=None):
 
 def _snapshot(root: Path) -> dict[str, bytes]:
     return {
-        str(path.relative_to(root)): path.read_bytes()
+        path.relative_to(root).as_posix(): path.read_bytes()
         for path in sorted(root.rglob("*"))
         if path.is_file()
     }
@@ -200,7 +200,7 @@ def test_refuses_a_project_that_does_not_own_the_receipt(tmp_path, monkeypatch):
 
 def test_invalid_receipt_refuses_with_a_named_reason(tmp_path):
     (tmp_path / ".yoke").mkdir()
-    (tmp_path / PACK_RECEIPT_REL).write_text(json.dumps({"schema": 99}))
+    (tmp_path / PACK_RECEIPT_REL).write_text(json.dumps({"schema": 99}), encoding="utf-8", newline="\n")
     with pytest.raises(remove.PackClientError, match="pack-receipt-invalid"):
         remove.run_pack_remove(tmp_path, project="sample", pack="app")
 

@@ -15,6 +15,7 @@ engine sees by ``write_<scenario>(fake_dir, …)``.
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -56,14 +57,17 @@ def _write(
 
 
 def _merge_side_effect_command(origin_path: str, branch: str) -> str:
-    """Shell snippet that simulates GitHub's merge by pushing the branch's
+    """POSIX sh snippet that simulates GitHub's merge by pushing the branch's
     commits into ``origin/main``. Mirrors what the legacy ``MOCK_GH`` ``pr
-    merge`` script did."""
+    merge`` script did. Paths are quoted in ``/`` form so Git for Windows sh
+    reads native Windows paths unchanged."""
+    origin = Path(origin_path).as_posix()
+    work = shlex.quote(f"{origin}.merge-work")
     return (
         "set -e; "
-        f'_tmp="{origin_path}.merge-work"; '
+        f"_tmp={work}; "
         'rm -rf "$_tmp"; '
-        f'git clone "{origin_path}" "$_tmp" >/dev/null 2>&1; '
+        f'git clone {shlex.quote(origin)} "$_tmp" >/dev/null 2>&1; '
         'cd "$_tmp"; '
         'git config user.email "test@test.com"; '
         'git config user.name "Test"; '

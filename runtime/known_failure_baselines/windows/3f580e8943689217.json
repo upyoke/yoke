@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_check_prerequisites_no_gh.py::test_github_auth_resolver_failure_warns_without_host_gh_messaging",
- "reason": "assert 1 == 0"
-}

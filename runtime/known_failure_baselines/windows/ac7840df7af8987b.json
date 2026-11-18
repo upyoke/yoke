@@ -1,4 +1,0 @@
-{
-  "node_id": "runtime/api/cli/test_cli_broken_pipe.py::test_non_stdout_broken_pipes_remain_nonzero_errors[subprocess]",
-  "reason": "Socket write succeeds in this fixture; closed subprocess stdin raises OSError errno 22 on Windows, rather than BrokenPipeError. Fresh Windows suite 44148219633; transferred to YOK-5395."
-}

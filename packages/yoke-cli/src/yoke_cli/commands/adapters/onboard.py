@@ -52,9 +52,6 @@ ONBOARD_USAGE = (
 
 
 def onboard(args: List[str]) -> int:
-    from yoke_cli.config.native_windows_terminal import configure
-
-    configure()
     parsed = parse_or_usage_error(_parser(), args, ONBOARD_USAGE)
     if parsed is None:
         return 2

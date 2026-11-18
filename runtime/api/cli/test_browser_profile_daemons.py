@@ -1,5 +1,6 @@
 """Profile daemon routing, concurrent transport scopes and bounded recovery."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest.mock import Mock
@@ -26,8 +27,16 @@ def test_stop_and_status_address_only_the_requested_profile(
         path = state_file_path(tmp_path, profile)
         path.parent.mkdir(parents=True)
         path.write_text(
-            '{"pid":%d,"endpoint":"http://127.0.0.1:%d","token":"test",'
-            '"profileDir":"%s","health":"healthy"}' % (pid, pid, profile)
+            json.dumps(
+                {
+                    "pid": pid,
+                    "endpoint": f"http://127.0.0.1:{pid}",
+                    "token": "test",
+                    "profileDir": profile,
+                    "health": "healthy",
+                }
+            ),
+            encoding="utf-8",
         )
     requests = []
     alive = {101, 202}

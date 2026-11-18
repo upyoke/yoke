@@ -276,4 +276,4 @@ def test_downloadable_installer_matches_its_authored_sources():
         == Classification.GENERATED
     )
     for source in (root / "packaging/public-installer/source").glob("*.inc"):
-        assert len(source.read_text().splitlines()) <= 350, source
+        assert len(source.read_text(encoding="utf-8").splitlines()) <= 350, source

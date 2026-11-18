@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import sys
 
+from yoke_contracts.standard_streams import use_utf8_standard_streams
+
 
 def supports_color(stream) -> bool:
     if os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb":
@@ -31,9 +33,6 @@ def configure() -> None:
     """Change this process's streams only; never change the console code page."""
     if sys.platform != "win32":
         return
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure:
-            reconfigure(encoding="utf-8", errors="backslashreplace")
+    use_utf8_standard_streams(sys.stdout, sys.stderr)
     if not supports_color(sys.stdout):
         os.environ["NO_COLOR"] = "1"

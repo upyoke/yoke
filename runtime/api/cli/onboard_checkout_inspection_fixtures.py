@@ -40,7 +40,11 @@ def repo_with_layer(tmp_path: Path, *, release: str = "0.1.1") -> Path:
     write(root, ".agents/skills/yoke/dash/SKILL.md", "# dash\n")
     native = root / ".claude/skills/yoke"
     native.parent.mkdir(parents=True, exist_ok=True)
-    native.symlink_to("../../.agents/skills/yoke", target_is_directory=True)
+    # A Path target renders native separators; Windows cannot resolve a
+    # relative link target written with forward slashes.
+    native.symlink_to(
+        Path("..", "..", ".agents", "skills", "yoke"), target_is_directory=True
+    )
     write(root, ".claude/agents/yoke-engineer.md", "# engineer\n")
     write(root, ".claude/agents/team-reviewer.md", "# not yoke\n")
     write(root, ".claude/rules/session.md", "# rules\n")

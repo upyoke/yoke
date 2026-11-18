@@ -221,14 +221,16 @@ class TestBoardRebuild:
         assert failed["context"]["message"] == "Python board renderer failed: kaboom"
 
     def test_human_mode_prints_status_not_json(self) -> None:
-        result = rb_outcome.throttled(Path("/tmp/BOARD.md"), 5)
+        board = Path("/tmp/BOARD.md")
+        result = rb_outcome.throttled(board, 5)
 
         rc, stdout, stderr, _rebuild, _emit_event = _run_board_capture(
             result, "board", "rebuild",
         )
 
         assert rc == 0
-        assert stdout == "Board rebuild throttled: /tmp/BOARD.md\n"
+        # A local file path renders in this OS's native form.
+        assert stdout == f"Board rebuild throttled: {board}\n"
         assert stderr == ""
         assert not stdout.lstrip().startswith("{")
 

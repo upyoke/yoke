@@ -167,10 +167,11 @@ def test_daemon_start_without_a_profile_launches_clean(tmp_path, monkeypatch) ->
 def test_daemon_start_reuses_a_daemon_on_the_same_profile(
     tmp_path, monkeypatch
 ) -> None:
-    _stub_daemon_start(monkeypatch, tmp_path, [_healthy_state("/profiles/acme")])
+    profile = str(tmp_path / "profiles" / "acme")
+    _stub_daemon_start(monkeypatch, tmp_path, [_healthy_state(profile)])
     monkeypatch.setattr(browser_client, "daemon_running", lambda state=None: True)
 
-    result = browser_client.daemon_start(profile_dir="/profiles/acme")
+    result = browser_client.daemon_start(profile_dir=profile)
 
     assert result["status"] == "already_running"
 

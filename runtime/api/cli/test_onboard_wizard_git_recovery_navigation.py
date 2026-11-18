@@ -145,6 +145,16 @@ def test_clone_git_install_replaces_missing_git_recovery_view(
             failure_kind=None,
         )
 
+    # Pin a host whose Git install runs to completion (Homebrew on macOS);
+    # Windows offers no automatic install, so the host's own advice has no
+    # Install row there.
+    advice = project_git_prerequisite.install_advice(
+        platform_name="darwin",
+        which=lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None,
+    )
+    monkeypatch.setattr(
+        project_git_prerequisite, "install_advice", lambda **_kw: advice
+    )
     monkeypatch.setattr(project_git_prerequisite, "git_available",
                         lambda **kw: state["installed"])
     monkeypatch.setattr(project_git_prerequisite, "install_git", _install_git)

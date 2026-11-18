@@ -12,7 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from yoke_contracts.timestamps import format_instant
-import os
 from pathlib import Path
 import stat
 from typing import Any, Iterable, Mapping, Sequence
@@ -25,6 +24,7 @@ from yoke_contracts.session_control.evidence_fetch import (
 )
 from yoke_contracts.machine_config.relay_instance import RELAY_LOG_FILE_NAMES
 from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
+from yoke_contracts.owner_private_path import is_current_user_owned_path
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     native_diagnostic_path,
@@ -74,13 +74,7 @@ def _describe(path: Path, kind: EvidenceKind, name: str) -> EvidenceFile | None:
         return None
     if not stat.S_ISREG(details.st_mode) or stat.S_ISLNK(details.st_mode):
         return None
-    if os.name != "nt":
-        owned = details.st_uid == os.getuid()
-    else:
-        from yoke_contracts.owner_private_path import is_owner_private_file
-
-        owned = is_owner_private_file(path)
-    if not owned:
+    if not is_current_user_owned_path(path):
         return None
     return EvidenceFile(
         name=name,

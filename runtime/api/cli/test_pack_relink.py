@@ -60,7 +60,7 @@ def test_relink_previews_customized_destination_without_changing_receipt(
 ) -> None:
     write_receipt(tmp_path, _receipt())
     (tmp_path / "moved").mkdir()
-    (tmp_path / "moved" / "feature.txt").write_text("customized\n")
+    (tmp_path / "moved" / "feature.txt").write_text("customized\n", encoding="utf-8", newline="\n")
     _install_transport_fakes(monkeypatch)
 
     report = relink.run_pack_relink(
@@ -86,7 +86,7 @@ def test_relink_apply_updates_only_receipt_mapping(
     write_receipt(tmp_path, _receipt())
     (tmp_path / "moved").mkdir()
     destination = tmp_path / "moved" / "feature.txt"
-    destination.write_text("baseline\n")
+    destination.write_text("baseline\n", encoding="utf-8", newline="\n")
     _install_transport_fakes(monkeypatch)
 
     report = relink.run_pack_relink(
@@ -100,7 +100,7 @@ def test_relink_apply_updates_only_receipt_mapping(
 
     assert report["applied"] is True
     assert report["destination_matches_baseline"] is True
-    assert destination.read_text() == "baseline\n"
+    assert destination.read_text(encoding="utf-8") == "baseline\n"
     assert (
         load_receipt(tmp_path)["packs"]["feature"]["files"]["feature.txt"]["path"]
         == "moved/feature.txt"
@@ -112,8 +112,8 @@ def test_relink_refuses_when_original_path_still_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     write_receipt(tmp_path, _receipt())
-    (tmp_path / "feature.txt").write_text("baseline\n")
-    (tmp_path / "moved.txt").write_text("baseline\n")
+    (tmp_path / "feature.txt").write_text("baseline\n", encoding="utf-8", newline="\n")
+    (tmp_path / "moved.txt").write_text("baseline\n", encoding="utf-8", newline="\n")
     _install_transport_fakes(monkeypatch)
 
     with pytest.raises(relink.PackClientError, match="still exists"):

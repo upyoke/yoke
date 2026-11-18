@@ -84,7 +84,7 @@ def test_build_bundle_is_deterministic(conn) -> None:
     for harness in ("claude", "codex", "cursor"):
         assert (
             by_path[f".yoke/harness/{harness}/manifest.json"]
-            == (REPO_ROOT / f"runtime/harness/{harness}/manifest.json").read_text()
+            == (REPO_ROOT / f"runtime/harness/{harness}/manifest.json").read_text(encoding="utf-8")
         )
 
 
@@ -190,15 +190,9 @@ def test_hooks_subtrees_match_canonical_renderers_and_committed_files(
     committed_codex = json.loads(
         (root / "runtime/harness/codex/hooks.json").read_text("utf-8")
     )
-    from yoke_cli.project_install.hook_platform import native_bundle_hooks
-
-    committed = native_bundle_hooks(
-        {"hooks": {"claude_settings_hooks": committed_claude["hooks"]}}
-    )
-    assert (
-        bundle["hooks"]["claude_settings_hooks"]
-        == committed["hooks"]["claude_settings_hooks"]
-    )
+    # Server bundles and tracked files hold the POSIX form on every host
+    # (decision 15934); only the installing client selects a native form.
+    assert bundle["hooks"]["claude_settings_hooks"] == committed_claude["hooks"]
     assert bundle["hooks"]["codex_hooks"] == committed_codex["hooks"]
 
 

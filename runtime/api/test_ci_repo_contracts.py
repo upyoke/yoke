@@ -144,7 +144,7 @@ def test_changed_path_ruff_reports_every_finding_then_passes_when_fixed(
     lines = detail.splitlines()
     assert ok is False
     assert len(lines) == 3
-    assert [Path(line.split(":", 1)[0]).name for line in lines] == [
+    assert [line.split(":", 1)[0] for line in lines] == [
         "alpha.py",
         "alpha.py",
         "zeta.py",
@@ -161,7 +161,7 @@ def test_changed_path_ruff_reports_every_finding_then_passes_when_fixed(
     assert detail == "ruff clean on 2 path(s)"
 
 
-def test_ruff_failure_detail_is_stably_ordered_and_bounded() -> None:
+def test_ruff_failure_detail_is_stably_ordered_and_bounded(tmp_path: Path) -> None:
     diagnostics = [
         {
             "filename": f"file_{index:02d}.py",
@@ -172,7 +172,7 @@ def test_ruff_failure_detail_is_stably_ordered_and_bounded() -> None:
         for index in reversed(range(22))
     ]
 
-    lines = crc._ruff_failure_detail(json.dumps(diagnostics), "").splitlines()
+    lines = crc._ruff_failure_detail(json.dumps(diagnostics), "", tmp_path).splitlines()
 
     assert len(lines) == 21
     assert lines[0].startswith("file_00.py:1:1: F401")

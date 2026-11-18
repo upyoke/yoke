@@ -6,7 +6,6 @@ import json
 import os
 import signal
 import subprocess
-import sys
 import time
 from unittest import mock
 
@@ -14,6 +13,11 @@ import pytest
 
 from yoke_cli.commands import qa_case
 from yoke_core.domain import qa_case_execution_cli, qa_plan_execution_cli
+from runtime.api.cli.console_interrupt_test_support import (
+    interruptible_popen_kwargs,
+    interruptible_python,
+    send_console_interrupt,
+)
 
 
 TEST_ITEM_ID = 42
@@ -32,23 +36,14 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen,
     ):
         code = qa_case.qa_case_run(
-            [
-                "--requirement-id",
-                "41",
-                "--base-url",
-                "https://preview.example",
-            ]
+            ["--requirement-id", "41", "--base-url", "https://preview.example"]
         )
 
     assert code == 7
     command = popen.call_args.args[0]
     assert command[1:] == [
-        "-m",
-        "yoke_core.domain.qa_case_execution_cli",
-        "--requirement-id",
-        "41",
-        "--base-url",
-        "https://preview.example",
+        "-m", "yoke_core.domain.qa_case_execution_cli",
+        "--requirement-id", "41", "--base-url", "https://preview.example",
     ]
     assert popen.call_args.kwargs["start_new_session"] is True
     assert popen.call_args.kwargs["env"]["YOKE_SESSION_ID"] == "case-session"
@@ -183,15 +178,18 @@ def test_qa_plan_run_delegates_to_engine_module() -> None:
         (qa_case.qa_plan_run, ["--item", TEST_ITEM_REF, "--transition", "done"]),
     ),
 )
+@pytest.mark.parametrize("forwards", (True, False), ids=("posix", "windows"))
 def test_qa_runner_waits_for_interrupt_cleanup_and_returns_130(
     runner,
     args: list[str],
+    forwards: bool,
 ) -> None:
     process = mock.Mock()
     process.wait.side_effect = [KeyboardInterrupt, 0]
     process.poll.return_value = None
     previous_handler = object()
     with (
+        mock.patch.object(qa_case, "FORWARDS_CHILD_INTERRUPT", forwards),
         mock.patch.object(qa_case.subprocess, "Popen", return_value=process),
         mock.patch.object(
             qa_case.signal,
@@ -203,7 +201,9 @@ def test_qa_runner_waits_for_interrupt_cleanup_and_returns_130(
 
     assert code == 130
     assert process.wait.call_count == 2
-    process.send_signal.assert_called_once_with(signal.SIGINT)
+    # A Windows child shares the console and already received the Ctrl-C.
+    sent = [mock.call(signal.SIGINT)] if forwards else []
+    assert process.send_signal.call_args_list == sent
     assert set_signal.call_args_list == [
         mock.call(signal.SIGINT, signal.SIG_IGN),
         mock.call(signal.SIGINT, previous_handler),
@@ -251,18 +251,15 @@ except KeyboardInterrupt:
     environment["QA_INTERRUPT_READY"] = str(ready)
     environment["QA_INTERRUPT_CLEANUP"] = str(cleanup)
     wrapper = subprocess.Popen(
-        [
-            sys.executable,
-            "-c",
-            (
-                f"from yoke_cli.commands.qa_case import {runner_name};"
-                f"raise SystemExit({runner_name}([]))"
-            ),
-        ],
+        interruptible_python(
+            f"from yoke_cli.commands.qa_case import {runner_name}\n"
+            f"raise SystemExit({runner_name}([]))\n"
+        ),
         env=environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        **interruptible_popen_kwargs(),
     )
     # Generous deadlines: this asserts the interrupt path COMPLETES (a hang
     # never finishes), not that it is fast. Concurrent full-suite gates on
@@ -273,7 +270,7 @@ except KeyboardInterrupt:
         while not ready.exists() and time.monotonic() < deadline:
             time.sleep(0.01)
         assert ready.exists()
-        os.kill(wrapper.pid, signal.SIGINT)
+        send_console_interrupt(wrapper.pid)
         wrapper.communicate(timeout=30)
     finally:
         if wrapper.poll() is None:

@@ -39,8 +39,8 @@ def test_update_adds_new_dependency_after_handing_off_an_unchanged_file(
             "packs": {"feature": make_receipt_record(old)},
         },
     )
-    (tmp_path / "feature.txt").write_text("old\n", encoding="utf-8")
-    (tmp_path / "shared.txt").write_text("shared\n", encoding="utf-8")
+    (tmp_path / "feature.txt").write_text("old\n", encoding="utf-8", newline="\n")
+    (tmp_path / "shared.txt").write_text("shared\n", encoding="utf-8", newline="\n")
 
     def fetch(project, pack, *, version, **kwargs):
         if pack == "foundation":

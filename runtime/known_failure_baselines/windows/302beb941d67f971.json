@@ -1,4 +1,0 @@
-{
-  "node_id": "runtime/api/test_update_status_full_derive_project.py::TestAutoDerive::test_all_terminal_derives_reviewing",
-  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
-}

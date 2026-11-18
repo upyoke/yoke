@@ -151,7 +151,7 @@ def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool
         return _refuse(shared, result)
     parents = _missing_parents(shared)
     shared.mkdir(parents=True, exist_ok=True)
-    target.write_text(text, encoding="utf-8")
+    target.write_text(text, encoding="utf-8", newline="\n")
     return _record(shared, result, parents)
 
 

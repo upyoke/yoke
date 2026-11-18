@@ -190,17 +190,16 @@ def drain_watched_child(
     timed_out = False
     progress_watch = ProgressEmitWatch.start(kind, now=clock())
     quiet_seconds = quiet_heartbeat_seconds(progress_watch.stall_seconds)
-    last_child_output_at = clock()
+    # Start of the current quiet window: the last child output or heartbeat.
+    # Stall and digest wakes come sooner, so a timed-out read alone is not quiet.
+    quiet_since = clock()
     with ChildSource(proc.stdout) as source:
         while True:
             now = clock()
             wait_seconds = progress_watch.next_wait_seconds(
                 now, quiet_seconds=quiet_seconds, deadline=deadline
             )
-            if kind == "fleet":
-                wait_seconds = min(
-                    wait_seconds, max(0.0, last_child_output_at + quiet_seconds - now)
-                )
+            wait_seconds = min(wait_seconds, max(0.0, quiet_since + quiet_seconds - now))
             # A window that closes while the child is quiet still owes the
             # follower its digest, so the wait cannot outrun the window.
             due_in = digest.seconds_until_flush()
@@ -265,7 +264,8 @@ def drain_watched_child(
                     emit_immediate(timeout_line)
                     break
                 abort_exit = None
-                if kind != "fleet" or now - last_child_output_at >= quiet_seconds:
+                if now - quiet_since >= quiet_seconds:
+                    quiet_since = now
                     abort_exit = handle_quiet_period(
                         root_pid=proc.pid,
                         kind=kind,
@@ -291,7 +291,7 @@ def drain_watched_child(
                     return abort_exit, last_summary, False
             else:
                 if lines:
-                    last_child_output_at = now
+                    quiet_since = now
                 for line in lines:
                     summary = _route_line(
                         line,

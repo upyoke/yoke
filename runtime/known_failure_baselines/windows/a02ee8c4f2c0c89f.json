@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_browser_profile_daemons.py::test_stop_and_status_address_only_the_requested_profile[yoke_harness.browser_client]",
- "reason": "KeyError: 'pid'"
-}

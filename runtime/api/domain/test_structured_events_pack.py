@@ -2,16 +2,23 @@
 
 from importlib.resources import files
 import json
+import os
 import subprocess
 import shutil
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+# The browser tests spawn the platform's Python command; resolve it to the
+# interpreter running this suite, which carries the collector's dependencies.
+NODE_ENV = {
+    **os.environ,
+    "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
+}
 
 
 def test_structured_events_published_contract(tmp_path):
-    descriptor = json.loads((ROOT / "packs/structured-events/pack.json").read_text())
+    descriptor = json.loads((ROOT / "packs/structured-events/pack.json").read_text(encoding="utf-8"))
     version = descriptor["versions"][descriptor["latest_version"]]
     source = ROOT / "packs/structured-events" / version["source"]
     for suffix in ("py", "mjs"):
@@ -25,8 +32,10 @@ def test_structured_events_published_contract(tmp_path):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             (source / entry["source"])
-            .read_text()
-            .replace("{{project_name}}", "example")
+            .read_text(encoding="utf-8")
+            .replace("{{project_name}}", "example"),
+            encoding="utf-8",
+            newline="",
         )
     assert not list(tmp_path.rglob("*attribution_session*"))
     # The TypeScript collector imports Bowser; the ui package pins it for tests.
@@ -40,7 +49,8 @@ def test_structured_events_published_contract(tmp_path):
         ["node", "--experimental-strip-types", "--test", "events/test_browser.mjs"],
     ):
         result = subprocess.run(
-            command, cwd=tmp_path, text=True, capture_output=True, timeout=45
+            command, cwd=tmp_path, encoding="utf-8", capture_output=True, timeout=45,
+            env=NODE_ENV,
         )
         assert result.returncode == 0, result.stdout + result.stderr
 
@@ -58,8 +68,9 @@ def test_current_standalone_collector_clock_properties(tmp_path):
             "events/test_collector_instants.mjs",
         ],
         cwd=tmp_path,
-        text=True,
+        encoding="utf-8",
         capture_output=True,
         timeout=45,
+        env=NODE_ENV,
     )
     assert result.returncode == 0, result.stdout + result.stderr

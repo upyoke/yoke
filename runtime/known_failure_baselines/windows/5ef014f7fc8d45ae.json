@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_api_functions_exception_envelope.py::TestFunctionCallExceptionEnvelope::test_dispatch_exception_returns_function_call_response",
- "reason": "AssertionError: False is not true"
-}

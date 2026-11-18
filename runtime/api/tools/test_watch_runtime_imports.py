@@ -53,4 +53,4 @@ def test_terminal_wait_uses_modules_loaded_before_child_started(tmp_path, monkey
     assert "outcome: waiting" in output.getvalue()
     assert "run-fixture" in output.getvalue()
     assert f"exit={EXIT_AWAITING_QA}" in output.getvalue()
-    assert report in raw.read_text()
+    assert report in raw.read_text(encoding="utf-8")

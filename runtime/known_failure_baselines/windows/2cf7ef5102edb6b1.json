@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_pack_relink.py::test_relink_apply_updates_only_receipt_mapping",
- "reason": "assert False is True"
-}

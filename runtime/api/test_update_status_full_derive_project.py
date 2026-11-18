@@ -66,7 +66,7 @@ class TestAutoDerive:
         assert (
             env.query("SELECT status FROM items WHERE id=42")
             == "reviewing-implementation"
-        )
+        ), r.stdout + r.stderr
 
     def test_in_flight_promotes_planned_parent(self, env):
         """TEST 28: mixed tasks promote planned parent to implementing."""
@@ -86,7 +86,9 @@ class TestAutoDerive:
         env.init_git()
         r = env.run(TEST_EPIC_REF, "002", "implementing")
         assert r.returncode == 0
-        assert env.query("SELECT status FROM items WHERE id=42") == "implementing"
+        assert (
+            env.query("SELECT status FROM items WHERE id=42") == "implementing"
+        ), r.stdout + r.stderr
 
 
 class TestCrossProject:
@@ -110,7 +112,7 @@ class TestCrossProject:
         env.init_git()
         r = env.run("EXT-42", "003", "implementing")
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         assert "/repos/example-org/externalwebapp/" in log
         # Each side effect (label-create + label-add + comment) targets the
         # externalwebapp repo URL.
@@ -157,7 +159,7 @@ class TestCrossProject:
             extra_env={"YOKE_TASK_DONE_VERIFIED": "1"},
         )
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         # GET parent + PATCH issue both target the externalwebapp repo URL.
         assert "GET /repos/example-org/externalwebapp/issues/200" in log
         # PATCH /issues/100 with state=closed (terminal-status close).

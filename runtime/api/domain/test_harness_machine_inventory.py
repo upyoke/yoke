@@ -13,6 +13,7 @@ from yoke_cli.project_install.harness_inventory import (
     collect_pack_prerequisite_inventory as collect_cli_pack_prerequisites,
 )
 from yoke_contracts.codex_hook_trust import normalized_codex_hook_hashes
+from yoke_contracts.codex_hook_trust_toml import append_hook_entries
 
 
 COLLECTORS = (collect_cli_inventory,)
@@ -43,15 +44,10 @@ def _write_hooks(checkout: Path, payload: object) -> Path:
 
 def _write_config(home: Path, hooks: Path, trusted: dict[str, str]) -> None:
     home.mkdir(parents=True, exist_ok=True)
-    lines: list[str] = []
-    for suffix, digest in trusted.items():
-        lines.extend(
-            [
-                f'\n[hooks.state."{hooks}:{suffix}"]\n',
-                f'trusted_hash = "{digest}"\n',
-            ]
-        )
-    (home / "config.toml").write_text("".join(lines), encoding="utf-8")
+    # The product's writer escapes the path key (Windows backslashes included).
+    (home / "config.toml").write_text(
+        append_hook_entries("", hooks, trusted), encoding="utf-8"
+    )
 
 
 def _report(collector, checkout: Path) -> dict:

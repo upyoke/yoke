@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_onboard_checkout_inspection.py::test_removal_takes_the_layer_and_leaves_the_project",
- "reason": "AssertionError: assert not True"
-}

@@ -118,11 +118,21 @@ def _ruff_diagnostic_sort_key(
     )
 
 
-def _format_ruff_diagnostic(diagnostic: dict[str, object]) -> str:
+def _diagnostic_path(filename: str, repo_root: Path) -> str:
+    """Render Ruff's absolute filename repo-relative with ``/`` on every OS."""
+    path = Path(filename)
+    root = repo_root.resolve()
+    if path.is_absolute() and path.is_relative_to(root):
+        return path.relative_to(root).as_posix()
+    return path.as_posix()
+
+
+def _format_ruff_diagnostic(diagnostic: dict[str, object], repo_root: Path) -> str:
     location = diagnostic.get("location")
     if not isinstance(location, dict):
         location = {}
-    path = diagnostic.get("filename") or "?"
+    filename = diagnostic.get("filename")
+    path = _diagnostic_path(str(filename), repo_root) if filename else "?"
     row = location.get("row") or "?"
     column = location.get("column") or "?"
     code = diagnostic.get("code") or "?"
@@ -130,7 +140,7 @@ def _format_ruff_diagnostic(diagnostic: dict[str, object]) -> str:
     return f"{path}:{row}:{column}: {code} {message}".strip()
 
 
-def _ruff_failure_detail(stdout: str, stderr: str) -> str:
+def _ruff_failure_detail(stdout: str, stderr: str, repo_root: Path) -> str:
     """Format a bounded, stable list of Ruff diagnostics."""
     raw = (stdout or "").strip()
     try:
@@ -144,7 +154,7 @@ def _ruff_failure_detail(stdout: str, stderr: str) -> str:
         )
         if ordered:
             visible = ordered[:_RUFF_DIAGNOSTIC_LIMIT]
-            lines = [_format_ruff_diagnostic(row) for row in visible]
+            lines = [_format_ruff_diagnostic(row, repo_root) for row in visible]
             omitted = len(ordered) - len(visible)
             if omitted:
                 lines.append(f"... and {omitted} more")
@@ -172,11 +182,13 @@ def check_changed_path_ruff(
         cwd=str(repo_root),
         check=False,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if completed.returncode == 0:
         return True, f"ruff clean on {len(paths)} path(s)"
-    return False, _ruff_failure_detail(completed.stdout or "", completed.stderr or "")
+    return False, _ruff_failure_detail(
+        completed.stdout or "", completed.stderr or "", repo_root
+    )
 
 
 def _atlas_drift_findings(report: dict) -> List[str]:

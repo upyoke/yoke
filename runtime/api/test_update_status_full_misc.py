@@ -36,7 +36,7 @@ class TestDBFailure:
             env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=3")
             == "implementing"
         )
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         assert "issue comment" not in log
         assert "issue close" not in log
 

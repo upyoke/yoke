@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import stat
-
 import pytest
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_core.domain import api_tokens_cli, json_helper
 from yoke_core.domain.actor_permissions import seed_roles_and_permissions
 from yoke_core.domain.actors import seed_human_actor
@@ -150,7 +149,7 @@ def test_raw_token_file_mode_reuses_actor_and_grant_but_mints_fresh_token(
     first = json_helper.loads_text(capsys.readouterr().out)
     first_raw = token_file.read_text(encoding="utf-8").strip()
     assert "raw_token" not in first
-    assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
+    assert is_owner_private_file(token_file)
 
     assert api_tokens_cli.main(_service_args(raw_token_file=token_file)) == 0
     second = json_helper.loads_text(capsys.readouterr().out)
@@ -159,7 +158,7 @@ def test_raw_token_file_mode_reuses_actor_and_grant_but_mints_fresh_token(
     assert second["actor_id"] == first["actor_id"]
     assert second["token_id"] != first["token_id"]
     assert second_raw != first_raw
-    assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
+    assert is_owner_private_file(token_file)
     assert verify_token(tokendb, first_raw).actor_id == first["actor_id"]
     assert verify_token(tokendb, second_raw).actor_id == first["actor_id"]
 

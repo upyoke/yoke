@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_machine_config_board_scope.py::test_register_machine_checkout_refuses_config_root_outside_temp",
- "reason": "AssertionError: Regex pattern did not match."
-}

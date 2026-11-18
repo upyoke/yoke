@@ -28,6 +28,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Mapping
 
 from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
@@ -64,9 +65,12 @@ def env_file_session_id(payload: Mapping[str, object]) -> str:
     payload_sid = payload.get("session_id")
     if isinstance(payload_sid, str) and payload_sid:
         return payload_sid
-    match = re.search(r"/session-env/([^/]+)/", os.environ.get("CLAUDE_ENV_FILE", ""))
-    if match and _UUID_RE.fullmatch(match.group(1)):
-        return match.group(1)
+    # The env file lives at <claude dir>/session-env/<session id>/<hook file>;
+    # split it as a native path so Windows backslash separators parse too.
+    parts = Path(os.environ.get("CLAUDE_ENV_FILE", "")).parts
+    for name, candidate in zip(parts, parts[1:-1]):
+        if name == "session-env" and _UUID_RE.fullmatch(candidate):
+            return candidate
     return ""
 
 

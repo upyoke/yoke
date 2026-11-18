@@ -1,0 +1,8 @@
+{
+ "id": "cursor-windows-project-hook-shell",
+ "title": "Prove Cursor runs POSIX project hooks on native Windows",
+ "status": "observed",
+ "text": "Decision 15934 keeps the Yoke repository's tracked Cursor and Claude hook files in POSIX form on every host. Claude Code runs hooks through Git Bash on Windows; Cursor on Windows may run hook commands under cmd or PowerShell, where /bin/sh does not resolve, and doctor would then flag hook_command_unstartable for the repository's own hook files. Still owed: the windows-native-lab Cursor check that runs a tracked POSIX project hook from Cursor on native Windows and records whether it starts. Also open for an operator decision: an installed project's tracked hook file is rewritten to the refreshing host's native form, so mixed-OS teams see it switch between forms.",
+ "surfaces": ["project-hooks"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_shell_command.py", "packages/yoke-contracts/src/yoke_contracts/machine_hooks_render.py", "packages/yoke-cli/src/yoke_cli/project_install/hook_platform.py"]
+}

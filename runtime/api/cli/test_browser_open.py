@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -35,7 +34,7 @@ def test_an_unauthorized_identity_refuses_with_the_authorize_command(
 
 
 def _runtime(monkeypatch, tmp_path, stdout):
-    runtime = browser_sign_in.BrowserRuntime(tmp_path, Path("/node"), {"K": "V"})
+    runtime = browser_sign_in.BrowserRuntime(tmp_path, tmp_path / "node", {"K": "V"})
     monkeypatch.setattr(browser_sign_in, "prepare_browser_runtime", lambda s: runtime)
     stopped, ran = [], []
     from yoke_harness import browser_identity_check
@@ -76,7 +75,7 @@ def test_the_window_opens_on_the_live_profile_after_its_daemon_stops(
     assert stopped == [profile]
     assert ran == [
         [
-            "/node",
+            str(tmp_path / "node"),
             str(tmp_path / "src" / "open.js"),
             "--profile-dir",
             str(profile),

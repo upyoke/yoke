@@ -75,18 +75,22 @@ def test_native_shell_output_capture(tmp_path, shell, surface, request):
         f"pathlib.Path({str(started_marker)!r}).write_text(str(time.time())); "
         "import sys; sys.stdout.reconfigure(encoding='cp1252', errors='strict'); "
     )
+    # Drive the real `yoke` entry point, which owns the UTF-8 stream setup;
+    # only the command's data source is stubbed.
     if surface == "status":
         code = (
             "from yoke_cli.commands.adapters import config; "
             "config.machine_config_status.build_status=lambda **kw: "
             "dict(ok=True, config_path='José 東京', repo_root='C:/src', issues=[]); "
-            "config._status([], prog='capture', usage='capture')"
+            "from yoke_cli.main import main; "
+            "raise SystemExit(main(['config', 'status']))"
         )
     else:
         code = (
             "from yoke_cli.commands.adapters import onboard; "
             "onboard.parse_or_usage_error=lambda *a: print('José 東京 ✓'); "
-            "onboard.onboard([])"
+            "from yoke_cli.main import main; "
+            "main(['setup'])"
         )
     script.write_text(common + code, encoding="utf-8")
     env = {**os.environ, "PYTHONIOENCODING": "cp1252", "NO_COLOR": "1"}

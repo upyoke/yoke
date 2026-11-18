@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_structured_events_pack.py::test_current_standalone_collector_clock_properties",
- "reason": "AssertionError: TAP version 13"
-}

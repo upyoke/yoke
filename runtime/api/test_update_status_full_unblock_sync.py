@@ -73,7 +73,7 @@ class TestGitHubSync:
         env.init_git()
         r = env.run(TEST_EPIC_REF, "003", "implementing")
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         # POST /labels (label-create idempotent) + POST /issues/100/labels.
         assert "POST /repos/upyoke/yoke/issues/100/labels" in log
         # POST /issues/100/comments for the status-change comment.
@@ -117,6 +117,6 @@ class TestGitHubSync:
             TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
         )
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         # GET parent issue body via REST.
         assert "GET /repos/upyoke/yoke/issues/200" in log

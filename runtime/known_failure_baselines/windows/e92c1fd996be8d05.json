@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_teammate_invite_redemption.py::test_connected_actor_and_secret_free_facts[False]",
- "reason": "AssertionError: assert 1 == 0"
-}

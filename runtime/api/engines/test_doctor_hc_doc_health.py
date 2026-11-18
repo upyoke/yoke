@@ -21,11 +21,11 @@ def _seed(root):
     tree = load_navigation(source)
     for node in iter_nodes(tree):
         path = source / node.path
-        path.write_text(render_page(tree, node, path.read_text()))
-    (root / "README.md").write_text("# Source\n")
-    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
+        path.write_text(render_page(tree, node, path.read_text(encoding="utf-8")), encoding="utf-8", newline="\n")
+    (root / "README.md").write_text("# Source\n", encoding="utf-8", newline="\n")
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n', encoding="utf-8", newline="\n")
     (root / "runtime/harness").mkdir(parents=True)
-    (root / "runtime/harness/marker").write_text("source fixture")
+    (root / "runtime/harness/marker").write_text("source fixture", encoding="utf-8", newline="\n")
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
 
@@ -48,10 +48,10 @@ def test_nested_contributor_fragments_warn_and_archives_are_excluded(
     _seed(tmp_path)
     nested = tmp_path / "docs/contributor/deep"
     nested.mkdir(parents=True)
-    (nested / "guide.md").write_text("# Guide\n[Absent](#absent)\n")
+    (nested / "guide.md").write_text("# Guide\n[Absent](#absent)\n", encoding="utf-8", newline="\n")
     archive = tmp_path / "docs/archive"
     archive.mkdir()
-    (archive / "history.md").write_text("[History](absent.md)\n")
+    (archive / "history.md").write_text("[History](absent.md)\n", encoding="utf-8", newline="\n")
     subprocess.run(["git", "-C", str(tmp_path), "add", "docs"], check=True)
     result = _run(tmp_path, monkeypatch)
     assert result.result == "WARN"
@@ -63,7 +63,7 @@ def test_nested_contributor_fragments_warn_and_archives_are_excluded(
 def test_public_link_failures_fail(tmp_path, monkeypatch):
     _seed(tmp_path)
     path = tmp_path / "docs/public/guide/setup.md"
-    path.write_text(path.read_text() + "\n[Absent](#absent)\n")
+    path.write_text(path.read_text(encoding="utf-8") + "\n[Absent](#absent)\n", encoding="utf-8", newline="\n")
     result = _run(tmp_path, monkeypatch)
     assert result.result == "FAIL"
     assert "LINK_FRAGMENT_MISSING" in result.detail
@@ -73,7 +73,7 @@ def test_public_link_failures_fail(tmp_path, monkeypatch):
 def test_retired_reference_in_tracked_consumer_fails(tmp_path, monkeypatch):
     _seed(tmp_path)
     path = tmp_path / "consumer.txt"
-    path.write_text(".yoke/" + "docs/" + "reference/retired.md\n")
+    path.write_text(".yoke/" + "docs/" + "reference/retired.md\n", encoding="utf-8", newline="\n")
     subprocess.run(["git", "-C", str(tmp_path), "add", "consumer.txt"], check=True)
     result = _run(tmp_path, monkeypatch)
     assert result.result == "FAIL"
@@ -89,16 +89,16 @@ def test_missing_public_tree_cannot_downgrade_a_source_checkout(tmp_path, monkey
 
 
 def test_gitless_generic_docs_keep_recursive_link_health(tmp_path, monkeypatch, capsys):
-    (tmp_path / "README.md").write_text("# Repository\n")
+    (tmp_path / "README.md").write_text("# Repository\n", encoding="utf-8", newline="\n")
     docs = tmp_path / "docs/nested"
     docs.mkdir(parents=True)
-    (docs / "guide.md").write_text("[Present](target.md)\n")
-    (docs / "target.md").write_text("# Target\n")
+    (docs / "guide.md").write_text("[Present](target.md)\n", encoding="utf-8", newline="\n")
+    (docs / "target.md").write_text("# Target\n", encoding="utf-8", newline="\n")
     assert _run(tmp_path, monkeypatch).result == "PASS"
     progress = capsys.readouterr().out
     assert "running HC-doc-health check-readme" in progress
     assert "running HC-doc-health scan-doc-links 0/2" in progress
-    (docs / "guide.md").write_text("[Missing](missing.md)\n")
+    (docs / "guide.md").write_text("[Missing](missing.md)\n", encoding="utf-8", newline="\n")
     result = _run(tmp_path, monkeypatch)
     assert result.result == "FAIL"
     assert "LINK_TARGET_MISSING" in result.detail

@@ -1,4 +1,0 @@
-{
-  "node_id": "runtime/api/domain/test_main_agent_packet.py::test_render_main_agent_block_full_leads_with_its_heading",
-  "reason": "Real ambient-Python interpreter notice is prepended to the main-agent heading; heading-first fixture does not isolate that notice. Fresh Windows suite 44148219633; transferred to YOK-5395."
-}

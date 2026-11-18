@@ -132,10 +132,10 @@ test('Python and TypeScript collectors agree on optional fact fixtures', () => {
     mergeDeviceProps(result, {});
     return result;
   });
-  const output = execFileSync('python3', ['-c', `
+  const output = execFileSync(process.platform === 'win32' ? 'python' : 'python3', ['-c', `
 import json, sys
 from events_device import merge_device_props
-fixtures = json.load(sys.stdin)
+fixtures = json.load(sys.stdin.buffer)
 for event in fixtures:
     merge_device_props(event, {})
 print(json.dumps(fixtures))

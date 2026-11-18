@@ -1,0 +1,12 @@
+{
+ "id": "tracked-hook-form",
+ "title": "Tracked hook files hold one form on every host",
+ "status": "observed",
+ "audience": "maintainer",
+ "when": "Someone renders the Yoke repository's own Claude or Cursor hook files (yoke agents render) on native Windows, or an installed project refreshes hooks on a different OS than wrote them.",
+ "need": "Repository-rendered hook files are POSIX (/bin/sh) on every host (decision 15934); Claude Code runs them through Git Bash on Windows. Machine-local user hooks and installed projects use the native PowerShell form on Windows, and Codex keeps its separate commandWindows field. Install and refresh recognise a Yoke entry written in the other shell form by matcher, verb and config owner, and replace it in place instead of adding a duplicate.",
+ "surface": "agents render drift check, machine hook setup and project install hook merge.",
+ "gap": "cursor-windows-project-hook-shell",
+ "review": "Source tests pin POSIX repository render under a simulated Windows host, native machine and installed-project rendering, and cross-form convergence.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_hooks_render.py", "packages/yoke-cli/src/yoke_cli/project_install/hook_platform.py", "packages/yoke-cli/src/yoke_cli/project_install/hook_entries.py", "runtime/harness/test_hook_shell_command.py", "runtime/api/domain/test_project_install_hooks.py"]
+}

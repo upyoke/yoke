@@ -201,7 +201,7 @@
         "events/test_browser_device.mjs": {
           "mode": 420,
           "path": "events/test_browser_device.mjs",
-          "sha256": "30d35dbd082ea21ecfd5e50b8b10ee70dce0d43422ca397b6670530dcea2deff"
+          "sha256": "e489f8f7072b42202b768558a568c6696e7f15475a92ef3fc0856640d2376a68"
         },
         "events/test_collector_instants.mjs": {
           "mode": 420,

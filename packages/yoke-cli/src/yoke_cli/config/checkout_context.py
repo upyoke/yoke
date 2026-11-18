@@ -35,12 +35,17 @@ def _git_toplevel(cwd: str) -> Optional[str]:
 
 
 def _strip_worktree_path(path: str) -> str:
-    candidate = str(Path(path).expanduser())
-    markers = ("/" + ".worktrees/", "/" + ".claude/worktrees/")
-    for marker in markers:
-        if marker in candidate:
-            return candidate.split(marker, 1)[0]
-    return candidate
+    # Match path components, not "/"-joined text: Windows renders a Git
+    # toplevel such as C:/repo/.worktrees/lane with backslash separators.
+    candidate = Path(path).expanduser()
+    parts = candidate.parts
+    for marker in ((".worktrees",), (".claude", "worktrees")):
+        width = len(marker)
+        # The marker must sit below the root and above a lane name.
+        for start in range(1, len(parts) - width):
+            if parts[start : start + width] == marker:
+                return str(Path(*parts[:start]))
+    return str(candidate)
 
 
 __all__ = ["resolve_repo_root_from_cwd"]

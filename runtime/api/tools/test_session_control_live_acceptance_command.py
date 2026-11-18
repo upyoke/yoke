@@ -14,7 +14,6 @@ from runtime.api.tools.session_control_live_acceptance_command_test_support impo
 import io
 import json
 from pathlib import Path
-import stat
 from types import SimpleNamespace
 
 import pytest
@@ -28,6 +27,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     require_exact_desktop_active_policy,
+)
+from yoke_contracts.owner_private_path import (
+    is_owner_private_directory,
+    is_owner_private_file,
 )
 from yoke_core.domain.deploy_product_source import DeployProductSourceError
 
@@ -205,14 +208,14 @@ def test_live_run_uses_owner_only_atomic_scratch_and_cleans_it(
     def _atomic_write(path, content) -> None:
         real_atomic_write(path, content)
         observed["atomic_target"] = Path(path)
-        assert stat.S_IMODE(Path(path).stat().st_mode) == 0o600
+        assert is_owner_private_file(path)
 
     def _acceptance_main(args: list[str]) -> int:
         matrix = Path(args[args.index("--matrix") + 1])
         observed["matrix"] = matrix
         observed["document"] = json.loads(matrix.read_text(encoding="utf-8"))
-        assert stat.S_IMODE(matrix.parent.stat().st_mode) == 0o700
-        assert stat.S_IMODE(matrix.stat().st_mode) == 0o600
+        assert is_owner_private_directory(matrix.parent)
+        assert is_owner_private_file(matrix)
         assert args[args.index("--release-sha") + 1] == RELEASE_SHA
         return 7
 
@@ -225,7 +228,7 @@ def test_live_run_uses_owner_only_atomic_scratch_and_cleans_it(
     assert isinstance(matrix, Path)
     assert not matrix.exists()
     assert not observed["atomic_target"].exists()
-    assert stat.S_IMODE(observed["payload_dir"].stat().st_mode) == 0o700
+    assert is_owner_private_directory(observed["payload_dir"])
     assert observed["document"]["project"] == "yoke"
 
 

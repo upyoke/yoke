@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_credentialed_git_fallback.py::test_optional_helper_timeout_kills_the_child_group",
- "reason": "AssertionError: assert 'operation deadline' in 'network Git could not be started\\nNo Yoke GitHub authorization is stored for https://github.com/example/repo.git; your own git credentials did not work."
-}

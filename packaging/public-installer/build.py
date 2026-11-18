@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-import sys
 from pathlib import Path
+
+from ruff import find_ruff_bin
 
 ROOT = Path(__file__).resolve().parent
 PARTS = (
@@ -19,6 +20,8 @@ PARTS = (
     "resolution",
     "installation",
 )
+FORMAT_TIMEOUT_SECONDS = 120
+
 
 def render() -> str:
     parts = [(ROOT / "source" / f"{name}.py.inc").read_text(encoding="utf-8") for name in PARTS]
@@ -37,22 +40,28 @@ def render() -> str:
         + '\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
     )
 
-    return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "ruff",
-            "format",
-            "--stdin-filename",
-            str(ROOT / "install.py"),
-            "-",
-        ],
-        input=source,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
+    # Run the ruff binary itself, not the `python -m ruff` wrapper: on Windows the
+    # wrapper spawns ruff as a grandchild that keeps the pipes open after a kill,
+    # so a timeout could never end the wait. Pipes carry UTF-8 bytes on every OS.
+    try:
+        completed = subprocess.run(
+            [find_ruff_bin(), "format", "--stdin-filename", str(ROOT / "install.py"), "-"],
+            input=source.encode("utf-8"),
+            capture_output=True,
+            timeout=FORMAT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        raise SystemExit(
+            f"installer_format_timeout: ruff format did not finish within {FORMAT_TIMEOUT_SECONDS}s;"
+            " rerun yoke dev run -- python3 packaging/public-installer/build.py and inspect ruff"
+        ) from None
+    if completed.returncode != 0:
+        raise SystemExit(
+            "installer_format_failed: ruff format rejected the assembled installer;"
+            " fix source/*.py.inc so it parses, then rerun the build\n"
+            + completed.stderr.decode("utf-8", "replace")
+        )
+    return completed.stdout.decode("utf-8")
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

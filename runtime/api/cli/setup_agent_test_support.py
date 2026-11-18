@@ -16,6 +16,7 @@ from yoke_cli import main as yoke_operations_cli
 from yoke_cli.commands.adapters import onboard_apply, onboard_interactive
 from yoke_cli.config import (
     onboard_machine_setup,
+    onboard_native_preflight,
     onboard_preflight,
     onboard_session_relay,
     onboard_wizard,
@@ -135,6 +136,9 @@ def isolate_agent_setup(tmp_path: Path, monkeypatch) -> FakeApply:
         "preflight",
         lambda *_a, **_k: SimpleNamespace(problems=[], notes=[]),
     )
+    # The native Windows gate probes the live host and network; its report and
+    # refusals are covered by test_onboard_native_preflight.
+    monkeypatch.setattr(onboard_native_preflight, "check_setup", lambda _parsed: True)
     monkeypatch.setattr(
         onboard_interactive, "finish_pending_source_install", lambda *_a, **_k: None
     )

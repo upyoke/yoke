@@ -25,6 +25,7 @@ from yoke_cli.project_install.files import (
 )
 from yoke_cli.project_install.hook_entries import (
     CURSOR_HOOKS_REL,
+    converge_event_entries,
     entry_key as _entry_key,
     hook_entry_format,
     provided_records,
@@ -158,14 +159,11 @@ def plan_hooks_file(
 
     added: List[Dict[str, Any]] = []
     for event in sorted(hooks_subtree):
-        entries = hooks.setdefault(event, [])
-        existing = {_entry_key(entry) for entry in entries}
-        for entry in hooks_subtree[event]:
-            if _entry_key(entry) in existing:
-                continue
-            entries.append(entry)
-            existing.add(_entry_key(entry))
-            added.append(_record(event, entry))
+        event_added, replaced = converge_event_entries(
+            event, hooks.setdefault(event, []), hooks_subtree[event]
+        )
+        added.extend(event_added)
+        removed.extend(replaced)
     empty_payload = _empty_payload(settings_rel)
     deleted_file = created_by_install and payload == empty_payload
     return {
@@ -271,12 +269,9 @@ def merge_hooks_file(
                 f"{target} hooks.{event} must be an array; repair it before "
                 "rerunning `yoke project install`"
             )
-        existing = {_entry_key(e) for e in entries if isinstance(e, dict)}
-        for entry in hooks_subtree[event] or []:
-            if _entry_key(entry) in existing:
-                continue
-            entries.append(entry)
-            added.append(_record(event, entry))
+        added.extend(
+            converge_event_entries(event, entries, hooks_subtree[event] or [])[0]
+        )
     if added or target.is_symlink():
         _write_settings(target, payload)
     return {"created": False, "added": added}

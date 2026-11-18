@@ -80,7 +80,7 @@ def test_update_reconstructs_old_version_with_recorded_render_values(
     }
     write_receipt(tmp_path, receipt)
     (tmp_path / "feature.txt").write_text(
-        "name=Old Name\nkeep=one\nkeep=two\nlocal=custom\n", encoding="utf-8"
+        "name=Old Name\nkeep=one\nkeep=two\nlocal=custom\n", encoding="utf-8", newline="\n"
     )
     calls: list[tuple[str | None, dict[str, str] | None]] = []
 
@@ -128,7 +128,7 @@ def test_conflicted_update_refuses_all_writes(tmp_path: Path, monkeypatch) -> No
             "packs": {"feature": _receipt_record(old)},
         },
     )
-    (tmp_path / "feature.txt").write_text("value=custom\n", encoding="utf-8")
+    (tmp_path / "feature.txt").write_text("value=custom\n", encoding="utf-8", newline="\n")
     monkeypatch.setattr(
         runner,
         "_fetch_bundle",
@@ -172,7 +172,7 @@ def test_update_can_accept_an_exact_manually_resolved_current_file(
         },
     )
     resolved = "value=custom-with-new-behavior\n"
-    (tmp_path / "feature.txt").write_text(resolved, encoding="utf-8")
+    (tmp_path / "feature.txt").write_text(resolved, encoding="utf-8", newline="\n")
     monkeypatch.setattr(
         runner,
         "_fetch_bundle",
@@ -226,7 +226,7 @@ def test_update_rejects_accept_current_for_a_nonconflicting_path(
             "packs": {"feature": _receipt_record(old)},
         },
     )
-    (tmp_path / "feature.txt").write_text("value=custom\n", encoding="utf-8")
+    (tmp_path / "feature.txt").write_text("value=custom\n", encoding="utf-8", newline="\n")
     monkeypatch.setattr(
         runner,
         "_fetch_bundle",
@@ -301,7 +301,7 @@ def test_update_follows_the_project_path_recorded_by_relink(
     )
     destination = tmp_path / "src" / "moved-feature.txt"
     destination.parent.mkdir()
-    destination.write_text("old\n", encoding="utf-8")
+    destination.write_text("old\n", encoding="utf-8", newline="\n")
     monkeypatch.setattr(
         runner,
         "_fetch_bundle",

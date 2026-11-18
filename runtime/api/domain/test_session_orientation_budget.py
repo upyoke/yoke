@@ -28,7 +28,7 @@ def test_long_git_metadata_preserves_the_startup_block(monkeypatch, branch):
 
     assert startup in rendered
     assert "Your Session: test-session" in rendered
-    assert "Root: /checkout" in rendered
+    assert f"Root: {root}" in rendered
     assert "Recent commit:" not in rendered
     assert len(rendered.encode("utf-8")) <= min(1200, min(INLINE_CONTEXT_BYTES.values()))
     assert ("Current branch:" in rendered) is (branch == "main")

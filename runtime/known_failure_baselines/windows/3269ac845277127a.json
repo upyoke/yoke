@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_watch_runtime_imports.py::test_terminal_wait_uses_modules_loaded_before_child_started",
- "reason": "assert 'deploy stages complete, blocking QA unresolved — 1 blocking QA obligation(s) unresolved for run run-fixture\\n  - pending QA\\n  The run finishes by itself when blocking QA settles. Blocking QA"
-}

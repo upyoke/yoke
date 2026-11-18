@@ -31,6 +31,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             file=sys.stderr,
         )
         return 1
+    from yoke_cli.config.native_windows_terminal import configure
+
+    configure()  # UTF-8 streams before any output, hooks included.
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:2] == _HOOK_EVALUATE_COMMAND:
         from yoke_cli import sandbox_denial

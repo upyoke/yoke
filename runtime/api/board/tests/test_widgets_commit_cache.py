@@ -6,6 +6,7 @@ populate, and per-day derivation across multiple repos.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from datetime import date, timedelta
@@ -100,8 +101,8 @@ class TestColdPopulate:
         repo = str(tmp_path / "repo")
         # Seed an existing entry so the refresh takes the warm --no-walk branch.
         cache_path.write_text(
-            '{"old111": {"day": "2026-06-01", "lines": 1, '
-            f'"repo": "{repo}"}}}}'
+            json.dumps({"old111": {"day": "2026-06-01", "lines": 1, "repo": repo}}),
+            encoding="utf-8",
         )
         monkeypatch.setattr(cache_mod, "_cache_path", lambda: cache_path)
         cache_mod._reset_memo_for_tests()

@@ -89,7 +89,7 @@ def test_interrupted_manifest_refresh_resumes_the_existing_record(
 
     def interrupted(path, text):
         nonlocal seen
-        if "/.yoke/harness/" in str(path):
+        if "/.yoke/harness/" in Path(path).as_posix():
             seen += 1
             if seen == 2:
                 raise OSError("simulated manifest write interruption")

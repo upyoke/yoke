@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from yoke_core.domain import machine_config, yoke_connected_env
@@ -22,22 +23,21 @@ def _write_binding(root: Path) -> Path:
     binding_dir = root / ".yoke"
     binding_dir.mkdir(parents=True, exist_ok=True)
     binding = binding_dir / "config.json"
-    binding.write_text(
-        """
-{
-  "schema_version": 1,
-  "active_env": "prod-db-admin",
-  "connections": {
-    "prod-db-admin": {
-      "transport": "local-postgres",
-      "credential_source": {"kind": "dsn_file", "path": "../.secret.dsn"}
+    payload = {
+        "schema_version": 1,
+        "active_env": "prod-db-admin",
+        "connections": {
+            "prod-db-admin": {
+                "transport": "local-postgres",
+                "credential_source": {"kind": "dsn_file", "path": "../.secret.dsn"},
+            }
+        },
+        "connection_projects": {
+            "prod-db-admin": [{"checkout": str(root.resolve()), "project_id": 1}]
+        },
     }
-  },
-  "connection_projects": {"prod-db-admin": [{"checkout": "__ROOT__", "project_id": 1}]}
-}
-""".strip().replace("__ROOT__", str(root.resolve())),
-        encoding="utf-8",
-    )
+    # json.dumps escapes Windows path separators the binding carries.
+    binding.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return binding
 
 

@@ -22,6 +22,7 @@ from yoke_core.domain.status_claim_bypass_context import (
 )
 from yoke_core.domain.task_lifecycle import is_valid_task_status, task_success_statuses
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_contracts.standard_streams import use_utf8_standard_streams
 
 # Re-export shared low-level helpers so existing callers see no change.
 from yoke_core.domain.update_status_helpers import (  # noqa: F401
@@ -295,6 +296,7 @@ def update_task_status(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    use_utf8_standard_streams()
     args = argv if argv is not None else sys.argv[1:]
 
     no_github = False

@@ -35,7 +35,7 @@ class TestTerminalSuccess:
             TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
         )
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         assert "PATCH /repos/upyoke/yoke/issues/100" in log
         assert "POST /repos/upyoke/yoke/labels" in log
 
@@ -56,7 +56,7 @@ class TestTerminalSuccess:
             ).returncode
             == 0
         )
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         assert log.count("PATCH /repos/upyoke/yoke/issues/100") >= 2
         assert (
             env.query_int(
@@ -156,7 +156,7 @@ class TestLabelReconciliation:
         self._seed_existing_label(env, "status:done")
         r = env.run(TEST_EPIC_REF, "003", "reviewed-implementation")
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         assert "labels/status%3Adone" in log
 
     def test_underscore_label_removed(self, env):
@@ -166,7 +166,7 @@ class TestLabelReconciliation:
         self._seed_existing_label(env, "status:in_progress")
         r = env.run(TEST_EPIC_REF, "3", "implementing")
         assert r.returncode == 0
-        log = env.gh_log.read_text()
+        log = env.gh_log.read_text(encoding="utf-8")
         assert "labels/status%3Ain_progress" in log
         # POST .../issues/100/labels adds the new status:implementing label.
         assert "POST /repos/upyoke/yoke/issues/100/labels" in log

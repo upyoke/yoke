@@ -6,6 +6,7 @@ from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import io
 import pytest
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -67,7 +68,10 @@ def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -
     monkeypatch.setenv(session_relay_instance.RELAY_STATE_DIR_ENV, str(state_dir))
     monkeypatch.setenv("VIRTUAL_ENV", str(release))
     monkeypatch.setenv("PYTHONPATH", str(release / "site-packages"))
-    monkeypatch.setenv("PATH", f"{state_dir / 'venv' / 'bin'}:/usr/bin")
+    system_bin = str(tmp_path / "system" / "bin")
+    monkeypatch.setenv(
+        "PATH", os.pathsep.join([str(state_dir / "venv" / "bin"), system_bin])
+    )
     yoke = tmp_path / "yoke"
     yoke.write_text("", encoding="utf-8")
     envs: list[dict[str, str]] = []
@@ -93,7 +97,7 @@ def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -
     assert record["outcome"] == "updated"
     for env in envs:
         assert "PYTHONPATH" not in env and "VIRTUAL_ENV" not in env
-        assert env["PATH"] == "/usr/bin"
+        assert env["PATH"] == system_bin
 
 
 def test_current_cli_is_left_alone(tmp_path, monkeypatch) -> None:

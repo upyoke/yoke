@@ -22,6 +22,8 @@ def test_minimal_environment_keeps_system_variables_and_directory_boundaries(
         "WINDIR": "Windows",
         "COMSPEC": "cmd.exe",
         "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+        "APPDATA": "Users/me/AppData/Roaming",
+        "LOCALAPPDATA": "Users/me/AppData/Local",
     }
     for name, value in values.items():
         monkeypatch.setenv(name, value)
@@ -62,6 +64,15 @@ def test_minimal_child_can_initialize_networking():
         capture_output=True, text=True, check=True, timeout=30,
     )
     assert json.loads(result.stdout) is True
+
+
+def test_minimal_child_can_import_profile_reading_libraries():
+    """pyfiglet reads os.environ["APPDATA"] at import on Windows."""
+    subprocess.run(
+        [sys.executable, "-c", "import pyfiglet, platformdirs; platformdirs.user_data_dir()"],
+        env=child_environment.minimal_child_environment(),
+        capture_output=True, text=True, check=True, timeout=30,
+    )
 
 
 def test_delegated_service_child_keeps_os_startup_without_caller_authority(monkeypatch):
