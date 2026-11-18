@@ -257,12 +257,16 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 | Automation | Remote Login controller | System Events, Terminal |
 | Automation | Terminal.app | System Events |
 | Accessibility | Remote Login controller and Terminal.app | — |
-| Screen Recording | Terminal.app | — |
+| Screen & System Audio Recording (Screen Recording on older macOS) | Terminal.app | — |
 
 SSH `osascript` Terminal control uses the Remote Login controller.
 The helper shows separate macOS consent prompts for System Events and
 Terminal as the bridge reaches each step. Allow each on the fixture console,
-then retry the bridge to verify it. GUI-session commands (`--gui-session`)
+then retry the bridge to verify it. If Accessibility omits the helper,
+use **+**, press Command+Shift+G in the file picker, and enter
+`/usr/libexec/sshd-keygen-wrapper`. Enable the helper's toggle. A grant for
+Terminal alone still leaves the remote keystroke check refused.
+GUI-session commands (`--gui-session`)
 need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium
 through the installed Yoke, not AppleScript. A checked Automation box alone does not prove consent: macOS can
