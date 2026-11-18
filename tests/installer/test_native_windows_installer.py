@@ -187,3 +187,76 @@ def test_constrained_language_refuses_with_no_iex_recovery():
         "uv run --isolated --no-project --python 3.12 python install.py"
         in result.stderr
     )
+
+
+SHIM = Path(__file__).resolve().parents[2] / "packaging/public-installer/install.ps1"
+UNTRUSTED_UV = (
+    "@echo off\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"ok\" exit /b 0\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"other\" (echo error: network unreachable 1>&2 & exit /b 2)\r\n"
+    "echo  Downloaded cpython-3.12.16-windows-x86_64-none\r\n"
+    "echo error: Failed to create Python minor version link directory 1>&2\r\n"
+    "echo   cause: The path cannot be traversed because it contains an untrusted"
+    " mount point. (os error 448) 1>&2\r\n"
+    "exit /b 2\r\n"
+)
+
+
+def test_shim_pins_the_uv_version_ci_uses():
+    shim = SHIM.read_text(encoding="utf-8")
+    pyproject = (SHIM.parents[2] / "pyproject.toml").read_text(encoding="utf-8")
+    pinned = shim.split("$uvVersion = '", 1)[1].split("'", 1)[0]
+    assert f'"uv=={pinned}"' in pyproject
+    assert '"https://astral.sh/uv/$uvVersion/install.ps1"' in shim
+    assert "https://astral.sh/uv/install.ps1" not in shim
+
+
+def _run_shim(tmp_path, mode):
+    import http.server
+    import threading
+
+    (tmp_path / "dist").mkdir()
+    (tmp_path / "dist/install.py").write_text("", encoding="utf-8")
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin/uv.cmd").write_text(UNTRUSTED_UV, encoding="ascii")
+    handler = lambda *a: http.server.SimpleHTTPRequestHandler(  # noqa: E731
+        *a, directory=str(tmp_path)
+    )
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        env = dict(
+            os.environ,
+            FAKE_UV_MODE=mode,
+            PATH=str(tmp_path / "bin") + os.pathsep + os.environ["PATH"],
+            YOKE_INSTALL_BASE_URL=f"http://127.0.0.1:{server.server_port}",
+        )
+        return subprocess.run(
+            ["powershell.exe", "-NoProfile", "-File", str(SHIM), "--yes"],
+            capture_output=True, text=True, env=env, timeout=120,
+        )
+    finally:
+        server.shutdown()
+
+
+@pytest.mark.windows_only(reason="install.ps1 runs only in Windows PowerShell")
+@pytest.mark.parametrize(
+    "mode,code",
+    [
+        ("untrusted", "windows_untrusted_mount_point"),
+        ("other", "python_bootstrap_failed"),
+        ("ok", None),
+    ],
+)
+def test_shim_reads_uv_python_preparation(tmp_path, mode, code):
+    result = _run_shim(tmp_path, mode)
+    output = result.stdout + result.stderr
+    if code is None:
+        assert result.returncode == 0, output
+        return
+    assert result.returncode != 0
+    assert code in output
+    assert "yoke_install_failed" not in output
+    if code == "windows_untrusted_mount_point":
+        assert "https://github.com/astral-sh/uv/issues/19616" in output
+        assert "local PowerShell" in output

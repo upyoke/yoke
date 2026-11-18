@@ -115,7 +115,8 @@ def _in_process_repair_runner(config: Path, yoke_bin: str):
     def run(command):
         cmd = list(command)
         if cmd[:3] == ["uv", "python", "find"]:
-            return subprocess.CompletedProcess(cmd, 0, "/supported/python", "")
+            found = "3.12.16" if "--show-version" in cmd else "/supported/python"
+            return subprocess.CompletedProcess(cmd, 0, found, "")
         if cmd[:3] == ["uv", "tool", "install"]:
             return subprocess.CompletedProcess(cmd, 0, "+ yoke-cli==2.0.0", "")
         if cmd == ["uv", "tool", "update-shell"]:

@@ -64,6 +64,10 @@ def load_installer(name: str = "yoke_public_installer") -> ModuleType:
     return module
 
 
+# The patch `uv python find --show-version` names in fixtures.
+EXACT_PYTHON = "3.12.16"
+
+
 class RecordingRunner:
     """Records every command and replays a fixed result.
 
@@ -93,7 +97,8 @@ class RecordingRunner:
         if override is not None:
             return override
         if argv[:3] == ["uv", "python", "find"]:
-            return subprocess.CompletedProcess(argv, 0, "/supported/python", "")
+            found = EXACT_PYTHON if "--show-version" in argv else "/supported/python"
+            return subprocess.CompletedProcess(argv, 0, found, "")
         if argv[1:] == ["ui", "restart-running", "--json"]:
             return subprocess.CompletedProcess(
                 argv, 0, json.dumps({"ok": True, "restarted": False}), ""

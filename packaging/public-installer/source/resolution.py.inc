@@ -112,20 +112,43 @@ class InstallerResolution:
             )
 
 
-    def _run_uv_install(self, command: Sequence[str]) -> bool:
-        result = self.capture_runner(list(command))
-        if result.returncode != 0:
-            probe = self.capture_runner(
-                ["uv", "python", "find", "--no-python-downloads", PYTHON_CONSTRAINT]
-            )
-            if probe.returncode != 0:
+    def _exact_python(self) -> str:
+        """Resolve the patch uv would use, installing a managed one if needed.
+
+        A tool environment made from a minor request runs through uv's minor-version
+        link, a junction on Windows that OpenSSH sessions cannot follow.
+        """
+        find = ["uv", "python", "find", "--no-project", "--show-version", PYTHON_CONSTRAINT]
+        found = self.capture_runner(find)
+        if found.returncode != 0:
+            installed = self.capture_runner(["uv", "python", "install", PYTHON_CONSTRAINT])
+            if installed.returncode != 0:
+                refuse_untrusted_mount_point(installed)
                 raise InstallError(
                     f"supported_python_unavailable: Yoke supports Python {PYTHON_CONSTRAINT}. "
                     "Automatic managed-Python download failed or is disabled. "
                     "Check network access and uv's Python download settings, or run "
                     f"uv python install {shlex.quote(PYTHON_CONSTRAINT)}, then rerun "
-                    "the installer or yoke update. " + _failure_reason(result)
+                    "the installer or yoke update. " + _failure_reason(installed)
                 )
+            found = self.capture_runner(find)
+        version = (found.stdout or "").strip()
+        if found.returncode != 0 or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+            raise InstallError(
+                f"supported_python_unresolved: uv could not name the exact Python "
+                f"{PYTHON_CONSTRAINT} it installs Yoke with. Run uv python find "
+                f"--show-version {shlex.quote(PYTHON_CONSTRAINT)} to see why, then "
+                "rerun the installer or yoke update. " + _failure_reason(found)
+            )
+        return version
+
+    def _run_uv_install(self, command: Sequence[str]) -> bool:
+        command = list(command)
+        position = command.index("--python") + 1
+        command[position] = self._exact_python()
+        result = self.capture_runner(command)
+        if result.returncode != 0:
+            refuse_untrusted_mount_point(result)
             print(self._say("Install failed"), file=self.stdout)
             print(
                 _paint("✗ Couldn't install Yoke.", "danger", enabled=self.color),

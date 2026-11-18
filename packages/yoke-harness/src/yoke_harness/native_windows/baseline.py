@@ -3,6 +3,7 @@
 from pathlib import PureWindowsPath
 
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
@@ -194,16 +195,25 @@ def reach_baseline(control, name):
 
     origin = distribution.origin_for_connection(machine_config.active_connection())
     script = (
+        "$ProgressPreference='SilentlyContinue'; "
         "$env:YOKE_INSTALL_YES='1'; $env:YOKE_NO_SETUP='1'; "
         f"$env:YOKE_INSTALL_BASE_URL={quote(origin)}; "
         f"$installer=Invoke-WebRequest -UseBasicParsing {quote(origin + '/install.ps1')}; "
         "& ([ScriptBlock]::Create($installer.Content)) --yes --no-setup; "
         "if($LASTEXITCODE){exit $LASTEXITCODE}"
     )
-    installed = control._run(script, timeout=1200)
+    # Users install from a local PowerShell. sshd runs its sessions under
+    # Redirection Guard, which blocks uv's Python junction (astral-sh/uv#19616),
+    # so install as the signed-in desktop user; SSH only verifies.
+    installed = desktop_script(control, script, timeout=1200)
     if installed.returncode:
         return HostActionResult(
-            False, {"recovery": installed.stderr}, "windows_baseline_install_failed"
+            False,
+            {
+                "install_surface": "windows-console",
+                "recovery": installed.stderr or installed.stdout,
+            },
+            "windows_baseline_install_failed",
         )
     probe = control.run_command([control.path_state.yoke_bin, "--version"])
     paths = {
@@ -216,6 +226,7 @@ def reach_baseline(control, name):
         ok,
         {
             "operation": name,
+            "install_surface": "windows-console",
             "path_state": paths,
             "launcher": control.path_state.yoke_bin,
         },
