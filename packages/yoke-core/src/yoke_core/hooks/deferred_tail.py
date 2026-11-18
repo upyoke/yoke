@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextvars import copy_context
+from datetime import datetime
 from typing import Any, Callable
 
 
@@ -28,6 +29,7 @@ def deferred_flush(
     observed_session,
     event_name: str,
     context,
+    observed_at: datetime | None,
     final_outcome: str,
     timed_out: bool,
     failed: bool,
@@ -50,7 +52,7 @@ def deferred_flush(
         persist_accepted_hook_turn_posture(
             event_name=event_name,
             session_id=context.session_id or "",
-            observed_at=getattr(context, "now", None),
+            observed_at=observed_at,
             final_outcome=final_outcome,
             timed_out=timed_out,
             failed=failed,

@@ -17,8 +17,15 @@ from yoke_core.domain.session_turn_posture import (
 BASE = datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)
 
 
-def _connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(":memory:")
+class _KeepOpen(sqlite3.Connection):
+    """A test connection the hook tail can close and still read afterwards."""
+
+    def close(self) -> None:
+        pass
+
+
+def _connection(factory: type = sqlite3.Connection) -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:", factory=factory)
     conn.row_factory = sqlite3.Row
     conn.execute(
         "CREATE TABLE harness_sessions ("
@@ -125,3 +132,64 @@ def test_invalid_posture_is_rejected_before_storage() -> None:
         stamp_turn_posture(
             _connection(), session_id="s1", posture="idle", observed_at=BASE
         )
+
+
+def test_late_prompt_observed_before_session_end_keeps_ended_row_waiting(
+    monkeypatch,
+) -> None:
+    """A prompt the resident finishes after SessionEnd stamps its hook instant."""
+    from types import SimpleNamespace
+
+    from yoke_contracts.hook_evaluator_protocol import EVALUATOR_PAYLOAD_KEY
+    from yoke_contracts.hook_observation_age import HOOK_AGE_FIELD
+    from yoke_core.domain.session_message_reachability import message_reachability
+    from yoke_core.hooks.run_tail import flush_run_tail
+
+    conn = _connection(_KeepOpen)
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at='2026-08-23T12:00:03.000000Z'"
+    )
+    conn.commit()
+    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: conn)
+    monkeypatch.setattr(
+        "yoke_core.hooks.telemetry.flush_hook_telemetry", lambda *a, **kw: "ok"
+    )
+    closed_deadline = SimpleNamespace(telemetry_allowed=lambda: False)
+
+    def run(event_name: str, now: datetime, payload: dict) -> None:
+        flush_run_tail(
+            event_name=event_name,
+            context=SimpleNamespace(
+                session_id="s1", now=now, executor_family="claude"
+            ),
+            chain_length=0,
+            final_outcome="allow",
+            hook_wait_ms=0,
+            timed_out=False,
+            deadline=closed_deadline,
+            payload=payload,
+            stdin_data="{}",
+            controls=None,
+            telem_records=[],
+        )
+
+    run("SessionEnd", BASE + timedelta(seconds=3), {})
+    # Observed at 12:00:01 (5s - 4s age), before ended_at; finished at 12:00:05.
+    run(
+        "UserPromptSubmit",
+        BASE + timedelta(seconds=5),
+        {EVALUATOR_PAYLOAD_KEY: {HOOK_AGE_FIELD: 4000}},
+    )
+
+    row = conn.execute(
+        "SELECT turn_posture,turn_posture_at,ended_at FROM harness_sessions"
+    ).fetchone()
+    assert tuple(row) == (
+        "waiting",
+        "2026-08-23T12:00:03.000000Z",
+        "2026-08-23T12:00:03.000000Z",
+    )
+    reachability = message_reachability(
+        {"turn_posture": row["turn_posture"], "executor_surface": "claude"}
+    )
+    assert reachability.startswith("between turns")

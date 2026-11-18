@@ -168,6 +168,7 @@ def test_background_tail_keeps_authorized_request_context(monkeypatch):
         observed_session=None,
         event_name="Stop",
         context=SimpleNamespace(session_id="", now=None),
+        observed_at=None,
         final_outcome="deny",
         timed_out=False,
         failed=False,
