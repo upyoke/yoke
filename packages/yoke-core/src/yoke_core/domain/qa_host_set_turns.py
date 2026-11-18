@@ -56,6 +56,14 @@ def execution_place(
 
 def reserved_wait(conn: Any, claim: Any) -> dict[str, Any] | None:
     """The unconsumed wait *claim* reserves, if it is a reservation."""
+    from yoke_core.domain.qa_test_machine_wait_schema import (
+        QA_TEST_MACHINE_WAIT_TABLE,
+    )
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, QA_TEST_MACHINE_WAIT_TABLE):
+        # Partial fixture schemas without the line hold no reservation.
+        return None
     row = query_one(
         conn,
         "SELECT * FROM qa_test_machine_waits "
