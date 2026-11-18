@@ -16,11 +16,11 @@ def test_cleanup_failure_retains_completed_diagnostics(monkeypatch, exit_code, c
     executions = []
 
     def run(argv, **kwargs):
-        if "input" in kwargs:
-            return subprocess.CompletedProcess(argv, 0, "upload receipt", "")
         if " -File " in argv[-1]:
             executions.append(argv)
             return primary
+        if "input" in kwargs:
+            return subprocess.CompletedProcess(argv, 0, "upload receipt", "")
         if cleanup_failure == "timeout":
             raise subprocess.TimeoutExpired(argv, 10)
         if cleanup_failure == "oserror":
