@@ -79,8 +79,13 @@ if(Test-Path -LiteralPath (Join-Path $golden 'profile')){
 }
 """.replace("\n+", "\n")
     copy = f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
-& robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
-if($LASTEXITCODE -ge 8){{throw 'windows_profile_copy_failed: close test applications and retry; the golden was not sealed'}}
+$logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
+New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+$copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')
+& robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /NP ('/LOG:'+$copyLog) /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
+$copyExit=$LASTEXITCODE
+if($copyExit -ge 8){{throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; inspect private log '+$copyLog+'; preserve the unsealed golden and repair the named copy failure before retrying')}}
+Remove-Item -LiteralPath $copyLog -Force
 """
     if operation == "capture":
         return (

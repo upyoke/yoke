@@ -36,6 +36,7 @@ jobs:
           runtime/api/domain/test_native_windows_profile.py::test_real_profile_creation_and_retry_preserve_password
           runtime/api/domain/test_native_windows_firewall.py
           runtime/api/domain/test_native_windows_harness_clis.py
+          runtime/api/domain/test_native_windows_baseline.py
           runtime/api/domain/test_native_windows_framed_process.py
           runtime/api/domain/test_native_windows_admin_staging.py
           runtime/api/domain/test_native_windows_standard_staging.py
