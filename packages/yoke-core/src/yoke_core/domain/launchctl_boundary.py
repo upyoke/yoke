@@ -11,6 +11,8 @@ whole fleet depends on.
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import posix_uid
+
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 import json
@@ -86,7 +88,7 @@ def real_launchd_opted_in(environ: Mapping[str, str] | None = None) -> bool:
 
 
 def launchd_target(label: str, uid: int | None = None) -> str:
-    resolved = os.getuid() if uid is None else uid
+    resolved = posix_uid() if uid is None else uid
     return f"{LAUNCHD_USER_DOMAIN}/{resolved}/{label}"
 
 

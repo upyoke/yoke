@@ -68,6 +68,7 @@ RUN --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/__init__
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/schema_transport.py,target=/bootstrap/contracts/yoke_contracts/machine_config/schema_transport.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/selection.py,target=/bootstrap/contracts/yoke_contracts/machine_config/selection.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/machine_config/unknown_keys.py,target=/bootstrap/contracts/yoke_contracts/machine_config/unknown_keys.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/platform_paths.py,target=/bootstrap/contracts/yoke_contracts/platform_paths.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/platform_file_lock.py,target=/bootstrap/contracts/yoke_contracts/platform_file_lock.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/owner_private_path.py,target=/bootstrap/contracts/yoke_contracts/owner_private_path.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/filesystem_safety.py,target=/bootstrap/contracts/yoke_contracts/filesystem_safety.py \

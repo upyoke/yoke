@@ -10,9 +10,9 @@ from yoke_harness.golden_probes_sidecar import read_sealed_probes
 from yoke_contracts.test_machine_types import HostActionResult
 
 # Shared by the read-only admission call and the final check before teardown.
-from yoke_harness import linux_desktop_state
+from yoke_harness import linux_desktop_state, linux_platform_payload
 
-DESKTOP_PROGRAM = (
+DESKTOP_PROGRAM = linux_platform_payload.source() + (
     Path(linux_desktop_state.__file__)
     .read_text(encoding="utf-8")
     .replace("from __future__ import annotations", "")

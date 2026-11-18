@@ -10,6 +10,8 @@ falls back to the parent checkout that still exists.
 
 from __future__ import annotations
 
+import tempfile
+
 import os
 from pathlib import Path, PurePosixPath
 from typing import Iterable, Optional
@@ -59,7 +61,7 @@ def resolve_existing_hook_root(
     home = os.environ.get("HOME") or ""
     if home and os.path.isdir(home):
         return home
-    return "/tmp" if os.path.isdir("/tmp") else ""
+    return tempfile.gettempdir() if os.path.isdir(tempfile.gettempdir()) else ""
 
 
 def resolve_existing_hook_root_from_env(

@@ -15,7 +15,7 @@ import shlex
 from typing import Any
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
-from yoke_harness import linux_chromium_processes, linux_desktop_chromium
+from yoke_harness import linux_platform_payload, linux_chromium_processes, linux_desktop_chromium
 from yoke_harness.linux_desktop_session import ensure_desktop
 from yoke_harness.ssh_mac_sign_in_apps import SIGN_IN_APP_QUIT_NOT_PROVED
 from yoke_contracts.test_machine_types import HostActionResult
@@ -34,6 +34,7 @@ _HOST_TIMEOUT_SECONDS = 90
 def _quit_program() -> str:
     return "\n".join(
         [
+            linux_platform_payload.source(),
             Path(linux_chromium_processes.__file__).read_text(encoding="utf-8"),
             Path(linux_desktop_chromium.__file__)
             .read_text(encoding="utf-8")

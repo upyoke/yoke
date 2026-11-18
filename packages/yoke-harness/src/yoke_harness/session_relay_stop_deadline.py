@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.owner_private_path import posix_uid
+
 import logging
 import math
-import os
 import re
 import subprocess
 import sys
@@ -63,7 +64,7 @@ def read_stop_settlement_seconds() -> float:
             argv = [
                 "launchctl",
                 "print",
-                f"{LAUNCHD_USER_DOMAIN}/{os.getuid()}/{instance.label}",
+                f"{LAUNCHD_USER_DOMAIN}/{posix_uid()}/{instance.label}",
             ]
         else:
             raise ValueError("this OS has no supported service deadline reader")

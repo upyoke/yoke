@@ -6,6 +6,8 @@ being installed concurrently. Call it with the checkout's package PYTHONPATH.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_paths import POSIX_TMP
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from pathlib import Path
@@ -116,7 +118,7 @@ def install_pg_client(container: str) -> None:
             + f" in {PG_CLIENT_BIN}",
             "Install the PostgreSQL 16 client tools on the runner, then retry CI",
         )
-    staging = Path(tempfile.mkdtemp(prefix="yoke-ci-pg-client.", dir="/tmp"))
+    staging = Path(tempfile.mkdtemp(prefix="yoke-ci-pg-client.", dir=POSIX_TMP))
     needs_libpq = _copy_pg_client(container, staging)
     install = "Repair sudo access and runner disk space, then retry CI"
     _pg_client_step("install", ["sudo", "install", "-d", str(PG_CLIENT_BIN)],
@@ -211,7 +213,7 @@ def _start_container(args: list[str], container: str) -> None:
 def start_postgres() -> None:
     container = os.environ["PG_CONTAINER"]
     image = os.environ["POSTGRES_IMAGE"]
-    socket_dir = tempfile.mkdtemp(prefix="yoke-ci-pg.", dir="/tmp")
+    socket_dir = tempfile.mkdtemp(prefix="yoke-ci-pg.", dir=POSIX_TMP)
     # Publish before starting Docker so the caller's always-cleanup can run
     # even if this task or a concurrent prerequisite fails.
     _publish_env({"YOKE_PG_SOCKET_DIR": socket_dir})

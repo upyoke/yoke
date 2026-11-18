@@ -7,7 +7,7 @@ import shlex
 from pathlib import Path
 
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness import linux_desktop_state
+from yoke_harness import linux_desktop_state, linux_platform_payload
 from yoke_harness.linux_command_custody import run_command
 
 
@@ -28,7 +28,7 @@ print(json.dumps(receipt))
 
 
 def ensure_desktop(control, *, restart=False):
-    source = Path(linux_desktop_state.__file__).read_text(encoding="utf-8")
+    source = linux_platform_payload.source() + "\n" + Path(linux_desktop_state.__file__).read_text(encoding="utf-8").replace("from __future__ import annotations", "")
     program = (
         source
         + "\nimport sys\ntry:\n"

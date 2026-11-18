@@ -83,8 +83,9 @@ def _posix_shell(environ: Mapping[str, str]) -> str:
     if not shell:
         try:
             import pwd
+            from yoke_contracts.owner_private_path import posix_uid
 
-            shell = pwd.getpwuid(os.getuid()).pw_shell
+            shell = pwd.getpwuid(posix_uid()).pw_shell
         except (ImportError, KeyError):
             shell = ""
     return PurePosixPath(shell).name if shell else "zsh"

@@ -35,6 +35,7 @@ from yoke_contracts import (
     owner_private_path,
     timestamps,
     platform_file_lock,
+    platform_paths,
     platform_file_sync,
     windows_private_directory,
     windows_others_unwritable_directory,
@@ -95,6 +96,10 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
         (
             Path(github_service_profile_proof.__file__),
             STABLE_SERVICE_PROFILE_PROOF_NAME,
+        ),
+        (
+            Path(platform_paths.__file__),
+            github_git_credential_launcher.BUNDLE_PLATFORM_PATHS_NAME,
         ),
         (
             Path(directories.__file__),

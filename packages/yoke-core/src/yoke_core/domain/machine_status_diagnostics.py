@@ -218,7 +218,6 @@ def _path_status(raw: str | Path, label: str) -> dict[str, Any]:
 def _permission_issues(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
-    stat = path.stat()
     issues: list[dict[str, str]] = []
     if not owner_private_path.is_owner_private_file(path):
         message = f"{path} must be owner-only"
@@ -237,7 +236,7 @@ def _permission_issues(path: Path) -> list[dict[str, str]]:
                 hint,
             )
         )
-    if hasattr(os, "getuid") and stat.st_uid != os.getuid():
+    if not owner_private_path.is_current_user_owned_path(path):
         issues.append(
             _issue("error", "config_owner", f"{path} is not owned by the current user")
         )

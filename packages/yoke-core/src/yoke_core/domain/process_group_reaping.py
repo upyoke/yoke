@@ -15,15 +15,14 @@ a new session. Callers get two shapes:
 - :func:`run_in_process_group` for call-and-collect callers that want
   ``subprocess.run`` semantics with a timeout that actually reaps.
 
-A process group cannot be signalled on platforms without ``killpg``; there
-the helpers degrade to signalling the direct child, which is exactly the
-behavior callers had before.
+Process custody uses the shared platform owner on POSIX and Windows.
 """
 
 from __future__ import annotations
 
+from yoke_contracts.platform_process import process_command_lines, spawn_group, stop_group
+
 import contextlib
-import os
 import signal
 import subprocess
 import threading
@@ -31,8 +30,6 @@ from typing import Iterator, Sequence
 
 #: Seconds a terminated group is given to exit before it is killed outright.
 DEFAULT_GRACE_SECONDS = 5.0
-
-_GROUP_SIGNALS_SUPPORTED = hasattr(os, "killpg") and hasattr(os, "getpgid")
 
 
 class ProcessGroupInterrupted(BaseException):
@@ -49,31 +46,11 @@ class ProcessGroupInterrupted(BaseException):
 
 
 def popen_in_process_group(argv, **kwargs) -> subprocess.Popen:
-    """Start *argv* as the leader of a new process group.
-
-    ``start_new_session`` also detaches the child from the terminal's
-    foreground group, so an interactive Ctrl-C reaches this process alone.
-    That is deliberate: the parent decides when the tree dies, and it always
-    reaps the group rather than leaving orphans behind.
-    """
-    kwargs.setdefault("start_new_session", True)
-    return subprocess.Popen(argv, **kwargs)
-
-
-def _group_id(proc: subprocess.Popen) -> int | None:
-    """Return the child's process-group id, or None when it cannot be used."""
-    if not _GROUP_SIGNALS_SUPPORTED:
-        return None
-    try:
-        pgid = os.getpgid(proc.pid)
-    except (ProcessLookupError, PermissionError, OSError):
-        return None
-    # Signalling our own group would take down this process and its siblings.
-    # That only happens when the child was started without a new session, in
-    # which case the direct-child fallback is the correct, narrower action.
-    if pgid == os.getpgid(0):
-        return None
-    return pgid
+    """Spawn isolated work and retain its portable custody handle."""
+    group = spawn_group(argv, **kwargs)
+    proc = group.process
+    proc._yoke_process_group = group
+    return proc
 
 
 def descendant_pids(root_pid: int) -> list[int]:
@@ -85,26 +62,9 @@ def descendant_pids(root_pid: int) -> list[int]:
     precisely. Walking parent links reaches those grandchildren regardless of
     which session they moved to.
     """
-    try:
-        listing = subprocess.run(
-            ["ps", "-eo", "pid=,ppid="],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        ).stdout
-    except (OSError, subprocess.SubprocessError):
-        return []
-
     children: dict[int, list[int]] = {}
-    for line in listing.splitlines():
-        parts = line.split()
-        if len(parts) != 2:
-            continue
-        try:
-            pid, ppid = int(parts[0]), int(parts[1])
-        except ValueError:
-            continue
-        children.setdefault(ppid, []).append(pid)
+    for process in process_command_lines():
+        children.setdefault(process.ppid, []).append(process.pid)
 
     found: list[int] = []
     frontier = [root_pid]
@@ -118,54 +78,11 @@ def descendant_pids(root_pid: int) -> list[int]:
     return found
 
 
-# Retained private alias for in-module callers.
-_descendant_pids = descendant_pids
-
-
-def _signal_tree(proc: subprocess.Popen, pgid: int | None, signal_number: int) -> None:
-    # Collect descendants BEFORE signalling: once the direct child dies its
-    # children are reparented away and the parent links that identify them are
-    # gone, which is exactly how an orphaned test runner survives its reaper.
-    descendants = _descendant_pids(proc.pid)
-    try:
-        if pgid is not None:
-            os.killpg(pgid, signal_number)
-        else:
-            proc.send_signal(signal_number)
-    except (ProcessLookupError, PermissionError, OSError):
-        pass  # Already gone, or no longer ours to signal.
-    for pid in descendants:
-        try:
-            os.kill(pid, signal_number)
-        except (ProcessLookupError, PermissionError, OSError):
-            pass
-
-
 def terminate_process_group(
     proc: subprocess.Popen, *, grace_seconds: float = DEFAULT_GRACE_SECONDS
 ) -> None:
-    """Terminate *proc*'s whole group, then reap it.
-
-    Sends ``SIGTERM`` so a test runner can still tear its own fixtures down,
-    then ``SIGKILL`` to whatever ignored it. Returns once the direct child has
-    been waited on, so the caller never leaves a zombie.
-    """
-    if proc.poll() is not None:
-        with contextlib.suppress(Exception):
-            proc.wait(timeout=grace_seconds)
-        return
-
-    pgid = _group_id(proc)
-    _signal_tree(proc, pgid, signal.SIGTERM)
-    try:
-        proc.wait(timeout=grace_seconds)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-
-    _signal_tree(proc, pgid, signal.SIGKILL)
-    with contextlib.suppress(subprocess.TimeoutExpired):
-        proc.wait(timeout=grace_seconds)
+    """Terminate and reap every identity held by this spawned process group."""
+    stop_group(proc._yoke_process_group, timeout=grace_seconds)
 
 
 @contextlib.contextmanager

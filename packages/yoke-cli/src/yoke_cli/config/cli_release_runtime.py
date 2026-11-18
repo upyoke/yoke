@@ -20,8 +20,14 @@ import time
 WINDOWS = os.name == "nt"
 if WINDOWS:
     import msvcrt
+
+LOCK_SOURCE = None
+if LOCK_SOURCE is None:
+    from yoke_contracts import platform_file_lock as locking
 else:
-    import fcntl
+    import types
+    locking = types.ModuleType("platform_file_lock")
+    exec(compile(LOCK_SOURCE, "<platform_file_lock>", "exec"), locking.__dict__)
 
 INSTALL_ROOT = None
 RECOVERY = "rerun the public installer or yoke update to repair the CLI"
@@ -53,7 +59,6 @@ sys.exit(main(sys.argv[3:]) or 0)
 """
 ENTRY = ["-I", "-c", RELEASE_ENTRY, RECOVERY]
 
-
 @contextmanager
 def locked(path: Path, *, nonblocking: bool = False):
     """Hold an exclusive lock on ``path``, waiting up to 30 seconds."""
@@ -71,20 +76,14 @@ def locked(path: Path, *, nonblocking: bool = False):
         try:
             yield handle
         finally:  # Closing releases a POSIX lock; Windows asks for an unlock.
-            if WINDOWS:
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-
+            locking.release_exclusive(handle.fileno())
 
 def _try_lock(handle) -> bool:
     try:
-        if WINDOWS:
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except PermissionError if WINDOWS else BlockingIOError:
+        locking.acquire_exclusive_nonblocking(handle.fileno())
+    except BlockingIOError:
         return False
     return True
-
 
 def release_python(generation: Path) -> Path:
     """The interpreter of the uv tool environment inside a release folder."""
@@ -93,24 +92,21 @@ def release_python(generation: Path) -> Path:
         return environment / "Scripts" / "python.exe"
     return environment / "bin" / "python3"
 
-
 def _generation(root: Path) -> Path:
     name = (root / "current").read_text(encoding="utf-8").strip()
     if not name or name != Path(name).name or name.startswith("."):
         raise RuntimeError("cli_release_target_invalid: current names no release")
     return root / "releases" / name
 
-
 def _lease(generation: Path):
     """Open a release's lease for as long as this process uses the release."""
     lease = (generation / "lease").open("r", encoding="utf-8")
     if not WINDOWS:  # Cleanup may have retired it while the lock waited.
-        fcntl.flock(lease, fcntl.LOCK_SH)
+        locking.acquire_shared(lease.fileno())
         if os.fstat(lease.fileno()).st_ino != (generation / "lease").stat().st_ino:
             lease.close()
             raise FileNotFoundError(f"release retired while starting: {generation}")
     return lease
-
 
 @contextmanager
 def _launcher_pipe(lease):
@@ -128,7 +124,6 @@ def _launcher_pipe(lease):
     finally:
         os.close(alive)
         os.close(held)
-
 
 def _replace(path: Path, content: str, *, executable: bool = False) -> None:
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)
@@ -149,7 +144,6 @@ def _replace(path: Path, content: str, *, executable: bool = False) -> None:
     finally:
         Path(temporary).unlink(missing_ok=True)
 
-
 def _shims(root: Path, python: Path, bin_dir: Path) -> dict[Path, str]:
     launcher = root / "launcher"
     if WINDOWS and any(mark in f"{python}{launcher}" for mark in '%"'):
@@ -161,7 +155,6 @@ def _shims(root: Path, python: Path, bin_dir: Path) -> dict[Path, str]:
         shims[bin_dir / "yoke.cmd"] = f'@"{python}" "{launcher}" %*\r\n'
     return shims
 
-
 def _remove_tree(path: Path) -> None:
     def clear_read_only(function, failed, _error):
         os.chmod(failed, stat.S_IWRITE)
@@ -169,7 +162,6 @@ def _remove_tree(path: Path) -> None:
 
     hook = "onexc" if sys.version_info >= (3, 12) else "onerror"
     shutil.rmtree(path, **{hook: clear_read_only})
-
 
 def _retire(release: Path, retired: Path) -> bool:
     """Rename an unused release out of ``releases``; False while it is in use."""
@@ -185,7 +177,6 @@ def _retire(release: Path, retired: Path) -> bool:
         return False
     return True
 
-
 def collect(root: Path, *, pending_safe: bool = False) -> None:
     """Retire unused releases under the publication lock; ``pending`` marks an
     install in progress, except after a publication (``pending_safe``)."""
@@ -198,18 +189,15 @@ def collect(root: Path, *, pending_safe: bool = False) -> None:
     for retired in (root / "retired").glob("*"):
         _remove_tree(retired)
 
-
 def hold_release(*, current: bool = False):
     from yoke_cli.config.cli_release_resident import hold_release as run
 
     return run(current=current)
 
-
 def exec_current_python(arguments: list[str]):
     from yoke_cli.config.cli_release_resident import exec_current_python as run
 
     return run(arguments)
-
 
 def _probe(generation: Path, version: str) -> None:
     command = [str(release_python(generation)), *ENTRY]
@@ -231,7 +219,6 @@ def _probe(generation: Path, version: str) -> None:
                     f"cli_candidate_helper_check_failed: no successful credential-helper check; {RECOVERY}"
                 )
 
-
 def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
     root = root.resolve()
     generation = generation.resolve()
@@ -241,6 +228,7 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
     (generation / "lease").touch()
     python = Path(sys._base_executable).resolve()
     source = Path(__file__).read_text(encoding="utf-8")
+    source = source.replace("LOCK_SOURCE = None", f"LOCK_SOURCE = {Path(locking.__file__).read_text(encoding='utf-8')!r}", 1)
     source = source.replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)
     bin_dir.mkdir(parents=True, exist_ok=True)
     with locked(root / "publication.lock"), ExitStack() as cleanup:

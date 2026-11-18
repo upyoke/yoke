@@ -8,6 +8,8 @@ yields an auditable sentinel. ``Mutation`` and ``extract_mutations`` are pure.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_paths import POSIX_TMP
+
 from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc as _has_unquoted_heredoc,
 )
@@ -30,9 +32,7 @@ from yoke_core.domain.path_claim_bash_parser_redirect import (
     tokenize_redirects,
 )
 
-
 SUPPRESSION_TOKEN = "# lint:no-worktree-path-check"
-
 
 # Mutating verbs that take positional file arguments (last positional is
 # the destination for cp/mv; rm/tee accept multiple).
@@ -67,7 +67,7 @@ def _is_flag(token: str) -> bool:
 
 
 def _is_tmp_path(path: str) -> bool:
-    return path.startswith("/tmp/") or path == "/tmp"
+    return path.startswith(POSIX_TMP + "/") or path == POSIX_TMP
 
 
 def _strip_redirect_targets(tokens: List[str]) -> List[str]:

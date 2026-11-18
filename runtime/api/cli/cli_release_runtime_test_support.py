@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from yoke_cli.config import cli_release_runtime as runtime
+from yoke_contracts import platform_file_lock
 
 MAIN = """import json, sys
 def main(argv):
@@ -52,6 +53,12 @@ def candidate(root: Path, version: str) -> Path:
         "def detect(): return {'kind': 'packaged_wheel', 'version': '1.0'}\n"
     )
     (package / "main.py").write_text(MAIN)
+    contracts = site / "yoke_contracts"
+    contracts.mkdir()
+    (contracts / "__init__.py").touch()
+    (contracts / "platform_file_lock.py").write_text(
+        Path(platform_file_lock.__file__).read_text(encoding="utf-8"), encoding="utf-8"
+    )
     runtime_source = Path(runtime.__file__).read_text()
     (package / "config/cli_release_runtime.py").write_text(runtime_source)
     (generation / "lease").touch()
