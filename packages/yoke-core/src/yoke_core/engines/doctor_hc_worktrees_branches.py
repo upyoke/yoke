@@ -44,6 +44,17 @@ def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-branch-divergence: Local/remote branch divergence."""
     issues: List[str] = []
 
+    # A checkout set up without a remote (setup's Skip GitHub) has nothing to
+    # diverge from, so the check does not apply rather than failing a fetch.
+    if _base._run(["git", "remote", "get-url", "origin"]).returncode != 0:
+        rec.record(
+            "HC-branch-divergence",
+            "Local/remote branch divergence",
+            "N/A",
+            "no origin remote",
+        )
+        return
+
     # Determine default branch
     default_branch = None
     for candidate in ("main", "master"):

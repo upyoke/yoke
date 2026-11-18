@@ -30,9 +30,6 @@ def _paired_envelope(row_id_key: str, row_id: int) -> str:
 
 def _insert_family_activity(conn, table: str, timestamp: str) -> int | None:
     """Insert one recent row for *table*, returning its id where pairing needs it."""
-    if table == "items":
-        insert_item(conn, id=901, created_at=timestamp, updated_at=timestamp)
-        return 901
     if table == "qa_requirements":
         row = insert_qa_requirement(conn, item_id=901, created_at=timestamp)
         return int(row["id"])
@@ -145,6 +142,16 @@ def test_one_emitting_write_path_does_not_mask_a_silent_sibling(test_db) -> None
 
 def test_rare_family_without_activity_does_not_warn(test_db) -> None:
     _insert_family_activity(test_db, "qa_requirements", OLD_TIMESTAMP)
+
+    result = _result(_run_hc(hc_event_family_liveness, test_db))
+
+    assert result.result == "PASS"
+
+
+def test_new_item_without_status_transition_does_not_warn(test_db) -> None:
+    """Creating or editing an item moves updated_at without a status change."""
+    timestamp = iso8601_now()
+    insert_item(test_db, id=901, created_at=timestamp, updated_at=timestamp)
 
     result = _result(_run_hc(hc_event_family_liveness, test_db))
 
