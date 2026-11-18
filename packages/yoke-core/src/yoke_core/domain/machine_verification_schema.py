@@ -1,4 +1,4 @@
-"""Additive receipts for composite machine-QA capability operations."""
+"""Additive receipts for Test Machine operations."""
 
 from __future__ import annotations
 
@@ -7,21 +7,19 @@ from typing import Any
 from yoke_contracts.machine_qa_host_control import RECORDED_TEST_MACHINE_OPERATIONS
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.test_machine_schema import ensure_test_machines
 
 
 TEST_MACHINE_VERIFICATION_SQL = """
 CREATE TABLE IF NOT EXISTS test_machine_verifications (
-    project_id INTEGER NOT NULL,
-    capability_type TEXT NOT NULL,
+    test_machine_id INTEGER NOT NULL REFERENCES test_machines(id) ON DELETE CASCADE,
     status TEXT NOT NULL
         CHECK(status IN ('configured_unverified','verified','error')),
     checked_at TIMESTAMPTZ,
     receipt_json TEXT NOT NULL DEFAULT '{}',
     error_code TEXT,
     updated_at TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY(project_id, capability_type),
-    FOREIGN KEY(project_id, capability_type)
-        REFERENCES project_capabilities(project_id, type) ON DELETE CASCADE
+    PRIMARY KEY(test_machine_id)
 )
 """
 
@@ -32,8 +30,7 @@ CREATE TABLE IF NOT EXISTS test_machine_verifications (
 # done to a machine without any of it moving the machine's availability.
 TEST_MACHINE_OPERATION_RECEIPT_SQL = """
 CREATE TABLE IF NOT EXISTS test_machine_operation_receipts (
-    project_id INTEGER NOT NULL,
-    capability_type TEXT NOT NULL,
+    test_machine_id INTEGER NOT NULL REFERENCES test_machines(id) ON DELETE CASCADE,
     operation TEXT NOT NULL
         CHECK(operation IN (OPERATION_VALUES)),
     status TEXT NOT NULL CHECK(status IN ('verified','error')),
@@ -43,9 +40,7 @@ CREATE TABLE IF NOT EXISTS test_machine_operation_receipts (
     lease_id INTEGER,
     contract_digest TEXT,
     updated_at TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY(project_id, capability_type, operation),
-    FOREIGN KEY(project_id, capability_type)
-        REFERENCES project_capabilities(project_id, type) ON DELETE CASCADE
+    PRIMARY KEY(test_machine_id, operation)
 )
 """.replace(
     "OPERATION_VALUES",
@@ -59,6 +54,7 @@ def ensure_test_machine_schema(
     commit: bool = True,
 ) -> None:
     """Converge receipts, committing unless the caller owns the transaction."""
+    ensure_test_machines(conn)
     execute_schema_script(conn, TEST_MACHINE_VERIFICATION_SQL)
     execute_schema_script(conn, TEST_MACHINE_OPERATION_RECEIPT_SQL)
     if commit:

@@ -7,10 +7,8 @@ from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
-    test_machine_capability_type,
 )
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_claim_contention import ClaimContention
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.coordination_claims import (
@@ -24,7 +22,7 @@ from yoke_core.domain.host_control_runner import (
     load_test_machine_contract,
 )
 from yoke_core.domain.machine_qa_capability import host_claim_target
-from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
+from yoke_core.domain.test_machine_rows import test_machine_rows
 
 
 @dataclass(frozen=True)
@@ -77,40 +75,21 @@ def _verification_by_machine(
 ) -> dict[str, _Verification]:
     if not candidates:
         return {}
-    capability_rows = {
-        row.test_machine: row
-        for row in test_machine_capability_rows(
-            conn,
-            project_id=candidates[0].project_id,
-        )
-    }
-    receipts: dict[str, _Verification] = {}
-    from yoke_core.domain.schema_common import _table_exists
-
-    if _table_exists(conn, "test_machine_verifications"):
-        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        rows = conn.execute(
-            "SELECT capability_type,status,error_code "
-            "FROM test_machine_verifications "
-            f"WHERE project_id={marker}",
-            (candidates[0].project_id,),
+    receipts = dict(
+        (row[0], _Verification(status=row[1], error_code=row[2]))
+        for row in conn.execute(
+            "SELECT test_machine_id, status, error_code FROM test_machine_verifications"
         ).fetchall()
-        receipts = {
-            str(row["capability_type"]): _Verification(
-                status=str(row["status"]),
-                error_code=(str(row["error_code"]) if row["error_code"] else None),
-            )
-            for row in rows
-        }
+    )
     return {
-        name: receipts.get(
-            test_machine_capability_type(name),
+        row.test_machine: receipts.get(
+            row.id,
             _Verification(
                 status="verified" if row.verified_at else "configured_unverified",
                 error_code=None,
             ),
         )
-        for name, row in capability_rows.items()
+        for row in test_machine_rows(conn)
     }
 
 
@@ -159,7 +138,7 @@ def acquire_test_machine_admission(
     candidates = matching_platform_hosts(candidates, cases)
     if not candidates:
         raise TestMachineCapabilityError(
-            f"project {project!r} has no test-machine capability; "
+            "no eligible Test Machine is registered; "
             "register and verify a Test Machine before retrying"
         )
     verification = _verification_by_machine(conn, candidates)

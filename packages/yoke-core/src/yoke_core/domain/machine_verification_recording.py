@@ -13,15 +13,13 @@ from yoke_core.domain.machine_qa_execution_protocol import (
     host_control_submission_receipt,
     host_control_submission_receipt_matches,
 )
-from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
-from yoke_contracts.machine_config.test_machine import test_machine_capability_type
+from yoke_core.domain.test_machine_rows import test_machine_id
 
 _SUBMISSION_HISTORY_KEY = "host_control_submission_history"
 
 
 def record_test_machine_verification(
     conn: Any,
-    project_id: int,
     *,
     test_machine: str,
     status: str,
@@ -35,15 +33,14 @@ def record_test_machine_verification(
         raise ValueError(
             "verification submission identity requires lease and contract digest"
         )
-    ensure_test_machine_schema(conn)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    capability_type = test_machine_capability_type(test_machine)
+    machine_id = test_machine_id(conn, test_machine)
     now = utc_now()
     previous = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
         "FROM test_machine_verifications "
-        f"WHERE project_id={marker} AND capability_type={marker}",
-        (int(project_id), capability_type),
+        f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={marker})",
+        (test_machine,),
     ).fetchone()
     previous_receipt = (
         _json_object(previous["receipt_json"]) if previous is not None else {}
@@ -82,15 +79,14 @@ def record_test_machine_verification(
     )
     conn.execute(
         "INSERT INTO test_machine_verifications("
-        "project_id,capability_type,status,checked_at,receipt_json,error_code,updated_at"
-        f") VALUES({marker},{marker},{marker},{marker},{marker},{marker},{marker}) "
-        "ON CONFLICT(project_id,capability_type) DO UPDATE SET "
+        "test_machine_id,status,checked_at,receipt_json,error_code,updated_at"
+        f") VALUES({marker},{marker},{marker},{marker},{marker},{marker}) "
+        "ON CONFLICT(test_machine_id) DO UPDATE SET "
         "status=EXCLUDED.status, checked_at=EXCLUDED.checked_at, "
         "receipt_json=EXCLUDED.receipt_json, error_code=EXCLUDED.error_code, "
         "updated_at=EXCLUDED.updated_at",
         (
-            project_id,
-            capability_type,
+            machine_id,
             status,
             instant_parameter(conn, now),
             receipt,
@@ -99,12 +95,10 @@ def record_test_machine_verification(
         ),
     )
     conn.execute(
-        "UPDATE project_capabilities SET verified_at="
-        f"{marker} WHERE project_id={marker} AND type={marker}",
+        f"UPDATE test_machines SET verified_at={marker} WHERE id={marker}",
         (
             instant_parameter(conn, now) if status == "verified" else None,
-            project_id,
-            capability_type,
+            machine_id,
         ),
     )
     conn.commit()
@@ -128,7 +122,6 @@ def _json_object(value: Any) -> dict[str, Any]:
 
 def recorded_test_machine_verification(
     conn: Any,
-    project_id: int,
     *,
     test_machine: str,
     lease_id: int,
@@ -136,12 +129,11 @@ def recorded_test_machine_verification(
 ) -> dict[str, Any] | None:
     """Return the canonical verification for an issued submission."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    capability_type = test_machine_capability_type(test_machine)
     row = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
         "FROM test_machine_verifications "
-        f"WHERE project_id={marker} AND capability_type={marker}",
-        (int(project_id), capability_type),
+        f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={marker})",
+        (test_machine,),
     ).fetchone()
     if row is None:
         return None

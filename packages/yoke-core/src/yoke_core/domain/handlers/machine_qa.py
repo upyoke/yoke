@@ -42,23 +42,23 @@ OPERATION_COMMANDS = {
 
 class TestMachineGetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    project: str
     test_machine: str | None = None
 
 
 class TestMachineSettingsReplaceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    project: str
+    power_project: str | None = None
     test_machine: str | None = None
     settings: dict[str, Any]
     base_settings: str | None = None
 
 
 class TestMachineResponse(BaseModel):
-    project_id: int
-    project: str
+    id: int
+    yoke_started: bool
+    power_project_id: int | None
+    power_project: str | None
     test_machine: str
-    capability_type: str
     kind: str
     display_name: str
     runner_id: str
@@ -78,10 +78,10 @@ class TestMachineResponse(BaseModel):
 
 
 class TestMachineSettingsReplaceResponse(BaseModel):
-    project_id: int
-    project: str
+    id: int
+    power_project_id: int | None
+    power_project: str | None
     test_machine: str
-    capability_type: str
     settings: dict[str, str]
     settings_token: str
     verification_status: str
@@ -105,7 +105,6 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         result = test_machine_detail(
             conn,
-            project=parsed.project,
             test_machine=parsed.test_machine,
         )
     except TestMachineCapabilityError as exc:
@@ -124,7 +123,7 @@ def handle_settings_replace(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         result = replace_test_machine_settings(
             conn,
-            project=parsed.project,
+            power_project=parsed.power_project,
             test_machine=parsed.test_machine,
             settings=parsed.settings,
             base_settings=parsed.base_settings,
@@ -165,7 +164,7 @@ def handle_operation_on_control_plane(
         "host_control_client_required",
         f"test-machine {operation.replace('_', ' ')} cannot execute on "
         "the hosted control plane; run `yoke test-machine "
-        f"{command} --project {parsed.project}{selector}` from a "
+        f"{command} {selector.lstrip()}` from a "
         "credential-owning harness or CLI machine",
     )
 

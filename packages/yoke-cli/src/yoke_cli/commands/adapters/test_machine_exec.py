@@ -26,7 +26,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
-EXEC_USAGE = "yoke test-machine exec --project P [--test-machine TEST_MACHINE] [--admin] [--session-id S] -- ARGV..."
+EXEC_USAGE = "yoke test-machine exec [--test-machine TEST_MACHINE] [--admin] [--session-id S] -- ARGV..."
 _REFUSED_EXIT = 1
 
 
@@ -81,13 +81,10 @@ def test_machine_exec(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--project", required=True, metavar="P", help="Project that owns the machine."
-    )
-    parser.add_argument(
         "--test-machine",
         metavar="TEST_MACHINE",
         help="Registered test machine to run on; list them with "
-        "yoke test-machine list --project P.",
+        "yoke test-machine list.",
     )
     parser.add_argument(
         "--admin",
@@ -109,7 +106,7 @@ def test_machine_exec(args: List[str]) -> int:
     response = call_dispatcher(
         function_id="test_machine.get",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "test_machine": parsed.test_machine},
+        payload={"test_machine": parsed.test_machine},
         actor=actor,
     )
     if not response.success or not isinstance(response.result, dict):
@@ -118,7 +115,7 @@ def test_machine_exec(args: List[str]) -> int:
             error.code if error else "test_machine_unavailable",
             error.message if error else "test_machine.get returned no machine",
             (error.recovery_hint if error else None)
-            or "`yoke test-machine list --project P` names the registered "
+            or "`yoke test-machine list` names the registered "
             "machines; pass one with --test-machine TEST_MACHINE.",
         )
     detail = response.result
@@ -140,7 +137,7 @@ def test_machine_exec(args: List[str]) -> int:
             from yoke_harness.test_machine_admin import administrator_password
 
             admin_options["administrator_password"] = administrator_password(
-                project=parsed.project,
+                project=detail.get("power_project") or "",
                 test_machine=test_machine,
                 os_name=settings["os"],
             )
@@ -156,7 +153,7 @@ def test_machine_exec(args: List[str]) -> int:
                 + encoded("$ErrorActionPreference='Stop'; " + process_script(command))
             ]
         with desktop_lease(
-            project=parsed.project,
+            project=detail.get("power_project") or "",
             test_machine=test_machine,
             settings=settings,
             actor=actor,

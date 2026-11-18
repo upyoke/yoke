@@ -1,4 +1,4 @@
-"""Registered read returning every test machine for one project."""
+"""Registered read returning the universe Test Machine fleet."""
 
 from __future__ import annotations
 
@@ -16,23 +16,20 @@ from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 class TestMachineListRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    project: str
 
 
 class TestMachineListResponse(BaseModel):
-    project_id: int
-    project: str
     test_machines: list[TestMachineResponse]
 
 
 def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
     try:
-        parsed = TestMachineListRequest.model_validate(request.payload or {})
+        TestMachineListRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc))
     conn = db_helpers.connect()
     try:
-        result = test_machine_list(conn, project=parsed.project)
+        result = test_machine_list(conn)
     except TestMachineCapabilityError as exc:
         return _failure("test_machine_unavailable", str(exc))
     finally:

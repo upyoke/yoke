@@ -6,16 +6,26 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
-    is_test_machine_capability_type,
-    test_machine_capability_type,
-    test_machine_resource_name,
     validate_test_machine_resource_name,
 )
 
-from yoke_core.domain.machine_qa_capability_rows import (
-    test_machine_capability_rows,
+from yoke_core.domain.test_machine_rows import (
+    test_machine_rows,
 )
 from yoke_core.domain.qa_method_capabilities import capability_kinds
+
+
+_MACHINE_REQUIREMENT_PREFIX = "test-machine:"
+
+
+def test_machine_requirement_kind(name: str) -> str:
+    return _MACHINE_REQUIREMENT_PREFIX + validate_test_machine_resource_name(name)
+
+
+def requirement_machine_name(kind: str) -> str | None:
+    if kind.startswith(_MACHINE_REQUIREMENT_PREFIX):
+        return validate_test_machine_resource_name(kind[len(_MACHINE_REQUIREMENT_PREFIX):])
+    return None
 
 
 MACHINE_CONFIG_CONTRACTS = frozenset(
@@ -63,10 +73,10 @@ def require_registered_machine(
     test_machine: str | None,
     subject: str = "case",
 ) -> None:
-    """Refuse a constraint that does not name its plan project's machine."""
+    """Refuse a constraint that does not name a universe Test Machine."""
     if test_machine is None:
         return
-    rows = test_machine_capability_rows(conn, project_id=int(project_id))
+    rows = test_machine_rows(conn)
     if test_machine in {row.test_machine for row in rows}:
         return
     available = ", ".join(row.test_machine for row in rows) or "none"
@@ -89,9 +99,7 @@ def materialized_capability_kinds(
     values = list(capability_kinds(required, subject="QA plan case"))
     test_machine = config.get("test_machine")
     if test_machine is not None:
-        specific = test_machine_capability_type(
-            validate_test_machine_resource_name(test_machine)
-        )
+        specific = test_machine_requirement_kind(test_machine)
         if specific not in values:
             values.append(specific)
     return tuple(values)
@@ -100,9 +108,9 @@ def materialized_capability_kinds(
 def required_case_machine(required: Any) -> str | None:
     """Read at most one specific Test Machine from capability requirements."""
     machines = {
-        test_machine_resource_name(kind)
+        machine
         for kind in capability_kinds(required, subject="QA case")
-        if is_test_machine_capability_type(kind)
+        if (machine := requirement_machine_name(kind)) is not None
     }
     if len(machines) > 1:
         raise MachineConstraintError("QA case declares multiple specific Test Machines")

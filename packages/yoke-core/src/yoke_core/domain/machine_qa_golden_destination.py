@@ -25,10 +25,10 @@ from yoke_contracts.machine_qa_host_control import (
     VERIFY_OPERATION,
 )
 
-from yoke_core.domain.machine_qa_capability_rows import (
-    TestMachineCapabilityRow,
+from yoke_core.domain.test_machine_rows import (
+    TestMachineRow,
     select_test_machine_row,
-    test_machine_capability_rows,
+    test_machine_rows,
 )
 from yoke_core.domain.machine_qa_shared_home import (
     leased_shared_home,
@@ -45,14 +45,13 @@ def selected_test_machine_row(
     *,
     project: str,
     test_machine: str | None,
-) -> TestMachineCapabilityRow:
+) -> TestMachineRow:
     """Return the one machine a project-and-name pair addresses."""
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
     return select_test_machine_row(
-        test_machine_capability_rows(conn, project_id=identity.id),
-        project=identity.slug,
+        test_machine_rows(conn),
         test_machine=test_machine,
     )
 
@@ -64,7 +63,7 @@ def timestamped_golden_directory_name(user: str) -> str:
 
 
 def resolve_golden_capture_destination(
-    row: TestMachineCapabilityRow,
+    row: TestMachineRow,
     *,
     requested: str | None = None,
 ) -> str:
@@ -92,7 +91,7 @@ def resolve_golden_capture_destination(
 
 def record_captured_golden_baseline(
     conn: Any,
-    row: TestMachineCapabilityRow,
+    row: TestMachineRow,
     *,
     destination: str,
 ) -> bool:
@@ -162,7 +161,7 @@ def registered_golden_fields(conn: Any, settings: Mapping[str, str]) -> dict[str
     return {
         REGISTERED_GOLDENS_KEY: [
             {
-                "project": row.project,
+                "power_project": row.power_project,
                 "test_machine": row.test_machine,
                 "path": row.settings[GOLDEN_BASELINE_PATH_KEY],
             }

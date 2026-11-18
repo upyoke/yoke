@@ -155,12 +155,6 @@ def _capability_commands(cap_type: str, proj: str) -> list[str]:
     q = shlex.quote
     if cap_type == GITHUB_CAPABILITY_TYPE:
         return [f"yoke projects github-binding unbind --project {proj}"]
-    if cap_type.startswith("test-machine:"):
-        name = cap_type.split(":", 1)[1]
-        return [
-            f"yoke test-machine delete --project {proj} "
-            f"--test-machine {q(name)} --confirm"
-        ]
     # Two steps: Yoke's agent hooks refuse a quoted "$(...)" substitution.
     return [
         f"base=$(yoke projects capability-settings get --project {proj} "

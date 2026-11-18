@@ -1,11 +1,4 @@
-"""Start a cloud Test Machine under its host lease.
-
-A Test Machine whose settings record ``cloud_instance_id`` names a VM that the
-executing machine starts using the project's provider admin capability. The
-lease holder waits for SSH before the first host command. The VM stays running
-after release until an operator stops it. Power never changes the registered
-MagicDNS host.
-"""
+"""Start a leased cloud Test Machine with its declared power-project credentials."""
 
 from __future__ import annotations
 
@@ -25,11 +18,10 @@ from yoke_contracts.azure_cli_prerequisite import AzureCliPrerequisiteError
 from typing import Any
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_contracts.machine_config.capability_secret_store import (
-    machine_capability_secret_path,
+    test_machine_secret_path,
 )
 from yoke_core.domain.deploy_remote import (
     DEFAULT_AWS_CAPABILITY_TYPE,
@@ -83,8 +75,7 @@ def _call(function_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         "test_machine_power_read_failed",
         f"{function_id} refused ({error.code if error else 'unknown'}: "
         f"{error.message if error else 'no error'})",
-        f"fix the named cause and rerun; `yoke test-machine get --project "
-        f"{payload['project']}` must answer",
+        "fix the named cause and retry from the current Yoke CLI",
     )
 
 
@@ -145,8 +136,8 @@ def wait_for_ssh_login(
     Without the machine-local key there is nothing to try: the host-control
     runner then refuses with its own credential recovery.
     """
-    key = machine_capability_secret_path(
-        project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
+    key = test_machine_secret_path(
+        settings["resource_name"], "ssh_private_key"
     )
     if not key.exists():
         return
@@ -205,6 +196,14 @@ def power_on(
     if not instance_id:
         return
     name = str(settings["resource_name"])
+    detail = _call("test_machine.get", {"test_machine": name})
+    project = detail.get("power_project")
+    if not project or detail.get("settings", {}).get("cloud_instance_id") != instance_id:
+        raise _refused(
+            "test_machine_power_registration_changed",
+            f"Test Machine {name} has no power project or its cloud instance changed",
+            "read the current settings with yoke test-machine get and retry",
+        )
     read_command = (
         f"yoke {settings.get('cloud_provider', 'aws')} admin-status --project {project}"
     )
@@ -220,6 +219,8 @@ def power_on(
             f"Test Machine {name}: {exc}",
             f"fix the named cause and rerun; inspect it with `{read_command}`",
         ) from exc
+    if prior not in {"running", "pending", "VM starting"}:
+        _call("test_machine.power_started", {"test_machine": name})
     if prior != "running":
         wait_for_ssh_login(project, settings, emit, runner=runner)
     return

@@ -2,7 +2,6 @@
 
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 from yoke_contracts.machine_qa_host_control import RESET_OWED_OPERATION
-from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.machine_operation_recording import (
     _marker,
@@ -11,7 +10,7 @@ from yoke_core.domain.machine_operation_recording import (
 )
 
 
-def reset_command(project, test_machine, baseline):
+def reset_command(test_machine, baseline):
     import shlex
 
     return shlex.join(
@@ -19,8 +18,6 @@ def reset_command(project, test_machine, baseline):
             "yoke",
             "test-machine",
             "reset",
-            "--project",
-            str(project),
             "--test-machine",
             test_machine,
             "--baseline",
@@ -35,9 +32,9 @@ def _reset_receipts(conn, test_machine):
     rows = conn.execute(
         "SELECT operation,status,performed_at,receipt_json,error_code "
         "FROM test_machine_operation_receipts "
-        f"WHERE capability_type={p} AND operation IN ({p},{p}) "
+        f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={p}) AND operation IN ({p},{p}) "
         "ORDER BY performed_at DESC",
-        (test_machine_capability_type(test_machine), RESET_OWED_OPERATION, "reset"),
+        (test_machine, RESET_OWED_OPERATION, "reset"),
     ).fetchall()
     return [_row_result(row) for row in rows]
 
@@ -79,7 +76,6 @@ def record_reset_owed(conn, *, case, test_machine, lease_id, contract_digest="")
         return  # A host never verified clean has no baseline to owe.
     return record_test_machine_operation(
         conn,
-        int(case["project_id"]),
         test_machine=test_machine,
         operation=RESET_OWED_OPERATION,
         status="error",
@@ -111,12 +107,11 @@ def record_owed_reset(conn, contract, evidence):
         raise ValueError(
             "machine_needs_repair: failed owed reset cannot authorize case work; run "
             + reset_command(
-                contract.project, contract.settings["resource_name"], baseline
+                contract.settings["resource_name"], baseline
             )
         )
     record_test_machine_operation(
         conn,
-        contract.project_id,
         test_machine=contract.settings["resource_name"],
         operation="reset",
         status="verified" if ok else "error",

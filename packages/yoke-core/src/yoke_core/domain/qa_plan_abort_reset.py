@@ -107,7 +107,6 @@ def reset_cleanup_proven(conn, execution, baseline):
         )
         receipt = recorded_test_machine_operation(
             conn,
-            candidate.project_id,
             test_machine=lease.target.test_machine,
             operation="reset",
             lease_id=lease.id,

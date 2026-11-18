@@ -6,7 +6,6 @@ from pathlib import Path
 import re
 
 from yoke_contracts.browser_identity import DEFAULT_IDENTITY, validate_identity_name
-from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
 CAPABILITY_SECRETS_DIR_NAME = "capability-secrets"
 AZURE_ADMIN_CAPABILITY = "azure-admin"
@@ -49,7 +48,6 @@ MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
     AWS_ADMIN_CAPABILITY: AWS_ADMIN_SECRET_KEYS,
     AZURE_ADMIN_CAPABILITY: AZURE_ADMIN_SECRET_KEYS,
     SSH_CAPABILITY: SSH_SECRET_KEYS,
-    TEST_MACHINE_CAPABILITY: TEST_MACHINE_SECRET_KEYS,
 }
 
 
@@ -58,11 +56,6 @@ def machine_local_capability_secret_keys(cap_type: str) -> frozenset[str]:
 
     Named test machines use it for desktop access and administrator commands.
     """
-    if re.fullmatch(
-        re.escape(TEST_MACHINE_CAPABILITY) + r":[A-Za-z0-9][A-Za-z0-9._-]{0,79}",
-        cap_type,
-    ):
-        return frozenset({DESKTOP_PASSWORD_KEY})
     return MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY.get(cap_type, frozenset())
 
 

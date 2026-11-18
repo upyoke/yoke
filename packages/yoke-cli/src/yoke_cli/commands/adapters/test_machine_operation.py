@@ -48,9 +48,6 @@ def run_host_operation(
     )
     parser.description = HOST_OPERATION_DESCRIPTIONS.get(operation)
     parser.add_argument(
-        "--project", required=True, help="Project that owns the test machine."
-    )
-    parser.add_argument(
         "--test-machine",
         metavar="TEST_MACHINE",
         help="Name of the test machine to use.",
@@ -85,7 +82,6 @@ def run_host_operation(
             return usage_error(f"probes file must be readable: {exc}")
     return _execute(
         operation=operation,
-        project=parsed.project,
         test_machine=parsed.test_machine,
         baseline=getattr(parsed, "baseline", None),
         destination=getattr(parsed, "destination", None),
@@ -102,7 +98,6 @@ def _power() -> Any:
 def _execute(
     *,
     operation: str,
-    project: str,
     test_machine: str | None,
     baseline: str | None,
     destination: str | None,
@@ -116,7 +111,6 @@ def _execute(
         function_id="test_machine.operation.begin",
         target=TargetRef(kind="global"),
         payload={
-            "project": project,
             "test_machine": test_machine,
             "operation": operation,
             "baseline": baseline,
@@ -135,6 +129,7 @@ def _execute(
             ),
             json_mode=json_mode,
         )
+    project = execution["project"]
     submission = None
     try:
         from yoke_harness.golden_snapshot_retention import (

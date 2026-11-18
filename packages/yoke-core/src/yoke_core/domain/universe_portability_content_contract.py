@@ -85,6 +85,8 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "decision_requests",
     "inbox_posts",
     "ouroboros_entry_dispositions",
+    "test_machines",
+    "test_machine_operation_receipts",
     "test_machine_verifications",
 )
 

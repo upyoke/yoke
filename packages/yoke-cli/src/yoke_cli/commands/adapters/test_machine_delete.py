@@ -12,11 +12,11 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.machine_config.capability_secret_store import (
     MachineCapabilitySecretError,
-    delete_machine_capability_secrets,
+    delete_test_machine_secrets,
 )
 
 DELETE_USAGE = (
-    "yoke test-machine delete --project P --test-machine NAME --confirm "
+    "yoke test-machine delete --test-machine NAME --confirm "
     "[--json] [--session-id S]"
 )
 
@@ -26,7 +26,7 @@ def _cleanup(response, _actor):
         return response
     result = response.result
     try:
-        delete_machine_capability_secrets(result["project"], result["capability_type"])
+        delete_test_machine_secrets(result["test_machine"])
     except MachineCapabilitySecretError as exc:
         return response.model_copy(
             update={
@@ -47,12 +47,9 @@ def _cleanup(response, _actor):
 def test_machine_delete(args):
     parser = argparse.ArgumentParser(
         prog="yoke test-machine delete",
-        description="Delete a project's test machine settings, verification status and "
+        description="Delete a universe Test Machine's settings, verification status and "
         "operation receipts, then remove this computer's named machine secrets. "
         "QA history stays readable; other computers keep their local secrets.",
-    )
-    parser.add_argument(
-        "--project", required=True, help="Project that owns the registration."
     )
     parser.add_argument(
         "--test-machine", required=True, metavar="NAME", help="Machine to delete."
@@ -75,7 +72,7 @@ def test_machine_delete(args):
     return dispatch_and_emit(
         function_id="test_machine.delete",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "test_machine": parsed.test_machine},
+        payload={"test_machine": parsed.test_machine},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         response_recovery=_cleanup,

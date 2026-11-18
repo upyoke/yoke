@@ -7,25 +7,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Protocol, Sequence
 
 from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
 )
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
-    test_machine_capability_type,
     validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.test_machine_types import HostActionResult
 
 from yoke_contracts.machine_config.capability_secret_store import (
-    machine_capability_secret_path,
-    read_machine_capability_secret,
+    test_machine_secret_path,
+    read_test_machine_secret,
 )
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.machine_qa_capability_rows import (
+from yoke_core.domain.test_machine_rows import (
     select_test_machine_row,
-    test_machine_capability_rows,
+    test_machine_rows,
 )
 
 if TYPE_CHECKING:
@@ -171,8 +169,7 @@ def load_test_machine_contract(
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
     selected = select_test_machine_row(
-        test_machine_capability_rows(conn, project_id=identity.id),
-        project=identity.slug,
+        test_machine_rows(conn),
         test_machine=test_machine,
     )
     return TestMachineContract(
@@ -197,7 +194,7 @@ def list_test_machine_contracts(
             project=identity.slug,
             settings=row.settings,
         )
-        for row in test_machine_capability_rows(conn, project_id=identity.id)
+        for row in test_machine_rows(conn)
     ]
 
 
@@ -224,20 +221,17 @@ def materialize_test_machine_contract(
     secret_paths: dict[str, str] = {}
     missing: list[str] = []
     for key in sorted(TEST_MACHINE_SECRET_KEYS):
-        value = read_machine_capability_secret(
+        value = read_test_machine_secret(
             normalized.project,
-            TEST_MACHINE_CAPABILITY,
-            key,
+                    key,
         )
         if value is None:
             missing.append(key)
         else:
             secrets[key] = value
             secret_paths[key] = str(
-                machine_capability_secret_path(
-                    normalized.project,
-                    TEST_MACHINE_CAPABILITY,
-                    key,
+                test_machine_secret_path(
+                    normalized.settings["resource_name"], key,
                 )
             )
     if missing:
@@ -248,16 +242,15 @@ def materialize_test_machine_contract(
             + ", ".join(missing),
             recovery_hint=(
                 "Store the named credential on this executing machine with "
-                f"`yoke projects capability secret set --project {normalized.project} "
-                "--cap-type test-machine --key KEY --value-stdin`, then retry."
+                f"`yoke test-machine secret set --test-machine {normalized.settings['resource_name']} "
+                "--key KEY --value-stdin`, then retry."
             ),
         )
     if normalized.settings.get("os") in {"linux", "wsl"}:
         from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
-        password = read_machine_capability_secret(
-            normalized.project,
-            test_machine_capability_type(normalized.settings["resource_name"]),
+        password = read_test_machine_secret(
+            normalized.settings["resource_name"],
             DESKTOP_PASSWORD_KEY,
         )
         if password is not None:

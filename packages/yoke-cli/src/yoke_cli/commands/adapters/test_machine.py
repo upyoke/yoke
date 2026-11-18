@@ -9,9 +9,6 @@ from typing import Any, List
 
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
-)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -20,53 +17,49 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.machine_config.capability_secret_store import (
-    list_machine_capability_secret_keys,
+    test_machine_secret_path,
 )
-from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
 from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
-LIST_USAGE = "yoke test-machine list --project P [--json] [--session-id S]"
+LIST_USAGE = "yoke test-machine list [--json] [--session-id S]"
 GET_USAGE = (
-    "yoke test-machine get --project P [--test-machine "
+    "yoke test-machine get [--test-machine "
     "TEST_MACHINE] [--json] [--session-id S]"
 )
 SETTINGS_REPLACE_USAGE = (
-    "yoke test-machine settings-replace --project P [--test-machine "
-    "TEST_MACHINE] --settings-file FILE (--base AS_READ_JSON | --new) "
+    "yoke test-machine settings-replace [--test-machine "
+    "TEST_MACHINE] [--power-project P] --settings-file FILE (--base AS_READ_JSON | --new) "
     "[--json] [--session-id S]"
 )
 VERIFY_USAGE = (
-    "yoke test-machine verify --project P [--test-machine "
+    "yoke test-machine verify [--test-machine "
     "TEST_MACHINE] [--json] [--session-id S]"
 )
 RESET_USAGE = (
-    "yoke test-machine reset --project P [--test-machine TEST_MACHINE] "
+    "yoke test-machine reset [--test-machine TEST_MACHINE] "
     "[--baseline fresh-host|shell-preconfigured] [--json] [--session-id "
     "S]"
 )
 GOLDEN_CAPTURE_USAGE = (
-    "yoke test-machine golden-capture --project P [--test-machine "
+    "yoke test-machine golden-capture [--test-machine "
     "TEST_MACHINE] [--destination /abs/path] [--probes-file FILE] "
     "[--json] [--session-id S]"
 )
 SCREENSHOT_USAGE = (
-    "yoke test-machine screenshot --project P "
+    "yoke test-machine screenshot "
     "[--test-machine TEST_MACHINE] [--json] "
     "[--session-id S]"
 )
 BRIDGE_DIAGNOSE_USAGE = (
-    "yoke test-machine bridge-diagnose --project P [--test-machine "
+    "yoke test-machine bridge-diagnose [--test-machine "
     "TEST_MACHINE] [--json] [--session-id S]"
 )
 
 
 def _parser(prog: str, *, with_machine: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog)
-    parser.add_argument(
-        "--project", required=True, help="Project that owns the test machine."
-    )
     if with_machine:
         parser.add_argument(
             "--test-machine",
@@ -88,7 +81,7 @@ def _dispatch(
     return dispatch_and_emit(
         function_id=function_id,
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, **payload},
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         response_recovery=(
@@ -98,7 +91,7 @@ def _dispatch(
             else (
                 (
                     lambda response, _actor: _attest_secret_presence(
-                        response, parsed.project, function_id
+                        response, function_id
                     )
                 )
                 if attest_local_secrets
@@ -128,38 +121,22 @@ def _cloud_provider_floor(response):
 
 def _attest_secret_presence(
     response: FunctionCallResponse,
-    project: str,
     function_id: str,
 ) -> FunctionCallResponse:
     """Attach credential presence proven on this executing CLI machine."""
     if not response.success or not isinstance(response.result, dict):
         return response
-    stored = set(list_machine_capability_secret_keys(project, TEST_MACHINE_CAPABILITY))
-
     def attest(detail: Any) -> Any:
         if not isinstance(detail, dict):
             return detail
-        updated = dict(detail)
-        capability_type = detail.get("capability_type")
-        desktop_stored = (
-            set(list_machine_capability_secret_keys(project, capability_type))
-            if capability_type
-            else set()
-        )
-        updated["secrets"] = [
-            {
-                **secret,
-                "stored": secret.get("key")
-                in (
-                    desktop_stored
-                    if secret.get("key") == DESKTOP_PASSWORD_KEY
-                    else stored
-                ),
-            }
-            for secret in detail.get("secrets") or []
-            if isinstance(secret, dict)
-        ]
-        return updated
+        name = read_test_machine_field(detail, function_id=function_id)
+        return {
+            **detail,
+            "secrets": [
+                {**secret, "stored": test_machine_secret_path(name, secret["key"]).is_file()}
+                for secret in detail.get("secrets") or []
+            ],
+        }
 
     result = dict(response.result)
     if function_id == "test_machine.list":
@@ -201,6 +178,7 @@ def test_machine_list(args: List[str]) -> int:
 
 def test_machine_settings_replace(args: List[str]) -> int:
     parser = _parser("yoke test-machine settings-replace")
+    parser.add_argument("--power-project", help="Project whose cloud admin capability powers the machine.")
     parser.add_argument(
         "--settings-file",
         required=True,
@@ -231,6 +209,7 @@ def test_machine_settings_replace(args: List[str]) -> int:
         "test_machine.settings_replace",
         {
             "test_machine": parsed.test_machine,
+            "power_project": parsed.power_project,
             "settings": settings,
             "base_settings": None if parsed.new else parsed.base_settings,
         },

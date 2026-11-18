@@ -1,4 +1,4 @@
-"""CAS mutation for one independently stored test-machine capability."""
+"""Compare and replace settings for one Test Machine."""
 
 from __future__ import annotations
 
@@ -7,135 +7,85 @@ from typing import Any, Mapping
 
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
-    test_machine_capability_type,
     validate_test_machine_resource_name,
     validate_test_machine_settings,
 )
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
-from yoke_core.domain.machine_qa_capability_rows import (
-    test_machine_capability_rows,
-)
-from yoke_core.domain.machine_qa_host_registrar import (
-    assert_sole_host_registrar,
-)
-from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 from yoke_core.domain.project_identity import resolve_project
-
-
-def _target_type(
-    rows: list[Any],
-    *,
-    project: str,
-    test_machine: str | None = None,
-    document: Mapping[str, str],
-) -> str:
-    settings_machine = document["resource_name"]
-    if test_machine is not None:
-        selected = validate_test_machine_resource_name(test_machine)
-        if selected != settings_machine:
-            raise TestMachineCapabilityError(
-                f"--test-machine {selected!r} does not match settings resource_name "
-                f"{settings_machine!r}"
-            )
-        return test_machine_capability_type(selected)
-    if len(rows) > 1:
-        available = ", ".join(row.test_machine for row in rows)
-        raise TestMachineCapabilityError(
-            f"project {project!r} has multiple test machines: {available}; "
-            "pass --test-machine TEST_MACHINE"
-        )
-    if rows and rows[0].test_machine != settings_machine:
-        raise TestMachineCapabilityError(
-            f"settings name test machine {settings_machine!r}, but the project has "
-            f"one machine {rows[0].test_machine!r}; pass --test-machine "
-            f"{settings_machine} --new to register another machine"
-        )
-    return test_machine_capability_type(settings_machine)
 
 
 def replace_test_machine_settings(
     conn: Any,
     *,
-    project: str,
+    power_project: str | None = None,
     settings: Mapping[str, Any],
     base_settings: str | None,
     test_machine: str | None = None,
 ) -> dict[str, Any]:
     """CAS-replace one machine row and invalidate only its verification."""
-    identity = resolve_project(conn, project, required=False)
-    if identity is None:
-        raise TestMachineCapabilityError(f"project {project!r} not found")
-    ensure_test_machine_schema(conn)
     document = validate_test_machine_settings(settings)
-    rows = test_machine_capability_rows(conn, project_id=identity.id)
-    capability_type = _target_type(
-        rows,
-        project=identity.slug,
-        test_machine=test_machine,
-        document=document,
-    )
-    assert_sole_host_registrar(
-        conn,
-        project_id=identity.id,
-        capability_type=capability_type,
-        resource_name=document["resource_name"],
-    )
+    name = document["resource_name"]
+    if test_machine is not None and validate_test_machine_resource_name(test_machine) != name:
+        raise TestMachineCapabilityError(
+            f"--test-machine {test_machine!r} does not match settings resource_name {name!r}"
+        )
+
+    project = None
+    if power_project is not None:
+        project = resolve_project(conn, power_project, required=False)
+        if project is None:
+            raise TestMachineCapabilityError(
+                f"power project {power_project!r} not found; run yoke projects list"
+            )
+
     canonical = json.dumps(document, separators=(",", ":"), sort_keys=True)
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-        f"WHERE project_id={marker} AND type={marker}",
-        (identity.id, capability_type),
-    ).fetchone()
-    if row is None:
-        if base_settings is not None:
-            raise TestMachineCapabilityError(
-                "test-machine settings changed; reload before saving"
-            )
-        conn.execute(
-            "INSERT INTO project_capabilities("
-            "project_id,type,settings,verified_at,created_at"
-            f") VALUES({marker},{marker},{marker},NULL,{marker})",
-            (
-                identity.id,
-                capability_type,
-                canonical,
-                instant_parameter(conn, utc_now()),
-            ),
-        )
-    else:
-        stored = str(row[0])
-        if base_settings is None or stored != base_settings:
-            raise TestMachineCapabilityError(
-                "test-machine settings changed; reload before saving"
-            )
-        conn.execute(
-            "UPDATE project_capabilities SET settings="
-            f"{marker}, verified_at=NULL WHERE project_id={marker} AND type={marker}",
-            (canonical, identity.id, capability_type),
-        )
+    p = "%s" if connection_is_postgres(conn) else "?"
     now = instant_parameter(conn, utc_now())
+    if base_settings is None:
+        if document.get("cloud_instance_id") and project is None:
+            raise TestMachineCapabilityError(
+                "a cloud Test Machine requires a power project; pass --power-project PROJECT"
+            )
+        saved = conn.execute(
+            "INSERT INTO test_machines (name, settings, power_project_id, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}) ON CONFLICT(name) DO NOTHING "
+            "RETURNING id, power_project_id",
+            (name, canonical, project.id if project else None, now),
+        ).fetchone()
+    else:
+        saved = conn.execute(
+            f"UPDATE test_machines SET settings={p}, verified_at=NULL, "
+            f"power_project_id=COALESCE({p}, power_project_id) "
+            f"WHERE name={p} AND settings={p} RETURNING id, power_project_id",
+            (canonical, project.id if project else None, name, base_settings),
+        ).fetchone()
+    if saved is None:
+        raise TestMachineCapabilityError(
+            "test-machine settings changed; reload before saving"
+        )
+    machine_id, owner_id = saved
+    if document.get("cloud_instance_id") and owner_id is None:
+        raise TestMachineCapabilityError(
+            "a cloud Test Machine requires a power project; pass --power-project PROJECT"
+        )
+    owner = conn.execute(f"SELECT slug FROM projects WHERE id={p}", (owner_id,)).fetchone()
     conn.execute(
-        "INSERT INTO test_machine_verifications("
-        "project_id,capability_type,status,checked_at,receipt_json,error_code,updated_at"
-        f") VALUES({marker},{marker},'configured_unverified',NULL,'{{}}',NULL,{marker}) "
-        "ON CONFLICT(project_id,capability_type) DO UPDATE SET "
+        "INSERT INTO test_machine_verifications (test_machine_id,status,updated_at) "
+        f"VALUES ({p}, 'configured_unverified', {p}) "
+        "ON CONFLICT(test_machine_id) DO UPDATE SET "
         "status='configured_unverified', checked_at=NULL, receipt_json='{}', "
         "error_code=NULL, updated_at=EXCLUDED.updated_at",
-        (identity.id, capability_type, now),
+        (machine_id, now),
     )
     conn.commit()
     return {
-        "project_id": int(identity.id),
-        "project": identity.slug,
-        "test_machine": document["resource_name"],
-        "capability_type": capability_type,
-        "settings": json.loads(canonical),
+        "id": machine_id,
+        "power_project_id": owner_id,
+        "power_project": owner[0] if owner else None,
+        "test_machine": name,
+        "settings": document,
         "settings_token": canonical,
         "verification_status": "configured_unverified",
     }
-
-
-__all__ = ["replace_test_machine_settings"]

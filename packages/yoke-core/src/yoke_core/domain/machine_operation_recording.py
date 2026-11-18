@@ -6,7 +6,6 @@ import hmac
 import json
 from typing import Any, Mapping, Sequence
 
-from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_contracts.machine_qa_execution import (
     HostControlExecutionContract,
     RESET_OPERATION,
@@ -15,7 +14,7 @@ from yoke_contracts.machine_qa_execution import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_contracts.timestamps import utc_now, parse_instant
-from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
+from yoke_core.domain.test_machine_rows import test_machine_id
 
 
 #: The operations whose receipts live beside the verification row rather than
@@ -42,7 +41,6 @@ def _row_result(row: Any) -> dict[str, Any]:
 
 def record_test_machine_operation(
     conn: Any,
-    project_id: int,
     *,
     test_machine: str,
     operation: str,
@@ -56,9 +54,8 @@ def record_test_machine_operation(
     """Persist one server-accepted, secret-free operation receipt."""
     if operation not in RECORDED_OPERATIONS:
         raise ValueError(f"{operation!r} does not record an operation receipt")
-    ensure_test_machine_schema(conn, commit=commit)
     marker = _marker(conn)
-    capability_type = test_machine_capability_type(test_machine)
+    machine_id = test_machine_id(conn, test_machine)
     now = utc_now()
     receipt = json.dumps(
         {"checks": list(checks)},
@@ -67,17 +64,16 @@ def record_test_machine_operation(
     )
     conn.execute(
         "INSERT INTO test_machine_operation_receipts("
-        "project_id,capability_type,operation,status,performed_at,receipt_json,"
+        "test_machine_id,operation,status,performed_at,receipt_json,"
         f"error_code,lease_id,contract_digest,updated_at) VALUES("
-        f"{','.join([marker] * 10)}) "
-        "ON CONFLICT(project_id,capability_type,operation) DO UPDATE SET "
+        f"{','.join([marker] * 9)}) "
+        "ON CONFLICT(test_machine_id,operation) DO UPDATE SET "
         "status=EXCLUDED.status, performed_at=EXCLUDED.performed_at, "
         "receipt_json=EXCLUDED.receipt_json, error_code=EXCLUDED.error_code, "
         "lease_id=EXCLUDED.lease_id, contract_digest=EXCLUDED.contract_digest, "
         "updated_at=EXCLUDED.updated_at",
         (
-            int(project_id),
-            capability_type,
+            machine_id,
             operation,
             status,
             instant_parameter(conn, now),
@@ -115,7 +111,6 @@ def record_test_machine_baseline_reset(
     evidence = dict(preparation.get("evidence") or {})
     return record_test_machine_operation(
         conn,
-        contract.project_id,
         test_machine=contract.settings["resource_name"],
         operation=RESET_OPERATION,
         status="verified" if ok else "error",
@@ -128,7 +123,6 @@ def record_test_machine_baseline_reset(
 
 def recorded_test_machine_operation(
     conn: Any,
-    project_id: int,
     *,
     test_machine: str,
     operation: str,
@@ -145,9 +139,9 @@ def recorded_test_machine_operation(
     row = conn.execute(
         "SELECT operation,status,performed_at,receipt_json,error_code,"
         "lease_id,contract_digest FROM test_machine_operation_receipts "
-        f"WHERE project_id={marker} AND capability_type={marker} "
+        f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={marker}) "
         f"AND operation={marker}",
-        (int(project_id), test_machine_capability_type(test_machine), operation),
+        (test_machine, operation),
     ).fetchone()
     if row is None:
         return None
@@ -164,18 +158,16 @@ def recorded_test_machine_operation(
 
 def test_machine_operation_receipts(
     conn: Any,
-    project_id: int,
-    *,
-    capability_type: str,
+    machine_id: int,
 ) -> list[dict[str, Any]]:
     """Return every recorded operation receipt for one machine, newest first."""
     marker = _marker(conn)
     rows = conn.execute(
         "SELECT operation,status,performed_at,receipt_json,error_code "
         "FROM test_machine_operation_receipts "
-        f"WHERE project_id={marker} AND capability_type={marker} "
+        f"WHERE test_machine_id={marker} "
         "ORDER BY performed_at DESC, operation",
-        (int(project_id), capability_type),
+        (machine_id,),
     ).fetchall()
     return [_row_result(row) for row in rows]
 

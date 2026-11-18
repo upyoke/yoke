@@ -78,6 +78,18 @@ def _capability_contexts(
     kinds = sorted(capability_kinds)
     if not kinds:
         return contexts
+    from yoke_core.domain.machine_qa_case_machine import requirement_machine_name
+
+    machine_kinds = {
+        kind: requirement_machine_name(kind)
+        for kind in kinds
+        if kind == TEST_MACHINE_CAPABILITY or requirement_machine_name(kind) is not None
+    }
+    contexts.update({
+        kind: test_machine_capability_context(conn, test_machine=name)
+        for kind, name in machine_kinds.items()
+    })
+    kinds = [kind for kind in kinds if kind not in machine_kinds]
     if project_id is None:
         contexts.update({kind: {"state": "project_scoped"} for kind in kinds})
         return contexts
@@ -107,11 +119,6 @@ def _capability_contexts(
             for kind in kinds
         }
     )
-    if TEST_MACHINE_CAPABILITY in kinds:
-        contexts[TEST_MACHINE_CAPABILITY] = test_machine_capability_context(
-            conn,
-            project_id=project_id,
-        )
     return contexts
 
 

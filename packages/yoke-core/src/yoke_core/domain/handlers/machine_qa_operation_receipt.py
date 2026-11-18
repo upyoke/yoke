@@ -49,7 +49,6 @@ def recorded_operation_receipt(
     if parsed.operation == VERIFY_OPERATION:
         recorded = recorded_test_machine_verification(
             conn,
-            contract.project_id,
             test_machine=test_machine,
             lease_id=lease_id,
             contract_digest=parsed.contract_digest,
@@ -57,7 +56,6 @@ def recorded_operation_receipt(
         return None if recorded is None else {"operation": VERIFY_OPERATION, **recorded}
     return recorded_test_machine_operation(
         conn,
-        contract.project_id,
         test_machine=test_machine,
         operation=parsed.operation,
         lease_id=lease_id,
@@ -78,7 +76,6 @@ def record_operation_receipt(
             "operation": VERIFY_OPERATION,
             **record_test_machine_verification(
                 conn,
-                contract.project_id,
                 test_machine=test_machine,
                 status=parsed.status,
                 checks=parsed.checks,
@@ -89,7 +86,6 @@ def record_operation_receipt(
         }
     return record_test_machine_operation(
         conn,
-        contract.project_id,
         test_machine=test_machine,
         operation=parsed.operation,
         status=parsed.status,

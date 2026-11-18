@@ -7,10 +7,9 @@ from collections.abc import Sequence
 
 from yoke_contracts.machine_config.capability_secret_store import (
     MachineCapabilitySecretError,
-    read_machine_capability_secret,
+    read_test_machine_secret,
 )
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
-from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 
 
 MAX_PASSWORD_BYTES = 4096
@@ -26,26 +25,24 @@ def administrator_password(*, project: str, test_machine: str, os_name: str) -> 
             "--admin requires a macOS or Linux test machine",
             "Select a registered macOS or Linux machine with --test-machine TEST_MACHINE.",
         )
-    cap_type = test_machine_capability_type(test_machine)
     recovery = (
         "Import the machine administrator password from a private file with "
-        f"`yoke projects capability secret set --project {project} "
-        f"--cap-type {cap_type} --key {DESKTOP_PASSWORD_KEY} --value-file FILE`."
+        f"`yoke test-machine secret set --test-machine {test_machine} --key {DESKTOP_PASSWORD_KEY} --value-file FILE`."
     )
     try:
-        password = read_machine_capability_secret(
-            project, cap_type, DESKTOP_PASSWORD_KEY
+        password = read_test_machine_secret(
+            test_machine, DESKTOP_PASSWORD_KEY
         )
     except MachineCapabilitySecretError:
         raise RemoteExecRefusal(
             "test_machine_admin_credential_unreadable",
-            f"{cap_type}.{DESKTOP_PASSWORD_KEY} is unreadable or empty",
+            f"{test_machine}.{DESKTOP_PASSWORD_KEY} is unreadable or empty",
             recovery,
         ) from None
     if password is None:
         raise RemoteExecRefusal(
             "test_machine_admin_credential_missing",
-            f"{cap_type}.{DESKTOP_PASSWORD_KEY} is missing",
+            f"{test_machine}.{DESKTOP_PASSWORD_KEY} is missing",
             recovery,
         )
     if (
@@ -54,7 +51,7 @@ def administrator_password(*, project: str, test_machine: str, os_name: str) -> 
     ):
         raise RemoteExecRefusal(
             "test_machine_admin_credential_invalid",
-            f"{cap_type}.{DESKTOP_PASSWORD_KEY} must be one bounded password line",
+            f"{test_machine}.{DESKTOP_PASSWORD_KEY} must be one bounded password line",
             recovery,
         )
     return password

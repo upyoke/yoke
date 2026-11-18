@@ -48,7 +48,7 @@ def desktop_lease(
         if detail is None:
             detail = _call(
                 "test_machine.get",
-                {"project": project, "test_machine": test_machine},
+                {"test_machine": test_machine},
                 actor,
             )
         lease = detail.get("active_lease")
@@ -59,17 +59,14 @@ def desktop_lease(
             )
         if not lease:
             claim_id = _call(
-                "claims.coordination_claim.acquire_if_free",
-                {
-                    "project_id": project,
-                    "key": f"QA_HOST:{test_machine}",
-                    "reason": reason,
-                },
+                "test_machine.lease_acquire",
+                {"test_machine": test_machine},
                 actor,
-            )["claim"]["id"]
+            )["claim_id"]
     try:
         try:
-            _power().power_on(project, settings)
+            if not operator_access:
+                _power().power_on(project, settings)
         except Exception as exc:
             code, message, recovery = host_control_failure(exc, phase="lease_power_on")
             raise RuntimeError(f"{code}: {message}. {recovery}") from exc

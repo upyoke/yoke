@@ -247,15 +247,6 @@ def cmd_capability_remove_settings(
     """
     cap_type = reject_github_capability_full_settings_write(cap_type)
     cap_type = str(cap_type or "").strip()
-    if cap_type.startswith("test-machine:"):
-        from yoke_contracts.refusal_recovery import compose_refusal
-
-        raise ValueError(
-            compose_refusal(
-                "test_machine_delete_required: test machines own custody and reset history",
-                recovery="run yoke test-machine delete --project P --test-machine NAME --confirm",
-            )
-        )
     base_text = str(base_settings_json or "")
     if not base_text.strip():
         raise ValueError(

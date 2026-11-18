@@ -11,7 +11,7 @@ from yoke_contracts.harness_hook_approval import hook_approval
 from yoke_contracts.onboarding_invocation import onboard_command
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
-from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
+from yoke_core.domain.test_machine_rows import test_machine_rows
 from yoke_core.domain.machine_registry import MachineRecord, marker
 from yoke_core.domain.overview_harness_hook_health import (
     harness_targets,
@@ -147,19 +147,18 @@ def _test_machines(
     if not names or not _table_exists(conn, "project_capabilities"):
         return []
     try:
-        rows = test_machine_capability_rows(conn)
+        rows = test_machine_rows(conn)
     except TestMachineCapabilityError as exc:
         return [{"error": str(exc)}]
     return [
         {
-            "project": row.project,
+            "power_project": row.power_project,
             "test_machine": row.test_machine,
-            "capability_type": row.capability_type,
             "host": row.settings["host"],
             "user": row.settings["user"],
             "os": row.settings["os"],
             "exec_command": (
-                f"yoke test-machine exec --project {row.project} "
+                "yoke test-machine exec "
                 f"--test-machine {row.test_machine} -- <command>"
             ),
         }

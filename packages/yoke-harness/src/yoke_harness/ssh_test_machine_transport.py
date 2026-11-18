@@ -11,11 +11,10 @@ import shlex
 import subprocess
 from typing import Mapping, Sequence
 from yoke_contracts.machine_config.capability_secret_store import (
-    machine_capability_secret_path,
-    read_machine_capability_secret,
+    test_machine_secret_path,
+    read_test_machine_secret,
 )
 from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
@@ -232,27 +231,23 @@ class SshTestMachineTransport:
         secret_paths: dict[str, str] = {}
         missing: list[str] = []
         for key in sorted(TEST_MACHINE_SECRET_KEYS):
-            value = read_machine_capability_secret(
-                contract.project,
-                TEST_MACHINE_CAPABILITY,
-                key,
+            value = read_test_machine_secret(
+                contract.settings["resource_name"], key,
             )
             if value is None:
                 missing.append(key)
                 continue
             secrets.append(value)
             secret_paths[key] = str(
-                machine_capability_secret_path(
-                    contract.project,
-                    TEST_MACHINE_CAPABILITY,
-                    key,
+                test_machine_secret_path(
+                    contract.settings["resource_name"], key,
                 )
             )
         if missing:
             raise RuntimeError(
                 "host_control_credential_missing: "
                 + ", ".join(missing)
-                + f"; store the key on this executing machine with yoke projects capability secret set --project {contract.project} --cap-type test-machine --key ssh_private_key --value-file KEY_FILE"
+                + f"; store the key on this executing machine with yoke test-machine secret set --test-machine {contract.settings['resource_name']} --key ssh_private_key --value-file KEY_FILE"
             )
         return cls(
             settings=contract.settings,

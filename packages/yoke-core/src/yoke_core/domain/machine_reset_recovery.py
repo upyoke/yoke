@@ -18,7 +18,7 @@ def recover_owed_reset(contract, execution):
         receipt.update(
             error_code="machine_needs_repair",
             recovery=reset_command(
-                contract.project, contract.settings["resource_name"], baseline
+                contract.settings["resource_name"], baseline
             ),
         )
     return receipt

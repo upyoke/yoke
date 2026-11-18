@@ -22,8 +22,7 @@ QA_PLAN_TABLES = {
     },
     "test_machine_operation_receipts": {
         "columns": [
-            ("project_id", "INTEGER"),
-            ("capability_type", "TEXT"),
+            ("test_machine_id", "INTEGER"),
             ("operation", "TEXT"),
             ("status", "TEXT"),
             ("performed_at", "TIMESTAMPTZ"),
@@ -35,7 +34,7 @@ QA_PLAN_TABLES = {
         ],
         "notes": (
             "There is no id column. Machine reset-debt evidence reads the "
-            "composite key project_id, capability_type, operation; each row "
+            "composite key test_machine_id and operation; each row "
             "holds that operation's latest receipt, not an append-only history."
         ),
     },

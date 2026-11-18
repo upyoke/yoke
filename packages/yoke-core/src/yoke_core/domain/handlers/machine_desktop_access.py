@@ -9,7 +9,6 @@ from yoke_core.domain.handlers.machine_qa import TestMachineGetRequest, handle_g
 from yoke_core.domain import actors, db_helpers
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
-from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_steering_authority import require_operator_seat
 from yoke_core.domain.sessions_analytics_core import SessionError
 from yoke_core.domain.session_action_attribution import EVENT_SESSION_ACTION_PERFORMED
@@ -29,6 +28,7 @@ def handle_desktop_access(request):
     detail = outcome.result_payload
     lease = detail.get("active_lease")
     operator_access = None
+    project = detail["power_project"] or ""
     if not detail["settings"].get("desktop_route"):
         return HandlerOutcome(
             primary_success=False,
@@ -41,11 +41,26 @@ def handle_desktop_access(request):
     if lease and lease.get("session_id") != request.actor.session_id:
         conn = db_helpers.connect()
         try:
+            holder = conn.execute(
+                "SELECT p.id, p.slug FROM harness_sessions s JOIN projects p ON p.id=s.project_id "
+                "WHERE s.session_id=%s",
+                (lease["session_id"],),
+            ).fetchone()
+            if not holder:
+                return HandlerOutcome(
+                    primary_success=False,
+                    error=FunctionError(
+                        code="steering_seat_required",
+                        message="The host lease has no project steering scope",
+                        recovery_hint="Wait for the current lease holder to finish",
+                    ),
+                )
+            project_id, project = holder
             try:
                 seat = require_operator_seat(
                     conn,
                     caller_session_id=request.actor.session_id,
-                    project_id=resolve_project_id(conn, detail["project"]),
+                    project_id=project_id,
                     action="Assisting another session's leased desktop",
                 )
             except SessionError as exc:
@@ -78,7 +93,7 @@ def handle_desktop_access(request):
                 event_type="session_action",
                 source_type="backend",
                 session_id=lease["session_id"],
-                project=detail["project"],
+                project=project or None,
                 request_id=request.request_id,
                 auth_context=auth_context_from_actor(actor_id),
                 context={
@@ -96,7 +111,7 @@ def handle_desktop_access(request):
                 )
         finally:
             conn.close()
-    result = {key: detail[key] for key in ("project", "test_machine", "settings")}
+    result = {"project": project, "test_machine": detail["test_machine"], "settings": detail["settings"]}
     if operator_access is not None:
         result["operator_access"] = operator_access
     return HandlerOutcome(

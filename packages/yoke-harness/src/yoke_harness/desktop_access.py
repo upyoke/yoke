@@ -10,18 +10,16 @@ import tempfile
 from typing import Callable, Mapping
 
 from yoke_contracts.machine_config.capability_secret_store import (
-    machine_capability_secret_path,
-    read_machine_capability_secret,
+    test_machine_secret_path,
+    read_test_machine_secret,
 )
 from yoke_contracts.owner_private_path import write_owner_private
 from yoke_cli.config import machine_config
 from yoke_contracts.machine_config.directories import create_private_directory
-from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
 from yoke_contracts.machine_config.desktop_access import (
     DESKTOP_PASSWORD_KEY,
     validate_desktop_settings,
 )
-from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_harness.test_machine_remote_exec import host_key_options, known_hosts_path
 
 
@@ -151,12 +149,11 @@ def _desktop_route(settings):
 
 
 def _desktop_password(project, test_machine):
-    cap_type = test_machine_capability_type(test_machine)
-    password = read_machine_capability_secret(project, cap_type, DESKTOP_PASSWORD_KEY)
+    password = read_test_machine_secret(test_machine, DESKTOP_PASSWORD_KEY)
     if password is None:
         raise DesktopAccessError(
             "desktop_password_missing: import a private password file with "
-            f"yoke projects capability secret set --project {project} --cap-type {cap_type} "
+            f"yoke test-machine secret set --test-machine {test_machine} "
             "--key desktop_password --value-file FILE"
         )
     if "\n" in password or "\r" in password:
@@ -182,8 +179,8 @@ def _screen_sharing_route(settings, route) -> bool:
 
 def _ready_desktop_view(project, test_machine, settings):
     password = _desktop_password(project, test_machine)
-    key_path = machine_capability_secret_path(
-        project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
+    key_path = test_machine_secret_path(
+        test_machine, "ssh_private_key"
     )
     if not key_path.is_file():
         raise DesktopAccessError(
@@ -260,9 +257,7 @@ def open_desktop_access(
     password = _desktop_password(project, test_machine)
     session_evidence = {}
     if settings.get("os") in {"linux", "wsl"}:
-        key_path = machine_capability_secret_path(
-            project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
-        )
+        key_path = test_machine_secret_path(test_machine, "ssh_private_key")
         if not key_path.is_file():
             raise DesktopAccessError(
                 "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
