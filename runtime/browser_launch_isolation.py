@@ -5,7 +5,7 @@ routes reach a real browser and each is closed here:
 
 * :mod:`webbrowser`'s module-level openers, replaced by a failing stub;
 * a native launcher started as a subprocess (``open``, ``xdg-open``,
-  ``wslview``, ``explorer.exe``, ``cmd /c start`` and the Debian
+  ``wslview``, PowerShell ``Start-Process``, ``cmd /c start`` and the Debian
   alternatives), refused before the process exists;
 * ``os.startfile`` where the platform has it.
 
@@ -14,7 +14,8 @@ exits successfully, so a child's :mod:`webbrowser` never reaches the default
 browser and the attempt still fails the test at teardown.
 
 Every refusal names the test and the launcher so the fix is obvious: inject
-a fake opener and assert the requested URL instead.
+a fake opener and assert the requested URL instead. A fake launcher the test
+wrote under its own ``tmp_path`` and runs by absolute path is allowed.
 """
 
 from __future__ import annotations
@@ -33,7 +34,6 @@ NATIVE_BROWSER_LAUNCHERS = frozenset(
         "open",
         "xdg-open",
         "wslview",
-        "explorer.exe",
         "sensible-browser",
         "x-www-browser",
         "www-browser",
@@ -42,6 +42,7 @@ NATIVE_BROWSER_LAUNCHERS = frozenset(
     }
 )
 _WINDOWS_SHELLS = frozenset({"cmd", "cmd.exe"})
+_POWERSHELLS = frozenset({"powershell", "powershell.exe", "pwsh", "pwsh.exe"})
 
 
 def native_browser_launcher(args: object) -> str | None:
@@ -64,6 +65,10 @@ def native_browser_launcher(args: object) -> str | None:
         return program
     if program in _WINDOWS_SHELLS and any(a.lower() == "start" for a in argv[1:]):
         return "cmd start"
+    if program in _POWERSHELLS and any(
+        "start-process" in a.lower() for a in argv[1:]
+    ):
+        return "powershell Start-Process"
     return None
 
 
@@ -74,6 +79,17 @@ def _refusal(nodeid: str, launcher: str) -> str:
         "opener (for example browser_open=..., or monkeypatch the caller's "
         "open_url) and assert the requested URL instead."
     )
+
+
+def _test_owned_program(args: object, root: Path) -> bool:
+    """Whether *args* runs a fake launcher the test wrote under *root*."""
+    if isinstance(args, (str, bytes, os.PathLike)):
+        return False
+    try:
+        program = Path(os.fsdecode(next(iter(args))))  # type: ignore[call-overload]
+    except (StopIteration, TypeError):
+        return False
+    return program.is_absolute() and program.resolve().is_relative_to(root.resolve())
 
 
 class BrowserLaunchGuard:
@@ -110,7 +126,9 @@ class BrowserLaunchGuard:
             def __init__(self, *popen_args, **kwargs):
                 args = popen_args[0] if popen_args else kwargs.get("args", ())
                 launcher = native_browser_launcher(args)
-                if launcher is not None:
+                if launcher is not None and not _test_owned_program(
+                    args, guard.child_attempt.parent
+                ):
                     guard.refuse(launcher)
                 super().__init__(*popen_args, **kwargs)
 
