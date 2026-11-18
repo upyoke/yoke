@@ -91,6 +91,18 @@ stopped with a named condition. If it still holds the profile after 10 seconds,
 the error names its PID: quit that process normally and rerun the command
 without `--reset`. The profile directory is never discarded by this recovery.
 
+A Chromium left holding the profile from an earlier run (a launcher's child
+that outlived the launcher, or a browser whose command was killed) is quit
+before the window opens. Otherwise Chromium's single-instance lock would hand
+the starting URLs to the old browser as extra tabs, and the new launch's
+immediate exit would read as the window closing. The command reads the
+browser's PID from `<profile>/SingletonLock` (`<host>-<pid>`), acts only when
+that live process on this host runs this profile, and asks it to quit with
+SIGTERM, a clean shutdown with no crash-restore. A browser still running
+after 10 seconds refuses with `authorization_profile_in_use: PID N still holds
+<profile>; quit it, then rerun`. Every shutdown signals that lock owner as
+well as the spawned PID, so a launcher never leaves its browser behind.
+
 ### Why the window is plain, and why it is that binary
 
 The window is a directly spawned browser process — `--user-data-dir` on the

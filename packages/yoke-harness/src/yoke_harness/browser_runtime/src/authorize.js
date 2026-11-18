@@ -34,6 +34,7 @@
 
 const { spawn, execFile } = require('child_process');
 const { windowOwnerPids } = require('./linux-window-owners');
+const { profileLockOwner, quitProfileOwner, signalProcess } = require('./profile-lock');
 
 const WINDOW_POLL_MS = 2000;
 const WINDOW_START_MS = 30000;
@@ -156,10 +157,14 @@ function parseArgs(argv) {
 /**
  * Spawn the sign-in window and resolve once the operator closes it.
  *
+ * A browser still holding the profile is quit first: otherwise Chromium's
+ * single-instance lock forwards the URLs to it as extra tabs and the new
+ * launch exits 0 at once (see profile-lock.js).
+ *
  * `deps` exists so the contract test can observe the spawn without opening a
  * real browser; production callers pass nothing.
  */
-function openSignInWindow(
+async function openSignInWindow(
   { profileDir, urls },
   {
     spawnProcess = spawn, executablePath = resolveExecutablePath,
@@ -170,6 +175,8 @@ function openSignInWindow(
 ) {
   windowCount ??= platform === 'linux' ? linuxWindowCount : macWindowCount;
   const binary = executablePath();
+  const holder = profileLockOwner(profileDir);
+  if (holder !== null) await quitProfileOwner(holder, profileDir, { shutdownMs });
   const child = spawnProcess(binary, buildLaunchArgs({ profileDir, urls }), {
     stdio: ['ignore', 'ignore', 'pipe'],
   });
@@ -199,15 +206,32 @@ function openSignInWindow(
       if (finished || stopping) return;
       stopping = true;
       stoppedBecause = reason;
-      child.kill('SIGTERM');
+      // The spawned PID may be a launcher whose child is the real browser,
+      // and that browser holds the profile lock, so signal both.
+      let owner = null;
+      try {
+        owner = profileLockOwner(profileDir);
+      } catch (error) {
+        stoppedBecause = `${reason}; ${error.message}`;
+      }
+      if (owner === child.pid) owner = null;
+      const signal = (name) => {
+        child.kill(name);
+        // A refused signal leaves the owner running; the shutdown timeout
+        // then names its PID.
+        if (owner !== null) {
+          try { signalProcess(owner, name); } catch { /* reported by the timeout */ }
+        }
+      };
+      signal('SIGTERM');
       if (finished) return;
       shutdownTimer = setTimeout(() => {
-        if (forceOnTimeout) child.kill('SIGKILL');
+        if (forceOnTimeout) signal('SIGKILL');
         finish(new Error(
           forceOnTimeout
             ? `${reason}; Chromium was force-stopped. Reopen with `
               + '`yoke browser authorize` without --reset to keep the sign-in.'
-            : `${reason}; spawned Chromium PID ${child.pid} still holds the profile after `
+            : `${reason}; Chromium PID ${owner ?? child.pid} still holds the profile after `
               + `${shutdownMs / 1000}s. Quit that process normally, then rerun `
               + '`yoke browser authorize` without --reset to keep the sign-in.',
         ));
