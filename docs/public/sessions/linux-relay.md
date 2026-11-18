@@ -78,8 +78,13 @@ a fresh last-seen time after installation; a pin or CLI update alone does
 not prove which build is running.
 The four product wheels come from the environment's immutable release directory,
 with URL-encoded release and filename segments (including `%2B` for `+`).
-A fetch failure preserves the prior release and records its named cause and
-recovery in relay status. Repair that cause before reinstalling; an HTTP 403
+The relay installs a newly served release in the background and keeps
+polling and claiming wakes on its current release until the install verifies;
+relay status shows the install in flight with its served build, start time and
+elapsed time. A fetch failure preserves the prior release and records its named
+cause and recovery in relay status. The relay does not retry the same served
+build; a newer served build or `yoke relay install` starts the next attempt.
+Repair that cause before reinstalling; an HTTP 403
 alone does not establish a permissions problem. Existing workers and pending
 reports remain available across the release switch.
 
@@ -93,7 +98,9 @@ exit. If the deadline cannot be read, `relay_stop_deadline_unavailable` names
 the diagnostic recovery and uses a conservative five-second allowance. Blocked network workers do
 not hold Python open at exit. Existing server leases, native process custody,
 and pending report files remain available for reconciliation on the next login.
-Release repinning uses its longer settlement window. Yoke changes neither
+TERM kills an in-flight release install rather than waiting for it; the next
+relay start retries the pin. After a verified release switch, settlement uses
+its longer window. Yoke changes neither
 linger nor the host's systemd timeouts or logout policy.
 
 Service operations wait for shutdown and startup.

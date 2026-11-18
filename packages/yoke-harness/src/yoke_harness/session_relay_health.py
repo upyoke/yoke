@@ -266,8 +266,10 @@ def observe_relay_health(state_dir: Path | None = None) -> dict[str, object]:
         }
     )
     from yoke_harness.session_relay_poll_health import attach_poll_outcome
+    from yoke_harness.session_relay_release_pin import attach_release_pin
 
-    return attach_poll_outcome(sanitize_relay_health(document), document)
+    health = attach_poll_outcome(sanitize_relay_health(document), document)
+    return attach_release_pin(health, document)
 
 
 def relay_health_recovery(health: Mapping[str, object]) -> str:

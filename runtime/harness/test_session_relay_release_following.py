@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import time
+
 from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceOutcome
 from yoke_harness.session_relay_daemon import serve_forever
+from yoke_harness.session_relay_health import observe_relay_health
 
 
 PINNED_RELEASE = "0.2.0.202610140941"
@@ -25,7 +28,7 @@ def test_served_build_change_repins_and_replaces_the_process(tmp_path) -> None:
     reloaded: list[tuple[object, object]] = []
     pins: list[str] = []
 
-    def pin(build: str):
+    def pin(build: str, **_kwargs):
         pins.append(build)
         return replacement
 
@@ -43,7 +46,7 @@ def test_served_build_change_repins_and_replaces_the_process(tmp_path) -> None:
     )
 
     assert outcome.reason == "served_build_changed"
-    assert outcome.cycles == 1
+    assert outcome.cycles >= 1
     assert pins == [NEXT_SERVED_RELEASE]
     assert reloaded == [(["--env", "prod", "relay", "serve"], str(replacement))]
 
@@ -71,7 +74,7 @@ def test_checkout_change_does_not_repin_before_the_environment_deploy(
         idle_tick_seconds=0.001,
         install_signals=False,
         pinned_release=PINNED_RELEASE,
-        pin_served_release=lambda build: pins.append(build),
+        pin_served_release=lambda build, **_kw: pins.append(build),
     )
 
     assert outcome.cycles == 5
@@ -79,23 +82,35 @@ def test_checkout_change_does_not_repin_before_the_environment_deploy(
     assert pins == []
 
 
-def test_failed_pin_keeps_the_working_process_and_retries_after_each_poll(
-    tmp_path,
-) -> None:
+def test_failed_pin_is_attempted_once_per_served_build(tmp_path) -> None:
     reloaded: list[object] = []
     pins: list[str] = []
+    third_build = "0.2.0.202610140943"
+    cycles: list[int] = []
 
     class FetchFailed(RuntimeError):
         code = "index_fetch_failed"
 
-    def fail(build: str):
+    def fail(build: str, **_kwargs):
         pins.append(build)
         raise FetchFailed("index unavailable; recovery: retry relay install")
 
+    def cycle(**_kwargs) -> ServeOnceOutcome:
+        # Let any started install finish so every poll can settle and retry.
+        deadline = time.monotonic() + 5
+        while (observe_relay_health(tmp_path).get("release_pin") or {}).get(
+            "in_flight"
+        ) and time.monotonic() < deadline:
+            time.sleep(0.001)
+        cycles.append(1)
+        build = NEXT_SERVED_RELEASE if len(cycles) <= 20 else third_build
+        control_plane_payload.observe_server_build(build)
+        return ServeOnceOutcome("active", 1)
+
     outcome = serve_forever(
         state_dir=tmp_path,
-        cycle=_served_cycle(NEXT_SERVED_RELEASE),
-        stop_after_cycles=2,
+        cycle=cycle,
+        stop_after_cycles=40,
         idle_tick_seconds=0.001,
         install_signals=False,
         pinned_release=PINNED_RELEASE,
@@ -104,8 +119,11 @@ def test_failed_pin_keeps_the_working_process_and_retries_after_each_poll(
     )
 
     assert outcome.reason == "cycle_cap"
-    assert pins == [NEXT_SERVED_RELEASE, NEXT_SERVED_RELEASE]
+    assert pins == [NEXT_SERVED_RELEASE, third_build]
     assert reloaded == []
+    failure = observe_relay_health(tmp_path)["release_pin"]["last_failure"]
+    assert failure["served_build"] == third_build
+    assert failure["error_code"] == "index_fetch_failed"
 
 
 def test_backoff_does_not_retry_a_pin_without_a_fresh_handshake(tmp_path) -> None:
@@ -119,7 +137,7 @@ def test_backoff_does_not_retry_a_pin_without_a_fresh_handshake(tmp_path) -> Non
         idle_tick_seconds=0.001,
         install_signals=False,
         pinned_release=PINNED_RELEASE,
-        pin_served_release=lambda build: pins.append(build),
+        pin_served_release=lambda build, **_kw: pins.append(build),
     )
 
     assert outcome.reason == "cycle_cap"

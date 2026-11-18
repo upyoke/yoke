@@ -10,6 +10,7 @@ each release it starts on.
 from __future__ import annotations
 
 import importlib
+import subprocess
 import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -187,10 +188,11 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
 
         follow_release(installed.pinned_release, instance.state_dir)
 
-    def repin(served_build: str):
+    def repin(served_build: str, *, runner=subprocess.run):
         return release_install.pin_relay_release(
             instance=instance,
             served_build=served_build,
+            runner=runner,
         ).launch_executable
 
     return serve_forever(

@@ -24,9 +24,10 @@ Failure bursts log immediately, periodically, and on recovery; a failed poll
 backs off exponentially. A credential rejected for good stops the daemon with
 exit 0, which the service manager does not restart.
 
-A new served build is installed beside the running release and ends in
-``exec`` rather than exit. Failed fetches leave the prior process and venv
-working, and the next successful poll handshake retries the pin.
+A new served build installs on a background thread beside the running
+release while the loop keeps polling, then ends in ``exec`` rather than exit.
+A failed install leaves the prior process and venv working and is not retried
+for the same build (see ``session_relay_release_pin``).
 """
 
 from __future__ import annotations
@@ -60,6 +61,7 @@ from yoke_harness.session_relay_schedule import (
     relay_state_dir,
 )
 from yoke_harness.session_relay_process_restart import exec_relay_release
+from yoke_harness.session_relay_release_pin import PinServedRelease, ReleasePinner
 from yoke_harness.session_relay_stop_deadline import read_stop_settlement_seconds
 
 
@@ -88,10 +90,6 @@ def poll_backoff_seconds(consecutive_failures: int) -> int:
 def _observed_server_build() -> control_plane_payload.ObservedServerBuild:
     """Build carried by the latest response in this poll's handshake."""
     return control_plane_payload.current_server_build()
-
-
-def _build_differs(pinned_release: str, served_build: str) -> bool:
-    return bool(pinned_release and served_build) and (pinned_release != served_build)
 
 
 @dataclass
@@ -168,7 +166,7 @@ def serve_forever(
     reload_argv: Sequence[str] | None = None,
     reload_exec: Callable[..., None] = exec_relay_release,
     pinned_release: str = "",
-    pin_served_release: Callable[[str], Path] | None = None,
+    pin_served_release: PinServedRelease | None = None,
     served_build_observer: Callable[
         [], control_plane_payload.ObservedServerBuild
     ] = _observed_server_build,
@@ -220,7 +218,7 @@ def _serve_under_lock(
     reload_argv: Sequence[str] | None,
     reload_exec: Callable[..., None],
     pinned_release: str,
-    pin_served_release: Callable[[str], Path] | None,
+    pin_served_release: PinServedRelease | None,
     served_build_observer: Callable[[], control_plane_payload.ObservedServerBuild],
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
@@ -232,15 +230,23 @@ def _serve_under_lock(
         failures = FailureReporter(state_dir=resolved)
         reset_poll_outcome(resolved)
         supervisor = Supervisor(max_job_workers, failures, stop)
+        pinner = (
+            ReleasePinner(
+                pin_served_release,
+                pinned_release=pinned_release,
+                state_dir=resolved,
+                failures=failures,
+            )
+            if pin_served_release is not None
+            else None
+        )
         cycles = 0
         failed_polls = 0
         last_state = ""
         replacement: Path | None = None
         try:
             while not stop.is_set():
-                observation_before = (
-                    served_build_observer() if pin_served_release is not None else None
-                )
+                observation_before = served_build_observer() if pinner else None
                 try:
                     if cycle_maintenance is not None:
                         cycle_maintenance()
@@ -291,29 +297,13 @@ def _serve_under_lock(
                     )
                 elif last_state != "backoff":
                     failed_polls = 0
-                observation_after = (
-                    served_build_observer() if pin_served_release is not None else None
-                )
-                fresh_handshake = bool(
-                    observation_before is not None
-                    and observation_after is not None
-                    and observation_after.observation > observation_before.observation
-                )
-                served_build = (
-                    observation_after.name
-                    if fresh_handshake and observation_after is not None
-                    else ""
-                )
-                if pin_served_release is not None and _build_differs(
-                    pinned_release, served_build
-                ):
-                    try:
-                        replacement = pin_served_release(served_build)
-                    except Exception as exc:  # noqa: BLE001 — keep prior release
-                        code = str(getattr(exc, "code", "release_pin_failed"))
-                        failures.failed("release pin", f"{code}: {exc}")
-                    else:
-                        failures.recovered("release pin")
+                if pinner is not None and observation_before is not None:
+                    # Only a fresh handshake proves what the server serves now.
+                    observed = served_build_observer()
+                    if observed.observation > observation_before.observation:
+                        pinner.offer(observed.name)
+                    replacement = pinner.settle()
+                    if replacement is not None:
                         stop.set("served_build_changed")
                         break
                 if stop_after_cycles is not None and cycles >= stop_after_cycles:
@@ -322,10 +312,14 @@ def _serve_under_lock(
                 stop.wait(idle_tick_seconds)
             supervisor.drain(timeout=drain_timeout_seconds)
         except RelayStopRequested:
+            if pinner is not None:
+                pinner.cancel(0)
             supervisor.pool.shutdown(wait=False, cancel_futures=False)
             remaining = stop.requested_at + stop_settlement_seconds - time.monotonic()
             supervisor.drain(timeout=remaining)
         finally:
+            if pinner is not None:
+                pinner.cancel(stop.requested_at + stop_settlement_seconds - time.monotonic())
             supervisor.pool.shutdown(wait=False, cancel_futures=False)
         result = DaemonOutcome(
             stop.reason or "stopped",
