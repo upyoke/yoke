@@ -32,15 +32,15 @@ A removal is a recorded decision, not a missing row
 enrollment never re-admits the item, the omitted-work check does not demand
 it back, and the composition notice names it.
 
-The item stays out of that release, including any run that takes the release
-over: a takeover successor's enrollment subtracts the operator removals its
-superseded runs recorded. An automatic release whose reason ends "awaiting a
-later release" (a member whose candidate is outside that run's frozen lineage,
-or one set aside for rework) is not inherited, so a successor whose pin
-contains the candidate enrolls the item. A released member is never stamped
-`deploy_stage` `complete` by the run it left. Because no run then holds the item, the first
-release cut after that run ends enrolls it again through its unheld-custody
-pass.
+The item stays out of the run it left. A takeover also honors a removal
+made before that run started until the item lands again or an operator adds it
+back. After an item-QA removal, the next takeover can enroll the item through
+the ordinary carried-work checks. The same checks apply after an automatic
+release awaiting a later candidate or a rework set-aside.
+
+The run the member left never marks its deployment complete. A later release
+that starts fresh can enroll the unheld item if its candidate carries the
+landing.
 
 Re-attaching the item with `yoke deployment-runs add-item` while the run is
 still `created` clears the removal, on the superseded runs too.

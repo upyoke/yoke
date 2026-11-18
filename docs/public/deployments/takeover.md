@@ -59,8 +59,9 @@ credits inherited attempts to their ancestor through `verdict_run_id`
 
 Members the older run already closed stay with it and keep their history.
 Creation also pins bound sources before transfer (uncarried projects refuse)
-and enrolls newly carried work. A member an operator removed from the older
-run stays out of the newer one; see [removal](removal.md).
+and enrolls newly carried work. A takeover honors pre-start parks until the
+item lands again or an operator adds it back. An item removed at QA can
+enroll in the next takeover that carries it. See [removal](removal.md).
 
 ## What happens to the older run
 

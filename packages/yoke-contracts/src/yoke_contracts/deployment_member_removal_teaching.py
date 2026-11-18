@@ -1,6 +1,7 @@
 """Shared explanation of deployment-run member removal."""
 
 REMOVAL_EFFECT = (
-    "A run that takes this one over keeps it removed. "
-    "A later release that starts fresh (not a takeover) enrolls it again."
+    "A takeover can enroll the item again after an item-QA removal or a new landing. "
+    "A removal before the run starts stays in effect across takeovers until the item "
+    "lands again or you add it back."
 )

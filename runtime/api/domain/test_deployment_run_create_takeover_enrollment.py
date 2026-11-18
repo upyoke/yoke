@@ -18,6 +18,7 @@ from runtime.api.domain.structural_status_gate_test_helpers import insert_depend
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.carried_release_candidate import record_landing_receipt
 from runtime.api.fixtures.deployment_run_driver_fixture import DRIVER_SESSION
+from yoke_core.domain import deployment_run_membership_removals as removals
 from yoke_core.domain import deployment_prepared_source as prepared
 from yoke_core.domain import deployment_run_candidate_range as candidate_range
 from yoke_core.domain import deployment_run_carried_work_repository as provider
@@ -54,7 +55,13 @@ def _qa_rows(conn: Any, successor: str = "") -> dict[str, list[tuple]]:
     }
 
 
-def _seed(conn: Any, monkeypatch: pytest.MonkeyPatch, *, flow: str | None) -> str:
+def _seed(
+    conn: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    flow: str | None,
+    depend_on_blocker: bool = True,
+) -> str:
     """OLD waits on WAITING's live item QA; the candidate adds BLOCKER."""
     takeover._seed_old(conn, run_qa=False)
     execution = begin_plan_execution(
@@ -75,8 +82,9 @@ def _seed(conn: Any, monkeypatch: pytest.MonkeyPatch, *, flow: str | None) -> st
         deployment_flow=f"flow-{takeover.OLD}" if flow is None else flow,
     )
     record_landing_receipt(conn, BLOCKER, branch="helper", tip=BLOCKER_COMMIT)
-    for dependent in (takeover.PASSED, takeover.WAITING):
-        insert_dependency(conn, dependent, BLOCKER, "closure", "status:done")
+    if depend_on_blocker:
+        for dependent in (takeover.PASSED, takeover.WAITING):
+            insert_dependency(conn, dependent, BLOCKER, "closure", "status:done")
     takeover._contains(monkeypatch)
     monkeypatch.setattr(provider, "request_with_retry", base._provider)
     monkeypatch.setattr(prepared, "open_carried_work_source", base._open_provider)
@@ -125,6 +133,42 @@ def test_a_takeover_create_co_enrolls_the_blocker_its_members_need(
         (execution_id,),
     ).fetchone()
     assert owner["deployment_run_id"] == created
+
+
+@pytest.mark.parametrize(
+    "removed_at,landed_at,expected_enrollment",
+    [
+        ("2026-10-18T04:00:00Z", "2026-10-16T00:00:00Z", True),
+        ("2026-10-17T04:00:00Z", "2026-10-17T05:00:00Z", True),
+        ("2026-10-17T04:00:00Z", "2026-10-16T00:00:00Z", False),
+    ],
+    ids=["item-qa-after-start", "pre-start-then-relanded", "pre-start-still-parked"],
+)
+def test_takeover_enrollment_honors_only_pre_start_parks_without_a_new_landing(
+    test_db, monkeypatch, removed_at, landed_at, expected_enrollment
+):
+    _seed(test_db, monkeypatch, flow=None, depend_on_blocker=False)
+    test_db.execute(
+        "UPDATE deployment_runs SET composition_frozen_at=%s, started_at=%s WHERE id=%s",
+        ("2026-10-18T00:00:00Z", "2026-10-19T00:00:00Z", takeover.OLD),
+    )
+    test_db.execute("UPDATE items SET merged_at=%s WHERE id=%s", (landed_at, BLOCKER))
+    monkeypatch.setattr(removals, "iso8601_now", lambda: removed_at)
+    removals.record_membership_removals(
+        test_db,
+        takeover.OLD,
+        [BLOCKER],
+        reason="Operator removed this member",
+        session_id=DRIVER_SESSION,
+        actor_id=1,
+    )
+    test_db.commit()
+
+    created = _create()
+
+    assert takeover._run(test_db, takeover.OLD)["superseded_by_run_id"] == created
+    assert (BLOCKER in takeover._members(test_db, created)) == expected_enrollment
+    assert BLOCKER in removals.removed_item_ids(test_db, takeover.OLD)
 
 
 def test_an_inadmissible_new_member_rolls_back_the_whole_takeover(

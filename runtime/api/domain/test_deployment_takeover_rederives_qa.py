@@ -6,6 +6,8 @@ from runtime.api.domain.deployment_run_target_takeover_test_support import (
     ITEM_QA_STAGE, NEW, OLD, PASSED, WAITING, _close_passed, _contains, _memberless_copy,
     _seed_new, _seed_old, _take_over, record_case_verdict,
 )
+from yoke_contracts.timestamps import format_instant
+from yoke_core.domain import deployment_run_membership_removals
 from yoke_core.domain.deployment_member_snapshot_write import write_member_snapshots
 from yoke_core.domain.deployment_qa_plan_ownership import _snapshot, plan_owners
 from yoke_core.domain.deployment_qa_stage_materialization import materialize_deployment_qa_stage
@@ -79,11 +81,19 @@ def test_requirement_waived_after_takeover_does_not_block_freeze(test_db, monkey
     assert '"requirements":[]' in _member_row(test_db, NEW)[1]
 
 
-def test_operator_removal_on_predecessor_survives_takeover(test_db, monkeypatch):
-    """PLAT-400: the successor's enrollment honors the predecessor's removal."""
+def test_pre_start_park_on_predecessor_survives_takeover(test_db, monkeypatch):
+    """A pre-start park survives takeover and can still be explicitly undone."""
     _seed_old(test_db, run_qa=False)
-    record_membership_removals(test_db, OLD, [REMOVED], reason="operator removed it",
-                               session_id=None, actor_id=1)
+    removed_at = test_db.execute(
+        "SELECT composition_frozen_at - interval '1 second' FROM deployment_runs WHERE id=%s",
+        (OLD,),
+    ).fetchone()[0]
+    with monkeypatch.context() as removal_clock:
+        removal_clock.setattr(
+            deployment_run_membership_removals, "iso8601_now", lambda: format_instant(removed_at)
+        )
+        record_membership_removals(test_db, OLD, [REMOVED], reason="operator removed it",
+                                   session_id=None, actor_id=1)
     _taken_over(test_db, monkeypatch)
     removed = {int(entry["item_id"]) for entry in membership_removals(test_db, OLD)}
     assert removed == {REMOVED, WAITING}
