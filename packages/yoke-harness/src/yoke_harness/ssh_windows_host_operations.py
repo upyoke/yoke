@@ -49,16 +49,15 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
     and the WSL registration survive each Linux home restore.
     """
 
-    def __init__(self, *, settings, key_path, secret_values=()):
-        self._windows_settings = settings
-        self.wsl_desktop_session = settings.get("wsl_desktop_session", "xfce")
-        super().__init__(settings=settings, key_path=key_path, secret_values=secret_values)
+    @cached_property
+    def wsl_desktop_session(self):
+        return self._settings.get("wsl_desktop_session", "xfce")
 
     @cached_property
     def windows_host(self):
         """Use the same SSH account and trust settings without entering WSL."""
         return WindowsTransport(
-            settings=self._windows_settings,
+            settings=self._settings,
             key_path=self._key_path,
             secret_values=self.secret_values,
         )
@@ -85,7 +84,7 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
         return diagnose_linux_terminal(self, capture_screenshot=lambda: capture_xfce(self))
 
     def check_terminal_bridge(self):
-        if "wsl_desktop_session" in self._windows_settings:
+        if "wsl_desktop_session" in self._settings:
             return verify_console(self.windows_host, self.diagnose_terminal_bridge, wsl=True)
         return self.diagnose_terminal_bridge()
 
