@@ -8,8 +8,7 @@ from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
 
 
-# These contain live Windows credentials, browser identities or locked registry
-# hives. They stay on this dedicated user, never travel through a receipt.
+# Windows services and signed-in apps keep this state live outside the mirror.
 PRESERVED_DIRECTORIES = (
     ".yoke-browser-identities",
     ".ssh",
@@ -17,6 +16,7 @@ PRESERVED_DIRECTORIES = (
     ".local/share/claude",
     ".local/share/cursor-agent",
     "AppData/Local/Microsoft",
+    "AppData/Local/ConnectedDevicesPlatform",
     "AppData/Local/Packages",
     "AppData/Local/Claude-Data",
     "AppData/Roaming/Microsoft",
@@ -68,6 +68,18 @@ def profile_copy_script(control, destination):
     ]
     excluded_files = ",".join(quote(value) for value in files)
     return f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
+# The resident Codex sandbox service holds its provisioning guard during reset.
+# Robocopy accepts literal paths here but rejects a wildcard in an absolute path.
+foreach($root in @($source,$target)){{
+ $codex=Join-Path $root '.codex'
+ if(Test-Path -LiteralPath $codex -PathType Container){{
+  $entry=Get-Item -LiteralPath $codex -Force
+  if(!($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)){{
+   $files+=@(Get-ChildItem -LiteralPath $codex -File -Force -Filter '.codex-provisioning-*.guard' |
+     Select-Object -ExpandProperty FullName)
+  }}
+ }}
+}}
 $logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')

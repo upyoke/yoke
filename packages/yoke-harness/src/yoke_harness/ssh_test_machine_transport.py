@@ -99,6 +99,7 @@ class SshTestMachineTransport:
         key_path: str | Path,
         secret_values: tuple[str, ...] = (),
     ) -> None:
+        self._settings = dict(settings)
         self.secret_values = secret_values
         self._key_path = Path(key_path)
         self.os = str(settings["os"])

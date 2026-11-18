@@ -298,7 +298,7 @@ def run_linux_terminal_case(
             )
 
 
-def diagnose_linux_terminal(control: Any) -> HostActionResult:
+def diagnose_linux_terminal(control: Any, *, capture_screenshot=None) -> HostActionResult:
     token = "YOKE_BRIDGE_" + uuid4().hex
     terminal = LinuxTerminal(control)
     try:
@@ -306,7 +306,7 @@ def diagnose_linux_terminal(control: Any) -> HostActionResult:
             "printf '%s%s\\n' " + shlex.join([token[:12], token[12:]])
         )
         transcript = terminal.wait_for(token, time.monotonic() + 10) if opened else None
-        capture = control.capture_screenshot()
+        capture = (capture_screenshot or control.capture_screenshot)()
         from yoke_contracts.machine_qa_host_control import (
             PERSISTENT_TERMINAL_BRIDGE_CHECKS,
         )

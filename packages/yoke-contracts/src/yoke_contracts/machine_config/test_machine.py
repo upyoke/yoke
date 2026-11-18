@@ -22,7 +22,7 @@ _SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_not
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
 _OPTIONAL_SETTING_KEYS = (
-    frozenset({"golden_baseline_path", "cloud_instance_id", "cloud_provider"})
+    frozenset({"golden_baseline_path", "cloud_instance_id", "cloud_provider", "wsl_desktop_session"})
     | DESKTOP_SETTING_KEYS
 )
 
@@ -98,7 +98,7 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
             "test-machine settings require exactly resource_name, host, user, "
             "os, and operating_notes, and optionally "
             "golden_baseline_path, cloud_instance_id, cloud_provider "
-            "and a complete desktop route (" + "; ".join(detail) + ")"
+            "a WSL desktop session and a complete desktop route (" + "; ".join(detail) + ")"
         )
     values = {key: str(payload[key] or "").strip() for key in present}
     if values.get("golden_baseline_path"):
@@ -133,6 +133,12 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
         values["resource_name"]
     )
     values["os"] = validate_test_machine_os(values["os"])
+    if "wsl_desktop_session" in values and (
+        values["os"] != "wsl" or values["wsl_desktop_session"] not in {"windows", "xfce"}
+    ):
+        raise TestMachineCapabilityError(
+            "wsl_desktop_session_invalid: select windows or xfce on an os=wsl machine"
+        )
     host = values["host"]
     if not host or len(host) > 253 or any(ch.isspace() for ch in host):
         raise TestMachineCapabilityError("host must be a non-empty host name")

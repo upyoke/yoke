@@ -15,8 +15,9 @@ FACTS = {"os": "Windows", "home": r"C:\Users\qa", "admin": False,
          "user": r"host\qa"}
 
 
-def control(stdout, returncode=0, stderr=""):
+def control(stdout, returncode=0, stderr="", *, os="windows"):
     transport = object.__new__(WindowsTransport)
+    transport.os = os
     transport.secret_values = ("private-password",)
     transport._run = lambda *a, **kw: subprocess.CompletedProcess(
         [], returncode, stdout, stderr,
@@ -63,6 +64,11 @@ def test_host_facts_distinguish_actual_admin_from_probe_failure():
         control(json.dumps(FACTS | {"admin": True}))._host_facts()
     assert error.value.code == "native_windows_test_user_required"
     assert "this token is an administrator" in str(error.value)
+
+
+def test_wsl_ssh_account_can_own_its_windows_desktop_even_if_administrator():
+    facts = FACTS | {"admin": True}
+    assert control(json.dumps(facts), os="wsl")._host_facts() == facts
 
 
 def test_host_facts_execution_failure_retains_bounded_redacted_evidence():

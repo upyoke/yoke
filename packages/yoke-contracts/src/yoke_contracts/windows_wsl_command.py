@@ -18,7 +18,7 @@ def windows_wsl_input(command: str, input_text: str | None) -> tuple[str, str]:
     return reader, payload + "\n" + (input_text or "")
 
 
-def windows_wsl_command(command: str) -> str:
+def windows_wsl_powershell(command: str) -> str:
     """Run in the SSH user's default WSL2 distro and preserve its exit status.
 
     Windows OpenSSH can enter cmd.exe or PowerShell. An encoded PowerShell
@@ -32,7 +32,10 @@ def windows_wsl_command(command: str) -> str:
     # descriptor leaves stdin available for the existing text-upload protocol.
     payload = base64.b64encode(command.encode("utf-8")).decode("ascii")
     literal = f"'source /dev/fd/3 3< <(printf %s {payload} | base64 -d)'"
-    script = f"& wsl.exe --cd '~' -e /bin/bash -lc {literal}; exit $LASTEXITCODE"
+    return f"& wsl.exe --cd '~' -e /bin/bash -lc {literal}; exit $LASTEXITCODE"
+
+def windows_wsl_command(command: str) -> str:
+    script = windows_wsl_powershell(command)
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     return (
         "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand " + encoded

@@ -245,17 +245,19 @@ VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-Follow [first Tailscale login and bootstrap desktop](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop)
-for the localhost SSH/RDP route, password custody and device approval.
+Provisioning stores the lab account's autologon password in LSA and disables
+its locks. Reboot, close the viewer and run `yoke test-machine verify --test-machine VM`.
+The probe checks Explorer and an unlocked display in the interactive console.
 
-After tailnet proof, register `desktop_protocol=rdp`, `desktop_route=direct`,
-`desktop_host=MAGICDNS`, `desktop_port=3389`, `desktop_user=yokeqa`.
-For SSH bootstrap use `desktop_route=ssh-forward`, `desktop_host=127.0.0.1`.
-`yoke test-machine desktop-access` returns the private address or forward and
-private password-file path for your [controller RDP client](windows-native-controller.md).
-Disconnect without sign-out;
-if locked/logged off, reconnect, unlock and return to console before QA.
-Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
+Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
+Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet
+proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
+`yoke test-machine desktop-access` to reconnect and unlock.
+
+Disconnect without signing out. The administrator-owned `YokeQa-ReturnToConsole`
+task returns this account to the console. If it fails, check Task Scheduler's
+Last Run Result and confirm the console is free. With the viewer closed,
+`yoke test-machine screenshot` captures the desktop, including after reset.
 
 Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
 before capturing goldens.

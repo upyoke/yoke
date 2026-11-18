@@ -72,7 +72,12 @@ def test_live_containers_survive_both_mirrors_while_settings_restore(tmp_path):
         f"$homeRoot={quote(home)}; $goldenRoot={quote(golden)}\n"
         r"""
 $goldenProfile=Join-Path $goldenRoot 'profile'
-$live=@('AppData\Local\Packages\Fixture_package\LocalState\identity.bin','AppData\Local\Claude-Data\identity.bin')
+$live=@(
+ 'AppData\Local\Packages\Fixture_package\LocalState\identity.bin',
+ 'AppData\Local\Claude-Data\identity.bin',
+ 'AppData\Local\ConnectedDevicesPlatform\L.fixture\ActivitiesCache.db-shm',
+ '.codex\.codex-provisioning-0123456789abcdef.guard'
+)
 $locks=@()
 try {
  foreach($relative in $live){
@@ -84,6 +89,8 @@ try {
  $settings=Join-Path $homeRoot '.claude\settings.json'
  New-Item -ItemType Directory -Path (Split-Path -Parent $settings) -Force|Out-Null
  [IO.File]::WriteAllText($settings,'{"skipDangerousModePermissionPrompt":true}')
+ $nonGuard=Join-Path $homeRoot '.codex-provisioning-0123456789abcdef.guard'
+ [IO.File]::WriteAllText($nonGuard,'BASELINE')
  [IO.File]::WriteAllText((Join-Path $homeRoot 'ordinary.txt'),'BASELINE')
  $source=$homeRoot; $target=$goldenProfile
 """
@@ -96,12 +103,14 @@ try {
  if(!(Get-Content -LiteralPath $goldenSetting -Raw|ConvertFrom-Json).skipDangerousModePermissionPrompt){throw 'setting not captured'}
  Remove-Item -LiteralPath $settings
  [IO.File]::WriteAllText((Join-Path $homeRoot 'ordinary.txt'),'CHANGED')
+ [IO.File]::WriteAllText($nonGuard,'CHANGED')
  [IO.File]::WriteAllText((Join-Path $homeRoot 'extra.txt'),'EXTRA')
  $source=$goldenProfile; $target=$homeRoot
 """
         + mirror
         + r"""
  if([IO.File]::ReadAllText((Join-Path $homeRoot 'ordinary.txt')) -cne 'BASELINE'){throw 'ordinary file not restored'}
+ if([IO.File]::ReadAllText($nonGuard) -cne 'BASELINE'){throw 'guard name outside .codex was excluded'}
  if(Test-Path -LiteralPath (Join-Path $homeRoot 'extra.txt')){throw 'extra file not removed'}
  if(!(Get-Content -LiteralPath $settings -Raw|ConvertFrom-Json).skipDangerousModePermissionPrompt){throw 'setting not restored'}
  foreach($lock in $locks){

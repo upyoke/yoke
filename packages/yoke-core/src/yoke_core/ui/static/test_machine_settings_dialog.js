@@ -72,6 +72,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["desktop_host", "Desktop host (optional endpoint override)"],
     ["desktop_port", "Desktop port"],
     ["desktop_user", "Desktop login user"],
+    ["wsl_desktop_session", "WSL mission desktop (windows or xfce)"],
   ]) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");

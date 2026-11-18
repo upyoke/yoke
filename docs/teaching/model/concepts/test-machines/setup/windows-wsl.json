@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "test-machine-setup",
  "position": 2,
- "summary": "Yoke runs Linux harnesses and Docker Engine with Compose v2 in the registered Windows account's default WSL2 Ubuntu user with systemd. Real containers and both home restores passed; blank XFCE/xrdp screenshot validation still blocks full desktop readiness and final fresh-host proof. Native Windows containers or runtime presence do not establish that proof.",
- "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/test-machines/windows-host-provisioning.md"]
+ "summary": "Yoke runs Linux harnesses and Docker Engine with Compose v2 in the registered Windows account's default WSL2 Ubuntu distro with systemd. WSL XFCE serves Linux desktop apps and terminal QA. The Windows autologon console serves Windows applications launched by WSL. The test machine's wsl_desktop_session field selects which display receives mission GUI commands and screenshots. Verification uses an interactive Windows task to prove the unlocked console can start the distro.",
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/test-machines/windows-host-provisioning.md", "docs/public/verification/test-machines/windows-desktop-provisioning.md"]
 }
