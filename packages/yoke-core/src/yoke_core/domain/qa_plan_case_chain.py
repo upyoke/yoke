@@ -63,11 +63,18 @@ def settled_chain_tails(
     return settled
 
 
-def _plan_predecessor_id(conn: Any, case: Mapping[str, Any]) -> int | None:
+def _plan_predecessor(
+    conn: Any, execution: Mapping[str, Any], case: Mapping[str, Any]
+) -> tuple[int | None, str | None]:
     """The requirement materialized from the plan case this one inherits from.
 
-    Waived rows count: a predecessor waived out of the roster still left the
-    machine unvisited, and its follower must not run as if it had.
+    Returns ``(requirement_id, None)``, or ``(None, cause)`` naming why it was
+    not found. A release takeover moves the plan run's requirements to the
+    successor run while the frozen roster keeps the run that admitted them, so
+    a release case is looked up on the execution's current run once takeover
+    lineage proves the move. Waived rows count: a predecessor waived out of
+    the roster still left the machine unvisited, and its follower must not
+    run as if it had.
     """
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.qa_obligation_settlement import unanswered_attempt_sql
@@ -80,11 +87,26 @@ def _plan_predecessor_id(conn: Any, case: Mapping[str, Any]) -> int | None:
         if case.get(column) is not None
     ]
     if len(subjects) != 1:
-        return None
+        return None, (
+            "the case names no single QA subject (item, release run or "
+            "standalone run) to find that case on"
+        )
+    subject, owner = subjects[0], case[subjects[0]]
+    current = execution.get("deployment_run_id")
+    if subject == "deployment_run_id" and current and str(current) != str(owner):
+        from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+        if not inherited_target(conn, str(current), case.get("execution_target") or {}):
+            return None, (
+                f"this plan run now belongs to release run {current!r}, which no "
+                f"takeover links to the run {owner!r} that froze the case on this "
+                "target"
+            )
+        owner = current
     row = query_one(
         conn,
         "SELECT id FROM qa_requirements "
-        f"WHERE {subjects[0]}={p} AND plan_id={p} AND baseline_position={p} "
+        f"WHERE {subject}={p} AND plan_id={p} AND baseline_position={p} "
         f"AND case_position<{p} "
         f"AND COALESCE(workflow_transition_id,'')={p} "
         f"AND COALESCE(deployment_stage,'')={p} "
@@ -93,7 +115,7 @@ def _plan_predecessor_id(conn: Any, case: Mapping[str, Any]) -> int | None:
         f"AND {unanswered_attempt_sql(conn)} "
         "ORDER BY case_position DESC, id DESC LIMIT 1",
         (
-            case[subjects[0]],
+            owner,
             int(case["plan_id"]),
             int(case["baseline_position"]),
             int(case["case_position"]),
@@ -103,7 +125,12 @@ def _plan_predecessor_id(conn: Any, case: Mapping[str, Any]) -> int | None:
             str(case.get("execution_target_digest") or ""),
         ),
     )
-    return int(row["id"]) if row is not None else None
+    if row is None:
+        return None, (
+            f"no requirement for that earlier plan case exists on {subject} "
+            f"{owner!r} at this target"
+        )
+    return int(row["id"]), None
 
 
 def inherit_blocker(
@@ -125,14 +152,19 @@ def inherit_blocker(
 
     roster = execution["roster"]
     previous = roster[ordinal - 1] if ordinal > 0 else None
-    predecessor_id = _plan_predecessor_id(conn, case)
+    predecessor_id, missing = _plan_predecessor(conn, execution, case)
     blocker = {
         "predecessor_requirement_id": predecessor_id,
         "predecessor_case_key": previous.get("case_key") if previous else None,
     }
+    if missing is not None:
+        blocker["reason"] = (
+            f"case {case['case_key']!r} inherits the machine of the case "
+            f"before it in its plan, but {missing}; it was not run"
+        )
+        return blocker
     if (
         previous is None
-        or predecessor_id is None
         or int(previous["requirement_id"]) != predecessor_id
         or not _continues(previous, case)
     ):
