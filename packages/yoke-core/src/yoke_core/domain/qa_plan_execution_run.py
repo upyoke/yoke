@@ -8,9 +8,10 @@ from yoke_contracts.qa_case_starting_state import needs_test_machine
 from yoke_core.domain.agent_mission_controller import execute_controller_mission
 
 
-from yoke_core.domain.qa_plan_execution_abort_reason import (
-    case_failed_reason,
-    member_removed,
+from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
+from yoke_core.domain.qa_plan_failed_run_walk import (
+    close_failed_run,
+    walks_past_failures,
 )
 from yoke_core.domain.qa_plan_execution_result_state import (
     QaPlanExecutionError,
@@ -261,26 +262,21 @@ def execute_begun_plan(
             state = "waiting"
             break
 
-    if failed_cases and not raised and state != "waiting":
-        _call_plan_function(
-            function_id="qa.plan_execution.abort",
-            target=target,
-            payload={
-                "execution_id": execution_id,
-                "reason": case_failed_reason(failed_cases),
-            },
-            actor=resolved_actor,
-        )
-        if state not in {"failed", "error"}:
-            state = "failed"
+    closing = bool(failed_cases) and not raised and state != "waiting"
+    walk_failed = closing and walks_past_failures(execution, requirements, results)
+    close = {
+        "target": target,
+        "execution_id": execution_id,
+        "failed_cases": failed_cases,
+        "actor": resolved_actor,
+    }
+    if closing and not walk_failed:
+        state = close_failed_run(_call_plan_function, state=state, **close)
 
     review_bundle = None
-    if len(results) == len(requirements) and state not in {
-        "failed",
-        "error",
-        "waiting",
-        "removed",
-    }:
+    if len(results) == len(requirements) and (
+        walk_failed or state not in {"failed", "error", "waiting", "removed"}
+    ):
         try:
             review = _call_plan_function(
                 function_id="qa.plan_review.begin",
@@ -291,6 +287,8 @@ def execute_begun_plan(
             review_bundle = review.get("review_bundle")
             if review_bundle is not None:
                 state = review["state"]
+            elif walk_failed:
+                state = close_failed_run(_call_plan_function, state=state, **close)
             else:
                 _call_plan_function(
                     function_id="qa.plan_execution.complete",

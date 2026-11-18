@@ -57,8 +57,9 @@ def aggregate_state(current: str, result: dict[str, Any]) -> str:
 def case_failed(result: dict[str, Any]) -> bool:
     """Whether this one case failed, errored or lost its capture.
 
-    Such a case closes the execution once every independent chain has run;
-    the cases chained behind it are recorded blocked, never run.
+    Such a case closes the execution once every independent chain has run,
+    unless a standalone run still walks its prepared missions; the cases
+    chained behind it are recorded blocked, never run.
     """
     return (
         aggregate_state("passed", result) in {"failed", "error"}
@@ -76,6 +77,13 @@ def plan_recovery(
             "The deployment run removed this item while its QA was running, so "
             "the execution was cancelled with nothing recorded as passed; no "
             "host needs repair. The item owes its QA in its next release."
+        )
+    if state in {"walking", "awaiting_walk_review"} and failed_cases:
+        named = ", ".join(str(requirement_id) for requirement_id in failed_cases)
+        return (
+            f"Failed case requirements {named} keep their recorded outcomes. "
+            "The independent missions walk now; submitting their review "
+            "settles this execution as failed and names those requirements."
         )
     if state not in {"failed", "error"}:
         return None

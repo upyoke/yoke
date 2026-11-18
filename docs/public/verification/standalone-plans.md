@@ -190,6 +190,22 @@ materializations carry it.
 
 
 
+## Failed cases and independent missions
+
+A standalone run records every independent chain before it settles. When a
+case fails and an independent exploratory mission chain prepared cleanly, the
+run still enters `walking` for that mission and returns the review bundle
+(exit code `12`). The failed case keeps its recorded outcome and is not in the
+bundle; cases chained behind it stay blocked (`chain_blocked`). Submitting the
+review settles the execution as failed, with release reason
+`qa-plan-case-failed: requirements ...`. Without a prepared mission, the failed
+run closes immediately with that reason.
+
+A standalone mission belongs to its execution, so
+`yoke qa case run --requirement-id ID` refuses `qa_single_mission_standalone`.
+It names `--resume-execution-id` while that execution is live; once it has
+ended, start a fresh execution with `yoke qa plan run --plan PLAN --project P`.
+
 ## Recover a lost check-in response
 
 ```text

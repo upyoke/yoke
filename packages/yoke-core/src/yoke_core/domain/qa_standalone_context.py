@@ -23,6 +23,15 @@ def restore_standalone_source(conn, context):
                 return
 
 
+def standalone_execution_state(conn, execution_id):
+    """The owning execution's state, so a refusal never names a dead resume."""
+    row = conn.execute(
+        f"SELECT state FROM qa_plan_executions WHERE id={marker(conn)}",
+        (execution_id,),
+    ).fetchone()
+    return str(row[0]) if row is not None else None
+
+
 def require_same_source(roster, *, source_revision, source_ref, checkout_path):
     requested = dict(zip(SOURCE_KEYS, (source_revision, source_ref, checkout_path)))
     for case in roster:
