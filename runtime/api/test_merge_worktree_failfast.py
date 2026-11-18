@@ -23,10 +23,13 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
+
 from runtime.api import merge_worktree_test_rest_fakes as rest_fakes
 from runtime.api.merge_worktree_full_test_support import (
     MergeEnv,
     _git,
+    _listed_worktrees,
     _write_file,
     merge_env as merge_env,
     run_merge,
@@ -118,8 +121,8 @@ class TestYOK1362MergeFailFast:
         # Operator stderr identifies the pr-merge phase.
         assert "pr-merge" in result.stderr.lower()
         # Worktree preserved.
-        wt_list = _git(env.repo, "worktree", "list", "--porcelain", check=False)
-        assert str(env.worktree) in wt_list.stdout
+        listed = _listed_worktrees(env.repo)
+        assert normalize_repo_path(str(env.worktree)) in listed
 
     def test_yok1362_target_pushed_before_trial_merge(self, rest_env) -> None:
         """Local main ahead of origin is pushed before trial-merge runs."""

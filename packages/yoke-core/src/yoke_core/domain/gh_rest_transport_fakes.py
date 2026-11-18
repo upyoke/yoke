@@ -7,7 +7,9 @@ the merge engine's subprocess-driven tests have an analog of the legacy
 ``MOCK_GH_LOG`` infrastructure for the REST transport.
 
 Each response JSON may also carry an optional top-level ``side_effect``
-key whose value is a shell command. The loader runs it after returning
+key whose value is a POSIX sh command. The loader runs it through the
+project command shell (``/bin/sh``, or Git for Windows ``sh.exe`` on native
+Windows -- never ``cmd.exe``) after returning
 the canned response — useful for simulating server-side effects that
 end-to-end tests rely on (for example, the GitHub merge endpoint
 actually merging the head into the base; the side-effect command does
@@ -31,6 +33,8 @@ import re
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from yoke_contracts.project_command_shell import project_command_shell
 
 if TYPE_CHECKING:
     from yoke_core.domain.gh_rest_transport import RestRequest, RestResponse
@@ -123,7 +127,9 @@ def load_fake_response(req: "RestRequest", fake_dir: str) -> "RestResponse":
     body = payload.get("body", "")
     side_effect = payload.get("side_effect")
     if isinstance(side_effect, str) and side_effect.strip():
-        subprocess.run(side_effect, shell=True, check=False)
+        subprocess.run(
+            [project_command_shell(), "-c", side_effect], check=False,
+        )
     if status >= 400:
         body_text = body if isinstance(body, str) else _json.dumps(body)
         raise _classify_http_error(status, body_text, headers)

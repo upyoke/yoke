@@ -12,10 +12,13 @@ Shared fixtures and helpers live in ``test_merge_worktree_full.py``.
 
 import json
 
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
+
 from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
     _git,
+    _listed_worktrees,
     _write_file,
     merge_env as merge_env,
     run_merge,
@@ -54,7 +57,7 @@ class TestBasicMerge:
         assert f"YOKE_REPO_ROOT={merge_env.repo}" in result.stdout
         assert not (merge_env.repo / "data" / "config").exists()
         assert _git(merge_env.repo, "branch", "--show-current").stdout.strip() == "main"
-        assert str(merge_env.worktree) in _git(merge_env.repo, "worktree", "list", "--porcelain").stdout
+        assert normalize_repo_path(str(merge_env.worktree)) in _listed_worktrees(merge_env.repo)
         assert TEST_BRANCH in _git(merge_env.repo, "branch", "--list", TEST_BRANCH).stdout
         candidate = _git(merge_env.worktree, "rev-parse", "HEAD").stdout.strip()
         assert _git(merge_env.repo, "merge-base", "--is-ancestor", candidate, "origin/main").returncode == 0

@@ -20,6 +20,7 @@ from typing import Optional
 
 import pytest
 
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.testing.child_environment import minimal_child_environment
 
 # Mock gh scripts and DB helpers live in support modules to keep this file small,
@@ -159,6 +160,19 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
             "GIT_SSH_COMMAND": "ssh -oBatchMode=yes",
         },
     )
+
+
+def _listed_worktrees(repo: Path) -> set[str]:
+    """Worktree paths Git lists for ``repo``, in the product's portable form.
+
+    Git for Windows prints ``C:/...``; compare through ``normalize_repo_path``.
+    """
+    listing = _git(repo, "worktree", "list", "--porcelain", check=False).stdout
+    return {
+        normalize_repo_path(line.removeprefix("worktree "))
+        for line in listing.splitlines()
+        if line.startswith("worktree ")
+    }
 
 
 def _write_file(path: Path, content: str) -> None:

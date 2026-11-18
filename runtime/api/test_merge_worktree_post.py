@@ -11,6 +11,7 @@ Shared fixtures and helpers live in test_merge_worktree_full.py.
 import subprocess
 import sys
 import textwrap
+import shlex
 import shutil
 from unittest import mock
 
@@ -88,7 +89,10 @@ class TestPostMergeDirty:
         merge_origin = rest_fakes._merge_side_effect_command(
             str(merge_env.origin), TEST_BRANCH
         )
-        dirty_cmd = f"echo 'modified during merge' > '{dirty_file}'"
+        dirty_cmd = (
+            "echo 'modified during merge' > "
+            f"{shlex.quote(dirty_file.as_posix())}"
+        )
         rest_fakes._write(
             merge_env.rest_fake_dir,
             rest_fakes.pulls_merge_filename("9999"),
