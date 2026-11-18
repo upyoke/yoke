@@ -20,6 +20,7 @@ from yoke_harness.native_windows.stdin_frame import READ_FRAME_SCRIPT
 from yoke_harness.native_windows.admin import admin_script
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+from yoke_harness.native_windows.tailnet_startup import SCRIPT as TAILNET_STARTUP_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
 from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
 from yoke_harness.native_windows.receipts import SETUP as RECOVERY_PATHS
@@ -193,6 +194,8 @@ if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\
 New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens' | Out-Null
 USER_SSH_ACCESS
 RECOVERY_PATHS
+TAILNET_STARTUP
+Disable-YokeTailnetTrayStartup -UserHome $homePath -UserSid $sid | ConvertTo-Json -Compress
 Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 RDP_FIREWALL
@@ -200,6 +203,7 @@ Write-Output 'Native standard user, private golden directory and private desktop
 """.replace("TEST_USER", quote(test_user))
         .replace("USER_SSH_ACCESS", USER_SSH_SCRIPT)
         .replace("RECOVERY_PATHS", RECOVERY_PATHS)
+        .replace("TAILNET_STARTUP", TAILNET_STARTUP_SCRIPT)
         .replace("PUBLIC_KEY", quote(public))
         .replace("PROFILE_CREATION", PROFILE_SCRIPT)
         .replace("RDP_FIREWALL", RDP_FIREWALL_SCRIPT)

@@ -3,6 +3,28 @@
 from yoke_harness.native_windows.receipts import GUARDS
 
 SCRIPT = GUARDS + r"""
+function Get-YokeTailnetFailure {
+ param([string]$message)
+ $allowed=@(
+  'windows_rdp_firewall_failed: verify Tailscale status before accepting tailnet RDP',
+  'windows_rdp_firewall_failed: Tailscale status response invalid',
+  'windows_rdp_firewall_failed: require a running Tailscale self identity',
+  'windows_rdp_firewall_failed: invalid Tailscale self address',
+  'windows_rdp_firewall_failed: Tailscale adapter query failed',
+  'windows_rdp_firewall_failed: require one live assignment per Tailscale self address',
+  'windows_rdp_firewall_failed: Tailscale adapter assignment is unavailable or ambiguous'
+ )
+ if($allowed -ccontains $message){return $message}
+ return 'windows_rdp_firewall_failed: SYSTEM tailnet probe failed (unclassified)'
+}
+function New-YokeTailnetProbePayload($exe,$body,$nonce,$resultPath) {
+ $payload="`$ErrorActionPreference='Stop'`nfunction Get-YokeTailnetProof {"+$body+"`n}`n"
+ $payload+="function Get-YokeTailnetFailure {"+${function:Get-YokeTailnetFailure}.ToString()+"`n}`n"
+ $payload+="`$r=@{nonce='$nonce';sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;ok=`$false}`n"
+ $payload+="try {`$r.proof=Get-YokeTailnetProof -Executable '"+$exe.Replace("'","''")+"';`$r.ok=`$true} catch {`$r.error=Get-YokeTailnetFailure ([string]`$_.Exception.Message)}`n"
+ $payload+="[IO.File]::WriteAllText('$resultPath.tmp',(`$r | ConvertTo-Json -Depth 5 -Compress));[IO.File]::Move('$resultPath.tmp','$resultPath')"
+ return $payload
+}
 function Assert-YokeTailnetPrivate($path,$directory) {
  try {Assert-YokeRecoveryObject $path $directory} catch {
   $problem=$_.Exception.Message; $probeOwner='unavailable'
@@ -33,10 +55,7 @@ function Invoke-YokeSystemTailnetProof($exe,$body) {
   Set-Acl -LiteralPath $probeRoot -AclObject $acl -ErrorAction Stop
   Assert-YokeTailnetPrivate $probeRoot $true
   $scriptPath=Join-Path $probeRoot 'probe.ps1'; $resultPath=Join-Path $probeRoot 'proof.json'
-  $payload="`$ErrorActionPreference='Stop'`nfunction Get-YokeTailnetProof {"+$body+"`n}`n"
-  $payload+="`$r=@{nonce='$nonce';sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;ok=`$false}`n"
-  $payload+="try {`$r.proof=Get-YokeTailnetProof -Executable '"+$exe.Replace("'","''")+"';`$r.ok=`$true} catch {}`n"
-  $payload+="[IO.File]::WriteAllText('$resultPath.tmp',(`$r | ConvertTo-Json -Depth 5 -Compress));[IO.File]::Move('$resultPath.tmp','$resultPath')"
+  $payload=New-YokeTailnetProbePayload $exe $body $nonce $resultPath
   $stream=[IO.File]::Open($scriptPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
   try {
    $writer=[IO.StreamWriter]::new($stream,[Text.UTF8Encoding]::new($true))
@@ -61,7 +80,8 @@ function Invoke-YokeSystemTailnetProof($exe,$body) {
   if(!(Test-Path -LiteralPath $resultPath)){throw 'windows_rdp_firewall_failed: SYSTEM tailnet probe timed out'}
   Assert-YokeTailnetPrivate $resultPath $false
   $result=[IO.File]::ReadAllText($resultPath) | ConvertFrom-Json -ErrorAction Stop
-  if($result.nonce -cne $nonce -or $result.sid -cne 'S-1-5-18' -or $result.ok -isnot [bool] -or !$result.ok -or !$result.proof){throw 'windows_rdp_firewall_failed: SYSTEM tailnet identity and adapter proof unavailable'}
+  if($result.nonce -cne $nonce -or $result.sid -cne 'S-1-5-18' -or $result.ok -isnot [bool]){throw 'windows_rdp_firewall_failed: SYSTEM tailnet proof envelope invalid'}
+  if(!$result.ok -or !$result.proof){throw (Get-YokeTailnetFailure ([string]$result.error))}
   return $result.proof
  } catch {$probeFailure=$_; throw} finally {
   try {
@@ -95,24 +115,22 @@ function Get-YokeTailnetProof {
  if([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18'){
   return Invoke-YokeSystemTailnetProof $exe (${function:Get-YokeTailnetProof}.ToString())
  }
- try {
- $raw=& $exe status --json 2>&1
+ try {$raw=& $exe status --json 2>&1} catch {throw 'windows_rdp_firewall_failed: verify Tailscale status before accepting tailnet RDP'}
  if($LASTEXITCODE -ne 0){throw 'windows_rdp_firewall_failed: verify Tailscale status before accepting tailnet RDP'}
- $status=($raw -join "`n") | ConvertFrom-Json -ErrorAction Stop
+ try {$status=($raw -join "`n") | ConvertFrom-Json -ErrorAction Stop} catch {throw 'windows_rdp_firewall_failed: Tailscale status response invalid'}
  if($status.BackendState -ne 'Running' -or !@($status.Self.TailscaleIPs).Count){throw 'windows_rdp_firewall_failed: require a running Tailscale self identity'}
  $addresses=@(); $aliases=@()
- $adapters=@(Get-NetAdapter -IncludeHidden -ErrorAction Stop)
+ try {$adapters=@(Get-NetAdapter -IncludeHidden -ErrorAction Stop)} catch {throw 'windows_rdp_firewall_failed: Tailscale adapter query failed'}
  foreach($value in @($status.Self.TailscaleIPs)){
-  $ip=[Net.IPAddress]::Parse([string]$value).ToString()
+  try {$ip=[Net.IPAddress]::Parse([string]$value).ToString()} catch {throw 'windows_rdp_firewall_failed: invalid Tailscale self address'}
   if($ip -in @('0.0.0.0','::') -or [Net.IPAddress]::IsLoopback([Net.IPAddress]::Parse($ip))){throw 'windows_rdp_firewall_failed: invalid Tailscale self address'}
-  $rows=@(Get-NetIPAddress -IPAddress $ip -ErrorAction Stop)
+  try {$rows=@(Get-NetIPAddress -IPAddress $ip -ErrorAction Stop)} catch {throw 'windows_rdp_firewall_failed: Tailscale adapter query failed'}
   if($rows.Count -ne 1 -or $rows[0].AddressState -ne 'Preferred'){throw 'windows_rdp_firewall_failed: require one live assignment per Tailscale self address'}
   $adapter=@($adapters | Where-Object {$_.ifIndex -eq $rows[0].InterfaceIndex -and $_.Status -eq 'Up'})
   if($adapter.Count -ne 1 -or !$adapter[0].Name){throw 'windows_rdp_firewall_failed: Tailscale adapter assignment is unavailable or ambiguous'}
   $addresses+=$ip; $aliases+=$adapter[0].Name
  }
  return @{addresses=@($addresses | Sort-Object -Unique);aliases=@($aliases | Sort-Object -Unique)}
- }catch {throw 'windows_rdp_firewall_failed: Tailscale self addresses and live adapter assignments are not verified; inspect Tailscale status and network adapters before accepting RDP'}
 }
 function Test-YokeTailnetOnly($address,$interface,$proof) {
  if(!$proof){return $false}

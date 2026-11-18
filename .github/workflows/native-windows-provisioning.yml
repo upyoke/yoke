@@ -39,6 +39,7 @@ jobs:
           runtime/api/domain/test_native_windows_framed_process.py
           runtime/api/domain/test_native_windows_admin_staging.py
           runtime/api/domain/test_native_windows_standard_staging.py
+          runtime/api/domain/test_native_windows_tailnet.py
           --junitxml=native-windows-provisioning.xml
       - name: Retain exact-commit provisioning evidence
         if: always()

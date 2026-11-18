@@ -55,6 +55,37 @@ Agents finish setup and navigation; Ben types his own harness/GitHub passwords. 
 prove real CLI requests and visible signed-in desktop apps; installs/versions
 alone do not prove readiness. Follow [native browser identities](windows-browser-identities.md).
 
+## Sign in and prove each installed surface
+
+Use the standard `yokeqa` Windows desktop, not an administrator or controller
+profile. In **Start > All**, open the installed **Claude**, **Cursor** and
+OpenAI desktop app; confirm the actual package identity and displayed app name
+(the observed OpenAI package appeared as **ChatGPT** in Start). Choose each
+app's sign-in action and complete its official browser flow with the intended
+Anthropic, Cursor or OpenAI account/workspace. A Start web search or download
+page is not the installed app; do not reinstall merely to reach sign-in.
+
+In that user's Windows terminal, authenticate the CLIs separately:
+
+```powershell
+claude auth login
+codex login
+agent login
+codex login status
+agent status
+```
+
+Follow [Claude authentication](https://code.claude.com/docs/en/authentication),
+[official OpenAI authentication](https://learn.chatgpt.com/docs/auth?surface=cli)
+and [Cursor authentication](https://cursor.com/docs/cli/reference/authentication).
+Ben completes passwords, MFA and account approval in the displayed official
+flows. Preserve auth caches privately; never print/copy them into the guide,
+chat, captures or repository. Do not substitute new API keys for these sign-ins.
+Sign into GitHub in the native browser when required by the case. Close completed
+auth tabs, retain each signed-in app, and run a small real request through each
+CLI before sealing goldens. Record the visible app and request outcome without
+credentials; versions and login-status commands alone are insufficient.
+
 ## Verified standard-user transfer
 
 Standard-user file uploads and large desktop/SSH scripts also use verified SFTP,
@@ -68,3 +99,70 @@ or exit 255 preserves staging because guest completion is uncertain; inspect
 `desktop_diagnostics` with the exact token, file hashes and cleanup outcome, and
 preserve the original failure if cleanup fails. This does not establish that
 optional framed stdin is reliable on the actual lab machine.
+
+## First Tailscale login and bootstrap desktop
+
+If private RDP is unavailable, use the existing key-only SSH bootstrap route;
+keep public TCP/UDP3389 blocked. In a bounded start/deallocate window, run:
+
+```text
+ssh -F none -i KEY -o BatchMode=yes -o ExitOnForwardFailure=yes -o ControlMaster=no -o ControlPersist=no -o ControlPath=none -o UserKnownHostsFile=KNOWN_HOSTS -o HostKeyAlias=VM_RESOURCE_ID -N -L 127.0.0.1:3390:127.0.0.1:3389 yokeqa@BOOTSTRAP_HOST
+```
+
+Use Yoke's known_hosts and full VM resource ID; verify the SSH host key.
+In Windows App connect to `127.0.0.1:3390`, **Ask when required**, user `yokeqa`,
+no gateway or administrator session. Disable clipboard, printer, smart-card,
+microphone, camera and folder redirection. Compare the RDP certificate's SHA256
+with the certificate independently observed through that verified SSH tunnel;
+do not enable blanket **Always trust**. Never reuse a saved Administrator entry.
+The generated password is in the private file reported by `desktop-access`;
+for this lab its custody is
+`~/.yoke/secrets/capability-secrets/yoke/test-machine_windows-native-lab/desktop_password`.
+The operator enters it only in Windows App, never chat, argv or screenshots.
+
+Inside Windows choose **Start > Tailscale > Get Started**, then sign in with the
+existing tailnet account and approve the expected lab device. Accept terms
+personally when shown. Stop on an unexpected account, hostname or duplicate
+device; do not reset/delete devices or invent an auth key. An approved SYSTEM
+`up` may instead print an official AuthURL for the operator's existing browser;
+a URL or successful GUI login still needs independent SYSTEM/private-route proof.
+Complete [tray startup handling and two cold boots](#tray-startup-and-autologon)
+before treating the private desktop as persistent. Close completed auth tabs,
+leave apps authenticated, disconnect without Windows sign-out, terminate the
+local forward, deallocate the VM and verify its actual power state.
+
+## Tray startup and autologon
+
+Configure automatic logon using an LSA-protected password (such as Microsoft's
+Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
+the project's lab policy. Reboot and prove a scheduled task with
+`LogonType=Interactive` runs as the standard user without an RDP client open.
+
+A later boot reported SYSTEM `NeedsLogin`, no node key and no expected IP
+assignments despite a running Tailscale service. Fresh operator GUI login
+restored SYSTEM Running/key/startup-target and the known DNS/IP/private routes.
+The selected profile changed from `5967` to `0860`; never hardcode a historical
+profile ID as evidence of today's identity. Inspect it privately and compare
+the expected node, DNS and addresses before accepting a replacement profile.
+
+The actual MSI startup entry was common Startup `Tailscale.lnk`, targeting the
+signed installed `tailscale-ipn.exe` with no arguments. Its tray process started
+before the human RDP login. A non-SYSTEM LocalAPI request can select an OS-user
+profile, but the precise caller that caused the earlier loss remains unproven.
+Do not infer that earlier successful boots lacked autologon.
+
+Provisioning's `Disable-YokeTailnetTrayStartup` checks the exact shortcut,
+trusted owner, unlinked ancestors, signed target and empty arguments. It keeps a
+byte-verified, content-addressed backup in protected `C:\ProgramData\YokeQa\private`
+before removing that exact Startup entry. It refuses unknown Run/user-startup
+forms, changed objects or backup collisions; it does not stop the SYSTEM service,
+select a profile or edit Tailscale state. Recheck after vendor reinstall/update.
+
+Before acceptance inventory startup entries and tray-process/logon times. Run
+two distinct cold boots with automatic `yokeqa` logon demonstrably completed,
+tray autostart absent, the same selected identity, nonempty startup key,
+SYSTEM Running/key/live adapters, private standard SSH/RDP and public3389 denial.
+Deallocate and verify after each window; no selection or repair between proofs.
+Probe receipts preserve exact allowlisted errors, including NeedsLogin's running
+self-identity refusal; unknown/native or secret-bearing errors become a fixed
+unclassified failure. Neither classification is a passing readiness receipt.

@@ -251,10 +251,8 @@ VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-Configure automatic logon using an LSA-protected password (such as Microsoft's
-Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
-the project's lab policy. Reboot and prove a scheduled task with
-`LogonType=Interactive` runs as the standard user without an RDP client open.
+Follow [first Tailscale login and bootstrap desktop](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop)
+for the localhost SSH/RDP route, password custody and device approval.
 
 After tailnet proof, register `desktop_protocol=rdp`, `desktop_route=direct`,
 `desktop_host=MAGICDNS`, `desktop_port=3389`, `desktop_user=yokeqa`.

@@ -182,6 +182,12 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         from runtime.api.domain.test_native_windows_standard_staging import verify_real_standard_sftp
 
         verify_real_standard_sftp(transport)
+        from runtime.api.domain.test_native_windows_tailnet import (
+            verify_real_system_tailnet_errors, verify_real_tailnet_startup_policy,
+        )
+
+        verify_real_system_tailnet_errors(key, admin)
+        verify_real_tailnet_startup_policy(powershell, tmp_path)
         verify_standard_task_operations(
             {"os": "windows", "host": "127.0.0.1", "user": name}, key, custody["password"],
         )
