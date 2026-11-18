@@ -14,7 +14,7 @@ NOW = "2026-11-18T14:00:00Z"
 
 
 def _migration():
-    path = Path(migrations.__file__).parent / "0114_test_machines_universe_entity.py"
+    path = Path(migrations.__file__).parent / "0115_test_machines_universe_entity.py"
     return load_migration_module(path, path.stem)
 
 
@@ -124,7 +124,7 @@ def test_pre_cutover_build_refuses_to_serve_the_migrated_database(legacy):
     ensure_yoke_migration_ledger(legacy)
     carrying_release = "2.1"
     minimum = recorded_floor(migration, running_version=carrying_release)
-    name = "0114_test_machines_universe_entity"
+    name = "0115_test_machines_universe_entity"
     legacy.execute(
         "INSERT INTO applied_migrations "
         "(migration_name,applied_at,applied_by,minimum_serving_version) VALUES (?,?,?,?)",
