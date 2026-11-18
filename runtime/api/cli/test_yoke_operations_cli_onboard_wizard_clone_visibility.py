@@ -181,7 +181,8 @@ def test_empty_private_repo_access_has_manage_retry_and_back(
             await pilot.press("enter")
             await pilot.pause()
             assert "Is the repo public or private?" in body_text(app)
-            await pilot.press("down")
+            # Back keeps the visibility chosen before: Private.
+            assert app.query_one(SelectionList).selected_value != "public"
             await pilot.press("enter")
             selection = await wait_for_selection(app, pilot)
             assert [row.value for row in selection.rows] == [

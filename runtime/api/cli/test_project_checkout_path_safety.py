@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from yoke_cli import main as yoke_operations_cli
 
 
@@ -42,3 +44,22 @@ def test_project_apply_refuses_replaced_symlink_checkout(
     assert "symbolic link" in capsys.readouterr().err
     assert sentinel.read_text(encoding="utf-8") == "operator data"
     assert not (victim / ".git").exists()
+
+
+def test_path_under_a_file_names_the_file(tmp_path: Path) -> None:
+    from yoke_cli.config.project_checkout_path import validation_error
+
+    blocker = tmp_path / "passwd"
+    blocker.write_text("not a folder", encoding="utf-8")
+    assert validation_error(blocker / "qa-proj" / "deeper") == (
+        f"{blocker} is a file, not a folder — pick a folder path."
+    )
+
+
+@pytest.mark.posix_only(reason="/etc/passwd is a POSIX file")
+def test_etc_passwd_child_names_etc_passwd() -> None:
+    from yoke_cli.config.project_checkout_path import validation_error
+
+    assert validation_error("/etc/passwd/qa-proj") == (
+        "/etc/passwd is a file, not a folder — pick a folder path."
+    )

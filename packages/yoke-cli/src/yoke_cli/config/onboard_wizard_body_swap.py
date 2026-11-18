@@ -1,7 +1,7 @@
 """Commit wizard body transitions while their Textual app is running."""
 
 from yoke_cli.config.onboard_wizard_body_scroll import BODY_ID
-from yoke_cli.config.onboard_wizard_widgets import Stepper
+from yoke_cli.config.onboard_wizard_widgets import SelectionList, Stepper
 
 
 class BodySwap:
@@ -41,6 +41,11 @@ class BodySwap:
             # ``_account_step_label`` (the destination picker resets it on every
             # visit, including Esc-back re-renders of the stored view).
             widgets = list(view.builder())
+            if view.chosen is not None:
+                for widget in widgets:
+                    if isinstance(widget, SelectionList):
+                        widget.move_to(view.chosen)
+                        break
             stepper = self.query_one(Stepper)
             stepper.active = view.step
             stepper.account_label = self._account_step_label

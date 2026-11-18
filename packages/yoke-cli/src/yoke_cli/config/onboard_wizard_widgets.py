@@ -184,6 +184,13 @@ class SelectionList(Vertical, can_focus=True):
         if self._rows:
             self.cursor = (self.cursor + 1) % len(self._rows)
 
+    def move_to(self, value: str) -> None:
+        """Put the cursor on the row carrying ``value``, if the list has one."""
+        for index, row in enumerate(self._rows):
+            if row.value == value:
+                self.cursor = index
+                return
+
     def action_choose(self) -> None:
         if self._rows:
             self.post_message(self.Selected(self.selected_value))

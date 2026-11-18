@@ -14,6 +14,8 @@ def validation_error(value: str | Path) -> str | None:
         info = selected.lstat()
     except FileNotFoundError:
         info = None
+    except NotADirectoryError:
+        return f"{_first_existing_parent(selected)} is a file, not a folder — pick a folder path."
     except OSError:
         return "That folder path can't be inspected safely — pick another path."
     if info is not None and stat.S_ISLNK(info.st_mode):
@@ -28,6 +30,17 @@ def validation_error(value: str | Path) -> str | None:
     if info is not None and not stat.S_ISDIR(info.st_mode):
         return "That path is a file, not a folder — pick a folder path."
     return None
+
+
+def _first_existing_parent(path: Path) -> Path:
+    """Name the file that sits where a folder of ``path`` should be."""
+    for parent in path.parents:
+        try:
+            parent.lstat()
+        except OSError:
+            continue
+        return parent
+    return path
 
 
 def for_apply(

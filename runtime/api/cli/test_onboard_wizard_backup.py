@@ -124,5 +124,7 @@ def test_invalid_backup_never_offers_apply(tmp_path, monkeypatch):
             await pilot.pause()
             assert "backup_invalid" in text(app)
             assert "Start from this backup?" not in text(app)
+            # No backup file was kept, so the screen claims none was.
+            assert "backup file is preserved" not in text(app)
 
     asyncio.run(scenario())

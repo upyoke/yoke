@@ -201,7 +201,9 @@ class OnboardWizardApp(
 
     async def on_selection_list_selected(self, message: SelectionList.Selected) -> None:
         try:
-            handler = self._history[-1].on_select
+            view = self._history[-1]
+            view.chosen = message.value
+            handler = view.on_select
             if handler is not None:
                 handler(message.value)
             await self._apply_pending_swap()

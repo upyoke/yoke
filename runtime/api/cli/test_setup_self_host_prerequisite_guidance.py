@@ -9,9 +9,10 @@ import subprocess
 import pytest
 
 from runtime.api.cli.setup_agent_test_support import AgentDriver, isolate_agent_setup
-from runtime.api.cli.yoke_operations_cli_onboard_wizard_self_host_test_support import (_app, _open_preview, _start, _wait_for_text)
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_self_host_test_support import (_app, _open_preview, _wait_for_text)
 from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_support import (_body_text)
 from yoke_cli.config import onboard_docker_prerequisites as docker
+from yoke_cli.config.onboard_wizard_widgets import SelectionList
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.self_host import runtime
 
@@ -108,7 +109,7 @@ def test_agent_receives_preparation_and_actionable_retry_before_any_bundle_write
 def test_interactive_receives_same_guidance_and_only_provisions_when_ready(
     tmp_path, monkeypatch, runtime_state, failure
 ):
-    from runtime.api.cli.onboard_wizard_test_helpers import stub_path_doctor
+    from runtime.api.cli.onboard_wizard_test_helpers import stub_path_doctor, type_text
 
     stub_path_doctor(monkeypatch)
     runtime_state["failure"] = failure
@@ -122,9 +123,15 @@ def test_interactive_receives_same_guidance_and_only_provisions_when_ready(
         async with app.run_test(size=(120, 50)) as pilot:
             await _open_preview(pilot)
             _guidance(_body_text(app))
-            # Return to destination so the existing helper opens/starts the preview.
+            # Back to the destination picker, which keeps the self-host row
+            # chosen; Enter reopens the preview, then Start fresh and name.
             await pilot.press("down", "enter")
-            await _start(pilot)
+            await pilot.pause()
+            assert app.query_one(SelectionList).selected_value == "self-host-server"
+            await pilot.press("enter")
+            await pilot.press("enter", "enter")  # Preview -> Start fresh
+            await type_text(pilot, "Ada Lovelace")
+            await pilot.press("enter")
             expected = failure or "Your self-hosting Yoke server is ready."
             text = await _wait_for_text(app, pilot, expected)
             assert expected in text
