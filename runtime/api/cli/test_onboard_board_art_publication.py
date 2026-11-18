@@ -168,6 +168,8 @@ def _published_setup(
     """Setup as Apply leaves it: installed, publication tried, report finished."""
     bind_bundle(monkeypatch)
     monkeypatch.setattr(art_apply, "rebuild_board", _write_board_view)
+    # The real bundle's `.yoke/.gitignore` keeps the install manifest untracked.
+    (checkout / ".git" / "info" / "exclude").write_text(".yoke/install-manifest.json\n")
     install = runner.install(
         checkout,
         project_id=7,

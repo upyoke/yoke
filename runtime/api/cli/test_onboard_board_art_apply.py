@@ -19,6 +19,7 @@ from yoke_cli.config.onboard_wizard import (  # noqa: E402
 )
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow  # noqa: E402
 from yoke_cli.project_install import checkout_gate  # noqa: E402
+from yoke_cli.project_install import files as files_layer  # noqa: E402
 from yoke_cli.project_install.files import ProjectInstallError  # noqa: E402
 
 
@@ -123,7 +124,7 @@ def test_after_apply_marks_report_failed_when_board_rebuild_fails(
     )
     shell = _BoardArtShell()
     report = {
-        "project_onboarding": {"checkout": str(tmp_path)},
+        "project_onboarding": {"checkout": str(_installed_checkout(tmp_path / "r"))},
         "apply_report": {"path": str(report_path)},
     }
 
@@ -140,8 +141,9 @@ def test_after_apply_marks_report_failed_when_board_rebuild_fails(
 
 def test_write_board_art_writes_sections(tmp_path: Path):
     variants = generate_default_variants("EXT", seed_text="s")
-    art_apply.write_board_art(tmp_path, "EXT", variants)
-    content = (tmp_path / ".yoke" / "board-art").read_text(encoding="utf-8")
+    root = _installed_checkout(tmp_path / "repo")
+    art_apply.write_board_art(root, "EXT", variants)
+    content = (root / ".yoke" / "board-art").read_text(encoding="utf-8")
     assert "## Master Map" in content
     assert "## Emoji" in content
     assert "## ASCII" in content
@@ -284,8 +286,10 @@ def _installed_checkout(root: Path) -> Path:
     _git(root, "config", "user.name", "Yoke Test")
     yoke_dir = root / ".yoke"
     yoke_dir.mkdir()
-    (yoke_dir / ".gitignore").write_text("BOARD.md\n", encoding="utf-8")
+    (yoke_dir / ".gitignore").write_text("BOARD.md\ninstall-manifest.json\n")
     (yoke_dir / "board-art").write_text("## Master Map\n", encoding="utf-8")
+    seed = {".yoke/board-art": files_layer.sha256_text("## Master Map\n")}
+    files_layer.write_manifest(root, {"manifest_schema": 1, "contract_files": seed})
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "Install Yoke operating layer 0.0.0")
     return root

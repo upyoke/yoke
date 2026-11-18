@@ -47,17 +47,21 @@ def board_art_exists(repo_root: str | Path | None) -> bool:
 
 
 def write_board_art(repo_root: Path, word: str, variants: list[Any]) -> None:
-    """Write the generated master map + header variants to ``.yoke/board-art``."""
+    """Write the generated master map + header variants to ``.yoke/board-art``.
+
+    The art replaces the seed ``project install`` recorded, so the install
+    manifest's record follows it; otherwise uninstall would mistake Yoke's own
+    art for an operator edit and leave it behind.
+    """
+    from yoke_cli.project_install.contract_files import write_recorded_contract_file
     from yoke_contracts.project_contract.board_art.config import BLACK, WHITE
-    from yoke_contracts.project_contract.board_art.config_paths import (
-        board_art_path_for_config,
-    )
     from yoke_contracts.project_contract.board_art.render_seed import (
         _ART_HEADER,
         _master_map_lines,
     )
 
-    art_path = board_art_path_for_config(None, repo_root=str(repo_root))
+    root = Path(repo_root).expanduser()
+    art_path = board_art_path_for_config(None, repo_root=str(root))
     parts = [
         _ART_HEADER.format(white=WHITE, black=BLACK),
         "## Master Map",
@@ -66,8 +70,11 @@ def write_board_art(repo_root: Path, word: str, variants: list[Any]) -> None:
     ]
     for variant in variants:
         parts.extend(("", f"## {variant.kind}", "", variant.text.rstrip()))
-    art_path.parent.mkdir(parents=True, exist_ok=True)
-    art_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
+    write_recorded_contract_file(
+        root,
+        art_path.relative_to(root).as_posix(),
+        "\n".join(parts).rstrip() + "\n",
+    )
 
 
 def commit_board_art(
