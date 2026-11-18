@@ -185,10 +185,11 @@ Upgrade the pinned pair using the configured image repository:
 yoke self-host upgrade --dir /path/to/yoke-server
 ```
 
-Preflight shows images, release, distribution origin and actions, then asks you
-to type `upgrade`. It installs the paired CLI,
-atomically updates `YOKE_SERVER_IMAGE`, pulls `core`, refreshes Compose, and
-restarts through the private host handoff. `--yes` accepts this plan automatically.
+If the image pin and CLI already match the release, it reports already current
+and changes nothing. Otherwise preflight shows images, release, origin and
+actions, then asks you to type `upgrade`. It installs the paired CLI, atomically
+updates `YOKE_SERVER_IMAGE`, pulls `core`, refreshes Compose, and restarts
+through the private host handoff. `--yes` accepts this plan automatically.
 
 Setup and upgrade use `settings.distribution.origin`, ignoring
 `YOKE_INSTALL_BASE_URL`. Upgrade defaults to `settings.distribution.channel`;

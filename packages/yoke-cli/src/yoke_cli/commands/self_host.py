@@ -265,6 +265,15 @@ def self_host_upgrade(args: List[str]) -> int:
     except upgrade.SelfHostUpgradeError as exc:
         _print_upgrade_error(exc)
         return 1
+    current = upgrade.already_current_report(plan)
+    if current is not None:
+        if parsed.json_mode:
+            print(json.dumps(current, indent=2, sort_keys=True))
+        else:
+            print(
+                f"self-host pair already current at {current['version']} ({current['channel']}); nothing to do"
+            )
+        return 0
     if not parsed.json_mode:
         _print_upgrade_preview(plan)
     if not parsed.yes:
