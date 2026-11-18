@@ -40,9 +40,12 @@ def submit_host_wait(
         raise QaPlanReviewError(
             "host_wait_bundle_invalid: use the current pending review bundle"
         )
-    if execution["state"] != "walking":
+    # A controller walk hands back before review, so it reaches the bundle at
+    # awaiting_walk_review; a host-leased walk is still walking.
+    if execution["state"] not in {"walking", "awaiting_walk_review"}:
         raise QaPlanReviewError(
-            "host_wait_execution_invalid: submit only an awaiting mission"
+            "host_wait_execution_invalid: submit only a mission that is walking "
+            f"or awaiting walk review; this plan is {execution['state']}"
         )
     if query_one(
         conn, f"SELECT 1 FROM qa_plan_review_verdicts WHERE bundle_id={p}", (bundle_id,)
