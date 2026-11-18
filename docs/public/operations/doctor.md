@@ -194,6 +194,14 @@ The session posture check reads the active mode for its registered surface:
   `permission_mode`. Only `bypassPermissions` passes. Another mode fails with
   `HARNESS_POSTURE_RESTRICTED`; no readable record fails with
   `HARNESS_POSTURE_UNVERIFIED`: send any prompt in this chat, then rerun.
+  Claude Code offers bypass permissions only to a session launched with it
+  enabled, so the CLI recovery reads `permissions.defaultMode` in
+  `~/.claude/settings.json`. When it still says `bypassPermissions`, press
+  Shift+Tab until the mode reads bypass permissions. When it says something
+  else (Claude Code asks once whether to switch that default to `auto`), run
+  `yoke doctor run --only harness-setup --fix`, then start a new `claude`
+  session. `claude --permission-mode bypassPermissions` starts one session in
+  bypass permissions whatever the default says.
 - Codex CLI and Desktop read the newest native turn's permission metadata;
   only `never` plus `danger-full-access` passes. Missing or unreadable evidence
   fails; rerun in a new turn after it is saved.

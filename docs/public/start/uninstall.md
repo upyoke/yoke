@@ -32,7 +32,10 @@ It then removes the relay and its workers, the selected project layers, Yoke's
 GitHub credentials and checkout helpers, its machine-wide hooks and their Codex
 trust, and the folder-trust settings it wrote into
 Claude Code, Codex and Cursor. It restores approval modes replaced during setup
-and removes approval keys setup added. It stops the hook evaluator, local UI and embedded Postgres,
+and removes approval keys setup added, including values Claude Code wrote in
+answer to them: an `auto` default it switched to, and the bypass-warning
+acceptance when it was not there before setup. It also removes the `hooks`
+object, or the whole settings file, when Yoke created it and it is now empty. It stops the hook evaluator, local UI and embedded Postgres,
 tears down local self-host stacks and their universe volumes, and deletes the
 machine home (`~/.yoke` or `YOKE_MACHINE_HOME`). The system temporary directory
 must be outside that home; uninstall refuses before removing anything when it

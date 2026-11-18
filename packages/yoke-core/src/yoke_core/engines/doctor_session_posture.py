@@ -1,8 +1,18 @@
 """Judge active session permission evidence, separately from machine config."""
 
+from yoke_contracts.harness_session_permission_posture import (
+    CLAUDE_SESSION_PERMISSION_POSTURE as CLAUDE_POSTURE,
+)
 from yoke_contracts.harness_unattended_posture import (
+    CLAUDE_PERMISSIONS_CONTAINER,
+    CLAUDE_FAMILY,
     POSTURE_RECOVERY,
+    claude_settings_path,
     codex_posture_problems,
+    read_posture_config,
+)
+from yoke_contracts.session_control.launch_permission_bypass import (
+    CLAUDE_SETTINGS_PERMISSION_MODE_KEY,
 )
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.codex_session_posture import read_codex_session_posture
@@ -53,12 +63,22 @@ def session_posture(
                 "HARNESS_POSTURE_UNVERIFIED: no readable hook-reported permission mode",
                 recovery="send any prompt in this chat, then rerun `yoke doctor run --session`",
             )
-        if facts["permission_mode"] != "bypassPermissions":
+        mode = CLAUDE_POSTURE.session_mode
+        if facts["permission_mode"] != mode:
+            default_mode = _claude_default_mode()
             return "FAIL", compose_refusal(
-                "HARNESS_POSTURE_RESTRICTED: this session is not in bypassPermissions mode",
-                recovery="select bypass permissions in this chat, send any prompt, then rerun `yoke doctor run --session`",
+                f"HARNESS_POSTURE_RESTRICTED: this session is in "
+                f"{facts['permission_mode']!r} mode, not {mode}",
+                evaluated=(
+                    f"{CLAUDE_POSTURE.default_setting} in "
+                    f"{CLAUDE_POSTURE.default_setting_path} is {default_mode!r}"
+                ),
+                unavailable=CLAUDE_POSTURE.unavailable(
+                    surface_id, default_mode=default_mode
+                ),
+                recovery=CLAUDE_POSTURE.recovery(surface_id, default_mode=default_mode),
             )
-        return "PASS", f"{surface_id} records bypassPermissions for this session."
+        return "PASS", f"{surface_id} records {mode} for this session."
     if harness_id == "cursor" and surface_id == "cursor-cli":
         verdict, detail = inspect_unattended_posture(harness_id, installed=True)
         if verdict == "PASS":
@@ -76,3 +96,12 @@ def session_posture(
         "HARNESS_POSTURE_UNVERIFIED: this session has an unknown harness surface",
         recovery="restore hook registration from a supported harness surface, then rerun `yoke doctor run --session`",
     )
+
+
+def _claude_default_mode() -> str | None:
+    """The mode new Claude sessions start in, as the user settings say."""
+    settings, _reason = read_posture_config(CLAUDE_FAMILY, claude_settings_path())
+    permissions = (settings or {}).get(CLAUDE_PERMISSIONS_CONTAINER)
+    if not isinstance(permissions, dict):
+        return None
+    return permissions.get(CLAUDE_SETTINGS_PERMISSION_MODE_KEY)

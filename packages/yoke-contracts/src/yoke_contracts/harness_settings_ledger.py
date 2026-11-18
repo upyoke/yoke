@@ -10,7 +10,13 @@ The record lives in the machine home, which uninstall deletes last, after the
 revert. Each entry is one of:
 
 - ``{"kind": "json", "file", "keys", "value", "existing_depth"}`` — a JSON
-  leaf at ``keys``; optional ``previous`` restores the replaced value;
+  leaf at ``keys``; optional ``previous`` restores the replaced value, and
+  optional ``derived`` lists values the harness itself substitutes for
+  ``value`` (revert treats them as Yoke's write). A leaf the harness writes
+  only because of Yoke's write is recorded the same way, as absent before;
+- ``{"kind": "json_container", "file", "keys"}`` — an object Yoke created
+  at ``keys`` (``[]``: the whole file); revert removes it only while empty,
+  after every other entry;
 - ``{"kind": "json_list_item", "file", "keys", "value", "existing_depth"}``
   — one string Yoke appended to the JSON list at ``keys``; ``existing_depth``
   counts the containers on that path, the list included, that predate it;
@@ -65,21 +71,40 @@ def record(entry: Mapping[str, Any]) -> Optional[str]:
     path = ledger_path()
     try:
         with mutation() as entries:
+            entry = dict(entry)
             if "previous" in entry:
                 identity = ("kind", "file", "keys", "key")
-                entries[:] = [
+                same = [
                     old
                     for old in entries
-                    if any(old.get(key) != entry.get(key) for key in identity)
+                    if all(old.get(key) == entry.get(key) for key in identity)
                 ]
-            if dict(entry) not in entries:
-                entries.append(dict(entry))
+                if same and _displaced_own_write(entry):
+                    entry = _keep_original_state(entry, same[0])
+                entries[:] = [old for old in entries if old not in same]
+            if entry not in entries:
+                entries.append(entry)
     except (OSError, ValueError) as exc:
         return (
             f"not recorded in {path} ({exc}); yoke uninstall will not revert "
             f"this setting in {entry.get('file')}"
         )
     return None
+
+
+def _displaced_own_write(entry: Mapping[str, Any]) -> bool:
+    """A rewrite replaced Yoke's value or the harness's substitute for it."""
+    return entry["previous"] in (entry.get("value"), *entry.get("derived", ()))
+
+
+def _keep_original_state(entry: Dict[str, Any], original: Mapping[str, Any]):
+    """Keep what the first write found: that is the state before Yoke."""
+    kept = {k: v for k, v in entry.items() if k != "previous"}
+    if "previous" in original:
+        kept["previous"] = original["previous"]
+    if "existing_depth" in original:
+        kept["existing_depth"] = original["existing_depth"]
+    return kept
 
 
 def json_entry(
@@ -89,6 +114,7 @@ def json_entry(
     *,
     existing_depth: int,
     previous: Any = _MISSING,
+    derived: tuple = (),
 ) -> Dict[str, Any]:
     """A JSON leaf; ``existing_depth`` containers on its path predate the write.
 
@@ -102,7 +128,12 @@ def json_entry(
         "value": value,
         "existing_depth": existing_depth,
         **({"previous": previous} if previous is not _MISSING else {}),
+        **({"derived": list(derived)} if derived else {}),
     }
+
+
+def json_container_entry(file: Path, keys: List[str]) -> Dict[str, Any]:
+    return {"kind": "json_container", "file": str(file), "keys": list(keys)}
 
 
 def existing_depth(payload: Any, containers: List[str]) -> int:
@@ -169,6 +200,7 @@ __all__ = [
     "created_file_entry",
     "created_parent_dir_entry",
     "existing_depth",
+    "json_container_entry",
     "json_entry",
     "ledger_path",
     "mutation",
