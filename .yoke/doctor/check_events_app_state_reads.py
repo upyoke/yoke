@@ -249,7 +249,7 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
 
     def rel_of(path: Path) -> str:
         try:
-            return str(path.resolve().relative_to(repo_root.resolve()))
+            return path.resolve().relative_to(repo_root.resolve()).as_posix()
         except ValueError:
             return str(path)
 

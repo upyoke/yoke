@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_architect_plan_anticipation.py::test_doctor_hc_discovery_finds_matching_hc",
- "reason": "AssertionError: assert 'runtime/api/engines/doctor_hc_example_auth.py' in ['runtime\\\\api\\\\engines\\\\doctor_hc_example_auth.py']"
-}

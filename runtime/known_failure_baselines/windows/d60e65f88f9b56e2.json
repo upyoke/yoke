@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_source_dev_run_cli_child_binding.py::test_nested_yoke_command_runs_the_selected_checkouts_cli",
- "reason": "assert 'child-ran-from C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_nested_yoke_command_runs_0\\\\lane/packages/yoke-cli/src/yoke_cli/main.py' in 'child"
-}

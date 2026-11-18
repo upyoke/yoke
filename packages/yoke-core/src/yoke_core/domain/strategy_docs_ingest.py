@@ -31,6 +31,7 @@ from yoke_contracts.timestamps import parse_instant, format_instant
 from yoke_contracts.project_contract.strategy_doc_fields import normalize_fields
 from dataclasses import dataclass, replace
 from datetime import datetime
+import shlex
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -89,7 +90,7 @@ def conflict_teaching(slugs: Sequence[str], target_root: Path) -> str:
         "were rendered — refusing the write so the newer DB content is not "
         "lost. Recover: preserve your edited file(s) first (commit them, or "
         "copy them aside), re-render the fresh DB content with `yoke "
-        f"strategy render --target-root {target_root}`, then `git diff` the "
+        f"strategy render --target-root {shlex.quote(str(target_root))}`, then `git diff` the "
         "fresh render against your edited copy and re-apply your edits onto "
         f"the fresh render before re-running `yoke strategy ingest {rerun}`."
     )

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_watch_preflight.py::test_streaming_pair_uses_the_registered_wrapper",
- "reason": "assert 'yoke watch tail C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_streaming_pair_uses_the_r0\\\\progress.log' in \"# watch_preflight wait_mode=backgro"
-}

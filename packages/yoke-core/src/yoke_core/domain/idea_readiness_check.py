@@ -119,7 +119,7 @@ def verify_function_owners(
         module_path = full_path.rsplit(".", 1)[0]
         candidates = _module_file_candidates(repo_root, module_path)
         candidate = next((path for path in candidates if path.exists()), None)
-        relative = str((candidate or candidates[0]).relative_to(repo_root))
+        relative = (candidate or candidates[0]).relative_to(repo_root).as_posix()
         if candidate is None:
             issues.append(
                 Issue(

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_machine_config_contract.py::test_invocation_recipe_names_the_running_interpreter_not_ambient_python",
- "reason": "assert False"
-}

@@ -45,7 +45,7 @@ class TestCreateWorktreeMultiWorktree:
         assert result.error is None
         assert result.created is True
         assert result.branch == "YOK-99100"
-        assert result.path.endswith(".worktrees/YOK-99100")
+        assert Path(result.path).as_posix().endswith(".worktrees/YOK-99100")
         assert len(result.worktrees) == 1
         assert result.worktrees[0].branch == "YOK-99100"
         assert result.worktrees[0].created is True
@@ -194,7 +194,7 @@ class TestCreateWorktreeMultiWorktree:
             config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
-        assert result.path.endswith(f".worktrees/{lane_ref}")
+        assert Path(result.path).as_posix().endswith(f".worktrees/{lane_ref}")
         assert result.branch == lane_ref
         assert result.created is True
         # `worktrees` is present but len()==1 for single-worktree.
@@ -273,7 +273,7 @@ class TestCreateWorktreeMultiWorktree:
         assert rc == 0, capsys.readouterr().err
         out = capsys.readouterr().out.strip().splitlines()
         assert len(out) == 1
-        assert out[0].endswith(f".worktrees/{lane_ref}")
+        assert Path(out[0]).as_posix().endswith(f".worktrees/{lane_ref}")
 
     def test_epic_without_worker_lanes_is_rejected(self, git_repo, yoke_db):
         # Task-graph workflows require their universal worker lanes first.

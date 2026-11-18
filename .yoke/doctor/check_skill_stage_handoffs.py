@@ -109,7 +109,7 @@ def scan_handoffs(repo_root: Path) -> list[str]:
                     continue
                 lineno = text[: offset + match.start()].count("\n") + 1
                 findings.append(
-                    f"{path.relative_to(repo_root)}:{lineno}: hardcoded stage "
+                    f"{path.relative_to(repo_root).as_posix()}:{lineno}: hardcoded stage "
                     f"handoff /yoke {skill}; read yoke items detail get ITEM --json "
                     "and render result.item.workflow.next_skill_id. For an internal "
                     "invocation, explicitly read and follow the target SKILL.md."

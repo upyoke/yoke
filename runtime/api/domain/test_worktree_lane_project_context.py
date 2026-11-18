@@ -10,6 +10,8 @@ provisioning, and the refusal that replaced the default.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import subprocess
 from types import SimpleNamespace
 
@@ -94,7 +96,7 @@ def test_preflight_carries_a_cross_repo_items_project_into_creation(
 
     assert outcome.ok is True, outcome.narrative
     assert captured[0]["project"] == "platform"
-    assert captured[0]["repo_root"] == checkout
+    assert Path(captured[0]["repo_root"]) == Path(checkout)
 
 
 def test_preflight_carries_the_session_projects_own_item_unchanged(

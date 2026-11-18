@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_bootstrap_skills.py::TestSkillCLI::test_skill_path_cli_resolves_named_skill",
- "reason": "AssertionError: assert False"
-}

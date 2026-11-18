@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import io
 import sys
 import threading
@@ -252,10 +253,10 @@ def test_print_streaming_pair_emits_the_background_monitor_inspect_triple(
     assert watch_fleet.main(["--print-streaming-pair", "--", "--project", "yoke"]) == 0
     output = captured.getvalue()
     assert "yoke watch fleet" in output
-    assert f"--raw-capture {raw}" in output
+    assert f"--raw-capture {shlex.quote(str(raw))}" in output
     assert "yoke watch tail" in output
     assert str(progress) in output
-    assert f"tail -80 {raw}" in output
+    assert f"tail -80 {shlex.quote(str(raw))}" in output
 
 
 def test_the_wrapper_refuses_an_interval_outside_the_quiet_bound(

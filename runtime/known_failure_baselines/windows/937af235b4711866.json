@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_project_uninstall_ignored_paths.py::test_strategy_documents_stay_on_disk_and_untracked",
- "reason": "AssertionError: assert ['.yoke/strategy/mission.md'] == ['.yoke\\\\stra...\\\\mission.md']"
-}

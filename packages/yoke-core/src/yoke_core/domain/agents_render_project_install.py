@@ -126,11 +126,11 @@ def write_project_install(
             assert_target_under_session_work_authority(out_path)
             out_path.parent.mkdir(parents=True, exist_ok=True)
             atomic_replace_bytes(out_path, rendered.encode("utf-8"))
-        results[str(rel_path)] = (action, rendered)
+        results[rel_path.as_posix()] = (action, rendered)
     if not copy_skills:
         for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):
             action = _ensure_skill_link(root / link_path, dry_run=dry_run)
-            results[str(link_path)] = (action, _SKILL_LINK_TARGET)
+            results[link_path.as_posix()] = (action, _SKILL_LINK_TARGET)
     return results
 
 

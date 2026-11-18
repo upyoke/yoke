@@ -1,8 +1,6 @@
 """Tests for resync engine helpers and stage-1 fetch behavior.
 
-Repair tests live in test_resync_repair.py.
-Stage-2 compare and normalize tests live in test_resync_compare.py.
-GraphQL batch transport tests live in test_resync_graphql_batch.py.
+Repair, comparison and GraphQL tests live in their test_resync_* modules.
 Doctor-format / CLI / exit-code tests live in test_resync_cli.py.
 Fail-closed GitHub-auth regressions live in test_resync_auth.py.
 
@@ -12,6 +10,8 @@ No live ``gh`` calls are made.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 from unittest import mock
 
@@ -57,7 +57,7 @@ class TestHelpers:
             side_effect=RuntimeError("boom"),
         ):
             resolved = resync_mod._resolve_yoke_root()
-        assert resolved.endswith("/runtime")
+        assert Path(resolved).name == "runtime"
 
     def test_fetch_gh_issues_per_project_parses_multiple_projects(self):
         """REST fetch shapes per-project issue maps for yoke + non-yoke repos."""

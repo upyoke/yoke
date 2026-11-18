@@ -162,4 +162,4 @@ class TestIngestReadResolvesArchive:
         )
         files = read_ingest_files(tmp_path, ["FOO"])
         assert files[0]["text"] == "archived-body\n"
-        assert files[0]["path"].endswith("archive/FOO.md")
+        assert Path(files[0]["path"]).as_posix().endswith("archive/FOO.md")

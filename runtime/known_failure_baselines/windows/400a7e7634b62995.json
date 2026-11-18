@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_bootstrap_skills.py::TestSkillRealRepoDiscovery::test_real_tree_strategize_resolves",
- "reason": "AssertionError: assert False"
-}

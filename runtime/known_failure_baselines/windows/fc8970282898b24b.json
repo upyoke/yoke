@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_bootstrap_skills.py::TestSkillCompatibilitySymlink::test_resolver_returns_canonical_not_compat_path",
- "reason": "AssertionError: assert '.agents/skills/yoke' in 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_resolver_returns_canonica0\\\\.agents\\\\skills\\\\yoke\\\\idea\\"
-}

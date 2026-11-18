@@ -245,7 +245,7 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
     # --- Surface 1: SKILL .md files ---
     if skills_dir.is_dir():
         for md_file in skills_dir.rglob("*.md"):
-            if "/tests/" in str(md_file):
+            if "tests" in md_file.relative_to(root).parts:
                 continue
             try:
                 content = md_file.read_text(errors="replace", encoding="utf-8")
@@ -253,7 +253,7 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
                 continue
             if not any(marker in content for marker in _SKILL_EMIT_MARKERS):
                 continue
-            rel = str(md_file.relative_to(root))
+            rel = md_file.relative_to(root).as_posix()
             for joined in _join_continuation_lines(content):
                 if "--name" not in joined:
                     continue
@@ -266,7 +266,7 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
         if not python_root.is_dir():
             continue
         for py_file in python_root.rglob("*.py"):
-            rel_py = str(py_file.relative_to(root))
+            rel_py = py_file.relative_to(root).as_posix()
             if "/test" in rel_py:
                 continue
             try:

@@ -151,7 +151,7 @@ def test_miss_tries_ubuntu_then_one_signed_independent_mirror_bounded() -> None:
 def test_workflow_reader_survives_bounded_selection(
     tmp_path: Path, workflow: Path
 ) -> None:
-    changed = str(workflow.relative_to(REPO_ROOT))
+    changed = workflow.relative_to(REPO_ROOT).as_posix()
     subject = tmp_path / changed
     subject.parent.mkdir(parents=True)
     subject.write_text("name: example\n")

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_architect_plan_anticipation.py::test_test_module_discovery_uses_test_prefix_naming",
- "reason": "AssertionError: assert 'runtime/api/test_example_auth.py' in ['runtime\\\\api\\\\test_example_auth.py']"
-}

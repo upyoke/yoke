@@ -110,9 +110,9 @@ def scan_source_glyphs(repo_root: Path) -> list[str]:
         except OSError:
             continue
         try:
-            rel = f.resolve().relative_to(repo_root.resolve())
+            rel = f.resolve().relative_to(repo_root.resolve()).as_posix()
         except ValueError:
-            rel = f
+            rel = str(f)
         for lineno, line in enumerate(text.splitlines(), start=1):
             for i, ch in enumerate(line):
                 cp = ord(ch)

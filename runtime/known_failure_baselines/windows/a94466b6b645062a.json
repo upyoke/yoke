@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_create_multiworktree.py::TestCreateWorktreeMultiWorktree::test_result_backward_compat_for_single_worktree",
- "reason": "AssertionError: assert False"
-}

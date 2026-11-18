@@ -64,7 +64,7 @@ def test_nested_yoke_command_runs_the_selected_checkouts_cli(
 
     captured = capfd.readouterr()
     assert LAUNCHER_MARKER not in captured.out
-    assert f"{LANE_MARKER} {lane}/packages/yoke-cli/src/yoke_cli/main.py" in (
+    assert f"{LANE_MARKER} {lane / 'packages/yoke-cli/src/yoke_cli/main.py'}" in (
         captured.out
     )
     assert "args watch qa-case" in captured.out
@@ -88,9 +88,9 @@ def test_two_selected_checkouts_each_answer_their_own_nested_command(
     assert source_dev_run.run(["--", "yoke", "items", "get"]) == 0
     from_other = capfd.readouterr().out
 
-    assert f"{LANE_MARKER} {lane}/" in from_lane
+    assert f"{LANE_MARKER} {lane}{os.sep}" in from_lane
     assert str(other_lane) not in from_lane
-    assert f"{LANE_MARKER} {other_lane}/" in from_other
+    assert f"{LANE_MARKER} {other_lane}{os.sep}" in from_other
     assert str(lane) not in from_other
 
 

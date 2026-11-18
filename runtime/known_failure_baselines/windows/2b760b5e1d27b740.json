@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_create.py::TestCreateWorktree::test_basic_creation",
- "reason": "AssertionError: assert False"
-}

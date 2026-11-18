@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_setup_command.py::test_setup_failure_keeps_command_output",
- "reason": "assert ('exited 7' in 'Installing deps via project setup_command: D:\\\\a\\\\yoke\\\\yoke\\\\.venv\\\\Scripts\\\\python.exe -c \"import sys; print(\\'missing locked wheel\\'); sys.exit(7)\"\\nmissing locked wheel\\r\\nS"
-}

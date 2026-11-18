@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_resync.py::TestHelpers::test_resolve_yoke_root_falls_back_to_repo_state_dir",
- "reason": "AssertionError: assert False"
-}

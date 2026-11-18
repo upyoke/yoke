@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_events_crud_registry.py::TestDiscover::test_discover_module_event_name_constant",
- "reason": "AssertionError: assert 'OuroborosFieldNoteAppended|packages/yoke-core/src/yoke_core/domain/field_notes.py' in 'OuroborosFieldNoteAppended|packages\\\\yoke-core\\\\src\\\\yoke_core\\\\domain\\\\field_notes.py'"
-}

@@ -1,5 +1,6 @@
 """Relay release following refreshes checkouts and teaches local failures."""
 
+import shlex
 import io
 import json
 import subprocess
@@ -67,7 +68,7 @@ def test_updated_release_refreshes_all_checkouts_and_records_failures(
     assert ok["status"] == "refreshed" and ok["path"] == str(clean)
     assert failed["status"] == "failed" and failed["path"] == str(dirty)
     assert "checkout_dirty" in failed["reason"]
-    assert failed["recovery"] == f"yoke project install {dirty}"
+    assert failed["recovery"] == f"yoke project install {shlex.quote(str(dirty))}"
     assert follow._refresh_line(failed) in capsys.readouterr().err
 
 
@@ -113,7 +114,7 @@ def test_current_release_records_failures_and_skips_source_checkouts(
         "refreshed",
     ]
     assert [call[3] for call in calls] == [str(failed), str(clean)]
-    assert record["project_refresh"][0]["recovery"] == f"yoke project install {failed}"
+    assert record["project_refresh"][0]["recovery"] == f"yoke project install {shlex.quote(str(failed))}"
 
 
 def _record(monkeypatch, tmp_path, count):

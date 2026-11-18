@@ -190,7 +190,7 @@ def test_init_accepts_any_stack_name_and_stores_nothing(tmp_path):
     assert calls[0]["argv"][:4] == ["pulumi", "stack", "init", _STACK]
     assert root not in calls[0]["cwd"].parents
     assert "encryptedkey: fresh-key" in out.getvalue()
-    assert f"infra/Pulumi.{_STACK}.yaml" in out.getvalue()
+    assert str(root / "infra" / f"Pulumi.{_STACK}.yaml") in out.getvalue()
     assert _snapshot(root) == before
 
 

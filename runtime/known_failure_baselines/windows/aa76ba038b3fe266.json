@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_test_environment.py::test_a_ready_lane_records_its_sync_and_its_collection",
- "reason": "AssertionError: Lane test environment could not be installed in C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_a_ready_lane_records_its_0\\lane:"
-}

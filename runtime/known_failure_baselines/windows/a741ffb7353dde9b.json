@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_merge_worktree_sweep_registry.py::test_a_locked_registration_survives_the_prune",
- "reason": "AssertionError: assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_a_locked_registration_sur0\\\\scratch\\\\held' in 'worktree C:/Users/runneradmin/AppD"
-}

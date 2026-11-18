@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tests/test_migration_harness_exception_backups.py::TestExceptionPathBackup::test_backup_reason_creates_canonical_backup_and_records_path",
- "reason": "AssertionError: backup filename must match canonical shape; got 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_backup_reason_creates_can0\\\\.yoke\\\\backu"
-}

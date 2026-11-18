@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_test_environment.py::test_a_conftest_that_cannot_import_blocks_the_lane",
- "reason": "AssertionError: assert 'a_package_this_lane_never_installed' in 'Lane test environment could not be installed in C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw"
-}

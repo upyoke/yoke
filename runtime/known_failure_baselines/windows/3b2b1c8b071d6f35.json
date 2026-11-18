@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_watch_print_only_contract.py::test_printing_a_wait_shape_launches_nothing[background-wake-yoke_core.tools.watch_fleet-_probe_argv]",
- "reason": "assert '--raw-capture C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_printing_a_wait_shape_lau2\\\\fleet.raw' in \"# watch_fleet wait_mode=background-wake\\"
-}

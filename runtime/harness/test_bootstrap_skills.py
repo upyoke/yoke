@@ -112,8 +112,8 @@ class TestResolveSkillPath:
         expected = skills_tree / SKILLS_ROOT_REL / "strategize" / "SKILL.md"
         assert Path(str(result)).resolve() == expected.resolve()
         # Canonical form always lives under .agents/skills/yoke, never .claude.
-        assert ".agents/skills/yoke" in str(result)
-        assert ".claude/skills/yoke" not in str(result)
+        assert ".agents/skills/yoke" in result.as_posix()
+        assert ".claude/skills/yoke" not in result.as_posix()
 
     def test_missing_skill_raises(self, skills_tree):
         with pytest.raises(FileNotFoundError, match="does-not-exist"):
@@ -127,7 +127,7 @@ class TestResolveSkillPath:
             resolve_skill_path(skills_tree, "does-not-exist")
         except FileNotFoundError as exc:
             msg = str(exc)
-            assert ".agents/skills/yoke" in msg
+            assert str(SKILLS_ROOT_REL) in msg
             assert "~/.agents" not in msg
             assert "~/.codex" not in msg
             assert os.path.expanduser("~") not in msg
@@ -147,7 +147,7 @@ class TestSkillCompatibilitySymlink:
 
     def test_resolver_returns_canonical_not_compat_path(self, skills_tree):
         """Resolver must never return the .claude/... alias."""
-        result = str(resolve_skill_path(skills_tree, "idea"))
+        result = resolve_skill_path(skills_tree, "idea").as_posix()
         assert ".agents/skills/yoke" in result
         assert "/.claude/skills/yoke" not in result
 
@@ -165,12 +165,12 @@ class TestSkillCLI:
     def test_skill_path_cli_resolves_named_skill(self, skills_tree, capsys):
         main(["skill-path", "strategize", "--root", str(skills_tree)])
         out = capsys.readouterr().out.strip()
-        assert out.endswith(".agents/skills/yoke/strategize/SKILL.md")
+        assert Path(out).as_posix().endswith(".agents/skills/yoke/strategize/SKILL.md")
 
     def test_skill_path_cli_resolves_root_skill(self, skills_tree, capsys):
         main(["skill-path", "yoke", "--root", str(skills_tree)])
         out = capsys.readouterr().out.strip()
-        assert out.endswith(".agents/skills/yoke/SKILL.md")
+        assert Path(out).as_posix().endswith(".agents/skills/yoke/SKILL.md")
 
     def test_skill_path_cli_missing_exits_nonzero(self, skills_tree, capsys):
         with pytest.raises(SystemExit) as exc_info:
@@ -216,7 +216,7 @@ class TestSkillRealRepoDiscovery:
     def test_real_tree_strategize_resolves(self, repo_root):
         # Strategize must resolve to the canonical .agents/... path.
         path = resolve_skill_path(repo_root, "strategize")
-        assert str(path).endswith(".agents/skills/yoke/strategize/SKILL.md")
+        assert path.as_posix().endswith(".agents/skills/yoke/strategize/SKILL.md")
 
     def test_codex_visible_yoke_skills_use_shared_frontmatter(self, repo_root):
         """Codex scans nested SKILL.md files, so SKILL.md is the shared metadata source."""

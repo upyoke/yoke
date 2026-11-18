@@ -109,9 +109,9 @@ def hc_historical_yok_n_cruft(conn, args: DoctorArgs, rec: RecordCollector) -> N
     lines = []
     for hit in live_hits[:40]:
         try:
-            rel = hit.path.resolve().relative_to(repo_root_resolved)
+            rel = hit.path.resolve().relative_to(repo_root_resolved).as_posix()
         except ValueError:
-            rel = hit.path
+            rel = str(hit.path)
         lines.append(
             f"- {rel}:{hit.line}: {hit.work_item} "
             f"(status={hit.status}) — {hit.context[:120]}"

@@ -142,16 +142,17 @@ def _healthy_state(profile_dir: str) -> browser_client.DaemonState:
 
 
 def test_daemon_start_passes_the_profile_directory(tmp_path, monkeypatch) -> None:
+    profile = str(tmp_path / "profiles" / "acme")
     launched = _stub_daemon_start(
         monkeypatch,
         tmp_path,
-        [None, _healthy_state("/profiles/acme")],
+        [None, _healthy_state(profile)],
     )
 
-    result = browser_client.daemon_start(profile_dir="/profiles/acme")
+    result = browser_client.daemon_start(profile_dir=profile)
 
     assert result["status"] == "started"
-    assert ["--profile-dir", "/profiles/acme"] == launched[0][-4:-2]
+    assert ["--profile-dir", profile] == launched[0][-4:-2]
 
 
 def test_daemon_start_without_a_profile_launches_clean(tmp_path, monkeypatch) -> None:
@@ -258,13 +259,14 @@ def test_authorize_creates_the_profile_and_opens_the_window(
 ) -> None:
     calls = _stub_authorize_runtime(tmp_path, monkeypatch)
 
+    toolchain = install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     assert authorize_command.browser_authorize(["--project", "acme"]) == 0
 
     profile = browser_profile.profile_dir("acme")
     assert profile.is_dir()
     command = calls[0]["command"]
     assert command[:2] == [
-        str(tmp_path / "node-bin" / "node"),
+        str(toolchain.node),
         str(tmp_path / "browser-runtime" / "src" / "authorize.js"),
     ]
     assert command[2:4] == ["--profile-dir", str(profile)]

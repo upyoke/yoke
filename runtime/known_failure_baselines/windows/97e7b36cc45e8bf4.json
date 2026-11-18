@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_events_crud_registry.py::TestDiscover::test_discover_packages_python_native_emit_helpers",
- "reason": "AssertionError: assert 'MergeEngineStarted|packages/yoke-core/src/yoke_core/engines/merge_worktree.py' in 'MergeEngineStarted|packages\\\\yoke-core\\\\src\\\\yoke_core\\\\engines\\\\merge_worktree.py\\nMergeVeri"
-}

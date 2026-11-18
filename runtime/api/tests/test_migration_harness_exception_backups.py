@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
 from unittest import mock
 
@@ -66,8 +65,7 @@ class TestExceptionPathBackup:
         assert os.path.isfile(returned_path), (
             f"canonical backup file must exist on disk at {returned_path!r}"
         )
-        canonical_re = re.compile(r"/\.yoke/backups/postgres\.fake\.sql$")
-        assert canonical_re.search(returned_path), (
+        assert Path(returned_path).relative_to(backup_dir) == Path("postgres.fake.sql"), (
             f"backup filename must match canonical shape; got {returned_path!r}"
         )
 

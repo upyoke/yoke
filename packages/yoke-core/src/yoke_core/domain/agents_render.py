@@ -124,7 +124,7 @@ def write_all_claude(
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
     for rel_path, rendered in outputs:
         out_path = root / rel_path
-        rel = str(rel_path)
+        rel = rel_path.as_posix()
         if dry_run:
             existing = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
             action = "would-write" if rendered != existing else "skip"
@@ -215,7 +215,7 @@ def write_all(
         return project_results
     for rel_path, rendered in _enumerate_outputs(root):
         out_path = root / rel_path
-        rel = str(rel_path)
+        rel = rel_path.as_posix()
         materialize = rel_path in _MATERIALIZED_CONFIG_PATHS
         if materialize:
             symlink = first_symlink_component(root, out_path)
@@ -245,7 +245,7 @@ def write_all(
             root, out_dir, native_dir, dry_run=dry_run,
             before_write=assert_target_under_session_work_authority,
         )
-        results[str(native_dir)] = (link_action, link_target)
+        results[native_dir.as_posix()] = (link_action, link_target)
     return results
 
 

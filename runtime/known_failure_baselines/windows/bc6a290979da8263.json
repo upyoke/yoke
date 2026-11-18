@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_qa_browser_lifecycle.py::TestSetupAdapter::test_setup_dry_run_materializes_without_starting_daemon",
- "reason": "AssertionError: assert '\\\\machine\\\\browser-runtime' == '/machine/browser-runtime'"
-}

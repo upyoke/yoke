@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_strategy_docs_ingest.py::TestDryRun::test_conflict_teaching_names_recovery_steps",
- "reason": "assert 'yoke strategy render --target-root /repo' in \"strategy doc(s) 'PAD', 'WISPS' changed in the DB after the file header(s) were rendered — refusing the write so the newer DB content is not lost."
-}

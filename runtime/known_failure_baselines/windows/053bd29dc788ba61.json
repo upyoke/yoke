@@ -1,4 +1,4 @@
 {
- "node_id": "runtime/api/test_task_commit_review.py::test_external_task_commit_records_head_and_accepts_review",
- "reason": "AssertionError: assert ['C:\\\\Users\\\\...ktrees\\\\task'] == ['C:\\\\Users\\\\..._reco0\\\\lane']"
+  "node_id": "runtime/api/test_task_commit_review.py::test_external_task_commit_records_head_and_accepts_review",
+  "reason": "External task review chooses the nested task lane instead of the checkout root; roots differ structurally, beyond separator rendering. Fresh Windows suite 44148219633; transferred to YOK-5395."
 }

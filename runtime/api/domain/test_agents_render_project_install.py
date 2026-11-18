@@ -80,7 +80,7 @@ def test_project_install_render_materializes_byte_equal_config_symlink(
 
     results = write_project_install(target_root=target)
 
-    assert results[str(relative)][0] == "write"
+    assert results[relative.as_posix()][0] == "write"
     assert scanned.is_file() and not scanned.is_symlink()
     assert scanned.read_text(encoding="utf-8") == content
 

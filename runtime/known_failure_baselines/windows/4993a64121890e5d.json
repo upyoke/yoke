@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_test_environment.py::test_declared_extras_are_synced_and_named_on_the_receipt",
- "reason": "AssertionError: Lane test environment could not be installed in C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_declared_extras_are_synce0\\lane:"
-}

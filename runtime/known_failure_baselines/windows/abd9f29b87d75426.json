@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_operator_cli_checkout_refresh.py::test_current_release_records_failures_and_skips_source_checkouts[bad-json]",
- "reason": "assert \"yoke project...s_f2\\\\failed'\" == 'yoke project...ds_f2\\\\failed'"
-}

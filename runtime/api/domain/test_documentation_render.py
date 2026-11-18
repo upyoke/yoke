@@ -134,8 +134,8 @@ def test_measure_refuses_missing_root(tmp_path, capsys):
     "name",
     [
         "my page",
-        "tab\tpage",
-        "line\npage",
+        pytest.param("tab\tpage", marks=pytest.mark.posix_only(reason="POSIX filenames allow tabs; Windows forbids control characters")),
+        pytest.param("line\npage", marks=pytest.mark.posix_only(reason="POSIX filenames allow newlines; Windows forbids control characters")),
         "literal%20page",
         "literal%2Fpage",
         "close)page",
