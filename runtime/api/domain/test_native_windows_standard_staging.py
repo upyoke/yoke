@@ -110,6 +110,25 @@ def test_large_script_keeps_optional_stdin_separate_and_preserves_ambiguity(monk
     assert stage.execution_pending == (exit_code in (124, 255))
 
 
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_cleanup_failure_retains_actual_execution_result(monkeypatch, exit_code):
+    original = completed(exit_code, "original guest output")
+    cleanup = completed(1, "cleanup output")
+    replies = iter([original, cleanup])
+
+    def stage(ssh, payload, root, diagnostics, **kwargs):
+        diagnostics["remote_directory_owned"] = True
+        diagnostics["last_verified_offset"] = len(payload)
+
+    monkeypatch.setattr(admin_staging, "stage_script", stage)
+    monkeypatch.setattr(SshTestMachineTransport, "_run", lambda *a, **kw: next(replies))
+    with pytest.raises(RuntimeError) as error:
+        control()._run("Write-Output 'public';" * 1000)
+    assert error.value.primary_result is original
+    assert error.value.cleanup_result is cleanup
+    assert error.value.staging_diagnostics["cleanup"] == "unverified"
+
+
 def test_native_commands_fit_final_windows_command_boundary():
     c = control()
     root = c.home + r"\.yoke-stage-" + "1" * 32

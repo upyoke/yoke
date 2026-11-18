@@ -74,7 +74,7 @@ def verified_payload(control, payload):
     }
     stage = SimpleNamespace(
         path=quote(root + r"\script.ps1"), diagnostics=diagnostics,
-        execution_pending=False,
+        execution_pending=False, primary_result=None,
     )
     # Refuse an unsupported home length before creating any remote directory.
     prepare = policy["prepare"].replace("ROOT", quote(root)).replace("CHECK_DIRECTORY", policy["directory"])
@@ -121,4 +121,6 @@ def verified_payload(control, payload):
                     failure.staging_cleanup_cause = exc
                 else:
                     exc.staging_diagnostics = diagnostics
+                    if stage.primary_result is not None:
+                        exc.primary_result = stage.primary_result
                     raise

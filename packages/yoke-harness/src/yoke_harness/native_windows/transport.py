@@ -86,6 +86,7 @@ class WindowsTransport(SshTestMachineTransport):
                 f"& {stage.path}", input_text=input_text, timeout=timeout, debug_log=debug_log,
             )
             # A lost SSH session or local timeout does not prove guest exit.
+            stage.primary_result = result
             stage.execution_pending = result.returncode in (124, 255)
             result.staging_diagnostics = stage.diagnostics
             return result
@@ -178,6 +179,7 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
             result = super()._run(
                 f"New-Item -ItemType Directory -Force (Split-Path {quote(path)}) | Out-Null; Move-Item -LiteralPath {stage.path} -Destination {quote(path)} -Force",
             )
+            stage.primary_result = result
             stage.execution_pending = result.returncode in (124, 255)
             if result.returncode:
                 error = HostControlLocalError(
