@@ -34,9 +34,19 @@ def independent_member_delivery_ready(conn: Any, *, item_id: int, run_id: str) -
     frozen final intent are required even if another run carries the item.
     """
     run = latest_completion_run(conn, int(item_id))
-    if run is None or run["id"] != str(run_id) or run["status"] != "executing":
+    if run is None or run["id"] != str(run_id):
         return False
-    return final_item_qa_accepted(conn, item_id=int(item_id), run_id=str(run_id))
+    return latest_member_delivery_ready(conn, item_id=int(item_id), run=run)
+
+
+def latest_member_delivery_ready(
+    conn: Any, *, item_id: int, run: dict[str, Any]
+) -> bool:
+    """:func:`independent_member_delivery_ready` for the item's latest
+    completion run, already read by the caller."""
+    if run["status"] != "executing":
+        return False
+    return final_item_qa_accepted(conn, item_id=int(item_id), run_id=str(run["id"]))
 
 
 def member_qa_answer_ready(conn: Any, *, item_id: int, run_id: str) -> bool:

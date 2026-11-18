@@ -31,10 +31,13 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     CONTAINED, UNDETERMINED, ContainmentVerdict, candidate_contains_commit,
 )
 
-from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
+from yoke_core.domain.deployment_run_member_targeting import (
+    supplemental_qa_run,
+    supplemental_run_ids,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_flow_resolution import (
-    item_closing_flows,
+    item_completion_flow_facts,
     membership_closes_item,
 )
 from yoke_core.domain.deployment_run_bound_sources import BOUND_SOURCES_FIELD
@@ -57,7 +60,8 @@ def completion_runs(
     the run recorded for THIS item's project, which for an own-project run
     is the run's own lineage and for a carrier is the bound commit.
     """
-    flows = item_closing_flows(conn, int(item_id))
+    fact = item_completion_flow_facts(conn, (int(item_id),)).get(int(item_id))
+    flows = fact.closing_flows if fact else frozenset()
     if not flows:
         return []
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -74,6 +78,18 @@ def completion_runs(
         "ORDER BY dr.created_at DESC, dr.id DESC",
         (int(item_id),),
     ).fetchall()
+    # One environment read for the whole membership history: a long-lived
+    # item collects a membership per release takeover, and asking per row
+    # made every done-gate read scale with that history.
+    supplemental = (
+        frozenset()
+        if include_qa
+        else supplemental_run_ids(
+            conn,
+            run_ids=[_row_value(row, "id", 0) for row in rows],
+            completion_flow=fact.flow,
+        )
+    )
     closing: list[dict[str, Any]] = []
     for row in rows:
         item_project = int(_row_value(row, "item_project_id", 6))
@@ -87,9 +103,7 @@ def completion_runs(
         )
         run_flow = str(_row_value(row, "flow", 5) or "")
         if not include_qa and (
-            supplemental_qa_run(
-                conn, run_id=str(_row_value(row, "id", 0)), item_id=item_id
-            )
+            str(_row_value(row, "id", 0)) in supplemental
             or not membership_closes_item(
                 run_flow=run_flow,
                 closing_flows=flows,

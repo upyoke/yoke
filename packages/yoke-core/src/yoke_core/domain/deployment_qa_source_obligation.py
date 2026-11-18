@@ -67,7 +67,16 @@ def latest_completion_run(
     status can still be reported — unless ``skip_terminal_failures`` asks for
     none, which source QA does.
     """
-    runs = completion_runs(conn, int(item_id))
+    return newest_completion_run(
+        completion_runs(conn, int(item_id)),
+        skip_terminal_failures=skip_terminal_failures,
+    )
+
+
+def newest_completion_run(
+    runs: list[dict[str, Any]], *, skip_terminal_failures: bool = False
+) -> dict[str, Any] | None:
+    """:func:`latest_completion_run`'s choice over an already-read walk."""
     for run in runs:
         if run["status"] not in _TERMINAL_FAILURES:
             return run

@@ -17,17 +17,15 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from yoke_core.domain.deployment_item_completion_runs import (
-    succeeded_completion_runs,
-)
+from yoke_core.domain.deployment_item_completion_runs import completion_runs
 from yoke_core.domain.deployment_item_flow_resolution import (
     FLOW_SOURCE_UNREADABLE,
     item_completion_flow_facts,
 )
 from yoke_core.domain.deployment_member_independent_close_out import (
-    independent_member_delivery_ready,
+    latest_member_delivery_ready,
 )
-from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
+from yoke_core.domain.deployment_qa_source_obligation import newest_completion_run
 from yoke_core.domain.gate_satisfier_facts import Fact, FactVerdict
 from yoke_core.domain.schema_common import _column_exists
 
@@ -175,13 +173,14 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
     # own flow, or another project's succeeded run that bound this project's
     # source. Counting only the own flow here left a cross-project member
     # delivered by every other reader and undelivered by the done gate.
-    deployed = len(succeeded_completion_runs(conn, int(item_id)))
-    candidate = None if deployed else latest_completion_run(conn, int(item_id))
+    # One walk answers both questions; each used to re-read the item's whole
+    # membership history.
+    runs = completion_runs(conn, int(item_id))
+    deployed = sum(1 for run in runs if run["status"] == "succeeded")
+    candidate = None if deployed else newest_completion_run(runs)
     independent = bool(
         candidate
-        and independent_member_delivery_ready(
-            conn, item_id=int(item_id), run_id=str(candidate["id"])
-        )
+        and latest_member_delivery_ready(conn, item_id=int(item_id), run=candidate)
     )
     return {
         ITEM_CI_VERDICT: _fact(
