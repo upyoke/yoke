@@ -46,6 +46,24 @@ or the older run's creating session may take a run over; other sessions are
 refused with `takeover_reserved_for_steering` and report the landing to
 steering.
 
+## Bound projects
+
+A run that binds another project's source ships that project's merges too.
+When such a run is created or starts, it also supersedes each bound project's
+never-started (`created`) run on an environment of the same name whose pinned
+commit the run's own commit for that project contains
+(`deployment_run_bound_project_takeover`). That stale run's members and QA
+move here exactly as below, and it is cancelled; each removal and the
+cancellation name the superseding run and the bound commit. Without this, the
+stale run would keep custody of its items and every release carrying the
+project would exclude them.
+
+A stale run with a live driver answers only to that driver: it is left alone
+and keeps its custody, and the carrying run's custody names it as the holder
+of each item it holds. A stale run whose commit the carrying run does not
+contain keeps its custody too. The steering-seat rule above applies
+unchanged. Start acts as the session that created the run.
+
 ## What moves
 
 One transaction moves every member the older run has not closed, with its
@@ -117,6 +135,7 @@ post-deploy QA on another named target. That requirement stays unmet and the
 item stays at release until it is accepted.
 
 Owners: `deployment_run_target_takeover`, `deployment_run_takeover_eligibility`,
+`deployment_run_bound_project_takeover`,
 `deployment_run_takeover_settlement`, `deployment_run_qa_transfer`,
 `deployment_run_takeover_read`, `deployment_qa_takeover_identity`,
 `deployment_qa_takeover_notice`.
