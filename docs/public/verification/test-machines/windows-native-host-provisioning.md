@@ -131,15 +131,21 @@ SSH from anywhere (NSG/firewall TCP22) and no public RDP. Basic IP is retired; S
 and bills until deleted. The NIC public IP supplies outbound on the private subnet.
 Registered power attaches `VM-yoke-power` in the VM resource group/location to its
 sole NIC IP configuration, then starts and waits for MagicDNS SSH. The VM and
-public IP stay allocated when the lease ends. Use the
-[manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) to
-deallocate the VM and detach and delete its public IP.
-Before registration, attach a temporary IP for each start using
-`az network nic ip-config update --ids CONFIG_ID --public-ip-address IP_ID`.
-After deallocation remove it:
+public IP stay allocated when the lease ends. Follow the
+[manual stop procedure](host-provisioning.md#stop-a-cloud-test-machine)
+to deallocate a registered VM and clean up its public IP.
+
+Before registration, attach a temporary IP for each start. Use the NIC's
+resource group, NIC name and IP configuration name.
 
 ```text
-az network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
+az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address IP_ID
+```
+
+After deallocation, detach and delete the public IP.
+
+```text
+az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address null
 az network public-ip delete --ids IP_ID
 ```
 
