@@ -182,8 +182,8 @@ def test_signal_exited_host_terminates_the_recorded_process(monkeypatch) -> None
 
 def test_process_inventory_reads_platform_titles_and_creation_epochs(monkeypatch):
     from yoke_contracts.platform_process import ProcessInfo
-    rows = [ProcessInfo(12817, 12749, (SPARE,), 123.5, SPARE, 464384, "owner"),
-            ProcessInfo(12749, 24033, ("claude",), 120.0, "claude bg-pty-host", 113488, "owner")]
+    rows = [ProcessInfo(12817, 12749, (SPARE,), 123.5, SPARE, 464384, "owner", 123.5),
+            ProcessInfo(12749, 24033, ("claude",), 120.0, "claude bg-pty-host", 113488, "owner", 120.0)]
     monkeypatch.setattr(idle_hosts.platform_process, "process_command_lines", lambda: rows)
     table = process_inventory()
     assert set(table) == {12817, 12749}

@@ -135,6 +135,22 @@ def test_unverified_post_kill_exit_retains_handle(tmp_path, monkeypatch):
         _finish(process)
 
 
+@pytest.mark.windows
+def test_custody_survives_wall_clock_drift_but_not_reuse(monkeypatch):
+    import os
+    import psutil
+    identity = platform_process.start_identity(psutil.Process(os.getpid()))
+    drifted = psutil.Process(os.getpid()).create_time() + 1.0
+    monkeypatch.setattr(psutil.Process, "create_time", lambda self: drifted)
+    pid = str(os.getpid())
+    live = {"pid": os.getpid(), "process_start_time": str(identity),
+            "process_members": {pid: str(identity)}}
+    assert custody.custody_state(live) == "live"
+    other = str(identity - 5.0)
+    reused = dict(live, process_start_time=other, process_members={pid: other})
+    assert custody.custody_state(reused) == "gone"
+
+
 @pytest.mark.parametrize("live,state", [(False, "gone"), (True, "live")])
 @pytest.mark.windows
 def test_captured_incarnation_is_checked_before_stop(monkeypatch, live, state):

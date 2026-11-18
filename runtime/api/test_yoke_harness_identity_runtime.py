@@ -64,7 +64,7 @@ def test_parent_model_probe_preserves_windows_argv(monkeypatch):
     from yoke_harness.hooks import identity_runtime
     from yoke_core.hooks import helpers_model
     entries = [ProcessInfo(42, 1, (r"C:\Program Files\Claude\claude.exe", "--model", "chosen"),
-                           123.5, "claude.exe", 10, "owner")]
+                           123.5, "claude.exe", 10, "owner", 123.5)]
     for owner in (identity_runtime, helpers_model):
         monkeypatch.setattr(owner.os, "getppid", lambda: 42)
         monkeypatch.setattr(owner.platform_process, "process_command_lines", lambda: entries)

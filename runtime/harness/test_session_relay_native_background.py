@@ -23,7 +23,7 @@ NATIVE = 4001
 
 
 def _proc(pid: int, ppid: int, *argv: str) -> ProcessInfo:
-    return ProcessInfo(pid, ppid, tuple(argv), 0.0, Path(argv[0]).name, 0, "me")
+    return ProcessInfo(pid, ppid, tuple(argv), 0.0, Path(argv[0]).name, 0, "me", 0.0)
 
 
 #: A native after its turn: an MCP server it owns, and a background ``npm run

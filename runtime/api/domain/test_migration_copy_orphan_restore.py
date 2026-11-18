@@ -67,7 +67,7 @@ def _driver(spec, database, home, work_dir, before_restore, allow_restore, resul
 def _pg_restore_child(driver_pid):
     for child in psutil.Process(driver_pid).children(recursive=True):
         if child.name().lower() in {"pg_restore", "pg_restore.exe"}:
-            return child.pid, child.create_time()
+            return child.pid, platform_process.start_identity(child)
     raise AssertionError("the driver's pg_restore child is not running")
 
 

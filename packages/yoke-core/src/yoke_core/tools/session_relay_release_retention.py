@@ -116,7 +116,7 @@ def _launcher_release_roots(state_dir, releases, processes):
     for process in processes:
         if not any(arg.startswith(prefix) for arg in process.cmdline for prefix in prefixes):
             continue
-        eligible = [(stamp, path) for stamp, path in installed if stamp <= process.start_time]
+        eligible = [(stamp, path) for stamp, path in installed if stamp <= process.created_at]
         if eligible:
             latest = max(stamp for stamp, _ in eligible)
             keep.update(path for stamp, path in eligible if stamp == latest)
