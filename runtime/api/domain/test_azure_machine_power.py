@@ -80,7 +80,7 @@ def controller(monkeypatch):
 
     def dispatch(fn, payload):
         calls.append((fn, payload))
-        result = {"settings": SETTINGS, "settings_token": "cas"}
+        result = {"settings": SETTINGS, "power_project": "project", "settings_token": "cas"}
         if fn == "projects.capability_settings.get":
             result = {"settings_json": json.dumps({"subscription_id": "sub"})}
         return FunctionCallResponse(
@@ -118,7 +118,9 @@ def test_start_attaches_disposable_ip_and_keeps_magicdns(controller):
     ]
     assert "Standard" in runner.calls[3]["argv"]
     assert IP_ID in runner.calls[4]["argv"]
-    assert [fn for fn, _ in controller] == ["projects.capability_settings.get", "ssh"]
+    assert [fn for fn, _ in controller] == [
+        "test_machine.get", "projects.capability_settings.get", "test_machine.power_started", "ssh",
+    ]
     assert controller[-1][1]["host"] == SETTINGS["host"]
     assert all(
         call["env"]["AZURE_CONFIG_DIR"] == "private-test-cache" for call in runner.calls
@@ -132,7 +134,7 @@ def test_running_azure_machine_keeps_existing_power_ip_without_start_or_login(
     assert (
         power.power_on("project", SETTINGS, runner=runner, emit=lambda _: None) is None
     )
-    assert not any(fn == "ssh" for fn, _ in controller)
+    assert not any(fn in {"ssh", "test_machine.power_started"} for fn, _ in controller)
     assert not any("start" in call["argv"] for call in runner.calls)
 
 

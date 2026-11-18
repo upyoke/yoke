@@ -98,14 +98,14 @@ def _request():
         request_id="desktop-test",
         actor={"session_id": "caller"},
         target={"kind": "global"},
-        payload={"project": "project", "test_machine": "lab"},
+        payload={"test_machine": "lab"},
     )
 
 def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     monkeypatch,
 ):
     detail = {
-        "project": "project",
+        "power_project": "project",
         "test_machine": "lab",
         "settings": SETTINGS,
         "active_lease": {"session_id": "holder"},
@@ -122,9 +122,11 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
         raise SessionError("steering_seat_required", "requires a live steering seat")
 
     monkeypatch.setattr(
-        handler.db_helpers, "connect", lambda: SimpleNamespace(close=lambda: None)
+        handler.db_helpers, "connect", lambda: SimpleNamespace(
+            close=lambda: None,
+            execute=lambda *_: SimpleNamespace(fetchone=lambda: (1, "project")),
+        )
     )
-    monkeypatch.setattr(handler, "resolve_project_id", lambda conn, project: 1)
     monkeypatch.setattr(handler, "require_operator_seat", no_seat)
     refused = handler.handle_desktop_access(_request())
     assert refused.error.code == "steering_seat_required"
@@ -132,6 +134,46 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     result = handler.handle_desktop_access(_request()).result_payload
     assert set(result) == {"project", "test_machine", "settings"}
 
+def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys):
+    from yoke_cli.commands.adapters import test_machine_desktop as cli
+
+    calls = []
+    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(
+        cli, "build_actor", lambda **kw: SimpleNamespace(session_id="caller")
+    )
+    monkeypatch.setattr(
+        cli,
+        "call_dispatcher",
+        lambda **kw: (
+            calls.append(kw)
+            or SimpleNamespace(
+                success=True,
+                result={"project": "project", "test_machine": "lab", "settings": SETTINGS},
+            )
+        ),
+    )
+    from yoke_cli.commands import test_machine_desktop_lease as custody
+    from contextlib import nullcontext
+    monkeypatch.setattr(custody, "desktop_lease", lambda **kw: nullcontext())
+    monkeypatch.setattr(desktop, "_check_desktop", lambda *args: None)
+    monkeypatch.setattr(desktop, "_hold_forward", lambda: None)
+    monkeypatch.setattr(
+        desktop.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0),
+    )
+    assert (
+        cli.test_machine_desktop_access(["--test-machine", "lab"])
+        == 0
+    )
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    try:
+        assert calls[0]["payload"] == {"test_machine": "lab"}
+        assert PASSWORD not in captured.out + captured.err + repr(calls)
+    finally:
+        Path(result["password_file"]).unlink()
 
 @pytest.mark.parametrize(
     "protocol,fragments",
