@@ -22,9 +22,12 @@ from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import server_connect
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import hosted_machine_browser
+from yoke_cli.transport import https
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.owner_private_path import is_owner_private_file
 
 _TOKEN = "yk-test-token-0123456789abcdefghijklmnop"
+_MACHINE_TOKEN = "yk-test-machine-0123456789abcdefghijkl"
 
 
 @pytest.fixture()
@@ -59,6 +62,13 @@ def _stub_http(monkeypatch, *, healthy=True, authorized=True):
         raise AssertionError(f"unexpected URL {url}")
 
     monkeypatch.setattr(server_connect, "_http_get_json", fake_get)
+    monkeypatch.setattr(
+        https, "relay_https",
+        lambda request, *_args, **_kwargs: FunctionCallResponse(
+            success=True, function=request.function, version=request.version,
+            result={"credential": {"token": _MACHINE_TOKEN}},
+        ),
+    )
     return calls
 
 
@@ -90,7 +100,7 @@ def test_connect_verifies_then_writes_connection_and_token_file(
     assert source["kind"] == "token_file"
     token_path = Path(source["path"])
     assert token_path == machine_home / "secrets" / "self-host.token"
-    assert token_path.read_text(encoding="utf-8").strip() == _TOKEN
+    assert token_path.read_text(encoding="utf-8").strip() == _MACHINE_TOKEN
     assert is_owner_private_file(token_path)
 
     report = json.loads(capsys.readouterr().out)
@@ -283,7 +293,7 @@ def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     )
     config = _config(machine_home)
     stored = Path(config["connections"]["self-host"]["credential_source"]["path"])
-    assert stored.read_text(encoding="utf-8").strip() == _TOKEN
+    assert stored.read_text(encoding="utf-8").strip() == _MACHINE_TOKEN
 
 
 def test_connect_to_a_server_without_machine_approval_teaches_explicit_token(

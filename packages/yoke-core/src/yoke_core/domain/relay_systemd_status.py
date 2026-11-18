@@ -108,7 +108,11 @@ def _linger_reason(runner: Runner) -> str:
 
 
 def relay_unit_path(instance: RelayInstance, *, home: Path | None = None) -> Path:
-    return (home or Path.home()) / ".config/systemd/user" / f"{instance.label}.service"
+    return relay_unit_directory(home=home) / f"{instance.label}.service"
+
+
+def relay_unit_directory(*, home: Path | None = None) -> Path:
+    return (home or Path.home()) / ".config/systemd/user"
 
 
 

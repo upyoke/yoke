@@ -98,13 +98,13 @@ def relay_is_satisfied(
 def main(argv: Sequence[str] | None = None) -> int:
     parsed = _parser().parse_args(argv)
     if parsed.action == "uninstall-owned":
-        if sys.platform != "darwin" or parsed.machine_home is None:
-            print("uninstall-owned requires macOS and --machine-home", file=sys.stderr)
+        if sys.platform not in {"darwin", "linux"} or parsed.machine_home is None:
+            print("uninstall-owned requires macOS or Linux and --machine-home", file=sys.stderr)
             return 2
         from yoke_core.tools.session_relay_owned_uninstall import uninstall_owned_relays
 
         try:
-            labels = uninstall_owned_relays(parsed.machine_home)
+            labels = uninstall_owned_relays(parsed.machine_home, platform=sys.platform)
         except (RelayInstallError, OSError) as exc:
             print(f"session relay: {exc}", file=sys.stderr)
             return 1

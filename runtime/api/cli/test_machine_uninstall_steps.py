@@ -80,10 +80,11 @@ def test_evaluator_stop_failure_retains_home_and_cli(machine, monkeypatch):
     assert any("hook evaluator: failed" in line for line in output)
 
 
-def test_retired_alias_relay_failure_retains_recovery(machine, monkeypatch):
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_retired_alias_relay_failure_retains_recovery(machine, monkeypatch, platform):
     value, _, handoff = machine
     value = replace(value, relay_envs=())
-    monkeypatch.setattr(steps.sys, "platform", "darwin")
+    monkeypatch.setattr(steps.sys, "platform", platform)
 
     def fail(home):
         assert home == value.home

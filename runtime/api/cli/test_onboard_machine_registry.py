@@ -107,9 +107,10 @@ def test_https_registration_persists_only_the_returned_machine_bearer(
     monkeypatch.setattr(
         machine_config,
         "active_connection",
-        lambda _path=None: {"transport": contract.TRANSPORT_HTTPS},
+        lambda _path=None, **_selection: {
+            "env": "prod", "transport": contract.TRANSPORT_HTTPS
+        },
     )
-    monkeypatch.setattr(machine_config, "active_env", lambda _path=None: "prod")
     monkeypatch.setattr(
         writer,
         "set_credential",
@@ -131,7 +132,9 @@ def test_https_registration_refuses_a_success_without_a_bearer(monkeypatch) -> N
     monkeypatch.setattr(
         machine_config,
         "active_connection",
-        lambda _path=None: {"transport": contract.TRANSPORT_HTTPS},
+        lambda _path=None, **_selection: {
+            "env": "prod", "transport": contract.TRANSPORT_HTTPS
+        },
     )
 
     failure = machine_registration._persist_credential({}, None)

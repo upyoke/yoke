@@ -205,7 +205,7 @@ def connect(args: List[str]) -> int:
     except server_connect.ServerConnectError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    return finish_connection(report, json_mode=parsed.json_mode)
+    return finish_connection(report, json_mode=parsed.json_mode, register=True)
 
 
 def _connect_hosted(parsed: argparse.Namespace) -> int:

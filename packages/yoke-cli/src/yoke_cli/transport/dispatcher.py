@@ -7,6 +7,7 @@ from yoke_cli.transport.settled_response import settle_response as _settle_respo
 
 import importlib
 import os
+from pathlib import Path
 import uuid
 from typing import Any, Callable, Dict, Optional
 
@@ -124,6 +125,7 @@ def call_dispatcher(
     max_attempts: Optional[int] = None,
     local_only: bool = False,
     relay_env: Optional[str] = None,
+    relay_config_path: str | Path | None = None,
     _local_dispatch: Optional[LocalDispatch] = None,
     _function_hint: Optional[HintResolver] = None,
     sensitive_values: tuple[str, ...] = (),
@@ -131,13 +133,10 @@ def call_dispatcher(
     """Build a request envelope and route it via the active transport.
 
     HTTPS relays to the server; other connections dispatch in-process.
-    *relay_env* names a different connection to relay through; a named env
-    with no https connection is refused, not dispatched here. A ``*-db-admin``
-    door refuses routine functions, except that a self-deploy driver sends
-    each call to the paired https env first and keeps the door as fallback
-    (see :mod:`yoke_contracts.direct_database_access`). Protected postgres
-    connections are operator-only: the client-side handler pre-load declines
-    them (see :func:`yoke_cli.commands._helpers.ensure_handlers_loaded`).
+    *relay_env* selects an HTTPS connection, optionally in *relay_config_path*.
+    A named env without HTTPS is refused. A ``*-db-admin``
+    door refuses routine calls. Self-deploy sends to paired HTTPS first and
+    keeps the door as fallback. Protected postgres is operator-only.
     """
 
     request = build_request(
@@ -195,13 +194,14 @@ def call_dispatcher(
         )
         return _settle_response(answer, sensitive_values)
     try:
-        # Only a caller that named a plane changes how the connection is
-        # resolved; the ordinary path keeps the plain call it always made.
-        https = (
-            https_transport.resolve_https_connection(explicit_env=relay_env)
-            if relay_env
-            else https_transport.resolve_https_connection()
-        )
+        if relay_config_path is not None:
+            https = https_transport.resolve_https_connection(
+                relay_config_path, explicit_env=relay_env
+            )
+        elif relay_env:
+            https = https_transport.resolve_https_connection(explicit_env=relay_env)
+        else:
+            https = https_transport.resolve_https_connection()
     except https_transport.TransportError as exc:
         return _settle_response(
             _error_response(request, "https_transport_misconfigured", str(exc)),

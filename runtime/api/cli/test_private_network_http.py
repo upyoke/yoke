@@ -12,6 +12,7 @@ import pytest
 
 from yoke_cli.commands import connect, self_host
 from yoke_cli.config import server_connect
+from yoke_cli.config import machine_registration
 from yoke_contracts.bounded_json_http import request_json
 from yoke_contracts.machine_authorization import authorization_origin
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
@@ -39,6 +40,9 @@ def test_private_http_connect_warns_every_time_and_persists(
     monkeypatch, tmp_path, capsys, host
 ):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
+    monkeypatch.setattr(
+        machine_registration, "register_this_machine", lambda *a, **kw: {"registered": True}
+    )
     monkeypatch.setattr(
         server_connect, "_http_get_json", lambda *a, **kw: {"status": "ok"}
     )

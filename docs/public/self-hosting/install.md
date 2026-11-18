@@ -49,12 +49,12 @@ yoke connect http://127.0.0.1:8765 --token-stdin < secrets/first-boot-admin-toke
 yoke status
 ```
 
-`yoke connect` installs or reuses the saved connection’s machine relay, including
-with `--no-activate`; the active connection stays selected in that case. Relay
-installation is separate from an authenticated heartbeat: inspect the saved
-connection with `yoke --env NAME relay status`. If relay setup fails, the saved
-connection and credentials remain, and the command returns a failure with the
-destination-specific recovery.
+`yoke connect` with a first-boot token registers the machine on that server and
+stores a credential bound to this machine before installing or reusing the
+destination relay. With `--no-activate`, the active connection stays selected.
+Inspect the authenticated heartbeat with `yoke --env NAME relay status`.
+If registration or relay setup fails, the connection remains saved and the
+command reports how to recover.
 
 The host command opens each mode `0600` input as its non-root operator and streams it on stdin through Docker exec. The container drops to its runtime user and writes private tmpfs copies; no host file is mounted or chowned and no credential is placed in an environment variable. The admin token returns over that same private handoff, outside Docker logs; the host atomically writes its owner-only token file and acknowledges durable storage before token creation commits. A failed handoff refuses with a reason and retry command.
 Start/restart an existing bundle with `yoke self-host init --dir PATH --protect-existing --start`. This refreshes the packaged Compose template, preserving `.env`, database credentials, and the Postgres volume. Keep runtime settings in `.env`; reapply any custom Compose changes after a template refresh. Automatic container restart is disabled: after a host/daemon restart, run that host command again so it can reopen the protected inputs. Raw Compose starts alone cannot supply the handoff. Native Ubuntu rootful Docker is exercised by the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.

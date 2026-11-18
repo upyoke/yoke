@@ -7,16 +7,31 @@ import shlex
 import sys
 from typing import Any
 
-from yoke_cli.config import onboard_session_relay
+from yoke_cli.config import machine_registration, onboard_session_relay
 from yoke_cli.config.onboard_apply_report_metadata import sanitize_text
 from yoke_contracts.refusal_recovery import compose_refusal
 
 
-def finish_connection(report: dict[str, Any], *, json_mode: bool) -> int:
-    """Keep saved credentials when relay setup fails, and report partial success."""
+def finish_connection(
+    report: dict[str, Any], *, json_mode: bool, register: bool = False
+) -> int:
+    """Bind bootstrap credentials before converging the saved relay."""
     environment = str(report["env"])
     config_path = report.get("config")
-    code = 0
+    if register:
+        registration = machine_registration.register_this_machine(
+            config_path, environment=environment
+        )
+        if not registration["registered"]:
+            return _report_failure(
+                report,
+                compose_refusal(
+                    "connection_machine_registration_failed: connection saved; machine registration failed",
+                    evaluated=sanitize_text(str(registration["reason"])),
+                    recovery="resolve the registration error and rerun the same `yoke connect` command",
+                ),
+                json_mode=json_mode,
+            )
     try:
         outcome = onboard_session_relay.install(
             local_destination=False,
@@ -37,24 +52,38 @@ def finish_connection(report: dict[str, Any], *, json_mode: bool) -> int:
                 "install", config_path=config_path, environment=environment
             )
         )
-        message = compose_refusal(
-            "connection_relay_setup_failed: connection saved; relay setup failed",
-            evaluated=sanitize_text(str(exc)),
-            recovery=f"retry the saved connection's relay with `{retry}`",
+        return _report_failure(
+            report,
+            compose_refusal(
+                "connection_relay_setup_failed: connection saved; relay setup failed",
+                evaluated=sanitize_text(str(exc)),
+                recovery=f"retry the saved connection's relay with `{retry}`",
+            ),
+            json_mode=json_mode,
         )
-        report.update(ok=False, connection_saved=True)
-        report["session_relay"] = {"installed": False, "error": message}
-        code = 1
+    return _emit_result(report, json_mode=json_mode)
+
+
+def _report_failure(
+    report: dict[str, Any], message: str, *, json_mode: bool
+) -> int:
+    report.update(ok=False, connection_saved=True)
+    report["session_relay"] = {"installed": False, "error": message}
+    return _emit_result(report, json_mode=json_mode)
+
+
+def _emit_result(report: dict[str, Any], *, json_mode: bool) -> int:
+    relay = report["session_relay"]
     if json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         _print_summary(report)
-        relay = report["session_relay"]
-        if code:
+        if "error" in relay:
             print(relay["error"], file=sys.stderr)
         elif relay["installed"]:
-            print(f"machine relay installed for connection {environment}")
-    return code
+            action = "reused" if relay["reused"] else "installed"
+            print(f"machine relay {action} for connection {report['env']}")
+    return int("error" in relay)
 
 
 def _print_summary(report: dict[str, Any]) -> None:
