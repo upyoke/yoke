@@ -73,7 +73,8 @@ def _base(css: str) -> str:
 
 
 def _breakpoint(css: str, query: str) -> str:
-    return css.split(f"@media {query}", 1)[1].split("@media", 1)[0]
+    # The exact query, so "(hover: none)" never lands on a compound query.
+    return css.split(f"@media {query} {{", 1)[1].split("@media", 1)[0]
 
 
 def _rule(css: str, selector: str) -> dict[str, str]:
