@@ -21,17 +21,18 @@ Re-attaching while created with ``deployment_runs.add_item`` clears the entry: t
 operator reversed the decision, and a stale exclusion would silently drop the
 item from the run it was just attached to.
 
-A takeover successor's enrollment also honors operator removals on every run
-it took over -- the run it supersedes and each never-started run it absorbs --
-but not transfers, set-asides, or automatic lineage releases (a member whose
-candidate is outside the frozen lineage, "awaiting a later release"): a later
-run whose pin contains that candidate enrolls it. Add-item clears them too.
+A takeover successor honors pre-start operator parks on every run it takes
+over until the item lands again or an operator adds it back. Removals at item
+QA, transfers, set-asides and automatic lineage releases leave a successor
+free to enroll the candidate it carries.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Iterable
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.schema_common import _column_exists
@@ -79,7 +80,9 @@ def removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
     )
 
 
-def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
+def _predecessor_operator_removals(
+    conn: Any, run_id: str
+) -> list[tuple[str, datetime | None, dict[str, Any]]]:
     """Operator removals on every run *run_id* took over, with their run.
 
     A takeover marks both the run it supersedes and each never-started run it
@@ -107,12 +110,15 @@ def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
     rows = conn.execute(
         "WITH RECURSIVE chain(id) AS (SELECT id FROM deployment_runs "
         "WHERE superseded_by_run_id=%s UNION SELECT r.id FROM deployment_runs r "
-        f"JOIN chain c ON r.superseded_by_run_id=c.id) SELECT r.id,r.{MEMBERSHIP_REMOVALS_FIELD} "
+        "JOIN chain c ON r.superseded_by_run_id=c.id) "
+        f"SELECT r.id,r.{MEMBERSHIP_REMOVALS_FIELD},"
+        # Composition freezes at the first start, while resume can restamp started_at.
+        "COALESCE(r.composition_frozen_at,r.started_at) "
         "FROM deployment_runs r JOIN chain c ON r.id=c.id",
         (run_id,),
     ).fetchall()
     return [
-        (str(row[0]), entry)
+        (str(row[0]), row[2], entry)
         for row in rows
         for entry in parse_membership_removals(row[1], str(row[0]))
         if not entry.get("transferred_to_run_id")
@@ -120,9 +126,35 @@ def _inherited(conn: Any, run_id: str) -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
+def _inherited(conn: Any, run_id: str) -> set[int]:
+    """Items still parked by a predecessor's pre-start operator removal."""
+    parks = []
+    for _, started_at, entry in _predecessor_operator_removals(conn, run_id):
+        removed_at = parse_instant(entry["removed_at"])
+        if started_at is None or removed_at <= parse_instant(started_at):
+            parks.append((int(entry["item_id"]), removed_at))
+    if not parks:
+        return set()
+
+    landings = {
+        int(row[0]): parse_instant(row[1])
+        for row in conn.execute(
+            "SELECT id,COALESCE(merge_queue_landed_at,merged_at) FROM items "
+            "WHERE id=ANY(%s)",
+            (sorted({item_id for item_id, _ in parks}),),
+        ).fetchall()
+        if row[1] is not None
+    }
+    return {
+        item_id
+        for item_id, removed_at in parks
+        if item_id not in landings or landings[item_id] <= removed_at
+    }
+
+
 def enrollment_removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
-    """This run's removals plus operator removals on the runs it superseded."""
-    return removed_item_ids(conn, run_id) | {int(e["item_id"]) for _, e in _inherited(conn, run_id)}
+    """This run's removals plus any predecessor parks still in effect."""
+    return removed_item_ids(conn, run_id) | _inherited(conn, run_id)
 
 
 def _write(conn: Any, run_id: str, entries: list[dict[str, Any]]) -> None:
@@ -178,7 +210,9 @@ def clear_membership_removal(conn: Any, run_id: str, item_id: int) -> bool:
     """Drop *item_id*'s removal here and up the chain; report whether one existed."""
     cleared = False
     for subject in {str(run_id)} | {
-        run for run, entry in _inherited(conn, run_id) if int(entry["item_id"]) == int(item_id)
+        run
+        for run, _, entry in _predecessor_operator_removals(conn, run_id)
+        if int(entry["item_id"]) == int(item_id)
     }:
         entries = membership_removals(conn, subject)
         kept = [entry for entry in entries if int(entry["item_id"]) != int(item_id)]
