@@ -30,7 +30,11 @@ from yoke_cli.commands.universe_ui_serve import (
 )
 from yoke_cli.config import universe_ui_daemon as daemon
 from yoke_cli.config.hosted_machine_browser import open_url
-from yoke_cli.config.browser_admission import browser_recovery, open_private_url
+from yoke_cli.config.browser_admission import (
+    BROWSER_NOT_ATTEMPTED,
+    browser_recovery,
+    open_private_url,
+)
 from yoke_cli.config.universe_ui_daemon_state import UiDaemonError
 from yoke_cli.config.universe_ui_launchd import UiLaunchdError
 
@@ -194,8 +198,9 @@ def ui_up(args: List[str]) -> int:
     browser = open_private_url(url, disabled=parsed.no_browser, opener=open_url)
     opened = browser.opened
     reason = browser.reason or ""
-    recovery = browser_recovery("yoke ui up")
-    failed = reason == "browser_open_failed"
+    failed = bool(reason) and reason not in BROWSER_NOT_ATTEMPTED
+    quiet = reason == "browser_open_disabled"
+    recovery = "" if quiet else browser_recovery("yoke ui up")
     if parsed.json_mode:
         print(
             json.dumps(
@@ -204,7 +209,8 @@ def ui_up(args: List[str]) -> int:
                     "browser_opened": opened,
                     **report,
                     **(
-                        {"browser_reason": reason, "recovery": recovery}
+                        {"browser_reason": reason}
+                        | ({"recovery": recovery} if recovery else {})
                         if reason
                         else {}
                     ),
@@ -224,7 +230,7 @@ def ui_up(args: List[str]) -> int:
             _print_status(report)
         if opened:
             print("Browser opened for sign-in.", flush=True)
-        if reason:
+        if recovery and reason:
             print(f"{reason}: {recovery}", flush=True)
         note = str(report.get("supervisor_note") or "")
         if note:

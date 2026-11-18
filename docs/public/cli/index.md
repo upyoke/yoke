@@ -168,8 +168,10 @@ link valid for two minutes. Rerun to replace an expired link. On Local
 terminal leaves it serving; macOS brings it back after reboot until `ui down`.
 Sign-in links go straight to the browser and never appear in text or JSON;
 self-host output names the server's origin, such as `https://localhost:8443`.
-Agents, headless callers and `--no-browser` get a named browser reason: run
-`yoke ui up` from your own terminal on a machine with a display to sign in.
+Agents and headless callers get a named browser reason, such as
+`browser_display_unavailable`, and the recovery: run `yoke ui up` from your own
+terminal on a machine with a display to sign in. Only a failed open exits 1;
+`--no-browser` skips the browser quietly.
 
 The view serves a database this machine holds — an unprotected local-postgres
 connection — and names the environment that answered in the page footer.

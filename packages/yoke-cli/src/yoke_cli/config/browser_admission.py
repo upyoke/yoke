@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import threading
 from typing import Callable
@@ -11,6 +12,8 @@ from yoke_cli.transport.dispatcher import _resolve_session_id
 from yoke_contracts.harness_family_identity import nearest_harness_family
 
 _BROWSER_OPEN_DELAY_SECONDS = 0.5
+_REASON_CODE = re.compile(r"[a-z][a-z0-9_]*")
+BROWSER_NOT_ATTEMPTED = frozenset({"browser_open_disabled", "browser_agent_mode"})
 
 
 def browser_recovery(command: str | None = None) -> str:
@@ -33,11 +36,18 @@ def open_private_url(
         return BrowserOpenResult(opened=False, reason="browser_agent_mode")
     try:
         result = opener(url) if url else None
-        if result and result.opened:
-            return BrowserOpenResult(opened=True, method=result.method)
     except Exception:  # Opener failures can contain the complete private URL.
-        pass
-    return BrowserOpenResult(opened=False, reason="browser_open_failed")
+        result = None
+    if result and result.opened:
+        return BrowserOpenResult(opened=True, method=result.method)
+    return BrowserOpenResult(opened=False, reason=_reason_code(result))
+
+
+def _reason_code(result: BrowserOpenResult | None) -> str:
+    """Keep only the opener's leading reason code; its detail can hold the URL."""
+    reason = (result.reason if result else None) or ""
+    code = re.split(r"[:;]", reason, maxsplit=1)[0].strip()
+    return code if _REASON_CODE.fullmatch(code) else "browser_open_failed"
 
 
 def schedule_browser_admission(url: str) -> None:
