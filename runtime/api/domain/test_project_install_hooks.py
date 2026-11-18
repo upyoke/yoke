@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
+from yoke_contracts.hook_shell_command import windows_hook_command
 from yoke_contracts.owner_private_path import is_owner_private_file, write_owner_private
+from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_cli.project_install import runner as project_install
 from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import (
@@ -30,6 +33,14 @@ def repo(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
     return root
+
+
+def _native_claude_hooks(bundle=None) -> dict:
+    """The Claude subtree install writes on this host (installed projects
+    keep their native shell form; decision 15934)."""
+    return native_bundle_hooks(bundle or make_bundle())["hooks"][
+        "claude_settings_hooks"
+    ]
 
 
 def _settings(repo, rel=SETTINGS_REL) -> dict:
@@ -55,13 +66,14 @@ def test_merge_creates_settings_file_with_exact_subtree(repo) -> None:
     apply_bundle(repo, bundle, source="test")
 
     payload = _settings(repo)
-    assert payload == {"hooks": bundle["hooks"]["claude_settings_hooks"]}
+    assert payload == {"hooks": _native_claude_hooks(bundle)}
     raw = (repo / SETTINGS_REL).read_text("utf-8")
     assert raw.endswith("\n") and '  "hooks"' in raw  # pretty-printed
 
 
 def test_merge_preserves_foreign_entries_and_appends_missing(repo) -> None:
-    yoke_bash = entry(CLAUDE_PRE_CMD, "Bash")
+    native = _native_claude_hooks()
+    yoke_bash = native["PreToolUse"][0]
     _write_settings(
         repo, {"hooks": {"PreToolUse": [FOREIGN, yoke_bash]}, "other": 1}
     )
@@ -72,7 +84,7 @@ def test_merge_preserves_foreign_entries_and_appends_missing(repo) -> None:
     pre = payload["hooks"]["PreToolUse"]
     assert pre[0] == FOREIGN, "foreign entries keep their position"
     assert pre[1] == yoke_bash, "existing Yoke entry is not duplicated"
-    assert entry(CLAUDE_PRE_CMD, "Edit") in pre, "missing matcher appended"
+    assert native["PreToolUse"][1] in pre, "missing matcher appended"
     assert payload["other"] == 1
     assert payload["hooks"]["Stop"], "missing event key added"
     added = report["hooks_added"][SETTINGS_REL]
@@ -95,6 +107,29 @@ def test_merge_distinguishes_matchers_sharing_one_command(repo) -> None:
         e.get("matcher") for e in _settings(repo)["hooks"]["PreToolUse"]
     ]
     assert matchers == ["Bash", "Edit"]
+
+
+def test_merge_converges_a_yoke_entry_written_in_the_other_shell_form(repo) -> None:
+    # A settings file written on another OS holds the same Yoke entry in the
+    # other shell form; install must recognize it, not append a duplicate.
+    other_form = (
+        CLAUDE_PRE_CMD
+        if os.name == "nt"
+        else windows_hook_command("claude-code", "PreToolUse", "claude")
+    )
+    _write_settings(repo, {"hooks": {"PreToolUse": [FOREIGN, entry(other_form, "Bash")]}})
+
+    report = apply_bundle(repo, make_bundle(), source="test")
+
+    native = _native_claude_hooks()
+    assert _settings(repo)["hooks"]["PreToolUse"] == [FOREIGN, *native["PreToolUse"]]
+    assert report["hooks_removed"][SETTINGS_REL] == [
+        {"event": "PreToolUse", "matcher": "Bash", "commands": [other_form]},
+    ]
+    added = report["hooks_added"][SETTINGS_REL]
+    assert {(r["event"], r["matcher"]) for r in added} == {
+        ("PreToolUse", "Bash"), ("PreToolUse", "Edit"), ("Stop", None),
+    }
 
 
 def test_invalid_settings_json_fails_loudly(repo) -> None:
@@ -120,9 +155,7 @@ def test_refresh_materializes_in_repo_legacy_settings_symlink(repo) -> None:
 
     assert settings.is_file()
     assert not settings.is_symlink()
-    assert _settings(repo)["hooks"] == make_bundle()["hooks"][
-        "claude_settings_hooks"
-    ]
+    assert _settings(repo)["hooks"] == _native_claude_hooks()
 
 
 def test_merge_does_not_follow_predictable_temp_symlink(repo) -> None:
@@ -136,9 +169,7 @@ def test_merge_does_not_follow_predictable_temp_symlink(repo) -> None:
 
     assert victim.read_text(encoding="utf-8") == "operator data\n"
     assert temporary.is_symlink()
-    assert _settings(repo)["hooks"] == make_bundle()["hooks"][
-        "claude_settings_hooks"
-    ]
+    assert _settings(repo)["hooks"] == _native_claude_hooks()
 
 
 def test_merge_keeps_private_settings_private(repo) -> None:

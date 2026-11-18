@@ -153,6 +153,11 @@ def test_windows_install_renders_linux_server_bundle_without_changing_policy(
     from yoke_contracts.hook_shell_command import hook_command_source
 
     bundle = {"hooks": _hooks_block(), "files": [{"path": "unchanged"}]}
+    owners = {
+        "claude_settings_hooks": "claude",
+        "codex_hooks": None,
+        "cursor_hooks": "cursor-project",
+    }
     original = deepcopy(bundle)
     monkeypatch.setattr(hook_platform.os, "name", "nt")
     native = hook_platform.native_bundle_hooks(bundle)
@@ -170,8 +175,20 @@ def test_windows_install_renders_linux_server_bundle_without_changing_policy(
                         if key == "codex_hooks"
                         else handler["command"]
                     )
-                    assert command.startswith("powershell.exe")
-                    assert "yoke hook evaluate" in hook_command_source(command)
+                    source = hook_command_source(command)
+                    assert command.startswith("powershell.exe -NoLogo -NoProfile")
+                    assert "yoke hook evaluate" in source
+                    assert "$env:XDG_BIN_HOME" in source
+                    owner = owners[key]
+                    assert (
+                        f"$env:YOKE_HOOK_CONFIG_OWNER='{owner}'" in source
+                        if owner
+                        else "YOKE_HOOK_CONFIG_OWNER" not in source
+                    )
+                    # Cursor stop/sessionEnd peel a deleted worktree root.
+                    assert ("Set-Location -LiteralPath $root" in source) == (
+                        key == "cursor_hooks" and event in {"stop", "sessionEnd"}
+                    )
 
 
 @pytest.mark.windows

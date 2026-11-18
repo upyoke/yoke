@@ -10,6 +10,11 @@ import sys
 from yoke_contracts.refusal_recovery import compose_refusal
 
 
+# Git for Windows ships git.exe under one MSYS2 environment directory; current
+# x64 releases use ucrt64, older ones mingw64/mingw32, ARM64 clangarm64.
+_MSYS2_ENVIRONMENTS = frozenset({"mingw64", "mingw32", "ucrt64", "clang64", "clangarm64"})
+
+
 class ProjectCommandShellUnavailable(RuntimeError):
     """Project commands cannot start until their declared shell is installed."""
 
@@ -19,7 +24,8 @@ def project_command_shell(*, platform_name: str | None = None) -> str:
 
     Never select a different shell from PATH: Windows also ships unrelated
     sh commands (including WSL launchers) with different execution semantics.
-    Git's cmd, bin and mingw64/bin layouts all identify its installation root.
+    Git's cmd, bin and <MSYS2 environment>/bin layouts (mingw64, ucrt64, ...)
+    all identify its installation root.
     """
     if (platform_name or sys.platform) != "win32":
         return "/bin/sh"
@@ -29,7 +35,7 @@ def project_command_shell(*, platform_name: str | None = None) -> str:
         parent = Path(git).resolve().parent
         if parent.name.lower() in {"cmd", "bin"}:
             root = parent.parent
-            if root.name.lower() in {"mingw64", "mingw32"}:
+            if root.name.lower() in _MSYS2_ENVIRONMENTS:
                 root = root.parent
             roots.append(root)
     for key in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"):

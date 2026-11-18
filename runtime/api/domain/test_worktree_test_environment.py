@@ -67,7 +67,9 @@ def _fake_uv(
         + f"    raise SystemExit({sync_exit})\n"
         "if args[0] == 'run':\n"
         "    args=args[args.index('python3')+1:]\n"
-        "    os.execv(sys.executable, [sys.executable,*args])\n"
+        # Not os.execv: on Windows it returns status 0 to the caller at once.
+        "    import subprocess\n"
+        "    raise SystemExit(subprocess.call([sys.executable,*args]))\n"
         "raise SystemExit(64)\n",
         encoding="utf-8",
     )

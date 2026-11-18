@@ -176,5 +176,7 @@ def test_network_failure_names_its_class_and_errno(
         sleep=lambda _: None,
     )
 
-    assert "(ConnectionResetError ECONNRESET)" in response.error.message
+    # The platform's own errno symbol: ECONNRESET on POSIX, WSAECONNRESET on Windows.
+    symbol = errno.errorcode[errno.ECONNRESET]
+    assert f"(ConnectionResetError {symbol})" in response.error.message
     assert "peer reset" not in response.error.message

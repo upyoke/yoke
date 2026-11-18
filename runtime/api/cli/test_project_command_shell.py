@@ -20,7 +20,7 @@ def test_remote_posix_shell_does_not_use_the_windows_controller(monkeypatch):
     assert stale_owner_marker_remove_argv()[0] == "/bin/sh"
 
 
-@pytest.mark.parametrize("layout", ["cmd", "bin", "mingw64/bin"])
+@pytest.mark.parametrize("layout", ["cmd", "bin", "mingw64/bin", "ucrt64/bin", "clangarm64/bin"])
 def test_windows_shell_belongs_to_git_installation(tmp_path, monkeypatch, layout):
     root = tmp_path / "Git with spaces"
     git = root / layout / "git.exe"

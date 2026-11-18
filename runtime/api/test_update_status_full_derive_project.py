@@ -66,7 +66,7 @@ class TestAutoDerive:
         assert (
             env.query("SELECT status FROM items WHERE id=42")
             == "reviewing-implementation"
-        )
+        ), r.stdout + r.stderr
 
     def test_in_flight_promotes_planned_parent(self, env):
         """TEST 28: mixed tasks promote planned parent to implementing."""
@@ -86,7 +86,9 @@ class TestAutoDerive:
         env.init_git()
         r = env.run(TEST_EPIC_REF, "002", "implementing")
         assert r.returncode == 0
-        assert env.query("SELECT status FROM items WHERE id=42") == "implementing"
+        assert (
+            env.query("SELECT status FROM items WHERE id=42") == "implementing"
+        ), r.stdout + r.stderr
 
 
 class TestCrossProject:

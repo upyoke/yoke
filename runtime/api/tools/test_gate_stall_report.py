@@ -86,8 +86,11 @@ def test_deploy_watcher_does_not_attribute_concurrent_unrelated_process(
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
     try:
+        # The watched child must have no descendants of its own. A Windows venv
+        # python.exe is a launcher that runs the base interpreter as its child,
+        # so the watched command runs the base interpreter directly.
         rc = _watch_runner.run_watcher(
-            argv=[sys.executable, "-c", "import time; time.sleep(0.25)"],
+            argv=[sys._base_executable, "-c", "import time; time.sleep(0.25)"],
             classifier=lambda _line: Classification(LineClass.NOISE),
             raw_capture=raw,
             progress_capture=progress,

@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.project_install.bundle_apply import apply_bundle
+from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_contracts.cursor_permissions import (
     CURSOR_CLI_ALLOW,
     CURSOR_CLI_REL,
@@ -127,7 +128,10 @@ def test_hosted_bundle_install_and_refresh_preserve_cursor_content(
     hooks = _read_json(root, ".cursor/hooks.json")
     assert hooks["version"] == 1
     assert hooks["hooks"]["beforeShellExecution"][0] == OPERATOR_HOOK
-    rendered = render_cursor_hooks_block()["hooks"]
+    # Installed projects keep the client's native shell form (decision 15934).
+    rendered = native_bundle_hooks(
+        {"hooks": {"cursor_hooks": render_cursor_hooks_block()["hooks"]}}
+    )["hooks"]["cursor_hooks"]
     for event, entries in rendered.items():
         for entry in entries:
             assert entry in hooks["hooks"][event]

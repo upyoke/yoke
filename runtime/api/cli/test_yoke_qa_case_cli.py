@@ -6,7 +6,6 @@ import json
 import os
 import signal
 import subprocess
-import sys
 import time
 from unittest import mock
 
@@ -16,6 +15,7 @@ from yoke_cli.commands import qa_case
 from yoke_core.domain import qa_case_execution_cli, qa_plan_execution_cli
 from runtime.api.cli.console_interrupt_test_support import (
     interruptible_popen_kwargs,
+    interruptible_python,
     send_console_interrupt,
 )
 
@@ -251,14 +251,10 @@ except KeyboardInterrupt:
     environment["QA_INTERRUPT_READY"] = str(ready)
     environment["QA_INTERRUPT_CLEANUP"] = str(cleanup)
     wrapper = subprocess.Popen(
-        [
-            sys.executable,
-            "-c",
-            (
-                f"from yoke_cli.commands.qa_case import {runner_name};"
-                f"raise SystemExit({runner_name}([]))"
-            ),
-        ],
+        interruptible_python(
+            f"from yoke_cli.commands.qa_case import {runner_name}\n"
+            f"raise SystemExit({runner_name}([]))\n"
+        ),
         env=environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

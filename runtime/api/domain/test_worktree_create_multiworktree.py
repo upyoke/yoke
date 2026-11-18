@@ -235,9 +235,10 @@ class TestCreateWorktreeMultiWorktree:
         rc = worktree_cli.main_create()
         assert rc == 0, capsys.readouterr().err
         out = capsys.readouterr().out.strip().splitlines()
+        # Lane paths print in the recorded canonical form, like the receipt.
         expected = [
-            str(git_repo / ".worktrees" / "YOK-99206"),
-            *(path for _, path in entries),
+            normalize_repo_path(str(git_repo / ".worktrees" / "YOK-99206")),
+            *(normalize_repo_path(path) for _, path in entries),
         ]
         assert sorted(out) == sorted(expected)
 

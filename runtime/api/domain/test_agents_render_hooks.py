@@ -8,7 +8,6 @@ rather than fanning the same command out across per-tool matchers.
 
 from __future__ import annotations
 
-import os
 from yoke_contracts.hook_shell_command import hook_command_source
 
 from yoke_contracts.cursor_hook_command_bytes import (
@@ -71,48 +70,31 @@ def test_claude_commands_mark_their_config_owner() -> None:
         for hook in entry["hooks"]
     ]
     assert commands
-    assert all(
-        (
-            "YOKE_HOOK_CONFIG_OWNER='claude'"
-            if os.name == "nt"
-            else "YOKE_HOOK_CONFIG_OWNER=claude"
-        )
-        in command
-        for command in commands
-    )
+    assert all("YOKE_HOOK_CONFIG_OWNER=claude" in command for command in commands)
 
 
 def test_generated_hook_commands_use_non_login_shell_with_launcher_path() -> None:
+    """Tracked hook files hold the POSIX form on every host (decision 15934);
+    Codex alone carries its native Windows command in ``commandWindows``."""
     claude = render_claude_hooks_block()
     codex = render_codex_hooks_block()
     cursor = render_cursor_hooks_block()["hooks"]
-    commands = [
-        hook.get("commandWindows", hook["command"])
-        if os.name == "nt"
-        else hook["command"]
+    handlers = [
+        hook
         for block in (claude, codex)
         for entries in block.values()
         for entry in entries
         for hook in entry["hooks"]
-    ] + [entry["command"] for entries in cursor.values() for entry in entries]
+    ] + [entry for entries in cursor.values() for entry in entries]
+    commands = [handler["command"] for handler in handlers]
+    windows = [hook["commandWindows"] for e in codex.values() for x in e for hook in x["hooks"]]
 
-    assert commands
-    assert (
-        all("-NoProfile" in command for command in commands)
-        if os.name == "nt"
-        else all(command.startswith("/bin/sh -c '") for command in commands)
-    )
-    commands = [hook_command_source(command) for command in commands]
+    assert commands and windows
+    assert all(command.startswith("/bin/sh -c '") for command in commands)
     assert all("/bin/zsh" not in command for command in commands)
-    assert all(
-        (
-            "$env:XDG_BIN_HOME"
-            if os.name == "nt"
-            else "${XDG_BIN_HOME:-$HOME/.local/bin}"
-        )
-        in command
-        for command in commands
-    )
+    assert all("${XDG_BIN_HOME:-$HOME/.local/bin}" in c for c in commands)
+    assert all("-NoProfile" in command for command in windows)
+    assert all("$env:XDG_BIN_HOME" in hook_command_source(c) for c in windows)
 
 
 def test_no_hook_is_wired_inside_the_token_stream() -> None:
@@ -155,9 +137,7 @@ def test_cursor_shell_gates_on_its_own_event_and_completes_on_post_tool_use() ->
 def test_cursor_stop_and_session_end_resolve_an_existing_root() -> None:
     """Stop/sessionEnd peel a deleted worktree cwd; ordinary tool hooks do not."""
     block = render_cursor_hooks_block()
-    resolved_root = (
-        "Set-Location -LiteralPath $root" if os.name == "nt" else 'YOKE_ROOT="$root"'
-    )
+    resolved_root = 'YOKE_ROOT="$root"'
     assert resolved_root in hook_command_source(block["hooks"]["stop"][0]["command"])
     assert resolved_root in hook_command_source(
         block["hooks"]["sessionEnd"][0]["command"]
@@ -200,15 +180,7 @@ def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
         if "yoke hook evaluate" in hook_command_source(entry["command"])
     ]
     assert commands
-    assert all(
-        (
-            "YOKE_HOOK_CONFIG_OWNER='cursor-project'"
-            if os.name == "nt"
-            else "YOKE_HOOK_CONFIG_OWNER=cursor-project"
-        )
-        in command
-        for command in commands
-    )
+    assert all("YOKE_HOOK_CONFIG_OWNER=cursor-project" in c for c in commands)
     for native_event, runner_event in CURSOR_NATIVE_RUNNER_EVENTS:
         assert any(
             f"yoke hook evaluate {runner_event}"
