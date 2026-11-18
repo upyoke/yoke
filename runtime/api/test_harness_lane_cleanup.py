@@ -1,6 +1,6 @@
 """Lane settings are owned by managed paths, without a provenance ledger."""
 
-from yoke_contracts.testing.real_home_isolation import HOME_ENVS
+from yoke_contracts.testing.real_home_isolation import set_home
 
 import json
 from pathlib import Path
@@ -64,8 +64,7 @@ def configs(tmp_path, monkeypatch):
     lane = root / ".worktrees" / "retired"
     codex = tmp_path / "home/.codex/config.toml"
     codex.parent.mkdir(parents=True)
-    for name in HOME_ENVS:
-        monkeypatch.setenv(name, str(codex.parent.parent))
+    set_home(monkeypatch, str(codex.parent.parent))
     monkeypatch.setenv("CODEX_HOME", str(codex.parent))
     claude = codex.parent.parent / ".claude.json"
     cursor = codex.parent.parent / ".cursor/projects/lane/.workspace-trusted"

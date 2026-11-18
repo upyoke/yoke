@@ -80,6 +80,7 @@ def test_unreadable_machine_config_omits_folders(monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("cursor", [False, True])
+@pytest.mark.usefixtures("isolated_project_markers")
 def test_hook_entry_orients_outside_a_project_once(
     tmp_path: Path, cursor, monkeypatch
 ) -> None:

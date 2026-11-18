@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_unmatched_path_glob.py::test_path_globs_use_the_executing_filesystem[True-home-core]",
- "reason": "assert True is not True"
-}

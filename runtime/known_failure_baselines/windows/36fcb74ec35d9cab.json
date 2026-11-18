@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_project_uninstall_trust_values.py::test_unrecorded_granted_trust_is_left_alone_and_unreported",
- "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_unrecorded_granted_trust_0\\\\harness-home\\\\.claud"
-}

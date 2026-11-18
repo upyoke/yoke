@@ -1,5 +1,7 @@
 """External home paths pass; symlinks into governed lanes retain checks."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 
 import pytest
@@ -22,7 +24,7 @@ def cache_context(tmp_path, monkeypatch):
     )
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     repo = tmp_path / "repo"
     (repo / ".worktrees" / "YOK-100").mkdir(parents=True)
     register_machine_checkout(tmp_path / "machine-config", repo, 1)

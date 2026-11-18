@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_project_publication_settings.py::test_failed_policy_receipt_write_does_not_adopt_mapping_on_retry",
- "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_failed_policy_receipt_wri0\\\\harness-home\\\\.claud"
-}

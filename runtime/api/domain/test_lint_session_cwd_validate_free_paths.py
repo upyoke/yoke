@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import os
 import shutil
 from pathlib import Path
@@ -37,7 +39,7 @@ NON_TEMP_HOME = "/__yoke_test_home__"
 
 @pytest.fixture(autouse=True)
 def _home_outside_temp_roots(monkeypatch):
-    monkeypatch.setenv("HOME", NON_TEMP_HOME)
+    set_home(monkeypatch, NON_TEMP_HOME)
 
 
 @pytest.fixture
@@ -66,7 +68,7 @@ class TestFreePathPrefixesContainExpectedRoots:
         assert "~/.claude/projects" in free_path_prefixes()
 
     def test_harness_internal_expanded_form_in_free_paths(self) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         expected = os.path.join(home, ".claude", "projects")
         assert expected in free_path_prefixes()
 
@@ -74,7 +76,7 @@ class TestFreePathPrefixesContainExpectedRoots:
         assert "~/.codex/sessions" in free_path_prefixes()
 
     def test_codex_sessions_expanded_form_in_free_paths(self) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         expected = os.path.join(home, ".codex", "sessions")
         assert expected in free_path_prefixes()
 
@@ -82,7 +84,7 @@ class TestFreePathPrefixesContainExpectedRoots:
         assert "~/.codex/archived_sessions" in free_path_prefixes()
 
     def test_codex_archived_sessions_expanded_form_in_free_paths(self) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         expected = os.path.join(home, ".codex", "archived_sessions")
         assert expected in free_path_prefixes()
 
@@ -123,7 +125,7 @@ class TestHarnessInternalAllowed:
         assert verdict.allow
 
     def test_tool_results_expanded_allowed(self, conn, session_with_claim) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         target = os.path.join(
             home,
             ".claude",
@@ -141,7 +143,7 @@ class TestHarnessInternalAllowed:
         assert verdict.allow
 
     def test_persisted_output_allowed(self, conn, session_with_claim) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         target = os.path.join(
             home,
             ".claude",
@@ -174,7 +176,7 @@ class TestCodexHarnessInternalAllowed:
         assert verdict.allow
 
     def test_codex_sessions_expanded_allowed(self, conn, session_with_claim) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         target = os.path.join(
             home,
             ".codex",
@@ -205,7 +207,7 @@ class TestCodexHarnessInternalAllowed:
     def test_codex_archived_sessions_expanded_allowed(
         self, conn, session_with_claim
     ) -> None:
-        home = os.path.expanduser("~")
+        home = str(Path.home().resolve())
         target = os.path.join(
             home,
             ".codex",

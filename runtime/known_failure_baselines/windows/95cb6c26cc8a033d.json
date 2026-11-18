@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_harness_setup_reconcile.py::test_machine_inventory_reconciles_every_registered_checkout",
- "reason": "AssertionError: assert not True"
-}

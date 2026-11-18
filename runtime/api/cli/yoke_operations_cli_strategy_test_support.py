@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import io
+import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 
 import json
 
@@ -62,7 +65,7 @@ def _run(
     # Transport isolation (real machine config vs in-process dispatch
     # stub) is owned by the autouse ``_isolate_machine_config`` fixture
     # in this directory's conftest.
-    env = {}
+    env = {name: os.environ[name] for name in HOME_ENVS}
     if session_id is not None:
         env["YOKE_SESSION_ID"] = session_id
     if extra_env:

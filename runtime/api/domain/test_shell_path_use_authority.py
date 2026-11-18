@@ -1,5 +1,7 @@
 """Capacity inspection retains content, lane, and machine boundaries."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from contextlib import nullcontext
 
 import pytest
@@ -148,7 +150,7 @@ def test_lane_write_is_allowed_whatever_the_item_status(isolated_authority):
 def test_client_home_never_resolves_against_server_home(
     isolated_authority, monkeypatch
 ):
-    monkeypatch.setenv("HOME", "/server/home")
+    set_home(monkeypatch, "/server/home")
     uses = extract_payload_path_uses(
         {"tool_name": "Bash", "cwd": ROOT, "tool_input": {"command": "df -k ~/.yoke"}},
         machine_home=HOME,
@@ -169,7 +171,7 @@ def test_relative_write_after_leading_cd_uses_the_lane(isolated_authority):
 
 
 def test_leading_cd_home_is_the_executing_machine(isolated_authority, monkeypatch):
-    monkeypatch.setenv("HOME", "/server/home")
+    set_home(monkeypatch, "/server/home")
     uses = extract_payload_path_uses(
         {
             "tool_name": "Bash",

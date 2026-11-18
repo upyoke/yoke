@@ -2,6 +2,7 @@
 
 from runtime.api.cli.project_uninstall_owned_cleanup_test_support import (installed as installed)
 
+import json
 from pathlib import Path
 
 from yoke_contracts import harness_folder_trust as trust
@@ -17,7 +18,7 @@ def _mirror_hook_trust(*checkouts: Path) -> None:
     """Append hook trust shaped like install's mint and lane provisioning's mirror."""
     config = Path.home() / ".codex/config.toml"
     blocks = "".join(
-        f'\n[hooks.state."{checkout}/.codex/hooks.json:session_start:0:0"]\n'
+        f'\n[hooks.state.{json.dumps(str(checkout / ".codex" / "hooks.json") + ":session_start:0:0")}]\n'
         f'trusted_hash = "{DIGEST}"\n'
         for checkout in checkouts
     )
@@ -46,8 +47,8 @@ def test_uninstall_removes_checkout_and_lane_trust(installed):  # noqa: F811
     assert str(other_lane) in codex["projects"]
     hook_paths = {key.rsplit(":", 3)[0] for key in codex["hooks"]["state"]}
     assert hook_paths == {
-        f"{other}/.codex/hooks.json",
-        f"{other_lane}/.codex/hooks.json",
+        str(other / ".codex" / "hooks.json"),
+        str(other_lane / ".codex" / "hooks.json"),
     }
     assert not trust.cursor_trust_file(root).exists()
     assert not trust.cursor_trust_file(lane).exists()

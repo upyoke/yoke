@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_harness_cli_manifest.py::test_versioned_claude_bundles_choose_the_newest_executable",
- "reason": "AssertionError: assert (None, 'missing') == ('C:\\\\Users\\\\...ed_versioned')"
-}

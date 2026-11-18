@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import json
 import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 import time
 from unittest import mock
 
@@ -42,7 +44,9 @@ from yoke_core.hooks.helpers import (
 
 class TestFindProjectRoot:
     def test_returns_dot_when_no_env_and_no_git(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ):
             with mock.patch("subprocess.run", side_effect=FileNotFoundError):
                 result = find_project_root()
                 assert result == "."
@@ -72,7 +76,10 @@ class TestGetSessionId:
         harness_family("claude-code")
         with mock.patch.dict(
             os.environ,
-            {"CLAUDE_CODE_SESSION_ID": "claude-456"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "CLAUDE_CODE_SESSION_ID": "claude-456",
+            },
             clear=True,
         ):
             assert get_session_id() == "claude-456"
@@ -84,13 +91,18 @@ class TestGetSessionId:
         harness_family("codex")
         with mock.patch.dict(
             os.environ,
-            {"CODEX_THREAD_ID": "codex-789"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "CODEX_THREAD_ID": "codex-789",
+            },
             clear=True,
         ):
             assert get_session_id() == "codex-789"
 
     def test_returns_unknown_when_no_env(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(
+            os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
+        ):
             # Mock subprocess to prevent actual service_client calls
             with mock.patch("subprocess.run", side_effect=FileNotFoundError):
                 result = get_session_id(workspace="/nonexistent")

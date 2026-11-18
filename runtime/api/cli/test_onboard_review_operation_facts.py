@@ -1,5 +1,7 @@
 """Review describes applicable writes, prior effects and native launch posture."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 import tomllib
@@ -24,7 +26,7 @@ from yoke_contracts.session_control import launch_permission_bypass as bypass
 
 @pytest.fixture
 def machine(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "custom-codex"))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     return tmp_path

@@ -1,5 +1,7 @@
 """Doctor runs machine-scope checks outside every project and names the rest."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 
@@ -35,7 +37,7 @@ def bare_machine(monkeypatch, tmp_path):
     """A machine with Claude Code installed but no Yoke setup in its home."""
     home = tmp_path / "home"
     (home / ".claude").mkdir(parents=True)
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     from yoke_contracts import global_skill_install

@@ -1,5 +1,7 @@
 """Browser setup uses the runtime cache and keeps install failure evidence."""
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
@@ -15,7 +17,7 @@ from yoke_harness import browser_setup
 
 @pytest.fixture
 def setup_host(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("YOKE_BROWSER_AUTOINSTALL", "1")
     browser = tmp_path / "browser"
     browser.mkdir()

@@ -8,6 +8,7 @@ client reports these roots so the polling policy can recognise captures.
 
 from __future__ import annotations
 
+from pathlib import Path
 import tempfile
 import unittest
 
@@ -61,7 +62,7 @@ class TestScratchPathRoots(unittest.TestCase):
 
     def test_all_roots_absolute_without_trailing_slash(self) -> None:
         for root in scratch_path_roots():
-            self.assertTrue(root.startswith("/"), root)
+            self.assertTrue(Path(root).is_absolute() or root.startswith("/"), root)
             self.assertFalse(root.endswith("/"), root)
 
 

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree.py::TestResolvePlaywrightCache::test_without_project",
- "reason": "AssertionError: assert '/tmp/wt\\\\.playwright-cache' == '/tmp/wt/.playwright-cache'"
-}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import io
 import json
 import subprocess
@@ -107,7 +109,7 @@ class AgentDriver:
 
 def isolate_agent_setup(tmp_path: Path, monkeypatch) -> FakeApply:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    set_home(monkeypatch, str(tmp_path / "home"))
     monkeypatch.setenv("SHELL", "/bin/zsh")
     monkeypatch.delenv("YOKE_ENV", raising=False)
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))

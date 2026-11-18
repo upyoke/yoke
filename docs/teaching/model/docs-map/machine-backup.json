@@ -7,10 +7,10 @@
  "status": "draft",
  "audience": "People moving Yoke to a new machine",
  "purpose": "Preserve machine configuration and credentials separately from a Universe archive.",
- "outline": ["Back up local files", "Restore on a new Mac", "Verify health and authorize again"],
+ "outline": ["Back up local files", "Restore on a new machine with owner-private permissions", "Verify health and authorize again"],
  "terms": ["backup", "restore", "connection"],
  "commands": ["command:yoke machine backup", "command:yoke machine restore"],
- "sources": ["doc:docs/public/guide/universe-portability.md"],
+ "sources": ["doc:docs/public/guide/machine-backup.md", "doc:docs/public/guide/universe-portability.md"],
  "deeper_pages": ["setup.install", "universe-portability"],
  "open_questions": [],
  "position": 8

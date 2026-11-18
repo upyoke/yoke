@@ -13,6 +13,7 @@ from urllib import request
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_contracts.codex_config_posture import plan
 from yoke_core.domain.installer_campaign_regression_cases import (
     INSTALLER_RECOVERY_CASES,
@@ -115,7 +116,7 @@ def test_uninstall_waits_for_deferred_removal_or_names_timeout(
 
 
 def _late_fixture(monkeypatch, tmp_path, setup_returncode):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, str(tmp_path))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / ".codex"))
     executable = tmp_path / "codex"
     executable.write_text("fixture binary")

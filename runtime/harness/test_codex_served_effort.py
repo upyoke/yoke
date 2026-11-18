@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.testing.real_home_isolation import set_home
+
 import json
 from pathlib import Path
 
@@ -75,7 +77,7 @@ def test_the_codex_config_file_never_supplies_the_effort(
     (home / ".codex" / "config.toml").write_text(
         'model_reasoning_effort = "high"\n', encoding="utf-8"
     )
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     _append(rollout, _turn(None))
 

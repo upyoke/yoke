@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+
+from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from pathlib import Path
 from unittest import mock
 
@@ -44,7 +46,10 @@ class TestResolveYokeDb:
     def test_returns_empty_without_explicit_override(self):
         with mock.patch.dict(
             os.environ,
-            {"YOKE_CONNECTED_ENV_DISABLE": "1"},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "YOKE_CONNECTED_ENV_DISABLE": "1",
+            },
             clear=True,
         ):
             assert resolve_yoke_db() == ""
@@ -54,7 +59,12 @@ class TestResolveYokeDb:
         root.mkdir()
         binding = self._binding(root)
         with mock.patch.dict(
-            os.environ, {machine_config.CONFIG_FILE_ENV: str(binding)}, clear=True
+            os.environ,
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                machine_config.CONFIG_FILE_ENV: str(binding),
+            },
+            clear=True,
         ):
             with mock.patch(
                 "yoke_core.hooks.helpers_session_id.find_project_root",
@@ -70,7 +80,11 @@ class TestResolveYokeDb:
         canonical.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.dict(
             os.environ,
-            {"YOKE_DB": str(canonical), machine_config.CONFIG_FILE_ENV: str(binding)},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "YOKE_DB": str(canonical),
+                machine_config.CONFIG_FILE_ENV: str(binding),
+            },
             clear=True,
         ):
             with mock.patch(
@@ -86,7 +100,11 @@ class TestResolveYokeDb:
         fixture = tmp_path / "fixture.db"
         with mock.patch.dict(
             os.environ,
-            {"YOKE_DB": str(fixture), machine_config.CONFIG_FILE_ENV: str(binding)},
+            {
+                **{name: os.environ[name] for name in HOME_ENVS},
+                "YOKE_DB": str(fixture),
+                machine_config.CONFIG_FILE_ENV: str(binding),
+            },
             clear=True,
         ):
             with mock.patch(
