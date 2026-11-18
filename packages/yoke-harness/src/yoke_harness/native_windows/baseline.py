@@ -8,8 +8,7 @@ from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
 
 
-# These contain live Windows credentials, browser identities or locked registry
-# hives. They stay on this dedicated user, never travel through a receipt.
+# Windows services and signed-in apps keep this state live outside the mirror.
 PRESERVED_DIRECTORIES = (
     ".yoke-browser-identities",
     ".ssh",
@@ -17,6 +16,7 @@ PRESERVED_DIRECTORIES = (
     ".local/share/claude",
     ".local/share/cursor-agent",
     "AppData/Local/Microsoft",
+    "AppData/Local/ConnectedDevicesPlatform",
     "AppData/Local/Packages",
     "AppData/Local/Claude-Data",
     "AppData/Roaming/Microsoft",

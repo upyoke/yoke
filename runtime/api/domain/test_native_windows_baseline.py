@@ -72,7 +72,11 @@ def test_live_containers_survive_both_mirrors_while_settings_restore(tmp_path):
         f"$homeRoot={quote(home)}; $goldenRoot={quote(golden)}\n"
         r"""
 $goldenProfile=Join-Path $goldenRoot 'profile'
-$live=@('AppData\Local\Packages\Fixture_package\LocalState\identity.bin','AppData\Local\Claude-Data\identity.bin')
+$live=@(
+ 'AppData\Local\Packages\Fixture_package\LocalState\identity.bin',
+ 'AppData\Local\Claude-Data\identity.bin',
+ 'AppData\Local\ConnectedDevicesPlatform\L.fixture\ActivitiesCache.db-shm'
+)
 $locks=@()
 try {
  foreach($relative in $live){
