@@ -282,7 +282,18 @@ def resolve_contract_host_control(
     from yoke_core.domain.cloud_machine_power import power_on
 
     power_on(material.project, material.settings)
-    return _factory(material), material
+    try:
+        control = _factory(material)
+    except HostControlLocalError:
+        raise
+    except (OSError, RuntimeError) as exc:
+        raise HostControlLocalError(
+            code="host_control_setup_failed",
+            phase="host_control_setup",
+            detail=f"The Test Machine adapter failed to initialize ({type(exc).__name__}).",
+            recovery_hint="Check the controller's SSH setup and the Test Machine's registered route, then retry.",
+        ) from exc
+    return control, material
 
 
 __all__ = [

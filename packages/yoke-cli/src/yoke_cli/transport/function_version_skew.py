@@ -38,6 +38,7 @@ from yoke_contracts.engine_version import (
 )
 from yoke_contracts.function_serving_floors import (
     FUNCTION_MINIMUM_SERVING_VERSIONS,
+    PROJECTLESS_TEST_MACHINE_FUNCTIONS,
     ArgumentFloor,
     declared_argument_floors,
     declared_minimum_serving_version,
@@ -45,7 +46,7 @@ from yoke_contracts.function_serving_floors import (
 
 #: Error code replacing a relayed ``function_not_registered``.
 SKEW_ERROR_CODE = "function_version_skew"
-#: Error code replacing a relayed ``payload_invalid`` for a floored argument.
+#: Error code for a server rejecting a changed request form.
 ARGUMENT_SKEW_ERROR_CODE = "function_argument_version_skew"
 
 #: Rendered in place of an engine version that does not resolve — a
@@ -172,6 +173,27 @@ def argument_skew_error(
     )
 
 
+def _projectless_test_machine_error(
+    function_id: str, *, server_version: str, env_name: str
+) -> FunctionError:
+    env = f"env {env_name!r}" if env_name else "env"
+    floor = declared_minimum_serving_version(function_id)
+    return FunctionError(
+        code=ARGUMENT_SKEW_ERROR_CODE,
+        message=(
+            f"the active HTTPS {env} requires a project for {function_id!r}. "
+            f"The projectless form requires minimum serving version {floor}. "
+            f"Server engine version {server_version or UNKNOWN_VERSION}."
+        ),
+        recovery_hint=(
+            "Use the CLI release this environment advertises and supply --project "
+            "with its Test Machine command. If that release cannot do the required "
+            "operation, contact the control-plane operator with the function and "
+            "serving version above."
+        ),
+    )
+
+
 def retype_skew(
     response: FunctionCallResponse,
     request: FunctionCallRequest,
@@ -189,9 +211,21 @@ def retype_skew(
     genuine unknown function, so the server's answer stands. A
     ``payload_invalid`` for a call carrying a floored argument is the same
     fact one level down: the server's request model predates the argument.
+    Older authorization can also require project on a now-projectless call.
     """
     if response.success or response.error is None:
         return response
+    if (
+        response.error.code == "project_required"
+        and request.function in PROJECTLESS_TEST_MACHINE_FUNCTIONS
+        and request.target.kind == "global"
+        and request.target.project_id is None
+        and "project" not in request.payload
+    ):
+        error = _projectless_test_machine_error(
+            request.function, server_version=server_version, env_name=env_name
+        )
+        return response.model_copy(update={"error": error})
     floors = declared_argument_floors(request.function, request.payload)
     if response.error.code == "payload_invalid" and floors:
         error = argument_skew_error(

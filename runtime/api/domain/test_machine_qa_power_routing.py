@@ -140,6 +140,31 @@ def test_material_factory_keeps_registered_host(monkeypatch):
     assert returned.settings == seen[0].settings == {"host": "old"}
 
 
+@pytest.mark.parametrize("typed", [False, True])
+def test_adapter_initialization_preserves_typed_errors_and_redacts_raw_failures(monkeypatch, typed):
+    from yoke_core.domain import cloud_machine_power
+
+    material = SimpleNamespace(project="p", settings={})
+    original = _power_error() if typed else RuntimeError("sensitive adapter detail")
+
+    def fail(_material):
+        raise original
+
+    monkeypatch.setattr(host_control_runner, "materialize_test_machine_contract", lambda _: material)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: None)
+    monkeypatch.setattr(host_control_runner, "_factory", fail)
+
+    with pytest.raises(HostControlLocalError) as caught:
+        host_control_runner.resolve_contract_host_control({})
+
+    if typed:
+        assert caught.value is original
+    else:
+        assert caught.value.code == "host_control_setup_failed"
+        assert caught.value.phase == "host_control_setup"
+        assert "sensitive adapter detail" not in str(caught.value)
+
+
 @pytest.mark.parametrize("flag", [True, None])
 def test_possible_or_unknown_contact_uses_case_error_reason(flag):
     error = RuntimeError("failure")
