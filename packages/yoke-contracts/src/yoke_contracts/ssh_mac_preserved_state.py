@@ -25,10 +25,7 @@ OS_PROTECTED_CACHE_HOME_ENTRIES = (
     f"{_CORE_SPEECH_CACHE_ROOT}/speakerRecognition",
     f"{_CORE_SPEECH_CACHE_ROOT}/secondPassChecker",
 )
-REQUIRED_PRESERVED_HOME_ENTRIES = (
-    ".ssh",
-    "Library/Application Support/com.apple.TCC",
-)
+REQUIRED_PRESERVED_HOME_ENTRIES = (".ssh",)
 # The live harness logins. Claude and Cursor keep theirs in the login Keychain
 # (Claude falls back to its credentials file); Codex keeps its in auth.json, or
 # in the Keychain when configured for it. A restored copy of any of them is the
@@ -44,6 +41,7 @@ HARNESS_LOGIN_HOME_ENTRIES = (
 LIVE_IDENTITY_HOME_ENTRIES = (LIVE_IDENTITY_STORE_HOME_ENTRY,)
 PRESERVED_HOME_ENTRIES = (
     *REQUIRED_PRESERVED_HOME_ENTRIES,
+    "Library/Application Support/com.apple.TCC",
     *HARNESS_LOGIN_HOME_ENTRIES,
     *OS_MANAGED_HOME_ENTRIES,
     *OS_PROTECTED_CACHE_HOME_ENTRIES,

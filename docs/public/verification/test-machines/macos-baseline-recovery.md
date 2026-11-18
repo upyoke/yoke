@@ -117,7 +117,10 @@ and `secondPassChecker` directories under its `onDeviceCompilationCaches`
 folder live. macOS 27 denies opening these artifacts even with Full Disk
 Access. Capture and reset leave them in place and verify that each present
 cache is a real directory owned by the fixture account.
-Only the dedicated test home is captured; system settings/other homes are not.
+The historical per-user `Library/Application Support/com.apple.TCC`
+directory stays live when present. Some fresh macOS 27 accounts have no such
+directory. Verify Full Disk Access and the Terminal bridge directly. Only the
+dedicated test home is captured.
 
 | Named refusal | Recovery |
 | --- | --- |
