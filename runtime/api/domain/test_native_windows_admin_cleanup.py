@@ -29,7 +29,7 @@ def test_cleanup_failure_retains_completed_diagnostics(monkeypatch, exit_code, c
 
     monkeypatch.setattr(provision.subprocess, "run", run)
     monkeypatch.setattr(admin, "run_framed", run)
-    monkeypatch.setattr(admin, "upload_received", lambda *args: True)
+    monkeypatch.setattr(admin, "stage_script", lambda *args, **kwargs: None)
     cause_type = {
         "timeout": subprocess.TimeoutExpired,
         "oserror": OSError,
@@ -55,56 +55,45 @@ def test_cleanup_failure_retains_completed_diagnostics(monkeypatch, exit_code, c
 
 
 @pytest.mark.parametrize("cleanup_fails", [False, "oserror", "nonzero"])
-def test_second_chunk_timeout_retains_safe_phase_and_cleanup(monkeypatch, cleanup_fails):
-    import base64
-    import hashlib
-
+def test_staging_timeout_retains_safe_phase_and_cleanup(monkeypatch, cleanup_fails):
     clock = [0.0]
-    calls = []
-    original = subprocess.TimeoutExpired(["private-encoded-argv"], 28)
+    original = subprocess.TimeoutExpired(["private-encoded-argv"], 65)
     cleanup_error = OSError("private cleanup detail")
     monkeypatch.setattr(admin.time, "monotonic", lambda: clock[0])
 
+    def stage(ssh, payload, root, diagnostic, *, deadline):
+        assert deadline == 90
+        assert payload == ("x" * 2130).encode("utf-8-sig")
+        diagnostic["remote_directory_owned"] = True
+        diagnostic["steps"].append({"phase": "sftp", "outcome": "TimeoutExpired"})
+        clock[0] = 90.0
+        raise original
+
     def run(argv, **kwargs):
-        calls.append((argv, kwargs))
-        if len(calls) == 1:
-            data = base64.b64decode(kwargs["input"].split(":", 1)[1])
-            clock[0] = 2.0
-            return subprocess.CompletedProcess(argv, 0, f"YOKE_UPLOAD:2048:{hashlib.sha256(data).hexdigest()}", "")
-        if len(calls) == 2:
-            clock[0] = 30.0
-            raise original
-        clock[0] = 31.0
+        assert " -File " not in argv[-1]
+        assert kwargs["timeout"] == 30
+        clock[0] = 91.0
         if cleanup_fails == "oserror":
             raise cleanup_error
         if cleanup_fails == "nonzero":
             return subprocess.CompletedProcess(argv, 7, "private output", "private cleanup detail")
         return subprocess.CompletedProcess(argv, 0, "", "")
 
+    monkeypatch.setattr(admin, "stage_script", stage)
     monkeypatch.setattr(admin.subprocess, "run", run)
-    monkeypatch.setattr(admin, "run_framed", run)
     with pytest.raises(admin.AdminScriptError) as error:
         provision.admin_script("key", "host", "admin", "x" * 2130, input_text="private password")
 
     assert error.value.__cause__ is original
     diagnostic = error.value.diagnostics
     assert diagnostic["total_bytes"] == 2133
-    assert diagnostic["total_chunks"] == 2
-    assert diagnostic["last_verified_offset"] == 2048
-    assert diagnostic["chunks"][1] == {
-        "index": 2, "offset": 2048, "bytes": 85, "elapsed_seconds": 2.0,
-        "remaining_seconds": 28.0, "duration_seconds": 28.0, "outcome": "TimeoutExpired",
-    }
-    assert diagnostic["upload_elapsed_seconds"] == 30.0
+    assert diagnostic["last_verified_offset"] == 0
+    assert diagnostic["steps"] == [{"phase": "sftp", "outcome": "TimeoutExpired"}]
+    assert diagnostic["upload_elapsed_seconds"] == 90.0
     assert diagnostic["cleanup_duration_seconds"] == 1.0
-    assert calls[0][1]["timeout"] == 30
-    assert calls[1][1]["timeout"] == 28
-    assert calls[2][1]["timeout"] == 30
-    assert not any(" -File " in argv[-1] for argv, _ in calls)
     assert diagnostic["owned_path"] in str(error.value)
-    assert "private-encoded-argv" not in str(error.value)
-    assert "private password" not in str(error.value)
-    assert "private cleanup detail" not in str(error.value)
+    for private in ["private-encoded-argv", "private password", "private cleanup detail"]:
+        assert private not in str(error.value)
     assert diagnostic["phase"] == "upload"
     assert diagnostic["cleanup"] == ("cleanup remains unverified" if cleanup_fails else "verified_absent")
     if cleanup_fails:

@@ -88,7 +88,7 @@ Write-Output 'Native OpenSSH ready; password authentication disabled.'
     if bootstrap_transport == "ssh":
         announce_designed_wait(
             "Windows OpenSSH bootstrap over administrator SSH",
-            max_wait_seconds=340,
+            max_wait_seconds=424,
             cadence="script upload and SSH command completion",
         )
         result = admin_script(key, host, admin_user, script)

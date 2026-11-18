@@ -83,93 +83,39 @@ def test_upload_reader_fits_small_command_transport():
     assert len(encoded(upload_script("'C:\\Users\\qa\\file.txt'"))) < 6000
 
 
-@pytest.mark.parametrize("valid_receipt", [False, True])
-def test_admin_upload_requires_receipt_and_password_stays_only_on_stdin(
-    monkeypatch, valid_receipt
-):
+@pytest.mark.parametrize("verified", [False, True])
+def test_admin_requires_verified_staging_and_password_stays_only_on_stdin(monkeypatch, verified):
     script = "Write-Output 'ready'"
     password = " \nprivate雪\r\n "
     calls = []
 
+    def stage(ssh, payload, root, diagnostic, **kwargs):
+        assert payload == script.encode("utf-8-sig")
+        assert password not in payload.decode("utf-8-sig")
+        if not verified:
+            raise RuntimeError("hash verification refused")
+        diagnostic["remote_directory_owned"] = True
+        diagnostic["last_verified_offset"] = len(payload)
+
     def run(argv, **kwargs):
         calls.append((argv, kwargs))
-        if len(calls) == 1:
-            return completed(
-                receipt(script.encode("utf-8-sig")) if valid_receipt else ""
-            )
         return completed("ready")
 
-    monkeypatch.setattr(provision.subprocess, "run", run)
+    monkeypatch.setattr(admin, "stage_script", stage)
+    monkeypatch.setattr(admin.subprocess, "run", run)
     monkeypatch.setattr(admin, "run_framed", run)
-    if valid_receipt:
-        provision.admin_script("key", "host", "admin", script, input_text=password)
-        assert calls[1][1]["input"] == frame_bytes(password.encode())
-        assert len(calls) == 3
+    if verified:
+        result = provision.admin_script("key", "host", "admin", script, input_text=password)
+        assert calls[0][1]["input"] == frame_bytes(password.encode())
+        assert " -File " in calls[0][0][-1]
+        assert result.staging_diagnostics["last_verified_offset"] == len(script.encode("utf-8-sig"))
+        assert len(calls) == 2
     else:
         with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed"):
             provision.admin_script("key", "host", "admin", script, input_text=password)
-        assert len(calls) == 2
-    assert calls[0][1]["input"] == frame_bytes(script.encode("utf-8-sig"))
+        assert len(calls) == 1
+        assert not any(" -File " in argv[-1] for argv, _ in calls)
     assert all(password not in " ".join(argv) for argv, _ in calls)
-
-
-@pytest.mark.parametrize("fail_chunk", [None, 1, 2])
-def test_admin_upload_chunks_verify_whole_prefix_with_one_deadline(monkeypatch, fail_chunk):
-    source = "Write-Output '雪';" * 400
-    payload = source.encode("utf-8-sig")
-    stored = bytearray()
-    calls = []
-    clock = [0]
-    monkeypatch.setattr(admin.time, "monotonic", lambda: clock[0])
-
-    def run(argv, **kwargs):
-        calls.append((argv, kwargs))
-        clock[0] += 1
-        if "input" not in kwargs:
-            assert "Remove-Item -LiteralPath" in base64.b64decode(argv[-1].split()[-1]).decode("utf-16-le")
-            return completed()
-        if "-EncodedCommand " not in argv[-1]:
-            assert bytes(stored) == payload
-            return completed("EXECUTED")
-        script = base64.b64decode(argv[-1].split()[-1]).decode("utf-16-le")
-        assert f"$file.Length -ne {len(stored)}" in script
-        chunk = base64.b64decode(kwargs["input"].split(":", 1)[1], validate=True)
-        assert len(chunk) <= 2048
-        stored.extend(chunk)
-        return completed(receipt(bytes(stored)) if len(calls) != fail_chunk else receipt(b"wrong"))
-
-    monkeypatch.setattr(provision.subprocess, "run", run)
-    monkeypatch.setattr(admin, "run_framed", run)
-    if fail_chunk:
-        with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed"):
-            provision.admin_script("key", "host", "admin", source)
-        assert len(calls) == fail_chunk + 1
-    else:
-        assert provision.admin_script("key", "host", "admin", source).stdout == "EXECUTED"
-        assert [kw["timeout"] for _, kw in calls[:-2]] == list(range(30, 30-len(calls)+2, -1))
-        assert "CreateNew" in base64.b64decode(calls[0][0][-1].split()[-1]).decode("utf-16-le")
-
-
-def test_admin_upload_never_resets_total_deadline(monkeypatch):
-    clock = [0]
-    monkeypatch.setattr(admin.time, "monotonic", lambda: clock[0])
-    calls = []
-
-    def run(argv, **kwargs):
-        calls.append(argv)
-        if "input" not in kwargs:
-            return completed()
-        clock[0] = 31
-        return completed(receipt(base64.b64decode(kwargs["input"].split(":", 1)[1])))
-
-    monkeypatch.setattr(provision.subprocess, "run", run)
-    monkeypatch.setattr(admin, "run_framed", run)
-    with pytest.raises(admin.AdminScriptError) as error:
-        provision.admin_script("key", "host", "admin", "x" * 5000)
-    assert isinstance(error.value.__cause__, subprocess.TimeoutExpired)
-    assert error.value.diagnostics["last_verified_offset"] == 2048
-    assert error.value.diagnostics["cleanup"] == "verified_absent"
-    assert len(calls) == 2  # first chunk and bounded owned-path cleanup
 
 
 def test_failed_transport_upload_never_executes_script(monkeypatch):
@@ -330,14 +276,18 @@ def test_large_script_streams_utf8_bom_and_keeps_input(monkeypatch):
 
 
 def test_staging_cleanup_failure_preserves_original_upload_failure(monkeypatch):
-    def run(argv, **kwargs):
-        if "input" in kwargs:
-            return completed("wrong receipt")
-        assert kwargs["timeout"] == 30
-        raise subprocess.TimeoutExpired(argv, 10)
+    primary = RuntimeError("private staging detail")
 
-    monkeypatch.setattr(provision.subprocess, "run", run)
-    monkeypatch.setattr(admin, "run_framed", run)
+    def stage(*args, **kwargs):
+        raise primary
+
+    def run(argv, **kwargs):
+        assert kwargs["timeout"] == 30
+        raise subprocess.TimeoutExpired(argv, 30)
+
+    monkeypatch.setattr(admin, "stage_script", stage)
+    monkeypatch.setattr(admin.subprocess, "run", run)
     with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed") as error:
         provision.admin_script("key", "host", "admin", "source")
+    assert error.value.__cause__ is primary
     assert "Owned Windows staging cleanup failed" in error.value.__notes__[0]

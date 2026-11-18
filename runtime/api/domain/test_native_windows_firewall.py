@@ -64,6 +64,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         else Path(os.environ["ProgramFiles"]) / "Git/usr/bin"
     )
     assert (directory / "ssh.exe").is_file(), "declared SSH client missing"
+    assert (directory / "sftp.exe").is_file(), "declared SFTP client missing"
     monkeypatch.setenv("PATH", str(directory) + os.pathsep + os.environ["PATH"])
     with capsys.disabled():
         print("SSH_CLIENT", client, shutil.which("ssh"))
@@ -95,7 +96,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             diagnostic = powershell(
                 "Get-Service sshd | Format-List Name,Status; "
                 "Get-NetTCPConnection -LocalPort 22 -ErrorAction SilentlyContinue | Format-List State,LocalAddress; "
-                "Get-ChildItem 'C:\\ProgramData\\YokeQaProvision-*.ps1' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
+                "Get-ChildItem 'C:\\ProgramData\\YokeQaProvision-*' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
                 "Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 15 -ErrorAction SilentlyContinue | Select-Object TimeCreated,Message | Format-List",
                 tmp_path,
             )
@@ -193,7 +194,7 @@ $task=Get-ScheduledTask -TaskName YokeQaMachineSettings
 if($task.Principal.UserId -notin @('SYSTEM','S-1-5-18')){{throw 'recovery task is not SYSTEM'}}
 if(!(Test-Path 'C:\ProgramData\YokeQa\private\machine-settings.ps1')){{throw 'recovery program missing'}}
 if(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name DefaultPassword -ErrorAction SilentlyContinue){{throw 'plaintext autologon password'}}
-if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyContinue){{throw 'owned upload staging remains'}}
+if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*' -ErrorAction SilentlyContinue){{throw 'owned upload staging remains'}}
 'GUEST_SETUP_OK'
 """
         verified = powershell(checks, tmp_path)

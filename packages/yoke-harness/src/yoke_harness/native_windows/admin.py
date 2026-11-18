@@ -5,8 +5,8 @@ import time
 from uuid import uuid4
 
 from yoke_harness.native_windows.framed_process import run_framed
-from yoke_harness.native_windows.stdin_frame import frame_bytes, upload_received, upload_script
-from yoke_harness.native_windows.transport import encoded, quote
+from yoke_harness.native_windows.stdin_frame import frame_bytes
+from yoke_harness.native_windows.admin_staging import cleanup_script, command, stage_script
 from yoke_harness.test_machine_remote_exec import host_key_options
 
 
@@ -24,7 +24,8 @@ class AdminScriptError(RuntimeError):
 
 def admin_script(key, host, user, script, *, input_text=None):
     """Retain upload timing and cleanup evidence without exposing scripts or argv."""
-    path = rf"C:\ProgramData\YokeQaProvision-{uuid4().hex}.ps1"
+    root = rf"C:\ProgramData\YokeQaProvision-{uuid4().hex}"
+    path = root + r"\script.ps1"
     ssh = [
         "ssh", "-F", "none", *host_key_options({}), "-i", str(key),
         "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes",
@@ -32,49 +33,18 @@ def admin_script(key, host, user, script, *, input_text=None):
     ]
     payload = script.encode("utf-8-sig")
     diagnostics = {
-        "phase": "upload", "owned_path": path, "total_bytes": len(payload),
-        "total_chunks": (len(payload) + 2047) // 2048,
-        "last_verified_offset": 0, "chunks": [], "cleanup": "pending",
+        "phase": "upload", "transport": "sftp", "owned_path": path,
+        "owned_directory": root, "total_bytes": len(payload),
+        "last_verified_offset": 0, "steps": [], "cleanup": "pending",
+        "remote_directory_owned": False,
     }
     failure = result = None
     try:
         started = time.monotonic()
-        deadline = started + 30
         try:
-            for offset in range(0, len(payload), 2048):
-                chunk = payload[offset:offset + 2048]
-                write = upload_script(quote(path), offset=offset)
-                before = time.monotonic()
-                remaining = deadline - before
-                event = {
-                    "index": offset // 2048 + 1, "offset": offset, "bytes": len(chunk),
-                    "elapsed_seconds": round(before - started, 3),
-                    "remaining_seconds": round(max(remaining, 0), 3),
-                    "outcome": "started",
-                }
-                diagnostics["chunks"].append(event)
-                try:
-                    if remaining <= 0:
-                        event["outcome"] = "deadline_exhausted"
-                        raise subprocess.TimeoutExpired("Windows script upload", 30)
-                    uploaded = run_framed(
-                        [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
-                        input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
-                    )
-                    if not upload_received(uploaded, payload[:offset + len(chunk)]):
-                        event["outcome"] = "receipt_mismatch"
-                        error = AdminScriptError("windows_admin_script_upload_failed", diagnostics)
-                        error.upload_result = uploaded
-                        raise error
-                    diagnostics["last_verified_offset"] = offset + len(chunk)
-                    event["outcome"] = "verified"
-                except AdminScriptError:
-                    raise
-                except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
-                    event["outcome"] = type(exc).__name__
-                    raise AdminScriptError("windows_admin_script_upload_failed", diagnostics) from exc
-                finally:
-                    event["duration_seconds"] = round(time.monotonic() - before, 3)
+            stage_script(ssh, payload, root, diagnostics, deadline=started + 90)
+        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+            raise AdminScriptError("windows_admin_script_upload_failed", diagnostics) from exc
         finally:
             diagnostics["upload_elapsed_seconds"] = round(time.monotonic() - started, 3)
         diagnostics["phase"] = "execution"
@@ -94,10 +64,11 @@ def admin_script(key, host, user, script, *, input_text=None):
         before = time.monotonic()
         removed = None
         try:
-            cleanup = "$ErrorActionPreference='Stop'; Remove-Item -LiteralPath " + quote(path) + " -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath " + quote(path) + "){throw 'owned staging cleanup failed'}"
+            cleanup = cleanup_script(
+                root, owned=diagnostics["remote_directory_owned"], payload=payload,
+            )
             removed = subprocess.run(
-                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(cleanup)],
-                capture_output=True, text=True, timeout=30,
+                [*ssh, command(cleanup)], capture_output=True, text=True, timeout=30,
             )
             diagnostics["cleanup_exit_code"] = removed.returncode
             if removed.returncode:

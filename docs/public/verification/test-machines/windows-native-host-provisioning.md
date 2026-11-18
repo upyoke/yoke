@@ -195,17 +195,21 @@ python -m yoke_harness.native_windows.provision --project P --machine VM --host 
 
 When administrator key SSH already works, add `--bootstrap-transport ssh` to run
 bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
-Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
-receipts under one 30-second deadline; only the complete verified script runs.
-Administrator framed input stays open until remote completion; output pipes drain
-concurrently and input delivery remains within the upload deadline. Local child
-termination/draining has a separate four-second reserve. Owned administrator
-staging cleanup is bounded to thirty seconds, including fresh SSH startup, and
-preserves prior errors. Include both reserves in the enclosing controller budget.
-Administrator upload failures retain the exact owned path, chunk timing and last
-verified offset in `staging_diagnostics`, including cleanup outcome. Inspect that
-metadata before a diagnostic retry; private causes can contain encoded argv.
-Password frames never produce digests; readers do not wait for stdin EOF.
+Administrator scripts use batch SFTP into a unique administrator/SYSTEM-only
+directory; the controller also requires `sftp` beside its SSH client. Private
+local staging uses owner-only permissions on either controller OS. Preparation,
+transfer and independent length/SHA256 verification share one 90-second deadline;
+only the verified script runs through `-File`, with a separate 300-second budget.
+Optional password input stays on framed stdin, open until remote completion,
+with concurrent output draining. Local child termination/draining reserves four
+seconds; exact owned staging cleanup reserves thirty seconds and preserves prior
+errors. Include both reserves in the enclosing controller budget. A collision,
+changed file or uncertain ownership is preserved for inspection, never replayed.
+`staging_diagnostics` retains exact owned paths, step timing, verified byte count
+and cleanup outcome. Inspect it before a diagnostic retry; private causes can
+contain encoded argv. Password frames never produce digests or wait for stdin EOF.
+SFTP verifies script transfer only; setup still requires actual password-input,
+standard-user desktop and SSH proof before readiness is claimed.
 
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
 -- ...`; this deliberately persists the generated test-user password in Yoke.
