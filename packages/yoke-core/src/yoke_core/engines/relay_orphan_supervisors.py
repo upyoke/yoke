@@ -92,9 +92,12 @@ def _task_pins(document: ET.Element, label: str) -> tuple[str, list[str]]:
     action = actions[0]
     state = Path(action.findtext("t:WorkingDirectory", "", namespace))
     path = state / "task-runner.py"
+    digest = label.removeprefix(RELAY_LABEL_PREFIX)
     if (not state.is_absolute()
+            or state.name != digest or state.parent.name != RELAY_STATE_ROOT_NAME
             or Path(action.findtext("t:Command", "", namespace)) != scheduler.relay_runtime_python(state)
-            or action.findtext("t:Arguments", "", namespace) != subprocess.list2cmdline(["-I", str(path)])):
+            or action.findtext("t:Arguments", "", namespace) != subprocess.list2cmdline(["-I", str(path)])
+            or path.is_symlink()):
         raise ValueError("task does not run the Yoke relay launcher")
     tree = ast.parse(path.read_text(encoding="utf-8"))
     # Read the generated runner as data. Doctor never imports or executes it.
@@ -108,7 +111,7 @@ def _task_pins(document: ET.Element, label: str) -> tuple[str, list[str]]:
     home = pins.get(HOME_ENV)
     config = pins.get(CONFIG_FILE_ENV)
     if (not isinstance(home, str) or not isinstance(config, str)
-            or state != Path(home) / RELAY_STATE_ROOT_NAME / label.removeprefix(RELAY_LABEL_PREFIX)):
+            or state != Path(home) / RELAY_STATE_ROOT_NAME / digest):
         raise ValueError("task working directory does not match the relay runner")
     return config, argv
 

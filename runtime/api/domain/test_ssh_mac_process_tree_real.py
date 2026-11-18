@@ -7,7 +7,6 @@ runs it through both a POSIX ``sh`` and ``zsh``, the macOS default.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
 import time
 from typing import Callable
