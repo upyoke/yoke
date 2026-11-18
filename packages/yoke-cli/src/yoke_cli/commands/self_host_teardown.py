@@ -40,11 +40,11 @@ def self_host_teardown(args: List[str]) -> int:
             "removes the stack; everything further is opt-in and named for "
             "what it destroys. Without --destroy-universe the database "
             "volume survives, so `yoke self-host init --dir PATH "
-            "--protect-existing --start` brings the same universe back. The "
-            "machine connection pointing "
-            "at this bundle's server is retired unless --keep-connection. "
-            "Every alias for that server is retired together, so no dead "
-            "authority is left behind in ~/.yoke/config.json."
+            "--protect-existing --start` brings the same universe back. Every "
+            "machine connection that reaches this bundle's server is retired "
+            "together unless --keep-connection: one at its published URL, or "
+            "one behind a TLS proxy whose own token proves an identity here. "
+            "One whose probe fails is kept and named with its removal command."
         ),
     )
     parser.add_argument(
@@ -190,6 +190,13 @@ def _print_teardown_summary(report: Dict[str, object]) -> None:
         print(f"active connection now: {active}")
     else:
         print("connection: unchanged")
+    for left in report.get("connections_left") or []:
+        env = left.get("env")
+        print(
+            f"connection left: {env} ({left.get('api_url')}): its token proved "
+            f"no identity at this bundle: {left.get('reason')}. If it reached "
+            f"this bundle, run `yoke connection remove {env}`"
+        )
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {

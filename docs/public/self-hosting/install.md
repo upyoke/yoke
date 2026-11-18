@@ -249,12 +249,16 @@ and reports any another container still needs. `--remove-bundle` deletes the
 files Yoke wrote, `secrets/` and the admin token file included, and reports
 anything else in the directory rather than deleting it.
 
-Teardown atomically retires every machine connection pointing at this bundle's
+Teardown atomically retires every machine connection that reaches this bundle's
 server before stopping it, including each connection's unshared token file, so
-no dead authority or credential is left behind. Pass `--keep-connection` to
-leave all of them, or `--activate ENV` to name a connection for another server
-that takes over as this machine's authority. Idle machine-config lock files
-created by retirement are removed as part of teardown. Single-connection
+no dead authority or credential is left behind. A connection reaches it at the
+published URL, or through a TLS proxy when its own token proves an identity at
+the bundle. A connection whose token proves nothing there is kept and listed
+under `connection left` with its `yoke connection remove ENV` command. Pass
+`--keep-connection` to leave all of them, or `--activate ENV` to name a
+connection for another server that takes over as this machine's authority. Idle
+machine-config lock files created by retirement are removed as part of
+teardown. Single-connection
 retirement remains available on its own as
 `yoke connection remove ENV [--activate ENV]`. It also drops the connection's
 project mappings and GitHub authorization, and keeps (and reports) a token file

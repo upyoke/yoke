@@ -1,15 +1,21 @@
+# ruff: noqa: F811 - pytest injects the fixtures re-exported from the support module
 """``yoke self-host teardown`` — what it removes, and what it refuses to."""
 
 from __future__ import annotations
 
-import json
 import stat
 import subprocess
-from pathlib import Path
 
 import pytest
 
-from yoke_cli.commands import self_host as commands
+from runtime.api.cli.self_host_teardown_test_support import (  # noqa: F401
+    docker,
+    identity_probe,
+    machine_home,
+    payload as _payload,
+    seed_connection as _seed_connection,
+    target,
+)
 from yoke_cli.commands import self_host_teardown as teardown_commands
 from yoke_cli.config import (
     github_git_credential_file,
@@ -19,53 +25,7 @@ from yoke_cli.config import (
 )
 from yoke_cli.self_host import bundle, first_boot_token, teardown
 
-
-@pytest.fixture()
-def target(tmp_path, installed_self_host_prerequisites) -> Path:
-    directory = tmp_path / "yoke-server"
-    assert commands.self_host_init(["--admin-name=Ada", f"--dir={directory}"]) == 0
-    first_boot_token.token_drop_path(directory).write_text("delivered credential\n")
-    return directory
-
-
-@pytest.fixture()
-def docker(monkeypatch) -> list[tuple[str, ...]]:
-    calls: list[tuple[str, ...]] = []
-
-    def run(argv, **kwargs):
-        calls.append(tuple(argv))
-        stdout = ""
-        if tuple(argv[1:]) == ("compose", "config", "--images"):
-            stdout = "ghcr.io/upyoke/yoke-server:latest\npostgres:17\n"
-        return subprocess.CompletedProcess(tuple(argv), 0, stdout, "")
-
-    monkeypatch.setattr(teardown, "_WHICH", lambda _name: "/usr/bin/docker")
-    monkeypatch.setattr(teardown, "_RUN", run)
-    return calls
-
-
-@pytest.fixture()
-def machine_home(tmp_path, monkeypatch) -> Path:
-    home = tmp_path / "machine-home"
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
-    monkeypatch.delenv("YOKE_ENV", raising=False)
-    return home
-
-
-def _seed_connection(tmp_path: Path, *, env: str, api_url: str) -> None:
-    token = tmp_path / f"{env}.token"
-    token.write_text("tok\n", encoding="utf-8")
-    writer.set_connection(
-        env,
-        transport="https",
-        api_url=api_url,
-        token_file=str(token),
-    )
-
-
-def _payload(machine_home: Path) -> dict:
-    return json.loads((machine_home / "config.json").read_text(encoding="utf-8"))
+pytestmark = pytest.mark.usefixtures("identity_probe")
 
 
 @pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
@@ -297,7 +257,41 @@ def test_a_connection_for_another_server_is_left_alone(
     )
 
     assert report["connection"] is None
+    assert [left["env"] for left in report["connections_left"]] == ["hosted"]
     assert list(_payload(machine_home)["connections"]) == ["hosted"]
+
+
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
+def test_a_proxied_connection_is_retired_only_when_its_token_proves_identity(
+    target, docker, tmp_path, machine_home, identity_probe, capsys
+):
+    _seed_connection(tmp_path, env="proxied", api_url="https://proxy.test", token="ok")
+    _seed_connection(tmp_path, env="stranger", api_url="https://other.test")
+    _seed_connection(tmp_path, env="cloud", api_url="https://app.upyoke.com")
+    identity_probe["accepted"].add("ok")
+    tokens = machine_home / "secrets"
+    assert (tokens / "proxied.token").is_file()
+
+    rc = teardown_commands.self_host_teardown(
+        [
+            f"--dir={target}",
+            f"--config={machine_home / 'config.json'}",
+            "--activate=cloud",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert identity_probe["calls"] == [
+        ("http://127.0.0.1:8765", "ok"),
+        ("http://127.0.0.1:8765", "tok"),
+    ]
+    assert "connection retired: proxied" in out
+    assert not (tokens / "proxied.token").exists()
+    assert sorted(_payload(machine_home)["connections"]) == ["cloud", "stranger"]
+    assert "connection left: stranger (https://other.test)" in out
+    assert "HTTP 401" in out
+    assert "`yoke connection remove stranger`" in out
 
 
 def test_retiring_the_active_authority_with_peers_names_the_choice(
