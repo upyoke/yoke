@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.function_serving_floors import (
     FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS,
+    PROJECTLESS_TEST_MACHINE_FUNCTIONS,
     TEST_MACHINE_ARGUMENT_FUNCTIONS,
     declared_argument_floors,
 )
@@ -170,3 +171,35 @@ def test_every_argument_floor_names_a_field_of_its_registered_request_model() ->
     models = {entry.function_id: entry.request_model for entry in list_entries()}
     for function_id, floors in FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS.items():
         assert set(floors) <= set(models[function_id].model_fields), function_id
+
+
+@pytest.mark.parametrize("function_id", PROJECTLESS_TEST_MACHINE_FUNCTIONS)
+def test_old_project_authorization_names_the_projectless_serving_floor(function_id):
+    payload = {} if function_id == "test_machine.list" else {"test_machine": "linux-lab"}
+    request = _request(function_id, payload)
+    refusal = _refused(request, "project_required")
+
+    answer = retype_skew(refusal, request, server_version="", env_name="prod")
+
+    assert answer.error.code == ARGUMENT_SKEW_ERROR_CODE
+    assert function_id in answer.error.message
+    assert "projectless form requires minimum serving version next-release" in answer.error.message
+    assert "env 'prod'" in answer.error.message
+    assert "--project" in answer.error.recovery_hint
+    assert answer.request_id == refusal.request_id
+
+
+@pytest.mark.parametrize(
+    ("function_id", "payload", "code"),
+    [
+        ("test_machine.get", {"project": "yoke"}, "project_required"),
+        ("test_machine.operation.submit", {"test_machine": "linux-lab"}, "project_required"),
+        ("projects.capability_settings.get", {}, "project_required"),
+        ("test_machine.get", {"test_machine": "linux-lab"}, "permission_denied"),
+    ],
+)
+def test_projectless_skew_leaves_other_refusals_unchanged(function_id, payload, code):
+    request = _request(function_id, payload)
+    refusal = _refused(request, code)
+
+    assert retype_skew(refusal, request, server_version="", env_name="prod") is refusal

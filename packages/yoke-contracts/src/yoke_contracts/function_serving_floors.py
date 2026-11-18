@@ -164,6 +164,20 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
 }
 
 
+# These request forms dropped the project required by the prior server.
+PROJECTLESS_TEST_MACHINE_FUNCTIONS = (
+    "test_machine.bridge_diagnose",
+    "test_machine.delete",
+    "test_machine.desktop_access",
+    "test_machine.get",
+    "test_machine.golden_capture",
+    "test_machine.list",
+    "test_machine.operation.begin",
+    "test_machine.reset", "test_machine.screenshot",
+    "test_machine.settings_replace", "test_machine.verify",
+)
+
+
 @dataclass(frozen=True)
 class ArgumentFloor:
     """The first serving version that accepts one argument of a served function.
@@ -329,6 +343,7 @@ __all__ = [
     "FUNCTION_RESPONSE_FIELD_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_MINIMUM_SERVING_VERSIONS",
+    "PROJECTLESS_TEST_MACHINE_FUNCTIONS",
     "TEST_MACHINE_ARGUMENT_FUNCTIONS",
     "declared_argument_floors",
     "declared_minimum_serving_version",
