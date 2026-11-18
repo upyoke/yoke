@@ -8,18 +8,21 @@ class BodySwap:
     """Discard queued redraws once the wizard starts shutting down."""
 
     async def _apply_pending_swap(self) -> None:
-        """Perform the recorded body swap synchronously, if one is pending.
+        """Drain one body swap, then deliver text captured while it awaited DOM work.
 
-        Each async message handler calls this after the synchronous flow routing
-        runs, so the DOM swap + focus complete within the same handler turn that
-        the transition keypress drove — no deferred window during which a
-        keystroke could be lost. Idempotent: the pending flag guards against the
-        handler drain and the next-tick fallback both firing for one transition.
+        The pending flag keeps the handler drain and next-tick fallback from
+        applying the same transition twice. Raw keys stay buffered until the
+        incoming view has registered its input and completed mounting.
         """
         if not self.is_running or not self._swap_pending:
             return
         self._swap_pending = False
-        await self._swap_body()
+        self._body_swap_active = True
+        try:
+            await self._swap_body()
+        finally:
+            self._body_swap_active = False
+        self._flush_transition_text()
 
     async def _swap_body(self) -> None:
         if not self.is_running:

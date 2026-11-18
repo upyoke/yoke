@@ -72,6 +72,8 @@ class OnboardWizardApp(
         # Set by ``_render_current`` and drained by the async message handlers so
         # the body swap runs in the same handler turn as the transition keypress.
         self._swap_pending = False
+        self._body_swap_active = False
+        self._transition_text = ""
         self._screen_compat = screen_compat_terminal()
         self._plain_glyphs = plain_glyphs()
 
@@ -130,9 +132,8 @@ class OnboardWizardApp(
         for widget in body.children:
             if isinstance(widget, Input):
                 widget.disabled = True
-        # The async message handlers drain the swap synchronously in the same
-        # handler turn the transition keypress drove (so there is never an idle
-        # tick where the new input is unmounted yet keys can still be dispatched).
+        # Async handlers drain the swap and replay typed text after the new
+        # input mounts; raw keys are buffered across the awaited DOM operations.
         # This next-tick fallback covers any path that reaches _render_current
         # outside a draining handler — chiefly tests that call a flow method
         # directly — so the swap still settles on the next message-loop tick.
