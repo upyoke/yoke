@@ -84,14 +84,14 @@ def profile_script(control, operation, destination):
 $check=$golden
 while($check){
  if(Test-Path -LiteralPath $check){
-  $entry=Get-Item -LiteralPath $check
+  $entry=Get-Item -LiteralPath $check -Force -ErrorAction Stop
   if($entry.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: remove links from the golden path before capture or restore'}
  }
  $parent=Split-Path -Parent $check
  if($parent -eq $check){break}; $check=$parent
 }
 if(Test-Path -LiteralPath (Join-Path $golden 'profile')){
- if((Get-Item -LiteralPath (Join-Path $golden 'profile')).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: preserve the golden and remove its linked profile before restore'}
+ if((Get-Item -LiteralPath (Join-Path $golden 'profile') -Force -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: preserve the golden and remove its linked profile before restore'}
 }
 """.replace("\n+", "\n")
     copy = profile_copy_script(control, path)
