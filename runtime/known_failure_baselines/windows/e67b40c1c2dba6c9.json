@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_harness_config_paths.py::test_macos_claude_config_uses_application_support",
- "reason": "AssertionError: assert WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/pytest-0/popen-gw1/test_macos_claude_config_uses_0/harness-home/Library/Application Support/Claude/cla"
-}

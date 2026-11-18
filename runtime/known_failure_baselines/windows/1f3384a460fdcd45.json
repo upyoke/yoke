@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_project_uninstall_lane_trust.py::test_uninstall_removes_checkout_and_lane_trust",
- "reason": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_uninstall_removes_checkou0\\\\harness-home\\\\.claud"
-}

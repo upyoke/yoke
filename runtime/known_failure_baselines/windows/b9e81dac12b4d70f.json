@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_operations_cli_field_note.py::test_field_note_append_allows_direct_terminal_without_session",
- "reason": "RuntimeError: Could not determine home directory."
-}

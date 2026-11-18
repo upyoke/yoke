@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_scratch_path_roots.py::TestScratchPathRoots::test_all_roots_absolute_without_trailing_slash",
- "reason": "AssertionError: False is not true : C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw1\\test_all_roots_absolute_withou0\\harness-home\\.yoke\\tmp"
-}

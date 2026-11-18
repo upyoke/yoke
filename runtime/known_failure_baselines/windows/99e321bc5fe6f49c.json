@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree.py::TestResolvePlaywrightCache::test_with_project",
- "reason": "AssertionError: assert False"
-}

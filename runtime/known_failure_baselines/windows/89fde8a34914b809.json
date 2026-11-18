@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_doctor_session.py::test_codex_reads_the_newest_rollout[never-PASS-None-codex-desktop]",
- "reason": "FileNotFoundError: [WinError 3] The system cannot find the path specified: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_codex_reads_the_newest_ro1\\\\."
-}

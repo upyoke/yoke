@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_hook_helpers.py::TestGetSessionId::test_returns_unknown_when_no_env",
- "reason": "RuntimeError: Could not determine home directory."
-}

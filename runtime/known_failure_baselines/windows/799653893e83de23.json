@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_hook_helpers.py::TestGetSessionId::test_falls_back_to_claude_session_id",
- "reason": "RuntimeError: Could not determine home directory."
-}

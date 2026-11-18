@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claim_bash_client_home.py::test_tilde_redirect_resolves_under_the_client_home",
- "reason": "AssertionError: assert WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/pytest-0/popen-gw1/test_tilde_redirect_resolves_u0/harness-home') == WindowsPath('C:/Users/runneradmin"
-}

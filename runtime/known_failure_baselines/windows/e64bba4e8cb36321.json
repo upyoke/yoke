@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_session_orientation.py::test_cwd_outside_a_managed_project_gets_global_orientation",
- "reason": "assert (\"Yoke interpreter note: bare python3 here is not the interpreter Yoke's dependencies are installed for (C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.14.10\\\\x64\\\\python3.EXE) and cannot import `pyda"
-}

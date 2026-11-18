@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_machine_backup_restore.py::test_skip_list[github-app-user-operator.json]",
- "reason": "yoke_cli.config.machine_backup_files.MachineBackupError: machine_backup_outside_home: config.json. Recovery: move the referenced file under your home and update config.json."
-}
