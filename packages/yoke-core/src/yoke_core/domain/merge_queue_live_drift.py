@@ -24,6 +24,12 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import github_merge_queue_rest as mq_rest
+from yoke_core.domain.actions_policy_apply import read_live_policies
+from yoke_core.domain.actions_policy_declaration import (
+    ACTIONS_POLICIES_KEY,
+    declares_actions_policies,
+    diff_policies,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
     RestTransportError,
@@ -191,22 +197,30 @@ def compare_declared_against_live(
     )
     if not compare_bypass:
         unreadable.append(f"bypass_actors unreadable: {ADMINISTRATION_RECOVERY}")
-    return LiveDriftReport(
-        unreadable=tuple(unreadable),
-        drift=tuple(
-            diff_declared_against_live(
-                declared,
-                live_branch_rules=list(rules),
-                live_allow_auto_merge=live_auto,
-                live_bypass_actors=bypass,
-                compare_bypass=compare_bypass,
-            )
-        ),
+    drift = diff_declared_against_live(
+        declared,
+        live_branch_rules=list(rules),
+        live_allow_auto_merge=live_auto,
+        live_bypass_actors=bypass,
+        compare_bypass=compare_bypass,
     )
+    if declares_actions_policies(declared):
+        try:
+            live_policies = read_live_policies(owner, repo, token=token)
+        except RestTransportError as exc:
+            unreadable.append(f"actions policies unreadable: {exc}")
+        else:
+            drift.extend(
+                diff_policies(declared[ACTIONS_POLICIES_KEY], live_policies)
+            )
+    return LiveDriftReport(unreadable=tuple(unreadable), drift=tuple(drift))
 
 
 def enforcement_drift(declared: Any, *, rules: Sequence[Any]) -> tuple[str, ...]:
     """Drift in what the queue actually gates on: queue params and checks.
+
+    Actions policies stay out too: they decide whether a workflow may run,
+    not which checks a merge waits on, and Doctor reports their drift.
 
     Deliberately blind to ``allow_auto_merge`` and ``bypass_actors``.
     Both are real settings and the Doctor check reports them, but neither

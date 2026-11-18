@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import github_merge_queue_rest as rest
+from yoke_core.domain.actions_policy_apply import converge_policies
+from yoke_core.domain.actions_policy_declaration import (
+    ACTIONS_POLICIES_KEY,
+    declares_actions_policies,
+)
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.merge_queue_declaration import (
     diff_declared_against_live,
@@ -21,6 +26,9 @@ def apply_declaration(
     preview: bool = False,
 ) -> dict[str, Any]:
     """Idempotently converge live GitHub state onto ``declared``.
+
+    Covers the ruleset, ``allow_auto_merge`` and, when the declaration
+    names ``actions_policies``, every repository-level Actions policy.
 
     Returns a result dict describing preview or applied mutations. Raises
     :class:`RestTransportError` on GitHub failures.
@@ -88,9 +96,13 @@ def apply_declaration(
         "actions": actions,
         "drift_before": drift,
         "changed": False,
+        "actions_policies_managed": declares_actions_policies(declared),
     }
     if preview:
         result["changed"] = missing_ruleset or ruleset_drift or auto_drift
+        _converge_actions_policies(
+            result, declared, owner=owner, repo=repo, token=token, preview=True,
+        )
         return result
 
     if missing_ruleset:
@@ -124,7 +136,34 @@ def apply_declaration(
             "apply completed but live state still drifts: "
             + "; ".join(remaining)
         )
+    _converge_actions_policies(
+        result, declared, owner=owner, repo=repo, token=token, preview=False,
+    )
     return result
+
+
+def _converge_actions_policies(
+    result: dict[str, Any],
+    declared: Mapping[str, Any],
+    *,
+    owner: str,
+    repo: str,
+    token: str,
+    preview: bool,
+) -> None:
+    """Fold the declared Actions policies' plan or apply into ``result``."""
+    if not result["actions_policies_managed"]:
+        return
+    plan = converge_policies(
+        declared[ACTIONS_POLICIES_KEY],
+        owner=owner,
+        repo=repo,
+        token=token,
+        preview=preview,
+    )
+    result["actions"].extend(plan["actions"])
+    result["drift_before"] = [*result["drift_before"], *plan["drift_before"]]
+    result["changed"] = bool(result["changed"] or plan["changed"])
 
 
 def _branch_from_ruleset(ruleset: Mapping[str, Any]) -> str:

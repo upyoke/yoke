@@ -30,6 +30,35 @@ then apply. To remove or rename a required check, use two PRs: first land and
 apply the declaration change, then remove or rename the CI job. Removing the
 job in the first PR would leave the live required check unable to pass.
 
+The declaration may also carry an `actions_policies` list of repository
+Actions policies (GitHub's workflow execution protections), each with the
+`name`, `enforcement`, `conditions` and `rules` that GitHub's Actions policies
+REST API accepts. Naming the key hands the repository's own Actions policies
+to the declaration: apply creates or updates each declared policy by name,
+then deletes any repository-level policy the list does not name (an empty list
+deletes them all), and Doctor reports the same differences as drift. Policies
+inherited from the organization or enterprise are never touched. Without the
+key, Yoke leaves Actions policies alone. Use it when a public repository's
+required check runs on `pull_request_target`: GitHub blocks that event in
+public repositories unless an event policy allows it, and the blocked check
+never reports. Scope the allow to the one workflow:
+
+```json
+"actions_policies": [{
+  "name": "cla-pull-request-target",
+  "enforcement": "active",
+  "conditions": {"workflow_path": {"include": [".github/workflows/cla.yml"], "exclude": []}},
+  "rules": [{"type": "restrict_action_events",
+             "parameters": {"allowed_events": ["issue_comment", "merge_group", "pull_request_target"]}}]
+}]
+```
+
+List every event the workflow uses: the rule permits only the events it names.
+Policy drift never blocks a landing, because it decides whether a workflow may
+run, not which checks a merge waits on. A server that predates Actions policy
+support answers apply without `actions_policies_managed`; the CLI then says
+the policies were not applied.
+
 When the gate declaration differs from live, merge preflight refuses; apply
 the landed gate declaration, then retry. An unreadable declaration or GitHub
 reports a skipped comparison in the landing evidence. Recovery reporting

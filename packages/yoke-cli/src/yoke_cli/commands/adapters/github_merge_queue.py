@@ -127,12 +127,24 @@ def github_merge_queue_hold(args: List[str]) -> int:
     return completed.returncode
 
 
+# Servers older than Actions policy support answer without this field and
+# leave a declared ``actions_policies`` list unapplied; say so rather than
+# letting the apply read as complete.
+ACTIONS_POLICIES_UNSUPPORTED_NOTICE = (
+    "actions_policies not applied: this Yoke server predates Actions policy "
+    "support, so any actions_policies in .yoke/merge-queue.json are unchanged "
+    "on GitHub. Rerun apply once the server runs a release that reports "
+    "actions_policies_managed."
+)
+
+
 def github_merge_queue_apply(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github merge-queue apply",
         description=(
-            "Idempotently apply .yoke/merge-queue.json (ruleset + "
-            "allow_auto_merge) to the project's bound GitHub repository. "
+            "Idempotently apply .yoke/merge-queue.json (ruleset, "
+            "allow_auto_merge and any declared actions_policies) to the "
+            "project's bound GitHub repository. "
             "Requires Administration: write and Contents: read on the App installation. "
             "Real apply requires content matching the landed gate declaration. Preview lane changes with --preview --declaration PATH."
         ),
@@ -180,9 +192,11 @@ def github_merge_queue_apply(args: List[str]) -> int:
             return usage_error(f"invalid JSON in {declaration_path}: {exc}")
 
     def _human_writer(response, stdout, stderr) -> None:
-        del stderr
         if response.success:
-            write_human(response.result or {}, stdout)
+            result = response.result or {}
+            write_human(result, stdout)
+            if "actions_policies_managed" not in result:
+                stderr.write(ACTIONS_POLICIES_UNSUPPORTED_NOTICE + "\n")
         return None
 
     return dispatch_and_emit(
