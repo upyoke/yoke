@@ -128,3 +128,43 @@ def test_persistent_children_are_released_only_after_verified_normal_exit(
     )
     assert result.returncode == (0 if accepted else 69)
     assert len(calls) == (2 if accepted else 1)
+
+
+@pytest.mark.parametrize("cleanup", ["timeout", "exit"])
+def test_cleanup_failure_after_settlement_keeps_the_settled_result(cleanup):
+    """A slow receipt cleanup must not turn a settled success into a failure."""
+    from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
+
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            directory = json.loads(shlex.split(command)[-4])
+            receipt = {
+                "command_id": directory.rsplit("/", 1)[-1],
+                "termination_verified": True,
+                "returncode": 0,
+            }
+            return subprocess.CompletedProcess(
+                [],
+                0,
+                "signed in",
+                custody.remote.RECEIPT_MARKER + json.dumps(receipt) + "\n",
+            )
+        assert kwargs["timeout"] == custody.CLEANUP_TIMEOUT_SECONDS
+        if cleanup == "timeout":
+            raise RemoteExecRefusal(
+                "test_machine_gui_command_timeout",
+                "SSH GUI operation timed out",
+                "retry",
+            )
+        return subprocess.CompletedProcess([], 1, "", "rm failed\n")
+
+    result = custody.run_command(
+        SimpleNamespace(_run=run), ["yoke", "browser", "authorize"], {}, timeout=1
+    )
+    assert result.returncode == 0 and result.stdout == "signed in"
+    assert result.command_custody_cleanup["retained"].startswith("/tmp/yoke-command-")
+    assert "linux_command_custody_cleanup_retained: /tmp/yoke-command-" in result.stderr
+    assert len(calls) == 2
