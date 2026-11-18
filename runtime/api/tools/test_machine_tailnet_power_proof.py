@@ -35,8 +35,6 @@ def main():
         return run(
             "test-machine",
             "get",
-            "--project",
-            project,
             "--test-machine",
             name,
             "--json",
@@ -97,7 +95,7 @@ def main():
             f"machine that is {args.initial_state} and rerun"
         )
     print(f"{name} before exec: {state}", flush=True)
-    commands = ("--project", project, "--test-machine", name)
+    commands = ("--test-machine", name)
     output = run("test-machine", "exec", *commands, "--", "whoami", include_stderr=True)
     check_running("exec")
     output += run("test-machine", "verify", *commands, include_stderr=True)
