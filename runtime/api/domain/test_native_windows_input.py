@@ -239,6 +239,7 @@ def test_large_script_stages_utf8_bom_and_keeps_optional_input(monkeypatch):
     monkeypatch.setattr(admin_staging, "stage_script", stage)
     monkeypatch.setattr(SshTestMachineTransport, "_run", run)
     control = object.__new__(WindowsTransport)
+    control.os = "windows"
     control.home, control._key_path, control._host, control._user, control._control_path = r"C:\Users\qa", "key", "host", "qa", None
     source = 'Write-Output "héllo"; ' * 1000
     control._run(source, input_text="private-input", timeout=17)
