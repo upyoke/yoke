@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
 import subprocess
 
@@ -144,16 +142,17 @@ def _healthy_state(profile_dir: str) -> browser_client.DaemonState:
 
 
 def test_daemon_start_passes_the_profile_directory(tmp_path, monkeypatch) -> None:
+    profile = str(tmp_path / "profiles" / "acme")
     launched = _stub_daemon_start(
         monkeypatch,
         tmp_path,
-        [None, _healthy_state("/profiles/acme")],
+        [None, _healthy_state(profile)],
     )
 
-    result = browser_client.daemon_start(profile_dir="/profiles/acme")
+    result = browser_client.daemon_start(profile_dir=profile)
 
     assert result["status"] == "started"
-    assert ["--profile-dir", str(Path("/profiles/acme"))] == launched[0][-4:-2]
+    assert ["--profile-dir", profile] == launched[0][-4:-2]
 
 
 def test_daemon_start_without_a_profile_launches_clean(tmp_path, monkeypatch) -> None:

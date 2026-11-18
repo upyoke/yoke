@@ -48,8 +48,8 @@ def test_render_materializes_byte_equal_scanned_config_symlink(
     preview = write_all(target_root=rendered_repo, dry_run=True)
     result = write_all(target_root=rendered_repo)
 
-    assert preview[str(native_rel)][0] == "would-write"
-    assert result[str(native_rel)][0] == "write"
+    assert preview[native_rel.as_posix()][0] == "would-write"
+    assert result[native_rel.as_posix()][0] == "write"
     assert native.is_file() and not native.is_symlink()
     assert native.read_bytes() == canonical.read_bytes()
 

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_doctor_hc_historical_yok_n.py::TestGeneratedOutputExemption::test_only_live_source_present",
- "reason": "AssertionError: 'docs/lifecycle-note.md' not found in '- docs\\\\lifecycle-note.md:1: YOK-100 (status=done) — Implemented in YOK-100.'"
-}
