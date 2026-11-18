@@ -36,17 +36,23 @@ def independent_member_delivery_ready(conn: Any, *, item_id: int, run_id: str) -
     run = latest_completion_run(conn, int(item_id))
     if run is None or run["id"] != str(run_id):
         return False
-    return latest_member_delivery_ready(conn, item_id=int(item_id), run=run)
+    return int(item_id) in latest_members_delivery_ready(conn, {int(item_id): run})
 
 
-def latest_member_delivery_ready(
-    conn: Any, *, item_id: int, run: dict[str, Any]
-) -> bool:
-    """:func:`independent_member_delivery_ready` for the item's latest
-    completion run, already read by the caller."""
-    if run["status"] != "executing":
-        return False
-    return final_item_qa_accepted(conn, item_id=int(item_id), run_id=str(run["id"]))
+def latest_members_delivery_ready(
+    conn: Any, latest: dict[int, dict[str, Any]]
+) -> frozenset[int]:
+    """:func:`independent_member_delivery_ready` for items whose latest
+    completion run the caller already read, keyed by item; one acceptance
+    read per executing run rather than per item."""
+    by_run: dict[str, list[int]] = {}
+    for item_id, run in latest.items():
+        if run["status"] == "executing":
+            by_run.setdefault(str(run["id"]), []).append(int(item_id))
+    ready: set[int] = set()
+    for run_id, item_ids in by_run.items():
+        ready |= final_item_qa_accepted_items(conn, run_id=run_id, item_ids=item_ids)
+    return frozenset(ready)
 
 
 def member_qa_answer_ready(conn: Any, *, item_id: int, run_id: str) -> bool:
@@ -72,22 +78,53 @@ def member_qa_answer_ready(conn: Any, *, item_id: int, run_id: str) -> bool:
 
 def final_item_qa_accepted(conn: Any, *, item_id: int, run_id: str) -> bool:
     """The run's last substantive stage is this member's accepted item QA."""
+    return int(item_id) in final_item_qa_accepted_items(
+        conn, run_id=str(run_id), item_ids=(int(item_id),)
+    )
+
+
+def final_item_qa_accepted_items(
+    conn: Any, *, run_id: str, item_ids
+) -> frozenset[int]:
+    """:func:`final_item_qa_accepted` for several members of one run.
+
+    The membership rows come back in one read and the run's stage shape is
+    judged once; only each member's own acceptance blockers stay per item.
+    """
     from yoke_core.domain.deployment_run_composition_freeze import DELIVERY_INTENT_FINAL
 
-    row = conn.execute(
-        "SELECT dri.delivery_intent,e.name AS target_name "
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    if not ids:
+        return frozenset()
+    rows = conn.execute(
+        "SELECT dri.item_id,dri.delivery_intent,e.name AS target_name "
         "FROM deployment_run_items dri "
         "JOIN deployment_runs dr ON dr.id=dri.run_id "
         "LEFT JOIN environments e ON e.id=dr.target_environment_id "
-        "WHERE dri.run_id=%s AND dri.item_id=%s",
-        (str(run_id), int(item_id)),
-    ).fetchone()
-    if row is None or str(row["delivery_intent"] or "") != DELIVERY_INTENT_FINAL:
-        return False
-    target_name = str(row["target_name"] or "")
-    if not target_name:
-        return False
-    stages = pinned_stages(conn, str(run_id))
+        f"WHERE dri.run_id=%s AND dri.item_id IN ({','.join('%s' for _ in ids)})",
+        (str(run_id), *ids),
+    ).fetchall()
+    finals = [
+        row
+        for row in rows
+        if str(row["delivery_intent"] or "") == DELIVERY_INTENT_FINAL
+        and str(row["target_name"] or "")
+    ]
+    if not finals or not _final_stage_is_item_qa(
+        pinned_stages(conn, str(run_id)), str(finals[0]["target_name"])
+    ):
+        return frozenset()
+    return frozenset(
+        int(row["item_id"])
+        for row in finals
+        if not item_qa_acceptance_blockers(
+            conn, run_id=str(run_id), item_id=int(row["item_id"])
+        )
+    )
+
+
+def _final_stage_is_item_qa(stages: list, target_name: str) -> bool:
+    """The last substantive stage is item-scoped QA on the run's target."""
     qa_stages = [
         stage
         for stage in stages
@@ -102,7 +139,7 @@ def final_item_qa_accepted(conn: Any, *, item_id: int, run_id: str) -> bool:
     final_stage = qa_stages[-1]
     target = final_stage.get("target") or {}
     trailing = stages[stages.index(final_stage) + 1 :]
-    if (
+    return not (
         any(
             stage.get("step_runner") != "auto" or stage.get("stage_kind") != "execution"
             for stage in trailing
@@ -111,15 +148,12 @@ def final_item_qa_accepted(conn: Any, *, item_id: int, run_id: str) -> bool:
         or not isinstance(target, dict)
         or target.get("kind") != "persistent_environment"
         or target.get("environment") != target_name
-    ):
-        return False
-    return not item_qa_acceptance_blockers(
-        conn, run_id=str(run_id), item_id=int(item_id)
     )
 
 
 __all__ = [
     "final_item_qa_accepted",
+    "final_item_qa_accepted_items",
     "independent_member_delivery_ready",
     "member_qa_answer_ready",
 ]

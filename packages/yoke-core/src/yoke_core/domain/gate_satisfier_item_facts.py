@@ -17,13 +17,15 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from yoke_core.domain.deployment_item_completion_runs import completion_runs
+from yoke_core.domain.deployment_item_completion_runs import (
+    completion_runs_for_items,
+)
 from yoke_core.domain.deployment_item_flow_resolution import (
     FLOW_SOURCE_UNREADABLE,
     item_completion_flow_facts,
 )
 from yoke_core.domain.deployment_member_independent_close_out import (
-    latest_member_delivery_ready,
+    latest_members_delivery_ready,
 )
 from yoke_core.domain.deployment_qa_source_obligation import newest_completion_run
 from yoke_core.domain.gate_satisfier_facts import Fact, FactVerdict
@@ -77,7 +79,9 @@ def _fact(key: str, count: int, present_detail: str, absent_detail: str) -> Fact
     return Fact(key=key, verdict=FactVerdict.ABSENT, value="0", detail=absent_detail)
 
 
-def _no_deployment_target(conn: Any, item_id: int) -> Fact:
+def _no_deployment_target(
+    conn: Any, completion: Any, tiers: Dict[str, Any]
+) -> Fact:
     """Whether this item has anywhere to deploy other than the trunk.
 
     Resolve the explicit flow or project/workflow default before asking
@@ -87,6 +91,9 @@ def _no_deployment_target(conn: Any, item_id: int) -> Fact:
     A flow with a real target tier makes this fact ABSENT, which is what
     keeps the merge-only rung out of reach for an item that owes a
     deployment.
+
+    ``completion`` is the item's resolved completion-flow fact; ``tiers``
+    memoizes each flow's tier row across the items of one batch.
     """
     if not _column_exists(conn, "items", "deployment_flow"):
         return Fact(
@@ -94,8 +101,6 @@ def _no_deployment_target(conn: Any, item_id: int) -> Fact:
             verdict=FactVerdict.UNKNOWN,
             detail="items.deployment_flow could not be read",
         )
-    p = _p(conn)
-    completion = item_completion_flow_facts(conn, (item_id,)).get(item_id)
     if completion is None or completion.source == FLOW_SOURCE_UNREADABLE:
         return Fact(
             key=ITEM_NO_DEPLOYMENT_TARGET,
@@ -119,9 +124,11 @@ def _no_deployment_target(conn: Any, item_id: int) -> Fact:
             verdict=FactVerdict.UNKNOWN,
             detail="deployment_flows.target_tier could not be read",
         )
-    tier_row = conn.execute(
-        f"SELECT target_tier FROM deployment_flows WHERE id = {p}", (flow,)
-    ).fetchone()
+    if flow not in tiers:
+        tiers[flow] = conn.execute(
+            f"SELECT target_tier FROM deployment_flows WHERE id = {_p(conn)}", (flow,)
+        ).fetchone()
+    tier_row = tiers[flow]
     if tier_row is None:
         return Fact(
             key=ITEM_NO_DEPLOYMENT_TARGET,
@@ -183,37 +190,58 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
 def load_delivery_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
     """The delivery facts alone: what a landed item's done gate waits on.
 
-    The steering report classifies every landed item from these; asking
-    :func:`load_item_facts` there also counted CI runs it never reads.
+    The one-item case of :func:`load_delivery_facts_for_items`.
     """
+    return load_delivery_facts_for_items(conn, (int(item_id),))[int(item_id)]
+
+
+def load_delivery_facts_for_items(
+    conn: Any, item_ids
+) -> Dict[int, Dict[str, Fact]]:
+    """Delivery facts for a set of items, without per-item reads.
+
+    The steering report classifies every landed item from these; reading
+    them one item at a time made its cost grow with the landed backlog.
+    """
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
     # Completion authority is one predicate: a succeeded run of the item's
     # own flow, or another project's succeeded run that bound this project's
     # source. Counting only the own flow here left a cross-project member
     # delivered by every other reader and undelivered by the done gate.
-    # One walk answers both questions; each used to re-read the item's whole
-    # membership history.
-    runs = completion_runs(conn, int(item_id))
-    deployed = sum(1 for run in runs if run["status"] == "succeeded")
-    candidate = None if deployed else newest_completion_run(runs)
-    independent = bool(
-        candidate
-        and latest_member_delivery_ready(conn, item_id=int(item_id), run=candidate)
-    )
-    return {
-        ITEM_DEPLOYMENT_RUN_SUCCEEDED: _fact(
-            ITEM_DEPLOYMENT_RUN_SUCCEEDED,
-            deployed,
-            "{count} succeeded completion-authority deployment run(s)",
-            "no deployment run with completion authority for this item has succeeded",
-        ),
-        ITEM_INDEPENDENT_MEMBER_DELIVERED: _fact(
-            ITEM_INDEPENDENT_MEMBER_DELIVERED,
-            int(independent),
-            "one final member's selected-flow production delivery and QA are accepted",
-            "no independently accepted final member delivery is recorded",
-        ),
-        ITEM_NO_DEPLOYMENT_TARGET: _no_deployment_target(conn, item_id),
+    walks = completion_runs_for_items(conn, ids)
+    completions = item_completion_flow_facts(conn, ids)
+    tiers: Dict[str, Any] = {}
+    facts: Dict[int, Dict[str, Fact]] = {}
+    deployed = {
+        item_id: sum(1 for run in walks[item_id] if run["status"] == "succeeded")
+        for item_id in ids
     }
+    candidates = {
+        item_id: candidate
+        for item_id in ids
+        if not deployed[item_id]
+        and (candidate := newest_completion_run(walks[item_id])) is not None
+    }
+    independent = latest_members_delivery_ready(conn, candidates)
+    for item_id in ids:
+        facts[item_id] = {
+            ITEM_DEPLOYMENT_RUN_SUCCEEDED: _fact(
+                ITEM_DEPLOYMENT_RUN_SUCCEEDED,
+                deployed[item_id],
+                "{count} succeeded completion-authority deployment run(s)",
+                "no deployment run with completion authority for this item has succeeded",
+            ),
+            ITEM_INDEPENDENT_MEMBER_DELIVERED: _fact(
+                ITEM_INDEPENDENT_MEMBER_DELIVERED,
+                int(item_id in independent),
+                "one final member's selected-flow production delivery and QA are accepted",
+                "no independently accepted final member delivery is recorded",
+            ),
+            ITEM_NO_DEPLOYMENT_TARGET: _no_deployment_target(
+                conn, completions.get(item_id), tiers
+            ),
+        }
+    return facts
 
 
 __all__ = [
@@ -222,5 +250,6 @@ __all__ = [
     "ITEM_INDEPENDENT_MEMBER_DELIVERED",
     "ITEM_NO_DEPLOYMENT_TARGET",
     "load_delivery_facts",
+    "load_delivery_facts_for_items",
     "load_item_facts",
 ]

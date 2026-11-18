@@ -5,6 +5,7 @@ takeover. The report's landed section reads every landed item's done gate,
 so a per-membership read there multiplied report cost by history length.
 """
 
+from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     create_smoke_plan,
     item_qa_stage_definitions,
@@ -130,3 +131,38 @@ def test_batched_supplemental_filter_matches_per_run_answer(test_db):
     ]
     assert len(expected) == 2
     assert [run["id"] for run in completion_runs(test_db, member)] == expected
+
+
+def _add_landed(conn, start, stop):
+    """More landed items, each a member of the live run."""
+    for index in range(start, stop):
+        item_id = 7600 + index
+        insert_item(conn, id=item_id, workflow_id="issue", status="release")
+        conn.execute(
+            "UPDATE items SET merged_at=%s,deployment_flow=%s WHERE id=%s",
+            (utc_now(), f"flow-{RUN}", item_id),
+        )
+        conn.execute(
+            "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
+            "VALUES (%s,%s,%s)",
+            (RUN, item_id, utc_now()),
+        )
+    conn.commit()
+
+
+def test_landed_gate_reads_do_not_scale_with_landed_items(test_db):
+    _seed(test_db)
+    now = format_instant(utc_now())
+    counts = []
+    seeded = 0
+    # From ten items up the stage-acceptance summary renders its member refs
+    # once too; every size here takes the same report paths.
+    for size in (10, 20, 30):
+        _add_landed(test_db, seeded, size)
+        seeded = size
+        counted = CountingConnection(test_db)
+        landed = _report(counted, now).sections[0].report.landed_open
+        assert len(landed) == len(MEMBERS) + size
+        assert len({row.delivery_gate for row in landed}) == 1
+        counts.append(counted.count)
+    assert counts[0] == counts[1] == counts[2], counts

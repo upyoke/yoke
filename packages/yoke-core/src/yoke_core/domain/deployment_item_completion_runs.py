@@ -60,38 +60,59 @@ def completion_runs(
     the run recorded for THIS item's project, which for an own-project run
     is the run's own lineage and for a carrier is the bound commit.
     """
-    fact = item_completion_flow_facts(conn, (int(item_id),)).get(int(item_id))
-    flows = fact.closing_flows if fact else frozenset()
-    if not flows:
-        return []
+    return completion_runs_for_items(conn, (int(item_id),), include_qa=include_qa)[
+        int(item_id)
+    ]
+
+
+def completion_runs_for_items(
+    conn: Any, item_ids, *, include_qa: bool = False
+) -> dict[int, list[dict[str, Any]]]:
+    """:func:`completion_runs` for a set of items, in a constant number of reads.
+
+    One flow resolution, one membership read, and one supplemental read per
+    distinct completion flow. A report that classifies every landed item used
+    to pay these per item.
+    """
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    facts = item_completion_flow_facts(conn, ids)
+    closing_flows = {
+        item_id: fact.closing_flows
+        for item_id, fact in facts.items()
+        if fact.closing_flows
+    }
+    result: dict[int, list[dict[str, Any]]] = {item_id: [] for item_id in ids}
+    if not closing_flows:
+        return result
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT dr.id, dr.status, dr.current_stage, dr.project_id, "
         "COALESCE(dr.release_lineage, '') AS release_lineage, dr.flow, "
         "i.project_id AS item_project_id, "
         f"COALESCE(dr.{BOUND_SOURCES_FIELD}, '') AS {BOUND_SOURCES_FIELD}, "
-        "dr.settling_at "
+        "dr.settling_at, dri.item_id "
         "FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dr.id = dri.run_id "
         "JOIN items i ON i.id = dri.item_id "
-        f"WHERE dri.item_id = {marker} "
+        f"WHERE dri.item_id IN ({','.join(marker for _ in closing_flows)}) "
         "ORDER BY dr.created_at DESC, dr.id DESC",
-        (int(item_id),),
+        tuple(closing_flows),
     ).fetchall()
-    # One environment read for the whole membership history: a long-lived
-    # item collects a membership per release takeover, and asking per row
-    # made every done-gate read scale with that history.
-    supplemental = (
-        frozenset()
-        if include_qa
-        else supplemental_run_ids(
-            conn,
-            run_ids=[_row_value(row, "id", 0) for row in rows],
-            completion_flow=fact.flow,
-        )
-    )
-    closing: list[dict[str, Any]] = []
+    # One environment read per completion flow for the whole membership
+    # history: a long-lived item collects a membership per release takeover,
+    # and asking per row made every done-gate read scale with that history.
+    supplemental: dict[str, frozenset[str]] = {}
+    if not include_qa:
+        by_flow: dict[str, list[str]] = {}
+        for row in rows:
+            flow = facts[int(_row_value(row, "item_id", 9))].flow
+            by_flow.setdefault(flow, []).append(str(_row_value(row, "id", 0)))
+        supplemental = {
+            flow: supplemental_run_ids(conn, run_ids=run_ids, completion_flow=flow)
+            for flow, run_ids in by_flow.items()
+        }
     for row in rows:
+        item_id = int(_row_value(row, "item_id", 9))
         item_project = int(_row_value(row, "item_project_id", 6))
         source_sha = recorded_source_sha(
             {
@@ -103,10 +124,11 @@ def completion_runs(
         )
         run_flow = str(_row_value(row, "flow", 5) or "")
         if not include_qa and (
-            str(_row_value(row, "id", 0)) in supplemental
+            str(_row_value(row, "id", 0))
+            in supplemental.get(facts[item_id].flow, frozenset())
             or not membership_closes_item(
                 run_flow=run_flow,
-                closing_flows=flows,
+                closing_flows=closing_flows[item_id],
                 run_project_id=int(_row_value(row, "project_id", 3)),
                 item_project_id=item_project,
                 source_sha=source_sha,
@@ -119,7 +141,7 @@ def completion_runs(
         )
         if settling:
             status = "succeeded"
-        closing.append(
+        result[item_id].append(
             {
                 "id": str(_row_value(row, "id", 0) or ""),
                 "status": status,
@@ -130,7 +152,7 @@ def completion_runs(
                 "flow": run_flow,
             }
         )
-    return closing
+    return result
 
 
 def succeeded_completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
@@ -183,6 +205,7 @@ def uncredited_supplemental_notice(conn: Any, *, run_id: str, item_id: int) -> s
 
 __all__ = [
     "completion_runs",
+    "completion_runs_for_items",
     "latest_qa_member_run",
     "owing_stage_run",
     "qa_member_runs",
