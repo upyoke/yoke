@@ -94,7 +94,7 @@ def test_presets_and_saved_checkouts_keep_connection_first(preset, saved):
         _run_facts={},
         _history=[],
         _project_mode_preset=preset,
-        _stored_project_checkouts=[object()] if saved else [],
+        _machine_has_stored_checkouts=lambda: saved,
         _start_connect=lambda: events.append("connect"),
     )
     events = []
