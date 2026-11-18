@@ -7,9 +7,7 @@ import pytest
 
 from yoke_cli.config import path_doctor
 from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
-    is_machine_local_capability_secret,
 )
 from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.machine_qa_method_contracts import (
@@ -92,7 +90,7 @@ def test_test_machine_is_typed_and_secret_presence_only(
     )
     assert result["verification_status"] == "configured_unverified"
     seed_builtin_qa_methods(conn)
-    detail = read_test_machine_detail(conn, project="yoke")
+    detail = read_test_machine_detail(conn)
     assert detail["features"] == [
         "Terminal.app",
         "PTY",
@@ -104,19 +102,8 @@ def test_test_machine_is_typed_and_secret_presence_only(
         *TEST_MACHINE_SECRET_KEYS,
         "desktop_password",
     }
-    desktop_secret = next(
-        row for row in detail["secrets"] if row["key"] == "desktop_password"
-    )
-    assert desktop_secret["cap_type"] == "test-machine:mac-mini-lab"
-    assert is_machine_local_capability_secret(
-        desktop_secret["cap_type"], desktop_secret["key"]
-    )
     assert all(row["stored"] is None for row in detail["secrets"])
     assert {row["scope"] for row in detail["secrets"]} == {"executing_machine"}
-    assert all(
-        is_machine_local_capability_secret(TEST_MACHINE_CAPABILITY, key)
-        for key in TEST_MACHINE_SECRET_KEYS
-    )
     assert {row["id"] for row in detail["methods"]} == {
         "terminal-check",
         "terminal-inspection",
@@ -165,7 +152,7 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
         """
     )
 
-    detail = read_test_machine_detail(conn, project="yoke")
+    detail = read_test_machine_detail(conn)
 
     assert detail["active_lease"]["item"] == {
         "id": 41,

@@ -12,6 +12,7 @@ import sys
 import time
 from collections.abc import Callable, Mapping, Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Protocol
 from yoke_contracts.azure_admin import AzureAdminError, azure_session
 from yoke_contracts.azure_cli_prerequisite import AzureCliPrerequisiteError
@@ -52,17 +53,36 @@ def _emit(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
+_power_scope: ContextVar[dict[str, Any] | None] = ContextVar(
+    "test_machine_power_dispatch_scope", default=None
+)
+
+
+@contextmanager
+def power_dispatch_scope(*, actor=None, relay_env=None):
+    """Use the releasing or acquiring call's identity and universe for power writes."""
+    scope = {key: value for key, value in {"actor": actor, "relay_env": relay_env}.items() if value is not None}
+    token = _power_scope.set(scope)
+    try:
+        yield
+    finally:
+        _power_scope.reset(token)
+
+
 def _dispatch(function_id: str, payload: dict[str, Any]) -> Any:
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
 
     build_actor = get_structured_dispatch().build_actor
     call_dispatcher = get_structured_dispatch().call_dispatcher
 
+    options = dict(_power_scope.get() or {})
+    if "actor" not in options:
+        options["actor"] = build_actor()
     return call_dispatcher(
         function_id=function_id,
         target=TargetRef(kind="global"),
         payload=payload,
-        actor=build_actor(),
+        **options,
     )
 
 

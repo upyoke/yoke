@@ -72,7 +72,7 @@ def test_hosted_screenshot_names_the_credential_owning_client_command():
     assert not outcome.primary_success
     assert outcome.error.code == "host_control_client_required"
     assert (
-        "yoke test-machine screenshot --project yoke --test-machine desktop-test"
+        "yoke test-machine screenshot --test-machine desktop-test"
         in outcome.error.message
     )
 
@@ -97,7 +97,7 @@ def test_reset_reaches_one_baseline_and_leaves_verification_alone(
     [receipt] = operation_receipts(conn)
     assert receipt["operation"] == "reset"
     assert [check["name"] for check in receipt["checks"]] == ["fresh-host"]
-    detail = machine_detail(conn, project="yoke", test_machine=MACHINE)
+    detail = machine_detail(conn, test_machine=MACHINE)
     assert detail["verification"]["status"] == "configured_unverified"
 
 

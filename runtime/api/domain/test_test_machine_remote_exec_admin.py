@@ -32,7 +32,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
     )
     monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: tmp_path)
     lease = FunctionCallResponse(
-        success=True, function="lease", version="v1", result={"claim": {"id": 7}}
+        success=True, function="lease", version="v1", result={"claim_id": 7}
     )
     monkeypatch.setattr(custody, "call_dispatcher", lambda **_: lease)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
@@ -65,7 +65,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
         ),
     )
     assert (
-        adapter.test_machine_exec(["--project", "demo", "--admin", "--", "id", "-u"])
+        adapter.test_machine_exec(["--admin", "--", "id", "-u"])
         == returncode
     )
     assert reads == [("demo", "test-machine:fixture", "desktop_password")]

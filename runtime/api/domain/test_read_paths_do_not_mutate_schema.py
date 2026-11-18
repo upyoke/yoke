@@ -233,7 +233,7 @@ def test_read_paths_execute_no_ddl(test_db):
     conn = _DDLRefusingConnection(test_db)
 
     strategize_carry_state.get_candidate_set(conn, "yoke")
-    machine_qa_capability.test_machine_list(conn, project="yoke")
+    machine_qa_capability.test_machine_list(conn)
 
     # get_run reaches its SELECT without converging first; a missing run is
     # the domain refusal, which proves the DDL step is gone.

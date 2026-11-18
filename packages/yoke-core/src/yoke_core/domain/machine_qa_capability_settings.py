@@ -42,6 +42,33 @@ def replace_test_machine_settings(
 
     canonical = json.dumps(document, separators=(",", ":"), sort_keys=True)
     p = "%s" if connection_is_postgres(conn) else "?"
+    from yoke_core.domain.coordination_claims import active_claim
+    from yoke_core.domain.qa_host_turns import lock_host_turn
+    from yoke_core.domain.schema_common import _table_exists
+    from yoke_core.domain.work_claim_targets import make_qa_admission_target
+
+    target = make_qa_admission_target(name)
+    lock_host_turn(conn, target)
+    if _table_exists(conn, "work_claims") and active_claim(conn, target) is not None:
+        raise TestMachineCapabilityError(
+            f"{name} has an active lease; retry after the lease is released"
+        )
+    if base_settings is not None:
+        existing = conn.execute(
+            f"SELECT settings, power_project_id, yoke_started_at FROM test_machines WHERE name={p}",
+            (name,),
+        ).fetchone()
+        if existing is not None and existing[2] is not None:
+            old_settings = json.loads(existing[0])
+            same_instance = all(
+                old_settings.get(key) == document.get(key)
+                for key in ("cloud_instance_id", "cloud_provider")
+            )
+            if not same_instance or (project is not None and project.id != existing[1]):
+                raise TestMachineCapabilityError(
+                    f"{name} has a pending Yoke power stop; let its lease cycle "
+                    "complete and confirm the stop before changing the cloud registration"
+                )
     now = instant_parameter(conn, utc_now())
     if base_settings is None:
         if document.get("cloud_instance_id") and project is None:

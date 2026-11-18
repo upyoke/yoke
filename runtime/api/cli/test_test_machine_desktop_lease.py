@@ -55,7 +55,7 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
     expected = ["power"] + ([] if failure == "power" else ["desktop"])
     if not borrowed:
         expected = [
-            "claims.coordination_claim.acquire_if_free",
+            "test_machine.lease_acquire",
             *expected,
             "claims.coordination_claim.release",
         ]
@@ -113,7 +113,7 @@ def test_authorize_powers_before_precheck_and_viewer_and_releases_after_sign_in(
         events.append("sign-in")
         assert (
             route["calls"][-1]["function_id"]
-            == "claims.coordination_claim.acquire_if_free"
+            == "test_machine.lease_acquire"
         )
         return route["result"]
 
@@ -213,12 +213,12 @@ def test_desktop_access_holds_lease_until_view_returns(monkeypatch, capsys, fail
     )
     monkeypatch.setattr(desktop_access, "open_desktop_access", view)
     assert cli.test_machine_desktop_access(
-        ["--project", "acme", "--test-machine", "lab", "--view"]
+        ["--test-machine", "lab", "--view"]
     ) == int(fails)
     assert events == [
         "test_machine.desktop_access",
         "test_machine.get",
-        "claims.coordination_claim.acquire_if_free",
+        "test_machine.lease_acquire",
         "power",
         "desktop",
         "claims.coordination_claim.release",

@@ -18,7 +18,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 
 
 def settle_response(
-    response: FunctionCallResponse, sensitive_values: Sequence[str] = ()
+    response: FunctionCallResponse, sensitive_values: Sequence[str] = (), *, actor=None, relay_env=None
 ) -> FunctionCallResponse:
     response = redact_response(response, tuple(sensitive_values))
     if response.test_machines_to_stop:
@@ -34,7 +34,7 @@ def settle_response(
             )
             print(refusal, file=sys.stderr, flush=True)
         else:
-            stop.stop_released(response.test_machines_to_stop)
+            stop.stop_released(response.test_machines_to_stop, actor=actor, relay_env=relay_env)
     return response
 
 

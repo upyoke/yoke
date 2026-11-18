@@ -157,7 +157,7 @@ def call_dispatcher(
     if local_only:
         return _settle_response(
             _call_local(request, _local_dispatch, client_local=True),
-            sensitive_values,
+            sensitive_values, actor=request.actor,
         )
     if relay_env is None:
         # Evidence belongs in the store of the build serving the universe,
@@ -192,7 +192,7 @@ def call_dispatcher(
             lambda https: relay(https, 1),
             lambda: _call_local(request, _local_dispatch),
         )
-        return _settle_response(answer, sensitive_values)
+        return _settle_response(answer, sensitive_values, actor=request.actor)
     try:
         if relay_config_path is not None:
             https = https_transport.resolve_https_connection(
@@ -221,14 +221,14 @@ def call_dispatcher(
             sensitive_values,
         )
     if https is not None:
-        return _settle_response(relay(https), sensitive_values)
+        return _settle_response(relay(https), sensitive_values, actor=request.actor, relay_env=https.env)
     refused = direct_database_access.use_https_env_error(function_id)
     answer = (
         _call_local(request, _local_dispatch)
         if refused is None
         else _refusal(request, refused)
     )
-    return _settle_response(answer, sensitive_values)
+    return _settle_response(answer, sensitive_values, actor=request.actor)
 
 
 def response_to_dict(response: FunctionCallResponse) -> Dict[str, Any]:

@@ -63,6 +63,8 @@ def stop_released(
     *,
     runner: CommandRunner | None = None,
     emit: Callable[[str], None] = power._emit,
+    actor=None,
+    relay_env=None,
 ) -> None:
     """Stop cloud Test Machines a call's lease release left free.
 
@@ -76,10 +78,11 @@ def stop_released(
         return  # releasing this stop's own hold names the host again
     token = _stopping.set(True)
     try:
-        for machine in machines:
-            _stop_one(
-                str(machine["power_project"]), str(machine["test_machine"]), runner, emit
-            )
+        with power.power_dispatch_scope(actor=actor, relay_env=relay_env):
+            for machine in machines:
+                _stop_one(
+                    str(machine["power_project"]), str(machine["test_machine"]), runner, emit
+                )
     finally:
         _stopping.reset(token)
 
@@ -109,7 +112,7 @@ def _stop_one(
                     emit,
                 )
         finally:
-            power._dispatch(
+            power._call(
                 "claims.coordination_claim.release",
                 {"claim_id": claim_id, "reason": "cloud Test Machine stop settled"},
             )

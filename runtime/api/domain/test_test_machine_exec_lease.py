@@ -51,11 +51,10 @@ class FakeCloudMachine:
                 "settings": SETTINGS,
                 "active_lease": self.lease,
             }
-        elif name == "claims.coordination_claim.acquire_if_free":
-            assert kw["payload"]["key"] == "QA_HOST:linux-lab"
-            assert kw["payload"]["reason"] == "test-machine exec"
+        elif name == "test_machine.lease_acquire":
+            assert kw["payload"]["test_machine"] == "linux-lab"
             self.lease = {"session_id": kw["actor"].session_id}
-            result = {"claim": {"id": 41}}
+            result = {"claim_id": 41}
         elif name == "claims.coordination_claim.release":
             assert kw["payload"]["claim_id"] == 41
             self.lease = None
@@ -99,7 +98,7 @@ def machine(monkeypatch, tmp_path):
 
 def _exec(*argv: str) -> int:
     return adapter.test_machine_exec(
-        ["--project", "yoke", "--test-machine", "linux-lab", "--", *argv]
+        ["--test-machine", "linux-lab", "--", *argv]
     )
 
 
@@ -112,7 +111,7 @@ def test_exec_on_a_stopped_unleased_machine_leases_powers_on_runs_and_releases(
 
     assert fake.events == [
         "test_machine.get",
-        "claims.coordination_claim.acquire_if_free",
+        "test_machine.lease_acquire",
         "power_on",
         "ran",
         "claims.coordination_claim.release",

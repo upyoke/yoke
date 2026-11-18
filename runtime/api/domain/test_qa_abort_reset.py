@@ -115,7 +115,6 @@ def test_unrelated_or_failed_reset_cannot_settle_abort(test_db, failed_restore, 
         )
     record_test_machine_operation(
         test_db,
-        candidate.project_id,
         test_machine="other-host" if change == "wrong_machine" else test_machine,
         operation="reset",
         status="error" if change == "failed" else "verified",

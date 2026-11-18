@@ -29,7 +29,7 @@ _SURFACE_CHECKS = (
 
 
 def _failed_recovery(surface: str, *, project: str, test_machine: str, os: str) -> str:
-    selector = f"--project {project} --test-machine {test_machine}"
+    selector = f"--test-machine {test_machine}"
     if surface == SSH_SURFACE:
         return (
             "Nothing reaches this host until SSH works. Check that the host "

@@ -143,7 +143,9 @@ def _execute(
             execute_host_operation_contract,
         )
 
-        _power().power_on(execution["project"], execution["settings"])
+        power = _power()
+        with power.power_dispatch_scope(actor=actor):
+            power.power_on(execution["project"], execution["settings"])
         if registered := begin.result.get(
             REGISTERED_GOLDENS_KEY
         ):  # older servers: none

@@ -55,7 +55,7 @@ def test_list_from_a_server_without_test_machines_refuses(monkeypatch) -> None:
     )
 
     with pytest.raises(SystemExit) as refused:
-        test_machine_cli._attest_secret_presence(response, "yoke", "test_machine.list")
+        test_machine_cli._attest_secret_presence(response, "test_machine.list")
 
     assert "test_machine.list returned no 'test_machines' field" in str(
         refused.value.code

@@ -64,7 +64,7 @@ def test_deletes_cascades_and_allows_empty_project_and_reregistration(machine):
             ).fetchone()[0]
             == 0
         )
-    assert list_machines(machine, project="yoke")["test_machines"] == []
+    assert list_machines(machine)["test_machines"] == []
     replace_test_machine_settings(
         machine, power_project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
     )
@@ -184,7 +184,7 @@ def test_deletes_only_selected_project_registration(machine):
     assert result.primary_success, result.error
     assert capability_count(machine) == 1
     assert (
-        list_machines(machine, project="other")["test_machines"][0]["test_machine"]
+        list_machines(machine)["test_machines"][0]["test_machine"]
         == NAME
     )
 

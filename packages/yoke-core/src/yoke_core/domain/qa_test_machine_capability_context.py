@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.coordination_claims import active_claim
-from yoke_core.domain.machine_qa_capability import host_claim_target
+from yoke_core.domain.machine_qa_capability import _holder_item, host_claim_target
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.test_machine_rows import test_machine_rows
 
@@ -39,7 +39,15 @@ def test_machine_capability_context(
         "machines_in_use": busy,
     }
     if busy == len(machines):
-        context.update(state="in_use", wait_reason="all_machine_leases_in_use")
+        refs = (
+            _holder_item(conn, session_id=lease.session_id)
+            for lease in leases.values() if lease is not None
+        )
+        context.update(
+            state="in_use",
+            wait_reason="all_machine_leases_in_use",
+            active_lease={"public_ref": next((item["ref"] for item in refs if item), None)},
+        )
     else:
         statuses = [
             verifications.get(machine.id, "verified" if machine.verified_at else None)

@@ -66,7 +66,9 @@ def desktop_lease(
     try:
         try:
             if not operator_access:
-                _power().power_on(project, settings)
+                power = _power()
+                with power.power_dispatch_scope(actor=actor):
+                    power.power_on(project, settings)
         except Exception as exc:
             code, message, recovery = host_control_failure(exc, phase="lease_power_on")
             raise RuntimeError(f"{code}: {message}. {recovery}") from exc

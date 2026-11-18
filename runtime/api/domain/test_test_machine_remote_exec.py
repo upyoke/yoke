@@ -144,7 +144,7 @@ def cli(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: Path(tmp_path))
     held = FunctionCallResponse(
-        success=True, function="c", version="v1", result={"claim": {"id": 7}}
+        success=True, function="c", version="v1", result={"claim_id": 7}
     )
     monkeypatch.setattr(custody, "call_dispatcher", lambda **_: held)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
@@ -175,7 +175,7 @@ def test_the_command_is_routed_as_a_test_machine_subcommand() -> None:
 
 
 def test_exec_runs_as_the_capability_user_at_its_host(cli) -> None:
-    assert cli(["--project", "yoke", "--", "uname", "-a"]) == 0
+    assert cli(["--", "uname", "-a"]) == 0
 
     assert cli.ran == [
         {
@@ -191,7 +191,7 @@ def test_exec_runs_as_the_capability_user_at_its_host(cli) -> None:
 def test_a_host_leased_by_another_session_is_refused(cli, capsys) -> None:
     lease = {"session_id": "theirs", "item": {"ref": "QA-1"}}
 
-    assert cli(["--project", "yoke", "--", "true"], lease=lease) == 1
+    assert cli(["--", "true"], lease=lease) == 1
 
     err = capsys.readouterr().err
     assert "test_machine_leased" in err
@@ -201,12 +201,12 @@ def test_a_host_leased_by_another_session_is_refused(cli, capsys) -> None:
 
 
 def test_the_lease_holder_itself_may_run_commands(cli) -> None:
-    assert cli(["--project", "yoke", "--", "true"], lease={"session_id": "mine"}) == 0
+    assert cli(["--", "true"], lease={"session_id": "mine"}) == 0
     assert len(cli.ran) == 1
 
 
 def test_a_missing_remote_command_is_a_usage_error(cli, capsys) -> None:
-    assert cli(["--project", "yoke"]) == 2
+    assert cli([]) == 2
     assert "after `--`" in capsys.readouterr().err
 
 
@@ -235,7 +235,7 @@ def test_macos_ssh_exec_names_keychain_context_and_gui_recovery(
         lambda **_: _streamed_result(result),
     )
 
-    assert cli(["--project", "yoke", "--", "claude", "-p", "hello"]) == 1
+    assert cli(["--", "claude", "-p", "hello"]) == 1
 
     captured = capsys.readouterr()
     assert output in getattr(captured, "out" if stream == "stdout" else "err")
@@ -267,7 +267,7 @@ def test_unrelated_successful_and_non_macos_exec_keep_output_and_exit(
         ),
     )
 
-    assert cli(["--project", "yoke", "--", "command"], os_name=os_name) == returncode
+    assert cli(["--", "command"], os_name=os_name) == returncode
     captured = capsys.readouterr()
     assert captured.out == "original output"
     assert captured.err == stderr
@@ -328,7 +328,7 @@ def test_cloud_key_alias_is_shared_by_all_ssh_routes(instance, tmp_path):
 
 @pytest.mark.parametrize("os_name", ["wsl", "windows", "linux", "macos"])
 def test_exec_uses_the_declared_os_command_transport(cli, os_name) -> None:
-    assert cli(["--project", "yoke", "--", "tool.exe", "value"], os_name=os_name) == 0
+    assert cli(["--", "tool.exe", "value"], os_name=os_name) == 0
     sent = cli.ran[-1]["command"]
     if os_name == "wsl":
         from yoke_contracts.windows_wsl_command import windows_wsl_command
