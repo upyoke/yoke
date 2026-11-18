@@ -251,7 +251,7 @@ def test_incomplete_read_partial_body_is_never_exposed(monkeypatch) -> None:
 
     response = relay_https(sensitive_request(), CONNECTION)
 
-    _assert_transport_failure(response, "could not reach (IncompleteRead)")
+    _assert_transport_failure(response, "endpoint (IncompleteRead)")
     # The class is named; the exception's text and partial body never are.
     assert "bytes read" not in serialized_response(response)
 
