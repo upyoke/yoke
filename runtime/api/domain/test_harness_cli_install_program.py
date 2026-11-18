@@ -274,3 +274,33 @@ def test_installed_cli_leaves_no_scratch_files(tmp_path, monkeypatch):
     assert result.ok, result.evidence
     assert result.evidence["harness_cli_versions"]["claude-code"] == "2.1.300"
     assert list(scratch.iterdir()) == []
+
+
+def test_cleanup_failure_preserves_successful_install_and_version_probe(
+    tmp_path, monkeypatch
+):
+    executable(tmp_path / ".local/bin/claude", "echo 2.1.300")
+    original_program = clis.HOST_PROGRAM
+    injection = """
+import tempfile
+real_cleanup = tempfile.TemporaryDirectory.cleanup
+def cleanup_failure(self):
+    real_cleanup(self)
+    raise PermissionError(13, 'cleanup denied', self.name + '/executable')
+tempfile.TemporaryDirectory.cleanup = cleanup_failure
+"""
+    monkeypatch.setattr(clis, "HOST_PROGRAM", injection + original_program)
+    monkeypatch.setitem(
+        clis.HARNESS_CLI_RELEASE_BY_ID,
+        "claude-code",
+        replace(clis.HARNESS_CLI_RELEASE_BY_ID["claude-code"], install_script="exit 0"),
+    )
+    result = clis.install_harness_clis(LocalHost(tmp_path), LATEST, ["claude-code"])
+    assert not result.ok and result.error_code == "harness_cli_cleanup_failed"
+    receipt = result.evidence["installs"][0]
+    assert receipt["install_exit_code"] == 0
+    assert receipt["probe"]["version"] == "2.1.300"
+    assert receipt["cleanup_error"]["exception_type"] == "PermissionError"
+    assert receipt["cleanup_error"]["errno"] == 13
+    assert receipt["cleanup_error"]["filename"].endswith("/executable")
+    assert "Preserve the registered golden" in result.evidence["recovery"]

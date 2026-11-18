@@ -209,3 +209,12 @@ def test_real_http_get_and_post_bypass_proxy_and_keep_credentials_on_target(
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+@pytest.fixture(autouse=True)
+def isolate_connection_relay(monkeypatch):
+    from yoke_cli.config import onboard_session_relay as relay
+
+    monkeypatch.setattr(
+        relay, "install", lambda **kw: relay.RelayInstallOutcome(True, False)
+    )

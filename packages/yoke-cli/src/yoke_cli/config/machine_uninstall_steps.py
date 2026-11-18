@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
-from yoke_cli.config import machine_config
+from yoke_cli.config import machine_config, machine_uninstall_relays
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
 from yoke_contracts import harness_settings_ledger, harness_settings_revert
@@ -163,6 +163,11 @@ def remove(
         )
     if not inventory.relay_envs:
         skipped("relay", "no eligible machine connections")
+    if sys.platform == "darwin":
+        attempt(
+            "saved relay services",
+            lambda: machine_uninstall_relays.remove_saved_services(inventory.home),
+        )
     attempt("workers", lambda: machine_uninstall_workers.stop(inventory.relay_envs))
     for checkout in inventory.projects:
         if checkout in selected:

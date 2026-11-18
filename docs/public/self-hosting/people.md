@@ -80,3 +80,19 @@ use TLS on a shared LAN. Public HTTP stays refused; use HTTPS.
 The connection is saved only after `/v1/health` and `/v1/auth/identity` pass.
 See [Machine authorization](../cli/machine-authorization.md) for
 expiry, retry, and single-use credential delivery.
+
+## Restore admin access
+
+The host stays connected after setup. If this machine loses its connection,
+rerun `yoke setup` on the host and choose **Host a server here**: it finds the existing bundle, restarts it, and
+reconnects with `secrets/first-boot-admin-token` without asking anything new.
+If that credential is lost or revoked, the first-boot and recovery bootstrap
+is available on the server host:
+
+```bash
+docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli bootstrap-admin --actor-name "Your name" --name recovery
+```
+
+Save the one-time token and reconnect with `yoke connect <server> --token-stdin`.
+Once connected, use the personal token controls above to revoke the
+lost token and manage your own tokens.

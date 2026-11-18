@@ -18,6 +18,11 @@ from yoke_contracts.harness_cli_releases import (
     outdated_harness_clis,
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_contracts.machine_qa_failures import (
+    HostControlLocalError,
+    bounded_machine_qa_diagnostic,
+)
+from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_harness.harness_cli_install_program import HOST_PROGRAM
 from yoke_contracts.test_machine_types import HostActionResult
 
@@ -46,14 +51,30 @@ def _host_program(control: Any, action: str, payload: Any, timeout: int) -> Any:
         **({"required_session_context": GUI_SESSION_CONTEXT} if gui else {}),
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"harness_cli_{action}_failed: {payload[0] if action == 'install' else 'probe'} "
-            f"host exit {result.returncode}: "
-            f"{result.stderr.strip()[-400:]}; repair the test user's CLI installation "
-            "and /usr/bin/python3, then rerun the QA plan"
+        raise HostControlLocalError(
+            code=f"harness_cli_{action}_failed",
+            phase=f"harness_cli_{action}",
+            detail=f"{payload[0] if action == 'install' else 'probe'} host program failed",
+            exit_code=result.returncode,
+            stderr=bounded_machine_qa_diagnostic(
+                result.stderr, getattr(control, "secret_values", ()), tail=True
+            ),
+            recovery_hint="Inspect the host-program exception tail and live CLI version "
+            "as the test user before repairing the named operation; preserve the "
+            "registered golden and do not capture the partially refreshed home.",
         )
     lines = result.stdout.strip().splitlines()
-    return json.loads(lines[-1] if lines else "")
+    receipt = redact_machine_qa_value(
+        json.loads(lines[-1] if lines else ""), getattr(control, "secret_values", ())
+    )
+    if isinstance(receipt, dict) and isinstance(receipt.get("cleanup_error"), dict):
+        receipt["cleanup_error"] = {
+            key: bounded_machine_qa_diagnostic(value, tail=True)
+            if isinstance(value, str)
+            else value
+            for key, value in receipt["cleanup_error"].items()
+        }
+    return receipt
 
 
 def probe_harness_cli_versions(control: Any) -> dict[str, str | dict[str, Any]]:
@@ -166,6 +187,20 @@ def install_harness_clis(
             f"{diagnostic['stderr']}"
         )
         installs.append({"harness_id": harness_id, **receipt})
+        if receipt.get("cleanup_error"):
+            return HostActionResult(
+                False,
+                {
+                    "detail": f"{harness_id} installer temporary-directory cleanup failed",
+                    "installs": installs,
+                    "harness_cli_versions": observed,
+                    "held_back": held_back,
+                    "recovery": "Inspect the structured cleanup exception and temporary "
+                    "directory metadata as the test user. Preserve the registered golden; "
+                    "do not recapture this partially refreshed home or reinstall blindly.",
+                },
+                "harness_cli_cleanup_failed",
+            )
         if receipt.get("held_back"):
             held_back.append(
                 f"held back: {harness_id} {latest[harness_id]} does not run on "

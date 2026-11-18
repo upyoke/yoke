@@ -35,6 +35,9 @@ def machine(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(steps, "command", lambda args: calls.append(args))
     monkeypatch.setattr(
+        steps.machine_uninstall_relays, "remove_saved_services", lambda home: None
+    )
+    monkeypatch.setattr(
         steps, "stop_resident", lambda: calls.append(["hook evaluator"])
     )
     monkeypatch.setattr(
@@ -75,6 +78,22 @@ def test_evaluator_stop_failure_retains_home_and_cli(machine, monkeypatch):
     assert value.home.exists()
     assert not handoff
     assert any("hook evaluator: failed" in line for line in output)
+
+
+def test_retired_alias_relay_failure_retains_recovery(machine, monkeypatch):
+    value, _, handoff = machine
+    value = replace(value, relay_envs=())
+    monkeypatch.setattr(steps.sys, "platform", "darwin")
+
+    def fail(home):
+        assert home == value.home
+        raise UninstallError("uninstall_relay_not_stopped")
+
+    monkeypatch.setattr(steps.machine_uninstall_relays, "remove_saved_services", fail)
+    output = []
+    assert steps.remove(value, (), output.append) == 1
+    assert value.config.is_file() and not handoff
+    assert any("saved relay services: failed" in line for line in output)
 
 
 def test_one_failure_does_not_hide_other_cleanup_and_keeps_recovery(
