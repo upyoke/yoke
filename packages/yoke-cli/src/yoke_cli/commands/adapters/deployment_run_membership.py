@@ -71,7 +71,10 @@ def deployment_runs_add_item(args: List[str]) -> int:
             "(item_qa_flow_without_delivery_custody) when the run's flow has "
             "an item-scoped QA stage but takes no delivery custody: such a "
             "member never receives the requirement snapshot item QA proves "
-            "against. Refused while another session is the run's live driver."
+            "against. Refused (deployment_run_member_exists) when the item is "
+            "already a member, naming its delivery intent and selection; "
+            "nothing is written. Refused while another session is the run's "
+            "live driver."
         ),
         epilog=CROSS_PROJECT_MEMBERSHIP_NOTE,
         formatter_class=argparse.RawDescriptionHelpFormatter,

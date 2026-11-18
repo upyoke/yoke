@@ -91,6 +91,7 @@ def handle_deployment_run_add_item(
     if refusal := require_run_driver(request, resolved_run_id):
         return refusal
 
+    from yoke_core.domain.deployment_run_member_exists import MemberAlreadyEnrolled
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
 
     try:
@@ -100,6 +101,8 @@ def handle_deployment_run_add_item(
         if requirement_ids:
             kwargs["requirement_ids"] = requirement_ids
         message = cmd_add_item(resolved_run_id, int(request.target.item_id), **kwargs)
+    except MemberAlreadyEnrolled as exc:
+        return error(exc.code, str(exc))
     except LookupError as exc:
         return error("not_found", str(exc))
     except ValueError as exc:

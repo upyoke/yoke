@@ -70,6 +70,13 @@ def cmd_add_item(
     conn = connect(db_path)
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
+        from yoke_core.domain.deployment_run_member_exists import (
+            refuse_existing_member,
+        )
+
+        # Read under the binding lock every membership writer takes, and before
+        # the status check: an enrolled member is the answer on a live run too.
+        refuse_existing_member(conn, run_id, int(item_id))
         _require_composable_run(conn, run_id)
         from yoke_core.domain.deployment_run_member_admission import (
             admit_run_item,
