@@ -7,6 +7,8 @@ recovery on client stderr, and emits `SessionRegistrationRefused` with the
 code, reason and recovery. Registration stays fail-open: it never changes
 the policy decision or hook exit code. A duplicate is `exists` only when
 the row exists; other integrity failures name the violated constraint.
+A hook from a retired project's checkout refuses as
+`refused:SESSION_PROJECT_RETIRED`, naming `yoke projects unretire` as recovery.
 
 The authoritative registration transaction stamps `first_user_prompt_at`
 on `UserPromptSubmit`, including an existing row and a retry after orientation

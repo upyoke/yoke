@@ -13,6 +13,7 @@ from yoke_core.domain import actor_permissions, db_backend, db_helpers
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.project_identity import resolve_project_slug
+from yoke_core.domain.project_retirement import project_is_retired
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_lifecycle_identity import resolve_session_project_id
 from yoke_core.domain.session_ownership import session_ownership_refusal
@@ -67,7 +68,19 @@ def resolve_registration_scope(
             ),
         )
     if project_id is not None:
-        return SessionScope(resolve_session_project_id(conn, project_id), None)
+        resolved = resolve_session_project_id(conn, project_id)
+        if resolved is not None and project_is_retired(conn, int(resolved)):
+            raise SessionError(
+                "SESSION_PROJECT_RETIRED",
+                compose_refusal(
+                    f"Project {resolved} is retired, so no session can register into it.",
+                    recovery=(
+                        f"restore it with `yoke projects unretire --project {resolved}` "
+                        "or open the session in an active project's folder."
+                    ),
+                ),
+            )
+        return SessionScope(resolved, None)
     try:
         org_id = default_org_id(conn)
         member = _member(conn, actor_id, org_id)
