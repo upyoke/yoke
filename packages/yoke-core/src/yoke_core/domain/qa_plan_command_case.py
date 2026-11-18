@@ -101,8 +101,7 @@ def reset_command_host(raw_contract: dict[str, Any]) -> dict[str, Any] | None:
             f"ran: {reset.get('diagnostic') or reset.get('evidence')}",
             error_code=reset.get("error_code") or STARTING_STATE_RESET_FAILED,
             recovery_hint=(
-                f"repair {host} (`yoke test-machine verify --project "
-                f"{contract.project} --test-machine {host}`), then rerun the plan"
+                f"repair {host} with `yoke test-machine verify --test-machine {host}`, then rerun the plan"
             ),
         )
     return reset

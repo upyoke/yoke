@@ -109,3 +109,28 @@ def test_duplicate_universe_names_refuse_before_writes(legacy):
     assert legacy.execute(
         "SELECT name FROM sqlite_master WHERE name='test_machines'"
     ).fetchone() is None
+
+
+def test_pre_cutover_build_refuses_to_serve_the_migrated_database(legacy):
+    from yoke_core.domain.migration_serving_version import recorded_floor
+    from yoke_core.domain.migration_yoke_ledger import (
+        YOKE_LEDGER_CONTRACT,
+        ensure_yoke_migration_ledger,
+    )
+    from yoke_core.domain.schema_readiness import stranded_by_applied_migrations
+
+    migration = _migration()
+    migration.apply(legacy)
+    ensure_yoke_migration_ledger(legacy)
+    carrying_release = "2.1"
+    minimum = recorded_floor(migration, running_version=carrying_release)
+    name = "0114_test_machines_universe_entity"
+    legacy.execute(
+        "INSERT INTO applied_migrations "
+        "(migration_name,applied_at,applied_by,minimum_serving_version) VALUES (?,?,?,?)",
+        (name, NOW, "test", minimum),
+    )
+    findings = stranded_by_applied_migrations(legacy, "2.0", (), YOKE_LEDGER_CONTRACT)
+    assert len(findings) == 1
+    assert name in findings[0]
+    assert carrying_release in findings[0]

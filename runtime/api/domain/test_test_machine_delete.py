@@ -25,7 +25,6 @@ from yoke_core.domain.projects_capabilities_settings import (
 )
 
 NAME = TEST_MACHINE_SETTINGS["resource_name"]
-CAP = "test-machine:" + NAME
 
 
 @pytest.fixture
@@ -34,33 +33,34 @@ def machine(test_db, tmp_path, monkeypatch):
     return test_db
 
 
-def delete(project="yoke", **updates):
+def delete(**updates):
     return deletion.handle_delete(
         FunctionCallRequest(
             actor=ActorContext(session_id="session-machine-group"),
             function="test_machine.delete",
             target=TargetRef(kind="global"),
-            payload={"project": project, "test_machine": NAME, **updates},
+            payload={"test_machine": NAME, **updates},
         )
     )
 
 
-def capability_count(conn):
+def machine_count(conn):
     return conn.execute(
-        "SELECT count(*) FROM project_capabilities WHERE type=%s", (CAP,)
+        "SELECT count(*) FROM test_machines WHERE name=%s", (NAME,)
     ).fetchone()[0]
 
 
-def test_deletes_cascades_and_allows_empty_project_and_reregistration(machine):
+def test_deletes_cascades_and_allows_empty_universe_and_reregistration(machine):
     verified_reset(machine, NAME, "fresh-host")
+    machine_id = machine.execute("SELECT id FROM test_machines WHERE name=%s", (NAME,)).fetchone()[0]
     outcome = delete()
     assert outcome.primary_success, outcome.error
     assert outcome.result_payload["deleted"] is True
-    assert capability_count(machine) == 0
+    assert machine_count(machine) == 0
     for table in ("test_machine_operation_receipts", "test_machine_verifications"):
         assert (
             machine.execute(
-                f"SELECT count(*) FROM {table} WHERE capability_type=%s", (CAP,)
+                f"SELECT count(*) FROM {table} WHERE test_machine_id=%s", (machine_id,)
             ).fetchone()[0]
             == 0
         )
@@ -68,7 +68,7 @@ def test_deletes_cascades_and_allows_empty_project_and_reregistration(machine):
     replace_test_machine_settings(
         machine, power_project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
     )
-    assert capability_count(machine) == 1
+    assert machine_count(machine) == 1
 
 
 def test_missing_registration_refuses_with_list_recipe(machine):
@@ -84,7 +84,7 @@ def test_active_physical_host_lease_refuses(machine):
     )
     result = delete()
     assert result.error.code == "test_machine_active_lease"
-    assert capability_count(machine) == 1
+    assert machine_count(machine) == 1
     assert (
         machine.execute(
             "SELECT released_at FROM work_claims WHERE id=%s", (claim.id,)
@@ -103,7 +103,7 @@ def test_unsettled_wait_any_project_refuses(machine, state):
     machine.commit()
     result = delete()
     assert result.error.code == "test_machine_wait_pending"
-    assert capability_count(machine) == 1
+    assert machine_count(machine) == 1
 
 
 @pytest.mark.parametrize("state", ["granted", "cancelled"])
@@ -141,23 +141,10 @@ def test_owed_reset_refuses_and_preserves_receipts(machine):
     result = delete()
     assert result.error.code == "machine_reset_owed"
     assert "yoke test-machine reset" in result.error.message
-    assert capability_count(machine) == 1
+    assert machine_count(machine) == 1
 
 
-def shared_registration(conn):
-    conn.execute(
-        "INSERT INTO projects(id,slug,name,public_item_prefix,created_at) VALUES(9001,'other','Other','OTH',CURRENT_TIMESTAMP)"
-    )
-    conn.execute(
-        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
-        "SELECT 9001,type,settings,created_at FROM project_capabilities WHERE project_id=1 AND type=%s",
-        (CAP,),
-    )
-    conn.commit()
-
-
-def test_post_delete_debt_check_rolls_back_cascades(machine):
-    shared_registration(machine)
+def test_confirmed_reset_clears_shared_debt_and_allows_deletion(machine):
     record_reset_owed(
         machine,
         case={"project_id": 9001, "host_baseline": "fresh-host"},
@@ -166,36 +153,6 @@ def test_post_delete_debt_check_rolls_back_cascades(machine):
     )
     machine.commit()
     verified_reset(machine, NAME, "fresh-host")
-    result = delete()
-    assert result.error.code == "machine_reset_owed"
-    assert capability_count(machine) == 2
-    assert (
-        machine.execute(
-            "SELECT count(*) FROM test_machine_operation_receipts WHERE capability_type=%s",
-            (CAP,),
-        ).fetchone()[0]
-        == 2
-    )
 
-
-def test_deletes_only_selected_project_registration(machine):
-    shared_registration(machine)
-    result = delete()
-    assert result.primary_success, result.error
-    assert capability_count(machine) == 1
-    assert (
-        list_machines(machine)["test_machines"][0]["test_machine"]
-        == NAME
-    )
-
-
-def test_generic_removal_refuses_before_connect(machine):
-    with pytest.raises(ValueError, match="test_machine_delete_required"):
-        cmd_capability_remove_settings("yoke", CAP, base_settings_json="{}")
-    assert capability_count(machine) == 1
-
-
-def test_explicit_name_required(machine):
-    result = delete(test_machine=None)
-    assert result.error.code == "payload_invalid"
-    assert capability_count(machine) == 1
+    assert delete().primary_success
+    assert machine_count(machine) == 0

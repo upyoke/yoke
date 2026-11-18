@@ -64,6 +64,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["os", "Operating system"],
     ["operating_notes", "Operating notes"],
     ["golden_baseline_path", "Golden baseline path"],
+    ["power_project", "Cloud power project"],
     ["cloud_provider", "Cloud provider (aws or azure; default aws)"],
     ["cloud_instance_id", "Cloud instance id (Azure: full VM resource id)"],
     ["desktop_route", "Desktop route (direct or ssh-forward)"],
@@ -74,11 +75,11 @@ export function machineSettingsDialog(context, detail, close, saved) {
   ]) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");
-    input.value = detail.settings[key] || "";
+    input.value = (key === "power_project" ? detail.power_project : detail.settings[key]) || "";
     let explanation = "";
     if (key === "resource_name") {
       input.readOnly = true;
-      explanation = "The resource name is this capability row's identity.";
+      explanation = "The resource name is this Test Machine's identity.";
     }
     if (key === "os") {
       explanation =
@@ -166,11 +167,14 @@ export function machineSettingsDialog(context, detail, close, saved) {
         "test_machine.settings_replace",
         {
           test_machine: detail.test_machine,
+          power_project: inputs.power_project.value.trim() || null,
           settings: Object.fromEntries(
             Object.entries(inputs)
               .filter(([key, input]) => (
-                ["resource_name", "host", "user", "os", "operating_notes"].includes(key)
-                || input.value.trim()
+                key !== "power_project" && (
+                  ["resource_name", "host", "user", "os", "operating_notes"].includes(key)
+                  || input.value.trim()
+                )
               ))
               .map(([key, input]) => [key, input.value]),
           ),

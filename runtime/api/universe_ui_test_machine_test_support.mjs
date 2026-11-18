@@ -4,11 +4,12 @@ import {
 } from "./universe_ui_dom_test_support.mjs";
 
 export const detail = {
-  project_id: 1,
-  project: "yoke",
+  id: 8,
+  power_project_id: 1,
+  power_project: "yoke",
+  yoke_started: false,
   kind: "test-machine",
   test_machine: "mac-mini-lab",
-  capability_type: "test-machine:mac-mini-lab",
   display_name: "Test Machine",
   runner_id: "host_control",
   settings: {

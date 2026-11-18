@@ -44,7 +44,8 @@ _MACHINE_CREDENTIAL_COLUMNS = frozenset(
 _HISTORY_CONVERGED_COLUMNS = frozenset(
     {
         *_MACHINE_CREDENTIAL_COLUMNS,
-        ("test_machine_verifications", "capability_type"),
+        ("test_machine_verifications", "test_machine_id"),
+        ("test_machine_operation_receipts", "test_machine_id"),
         ("harness_sessions", "execution_level"),
         ("qa_plan_executions", "test_machine_lease_id"),
         # 0113 backfills shipped|operator from published_by_actor_id.

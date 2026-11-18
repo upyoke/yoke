@@ -9,7 +9,7 @@ from runtime.api.fixtures.session_zones import SESSION_ZONES
 from pydantic import ValidationError
 
 from yoke_contracts.timestamps import parse_instant, temporal_wire
-from yoke_core.domain.test_machine_rows import test_machine_id
+from yoke_core.domain.test_machine_rows import test_machine_id as machine_id
 from yoke_core.domain import machine_operation_recording as operations
 from yoke_core.domain import machine_verification_recording as verification
 from yoke_core.domain.handlers.machine_qa_operation import (
@@ -77,7 +77,7 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
     second = record(12)
     row = test_db.execute(
         "SELECT checked_at,updated_at,receipt_json FROM test_machine_verifications WHERE test_machine_id=%s",
-        (test_machine_id(test_db, MACHINE),),
+        (machine_id(test_db, MACHINE),),
     ).fetchone()
     assert row[:2] == (clock[0], clock[0])
     history = json.loads(row[2])["host_control_submission_history"]
@@ -87,7 +87,7 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
     record(13)
     latest = test_db.execute(
         "SELECT receipt_json FROM test_machine_verifications WHERE test_machine_id=%s",
-        (test_machine_id(test_db, MACHINE),),
+        (machine_id(test_db, MACHINE),),
     ).fetchone()[0]
     assert json.loads(latest)["host_control_submission_history"][0] == history[0]
     for lease, expected in [(11, first), (12, second)]:
@@ -130,7 +130,7 @@ def test_operation_receipt_replay_and_order_use_native_instants(
     assert first["performed_at"] == STAMP
     row = test_db.execute(
         "SELECT performed_at,updated_at,receipt_json FROM test_machine_operation_receipts WHERE test_machine_id=%s",
-        (test_machine_id(test_db, MACHINE),),
+        (machine_id(test_db, MACHINE),),
     ).fetchone()
     assert row[:2] == (STAMP, STAMP)
     assert json.loads(row[2]) == {"checks": [OPAQUE]}
@@ -156,7 +156,7 @@ def test_operation_receipt_replay_and_order_use_native_instants(
         contract_digest="b" * 64,
     )
     rows = operations.test_machine_operation_receipts(
-        test_db, test_machine_id(test_db, MACHINE)
+        test_db, machine_id(test_db, MACHINE)
     )
     assert [row["performed_at"] for row in rows] == [clock[0], STAMP]
 
