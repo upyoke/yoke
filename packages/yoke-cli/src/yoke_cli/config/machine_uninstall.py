@@ -33,7 +33,14 @@ def run(
             ) from exc
 
     if inventory.owns_data:
-        held = "self-hosted server data" if inventory.bundles else "local universe data"
+        held = " and ".join(
+            kind
+            for kind, present in (
+                ("local universe data", inventory.local_universe),
+                ("self-hosted server data", bool(inventory.bundles)),
+            )
+            if present
+        )
         emit(
             f"WARNING: This machine holds the only copy of its {held}. "
             "Uninstall deletes that data permanently."

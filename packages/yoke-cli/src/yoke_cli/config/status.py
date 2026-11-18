@@ -175,7 +175,7 @@ def _connection_status(
         "env": str(connection.get("env") or ""),
         "envs": available,
         "transport": transport,
-        "protected": _connection_protected_flag(connection),
+        "protected": contract.connection_is_protected(connection),
         "api_url": connection.get("api_url") or "",
         "authority_kind": (
             str(authority.get("kind") or "") if isinstance(authority, Mapping) else ""
@@ -186,11 +186,6 @@ def _connection_status(
         ),
     }
     return status, issues
-
-
-def _connection_protected_flag(connection: Mapping[str, Any]) -> bool | None:
-    value = connection.get(contract.PROTECTED_FLAG_KEY)
-    return value if isinstance(value, bool) else None
 
 
 def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:

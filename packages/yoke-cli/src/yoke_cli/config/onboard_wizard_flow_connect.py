@@ -136,14 +136,18 @@ class ConnectFlow(TeamServerConnectFlow, ServerConnectionForm):
         from yoke_cli.config.onboard_wizard_state import _View
 
         server = retry_source in {"team-server", "server-form"}
-        details = list(
-            detail_lines
-            or [
-                server_reach_failure.CHECK_SERVER_MACHINE
-                if server
-                else "Check the token value, environment, and network connection."
-            ]
-        )
+        details = [
+            line
+            for line in (
+                detail_lines
+                or [
+                    server_reach_failure.CHECK_SERVER_MACHINE
+                    if server
+                    else "Check the token value, environment, and network connection."
+                ]
+            )
+            if line not in message
+        ]
         if NO_SERVER_GUIDANCE not in details:
             details.append(NO_SERVER_GUIDANCE)
         rows = self._connection_verify_error_rows(retry_source)
