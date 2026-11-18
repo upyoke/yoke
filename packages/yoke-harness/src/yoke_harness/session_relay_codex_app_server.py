@@ -17,6 +17,7 @@ from yoke_harness.session_relay_codex import (
 from yoke_harness.session_relay_codex_app_server_errors import CodexAppServerError
 from yoke_harness.session_relay_codex_app_server_client import (
     _Client,
+    set_thread_name,
 )
 from yoke_harness.session_relay_codex_invocation import codex_launch_environment
 from yoke_harness.session_relay_inventory import resolve_native_cli_source
@@ -161,10 +162,7 @@ class CodexAppServerTransport:
                     code="identity_mismatch",
                 )
             if request.session_name:
-                client.request(
-                    "thread/name/set",
-                    {"threadId": identity[0], "name": request.session_name},
-                )
+                set_thread_name(client, identity[0], request.session_name)
             turn_id = _start_turn(client, identity[0], request)
             client.detach_until_turn_completed(turn_id)
             return _outcome(

@@ -1,0 +1,7 @@
+{
+ "id": "worker-chat-names",
+ "title": "Worker chat names",
+ "status": "observed",
+ "sources": ["docs/public/sessions/session-titles.md", "runtime/harness/test_session_relay_codex_cli_naming.py"],
+ "summary": "Yoke derives the native worker chat name from the current launch item. Claude uses its CLI name option. Codex desktop names the thread before the first turn. The Codex CLI worker records its own thread identity when exec starts and sets the name after exec exits and flushes that thread. If naming fails, the native launch capture records the reason and how to rename the exact chat. Cursor has no worker naming surface."
+}

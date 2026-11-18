@@ -5,6 +5,8 @@ from __future__ import annotations
 from yoke_harness.session_relay_release_lease import hold_running_release
 
 from yoke_harness.session_launch_admission import NativeCapacityRefusal
+from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
+from yoke_contracts.timestamps import format_instant, utc_now
 
 import json
 import os
@@ -15,6 +17,7 @@ from typing import BinaryIO, Callable, Mapping, TextIO
 
 from yoke_harness.session_relay_native_streams import (
     BoundedStreams,
+    STDERR,
     STDOUT,
     start_drain,
 )
@@ -52,6 +55,8 @@ def _retain_and_reap(
     process: subprocess.Popen[bytes],
     streams: BoundedStreams,
     reference: str,
+    *,
+    after_exit: Callable[[], None] | None = None,
 ) -> None:
     """Own the native and refresh its capture even during hook-silent waits."""
 
@@ -65,9 +70,45 @@ def _retain_and_reap(
             process,
             streams,
             tuple(thread for thread in drains if thread is not None),
+            after_exit=after_exit,
         )
 
     threading.Thread(target=own, daemon=False, name="yoke-codex-relay-reap").start()
+
+
+def name_persisted_thread(
+    binary: str,
+    request: CodexNativeRequest,
+    thread_id: str,
+    name: str,
+    streams: BoundedStreams,
+) -> None:
+    """Name the exact exec thread once its process has flushed the rollout."""
+    from yoke_harness.session_relay_codex_app_server_client import (
+        _Client,
+        CodexAppServerError,
+        set_thread_name,
+    )
+    from yoke_harness.session_relay_codex_invocation import codex_launch_environment
+
+    env = codex_launch_environment(request)
+    env.pop(LAUNCH_CONTEXT_ENV, None)
+    client = None
+    try:
+        client = _Client(binary, request.checkout, env, START_TIMEOUT_SECONDS)
+        set_thread_name(client, thread_id, name)
+    except (CodexAppServerError, NativeCapacityRefusal, OSError) as exc:
+        streams.append(
+            STDERR,
+            (
+                f"\n{format_instant(utc_now())} ERROR: codex_cli_thread_name_failed: {exc}. "
+                "Check the Codex installation and native thread storage, then reopen "
+                f"thread {thread_id} and use /rename to set its title.\n"
+            ).encode(),
+        )
+    finally:
+        if client is not None:
+            client.close()
 
 
 def _retain(
