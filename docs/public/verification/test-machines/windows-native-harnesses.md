@@ -7,6 +7,13 @@
 Complete [desktop setup](windows-native-host-provisioning.md#3-desktop-and-sign-ins)
 before installing and signing in as the dedicated standard test user.
 
+Open built-in **Windows PowerShell 5.1** as that user: **Start > Run**, then
+`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` (or
+`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`). The `v1.0`
+directory is also the normal path for version 5.1. Confirm
+`$PSVersionTable.PSVersion`; these steps do not require a PowerShell 7 download
+or an administrator shell. PowerShell 7, if separately installed, uses `pwsh.exe`.
+
 As the standard user install all harness CLIs from their vendors:
 
 ```powershell
