@@ -35,7 +35,7 @@ import signal
 import subprocess
 import sys
 from types import FrameType
-from typing import Sequence
+from typing import Callable, Sequence
 from threading import Thread
 
 from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
@@ -144,6 +144,8 @@ def retain_native_capture(
     process: subprocess.Popen[bytes],
     streams: BoundedStreams,
     drains: Sequence[Thread] = (),
+    *,
+    after_exit: Callable[[], None] | None = None,
 ) -> None:
     """Keep an already-started native's capture fresh through its exit."""
     _write(capture, streams, state=STATE_RUNNING)
@@ -162,15 +164,19 @@ def retain_native_capture(
             if streams.take_dirty():
                 spoke_at = utc_now()
             _write(capture, streams, state=STATE_RUNNING, last_output_at=spoke_at)
+    exited_at = utc_now()
     for drain in drains:
         drain.join(_DRAIN_JOIN_SECONDS)
     if streams.take_dirty():
         spoke_at = utc_now()
+    if after_exit is not None:
+        after_exit()
     _write(
         capture,
         streams,
         state=STATE_EXITED,
         exit_code=exit_code,
+        now=exited_at,
         last_output_at=spoke_at,
     )
 

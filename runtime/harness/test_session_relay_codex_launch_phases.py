@@ -125,7 +125,7 @@ def _spawning(monkeypatch, native: _FakeNative, source: str = "bundled"):
     transport = CodexCliTransport(worker=True)
     monkeypatch.setattr(cli_module, "_stop", lambda child: child.terminate())
     monkeypatch.setattr(
-        transport, "_spawn", lambda request, *, resume, streams: (native, source)
+        transport, "_spawn", lambda request, *, resume, streams: (native, ResolvedNativeCli("/opt/codex", source))
     )
     return transport
 
@@ -176,7 +176,7 @@ def test_active_writer_refusal_survives_worker_translation_as_busy(
             "stderr",
             b"thread/resume failed: thread private-id already has an active writer",
         )
-        return native, "path"
+        return native, ResolvedNativeCli("/opt/codex", "path")
 
     monkeypatch.setattr(transport, "_spawn", spawn)
     request = _request(tmp_path, job_kind="wake", target_session_id=THREAD_ID)

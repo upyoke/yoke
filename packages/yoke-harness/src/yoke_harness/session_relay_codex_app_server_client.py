@@ -240,4 +240,8 @@ class _Client:
                 pass
 
 
-__all__ = ["CodexAppServerError"]
+def set_thread_name(client: _Client, thread_id: str, name: str) -> None:
+    client.request("thread/name/set", {"threadId": thread_id, "name": name})
+
+
+__all__ = ["CodexAppServerError", "set_thread_name"]

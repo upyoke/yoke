@@ -35,8 +35,10 @@ content stays on the machine. Unnamed headless chats use the item label.
 
 Launches store their assignment in nullable `session_launches.item_id`.
 The relay derives the worker name from the current item ref and title when
-leasing the job. Claude receives `--name`; Codex receives `thread/name/set`.
-Cursor has no worker naming surface.
+leasing the job. Claude receives `--name`. Codex desktop sets the native title
+before the first turn. Codex CLI sets it on the exact thread after `codex exec`
+exits and flushes its first turn. A naming failure appears in the launch's
+native capture. Cursor has no worker naming surface.
 
 When a desktop wake notice names a chat, open that chat and type anything.
 Its next hook delivers the waiting message; Yoke leaves that wake to you

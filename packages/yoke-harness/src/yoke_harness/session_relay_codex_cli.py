@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 from yoke_harness.session_relay_pipe_reader import PipeReader
 
 from yoke_harness.session_relay_process_group import spawn_relay_process
@@ -12,6 +14,7 @@ from yoke_harness.session_relay_codex_cli_process import (
     stop_native as _stop,
     _retain_and_reap,
     _retain,
+    name_persisted_thread,
 )
 
 import json
@@ -118,7 +121,7 @@ class CodexCliTransport:
 
     def _spawn(
         self, request: CodexNativeRequest, *, resume: bool, streams: BoundedStreams
-    ) -> tuple[subprocess.Popen[bytes], str]:
+    ) -> tuple[subprocess.Popen[bytes], ResolvedNativeCli]:
         """Start the native, raising the phase that stopped it short."""
         resolved = self._resolve_binary()
         if resolved is None or not request.checkout.is_dir():
@@ -164,7 +167,7 @@ class CodexCliTransport:
             process.stdin.write(instruction)
             process.stdin.flush()
             process.stdin.close()
-            return process, resolved.source
+            return process, resolved
         except (OSError, subprocess.SubprocessError, NativeDiagnosticError) as exc:
             started = process is not None
             if process is not None:
@@ -184,7 +187,7 @@ class CodexCliTransport:
         process: subprocess.Popen[bytes],
         request: CodexNativeRequest,
         *,
-        binary_source: str,
+        binary: ResolvedNativeCli,
         streams: BoundedStreams,
     ) -> CodexNativeOutcome:
         """Correlate the native from its own stream, never a second process.
@@ -196,6 +199,7 @@ class CodexCliTransport:
         a create that waited for that confirmation killed every native it
         had just started and reported an unproven outcome instead.
         """
+        binary_source = binary.source
         if process.stdout is None:
             _stop(process)
             _retain(streams, request.job_id, process.poll())
@@ -273,7 +277,12 @@ class CodexCliTransport:
                 binary_source=binary_source,
                 pid=process.pid,
             )
-        _retain_and_reap(process, streams, request.job_id)
+        after_exit = None
+        if request.job_kind == "launch" and request.session_name:
+            after_exit = partial(
+                name_persisted_thread, binary.path, request, found, request.session_name, streams
+            )
+        _retain_and_reap(process, streams, request.job_id, after_exit=after_exit)
         return CodexNativeOutcome(
             "accepted",
             native_session_id=found,
@@ -286,7 +295,7 @@ class CodexCliTransport:
     def _run(self, request: CodexNativeRequest, *, resume: bool) -> CodexNativeOutcome:
         streams = BoundedStreams()
         try:
-            process, binary_source = self._spawn(
+            process, binary = self._spawn(
                 request, resume=resume, streams=streams
             )
         except _NativePhaseError as failure:
@@ -308,7 +317,7 @@ class CodexCliTransport:
                 pid=failure.pid,
             )
         return self._await_identity(
-            process, request, binary_source=binary_source, streams=streams
+            process, request, binary=binary, streams=streams
         )
 
     def create(self, request: CodexNativeRequest) -> CodexNativeOutcome:

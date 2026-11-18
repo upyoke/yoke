@@ -178,13 +178,13 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
     monkeypatch.setattr(
         cli_module, "native_diagnostic_path", lambda ref: tmp_path / "native.capture"
     )
-    process, binary_source = cli_module.CodexCliTransport(
+    process, binary = cli_module.CodexCliTransport(
         binary="/opt/codex",
         worker=True,
     )._spawn(_request(tmp_path), resume=False, streams=cli_module.BoundedStreams())
 
     assert process is child
-    assert binary_source == "explicit"
+    assert binary == ResolvedNativeCli("/opt/codex", "explicit")
     command, options = calls[0]
     assert command[-1] == "-"
     assert INSTRUCTION not in repr(command)

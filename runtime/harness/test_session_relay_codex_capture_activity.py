@@ -75,10 +75,10 @@ def test_hook_silent_codex_resume_refreshes_capture_past_inactivity_window(
     monkeypatch.setattr(cli, "record_supervised_native", record)
     transport = cli.CodexCliTransport(worker=True)
     streams = cli.BoundedStreams()
-    process, source = transport._spawn(request, resume=True, streams=streams)
+    process, binary = transport._spawn(request, resume=True, streams=streams)
     try:
         outcome = transport._await_identity(
-            process, request, binary_source=source, streams=streams
+            process, request, binary=binary, streams=streams
         )
         assert outcome.state == "accepted"
         capture = Path(custody[0]["capture_path"])
