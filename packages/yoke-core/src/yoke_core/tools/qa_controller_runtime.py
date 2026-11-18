@@ -6,6 +6,10 @@ installed with ``pip --isolated`` beside, never over, the machine's installed
 CLI: no channel, PATH, settings or hook is touched. A verified runtime is
 reused by later controller commands (the walker's mission commands) and the
 least recently used ones beyond :data:`RETAINED_RUNTIMES` are removed.
+
+Another controller may be running from any runtime directory, so none is ever
+rebuilt or deleted because it failed verification: each install builds a
+fresh ``<version>-<commit12>-<uuid>`` directory, and only retention prunes.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import os
 import subprocess
 import sys
 import sysconfig
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -77,11 +82,13 @@ def _site_packages(root: Path) -> list[Path]:
     return [Path(paths["purelib"])]
 
 
-def verify_runtime(root: Path, version: str, commit: str) -> str:
+def verify_runtime(
+    root: Path, version: str, commit: str, *, require_receipt: bool = True
+) -> str:
     """Why *root* is not the candidate runtime, or ``""`` when it is."""
     if not relay_venv_python(root).is_file() or not relay_venv_executable(root).is_file():
         return f"{root} has no python and yoke executables"
-    if not (root / RECEIPT_NAME).is_file():
+    if require_receipt and not (root / RECEIPT_NAME).is_file():
         return f"{root} has no install receipt; it was not installed in place"
     head = relay_venv_executable(root).read_bytes()[:512]
     if head.startswith(b"#!") and str(root).encode() not in head.split(b"\n", 1)[0]:
@@ -144,42 +151,60 @@ def _install(root: Path, *, base_url: str, version: str, runner: Runner) -> None
 def ensure_controller_runtime(
     *, base_url: str, version: str, source_commit: str, runner: Runner = subprocess.run
 ) -> ControllerRuntime:
-    """The verified candidate runtime, installing it when absent or broken.
+    """The newest verified candidate runtime, installing a fresh one when none is.
 
     It installs in place: a venv's console scripts name its interpreter by
     absolute path, so a venv built elsewhere and renamed would break ``yoke``.
-    A lock serializes concurrent controllers installing the same runtime.
+    A lock serializes concurrent controllers selecting, installing and pruning.
+    A runtime that fails verification is left for retention to prune, because
+    a controller handed off earlier may still be importing from it.
     """
     parent = runtimes_root()
-    root = parent / f"{version}-{source_commit[:12]}"
+    prefix = f"{version}-{source_commit[:12]}-"
     parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
         with (parent / LOCK_NAME).open(mode="a+b") as handle:
             locks.acquire_exclusive(handle.fileno())
             try:
-                if verify_runtime(root, version, source_commit):
-                    _install_in_place(
+                root = _select_verified(parent, prefix, version, source_commit)
+                if root is None:
+                    root = parent / f"{prefix}{uuid.uuid4().hex[:12]}"
+                    _install_fresh(
                         root, base_url=base_url, version=version,
                         source_commit=source_commit, runner=runner,
                     )
                 else:
                     os.utime(root)
+                _prune(parent, keep=root)
             finally:
                 locks.release_exclusive(handle.fileno())
     except (OSError, subprocess.SubprocessError) as exc:
         raise ControllerRuntimeError(f"{type(exc).__name__}: {exc}") from exc
-    _prune(parent, keep=root)
     return _runtime(root, version, source_commit)
 
 
-def _install_in_place(
+def _select_verified(parent: Path, prefix: str, version: str, commit: str) -> Path | None:
+    """The most recently used runtime of this candidate that passes verification."""
+    candidates = [p for p in parent.iterdir() if p.is_dir() and p.name.startswith(prefix)]
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return next((p for p in candidates if not verify_runtime(p, version, commit)), None)
+
+
+def _install_fresh(
     root: Path, *, base_url: str, version: str, source_commit: str, runner: Runner
 ) -> None:
-    if root.exists():
-        remove_tree(root)
+    """Install into *root*, a new directory no controller has seen yet.
+
+    The receipt is written last, so a half-built directory never verifies.
+    Only this never-returned directory is removed when its install fails.
+    """
+    root.mkdir(mode=0o700)
     installed = False
     try:
         _install(root, base_url=base_url, version=version, runner=runner)
+        reason = verify_runtime(root, version, source_commit, require_receipt=False)
+        if reason:
+            raise ControllerRuntimeError(reason)
         (root / RECEIPT_NAME).write_text(
             json.dumps(
                 {"version": version, "source_commit": source_commit, "base_url": base_url},
@@ -187,9 +212,6 @@ def _install_in_place(
             ),
             encoding="utf-8",
         )
-        reason = verify_runtime(root, version, source_commit)
-        if reason:
-            raise ControllerRuntimeError(reason)
         installed = True
     finally:
         if not installed and root.exists():
@@ -197,6 +219,7 @@ def _install_in_place(
 
 
 def _prune(parent: Path, *, keep: Path) -> None:
+    """Remove runtimes beyond retention, never *keep*; called under the lock."""
     try:
         runtimes = [p for p in parent.iterdir() if p.is_dir() and not p.name.startswith(".")]
     except OSError:
