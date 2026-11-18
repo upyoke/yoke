@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 import shlex
 import subprocess
@@ -97,6 +99,7 @@ def _teardown_lines(
     )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_teardown_removes_the_bundle_stack_and_reports_what_it_freed(
     tmp_path: Path,
 ) -> None:
@@ -119,6 +122,7 @@ def test_teardown_removes_the_bundle_stack_and_reports_what_it_freed(
     ]
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_teardown_selects_only_the_bundle_project(tmp_path: Path) -> None:
     client, state = _fake_runtime(tmp_path, containers=("core",))
 
@@ -134,6 +138,7 @@ def test_teardown_selects_only_the_bundle_project(tmp_path: Path) -> None:
         assert f"label={COMPOSE_PROJECT_LABEL}={SELF_HOST_COMPOSE_PROJECT}" in line
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_teardown_is_a_clean_pass_on_a_host_with_no_container_runtime(
     tmp_path: Path,
 ) -> None:
@@ -147,6 +152,7 @@ def test_teardown_is_a_clean_pass_on_a_host_with_no_container_runtime(
     assert "REMOVED 0 0 0" in result.stdout
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_teardown_refuses_when_the_stack_survives_removal(tmp_path: Path) -> None:
     client, state = _fake_runtime(tmp_path, containers=("core",))
 

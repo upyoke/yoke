@@ -44,6 +44,7 @@ from yoke_core.hooks.decision_render import render_codex_decision
 import ast
 import json
 import os
+import tempfile
 import re
 import sys
 from typing import Optional
@@ -83,7 +84,7 @@ _RUNTIME_IMPORT_RE = re.compile(
 )
 
 _DENY_REASON = (
-    "BLOCKED: a Python script under /tmp that imports Yoke modules fails with "
+    "BLOCKED: a Python script in a temporary directory that imports Yoke modules fails with "
     "ModuleNotFoundError: `sys.path[0]` is /tmp, so `yoke_core.*` and "
     "`runtime.*` do not resolve.\n\n"
     "Instead:\n"
@@ -119,7 +120,13 @@ def _extract_write_fields(payload: dict) -> tuple[str, str]:
 def _is_tmp_python_path(file_path: str) -> bool:
     if not file_path or not file_path.endswith(".py"):
         return False
-    return any(file_path.startswith(prefix) for prefix in _TMP_PREFIXES)
+    if file_path.startswith(_TMP_PREFIXES):
+        return True
+    if not os.path.isabs(file_path):
+        return False
+    candidate = os.path.normcase(os.path.abspath(file_path))
+    temp_root = os.path.normcase(os.path.abspath(tempfile.gettempdir()))
+    return candidate.startswith(temp_root.rstrip(os.sep) + os.sep)
 
 
 def _under_tmp_yoke_checkout(file_path: str) -> bool:

@@ -71,3 +71,16 @@ def test_transcript_exists_checks_file_only(tmp_path: Path, monkeypatch) -> None
 
     assert claude_session_transcript_exists(checkout, session_id) is True
     assert claude_session_transcript_exists(checkout, "missing-session") is False
+
+
+@pytest.mark.windows_only(reason="uses Windows drive-qualified and UNC checkout paths")
+@pytest.mark.parametrize(
+    "checkout,expected",
+    [
+        (r"C:\a\b", "C--a-b"),
+        (r"C:\a\.worktrees\with space", "C--a--worktrees-with-space"),
+        (r"\\host.example.invalid\share\a\b", "--host-example-invalid-share-a-b"),
+    ],
+)
+def test_project_storage_key_matches_windows_claude(checkout: str, expected: str) -> None:
+    assert claude_project_storage_key(Path(checkout)) == expected

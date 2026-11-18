@@ -1,4 +1,4 @@
-name: Windows local PostgreSQL
+name: yoke-windows-local-postgres
 on:
   pull_request:
     paths:

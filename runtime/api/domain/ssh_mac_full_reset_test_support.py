@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import pytest
 import shlex
 import shutil
 import subprocess
@@ -155,11 +154,8 @@ def run_functions(
 
 
 def require_zsh() -> str:
-    """Return an interpreter, or skip: the program is macOS zsh by contract."""
-    binary = zsh_binary()
-    if binary is None:
-        pytest.skip("zsh is required to execute the macOS reset program")
-    return binary
+    """Run macOS programs with the shell shipped by macOS."""
+    return "/bin/zsh"
 
 
 def zsh_binary() -> str | None:

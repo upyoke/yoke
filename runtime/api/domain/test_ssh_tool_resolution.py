@@ -15,9 +15,6 @@ from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
 from yoke_contracts.test_machine_types import HostActionResult
 
 
-pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
-
-
 def _response(command, *, code="1", path="", exit_code=0, noise="", stderr=""):
     marker = re.search(r"YOKE_TOOL_PROBE_[a-f0-9]+", command)[0]
     return subprocess.CompletedProcess(
@@ -40,6 +37,7 @@ def test_startup_stdout_is_not_tool_presence(surface):
     assert "Welcome to WSL" in evidence["stdout"]
 
 
+@pytest.mark.posix_only(reason="executes /bin/bash command -v against an executable POSIX script")
 def test_probe_script_resolves_each_real_executable(tmp_path):
     tool = tmp_path / "yoke"
     tool.write_text("#!/bin/sh\nexit 0\n")

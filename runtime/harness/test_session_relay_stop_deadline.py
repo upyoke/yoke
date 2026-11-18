@@ -105,3 +105,37 @@ def test_windows_tasks_promise_no_shutdown_grace(monkeypatch, caplog):
         assert deadline.read_stop_settlement_seconds() == 0
     assert "relay_task_stop_has_no_grace" in caplog.text
     assert "reconciled" in caplog.text
+
+
+@pytest.mark.windows_only(reason="Task Scheduler gives the Windows relay no shutdown grace")
+def test_windows_stop_returns_while_an_in_flight_job_can_still_settle(tmp_path):
+    import signal
+    import threading
+
+    from yoke_harness.session_relay import ServeOnceOutcome
+    from yoke_harness.session_relay_daemon import serve_forever
+
+    started = threading.Event()
+    allow_settlement = threading.Event()
+    completed = threading.Event()
+
+    def settle():
+        started.set()
+        if allow_settlement.wait(10):
+            completed.set()
+        return "launch"
+
+    def cycle(*, dispatch_job, **kwargs):
+        dispatch_job(settle, lambda reason: pytest.fail(f"job was released: {reason}"))
+        assert started.wait(5)
+        signal.raise_signal(signal.SIGTERM)
+        return ServeOnceOutcome("dispatched", 1)
+
+    try:
+        stopped = serve_forever(state_dir=tmp_path, cycle=cycle, install_signals=True)
+        assert stopped.reason == "signal:SIGTERM"
+        assert stopped.jobs_settled == 0
+        assert not completed.is_set()
+    finally:
+        allow_settlement.set()
+    assert completed.wait(5), "the in-flight relay job did not settle"

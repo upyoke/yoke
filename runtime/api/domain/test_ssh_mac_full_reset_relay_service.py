@@ -6,6 +6,8 @@ launchd domain, which is the same boundary the local relay lifecycle keeps.
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
@@ -83,6 +85,7 @@ def _loaded(binary: Path, *labels: str) -> None:
     )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_unload_removes_a_relay_service_loaded_without_a_running_process(
     tmp_path: Path,
 ) -> None:
@@ -103,6 +106,7 @@ def test_unload_removes_a_relay_service_loaded_without_a_running_process(
     assert (tmp_path / "loaded-labels").read_text() == ""
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_unload_passes_when_the_account_has_no_relay_service_loaded(
     tmp_path: Path,
 ) -> None:
@@ -119,6 +123,7 @@ def test_unload_passes_when_the_account_has_no_relay_service_loaded(
     assert "UNLOADED 0" in result.stdout
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_unload_leaves_every_service_this_reset_does_not_own(
     tmp_path: Path,
 ) -> None:
@@ -140,6 +145,7 @@ def test_unload_leaves_every_service_this_reset_does_not_own(
     ]
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_unload_covers_the_canonical_label_as_well_as_an_instance(
     tmp_path: Path,
 ) -> None:
@@ -160,6 +166,7 @@ def test_unload_covers_the_canonical_label_as_well_as_an_instance(
     ]
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_unload_stops_and_names_the_service_it_could_not_remove(
     tmp_path: Path,
 ) -> None:
@@ -183,6 +190,7 @@ def test_unload_stops_and_names_the_service_it_could_not_remove(
     assert (tmp_path / "loaded-labels").read_text().splitlines() == [label]
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_unload_treats_an_unreachable_launchctl_as_nothing_loaded(
     tmp_path: Path,
 ) -> None:

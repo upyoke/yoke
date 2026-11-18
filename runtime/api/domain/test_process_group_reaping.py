@@ -9,29 +9,30 @@ holding a test database open.
 
 from __future__ import annotations
 
-import os
 import signal
 import subprocess
 import sys
 import time
 
+import psutil
 import pytest
 
 from yoke_core.domain import process_group_reaping
 
-pytestmark = pytest.mark.posix_only(reason="POSIX signals and process sessions")
-
-# A shell that reports its grandchild's PID, then blocks forever. Without
-# group reaping the grandchild outlives a kill aimed at the shell alone.
-_SPAWN_GRANDCHILD_THEN_BLOCK = "sleep 300 & echo $!; while true; do sleep 0.05; done"
+# A real grandchild retains the inherited pipes until the reaper stops it.
+_SPAWN_GRANDCHILD_THEN_BLOCK = (
+    "import pathlib, subprocess, sys, time; "
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+    "pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='utf-8'); "
+    "time.sleep(60)"
+)
 
 
 def _process_is_alive(pid: int) -> bool:
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        return psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
         return False
-    return True
 
 
 def _wait_until_gone(pid: int, timeout: float = 5.0) -> bool:
@@ -64,20 +65,17 @@ def _wait_for_nonempty_text(path, timeout: float = 10.0) -> str:
 
 def _kill_if_alive(pid: int) -> None:
     try:
-        os.kill(pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
+        psutil.Process(pid).kill()
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
 
 
-def test_terminate_reaches_grandchildren_not_just_the_direct_child():
+def test_terminate_reaches_grandchildren_not_just_the_direct_child(tmp_path):
+    pid_file = tmp_path / "grandchild.pid"
     proc = process_group_reaping.popen_in_process_group(
-        _SPAWN_GRANDCHILD_THEN_BLOCK,
-        shell=True,
-        executable="/bin/sh",
-        stdout=subprocess.PIPE,
-        text=True,
+        [sys.executable, "-c", _SPAWN_GRANDCHILD_THEN_BLOCK, str(pid_file)]
     )
-    grandchild_pid = int(proc.stdout.readline().strip())
+    grandchild_pid = int(_wait_for_nonempty_text(pid_file))
     try:
         assert _process_is_alive(grandchild_pid)
 
@@ -87,7 +85,7 @@ def test_terminate_reaches_grandchildren_not_just_the_direct_child():
         assert _wait_until_gone(grandchild_pid)
     finally:
         _kill_if_alive(grandchild_pid)
-        proc.stdout.close()
+        process_group_reaping.terminate_process_group(proc)
 
 
 def test_timeout_reaps_the_whole_tree_before_raising(tmp_path):
@@ -97,12 +95,10 @@ def test_timeout_reaps_the_whole_tree_before_raising(tmp_path):
 
     with pytest.raises(subprocess.TimeoutExpired):
         process_group_reaping.run_in_process_group(
-            f"sleep 300 & echo $! > {pid_file}; sleep 300",
-            shell=True,
-            executable="/bin/sh",
+            [sys.executable, "-c", _SPAWN_GRANDCHILD_THEN_BLOCK, str(pid_file)],
             capture_output=True,
             text=True,
-            timeout=1.0,
+            timeout=3.0,
             grace_seconds=2.0,
         )
 
@@ -113,6 +109,7 @@ def test_timeout_reaps_the_whole_tree_before_raising(tmp_path):
         _kill_if_alive(grandchild_pid)
 
 
+@pytest.mark.posix_only(reason="starts a descendant with setsid outside the original POSIX process group")
 def test_reaping_reaches_a_grandchild_that_started_its_own_session(tmp_path):
     """Nested isolation must not put a descendant out of reach.
 
@@ -145,7 +142,7 @@ def test_reaping_reaches_a_grandchild_that_started_its_own_session(tmp_path):
 
 def test_run_in_process_group_returns_completed_process_on_success():
     completed = process_group_reaping.run_in_process_group(
-        ["/bin/sh", "-c", "printf hello"],
+        [sys.executable, "-c", "import sys; sys.stdout.write('hello')"],
         capture_output=True,
         text=True,
     )
@@ -155,33 +152,38 @@ def test_run_in_process_group_returns_completed_process_on_success():
 
 
 @pytest.mark.parametrize(
-    "signal_number", [signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", None)]
+    "signal_number",
+    [
+        signal.SIGINT,
+        signal.SIGTERM,
+        pytest.param(
+            getattr(signal, "SIGHUP", None),
+            marks=pytest.mark.posix_only(reason="Windows does not deliver terminal-close SIGHUP"),
+        ),
+    ],
 )
-def test_signal_during_guarded_block_reaps_then_raises(signal_number):
+def test_signal_during_guarded_block_reaps_then_raises(signal_number, tmp_path):
+    pid_file = tmp_path / "grandchild.pid"
     proc = process_group_reaping.popen_in_process_group(
-        _SPAWN_GRANDCHILD_THEN_BLOCK,
-        shell=True,
-        executable="/bin/sh",
-        stdout=subprocess.PIPE,
-        text=True,
+        [sys.executable, "-c", _SPAWN_GRANDCHILD_THEN_BLOCK, str(pid_file)]
     )
-    grandchild_pid = int(proc.stdout.readline().strip())
+    grandchild_pid = int(_wait_for_nonempty_text(pid_file))
     try:
         with pytest.raises(process_group_reaping.ProcessGroupInterrupted) as caught:
             with process_group_reaping.interruption_reaps_process_group(proc):
-                os.kill(os.getpid(), signal_number)
-                time.sleep(2.0)  # handler fires well before this returns
+                signal.raise_signal(signal_number)
+                time.sleep(0.05)
 
         assert caught.value.signal_number == signal_number
         assert _wait_until_gone(grandchild_pid)
     finally:
         _kill_if_alive(grandchild_pid)
-        proc.stdout.close()
+        process_group_reaping.terminate_process_group(proc)
 
 
 def test_guard_restores_prior_signal_handlers():
     previous = signal.getsignal(signal.SIGTERM)
-    proc = process_group_reaping.popen_in_process_group(["/bin/sh", "-c", "exit 0"])
+    proc = process_group_reaping.popen_in_process_group([sys.executable, "-c", "raise SystemExit(0)"])
     try:
         with process_group_reaping.interruption_reaps_process_group(proc):
             assert signal.getsignal(signal.SIGTERM) is not previous
@@ -191,15 +193,12 @@ def test_guard_restores_prior_signal_handlers():
     assert signal.getsignal(signal.SIGTERM) is previous
 
 
-def test_exception_in_guarded_block_still_reaps():
+def test_exception_in_guarded_block_still_reaps(tmp_path):
+    pid_file = tmp_path / "grandchild.pid"
     proc = process_group_reaping.popen_in_process_group(
-        _SPAWN_GRANDCHILD_THEN_BLOCK,
-        shell=True,
-        executable="/bin/sh",
-        stdout=subprocess.PIPE,
-        text=True,
+        [sys.executable, "-c", _SPAWN_GRANDCHILD_THEN_BLOCK, str(pid_file)]
     )
-    grandchild_pid = int(proc.stdout.readline().strip())
+    grandchild_pid = int(_wait_for_nonempty_text(pid_file))
     try:
         with pytest.raises(RuntimeError):
             with process_group_reaping.interruption_reaps_process_group(proc):
@@ -208,11 +207,11 @@ def test_exception_in_guarded_block_still_reaps():
         assert _wait_until_gone(grandchild_pid)
     finally:
         _kill_if_alive(grandchild_pid)
-        proc.stdout.close()
+        process_group_reaping.terminate_process_group(proc)
 
 
 def test_terminate_is_safe_on_an_already_finished_child():
-    proc = process_group_reaping.popen_in_process_group(["/bin/sh", "-c", "exit 3"])
+    proc = process_group_reaping.popen_in_process_group([sys.executable, "-c", "raise SystemExit(3)"])
     proc.wait()
 
     process_group_reaping.terminate_process_group(proc)

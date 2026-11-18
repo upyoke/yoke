@@ -150,7 +150,6 @@ def test_process_snapshot_failure_records_cleanup_recovery(tmp_path, monkeypatch
     assert not (instance.state_dir / "release-pin-error.json").exists()
 
 
-@pytest.mark.posix_only(reason="symlink creation requires Windows Developer Mode")
 def test_symlink_in_releases_never_removes_its_target(tmp_path):
     instance = relay_instance(tmp_path)
     install(instance, RELEASE)

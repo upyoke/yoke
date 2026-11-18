@@ -19,7 +19,12 @@ yoke github-actions workflow dispatch upyoke/yoke yoke-suite.yml --ref main \
   --correlation-input yoke_dispatch_id --project yoke
 ```
 
-An empty `sha` tests the dispatched ref.
+An empty `sha` tests the dispatched ref. When a lane changes
+`yoke-suite.yml`, dispatch on the published lane branch so Actions also
+uses that branch's workflow definition.
+
+Windows shards provision Git Bash and enable Developer Mode for symlinks.
+Both native runners provision ripgrep before pytest.
 
 ## How a run is laid out
 

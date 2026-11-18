@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 import shlex
 import subprocess
@@ -33,6 +35,7 @@ def _write(path: Path, content: str) -> Path:
     return path
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_a_stopped_restore_carries_each_entrys_copier_error(tmp_path: Path) -> None:
     require_zsh()
     golden = tmp_path / "golden-home"
@@ -91,6 +94,7 @@ def test_only_an_unrestored_detail_may_span_several_lines() -> None:
     assert failure_outcome(f"{marker}\n0 0 1.0\nextra") is None
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_a_booted_simulator_device_in_the_home_is_a_reap_candidate(
     tmp_path: Path,
 ) -> None:

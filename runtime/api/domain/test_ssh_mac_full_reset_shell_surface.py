@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import os
 from pathlib import Path
 
@@ -20,6 +22,7 @@ def _write(path: Path, content: str) -> Path:
     return path
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_zsh_program_verifies_shells_without_inheriting_dirty_path(
     tmp_path: Path,
 ) -> None:
@@ -50,6 +53,7 @@ def test_zsh_program_verifies_shells_without_inheriting_dirty_path(
     assert "SURFACE_DIRTY" not in result.stdout, result.stdout + result.stderr
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_shell_surface_check_reports_a_resolvable_tool(tmp_path: Path) -> None:
     binary = _require_zsh()
     tool_bin = tmp_path / "bin"

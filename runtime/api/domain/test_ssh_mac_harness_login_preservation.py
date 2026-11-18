@@ -51,6 +51,7 @@ def test_every_harness_login_is_a_preserved_entry():
     )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_reset_keeps_each_live_login_and_restores_everything_else(tmp_path):
     home, golden = tmp_path / "home", tmp_path / "golden"
     for relative in (".ssh/authorized_keys", *LOGIN_FILES, *NEIGHBORS):
@@ -82,6 +83,7 @@ def test_reset_keeps_each_live_login_and_restores_everything_else(tmp_path):
     assert error.read_text() == ""
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_a_host_without_harness_logins_still_verifies_its_required_entries(tmp_path):
     home = tmp_path / "home"
     (home / ".ssh").mkdir(parents=True)
@@ -99,6 +101,7 @@ def test_a_host_without_harness_logins_still_verifies_its_required_entries(tmp_p
     assert "MISSING" not in result.stdout
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_capture_prunes_every_preserved_entry_and_keeps_neighbors(tmp_path):
     home = tmp_path / "home"
     for relative in (".ssh/id", *LOGIN_FILES, *NEIGHBORS):
@@ -115,6 +118,7 @@ def test_capture_prunes_every_preserved_entry_and_keeps_neighbors(tmp_path):
         assert neighbor in entries, neighbor
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 @pytest.mark.parametrize(
     "manifest",
     [
