@@ -95,23 +95,17 @@ def test_retirement_leaves_transaction_commit_with_the_caller(conn):
     )
 
 
-def test_retirement_does_not_remove_project_permissions(conn, monkeypatch):
-    from types import SimpleNamespace
-    from yoke_core.domain import actor_permissions
+def test_retirement_does_not_remove_project_permissions(conn):
+    from runtime.api.fixtures.actor_roles import seed_project_role
     from yoke_core.domain.actor_project_visibility import (
         actor_project_ids_with_permission,
     )
+    from yoke_core.domain.actors import seed_system_actor
 
+    actor = seed_system_actor(conn, "retirement-permission-reader")
+    seed_project_role(conn, actor_id=actor, project_id=30, role_name="viewer")
     retire(conn)
-    seen = []
-
-    def decision(connection, *, actor_id, project_id, permission_key):
-        seen.append((actor_id, project_id, permission_key))
-        return SimpleNamespace(allowed=project_id == 30)
-
-    monkeypatch.setattr(actor_permissions, "permission_decision", decision)
-    assert actor_project_ids_with_permission(conn, 12, "items.read") == {30}
-    assert (12, 30, "items.read") in seen
+    assert 30 in actor_project_ids_with_permission(conn, actor, "items.read")
 
 
 def test_open_item_refusal_uses_pinned_terminal_membership(conn):
