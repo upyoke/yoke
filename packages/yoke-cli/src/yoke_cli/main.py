@@ -45,19 +45,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 130
     from yoke_contracts.refusal_recovery import compose_refusal
     from yoke_contracts.working_directory import (
+        MISSING_REASON,
+        MISSING_RECOVERY,
         WorkingDirectoryMissing,
         current_directory,
     )
 
     try:
         current_directory()
-    except WorkingDirectoryMissing as exc:
-        print(
-            compose_refusal(
-                str(exc), recovery="cd to the project checkout and retry"
-            ),
-            file=sys.stderr,
-        )
+    except WorkingDirectoryMissing:
+        print(compose_refusal(MISSING_REASON, recovery=MISSING_RECOVERY), file=sys.stderr)
         return 1
 
     from yoke_cli.command_router import route_command

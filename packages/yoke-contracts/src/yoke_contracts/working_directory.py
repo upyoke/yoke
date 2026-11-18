@@ -3,11 +3,12 @@
 import json
 import os
 
-MISSING_MESSAGE = (
+MISSING_REASON = (
     "working_directory_missing: this shell's folder no longer exists "
-    "(a merged lane folder is removed after it lands); "
-    "cd to the project checkout and retry"
+    "(a merged lane folder is removed after it lands)"
 )
+MISSING_RECOVERY = "cd to the project checkout and retry"
+MISSING_MESSAGE = f"{MISSING_REASON}; {MISSING_RECOVERY}"
 
 
 class WorkingDirectoryMissing(RuntimeError):

@@ -276,8 +276,12 @@ def hook_evaluate(args: List[str]) -> int:
         require_payload_directory(raw)
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
+    except WorkingDirectoryMissing as exc:
+        # The session's folder is gone, not the hook infrastructure: the cause
+        # carries its own recovery, so no resident restart or hooks-off advice.
+        text, code = infrastructure_reply(event, executor, str(exc), repair=""), 0
     except Exception as exc:  # noqa: BLE001 — no infrastructure failure may block
-        if isinstance(exc, (HookBudgetExhausted, WorkingDirectoryMissing)):
+        if isinstance(exc, HookBudgetExhausted):
             cause = str(exc)
         elif isinstance(exc, ImportError):
             cause = f"hook_infrastructure_unavailable: ImportError: {exc}"

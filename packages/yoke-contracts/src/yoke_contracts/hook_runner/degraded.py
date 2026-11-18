@@ -32,14 +32,21 @@ def hooks_off(environ) -> bool:
     return environ.get(HOOKS_OFF_ENV, "").strip().lower() in {"1", "true", "yes"}
 
 
-def degraded_warning(cause: str) -> str:
-    """The one line every degraded call shows: what, why, who repairs, how to stop."""
-    return (
-        f"WARNING: Yoke guard rules are NOT being enforced ({cause}). "
-        "Operator: run yoke hook resident restart from your own terminal "
-        "(agents must not run it). If hooks keep failing or wrongly block, "
-        f"set {HOOKS_OFF_ENV}=1 where the harness starts to turn Yoke hooks off."
-    )
+RESIDENT_REPAIR = (
+    "Operator: run yoke hook resident restart from your own terminal "
+    "(agents must not run it). If hooks keep failing or wrongly block, "
+    f"set {HOOKS_OFF_ENV}=1 where the harness starts to turn Yoke hooks off."
+)
+
+
+def degraded_warning(cause: str, repair: str = RESIDENT_REPAIR) -> str:
+    """The one line every degraded call shows: what, why, who repairs, how to stop.
+
+    ``repair`` is empty when ``cause`` already names its own recovery and
+    the hook infrastructure itself is healthy.
+    """
+    warning = f"WARNING: Yoke guard rules are NOT being enforced ({cause})."
+    return f"{warning} {repair}" if repair else warning
 
 
 def _harness(executor: str) -> str:
@@ -104,10 +111,14 @@ def degraded_allow_stdout(
 
 
 def infrastructure_reply(
-    event: str, executor: str, cause: str, preserved: str = ""
+    event: str,
+    executor: str,
+    cause: str,
+    preserved: str = "",
+    repair: str = RESIDENT_REPAIR,
 ) -> str:
     """Allow ``event`` loudly after an infrastructure failure; exit code is 0."""
-    warning = degraded_warning(cause)
+    warning = degraded_warning(cause, repair)
     sys.stderr.write(format_hook_diagnostic(event, warning) + "\n")
     return degraded_allow_stdout(event, executor, warning, preserved)
 
