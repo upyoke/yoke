@@ -127,6 +127,7 @@ def handle_settings_replace(request: FunctionCallRequest) -> HandlerOutcome:
             test_machine=parsed.test_machine,
             settings=parsed.settings,
             base_settings=parsed.base_settings,
+            caller_session_id=getattr(request.actor, "session_id", None),
         )
     except TestMachineCapabilityError as exc:
         conn.rollback()
