@@ -318,8 +318,13 @@
   .universe-app-root .app-footer-environment { display: none; }
 }
 
-@media (hover: none) {
+/* Keyboard desktops can report no hover (xrdp reports pointer: none), so the
+   shortcut hint hides only where input is touch-primary. */
+@media (hover: none) and (pointer: coarse) {
   .universe-app-root .header-search-key { display: none; }
+}
+
+@media (hover: none) {
   .universe-app-root button,
   .universe-app-root .nav-link,
   .universe-app-root .item-button { min-height: 40px; min-width: 40px; }
