@@ -52,9 +52,12 @@ NEXT_ACTION_HOMES = {
 }
 NEXT_ACTION_FIELDS = ("row_id", "title", "status", "reason", "command", "home")
 
+#: Rows needing no further action. ``configured`` counts: setup readiness and
+#: the next action already treat a configured row as met.
 TERMINAL_STATUSES = (
     STATUS_NOT_NEEDED,
     STATUS_DEFERRED,
+    STATUS_CONFIGURED,
     STATUS_VERIFIED,
 )
 

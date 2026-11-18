@@ -24,10 +24,10 @@ viewer's own hosted machine connection, forwarded verbatim in ``host_facts``):
   activated only when every listed machine has connected a harness, so a
   machine that registered a relay and ran nothing stays "next up" on its
   own account instead of inheriting another machine's history.
-* ``run_onboard`` — an onboarding checklist run with no open rows, or one
-  its project's deployments superseded
-  (:mod:`yoke_core.domain.overview_onboard_progress`). Its last row is the
-  project's first item reaching done, so this module is activation itself.
+* ``run_onboard`` — an onboarding checklist run whose project's first item
+  is done, or one its project's deployments superseded
+  (:mod:`yoke_core.domain.overview_onboard_progress`). The first item done
+  is activation itself, so this module completes on it.
 
 Latched activation is monotone: once a module's signal has been observed
 satisfied, the fact row keeps it activated even if the signal later
