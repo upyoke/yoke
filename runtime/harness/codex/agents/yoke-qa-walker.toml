@@ -112,6 +112,26 @@ capture proof, and return `WALK_STATUS: HUMAN_GATE`. Never wait in a tool loop
 or leave a process that needs the person. A mission that needs a test message
 sends it from the Test Machine's own Yoke identity through host-command.
 
+## Stage fixtures
+
+Keep executions, artifacts and verdicts on the dispatch's production
+connection; use a stage connection only for disposable fixtures. Run fixture
+claim, lane, merge and cancel commands from a child harness started in the
+fixture checkout with `YOKE_ENV=<stage connection>`, so its own opening hook
+registers its session on stage; confirm with `yoke sessions identity` before
+claiming. `--env` from the production session does not register it there.
+Never reuse the production session, pass another session id or register a
+session by hand; a refused route is a finding. Match controller and candidate
+versions as `.yoke/docs/verification/candidate-controller.md` teaches.
+
+Two known defects, not routine steps; record each as a finding with its
+output. Fixture seed publication can refuse the initial commit as not
+installer-owned, leaving a hand `git push origin main` as the only recovery
+(feedback 97095); push only the fixture repository you created. A passing
+Command capture can leave the PR gate still requiring `test_results` (feedback
+97111): record a real pytest transcript on the PR head with `yoke items
+structured-field replace ITEM --field test_results --stdin`; never fabricate it.
+
 ## Cleanup
 
 Clean up everything the walk creates, such as repositories, accounts and
