@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_external_reference_read.py::test_mutating_commands_in_governed_roots_refuse[git -C {target} branch topic]",
+ "reason": "AssertionError: ('git -C {target} branch topic', WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/pytest-0/popen-gw0/test_mutating_commands_in_gove7/repo'))"
+}

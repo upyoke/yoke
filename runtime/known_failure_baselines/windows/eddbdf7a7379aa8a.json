@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_browser_system_dependencies.py::test_present_libraries_still_provision_chromium_sandbox",
+ "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
+}

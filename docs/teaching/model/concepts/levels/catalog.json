@@ -2,8 +2,8 @@
  "id": "catalog",
  "title": "Model catalog",
  "status": "draft-copy",
- "commands": ["yoke models diff", "yoke models get", "yoke models lookup", "yoke models publish", "yoke models restore", "yoke models revisions", "yoke models validate", "yoke relay probe-models"],
- "functions": ["models.diff.run", "models.get.run", "models.lookup.run", "models.publish.run", "models.restore.run", "models.revisions.run", "models.validate.run"],
+ "commands": ["yoke models diff", "yoke models follow-shipped", "yoke models get", "yoke models lookup", "yoke models publish", "yoke models restore", "yoke models revisions", "yoke models validate", "yoke relay probe-models"],
+ "functions": ["models.diff.run", "models.follow_shipped.run", "models.get.run", "models.lookup.run", "models.publish.run", "models.restore.run", "models.revisions.run", "models.validate.run"],
  "skills": ["models"],
  "page": "levels",
  "position": 2

@@ -43,23 +43,30 @@ controller's `yoke_harness/host_provisioning/` package directory into that
 working directory first:
 
 ```text
-python3 provision_windows_wsl_desktop.py --desktop-password-stdin
+python3 provision_windows_wsl_desktop.py --desktop-password-stdin --browser-project P --browser-identity NAME
 python3 provision_windows_wsl_desktop.py --verify
 ```
 
 The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
 Windows interop, with WSL3.0.1 or newer (the verified configuration support floor).
 It records actual Windows edition/build and WSL version,
-installs the existing Linux desktop packages, including the Chromium snap as
-the default browser that [browser approval gates](linux-browser-identities.md#browser-approval-gates)
-drive, and proves loopback/localhost access.
+installs the existing Linux desktop packages and proves loopback/localhost
+access. Like the Linux provisioner, it requires `--browser-project` and
+`--browser-identity` naming the operator identity (the project's
+browser-control `default_identity`), installs no stock desktop browser, and
+registers the identity launcher `yoke-identity-browser.desktop` as the
+default for web links, so `xdg-open` and the
+[browser approval gates](linux-browser-identities.md#browser-approval-gates)
+land in that identity's profile. `--verify` takes neither flag and refuses
+`linux_desktop_default_browser_not_selected` until the launcher is selected.
 The product streams its capability-owned desktop secret on private stdin, sets
 the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
 GUI-session operation uses the existing uploaded `xrdp-sesrun` helper; no host
 harness-package import is needed. No secret enters a file, argv or output. The
 operator never types sudo, sets a machine password or logs into either desktop.
-Agents prove candidate Chromium renders there before requesting only personal
-application sign-in. Success leaves `headed_application_proved=false` until that
+Agents authorize the operator identity with `yoke browser authorize
+--test-machine` and prove its Chromium renders there before requesting only
+personal application sign-in. Success leaves `headed_application_proved=false` until that
 independent check. Provisioning starts no session; `--verify` refuses the secret flag.
 No Windows firewall, auto-logon or public listener change is made.
 The provisioner also owns persistent distro setup: it sets only

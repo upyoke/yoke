@@ -13,13 +13,16 @@ from runtime.api.domain.fleet_delta_probe_test_support import (
 )
 
 
+import inspect
 import io
+import re
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from yoke_core.domain import fleet_delta_probe
+from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.fleet_delta_probe import (
     DEFER_TO_REPORT,
     MAX_CONSECUTIVE_READ_FAILURES,
@@ -118,7 +121,7 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
         "fleet question 17 pending",
         "fleet question 17 resolved",
         "fleet question 17 withdrawn",
-        "fleet question 17 consumed",
+        "fleet question 17 superseded",
         "fleet ALARM idle-holder session=worker-1",
         "fleet ALARM unowned-item YOK-1 status=implementing",
         "fleet ALARM starved-envelope message=message-1",
@@ -146,6 +149,19 @@ def test_actionable_delta_kinds_wake_now(line: str) -> None:
 )
 def test_routine_delta_kinds_defer_to_the_report(line: str) -> None:
     assert delta_wake_tier(line) == DEFER_TO_REPORT
+
+
+def _decision_request_statuses() -> tuple[str, ...]:
+    """Statuses allowed by the decision_requests CHECK constraint."""
+    source = inspect.getsource(create_decision_request_tables)
+    match = re.search(r"CHECK\(status IN \(([^)]*)\)\)", source)
+    assert match, "decision_requests status CHECK constraint not found"
+    return tuple(re.findall(r"'([^']+)'", match.group(1)))
+
+
+@pytest.mark.parametrize("status", _decision_request_statuses())
+def test_every_stored_question_status_wakes_now(status: str) -> None:
+    assert delta_wake_tier(f"fleet question 1 {status}") == WAKE_NOW
 
 
 def test_a_new_delta_kind_must_choose_a_tier() -> None:

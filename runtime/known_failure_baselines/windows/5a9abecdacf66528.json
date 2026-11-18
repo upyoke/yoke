@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_worktree_test_environment.py::test_a_failed_sync_names_the_default_dependency_contract",
+ "reason": "AssertionError: assert 'no solution found' in 'Lane test environment could not be installed in C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_a_failed_s"
+}

@@ -93,7 +93,7 @@ def continue_updated_source(
                 raise ValueError(
                     f"fresh interpreter exited {completed.returncode} without a result"
                 )
-            result = json.loads(result_path.read_text())
+            result = json.loads(result_path.read_text(encoding="utf-8"))
             if not isinstance(result, dict):
                 raise ValueError("fresh interpreter returned a non-object result")
             if result.get("error"):
@@ -119,7 +119,7 @@ def main() -> int:
         reply = {"result": execute_ci_case(payload["case"], **options)}
     except QaCaseExecutionError as exc:
         reply = {"error": str(exc)}
-    Path(sys.argv[1]).write_text(json.dumps(reply))
+    Path(sys.argv[1]).write_text(json.dumps(reply), encoding="utf-8", newline="\n")
     return 0
 
 

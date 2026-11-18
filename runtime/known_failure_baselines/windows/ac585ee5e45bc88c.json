@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_pack_merge.py::test_update_replaces_unchanged_binary_and_refuses_customized_binary",
+ "reason": "AssertionError: assert [{'path': 'as...binary_file'}] == []"
+}

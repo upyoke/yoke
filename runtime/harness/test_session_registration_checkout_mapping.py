@@ -38,8 +38,8 @@ def test_registration_uses_selected_connection_mapping(
     )
     seen = []
     monkeypatch.setattr(
-        "yoke_core.hooks.registration._register_in_process",
-        lambda *args, project_id=None, **kwargs: seen.append(project_id) or "",
+        "yoke_core.hooks.registration_in_process._register_in_process",
+        lambda *args, project_id=None, **kwargs: seen.append(project_id) or "registered",
     )
     assert (
         session_lifecycle_client.register_harness_session(
@@ -50,6 +50,6 @@ def test_registration_uses_selected_connection_mapping(
             model_facts=SessionModelFacts(requested_model="test-model"),
             native_thread_id="",
         )
-        == ""
+        == "registered"
     )
     assert seen == [4]

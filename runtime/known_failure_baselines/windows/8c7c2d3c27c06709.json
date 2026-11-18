@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_hook_runner_subprocess_policy.py::test_observe_subprocess_gets_target_root_and_hook_args",
+ "reason": "AssertionError: assert 'D:\\\\a\\\\yoke\\\\yoke\\\\packages\\\\yoke-core' in ['D', '\\\\a\\\\yoke\\\\yoke\\\\packages\\\\yoke-core;C', '\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-g"
+}

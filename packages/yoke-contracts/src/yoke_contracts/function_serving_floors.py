@@ -79,6 +79,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "merge.prune.authority_verdicts": "next-release",
     "merge_receipt.commits.attest": "next-release",
     "models.diff.run": "next-release",
+    "models.follow_shipped.run": "next-release",
     "models.level_proposal.run": "next-release",
     "models.publish.run": "next-release",
     "models.restore.run": "next-release",
@@ -170,6 +171,12 @@ class ArgumentFloor:
 
     minimum_serving_version: str
     older_form: str
+
+
+# Response fields are optional while older serving releases converge.
+FUNCTION_RESPONSE_FIELD_MINIMUM_SERVING_VERSIONS = {
+    "sessions.list": {"probe": "next-release", "first_user_prompt_at": "next-release"},
+}
 
 
 #: The ``test_machine`` argument replaced ``machine`` on these served functions;
@@ -316,6 +323,7 @@ def declared_minimum_serving_version(function_id: str) -> str:
 
 __all__ = [
     "ArgumentFloor",
+    "FUNCTION_RESPONSE_FIELD_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_MINIMUM_SERVING_VERSIONS",
     "TEST_MACHINE_ARGUMENT_FUNCTIONS",

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import platform
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -17,16 +18,10 @@ import time
 DEFAULT_RDP_PORT = 3389
 SESSION_CONTENT = "exec startxfce4\n"
 TERMINAL_SELECTION = "TerminalEmulator=xfce4-terminal"
-# Browser approval gates drive this Chromium; the installer under test opens
-# its approval link in the default browser, which must therefore be it.
-CHROMIUM_DESKTOP_ENTRY = "chromium_chromium.desktop"
-# Ubuntu's chromium-browser package wraps the snap in this script and registers
-# it as x-www-browser. A direct /snap/bin/chromium link cannot be that: snap
-# picks the app from the name it is called by and refuses "x-www-browser".
-CHROMIUM_WRAPPER = "/usr/bin/chromium-browser"
-CHROMIUM_NAMES = ("chromium", "chromium-browser")
-# XFCE's exo-open falls back to debian-sensible-browser, which runs this.
-BROWSER_ALTERNATIVE = Path("/usr/bin/x-www-browser")
+# Web links open in the operator identity's signed-in browser through `yoke
+# browser open`, the test machine's only login store. The entry is in the home
+# golden, so resets keep it; a clean baseline without Yoke has no launcher yet.
+LAUNCHER_DESKTOP_ENTRY = "yoke-identity-browser.desktop"
 DEFAULTS_SECTION = "[Default Applications]"
 BROWSER_TYPES = ("x-scheme-handler/http", "x-scheme-handler/https", "text/html")
 
@@ -113,9 +108,22 @@ def terminal_settings(content: str) -> str:
     return "\n".join([*lines, TERMINAL_SELECTION]) + "\n"
 
 
+def launcher_entry(project: str, identity: str) -> str:
+    """The desktop entry routing web links to the identity launcher."""
+    opener = "exec yoke browser open --project %s --identity %s \"$0\"" % (
+        shlex.quote(project),
+        shlex.quote(identity),
+    )
+    return (
+        "[Desktop Entry]\nType=Application\nName=Yoke identity browser\n"
+        "Exec=bash -lc " + shlex.quote(opener) + " %u\nNoDisplay=true\n"
+        "MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;\n"
+    )
+
+
 def browser_defaults(content: str) -> str:
-    """Select Chromium for web links without erasing the user's other defaults."""
-    selections = [f"{kind}={CHROMIUM_DESKTOP_ENTRY}" for kind in BROWSER_TYPES]
+    """Select the launcher for web links without erasing other defaults."""
+    selections = [f"{kind}={LAUNCHER_DESKTOP_ENTRY}" for kind in BROWSER_TYPES]
     lines: list[str] = []
     section = None
     for line in content.splitlines():
@@ -155,7 +163,7 @@ def prerequisites() -> Path:
     command(["sudo", "-n", "true"])
     home = Path.home()
     session = home / ".xsession"
-    if session.exists() and session.read_text() != SESSION_CONTENT:
+    if session.exists() and session.read_text(encoding="utf-8") != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_conflict: .xsession already selects another session; "
             "preserve that customization and have the operator select XFCE deliberately"
@@ -163,7 +171,7 @@ def prerequisites() -> Path:
     return home
 
 
-def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
+def provision(home: Path, port: int, project: str, identity: str) -> None:
     print("linux-desktop: installing XFCE and xrdp", flush=True)
     command(["sudo", "-n", "apt-get", "update"])
     command(
@@ -187,7 +195,7 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
         ]
     )
     config_path = Path("/etc/xrdp/xrdp.ini")
-    original = config_path.read_text()
+    original = config_path.read_text(encoding="utf-8")
     configured = localhost_config(original, port)
     if configured != original:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as candidate:
@@ -208,54 +216,45 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
                     str(config_path),
                 ]
             )
-    (home / ".xsession").write_text(SESSION_CONTENT)
+    (home / ".xsession").write_text(SESSION_CONTENT, encoding="utf-8", newline="\n")
     (home / ".xsession").chmod(0o600)
     helpers = home / ".config/xfce4/helpers.rc"
     helpers.parent.mkdir(parents=True, exist_ok=True)
     helpers.write_text(
-        terminal_settings(helpers.read_text() if helpers.exists() else "")
+        terminal_settings(helpers.read_text(encoding="utf-8") if helpers.exists() else ""), encoding="utf-8", newline="\n"
     )
-    print("linux-desktop: installing Chromium as the default browser", flush=True)
-    command(["sudo", "-n", "snap", "install", "chromium"])
-    command(
-        ["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive"]
-        + ["apt-get", "install", "-y", "chromium-browser"]
-    )
-    command(
-        [
-            "sudo",
-            "-n",
-            "update-alternatives",
-            "--set",
-            "x-www-browser",
-            CHROMIUM_WRAPPER,
-        ]
-    )
+    print("linux-desktop: routing web links to the identity browser", flush=True)
+    entry = home / ".local/share/applications" / LAUNCHER_DESKTOP_ENTRY
+    entry.parent.mkdir(parents=True, exist_ok=True)
+    entry.write_text(launcher_entry(project, identity), encoding="utf-8")
     defaults = home / ".config/mimeapps.list"
     defaults.write_text(
-        browser_defaults(defaults.read_text() if defaults.exists() else "")
+        browser_defaults(defaults.read_text(encoding="utf-8") if defaults.exists() else ""), encoding="utf-8", newline="\n"
     )
     command(["sudo", "-n", "usermod", "-aG", "ssl-cert", "xrdp"])
     command(["sudo", "-n", "systemctl", "enable", "--now", "xrdp", "xrdp-sesman"])
     command(["sudo", "-n", "systemctl", "restart", "xrdp"])
 
 
-def resolved_default_browser(link: Path = BROWSER_ALTERNATIVE) -> str:
-    """Resolve x-www-browser to the program desktop links actually run."""
-    path = link.resolve()
-    if path.name not in CHROMIUM_NAMES or not path.exists():
-        found = str(path) if path.exists() else "nothing"
+def selected_launcher(home: Path) -> str:
+    """Prove web links open in the registered identity launcher."""
+    entry = home / ".local/share/applications" / LAUNCHER_DESKTOP_ENTRY
+    defaults = home / ".config/mimeapps.list"
+    if not entry.is_file() or not defaults.is_file() or not browser_selected(
+        defaults.read_text(encoding="utf-8")
+    ):
         raise ProvisionFailure(
-            f"linux_desktop_default_browser_not_selected: x-www-browser resolves to {found}; "
-            "rerun provisioning to install chromium-browser and select it as x-www-browser"
+            "linux_desktop_default_browser_not_selected: web links bypass the identity "
+            "launcher; rerun provisioning with --browser-project and --browser-identity"
         )
-    return str(path)
+    lines = entry.read_text(encoding="utf-8").splitlines()
+    return next((x[len("Exec="):] for x in lines if x.startswith("Exec=")), "")
 
 
 def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
     command(["systemctl", "is-active", "xrdp", "xrdp-sesman"])
     wait_for_listener(port)
-    if (home / ".xsession").read_text() != SESSION_CONTENT:
+    if (home / ".xsession").read_text(encoding="utf-8") != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
         )
@@ -278,16 +277,12 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
     helpers = home / ".config/xfce4/helpers.rc"
     if (
         not helpers.is_file()
-        or TERMINAL_SELECTION not in helpers.read_text().splitlines()
+        or TERMINAL_SELECTION not in helpers.read_text(encoding="utf-8").splitlines()
     ):
         raise ProvisionFailure(
             "linux_desktop_terminal_not_selected: rerun provisioning to select xfce4-terminal"
         )
-    if subprocess.run(["snap", "list", "chromium"], capture_output=True).returncode:
-        raise ProvisionFailure(
-            "linux_desktop_chromium_not_proved: rerun provisioning to install Chromium"
-        )
-    chosen = resolved_default_browser()
+    chosen = selected_launcher(home)
     status = command(["passwd", "-S"]).stdout.split()
     return {
         "ok": True,
@@ -297,7 +292,8 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
         "login_password_set": len(status) > 1 and status[1] == "P",
         "operator_next_step": (
             "The product opens the dedicated desktop with its capability-owned secret. "
-            "Prove candidate Chromium renders there, then request only personal application sign-in."
+            "Authorize the operator identity with `yoke browser authorize --test-machine`; "
+            "web links then open signed in through `yoke browser open`."
         ),
     }
 
@@ -318,20 +314,25 @@ def main() -> int:
     parser.add_argument("--verify", action="store_true", help="Readiness check only")
     parser.add_argument("--rdp-port", type=int, default=DEFAULT_RDP_PORT)
     parser.add_argument("--desktop-password-stdin", action="store_true")
+    parser.add_argument("--browser-project", help="Project slug of the operator identity")
+    parser.add_argument("--browser-identity", help="Operator identity name")
     args = parser.parse_args()
     if not 1 <= args.rdp_port <= 65535:
         parser.error("--rdp-port must be between 1 and 65535")
     if args.verify and args.desktop_password_stdin:
         parser.error("--verify does not accept a password or start a desktop")
-    if not args.verify and not args.desktop_password_stdin:
+    if not args.verify and not (
+        args.desktop_password_stdin and args.browser_project and args.browser_identity
+    ):
         parser.error(
-            "provisioning requires --desktop-password-stdin from the capability store"
+            "provisioning requires --desktop-password-stdin from the capability store "
+            "and --browser-project/--browser-identity naming the operator identity"
         )
     try:
         password = desktop_password_input() if args.desktop_password_stdin else None
         home = prerequisites()
         if not args.verify:
-            provision(home, args.rdp_port)
+            provision(home, args.rdp_port, args.browser_project, args.browser_identity)
         result = verify(home, args.rdp_port)
         if password is not None:
             set_desktop_password(password)

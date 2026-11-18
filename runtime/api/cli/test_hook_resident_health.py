@@ -193,9 +193,7 @@ def test_missing_unix_socket_transport_reaches_canonical_fallback(
         ("unknown", "unknown", "", "", "YOKE_HOOK_REVISION_UNKNOWN"),
     ],
 )
-@pytest.mark.skipif(
-    not hasattr(socket, "AF_UNIX"), reason="resident health requires Unix sockets"
-)
+@pytest.mark.posix_only(reason='resident health requires Unix sockets')
 def test_health_reads_identity_without_evaluating_or_restarting(
     monkeypatch, loaded, expected, version, installed, reason
 ):

@@ -16,11 +16,13 @@ def source_test_selections() -> dict[str, list[str]]:
     }
 
 
-def run_source_tests(root: Path, commands) -> None:
+def run_source_tests(root: Path, commands, yoke: str) -> None:
+    """``yoke`` is the installed launcher's path: Windows resolves a bare name
+    against this process's PATH, not the child environment's."""
     project = commands.document(
         "create-source-project",
         [
-            "yoke", "projects", "create", "--slug", "yoke-source",
+            yoke, "projects", "create", "--slug", "yoke-source",
             "--name", "Yoke source", "--public-item-prefix", "SRC",
             "--default-branch", "main", "--github-sync-mode", "disabled", "--json",
         ],
@@ -29,14 +31,16 @@ def run_source_tests(root: Path, commands) -> None:
     commands.run(
         "register-source-checkout",
         [
-            "yoke", "project", "register", str(root),
+            yoke, "project", "register", str(root),
             "--project-id", str(project["project"]["id"]), "--json",
         ],
         cwd=root,
     )
     commands.run(
         "install-test-dependencies",
-        ["uv", "sync", "--all-packages", "--locked"],
+        # The smoke's own interpreter, as the install stage uses: uv would
+        # otherwise pick any newer Python it finds (Windows lists preview ones).
+        ["uv", "sync", "--all-packages", "--locked", "--python", sys.executable],
         cwd=root,
     )
     # The socket must fit even when macOS's ordinary temp root is very long.
@@ -80,7 +84,7 @@ def run_source_tests(root: Path, commands) -> None:
                         "uv",
                         "run",
                         "--frozen",
-                        "python3",
+                        "python",
                         "-m",
                         "yoke_core.tools.pg_testcluster",
                         "stop",

@@ -11,6 +11,7 @@ from yoke_contracts.runtime_ports.loader import load_port
 class InstallAdvice(Protocol):
     """Operations and values supplied by the executing adapter."""
 
+    InstallOriginUnavailable: type[RuntimeError]
     install_command: Callable[..., Any]
 
 

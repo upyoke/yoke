@@ -141,7 +141,7 @@ def order_nodes(nodes):
 
     import re
     from explorer_documents import REPO
-    paths = re.findall(r'path:\s*["\']?([^"\',\s}]+)', (REPO / 'docs/public/nav.yaml').read_text())
+    paths = re.findall(r'path:\s*["\']?([^"\',\s}]+)', (REPO / 'docs/public/nav.yaml').read_text(encoding="utf-8"))
     manual_order = {path: index for index, path in enumerate(paths)}
 
     def rank(node):

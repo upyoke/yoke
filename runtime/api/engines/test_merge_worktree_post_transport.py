@@ -297,4 +297,4 @@ class TestSchemaRefreshTransport:
 
         post_helpers._schema_refresh(SimpleNamespace())
         assert ("yoke_core.domain.schema", ("init",)) in calls
-        assert ("yoke_core.domain.shepherd", ("init",)) in calls
+        assert calls == [("yoke_core.domain.schema", ("init",))]

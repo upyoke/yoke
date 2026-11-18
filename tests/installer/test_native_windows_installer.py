@@ -166,9 +166,7 @@ def test_windows_helper_permission_refusal_never_requests_posix_cache_repair(
     assert "Windows source ACL refused" in verdict["refusal"]
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="PowerShell language modes require Windows"
-)
+@pytest.mark.windows_only(reason='PowerShell language modes require Windows')
 def test_constrained_language_refuses_with_no_iex_recovery():
     shim = (
         Path(__file__).resolve().parents[2] / "packaging/public-installer/install.ps1"

@@ -1,16 +1,12 @@
-"""Native browser state, harness sign-ins and harness installations stay live.
+"""Harness sign-ins and harness installations stay live.
 
 Each entry is left out of every captured golden and kept live through reset,
 so a reset never restores a rotated sign-in or an older harness install.
 """
 
-SNAP_CHROMIUM_HOME_ENTRY = "snap/chromium/common/chromium"
-
 # Embedded in the owner-only archive program; Chromium has already quit.
 PRESERVED_HOME_PROGRAM = r"""
-browser_home_entry = __BROWSER_HOME_ENTRY__
 live_home_entries = (
-    browser_home_entry,
     ".local/bin/claude", ".local/bin/codex",
     ".local/bin/agent", ".local/bin/cursor-agent",
     ".local/share/claude", ".local/share/cursor-agent",
@@ -27,14 +23,14 @@ def preserved_home_entry(name):
 def preserved_home_path(relative):
     path = home
     parts = pathlib.PurePosixPath(relative).parts
-    reason = "linux_browser_sign_in_store_unsafe" if relative == browser_home_entry else "linux_preserved_home_entry_unsafe"
+    reason = "linux_preserved_home_entry_unsafe"
     for index, part in enumerate(parts):
         path = path / part
         if not path.exists() and not path.is_symlink(): continue
-        if path.lstat().st_uid != os.getuid() or index < len(parts) - 1 and (path.is_symlink() or not path.is_dir()) or relative == browser_home_entry and not path.is_dir():
+        if path.lstat().st_uid != os.getuid() or index < len(parts) - 1 and (path.is_symlink() or not path.is_dir()):
             refuse(reason, relative,
                    recovery="Repair the named live entry ownership and regular parent directories; the home was not cleared.")
-        if path.is_symlink() and (not path.exists() or relative == browser_home_entry or not path.resolve().is_relative_to(home) or not preserved_home_entry(str(path.resolve().relative_to(home)))):
+        if path.is_symlink() and (not path.exists() or not path.resolve().is_relative_to(home) or not preserved_home_entry(str(path.resolve().relative_to(home)))):
             refuse(reason, relative,
                    recovery="Keep harness links within the preserved installation roots; the home was not cleared.")
     return path
@@ -68,4 +64,4 @@ def restore_live_home_entries():
     except OSError:
         refuse("linux_preserved_home_restore_failed", relative,
                recovery="Restore the retained live entry from " + str(source) + " to ~/" + relative + "; preserve every recovery stash and never capture the mixed home.")
-""".replace("__BROWSER_HOME_ENTRY__", repr(SNAP_CHROMIUM_HOME_ENTRY))
+"""

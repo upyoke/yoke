@@ -75,7 +75,7 @@ def test_explicit_level_wins_even_above_the_item_ceiling(monkeypatch):
         conn, auth=authorization(), request=replace(request, level="PRINCIPAL"), now=NOW
     ).launch
     assert launch.requested_level == "PRINCIPAL"
-    assert launch.resolved_model == "gpt-6-astra"
+    assert launch.resolved_model == "gpt-6.2-astra"
 
 
 def test_exact_operator_selection_bypasses_the_stage_and_item_default(monkeypatch):

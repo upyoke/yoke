@@ -209,7 +209,10 @@
     "store": "local_jsonl",
     "location": "~/.codex/sessions/YYYY/MM/DD/rollout-<started>-<session_id>.jsonl",
     "project_match": "the first line is a session_meta row whose payload.cwd names the directory the session ran in",
-    "evidence": "Read on codex-cli: the rollout's first row is session_meta with cwd; yoke_contracts.harness_turn_record_capability reads the same files."
+    "evidence": "Read on codex-cli: the rollout's first row is session_meta with cwd; yoke_contracts.harness_turn_record_capability reads the same files.",
+    "session_start": "transcript_required",
+    "prompt_attestation": "deferred",
+    "prompt_attestation_evidence": "Deferred: no terminal-hook reader for Codex rollouts. Codex UserPromptSubmit stamped the first prompt in YOK-5351 Stage QA; a lost Codex prompt hook still leaves the session marked probe."
   },
   "machine_hooks": {
     "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",

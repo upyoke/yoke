@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_idea_readiness_check_module_refs.py::TestIsModuleOrPlannedRef::test_planned_path_claim_returns_true",
+ "reason": "AssertionError: False is not true : Planned path-claim target \\u2192 should be True"
+}

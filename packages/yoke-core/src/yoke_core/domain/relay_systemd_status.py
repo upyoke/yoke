@@ -65,7 +65,7 @@ def systemd_unavailable_reason(
     *, runner: Runner = subprocess.run, pid1_path: Path = Path("/proc/1/comm")
 ) -> str:
     try:
-        pid1 = pid1_path.read_text().strip()
+        pid1 = pid1_path.read_text(encoding="utf-8").strip()
     except OSError:
         pid1 = "unreadable"
     if pid1 != "systemd":
@@ -193,7 +193,7 @@ def relay_systemd_status(
         except RelayInstallError as exc:
             reason = str(exc)
     try:
-        current = path.read_text() == relay_unit_document(selected, environ=environ)
+        current = path.read_text(encoding="utf-8") == relay_unit_document(selected, environ=environ)
     except OSError:
         current = False
     return RelaySystemdStatus(

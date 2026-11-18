@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 import sys
-import tempfile
 from typing import Any, TextIO
 
 from yoke_core.domain import yaml_helper
@@ -15,7 +14,10 @@ from yoke_core.domain.pulumi_state_capability import (
     CAPABILITY_TYPE as PULUMI_STATE_CAPABILITY_TYPE,
 )
 from yoke_core.tools.pulumi_exec_file_backed import stage_file_backed_infra
-from yoke_core.tools.pulumi_exec_files import new_owner_only_output
+from yoke_core.tools.pulumi_exec_files import (
+    new_owner_only_output,
+    owner_only_temp_root,
+)
 from yoke_core.tools.pulumi_exec_types import (
     AMBIENT_GITHUB_ENV,
     PulumiExecError,
@@ -71,9 +73,7 @@ def execute_pulumi_stack_init(
 
     _refuse_foreign_provider(stack_file, expected_provider)
 
-    with tempfile.TemporaryDirectory(prefix="yoke-pulumi-exec-") as raw_temp:
-        temp_root = Path(raw_temp)
-        temp_root.chmod(0o700)
+    with owner_only_temp_root() as temp_root:
         render_root = temp_root / "render"
         infra_root = stage_file_backed_infra(project_root, stack, render_root, None)
         stack_path = infra_root / f"Pulumi.{stack}.yaml"

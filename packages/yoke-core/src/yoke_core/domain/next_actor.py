@@ -17,6 +17,7 @@ REASON_SENTENCES = {
     "declared_wait": "Waiting for the declared next action.",
     "ci_run_in_progress": "Waiting for CI to finish.",
     "release_run_in_progress": "Waiting for the release to finish.",
+    "landing_in_progress": "Waiting for the merge queue to land this item.",
     "item_terminal": "This item has finished.",
     "item_on_hold": "This item is on hold.",
     "ready_without_holder": "A session can pick up this item.",
@@ -53,7 +54,13 @@ def session_next_actor(row: Mapping[str, Any], *, presence: str) -> dict:
         return action(
             "nobody", "session_ended", row.get("terminated_at") or row.get("ended_at")
         )
-    for key in ("pending_decision", "dependency_wait", "ci_wait", "deployment_wait"):
+    for key in (
+        "pending_decision",
+        "dependency_wait",
+        "ci_wait",
+        "deployment_wait",
+        "landing_wait",
+    ):
         if row.get(key):
             return dict(row[key])
     wait = row.get("declared_wait") or {}
@@ -91,7 +98,13 @@ def item_next_actor(
         return action(
             "nobody", "item_terminal", row.get("finished_at") or row.get("updated_at")
         )
-    for key in ("pending_decision", "dependency_wait", "ci_wait", "deployment_wait"):
+    for key in (
+        "pending_decision",
+        "dependency_wait",
+        "ci_wait",
+        "deployment_wait",
+        "landing_wait",
+    ):
         if row.get(key):
             return dict(row[key])
     if is_frozen(row.get("frozen")) or is_blocked(row.get("blocked")):

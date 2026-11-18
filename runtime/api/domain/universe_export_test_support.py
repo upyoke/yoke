@@ -46,3 +46,23 @@ def _schema_loaded_universe():
 
     with pg_testdb.test_database() as conn:
         yield conn, os.environ[db_backend.PG_DSN_ENV]
+
+
+def install_failing_executable(path: Path) -> Path:
+    """Install a real program at *path* that rejects pg_dump's arguments.
+
+    POSIX runs a shell script. Windows runs only PE images, so it gets a copy
+    of the system ``where.exe``, which refuses ``--format=custom`` and exits 2.
+    """
+    if os.name == "nt":
+        import shutil
+
+        system = Path(os.environ["SystemRoot"]) / "System32" / "where.exe"
+        shutil.copyfile(system, path)
+        return path
+    path.write_text(
+        "#!/bin/sh\necho 'pg_dump: error: simulated failure' >&2\nexit 1\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+    return path

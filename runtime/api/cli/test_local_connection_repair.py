@@ -13,6 +13,7 @@ from runtime.api.cli.local_universe_cli_test_support import (
     _stub_engine,
     _config,
     machine_home as machine_home,
+    private_machine_home as private_machine_home,
 )
 
 
@@ -78,12 +79,13 @@ def test_prod_marked_local_connection_still_requires_force(
 
 @pytest.mark.parametrize("stale_universe", [True, False])
 def test_stale_actor_is_rerecorded_against_the_owned_cluster(
-    monkeypatch, machine_home, test_db, stale_universe
+    monkeypatch, private_machine_home, test_db, stale_universe
 ):
     from yoke_core.domain import db_backend, local_universe_operating_actor as binding
     from yoke_core.domain.org_schema import seed_default_org
     from yoke_core.domain.universe_identity import universe_fingerprint
 
+    machine_home = private_machine_home
     payload = machine_config.load_config()
     payload["schema_version"] = 1
     write_config(machine_config.config_path(), payload)

@@ -33,6 +33,7 @@ class _Conn:
                     json.dumps([record.to_dict() for record in MODEL_RECORDS]),
                     "fixture",
                     None,
+                    "shipped",
                 )
             )
         return _Cursor(self._rows.pop(0))

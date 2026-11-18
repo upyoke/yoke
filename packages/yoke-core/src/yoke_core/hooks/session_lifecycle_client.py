@@ -37,60 +37,25 @@ def register_harness_session(
     native_thread_id: Optional[str] = None,
     launch_id: Optional[str] = None,
 ) -> str:
-    """Register a harness session through the target-aware service client.
+    """Return the direct registrar's outcome, or skipped:relay_owned on HTTPS.
 
-    ``launch_id`` names the launch that started this session, when one
-    did; registration binds the launching actor from it rather than the
-    operating actor of this machine.
-
-    On https-default machines this self-skips and reports success: the
-    local service-client subprocess has no local authority to reach, and
-    the relayed hook chain's server-side ensure-register owns the
-    session row (every relayed event drives it). Attempting the doomed
-    subprocess made every Claude/Codex orientation block print a false
-    "Session registration failed - scheduler will not see this session"
-    warning while the row was healthy server-side.
+    The target root resolves project scope. Launch attestation binds the
+    launching actor. The server owns all relayed registration writes.
     """
     if _relay_owns_registration():
-        return ""
+        return "skipped:relay_owned"
     if native_thread_id is None:
         from yoke_core.hooks.helpers_identity import detect_native_thread_id
 
         native_thread_id = detect_native_thread_id(executor, session_id)
     project_id = _project_id_for_root(root)
-    if _local_authority_active():
-        from yoke_core.hooks.registration import _register_in_process
+    from yoke_core.hooks.registration_in_process import _register_in_process
 
-        return _register_in_process(
-            session_id,
-            executor,
-            provider,
-            model_facts,
-            root,
-            entrypoint,
-            project_id=project_id,
-            machine_scope=project_id is None,
-            executor_version=executor_version,
-            machine_id=machine_id,
-            native_thread_id=native_thread_id,
-            launch_id=launch_id,
-        )
-    return (
-        service_client.register_session(
-            service_client_path(root),
-            session_id,
-            executor,
-            provider,
-            model_facts,
-            root,
-            entrypoint,
-            project_id,
-            executor_version,
-            machine_id,
-            native_thread_id,
-            launch_id=launch_id,
-        )
-        or ""
+    return _register_in_process(
+        session_id, executor, provider, model_facts, root, entrypoint,
+        project_id=project_id, machine_scope=project_id is None,
+        executor_version=executor_version, machine_id=machine_id,
+        native_thread_id=native_thread_id, launch_id=launch_id,
     )
 
 

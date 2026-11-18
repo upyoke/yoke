@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python, venv_site_packages
+
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,9 @@ from yoke_contracts import install_binding as contract_binding
 from yoke_core.tools.install_yoke_launcher_core import write_launcher
 
 
+pytestmark = pytest.mark.posix_only(reason="POSIX launcher shim")
+
+
 @pytest.fixture
 def released_launcher(tmp_path):
     tools = tmp_path / "tools"
@@ -27,7 +32,7 @@ def released_launcher(tmp_path):
         check=True,
         capture_output=True,
     )
-    site = next((environment / "lib").glob("python*/site-packages"))
+    site = venv_site_packages(environment)
     cli = site / "yoke_cli"
     (cli / "config").mkdir(parents=True)
     (cli / "__init__.py").write_text("")
@@ -112,7 +117,7 @@ def test_release_ignores_checkout_and_pythonpath_and_preserves_argv(
 
 def test_missing_release_refuses_without_importing_source(released_launcher):
     launcher, env, site, environment = released_launcher
-    (environment / "bin" / "python3").unlink()
+    (venv_python(environment, name="python3")).unlink()
     result = subprocess.run(
         [str(launcher), "--version"], env=env, capture_output=True, text=True
     )

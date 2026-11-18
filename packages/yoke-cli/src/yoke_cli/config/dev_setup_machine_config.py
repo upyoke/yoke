@@ -54,7 +54,7 @@ def merge_connection_metadata(
         machine_config_file.MachineConfigFileError,
     ) as exc:
         raise error_type(
-            "machine configuration changed or was unavailable during dev setup"
+            f"machine configuration changed or was unavailable during dev setup: {exc}"
         ) from exc
 
 

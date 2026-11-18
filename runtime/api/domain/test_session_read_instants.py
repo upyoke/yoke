@@ -105,6 +105,7 @@ def test_model_catalog_selects_native_exact_effective_boundary(
         [r.to_dict() for r in original["records"]],
         effective_at=effective.isoformat(),
         actor_id=1,
+        source="operator",
         source_note="Exact effective boundary",
         expected_base_revision_id=original["revision_id"],
     )

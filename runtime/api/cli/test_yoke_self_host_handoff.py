@@ -25,6 +25,7 @@ def target(tmp_path):
     return directory
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize("kind", ("mode", "link", "hardlink", "empty", "large"))
 def test_unsafe_input_refuses_before_start(tmp_path, kind):
     secret = tmp_path / "secret"
@@ -48,6 +49,7 @@ def test_unsafe_input_refuses_before_start(tmp_path, kind):
         runtime.read_secret(secret, max_bytes=8)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_operator_inputs_are_encoded_in_stdin_not_environment(target, monkeypatch):
     environment = {
         "YOKE_SELF_HOST_HANDOFF": "required",
@@ -82,6 +84,7 @@ def _child(monkeypatch, script):
     return calls
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_token_is_durably_saved_before_acknowledgment(target, monkeypatch, capsys):
     path = first_boot_token.token_drop_path(target)
     calls = _child(
@@ -101,6 +104,7 @@ def test_token_is_durably_saved_before_acknowledgment(target, monkeypatch, capsy
     assert TOKEN not in capsys.readouterr().out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_failed_return_creates_no_empty_token_file(target, monkeypatch):
     _child(monkeypatch, "import sys; sys.stdin.buffer.readline(); sys.exit(1)")
     with pytest.raises(runtime.SelfHostRuntimeError, match="self_host_handoff_failed"):
@@ -108,6 +112,7 @@ def test_failed_return_creates_no_empty_token_file(target, monkeypatch):
     assert not first_boot_token.token_drop_path(target).exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_restart_preserves_an_existing_token(target, monkeypatch):
     path = first_boot_token.token_drop_path(target)
     path.write_text(TOKEN + "\n")
@@ -121,6 +126,7 @@ def test_restart_preserves_an_existing_token(target, monkeypatch):
     assert path.read_bytes() == before
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_storage_failure_never_acknowledges_success(target, monkeypatch):
     _child(
         monkeypatch,
@@ -138,6 +144,7 @@ def test_storage_failure_never_acknowledges_success(target, monkeypatch):
     assert not first_boot_token.token_drop_path(target).exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_existing_init_command_owns_start_option(target, monkeypatch, capsys):
     calls = []
 
@@ -156,6 +163,7 @@ def test_existing_init_command_owns_start_option(target, monkeypatch, capsys):
     assert calls == [{"directory": str(target)}]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_compose_failure_names_operation_without_exposing_output(target, monkeypatch):
     monkeypatch.setattr(
         runtime.subprocess,
@@ -173,6 +181,7 @@ def test_compose_failure_names_operation_without_exposing_output(target, monkeyp
     assert refusal.value.compose_output == b"private-inputprivate-error"
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize("exit_code", (b"0", b"1"))
 @pytest.mark.parametrize("bridge_exit", (0, 7, 137))
 def test_import_receipt_requires_successful_container_exit(
@@ -209,6 +218,7 @@ def test_import_receipt_requires_successful_container_exit(
 pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_paused_restart_receipt_preserves_token_and_readiness(target, monkeypatch):
     path = first_boot_token.token_drop_path(target)
     path.write_text(TOKEN + "\n")
@@ -224,6 +234,7 @@ def test_paused_restart_receipt_preserves_token_and_readiness(target, monkeypatc
     assert path.read_text().strip() == TOKEN
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_paused_start_skips_only_core_health_wait(target, monkeypatch):
     waits = []
     monkeypatch.setattr(runtime, "bootstrap_inputs", lambda *_a: (b"password", b"{}\n"))
@@ -239,6 +250,7 @@ def test_paused_start_skips_only_core_health_wait(target, monkeypatch):
     assert waits == ["db"]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_paused_existing_init_teaches_resume_before_return(target, monkeypatch, capsys):
     monkeypatch.setattr(
         runtime, "start_bundle", lambda **_k: {"healthy": False, "paused": True}
@@ -252,6 +264,7 @@ def test_paused_existing_init_teaches_resume_before_return(target, monkeypatch, 
     assert "yoke universe resume" in capsys.readouterr().out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize("exec_exit,wait_exit", ((7, 0), (0, 9), (7, 9)))
 def test_import_failure_keeps_redacted_diagnostics_before_cleanup(
     target, monkeypatch, exec_exit, wait_exit

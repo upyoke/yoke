@@ -84,7 +84,7 @@ def preflight_failure(rc: int, raw_capture: Path) -> str:
     if rc == 0:
         return ""
     try:
-        output = raw_capture.read_text(errors="replace")
+        output = raw_capture.read_text(errors="replace", encoding="utf-8")
     except OSError:
         output = ""
     reason = (

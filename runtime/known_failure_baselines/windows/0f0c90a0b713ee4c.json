@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_installed_tool_write.py::test_local_write_cannot_borrow_installed_tool_read_access[cp --target-directory={other} /tmp/a-/.worktrees/]",
+ "reason": "AssertionError: assert not True"
+}

@@ -40,7 +40,7 @@ def _capture_register(monkeypatch, calls, executor, provider):
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
-        lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None: (
+        lambda payload, sid, transcript_path="", record_anchor=True, executor_hint="", register_in_process=False, actor_id=None, project_id=None, first_user_prompt=False: (
             calls.append(
                 (
                     sid,
@@ -51,7 +51,7 @@ def _capture_register(monkeypatch, calls, executor, provider):
                     project_id,
                 )
             )
-            or ("", executor, provider, "m", None)
+            or ("registered", executor, provider, "m", None)
         ),
     )
 
@@ -89,6 +89,11 @@ def test_terminal_hook_does_not_arm_ensure_registration(
     assert _ensure_request(event_name, executor_family=executor_family) is None
 
 
+@pytest.fixture(autouse=True)
+def registration_executor(monkeypatch):
+    monkeypatch.setattr("yoke_core.hooks.helpers_identity.detect_executor", lambda: "claude-code")
+
+
 class TestEndedRowDrivesRevival:
     def test_pre_tool_use_request_revives_transiently_ended_row(self, monkeypatch):
         _patch_state(monkeypatch, found=True, stored_actor_id=4, ended=True)
@@ -107,6 +112,7 @@ class TestEndedRowDrivesRevival:
             force_reregister,
             actor_id,
             project_id,
+            first_user_prompt,
         ) = request
 
         drove = register_module.ensure_registered_from_hook(
@@ -122,8 +128,8 @@ class TestEndedRowDrivesRevival:
             project_id=project_id,
         )
 
-        assert drove is True
-        assert calls == [("s-1", True, "", True, None, None)]
+        assert drove == "registered"
+        assert calls == [("s-1", True, "claude", True, None, None)]
 
     def test_local_tool_call_revives_ended_row(self, monkeypatch):
         # "A row exists" is not enough to short-circuit: this hook event is
@@ -145,7 +151,7 @@ class TestEndedRowDrivesRevival:
             "s-1",
         )
 
-        assert drove is True
+        assert drove == "registered"
         assert calls == [("s-1", True, "", False, None, None)]
 
     def test_relayed_codex_tool_call_revives_ended_row(self, monkeypatch):
@@ -168,7 +174,7 @@ class TestEndedRowDrivesRevival:
             project_id=1,
         )
 
-        assert drove is True
+        assert drove == "registered"
         assert calls == [("s-codex", False, "codex", True, 7, 1)]
 
     def test_live_row_still_short_circuits(self, monkeypatch):
@@ -187,7 +193,7 @@ class TestEndedRowDrivesRevival:
         )
 
         assert (
-            register_module.ensure_registered_from_hook(object(), "{}", "s-1") is False
+            register_module.ensure_registered_from_hook(object(), "{}", "s-1") == "exists"
         )
 
 
@@ -216,7 +222,7 @@ class TestEndedRowSkipsLeftoverCursorTerminalRead:
                 "s-1",
                 executor_hint="cursor",
             )
-            is False
+            == "skipped:terminal_read"
         )
 
     def test_leftover_read_does_not_wake_via_actor_backfill(self, monkeypatch):
@@ -237,7 +243,7 @@ class TestEndedRowSkipsLeftoverCursorTerminalRead:
                 executor_hint="cursor",
                 actor_id=7,
             )
-            is False
+            == "skipped:terminal_read"
         )
 
     def test_ended_shell_still_revives(self, monkeypatch):
@@ -252,7 +258,7 @@ class TestEndedRowSkipsLeftoverCursorTerminalRead:
             executor_hint="cursor",
         )
 
-        assert drove is True
+        assert drove == "registered"
         assert calls[0][0] == "s-1"
 
     def test_ended_source_read_still_revives(self, monkeypatch):
@@ -268,5 +274,5 @@ class TestEndedRowSkipsLeftoverCursorTerminalRead:
             executor_hint="cursor",
         )
 
-        assert drove is True
+        assert drove == "registered"
         assert calls[0][0] == "s-1"

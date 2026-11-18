@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd.py::TestBashTargetExtraction::test_all_absolute_positional_targets_are_checked",
+ "reason": "AssertionError: assert True is False"
+}

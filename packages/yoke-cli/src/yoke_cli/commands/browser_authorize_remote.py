@@ -13,7 +13,9 @@ from yoke_contracts.browser_identity import (
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
-from yoke_contracts.machine_config.capability_secret_store import read_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import (
+    read_machine_capability_secret,
+)
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     test_machine_capability_type,
@@ -86,7 +88,9 @@ def _open_sign_in_viewer(project, detail, identity, json_mode):
     settings = detail["settings"]
     test_machine = read_test_machine_field(detail, function_id="test_machine.get")
     try:
-        viewer = begin_desktop_view(project=project, test_machine=test_machine, settings=settings)
+        viewer = begin_desktop_view(
+            project=project, test_machine=test_machine, settings=settings
+        )
     except (DesktopAccessError, TestMachineCapabilityError) as exc:
         command = _desktop_command(project, test_machine, settings)
         _tell(
@@ -120,7 +124,11 @@ def _close_sign_in_viewer(viewer, test_machine) -> None:
 
 
 def authorize_remote(parsed) -> int:
-    from yoke_harness.machine_gui_command import run_gui_command
+    from yoke_harness.machine_gui_command import (
+        check_yoke_installation,
+        run_gui_command,
+    )
+    from yoke_cli.commands.test_machine_desktop_lease import desktop_lease
     from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
 
     try:
@@ -134,7 +142,9 @@ def authorize_remote(parsed) -> int:
         ensure_handlers_loaded()
         actor = build_actor()
         detail = _read(
-            "test_machine.get", {"project": project, "test_machine": parsed.test_machine}, actor
+            "test_machine.get",
+            {"project": project, "test_machine": parsed.test_machine},
+            actor,
         )
         test_machine = read_test_machine_field(detail, function_id="test_machine.get")
         lease = detail.get("active_lease")
@@ -186,17 +196,6 @@ def authorize_remote(parsed) -> int:
             argv.append("--reset")
         if parsed.json_mode:
             argv.append("--json")
-        if parsed.desktop_browser and detail["settings"].get("os") not in {
-            "linux",
-            "macos",
-        }:
-            raise BrowserIdentityError(
-                "desktop_browser_unsupported: choose a Linux Chromium or macOS Safari Test Machine."
-            )
-        if parsed.desktop_browser:
-            argv.append("--desktop-browser")
-        elif detail["settings"].get("os") in {"linux", "macos"}:
-            argv.append("--include-desktop-browser")
         from yoke_harness.browser_identity_check import sign_in_request
 
         for line in sign_in_request(
@@ -207,28 +206,41 @@ def authorize_remote(parsed) -> int:
             ],
         ):
             _tell(line, parsed.json_mode)
-        viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
-        try:
-            desktop_password = (
-                read_machine_capability_secret(
-                    project,
-                    test_machine_capability_type(test_machine),
-                    "desktop_password",
-                )
-                if detail["settings"].get("os") in {"linux", "wsl"}
-                else None
-            )
-            result = run_gui_command(
+        with desktop_lease(
+            project=project,
+            test_machine=test_machine,
+            settings=detail["settings"],
+            actor=actor,
+            detail=detail,
+        ):
+            check_yoke_installation(
+                project=project,
+                test_machine=test_machine,
                 settings=detail["settings"],
-                argv=argv,
                 yoke_home=machine_config.yoke_home(),
-                desktop_password=desktop_password,
-                stream_output=True,
-                json_mode=parsed.json_mode,
             )
-        finally:
-            if viewer is not None:
-                _close_sign_in_viewer(viewer, test_machine)
+            viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
+            try:
+                desktop_password = (
+                    read_machine_capability_secret(
+                        project,
+                        test_machine_capability_type(test_machine),
+                        "desktop_password",
+                    )
+                    if detail["settings"].get("os") in {"linux", "wsl"}
+                    else None
+                )
+                result = run_gui_command(
+                    settings=detail["settings"],
+                    argv=argv,
+                    yoke_home=machine_config.yoke_home(),
+                    desktop_password=desktop_password,
+                    stream_output=True,
+                    json_mode=parsed.json_mode,
+                )
+            finally:
+                if viewer is not None:
+                    _close_sign_in_viewer(viewer, test_machine)
         if parsed.json_mode:
             try:
                 payload = json.loads(result.stdout)

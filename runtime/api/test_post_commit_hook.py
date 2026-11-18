@@ -28,6 +28,7 @@ from yoke_cli.project_install.git_hooks import (
     POST_COMMIT_SHIM,
     BootstrapResult,
     install_post_commit_hook,
+    render_git_hook,
 )
 
 
@@ -36,7 +37,7 @@ def _git(repo: Path, *args: str) -> str:
         ["git", "-C", str(repo), *args],
         capture_output=True,
         text=True,
-        check=True,
+        check=True, encoding="utf-8",
     )
     return proc.stdout.strip()
 
@@ -61,7 +62,7 @@ class TestInstaller:
         install_post_commit_hook(fresh_repo, result)
         hook = _hook_path(fresh_repo)
         assert hook.exists()
-        assert hook.read_text() == POST_COMMIT_SHIM
+        assert hook.read_bytes() == render_git_hook(POST_COMMIT_SHIM).encode("utf-8")
         assert os.access(str(hook), os.X_OK)
         assert result.installed >= 1
         assert any("Created" in line for line in result.actions)
@@ -79,13 +80,13 @@ class TestInstaller:
     def test_leaves_non_yoke_hook_in_place(self, fresh_repo):
         hook = _hook_path(fresh_repo)
         hook.parent.mkdir(parents=True, exist_ok=True)
-        hook.write_text("#!/bin/sh\necho user-hook\n")
+        hook.write_text("#!/bin/sh\necho user-hook\n", encoding="utf-8", newline="\n")
         os.chmod(hook, 0o755)
         result = BootstrapResult()
         install_post_commit_hook(fresh_repo, result)
         assert any("not Yoke-managed" in line for line in result.warnings)
         # Hook content untouched.
-        assert hook.read_text() == "#!/bin/sh\necho user-hook\n"
+        assert hook.read_text(encoding="utf-8") == "#!/bin/sh\necho user-hook\n"
         assert result.installed == 0
         assert result.updated == 0
 
@@ -98,12 +99,12 @@ class TestInstaller:
             f"# {POST_COMMIT_MARKER} hook installed by `yoke project install`\n"
             "echo old\n"
         )
-        hook.write_text(stale)
+        hook.write_text(stale, encoding="utf-8", newline="\n")
         os.chmod(hook, 0o755)
         result = BootstrapResult()
         install_post_commit_hook(fresh_repo, result)
         assert any("not Yoke-managed" in line for line in result.warnings)
-        assert hook.read_text() == stale
+        assert hook.read_text(encoding="utf-8") == stale
         assert result.updated == 0
 
     def test_skips_when_git_hooks_dir_missing(self, tmp_path):
@@ -164,7 +165,7 @@ class TestHookFiresOnCommit:
             ["sh", "-n", str(hook)],
             capture_output=True,
             text=True,
-            check=False,
+            check=False, encoding="utf-8",
         )
         assert proc.returncode == 0, proc.stderr
 
@@ -173,7 +174,7 @@ class TestHookFiresOnCommit:
         install_post_commit_hook(fresh_repo, result)
         # Just confirm a second install round-trip leaves the same hook
         # content (the canonical idempotency check).
-        first = _hook_path(fresh_repo).read_text()
+        first = _hook_path(fresh_repo).read_text(encoding="utf-8")
         install_post_commit_hook(fresh_repo, BootstrapResult())
-        second = _hook_path(fresh_repo).read_text()
+        second = _hook_path(fresh_repo).read_text(encoding="utf-8")
         assert first == second

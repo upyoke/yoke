@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Mapping
 
 from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV, HOME_ENV
 from yoke_contracts.machine_config.scratch_roots import fallback_scratch_root
 from yoke_core.domain.postgres_binaries import POSTGRES_VERSION
+from yoke_core.domain.postgres_cluster_process import executable
 
 
 def shared_postgres_environment(env: Mapping[str, str]) -> dict[str, str]:
@@ -27,7 +27,7 @@ def shared_postgres_environment(env: Mapping[str, str]) -> dict[str, str]:
             selected = home / selected
     if not env.get("YOKE_PG_CLUSTER_ROOT"):
         try:
-            payload = json.loads(selected.read_text()) if selected.is_file() else {}
+            payload = json.loads(selected.read_text(encoding="utf-8")) if selected.is_file() else {}
             if not isinstance(payload, dict):
                 raise ValueError("machine config must contain an object")
         except (ValueError, OSError) as exc:
@@ -38,6 +38,6 @@ def shared_postgres_environment(env: Mapping[str, str]) -> dict[str, str]:
         root = Path(scratch).expanduser() if scratch else fallback_scratch_root()
         result["YOKE_PG_CLUSTER_ROOT"] = str(root.absolute() / "yoke-pgtest-cluster")
     binaries = home.absolute() / "postgres" / POSTGRES_VERSION / "bin"
-    if not result.get("YOKE_PG_BIN_DIR") and (binaries / ("initdb.exe" if os.name == "nt" else "initdb")).is_file():
+    if not result.get("YOKE_PG_BIN_DIR") and Path(executable(binaries, "initdb")).is_file():
         result["YOKE_PG_BIN_DIR"] = str(binaries)
     return result

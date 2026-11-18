@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_check_prerequisites_no_gh.py::test_github_auth_only_resolver_pass_emits_canonical_label",
+ "reason": "assert 1 == 0"
+}

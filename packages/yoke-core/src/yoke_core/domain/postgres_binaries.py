@@ -141,10 +141,14 @@ def version_dir(version: str = POSTGRES_VERSION) -> Path:
     return binaries_root() / version
 
 
+def _initdb_name() -> str:
+    return "initdb.exe" if _WINDOWS else "initdb"
+
+
 def installed_bin_dir(version: str = POSTGRES_VERSION) -> Optional[Path]:
     """The fetched bin directory for *version*, or None when absent."""
     candidate = version_dir(version) / "bin"
-    if (candidate / ("initdb.exe" if _WINDOWS else "initdb")).is_file():
+    if (candidate / _initdb_name()).is_file():
         return candidate
     return None
 
@@ -209,7 +213,7 @@ def fetch_binaries(
     bin_dir = installed_bin_dir(version)
     if bin_dir is None:
         raise PostgresBinariesError(
-            f"fetched release did not provide bin/initdb under {dest}"
+            f"fetched release did not provide bin/{_initdb_name()} under {dest}"
         )
     emit(f"  [postgres-binaries] installed {version} at {dest}")
     return bin_dir

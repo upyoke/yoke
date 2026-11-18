@@ -10,6 +10,9 @@ from yoke_cli.config import github_git_credential_bundle as bundle
 from yoke_cli.config import github_git_credential_launcher as launcher
 from yoke_cli.config import github_git_credentials as credentials
 from yoke_cli.config import github_repo_helper_reconnect as reconnect
+from yoke_cli.config import github_prior_runtime_verification as prior
+from yoke_contracts import owner_private_path
+import sys
 
 
 @pytest.mark.parametrize("tampered", [False, True])
@@ -67,3 +70,35 @@ def test_prior_launcher_rejects_dynamic_or_unsafe_declarations(declaration):
         launcher.prior_launcher_module_names(
             f"BUNDLE_MODULE_NAMES = {declaration}".encode()
         )
+
+
+@pytest.mark.parametrize('writable_target', ['interpreter', 'helper', None])
+def test_prior_runtime_checks_both_file_write_policies(tmp_path, monkeypatch, writable_target):
+    helper = bundle.install(tmp_path / 'site')
+    python = tmp_path / 'prior-python'
+    python.write_text('interpreter', encoding='utf-8')
+    python.chmod(0o755)
+    monkeypatch.setattr(prior.os, 'access', lambda *_args: True)
+    checked = []
+    refused = {'interpreter': python.resolve(), 'helper': helper}.get(writable_target)
+    def check(path):
+        checked.append(path)
+        return path != refused
+    monkeypatch.setattr(owner_private_path, 'is_others_unwritable_file', check)
+    assert prior.verified_prior_runtime_helper(
+        python, helper, current_python=tmp_path / 'current-python'
+    ) is (writable_target is None)
+    assert python.resolve() in checked
+    if writable_target != 'interpreter':
+        assert helper in checked
+
+
+def test_current_runtime_bypasses_only_its_own_write_check(tmp_path, monkeypatch):
+    helper = bundle.install(tmp_path / 'site')
+    from pathlib import Path
+    python = Path(sys.executable)
+    checked = []
+    monkeypatch.setattr(owner_private_path, 'is_others_unwritable_file',
+                        lambda path: checked.append(path) or True)
+    assert prior.verified_prior_runtime_helper(python, helper, current_python=python)
+    assert checked == [helper]

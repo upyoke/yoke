@@ -54,6 +54,7 @@ from yoke_harness.hooks.client_fact_probes import (
     capture_files_fact,
     yoke_source_root_fact,
 )
+from yoke_harness.hooks.client_first_prompt import first_prompt_fact
 from yoke_harness.hooks.client_write_targets import write_targets_fact
 from yoke_harness.hooks.client_session_title import title_fact
 from yoke_harness.hooks.main_commit_client import collect_git_commit_facts
@@ -143,6 +144,7 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     cf.SOURCE_ROOT_KEY: lambda obs: yoke_source_root_fact(),
     cf.CAPTURE_FILES_KEY: lambda obs: capture_files_fact(obs.payload),
     cf.WRITE_TARGETS_KEY: lambda obs: write_targets_fact(obs.payload, obs.shell),
+    cf.FIRST_USER_PROMPT_KEY: first_prompt_fact,
 }
 
 

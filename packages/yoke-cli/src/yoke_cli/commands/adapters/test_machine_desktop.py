@@ -52,7 +52,10 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "and use any VNC client. "
             "For SSH forwarding the control socket is PASSWORD_FILE.ssh; close it with "
             "ssh -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST after connecting. "
-            "Remove the private password copy after use."
+            "Remove the private password copy after use. "
+            "Takes an unleased host or borrows your own lease, starts a stopped cloud machine "
+            "before desktop work, and releases only its acquired lease in cleanup. "
+            "Last release stops cloud machines. "
             " A session holding a live steering seat on the project can assist an actively leased "
             "desktop without taking or releasing its lease; any other session must own the lease and "
             "otherwise receives steering_seat_required. The output names the assisting operator, "
@@ -83,11 +86,12 @@ def test_machine_desktop_access(args: list[str]) -> int:
     if parsed is None:
         return 2
     ensure_handlers_loaded()
+    actor = build_actor(session_id=parsed.session_id)
     response = call_dispatcher(
         function_id="test_machine.desktop_access",
         target=TargetRef(kind="global"),
         payload={"project": parsed.project, "test_machine": parsed.test_machine},
-        actor=build_actor(session_id=parsed.session_id),
+        actor=actor,
     )
     if not response.success:
         error = response.error
@@ -95,7 +99,9 @@ def test_machine_desktop_access(args: list[str]) -> int:
         if error.recovery_hint:
             print(f"recovery: {error.recovery_hint}", file=sys.stderr)
         return 1
-    from yoke_contracts.machine_config.capability_secret_store import MachineCapabilitySecretError
+    from yoke_contracts.machine_config.capability_secret_store import (
+        MachineCapabilitySecretError,
+    )
     from yoke_harness.desktop_access import DesktopAccessError, open_desktop_access
 
     try:
@@ -110,18 +116,29 @@ def test_machine_desktop_access(args: list[str]) -> int:
             )
             if operator_access.get("audit_recovery"):
                 print(operator_access["audit_recovery"], file=sys.stderr)
-        result = open_desktop_access(
+        from yoke_cli.commands.test_machine_desktop_lease import desktop_lease
+
+        with desktop_lease(
             project=route["project"],
             test_machine=read_test_machine_field(
                 route, function_id="test_machine.desktop_access"
             ),
             settings=route["settings"],
-            view=parsed.view,
-        )
+            actor=actor,
+            operator_access=operator_access,
+        ):
+            result = open_desktop_access(
+                project=route["project"],
+                test_machine=read_test_machine_field(
+                    route, function_id="test_machine.desktop_access"
+                ),
+                settings=route["settings"],
+                view=parsed.view,
+            )
         if operator_access:
             result["operator_access"] = operator_access
         print(json.dumps(result))
-    except (DesktopAccessError, MachineCapabilitySecretError) as exc:
+    except (DesktopAccessError, MachineCapabilitySecretError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0

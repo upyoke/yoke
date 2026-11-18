@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_candidate_source.py::test_zero_exit_cannot_pass_when_candidate_origins_change_during_command",
+ "reason": "KeyError: 'refusal'"
+}

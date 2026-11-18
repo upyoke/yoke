@@ -217,6 +217,7 @@ def test_dispatch_tail_revival_records_driver_and_telemetry(conn) -> None:
             False,  # force_reregister
             _fixture_actor_id(conn),  # explicit disposable-universe actor
             1,  # project_id
+            False,  # first_user_prompt
         ),
     )
 

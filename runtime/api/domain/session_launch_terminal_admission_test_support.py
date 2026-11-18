@@ -123,7 +123,7 @@ def _create_payload(item: str, *, compose_mandate: bool, key: str) -> dict:
         "project": "launch-project",
         "item": item,
         "executor_surface": "codex-cli",
-        "model": "gpt-6.1-sol",
+        "model": "gpt-6.2-sol",
         "reasoning_effort": "medium",
         "instructions": "Custom full body." if not compose_mandate else "",
         "idempotency_key": key,

@@ -102,7 +102,7 @@ def _raise_not_on_path() -> None:
             f"The AWS CLI is installed at {installed}, but its folder is not "
             "on this shell's PATH.",
             (
-                f'Add it to PATH: export PATH="{installed.parent}:$PATH"',
+                f"Add it to PATH: {_path_prepend_line(installed.parent)}",
                 "Add the same line to your shell profile so new shells keep it.",
                 f"Verify with: {AWS_CLI_EXECUTABLE} --version",
             ),
@@ -165,6 +165,13 @@ def _first_known_location() -> Path | None:
         except OSError:
             continue
     return None
+
+
+def _path_prepend_line(directory: Path) -> str:
+    """The shell line that puts ``directory`` first on this system's PATH."""
+    if _SYSTEM().lower() == "windows":
+        return f'$env:Path = "{directory};$env:Path"'
+    return f'export PATH="{directory.as_posix()}:$PATH"'
 
 
 def _install_command(system_name: str) -> str:

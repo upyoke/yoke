@@ -1,6 +1,5 @@
 """Native profile provisioning, failure boundaries and password-preserving retries."""
 
-import os
 import subprocess
 from unittest.mock import Mock
 
@@ -85,7 +84,7 @@ def powershell(script, *, timeout=45):
         raise RuntimeError(f"native_profile_fixture_timeout after {timeout}s; stages: " + output[-1600:]) from None
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires Windows PowerShell")
+@pytest.mark.windows_only(reason='requires Windows PowerShell')
 @pytest.mark.parametrize("hresult", [0, -2147024713])
 def test_profile_success_and_race_use_registered_actual_path(hresult):
     result = powershell(
@@ -107,7 +106,7 @@ Write-Output 'PROFILE_OK'
     assert "PROFILE_OK" in result.stdout
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires Windows PowerShell")
+@pytest.mark.windows_only(reason='requires Windows PowerShell')
 @pytest.mark.parametrize("mode", ["hresult", "missing", "mismatch"])
 def test_profile_failures_never_emit_success(mode):
     result = powershell(
@@ -130,7 +129,7 @@ Write-Output 'PROFILE_OK'
         assert "0x80070005" in result.stderr
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires Windows account/profile APIs")
+@pytest.mark.windows_only(reason='requires Windows account/profile APIs')
 def test_real_profile_creation_and_retry_preserve_password():
     # The disposable runner bounds timeout fallout. Normal/failure exits attempt
     # profile and account cleanup independently, retaining any cleanup error.

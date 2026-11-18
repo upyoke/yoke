@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_session_orientation_budget.py::test_long_git_metadata_preserves_the_startup_block[short-branch]",
+ "reason": "AssertionError: assert 'Root: /checkout' in '## Yoke Orientation\\n\\nYour Session: test-session\\n\\nRoot: \\\\checkout\\nCurrent branch: main\\n\\nRequired authority and trust instructions. Required authorit"
+}

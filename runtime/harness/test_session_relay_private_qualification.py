@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_console_script
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -220,7 +222,7 @@ def test_launchd_projection_authorizes_connection_derived_stage(
         environ={"PATH": "/usr/bin:/bin"},
     )
     assert document["ProgramArguments"][0] == str(
-        instance.state_dir / "venv" / "bin" / "yoke"
+        venv_console_script(instance.state_dir / "venv", "yoke", windows_suffix=".cmd")
     )
     assert document["ProgramArguments"][1:3] == ["--env", "stage"]
     environment = document["EnvironmentVariables"]

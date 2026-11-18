@@ -131,3 +131,36 @@ def test_host_wizard_names_wsl_refusal_without_image_repair(monkeypatch, tmp_pat
     assert prompt.title == "Self-hosting requires WSL2."
     _assert_recovery(prompt.message)
     assert _snapshot(tmp_path) == {}
+
+
+@pytest.mark.parametrize("command", [
+    self_host.self_host_init,
+    self_host.self_host_upgrade,
+    self_host_import.self_host_import,
+    self_host_teardown.self_host_teardown,
+])
+@pytest.mark.parametrize("flag", ["--help", "-h"])
+def test_host_command_help_works_on_native_windows(monkeypatch, capsys, command, flag):
+    _windows(monkeypatch)
+    with pytest.raises(SystemExit) as exited:
+        command([flag])
+    assert exited.value.code == 0
+    captured = capsys.readouterr()
+    assert f"yoke self-host {command.__name__.removeprefix('self_host_')}" in captured.out
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize("command,args", COMMANDS)
+def test_host_command_refuses_without_install_origin(monkeypatch, capsys, command, args):
+    from yoke_cli.config import machine_config
+    from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
+
+    _windows(monkeypatch)
+    monkeypatch.delenv(DISTRIBUTION_BASE_URL_ENV, raising=False)
+    monkeypatch.setattr(machine_config, "load_config", lambda *_args, **_kwargs: {})
+    assert command(args) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    _assert_recovery(captured.err)
+    assert "Traceback" not in captured.err
+    assert "`install_origin_unavailable:" not in captured.err

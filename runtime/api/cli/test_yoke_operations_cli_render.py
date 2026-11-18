@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import List
@@ -24,6 +25,8 @@ from yoke_contracts.api.function_call import (
 
 
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
+# The board rebuild resolves a checkout on this machine: a local path.
+_LOCAL_REPO = Path(tempfile.gettempdir()) / "repo"
 
 
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
@@ -80,7 +83,7 @@ def _run_capture(stub, *argv: str, session_id: str = "test-session"):
 def _run_board_capture(result, *argv: str, repo_root: Path | None = None):
     stdout = io.StringIO()
     stderr = io.StringIO()
-    root = repo_root or Path("/tmp/repo")
+    root = repo_root or _LOCAL_REPO
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
         with patch(
             "yoke_cli.board.rebuild.rebuild",
@@ -154,7 +157,7 @@ class TestBoardRebuild:
 
         assert rc == 0
         rebuild.assert_called_once_with(
-            repo_arg="/tmp/repo",
+            repo_arg=str(_LOCAL_REPO),
             force=False,
             output_name=None,
             # Empty defers scope resolution to the project's DB-backed board policy.
@@ -175,11 +178,11 @@ class TestBoardRebuild:
     def test_repo_root_propagates(self) -> None:
         result = rb_outcome.rebuilt(Path("/tmp/BOARD.md"))
         rc, _stdout, _stderr, rebuild, _emit_event = _run_board_capture(
-            result, "board", "rebuild", "--repo-root", "/tmp/repo",
+            result, "board", "rebuild", "--repo-root", str(_LOCAL_REPO),
         )
 
         assert rc == 0
-        assert rebuild.call_args.kwargs["repo_arg"] == "/tmp/repo"
+        assert rebuild.call_args.kwargs["repo_arg"] == str(_LOCAL_REPO)
 
     def test_output_name_and_scope_propagate(self) -> None:
         result = rb_outcome.rebuilt(Path("/tmp/BOARD.epic.md"))

@@ -28,7 +28,7 @@ print(json.dumps(receipt))
 
 
 def ensure_desktop(control, *, restart=False):
-    source = linux_platform_payload.source() + "\n" + Path(linux_desktop_state.__file__).read_text().replace("from __future__ import annotations", "")
+    source = linux_platform_payload.source() + "\n" + Path(linux_desktop_state.__file__).read_text(encoding="utf-8").replace("from __future__ import annotations", "")
     program = (
         source
         + "\nimport sys\ntry:\n"

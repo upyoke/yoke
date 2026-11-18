@@ -21,6 +21,10 @@ from yoke_cli.config import aws_admin_capability as hosting  # noqa: E402
 from yoke_cli.config import aws_cli_prerequisite  # noqa: E402
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noqa: E402
 from yoke_contracts import hosting_posture  # noqa: E402
+from yoke_contracts.owner_private_path import (  # noqa: E402
+    is_owner_private_directory,
+    is_owner_private_file,
+)
 from yoke_cli.config import onboard_project  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
@@ -39,6 +43,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     accept_project_details,
     advance_past_path,
     make_app,
+    settle_checks,
     skip_hosting,
     type_text,
 )
@@ -51,6 +56,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 
 def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> None:
     """Declining hosting continues to Review and reports the skipped answer."""
+    from textual.widgets import Input
     from yoke_contracts.machine_config import checkout
 
     # Recreate the captured failure: a nonexistent folder under a Git ancestor.
@@ -74,14 +80,18 @@ def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> 
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("down", "enter")  # project: existing folder
+            await settle_checks(pilot)
             await type_text(pilot, checkout_path)
+            assert app.query_one("#onboard-body Input", Input).value == checkout_path
             await pilot.press("enter")
             await accept_project_details(pilot)
             await pilot.press("enter")  # publish: No (preselected)
             assert "Connect your hosting provider?" in body_text(app)
             await skip_hosting(pilot)
+            await settle_checks(pilot)
             assert "Review what" in body_text(app)
             await pilot.press("enter")  # finish: apply
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -145,8 +155,8 @@ def test_both_key_paths_store_and_verify_the_same_redacted_identity(
         stored / hosting.SECRET_ACCESS_KEY_KEY
     ).read_text().strip() == SECRET_ACCESS_KEY
     # Owner-only, both files and the directory that holds them.
-    assert (stored / hosting.SECRET_ACCESS_KEY_KEY).stat().st_mode & 0o077 == 0
-    assert stored.stat().st_mode & 0o077 == 0
+    assert is_owner_private_file(stored / hosting.SECRET_ACCESS_KEY_KEY)
+    assert is_owner_private_directory(stored)
 
     assert "aws-admin saved" in body
     assert "123456789012" in body

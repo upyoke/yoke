@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 import sys
-import tempfile
 import yaml
 from typing import Any, TextIO
 
@@ -33,6 +32,7 @@ from yoke_core.tools.pulumi_exec_destroy import (
 )
 from yoke_core.tools.pulumi_exec_files import (
     new_owner_only_output as _new_owner_only_output,
+    owner_only_temp_root,
 )
 from yoke_core.tools.pulumi_exec_file_backed import (
     require_stack_file,
@@ -124,9 +124,7 @@ def execute_pulumi_command(
         selected_project, selected_stack, stack_file, settings
     )
 
-    with tempfile.TemporaryDirectory(prefix="yoke-pulumi-exec-") as raw_temp:
-        temp_root = Path(raw_temp)
-        temp_root.chmod(0o700)
+    with owner_only_temp_root() as temp_root:
         render_root = temp_root / "render"
         infra_root = stage_file_backed_infra(
             project_root,
@@ -136,7 +134,7 @@ def execute_pulumi_command(
         )
         if any(arg == "--target" or arg.startswith("--target=") for arg in argv):
             # stage_file_backed_infra already refused unparseable YAML.
-            declaration = yaml.safe_load((infra_root / "Pulumi.yaml").read_text())
+            declaration = yaml.safe_load((infra_root / "Pulumi.yaml").read_text(encoding="utf-8"))
             project_name = (
                 declaration.get("name") if isinstance(declaration, Mapping) else None
             )

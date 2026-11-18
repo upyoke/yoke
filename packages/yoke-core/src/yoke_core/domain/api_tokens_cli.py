@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, List, Optional
 
+from yoke_contracts import owner_private_path, platform_file_sync
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import PROJECT_ROLES
 from yoke_core.domain.actor_state import ActorDisabledError
@@ -77,30 +76,11 @@ def _validated_raw_token_path(raw_path: str) -> Path:
 
 
 def _write_raw_token_file(target: Path, raw_token: str) -> None:
-    descriptor = -1
-    temporary: Path | None = None
     replacement_committed = False
     try:
-        descriptor, raw_temporary = tempfile.mkstemp(
-            prefix=f".{target.name}.",
-            suffix=".tmp",
-            dir=target.parent,
-        )
-        temporary = Path(raw_temporary)
-        os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            descriptor = -1
-            stream.write(raw_token + "\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, target)
+        owner_private_path.write_owner_private(target, raw_token + "\n")
         replacement_committed = True
-        temporary = None
-        directory = os.open(target.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        platform_file_sync.sync_directory(target.parent)
     except OSError as exc:
         if replacement_committed:
             message = (
@@ -114,14 +94,6 @@ def _write_raw_token_file(target: Path, raw_token: str) -> None:
             message,
             replacement_committed=replacement_committed,
         ) from exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        if temporary is not None:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
 
 
 def cmd_bootstrap_admin(args: argparse.Namespace) -> int:

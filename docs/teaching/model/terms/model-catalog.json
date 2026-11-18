@@ -1,7 +1,7 @@
 {
  "id": "model-catalog",
  "term": "Model catalog",
- "definition": "The versioned catalog of models used in execution-level configuration.",
+ "definition": "The effective-dated catalog of model facts. It follows the catalog Yoke ships unless an org admin publishes an override.",
  "status": "draft",
  "sources": ["docs/public/functions/models.md"]
 }

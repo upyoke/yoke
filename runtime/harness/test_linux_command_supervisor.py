@@ -13,7 +13,7 @@ import pytest
 
 from yoke_harness import linux_command_supervisor as supervisor, linux_command_custody
 
-pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc custody")
+pytestmark = pytest.mark.linux_only(reason='Linux /proc custody')
 
 
 @pytest.mark.parametrize("code", [0, 3])

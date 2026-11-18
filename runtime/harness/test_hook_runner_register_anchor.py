@@ -148,7 +148,7 @@ class TestRegisterRecordsProcessAnchor:
         )
         anchors = _capture_anchors(monkeypatch)
         result = register_module._register_from_hook("{}", "s-1")
-        assert result == ("", "", "", SessionModelFacts(), None)
+        assert result == ("skipped:unregistered_target", "", "", SessionModelFacts(), None)
         assert anchors == []
 
 
@@ -160,14 +160,14 @@ class TestRelayOwnedRegistration:
     lives in session_lifecycle_client.register_harness_session — the one
     layer both harness orientation paths route through."""
 
-    def test_https_transport_skips_subprocess_and_reports_success(
+    def test_https_transport_reports_delegated_registration(
         self, monkeypatch,
     ):
         from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: True)
         monkeypatch.setattr(
-            "yoke_core.hooks.service_client.register_session",
+            "yoke_core.hooks.registration_in_process._register_in_process",
             lambda *a, **_k: pytest.fail(
                 "https transport must not spawn the local registration "
                 "subprocess — the relay owns registration"
@@ -178,8 +178,7 @@ class TestRelayOwnedRegistration:
             provider="anthropic",
             model_facts=SessionModelFacts(requested_model="model-x"),
         )
-        # Success-shaped: no warning renders in the orientation block.
-        assert err == ""
+        assert err == "skipped:relay_owned"
 
     def test_https_skip_threads_through_register_from_hook(
         self, yoke_target, monkeypatch,
@@ -191,13 +190,13 @@ class TestRelayOwnedRegistration:
         err, executor, _p, facts, _e = register_module._register_from_hook(
             '{"transcript_path": "/t/x.jsonl"}', "s-https",
         )
-        assert err == ""
+        assert err == "skipped:relay_owned"
         assert executor == "claude-code"
         assert facts.requested_model == "model-x"
         # The process anchor is client-local and still writes on https.
         assert anchors == [("s-https", "/t/x.jsonl")]
 
-    def test_local_transport_still_runs_subprocess(self, monkeypatch):
+    def test_local_transport_uses_authoritative_registrar(self, monkeypatch):
         from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: False)
@@ -208,8 +207,8 @@ class TestRelayOwnedRegistration:
         monkeypatch.setattr(slc, "_local_authority_active", lambda: False)
         calls = []
         monkeypatch.setattr(
-            "yoke_core.hooks.service_client.register_session",
-            lambda *a, **_k: calls.append(a) or None,
+            "yoke_core.hooks.registration_in_process._register_in_process",
+            lambda *a, **_k: calls.append(a) or "registered",
         )
         monkeypatch.setattr(
             slc, "service_client_path", lambda _r: "/sc/service_client.py",
@@ -220,9 +219,9 @@ class TestRelayOwnedRegistration:
             provider="anthropic",
             model_facts=SessionModelFacts(requested_model="model-x"),
         )
-        assert err == ""
+        assert err == "registered"
         assert len(calls) == 1
-        assert calls[0][1] == "s-local"
+        assert calls[0][0] == "s-local"
 
     def test_helper_resolves_false_on_config_read_failure(self, monkeypatch):
         from yoke_core.hooks import session_lifecycle_client as slc

@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_session_relay_systemd.py::test_linger_refuses_before_launcher_or_unit_mutation[yes-relay_linger_enabled]",
+ "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
+}

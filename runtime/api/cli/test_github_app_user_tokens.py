@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import json
+import subprocess
 import urllib.parse
 from typing import Any
 
@@ -16,7 +17,14 @@ from runtime.api.cli.github_user_token_test_support import (
     configured_credential,
 )
 
+_BUILTIN_USERS = "*S-1-5-32-545"
 
+
+def _grant_builtin_users_read(path) -> None:
+    subprocess.run(["icacls", str(path), "/grant", f"{_BUILTIN_USERS}:(R)"], check=True)
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits: chmod 0640 makes the credential group-readable")
 def test_credential_read_rejects_group_readable_file(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
@@ -35,6 +43,7 @@ def test_credential_read_rejects_group_readable_file(
         )
 
 
+@pytest.mark.posix_only(reason="POSIX mode bits: chmod 0750 opens the credential directory")
 def test_credential_read_rejects_group_accessible_parent(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
@@ -53,6 +62,47 @@ def test_credential_read_rejects_group_accessible_parent(
             config_path=config_path, now=NOW
         )
     assert "set directory permissions to 700, then retry" in str(raised.value)
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: icacls grants Builtin Users read")
+def test_credential_read_rejects_file_other_windows_users_can_read(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
+    config_path, credential_path = configured_credential(
+        tmp_path, expires_at=NOW + timedelta(hours=1)
+    )
+    _grant_builtin_users_read(credential_path)
+
+    with pytest.raises(
+        github_user_tokens.GitHubUserTokenError, match="permissions must be owner-only"
+    ) as raised:
+        github_user_tokens.access_token_from_machine_config(
+            config_path=config_path, now=NOW
+        )
+    assert "remove other users' access" in str(raised.value)
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: icacls grants Builtin Users read")
+def test_credential_read_rejects_parent_other_windows_users_can_read(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
+    config_path, credential_path = configured_credential(
+        tmp_path, expires_at=NOW + timedelta(hours=1)
+    )
+    _grant_builtin_users_read(credential_path.parent)
+
+    with pytest.raises(
+        github_user_tokens.GitHubUserTokenError,
+        match="directory permissions are unsafe",
+    ) as raised:
+        github_user_tokens.access_token_from_machine_config(
+            config_path=config_path, now=NOW
+        )
+    assert "remove inherited and other users' access" in str(raised.value)
 
 
 def test_expired_refresh_credential_routes_to_device_reconnect(

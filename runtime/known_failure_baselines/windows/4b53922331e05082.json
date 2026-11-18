@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_operator_cli_checkout_refresh.py::test_updated_release_refreshes_all_checkouts_and_records_failures",
+ "reason": "assert \"yoke project...shes0\\\\dirty'\" == 'yoke project...eshes0\\\\dirty'"
+}

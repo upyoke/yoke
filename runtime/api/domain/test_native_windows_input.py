@@ -2,7 +2,6 @@
 
 import base64
 import hashlib
-import os
 import subprocess
 
 import pytest
@@ -218,7 +217,7 @@ def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeyp
     assert ".Trim()" not in scripts[1][0]
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires native Windows PowerShell")
+@pytest.mark.windows_only(reason='requires native Windows PowerShell')
 @pytest.mark.parametrize("payload", [b"", bytes(range(256)), " \r\n雪 \n ".encode()])
 @pytest.mark.parametrize("mode", ["read", "upload"])
 def test_native_reader_finishes_without_stdin_eof(payload, mode, tmp_path):
@@ -261,7 +260,7 @@ def test_native_reader_finishes_without_stdin_eof(payload, mode, tmp_path):
         child.stderr.close()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires native Windows PowerShell")
+@pytest.mark.windows_only(reason='requires native Windows PowerShell')
 @pytest.mark.parametrize(
     "frame",
     [

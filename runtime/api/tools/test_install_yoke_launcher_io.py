@@ -62,6 +62,7 @@ def test_refuse_foreign_binary_force_overrides(tmp_path: Path):
     isl.refuse_foreign_binary(target, force=True)
 
 
+@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_write_launcher_copies_and_chmods(tmp_path: Path):
     source = tmp_path / "src.py"
     source.write_text("#!/usr/bin/env python3\nprint('launcher')\n")
@@ -105,6 +106,7 @@ def test_write_launcher_bakes_install_home_default(tmp_path: Path):
     assert 'os.environ.get("YOKE_HOME")' in text
 
 
+@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_written_launcher_loads_package_src_roots(tmp_path: Path):
     home = tmp_path / "home"
     cli_pkg = home / "packages" / "yoke-cli" / "src" / "yoke_cli"

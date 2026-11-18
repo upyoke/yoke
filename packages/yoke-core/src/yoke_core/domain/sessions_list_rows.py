@@ -168,6 +168,8 @@ def render_session_roster_rows(
         result.append(
             {
                 "session_id": session_id,
+                "probe": bool(row.get("probe")),
+                "first_user_prompt_at": temporal_wire(row.get("first_user_prompt_at")),
                 "display_label": display.get(session_id, {}).get("label"),
                 "harness_title": display.get(session_id, {}).get("title"),
                 "chat_title": display.get(session_id, {}).get("chat_title"),

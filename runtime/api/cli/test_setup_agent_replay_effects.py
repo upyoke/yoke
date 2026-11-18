@@ -158,7 +158,11 @@ def test_github_sign_in_replays_to_the_next_decision(drive, monkeypatch):
 
 def test_the_git_installer_opens_once(drive, monkeypatch):
     installs: list[str] = []
-    advice = project_git_prerequisite.install_advice()
+    # Exercise the installer handoff independently of the runner's host tools.
+    advice = project_git_prerequisite.install_advice(
+        platform_name="darwin", which=lambda _name: None,
+    )
+    monkeypatch.setattr(project_git_prerequisite, "install_advice", lambda **_k: advice)
     monkeypatch.setattr(
         project_git_prerequisite,
         "require_git_available",
@@ -229,6 +233,7 @@ def test_a_local_backup_restores_once(drive, monkeypatch, tmp_path: Path):
     assert len(imports) == 1
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_a_self_host_server_starts_once(drive, monkeypatch, tmp_path: Path):
     provisions: list[str] = []
 

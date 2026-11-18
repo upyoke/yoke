@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 import platform as platform_info
+import shlex
 import shutil
 import subprocess
 import sys
@@ -26,8 +27,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 class BrowserOpenResult:
     """What happened when the approval URL was handed to a browser.
 
-    ``method`` names the opener that succeeded (``webbrowser``, ``open``,
-    ``wslview`` or ``explorer.exe``); ``reason`` carries every failed attempt in order so the
+    ``method`` names the opener that succeeded (``BROWSER``, ``webbrowser``,
+    ``open``, ``wslview`` or ``explorer.exe``); ``reason`` carries every failed attempt in order so the
     diagnostic log and the waiting view can say why nothing opened.
     """
 
@@ -75,7 +76,12 @@ def open_url(
 ) -> BrowserOpenResult:
     """Hand *url* to a browser, recording why each attempt failed.
 
-    Linux verifies the default browser or opens QA's shared Chromium runtime.
+    The standard ``BROWSER`` variable wins on every platform: each command in
+    it (``os.pathsep``-separated, ``%s`` replaced by the URL or the URL
+    appended) runs in turn until one exits 0. A test machine sets it to
+    ``yoke browser open`` so the link opens in the operator identity's
+    signed-in browser.
+    Otherwise Linux verifies the default browser or opens QA's shared Chromium runtime.
     Windows over SSH has no desktop and opens nothing, so the printed link
     and code carry the sign-in.
     macOS runs ``open``; WSL tries ``wslview`` and ``explorer.exe`` to reach
@@ -88,6 +94,8 @@ def open_url(
     one opener can never reach the operator's real browser through another.
     """
     env = os.environ if environ is None else environ
+    if browser_open is None and env.get("BROWSER"):
+        return _open_with_browser_variable(url, env["BROWSER"], env)
     is_wsl = platform == "linux" and (
         env.get("WSL_DISTRO_NAME")
         or env.get("WSL_INTEROP")
@@ -151,6 +159,51 @@ def open_url(
                 )
             detail = (completed.stderr or "").strip() or "no output"
             attempts.append(f"open command exited {completed.returncode}: {detail}")
+    return BrowserOpenResult(opened=False, reason="; ".join(attempts))
+
+
+_BROWSER_VARIABLE_TIMEOUT_SECONDS = 300.0
+
+
+def _open_with_browser_variable(
+    url: str, value: str, env: Mapping[str, str]
+) -> BrowserOpenResult:
+    """Run the ``BROWSER`` commands in order; record why each one failed.
+
+    The bound is generous because a launcher may first prepare its browser.
+    """
+    attempts: list[str] = []
+    for command in (part for part in value.split(os.pathsep) if part.strip()):
+        try:
+            argv = shlex.split(command)
+        except ValueError as exc:
+            attempts.append(f"BROWSER command unparsable: {exc}")
+            continue
+        argv = (
+            [part.replace("%s", url) for part in argv]
+            if any("%s" in part for part in argv)
+            else [*argv, url]
+        )
+        try:
+            completed = terminal_detached_process.run(
+                argv,
+                capture_output=True,
+                text=True,
+                timeout=_BROWSER_VARIABLE_TIMEOUT_SECONDS,
+                check=False,
+                env=dict(env),
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            attempts.append(f"BROWSER {argv[0]} failed: {type(exc).__name__}: {exc}")
+            continue
+        if completed.returncode == 0:
+            return BrowserOpenResult(
+                opened=True, method="BROWSER", reason="; ".join(attempts) or None
+            )
+        attempts.append(
+            f"BROWSER {argv[0]} exited {completed.returncode}: "
+            + ((completed.stderr or completed.stdout or "").strip() or "no output")
+        )
     return BrowserOpenResult(opened=False, reason="; ".join(attempts))
 
 

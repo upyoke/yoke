@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_contracts import platform_file_lock
+from yoke_contracts import platform_file_lock, windows_private_directory
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config.paths import (
     CONFIG_FILE_ENV as CONFIG_FILE_ENV,
@@ -25,6 +24,7 @@ from yoke_contracts.machine_config.paths import (
     config_path,
     yoke_home,
 )
+from yoke_contracts.owner_private_path import write_owner_private
 
 
 DEFAULT_CONFIG_NAME = contract.DEFAULT_CONFIG_NAME
@@ -64,7 +64,7 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     if not cfg_path.is_file():
         return {}
     try:
-        with cfg_path.open() as _fh:
+        with cfg_path.open(encoding="utf-8") as _fh:
             payload = json.load(_fh)
     except ValueError as exc:
         raise MachineConfigError(f"{cfg_path} is not valid JSON: {exc}") from exc
@@ -118,7 +118,7 @@ def _assign_machine_id(path: str | Path | None, *, replacing: str | None) -> str
         )
     selected.parent.mkdir(parents=True, exist_ok=True)
     lock_path = selected.with_name(f"{selected.name}.lock")
-    lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    lock_fd = _open_config_lock(lock_path)
     try:
         platform_file_lock.acquire_exclusive(lock_fd)
         current = machine_id(path)
@@ -134,36 +134,24 @@ def _assign_machine_id(path: str | Path | None, *, replacing: str | None) -> str
         os.close(lock_fd)
 
 
+def _open_config_lock(lock_path: Path) -> int:
+    """Open the shared config lock, creating it owner-only on every platform."""
+    if os.name == "nt":
+        try:
+            return windows_private_directory.create_private_file(lock_path)
+        except FileExistsError:
+            return os.open(lock_path, os.O_RDWR | os.O_BINARY)
+    return os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+
+
 def _replace_config(selected: Path, payload: Mapping[str, Any]) -> None:
     """Atomically publish a private machine-config document."""
     try:
         assert_write_owned(selected)
     except MachineConfigOwnershipError as exc:
         raise MachineConfigError(str(exc)) from exc
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=selected.parent,
-        prefix=f".{selected.name}.",
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-    try:
-        os.chmod(temp_path, 0o600)
-        # Keep the document's key order so an edit and its undo restore the bytes.
-        json.dump(dict(payload), handle, indent=2)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-        handle.close()
-        os.replace(temp_path, selected)
-    finally:
-        if not handle.closed:
-            handle.close()
-        try:
-            temp_path.unlink()
-        except FileNotFoundError:
-            pass
+    # Keep the document's key order so an edit and its undo restore the bytes.
+    write_owner_private(selected, json.dumps(dict(payload), indent=2) + "\n")
 
 
 #: Public name for the atomic publish the writers above use, for callers

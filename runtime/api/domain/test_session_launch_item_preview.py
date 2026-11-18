@@ -66,4 +66,4 @@ def test_an_item_alone_is_a_complete_preview_selection():
 
 def test_an_item_with_model_knobs_but_no_surface_is_refused():
     with pytest.raises(ValueError, match="launch_selection_missing"):
-        LaunchPreviewRequest(project="yoke", item="YOK-1", model="gpt-6.1-sol")
+        LaunchPreviewRequest(project="yoke", item="YOK-1", model="gpt-6.2-sol")

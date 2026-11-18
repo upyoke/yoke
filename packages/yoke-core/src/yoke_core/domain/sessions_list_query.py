@@ -10,6 +10,7 @@ holding a live item work claim rides along whatever its rank).
 from __future__ import annotations
 
 from yoke_contracts.session_control.liveness import holds_work_claim_sql
+from yoke_core.domain.session_probe import probe_session_sql
 
 #: Order by the later native instant; PostgreSQL GREATEST ignores nulls.
 _ACTIVITY = "GREATEST(s.last_tool_call_at, s.last_heartbeat)"
@@ -26,7 +27,8 @@ _HOLDS_ITEM = (
 
 #: Row shape shared by both query shapes.
 _SELECT = (
-    "SELECT s.session_id, s.executor, s.executor_surface, s.executor_version, "
+    f"SELECT {probe_session_sql('s')} AS probe, s.first_user_prompt_at, "
+    "s.session_id, s.executor, s.executor_surface, s.executor_version, "
     "s.model, "
     "s.reasoning_effort, s.requested_reasoning_effort, "
     "s.context_window_tokens, s.requested_model, "

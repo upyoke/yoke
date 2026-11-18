@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from yoke_contracts.deployment_member_removal_teaching import REMOVAL_EFFECT
+
 from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.deployment_run_member_removal_read import read_removal
 from yoke_core.domain.deployment_run_membership_removals import (
@@ -207,12 +209,12 @@ def cmd_remove_item(
                 actor_id=actor_id,
             )
             conn.commit()
-        recovery = f"Re-attach while created with `yoke deployment-runs add-item {run_id} {ref}`."
+        recovery = (
+            f"To undo now, run `yoke deployment-runs add-item {run_id} {ref}` "
+            "while this run is still created."
+        )
         if status == "failed":
-            recovery = (
-                f"Resume this same run with `yoke watch deploy -- {run_id} "
-                "--from-stage item-qa`."
-            )
+            recovery = f"Resume this same run with `yoke watch deploy -- {run_id}`."
         elif status == "executing":
             from yoke_core.domain.deployment_run_auto_completion import (
                 continue_after_settlement,
@@ -251,9 +253,7 @@ def cmd_remove_item(
                 or "The run finished with its remaining members."
             )
         return (
-            f"Removed {ref} from run {run_id} ({reason}). Composition will not "
-            "re-enroll it; its landed code still ships with this candidate and "
-            f"a later release enrolls it. {recovery}"
+            f"Removed {ref} from run {run_id} ({reason}). {REMOVAL_EFFECT} {recovery}"
         )
     finally:
         conn.close()

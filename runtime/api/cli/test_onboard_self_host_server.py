@@ -43,33 +43,7 @@ def _deliver_token(directory: Path) -> None:
     target.write_text(RAW_TOKEN + "\n", encoding="utf-8")
 
 
-def test_docker_preflight_export_delegates_to_shared_probe(monkeypatch) -> None:
-    receipt = docker.DockerPrerequisites("/usr/bin/docker")
-    monkeypatch.setattr(subject, "_check_docker_prerequisites", lambda: receipt)
-
-    assert subject.check_docker_prerequisites() is receipt
-
-
-def test_docker_preflight_export_preserves_setup_error_contract(monkeypatch) -> None:
-    refusal = docker.DockerPrerequisiteError(
-        "docker-engine-not-running",
-        "Docker is installed, but its engine is not running.",
-        ("Open Docker Desktop, then retry.",),
-    )
-
-    def refuse() -> docker.DockerPrerequisites:
-        raise refusal
-
-    monkeypatch.setattr(subject, "_check_docker_prerequisites", refuse)
-
-    with pytest.raises(subject.SelfHostSetupError) as raised:
-        subject.check_docker_prerequisites()
-
-    assert raised.value.code == refusal.code
-    assert str(raised.value) == str(refusal)
-    assert raised.value.detail_lines == refusal.detail_lines
-
-
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_existing_bundle_collision_is_left_untouched(tmp_path, monkeypatch) -> None:
     target = tmp_path / "yoke-server"
     target.mkdir()
@@ -92,6 +66,7 @@ def test_existing_bundle_collision_is_left_untouched(tmp_path, monkeypatch) -> N
     assert setup.bundle_created is False
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_success_uses_safe_compose_argv_and_connects_loopback(
     tmp_path, monkeypatch
 ) -> None:
@@ -142,6 +117,7 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
     assert connected[0]["config_path"] == str(tmp_path / "machine-home" / "config.json")
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_compose_failure_preserves_bundle_and_redacts_diagnostics(
     tmp_path, monkeypatch
 ) -> None:
@@ -166,6 +142,7 @@ def test_compose_failure_preserves_bundle_and_redacts_diagnostics(
     assert RAW_TOKEN not in evidence
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_token_timeout_retry_reuses_only_this_wizards_bundle(
     tmp_path, monkeypatch
 ) -> None:
@@ -218,6 +195,7 @@ def test_token_timeout_retry_reuses_only_this_wizards_bundle(
     assert len(writes) == 1
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_connect_failure_retains_token_for_in_memory_retry(
     tmp_path, monkeypatch
 ) -> None:
@@ -264,6 +242,7 @@ def test_connect_failure_retains_token_for_in_memory_retry(
     assert attempts == [RAW_TOKEN, RAW_TOKEN]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_post_start_health_wait_retries_until_the_server_answers(
     tmp_path, monkeypatch
 ) -> None:
@@ -307,6 +286,7 @@ def test_post_start_health_wait_retries_until_the_server_answers(
     assert connected == [subject.LOCAL_SERVER_URL]
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_post_start_health_wait_times_out_before_connect(tmp_path, monkeypatch) -> None:
     clock, connected = [0.0], []
 

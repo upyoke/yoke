@@ -170,7 +170,8 @@ root:
       - {title: "Items", summary: "Read item function identities and structured-write contracts.", path: "functions/items.md"}
       - {title: "Project configuration", summary: "Read configuration, strategy and shared-file operation contracts.", path: "functions/project-configuration.md"}
       - {title: "QA", summary: "Read QA function identities and execution and evidence obligations.", path: "functions/qa.md"}
-      - {title: "Runtime", summary: "Read runtime function identities, actor roles and output authority.", path: "functions/runtime.md"}
+      - {title: "Runtime", summary: "Read runtime function identities and output authority.", path: "functions/runtime.md"}
+      - {title: "Actors and org roles", summary: "Read actor roster, state and org-role rules and refusals.", path: "functions/actors.md"}
       - {title: "Tasks", summary: "Read generated-task, dispatch and review operation contracts.", path: "functions/tasks.md"}
       - {title: "Workflows", summary: "Read workflow function identities, immutable pins and routing contracts.", path: "functions/workflows.md"}
       - {title: "Worktrees", summary: "Read lane preparation, landing, merge and close-out contracts.", path: "functions/worktrees.md"}
@@ -194,6 +195,7 @@ root:
       - {title: "Starting state and activity", summary: "Declare Machine starting state and read case activity.", path: "verification/case-attachment-rules.md"}
       - {title: "Deployment plan execution", summary: "Run frozen cases across members, machines and shared host turns.", path: "verification/deployment-plan-execution.md"}
       - {title: "Deployment QA continuity", summary: "Continue existing QA through takeover and recover the exact execution.", path: "verification/deployment-qa-continuity.md"}
+      - {title: "Candidate controller", summary: "Run release-run QA controller work on the candidate Yoke build.", path: "verification/candidate-controller.md"}
       - {title: "Failed item QA", summary: "Keep correction ownership, wait for delivery and retest the qualifying candidate.", path: "verification/failed-item-qa.md"}
       - {title: "Browser targets", summary: "Select Browser targets, methods, identities and viewport configuration.", path: "verification/browser-targets.md"}
       - {title: "Browser scenarios", summary: "Author actions and assertions, then execute the Browser case.", path: "verification/browser-scenarios.md"}
@@ -208,12 +210,13 @@ root:
         path: verification/test-machines/index.md
         children:
           - {title: "Host provisioning", summary: "Choose an OS procedure and declare the project-owned host inventory.", path: "verification/test-machines/host-provisioning.md"}
+          - {title: "Tailnet bootstrap", summary: "Start cloud labs, join Tailscale and approve stable MagicDNS identities.", path: "verification/test-machines/tailnet-bootstrap.md"}
           - {title: "Setup responsibilities", summary: "Separate agent actions from personal credential entry.", path: "verification/test-machines/setup-responsibilities.md"}
           - {title: "Administrator commands", summary: "Use stored host credentials for bounded administrator commands.", path: "verification/test-machines/administrator-commands.md"}
           - {title: "macOS host provisioning", summary: "Prepare the test account, privacy permissions and terminal control.", path: "verification/test-machines/macos-host-provisioning.md"}
           - {title: "macOS baseline recovery", summary: "Save and prove macOS baselines and live browser identities.", path: "verification/test-machines/macos-baseline-recovery.md"}
           - {title: "Linux host provisioning", summary: "Prepare Linux accounts, harnesses and a durable desktop.", path: "verification/test-machines/linux-host-provisioning.md"}
-          - {title: "Linux browser identities", summary: "Authorize desktop browser identities and approval gates.", path: "verification/test-machines/linux-browser-identities.md"}
+          - {title: "Linux browser identities", summary: "Authorize identity profiles and the identity-browser approval gate.", path: "verification/test-machines/linux-browser-identities.md"}
           - {title: "Linux baseline recovery", summary: "Capture and prove Linux baselines and diagnose restore failures.", path: "verification/test-machines/linux-baseline-recovery.md"}
           - {title: "Linux live state", summary: "Preserve live harness installations and recover reset state.", path: "verification/test-machines/linux-live-state.md"}
           - {title: "Codex on Linux", summary: "Configure scoped sandbox posture and recover embedded helpers.", path: "verification/test-machines/codex-on-linux.md"}

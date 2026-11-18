@@ -3,7 +3,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from datetime import timedelta
-import fcntl
 import json
 import os
 from threading import Event
@@ -18,6 +17,7 @@ from yoke_cli.config import github_local_user_access, github_machine_operation
 from yoke_cli.config import machine_config
 from yoke_cli.config import github_binding_auth
 from yoke_cli.config import writer
+from yoke_contracts import platform_file_lock
 
 from runtime.api.cli.github_user_token_test_support import NOW, FakeResponse, configured_credential
 from runtime.api.cli.github_binding_test_support import _two_service_config
@@ -59,7 +59,8 @@ def test_concurrent_valid_git_and_local_reads_ignore_held_locks(tmp_path, monkey
                 credential_file.lock_path(target), os.O_CREAT | os.O_RDWR, 0o600
             )
             stack.callback(os.close, descriptor)
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            platform_file_lock.acquire_exclusive(descriptor)
+            stack.callback(platform_file_lock.release_exclusive, descriptor)
         with ThreadPoolExecutor(max_workers=4) as pool:
             futures = []
             for _ in range(2):

@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from yoke_core.domain import postgres_binaries, postgres_client_runtime
 from yoke_core.domain.source_postgres_environment import shared_postgres_environment
 
 
+EXE = ".exe" if os.name == "nt" else ""
+
+
 def _client_dir(root: Path, *names: str) -> Path:
     root.mkdir(parents=True)
-    for name in names:
+    for name in (f"{name}{EXE}" for name in names):
         (root / name).write_text("#!/bin/sh\n")
         (root / name).chmod(0o755)
     return root
@@ -37,7 +41,7 @@ def test_source_run_with_older_path_client_resolves_the_bundled_one(
 
     assert postgres_binaries.installed_bin_dir() is None
     assert postgres_client_runtime.postgres_executable("pg_dump") == str(
-        bundled / "pg_dump"
+        bundled / f"pg_dump{EXE}"
     )
 
 
@@ -50,7 +54,7 @@ def test_installed_engine_is_used_without_an_override(tmp_path, monkeypatch):
     )
 
     assert postgres_client_runtime.postgres_executable("pg_dump") == str(
-        bundled / "pg_dump"
+        bundled / f"pg_dump{EXE}"
     )
 
 
@@ -58,4 +62,4 @@ def test_no_pinned_engine_uses_path(tmp_path, monkeypatch):
     monkeypatch.delenv("YOKE_PG_BIN_DIR", raising=False)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
 
-    assert postgres_client_runtime.postgres_executable("pg_dump") == "pg_dump"
+    assert postgres_client_runtime.postgres_executable("pg_dump") == f"pg_dump{EXE}"

@@ -198,6 +198,10 @@ def test_invalid_rotation_preserves_prior_key_bytes(tmp_path):
     assert not pending.exists()
 
 
+@pytest.mark.posix_only(
+    reason="remote Linux deploy host: runs its sh promotion script and asserts the "
+    "key's 0640 service-group POSIX mode bits"
+)
 def test_valid_rotation_keeps_key_group_readable(tmp_path):
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()

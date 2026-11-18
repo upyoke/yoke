@@ -55,7 +55,7 @@ def test_curated_terms_and_aliases_have_sources(guide):
     import json
     _, _, nodes, _ = guide
     for path in (TOOLS.parent / 'model/terms').glob('*.json'):
-        record = json.loads(path.read_text())
+        record = json.loads(path.read_text(encoding="utf-8"))
         term = nodes['term:' + record['id']]
         assert term['title'] == record['term']
         assert term['aliases'] == record.get('aliases', [])
@@ -70,7 +70,7 @@ def test_map_reads_public_titles_and_topics(guide):
         if not node['id'].startswith('page:'):
             continue
         spec = node['page_spec']
-        source = (repo / spec['public_source']).read_text()
+        source = (repo / spec['public_source']).read_text(encoding="utf-8")
         assert '# ' + node['title'] in source
         assert all('## ' + heading in source for heading in spec['outline'])
         assert all(key in nodes for key in spec['terms'] + spec['commands'] + spec['sources'])
@@ -93,7 +93,7 @@ def test_source_snapshot_changes_when_source_changes(monkeypatch, tmp_path):
     root = tmp_path / 'repo'
     root.mkdir()
     source = root / 'guide.md'
-    source.write_text('First source version')
+    source.write_text('First source version', encoding="utf-8", newline="\n")
     monkeypatch.setattr(explorer_inventory, '__file__', str(root / 'docs/teaching/tools/explorer_inventory.py'))
     monkeypatch.setattr(model, 'model_files', lambda: [])
     import subprocess
@@ -101,7 +101,7 @@ def test_source_snapshot_changes_when_source_changes(monkeypatch, tmp_path):
                         'a' * 40 if 'rev-parse' in args else '')
     pages = SimpleNamespace(docs={'guide.md': []}, m=model.Model(), live={})
     first = explorer_inventory.source_snapshot([], pages)
-    source.write_text('Updated source, not a copied inventory')
+    source.write_text('Updated source, not a copied inventory', encoding="utf-8", newline="\n")
     second = explorer_inventory.source_snapshot([], pages)
     assert first['input_digest'] != second['input_digest']
     assert first['commit'] == second['commit']
@@ -113,7 +113,7 @@ def test_public_introduction_is_not_a_tab_or_embedded_preview(guide):
     assert 'view:getting-started' not in nodes
     assert 'public_intro' not in data
     assert 'renderGettingStarted' not in views['yokepedia.html']
-    nav = (TOOLS / 'explorer_terms.js').read_text()
+    nav = (TOOLS / 'explorer_terms.js').read_text(encoding="utf-8")
     assert "['Getting started'," not in nav
 
 

@@ -50,11 +50,14 @@ def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
         if os.name != "nt" and path.stat().st_uid != posix_uid():
             raise ValueError("cluster directory is not owned by this user")
     if os.name == "nt":
-        from yoke_contracts.owner_private_path import is_owner_private_file
+        from yoke_contracts.owner_private_path import is_owner_private_directory
 
-        if not is_owner_private_file(data / "postmaster.pid"):
-            raise ValueError("cluster postmaster identity is not owner-private")
-    lines = (data / "postmaster.pid").read_text().splitlines()
+        # The lifecycle creates the root with a protected owner-only DACL;
+        # initdb's data dir and postmaster.pid only inherit it, so only a
+        # principal that can already write the root could change them.
+        if not is_owner_private_directory(root):
+            raise ValueError("cluster root is not owner-private")
+    lines = (data / "postmaster.pid").read_text(encoding="utf-8").splitlines()
     if int(lines[0]) != pid or Path(lines[1]).resolve() != data.resolve():
         raise ValueError("postmaster identity changed")
     return ClusterSpec(

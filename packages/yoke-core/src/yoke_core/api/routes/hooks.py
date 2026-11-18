@@ -149,6 +149,7 @@ def post_hooks_evaluate(
                 exit_code=result.exit_code,
                 wait_ms=result.wait_ms,
                 degraded=list(result.degraded),
+                registration_outcome=result.registration_outcome,
                 outcome=result.outcome,
                 message_probe=result.message_probe,
                 harness_title_confirmation=confirmed_title(

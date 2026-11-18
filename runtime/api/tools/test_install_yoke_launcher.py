@@ -296,12 +296,14 @@ def test_auto_detect_target_target_dir_override(tmp_path: Path):
     assert choice.label == "override"
 
 
+@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_auto_detect_target_force_user_picks_third(tmp_path: Path):
     choice = isl.auto_detect_target(home=tmp_path, force_user=True, env_path="")
     assert choice.label == "fallback_user_local"
     assert str(choice.path).endswith(".local/bin")
 
 
+@pytest.mark.posix_only(reason="POSIX launcher shim")
 def test_auto_detect_target_force_system_picks_second(tmp_path: Path):
     choice = isl.auto_detect_target(home=tmp_path, force_system=True, env_path="")
     assert choice.label == "homebrew_intel_or_linux"

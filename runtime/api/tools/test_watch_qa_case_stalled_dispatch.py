@@ -40,7 +40,7 @@ def test_pending_zero_jobs_stall_is_urgent_with_fresh_redrive_recovery() -> None
 
     assert classification.cls is LineClass.URGENT
     assert f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON}" in line
-    assert "watch deploy -- <RUN> --from-stage <STAGE> --fresh" in line
+    assert "watch deploy -- <RUN> --fresh" in line
     assert "force-cancels a run that never starts" in line
 
 

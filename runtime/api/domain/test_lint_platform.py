@@ -44,6 +44,32 @@ def test_portable_calls_pass(source):
     assert not lint.scan_source(source, 'client.py')
 
 
+@pytest.mark.parametrize('source', [
+    'import tarfile as archive; archive.open(path)',
+    'from PIL import Image as decoder; decoder.open(path)',
+    'import webbrowser; webbrowser.open(url)',
+    'from urllib.request import build_opener as build; client = build(); client.open(url)',
+    'from importlib.metadata import distribution; dist = distribution("pkg"); dist.read_text("RECORD")',
+    'from importlib.metadata import Distribution\ndef owning() -> Distribution: ...\ndist = owning(); dist.read_text("RECORD")',
+    'from PIL import Image\ndef decoder(): return Image\nimage = decoder(); image.open(path)',
+    'class LinuxTerminal:\n def open(self, command): pass\nt = LinuxTerminal(); t.open(command)',
+    'from yoke_contracts.runtime_ports.ssh_linux_terminal import get_ssh_linux_terminal\n'
+    'Terminal = get_ssh_linux_terminal().LinuxTerminal\nt = Terminal(); t.open(command)',
+    'from yoke_cli.config.onboard_checklist_files import write_text as write; write(path, text)',
+])
+def test_non_text_file_apis_need_no_encoding(source):
+    assert not lint.scan_source(source, 'client.py')
+
+
+@pytest.mark.parametrize('source', [
+    'from pathlib import Path\nopener = Path("document"); opener.open()',
+    'from urllib.request import build_opener\nclient = build_opener()\nclient = Path("x")\nclient.open()',
+    'from importlib.resources import files\nfiles("pkg").joinpath("doc").read_text()',
+])
+def test_file_calls_remain_checked_despite_non_file_api_names(source):
+    assert any(hit.rule == 'encoding' for hit in lint.scan_source(source, 'client.py'))
+
+
 def test_guard_does_not_exempt_wrong_branch_or_later_call():
     source = 'import os\nif hasattr(os, "getuid"):\n pass\nelse:\n os.getuid()\nos.getuid()'
     assert len(lint.scan_source(source, 'client.py')) == 2

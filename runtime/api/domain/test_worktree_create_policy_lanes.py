@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from pathlib import Path
 
 from runtime.api.domain.worktree_create_multiworktree_test_support import (
     _config_path,
@@ -68,9 +69,15 @@ def test_epic_creates_integration_lane_and_each_worker(
         capture_output=True,
         text=True,
     )
+    # Git for Windows prints ``C:/...``; compare as paths, not text.
+    registered = {
+        Path(line.removeprefix("worktree "))
+        for line in listing.stdout.splitlines()
+        if line.startswith("worktree ")
+    }
     for _, path in entries:
-        assert path in listing.stdout
-    assert result.worktrees[0].path in listing.stdout
+        assert Path(path) in registered
+    assert Path(result.worktrees[0].path) in registered
 
 
 def test_blitz_creates_and_registers_a_real_default_worker_lane(

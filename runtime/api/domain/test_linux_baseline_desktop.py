@@ -88,9 +88,13 @@ def test_linux_capture_roundtrip_runs_after_probe_seal_and_before_success(monkey
         "codex": "0.163.0",
         "cursor": "2026.10.16-e3cb207",
     }
+    sealed = {}
     control = SimpleNamespace(
         os="linux",
-        upload_remote_text=lambda path, text: calls.append("seal " + path),
+        upload_remote_text=lambda path, text: (
+            calls.append("seal " + path) or sealed.__setitem__(path, text)
+        ),
+        read_remote_text=sealed.get,
         run_command=lambda argv, timeout: (
             calls.append("versions")
             or subprocess.CompletedProcess(argv, 0, json.dumps(versions), "")
@@ -100,6 +104,7 @@ def test_linux_capture_roundtrip_runs_after_probe_seal_and_before_success(monkey
     assert calls == [
         "archive",
         "seal /golden.probes",
+        "seal /golden.probes.sha256",
         "versions",
         "seal /golden.harness-clis",
         "roundtrip",

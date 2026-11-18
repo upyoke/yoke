@@ -9,7 +9,6 @@ localized) onto the existing named connection errors.
 
 from __future__ import annotations
 
-import os
 import ssl
 import sys
 import time
@@ -72,7 +71,7 @@ def test_https_connects_through_the_proxy_python_reports(monkeypatch) -> None:
     assert (target.host, target.port) == ("proxy.corp.example", 8080)
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the registry fallback exists only on Windows")
+@pytest.mark.windows_only(reason='the registry fallback exists only on Windows')
 def test_windows_system_proxy_setting_reaches_yoke(monkeypatch) -> None:
     monkeypatch.setattr(urllib.request, "getproxies_environment", lambda: {})
     monkeypatch.setattr(

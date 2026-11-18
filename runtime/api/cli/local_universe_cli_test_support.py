@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import local_universe_setup as setup
+from yoke_contracts import owner_private_path
 
 
 class _EngineError(RuntimeError):
@@ -45,6 +46,11 @@ def machine_home(monkeypatch, tmp_path) -> Path:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     monkeypatch.setattr(setup, "_record_operating_actor", lambda report, path: None)
     return home
+
+
+@pytest.fixture()
+def private_machine_home(machine_home) -> Path:
+    return owner_private_path.create_owner_private_directory(machine_home)
 
 
 def _config(home: Path) -> dict:

@@ -2,6 +2,9 @@
 
 import json
 import sys
+import venv
+
+from yoke_contracts.venv_layout import venv_python
 
 import pytest
 
@@ -61,11 +64,11 @@ def test_check_only_validates_release_python_without_stable_shim(
 ):
     repo, config = _registered_repo(tmp_path, monkeypatch)
     root = tmp_path / "yoke-cli-releases"
-    python = root / "releases/new/tools/yoke-cli/bin/python3"
-    python.parent.mkdir(parents=True)
-    python.symlink_to(sys.executable)
+    environment = root / "releases/new/tools/yoke-cli"
+    venv.EnvBuilder(with_pip=False).create(environment)
+    python = venv_python(environment, name="python3")
     monkeypatch.setattr(credentials.sys, "executable", str(python))
-    monkeypatch.setattr(credentials.sys, "prefix", str(python.parent.parent))
+    monkeypatch.setattr(credentials.sys, "prefix", str(environment))
     # A stale prior-release helper is classified but never rewritten by a probe.
     helper = root / "releases/old/lib/python3.10" / credentials.STABLE_HELPER_FILE_NAME
     from yoke_contracts.git_credential_command import helper_command

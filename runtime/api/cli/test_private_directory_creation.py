@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shlex
 import stat
+import subprocess
 
 import pytest
 
@@ -15,6 +16,13 @@ from yoke_contracts.machine_config import capability_secret_store as capability_
 from yoke_contracts.machine_config import secret_files as secrets
 from yoke_cli.local_core import state
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import (
+    create_owner_private_directory,
+    is_owner_private_directory,
+    is_owner_private_file,
+)
+
+_BUILTIN_USERS = "*S-1-5-32-545"
 
 
 @contextmanager
@@ -30,14 +38,18 @@ def _umask(value: int):
 def test_private_creation_secures_all_new_ancestors(tmp_path: Path, mask: int):
     home = tmp_path / "machine home"
     directory = home / "secrets" / "capabilities" / "project"
+    tmp_mode = stat.S_IMODE(tmp_path.stat().st_mode)
+    tmp_private = is_owner_private_directory(tmp_path)
     with _umask(mask):
         assert create_private_directory(directory) == directory
         with machine_config_file.exclusive_lock(home / "config.json"):
             pass
     for path in (home, home / "secrets", directory.parent, directory):
-        assert stat.S_IMODE(path.stat().st_mode) == 0o700
-    assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o700
-    assert stat.S_IMODE((home / "config.json.lock").stat().st_mode) == 0o600
+        assert is_owner_private_directory(path), path
+    # The existing ancestor keeps exactly the access it had before.
+    assert stat.S_IMODE(tmp_path.stat().st_mode) == tmp_mode
+    assert is_owner_private_directory(tmp_path) == tmp_private
+    assert is_owner_private_file(home / "config.json.lock")
 
 
 @pytest.mark.parametrize(
@@ -92,10 +104,10 @@ def test_bootstrap_writers_create_private_home_before_config_lock(
             universe_ui_daemon_state.stable_session_token()
         with machine_config_file.exclusive_lock(home / "config.json"):
             pass
-    assert stat.S_IMODE(home.stat().st_mode) == 0o700
+    assert is_owner_private_directory(home)
     for path in home.rglob("*"):
         if path.is_dir():
-            assert stat.S_IMODE(path.stat().st_mode) == 0o700
+            assert is_owner_private_directory(path), path
 
 
 @pytest.mark.posix_only(reason="POSIX permission bits and chmod repair")
@@ -112,6 +124,24 @@ def test_existing_writable_home_is_refused_with_exact_repair(tmp_path: Path):
     assert stat.S_IMODE(home.stat().st_mode) == 0o775
     assert not (home / "config.json.lock").exists()
     home.chmod(0o700)
+    with machine_config_file.exclusive_lock(home / "config.json"):
+        pass
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: icacls loosens and repairs the home")
+def test_existing_shared_windows_home_is_refused_with_exact_repair(tmp_path: Path):
+    home = create_owner_private_directory(tmp_path / "machine home's directory")
+    subprocess.run(["icacls", str(home), "/grant", f"{_BUILTIN_USERS}:(R)"], check=True)
+    create_private_directory(home / "onboard" / "reports")
+    with pytest.raises(machine_config_file.MachineConfigFileError) as refusal:
+        with machine_config_file.exclusive_lock(home / "config.json"):
+            pytest.fail("unsafe home accepted")
+    assert str(home) in str(refusal.value)
+    assert "remove other users' access" in str(refusal.value)
+    assert "chmod" not in str(refusal.value)
+    assert not is_owner_private_directory(home)
+    assert not (home / "config.json.lock").exists()
+    subprocess.run(["icacls", str(home), "/remove:g", _BUILTIN_USERS], check=True)
     with machine_config_file.exclusive_lock(home / "config.json"):
         pass
 

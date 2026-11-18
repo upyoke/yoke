@@ -18,6 +18,9 @@ class _ZeroRowcount:
 class _RaceConn:
     """Fake the losing side of concurrent reactivation."""
 
+    def __init__(self, *, gone=False):
+        self.gone = gone
+
     def execute(self, sql, params=()):  # noqa: ARG002
         if "information_schema.columns" in sql or "pg_catalog.pg_attribute" in sql:
             # episode-column introspection (register_session) — report the
@@ -39,6 +42,10 @@ class _RaceConn:
                     "org_id": None,
                 }
             )
+        if sql.startswith("SELECT * FROM harness_sessions"):
+            if self.gone:
+                return _EmptyResult()
+            return _RowResult({"session_id": "race-sess", "ended_at": None})
         if "UPDATE harness_sessions" in sql and "ended_at IS NOT NULL" in sql:
             return _ZeroRowcount()
         raise AssertionError(f"unexpected SQL: {sql}")
@@ -66,9 +73,10 @@ class _RowResult:
         return self._row
 
 
-def test_reactivation_loser_does_not_emit_started_event():
+@pytest.mark.parametrize("gone,code", [(False, "SESSION_EXISTS"), (True, "NOT_FOUND")])
+def test_reactivation_loser_does_not_emit_started_event(gone, code):
     emitted = []
-    conn = _RaceConn()
+    conn = _RaceConn(gone=gone)
 
     with (
         patch(
@@ -91,5 +99,5 @@ def test_reactivation_loser_does_not_emit_started_event():
                 project_id=1,
             )
 
-    assert exc_info.value.code == "SESSION_EXISTS"
+    assert exc_info.value.code == code
     assert emitted == []

@@ -124,7 +124,7 @@ def refresh_skip_lines() -> list[str]:
         instance = resolve_relay_instance(
             environment=machine_config.load_config()["active_env"]
         )
-        record = json.loads((instance.state_dir / FOLLOW_RECORD_NAME).read_text())
+        record = json.loads((instance.state_dir / FOLLOW_RECORD_NAME).read_text(encoding="utf-8"))
         failures = [
             result
             for result in record.get("project_refresh", [])
@@ -173,7 +173,7 @@ def _finish(record: dict[str, Any], state_dir: Path, outcome: str) -> dict[str, 
         )
     try:
         (state_dir / FOLLOW_RECORD_NAME).write_text(
-            json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
         )
     except OSError as exc:
         print(f"could not record the CLI follow outcome: {exc}", file=sys.stderr)

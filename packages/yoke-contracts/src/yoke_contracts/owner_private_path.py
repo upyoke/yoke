@@ -76,6 +76,25 @@ def is_others_unwritable_directory(path: str | Path) -> bool:
         return False
 
 
+def is_others_unwritable_file(path: str | Path) -> bool:
+    """Check file write grants, permitting readable/system-owned executables.
+
+    POSIX uses regular-file mode bits; Windows requires a trusted owner and
+    no effective write grant outside the account, SYSTEM and Administrators.
+    Symlinks refuse; callers checking an interpreter resolve its target first.
+    """
+    selected = Path(path)
+    try:
+        info = selected.lstat()
+        if not stat.S_ISREG(info.st_mode):
+            return False
+        if _WINDOWS_PERMISSIONS:
+            return windows_others_unwritable_directory.is_others_unwritable_file(selected)
+        return not bool(stat.S_IMODE(info.st_mode) & 0o022)
+    except OSError:
+        return False
+
+
 def create_owner_private_directory(path: str | Path) -> Path:
     """Create one private directory; refuse unsafe existing paths, create no parents."""
     selected = Path(path)
@@ -122,5 +141,31 @@ def write_owner_private(path: str | Path, data: str | bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
-__all__ = ["posix_uid", "is_current_user_owned_path", "is_others_unwritable_directory", "is_owner_private_file", "is_owner_private_directory",
-           "create_owner_private_directory", "write_owner_private"]
+def create_owner_private_temporary(
+    *, prefix: str, suffix: str, directory: str | Path | None = None,
+) -> tuple[int, Path]:
+    """Create a new private temporary file; return its open descriptor and path.
+
+    The file is private before the caller writes anything, for streams such as
+    retained logs that cannot be written in one atomic replace.
+    """
+    descriptor, raw = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=directory)
+    created = Path(raw)
+    try:
+        if _WINDOWS_PERMISSIONS:
+            windows_private_directory.make_private_file(created)
+        else:
+            os.fchmod(descriptor, 0o600)
+        if not is_owner_private_file(created):
+            raise OSError(f"owner_private_write_denied: {created}; repair owner permissions and retry")
+    except BaseException:
+        os.close(descriptor)
+        created.unlink(missing_ok=True)
+        raise
+    return descriptor, created
+
+
+__all__ = ["posix_uid", "is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file",
+           "is_owner_private_file", "is_owner_private_directory",
+           "create_owner_private_directory", "create_owner_private_temporary",
+           "write_owner_private"]

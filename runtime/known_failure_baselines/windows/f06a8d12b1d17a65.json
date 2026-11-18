@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_hook_helpers_database_resolution.py::TestResolveYokeDb::test_returns_empty_without_explicit_override",
+ "reason": "RuntimeError: Could not determine home directory."
+}

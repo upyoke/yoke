@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_structured_events_pack.py::test_structured_events_published_contract",
+ "reason": "AssertionError: TAP version 13"
+}

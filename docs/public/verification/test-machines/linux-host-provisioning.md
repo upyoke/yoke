@@ -97,6 +97,9 @@ denial or unavailable helper is a provisioning blocker; stop and report it.
 
 ### Join Tailscale before registration
 
+Follow [tailnet bootstrap](tailnet-bootstrap.md) for provider start, current-IP
+SSH, stable lab naming and operator sign-in approval before these OS checks.
+
 Install Tailscale on the host and join the operator's tailnet by completing its
 sign-in flow. Enable startup/unattended operation and disable device key expiry
 in the admin console. Controllers join the same tailnet and use MagicDNS.
@@ -104,13 +107,14 @@ This is one-time manual machine setup.
 
 Use the [Linux installer](https://tailscale.com/download/linux), enable the
 `tailscaled` service (`sudo systemctl enable --now tailscaled`) and run
-`sudo tailscale up`; open its sign-in URL to join the tailnet.
+`sudo tailscale up --hostname=LAB_NAME`; give its sign-in URL to the operator.
 
 Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
 then register it as `host`; keep a forwarded `desktop_host` on loopback.
 For cloud bootstrap, query the provider's **current** public IP and connect with
-`ssh -o HostKeyAlias=INSTANCE_ID USER@CURRENT_PUBLIC_IP`; never register that IP.
+the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
+never register that IP.
 Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
@@ -214,9 +218,9 @@ permission to bypass unrelated product safeguards.
 
 Keep every harness installation and sign-in live outside the golden; follow
 [Linux live-state preservation and reset recovery](linux-live-state.md).
-Require all three real requests before reset. Chromium quits to flush its
-state; preserve its existing `~/snap/chromium/common/chromium` store only when
-present, never an older golden copy. Require separate reset and browser
+Require all three real requests before reset. Every Chromium is asked to quit
+so the identity store `~/.yoke-browser-identities` is flushed; reset keeps that
+store live, never an older golden copy. Require separate reset and browser
 sign-in proof in the [baseline procedure](linux-baseline-recovery.md).
 
 ## 4. Durable desktop and unattended sessions
@@ -227,36 +231,29 @@ core helper as the dedicated test user, with private capability input. Copy
 Yoke package into the target working directory before running:
 
 ```text
-python3 provision_linux_desktop.py --desktop-password-stdin
+python3 provision_linux_desktop.py --desktop-password-stdin --browser-project P --browser-identity NAME
 python3 provision_linux_desktop.py --verify
 ```
 
-It requires Ubuntu24.04 and passwordless sudo, installs XFCE, xfce4-terminal,
-xorgxrdp/xrdp, dbus-x11, scrot, xdotool and venv support, refuses another
-`.xsession` choice, and proves active services and loopback-only RDP. It sets
-`TerminalEmulator=xfce4-terminal` while preserving other helpers.rc choices.
-It installs the Chromium snap, selects `chromium_chromium.desktop` for web
-links in `~/.config/mimeapps.list` (keeping the user's other default
-applications) and makes Chromium the system default browser:
-
-```text
-sudo apt-get install -y chromium-browser
-sudo update-alternatives --set x-www-browser /usr/bin/chromium-browser
-```
-
-On the XFCE desktop, `xdg-open` hands links to `exo-open`, which falls back to
-`debian-sensible-browser` and runs `x-www-browser`; `mimeapps.list` alone
-leaves links failing with "Failed to execute default Web Browser". Ubuntu's
-`chromium-browser` package wraps the snap in `/usr/bin/chromium-browser` and
-registers it as `x-www-browser`. Never point `x-www-browser` at
-`/snap/bin/chromium`: snap picks the app from the name it is called by and
-fails with `unknown command`.
-`--verify` resolves `/usr/bin/x-www-browser` to the program it runs, the same
-check the approval gate makes, so an SSH session sees what the desktop opens.
-It refuses `linux_desktop_chromium_not_proved` or
-`linux_desktop_default_browser_not_selected` until that program is Chromium.
-To confirm on the desktop, run `xdg-open https://upyoke.com` in its terminal;
-Chromium opens the page.
+Provisioning requires `--browser-project` and `--browser-identity`, naming the
+operator identity (the project's browser-control `default_identity`);
+`--verify` takes neither. It requires Ubuntu24.04 and passwordless sudo,
+installs XFCE, xfce4-terminal, xorgxrdp/xrdp, dbus-x11, scrot, xdotool and
+venv support, refuses another `.xsession` choice, and proves active services
+and loopback-only RDP. It sets `TerminalEmulator=xfce4-terminal` while
+preserving other helpers.rc choices. It installs no stock desktop browser.
+Instead it writes the identity launcher
+`~/.local/share/applications/yoke-identity-browser.desktop`, whose Exec runs
+`yoke browser open --project P --identity NAME` through a login shell, and
+selects it for http, https and text/html in `~/.config/mimeapps.list`
+(keeping the user's other default applications). So `xdg-open` lands in the
+identity profile, signed in. `--verify` refuses
+`linux_desktop_default_browser_not_selected` until the launcher is registered
+and selected. The registration lives in the home golden, so resets keep it;
+on a clean baseline without Yoke there is no launcher to run until a walk
+installs Yoke. Once Yoke is installed and the identity authorized, confirm by
+running `xdg-open https://upyoke.com` in the desktop terminal; the page opens
+in the identity's Chromium.
 An existing customization requires an operator decision before provisioning.
 Tools/services are system baseline; session selection is captured home state.
 Do not install scrot/xdotool as a mission-journaled package delta: another reset

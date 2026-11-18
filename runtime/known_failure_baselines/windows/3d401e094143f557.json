@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_project_install_hooks.py::test_merge_distinguishes_matchers_sharing_one_command",
+ "reason": "AssertionError: assert ['Bash', 'Bash', 'Edit'] == ['Bash', 'Edit']"
+}

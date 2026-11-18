@@ -16,6 +16,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.venv_layout import venv_console_script, venv_python
+
 from yoke_contracts.machine_config.relay_instance import (
     RELAY_LABEL_PREFIX,
     resolve_relay_instance,
@@ -78,16 +80,31 @@ def test_venv_python_symlink_keeps_its_installed_console_script(tmp_path, monkey
     base_python = tmp_path / "base" / "python3"
     base_python.parent.mkdir()
     base_python.touch(mode=0o755)
-    venv_bin = tmp_path / "venv" / "bin"
-    venv_bin.mkdir(parents=True)
-    interpreter = venv_bin / "python3"
+    environment = tmp_path / "venv"
+    interpreter = venv_python(environment, name="python3")
+    interpreter.parent.mkdir(parents=True)
     interpreter.symlink_to(base_python)
-    launcher = venv_bin / "yoke"
+    launcher = venv_console_script(environment, "yoke")
     launcher.touch(mode=0o755)
     monkeypatch.setattr(local_launcher.sys, "executable", str(interpreter))
     monkeypatch.setattr(local_launcher, "TARGET_PRIORITY", ())
 
     assert local_launcher.local_launcher_path() == launcher
+
+
+@pytest.mark.windows
+def test_windows_finds_the_installer_shim_then_the_venv_console_script(tmp_path, monkeypatch):
+    shim_dir, scripts = tmp_path / "local-bin", tmp_path / "venv" / "Scripts"
+    shim_dir.mkdir()
+    scripts.mkdir(parents=True)
+    (scripts / "yoke.exe").touch(mode=0o755)
+    monkeypatch.setattr(local_launcher, "_WINDOWS", True)
+    monkeypatch.setattr(local_launcher.sys, "executable", str(scripts / "python.exe"))
+    monkeypatch.setattr(local_launcher, "TARGET_PRIORITY", ((str(shim_dir), "user"),))
+
+    assert local_launcher.local_launcher_path() == scripts / "yoke.exe"
+    (shim_dir / "yoke.cmd").touch(mode=0o755)
+    assert local_launcher.local_launcher_path() == shim_dir / "yoke.cmd"
 
 
 def test_local_universe_owns_a_relay_that_runs_the_installed_yoke(

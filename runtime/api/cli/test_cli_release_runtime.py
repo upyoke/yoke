@@ -19,6 +19,7 @@ from runtime.api.cli.cli_release_runtime_test_support import (
     yoke,
 )
 from yoke_cli.config import cli_release_runtime as runtime
+from yoke_contracts.venv_layout import venv_python
 
 
 @pytest.mark.windows
@@ -93,7 +94,7 @@ def test_cleanup_keeps_installs_in_progress_and_uninstall_waits_for_them(tmp_pat
     assert not (bin_dir / "yoke").exists()
 
 
-@pytest.mark.skipif(runtime.WINDOWS, reason="the symlink layout never shipped there")
+@pytest.mark.posix_only(reason='the symlink layout never shipped there')
 def test_update_from_the_symlink_layout_replaces_every_link(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old = candidate(root, "1.0")
@@ -241,7 +242,7 @@ def test_real_installer_runner_isolates_uv_and_activates_candidate(
     assert environment["UV_TOOL_BIN_DIR"] == str(generation / "bin")
     activation, _ = calls[-1]
     assert activation[:4] == [
-        str(generation / "tools/yoke-cli/bin/python3"),
+        str(venv_python(generation / "tools/yoke-cli", name="python3")),
         "-I",
         "-m",
         "yoke_cli.config.cli_release_runtime",

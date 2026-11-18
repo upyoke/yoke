@@ -25,6 +25,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -86,16 +87,20 @@ def test_local_destination_manifest_project_id_uses_local_universe(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
+            await wait_for_view(pilot, "connect.local_universe", "SelectionList")
             assert "Your Yoke lives on this machine." in _body_text(app)
             await pilot.press("enter")  # universe summary: Continue
+            await wait_for_view(pilot, "connect.admin_name", "Input")
             await enter_admin_name(pilot)
+            await wait_for_view(pilot, "github.machine", "SelectionList")
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await pilot.press("down", "enter")  # project: existing folder
+            await wait_for_view(pilot, "project.folder", "Input")
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
@@ -103,14 +108,17 @@ def test_local_destination_manifest_project_id_uses_local_universe(
             assert title == "Existing project found: ExternalWebapp."
             await pilot.press("down")  # Review details
             await pilot.press("enter")
-            await pilot.pause()
+            # Review details redraws project.existing_found in place.
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             body = _body_text(app)
             assert (
                 "Local project metadata matched a local Yoke database project." in body
             )
             assert "local Yoke database: verified project id 37." in body
             await pilot.press("enter")  # continue -> board art
+            await wait_for_view(pilot, "hosting.provider", "SelectionList")
             await skip_hosting(pilot)  # hosting: skip -> Finish
+            await wait_for_view(pilot, "review.confirm", "SelectionList")
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 

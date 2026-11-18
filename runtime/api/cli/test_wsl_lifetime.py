@@ -66,16 +66,23 @@ def test_atomic_write_preserves_encoding_comments_and_newlines(tmp_path, encodin
         + "[wsl2]\r\nmemory=8GB\r\n# keep\r\n[general]\r\ninstanceIdleTimeout=15000\r\n"
     )
     path.write_bytes(original.encode(encoding))
-    path.chmod(0o640)
     assert lifetime._enable(path)
     updated = path.read_bytes()
     assert updated.decode(encoding).startswith(
         bom + "[wsl2]\r\nmemory=8GB\r\n# keep\r\n"
     )
     assert "instanceIdleTimeout=-1\r\n" in updated.decode(encoding)
-    assert path.stat().st_mode & 0o777 == 0o640
     assert not lifetime._enable(path)
     assert path.read_bytes() == updated
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits: Windows .wslconfig access comes from its ACL")
+def test_atomic_write_preserves_posix_mode(tmp_path):
+    path = tmp_path / ".wslconfig"
+    path.write_text("[general]\ninstanceIdleTimeout=15000\n")
+    path.chmod(0o640)
+    assert lifetime._enable(path)
+    assert path.stat().st_mode & 0o777 == 0o640
 
 
 def test_missing_config_is_created(tmp_path):

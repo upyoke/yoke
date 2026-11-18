@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import stat
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_harness.session_launch_handoff import (
     HANDOFF_DIRECTORY_NAME,
     HANDOFF_TTL_SECONDS,
@@ -59,7 +59,7 @@ def test_environment_projects_until_rendered_delivery_is_proven(
     assert [marker.name for marker in markers] == [
         f"{projection.attestation_digest}.delivered"
     ]
-    assert stat.S_IMODE(markers[0].stat().st_mode) == 0o600
+    assert is_owner_private_file(markers[0])
     assert (
         project_launch_attestation(
             {"session_id": BINDING_ID},

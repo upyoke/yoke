@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import stat
+import subprocess
 from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_core.domain import github_app_control_plane as control_plane
 from yoke_core.domain.github_app_control_plane import (
     GITHUB_APP_API_URL_ENV,
@@ -17,11 +19,12 @@ from yoke_core.domain.github_app_control_plane import (
     load_github_app_control_plane_config,
 )
 
+_BUILTIN_USERS = "*S-1-5-32-545"
+
 
 def test_control_plane_config_reads_owner_only_private_key(tmp_path: Path) -> None:
     key_file = tmp_path / "github-app.pem"
-    key_file.write_text("test-private-key", encoding="utf-8")
-    key_file.chmod(0o600)
+    write_owner_private(key_file, "test-private-key")
 
     config = load_github_app_control_plane_config(
         {
@@ -37,6 +40,7 @@ def test_control_plane_config_reads_owner_only_private_key(tmp_path: Path) -> No
     assert "test-private-key" not in repr(config)
 
 
+@pytest.mark.posix_only(reason="POSIX mode bits: chmod 0640 makes the key group-readable")
 def test_control_plane_config_rejects_group_readable_private_key(
     tmp_path: Path,
 ) -> None:
@@ -53,12 +57,28 @@ def test_control_plane_config_rejects_group_readable_private_key(
         )
 
 
+@pytest.mark.windows_only(reason="native Windows DACL: icacls grants Builtin Users read")
+def test_control_plane_config_rejects_private_key_other_users_can_read(
+    tmp_path: Path,
+) -> None:
+    key_file = tmp_path / "github-app.pem"
+    write_owner_private(key_file, "test-private-key")
+    subprocess.run(["icacls", str(key_file), "/grant", f"{_BUILTIN_USERS}:(R)"], check=True)
+
+    with pytest.raises(GitHubAppControlPlaneConfigError, match="owner-only"):
+        load_github_app_control_plane_config(
+            {
+                GITHUB_APP_ISSUER_ENV: "Iv1.control-plane",
+                GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
+            }
+        )
+
+
 def test_control_plane_config_rejects_invalid_issuer_and_key_encoding(
     tmp_path: Path,
 ) -> None:
     key_file = tmp_path / "github-app.pem"
-    key_file.write_bytes(b"\xff\xfe")
-    key_file.chmod(0o600)
+    write_owner_private(key_file, b"\xff\xfe")
     with pytest.raises(GitHubAppControlPlaneConfigError, match="issuer"):
         load_github_app_control_plane_config(
             {
@@ -75,6 +95,9 @@ def test_control_plane_config_rejects_invalid_issuer_and_key_encoding(
         )
 
 
+@pytest.mark.posix_only(
+    reason="Linux service container host: root-owned (uid 0) /run/secrets mount"
+)
 def test_control_plane_config_accepts_root_owned_read_only_secret_mount(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -103,6 +126,9 @@ def test_control_plane_config_accepts_root_owned_read_only_secret_mount(
     assert config.private_key_pem == "test-private-key"
 
 
+@pytest.mark.posix_only(
+    reason="Linux service container host: root-owned (uid 0) /run/secrets mount"
+)
 def test_control_plane_config_rejects_root_owned_file_outside_runtime_mount(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -128,8 +154,7 @@ def test_control_plane_config_rejects_root_owned_file_outside_runtime_mount(
 
 def test_control_plane_config_rejects_private_key_symlink(tmp_path: Path) -> None:
     target = tmp_path / "target.pem"
-    target.write_text("test-private-key", encoding="utf-8")
-    target.chmod(0o600)
+    write_owner_private(target, "test-private-key")
     link = tmp_path / "github-app.pem"
     link.symlink_to(target)
 

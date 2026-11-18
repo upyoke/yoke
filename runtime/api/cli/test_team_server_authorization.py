@@ -269,10 +269,12 @@ def test_invite_choice_uses_teammate_identity_and_private_persistence(
     else:
         from pathlib import Path
 
+        from yoke_contracts.owner_private_path import is_owner_private_file
+
         secret = Path(shell.result.token_file)
         assert shell.connected["actor"]["label"] == "Invited teammate"
         assert shell.result.token is None and secret.read_text().strip() == token
-        assert secret.stat().st_mode & 0o777 == 0o600
+        assert is_owner_private_file(secret)
         assert code not in config.read_text() and token not in config.read_text()
 
 

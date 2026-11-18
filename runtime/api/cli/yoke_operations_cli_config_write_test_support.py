@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
+from yoke_contracts.owner_private_path import is_owner_private_directory, is_owner_private_file
 
 
 @pytest.fixture()
@@ -53,8 +54,8 @@ def _assert_auth_token_imported(cfg: Path, env: str, secret: str, captured) -> N
     token_path = _secret_path(cfg, env)
     assert token_path.is_file()
     assert token_path.read_text() == secret + "\n"
-    assert token_path.stat().st_mode & 0o777 == 0o600
-    assert token_path.parent.stat().st_mode & 0o777 == 0o700
+    assert is_owner_private_file(token_path)
+    assert is_owner_private_directory(token_path.parent)
 
     payload = _payload(cfg)
     assert payload["connections"][env]["credential_source"] == {
@@ -70,8 +71,8 @@ def _assert_dsn_imported(cfg: Path, env: str, dsn: str, captured) -> None:
     dsn_path = _secret_path(cfg, env, "dsn")
     assert dsn_path.is_file()
     assert dsn_path.read_text() == dsn + "\n"
-    assert dsn_path.stat().st_mode & 0o777 == 0o600
-    assert dsn_path.parent.stat().st_mode & 0o777 == 0o700
+    assert is_owner_private_file(dsn_path)
+    assert is_owner_private_directory(dsn_path.parent)
 
     payload = _payload(cfg)
     assert payload["connections"][env]["credential_source"] == {

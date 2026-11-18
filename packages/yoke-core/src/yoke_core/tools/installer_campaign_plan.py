@@ -114,7 +114,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        receipt = json.loads(args.plan_file.read_text())
+        receipt = json.loads(args.plan_file.read_text(encoding="utf-8"))
         if receipt.get("success") is not True:
             raise ValueError("plan read did not succeed")
         source_revision = export_source_revision() if args.cases_file else None
@@ -128,7 +128,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 json.dumps(
                     {"source_revision": source_revision, "cases": cases}, indent=2
                 )
-                + "\n"
+                + "\n", encoding="utf-8", newline="\n"
             )
             report["source_revision"] = source_revision
     except SourceSyncRefused as exc:

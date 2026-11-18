@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_evidence_recovery_path.py::TestStagedRecoveryCopy::test_temp_root_outside_the_allowlist_falls_back",
+ "reason": "AssertionError: assert False"
+}

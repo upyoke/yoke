@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
-
 import os
 import shutil
 import sys
@@ -109,9 +107,10 @@ def install_advice(
         return GitInstallAdvice(
             "Windows",
             None,
-            "Native Windows onboarding is not supported. Install WSL, open "
-            f"Ubuntu, then rerun {install_command()}. "
-            "Inside WSL, install git with that distro's package manager.",
+            "Install Git for Windows with `winget install --id Git.Git -e` "
+            "or the installer at https://git-scm.com/download/win. "
+            "Enable Git on PATH, open a new terminal after installation, "
+            "then choose Try again.",
         )
 
     if "linux" in name:

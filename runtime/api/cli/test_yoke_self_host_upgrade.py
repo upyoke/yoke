@@ -126,6 +126,7 @@ def test_run_installer_writes_pinned_args_and_cleans_up_temp_file(
     assert not Path(command[1]).exists(), "temp installer file must be cleaned up"
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_plan_is_read_only_and_names_every_step(
     initialized_bundle, selected_release, monkeypatch
 ):
@@ -154,6 +155,7 @@ def test_plan_is_read_only_and_names_every_step(
     assert (initialized_bundle / ".env").read_bytes() == before
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
     initialized_bundle, selected_release, monkeypatch
 ):
@@ -195,6 +197,7 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
     assert report["distribution_origin"] == selected_release.base_url
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_installer_failure_preserves_old_pin_and_skips_compose(
     initialized_bundle, selected_release, monkeypatch
 ):
@@ -217,6 +220,7 @@ def test_installer_failure_preserves_old_pin_and_skips_compose(
     assert "YOKE_SERVER_IMAGE=ghcr.io/upyoke/yoke-server:111111111111" in env_text
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_pull_failure_keeps_paired_cli_and_pin_with_exact_recovery(
     initialized_bundle, selected_release, monkeypatch
 ):
@@ -243,6 +247,7 @@ def test_pull_failure_keeps_paired_cli_and_pin_with_exact_recovery(
     assert f"YOKE_SERVER_IMAGE={selected_release.image}" in env_text
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_command_previews_and_cancellation_changes_nothing(
     initialized_bundle, selected_release, monkeypatch, capsys
 ):
@@ -263,6 +268,7 @@ def test_command_previews_and_cancellation_changes_nothing(
     assert "cancelled; no changes were made" in output
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_json_command_is_one_structured_completion_receipt(
     initialized_bundle, selected_release, monkeypatch, capsys
 ):

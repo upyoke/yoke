@@ -14,6 +14,9 @@ class SshWindowsHostOperations(Protocol):
     SshNativeWindowsHostOperations: type[Any]
     run_native_terminal_case: Any
     WindowsTerminal: type[Any]
+    yoke_python_command: Any
+    opens_identity_page: Any
+    desktop_script: Any
 
 
 def get_ssh_windows_host_operations() -> SshWindowsHostOperations:

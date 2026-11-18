@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_agents_render_project_install.py::test_write_all_routes_project_install_targets",
+ "reason": "assert '.claude/settings.json' in {'.agents\\\\skills\\\\yoke\\\\SKILL.md': ('write', '---\\nname: yoke\\ndescription: \"Your operating system for software delivery — where harnesses report for duty.\"\\nargumen"
+}

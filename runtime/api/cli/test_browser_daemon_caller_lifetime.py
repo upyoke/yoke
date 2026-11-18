@@ -18,10 +18,13 @@ from yoke_harness import browser_client, browser_client_readiness
 
 
 FAKE_DAEMON = """
+import faulthandler
+faulthandler.dump_traceback_later(10)
 import argparse
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from pathlib import Path
 from threading import Thread
 
@@ -50,7 +53,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
         pass
 
-server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+server = LoopbackServer(('127.0.0.1', 0), Handler)
 state_file.write_text(json.dumps({
     'pid': os.getpid(), 'token': token,
     'endpoint': 'http://127.0.0.1:' + str(server.server_port),
@@ -63,6 +71,8 @@ finally:
 """
 
 SETUP_CALLER = """
+import faulthandler
+faulthandler.dump_traceback_later(15)
 import json
 import os
 import subprocess
@@ -87,7 +97,7 @@ if sys.argv[2] == 'persistent':
 """
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX caller-group teardown")
+@pytest.mark.posix_only(reason='POSIX caller-group teardown')
 @pytest.mark.parametrize("caller_kind", ["short", "persistent"])
 def test_setup_survives_caller_group_exit_and_serves_browser_step(
     tmp_path: Path,
@@ -122,7 +132,8 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
             assert caller.returncode == 0, errors
         else:
             ready, _, _ = select.select([caller.stdout], [], [], 20)
-            assert ready, "persistent setup caller did not finish"
+            if not ready:
+                raise subprocess.TimeoutExpired(caller.args, 20)
             output = caller.stdout.readline()
             assert caller.poll() is None
         started = json.loads(output)
@@ -157,7 +168,20 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
                 == "executed"
             )
             browser_client.daemon_request("/api/stop")
+    except subprocess.TimeoutExpired as exc:
+        caller.kill()
+        output, errors = caller.communicate(timeout=10)
+        logs = []
+        for name in (".daemon.log", ".daemon-state.json", "evaluator.log"):
+            for path in tmp_path.rglob(name):
+                logs.append(f"{path}:\n{path.read_text(errors='replace')}")
+        pytest.fail(
+            f"setup caller timed out after {exc.timeout}s\n"
+            f"stdout:\n{output}\nstderr:\n{errors}\n" + "\n".join(logs)
+        )
     finally:
+        if daemon_pid is None and state_file.exists():
+            daemon_pid = json.loads(state_file.read_text())["pid"]
         if caller.poll() is None:
             caller.kill()
             caller.communicate(timeout=10)

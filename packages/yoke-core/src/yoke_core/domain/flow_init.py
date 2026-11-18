@@ -1,15 +1,14 @@
 """Schema initialization for deployment flows.
 
-Owns the ``deployment_flows`` table DDL, idempotent column migrations,
-and the ``item_progress_view`` view that joins items, project-owned flows,
-deployment runs, and QA status into a single operator-facing projection.
+Owns the ``deployment_flows`` table DDL and idempotent column migrations,
+places the deployment-run tables that reference it, and owns the
+``item_progress_view`` view that joins items, project-owned flows, deployment
+runs, and QA status into a single operator-facing projection.
 """
 
 from __future__ import annotations
 
 from pglast import parse_sql
-
-from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 
 from yoke_core.domain.schema_converge_catalog import statement_is_satisfied
 from yoke_core.domain.schema_common import (
@@ -17,17 +16,8 @@ from yoke_core.domain.schema_common import (
     _table_exists,
     environment_reference_column_sql,
 )
-from yoke_core.domain.deployment_run_create_idempotency import (
-    KEY_COLUMN,
-    KEY_INDEX_SQL,
-    REQUEST_COLUMN,
-)
 from yoke_core.domain.deployment_runs_schema_init import (
-    DELIVERY_INTENT_COLUMN_SQL,
-)
-from yoke_core.domain.deployment_run_timings import DEPLOYMENT_RUN_TIMINGS_SQL
-from yoke_core.domain.deployment_stage_receipts import (
-    ensure_deployment_stage_receipt_schema,
+    create_deployment_run_tables,
 )
 
 
@@ -105,61 +95,8 @@ def _ensure_flow_schema(conn) -> None:
         "TEXT REFERENCES deployment_flows(id)",
     )
 
-    # Existing deployment_runs tables predate the typed target pair; the
-    # legacy target_env label is recoded and dropped by the ordered
-    # migration history. This runs on the converge path before the view
-    # below references the pair.
-    if _table_exists(conn, "deployment_runs"):
-        _add_column_if_not_exists(conn, "deployment_runs", "target_tier", "TEXT")
-        _add_column_if_not_exists(
-            conn,
-            "deployment_runs",
-            "target_environment_id",
-            environment_ref,
-        )
-        _add_column_if_not_exists(conn, "deployment_runs", "carried_work", "TEXT")
-        for column in (
-            "current_stage_entered_at",
-            "bound_sources",
-            "candidate_containment",
-            "artifact_identity",
-            "composition_resolution",
-            "composition_frozen_at",
-            "requirement_snapshot",
-            "driver_attachment",
-            "settling_at",
-            "membership_removals",
-            "superseded_by_run_id",
-            "supersedes_run_id",
-            "created_by_session_id",
-            KEY_COLUMN,
-            REQUEST_COLUMN,
-        ):
-            declaration = (
-                "TIMESTAMPTZ"
-                if ("deployment_runs", column) in STORED_INSTANT_COLUMNS
-                else "TEXT"
-            )
-            _add_column_if_not_exists(conn, "deployment_runs", column, declaration)
-        conn.execute(KEY_INDEX_SQL)
-
-    if _table_exists(conn, "deployment_run_items"):
-        _add_column_if_not_exists(
-            conn,
-            "deployment_run_items",
-            "delivery_intent",
-            DELIVERY_INTENT_COLUMN_SQL,
-        )
-        for column in (
-            "requirement_selection",
-            "requirement_snapshot",
-            "containment_attestation",
-        ):
-            _add_column_if_not_exists(conn, "deployment_run_items", column, "TEXT")
-
-    if _table_exists(conn, "deployment_runs"):
-        ensure_deployment_stage_receipt_schema(conn)
-        conn.execute(DEPLOYMENT_RUN_TIMINGS_SQL)
+    # Deployment runs reference deployment_flows, so they follow it here.
+    create_deployment_run_tables(conn)
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on

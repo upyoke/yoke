@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
 
 from typing import Any, List
 
@@ -19,14 +19,17 @@ from yoke_contracts.git_hook_markers import (
 )
 
 
-def _escaped_install_command() -> str:
-    command = install_command()
+def _escaped_install_advice() -> str:
+    try:
+        advice = f"Install: `{install_command()}`"
+    except InstallOriginUnavailable as exc:
+        advice = f"{exc}; then install Yoke on this computer"
     for character in ("\\", '"', "$", "`"):
-        command = command.replace(character, "\\" + character)
-    return command
+        advice = advice.replace(character, "\\" + character)
+    return advice
 
 
-_INITIAL_INSTALL_COMMAND = _escaped_install_command()
+_INSTALL_ADVICE_PLACEHOLDER = "@@YOKE_INSTALL_ADVICE@@"
 
 GIT_HOOK_NAMES = (
     "pre-commit",
@@ -49,8 +52,8 @@ def _launcher_lookup(hook_name: str) -> str:
         '|| yoke_bin="${XDG_BIN_HOME:-$HOME/.local/bin}/yoke"\n'
         'if [ ! -x "$yoke_bin" ]; then\n'
         f'    echo "yoke ({hook_name}): Yoke is not installed on this computer ($(uname -n));'
-        " Yoke checks skipped. Install:"
-        f' \\`{_INITIAL_INSTALL_COMMAND}\\`" >&2\n'
+        " Yoke checks skipped. "
+        f'{_INSTALL_ADVICE_PLACEHOLDER}" >&2\n'
         "    exit 0\n"
         "fi\n"
     )
@@ -143,7 +146,7 @@ _SHIM_BY_HOOK = {
 
 def render_git_hook(template: str) -> str:
     """Resolve the machine authority when the payload is requested."""
-    return template.replace(_INITIAL_INSTALL_COMMAND, _escaped_install_command())
+    return template.replace(_INSTALL_ADVICE_PLACEHOLDER, _escaped_install_advice())
 
 
 def is_managed_git_hook(content: str, hook_name: str) -> bool:

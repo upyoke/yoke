@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write_ignored_paths.py::test_metadata_fact_does_not_bypass_destructive_git",
+ "reason": "KeyError: 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_metadata_fact_does_not_by0\\\\repo\\\\.git\\\\info\\\\exclude'"
+}

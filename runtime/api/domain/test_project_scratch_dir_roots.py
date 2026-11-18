@@ -105,6 +105,7 @@ def test_os_tmpdir_fallback_includes_project(
     )
 
 
+@pytest.mark.macos_only(reason="real macOS /var/folders per-user temp dir")
 def test_macos_var_folders_fallback_prefers_short_tmp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

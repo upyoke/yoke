@@ -1,21 +1,19 @@
-"""Ordered product-smoke stages; each lane appends the stage that proves its port.
-
-A run executes the stages in order up to its cutoff (``--through``), so a
-runner that cannot yet onboard still proves install and ``yoke status``.
-"""
+"""Ordered product-smoke stages; every runner executes all of them in order."""
 
 from __future__ import annotations
+
+from yoke_contracts.venv_layout import venv_console_script, venv_python
 
 from dataclasses import dataclass, field
 from pathlib import Path
 import sys
 
 try:
-    from .product_runner_commands import Commands, SmokeFailure, venv_executable
+    from .product_runner_commands import Commands, SmokeFailure
     from .product_runner_hooks import replay_hooks
     from .product_runner_source_tests import run_source_tests
 except ImportError:
-    from product_runner_commands import Commands, SmokeFailure, venv_executable
+    from product_runner_commands import Commands, SmokeFailure
     from product_runner_hooks import replay_hooks
     from product_runner_source_tests import run_source_tests
 
@@ -42,7 +40,7 @@ class SmokeRun:
 
     @property
     def yoke(self) -> str:
-        return str(venv_executable(self.venv, "yoke"))
+        return str(venv_console_script(self.venv, "yoke"))
 
 
 def install(run: SmokeRun) -> None:
@@ -63,7 +61,7 @@ def install(run: SmokeRun) -> None:
     built = sorted(str(path) for path in wheels.glob("*.whl"))
     if not built:
         raise SmokeFailure("wheel_build_empty: no wheels; inspect build-wheels capture")
-    python = str(venv_executable(run.venv, "python"))
+    python = str(venv_python(run.venv))
     run.commands.run(
         "install-product",
         ["uv", "pip", "install", "--python", python, *built],
@@ -158,7 +156,7 @@ def dev_setup(run: SmokeRun) -> None:
 
 
 def source_tests(run: SmokeRun) -> None:
-    run_source_tests(run.root, run.commands)
+    run_source_tests(run.root, run.commands, run.yoke)
 
 
 def require_browser_installation(onboard: dict, capture: Path) -> None:

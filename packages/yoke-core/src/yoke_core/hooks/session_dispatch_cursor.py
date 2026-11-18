@@ -67,13 +67,12 @@ def _render_orientation(
     )
 
     blocks: list[str] = []
-    if registration_failed:
+    if registration_failed and registration_failed not in {"registered", "exists"} and not registration_failed.startswith("skipped:"):
         remediation = _connected_env_remediation(registration_failed)
         warning = [
-            "WARNING: Session registration failed - scheduler will not see "
-            "this session.",
+            f"WARNING: Session registration failed: {registration_failed}",
         ]
-        warning += [remediation] if remediation else []
+        warning.append(remediation or "Run: yoke sessions identity --json; repair the named cause and retry the hook.")
         blocks.append("\n".join(warning))
     if not record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
         orientation = render_scoped_orientation(

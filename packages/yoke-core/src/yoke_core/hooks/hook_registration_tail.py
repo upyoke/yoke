@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from yoke_core.domain.db_savepoint import SavepointLostError
 
 
 def apply_hook_session_tail(
@@ -10,7 +11,7 @@ def apply_hook_session_tail(
     *,
     ensure_session: tuple[Any, ...] | None,
     observed_session: tuple[Any, ...] | None,
-) -> None:
+) -> str:
     """Apply independent registration and row observations on one connection.
 
     ``observed_session`` carries an existing row's payload, trusted
@@ -19,6 +20,7 @@ def apply_hook_session_tail(
     create or revive a row, which is what lets the last hook of a turn
     record evidence that only exists once that turn has finished.
     """
+    outcome = "skipped:terminal_hook"
     if ensure_session is not None:
         from yoke_core.hooks.registration import ensure_registered_from_hook
 
@@ -32,9 +34,10 @@ def apply_hook_session_tail(
             force,
             actor_id,
             project_id,
+            first_user_prompt,
         ) = ensure_session
         try:
-            ensure_registered_from_hook(
+            outcome = ensure_registered_from_hook(
                 conn,
                 payload_json,
                 session_id,
@@ -45,9 +48,15 @@ def apply_hook_session_tail(
                 force_reregister=force,
                 actor_id=actor_id,
                 project_id=project_id,
+                first_user_prompt=first_user_prompt,
             )
-        except Exception:  # noqa: BLE001 — observations remain independently writable
-            pass
+        except SavepointLostError:
+            raise
+        except Exception as exc:
+            from yoke_core.hooks.registration_in_process import refuse_registration
+            code = getattr(exc, "code", "SESSION_REGISTRATION_FAILED")
+            refuse_registration(session_id, code, str(exc))
+            outcome = f"refused:{code}"
         from yoke_core.domain.session_presentation_observation import (
             record_session_presentation,
         )
@@ -86,6 +95,17 @@ def apply_hook_session_tail(
             )
         except Exception:  # noqa: BLE001
             pass
+
+    return outcome
+
+
+def unavailable_registration(ensure_session, reason: str) -> str:
+    if ensure_session is None:
+        return "skipped:no_registration"
+    from yoke_core.hooks.registration_in_process import refuse_registration
+    code = "SESSION_AUTHORITY_UNAVAILABLE"
+    refuse_registration(ensure_session[0], code, reason)
+    return f"refused:{code}"
 
 
 __all__ = ["apply_hook_session_tail"]

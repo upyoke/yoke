@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import stat
 
 import pytest
 
+from yoke_contracts.owner_private_path import is_owner_private_file, write_owner_private
 from yoke_cli.project_install import runner as project_install
 from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import (
@@ -141,14 +141,14 @@ def test_merge_does_not_follow_predictable_temp_symlink(repo) -> None:
     ]
 
 
-def test_merge_preserves_private_settings_mode(repo) -> None:
-    _write_settings(repo, {"hooks": {}})
+def test_merge_keeps_private_settings_private(repo) -> None:
     settings = repo / SETTINGS_REL
-    settings.chmod(0o600)
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    write_owner_private(settings, json.dumps({"hooks": {}}, indent=2) + "\n")
 
     apply_bundle(repo, make_bundle(), source="test")
 
-    assert stat.S_IMODE(settings.stat().st_mode) == 0o600
+    assert is_owner_private_file(settings)
 
 
 def test_merge_refuses_internal_symlinked_settings_parent(repo) -> None:

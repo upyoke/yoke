@@ -19,6 +19,7 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
+    settle_checks,
     stub_path_doctor,
     type_text,
 )
@@ -49,6 +50,7 @@ async def _pick_edit_yoke(pilot) -> None:
     for _ in range(index):
         await pilot.press("down")
     await pilot.press("enter")
+    await settle_checks(pilot)
 
 
 def _body_text(app) -> str:
@@ -61,16 +63,18 @@ def _body_text(app) -> str:
 
 
 def test_single_checkout_needs_no_github_or_official_project_access(
-    monkeypatch,
+    monkeypatch, tmp_path
 ) -> None:
-    _stub_detect(monkeypatch, [Path("/home/dev/forked-yoke")])
+    checkout = tmp_path / "forked-yoke"
+    _stub_detect(monkeypatch, [checkout])
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _pick_edit_yoke(pilot)
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -78,7 +82,7 @@ def test_single_checkout_needs_no_github_or_official_project_access(
     assert applied is not None
     assert applied["machine_github_choice"] == "skip"
     assert applied["project_mode"] == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE
-    assert applied["project_checkout"] == "/home/dev/forked-yoke"
+    assert applied["project_checkout"] == str(checkout)
     assert applied["project_slug"] is None
     assert applied["project_public_item_prefix"] is None
 
@@ -107,8 +111,9 @@ def test_project_mode_preset_uses_selected_checkout(monkeypatch) -> None:
             await advance_past_path(pilot)
             await pilot.press("down")
             await pilot.press("enter")
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -116,8 +121,11 @@ def test_project_mode_preset_uses_selected_checkout(monkeypatch) -> None:
     assert spy.applied["project_checkout"] == checkout
 
 
-def test_multiple_checkouts_show_each_path_and_clone_option(monkeypatch) -> None:
-    _stub_detect(monkeypatch, [Path("/home/dev/yoke"), Path("/srv/my-yoke")])
+def test_multiple_checkouts_show_each_path_and_clone_option(
+    monkeypatch, tmp_path
+) -> None:
+    first, second = tmp_path / "dev" / "yoke", tmp_path / "srv" / "my-yoke"
+    _stub_detect(monkeypatch, [first, second])
     app, _spy = make_app()
 
     async def scenario() -> None:
@@ -126,8 +134,8 @@ def test_multiple_checkouts_show_each_path_and_clone_option(monkeypatch) -> None
             await pilot.pause()
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             values = [row.value for row in selection.rows]
-            assert "/home/dev/yoke" in values
-            assert "/srv/my-yoke" in values
+            assert str(first) in values
+            assert str(second) in values
             assert dev_flow._CLONE_SOURCE in values
             assert "No official Yoke access is required" in _body_text(app)
 
@@ -148,8 +156,9 @@ def test_clone_accepts_user_supplied_fork_and_target(monkeypatch) -> None:
             await pilot.press("enter")
             await type_text(pilot, "/home/me/my-yoke")
             await pilot.press("enter")
-            await pilot.pause()
+            await settle_checks(pilot)
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -177,7 +186,7 @@ def test_non_yoke_folder_shows_cause_and_required_recovery(
             await pilot.press("enter")  # Choose another checkout
             await type_text(pilot, str(conflict))
             await pilot.press("enter")
-            await pilot.pause()
+            await settle_checks(pilot)
             captured = _body_text(app)
 
     asyncio.run(scenario())

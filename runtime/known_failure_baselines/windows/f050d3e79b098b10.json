@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_client_answer_from_the_wrong_directory_cannot_move_a_lane_write",
+ "reason": "AssertionError: BLOCKED: source write to the main checkout while an implementation lane is held."
+}

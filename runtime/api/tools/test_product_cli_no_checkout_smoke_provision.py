@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from yoke_contracts.venv_layout import venv_scripts, venv_console_script
 
 from yoke_core.tools import product_cli_no_checkout_smoke_core as core
 from yoke_core.tools import product_cli_no_checkout_smoke_steps as steps
@@ -25,8 +26,8 @@ def test_provision_happy_path_with_fake_runner(tmp_path) -> None:
     wheel_dir.mkdir()
     _write_product_wheels(wheel_dir)
     venv_dir = tmp_path / "venv"
-    (venv_dir / "bin").mkdir(parents=True)
-    (venv_dir / "bin" / "yoke").write_text("#!stub\n", encoding="utf-8")
+    venv_scripts(venv_dir).mkdir(parents=True)
+    venv_console_script(venv_dir, "yoke").write_text("#!stub\n", encoding="utf-8")
     runner = FakeRunner({steps.STEP_WHEEL_INSTALL: [(0, "", "")] * 4})
 
     entry = core.provision(

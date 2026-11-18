@@ -61,6 +61,7 @@ WRAPPED_ROWS = (
     _w("yoke models publish", "models"),
     _w("yoke models revisions", "models"),
     _w("yoke models restore", "models"),
+    _w("yoke models follow-shipped", "models"),
     _w("yoke universe retention get", "universe.retention"),
     _w("yoke universe prune", "universe.prune"),
     _w("yoke universe level-capacity get", "universe.level_capacity"),

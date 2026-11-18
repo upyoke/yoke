@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+
 import pytest
 
 from runtime.api.domain.lint_session_cwd_test_helpers import seed_item, seed_item_claim
@@ -96,7 +98,7 @@ def test_claimed_worker_can_invoke_remote_capture(worker, tool_name):
 )
 def test_claimed_worker_still_cannot_write_unclaimed_local_path(worker, command):
     local = str(worker / ".worktrees/unclaimed/capture.txt")
-    command = command.replace(LOCAL, local)
+    command = command.replace(LOCAL, shlex.quote(local))
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
             "session_id": "capture-worker-session",

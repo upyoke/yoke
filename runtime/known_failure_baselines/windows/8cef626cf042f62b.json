@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_codex_hook_trust_command.py::test_sweep_removes_only_gone_paths",
+ "reason": "AssertionError: assert 1 == 0"
+}

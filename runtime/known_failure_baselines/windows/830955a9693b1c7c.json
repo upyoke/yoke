@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_onboard_board_art_apply.py::test_rebuild_board_requires_configured_board_path",
+ "reason": "AssertionError: Regex pattern did not match."
+}

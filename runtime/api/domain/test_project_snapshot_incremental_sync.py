@@ -34,10 +34,6 @@ from yoke_core.domain.path_claims_resolve import (
     resolve_paths_to_target_ids,
 )
 
-pytestmark = pytest.mark.skipif(
-    not hasattr(os, "symlink"), reason="symlink facts need os.symlink"
-)
-
 #: Paths a hosted claim resolves: files, directories, every symlink kind
 #: (the dangling one's target appears on the lane), and a deleted file.
 RESOLVED_PATHS = [

@@ -78,37 +78,30 @@ def _write_owner_only(path: Path, payload: Mapping[str, object]) -> bool:
         return False
     try:
         write_owner_private(path, body)
-        return True
     except OSError:
         return False
+    return True
 
 
 def _read_owner_only(path: Path, *, now: float) -> dict[str, object] | None:
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(path, flags)
-    except OSError:
+    if not is_owner_private_file(path):
         return None
     try:
-        info = os.fstat(descriptor)
+        info = path.stat(follow_symlinks=False)
         if (
             not stat.S_ISREG(info.st_mode)
-            or not is_owner_private_file(path)
             or now - info.st_mtime > HANDOFF_TTL_SECONDS
             or info.st_size > _MAX_HANDOFF_BYTES
         ):
             return None
-        body = os.read(descriptor, _MAX_HANDOFF_BYTES + 1)
+        with path.open("rb") as handle:
+            body = handle.read(_MAX_HANDOFF_BYTES + 1)
         if len(body) > _MAX_HANDOFF_BYTES:
             return None
         payload = json.loads(body)
         return payload if isinstance(payload, dict) else None
     except (OSError, UnicodeDecodeError, ValueError):
         return None
-    finally:
-        os.close(descriptor)
 
 
 def _environment_context(environ: Mapping[str, str]) -> dict[str, object] | None:

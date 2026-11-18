@@ -6,6 +6,9 @@
 
 Read decisions and delivery notices, then address messages to their intended recipients.
 
+Replacing an operator question keeps any earlier answer in **Decided** history,
+labelled **Superseded by request N**. Only the replacement remains waiting.
+
 ## Focus pages and Inbox
 
 - **Strategy** — the corpus itself: standing direction, the plans under

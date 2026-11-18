@@ -18,6 +18,7 @@ post-transient-end revival must not depend on lifecycle events firing.
 from __future__ import annotations
 
 from typing import Any, Optional
+from yoke_core.domain.db_savepoint import SavepointLostError
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 
@@ -52,6 +53,7 @@ def _register_from_hook(
     register_in_process: bool = False,
     actor_id: Optional[int] = None,
     project_id: Optional[int] = None,
+    first_user_prompt: bool = False,
 ) -> tuple[str, str, str, SessionModelFacts, Optional[str]]:
     """Register the current session in harness_sessions.
 
@@ -67,10 +69,8 @@ def _register_from_hook(
       sessions_lifecycle layer still fills the served columns once the
       artifact finally names what the provider ran.
 
-    Returns ``(error_or_empty, executor, provider, model_facts, entrypoint)``.
-    ``error_or_empty`` is "" on success or a short error string on
-    failure. Returns empty-executor tuple when the target isn't a
-    Yoke repo.
+    Returns ``(outcome, executor, provider, model_facts, entrypoint)``;
+    outcome is registered, exists, skipped:<reason> or refused:<code>.
     """
     root = ""
     if not register_in_process:
@@ -80,13 +80,13 @@ def _register_from_hook(
         script_dir = resolve_hook_script_dir()
         root = resolve_target_root(script_dir)
         if not root:
-            return ("", "", "", SessionModelFacts(), None)
+            return ("skipped:unregistered_target", "", "", SessionModelFacts(), None)
 
         from yoke_core.hooks.helpers import resolve_yoke_db
 
         db_path = resolve_yoke_db(script_dir)
         if not is_yoke_target(root, db_path):
-            return ("", "", "", SessionModelFacts(), None)
+            return ("skipped:unregistered_target", "", "", SessionModelFacts(), None)
 
     from yoke_core.hooks.helpers import (
         detect_entrypoint,
@@ -157,6 +157,7 @@ def _register_from_hook(
             or detect_native_thread_id(executor, session_id, payload_json),
             driver=facts.driver,
             launch_id=facts.launch_id or None,
+            first_user_prompt=first_user_prompt,
         )
         return (err, executor, provider, model_facts, entrypoint)
 
@@ -231,10 +232,12 @@ def _record_process_anchor(
         return
 
 
-def _is_codex(executor_hint: str) -> bool:
-    from yoke_core.hooks.helpers_identity import detect_executor, is_codex
-
-    return is_codex(executor_hint or detect_executor())
+def _requires_start_transcript(executor_hint: str) -> bool:
+    from yoke_core.hooks.helpers_identity import detect_executor
+    from yoke_contracts.executor_labels import canonical_harness_id
+    from yoke_contracts.harness_session_transcripts import session_transcripts_for_harness
+    manifest = session_transcripts_for_harness(canonical_harness_id(executor_hint or detect_executor()))
+    return manifest.session_start == "transcript_required"
 
 
 def ensure_registered_from_hook(
@@ -249,53 +252,32 @@ def ensure_registered_from_hook(
     force_reregister: bool = False,
     actor_id: Optional[int] = None,
     project_id: Optional[int] = None,
-) -> bool:
-    """Idempotently register ``session_id`` when its row is missing or ended.
-
-    Called from the dispatch telemetry flush with the flush's already-open
-    events connection, so the registration-state probe costs one indexed
-    SELECT on a live connection — zero added round-trips when the session
-    is registered and live (the common case). Only a *positive* no-row or
-    ended finding drives registration; a failed lookup registers nothing
-    (a broken DB would fail the registration subprocess too). An ended row
-    routes into the registrar's reactivation branch, which clears
-    ``ended_at``, stamps a new ``episode_started_at``, and conditionally
-    reacquires the claims the end released.
-
-    Tool-call payloads lack SessionStart's model/source fields; the
-    detect_* fallbacks tolerate that. Concurrent callers are race-safe:
-    ``register_session`` treats an existing row as SESSION_EXISTS.
-
-    A Codex hook with no saved transcript (a Codex Desktop helper thread)
-    never creates or revives a row; its tool calls still evaluate.
-
-    ``actor_id`` (server side) is the verified bearer-token actor bound
-    to the registered row — relayed registration mirrors the machine
-    actor that local registration resolves.
-
-    Returns True when a registration attempt was driven.
-    """
+    first_user_prompt: bool = False,
+) -> str:
+    """Return the authoritative registration outcome without changing hook decisions."""
     if not session_id or session_id == "unknown" or conn is None:
-        return False
+        return "skipped:session_identity_missing"
     try:
-        unsaved_codex = not transcript_path and _is_codex(executor_hint)
+        unsaved_codex = not transcript_path and not first_user_prompt and _requires_start_transcript(executor_hint)
         if force_reregister and unsaved_codex:
-            return False
-        if not force_reregister:
+            return "skipped:unsaved_transcript"
+        if not force_reregister and not first_user_prompt:
             from yoke_core.domain.sessions_ended_recovery import (
                 session_registration_state,
             )
 
             found, stored_actor_id, ended = session_registration_state(conn, session_id)
+            if found is None:
+                raise RuntimeError("session registration state unavailable; repair authority and retry")
             if unsaved_codex and (found is False or ended):
-                return False
+                return "skipped:unsaved_transcript"
             # Transient ends still revive: this hook is proof of life.
             # Leftover Cursor terminal Reads after an empty closeout are not.
             if ended and skip_ended_session_revival(
                 payload_json,
                 executor_hint=executor_hint,
             ):
-                return False
+                return "skipped:terminal_read"
             needs_reactivation = ended
             # An existing row with no bound actor still needs the verified
             # token actor (the heartbeat backfill can register the relayed
@@ -327,11 +309,11 @@ def ensure_registered_from_hook(
                 and not needs_actor_backfill
                 and not needs_identity_upgrade
             ):
-                return False
+                return "exists"
         # force_reregister (registration-class remote events): the
         # registrar's SESSION_EXISTS path upgrades a stored placeholder
         # model from the wire-carried real one and never downgrades.
-        _register_from_hook(
+        outcome, *_identity = _register_from_hook(
             payload_json,
             session_id,
             transcript_path=transcript_path,
@@ -340,7 +322,13 @@ def ensure_registered_from_hook(
             register_in_process=register_in_process,
             actor_id=actor_id,
             project_id=project_id,
+            **({"first_user_prompt": True} if first_user_prompt else {}),
         )
-        return True
-    except Exception:  # noqa: BLE001 — the safety net must never break dispatch
-        return False
+        return outcome
+    except SavepointLostError:
+        raise
+    except Exception as exc:  # safety net retains a named failure
+        from yoke_core.hooks.registration_in_process import refuse_registration
+        code = getattr(exc, "code", "SESSION_REGISTRATION_FAILED")
+        refuse_registration(session_id, code, str(exc))
+        return f"refused:{code}"

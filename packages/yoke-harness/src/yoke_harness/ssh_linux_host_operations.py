@@ -35,7 +35,9 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
 
     @classmethod
     def from_contract(cls, contract):
-        from yoke_contracts.machine_config.capability_secret_store import read_machine_capability_secret
+        from yoke_contracts.machine_config.capability_secret_store import (
+            read_machine_capability_secret,
+        )
         from yoke_contracts.machine_config.test_machine import (
             test_machine_capability_type,
         )
@@ -186,9 +188,13 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
         return prove_linux_probes(self, document)
 
     def upload_remote_text(self, path: str, content: str) -> None:
-        if not self._upload_bytes(path, content.encode("utf-8")):
+        result = self._upload(path, content.encode("utf-8"))
+        if result.returncode:
+            lines = result.stderr.strip().splitlines() or [""]
+            detail = bounded_machine_qa_diagnostic(lines[-1], self.secret_values)
             raise RuntimeError(
-                "linux_host_file_write_failed: check owner-only path permissions"
+                "linux_host_file_write_failed: check owner-only path permissions "
+                f"and the full upload reaching the host; stderr: {detail}"
             )
 
     def read_remote_text(self, path: str) -> str | None:
@@ -205,13 +211,14 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
         )
 
     def _upload_bytes(self, path: str, content: bytes) -> bool:
-        script = "import pathlib,sys,os,base64; p=pathlib.Path(sys.argv[1]); assert p.is_absolute() and not p.is_symlink(); p.parent.mkdir(parents=True,exist_ok=True); f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600); os.fchmod(f,0o600); stream=os.fdopen(f,'wb'); stream.write(base64.b64decode(sys.stdin.read())); stream.close()"
-        return (
-            self._run(
-                shlex.join(["/usr/bin/python3", "-c", script, path]),
-                input_text=base64.b64encode(content).decode("ascii"),
-            ).returncode
-            == 0
+        return self._upload(path, content).returncode == 0
+
+    def _upload(self, path: str, content: bytes) -> subprocess.CompletedProcess[str]:
+        """Decode strictly and refuse a short upload before replacing the file."""
+        script = "import pathlib,sys,os,base64; p=pathlib.Path(sys.argv[1]); n=int(sys.argv[2]); assert p.is_absolute() and not p.is_symlink(); data=base64.b64decode(sys.stdin.read().strip(),validate=True); assert len(data)==n,'upload decoded %d of %d bytes'%(len(data),n); p.parent.mkdir(parents=True,exist_ok=True); f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600); os.fchmod(f,0o600); stream=os.fdopen(f,'wb'); stream.write(data); stream.flush(); written=os.fstat(f).st_size; stream.close(); assert written==n,'wrote %d of %d bytes'%(written,n)"
+        return self._run(
+            shlex.join(["/usr/bin/python3", "-c", script, path, str(len(content))]),
+            input_text=base64.b64encode(content).decode("ascii"),
         )
 
     def run_command(

@@ -12,7 +12,8 @@ from yoke_core.tools import session_relay_links as links
 from yoke_core.tools import session_relay_release as release
 from yoke_core.tools import session_relay_runtime_install as runtime
 from yoke_core.tools.session_relay_release_install import pin_relay_release
-from yoke_core.domain import relay_release_path as paths
+from yoke_contracts import venv_layout as layout
+from types import SimpleNamespace
 from yoke_harness import session_relay_process_restart as restart
 pytestmark = pytest.mark.windows
 
@@ -49,7 +50,8 @@ def test_failed_link_activation_keeps_previous_selection(tmp_path, monkeypatch):
 
 
 def test_windows_runtime_launches_python_explicitly_and_bundles_shared_lock(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths.sys, "platform", "win32")
+    monkeypatch.setattr(runtime.sys, "platform", "win32")
+    monkeypatch.setattr(layout, "os", SimpleNamespace(name="nt"))
     root = tmp_path / "runtime"
     scripts = root / "Scripts"
     scripts.mkdir(parents=True)
@@ -81,7 +83,8 @@ def test_windows_managed_relay_requests_recycle_without_losing_its_supervisor(mo
 
 
 def test_windows_release_installs_scripts_layout_without_symlinks(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths.sys, "platform", "win32")
+    monkeypatch.setattr(runtime.sys, "platform", "win32")
+    monkeypatch.setattr(layout, "os", SimpleNamespace(name="nt"))
     monkeypatch.setattr(links, "link", lambda target, path: shutil.copytree(target, path))
     instance = relay_instance(tmp_path)
 

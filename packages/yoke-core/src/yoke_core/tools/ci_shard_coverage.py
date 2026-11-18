@@ -1,4 +1,4 @@
-"""Prove that every selected test ran exactly once across one Python leg.
+"""Prove each selected test and module collection skip occurs exactly once.
 
 `collect` records the unsplit collection while the shards run; `compare`
 replays that manifest against every shard's JUnit report once they finish.
@@ -17,6 +17,9 @@ import xml.etree.ElementTree as ET
 
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.tools.ci_shards import SHARD_COUNT, SUITE_PATHS
+from yoke_core.tools.ci_collection_skips import skipped_modules
+
+pytest_plugins = ["yoke_core.tools.ci_collection_skips"]
 
 MANIFEST_ENV = "YOKE_CI_COLLECTION_MANIFEST"
 COLLECTION_LOG = "collection-output.txt"
@@ -33,6 +36,9 @@ def pytest_collection_finish(session):
     for item in session.items:
         address = mangle_test_address(item.nodeid)
         records.append([".".join(address[:-1]), address[-1], item.nodeid])
+    for module in skipped_modules():
+        address = mangle_test_address(module)
+        records.append([".".join(address[:-1]), address[-1], module])
     Path(destination).write_text(json.dumps(records) + "\n", encoding="utf-8")
 
 
@@ -54,8 +60,11 @@ def compare(expected: list[list[str]], reports: list[Path], python: str) -> dict
         cases = list(ET.parse(report).iter("testcase"))
         if not cases:
             raise ValueError(f"ci_shard_report_empty: {report}")
-        counts.update((case.attrib.get("classname", ""), case.attrib["name"])
-                      for case in cases)
+        for case in cases:
+            key = (case.attrib.get("classname", ""), case.attrib["name"])
+            if names.get(key, "").endswith(".py") and case.find("skipped") is None:
+                raise ValueError(f"ci_shard_collection_skip_invalid: {names[key]} must report skipped")
+            counts[key] += 1
     missing = sorted(names[key] for key in names if counts[key] == 0)
     duplicated = sorted(f"{names.get(key, '::'.join(key))} ({count} times)"
                         for key, count in counts.items() if count > 1)
@@ -67,7 +76,12 @@ def compare(expected: list[list[str]], reports: list[Path], python: str) -> dict
             details.append(f"{label} ({len(values)}):")
             details.extend(values)
         raise ValueError("\n".join(details))
-    return {"python": python, "tests": len(names), "reports": len(reports)}
+    return {"python": python, **collection_counts(expected), "reports": len(reports)}
+
+
+def collection_counts(records) -> dict[str, int]:
+    modules = sum(nodeid.endswith(".py") for _, _, nodeid in records)
+    return {"tests": len(records) - modules, "collection_skips": modules}
 
 
 def collect(destination: Path) -> None:
@@ -120,12 +134,12 @@ def main(argv=None) -> int:
     if args.command == "collect":
         try:
             collect(args.output)
-            tests = len(load_manifest(args.output))
+            counts = collection_counts(load_manifest(args.output))
         except (OSError, ValueError) as error:
             return _refuse("ci_shard_collection_failed", args.python, error, recovery=(
                 "read the collection log beside the manifest, repair collection on this commit, then verify it again"))
         print("ci_shard_collection_recorded: "
-              + json.dumps({"python": args.python, "tests": tests}))
+              + json.dumps({"python": args.python, **counts}))
         return 0
     try:
         paths = report_paths(args.reports, args.python, args.shards)

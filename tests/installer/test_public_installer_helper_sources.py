@@ -18,6 +18,10 @@ import pytest
 from public_installer_helpers import load_installer
 from yoke_cli.config import github_git_credential_bundle
 
+UMASK_BRANCH = pytest.mark.posix_only(
+    reason="POSIX install branch: helper umask hardening runs only off Windows; Windows installs through install.ps1"
+)
+
 BUNDLE_STUB = (
     "import os, stat\nfrom pathlib import Path\n"
     "import yoke_contracts.github_origin as origin\n"
@@ -145,6 +149,7 @@ def test_check_covers_every_bundle_source_and_launcher():
     assert json.loads(result.stdout)["checked"] == expected
 
 
+@UMASK_BRANCH
 def test_permissive_parent_umask_installs_safe_helpers_and_reuses_warm_cache(
     release, permissive_umask, uv_calls, capsys
 ):
@@ -165,6 +170,7 @@ def test_permissive_parent_umask_installs_safe_helpers_and_reuses_warm_cache(
     assert [kwargs["umask"] for kwargs in installs] == [0o022, 0o022]
 
 
+@UMASK_BRANCH
 def test_group_writable_cached_helpers_are_evicted_once_and_reinstalled(
     release, uv_calls, capsys
 ):

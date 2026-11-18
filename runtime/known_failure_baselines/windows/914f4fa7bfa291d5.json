@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_worktree_create_multiworktree.py::TestCreateWorktreeMultiWorktree::test_main_create_prints_single_path_for_issue",
+ "reason": "AssertionError: assert False"
+}

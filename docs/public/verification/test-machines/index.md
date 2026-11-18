@@ -134,12 +134,13 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 
 <!-- yoke:contents -->
 - [Host provisioning](host-provisioning.md) — Choose an OS procedure and declare the project-owned host inventory.
+- [Tailnet bootstrap](tailnet-bootstrap.md) — Start cloud labs, join Tailscale and approve stable MagicDNS identities.
 - [Setup responsibilities](setup-responsibilities.md) — Separate agent actions from personal credential entry.
 - [Administrator commands](administrator-commands.md) — Use stored host credentials for bounded administrator commands.
 - [macOS host provisioning](macos-host-provisioning.md) — Prepare the test account, privacy permissions and terminal control.
 - [macOS baseline recovery](macos-baseline-recovery.md) — Save and prove macOS baselines and live browser identities.
 - [Linux host provisioning](linux-host-provisioning.md) — Prepare Linux accounts, harnesses and a durable desktop.
-- [Linux browser identities](linux-browser-identities.md) — Authorize desktop browser identities and approval gates.
+- [Linux browser identities](linux-browser-identities.md) — Authorize identity profiles and the identity-browser approval gate.
 - [Linux baseline recovery](linux-baseline-recovery.md) — Capture and prove Linux baselines and diagnose restore failures.
 - [Linux live state](linux-live-state.md) — Preserve live harness installations and recover reset state.
 - [Codex on Linux](codex-on-linux.md) — Configure scoped sandbox posture and recover embedded helpers.

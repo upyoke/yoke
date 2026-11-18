@@ -23,7 +23,7 @@ def test_native_reentry_runs_lifecycle_and_tail(executor, monkeypatch):
         runner, "chain_for", lambda *_a: ["fake.hold", "fake.lifecycle"]
     )
     monkeypatch.setattr(runner, "deduplicated_dispatch", lambda *_a, **_kw: False)
-    monkeypatch.setattr(run_tail, "preflight_remote_registration", lambda **_kw: None)
+    monkeypatch.setattr(run_tail, "preflight_hook_registration", lambda **_kw: None)
     monkeypatch.setattr(run_tail, "flush_run_tail", lambda **_kw: seen.append("tail"))
 
     def invoke(module, **_kwargs):

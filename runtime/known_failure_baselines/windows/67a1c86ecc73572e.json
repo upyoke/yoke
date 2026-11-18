@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestPerTaskLaneFromMain::test_git_dir_into_task_lane_outside_claim_is_refused",
+ "reason": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/var/tmp\\\\yoke-lane-3h6c4f8i'"
+}

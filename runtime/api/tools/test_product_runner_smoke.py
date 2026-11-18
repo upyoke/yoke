@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import re
 from types import SimpleNamespace
@@ -131,7 +132,7 @@ def test_replay_remaps_identity_and_paths_without_flattening_native_structure():
         payload, project=Path("/project"), session="fresh", command="git status --short"
     )
     assert replayed["session_id"] == replayed["conversation_id"] == "fresh"
-    assert replayed["cwd"] == "/project"
+    assert replayed["cwd"] == str(Path("/project"))
     assert replayed["tool_input"] == {
         "command": "git status --short",
         "description": "native description",
@@ -161,13 +162,29 @@ def test_rendered_command_is_consumed_verbatim(tmp_path):
     assert rendered_command(tmp_path, "hooks.json", "PreToolUse") == command
 
 
-def test_child_environment_excludes_host_authority(tmp_path, monkeypatch):
+@pytest.mark.parametrize("windows", [False, True])
+def test_child_environment_excludes_host_authority(tmp_path, monkeypatch, windows):
+    from runtime.api.tools import product_runner_smoke as runner
+
+    monkeypatch.setattr(runner, "WINDOWS", windows)
+    monkeypatch.delenv(runner.ACCOUNT_HOME, raising=False)
+    monkeypatch.setenv("SYSTEMROOT", str(tmp_path / "Windows"))
+    monkeypatch.setenv("PSMODULEPATH", "module-search")
+    monkeypatch.setenv("PSMODULEANALYSISCACHEPATH", "module-cache")
     monkeypatch.setenv("YOKE_SESSION_ID", "host-session")
     monkeypatch.setenv("YOKE_PG_DSN", "host-db")
     monkeypatch.setenv("GH_TOKEN", "host-token")
     env = isolated_environment(tmp_path, tmp_path / "venv")
     assert not {"YOKE_SESSION_ID", "YOKE_PG_DSN", "GH_TOKEN", "YOKE_ENV"} & env.keys()
     assert Path(env["YOKE_MACHINE_HOME"]).is_relative_to(tmp_path)
+    assert env["SYSTEMROOT"] == str(tmp_path / "Windows")
+    assert Path(env["PATH"].split(os.pathsep)[0]) == runner.venv_console_script(tmp_path / "venv", "yoke").parent
+    if windows:
+        assert env["PSMODULEPATH"] == "module-search"
+        assert env["PSMODULEANALYSISCACHEPATH"] == "module-cache"
+        assert str(tmp_path / "Windows/System32/WindowsPowerShell/v1.0") in env["PATH"].split(os.pathsep)
+        assert env["TEMP"] == env["TMP"] == str(tmp_path / "tmp")
+        assert runner.SCRATCH_PREFIX == "yps-"
 
 
 @pytest.mark.parametrize("harness", ["claude", "codex", "cursor"])
@@ -194,7 +211,7 @@ def test_native_corpus_has_all_events_without_account_data(harness):
         fixture["session_start"], project=Path("/project"), session="fresh"
     )
     if harness == "cursor":
-        assert replayed["workspace_roots"] == ["/project"]
+        assert replayed["workspace_roots"] == [str(Path("/project"))]
 
 
 @pytest.mark.parametrize("failed_selection", ["source", "windows"])
@@ -223,7 +240,7 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
         document=lambda *args, **kwargs: {"project": {"id": 42}},
     )
     with pytest.raises(ValueError, match="primary test failure"):
-        run_source_tests(tmp_path, commands)
+        run_source_tests(tmp_path, commands, "yoke")
 
     assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
     assert (output / "server.log").read_text() == "server diagnostic"

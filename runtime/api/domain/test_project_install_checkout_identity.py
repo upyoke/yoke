@@ -21,13 +21,13 @@ from yoke_core.domain.project_install_test_helpers import make_bundle
 
 def _git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True, encoding="utf-8"
     )
 
 
 @pytest.fixture
 def external_lane():
-    with tempfile.TemporaryDirectory(prefix="yoke-checkout-", dir="/tmp") as scratch:
+    with tempfile.TemporaryDirectory(prefix="yoke-checkout-") as scratch:
         yield Path(scratch) / "lane"
 
 
@@ -36,7 +36,7 @@ def checkout(tmp_path):
     root = tmp_path / "main café"
     root.mkdir()
     _git(root, "init")
-    (root / "AGENTS.md").write_text("canonical instructions\n")
+    (root / "AGENTS.md").write_text("canonical instructions\n", encoding="utf-8", newline="\n")
     (root / "CLAUDE.md").symlink_to("AGENTS.md")
     _git(root, "add", ".")
     _git(
@@ -86,10 +86,10 @@ def test_git_lane_resolves_main_and_accepts_parent_canonical_link(
     ],
 )
 def test_explicit_canonical_import_is_supported(tmp_path, rel, token):
-    (tmp_path / "AGENTS.md").write_text("canonical\n")
+    (tmp_path / "AGENTS.md").write_text("canonical\n", encoding="utf-8", newline="\n")
     path = tmp_path / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("Project-specific guidance\n" + token + "\n")
+    path.write_text("Project-specific guidance\n" + token + "\n", encoding="utf-8", newline="\n")
     instructions.assert_claude_loading(tmp_path, settings={})
 
 
@@ -98,14 +98,14 @@ def test_explicit_canonical_import_is_supported(tmp_path, rel, token):
     ["See AGENTS.md", "`@AGENTS.md`", "```\n@AGENTS.md\n```", "@../other/AGENTS.md"],
 )
 def test_prose_code_and_unrelated_import_do_not_prove_loading(tmp_path, text):
-    (tmp_path / "CLAUDE.md").write_text(text)
+    (tmp_path / "CLAUDE.md").write_text(text, encoding="utf-8", newline="\n")
     with pytest.raises(ProjectInstallError, match="Set Project instructions"):
         instructions.assert_claude_loading(tmp_path, settings={})
 
 
 def _config(tmp_path, monkeypatch, entries):
     monkeypatch.delenv("YOKE_ENV", raising=False)
-    (tmp_path / "api.token").write_text("test-token\n")
+    (tmp_path / "api.token").write_text("test-token\n", encoding="utf-8", newline="\n")
     cfg = tmp_path / "config.json"
     select_machine_config_file(monkeypatch, cfg)
     cfg.write_text(
@@ -125,7 +125,7 @@ def _config(tmp_path, monkeypatch, entries):
                 },
                 "connection_projects": {"prod": entries},
             }
-        )
+        ), encoding="utf-8", newline="\n"
     )
     return cfg
 
@@ -152,7 +152,7 @@ def test_first_install_from_external_lane_registers_main(
     _git(checkout, "worktree", "add", "-b", "lane", str(lane))
     cfg = _config(tmp_path, monkeypatch, [])
     assert runner._register_in_machine_config(lane, 7, cfg, True)
-    assert json.loads(cfg.read_text())["connection_projects"]["prod"] == [
+    assert json.loads(cfg.read_text(encoding="utf-8"))["connection_projects"]["prod"] == [
         {"checkout": str(checkout), "project_id": 7}
     ]
 
@@ -206,7 +206,7 @@ def test_parent_import_to_missing_main_instructions_refuses(checkout):
     _git(checkout, "worktree", "add", "-b", "lane", str(lane))
     (lane / "CLAUDE.md").unlink()
     (checkout / "CLAUDE.md").unlink()
-    (checkout / "CLAUDE.md").write_text("@AGENTS.md\n")
+    (checkout / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8", newline="\n")
     (checkout / "AGENTS.md").unlink()
     with pytest.raises(ProjectInstallError, match="canonical_instructions_not_loaded"):
         instructions.assert_claude_loading(lane, settings={})

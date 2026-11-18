@@ -24,6 +24,9 @@ MAX_BYTES = 1024 * 1024
 PAYLOAD = bytes(range(256))[::-1] * 1200 + b"\xff\xfe\x00\x80"
 
 
+pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+
+
 def _gnu_realpath() -> bool:
     found = shutil.which("realpath")
     if found is None:

@@ -13,12 +13,11 @@ from yoke_contracts import owner_private_path as paths
 from yoke_contracts import windows_others_unwritable_directory as windows
 from yoke_contracts import windows_private_directory as private
 from yoke_cli.config import machine_config_file
+from yoke_cli.config import github_git_credential_bundle as bundle
+from yoke_cli.config import github_prior_runtime_verification as prior
 from yoke_cli.config.github_git_credential_permissions import assert_secure_parent
 
-pytestmark = pytest.mark.windows
-
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions contract")
+@pytest.mark.posix_only(reason="POSIX permissions contract")
 def test_posix_parent_permissions_and_owner(tmp_path, monkeypatch):
     tmp_path.chmod(0o755)
     assert paths.is_others_unwritable_directory(tmp_path)
@@ -32,6 +31,7 @@ def test_posix_parent_permissions_and_owner(tmp_path, monkeypatch):
     assert not paths.is_current_user_owned_path(tmp_path)
 
 
+@pytest.mark.windows
 def test_parent_predicate_refuses_files_links_and_missing(tmp_path):
     path = tmp_path / 'file'
     path.touch()
@@ -41,6 +41,20 @@ def test_parent_predicate_refuses_files_links_and_missing(tmp_path):
         link = tmp_path / 'link'
         link.symlink_to(tmp_path, target_is_directory=True)
         assert not paths.is_others_unwritable_directory(link)
+
+
+@pytest.mark.posix_only(reason="POSIX file mode contract")
+def test_file_writability_preserves_system_owned_readable_files(tmp_path, monkeypatch):
+    path = tmp_path / 'python'
+    path.write_text('interpreter', encoding='utf-8')
+    monkeypatch.setattr(paths.os, 'getuid', lambda: path.stat().st_uid + 1)
+    for mode, accepted in ((0o755, True), (0o644, True), (0o775, False), (0o666, False)):
+        path.chmod(mode)
+        assert paths.is_others_unwritable_file(path) is accepted
+    link = tmp_path / 'link'
+    link.symlink_to(path)
+    assert not paths.is_others_unwritable_file(link)
+    assert not paths.is_others_unwritable_file(tmp_path)
 
 
 def _check_acl(entries, *, foreign=True, failed_index=None):
@@ -71,6 +85,7 @@ def _ace(mask, *, flags=0, kind=0, object_flags=0):
     return struct.pack('<BBH', kind, flags, 4 + len(body)) + body
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize('mask', [0x2, 0x4, 0x10, 0x40, 0x100, 0x10000,
                                   0x40000, 0x80000, 0x40000000, 0x10000000])
 def test_foreign_write_classes_refuse_even_when_inherited(mask):
@@ -79,6 +94,7 @@ def test_foreign_write_classes_refuse_even_when_inherited(mask):
     assert _check_acl([_ace(mask, flags=0x08)])
 
 
+@pytest.mark.windows
 @pytest.mark.parametrize('kind', [0, 5, 9, 11])
 def test_allow_ace_layouts_honor_sid_and_read_grants(kind):
     assert not _check_acl([_ace(0x2, kind=kind, object_flags=3)])
@@ -86,6 +102,7 @@ def test_allow_ace_layouts_honor_sid_and_read_grants(kind):
     assert _check_acl([_ace(0x2, kind=kind, object_flags=3)], foreign=False)
 
 
+@pytest.mark.windows
 def test_acl_walk_fails_closed_and_does_not_subtract_denies():
     assert _check_acl([])
     assert not _check_acl([_ace(0x2)], failed_index=0)
@@ -115,7 +132,8 @@ def _set_acl(path, grants, *, owner=None):
         kernel.LocalFree(descriptor)
 
 
-@pytest.mark.skipif(os.name != 'nt', reason='native Windows DACL contract')
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows DACL contract')
 def test_inherited_normal_parent_supports_machine_and_credential_writes(tmp_path):
     parent = paths.create_owner_private_directory(tmp_path / 'owned')
     inherited = parent / 'normal'
@@ -132,7 +150,8 @@ def test_inherited_normal_parent_supports_machine_and_credential_writes(tmp_path
     assert paths.is_owner_private_file(machine_config_file.config_lock_path(target))
 
 
-@pytest.mark.skipif(os.name != 'nt', reason='native Windows DACL contract')
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows DACL contract')
 @pytest.mark.parametrize('principal', ['BU', 'WD'])
 @pytest.mark.parametrize('grants,accepted', [('(A;;FW;;;{sid})', False),
                                            ('(A;;FR;;;{sid})', True),
@@ -149,7 +168,37 @@ def test_native_foreign_grants(tmp_path, principal, grants, accepted):
             machine_config_file._assert_secure_parent(path)
 
 
-@pytest.mark.skipif(os.name != 'nt', reason='native Windows DACL contract')
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows file DACL contract')
+@pytest.mark.parametrize('principal', ['BU', 'WD'])
+@pytest.mark.parametrize('right,accepted', [('FW', False), ('FR', True)])
+def test_native_file_foreign_grants(tmp_path, principal, right, accepted):
+    path = tmp_path / 'launcher.py'
+    paths.write_owner_private(path, b'launcher')
+    _set_acl(path, f'(A;;{right};;;{principal})')
+    assert paths.is_others_unwritable_file(path) is accepted
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows prior-runtime DACL contract')
+@pytest.mark.parametrize('target', ['interpreter', 'helper'])
+@pytest.mark.parametrize('principal', ['BU', 'WD'])
+@pytest.mark.parametrize('right,accepted', [('FW', False), ('FR', True)])
+def test_prior_runtime_recognition_honors_native_write_grants(
+    tmp_path, target, principal, right, accepted,
+):
+    helper = bundle.install(tmp_path / 'site')
+    python = tmp_path / 'prior-python.exe'
+    paths.write_owner_private(python, b'interpreter')
+    path = python if target == 'interpreter' else helper
+    _set_acl(path, f'(A;;{right};;;{principal})')
+    assert prior.verified_prior_runtime_helper(
+        python, helper, current_python=tmp_path / 'current-python.exe',
+    ) is accepted
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason='native Windows DACL contract')
 def test_native_foreign_owner_refuses(tmp_path):
     path = paths.create_owner_private_directory(tmp_path / 'parent')
     try:

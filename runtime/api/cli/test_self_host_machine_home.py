@@ -10,6 +10,7 @@ from yoke_cli.config import onboard_self_host_server
 from yoke_cli.self_host import bundle, teardown
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.parametrize("override", [False, True])
 def test_default_bundle_ignores_project_directory(tmp_path, monkeypatch, override):
     home = tmp_path / "user"

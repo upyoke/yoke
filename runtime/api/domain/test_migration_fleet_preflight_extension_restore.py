@@ -30,6 +30,7 @@ from typing import Tuple
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_core.domain import (
     migration_fleet_preflight_extensions as extensions,
     migration_fleet_preflight_transfer as transfer,
@@ -71,7 +72,7 @@ def cluster():
             "no Postgres server binaries (initdb) found; searched "
             + ", ".join(searched)
         )
-    scratch = Path(tempfile.mkdtemp(prefix="yoke-extpin-", dir="/tmp"))
+    scratch = Path(tempfile.mkdtemp(prefix="yoke-extpin-", dir=shortest_temp_directory()))
     spec = ClusterSpec(
         root=scratch,
         superuser="rehearsaluser",

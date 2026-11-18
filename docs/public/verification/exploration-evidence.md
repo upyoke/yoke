@@ -159,8 +159,12 @@ the final step, or run `yoke qa browser stop --check-id ID` to close early.
 Each sequence has a private browser copied from the identity's sign-in state.
 Use `--page NAME` for several pages within that check; the default is
 `exploratory`. An idle browser exits after ten minutes.
-Without identities or a Yoke install, use the host browser
-(Safari on macOS; desktop default elsewhere) through screenshots and keystrokes.
+Without identities, open pages with `yoke browser open --project P --identity
+NAME URL` through the lease, naming the project's `default_identity`: a
+visible window of the machine's operator identity, already signed in. Drive it
+through screenshots and keystrokes; the stock desktop browser is never used.
+On native Windows the lease starts `yoke browser open` and the managed
+`yoke qa browser` commands in the test user's desktop.
 Never install Yoke on a Test Machine to get a browser.
 Agents do every step an agent physically can, including permission prompts and
 code approvals in the signed-in browser. Only the user's own password, MFA code

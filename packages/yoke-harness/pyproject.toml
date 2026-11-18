@@ -18,7 +18,6 @@ dependencies = [
     # Shared client substrate (transport/config) lives in yoke-cli per Decision 1.
     "yoke-cli",
     "httpx==0.28.1",
-    "browser-cookie3>=0.20.1,<1",
 ]
 
 [project.entry-points."yoke.runtime"]
@@ -42,6 +41,7 @@ harness_cli_latest = "yoke_harness.harness_cli_latest"
 harness_setup_reconcile = "yoke_harness.harness_setup_reconcile"
 identity = "yoke_harness.hooks.identity"
 identity_relay = "yoke_harness.hooks.identity_relay"
+identity_browser_approval = "yoke_harness.identity_browser_approval"
 linux_desktop_state = "yoke_harness.linux_desktop_state"
 qa_host_package_fixture = "yoke_harness.qa_host_package_fixture"
 remote_file_copy = "yoke_harness.remote_file_copy"
@@ -50,7 +50,6 @@ ssh_linux_browser_approval = "yoke_harness.ssh_linux_browser_approval"
 ssh_linux_host_operations = "yoke_harness.ssh_linux_host_operations"
 ssh_linux_terminal = "yoke_harness.ssh_linux_terminal"
 ssh_mac_baseline_probes = "yoke_harness.ssh_mac_baseline_probes"
-ssh_mac_browser_approval = "yoke_harness.ssh_mac_browser_approval"
 ssh_mac_gui_session = "yoke_harness.ssh_mac_gui_session"
 ssh_mac_host_session_state = "yoke_harness.ssh_mac_host_session_state"
 ssh_mac_terminal_automation_probe = "yoke_harness.ssh_mac_terminal_automation_probe"

@@ -17,16 +17,21 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
+from yoke_core.domain.dependency_merge_fact import read_returned_after_landing
+from yoke_core.domain.dependency_satisfaction import (
+    evaluate_satisfaction,
+    read_deployed_environment_fact,
+)
 from yoke_core.domain.dependency_types import (
     GatePoint,
+    Satisfaction,
     deployed_environment,
     is_activation_gate,
 )
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
@@ -137,13 +142,38 @@ def gating_blockers(
         "CASE WHEN d.gate_point='activation' THEN 0 ELSE 1 END,d.id",
         tuple(int(value) for value in item_ids),
     ).fetchall()
-    blockers: dict[int, dict[str, Any]] = {}
-    for row in rows:
+    # Every edge's facts are read once for the whole set: relanding in one
+    # batch and each deployed fact once per blocker and satisfaction, as
+    # dependency_planning.evaluate_batch_gates does. Reading them per edge
+    # made every report that names quiet holders pay per blocker.
+    gating = [
+        row
+        for row in rows
+        if _gate_reached(row)
+        and not (
+            woken_edges_only and deployed_environment(str(row["satisfaction"]))
+        )
+    ]
+    returned = read_returned_after_landing(
+        conn,
+        {
+            row["blocking_item_id"]
+            for row in gating
+            if str(row["satisfaction"]) == Satisfaction.FACT_MERGED.value
+        },
+    )
+    deployed: dict[tuple[int, str], Any] = {}
+    unsatisfied: dict[int, Any] = {}
+    for row in gating:
         dependent = int(row["dependent_item_id"])
-        if dependent in blockers or not _gate_reached(row):
+        if dependent in unsatisfied:
             continue
-        if woken_edges_only and deployed_environment(str(row["satisfaction"])):
-            continue
+        blocker = int(row["blocking_item_id"])
+        satisfaction = str(row["satisfaction"])
+        if (blocker, satisfaction) not in deployed:
+            deployed[(blocker, satisfaction)] = read_deployed_environment_fact(
+                conn, blocking_item_id=blocker, satisfaction=satisfaction
+            )
         workflow = workflow_from_joined_values(
             row["workflow_id"],
             row["workflow_version_id"],
@@ -151,30 +181,39 @@ def gating_blockers(
             row["definition_json"],
             row["definition_digest"],
         )
-        verdict = evaluate_persisted_satisfaction(
-            conn,
-            blocking_item_id=int(row["blocking_item_id"]),
-            satisfaction=str(row["satisfaction"]),
-            blocking_status=row["blocking_status"],
-            blocking_worktree=row["lane_branch"],
-            blocking_merged=True if row["merged_at"] else None,
+        verdict = evaluate_satisfaction(
+            satisfaction,
+            row["blocking_status"],
+            row["lane_branch"],
+            True if row["merged_at"] else None,
+            deployed[(blocker, satisfaction)],
+            workflow=workflow,
             blocking_merged_at=row["merged_at"],
             dependency_created_at=row["created_at"],
-            workflow=workflow,
+            blocking_returned_after_landing=blocker in returned,
         )
-        if verdict.satisfied:
-            continue
-        # Both are internal ids and both are read, so they render through
-        # the display renderer rather than the column canonicalizer, whose
-        # job is to return something that parses back.
-        blockers[dependent] = {
-            "item": render_item_ref(conn, dependent),
-            "blocking_item": render_item_ref(conn, int(row["blocking_item_id"])),
+        if not verdict.satisfied:
+            unsatisfied[dependent] = row
+    # Both are internal ids and both are read, so they render through the
+    # display renderer rather than the column canonicalizer, whose job is to
+    # return something that parses back.
+    refs = render_item_ref_lookup(
+        conn,
+        [
+            *unsatisfied,
+            *(int(row["blocking_item_id"]) for row in unsatisfied.values()),
+        ],
+    )
+    return {
+        dependent: {
+            "item": refs(dependent),
+            "blocking_item": refs(int(row["blocking_item_id"])),
             "gate_point": str(row["gate_point"]),
             "since": row["created_at"],
             "blocking_status": str(row["blocking_status"] or ""),
         }
-    return blockers
+        for dependent, row in unsatisfied.items()
+    }
 
 
 def _open_probes(

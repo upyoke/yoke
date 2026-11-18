@@ -59,8 +59,14 @@ def lane(tmp_path: Path) -> tuple[Path, Path]:
     return repo, path
 
 
-def _registered(repo: Path) -> str:
-    return _git(repo, "worktree", "list", "--porcelain")
+def _registered(repo: Path) -> set[Path]:
+    """Worktrees git registers; Git for Windows prints ``C:/...`` paths."""
+    porcelain = _git(repo, "worktree", "list", "--porcelain")
+    return {
+        Path(line.removeprefix("worktree "))
+        for line in porcelain.splitlines()
+        if line.startswith("worktree ")
+    }
 
 
 def test_removal_is_complete_and_leaves_no_tombstone(lane):
@@ -70,7 +76,7 @@ def test_removal_is_complete_and_leaves_no_tombstone(lane):
 
     assert result.removed and not result.reason
     assert not path.exists()
-    assert str(path) not in _registered(repo)
+    assert path not in _registered(repo)
     assert tombstones(repo) == []
 
 
@@ -88,7 +94,7 @@ def test_a_tombstone_left_by_an_interruption_is_finished_by_the_next_sweep(
 
     # Git no longer registers the lane; only an inert tombstone remains.
     assert first.removed and "not yet deleted" in first.reason
-    assert str(path) not in _registered(repo)
+    assert path not in _registered(repo)
     [leftover] = tombstones(repo)
     monkeypatch.undo()
 
@@ -121,7 +127,7 @@ def test_a_kill_between_rename_and_prune_is_finished_by_the_next_sweep(lane):
     [result] = finish_tombstones(repo)
 
     assert result.removed
-    assert "YOK-1" not in _registered(repo)
+    assert not any("YOK-1" in p.name for p in _registered(repo))
     assert tombstones(repo) == []
 
 
@@ -146,7 +152,7 @@ def test_an_expiring_check_deadline_cannot_cut_a_removal_short(lane, monkeypatch
     assert result.removed
     assert left is not None and left > 0.05
     assert not path.exists()
-    assert str(path) not in _registered(repo)
+    assert path not in _registered(repo)
     assert tombstones(repo) == []
 
 
@@ -158,7 +164,7 @@ def test_too_little_budget_defers_the_removal_untouched(lane, monkeypatch):
 
     assert not result.removed
     assert "removal deferred" in result.reason and "--fix" in result.reason
-    assert path.is_dir() and str(path) in _registered(repo)
+    assert path.is_dir() and path in _registered(repo)
 
 
 def test_a_deletion_only_landed_lane_is_completed_as_an_interrupted_removal(lane):

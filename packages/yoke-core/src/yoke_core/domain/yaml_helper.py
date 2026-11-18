@@ -115,7 +115,7 @@ def _require_file(path: Path) -> None:
 
 
 def _read_lines(path: Path) -> list[str]:
-    return path.read_text().splitlines(keepends=True)
+    return path.read_text(encoding="utf-8").splitlines(keepends=True)
 
 
 def _split_frontmatter(lines: list[str]) -> tuple[dict[str, str], int | None]:
@@ -136,7 +136,7 @@ def _repo_config(path: Path) -> dict[str, str]:
         config_file = parent / "runtime" / "config"
         if config_file.is_file():
             config: dict[str, str] = {}
-            for line in config_file.read_text().splitlines():
+            for line in config_file.read_text(encoding="utf-8").splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith("#") or "=" not in stripped:
                     continue
@@ -226,7 +226,7 @@ def cmd_set(file_path: Path, field: str, value: str, *, no_lock: bool) -> int:
                     result.append(f"updated: {timestamp}\n")
                     continue
             result.append(line)
-        temp.write_text("".join(result))
+        temp.write_text("".join(result), encoding="utf-8", newline="\n")
         os.replace(temp, file_path)
     return 0
 
@@ -252,7 +252,7 @@ def cmd_strip_to_file(file_path: Path, out_file: Path) -> int:
             return len(value)
 
     cmd_strip(file_path, out=_Writer())
-    out_file.write_text("".join(text_out))
+    out_file.write_text("".join(text_out), encoding="utf-8", newline="\n")
     return 0
 
 
@@ -278,7 +278,7 @@ def cmd_create(file_path: Path, pairs: Sequence[str]) -> int:
             key, value = pair.split("=", 1)
             lines.append(f"{key}: {value}\n")
     lines.append("---\n")
-    file_path.write_text("".join(lines))
+    file_path.write_text("".join(lines), encoding="utf-8", newline="\n")
     return 0
 
 

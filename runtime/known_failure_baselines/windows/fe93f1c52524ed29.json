@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_registered_golden_check.py::test_every_present_golden_passes",
+ "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+}

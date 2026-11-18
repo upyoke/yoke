@@ -82,7 +82,7 @@ def decide(correlation_id: str, code: int, stdout: str, stderr: str) -> Tuple[in
             "::error title=dispatch_intent_unknown::No Yoke dispatch intent "
             f"records yoke_dispatch_id {correlation_id}. Release only through "
             "a deployment run: `yoke --env <plane> watch deploy -- <RUN> "
-            "--from-stage <STAGE> --fresh`."
+            "--fresh`."
         )
     if result.get("current"):
         return 0, True, (

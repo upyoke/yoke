@@ -118,7 +118,7 @@ class SshTestMachineTransport:
         path_env = {"HOME": self.home, "SHELL": self.shell}
         if self.xdg_bin_home:
             path_env["XDG_BIN_HOME"] = self.xdg_bin_home
-        self.path_state: PathStateContract = resolve_path_state_contract(env=path_env)
+        self.path_state: PathStateContract = resolve_path_state_contract(target="windows" if self.os == "windows" else "posix", env=path_env)
 
     def _ssh_argv(self, command: str) -> list[str]:
         # Windows OpenSSH has no multiplexing/control sockets.

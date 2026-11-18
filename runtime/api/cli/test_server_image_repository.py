@@ -56,6 +56,7 @@ def test_invalid_repository_names_recovery(value):
     assert wizard._input_error(value)
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_configured_repository_selects_upgrade_and_initial_image(tmp_path, monkeypatch):
     path = tmp_path / "machine" / "config.json"
     value = "registry.example:5000/private/yoke"
@@ -106,6 +107,7 @@ def test_configured_repository_selects_upgrade_and_initial_image(tmp_path, monke
     assert plan.target.image == f"{value}:0.2.0.202610140941"
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_wizard_preview_changes_repository_without_writes(tmp_path):
     path = tmp_path / "machine" / "config.json"
     setup = server.new_setup(config_path=str(path), directory=str(tmp_path / "bundle"))
@@ -123,6 +125,7 @@ def test_wizard_preview_changes_repository_without_writes(tmp_path):
     assert not path.exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_provision_uses_and_saves_wizard_repository(tmp_path, monkeypatch):
     path = tmp_path / "machine" / "config.json"
     setup = server.new_setup(config_path=str(path), directory=str(tmp_path / "bundle"))
@@ -139,6 +142,7 @@ def test_provision_uses_and_saves_wizard_repository(tmp_path, monkeypatch):
     assert repository.configured(path=path) == setup.image_repository
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_wizard_repository_choice_validates_and_returns_to_preview(
     tmp_path, monkeypatch
 ):

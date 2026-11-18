@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python
+
 import argparse
 import json
 import os
@@ -237,7 +239,7 @@ class _pip_python:
         self._tmp = tempfile.TemporaryDirectory(prefix="yoke-pip-wheel-")
         root = Path(self._tmp.name)
         create_seeded_pip_venv(root)
-        return root / "bin" / "python"
+        return venv_python(root)
 
     def __exit__(self, *exc: object) -> None:
         if self._tmp is not None:

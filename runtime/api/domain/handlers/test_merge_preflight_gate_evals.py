@@ -57,13 +57,6 @@ def _global_envelope(function, *, payload):
     )
 
 
-def _ensure_dependency_schema(conn) -> None:
-    """The dependency table is shepherd-owned, not part of core cmd_init."""
-    from yoke_core.domain import shepherd_init
-
-    shepherd_init.cmd_init(conn)
-
-
 def _insert_dep(conn, *, dependent: int, blocking: int, satisfaction: str) -> None:
     conn.execute(
         "INSERT INTO item_dependencies "
@@ -112,7 +105,6 @@ class TestDependencyGate:
         item_id = 9311
         conn = connect_test_db(db)
         try:
-            _ensure_dependency_schema(conn)
             insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
         finally:
             conn.close()
@@ -198,7 +190,6 @@ class TestDependencyGate:
         dependent, blocking = 9312, 9320
         conn = connect_test_db(db)
         try:
-            _ensure_dependency_schema(conn)
             actor = seed_human_actor(conn)
             insert_item(conn, id=dependent, source=str(actor))
             insert_item(conn, id=blocking, status="implementing", source=str(actor))

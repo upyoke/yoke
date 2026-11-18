@@ -60,6 +60,7 @@ class RemoteEvaluation:
     outcome: str  # completed | timeout | denied
     # True only when the run leased the session's inbox at an event that can
     # inject on the caller's surface.
+    registration_outcome: str = "skipped:no_registration"
     message_probe: bool = False
     # Persists session bookkeeping and telemetry after the response
     # with the server's request wall time in milliseconds.
@@ -165,6 +166,7 @@ def evaluate_remote(
         stdout=stdout,
         exit_code=exit_code,
         degraded=tuple(degraded),
+        registration_outcome=controls.registration_outcome,
         wait_ms=wait_ms,
         outcome=outcome,
         message_probe=controls.message_probe,

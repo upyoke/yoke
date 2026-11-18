@@ -16,7 +16,7 @@ from yoke_contracts.deployment_itemless_teaching import (
 AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
     "yoke --env CONTROL-PLANE-ENV deployment-runs execute RUN-ID "
-    "[--timeout MIN] [--from-stage STAGE] [--fresh] "
+    "[--timeout MIN] [--fresh] "
     "[--product-repo-path PATH --image-tag TAG]"
 )
 
@@ -27,12 +27,13 @@ def deployment_runs_execute(args: List[str]) -> int:
         print(f"usage: {DEPLOYMENT_RUNS_EXECUTE_USAGE}")
         print(
             "Drives runs from `yoke deployment-runs create` (which never "
-            "executes) and resumes failed ones (--from-stage). A failed "
-            "same-run --from-stage resume re-enters executing at that stage "
-            "and does not replay skipped completed stages. A "
-            "github-actions-workflow stage re-entered on a failed run "
-            "dispatches once under a fresh scope; a re-drive of a run that "
-            "is not failed joins the same dispatch. A member that "
+            "executes) and resumes failed ones. Resuming a failed run "
+            "re-enters executing at the stage that failed and does not replay "
+            "completed stages. A github-actions-workflow stage that failed "
+            "dispatches once more under retry:<failed GitHub run id>; a "
+            "repeat resume joins that retry, and a GitHub run still active or "
+            "succeeded is joined rather than dispatched again. A re-drive of "
+            "a run that is not failed joins the same dispatch. A member that "
             "reopened for rework after the run froze does not fail the resume: "
             "one whose current candidate is outside the frozen lineage is set "
             "aside for a later release with a holder notice, a contained one "

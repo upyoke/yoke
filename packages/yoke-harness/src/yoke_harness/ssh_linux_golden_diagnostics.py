@@ -8,6 +8,7 @@ import shutil
 import tempfile
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
@@ -43,7 +44,7 @@ def run_golden_command(control, command, *, input_text, timeout):
         }
     directory = Path(tempfile.mkdtemp(prefix="yoke-linux-golden-diagnostics-"))
     client_log = directory / "ssh-client.log"
-    client_log.touch(mode=0o600)
+    write_owner_private(client_log, b"")
     secrets = getattr(control, "secret_values", ())
     started = utc_now()
     result = control._run(
@@ -58,7 +59,9 @@ def run_golden_command(control, command, *, input_text, timeout):
             "started_at": format_instant(started),
             "completed_at": format_instant(finished),
         }
-    client_log.write_text(_sanitize(client_log.read_text(errors="replace"), secrets))
+    write_owner_private(
+        client_log, _sanitize(client_log.read_text(errors="replace", encoding="utf-8"), secrets)
+    )
     journal_command = shlex.join(
         [
             "sudo",
@@ -76,8 +79,9 @@ def run_golden_command(control, command, *, input_text, timeout):
     )
     journal = control._run(journal_command, timeout=20)
     journal_log = directory / "sshd-journal.log"
-    journal_log.touch(mode=0o600)
-    journal_log.write_text(_sanitize(journal.stdout + "\n" + journal.stderr, secrets))
+    write_owner_private(
+        journal_log, _sanitize(journal.stdout + "\n" + journal.stderr, secrets)
+    )
     evidence = {
         "started_at": format_instant(started),
         "completed_at": format_instant(finished),

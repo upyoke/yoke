@@ -34,7 +34,7 @@ def test_shared_resolution(case):
 
 @pytest.mark.parametrize("case", CASES["validation"])
 def test_shared_validation(tmp_path, case):
-    (tmp_path / "index.md").write_text(case["markdown"])
+    (tmp_path / "index.md").write_text(case["markdown"], encoding="utf-8", newline="\n")
     refusals = links.validate_links(tmp_path, ["index.md"])
     assert [r.code for r in refusals] == (
         [case["expected_code"]] if case["expected_code"] else []
@@ -76,7 +76,7 @@ def test_containing_page_fragment_routes_and_complete_fixture(tmp_path):
 
 def test_missing_case_sensitive_fragment_and_escape(tmp_path):
     (tmp_path / "index.md").write_text(
-        "# Root\n[bad](missing.md) [case](#Root) [escape](../out.md)\n"
+        "# Root\n[bad](missing.md) [case](#Root) [escape](../out.md)\n", encoding="utf-8", newline="\n"
     )
     refusals = links.validate_links(tmp_path, ["index.md"])
     assert [r.code for r in refusals] == [
@@ -89,20 +89,20 @@ def test_missing_case_sensitive_fragment_and_escape(tmp_path):
 
 def test_html_heading_in_code_is_ignored(tmp_path):
     (tmp_path / "index.md").write_text(
-        "# Root\n```html\n<h1 id='fine'>Text</h1>\n```\n\n    <h2 id='fine'>Text</h2>\n"
+        "# Root\n```html\n<h1 id='fine'>Text</h1>\n```\n\n    <h2 id='fine'>Text</h2>\n", encoding="utf-8", newline="\n"
     )
     assert links.validate_links(tmp_path, ["index.md"]) == []
 
 
 def test_cli_path_selection_and_symlink_escape(tmp_path, capsys):
-    (tmp_path / "index.md").write_text("# Root\n")
-    (tmp_path / "other.md").write_text("# Other\n[missing](absent.md)")
+    (tmp_path / "index.md").write_text("# Root\n", encoding="utf-8", newline="\n")
+    (tmp_path / "other.md").write_text("# Other\n[missing](absent.md)", encoding="utf-8", newline="\n")
     assert links.main(["check", "--root", str(tmp_path), "--paths", "index.md"]) == 0
     assert "Links OK: 1 pages" in capsys.readouterr().out
     assert links.main(["check", "--root", str(tmp_path)]) == 1
     assert "LINK_TARGET_MISSING" in capsys.readouterr().out
     (tmp_path / "escape.md").symlink_to(tmp_path.parent / "outside.md")
-    (tmp_path / "index.md").write_text("# Root\n[escape](escape.md)")
+    (tmp_path / "index.md").write_text("# Root\n[escape](escape.md)", encoding="utf-8", newline="\n")
     assert links.validate_links(tmp_path, ["index.md"])[0].code == "LINK_ESCAPES"
 
 
@@ -111,5 +111,5 @@ def test_missing_root_and_unreadable_utf8_have_named_refusals(tmp_path, capsys):
     assert "LINK_TARGET_MISSING" in capsys.readouterr().out
     (tmp_path / "bad.md").write_bytes(b"\xff")
     assert links.validate_links(tmp_path, ["bad.md"])[0].code == "LINK_TARGET_MISSING"
-    (tmp_path / "index.md").write_text("# Root\n[bad](bad.md#heading)")
+    (tmp_path / "index.md").write_text("# Root\n[bad](bad.md#heading)", encoding="utf-8", newline="\n")
     assert links.validate_links(tmp_path, ["index.md"])[0].code == "LINK_TARGET_MISSING"

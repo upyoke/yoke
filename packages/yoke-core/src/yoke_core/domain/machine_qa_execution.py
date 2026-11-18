@@ -45,6 +45,11 @@ from yoke_core.domain.machine_verification_recording import (
     record_test_machine_verification,
 )
 from yoke_core.domain.machine_qa_lease_messages import invalid_lease
+from yoke_core.domain.machine_qa_operator_browser import (
+    browser_export,
+    with_operator_browser,
+)
+from yoke_contracts.browser_identity import BrowserIdentityError
 
 
 @dataclass
@@ -147,8 +152,31 @@ class MachineQaLease:
             "terminal-inspection",
         }:
             if "actions" in config:
+                try:
+                    config = with_operator_browser(
+                        config,
+                        conn=self.conn,
+                        project_id=self.material.project_id,
+                        project=self.material.project,
+                        test_machine=self.material.settings["resource_name"],
+                        os_name=self.material.settings["os"],
+                    )
+                except BrowserIdentityError as exc:
+                    code, _, reason = str(exc).partition(": ")
+                    return MachineCaseResult(
+                        case_outcome="blocked_on_precondition",
+                        verdict="blocked",
+                        error_code=code,
+                        evidence={
+                            "runner_id": "host_control",
+                            "test_machine": self.material.settings["resource_name"],
+                            "baseline": self.baseline.name if self.baseline else None,
+                            "case_started": False,
+                            "precondition": {"code": code, "reason": reason},
+                        },
+                    )
                 raw = self.control.run_terminal_recipe(
-                    entry_surface=str(entry_surface),
+                    entry_surface=browser_export(config) + str(entry_surface),
                     required_completion=str(required_completion),
                     config=config,
                     progress_callback=self.progress_callback,

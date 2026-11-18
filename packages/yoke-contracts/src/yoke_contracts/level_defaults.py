@@ -25,9 +25,9 @@ DEFAULT_LEVELS = (
             _entry("gpt-6.1-terra", "high"),
             _entry("claude-sonnet-5-5", "high"),
             _entry("claude-opus-5-5", "low"),
-            _entry("gpt-6.1-sol", "low"),
+            _entry("gpt-6.2-sol", "low"),
             _entry("claude-fable-5-2", "low"),
-            _entry("gpt-6-astra", "low"),
+            _entry("gpt-6.2-astra", "low"),
         ],
     },
     {
@@ -35,9 +35,9 @@ DEFAULT_LEVELS = (
         "glyph": "🦉",
         "options": [
             _entry("claude-opus-5-5", "medium"),
-            _entry("gpt-6.1-sol", "medium"),
+            _entry("gpt-6.2-sol", "medium"),
             _entry("claude-fable-5-2", "medium"),
-            _entry("gpt-6-astra", "medium"),
+            _entry("gpt-6.2-astra", "medium"),
         ],
     },
     {
@@ -45,7 +45,7 @@ DEFAULT_LEVELS = (
         "glyph": "🦅",
         "options": [
             _entry("claude-fable-5-2", "xhigh"),
-            _entry("gpt-6-astra", "xhigh"),
+            _entry("gpt-6.2-astra", "xhigh"),
         ],
     },
 )

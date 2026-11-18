@@ -94,6 +94,7 @@ def test_public_http_refused_before_network_or_config(
     assert not (tmp_path / "config.json").exists()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.usefixtures("installed_self_host_prerequisites")
 @pytest.mark.parametrize(
     "host, publish",
@@ -131,6 +132,7 @@ def test_listen_writes_existing_publish_setting_and_teammate_command(
         assert f"yoke connect http://{publish}" in output.out
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 @pytest.mark.usefixtures("installed_self_host_prerequisites")
 @pytest.mark.parametrize("host", ["host.internal", "10.0.0.1:8765", "bad\nvalue"])
 def test_invalid_listen_is_diagnosed_without_writes(tmp_path, capsys, host):

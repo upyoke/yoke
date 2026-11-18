@@ -51,7 +51,7 @@ def add_hooks(add):
                 if not path.is_file():
                     continue
                 stem = module.rsplit('.', 1)[-1]
-                description = (ast.get_docstring(ast.parse(path.read_text())) or '').split('\n')[0]
+                description = (ast.get_docstring(ast.parse(path.read_text(encoding="utf-8"))) or '').split('\n')[0]
                 description = HOOK_DESCRIPTIONS.get(stem, description)
                 condition = 'When applicable' if '_default' in tools else 'Tools: ' + ', '.join(tools)
                 kind = 'rule' if guard_scope(module) else 'action'
@@ -70,7 +70,7 @@ def add_hooks(add):
                     copies.append((node, 'hook-block:' + templates[stem]))
         path = REPO / CORE / ('global_orientation.py' if scope == 'global' else 'session_orientation.py')
         name = 'render_global_orientation' if scope == 'global' else 'render_orientation'
-        row = next(r for r in ast.parse(path.read_text()).body
+        row = next(r for r in ast.parse(path.read_text(encoding="utf-8")).body
                    if isinstance(r, ast.FunctionDef) and r.name == name)
         node = source_node(add, 'hook:' + scope + ':orientation', 'Yoke Orientation',
                            prefix + 'UserPromptSubmit', 'Shown once, on the first prompt.',
@@ -87,7 +87,7 @@ def add_hooks(add):
         (HOOKS + 'session_broker_wake.py', '_render', 'Wake message'),
     ):
         path = REPO / name
-        row = next(r for r in ast.parse(path.read_text()).body
+        row = next(r for r in ast.parse(path.read_text(encoding="utf-8")).body
                    if isinstance(r, ast.FunctionDef) and r.name == function)
         if function == 'render_main_agent_block':
             node = source_node(add, 'hook-block:' + function, title,
@@ -199,7 +199,7 @@ def reply_commands():
     commands = {fid: cmd for cmd, fid in live_registries()['commands'].items()}
     result = {}
     for path in (REPO / CORE / 'handlers').glob('_register*.py'):
-        for row in ast.walk(ast.parse(path.read_text())):
+        for row in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not isinstance(row, ast.Call) or len(row.args) < 4:
                 continue
             if not isinstance(row.func, ast.Attribute) or row.func.attr != 'register':
@@ -223,7 +223,7 @@ def add_replies(add):
     paths = [REPO / CONTRACTS / 'api/function_call.py']
     paths.extend(sorted((REPO / CORE / 'handlers').glob('*.py')))
     for path in paths:
-        rows = [r for r in ast.parse(path.read_text()).body if isinstance(r, ast.ClassDef)
+        rows = [r for r in ast.parse(path.read_text(encoding="utf-8")).body if isinstance(r, ast.ClassDef)
                 and (r.name.endswith('Response') or r.name in {'FunctionError', 'FunctionWarning'})]
         if not rows:
             continue
@@ -247,7 +247,7 @@ def add_replies(add):
     errors['form'] = ('reply', 'Error messages', 'FunctionError declarations')
     for path in paths[1:]:
         entries = []
-        for row in ast.walk(ast.parse(path.read_text())):
+        for row in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not isinstance(row, ast.Call) or not isinstance(row.func, ast.Name):
                 continue
             if row.func.id != 'FunctionError':

@@ -67,9 +67,17 @@ plane. `yoke models get --json` reads the revision effective now;
 MODEL_ID` resolves one exact native selector or known alias against the active
 catalog. Unknown research is explicit and never blocks a launch.
 
-To refresh research, start `/yoke models`. It files a Dash for a direct
-refresh, researches public primary sources, validates changed records, then
-reviews a complete catalog JSON document before publication:
+The catalog follows Yoke's shipped defaults: each `yoke update` (local) or
+server release (self-hosted, hosted) appends the new build's catalog as a
+`shipped` revision when it changed. Publishing your own catalog is an
+override: its revisions are `operator`-sourced, later releases leave them in
+place, and `yoke models get`, `lookup` and `revisions` report
+`shipped_defaults_differ` while one is current. `yoke models follow-shipped`
+(org admin) makes Yoke's shipped catalog current again.
+
+To override, start `/yoke models`. It researches public primary sources,
+validates changed records, then reviews a complete catalog JSON document
+before publication:
 
 ```bash
 yoke models get --json
@@ -77,6 +85,7 @@ yoke models validate --stdin --json < changed-record.json
 yoke models diff --stdin --json < candidate-catalog.json
 yoke models publish --stdin --expected-base REV --source-note 'source and check date' --json < candidate-catalog.json
 yoke models revisions --json
+yoke models follow-shipped --json
 ```
 
 `diff` reports the latest revision ID, including a scheduled future revision;
@@ -86,14 +95,13 @@ creates an immutable revision effective now by default; `--effective-at UTC`
 schedules one for the future. A new revision cannot take effect before the
 latest scheduled one. To recover, `yoke models restore REV --expected-base
 CURRENT --source-note 'reason'` copies an older complete catalog into a new
-revision. Research sources and check dates belong to the records, with a
-publication source note for the review trail. No source edit or release is
-needed for a normal refresh. Records hold facts only — prices, published
-`reasoning_efforts` and `context_window_tokens`, successors. `yoke models
-level-proposal` then proposes the level changes those facts imply; after
-operator approval, `yoke settings unset levels` applies a proposal equal to the
-shipped defaults and `yoke settings set levels` stores any other, which stops
-the universe following future shipped defaults.
+operator revision. Research sources and check dates belong to the records, with
+a publication source note for the review trail. Records hold facts only —
+prices, published `reasoning_efforts` and `context_window_tokens`, successors.
+`yoke models level-proposal` then proposes the level changes those facts imply;
+after operator approval, `yoke settings unset levels` applies a proposal equal
+to the shipped defaults and `yoke settings set levels` stores any other, which
+stops the universe following future shipped defaults.
 
 Session usage tokens remain stored in `harness_sessions.usage_totals`; its
 observation clock uses fixed-six UTC or null. Dollar

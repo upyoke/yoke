@@ -10,6 +10,8 @@ from yoke_contracts.session_usage_display import (
 
 SESSION_LIST_FIELDS = (
     "session_id",
+    "probe",
+    "first_user_prompt_at",
     "display_label",
     "harness_title",
     "chat_title",

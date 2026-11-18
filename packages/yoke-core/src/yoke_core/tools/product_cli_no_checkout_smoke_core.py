@@ -9,6 +9,8 @@ hygiene through :mod:`product_cli_no_checkout_smoke_steps`.
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_scripts, venv_console_script, venv_python as venv_interpreter
+
 import os
 import shutil
 import subprocess
@@ -83,8 +85,8 @@ def run_smoke(
                 online=online,
                 project_dir=project_dir,
                 machine_home=machine_home,
-                yoke=venv_dir / "bin" / "yoke",
-                venv_python=venv_dir / "bin" / "python",
+                yoke=venv_console_script(venv_dir, "yoke"),
+                venv_python=venv_interpreter(venv_dir),
                 token_path=machine_home / TOKEN_FILE_NAME,
             )
             step_run = subprocess_runner(
@@ -92,7 +94,7 @@ def run_smoke(
                 env=no_checkout_env(
                     home=home,
                     machine_home=machine_home,
-                    venv_bin=venv_dir / "bin",
+                    venv_bin=venv_scripts(venv_dir),
                 ),
                 commands=commands,
             )
@@ -104,7 +106,7 @@ def run_smoke(
             work_dir_retained=keep_work_dir or work_dir is not None,
             project_dir=project_dir,
             machine_home=machine_home,
-            yoke=venv_dir / "bin" / "yoke",
+            yoke=venv_console_script(venv_dir, "yoke"),
             steps=steps,
             commands=commands,
         )
@@ -143,7 +145,7 @@ def provision(
             )
         cli_wheel = _single_wheel(wheel_dir, "yoke_cli-*.whl")
     if not failures:
-        venv_python = venv_dir / "bin" / "python"
+        venv_python = venv_interpreter(venv_dir)
         for label, command in (
             ("venv create", [str(python), "-m", "venv", str(venv_dir)]),
             ("pip upgrade",
@@ -158,7 +160,7 @@ def provision(
                 failures.append(f"{label} failed with {result.returncode}: "
                                 f"{tail(result.stderr)}")
                 break
-    yoke = venv_dir / "bin" / "yoke"
+    yoke = venv_console_script(venv_dir, "yoke")
     if not failures and not yoke.is_file():
         failures.append(f"wheel install produced no yoke entrypoint: {yoke}")
     return step_entry(STEP_WHEEL_INSTALL, failures, {
@@ -228,8 +230,10 @@ def no_checkout_env(
     path being proven.
     """
     return {
+        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP") if key in os.environ},
         "HOME": str(home),
-        "PATH": f"{venv_bin}:{BASE_PATH}",
+        "USERPROFILE": str(home),
+        "PATH": os.pathsep.join((str(venv_bin), os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH)),
         "YOKE_MACHINE_HOME": str(machine_home),
         "YOKE_SESSION_ID": SMOKE_SESSION_ID,
         "PYTHONNOUSERSITE": "1",

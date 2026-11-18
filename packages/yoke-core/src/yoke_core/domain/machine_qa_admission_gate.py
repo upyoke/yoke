@@ -46,7 +46,7 @@ def yoke_runner(
     run: Callable[..., subprocess.CompletedProcess[str]], yoke_bin: str
 ) -> RunYoke:
     """Run the installed candidate's ``yoke`` as the admission fixture's owner."""
-    home = shlex.quote(str(approver_home(_OWNER_MODE)))
+    home = shlex.quote(approver_home(_OWNER_MODE).as_posix())
 
     def run_yoke(arguments: Sequence[str]) -> subprocess.CompletedProcess[str]:
         return run(

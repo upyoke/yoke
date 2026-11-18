@@ -157,8 +157,10 @@ def isolated_env(
     session_id: str,
 ) -> dict[str, str]:
     return {
+        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP") if key in os.environ},
         "HOME": str(home),
-        "PATH": f"{venv_bin}:{BASE_PATH}",
+        "USERPROFILE": str(home),
+        "PATH": os.pathsep.join((str(venv_bin), os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH)),
         "YOKE_MACHINE_HOME": str(machine_home),
         "YOKE_MACHINE_CONFIG_FILE": str(config_path),
         "YOKE_ENV": env_name,
@@ -171,8 +173,10 @@ def isolated_env(
 
 def base_env(home: Path) -> dict[str, str]:
     return {
+        **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP") if key in os.environ},
         "HOME": str(home),
-        "PATH": BASE_PATH,
+        "USERPROFILE": str(home),
+        "PATH": os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH,
         "PYTHONNOUSERSITE": "1",
         "LANG": os.environ.get("LANG", "C.UTF-8"),
         "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),

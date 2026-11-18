@@ -5,7 +5,14 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+
+import pytest
+
 from yoke_cli.config import path_doctor as doctor, path_repair_plan
+
+POSIX_SHELL = pytest.mark.posix_only(
+    reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
+)
 
 
 def _env(home: Path, shell: str) -> dict[str, str]:
@@ -30,6 +37,7 @@ def _update(home, shell):
     return env
 
 
+@POSIX_SHELL
 def test_owned_path_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
     profile = tmp_path / ".profile"
     bashrc = tmp_path / ".bashrc"
@@ -62,6 +70,7 @@ def test_owned_path_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
     assert (profile.read_bytes(), bashrc.read_bytes()) == before
 
 
+@POSIX_SHELL
 def test_owned_path_adds_tool_directory_to_fish(tmp_path, monkeypatch):
     env = _update(tmp_path, "fish")
     config = tmp_path / ".config/fish/config.fish"
@@ -80,6 +89,7 @@ def test_owned_path_adds_tool_directory_to_fish(tmp_path, monkeypatch):
         assert str(tmp_path / ".local/bin") in result.stdout.strip().split(":")
 
 
+@POSIX_SHELL
 def test_probe_uses_fish_without_substituting_zsh(monkeypatch):
     seen = []
 

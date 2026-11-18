@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import os
 import stat
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from yoke_contracts import windows_private_directory
-from yoke_contracts.owner_private_path import is_owner_private_file
+from yoke_contracts import platform_file_sync
+from yoke_contracts.owner_private_path import (
+    create_owner_private_temporary,
+    is_owner_private_file,
+)
 
 _WINDOWS = os.name == "nt"
 
@@ -69,18 +71,7 @@ class PrivateArchiveOutput:
         _validate_existing_destination(self.destination)
         try:
             os.replace(self.temporary, self.destination)
-            if _WINDOWS:
-                # Windows cannot open/fsync a directory; the file was flushed above.
-                self.committed = True
-                return
-            directory = os.open(
-                self.destination.parent,
-                os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-            )
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            platform_file_sync.sync_directory(self.destination.parent)
         except OSError as exc:
             raise PrivateArchiveOutputError(
                 f"the universe archive could not be committed: {self.destination}"
@@ -101,16 +92,11 @@ def prepare_private_archive_output(destination: Path) -> PrivateArchiveOutput:
     descriptor = -1
     temporary: Path | None = None
     try:
-        descriptor, raw_path = tempfile.mkstemp(
+        descriptor, temporary = create_owner_private_temporary(
             prefix=f".{destination.name}.",
             suffix=".tmp",
-            dir=destination.parent,
+            directory=destination.parent,
         )
-        temporary = Path(raw_path)
-        if _WINDOWS:
-            windows_private_directory.make_private_file(temporary)
-        else:
-            os.fchmod(descriptor, 0o600)
         stream = os.fdopen(descriptor, "wb")
         descriptor = -1
         return PrivateArchiveOutput(destination, temporary, stream)

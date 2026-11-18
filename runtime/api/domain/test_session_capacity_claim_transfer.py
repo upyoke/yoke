@@ -149,5 +149,5 @@ def test_successor_capacity_does_not_return_to_prior_overloaded_model(monkeypatc
     result = relaunch_capacity_worker(conn, state=state(conn), now=CURRENT)
     assert result["status"] == "capacity_recovery_refused"
     assert result["code"] == "level_no_capacity"
-    assert "gpt-6.1-sol" in result["detail"]
+    assert "gpt-6.2-sol" in result["detail"]
     assert claim(conn)[1] == "successor"

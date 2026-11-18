@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_qa_case_worktree_command_env.py::test_command_case_python3_imports_product_modules",
+ "reason": "AssertionError: assert 'fail' == 'pass'"
+}

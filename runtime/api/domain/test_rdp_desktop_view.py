@@ -13,12 +13,14 @@ import base64
 from contextlib import contextmanager
 import json
 from pathlib import Path
-import stat
 import subprocess
 
 import pytest
 
-from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import (
+    store_machine_capability_secret,
+)
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_harness import desktop_access, rdp_desktop_client as viewer
 
 
@@ -65,7 +67,7 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
         "project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry
     )
     log_path = Path(result.pop("log_path"))
-    assert stat.S_IMODE(log_path.stat().st_mode) == 0o600
+    assert is_owner_private_file(log_path)
     assert log_path.read_text() == "client started\npassword=[redacted]\n"
     assert result == {
         "user": "fixture",
@@ -157,7 +159,7 @@ def test_log_creation_failure_refuses_before_client(monkeypatch):
         raise OSError("disk full")
 
     monkeypatch.setattr(viewer, "desktop_forward", forward)
-    monkeypatch.setattr(viewer.tempfile, "mkstemp", unavailable)
+    monkeypatch.setattr(viewer, "create_owner_private_temporary", unavailable)
     monkeypatch.setattr(
         viewer.subprocess,
         "Popen",
@@ -279,3 +281,21 @@ def test_view_path_does_not_materialize_password_file(tmp_path, monkeypatch):
         project="project", test_machine="lab", settings=SETTINGS, view=True
     ) == {"viewer": "closed"}
     assert calls[0][3] == PASSWORD
+
+
+@pytest.mark.parametrize("code", [1, 255])
+def test_failed_ssh_is_transport_failure_before_desktop_login(
+    tmp_path, monkeypatch, code
+):
+    monkeypatch.setattr(
+        desktop_access.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(
+            argv, code, "", "host unreachable"
+        ),
+    )
+    with pytest.raises(
+        desktop_access.DesktopAccessError,
+        match="desktop_transport_unavailable: host unreachable",
+    ):
+        desktop_access._prepare_desktop(SETTINGS, tmp_path / "key", PASSWORD)

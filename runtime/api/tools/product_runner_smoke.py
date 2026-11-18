@@ -1,9 +1,11 @@
 """Disposable-runner product smoke; no harness login or hosted universe.
 
-Stages run in order up to ``--through`` (see :mod:`product_runner_stages`).
+Every runner runs every stage in order (see :mod:`product_runner_stages`).
 """
 
 from __future__ import annotations
+
+from yoke_contracts.venv_layout import venv_console_script
 
 import argparse
 import json
@@ -11,21 +13,39 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import stat
 import sys
 import tempfile
 
+# CI starts this checkout tool with plain Python, before installing the product.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages/yoke-contracts/src"))
+
+from yoke_contracts.testing.child_environment import minimal_child_environment
+
 try:
-    from .product_runner_commands import Commands, SmokeFailure, venv_executable
+    from .product_runner_commands import Commands, SmokeFailure
     from .product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from .product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 except ImportError:
-    from product_runner_commands import Commands, SmokeFailure, venv_executable
+    from product_runner_commands import Commands, SmokeFailure
     from product_runner_linux_account import ACCOUNT_HOME, verified_account_environment
     from product_runner_stages import STAGE_NAMES, STAGES, SmokeRun
 
 # Windows needs these to start Python, Git and uv at all; none carries authority.
 WINDOWS = os.name == "nt"
-WINDOWS_SYSTEM_VARIABLES = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT")
+# Additional smoke startup facts beyond minimal_child_environment's OS variables.
+# The PowerShell module path and analysis cache keep the hooks' and relay's
+# cmdlet lookups from rebuilding a cache over every module on the runner image
+# (20-50 seconds per process); a user's own profile keeps that cache warm.
+WINDOWS_SYSTEM_VARIABLES = (
+    "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "PROGRAMDATA", "ALLUSERSPROFILE",
+    "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)", "COMMONPROGRAMW6432", "PUBLIC",
+    "COMPUTERNAME", "USERNAME", "USERDOMAIN", "OS", "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE", "PROCESSOR_IDENTIFIER", "PROCESSOR_LEVEL", "PROCESSOR_REVISION",
+    "PSMODULEPATH", "PSMODULEANALYSISCACHEPATH",
+)  # fmt: skip
+SCRATCH_PREFIX = "yps-"
 
 
 def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
@@ -42,9 +62,10 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     else:
         home = scratch / "home"
         home.mkdir()
-    scripts = venv_executable(venv, "yoke").parent
+    scripts = venv_console_script(venv, "yoke").parent
     tools = [scripts, *(Path(found).parent for found in map(shutil.which, ("uv", "git")) if found)]
     env = {
+        **minimal_child_environment(tools),
         "HOME": str(home),
         "YOKE_MACHINE_HOME": str(home / ".yoke"),
         "XDG_BIN_HOME": str(scripts),
@@ -56,8 +77,11 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     }
     env.update(service_env)
     if WINDOWS:
-        temp = home / "AppData" / "Local" / "Temp"
-        temp.mkdir(parents=True)
+        # A real profile's temp folder is short; one nested under this scratch
+        # home would push Postgres socket fallbacks past the Unix-socket limit.
+        temp = scratch / "tmp"
+        temp.mkdir()
+        (home / "AppData" / "Local").mkdir(parents=True)
         env |= {name: os.environ[name] for name in WINDOWS_SYSTEM_VARIABLES if name in os.environ}
         env |= {
             "USERPROFILE": str(home),
@@ -67,10 +91,11 @@ def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
             "TMP": str(temp),
         }
         system = Path(env.get("SYSTEMROOT", r"C:\Windows")) / "System32"
-        env["PATH"] = os.pathsep.join(str(path) for path in (*tools, system))
+        # Rendered Windows hooks start powershell.exe, which lives outside System32 proper.
+        powershell = system / "WindowsPowerShell" / "v1.0"
+        env["PATH"] = os.pathsep.join((minimal_child_environment((*tools, system))["PATH"], str(powershell)))
     else:
-        defaults = (os.defpath, "/usr/local/bin", "/opt/homebrew/bin")
-        env["PATH"] = os.pathsep.join([*(str(path) for path in tools), *defaults])
+        env["PATH"] = minimal_child_environment((*tools, "/usr/local/bin", "/opt/homebrew/bin"))["PATH"]
         env["SHELL"] = "/bin/bash"
     return env
 
@@ -92,33 +117,51 @@ def observed_runner() -> dict[str, str]:
     return {"os": os_name, "architecture": architecture}
 
 
-def selected_stages(through: str):
-    return STAGES[: STAGE_NAMES.index(through) + 1]
-
-
 def cleanup(run: SmokeRun, *, primary_failure: bool) -> None:
-    """Stop what onboarding started; a cleanup failure never hides the primary one."""
+    """Stop what onboarding started; a cleanup failure never hides the primary one.
+
+    Each step runs even when an earlier one fails: a relay that cannot be
+    removed must not leave Postgres holding the scratch folder open. The hook
+    replay started the resident hook evaluator, so it stops first.
+    """
+    first = None
+    for name, argv in (
+        ("stop-hook-resident", [run.yoke, "hook", "resident", "stop"]),
+        ("uninstall-local-relay", [run.yoke, "relay", "uninstall", "--json"]),
+        ("stop-local-postgres", [run.yoke, "local-postgres", "stop", "--json"]),
+    ):
+        try:
+            run.commands.run(name, argv, cwd=run.project)
+        except SmokeFailure as exc:
+            first = first or exc
+    if first and not primary_failure:
+        raise first
+
+
+def remove_scratch(scratch: Path, report: dict, *, primary_failure: bool) -> None:
+    """Delete the scratch folder; a leftover process never hides the primary failure."""
+    def writable(function, path, _error):
+        os.chmod(path, stat.S_IWRITE)  # Windows refuses to delete Git's read-only objects.
+        function(path)
+
+    handler = {"onexc" if sys.version_info >= (3, 12) else "onerror": writable}
     try:
-        if sys.platform in {"darwin", "linux"}:
-            run.commands.run(
-                "uninstall-local-relay",
-                [run.yoke, "relay", "uninstall", "--json"],
-                cwd=run.project,
-            )
-        run.commands.run(
-            "stop-local-postgres",
-            [run.yoke, "local-postgres", "stop", "--json"],
-            cwd=run.project,
+        shutil.rmtree(scratch, **handler)
+    except OSError as exc:
+        detail = (
+            f"scratch_cleanup_failed: {exc}; a process the smoke started still holds "
+            "a scratch file. Inspect the stop-hook-resident, uninstall-local-relay and "
+            "stop-local-postgres captures"
         )
-    except SmokeFailure:
         if not primary_failure:
-            raise
+            raise SmokeFailure(detail) from exc
+        report["scratch_cleanup_failure"] = detail
 
 
-def run_stages(run: SmokeRun, through: str) -> None:
+def run_stages(run: SmokeRun) -> None:
     failed = True
     try:
-        for name, stage in selected_stages(through):
+        for name, stage in STAGES:
             run.report["stage"] = name
             stage(run)
         run.report["ok"] = True
@@ -144,8 +187,8 @@ def run_stages(run: SmokeRun, through: str) -> None:
             cleanup(run, primary_failure=failed)
 
 
-def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
-    report = {"ok": False, "through": through}
+def smoke(root: Path, output: Path) -> None:
+    report = {"ok": False, "stages": list(STAGE_NAMES)}
     report_path = output / "report.json"
     commands = None
     try:
@@ -159,10 +202,14 @@ def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
                 f"runner_identity_mismatch: expected {expected}, observed {report['runner']}; "
                 "check the latest-label rollout and update the declared job identities before rerunning"
             )
-        with tempfile.TemporaryDirectory(prefix="yoke-product-smoke-") as raw:
-            scratch = Path(raw).resolve()
+        # Keep the scratch prefix short: the local universe's Postgres socket
+        # lives under the scratch HOME, and Windows' temp folder is already deep.
+        scratch = Path(tempfile.mkdtemp(prefix=SCRATCH_PREFIX)).resolve()
+        try:
             commands = Commands(output, isolated_environment(scratch, scratch / "venv"))
-            run_stages(SmokeRun(root, scratch, commands, report), through)
+            run_stages(SmokeRun(root, scratch, commands, report))
+        finally:
+            remove_scratch(scratch, report, primary_failure=sys.exc_info()[0] is not None)
     except Exception as exc:
         report["ok"] = False
         failure = str(exc)
@@ -183,22 +230,16 @@ def smoke(root: Path, output: Path, through: str = STAGE_NAMES[-1]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--through",
-        choices=STAGE_NAMES,
-        default=STAGE_NAMES[-1],
-        help="last stage to run; earlier stages always run first",
-    )
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     root = Path(__file__).resolve().parents[3]
     try:
-        smoke(root, output, args.through)
+        smoke(root, output)
     except SmokeFailure as exc:
         print(f"product-smoke failed: {exc}", file=sys.stderr)
         return 1
-    print(f"product-smoke passed through {args.through}: {output / 'report.json'}")
+    print(f"product-smoke passed {', '.join(STAGE_NAMES)}: {output / 'report.json'}")
     return 0
 
 

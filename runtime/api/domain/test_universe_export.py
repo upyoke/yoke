@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from runtime.api.domain.universe_export_test_support import (
     _schema_loaded_universe as _schema_loaded_universe,
+    install_failing_executable,
 )
 
 
@@ -28,6 +29,7 @@ from yoke_contracts.timestamps import parse_instant, format_instant
 from yoke_core.domain import universe_archive
 from yoke_core.domain import universe_export as ux
 from yoke_core.domain import universe_snapshot_archive as snapshots
+from yoke_core.domain.postgres_cluster_process import executable
 from yoke_core.domain.source_freeze_intent import file_sha256
 
 
@@ -205,13 +207,8 @@ def test_export_prefers_embedded_pg_dump_and_cleans_failed_staging(
     monkeypatch.delenv(postgres_binaries.BIN_DIR_ENV, raising=False)
     bin_dir = postgres_binaries.version_dir() / "bin"
     bin_dir.mkdir(parents=True)
-    (bin_dir / "initdb").write_text("#!/bin/sh\n", encoding="utf-8")
-    fake_pg_dump = bin_dir / "pg_dump"
-    fake_pg_dump.write_text(
-        "#!/bin/sh\necho 'pg_dump: error: simulated failure' >&2\nexit 1\n",
-        encoding="utf-8",
-    )
-    fake_pg_dump.chmod(0o755)
+    (bin_dir / executable(None, "initdb")).write_text("#!/bin/sh\n", encoding="utf-8")
+    install_failing_executable(bin_dir / executable(None, "pg_dump"))
     out_dir = tmp_path / "exports"
     out_dir.mkdir()
     dest = out_dir / "x.tar"

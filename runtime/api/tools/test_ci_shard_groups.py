@@ -160,3 +160,29 @@ def test_plain_quiet_collection_preserves_fixture_and_marker_facts(tmp_path):
     assert wheel["wheel"] and wheel["independent"]
     assert marked["independent"] and not marked["wheel"]
     assert all(not row["independent"] and not row["wheel"] for row in runtime)
+
+
+@pytest.mark.windows
+def test_scoped_off_modules_remain_in_published_native_file_groups(tmp_path):
+    import json
+    import os
+    marker = "linux_only" if sys.platform == "win32" else "windows_only"
+    (tmp_path / "test_native.py").write_text(
+        f'import pytest\npytestmark = pytest.mark.{marker}(reason="native API")\n'
+        'raise AssertionError("native module imported on collection host")\n'
+    )
+    (tmp_path / "test_local.py").write_text('def test_local(): pass\n')
+    destination = tmp_path / "facts.json"
+    environment = dict(os.environ, YOKE_CI_SHARD_FACTS=str(destination))
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:xdist",
+         "-p", "runtime.os_scope_markers", "-p", "yoke_core.tools.ci_shard_groups"],
+        cwd=tmp_path, env=environment, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    facts = json.loads(destination.read_text())
+    native = next(row for row in facts if row["nodeid"] == "test_native.py")
+    assert native == {"nodeid": "test_native.py", "independent": False, "wheel": True}
+    tracked = ["test_local.py", "test_native.py"]
+    groups = grouping.build_groups(facts, {}, tracked, count=1)
+    assert all(partition == [tracked] for partition in groups.values())

@@ -12,7 +12,12 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.model_reference_records import ModelReferenceError
+from yoke_core.domain.model_reference_shipped import (
+    follow_shipped_catalog,
+    shipped_defaults_differ,
+)
 from yoke_core.domain.model_reference_store import (
+    SOURCE_OPERATOR,
     preview_catalog,
     publish_catalog,
     revision_get,
@@ -23,6 +28,7 @@ DIFF_FUNCTION_ID = "models.diff.run"
 PUBLISH_FUNCTION_ID = "models.publish.run"
 REVISIONS_FUNCTION_ID = "models.revisions.run"
 RESTORE_FUNCTION_ID = "models.restore.run"
+FOLLOW_SHIPPED_FUNCTION_ID = "models.follow_shipped.run"
 
 
 class ModelsDiffRequest(BaseModel):
@@ -46,6 +52,10 @@ class ModelsRevisionsRequest(BaseModel):
     pass
 
 
+class ModelsFollowShippedRequest(BaseModel):
+    pass
+
+
 class ModelsDiffResponse(BaseModel):
     base_revision_id: str
     count: int
@@ -60,9 +70,14 @@ class ModelsPublishResponse(BaseModel):
     diff: dict[str, Any]
 
 
+class ModelsFollowShippedResponse(ModelsPublishResponse):
+    appended: bool
+
+
 class ModelsRevisionsResponse(BaseModel):
     revisions: list[dict[str, Any]]
     count: int
+    shipped_defaults_differ: bool | None = None
 
 
 def _failure(code: str, message: str, recovery: str) -> HandlerOutcome:
@@ -131,6 +146,7 @@ def handle_models_publish(request: FunctionCallRequest) -> HandlerOutcome:
                 payload.catalog,
                 effective_at=payload.effective_at,
                 actor_id=actor_id,
+                source=SOURCE_OPERATOR,
                 source_note=payload.source_note,
                 expected_base_revision_id=payload.expected_base_revision_id,
             )
@@ -157,6 +173,7 @@ def handle_models_restore(request: FunctionCallRequest) -> HandlerOutcome:
                 [record.to_dict() for record in source["records"]],
                 effective_at=payload.effective_at,
                 actor_id=actor_id,
+                source=SOURCE_OPERATOR,
                 source_note=payload.source_note,
                 expected_base_revision_id=payload.expected_base_revision_id,
                 source_revision_id=payload.source_revision_id,
@@ -175,10 +192,33 @@ def handle_models_revisions(request: FunctionCallRequest) -> HandlerOutcome:
 
     with connect() as conn:
         revisions = revisions_list(conn)
-    return HandlerOutcome(
-        result_payload={"revisions": revisions, "count": len(revisions)},
-        primary_success=True,
-    )
+        differ = shipped_defaults_differ(conn) if revisions else None
+    result: dict[str, Any] = {"revisions": revisions, "count": len(revisions)}
+    if differ is not None:
+        result["shipped_defaults_differ"] = differ
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def handle_models_follow_shipped(request: FunctionCallRequest) -> HandlerOutcome:
+    payload = _parse(ModelsFollowShippedRequest, request)
+    if isinstance(payload, HandlerOutcome):
+        return payload
+    actor_id = _actor_id(request)
+    if isinstance(actor_id, HandlerOutcome):
+        return actor_id
+    from yoke_core.domain.db_helpers import connect
+
+    with connect() as conn:
+        try:
+            result = follow_shipped_catalog(conn, actor_id=actor_id)
+        except ModelReferenceError as exc:
+            conn.rollback()
+            return _failure(
+                exc.code,
+                str(exc),
+                "Inspect `yoke models revisions`, then retry `yoke models follow-shipped`",
+            )
+    return HandlerOutcome(result_payload=result, primary_success=True)
 
 
 __all__ = [
@@ -186,6 +226,10 @@ __all__ = [
     "PUBLISH_FUNCTION_ID",
     "REVISIONS_FUNCTION_ID",
     "RESTORE_FUNCTION_ID",
+    "FOLLOW_SHIPPED_FUNCTION_ID",
+    "ModelsFollowShippedRequest",
+    "ModelsFollowShippedResponse",
+    "handle_models_follow_shipped",
     "ModelsDiffRequest",
     "ModelsDiffResponse",
     "ModelsPublishRequest",

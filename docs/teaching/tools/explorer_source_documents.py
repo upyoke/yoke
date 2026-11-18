@@ -61,7 +61,7 @@ def add_decisions(add, files):
     current = group(add, 'decisions:current', 'Current decisions', 'source:decisions',
                     'Approved teaching decisions and current repository decision files.')
     for path in sorted((REPO / 'docs/teaching/model/boundaries').glob('*.json')):
-        record = json.loads(path.read_text())
+        record = json.loads(path.read_text(encoding="utf-8"))
         if record.get('status') != 'approved':
             continue
         node = add('decision:' + record['id'], record['title'], current['id'], record['text'])

@@ -6,6 +6,8 @@ import logging
 from pathlib import Path
 
 import pytest
+
+from runtime.api.owner_private_test_support import share_with_other_users
 from pydantic import ValidationError
 
 from runtime.api.domain.github_app_public_profile_test_support import (
@@ -130,7 +132,7 @@ def test_partial_or_invalid_profile_warns_without_values(
 
 def test_unreadable_key_cannot_advertise_available(tmp_path: Path):
     env, key = _complete_env(tmp_path)
-    key.chmod(0o644)
+    share_with_other_users(key)
 
     assert github_app_public_advertisement(env).model_dump() == {
         "available": False,
@@ -143,7 +145,7 @@ def test_partial_profile_warning_survives_private_key_failure(
 ):
     env, key = _complete_env(tmp_path)
     env.pop(GITHUB_APP_SLUG_ENV)
-    key.chmod(0o644)
+    share_with_other_users(key)
 
     with caplog.at_level(logging.WARNING, logger="yoke.api.startup"):
         assert not attest_github_app_runtime_identity(env)
@@ -228,7 +230,7 @@ def test_private_only_runtime_identity_is_attested_without_advertisement(
 
 def test_private_only_unreadable_key_fails_before_identity_request(tmp_path: Path):
     env, key = _private_only_env(tmp_path)
-    key.chmod(0o644)
+    share_with_other_users(key)
     identity_requested = False
 
     def fetch(*args, **kwargs):

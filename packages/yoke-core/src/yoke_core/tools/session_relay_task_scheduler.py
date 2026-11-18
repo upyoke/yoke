@@ -79,14 +79,47 @@ def _checked(argv: list[str], runner: Runner) -> str:
     return result.stdout.strip()
 
 
-def _user(runner: Runner) -> str:
-    # The SID is stable across renames and avoids locale-dependent account names.
+def _account(runner: Runner) -> tuple[str, str]:
+    """The current user's SID and ``DOMAIN\\user`` name from one read.
+
+    The task declares the SID, stable across renames; Task Scheduler may
+    export the same account by name.
+    """
     import csv
 
     rows = list(csv.reader(_checked(["whoami", "/user", "/fo", "csv", "/nh"], runner).splitlines()))
     if not rows or len(rows[0]) != 2 or not rows[0][1].startswith("S-1-"):
         raise _unavailable("cannot resolve the current user's SID")
-    return rows[0][1]
+    return rows[0][1], rows[0][0]
+
+
+#: Task Scheduler's End stops only the task's own process, so the runner joins
+#: a kill-on-close job first: ending or deleting the task then also stops the
+#: relay it started, as systemd stops a unit's whole control group on Linux.
+_CONTAIN_RUNNER = """\
+if globals().get("__name__") == "__main__":
+    import ctypes
+    from ctypes import wintypes
+    class _Basic(ctypes.Structure):
+        _fields_ = [("a", ctypes.c_int64), ("b", ctypes.c_int64), ("flags", wintypes.DWORD),
+                    ("c", ctypes.c_size_t), ("d", ctypes.c_size_t), ("e", wintypes.DWORD),
+                    ("f", ctypes.c_size_t), ("g", wintypes.DWORD), ("h", wintypes.DWORD)]
+    class _Extended(ctypes.Structure):
+        _fields_ = [("basic", _Basic), ("io", ctypes.c_uint64 * 6),
+                    ("limits", ctypes.c_size_t * 4)]
+    _k = ctypes.WinDLL("kernel32", use_last_error=True)
+    _k.CreateJobObjectW.restype = wintypes.HANDLE
+    _k.GetCurrentProcess.restype = wintypes.HANDLE
+    _k.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    _k.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    _job = _k.CreateJobObjectW(None, None)
+    _info = _Extended()
+    _info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    if not (_job and _k.SetInformationJobObject(_job, 9, ctypes.byref(_info), ctypes.sizeof(_info))
+            and _k.AssignProcessToJobObject(_job, _k.GetCurrentProcess())):
+        raise SystemExit(f"relay_task_containment_failed: {ctypes.WinError(ctypes.get_last_error())}; "
+                         "retry `yoke relay install`")
+"""
 
 
 def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
@@ -125,19 +158,53 @@ def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
-def _current(observed: str, expected: str) -> bool:
+#: Task Scheduler schema defaults. An export omits an element holding its
+#: default, so an absent element matches a declared default.
+_SCHEMA_DEFAULTS = {
+    "Enabled": "true",
+    "AllowHardTerminate": "true",
+    "MultipleInstancesPolicy": "IgnoreNew",
+    "RunLevel": "LeastPrivilege",
+    "StartWhenAvailable": "false",
+    "DisallowStartIfOnBatteries": "true",
+    "StopIfGoingOnBatteries": "true",
+    "ExecutionTimeLimit": "PT72H",
+}
+
+
+def _difference(observed: str, expected: str, *, account_name: str = "") -> str:
+    """Every declared task setting the registered task lacks; empty when current.
+
+    Task Scheduler may add elements to a registered task, so only the settings
+    Yoke declares are compared.
+    """
     try:
         actual = ET.fromstring(observed)
-        desired = ET.fromstring(expected)
-        def matches(want, have):
-            if have is None or want.attrib != {k: have.attrib.get(k) for k in want.attrib}:
-                return False
-            if (want.text or "").strip() != (have.text or "").strip():
-                return False
-            return all(matches(child, have.find(child.tag)) for child in want)
-        return matches(desired, actual)
-    except ET.ParseError:
-        return False
+    except ET.ParseError as exc:
+        return f"the registered task XML does not parse ({exc})"
+
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+
+    def compare(want, have, path: str) -> list[str]:
+        text = (want.text or "").strip()
+        if have is None:
+            return [] if _SCHEMA_DEFAULTS.get(local(want.tag)) == text else [f"{path} is missing"]
+        found = [
+            f"{path}@{key} is {have.attrib.get(key)!r}, expected {value!r}"
+            for key, value in want.attrib.items()
+            if have.attrib.get(key) != value
+        ]
+        observed_text = (have.text or "").strip()
+        same_account = local(want.tag) == "UserId" and observed_text.casefold() == account_name.casefold()
+        if text != observed_text and not same_account:
+            found.append(f"{path} is {observed_text!r}, expected {text!r}")
+        for child in want:
+            found += compare(child, have.find(child.tag), f"{path}/{local(child.tag)}")
+        return found
+
+    desired = ET.fromstring(expected)
+    return "; ".join(compare(desired, actual, local(desired.tag)))
 
 
 def relay_task_status(*, instance=None, home=None, environ=None, runner= subprocess.run) -> RelayTaskStatus:
@@ -146,14 +213,17 @@ def relay_task_status(*, instance=None, home=None, environ=None, runner= subproc
     reason = ""
     available = True
     try:
-        sid = _user(runner)
+        sid, name = _account(runner)
         # Query the scheduler itself first: a failed task query must not hide a
         # policy/service restriction as an absent task.
         _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
         result = _run(["schtasks", "/Query", "/TN", selected.label, "/XML"], runner)
         present = result.returncode == 0
         if present:
-            current = _current(result.stdout, relay_task_document(selected, user_sid=sid))
+            difference = _difference(
+                result.stdout, relay_task_document(selected, user_sid=sid), account_name=name
+            )
+            current = not difference
             name = selected.label.replace("'", "''")
             state = _checked([
                 "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
@@ -165,7 +235,10 @@ def relay_task_status(*, instance=None, home=None, environ=None, runner= subproc
             if state == "1":
                 reason = "relay_task_disabled: enable the task with `yoke relay install`"
         if present and not current and not reason:
-            reason = "relay_task_outdated: retry `yoke relay install` to restore the task settings"
+            reason = (
+                f"relay_task_outdated: {difference}; retry `yoke relay install` "
+                "to restore the task settings"
+            )
     except RelayInstallError as exc:
         available = False
         reason = str(exc)
@@ -178,7 +251,7 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     selected = instance or resolve_relay_instance()
     if refusal := door_relay_refusal(selected):
         raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
-    sid = _user(runner)
+    sid, _name = _account(runner)
     _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
     prior = relay_task_status(instance=selected, runner=runner)
     if not prior.supported:
@@ -207,7 +280,8 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     else:
         argv = [str(launcher), "--env", selected.environment, "relay", "serve"]
     body = ("import os, subprocess\n"
-            f"os.environ.update({environment!r})\n"
+            + (_CONTAIN_RUNNER if os.name == "nt" else "")
+            + f"os.environ.update({environment!r})\n"
             f"with open({str(selected.stdout_log)!r}, 'ab', buffering=0) as out, "
             f"open({str(selected.stderr_log)!r}, 'ab', buffering=0) as err:\n"
             "    while True:\n"

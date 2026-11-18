@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import socket
@@ -106,7 +107,9 @@ def test_snapshot_selects_explicit_config_and_rebases_default_paths(
 ):
     config, original, _ = _seed(tmp_path / "machine")
     # Real PATH/HOME/TMPDIR: a bare env sends git to the slow macOS xcrun shim.
-    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ}
+    env = {
+        key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ
+    }
     env["YOKE_SESSION_ID"] = "fixture-session"
     if config_override:
         env["YOKE_MACHINE_CONFIG_FILE"] = str(config)
@@ -182,7 +185,7 @@ def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path, monkeyp
     evidence.rmdir()
 
 
-@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="requires Unix sockets")
+@pytest.mark.posix_only(reason='requires Unix sockets')
 def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
     config, original, token = _seed(tmp_path / "machine")
     profile = token.parent / "profile"
@@ -210,7 +213,7 @@ def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
     assert config.read_bytes() == original
 
 
-@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="requires Unix sockets")
+@pytest.mark.posix_only(reason='requires Unix sockets')
 def test_snapshot_skips_live_browser_profiles_and_stray_special_files(
     tmp_path, monkeypatch
 ):
@@ -288,7 +291,7 @@ def test_snapshot_unreadable_secret_names_failed_path(tmp_path, monkeypatch):
         return original(source, destination, **kwargs)
 
     monkeypatch.setattr(shutil, "copyfile", copyfile)
-    with pytest.raises(OSError, match=str(token)):
+    with pytest.raises(OSError, match=re.escape(repr(str(token)))):
         with isolated_machine_home(
             {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
         ):

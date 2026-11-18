@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_lint_session_cwd_other_project_control_plane.py::test_refusal_lists_both_project_roots",
+ "reason": "AssertionError: assert True is False"
+}

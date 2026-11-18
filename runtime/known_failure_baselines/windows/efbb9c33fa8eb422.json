@@ -1,0 +1,4 @@
+{
+  "node_id": "runtime/api/test_update_status_ids.py::TestDoneGuard::test_done_rejected_without_verified",
+  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
+}

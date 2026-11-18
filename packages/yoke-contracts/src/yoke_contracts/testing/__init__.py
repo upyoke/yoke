@@ -1,5 +1,5 @@
-"""Pytest plugins any project's test suite can load from yoke-contracts.
+"""Test support any project's suite can load from yoke-contracts.
 
-They need pytest, which the consuming project's test environment provides;
-yoke-contracts does not depend on it.
+Pytest plugins need pytest, which the consuming test environment provides;
+yoke-contracts does not depend on it. Environment helpers use only the standard library.
 """

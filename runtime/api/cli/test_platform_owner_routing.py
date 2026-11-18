@@ -78,24 +78,24 @@ def test_global_skill_copy_is_owned_and_refreshed(tmp_path, monkeypatch):
     assert result.reason == global_skill_install.NOT_OWNED
 
 
-def test_live_profile_refuses_stale_copy_and_keeps_source(tmp_path, monkeypatch):
-    store, link = tmp_path / "live", tmp_path / "profile"
-    store.mkdir()
-    target = tmp_path / "identity"
-    target.mkdir()
-    (target / "cookies").write_text("signed-in", encoding="utf-8")
+def test_live_profile_uses_authoritative_store_and_refuses_linked_root(tmp_path, monkeypatch):
+    store = tmp_path / "live"
+    target = store / "project" / "identity"
+    legacy = tmp_path / "legacy"
     monkeypatch.setattr(browser_profile, "live_identity_store_root", lambda: store)
-    monkeypatch.setattr(browser_profile, "live_identity_store_relative_path", lambda *args: Path("identity"))
-    monkeypatch.setattr(browser_profile, "_profile_path", lambda *args: link)
-    monkeypatch.setattr(browser_profile, "ensure_private_capability_dir", lambda path: path)
-    def copy(source, destination):
-        shutil.copytree(source, destination)
-        return "copy"
-    monkeypatch.setattr(browser_profile, "create_link", copy)
-    with pytest.raises(browser_profile.BrowserIdentityError, match="browser_identity_link_required"):
-        browser_profile._link_live_identity("project", "identity", create=False)
-    assert not link.exists()
-    assert (target / "cookies").read_text(encoding="utf-8") == "signed-in"
+    monkeypatch.setattr(browser_profile, "_profile_path", lambda *args: target)
+    monkeypatch.setattr(browser_profile, "_legacy_profile_path", lambda *args: legacy)
+    path = browser_profile._resolve("project", "identity", create=True)
+    assert path == target
+    assert path.is_dir()
+    assert not browser_profile.is_link(path)
+    (path / "cookies").write_text("signed-in", encoding="utf-8")
+    assert browser_profile._resolve("project", "identity", create=False) == path
+    assert (path / "cookies").read_text(encoding="utf-8") == "signed-in"
+    assert not legacy.exists()
+    monkeypatch.setattr(browser_profile, "is_link", lambda candidate: candidate == store)
+    with pytest.raises(browser_profile.BrowserIdentityError, match="browser_identity_store_unavailable.*link"):
+        browser_profile._resolve("project", "identity", create=True)
 
 
 def test_tree_observers_use_portable_parent_and_command_snapshots(monkeypatch):

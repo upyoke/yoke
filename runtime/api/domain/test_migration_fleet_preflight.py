@@ -90,12 +90,12 @@ class TestPendingNames:
 
 
 class TestRestorePointNamed:
-    def test_names_the_dump_then_restores_the_prior_value(self) -> None:
+    def test_names_the_dump_then_restores_the_prior_value(self, tmp_path) -> None:
         previous = os.environ.get(RESTORE_POINT_ENV)
         os.environ[RESTORE_POINT_ENV] = "snapshot:already-set"
         try:
-            with named_restore_point(Path("/tmp/example.dump")):
-                assert os.environ[RESTORE_POINT_ENV] == "/tmp/example.dump"
+            with named_restore_point(tmp_path / "example.dump"):
+                assert os.environ[RESTORE_POINT_ENV] == str(tmp_path / "example.dump")
             assert os.environ[RESTORE_POINT_ENV] == "snapshot:already-set"
         finally:
             if previous is None:

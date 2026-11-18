@@ -80,6 +80,7 @@ from yoke_core.domain.schema_init_work_claim_indexes import (
     create_work_claim_active_uniques,
 )
 from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
+from yoke_core.domain.shepherd_schema import create_shepherd_tables
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_message_indexes import (
     create_session_message_prefix_index,
@@ -120,6 +121,8 @@ def _create_in_dependency_order(conn: Any) -> None:
     creation steps precede it.
     """
     create_core_tables(conn)
+    # item_dependencies FKs into items, so the shepherd tables follow core.
+    create_shepherd_tables(conn)
     ensure_merge_queue_landing_record_schema(conn)
     create_model_reference_table(conn)
     create_universe_settings_table(conn)

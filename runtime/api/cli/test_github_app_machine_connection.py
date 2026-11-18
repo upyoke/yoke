@@ -16,9 +16,9 @@ from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
 
 import json
 from pathlib import Path
-import stat
 from typing import Any
 from yoke_cli.config import github_app_user_api, github_machine
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 def test_connect_persists_auth_but_stays_pending_without_installation(
@@ -58,7 +58,7 @@ def test_connect_persists_auth_but_stays_pending_without_installation(
     authorization = payload["connection_github"]["local"]["authorization"]
     credential = Path(authorization["refresh_credential_ref"])
     assert credential.is_file()
-    assert stat.S_IMODE(credential.stat().st_mode) == 0o600
+    assert is_owner_private_file(credential)
     document = json.loads(credential.read_text(encoding="utf-8"))
     assert "access_token" not in document
     assert document["refresh_token"] == "refresh-secret"

@@ -38,6 +38,7 @@ def _password(target: Path) -> str:
     return (target / "secrets" / "db-password").read_text(encoding="utf-8").strip()
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_preserves_operator_gitignore_and_rules_ignore_secrets(
     target,
     capsys,
@@ -102,6 +103,7 @@ def test_init_preserves_operator_gitignore_and_rules_ignore_secrets(
     )
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_protect_existing_is_idempotent_and_preserves_bundle(target, capsys):
     assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
@@ -132,6 +134,7 @@ def test_protect_existing_is_idempotent_and_preserves_bundle(target, capsys):
     )
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_protect_existing_refuses_already_tracked_sensitive_files(
     target,
     capsys,
@@ -174,6 +177,7 @@ def test_protect_existing_refuses_already_tracked_sensitive_files(
     assert (target / "secrets" / "db-password").read_bytes() == before
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_github_app_private_key_rotation_is_atomic_and_preserves_db_secret(
     target,
     tmp_path,
@@ -248,6 +252,7 @@ def test_github_app_private_key_rotation_is_atomic_and_preserves_db_secret(
     assert _PRIVATE_KEY_TWO not in output
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_github_app_private_key_rejects_invalid_source_without_replacement(
     target,
     tmp_path,
@@ -292,6 +297,7 @@ def test_github_app_private_key_rejects_invalid_source_without_replacement(
     assert list((target / "secrets").glob("*.tmp")) == []
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_atomic_replace_failure_preserves_existing_secret(tmp_path, monkeypatch):
     target = tmp_path / "secret"
     target.write_bytes(b"original\n")
@@ -313,6 +319,7 @@ def test_atomic_replace_failure_preserves_existing_secret(tmp_path, monkeypatch)
     assert list(tmp_path.glob("*.tmp")) == []
 
 
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_init_refuses_gitignore_symlink_without_touching_target(
     target,
     tmp_path,

@@ -176,14 +176,14 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     pre_commit_ok = (
         pre_commit.is_file()
         and os.access(pre_commit, os.X_OK)
-        and "yoke-pre-commit" in pre_commit.read_text()
+        and "yoke-pre-commit" in pre_commit.read_text(encoding="utf-8")
     )
     _add_result(results, "Git pre-commit hook", "✅" if pre_commit_ok else "❌")
     critical_fail = critical_fail or not pre_commit_ok
 
     settings = repo_root / ".claude" / "settings.json"
     settings_ok = settings.is_file() and all(
-        rule in settings.read_text() for rule in PERMISSION_RULES
+        rule in settings.read_text(encoding="utf-8") for rule in PERMISSION_RULES
     )
     _add_result(results, "Permission rules configured", "✅" if settings_ok else "❌")
     critical_fail = critical_fail or not settings_ok
@@ -200,7 +200,7 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     gitignore = repo_root / ".gitignore"
     gitignore_ok = gitignore.is_file()
     if gitignore_ok:
-        text = gitignore.read_text()
+        text = gitignore.read_text(encoding="utf-8")
         gitignore_ok = ".worktrees/" in text
     _add_result(results, ".gitignore updated", "✅" if gitignore_ok else "❌")
     critical_fail = critical_fail or not gitignore_ok

@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 pytest_plugins = [
     "runtime.ci_test_selection",
     "runtime.windows_test_selection",
+    "runtime.os_scope_markers",
     "runtime.known_failure_baseline",
     "yoke_contracts.testing.real_home_isolation",
     "runtime.running_environment_isolation",

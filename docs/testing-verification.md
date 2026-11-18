@@ -321,8 +321,8 @@ Tests of fixture helpers alone add no product coverage.
 
 Windows and macOS product smoke run only on demand through
 `.github/workflows/product-smoke.yml`, alongside Ubuntu x86 and arm runners.
-Windows proves candidate wheel installation and `yoke status`; macOS and Linux
-also exercise onboarding, hooks and source development. No per-PR Windows
+All four legs run the full flow: candidate wheel installation, `yoke status`,
+onboarding, hook replay and source development. No per-PR Windows
 check is required by the merge queue.
 
 For targeted Windows source tests, select `-m windows` across `runtime/api`,
@@ -333,3 +333,9 @@ roster needs editing. The product source-test runner still uses this selection.
 
 The [full suite on Windows and macOS](testing-verification/multi-os-suite.md)
 also runs only on demand, with shrink-only known-failure baselines.
+
+Declare native OS tests with `posix_only`, `windows_only`, `macos_only` or
+`linux_only`, each with `reason="why this OS is required"`. Module `pytestmark`
+scopes skip before import. Hand-written OS skips are refused; OS-scoped tests
+leave that OS's known-failure baseline. Only `windows_only` can also carry the
+`windows` smoke marker.

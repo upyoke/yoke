@@ -49,7 +49,7 @@ def workflows_version_publish(args: list[str]) -> int:
     if parsed is None:
         return 2
     try:
-        definition = json.loads(Path(parsed.definition_file).read_text())
+        definition = json.loads(Path(parsed.definition_file).read_text(encoding="utf-8"))
         if not isinstance(definition, dict):
             raise ValueError("definition must be a JSON object")
     except (OSError, ValueError) as exc:

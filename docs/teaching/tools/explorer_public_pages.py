@@ -20,7 +20,7 @@ def apply_public_page(record):
     source = PUBLIC / path
     if not source.is_file():
         raise ValueError(f'public page missing: docs/public/{path}')
-    tokens = MarkdownIt().parse(source.read_text())
+    tokens = MarkdownIt().parse(source.read_text(encoding="utf-8"))
     related = []
     for token in tokens:
         for child in token.children or []:

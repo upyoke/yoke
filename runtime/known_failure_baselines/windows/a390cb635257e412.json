@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_check_prerequisites_no_gh.py::test_messaging_emits_no_brew_install_gh",
+ "reason": "AssertionError: \\u250c\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u25"
+}

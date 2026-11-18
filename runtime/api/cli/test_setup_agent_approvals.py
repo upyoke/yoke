@@ -13,11 +13,10 @@ from runtime.api.cli.setup_agent_approvals_test_support import (
 
 
 import json
-import os
-import stat
 from pathlib import Path
 
 import pytest
+from yoke_contracts import owner_private_path
 
 from runtime.api.cli.setup_agent_test_support import (
     MACHINE_ONLY_ANSWERS,
@@ -83,8 +82,7 @@ def test_browser_step_ends_the_call_and_the_next_call_continues(drive, server):
     saved = _saved()
     assert saved["waiting_key"] == APPROVAL_KEY
     assert saved["pending_approval"]["device_code"] == "device-CODE-1"
-    mode = os.stat(setup_agent_answers.store_path()).st_mode
-    assert stat.S_IMODE(mode) == setup_agent_answers.STORE_MODE
+    assert owner_private_path.is_owner_private_file(setup_agent_answers.store_path())
     assert "device-CODE-1" not in drive.stderr
     setup_agent_answers.open_store().release()  # the lock is free again
 

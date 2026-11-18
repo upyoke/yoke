@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_project_install_cursor_delivery.py::test_source_bundle_covers_cursor_managed_surfaces",
+ "reason": "assert 'YOKE_EXECUTOR=cursor' in '{\\n  \"version\": 1,\\n  \"hooks\": {\\n    \"beforeShellExecution\": [\\n      {\\n        \"command\": \"powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand JABFAH"
+}

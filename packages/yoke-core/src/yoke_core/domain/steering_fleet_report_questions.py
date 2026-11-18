@@ -36,16 +36,14 @@ def _visible(
         return {}
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     open_status = (
-        "status IN ('pending', 'resolved') AND consumed_at IS NULL"
-        if include_resolved
-        else "status='pending' AND consumed_at IS NULL"
+        "status IN ('pending', 'resolved')" if include_resolved else "status='pending'"
     )
     watched = f" OR id IN ({','.join(p for _ in previous_ids)})" if previous_ids else ""
     columns = ("id", "status", "project_id", "audience_id", "requesting_session_id")
     rows = [
         {**dict(zip(columns, row[:5])), "subject_context": row[5]}
         for row in conn.execute(
-            "SELECT id, CASE WHEN consumed_at IS NOT NULL THEN 'consumed' ELSE status END, "
+            "SELECT id, status, "
             "project_id, audience_id, requesting_session_id, subject_context "
             "FROM decision_requests WHERE kind='operator_question' "
             f"AND ({open_status}{watched}) ORDER BY created_at, id",
@@ -57,7 +55,8 @@ def _visible(
 
         # Match read_questions' display rule before describing settled history.
         rows = [
-            row for row in rows
+            row
+            for row in rows
             if row["status"] == "pending"
             or int(row["id"]) in previous_ids
             or _context(row["subject_context"]).get("answer_delivery", {}).get("reason")
@@ -143,7 +142,11 @@ def read_questions(conn, viewer_session_id, previous_ids=()):
                 row["created_at"],
                 reason,
                 status,
-                f"answered ({answer_text(row)})" if status == "resolved" else status,
+                f"answered ({answer_text(row)})"
+                if status == "resolved"
+                else f"superseded by request {row['superseded_by_request_id']}"
+                if status == "superseded"
+                else status,
                 seen[request_id][1],
             )
         )

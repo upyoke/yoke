@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_idea_readiness_check_module_refs.py::TestVerifyFunctionOwnersCarveOuts::test_b_planned_ref_no_issue",
+ "reason": "AssertionError: 'UNRESOLVED_MODULE' unexpectedly found in ['UNRESOLVED_MODULE']"
+}

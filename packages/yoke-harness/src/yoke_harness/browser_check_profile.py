@@ -73,7 +73,7 @@ def _owner(pid: int) -> dict:
 def _write_record(check: BrowserCheck, record: dict) -> None:
     path = check.directory / "owner.json"
     temporary = check.directory / "owner.tmp"
-    temporary.write_text(json.dumps(record), encoding="utf-8")
+    temporary.write_text(json.dumps(record), encoding="utf-8", newline="\n")
     temporary.chmod(0o600)
     temporary.replace(path)
 
@@ -87,7 +87,7 @@ def record_daemon_owner(profile: str, pid: int) -> None:
         return
     check = BrowserCheck(directory.name, directory)
     try:
-        record = json.loads((directory / "owner.json").read_text())
+        record = json.loads((directory / "owner.json").read_text(encoding="utf-8"))
         record["daemon"] = _owner(pid)
         _write_record(check, record)
     except (OSError, ValueError):
@@ -105,7 +105,7 @@ def _remove(check: BrowserCheck) -> None:
         state_path = browser_client._state_file_path(str(check.profile))
         state = browser_client.DaemonState.load(state_path)
         if state and browser_client.daemon_running(state):
-            record = json.loads((check.directory / "owner.json").read_text())
+            record = json.loads((check.directory / "owner.json").read_text(encoding="utf-8"))
             daemon = record.get("daemon")
             if not daemon:
                 raise RuntimeError(
@@ -142,7 +142,7 @@ def sweep_checks() -> None:
             continue
         try:
             UUID(directory.name)
-            record = json.loads((directory / "owner.json").read_text())
+            record = json.loads((directory / "owner.json").read_text(encoding="utf-8"))
         except (ValueError, OSError):
             continue  # A concurrent creator has not published its owner yet.
         owner = record["owner"]
@@ -174,7 +174,7 @@ def check_scope(project, identity=None, *, check_id=None, keep_open=False):
                 if check.directory.is_symlink():
                     check = None
                     raise ValueError("check cannot be a link")
-                record = json.loads((check.directory / "owner.json").read_text())
+                record = json.loads((check.directory / "owner.json").read_text(encoding="utf-8"))
             except (ValueError, OSError):
                 raise RuntimeError(
                     "browser_check_unavailable: this check ended; start a new "
@@ -223,7 +223,7 @@ def check_scope(project, identity=None, *, check_id=None, keep_open=False):
                         "browser_check_unavailable: browser exited; start a new "
                         "sequence without --check-id."
                     )
-                record = json.loads((check.directory / "owner.json").read_text())
+                record = json.loads((check.directory / "owner.json").read_text(encoding="utf-8"))
                 record["owner"] = _owner(state.pid)
                 record["daemon"] = record["owner"]
                 _write_record(check, record)

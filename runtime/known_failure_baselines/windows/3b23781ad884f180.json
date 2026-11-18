@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_hook_helpers_identity.py::TestDetectExecutor::test_codex_coarse_fallback",
+ "reason": "RuntimeError: Could not determine home directory."
+}

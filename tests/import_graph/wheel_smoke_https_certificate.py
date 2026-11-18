@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.venv_layout import venv_python as venv_interpreter
+
 from pathlib import Path
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
@@ -52,7 +54,7 @@ print(json.dumps({'installed_module': yoke_cli.__file__, 'certificate_probe': 'p
 
 def smoke(tmp_path, product_wheelhouse, product_venv):
     venv_dir = product_venv
-    venv_python = venv_dir / "bin" / "python"
+    venv_python = venv_interpreter(venv_dir)
     sitecustomize_dir = write_sitecustomize(
         tmp_path,
         repo_root=Path(__file__).resolve().parents[2],

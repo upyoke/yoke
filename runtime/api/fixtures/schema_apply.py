@@ -55,16 +55,16 @@ def apply_canonical_schema(conn) -> None:
     from yoke_core.domain.org_schema import seed_default_org
     from yoke_core.domain.model_reference_store import (
         create_model_reference_table,
-        seed_initial_catalog,
     )
+    from yoke_core.domain.model_reference_shipped import sync_shipped_catalog
     from yoke_core.domain.project_seed_test_helpers import seed_project_identities
-    from yoke_core.domain.shepherd import cmd_init as shepherd_cmd_init
+    from yoke_core.domain.shepherd_schema import create_shepherd_tables
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
     create_core_tables(conn)
     create_model_reference_table(conn)
-    seed_initial_catalog(conn)
+    sync_shipped_catalog(conn)
     seed_project_identities(conn)
     create_actor_identity_tables(conn)
     ensure_event_schema(conn)
@@ -81,7 +81,7 @@ def apply_canonical_schema(conn) -> None:
     apply_idempotent_migrations(conn)
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
-    shepherd_cmd_init(conn)
+    create_shepherd_tables(conn)
     for col, ctype in _ITEMS_LEGACY_COLUMNS:
         if not _column_exists(conn, "items", col):
             conn.execute(f"ALTER TABLE items ADD COLUMN {col} {ctype}")

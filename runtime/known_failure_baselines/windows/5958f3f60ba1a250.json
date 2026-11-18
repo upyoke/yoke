@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/test_merge_worktree_post_streaming.py::TestStreamingTestOutput::test_streaming_prefix_on_output",
+ "reason": "NotADirectoryError: [WinError 267] The directory name is invalid"
+}

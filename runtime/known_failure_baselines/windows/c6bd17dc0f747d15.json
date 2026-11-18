@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/cli/test_browser_persistent_profile.py::test_daemon_start_reuses_a_daemon_on_the_same_profile",
+ "reason": "RuntimeError: browser_daemon_profile_mismatch: state belongs to another profile; inspect this profile's state file and rerun `yoke qa browser setup`"
+}

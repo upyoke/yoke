@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/harness/test_bootstrap_skills.py::TestResolveSkillPath::test_no_home_directory_fallback",
+ "reason": "assert '.agents/skills/yoke' in \"Yoke skill 'does-not-exist' not found at C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_no_home_directory_fallbac0\\\\.ag"
+}

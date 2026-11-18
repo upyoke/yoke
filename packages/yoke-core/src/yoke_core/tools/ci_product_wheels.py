@@ -44,13 +44,13 @@ def build_artifact(repo_root: Path, directory: Path) -> None:
     identity = _identity(repo_root)
     build_release.build_product_wheels(repo_root=repo_root, wheelhouse=directory)
     payload = {"schema": 1, **identity, "wheels": _wheel_hashes(directory)}
-    (directory / MANIFEST).write_text(json.dumps(payload, sort_keys=True) + "\n")
+    (directory / MANIFEST).write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
 
 
 def consume_artifact(repo_root: Path, directory: Path, wheelhouse: Path) -> None:
     """Validate immutable products, then build this interpreter's closure."""
     try:
-        payload = json.loads((directory / MANIFEST).read_text())
+        payload = json.loads((directory / MANIFEST).read_text(encoding="utf-8"))
         expected = {"schema": 1, **_identity(repo_root), "wheels": _wheel_hashes(directory)}
         if payload != expected:
             raise ValueError("manifest identity or wheel hashes differ from this checkout")

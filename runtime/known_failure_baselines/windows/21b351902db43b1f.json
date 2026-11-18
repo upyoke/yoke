@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/engines/test_doctor_hc_events_app_state_reads.py::TestScanEventsReads::test_flags_unallowlisted_read",
+ "reason": "AssertionError: 'packages/yoke-core/src/yoke_core/domain/new_feature.py:1' not found in 'packages\\\\yoke-core\\\\src\\\\yoke_core\\\\domain\\\\new_feature.py:1: [sql] ROWS = \"SELECT id FROM events WHERE item_i"
+}

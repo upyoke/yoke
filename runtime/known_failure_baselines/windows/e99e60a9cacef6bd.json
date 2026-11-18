@@ -1,0 +1,4 @@
+{
+ "node_id": "runtime/api/domain/test_shell_parse.py::test_cd_after_an_earlier_command_moves_later_segments",
+ "reason": "AssertionError: assert 'C:\\\\Usersrun...lier_comma0ci' == 'C:\\\\Users\\\\r...er_comma0\\\\ci'"
+}

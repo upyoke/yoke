@@ -127,8 +127,6 @@ class TestPipelineCLI:
                 "run-test-001",
                 "--timeout",
                 "60",
-                "--from-stage",
-                "deploy",
                 "--fresh",
                 "--image-tag",
                 "abc123def456",
@@ -138,7 +136,6 @@ class TestPipelineCLI:
         )
         assert args.primary_arg == "run-test-001"
         assert args.timeout == 60
-        assert args.from_stage == "deploy"
         assert args.fresh is True
         assert args.image_tag == "abc123def456"
         assert args.product_repo_path == "/repo"
@@ -147,7 +144,6 @@ class TestPipelineCLI:
         parser = deploy_pipeline._build_parser()
         args = parser.parse_args(["run-test-001"])
         assert args.timeout == 30
-        assert args.from_stage == ""
         assert args.fresh is False
         assert args.image_tag == ""
         assert args.product_repo_path == ""

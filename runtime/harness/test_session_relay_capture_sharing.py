@@ -49,7 +49,7 @@ def test_final_capture_failure_is_reported_after_retries(monkeypatch, tmp_path, 
     assert 'close open capture handles' in reported
 
 
-@pytest.mark.skipif(os.name != 'nt', reason='requires native Windows sharing semantics')
+@pytest.mark.windows_only(reason='requires native Windows sharing semantics')
 @pytest.mark.parametrize('operation', ['replace', 'read'])
 def test_native_windows_capture_lock_records_sharing_error_and_recovers(tmp_path, operation):
     from ctypes import wintypes
