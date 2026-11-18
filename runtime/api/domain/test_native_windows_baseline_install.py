@@ -69,7 +69,7 @@ def test_install_runs_through_console_bridge_and_ssh_only_verifies(console):
     assert result.evidence["install_surface"] == "windows-console"
     [call] = console
     assert "'https://api.example.test/install.ps1'" in call["script"]
-    assert "--yes --no-setup" in call["script"]
+    assert "--yes --no-setup 6>&1;" in call["script"]
     assert call["timeout"] == 1200 and call["hidden"] is False
     assert not any("install.ps1" in script for script in control.ssh_scripts)
     assert control.ssh_commands == [([control.path_state.yoke_bin, "--version"], {})]

@@ -236,7 +236,9 @@ def reach_baseline(control, name):
         "$env:YOKE_INSTALL_YES='1'; $env:YOKE_NO_SETUP='1'; "
         f"$env:YOKE_INSTALL_BASE_URL={quote(origin)}; "
         f"$installer=Invoke-WebRequest -UseBasicParsing {quote(origin + '/install.ps1')}; "
-        "& ([ScriptBlock]::Create($installer.Content)) --yes --no-setup; "
+        # install.ps1 echoes uv's output with Write-Host, the information
+        # stream; merge it into stdout so the console task returns it.
+        "& ([ScriptBlock]::Create($installer.Content)) --yes --no-setup 6>&1; "
         "if($LASTEXITCODE){exit $LASTEXITCODE}"
     )
     # Users install from a local PowerShell. sshd runs its sessions under
