@@ -141,3 +141,20 @@ def test_roundtrip_requires_explicit_disposable_dsn(tmp_path: Path) -> None:
 
     with pytest.raises(validator.ArchiveValidationError, match="DSN is required"):
         validator.validate_archive_roundtrip(artifact, "")
+
+
+def test_unpack_names_a_missing_backup_path(tmp_path: Path) -> None:
+    missing = tmp_path / "nowhere" / "backup.tar"
+    with pytest.raises(universe_archive.UniverseArchiveError) as caught:
+        universe_archive.unpack_universe_archive(
+            missing, tmp_path / "work", max_dump_bytes=1024
+        )
+    assert str(caught.value) == f"no backup file at {missing}"
+
+
+def test_unpack_names_a_backup_path_that_is_not_a_file(tmp_path: Path) -> None:
+    with pytest.raises(universe_archive.UniverseArchiveError) as caught:
+        universe_archive.unpack_universe_archive(
+            tmp_path, tmp_path / "work", max_dump_bytes=1024
+        )
+    assert str(caught.value) == f"the backup at {tmp_path} is not a regular file"

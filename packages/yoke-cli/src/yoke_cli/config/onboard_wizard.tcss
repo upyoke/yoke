@@ -40,8 +40,9 @@ Screen {
 
 /* ── Body ───────────────────────────────────────────────── */
 /* The body holds the active SelectionList/Input, which the shell focuses on
-   every swap. The selected row shows focus on its own via
-   _OptionRow.-selected, so the body needs no focus border. */
+   every swap. The selected row of a focused list shows focus on its own via
+   _OptionRow.-selected, so the body needs no focus border; a form whose text
+   box holds focus draws its list unselected. */
 #onboard-body {
     height: 1fr;
     padding: 1 3 0 3;
@@ -131,6 +132,17 @@ _OptionRow.-selected {
        in an exported screenshot — it read as one until an operator asked. */
     border-left: heavy $onboard-accent;
     padding: 0;
+}
+
+/* A list without focus (a form whose text box holds it) draws its cursor row
+   like any other row: Enter would not reach the list, so nothing reads as
+   selected. */
+SelectionList:blur _OptionRow.-selected {
+    color: $onboard-dim;
+    text-style: none;
+    background: transparent;
+    border-left: blank;
+    padding: 0 0 0 1;
 }
 
 Screen.plain-glyphs _OptionRow.-selected {

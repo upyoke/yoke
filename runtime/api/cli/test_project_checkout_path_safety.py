@@ -42,3 +42,27 @@ def test_project_apply_refuses_replaced_symlink_checkout(
     assert "symbolic link" in capsys.readouterr().err
     assert sentinel.read_text(encoding="utf-8") == "operator data"
     assert not (victim / ".git").exists()
+
+
+def test_path_under_a_file_names_the_file(tmp_path: Path) -> None:
+    from yoke_cli.config.project_checkout_path import validation_error
+
+    blocker = tmp_path / "passwd"
+    blocker.write_text("not a folder", encoding="utf-8")
+    assert validation_error(blocker / "qa-proj" / "deeper") == (
+        f"{blocker} is a file, not a folder — pick a folder path."
+    )
+
+
+def test_etc_passwd_child_names_etc_passwd() -> None:
+    import os
+
+    import pytest
+
+    if os.name == "nt" or not Path("/etc/passwd").is_file():
+        pytest.skip("/etc/passwd is a POSIX file")
+    from yoke_cli.config.project_checkout_path import validation_error
+
+    assert validation_error("/etc/passwd/qa-proj") == (
+        "/etc/passwd is a file, not a folder — pick a folder path."
+    )

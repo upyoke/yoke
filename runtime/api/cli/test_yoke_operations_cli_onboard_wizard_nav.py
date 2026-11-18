@@ -227,3 +227,34 @@ def test_apply_outcome_back_returns_to_the_preceding_interactive_view(key: str) 
             assert len(app._history) == 2
 
     asyncio.run(scenario())
+
+
+def test_back_starts_the_list_on_the_row_chosen_before() -> None:
+    app, _spy = make_app()
+    rows = [
+        SelectionRow("aws", "AWS", ""),
+        SelectionRow("no-managed-host", "No managed host", ""),
+        SelectionRow("later", "Decide later", ""),
+    ]
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            review = _View(_prompt(), builder=lambda: [Static("Review")])
+            app._goto(
+                _View(
+                    _prompt(),
+                    lambda _value: app._goto(review),
+                    lambda: [SelectionList(list(rows))],
+                )
+            )
+            await pilot.pause()
+            await pilot.press("down", "down", "enter")
+            await pilot.pause()
+            assert app._history[-1] is review
+            await pilot.press("escape")
+            await pilot.pause()
+            chooser = app.query_one("#onboard-body SelectionList", SelectionList)
+            assert chooser.selected_value == "later"
+
+    asyncio.run(scenario())

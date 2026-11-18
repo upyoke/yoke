@@ -42,6 +42,8 @@ class _View:
     builder: Callable[[], Iterable[Static]] | None = None
     copy_targets: tuple[CopyTarget, ...] = ()
     on_form: Callable[[dict[str, str]], None] | None = None
+    # The row value last chosen here; a Back re-render starts its list on it.
+    chosen: str | None = None
 
     def __post_init__(self) -> None:
         if self.builder is None:

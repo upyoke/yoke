@@ -178,9 +178,6 @@ def _failure(shell, exc, retry) -> None:
                 step=STEP_CONNECT,
                 title="Backup setup needs attention.",
                 message=redact_api_tokens(str(exc)),
-                detail_lines=(
-                    "The backup file is preserved. Correct the named problem, then retry.",
-                ),
                 choices=(
                     SelectionRow("retry", "Try again", "resume this step"),
                     SelectionRow("back", "Back", "choose another Yoke home"),

@@ -137,10 +137,10 @@ def unpack_universe_archive(
     max_dump_bytes: int,
 ) -> tuple[Path, dict[str, Any]]:
     """Extract the dump and optional files after checking their manifest."""
+    if not archive.exists():
+        raise UniverseArchiveError(f"no backup file at {archive}")
     if not archive.is_file():
-        raise UniverseArchiveError(
-            "the portable universe artifact is not a regular file"
-        )
+        raise UniverseArchiveError(f"the backup at {archive} is not a regular file")
     create_private_directory(work_dir)
     try:
         with tarfile.open(archive, mode="r:") as reader:
