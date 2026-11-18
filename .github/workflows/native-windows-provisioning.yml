@@ -35,6 +35,15 @@ jobs:
           uv run --frozen python -m pytest --noconftest -n 0 -v -s --tb=short
           runtime/api/domain/test_native_windows_profile.py::test_real_profile_creation_and_retry_preserve_password
           runtime/api/domain/test_native_windows_firewall.py
+          runtime/api/domain/test_native_windows_harness_clis.py
+          runtime/api/domain/test_native_windows_baseline.py
+          runtime/api/domain/test_native_windows_console_reader.py
+          runtime/api/domain/test_native_windows_framed_process.py
+          runtime/api/domain/test_native_windows_admin_staging.py
+          runtime/api/domain/test_native_windows_standard_staging.py
+          runtime/api/domain/test_native_windows_tailnet.py
+          runtime/api/domain/test_ssh_connection_reuse.py::test_windows_target_never_creates_or_checks_master_on_any_controller
+          runtime/api/domain/test_ssh_connection_reuse.py::test_windows_explicit_policy_overrides_ambient_ssh_configuration
           --junitxml=native-windows-provisioning.xml
       - name: Retain exact-commit provisioning evidence
         if: always()

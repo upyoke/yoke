@@ -72,13 +72,14 @@ def test_profile_copy_failure_does_not_report_restored():
     assert not result.ok
     assert result.error_code == "windows_profile_reset_failed"
     assert "robocopy.exe" in scripts[0]
-    assert "SetEnvironmentVariable" in scripts[0]
-    assert "Unregister-ScheduledTask" in scripts[0]
+    assert "Restore-YokeUserPath $pathKey $state.user_path_snapshot" in scripts[0]
+    assert "Remove-YokeTask $task.Path" in scripts[0]
     assert "AppData\\Roaming\\Claude" in scripts[0]
     assert not any(line.startswith("+") for line in scripts[0].splitlines())
 
 
-def test_desktop_task_uses_interactive_user_and_is_cleaned():
+@pytest.mark.parametrize("hidden", [False, True])
+def test_desktop_task_uses_interactive_user_and_is_cleaned(hidden):
     scripts = []
     uploads = []
     control = SimpleNamespace(
@@ -89,12 +90,14 @@ def test_desktop_task_uses_interactive_user_and_is_cleaned():
         ),
     )
     control._run = lambda script, **kwargs: scripts.append(script) or completed()
-    result = desktop_script(control, "exit 7", timeout=1)
+    result = desktop_script(control, "exit 7", timeout=1, hidden=hidden)
     assert result.returncode == 7
     assert result.stdout == "native"
-    assert "-LogonType Interactive" in scripts[0]
-    assert "-RunLevel Limited" in scripts[0]
-    assert "Unregister-ScheduledTask" in scripts[-1]
+    assert "Principal.LogonType=3" in scripts[0]
+    assert "Principal.RunLevel=0" in scripts[0]
+    assert "Remove-YokeTask 'YokeQa-" in scripts[-1]
+    expected = "-WindowStyle Hidden" if hidden else "-WindowStyle Normal"
+    assert expected in scripts[0] and expected in scripts[-1]
     assert uploads[0][1] == "exit 7"
 
 
@@ -150,10 +153,10 @@ def test_native_console_task_outlives_open_and_is_owned_until_close(monkeypatch)
     terminal = WindowsTerminal(control)
     assert terminal.launch("Write-Host native")
     assert terminal.pid == 456
-    assert not any("Stop-ScheduledTask" in script for script in calls)
+    assert not any("Remove-YokeTask '" in script for script in calls)
     assert terminal.close()
-    assert any("Stop-ScheduledTask" in script for script in calls)
-    assert any("Unregister-ScheduledTask" in script for script in calls)
+    assert any("Remove-YokeTask '" in script for script in calls)
+    assert any("$task.Stop(0)" in script for script in calls)
 
 
 def test_windows_probe_parser_accepts_native_executables_and_rejects_relative():

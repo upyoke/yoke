@@ -148,3 +148,50 @@ def test_long_configured_root_uses_existing_short_scratch_candidate(tmp_path, mo
     assert socket.is_relative_to(tmp_path)
     assert not socket.is_relative_to(long_root)
     assert not long_root.exists()
+
+
+@pytest.mark.parametrize("controller", ["darwin", "linux", "win32"])
+def test_windows_target_never_creates_or_checks_master_on_any_controller(monkeypatch, controller):
+    calls = []
+    monkeypatch.setattr(transport, "_control_socket", lambda *a: pytest.fail("Windows target allocated a socket"))
+
+    def facts(self):
+        assert self._control_path is None
+        assert self._run("one facts command", timeout=20).returncode == 0
+        return {"home": r"C:\Users\qa", "shell": "powershell.exe"}
+
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "receipt", "")
+
+    monkeypatch.setattr(transport.SshTestMachineTransport, "_host_facts", facts, raising=False)
+    monkeypatch.setattr(subprocess, "run", run)
+    with monkeypatch.context() as platform:
+        platform.setattr(transport.sys, "platform", controller)
+        instance = transport.SshTestMachineTransport(
+            settings={"os": "windows", "host": "host", "user": "qa"}, key_path=Path("key"),
+        )
+        argv = instance._ssh_argv("command")
+    assert len(calls) == 1 and "-O" not in calls[0]
+    for option in ("ControlMaster=no", "ControlPersist=no", "ControlPath=none"):
+        assert argv.count(option) == 1 and calls[0].count(option) == 1
+    # SFTP receives precisely this base connection prefix, without a PS command.
+    sftp = ["sftp", *argv[1:-2], "-b", "-", argv[-2]]
+    assert all(option in sftp for option in ("ControlMaster=no", "ControlPersist=no", "ControlPath=none"))
+    assert "ControlMaster=auto" not in argv and "ControlPersist=30" not in argv
+
+
+def test_windows_explicit_policy_overrides_ambient_ssh_configuration(tmp_path_factory):
+    config_dir = tmp_path_factory.mktemp("windows-ssh-config")
+    instance = object.__new__(transport.SshTestMachineTransport)
+    instance.os, instance._host, instance._user = "windows", "localhost", "qa"
+    instance._key_path, instance._control_path, instance._host_key_options = config_dir / "key", None, []
+    config = config_dir / "config"
+    config.write_text("Host *\n  ControlMaster auto\n  ControlPersist 99\n  ControlPath ambient-master\n")
+    argv = instance._ssh_argv("must not execute")
+    result = subprocess.run([argv[0], "-G", "-F", str(config), *argv[1:-1]], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    effective = dict(line.split(" ", 1) for line in result.stdout.splitlines() if " " in line)
+    assert effective["controlmaster"] == "false"
+    assert effective["controlpersist"] == "no"
+    assert effective.get("controlpath", "none") == "none"

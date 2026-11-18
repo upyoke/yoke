@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -158,6 +159,17 @@ class AzureMachinePower:
         config_id, attached, location = self._ip_config()
         if attached:
             return
+        selectors = re.fullmatch(
+            r"/subscriptions/[^/]+/resourceGroups/([^/]+)/providers/"
+            r"Microsoft\.Network/networkInterfaces/([^/]+)/ipConfigurations/([^/]+)",
+            config_id,
+            flags=re.IGNORECASE,
+        )
+        if selectors is None:
+            raise AzureAdminError(
+                "Azure NIC IP configuration id is invalid; inspect the NIC and retry"
+            )
+        resource_group, nic_name, config_name = selectors.groups()
         self._network(
             "public-ip",
             "create",
@@ -176,8 +188,12 @@ class AzureMachinePower:
             "nic",
             "ip-config",
             "update",
-            "--ids",
-            config_id,
+            "--resource-group",
+            resource_group,
+            "--nic-name",
+            nic_name,
+            "--name",
+            config_name,
             "--public-ip-address",
             self.public_ip_id,
         )

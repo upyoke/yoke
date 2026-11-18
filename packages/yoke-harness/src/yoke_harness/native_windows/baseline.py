@@ -4,6 +4,8 @@ from pathlib import PureWindowsPath
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
+from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
 
 
 # These contain live Windows credentials, browser identities or locked registry
@@ -15,6 +17,8 @@ PRESERVED_DIRECTORIES = (
     ".local/share/claude",
     ".local/share/cursor-agent",
     "AppData/Local/Microsoft",
+    "AppData/Local/Packages",
+    "AppData/Local/Claude-Data",
     "AppData/Roaming/Microsoft",
     "AppData/Roaming/Claude",
     "AppData/Roaming/Cursor",
@@ -46,7 +50,8 @@ def golden_path(control, path):
     return str(selected)
 
 
-def profile_script(control, operation, destination):
+def profile_copy_script(control, destination):
+    """Mirror resettable files while live app identities stay on the host."""
     path = golden_path(control, destination)
     excluded = ",".join(
         quote(str(PureWindowsPath(control.home) / p)) for p in PRESERVED_DIRECTORIES
@@ -62,25 +67,35 @@ def profile_script(control, operation, destination):
         for base in (control.home, str(PureWindowsPath(path) / "profile"))
     ]
     excluded_files = ",".join(quote(value) for value in files)
-    preamble = f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
+    return f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
+$logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
+New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+$copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')
+& robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /NP ('/LOG:'+$copyLog) /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
+$copyExit=$LASTEXITCODE
+if($copyExit -ge 8){{throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; inspect private log '+$copyLog+'; preserve the unsealed golden and repair the named copy failure before retrying')}}
+Remove-Item -LiteralPath $copyLog -Force
+"""
+
+
+def profile_script(control, operation, destination):
+    path = golden_path(control, destination)
+    preamble = TASK_HELPERS + PATH_HELPERS + f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
     preamble += r"""
 $check=$golden
 while($check){
  if(Test-Path -LiteralPath $check){
-  $entry=Get-Item -LiteralPath $check
+  $entry=Get-Item -LiteralPath $check -Force -ErrorAction Stop
   if($entry.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: remove links from the golden path before capture or restore'}
  }
  $parent=Split-Path -Parent $check
  if($parent -eq $check){break}; $check=$parent
 }
 if(Test-Path -LiteralPath (Join-Path $golden 'profile')){
- if((Get-Item -LiteralPath (Join-Path $golden 'profile')).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: preserve the golden and remove its linked profile before restore'}
+ if((Get-Item -LiteralPath (Join-Path $golden 'profile') -Force -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: preserve the golden and remove its linked profile before restore'}
 }
 """.replace("\n+", "\n")
-    copy = f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
-& robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
-if($LASTEXITCODE -ge 8){{throw 'windows_profile_copy_failed: close test applications and retry; the golden was not sealed'}}
-"""
+    copy = profile_copy_script(control, path)
     if operation == "capture":
         return (
             preamble
@@ -89,10 +104,16 @@ New-Item -ItemType Directory -Path $golden | Out-Null
 $source=$profileRoot; $target=Join-Path $golden 'profile'
 """
             + copy
-            + r"""$tasks=@(Get-ScheduledTask | Where-Object {$_.Principal.UserId -in @($env:USERNAME,[Security.Principal.WindowsIdentity]::GetCurrent().Name)} | ForEach-Object {
-  @{name=$_.TaskName;path=$_.TaskPath;xml=(Export-ScheduledTask -TaskName $_.TaskName -TaskPath $_.TaskPath)}
+            + r"""$tasks=@(Get-YokeOwnedTasks ($schedule.GetFolder('\')) | ForEach-Object {
+  if($_.Definition.Principal.LogonType -notin @(2,3) -or $_.Definition.Principal.RunLevel -ne 0){
+   throw 'windows_task_credentials_required: baseline tasks must use limited interactive or S4U logon without stored passwords'
+  }
+  $split=$_.Path.LastIndexOf('\')
+  @{name=$_.Name;path=$_.Path.Substring(0,$split+1);xml=$_.Xml}
 })
-@{user_path=[Environment]::GetEnvironmentVariable('Path','User');tasks=$tasks} |
+$pathKey=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+try {$pathSnapshot=Read-YokeUserPath $pathKey} finally {if($pathKey){$pathKey.Dispose()}}
+@{user_path=[Environment]::GetEnvironmentVariable('Path','User');user_path_snapshot=$pathSnapshot;tasks=$tasks} |
  ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 (Join-Path $golden 'state.json')
 """
         )
@@ -100,24 +121,24 @@ $source=$profileRoot; $target=Join-Path $golden 'profile'
         preamble
         + r"""if(!(Test-Path -LiteralPath (Join-Path $golden 'sealed'))){throw 'windows_golden_unsealed: capture and register a sealed golden before reset'}
 $state=Get-Content -Raw (Join-Path $golden 'state.json') | ConvertFrom-Json
+Assert-YokeUserPath $state.user_path_snapshot
 $source=Join-Path $golden 'profile'; $target=$profileRoot
 """
         + copy
-        + r"""[Environment]::SetEnvironmentVariable('Path',$state.user_path,'User')
-$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+$state.user_path
-$owned=@(Get-ScheduledTask | Where-Object {$_.Principal.UserId -in @($env:USERNAME,[Security.Principal.WindowsIdentity]::GetCurrent().Name)})
+        + r"""$pathKey=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+try {Restore-YokeUserPath $pathKey $state.user_path_snapshot} finally {$pathKey.Dispose()}
+$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
+$owned=@(Get-YokeOwnedTasks ($schedule.GetFolder('\')))
 foreach($task in $owned){
- if(!($state.tasks | Where-Object {$_.name -eq $task.TaskName -and $_.path -eq $task.TaskPath})){
-  Stop-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath
-  Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false
+ if(!($state.tasks | Where-Object {($_.path+$_.name) -eq $task.Path})){
+  Remove-YokeTask $task.Path
  }
 }
 Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'YokeQa') -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 Get-ChildItem -LiteralPath $env:TEMP -Force | Where-Object {
  $_.Name -match '^(yoke|playwright|chromium|pip)-' -and $_.FullName -ne $PSCommandPath
 } | Remove-Item -Recurse -Force
-foreach($task in $state.tasks){Register-ScheduledTask -TaskName $task.name -TaskPath $task.path -Xml $task.xml -Force | Out-Null}
-if([Environment]::GetEnvironmentVariable('Path','User') -cne $state.user_path){throw 'windows_path_restore_failed: repair user environment access and reset again'}
+foreach($task in $state.tasks){Restore-YokeTask $task}
 """
     )
 

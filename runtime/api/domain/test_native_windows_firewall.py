@@ -12,6 +12,9 @@ from uuid import uuid4
 import pytest
 
 from runtime.api.domain.native_windows_fixture_cleanup import AUTOLOGON_CLEARED_SCRIPT
+from runtime.api.domain.native_windows_fixture_tasks import verify_standard_task_operations
+from runtime.api.domain.native_windows_fixture_upload import chunk_probe
+from runtime.api.domain.native_windows_fixture_firewall import verify_tailnet_scope
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
@@ -31,25 +34,17 @@ def powershell(script, directory, timeout=300):
 
 @pytest.mark.windows_only(reason='requires native Windows PowerShell')
 def test_real_chunk_append_rejects_wrong_offset_and_preserves_prefix(tmp_path):
-    from yoke_harness.native_windows.stdin_frame import frame_bytes, upload_received, upload_script
+    from yoke_harness.native_windows.stdin_frame import upload_received
 
     target = tmp_path / "chunks.bin"
     payload = b"first chunk" * 100
     for offset, chunk in ((0, payload), (len(payload), b"second chunk")):
-        script = upload_script(quote(str(target)), offset=offset)
-        result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded(script)],
-            input=frame_bytes(chunk), capture_output=True, text=True, timeout=20,
-        )
+        result = chunk_probe(target, chunk, offset)
         expected = payload if offset == 0 else payload + chunk
         assert upload_received(result, expected), result.stderr
         assert target.read_bytes() == expected
     for offset in (0, 1):
-        result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand",
-             encoded(upload_script(quote(str(target)), offset=offset))],
-            input=frame_bytes(b"bad"), capture_output=True, text=True, timeout=20,
-        )
+        result = chunk_probe(target, b"bad", offset)
         assert result.returncode != 0
         assert target.read_bytes() == expected
 
@@ -69,6 +64,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         else Path(os.environ["ProgramFiles"]) / "Git/usr/bin"
     )
     assert (directory / "ssh.exe").is_file(), "declared SSH client missing"
+    assert (directory / "sftp.exe").is_file(), "declared SFTP client missing"
     monkeypatch.setenv("PATH", str(directory) + os.pathsep + os.environ["PATH"])
     with capsys.disabled():
         print("SSH_CLIENT", client, shutil.which("ssh"))
@@ -100,7 +96,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             diagnostic = powershell(
                 "Get-Service sshd | Format-List Name,Status; "
                 "Get-NetTCPConnection -LocalPort 22 -ErrorAction SilentlyContinue | Format-List State,LocalAddress; "
-                "Get-ChildItem 'C:\\ProgramData\\YokeQaProvision-*.ps1' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
+                "Get-ChildItem 'C:\\ProgramData\\YokeQaProvision-*' -ErrorAction SilentlyContinue | Format-List Length,LastWriteTime; "
                 "Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 15 -ErrorAction SilentlyContinue | Select-Object TimeCreated,Message | Format-List",
                 tmp_path,
             )
@@ -139,7 +135,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         output = capsys.readouterr().out
         for receipt in (
             "Native OpenSSH ready; password authentication disabled.",
-            "Native standard user, private golden directory and SSH-only desktop route ready.",
+            "Native standard user, private golden directory and private desktop routes ready.",
             "Native QA recovery task ready.",
         ):
             assert receipt in output
@@ -178,10 +174,23 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             settings={"os": "windows", "host": "127.0.0.1", "user": name},
             key_path=key, secret_values=(custody["password"],),
         )
+        assert transport._control_path is None
         assert transport.windows_facts["admin"] is False
         assert transport.windows_facts["user"].split("\\")[-1].lower() == name
         assert transport.windows_facts["build"].isdigit()
         assert transport.home.lower().endswith("\\" + name)
+        from runtime.api.domain.test_native_windows_standard_staging import verify_real_standard_sftp
+
+        verify_real_standard_sftp(transport)
+        from runtime.api.domain.test_native_windows_tailnet import (
+            verify_real_system_tailnet_errors, verify_real_tailnet_startup_policy,
+        )
+
+        verify_real_system_tailnet_errors(key, admin)
+        verify_real_tailnet_startup_policy(powershell, tmp_path)
+        verify_standard_task_operations(
+            {"os": "windows", "host": "127.0.0.1", "user": name}, key, custody["password"],
+        )
         checks = rf"""
 $u=Get-LocalUser -Name '{name}'
 $p=Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\'+$u.SID.Value)
@@ -195,17 +204,18 @@ $task=Get-ScheduledTask -TaskName YokeQaMachineSettings
 if($task.Principal.UserId -notin @('SYSTEM','S-1-5-18')){{throw 'recovery task is not SYSTEM'}}
 if(!(Test-Path 'C:\ProgramData\YokeQa\private\machine-settings.ps1')){{throw 'recovery program missing'}}
 if(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name DefaultPassword -ErrorAction SilentlyContinue){{throw 'plaintext autologon password'}}
-if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*.ps1' -ErrorAction SilentlyContinue){{throw 'owned upload staging remains'}}
+if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*' -ErrorAction SilentlyContinue){{throw 'owned upload staging remains'}}
 'GUEST_SETUP_OK'
 """
         verified = powershell(checks, tmp_path)
         assert verified.returncode == 0, verified.stderr
         assert "GUEST_SETUP_OK" in verified.stdout
+        verify_tailnet_scope(powershell, tmp_path)
         # A genuinely unrestricted RDP rule must still fail closed. The
         # built-in kernel/Wi-Fi rule is unrelated to svchost's RDP listener.
         rule = "YokeFixtureRdp" + uuid4().hex
         rejected = powershell(
-            f"New-NetFirewallRule -Name '{rule}' -DisplayName 'owned RDP fixture' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -Program Any -Service Any | Out-Null; try {{\n"
+            f"New-NetFirewallRule -Name '{rule}' -DisplayName 'Tailscale-In' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -Program Any -Service Any | Out-Null; try {{\n"
             + FIREWALL_SCRIPT + f"\n}} finally {{Remove-NetFirewallRule -Name '{rule}'}}",
             tmp_path,
         )

@@ -195,18 +195,26 @@ def _start_container(args: list[str], container: str) -> None:
         try:
             _docker(args, timeout=120)
             return
-        except PreparationError:
-            if attempt == 0:
+        except PreparationError as startup:
+            ambiguous = isinstance(startup.__cause__, subprocess.TimeoutExpired)
+            if attempt == 0 and not ambiguous:
                 try:
                     _docker(["docker", "rm", "-f", container], timeout=30)
                 except PreparationError as exc:
                     print(str(exc), file=sys.stderr, flush=True)
-                continue
+                else:
+                    continue
             _print_diagnostics((
                 ["docker", "ps", "-a", "--filter", f"name={container}"],
                 ["docker", "logs", "--tail", "50", container],
                 ["docker", "info"],
             ))
+            if ambiguous:
+                raise _refuse(
+                    f"ci_runner_postgres_start_ambiguous: {startup}",
+                    f"Inspect Docker and reconcile the owned container {container} before "
+                    "retrying CI; a timed-out creation can still complete after the client exits",
+                ) from startup
             raise
 
 

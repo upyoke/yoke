@@ -7,6 +7,8 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.baseline import profile_operation, reach_baseline
 from yoke_harness.native_windows.desktop import capture_desktop
 from yoke_harness.native_windows.journal import journal_operation
+from yoke_harness.native_windows.features import feature_states, features_absent
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.native_windows.transport import WindowsTransport
 
 
@@ -14,29 +16,41 @@ class SshNativeWindowsHostOperations(WindowsTransport):
     """A standard Windows user; no WSL commands or Linux desktop intermediates."""
 
     def bind_qa_lease(self, lease_id):
+        self.native_features = None
+        self._feature_lease_id = None
         self.qa_lease_id = lease_id
-        journal_operation(self, "restore")
+        self.journal_settings("restore")
 
     def journal_settings(self, action):
-        return journal_operation(self, action)
+        self.native_features = None
+        self._feature_lease_id = None
+        receipt = journal_operation(self, action)
+        if action == "restore":
+            self.native_features = feature_states(receipt.get("features"))
+            self._feature_lease_id = str(self.qa_lease_id)
+        return receipt
 
     @contextmanager
     def machine_settings_guard(self):
         # Recovery belongs to the next serial lease before any new mutation.
-        journal_operation(self, "restore")
-        journal_operation(self, "capture")
+        self.journal_settings("restore")
+        self.journal_settings("capture")
         try:
             yield
         finally:
-            journal_operation(self, "restore")
+            self.journal_settings("restore")
 
     def check_connection(self):
+        if not getattr(self, "native_features", None) or getattr(self, "_feature_lease_id", None) != str(getattr(self, "qa_lease_id", None)):
+            raise HostControlLocalError(
+                code="native_windows_features_unverified", phase="native_feature_proof",
+                detail="No current-lease Windows feature proof is available.",
+                recovery_hint="Acquire and bind a fresh serial machine QA lease before checking native readiness.",
+            )
+        wsl_absent = features_absent(self.native_features)
         facts = self._run(
-            r"""$features=@(Get-CimInstance Win32_OptionalFeature | Where-Object {
- $_.Name -in @('Microsoft-Windows-Subsystem-Linux','VirtualMachinePlatform') -and $_.InstallState -eq 1
-})
-$release=if(Get-Command yoke.cmd -ErrorAction SilentlyContinue){(& yoke.cmd --version) -join ' '}else{'absent'}
-@{wsl_absent=($features.Count -eq 0);yoke_release=$release} | ConvertTo-Json -Compress
+            r"""$release=if(Get-Command yoke.cmd -ErrorAction SilentlyContinue){(& yoke.cmd --version) -join ' '}else{'absent'}
+@{yoke_release=$release} | ConvertTo-Json -Compress
 """,
             timeout=30,
         )
@@ -45,7 +59,7 @@ $release=if(Get-Command yoke.cmd -ErrorAction SilentlyContinue){(& yoke.cmd --ve
         except ValueError:
             observed = {}
         # An uninstalled Yoke is a valid fresh-host state.
-        ok = facts.returncode == 0 and observed.get("wsl_absent") is True
+        ok = facts.returncode == 0 and wsl_absent
         from yoke_harness.golden_harness_clis import probe_harness_cli_versions
 
         versions = probe_harness_cli_versions(self) if ok else {}
@@ -58,7 +72,8 @@ $release=if(Get-Command yoke.cmd -ErrorAction SilentlyContinue){(& yoke.cmd --ve
                 "build": self.windows_facts["build"],
                 "harness_version": versions,
                 "yoke_release": observed.get("yoke_release") or "absent",
-                "wsl_absent": observed.get("wsl_absent"),
+                "wsl_absent": wsl_absent,
+                "windows_features": self.native_features,
                 "runner_materialized": ok,
                 "observed_outcome": "passed" if ok else "refused",
                 **(

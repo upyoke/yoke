@@ -207,13 +207,15 @@ yoke aws exec --project P -- ec2 stop-instances --instance-ids INSTANCE_ID
 ```
 
 On Azure, deallocate the VM, then detach and delete its `VM-yoke-power`
-public IP. Use the VM, NIC IP configuration and public IP resource IDs from
-the provider. If a network command fails, inspect its error, repair the named
+public IP. In Azure, open the VM's network interface and find the IP
+configuration that references this public IP. Use the NIC's resource group,
+NIC name and IP configuration name for the detach command. If a network
+command fails, inspect its error, repair the named
 permission or resource and retry the failed step.
 
 ```text
 yoke azure exec --project P -- vm deallocate --ids VM_RESOURCE_ID
-yoke azure exec --project P -- network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
+yoke azure exec --project P -- network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address null
 yoke azure exec --project P -- network public-ip delete --ids IP_ID
 ```
 

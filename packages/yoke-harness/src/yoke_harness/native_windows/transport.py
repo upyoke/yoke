@@ -3,25 +3,13 @@
 import base64
 import json
 import subprocess
-from uuid import uuid4
 from pathlib import PureWindowsPath
 from types import SimpleNamespace
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_harness.native_windows.stdin_frame import (
-    frame_bytes,
-    upload_script,
-    upload_received,
-)
+from yoke_harness.native_windows.powershell import encoded, quote
+from yoke_harness.native_windows.standard_staging import verified_payload
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
-
-
-def quote(value: str) -> str:
-    return "'" + str(value).replace("'", "''") + "'"
-
-
-def encoded(script: str) -> str:
-    return base64.b64encode(script.encode("utf-16-le")).decode("ascii")
 
 
 def command(argv) -> str:
@@ -78,6 +66,8 @@ class WindowsTransport(SshTestMachineTransport):
             "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); "
             "try { " + script + " } catch { [Console]::Error.WriteLine($_); exit 1 }"
         )
+        if len(encoded(wrapped)) + 80 >= 8000:
+            raise RuntimeError("windows_command_too_long: use verified script staging")
         return super()._ssh_argv(
             "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
             + encoded(wrapped)
@@ -90,25 +80,16 @@ class WindowsTransport(SshTestMachineTransport):
             return super()._run(
                 command, input_text=input_text, timeout=timeout, debug_log=debug_log
             )
-        name = "yoke-qa-" + uuid4().hex + ".ps1"
-        path = f"(Join-Path $env:TEMP {quote(name)})"
-        payload = command.encode("utf-8-sig")
-        write = upload_script(path)
-        uploaded = super()._run(
-            write,
-            input_text=frame_bytes(payload),
-            timeout=30,
-        )
-        if not upload_received(uploaded, payload):
-            raise RuntimeError(
-                "windows_script_upload_failed: verify the upload receipt before executing"
+        with verified_payload(self, command.encode("utf-8-sig")) as stage:
+            stage.execution_pending = True
+            result = super()._run(
+                f"& {stage.path}", input_text=input_text, timeout=timeout, debug_log=debug_log,
             )
-        return super()._run(
-            f"try {{ & {path} }} finally {{ Remove-Item -LiteralPath {path} -Force }}",
-            input_text=input_text,
-            timeout=timeout,
-            debug_log=debug_log,
-        )
+            # A lost SSH session or local timeout does not prove guest exit.
+            stage.primary_result = result
+            stage.execution_pending = result.returncode in (124, 255)
+            result.staging_diagnostics = stage.diagnostics
+            return result
 
     def _host_facts(self):
         result = self._run(
@@ -192,15 +173,23 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
         )
 
     def _upload_bytes(self, path, content):
-        data = frame_bytes(content)
-        result = self._run(
-            upload_script(quote(path)),
-            input_text=data,
-        )
-        if not upload_received(result, content):
-            raise RuntimeError(
-                "windows_host_file_write_failed: repair the declared file's ACL and retry"
+        # Small and large uploads share SFTP and independent byte/ACL checks.
+        with verified_payload(self, content) as stage:
+            stage.execution_pending = True
+            result = super()._run(
+                f"New-Item -ItemType Directory -Force (Split-Path {quote(path)}) | Out-Null; Move-Item -LiteralPath {stage.path} -Destination {quote(path)} -Force",
             )
+            stage.primary_result = result
+            stage.execution_pending = result.returncode in (124, 255)
+            if result.returncode:
+                error = HostControlLocalError(
+                    code="windows_host_file_write_failed", phase="file_commit",
+                    detail="Verified Windows upload could not be committed.",
+                    recovery_hint="Inspect destination and staging diagnostics before retrying an ambiguous commit.",
+                    exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr,
+                    secrets=getattr(self, "secret_values", ()),
+                )
+                raise error
         return True
 
     def read_remote_text(self, path):

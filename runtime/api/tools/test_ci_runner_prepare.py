@@ -208,34 +208,42 @@ def test_postgres_start_budget_retry_and_diagnostics(
 ):
     calls = []
     starts = 0
+    timed_out = None
 
     def run(args, **kwargs):
-        nonlocal starts
+        nonlocal starts, timed_out
         calls.append((args, kwargs))
         if args[:2] == ["docker", "run"]:
             starts += 1
             assert kwargs["timeout"] == 120
             if starts <= failures:
                 if failure_kind == "timeout":
-                    raise subprocess.TimeoutExpired(args, 120)
+                    timed_out = subprocess.TimeoutExpired(args, 120)
+                    raise timed_out
                 raise subprocess.CalledProcessError(1, args)
         if args[:2] == ["docker", "port"]:
             return subprocess.CompletedProcess(args, 0, "0.0.0.0:32768\n", "")
         return subprocess.CompletedProcess(args, 0, "diagnostic stdout", "diagnostic stderr")
 
     monkeypatch.setattr(runner.subprocess, "run", run)
-    if failures == 2:
-        with pytest.raises(runner.PreparationError, match="ci_runner_setup_command_failed"):
+    ambiguous = failure_kind == "timeout" and failures > 0
+    failed = failures == 2 or ambiguous
+    if failed:
+        with pytest.raises(runner.PreparationError, match="ci_runner_setup_command_failed") as refusal:
             runner.start_postgres()
         assert "YOKE_PG_DSN=" not in postgres.read_text()
+        if ambiguous:
+            assert "ci_runner_postgres_start_ambiguous" in str(refusal.value)
+            assert "reconcile the owned container" in str(refusal.value)
+            assert refusal.value.__cause__.__cause__ is timed_out
     else:
         runner.start_postgres()
         assert "port=32768" in postgres.read_text()
-    assert starts == min(failures + 1, 2)
+    assert starts == (1 if ambiguous else min(failures + 1, 2))
     commands = [args for args, _ in calls]
     cleanup = ["docker", "rm", "-f", "isolated-test-pg"]
-    assert commands.count(cleanup) == bool(failures)
-    if failures:
+    assert commands.count(cleanup) == bool(failures and not ambiguous)
+    if failures and not ambiguous:
         assert commands[1][:2] == ["docker", "run"]
         assert commands[2] == cleanup
         assert commands[3] == commands[1]
@@ -248,12 +256,12 @@ def test_postgres_start_budget_retry_and_diagnostics(
     captured = capsys.readouterr()
     output = captured.err
     steps = [line for line in captured.out.splitlines() if line.startswith("CI Postgres step: ")]
-    expected_steps = ["docker pull"] + ["docker run", "docker rm"] * min(failures, 1)
-    expected_steps += ["docker run", "docker port"] if failures < 2 else ["docker run"]
+    expected_steps = ["docker pull"] + ["docker run", "docker rm"] * bool(failures and not ambiguous)
+    expected_steps += ["docker run"] + ([] if failed else ["docker port"])
     assert [line.split(";")[0].removeprefix("CI Postgres step: ") for line in steps] \
         == expected_steps
     assert all("elapsed=" in line for line in steps)
-    if failures == 2:
+    if failed:
         assert commands[-6:] == diagnostics
         assert all(kwargs["timeout"] == 10 and kwargs["capture_output"]
                    for _, kwargs in calls[-6:])
@@ -262,6 +270,8 @@ def test_postgres_start_budget_retry_and_diagnostics(
         assert output.count("diagnostic stdout") == 6
         assert output.count("diagnostic stderr") == 6
         assert all(" ".join(command) in output for command in diagnostics)
+        if ambiguous:
+            assert cleanup not in commands, "absence after timeout cannot settle a pending creation"
     else:
         assert not output
         assert not any(command in commands for command in diagnostics)
@@ -277,7 +287,7 @@ def test_start_failure_survives_cleanup_and_diagnostic_failures(monkeypatch, cap
     monkeypatch.setattr(runner, "_run", fail)
     with pytest.raises(runner.PreparationError, match="ci_runner_setup_command_failed: run"):
         runner._start_container(["docker", "run"], "test-pg")
-    assert [args[1] for args in calls] == ["run", "rm", "run", "ps", "logs", "info"]
+    assert [args[1] for args in calls] == ["run", "rm", "ps", "logs", "info"]
     assert "ci_runner_setup_command_failed: rm" in capsys.readouterr().err
 
 

@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from yoke_harness.native_windows import provision
+from yoke_harness.native_windows import admin, provision
 from yoke_harness.native_windows.stdin_frame import (
     MAX_BYTES,
     READ_FRAME_SCRIPT,
@@ -15,7 +15,6 @@ from yoke_harness.native_windows.stdin_frame import (
     upload_script,
 )
 from yoke_harness.native_windows.transport import WindowsTransport, encoded, quote
-from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 
 pytestmark = pytest.mark.windows
@@ -83,111 +82,39 @@ def test_upload_reader_fits_small_command_transport():
     assert len(encoded(upload_script("'C:\\Users\\qa\\file.txt'"))) < 6000
 
 
-@pytest.mark.parametrize("valid_receipt", [False, True])
-def test_admin_upload_requires_receipt_and_password_stays_only_on_stdin(
-    monkeypatch, valid_receipt
-):
+@pytest.mark.parametrize("verified", [False, True])
+def test_admin_requires_verified_staging_and_password_stays_only_on_stdin(monkeypatch, verified):
     script = "Write-Output 'ready'"
     password = " \nprivate雪\r\n "
     calls = []
 
+    def stage(ssh, payload, root, diagnostic, **kwargs):
+        assert payload == script.encode("utf-8-sig")
+        assert password not in payload.decode("utf-8-sig")
+        if not verified:
+            raise RuntimeError("hash verification refused")
+        diagnostic["remote_directory_owned"] = True
+        diagnostic["last_verified_offset"] = len(payload)
+
     def run(argv, **kwargs):
         calls.append((argv, kwargs))
-        if len(calls) == 1:
-            return completed(
-                receipt(script.encode("utf-8-sig")) if valid_receipt else ""
-            )
         return completed("ready")
 
-    monkeypatch.setattr(provision.subprocess, "run", run)
-    if valid_receipt:
-        provision.admin_script("key", "host", "admin", script, input_text=password)
-        assert calls[1][1]["input"] == frame_bytes(password.encode())
-        assert len(calls) == 3
+    monkeypatch.setattr(admin, "stage_script", stage)
+    monkeypatch.setattr(admin.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
+    if verified:
+        result = provision.admin_script("key", "host", "admin", script, input_text=password)
+        assert calls[0][1]["input"] == frame_bytes(password.encode())
+        assert " -File " in calls[0][0][-1]
+        assert result.staging_diagnostics["last_verified_offset"] == len(script.encode("utf-8-sig"))
+        assert len(calls) == 2
     else:
         with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed"):
             provision.admin_script("key", "host", "admin", script, input_text=password)
-        assert len(calls) == 2
-    assert calls[0][1]["input"] == frame_bytes(script.encode("utf-8-sig"))
+        assert len(calls) == 1
+        assert not any(" -File " in argv[-1] for argv, _ in calls)
     assert all(password not in " ".join(argv) for argv, _ in calls)
-
-
-@pytest.mark.parametrize("fail_chunk", [None, 1, 2])
-def test_admin_upload_chunks_verify_whole_prefix_with_one_deadline(monkeypatch, fail_chunk):
-    source = "Write-Output '雪';" * 400
-    payload = source.encode("utf-8-sig")
-    stored = bytearray()
-    calls = []
-    ticks = iter(range(100))
-    monkeypatch.setattr(provision.time, "monotonic", lambda: next(ticks))
-
-    def run(argv, **kwargs):
-        calls.append((argv, kwargs))
-        if "input" not in kwargs:
-            assert "Remove-Item -LiteralPath" in base64.b64decode(argv[-1].split()[-1]).decode("utf-16-le")
-            return completed()
-        if "-EncodedCommand " not in argv[-1]:
-            assert bytes(stored) == payload
-            return completed("EXECUTED")
-        script = base64.b64decode(argv[-1].split()[-1]).decode("utf-16-le")
-        assert f"$file.Length -ne {len(stored)}" in script
-        chunk = base64.b64decode(kwargs["input"].split(":", 1)[1], validate=True)
-        assert len(chunk) <= 2048
-        stored.extend(chunk)
-        return completed(receipt(bytes(stored)) if len(calls) != fail_chunk else receipt(b"wrong"))
-
-    monkeypatch.setattr(provision.subprocess, "run", run)
-    if fail_chunk:
-        with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed"):
-            provision.admin_script("key", "host", "admin", source)
-        assert len(calls) == fail_chunk + 1
-    else:
-        assert provision.admin_script("key", "host", "admin", source).stdout == "EXECUTED"
-        assert [kw["timeout"] for _, kw in calls[:-2]] == list(range(29, 29-len(calls)+2, -1))
-        assert "CreateNew" in base64.b64decode(calls[0][0][-1].split()[-1]).decode("utf-16-le")
-
-
-def test_admin_upload_never_resets_total_deadline(monkeypatch):
-    ticks = iter([0, 1, 31])
-    monkeypatch.setattr(provision.time, "monotonic", lambda: next(ticks))
-    calls = []
-
-    def run(argv, **kwargs):
-        calls.append(argv)
-        if "input" not in kwargs:
-            return completed()
-        return completed(receipt(base64.b64decode(kwargs["input"].split(":", 1)[1])))
-
-    monkeypatch.setattr(provision.subprocess, "run", run)
-    with pytest.raises(subprocess.TimeoutExpired):
-        provision.admin_script("key", "host", "admin", "x" * 5000)
-    assert len(calls) == 2  # first chunk and bounded owned-path cleanup
-
-
-def test_failed_transport_upload_never_executes_script(monkeypatch):
-    calls = []
-    monkeypatch.setattr(
-        SshTestMachineTransport,
-        "_run",
-        lambda self, script, **kw: calls.append(script) or completed(),
-    )
-    control = object.__new__(WindowsTransport)
-    with pytest.raises(RuntimeError, match="windows_script_upload_failed"):
-        control._run("Write-Output x;" * 1000)
-    assert len(calls) == 1
-
-
-def test_file_upload_frames_binary_and_checks_receipt(monkeypatch):
-    calls = []
-    payload = bytes(range(256))
-    control = object.__new__(WindowsTransport)
-    monkeypatch.setattr(
-        control,
-        "_run",
-        lambda script, **kw: calls.append((script, kw)) or completed(receipt(payload)),
-    )
-    assert control._upload_bytes(r"C:\YokeQa\file.bin", payload)
-    assert calls[0][1]["input_text"] == frame_bytes(payload)
 
 
 def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeypatch):
@@ -294,42 +221,46 @@ def test_native_reader_rejects_bad_or_truncated_frames(frame):
     assert b"ACCEPTED" not in result.stdout
 
 
-def test_large_script_streams_utf8_bom_and_keeps_input(monkeypatch):
+def test_large_script_stages_utf8_bom_and_keeps_optional_input(monkeypatch):
     from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
+    from yoke_harness.native_windows import admin_staging
 
-    calls = []
+    calls, data = [], []
+
+    def stage(ssh, payload, root, diagnostics, **kwargs):
+        data.append(payload)
+        diagnostics["remote_directory_owned"] = True
+        diagnostics["last_verified_offset"] = len(payload)
 
     def run(self, script, **kwargs):
         calls.append((script, kwargs))
+        return completed()
 
-        data = (
-            base64.b64decode(kwargs["input_text"].split(":", 1)[1])
-            if len(calls) == 1
-            else b""
-        )
-        return completed(f"YOKE_UPLOAD:{len(data)}:{hashlib.sha256(data).hexdigest()}")
-
+    monkeypatch.setattr(admin_staging, "stage_script", stage)
     monkeypatch.setattr(SshTestMachineTransport, "_run", run)
     control = object.__new__(WindowsTransport)
+    control.home, control._key_path, control._host, control._user, control._control_path = r"C:\Users\qa", "key", "host", "qa", None
     source = 'Write-Output "héllo"; ' * 1000
     control._run(source, input_text="private-input", timeout=17)
-    assert (
-        base64.b64decode(calls[0][1]["input_text"].split(":", 1)[1]).decode("utf-8-sig")
-        == source
-    )
-    assert calls[1][1]["input_text"] == "private-input"
-    assert "finally" in calls[1][0]
-    assert "Remove-Item" in calls[1][0]
+    assert data[0].decode("utf-8-sig") == source
+    assert calls[-2][1]["input_text"] == "private-input"
+    assert calls[-2][0].startswith("& ")
+    assert "Remove-Item" in calls[-1][0]
 
 
 def test_staging_cleanup_failure_preserves_original_upload_failure(monkeypatch):
-    def run(argv, **kwargs):
-        if "input" in kwargs:
-            return completed("wrong receipt")
-        assert kwargs["timeout"] == 10
-        raise subprocess.TimeoutExpired(argv, 10)
+    primary = RuntimeError("private staging detail")
 
-    monkeypatch.setattr(provision.subprocess, "run", run)
+    def stage(*args, **kwargs):
+        raise primary
+
+    def run(argv, **kwargs):
+        assert kwargs["timeout"] == 30
+        raise subprocess.TimeoutExpired(argv, 30)
+
+    monkeypatch.setattr(admin, "stage_script", stage)
+    monkeypatch.setattr(admin.subprocess, "run", run)
     with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed") as error:
         provision.admin_script("key", "host", "admin", "source")
+    assert error.value.__cause__ is primary
     assert "Owned Windows staging cleanup failed" in error.value.__notes__[0]

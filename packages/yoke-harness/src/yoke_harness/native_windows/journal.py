@@ -5,8 +5,10 @@ import time
 from uuid import uuid4
 
 from yoke_contracts.designed_wait import announce_designed_wait
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 
-from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.tasks import require_task_result, start_fixed_task
+from yoke_harness.native_windows.receipts import RECEIPT, PUBLISH
 
 ROOT = r"C:\ProgramData\YokeQa"
 TASK = "YokeQaMachineSettings"
@@ -18,7 +20,8 @@ $ErrorActionPreference='Stop'
 $root='C:\ProgramData\YokeQa'
 $request=Get-Content -Raw "$root\requests\request.json" | ConvertFrom-Json
 $journal="$root\private\journal.json"
-$receipt="$root\requests\receipt.json"
+$receipt='RECEIPT_PATH'
+RECEIPT_PUBLISH
 function Tools {
  @(Get-Package -ProviderName Programs,msi -ErrorAction SilentlyContinue |
    Select-Object Name,Version,ProviderName | Sort-Object Name,Version,ProviderName)
@@ -90,14 +93,20 @@ try {
   }
   Remove-Item -LiteralPath $journal
  }
- @{token=$request.token;ok=$true;action=$request.action;lease=$request.lease} | ConvertTo-Json -Compress | Set-Content -Encoding UTF8 $receipt
+ $result=@{token=$request.token;ok=$true;action=$request.action;lease=$request.lease}
+ if($request.action -eq 'restore'){
+  # Read-only proof under the existing SYSTEM action; standard SSH cannot
+  # query this provider. Neither new actions nor test-user privileges are added.
+  $result.features=@(Get-CimInstance Win32_OptionalFeature -Filter "Name='Microsoft-Windows-Subsystem-Linux' OR Name='VirtualMachinePlatform'" |
+   Select-Object Name,InstallState)
+ }
+ Publish-YokeReceipt $result
 } catch {
- @{token=$request.token;ok=$false;action=$request.action;lease=$request.lease;reason="$_";
-   recovery='Restore the saved machine settings as administrator and rerun the fixed recovery task before releasing or reusing the machine.'} |
-   ConvertTo-Json -Compress | Set-Content -Encoding UTF8 $receipt
+ Publish-YokeReceipt @{token=$request.token;ok=$false;action=$request.action;lease=$request.lease;reason="$_";
+   recovery='Restore the saved machine settings as administrator and rerun the fixed recovery task before releasing or reusing the machine.'}
  exit 1
 }
-"""
+""".replace("RECEIPT_PATH", RECEIPT).replace("RECEIPT_PUBLISH", PUBLISH)
 
 
 def journal_operation(control, action):
@@ -117,23 +126,42 @@ def journal_operation(control, action):
             }
         ),
     )
-    started = control._run(f"Start-ScheduledTask -TaskName {quote(TASK)}")
-    if started.returncode:
-        raise RuntimeError(
-            "windows_journal_task_unavailable: provision the fixed administrator recovery task and grant the test user start access"
-        )
+    started = control._run(start_fixed_task(TASK))
+    require_task_result(control, started, phase="journal_task_start")
     announce_designed_wait(
         "native Windows machine settings " + action, max_wait_seconds=300
     )
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
-        value = control.read_remote_text(ROOT + r"\requests\receipt.json")
+        value = control.read_remote_text(RECEIPT)
         if value:
-            receipt = json.loads(value.lstrip("\ufeff"))
-            if receipt.get("token") == token:
-                if not receipt.get("ok"):
-                    raise RuntimeError(
-                        str(receipt.get("reason")) + "; " + str(receipt.get("recovery"))
+            try:
+                receipt = json.loads(value.lstrip("\ufeff"))
+            except ValueError:
+                raise HostControlLocalError(
+                    code="native_windows_journal_receipt_invalid", phase="journal_receipt",
+                    detail="The fixed recovery task returned malformed JSON.",
+                    recovery_hint="Preserve the journal, repair the fixed recovery program and retry the serial lease.",
+                ) from None
+            if not isinstance(receipt, dict) or not isinstance(receipt.get("token"), str):
+                raise HostControlLocalError(
+                    code="native_windows_journal_receipt_invalid", phase="journal_receipt",
+                    detail="The fixed recovery task returned an invalid receipt schema.",
+                    recovery_hint="Preserve the journal, repair the fixed recovery program and retry the serial lease.",
+                )
+            if receipt["token"] == token:
+                if receipt.get("lease") != str(lease) or receipt.get("action") != action or type(receipt.get("ok")) is not bool:
+                    raise HostControlLocalError(
+                        code="native_windows_journal_receipt_invalid", phase="journal_receipt",
+                        detail="The machine recovery receipt does not match its current lease and action.",
+                        recovery_hint="Preserve the journal, inspect the fixed recovery task and acquire a fresh serial QA lease before retrying.",
+                    )
+                if receipt["ok"] is False:
+                    raise HostControlLocalError(
+                        code="native_windows_journal_failed", phase="journal_" + action,
+                        detail=str(receipt.get("reason")),
+                        recovery_hint=str(receipt.get("recovery")),
+                        secrets=getattr(control, "secret_values", ()),
                     )
                 return receipt
         time.sleep(0.2)

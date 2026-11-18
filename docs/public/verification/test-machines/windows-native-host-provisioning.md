@@ -25,10 +25,9 @@ and selects the inventory subscription. The lane retries the failed read,
 requires a fresh power-state receipt, then resumes; never bypass the policy.
 ### Link the Azure provider identity
 
-Provider leases use the approved existing Azure service principal **yoke-admin**,
-with tenant, application/client ID, subscription and existing role grants from
-inventory. The VM account `yokeadmin` is a separate identity. Interactive `az login`
-does not link this provider capability. Feed secret-set from private custody or
+Use the existing **yoke-admin** service principal with inventory tenant, client ID,
+subscription and grants. VM account `yokeadmin` is separate; interactive `az login`
+does not link the provider. Feed secret-set from private custody or
 masked operator input, never a literal secret in argv, shell history, captures
 or chat. Run:
 
@@ -88,12 +87,14 @@ delete it after the request. Verify the resulting resource with a query that
 returns only its id, image, disk size, security type and power state.
 
 SSH port 22 is reachable from any address, with **key-only authentication**.
-No public RDP rule exists. RDP is for humans over an authenticated SSH forward.
+No public RDP rule exists. Human RDP is reachable over the verified tailnet;
+an authenticated SSH forward remains available during bootstrap.
 Use Windows Firewall on all network profiles for SSH; do not enable password
 SSH or a public desktop listener as a recovery shortcut.
 
-Until provider power is registered and verified, start explicitly before use
-and **deallocate**, rather than merely stop, after use:
+Until provider power is registered and verified, start explicitly before use.
+Keep the lab on until setup, sign-ins and QA finish, without countdowns or idle
+shutdowns; then **deallocate**, verify actual power state and report it:
 
 ```text
 az vm start --resource-group GROUP --name VM
@@ -105,41 +106,39 @@ az vm deallocate --resource-group GROUP --name VM
 Follow [tailnet bootstrap](tailnet-bootstrap.md) to start the deallocated VM,
 install/join Tailscale as SYSTEM through Azure Run Command, and have the
 operator approve the AuthURL and disable key expiry. The standard SSH user
-must remain standard. Install on Windows only, never WSL; prove connection
-after logout/reboot and resolve the reported MagicDNS name from the controller.
+must remain standard. Install on Windows only, never WSL. Complete
+[unattended selection and coldboot proof](windows-native-provisioning-recovery.md#unattended-selection-before-registration)
+before registration; resolve the reported MagicDNS name from the controller.
 Use the linked bootstrap SSH command with Yoke's known_hosts and the full VM
-resource ID as HostKeyAlias. Register MagicDNS as `host`; forwarded
-`desktop_host` stays loopback. Golden reset never changes Tailscale.
+resource ID as HostKeyAlias. Register MagicDNS as `host`; direct RDP uses
+that same tailnet name as `desktop_host`. A forwarded route uses loopback.
+Golden reset never changes Tailscale.
 
-Never register that IP. Keep the private subnet, key-only SSH from anywhere
-(NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
-and bills until deleted. The NIC public IP supplies outbound on the private subnet.
-Registered power creates/attaches `VM-yoke-power` in the VM resource group/location
-on its sole NIC IP configuration before start and waits for SSH on the registered
-MagicDNS name. The VM and public IP stay allocated when the lease ends. Use the
-[manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) to
-deallocate the VM and detach and delete its public IP.
-Before provider registration, create/attach a temporary IP for each start and
-attach it with `az network nic ip-config update --ids CONFIG_ID
---public-ip-address IP_ID`; remove it after deallocation:
+Permit RDP only over verified tailnet addresses or interfaces. The installed
+Tailscale CLI must report a running self identity **as SYSTEM**; each address needs one
+preferred assignment on a live adapter. Every local address or every interface
+must be verified. Names, wildcards, broad ranges and mixed public scope do not
+prove confinement. Preserve Tailscale; add no blanket 3389 block. Prove tailnet
+RDP and blocked public TCP3389; keep public NSG/firewall TCP/UDP3389 closed.
+The provisioner uses an owned, bounded SYSTEM task and private filtered receipt,
+then removes its task/files. An administrator-context status query can select
+a different Windows Tailscale profile; do not use it as a harmless health check.
+For `NeedsLogin`, preserve saved profiles and diagnose before reauthentication;
+see [the observed recovery](windows-native-provisioning-recovery.md#tailscale-query-context-and-preserved-state).
 
-```text
-az network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
-az network public-ip delete --ids IP_ID
-```
+Register the private MagicDNS name. Keep key-only SSH (TCP 22) and no public
+RDP. The Standard public IP supplies outbound traffic and bills until deleted.
+Registered power attaches `VM-yoke-power` to the sole NIC IP configuration,
+starts the VM and waits for MagicDNS SSH. Both stay allocated after lease release.
+Use the [manual stop procedure](host-provisioning.md#stop-a-cloud-test-machine).
+Before registration, attach the bootstrap IP for each start. Use the NIC's
+resource group, NIC name and IP configuration name.
+`az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address IP_ID`.
+After deallocation, use the same stop procedure's detach and delete commands
+with the bootstrap IP.
 
-Existing rollout: join first, deploy the no-rebind build, then settings-replace
-`host` using the as-read token. Upgrade clients, then detach/delete the old
-`20.124.243.250` by the commands above under the recorded operator exception.
-An unmanaged IP attachment refuses with that recovery. Verify that the VM is
-running, its MagicDNS host is unchanged and the QA_HOST lease has been released.
-
-Before rebuilding, remove the old tailnet device, then join with the same name;
-require no `-1` suffix. Verify the new SSH fingerprint, then clear the old pin
-with `ssh-keygen -R VM_RESOURCE_ID -f KNOWN_HOSTS` in Yoke's Test Machine
-known_hosts file. Re-read settings and use its token for any change; verify again.
-For DNS/SSH failures check Tailscale, device expiry, controller DNS and sshd;
-never change a live lease target to repair connectivity.
+For existing-VM host/IP cutover, unmanaged-IP failures, host replacement and
+DNS/SSH repair, follow [tailnet recovery](windows-native-provisioning-recovery.md#tailnet-cutover-and-host-replacement).
 
 ## 2. Provision OpenSSH and the standard test account
 
@@ -171,7 +170,8 @@ action to settle; a controller timeout does not prove removal completed.
 Let first-boot Windows servicing finish, then rerun the capability provisioner
 with its 90-minute bound. Removing the extension does not prove that Windows
 servicing stopped or OpenSSH installed; require the readiness receipt and SSH
-probe. Preserve the VM disk, deallocate after use, and record recovery results.
+probe. Preserve the VM disk and record recovery results. Keep the lab on while
+the item needs it; deallocate and verify once setup, sign-ins and QA finish.
 See Microsoft's [action Run Command recovery](https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command)
 and [OpenSSH installation](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse).
 
@@ -182,7 +182,7 @@ Administrators/SYSTEM. Validate the effective configuration and restart sshd.
 
 For an **existing** VM the provisioner creates the standard account/profile,
 authorizes its `.ssh\authorized_keys`, prepares goldens and the fixed recovery
-task, and enables RDP through SSH forwarding:
+task, and enables private RDP over the tailnet or an SSH forward:
 
 ```text
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
@@ -190,10 +190,21 @@ python -m yoke_harness.native_windows.provision --project P --machine VM --host 
 
 When administrator key SSH already works, add `--bootstrap-transport ssh` to run
 bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
-Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
-receipts under one 30-second deadline; only the complete verified script runs.
-Owned staging cleanup is bounded to ten seconds and preserves prior errors.
-Password frames never produce digests; readers do not wait for stdin EOF.
+Administrator scripts use batch SFTP into a unique administrator/SYSTEM-only
+directory; the controller also requires `sftp` beside its SSH client. Private
+local staging uses owner-only permissions on either controller OS. Preparation,
+transfer and independent length/SHA256 verification share one 90-second deadline;
+only the verified script runs through `-File`, with a separate 300-second budget.
+Optional password input stays on framed stdin, open until remote completion,
+with concurrent output draining. Local child termination/draining reserves four
+seconds; exact owned staging cleanup reserves thirty seconds and preserves prior
+errors. Include both reserves in the enclosing controller budget. A collision,
+changed file or uncertain ownership is preserved for inspection, never replayed.
+`staging_diagnostics` retains exact owned paths, step timing, verified byte count
+and cleanup outcome. Inspect it before a diagnostic retry; private causes can
+contain encoded argv. Password frames never produce digests or wait for stdin EOF.
+SFTP verifies script transfer only; setup still requires actual password-input,
+standard-user desktop and SSH proof before readiness is claimed.
 
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
 -- ...`; this deliberately persists the generated test-user password in Yoke.
@@ -221,50 +232,33 @@ For an existing key file, validate its trusted owner and repair explicit file
 grants **before** writing; an empty protected DACL otherwise denies the write.
 Keep final owner/exact-three-SID ACL checks; never take ownership/reset accounts.
 
-For bounded administrator-SSH repair, stale-process audit, partial key/RDP
+For administrator-SSH repair, stale-process audit, partial key/RDP
 recovery and observed window outcomes, follow
 [native Windows provisioning recovery](windows-native-provisioning-recovery.md).
 Retain all required receipts before continuing setup or QA.
 
 Prove the test user is not an Administrator and cannot modify the fixed
-administrator task or its program. Select **Windows Console Host** as the
-default terminal for this dedicated account; the terminal bridge reads its
-real console screen, rather than a transcript substituted for the desktop.
+administrator task or its program. The terminal reader uses interactive-session
+`CONOUT$`, including with redirected output, rather than a substituted transcript.
 Install Python 3, Git, Node.js/npm and baseline tools natively; no WSL,
 VirtualMachinePlatform or Linux distro.
 
 ## 3. Desktop and sign-ins
 
-Configure automatic logon using an LSA-protected password (such as Microsoft's
-Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
-the project's lab policy. Reboot and prove a scheduled task with
-`LogonType=Interactive` runs as the standard user without an RDP client open.
+Follow [first Tailscale login and bootstrap desktop](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop)
+for the localhost SSH/RDP route, password custody and device approval.
 
-Register `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
-`desktop_host=127.0.0.1`, `desktop_port=3389`, `desktop_user=yokeqa`.
-`yoke test-machine desktop-access` returns the forward and private password-file
-path for your existing RDP client; Yoke adds none. Disconnect without sign-out;
+After tailnet proof, register `desktop_protocol=rdp`, `desktop_route=direct`,
+`desktop_host=MAGICDNS`, `desktop_port=3389`, `desktop_user=yokeqa`.
+For SSH bootstrap use `desktop_route=ssh-forward`, `desktop_host=127.0.0.1`.
+`yoke test-machine desktop-access` returns the private address or forward and
+private password-file path for your [controller RDP client](windows-native-controller.md).
+Disconnect without sign-out;
 if locked/logged off, reconnect, unlock and return to console before QA.
 Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
 
-As the standard user install all harness CLIs from their vendors:
-
-```powershell
-irm https://claude.ai/install.ps1 | iex
-npm.cmd install --global @openai/codex
-irm 'https://cursor.com/install?win32=true' | iex
-claude --version
-codex --version
-agent --version
-```
-
-Sources: [Claude](https://code.claude.com/docs/en/setup),
-[Codex on Windows](https://developers.openai.com/codex/windows/),
-[Cursor native CLI](https://cursor.com/docs/cli/installation).
-Install/launch each vendor's desktop app as the same user. Agents finish setup
-and navigation; Ben types his own harness/GitHub passwords. Before goldens,
-prove real CLI requests and visible signed-in desktop apps; installs/versions
-alone do not prove readiness. Follow [native browser identities](windows-browser-identities.md).
+Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
+before capturing goldens.
 
 ## 4. Settings journal and interrupted-case recovery
 
@@ -274,11 +268,10 @@ keep the machine unavailable until recovery verifies.
 
 ## 5. Register, capture and prove
 
-Register only when the VM exists and its standard user works: `os=windows`
-for native, a separate OS kind for WSL. Goldens use a literal Windows path
-outside the profile, such as `C:\YokeQa\goldens\baseline`; settings contain no
-credentials. Register provider/resource ID using the installed power contract;
-prove start, unchanged MagicDNS host and continued operation after lease release.
+Register after the standard user works, with native `os=windows` separate from
+WSL. Use an absolute golden path outside the profile and no credentials in settings.
+Register provider/resource ID through the installed power contract. Prove start,
+unchanged MagicDNS host and continued operation after lease release.
 
 ```text
 yoke test-machine settings-replace --power-project P --test-machine NAME --settings-file SETTINGS.json --new

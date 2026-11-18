@@ -6,10 +6,15 @@ from uuid import uuid4
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.console_focus import HELPERS as FOCUS_HELPERS
+from yoke_harness.native_windows.tasks import (
+    create_interactive_task, remove_owned_task, require_task_result,
+)
 
 SCREEN_READER = r"""
 using System;
 using System.Text;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 public static class QaConsole {
  [StructLayout(LayoutKind.Sequential)] public struct Coord { public short X,Y; }
@@ -19,22 +24,32 @@ public static class QaConsole {
  [DllImport("kernel32.dll")] static extern bool FreeConsole();
  [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int type);
  [DllImport("kernel32.dll")] static extern bool SetStdHandle(int type,IntPtr value);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr CreateFileW(string name,uint access,uint share,IntPtr security,uint creation,uint flags,IntPtr template);
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
  [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetConsoleScreenBufferInfo(IntPtr h,out Info info);
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ReadConsoleOutputCharacterW(IntPtr h,StringBuilder text,uint size,Coord start,out uint read);
+ static Exception Failure(string phase,uint pid) {
+  int code=Marshal.GetLastWin32Error(); string target="unknown";
+  try { target=Process.GetProcessById((int)pid).SessionId.ToString(); } catch(ArgumentException) {}
+  return new Exception(phase+": win32="+code+"; reader_session="+Process.GetCurrentProcess().SessionId+"; target_session="+target+"; keep the owned console available in the test user's interactive session");
+ }
  public static string Read(uint pid) {
   var output=GetStdHandle(-11); var input=GetStdHandle(-10); var error=GetStdHandle(-12);
+  var handle=new IntPtr(-1);
   FreeConsole();
   try {
-   if(!AttachConsole(pid)) throw new Exception("windows_console_attach_failed: select Windows Console Host as the default terminal and rerun");
-   var handle=GetStdHandle(-11); Info info;
-   if(!GetConsoleScreenBufferInfo(handle,out info)) throw new Exception("windows_console_read_failed: keep the native terminal open and retry");
+   if(!AttachConsole(pid)) throw Failure("windows_console_attach_failed",pid);
+   handle=CreateFileW("CONOUT$",0x80000000,3,IntPtr.Zero,3,0,IntPtr.Zero);
+   if(handle==new IntPtr(-1)) throw Failure("windows_console_open_failed",pid);
+   Info info;
+   if(!GetConsoleScreenBufferInfo(handle,out info)) throw Failure("windows_console_read_failed",pid);
    uint length=(uint)Math.Min(1000000,info.Size.X*(info.Cursor.Y+1));
    var text=new StringBuilder((int)length); uint read;
-   if(!ReadConsoleOutputCharacterW(handle,text,length,new Coord(),out read)) throw new Exception("windows_console_read_failed: repair console access and retry");
+   if(!ReadConsoleOutputCharacterW(handle,text,length,new Coord(),out read)) throw Failure("windows_console_read_failed",pid);
    var result=new StringBuilder();
    for(int n=0;n<text.Length;n+=info.Size.X) result.AppendLine(text.ToString(n,Math.Min(info.Size.X,text.Length-n)).TrimEnd());
    return result.ToString();
-  } finally { FreeConsole(); SetStdHandle(-11,output); SetStdHandle(-10,input); SetStdHandle(-12,error); }
+  } finally { if(handle!=new IntPtr(-1)) CloseHandle(handle); FreeConsole(); SetStdHandle(-11,output); SetStdHandle(-10,input); SetStdHandle(-12,error); }
  }
 }
 """
@@ -60,15 +75,10 @@ class WindowsTerminal:
             "Write-Host ('__YOKE_EXIT_'+$code) } catch {Write-Host $_; Write-Host '__YOKE_EXIT_1'}"
         )
         self.control.upload_remote_text(self.root + ".ps1", script)
-        start = self.control._run(f"""
-$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoLogo -NoExit -File "'+{quote(self.root + ".ps1")}+'"')
-$principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-$settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 40)
-Register-ScheduledTask -TaskName {quote(self.token)} -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-Start-ScheduledTask -TaskName {quote(self.token)}
-""")
-        if start.returncode:
-            return False
+        start = self.control._run(create_interactive_task(
+            self.token, '-NoLogo -NoExit -File "' + self.root + '.ps1"', 2400,
+        ))
+        require_task_result(self.control, start, phase="terminal_task_start")
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             pid = self.control.read_remote_text(self.root + ".pid")
@@ -80,7 +90,9 @@ Start-ScheduledTask -TaskName {quote(self.token)}
 
     def transcript(self):
         script = "Add-Type -TypeDefinition " + quote(SCREEN_READER)
-        result = self.control._run(script + f"; [QaConsole]::Read({self.pid})")
+        result = desktop_script(
+            self.control, script + f"; [QaConsole]::Read({self.pid})", timeout=30,
+        )
         if result.returncode:
             raise RuntimeError(
                 result.stderr
@@ -105,11 +117,15 @@ Start-ScheduledTask -TaskName {quote(self.token)}
                 value += "{ENTER}"
         sent = desktop_script(
             self.control,
-            "$ws=New-Object -ComObject WScript.Shell; "
-            f"if(!$ws.AppActivate({self.pid})){{throw 'windows_terminal_focus_failed: unlock the native desktop and retry'}}; "
+            "$ErrorActionPreference='Stop'; Add-Type -TypeDefinition " + quote(FOCUS_HELPERS) + "; "
+            f"[QaConsoleFocus]::PrepareTitle({self.pid},{quote(self.token)}); "
+            f"$window=[QaConsoleFocus]::Find({self.pid},{quote(self.token)}); "
+            "$title=[QaConsoleFocus]::Title($window); $ws=New-Object -ComObject WScript.Shell; "
+            "if(!$ws.AppActivate($title)){throw 'windows_terminal_focus_failed: unlock the native desktop and retry'}; "
             "Start-Sleep -Milliseconds 200; "
+            f"[QaConsoleFocus]::VerifyForeground({self.pid},{quote(self.token)},$window,$title); "
             f"$ws.SendKeys({quote(value)})",
-            timeout=10,
+            timeout=20,
         )
         return sent.returncode == 0
 
@@ -135,14 +151,8 @@ Start-ScheduledTask -TaskName {quote(self.token)}
         return {key:value for key,value in result.evidence.items() if key != 'capture_artifact'}
 
     def close(self):
-        result = self.control._run(f"""
-if(Get-ScheduledTask -TaskName {quote(self.token)} -ErrorAction SilentlyContinue){{
- Stop-ScheduledTask -TaskName {quote(self.token)}
- Unregister-ScheduledTask -TaskName {quote(self.token)} -Confirm:$false
-}}
-""")
-        if result.returncode:
-            return False
+        result = self.control._run(remove_owned_task(self.token))
+        require_task_result(self.control, result, phase="terminal_task_cleanup")
         if self.pid is not None:
             stopped = self.control._run(
                 f"if(Get-Process -Id {self.pid} -ErrorAction SilentlyContinue){{& taskkill.exe /PID {self.pid} /T /F | Out-Null}}; if(Get-Process -Id {self.pid} -ErrorAction SilentlyContinue){{exit 1}}; exit 0"
