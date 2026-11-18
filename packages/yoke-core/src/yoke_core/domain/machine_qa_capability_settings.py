@@ -23,8 +23,13 @@ def replace_test_machine_settings(
     settings: Mapping[str, Any],
     base_settings: str | None,
     test_machine: str | None = None,
+    caller_session_id: str | None = None,
 ) -> dict[str, Any]:
-    """CAS-replace one machine row and invalidate only its verification."""
+    """CAS-replace one machine row and invalidate only its verification.
+
+    A live lease blocks the change unless the caller's own session holds it:
+    the lease holder is the one session that can change its host safely.
+    """
     document = validate_test_machine_settings(settings)
     name = document["resource_name"]
     if test_machine is not None and validate_test_machine_resource_name(test_machine) != name:
@@ -49,9 +54,13 @@ def replace_test_machine_settings(
 
     target = make_qa_admission_target(name)
     lock_host_turn(conn, target)
-    if _table_exists(conn, "work_claims") and active_claim(conn, target) is not None:
+    holder = active_claim(conn, target) if _table_exists(conn, "work_claims") else None
+    if holder is not None and (
+        caller_session_id is None or holder.session_id != caller_session_id
+    ):
         raise TestMachineCapabilityError(
-            f"{name} has an active lease; retry after the lease is released"
+            f"{name} is leased by session {holder.session_id}; retry after its lease "
+            "is released, or change the settings from the session holding the lease"
         )
     if base_settings is not None:
         existing = conn.execute(

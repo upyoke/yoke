@@ -195,6 +195,10 @@ def test_machine_list(args: List[str]) -> int:
 
 def test_machine_settings_replace(args: List[str]) -> int:
     parser = _parser("yoke test-machine settings-replace")
+    parser.description = (
+        "Replace a test machine's settings. While a session holds the machine's lease, "
+        "only that session may replace them; any other refuses naming the holder."
+    )
     parser.add_argument("--power-project", help="Project whose cloud admin capability powers the machine.")
     parser.add_argument(
         "--settings-file",
