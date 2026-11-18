@@ -13,6 +13,7 @@ from yoke_contracts.onboard_checklist import (
 )
 
 MACHINE_HOME = "https://upyoke.com/docs/start/agent-setup"
+_DETAIL_CHARS = 240
 
 
 def summary_lines(report: Mapping[str, Any], *, orientation: bool = False) -> list[str]:
@@ -95,22 +96,23 @@ def read_project(
                 function_id="onboard.checklist.get",
                 target=TargetRef(kind="global", project_id=str(selected)),
                 payload={"project": str(selected), **facts},
+                # Hooks report a failed read and carry on, so one attempt.
+                max_attempts=1,
             )
             if not response.success:
                 error = response.error
                 if error and error.code == "permission_denied":
                     return {"lines": [], "next_action": None}
-                return _failure(
-                    error.code if error else "setup_facts_unavailable",
-                    (
-                        error.recovery_hint
-                        or (
-                            error.message
-                            + " Run yoke onboard checklist get to diagnose and retry."
-                        )
+                if error is None:
+                    return _failure(
+                        "setup_facts_unavailable",
+                        "Run yoke onboard checklist get to diagnose the read.",
                     )
-                    if error
-                    else "Run yoke onboard checklist get to diagnose the read.",
+                return _failure(
+                    error.code,
+                    error.recovery_hint
+                    or "Run yoke onboard checklist get to diagnose and retry.",
+                    detail=error.message,
                 )
             report = response.result or {}
             if report.get("schema_version") != SCHEMA_VERSION:
@@ -175,8 +177,15 @@ def orientation_lines(root: Path | None) -> list[str]:
     )["lines"]
 
 
-def _failure(code: str, recovery: str) -> dict[str, Any]:
+def _failure(code: str, recovery: str, *, detail: str = "") -> dict[str, Any]:
+    """One line naming the failure the client saw and how to diagnose it.
+
+    *detail* is the refusal message, which names the HTTP status or the
+    network class of a relay failure.
+    """
+    seen = " ".join(detail.split())[:_DETAIL_CHARS]
+    named = f"{code} ({seen})" if seen else code
     return {
-        "lines": [f"Setup: {code}; {' '.join(recovery.split())}"],
+        "lines": [f"Setup: {named}; {' '.join(recovery.split())}"],
         "next_action": None,
     }

@@ -157,3 +157,21 @@ def test_the_default_budget_still_retries_a_transient_5xx(
 
     assert len(attempts) == CONNECTION_ATTEMPTS
     assert len(slept) == CONNECTION_ATTEMPTS - 1
+
+
+def test_network_failure_names_its_class_and_errno(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reset(req, timeout=None):
+        raise urllib.error.URLError(ConnectionResetError(54, "peer reset"))
+
+    monkeypatch.setattr(yoke_transport, "open_no_redirect", reset)
+    response = relay_https(
+        _request(),
+        HttpsConnection(api_url="https://api.example", token="actor"),
+        max_attempts=1,
+        sleep=lambda _: None,
+    )
+
+    assert "(ConnectionResetError ECONNRESET)" in response.error.message
+    assert "peer reset" not in response.error.message

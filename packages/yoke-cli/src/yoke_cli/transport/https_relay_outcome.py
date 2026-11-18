@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_contracts.certificate_diagnostic import certificate_diagnostic
 
+import errno
 import http.client
 import urllib.error
 from typing import Optional
@@ -159,6 +160,8 @@ def transport_error_response(
     certificate = certificate_diagnostic(error, sensitive_values=sensitive_values)
     if certificate is not None:
         detail = certificate[0]
+    elif error is not None:
+        detail = f"{detail} ({network_failure_class(error)})"
     message = detail
     if attempts is not None and attempts > 1:
         message = f"{detail} after {attempts} attempts"
@@ -191,6 +194,20 @@ def transport_error_response(
             ),
         ),
     )
+
+
+def network_failure_class(error: BaseException) -> str:
+    """Name the network failure the client saw: exception class and errno.
+
+    Only the class and the errno symbol are named, never the exception text,
+    which can echo hosts or payload fragments.
+    """
+    cause = error.reason if isinstance(error, urllib.error.URLError) else error
+    if not isinstance(cause, BaseException):
+        cause = error
+    number = getattr(cause, "errno", None)
+    symbol = errno.errorcode.get(number, "") if isinstance(number, int) else ""
+    return f"{type(cause).__name__} {symbol}".strip()
 
 
 def is_response_timeout(response: FunctionCallResponse) -> bool:
@@ -237,6 +254,7 @@ def record_outcome(
                 else TRANSPORT_FAILED_CODE
             ),
             project=project,
+            failure_detail=response.error.message,
         )
         return
     if attempts > 1:

@@ -215,3 +215,61 @@ def test_recovery_sentence_uses_native_onboarding_router(monkeypatch):
     line = summary.next_line(action)
     assert "Resume /yoke onboard" in line
     assert "Codex:" not in line
+
+
+@pytest.mark.parametrize(
+    ("answer", "named"),
+    [
+        (b"Service Unavailable", "HTTP 503"),
+        (
+            b'{"success": false, "function": "onboard.checklist.get", "version":'
+            b' "v1", "error": {"code": "permission_check_unavailable",'
+            b' "message": "permission check failed before handler dispatch"}}',
+            "permission_check_unavailable",
+        ),
+    ],
+)
+def test_relay_503_is_one_request_and_names_what_the_client_saw(
+    monkeypatch, answer, named
+):
+    import io
+    import time
+    import urllib.error
+
+    from yoke_cli.transport import https as https_transport
+    from yoke_cli.transport import relay_telemetry
+
+    observed = {"machine_id": "m", "observations": {}}
+    monkeypatch.setattr(onboard_setup_facts, "collect", lambda **_: observed)
+    monkeypatch.setattr(_helpers, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(machine_config, "project_id", lambda *_: 9)
+    monkeypatch.setattr(
+        https_transport,
+        "resolve_https_connection",
+        lambda **_: https_transport.HttpsConnection(
+            api_url="https://api.example", token="actor", env="hosted"
+        ),
+    )
+    recorded = []
+    monkeypatch.setattr(relay_telemetry, "record", lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(relay_telemetry, "flush", lambda: 0)
+    sent = []
+
+    def answer_503(request, timeout=None):
+        sent.append(request.full_url)
+        raise urllib.error.HTTPError(
+            request.full_url, 503, "Service Unavailable", {}, io.BytesIO(answer)
+        )
+
+    monkeypatch.setattr(https_transport, "open_no_redirect", answer_503)
+    started = time.monotonic()
+    lines = summary.read_project(Path("/unrelated"))["lines"]
+
+    assert time.monotonic() - started < 1
+    assert len(sent) == 1
+    assert len(lines) == 1 and lines[0].startswith("Setup: ")
+    assert named in lines[0]
+    if named == "HTTP 503":
+        assert lines[0].startswith("Setup: https_transport_failed (")
+        assert recorded[0]["attempts"] == 1
+        assert "HTTP 503" in recorded[0]["failure_detail"]

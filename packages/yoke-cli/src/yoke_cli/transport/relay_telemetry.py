@@ -55,6 +55,7 @@ QUARANTINE_MAX_RECORDS = 100
 EVENT_RETRIED = "RelayTransportRetrySucceeded"
 EVENT_EXHAUSTED = "RelayTransportAttemptsExhausted"
 TRANSPORT_FAILED_CODE = "https_transport_failed"
+FAILURE_DETAIL_CHARS = 300
 
 # A client-local classification: no server was ever asked, because no
 # project was ever established to ask it about.
@@ -103,6 +104,7 @@ def record(
     application_succeeded: bool | None,
     failure_class: str,
     project: str = "",
+    failure_detail: str = "",
 ) -> None:
     """Append one relay outcome. Never raises — telemetry is not the work.
 
@@ -113,6 +115,9 @@ def record(
     attribution stable rather than relabeled into whichever authority a
     later call happens to use. When the caller names no project, this falls
     back to the ambient checkout context of the observing process.
+
+    *failure_detail* is the already-redacted refusal message — the HTTP
+    status or network class the client saw — cut to ``FAILURE_DETAIL_CHARS``.
     """
     _append(
         [
@@ -124,6 +129,7 @@ def record(
                 "transport_delivered": transport_delivered,
                 "application_succeeded": application_succeeded,
                 "failure_class": failure_class,
+                "failure_detail": failure_detail[:FAILURE_DETAIL_CHARS],
                 "project": project or _project_context(),
             }
         ]
@@ -301,6 +307,7 @@ def _emit(entry: Dict[str, Any]) -> tuple[str, str]:
             "transport_outcome": ("delivered" if transport_delivered else "exhausted"),
             "application_outcome": application_outcome(entry),
             "failure_class": str(entry.get("failure_class") or ""),
+            "failure_detail": str(entry.get("failure_detail") or ""),
         },
     }
     if project:
