@@ -93,8 +93,9 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
     rc = run_probe_script(
         tmp_path,
         "import json, os, pathlib, psutil, time\n"
+        "from yoke_contracts.platform_process import start_identity\n"
         "process = psutil.Process()\n"
-        "identity = dict(pid=process.pid, start_time=process.create_time(), "
+        "identity = dict(pid=process.pid, start_time=start_identity(process), "
         "parent_pid=os.getppid())\n"
         f"pathlib.Path({str(identity_path)!r}).write_text(json.dumps(identity))\n"
         "print('probe header', flush=True)\n"
