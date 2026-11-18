@@ -98,10 +98,16 @@ the starting URLs to the old browser as extra tabs, and the new launch's
 immediate exit would read as the window closing. The command reads the
 browser's PID from `<profile>/SingletonLock` (`<host>-<pid>`), acts only when
 that live process on this host runs this profile, and asks it to quit with
-SIGTERM, a clean shutdown with no crash-restore. A browser still running
-after 10 seconds refuses with `authorization_profile_in_use: PID N still holds
-<profile>; quit it, then rerun`. Every shutdown signals that lock owner as
-well as the spawned PID, so a launcher never leaves its browser behind.
+SIGTERM. A browser still running after 10 seconds refuses with
+`authorization_profile_in_use: PID N still holds <profile>; quit it, then
+rerun`. Every shutdown signals that lock owner as well as the spawned PID, so
+a launcher never leaves its browser behind.
+
+Chromium records a SIGTERM as a session end and restores that session's tabs
+on the next launch, beside the new starting URLs, so each run would add one
+more copy of the same site. Before spawning, the command therefore deletes the
+profile's saved session (`Default/Sessions`); the window opens only the
+starting URLs, and cookies and the rest of the profile are untouched.
 
 ### Why the window is plain, and why it is that binary
 
