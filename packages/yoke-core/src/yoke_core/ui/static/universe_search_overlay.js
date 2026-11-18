@@ -38,6 +38,14 @@ export function magnifier(documentNode, className) {
   return svg;
 }
 
+// The hint names the modifier this keyboard has. The shortcut itself accepts
+// either Cmd or Ctrl; only Apple platforms label it ⌘.
+export function shortcutLabel(navigatorNode) {
+  const platform = navigatorNode?.userAgentData?.platform
+    || navigatorNode?.platform || "";
+  return /^(mac|iphone|ipad|ipod)/i.test(platform) ? "⌘K" : "Ctrl K";
+}
+
 function triggers(documentNode, controlId) {
   const field = el(documentNode, "button", "header-search");
   field.type = "button";
@@ -48,7 +56,10 @@ function triggers(documentNode, controlId) {
   field.appendChild(el(
     documentNode, "span", "header-search-placeholder", "Search this universe",
   ));
-  field.appendChild(el(documentNode, "kbd", "header-search-key", "⌘K"));
+  field.appendChild(el(
+    documentNode, "kbd", "header-search-key",
+    shortcutLabel(documentNode.defaultView?.navigator),
+  ));
   return field;
 }
 
