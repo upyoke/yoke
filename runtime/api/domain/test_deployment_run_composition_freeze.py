@@ -220,7 +220,9 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
     with pytest.raises(ValueError, match="not at an item-scoped QA stage"):
         cmd_remove_item("run-plan", 9412, reason="test removal")
     assert cmd_update("run-plan", "status", "cancelled") is None
-    with pytest.raises(ValueError, match="membership is mutable only"):
+    # Its own member is still enrolled on the cancelled run: the attach is
+    # answered by that membership and writes nothing.
+    with pytest.raises(ValueError, match="already a member of deployment run run-plan"):
         cmd_add_item("run-plan", 9412)
 
     _run(test_db, "run-plan-retry", "advanced-plan", lineage="d" * 40)
