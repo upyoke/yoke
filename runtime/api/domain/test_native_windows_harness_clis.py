@@ -4,7 +4,6 @@ import base64
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import shutil
 import subprocess
-import sys
 from threading import Thread
 
 import pytest
@@ -13,8 +12,10 @@ from yoke_contracts.harness_cli_releases import VERSION_TOKEN_PATTERN
 from yoke_harness.native_windows.harness_clis import host_program
 from yoke_harness.native_windows.transport import quote
 
+pytestmark = pytest.mark.windows
 
-@pytest.mark.skipif(sys.platform != "win32", reason="requires Windows PowerShell 5.1")
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell 5.1")
 @pytest.mark.parametrize("harness", ["claude-code", "cursor"])
 @pytest.mark.parametrize("media_type", ["application/octet-stream", "text/plain; charset=utf-8"])
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig", "invalid-utf-8"])
