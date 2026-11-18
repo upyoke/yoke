@@ -135,6 +135,26 @@ def handle_from_pid(pid: int, start_time: float) -> GroupHandle | None:
         raise OSError(f"process_capture_failed: PID {pid}; run as its owner and retry") from exc
 
 
+def detach_current_process() -> None:
+    """Detach the forked POSIX supervisor from its SSH terminal."""
+    if os.name == "nt":
+        raise OSError("platform_unsupported: POSIX supervisor unavailable; use native process custody")
+    os.setsid()
+
+
+def spawn_group_process(argv, **popen_kwargs) -> subprocess.Popen:
+    """Spawn the POSIX stdlib boundary, also embedded in pre-install SSH payloads.
+
+    Installed callers use spawn_group to retain identity-checked custody. The
+    standalone Linux subreaper owns identities through its /proc receipt instead.
+    """
+    if os.name == "nt":
+        raise OSError("platform_unsupported: POSIX spawn boundary unavailable; use spawn_group")
+    if "preexec_fn" in popen_kwargs or "start_new_session" in popen_kwargs:
+        raise ValueError("process_group_options_owned: remove preexec_fn/start_new_session")
+    return subprocess.Popen(argv, start_new_session=True, **popen_kwargs)
+
+
 def spawn_group(argv, **popen_kwargs) -> GroupHandle:
     """Spawn isolated work. Call stop_group to terminate it and its descendants."""
     if "preexec_fn" in popen_kwargs or "start_new_session" in popen_kwargs:
@@ -142,7 +162,7 @@ def spawn_group(argv, **popen_kwargs) -> GroupHandle:
     if os.name == "nt":
         from yoke_contracts.platform_process_windows import spawn
         return spawn(argv, popen_kwargs)
-    process = subprocess.Popen(argv, start_new_session=True, **popen_kwargs)
+    process = spawn_group_process(argv, **popen_kwargs)
     try:
         stamp = psutil.Process(process.pid).create_time()
     except psutil.NoSuchProcess:
@@ -250,4 +270,4 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
 
 
 __all__ = ["ProcessInfo", "GroupHandle", "pid_alive", "process_command_lines",
-           "ancestors", "handle_from_pid", "spawn_group", "stop_group"]
+           "ancestors", "handle_from_pid", "spawn_group", "stop_group", "spawn_group_process", "detach_current_process"]

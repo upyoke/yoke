@@ -7,10 +7,11 @@ import subprocess
 import uuid
 
 from yoke_harness import linux_command_supervisor as remote
+from yoke_harness import linux_platform_payload
 
 
 def _program(expression, *arguments):
-    source = Path(remote.__file__).read_text(encoding="utf-8")
+    source = Path(remote.__file__).read_text(encoding="utf-8") + "\n" + linux_platform_payload.source()
     return shlex.join(
         [
             "/usr/bin/python3",

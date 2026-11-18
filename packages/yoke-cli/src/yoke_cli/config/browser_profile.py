@@ -32,6 +32,8 @@ not an error: its QA check starts with a clean private profile.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_links import is_link, remove_link
+
 import shutil
 from pathlib import Path
 
@@ -106,7 +108,7 @@ def _usable_store_root(*, create: bool) -> Path | None:
     An absent store on a read is not an error: no identity was authorized yet.
     """
     root = live_identity_store_root()
-    if root.is_symlink():
+    if is_link(root):
         raise _store_unusable(root, "is a link")
     if root.exists() and not root.is_dir():
         raise _store_unusable(root, "is not a directory")
@@ -134,8 +136,8 @@ def _adopt_legacy_profile(key: str, identity: str) -> None:
     moved, never replaced; a profile in both places refuses by name.
     """
     legacy = _legacy_profile_path(key, identity)
-    if legacy.is_symlink():
-        legacy.unlink()
+    if is_link(legacy):
+        remove_link(legacy)
         return
     if not legacy.is_dir():
         return

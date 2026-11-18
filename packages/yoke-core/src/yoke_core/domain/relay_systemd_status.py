@@ -1,5 +1,7 @@
 """Paths, systemd document and observation of one machine relay."""
 from __future__ import annotations
+
+from yoke_contracts.owner_private_path import posix_uid
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -87,7 +89,7 @@ def systemd_unavailable_reason(
 
 def _linger_reason(runner: Runner) -> str:
     result = _run(
-        ["loginctl", "show-user", str(os.getuid()), "--property=Linger", "--value"],
+        ["loginctl", "show-user", str(posix_uid()), "--property=Linger", "--value"],
         runner,
     )
     if result.returncode or result.stdout.strip() not in {"yes", "no"}:

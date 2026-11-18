@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.platform_process import pid_alive
+
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import json
@@ -76,15 +78,7 @@ def _holder(path: Path) -> int | None:
 
 
 def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    return pid_alive(pid)
 
 
 def _release(path: Path) -> None:

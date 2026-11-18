@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tempfile
+
 import argparse
 import json
 from pathlib import Path
@@ -49,7 +51,7 @@ def sweep(args: list[str]) -> int:
             if not root.is_absolute() or root.resolve() in (
                 Path("/"),
                 Path.home(),
-                Path("/tmp").resolve(),
+                Path(tempfile.gettempdir()).resolve(),
             ):
                 raise ValueError(
                     "harness_lane_config_root_invalid: name an absolute directory reserved for Yoke lanes or QA fixtures"

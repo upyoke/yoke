@@ -89,7 +89,6 @@ def test_token_is_redacted_at_every_read_boundary_on_both_streams(
     assert kwargs["stdout"] is subprocess.PIPE
     assert kwargs["stderr"] is subprocess.PIPE
     assert kwargs["bufsize"] == 0
-    assert kwargs["start_new_session"] is True
     assert out.getvalue() == "stdout-before:[REDACTED]:stdout-after!"
     assert err.getvalue() == "stderr-before:[REDACTED]:stderr-after?"
     assert _TOKEN not in out.getvalue()
@@ -98,7 +97,7 @@ def test_token_is_redacted_at_every_read_boundary_on_both_streams(
     assert process.stderr.closed is True
 
 
-def test_keyboard_interrupt_stops_child_and_reraises():
+def test_keyboard_interrupt_stops_child_and_reraises(monkeypatch):
     class InterruptingProcess:
         def __init__(self):
             self.stdout = _ChunkedStream(())
@@ -121,6 +120,10 @@ def test_keyboard_interrupt_stops_child_and_reraises():
             self.killed = True
 
     process = InterruptingProcess()
+    def stop(process):
+        process.terminate()
+        process.wait()
+    monkeypatch.setattr("yoke_core.tools.redacted_process.terminate_process_group", stop)
     with pytest.raises(KeyboardInterrupt):
         run_redacted_child(
             ["pulumi", "up", "--yes"],

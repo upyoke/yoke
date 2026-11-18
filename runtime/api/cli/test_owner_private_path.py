@@ -43,7 +43,7 @@ def test_windows_owner_private_file_uses_dacl_validator(
 
 @pytest.mark.windows
 def test_owner_private_path_exports_only_file_validator() -> None:
-    assert {"is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file",
+    assert {"posix_uid", "is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file",
             "is_owner_private_file", "is_owner_private_directory",
             "create_owner_private_directory", "create_owner_private_temporary",
             "write_owner_private"} == set(owner_private_path.__all__)

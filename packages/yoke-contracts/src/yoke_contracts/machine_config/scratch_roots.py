@@ -11,6 +11,8 @@ a reader whose order drifts from the writer's simply stops finding files.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_paths import POSIX_TMP
+
 from pathlib import Path
 import tempfile
 
@@ -30,8 +32,8 @@ def fallback_scratch_root() -> Path:
     real ``/tmp`` is preferred wherever it exists.
     """
     base = Path(tempfile.gettempdir())
-    if str(base).startswith("/var/folders/") and Path("/tmp").is_dir():
-        base = Path("/tmp")
+    if str(base).startswith("/var/folders/") and Path(POSIX_TMP).is_dir():
+        base = Path(POSIX_TMP)
     return base / SCRATCH_DIR_NAME
 
 
@@ -50,12 +52,12 @@ def scratch_path_roots(path: str | Path | None = None) -> list[str]:
     """
     roots: list[str] = []
     candidates = [str(c) for c in scratch_root_candidates(path)]
-    candidates += ["/tmp", tempfile.gettempdir()]
+    candidates += [POSIX_TMP, tempfile.gettempdir()]
     for raw in candidates:
         root = raw.rstrip("/")
         for value in (
             root,
-            "/private" + root if root.startswith(("/tmp", "/var/")) else "",
+            "/private" + root if root.startswith((POSIX_TMP, "/var/")) else "",
         ):
             if value and value not in roots:
                 roots.append(value)

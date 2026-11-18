@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.process_group_reaping import popen_in_process_group, terminate_process_group
+
 import codecs
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import os
-import signal
 import subprocess
 from threading import Thread
 from typing import Any, BinaryIO, TextIO
@@ -81,7 +82,7 @@ def run_redacted_child(
     *,
     env: Mapping[str, str],
     redaction_terms: Sequence[str],
-    child_factory: Callable[..., Any] = subprocess.Popen,
+    child_factory: Callable[..., Any] = popen_in_process_group,
     out: TextIO,
     err: TextIO,
     cwd: os.PathLike[str] | str | None = None,
@@ -94,7 +95,6 @@ def run_redacted_child(
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE,
             "bufsize": 0,
-            "start_new_session": True,
         }
         if cwd is not None:
             child_kwargs["cwd"] = os.fspath(cwd)
@@ -214,31 +214,7 @@ def _forward_bytes(
 
 
 def _stop_process(process: Any) -> None:
-    _signal_process(process, signal.SIGTERM, "terminate")
-    try:
-        process.wait(timeout=5)
-        return
-    except BaseException:
-        pass
-    _signal_process(process, signal.SIGKILL, "kill")
-    try:
-        process.wait()
-    except BaseException:
-        pass
-
-
-def _signal_process(process: Any, group_signal: int, method: str) -> None:
-    pid = getattr(process, "pid", None)
-    if isinstance(pid, int) and pid > 0:
-        try:
-            os.killpg(pid, group_signal)
-            return
-        except OSError:
-            pass
-    try:
-        getattr(process, method)()
-    except Exception:
-        pass
+    terminate_process_group(process)
 
 
 __all__ = [

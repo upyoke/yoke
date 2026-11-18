@@ -16,12 +16,13 @@ Observability never raises: every probe degrades to an empty answer.
 
 from __future__ import annotations
 
+from yoke_contracts.platform_process import process_command_lines
+
 from yoke_core.domain import pytest_gate_connection as gate_admission
 import psycopg
 
 import os
 import re
-import subprocess
 from dataclasses import dataclass, replace
 from typing import Optional, Sequence
 
@@ -76,25 +77,9 @@ def pid_from_slot_identity(identity: str) -> Optional[int]:
 
 def _ppid_map() -> dict[int, int]:
     try:
-        listing = subprocess.run(
-            ["ps", "-eo", "pid=,ppid="],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        ).stdout
-    except (OSError, subprocess.SubprocessError):
+        return {process.pid: process.ppid for process in process_command_lines()}
+    except OSError:
         return {}
-    mapping: dict[int, int] = {}
-    for line in listing.splitlines():
-        parts = line.split()
-        if len(parts) != 2:
-            continue
-        try:
-            pid, ppid = int(parts[0]), int(parts[1])
-        except ValueError:
-            continue
-        mapping[pid] = ppid
-    return mapping
 
 
 def ancestor_pids(pid: int, ppids: dict[int, int] | None = None) -> list[int]:
@@ -112,15 +97,10 @@ def ancestor_pids(pid: int, ppids: dict[int, int] | None = None) -> list[int]:
 
 def _command_for_pid(pid: int) -> str:
     try:
-        result = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "args="],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
+        return next((" ".join(process.cmdline) for process in process_command_lines()
+                     if process.pid == pid), "")
+    except OSError:
         return ""
-    return (result.stdout or "").strip()
 
 
 def _read_slot_parties() -> tuple[list[str], list[str]]:

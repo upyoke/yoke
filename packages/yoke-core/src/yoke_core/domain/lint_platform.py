@@ -28,7 +28,7 @@ OWNERS = {
     "process": {"platform_process.py", "platform_process_windows.py"},
     "getuid": {"owner_private_path.py"},
     "symlink": {"platform_links.py"},
-    "tmp": {"lint_platform.py"},
+    "tmp": {"lint_platform.py", "platform_paths.py"},
 }
 BASELINE = "packages/yoke-core/src/yoke_core/domain/lint_platform_offenders.json"
 RECOVERY = "Use the shared platform_* helper or explicit UTF-8 encoding; remove the fixed offender entry. Never grow the baseline."

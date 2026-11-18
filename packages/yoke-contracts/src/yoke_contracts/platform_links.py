@@ -8,6 +8,21 @@ import shutil
 import subprocess
 
 
+def is_link(path: str | Path) -> bool:
+    """Recognize symbolic links and native Windows directory junctions."""
+    selected = Path(path)
+    return selected.is_symlink() or (os.name == "nt" and selected.is_junction())
+
+
+def remove_link(path: str | Path) -> None:
+    """Remove the link itself, preserving a directory junction's target."""
+    selected = Path(path)
+    if os.name == "nt" and selected.is_junction():
+        selected.rmdir()
+    else:
+        selected.unlink()
+
+
 def link(target: str | Path, path: str | Path) -> str:
     """Return symlink/junction/copy; never overwrite an existing destination.
 
@@ -53,4 +68,4 @@ def link(target: str | Path, path: str | Path) -> str:
         raise OSError(f"link_creation_failed: {destination}; {recovery}, remove any incomplete owned copy, and retry: {exc}") from exc
 
 
-__all__ = ["link"]
+__all__ = ["link", "is_link", "remove_link"]
