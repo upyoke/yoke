@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_session_relay_release_status.py::test_relay_lifecycle_reports_release_pin",
- "reason": "AssertionError: assert {'distributio...d': True, ...} == {'distributio...d': True, ...}"
-}

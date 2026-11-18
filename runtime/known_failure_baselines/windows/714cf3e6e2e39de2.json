@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_session_relay_plist.py::test_plist_preserves_only_native_cli_search_directories",
- "reason": "AssertionError: assert ['C:\\\\Users\\\\...\\.local\\\\bin'] == ['C:\\\\Users\\\\...\\vendor\\\\bin']"
-}

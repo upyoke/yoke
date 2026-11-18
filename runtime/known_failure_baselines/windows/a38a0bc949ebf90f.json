@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_resume_settlement.py::test_default_spawn_settles_usage_across_custody_and_relay_directories",
- "reason": "AssertionError: supervisor never sealed the capture at C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_default_spawn_settles_usa0\\relay\\native-diagnostics\\nd-1111"
-}

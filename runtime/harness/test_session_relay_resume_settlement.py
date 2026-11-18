@@ -16,6 +16,7 @@ import os
 import sys
 import time
 
+from yoke_contracts.platform_process import pid_alive
 from yoke_contracts.session_control.resume import (
     RESUME_EXITED_NONZERO_RESULT,
     RESUMED_COMPLETED_RESULT,
@@ -89,9 +90,8 @@ def _await_outcome(capture_path: Path, pid: int) -> None:
     while time.monotonic() < deadline:
         try:
             if b"exit-code:" in capture_path.read_bytes():
-                os.kill(pid, 0)
-        except ProcessLookupError:
-            return
+                if not pid_alive(pid):
+                    return
         except OSError:
             pass
         time.sleep(0.05)

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_session_relay_systemd.py::test_uninstall_cannot_report_success_while_owned_unit_remains_active",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

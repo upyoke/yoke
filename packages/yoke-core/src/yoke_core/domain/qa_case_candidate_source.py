@@ -78,13 +78,23 @@ def candidate_source(
         return
     with TemporaryDirectory(prefix="yoke-qa-source-") as directory:
         launcher = Path(directory) / source.YOKE_LAUNCHER_NAME
-        launcher.write_text(
-            f"#!{environment.python}\n"
+        body = (
             "import runpy\n"
-            f"runpy.run_module({source.YOKE_CLI_MODULE!r}, run_name='__main__')\n",
-            encoding="utf-8",
+            f"runpy.run_module({source.YOKE_CLI_MODULE!r}, run_name='__main__')\n"
         )
+        launcher.write_text(f"#!{environment.python}\n" + body, encoding="utf-8")
         launcher.chmod(0o755)
+        if os.name == "nt":
+            # CreateProcess does not execute extensionless shebang scripts.
+            # Keep the shell entrypoint and give native subprocesses the same
+            # verified Python/module through setuptools' architecture-aware exe.
+            from setuptools._scripts import ScriptWriter, get_win_launcher
+
+            header = ScriptWriter.get_header(executable=[environment.python])
+            launcher.with_name(launcher.name + "-script.py").write_text(
+                header + body, encoding="utf-8",
+            )
+            launcher.with_suffix(".exe").write_bytes(get_win_launcher("cli"))
         bound = source.with_source_pythonpath(environment.env, root)
         bound[source_python_environment.QA_SOURCE_ENVIRONMENT_ENV] = json.dumps(
             {"root": str(root), "declaration": environment.evidence["declaration"]},

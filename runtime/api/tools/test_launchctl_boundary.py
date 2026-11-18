@@ -13,6 +13,9 @@ import pytest
 from yoke_core.domain import launchctl_boundary as boundary
 
 
+
+pytestmark = pytest.mark.posix_only(reason='launchd sandbox requires POSIX uid and launchctl semantics')
+
 def _sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     sandbox = tmp_path / "launchd-sandbox"
     monkeypatch.setenv(boundary.SANDBOX_ENV, str(sandbox))

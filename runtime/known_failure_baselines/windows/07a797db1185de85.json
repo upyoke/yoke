@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_evidence_files.py::test_listing_covers_every_kind_the_machine_holds",
- "reason": "AssertionError: assert {'diagnostic', 'relay'} == {'diagnostic'...y', 'watcher'}"
-}

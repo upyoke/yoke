@@ -27,7 +27,9 @@ def _candidate(root):
     (root / "runtime").mkdir()
     (root / "runtime" / "__init__.py").write_text("")
     (root / "packages/yoke-cli/src/yoke_cli/main.py").write_text(
-        "import yoke_core\nprint(yoke_core.marker, yoke_core.__file__)\n"
+        "import json, sys, yoke_core\n"
+        "print(yoke_core.marker, yoke_core.__file__)\n"
+        "print('launcher-facts=' + json.dumps({'argv': sys.argv[1:], 'prefix': sys.prefix}))\n"
     )
     provision_stub_environment(root)
 
@@ -99,6 +101,44 @@ def test_bare_python_and_yoke_import_candidate_instead_of_installed_source(
         origins = raw["candidate_source"][moment]
         assert len(origins) == len(PACKAGE_SRC_RELS) + 1
         assert all(Path(origin).is_relative_to(root) for origin in origins.values())
+
+
+def test_candidate_launcher_preserves_arguments_environment_and_cleanup(tmp_path):
+    from yoke_core.domain.qa_case_candidate_source import candidate_source
+
+    root = tmp_path / "candidate"
+    _candidate(root)
+    arguments = ["argument with spaces", 'quote"and%literal']
+    with (
+        patch(
+            "yoke_core.domain.source_python_environment.load_declaration",
+            return_value=TestEnvironmentDeclaration(project="fixture"),
+        ),
+        candidate_source(root, product_command_environment(os.environ)) as binding,
+    ):
+        assert binding is not None and not binding.refusal
+        launcher_directory = Path(binding.env["PATH"].split(os.pathsep)[0])
+        assert launcher_directory.is_dir()
+        # Native Windows lookup uses the calling process's environment, not
+        # PATH supplied only for its future child. Model the QA process tree:
+        # establish the candidate environment, then invoke bare yoke within it.
+        body = (
+            "import subprocess,sys; "
+            "raise SystemExit(subprocess.call(['yoke', *sys.argv[1:]]))"
+        )
+        result = subprocess.run(
+            [binding.python, "-c", body, *arguments], cwd=root, env=binding.env,
+            capture_output=True, text=True, check=False,
+        )
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        facts = json.loads(next(
+            line.removeprefix("launcher-facts=")
+            for line in result.stdout.splitlines() if line.startswith("launcher-facts=")
+        ))
+        assert facts["argv"] == arguments
+        assert Path(facts["prefix"]) == root / ".venv"
+        assert "candidate-only" in result.stdout
+    assert not launcher_directory.exists()
 
 
 def test_partial_candidate_records_refusal_instead_of_running_command(
@@ -184,7 +224,11 @@ def test_candidate_check_after_the_case_refuses_drift_without_repairing(tmp_path
     from yoke_core.domain.qa_case_candidate_source import CandidateSource
 
     provision_stub_environment(tmp_path)
-    site = next((tmp_path / ".venv/lib").glob("python*/site-packages"))
+    site = next(
+        path
+        for pattern in ("Lib/site-packages", "lib/python*/site-packages")
+        for path in (tmp_path / ".venv").glob(pattern)
+    )
     metadata = site / "main_only-1.0.dist-info"
     metadata.mkdir()
     (metadata / "METADATA").write_text(

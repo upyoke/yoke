@@ -34,6 +34,7 @@ def test_project_storage_key_replaces_path_separators(tmp_path: Path) -> None:
         ("/a/" + "😀" * 101, "-a" + "-" * 198 + "-dygf9w"),
     ],
 )
+@pytest.mark.posix_only(reason='POSIX absolute transcript paths have no Windows drive prefix')
 def test_project_storage_key_matches_claude(checkout: str, expected: str) -> None:
     assert claude_project_storage_key(Path(checkout)) == expected
 

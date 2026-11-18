@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_evidence_files.py::test_a_leased_job_reads_the_named_file",
- "reason": "AssertionError: assert 'no_files' == 'read'"
-}

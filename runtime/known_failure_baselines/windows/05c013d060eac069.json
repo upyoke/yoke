@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_inventory.py::test_launch_transports_resolve_the_binary_the_probe_advertised",
- "reason": "AssertionError: assert None"
-}

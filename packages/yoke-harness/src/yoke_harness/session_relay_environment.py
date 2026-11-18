@@ -7,6 +7,7 @@ import os
 from typing import Mapping
 
 from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.harness_shell_tools import is_windows
 from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,
     harness_cli_manifest,
@@ -62,13 +63,20 @@ def native_session_environment(
     binary it described. Every reader observes the surface instead.
     The relay's config-file override is discarded; only explicit launch
     markers can reintroduce it for a deliberately shared configuration.
+    POSIX children use the automation shell; native Windows children let the
+    harness select its declared shell instead of inheriting a POSIX path.
     """
     env = dict(os.environ if environ is None else environ)
     for name in _PARENT_HARNESS_ENV:
         env.pop(name, None)
     manifest = harness_cli_manifest(canonical_harness_id(executor))
     env.update(manifest.launch_environment)
-    env["SHELL"] = _NATIVE_AUTOMATION_SHELL
+    if is_windows():
+        # Native harness tools select Git Bash or PowerShell from their own
+        # manifest contract; a POSIX absolute shell path is not a Windows tool.
+        env.pop("SHELL", None)
+    else:
+        env["SHELL"] = _NATIVE_AUTOMATION_SHELL
     env["YOKE_EXECUTOR"] = executor
     if provider:
         env["YOKE_PROVIDER"] = provider

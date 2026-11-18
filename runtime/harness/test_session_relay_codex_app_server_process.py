@@ -121,7 +121,10 @@ def test_parent_reports_identity_while_worker_retains_turn(
     assert INSTRUCTION not in repr(command)
     assert SECRET not in repr(command)
     assert "start_new_session" not in options
-    assert options["env"]["SHELL"] == "/bin/sh"
+    if os.name == "nt":
+        assert "SHELL" not in options["env"]
+    else:
+        assert options["env"]["SHELL"] == "/bin/sh"
     assert SECRET in options["env"][LAUNCH_CONTEXT_ENV]
     assert process.terminated is False
 

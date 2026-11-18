@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
 import subprocess
-import sys
+from yoke_contracts.venv_layout import venv_site_packages
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -32,16 +33,11 @@ SECOND_RELEASE = "0.2.0.202610140942"
 
 def _fake_release(path: Path, release: str) -> None:
     create_relay_directory(path)
-    binary = path / "bin"
+    binary = relay_venv_python(path).parent
     binary.mkdir(parents=True)
-    (binary / "python").touch()
-    (binary / "yoke").touch()
-    packages = (
-        path
-        / "lib"
-        / f"python{sys.version_info.major}.{sys.version_info.minor}"
-        / "site-packages"
-    )
+    relay_venv_python(path).touch()
+    relay_venv_executable(path).touch()
+    packages = venv_site_packages(path)
     cli = packages / "yoke_cli"
     cli.mkdir(parents=True)
     (cli / "__init__.py").write_text("", encoding="utf-8")

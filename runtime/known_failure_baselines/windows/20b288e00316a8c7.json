@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_session_relay_systemd.py::test_service_timeout_teaches_unsettled_job_without_claiming_manager_missing",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

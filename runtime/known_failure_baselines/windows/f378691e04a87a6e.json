@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_evidence_files.py::test_a_kind_narrows_the_listing",
- "reason": "AssertionError: assert [] == ['watcher']"
-}

@@ -113,6 +113,7 @@ def test_leased_job_survives_the_poll_cycle_that_leased_it(tmp_path) -> None:
     assert outcome.jobs_settled == 1
 
 
+@pytest.mark.posix_only(reason='POSIX signal drain finishes in-flight work on SIGTERM')
 def test_termination_finishes_in_flight_work_before_returning(tmp_path) -> None:
     finished: list[str] = []
     started = threading.Event()

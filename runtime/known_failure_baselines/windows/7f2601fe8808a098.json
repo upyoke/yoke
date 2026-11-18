@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_session_relay_systemd.py::test_service_operation_waits_for_graceful_stop_beyond_probe_deadline[uninstall]",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

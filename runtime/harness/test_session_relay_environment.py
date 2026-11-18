@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+
+import pytest
 
 from yoke_contracts.machine_config.relay_instance import (
     RELAY_STATE_DIR_ENV,
@@ -63,7 +66,7 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     assert ACTOR_ROLE_ENV_VAR not in environment
     assert environment["YOKE_EXECUTOR"] == "claude-code"
     assert environment["YOKE_PROVIDER"] == "anthropic"
-    assert environment["SHELL"] == "/bin/sh"
+    assert environment.get("SHELL") == (None if os.name == "nt" else "/bin/sh")
     assert "BASH_ENV" not in environment
     assert "ENV" not in environment
     assert "ZDOTDIR" not in environment
@@ -79,17 +82,22 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     }
 
 
-def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state() -> None:
+def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state(tmp_path) -> None:
+    home = tmp_path / "operator"
+    state = home / ".yoke" / "relay-instances" / "abcd1234"
+    release = state / "releases" / "deadbeef"
+    user_paths = [str(home / ".local" / "bin"), str(tmp_path / "system" / "bin")]
     environment = strip_relay_owned_python_state(
         {
-            "PATH": (
-                f"{RELAY_STATE_DIR}/venv/bin"
-                f":{RELAY_STATE_DIR}/runtime/bin"
-                ":/Users/example/.local/bin"
-                ":/opt/homebrew/bin"
-            ),
-            "HOME": "/Users/example",
-            **RELAY_PYTHON_STATE,
+            "PATH": os.pathsep.join([
+                str(state / "venv" / "bin"),
+                str(state / "runtime" / "bin"),
+                *user_paths,
+            ]),
+            "HOME": str(home),
+            RELAY_STATE_DIR_ENV: str(state),
+            "VIRTUAL_ENV": str(release),
+            "PYTHONPATH": str(release / "site-packages"),
         }
     )
 
@@ -99,20 +107,20 @@ def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state() -> No
     assert RELAY_STATE_DIR_ENV not in environment
     # Everything outside the relay's own tree is the user's, including the
     # directory the machine's installed `yoke` launcher lives in.
-    assert environment["PATH"] == "/Users/example/.local/bin:/opt/homebrew/bin"
-    assert environment["HOME"] == "/Users/example"
+    assert environment["PATH"] == os.pathsep.join(user_paths)
+    assert environment["HOME"] == str(home)
 
 
 def test_a_search_path_the_relay_never_claimed_is_left_alone() -> None:
     environment = strip_relay_owned_python_state(
         {
-            "PATH": "/Users/example/project/.venv/bin:/usr/bin",
+            "PATH": os.pathsep.join(["/Users/example/project/.venv/bin", "/usr/bin"]),
             "VIRTUAL_ENV": "/Users/example/project/.venv",
         }
     )
 
     assert "VIRTUAL_ENV" not in environment
-    assert environment["PATH"] == "/Users/example/project/.venv/bin:/usr/bin"
+    assert environment["PATH"] == os.pathsep.join(["/Users/example/project/.venv/bin", "/usr/bin"])
 
 
 def test_the_relay_supervisor_keeps_the_state_its_own_imports_resolve_through() -> None:
@@ -124,12 +132,12 @@ def test_the_relay_supervisor_keeps_the_state_its_own_imports_resolve_through() 
     """
     environment = native_session_environment(
         executor="codex",
-        environ={"PATH": f"{RELAY_STATE_DIR}/venv/bin:/usr/bin", **RELAY_PYTHON_STATE},
+        environ={"PATH": os.pathsep.join([f"{RELAY_STATE_DIR}/venv/bin", "/usr/bin"]), **RELAY_PYTHON_STATE},
     )
 
     assert environment["VIRTUAL_ENV"] == RELAY_PYTHON_STATE["VIRTUAL_ENV"]
     assert environment["PYTHONPATH"] == RELAY_PYTHON_STATE["PYTHONPATH"]
-    assert environment["PATH"] == f"{RELAY_STATE_DIR}/venv/bin:/usr/bin"
+    assert environment["PATH"] == os.pathsep.join([f"{RELAY_STATE_DIR}/venv/bin", "/usr/bin"])
 
 
 def test_native_environment_stamps_resolved_model_for_registration() -> None:
@@ -230,3 +238,20 @@ def test_other_harnesses_defer_the_claude_background_limit() -> None:
             },
         )
         assert "BASH_DEFAULT_TIMEOUT_MS" not in environment
+
+
+@pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
+@pytest.mark.parametrize("windows", [False, True])
+def test_native_shell_selection_preserves_the_harness_os_contract(
+    monkeypatch, executor, windows,
+):
+    from yoke_harness import session_relay_environment as module
+
+    monkeypatch.setattr(module, "is_windows", lambda: windows)
+    environment = native_session_environment(
+        executor=executor, environ={"SHELL": "/parent/shell"},
+    )
+    if windows:
+        assert "SHELL" not in environment
+    else:
+        assert environment["SHELL"] == "/bin/sh"

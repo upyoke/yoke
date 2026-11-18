@@ -36,7 +36,8 @@ def test_candidate_command_executes_bound_source(tmp_path, monkeypatch, nested):
     )
     launcher.chmod(0o755)
     argv = [
-        str(launcher),
+        Path(sys.executable).as_posix(),
+        launcher.as_posix(),
         "dev",
         "run",
         "--",
@@ -46,7 +47,7 @@ def test_candidate_command_executes_bound_source(tmp_path, monkeypatch, nested):
     ]
     if nested:
         script = f"import subprocess; raise SystemExit(subprocess.call({argv!r}))"
-        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
+        command = f"{shlex.quote(Path(sys.executable).as_posix())} -c {shlex.quote(script)}"
     else:
         command = shlex.join(argv)
     head = "a" * 40
@@ -98,7 +99,7 @@ def test_command_environment_only_binds_candidate_cases(
         "case_key": "candidate-environment",
         "execution_target": {"deployment": {"release_lineage": head}},
         "method_config": {
-            "command": f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
+            "command": f"{shlex.quote(Path(sys.executable).as_posix())} -c {shlex.quote(script)}"
         },
     }
     with (

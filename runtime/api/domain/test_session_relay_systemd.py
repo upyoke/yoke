@@ -17,6 +17,9 @@ from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.tools.session_relay_release import RelayReleaseError
 
 
+
+pytestmark = pytest.mark.posix_only(reason='systemd user units require POSIX uid and service semantics')
+
 @pytest.fixture
 def instance(tmp_path):
     return RelayInstance(

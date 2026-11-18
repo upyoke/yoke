@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_claude_wake.py::test_waiting_wake_spawns_exact_yoke_session_and_returns_running[claim-held]",
- "reason": "AssertionError: assert {'native_bina...0004321', ...} == {'native_bina...0004321', ...}"
-}

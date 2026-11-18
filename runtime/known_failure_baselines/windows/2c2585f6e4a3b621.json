@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_session_relay_inventory.py::test_cli_probe_prefers_path_over_app_bundle",
- "reason": "AssertionError: assert None == '1.2.3'"
-}

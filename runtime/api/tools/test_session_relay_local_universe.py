@@ -77,8 +77,8 @@ def _installed_launcher(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 
 
 def test_venv_python_symlink_keeps_its_installed_console_script(tmp_path, monkeypatch):
-    base_python = tmp_path / "base" / "python3"
-    base_python.parent.mkdir()
+    base_python = venv_python(tmp_path / "base", name="python3")
+    base_python.parent.mkdir(parents=True)
     base_python.touch(mode=0o755)
     environment = tmp_path / "venv"
     interpreter = venv_python(environment, name="python3")

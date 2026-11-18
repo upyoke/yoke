@@ -14,6 +14,9 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.domain import launchctl_boundary as boundary
 
 
+
+pytestmark = pytest.mark.posix_only(reason='launchd orphan discovery and unload use POSIX service paths')
+
 def _write(agents: Path, label: str, config_path: Path | None) -> Path:
     agents.mkdir(parents=True, exist_ok=True)
     path = agents / f"{label}.plist"

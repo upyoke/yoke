@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import subprocess
+import sys
+
+import pytest
 from dataclasses import replace
 from yoke_cli.config import path_harness_clis as cli_resolution
 
@@ -17,6 +22,19 @@ from yoke_harness import session_relay_surface_probe_cache as probe_cache
 from yoke_harness import session_relay_surface_probes as probe_module
 
 
+@pytest.fixture(autouse=True)
+def _python_cli_runner(monkeypatch):
+    probe = probe_module.probe_cli_surface
+
+    def run(argv, **kwargs):
+        return subprocess.run([sys.executable, *argv], **kwargs)
+
+    monkeypatch.setattr(
+        inventory_module, "probe_cli_surface",
+        lambda surface, command: probe(surface, command, runner=run),
+    )
+
+
 def _bundled_manifest(monkeypatch, executable):
     manifest = next(
         row for row in cli_resolution.HARNESS_CLI_MANIFESTS if row.executable == "codex"
@@ -24,15 +42,16 @@ def _bundled_manifest(monkeypatch, executable):
     monkeypatch.setattr(
         cli_resolution,
         "HARNESS_CLI_MANIFESTS",
-        (replace(manifest, bundled_candidates=(str(executable),)),),
+        (replace(manifest, bundled_candidates=(str(executable),),
+                 windows_bundled_candidates=(str(executable),)),),
     )
 
 
 def _version_script(directory: Path, text: str) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
-    script = directory / "codex"
+    script = directory / "codex.py"
     script.write_text(
-        f"#!/usr/bin/env python3\nimport sys\nsys.stdout.write({text!r})\n",
+        f"import sys\nsys.stdout.write({text!r})\n",
         encoding="utf-8",
     )
     script.chmod(0o755)
@@ -112,7 +131,7 @@ def test_a_standalone_install_on_path_wins_over_the_desktop_bundle(
 
 
 def test_an_absolute_binary_resolves_only_when_it_is_executable(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch,
 ) -> None:
     executable = _version_script(tmp_path / "explicit", "codex-cli 1.0.0\n")
     plain = tmp_path / "explicit" / "not-executable"
@@ -121,6 +140,13 @@ def test_an_absolute_binary_resolves_only_when_it_is_executable(
     assert inventory_module.resolve_native_cli(str(executable)) == str(executable)
     assert inventory_module.resolve_native_cli_source(str(executable)) == (
         inventory_module.ResolvedNativeCli(str(executable), "explicit")
+    )
+    # Windows does not expose POSIX execute mode bits. Model the OS denying
+    # execution at its access boundary, retaining the resolver's refusal proof.
+    access = os.access
+    monkeypatch.setattr(
+        cli_resolution.os, "access",
+        lambda path, mode: False if Path(path) == plain else access(path, mode),
     )
     assert inventory_module.resolve_native_cli(str(plain)) is None
     assert inventory_module.resolve_native_cli(str(tmp_path / "absent")) is None

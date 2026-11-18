@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_session_relay_systemd.py::test_start_failure_is_not_install_success",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}
