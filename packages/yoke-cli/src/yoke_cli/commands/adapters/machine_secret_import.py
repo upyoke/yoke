@@ -25,11 +25,11 @@ def test_machine_secret_set(args: list[str]) -> int:
         prog="yoke test-machine secret set",
         description="Import one credential into this controller's private Test Machine store.",
     )
-    parser.add_argument("--test-machine", required=True, metavar="NAME")
-    parser.add_argument("--key", choices=("ssh_private_key", "desktop_password"), required=True)
+    parser.add_argument("--test-machine", required=True, metavar="NAME", help="Registered Test Machine name.")
+    parser.add_argument("--key", choices=("ssh_private_key", "desktop_password"), required=True, help="Credential to import on this controller.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--value-file")
-    source.add_argument("--value-stdin", action="store_true")
+    source.add_argument("--value-file", help="Read the credential from a private file.")
+    source.add_argument("--value-stdin", action="store_true", help="Read the credential from standard input.")
     parsed = parse_or_usage_error(parser, args, SECRET_USAGE)
     if parsed is None:
         return 2

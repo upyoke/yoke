@@ -151,7 +151,7 @@ def begin_case_host_contract(
             (str(execution["id"]),),
         )
         execution["test_machine_lease_id"] = None
-    from yoke_core.domain.test_machine_rows import test_machine_rows
+    from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 
     platforms = {}
     if any(case_machines(row) for row in execution["roster"]):

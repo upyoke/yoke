@@ -57,7 +57,7 @@ def test_controller_after_clean_host_leaves_receipts_unchanged(
 
     def receipts():
         return test_db.execute(
-            "SELECT capability_type,operation,receipt_json FROM test_machine_operation_receipts ORDER BY capability_type,operation"
+            "SELECT test_machine_id,operation,receipt_json FROM test_machine_operation_receipts ORDER BY test_machine_id,operation"
         ).fetchall()
 
     before = receipts()

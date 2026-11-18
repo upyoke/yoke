@@ -39,7 +39,7 @@ from yoke_core.domain.handlers.machine_qa_operation import (
 from yoke_core.domain.machine_qa_capability import (
     test_machine_detail as machine_detail,
 )
-from yoke_core.domain.test_machine_rows import TestMachineRow
+from yoke_core.domain.machine_qa_host_rows import TestMachineRow
 from yoke_core.domain.machine_qa_golden_destination import (
     resolve_golden_capture_destination,
 )

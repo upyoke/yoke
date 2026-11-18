@@ -8,7 +8,7 @@ from typing import Any, Optional, Tuple
 
 from pydantic import ValidationError
 
-from yoke_core.domain import test_machine_idle_notice as release_notice
+from yoke_core.domain import machine_idle_notice as release_notice
 from yoke_core.domain import yoke_function_dispatch_idempotency as idempotency_module
 from yoke_core.domain.yoke_function_actor_identity import (
     bind_actor_identity,

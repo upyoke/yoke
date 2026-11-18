@@ -161,7 +161,7 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/transport/settled_response.py",
-        "yoke_core.domain.test_machine_idle_stop",
+        "yoke_core.domain.machine_idle_stop",
     ): (
         "machine_local_credential_custody",
         "stop the Yoke-started Test Machine under its lease using the local power credentials",

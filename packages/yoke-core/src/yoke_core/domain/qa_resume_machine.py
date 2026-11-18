@@ -36,7 +36,7 @@ def execution_machine(
         return None
 
     from yoke_core.domain.machine_qa_case_platform import case_platform
-    from yoke_core.domain.test_machine_rows import test_machine_rows
+    from yoke_core.domain.machine_qa_host_rows import test_machine_rows
     from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
     hosts = {

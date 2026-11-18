@@ -1,4 +1,4 @@
-"""Authorize a secret-free desktop route on the machine's registered project."""
+"""Authorize a secret-free desktop route under the machine lease."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import TestMachineGetRequest, handle_get
-from yoke_core.domain import actors, db_helpers
+from yoke_core.domain import actors, db_backend, db_helpers
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
 from yoke_core.domain.session_steering_authority import require_operator_seat
@@ -41,9 +41,10 @@ def handle_desktop_access(request):
     if lease and lease.get("session_id") != request.actor.session_id:
         conn = db_helpers.connect()
         try:
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
             holder = conn.execute(
                 "SELECT p.id, p.slug FROM harness_sessions s JOIN projects p ON p.id=s.project_id "
-                "WHERE s.session_id=%s",
+                f"WHERE s.session_id={marker}",
                 (lease["session_id"],),
             ).fetchone()
             if not holder:

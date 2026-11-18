@@ -14,7 +14,7 @@ from yoke_contracts.machine_qa_execution import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_contracts.timestamps import utc_now, parse_instant
-from yoke_core.domain.test_machine_rows import test_machine_id
+from yoke_core.domain.machine_qa_host_rows import test_machine_id
 
 
 #: The operations whose receipts live beside the verification row rather than

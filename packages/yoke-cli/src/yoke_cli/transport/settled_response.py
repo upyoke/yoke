@@ -23,7 +23,7 @@ def settle_response(
     response = redact_response(response, tuple(sensitive_values))
     if response.test_machines_to_stop:
         try:
-            stop = importlib.import_module("yoke_core.domain.test_machine_idle_stop")
+            stop = importlib.import_module("yoke_core.domain.machine_idle_stop")
         except ImportError as exc:
             refusal = compose_refusal(
                 "test_machine_power_stop_failed: cloud Test Machines "

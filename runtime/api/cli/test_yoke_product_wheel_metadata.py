@@ -82,7 +82,7 @@ def test_yoke_core_wheel_carries_hooks_without_source_test_helpers(
         "yoke_core/domain/machine_verification_schema.py",
     ):
         assert member in members
-    assert "yoke_core/domain/test_machine_schema.py" not in members
+    assert "yoke_core/domain/machine_qa_host_schema.py" in members
     test_markers = (
         "_test_fixtures.py",
         "_test_helpers.py",

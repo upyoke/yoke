@@ -87,12 +87,14 @@ def test_a_differently_named_registration_of_the_same_home_is_kept(
     [{"host": "other-mac.local"}, {"user": "someone-else"}],
     ids=["other-host", "other-user"],
 )
-def test_the_same_name_on_another_home_is_not_kept(
+def test_a_registration_on_another_home_is_not_kept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str]
 ) -> None:
     conn = _machine(tmp_path, monkeypatch)
     _register_platform(
-        conn, MACHINE, _settings(golden_baseline_path=OTHER_GOLDEN, **overrides)
+        conn, "platform-mac", _settings(
+            resource_name="platform-mac", golden_baseline_path=OTHER_GOLDEN, **overrides
+        )
     )
 
     submitted, execution = run_operation("golden_capture", control=FakeHostControl())
@@ -157,8 +159,8 @@ def test_verify_begin_names_every_golden_registered_for_this_home(
 
     assert begun.primary_success, begun.error
     assert begun.result_payload["registered_goldens"] == [
-        {"project": "yoke", "test_machine": MACHINE, "path": GOLDEN_BASELINE_PATH},
-        {"project": "platform", "test_machine": "platform-mac", "path": OTHER_GOLDEN},
+        {"power_project": "yoke", "test_machine": MACHINE, "path": GOLDEN_BASELINE_PATH},
+        {"power_project": "platform", "test_machine": "platform-mac", "path": OTHER_GOLDEN},
     ]
 
 

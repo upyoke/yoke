@@ -188,7 +188,7 @@ def test_release_frees_cloud_host_without_power_data_or_provider_calls(
         "yoke_core.domain.db_helpers.connect", lambda: nullcontext(test_db)
     )
     monkeypatch.setattr(
-        "yoke_core.domain.test_machine_rows.test_machine_rows",
+        "yoke_core.domain.machine_qa_host_rows.test_machine_rows",
         lambda conn: [SimpleNamespace(
             project="example", test_machine=SETTINGS["resource_name"], settings=SETTINGS,
         )],

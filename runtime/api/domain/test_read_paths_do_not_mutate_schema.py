@@ -88,6 +88,9 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/decision_request_schema.py::create_decision_request_tables",
         # One schema helper calling another.
         "domain/org_schema.py::create_org_tables",
+        "domain/machine_verification_schema.py::ensure_test_machine_schema",
+        # The governed cutover creates the replacement tables before rekeying receipts.
+        "domain/migrations/0115_test_machines_universe_entity.py::apply",
         "domain/project_onboarding_runs.py::ensure_schema",
         "domain/project_snapshot_chunk_uploads.py::_ensure_chunk_tables",
         # Recorded, not endorsed: write paths that converge their own table
@@ -96,9 +99,6 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         # too. Out of scope here because the invariant is about declared
         # reads, and none of these is reachable from one.
         "domain/harness_machine_state.py::upsert_harness_machine_reports",
-        "domain/machine_operation_recording.py::record_test_machine_operation",
-        "domain/machine_qa_capability_settings.py::replace_test_machine_settings",
-        "domain/machine_verification_recording.py::record_test_machine_verification",
         "domain/ouroboros_entry_corrections.py::record_correction",
         "domain/project_snapshot_chunk_uploads.py::sync_chunk",
     }

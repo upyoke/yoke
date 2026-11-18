@@ -13,7 +13,7 @@ from yoke_core.domain.machine_qa_execution_protocol import (
     host_control_submission_receipt,
     host_control_submission_receipt_matches,
 )
-from yoke_core.domain.test_machine_rows import test_machine_id
+from yoke_core.domain.machine_qa_host_rows import test_machine_id
 
 _SUBMISSION_HISTORY_KEY = "host_control_submission_history"
 

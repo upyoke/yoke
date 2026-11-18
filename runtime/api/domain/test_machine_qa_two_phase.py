@@ -276,6 +276,7 @@ def test_cli_verify_local_failure_aborts_server_lease(
         version="v1",
         result={
             "execution": {
+                "project": "yoke",
                 "lease_id": 19,
                 "contract_digest": "digest-19",
             },
@@ -311,8 +312,6 @@ def test_cli_verify_local_failure_aborts_server_lease(
 
     exit_code = test_machine_cli.test_machine_verify(
         [
-            "--project",
-            "yoke",
             "--json",
         ]
     )

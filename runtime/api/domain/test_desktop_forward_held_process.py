@@ -41,7 +41,7 @@ def forward_env(tmp_path, monkeypatch):
     key = tmp_path / "key"
     key.write_text("k")
     monkeypatch.setattr(
-        desktop_forward, "machine_capability_secret_path", lambda *a: key
+        desktop_forward, "test_machine_secret_path", lambda *a: key
     )
     monkeypatch.setattr(desktop_access, "known_hosts_path", lambda _h: tmp_path / "kh")
     checked = []

@@ -6,9 +6,9 @@ import pytest
 
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_host_turns_test_support import MACHINE, _execution_wait, _notices
-from yoke_core.domain import cloud_machine_power, test_machine_idle_stop
+from yoke_core.domain import cloud_machine_power, machine_idle_stop
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
-from yoke_core.domain.test_machine_idle_notice import collect_released_hosts
+from yoke_core.domain.machine_idle_notice import collect_released_hosts
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
@@ -86,7 +86,7 @@ def test_client_rechecks_marker_under_lease_and_clears_only_on_confirmed_stop(
     def stop():
         steps.append("stop")
         if not confirmed:
-            raise test_machine_idle_stop.Ec2InstancePowerError("not confirmed")
+            raise machine_idle_stop.Ec2InstancePowerError("not confirmed")
 
     def dispatch(function, payload):
         steps.append(function)
@@ -104,7 +104,7 @@ def test_client_rechecks_marker_under_lease_and_clears_only_on_confirmed_stop(
     monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
     monkeypatch.setattr(cloud_machine_power, "_call", call)
     monkeypatch.setattr(cloud_machine_power, "machine_power", lambda *args: nullcontext(provider))
-    test_machine_idle_stop.stop_released(
+    machine_idle_stop.stop_released(
         [{"power_project": "power-owner", "test_machine": MACHINE}], emit=lambda _line: None
     )
     expected = ["test_machine.lease_acquire", "test_machine.get"]

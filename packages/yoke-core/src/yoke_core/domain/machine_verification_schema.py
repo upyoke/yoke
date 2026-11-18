@@ -7,7 +7,7 @@ from typing import Any
 from yoke_contracts.machine_qa_host_control import RECORDED_TEST_MACHINE_OPERATIONS
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
-from yoke_core.domain.test_machine_schema import ensure_test_machines
+from yoke_core.domain.machine_qa_host_schema import ensure_test_machine_registry_schema
 
 
 TEST_MACHINE_VERIFICATION_SQL = """
@@ -54,7 +54,7 @@ def ensure_test_machine_schema(
     commit: bool = True,
 ) -> None:
     """Converge receipts, committing unless the caller owns the transaction."""
-    ensure_test_machines(conn)
+    ensure_test_machine_registry_schema(conn)
     execute_schema_script(conn, TEST_MACHINE_VERIFICATION_SQL)
     execute_schema_script(conn, TEST_MACHINE_OPERATION_RECEIPT_SQL)
     if commit:

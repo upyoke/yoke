@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from yoke_contracts.machine_config.test_machine import validate_test_machine_settings
 from yoke_core.domain import db_backend
-from yoke_core.domain.test_machine_rows import TestMachineRow
+from yoke_core.domain.machine_qa_host_rows import TestMachineRow
 
 
 def replace_proven_settings(

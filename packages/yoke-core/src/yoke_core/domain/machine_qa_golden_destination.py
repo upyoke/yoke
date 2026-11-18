@@ -25,10 +25,9 @@ from yoke_contracts.machine_qa_host_control import (
     VERIFY_OPERATION,
 )
 
-from yoke_core.domain.test_machine_rows import (
+from yoke_core.domain.machine_qa_host_rows import (
     TestMachineRow,
     select_test_machine_row,
-    test_machine_rows,
 )
 from yoke_core.domain.machine_qa_shared_home import (
     leased_shared_home,
@@ -46,14 +45,11 @@ def selected_test_machine_row(
     project: str,
     test_machine: str | None,
 ) -> TestMachineRow:
-    """Return the one machine a project-and-name pair addresses."""
+    """Resolve a shared machine under the supplied project context."""
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
-    return select_test_machine_row(
-        test_machine_rows(conn),
-        test_machine=test_machine,
-    )
+    return select_test_machine_row(conn, test_machine=test_machine)
 
 
 def timestamped_golden_directory_name(user: str) -> str:

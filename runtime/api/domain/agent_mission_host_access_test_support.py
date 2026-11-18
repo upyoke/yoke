@@ -15,6 +15,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain.agent_mission_qa_test_support import ACTOR, _request
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_contracts.machine_config.capability_secret_store import store_test_machine_secret
 
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
@@ -63,6 +64,7 @@ ITEM = 7851
 @pytest.fixture
 def mission(test_db, tmp_path, monkeypatch):
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    store_test_machine_secret(COMPANION, "ssh_private_key", "companion-test-key")
     replace_test_machine_settings(
         test_db,
         power_project="yoke",

@@ -11,6 +11,6 @@
  "review": "Desktop viewer source and focused candidate tests cover SSH trust, retained client reasons and orphan-session recovery; deployed recipe proof remains pending.",
  "recipes": ["yoke test-machine list --project P --json", "yoke test-machine get --project P --test-machine NAME --json"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/test_machine_rows.py", "docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machine-desktop.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/machine_qa_host_rows.py", "docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machine-desktop.md"],
  "position": 3
 }

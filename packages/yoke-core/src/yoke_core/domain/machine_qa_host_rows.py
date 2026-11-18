@@ -30,12 +30,20 @@ class TestMachineRow:
     yoke_started: bool
 
 
-def test_machine_rows(conn: Any) -> list[TestMachineRow]:
-    rows = conn.execute(
+def test_machine_rows(
+    conn: Any, *, test_machine: str | None = None
+) -> list[TestMachineRow]:
+    sql = (
         "SELECT m.id, m.power_project_id, p.slug, m.name, m.settings, "
         "m.verified_at, m.created_at, m.yoke_started_at FROM test_machines m "
-        "LEFT JOIN projects p ON p.id=m.power_project_id ORDER BY m.name"
-    ).fetchall()
+        "LEFT JOIN projects p ON p.id=m.power_project_id"
+    )
+    params = ()
+    if test_machine is not None:
+        marker = "%s" if connection_is_postgres(conn) else "?"
+        sql += f" WHERE m.name={marker}"
+        params = (validate_test_machine_resource_name(test_machine),)
+    rows = conn.execute(sql + " ORDER BY m.name", params).fetchall()
     result = []
     for machine_id, project_id, project, name, token, verified_at, created_at, yoke_started_at in rows:
         try:
@@ -65,15 +73,14 @@ def test_machine_rows(conn: Any) -> list[TestMachineRow]:
 
 
 def select_test_machine_row(
-    rows: list[TestMachineRow], *, test_machine: str | None
+    conn: Any, *, test_machine: str | None
 ) -> TestMachineRow:
+    rows = test_machine_rows(conn, test_machine=test_machine)
     if test_machine is not None:
-        selected = validate_test_machine_resource_name(test_machine)
-        for row in rows:
-            if row.test_machine == selected:
-                return row
+        if rows:
+            return rows[0]
         raise TestMachineCapabilityError(
-            f"Test Machine {selected!r} is unregistered; run yoke test-machine list"
+            f"Test Machine {test_machine!r} is unregistered; run yoke test-machine list"
         )
     if len(rows) == 1:
         return rows[0]

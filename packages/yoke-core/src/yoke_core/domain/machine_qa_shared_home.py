@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.machine_qa_capability import host_claim_target
-from yoke_core.domain.test_machine_rows import (
+from yoke_core.domain.machine_qa_host_rows import (
     TestMachineRow,
     test_machine_rows,
 )

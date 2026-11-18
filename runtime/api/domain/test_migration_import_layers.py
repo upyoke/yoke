@@ -25,7 +25,7 @@ CORE_LAYERS = {
         external_identity_schema frontend_events_schema gate_satisfaction_schema
         github_app_schema harness_machine_schema health_runs_schema inbox_post_schema
         item_landings_schema item_refs_schema item_worktree_schema
-        machine_authorization_schema machine_registry_schema machine_verification_schema
+        machine_authorization_schema machine_qa_host_schema machine_registry_schema machine_verification_schema
         merge_lock_schema merge_queue_landing_record_schema org_schema
         project_onboarding_schema projects_github_sync_mode_schema projects_restart_schema
         qa_catalog_schema qa_deployment_requirement_identity_schema

@@ -141,7 +141,7 @@ from yoke_cli.commands.universe_transfer import (
     TOOL_SHAPED_SUBCOMMANDS as _UNIVERSE_TRANSFER_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _UNIVERSE_TRANSFER_USAGE,
 )
-from yoke_cli.commands.adapters.test_machine_secret import (
+from yoke_cli.commands.adapters.machine_secret_import import (
     TOOL_SHAPED_SUBCOMMANDS as _TEST_MACHINE_SECRET_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _TEST_MACHINE_SECRET_USAGE,
 )

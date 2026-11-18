@@ -16,5 +16,5 @@ CREATE TABLE IF NOT EXISTS test_machines (
 """
 
 
-def ensure_test_machines(conn):
+def ensure_test_machine_registry_schema(conn):
     execute_schema_script(conn, TEST_MACHINES_SQL)

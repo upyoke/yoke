@@ -22,7 +22,7 @@ from yoke_core.domain.host_control_runner import (
     load_test_machine_contract,
 )
 from yoke_core.domain.machine_qa_capability import host_claim_target
-from yoke_core.domain.test_machine_rows import test_machine_rows
+from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 
 
 @dataclass(frozen=True)

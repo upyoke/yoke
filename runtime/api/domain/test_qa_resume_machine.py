@@ -128,7 +128,7 @@ def _case(platform):
 
 def _hosts(monkeypatch):
     monkeypatch.setattr(
-        "yoke_core.domain.test_machine_rows.test_machine_rows",
+        "yoke_core.domain.machine_qa_host_rows.test_machine_rows",
         lambda *a, **k: [
             SimpleNamespace(test_machine=name, settings={"os": platform})
             for name, platform in [("linux-lab", "linux"), ("test-mac", "macos")]

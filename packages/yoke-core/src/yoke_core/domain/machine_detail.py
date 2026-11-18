@@ -11,7 +11,7 @@ from yoke_contracts.harness_hook_approval import hook_approval
 from yoke_contracts.onboarding_invocation import onboard_command
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
-from yoke_core.domain.test_machine_rows import test_machine_rows
+from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 from yoke_core.domain.machine_registry import MachineRecord, marker
 from yoke_core.domain.overview_harness_hook_health import (
     harness_targets,

@@ -21,7 +21,7 @@ from yoke_contracts.machine_config.capability_secret_store import (
     read_test_machine_secret,
 )
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.test_machine_rows import (
+from yoke_core.domain.machine_qa_host_rows import (
     select_test_machine_row,
     test_machine_rows,
 )
@@ -168,10 +168,7 @@ def load_test_machine_contract(
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
-    selected = select_test_machine_row(
-        test_machine_rows(conn),
-        test_machine=test_machine,
-    )
+    selected = select_test_machine_row(conn, test_machine=test_machine)
     return TestMachineContract(
         project_id=int(identity.id),
         project=identity.slug,

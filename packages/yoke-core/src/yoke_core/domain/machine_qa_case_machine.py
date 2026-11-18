@@ -9,7 +9,7 @@ from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_resource_name,
 )
 
-from yoke_core.domain.test_machine_rows import (
+from yoke_core.domain.machine_qa_host_rows import (
     test_machine_rows,
 )
 from yoke_core.domain.qa_method_capabilities import capability_kinds

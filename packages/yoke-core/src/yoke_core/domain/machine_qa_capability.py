@@ -29,7 +29,7 @@ from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.coordination_claim_keys import QA_HOST_KEY_PREFIX
 from yoke_core.domain.coordination_claims import active_claim
-from yoke_core.domain.test_machine_rows import (
+from yoke_core.domain.machine_qa_host_rows import (
     TestMachineRow,
     select_test_machine_row,
     test_machine_rows,
@@ -286,7 +286,7 @@ def _test_machine_detail(
 
 def test_machine_detail(conn: Any, *, test_machine: str | None = None) -> dict[str, Any]:
     """Return one selected machine, allowing omission only for one-row fleets."""
-    selected = select_test_machine_row(test_machine_rows(conn), test_machine=test_machine)
+    selected = select_test_machine_row(conn, test_machine=test_machine)
     return _test_machine_detail(conn, row=selected)
 
 
