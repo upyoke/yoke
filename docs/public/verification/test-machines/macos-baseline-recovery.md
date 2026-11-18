@@ -71,7 +71,15 @@ a profile's cookies as it closes, so capture and reset first find each
 identity browser's main process with `/bin/ps`, send it SIGTERM (Chromium's
 clean shutdown) and wait up to 30 seconds; they never force-quit it. If a previous golden exists, reset first, then make
 the operator preparations above and re-save. The first bare home needs no
-Yoke installation before capture. Never seal a home containing Yoke residue.
+Yoke installation before capture. If browser authorization used a temporary
+Yoke install with no universe or registered projects, run
+`yoke uninstall --projects none --yes` as the test user. Check the deferred
+uninstall log for `CLI: done` and require the launcher to disappear. An
+`uninstall_backup_not_applicable` refusal means omit the backup flag. If
+`cli_release_in_use` occurs, identify the process holding the release lease
+with `lsof`, stop the owned command or service, and retry. Clear the Yoke and
+uv paths named by capture while preserving the live browser identity and
+harness state. Never seal a home containing Yoke residue.
 Choose a new absolute destination outside the test home, in a separate new parent for EACH attempt; retention can
 delete unregistered siblings. Preserve old/failed captures and sidecars:
 
