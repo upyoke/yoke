@@ -82,8 +82,8 @@ def open_url(
     ``yoke browser open`` so the link opens in the operator identity's
     signed-in browser.
     Otherwise Linux verifies the default browser or opens QA's shared Chromium runtime.
-    Windows over SSH has no desktop and opens nothing, so the printed link
-    and code carry the sign-in.
+    Windows and WSL over SSH have no desktop and open nothing: a Windows
+    browser started there would run where nobody sees it.
     macOS runs ``open``; WSL tries ``wslview``, then PowerShell's
     ``Start-Process``, to reach the Windows browser; other platforms use
     ``webbrowser.open``. Every
@@ -104,7 +104,7 @@ def open_url(
     )
     if platform == "linux" and not is_wsl and browser_open is None:
         return _open_linux_url(url, env)
-    if platform == WINDOWS_PLATFORM and browser_open is None:
+    if (platform == WINDOWS_PLATFORM or is_wsl) and browser_open is None:
         if not windows_desktop_available(env):
             return BrowserOpenResult(
                 opened=False, reason="browser_display_unavailable"

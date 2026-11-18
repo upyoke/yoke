@@ -108,3 +108,16 @@ def test_an_injected_opener_never_reaches_the_windows_browser(monkeypatch):
     assert result == browser.BrowserOpenResult(
         opened=False, reason="webbrowser.open returned False"
     )
+
+
+def test_wsl_over_ssh_opens_nothing(wsl_path):
+    script = _fake_powershell(wsl_path, 0)
+    result = browser.open_url(
+        URL,
+        platform="linux",
+        environ={"WSL_DISTRO_NAME": "Ubuntu", "SSH_CONNECTION": "10.0.0.2 1 10.0.0.1 22"},
+    )
+    assert result == browser.BrowserOpenResult(
+        opened=False, reason="browser_display_unavailable"
+    )
+    assert not Path(f"{script}.argv").exists()

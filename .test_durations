@@ -4842,6 +4842,7 @@
   "runtime/api/cli/test_wsl_browser.py::test_a_refused_start_process_is_recorded_as_not_opened": 0.004713,
   "runtime/api/cli/test_wsl_browser.py::test_powershell_receives_the_url_only_through_the_environment": 0.004713,
   "runtime/api/cli/test_wsl_browser.py::test_wslview_wins_before_powershell": 0.004713,
+  "runtime/api/cli/test_wsl_browser.py::test_wsl_over_ssh_opens_nothing": 0.004713,
   "runtime/api/cli/test_wsl_lifetime.py::test_atomic_write_preserves_encoding_comments_and_newlines[utf-16-be-\\ufeff]": 0.011316,
   "runtime/api/cli/test_wsl_lifetime.py::test_atomic_write_preserves_encoding_comments_and_newlines[utf-16-le-\\ufeff]": 0.010332,
   "runtime/api/cli/test_wsl_lifetime.py::test_atomic_write_preserves_encoding_comments_and_newlines[utf-8-\\ufeff]": 0.004428,
