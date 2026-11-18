@@ -25,6 +25,9 @@ from yoke_core.domain.yoke_function_dispatch_target import resolve_target_public
 RUN_ID = "run-20260909-001"
 RUN_DRIVER = "yoke_core.domain.handlers.deployment_run_membership.require_run_driver"
 ADD_ITEM = "yoke_core.domain.deployment_runs_crud_mutate.cmd_add_item"
+MEMBER_EXISTS = (
+    "yoke_core.domain.deployment_run_member_exists.refuse_existing_member"
+)
 VALIDATE = "yoke_core.domain.deployment_runs_validation.cmd_validate_composition"
 
 
@@ -65,6 +68,14 @@ def _driven_by(session_id: str):
 
 
 class TestDeploymentRunMembership(unittest.TestCase):
+    def setUp(self):
+        # The enrolled-member read is proven against a real database in
+        # test_deployment_run_member_exists; here the run has no such member.
+        for target in (MEMBER_EXISTS, "yoke_core.domain.db_helpers.connect"):
+            patcher = patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def test_membership_functions_are_registered(self):
         from yoke_core.domain.handlers.__init_register__ import (
             register_all_handlers,

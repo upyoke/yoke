@@ -85,16 +85,20 @@ def test_refusal_names_the_stored_intent_and_selection(test_db) -> None:
     assert "selection: requirement ids 41, 43" in str(refused.value)
 
 
-def test_handler_returns_the_named_code_on_a_non_created_run(
+def test_handler_returns_the_named_code_on_a_live_driven_run(
     test_db, monkeypatch
 ) -> None:
-    """A live run answers with membership, not with its status refusal."""
+    """A live run answers with membership, not its status or driver refusal."""
     _fixture(test_db)
     test_db.execute("UPDATE deployment_runs SET status='executing' WHERE id='run-atomic'")
     test_db.commit()
+
+    def driven_elsewhere(_request, _run):
+        raise AssertionError("the driver gate must not answer an enrolled member")
+
     monkeypatch.setattr(
         "yoke_core.domain.handlers.deployment_run_membership.require_run_driver",
-        lambda _request, _run: None,
+        driven_elsewhere,
     )
 
     outcome = handle_deployment_run_add_item(
