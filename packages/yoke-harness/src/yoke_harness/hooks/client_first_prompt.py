@@ -6,8 +6,7 @@ dropped relay), the session keeps no first-prompt stamp and reads as a
 probe although a person talked to it. A terminal hook (Stop, SessionEnd)
 can still prove the prompt happened: the harness wrote it to the
 session's transcript. This collector reads that proof on the client,
-where the transcript lives, and ships only the session id and the row's
-native timestamp — never prompt text.
+where the transcript lives, and ships only session identity and timing evidence. Prompt text stays local.
 
 Which harnesses have a reader is declared per harness in
 ``yoke_contracts.harness_session_transcripts`` (``prompt_attestation``);
@@ -49,6 +48,7 @@ _PROJECTION = RecordProjection(
     selected_paths=frozenset(
         {
             ("type",),
+            ("role",),
             ("sessionId",),
             ("timestamp",),
             ("isMeta",),
@@ -104,6 +104,28 @@ def claude_first_prompt_at(transcript: Path, session_id: str) -> str | None:
     return None
 
 
+def _session_end_prompt(obs, session_id: str, transcript: Path | None) -> dict:
+    evidence = {"session_id": session_id}
+    if transcript is None or not transcript.is_file():
+        evidence["skip_reason"] = "transcript_unavailable"
+    elif not any(
+        row.get("role") == "user"
+        for row in iter_rows(
+            transcript, max_bytes=MAX_ATTESTATION_SCAN_BYTES, record_factory=_decoder
+        )
+    ):
+        evidence["skip_reason"] = "no_user_row"
+    else:
+        duration_ms = obs.payload.get("duration_ms")
+        if duration_ms is None:
+            evidence["skip_reason"] = "missing_duration_ms"
+        elif type(duration_ms) is not int or duration_ms < 0:
+            evidence["skip_reason"] = "invalid_duration_ms"
+        else:
+            evidence["duration_ms"] = duration_ms
+    return client_fact(FIRST_USER_PROMPT_KEY, evidence)
+
+
 def first_prompt_fact(obs) -> dict:
     """The first-prompt attestation for a terminal hook, or nothing."""
     if obs.event_name not in ATTESTING_EVENTS or obs.payload.get("isSidechain"):
@@ -112,15 +134,17 @@ def first_prompt_fact(obs) -> dict:
         harness = canonical_harness_id(obs.executor)
     except ValueError:
         return {}
-    if session_transcripts_for_harness(harness).prompt_attestation != "claude_user_rows":
-        return {}
+    mode = session_transcripts_for_harness(harness).prompt_attestation
     session_id = obs.payload.get("session_id")
     path = obs.payload.get("transcript_path")
     if not isinstance(session_id, str) or not session_id.strip():
         return {}
-    if not isinstance(path, str) or not Path(path).is_file():
+    transcript = Path(path) if isinstance(path, str) and path else None
+    if mode == "session_end_user_rows" and obs.event_name == "SessionEnd":
+        return _session_end_prompt(obs, session_id, transcript)
+    if mode != "claude_user_rows" or transcript is None or not transcript.is_file():
         return {}
-    at = claude_first_prompt_at(Path(path), session_id)
+    at = claude_first_prompt_at(transcript, session_id)
     if at is None:
         return {}
     return client_fact(FIRST_USER_PROMPT_KEY, {"session_id": session_id, "at": at})

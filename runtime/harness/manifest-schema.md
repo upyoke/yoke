@@ -260,7 +260,7 @@ reached an issue or pull request, on every machine that ran one.
 | `project_match` | string | How one transcript is tied to a checkout path. Empty when unverified. |
 | `session_start` | string | `transcript_required` skips a start without a transcript as `skipped:unsaved_transcript`; `transcript_optional` permits registration. A prompt always proves a conversation. |
 | `evidence` | string | The reader or inspection that established the layout. |
-| `prompt_attestation` | string | `claude_user_rows`: Stop and SessionEnd attest the first operator prompt from this session's transcript rows ([prompt recovery](../../docs/hook-session-registration.md#terminal-hook-prompt-recovery)). `deferred`: no reader yet. |
+| `prompt_attestation` | string | `claude_user_rows`: Stop and SessionEnd attest the first operator prompt from this session's transcript rows ([prompt recovery](../../docs/hook-session-registration.md#terminal-hook-prompt-recovery)). `session_end_user_rows`: a top-level `role=user` transcript row attests a prompt at SessionEnd minus `duration_ms`. `deferred`: no reader yet. |
 | `prompt_attestation_evidence` | string | The inspection behind the reader, or why it is deferred. |
 
 `unverified` is the answer for a harness nobody has inspected; no surface may
