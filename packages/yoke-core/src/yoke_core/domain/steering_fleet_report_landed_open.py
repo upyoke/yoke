@@ -109,6 +109,10 @@ class LandedItem:
     #: and each requirement it still owes elsewhere as (id, environment).
     delivered_to: str = ""
     owed_elsewhere: tuple[tuple[str, str], ...] = ()
+    #: The environment the item's completion flow delivers to, ``""`` when
+    #: none resolves. Custody is judged against it: a stage run that
+    #: delivered has not delivered an item whose completion target is prod.
+    completion_target: str = ""
     #: The item's current status was entered after this landing.
     returned_after_landing: bool = False
     #: What the item's own done gate still waits on, from its gate facts.
@@ -207,6 +211,17 @@ def landed_without_closeout(
         run_id: run_environment_name(conn, run_id) or ""
         for run_id in set(delivered.values())
     }
+    # The environment each completion flow delivers to, read once.
+    completion_flows = sorted({fact.flow for fact in flows.values() if fact.flow})
+    targets = {
+        str(row[0]): str(row[1] or "")
+        for row in conn.execute(
+            "SELECT df.id,e.name FROM deployment_flows df "
+            "LEFT JOIN environments e ON e.id=df.target_environment_id "
+            f"WHERE df.id IN ({','.join(marker for _ in completion_flows)})",
+            tuple(completion_flows),
+        ).fetchall()
+    } if completion_flows else {}
     owed_by_item = owed_requirements_many(
         conn, [item_id for item_id, run_id in delivered.items() if environments[run_id]]
     )
@@ -254,6 +269,9 @@ def landed_without_closeout(
                 holder_resumable=bool(holder and holder.resumable_from_transcript),
                 delivered_to=delivered_to,
                 owed_elsewhere=tuple((o.label(), o.target) for o in owed),
+                completion_target=targets.get(
+                    flows[item_id].flow if item_id in flows else "", ""
+                ),
                 returned_after_landing=item_id in returned,
                 delivery_gate=landed_gate(delivery_facts[item_id]),
             )

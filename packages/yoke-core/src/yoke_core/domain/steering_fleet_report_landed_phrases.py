@@ -152,15 +152,33 @@ def _relanding_recovery(entry: LandedItem, idle_after_seconds: int | None) -> st
 def release_wait_phrase(entry: LandedItem) -> str:
     """One line for a landing awaiting its release: the flow, custody, holder.
 
-    Which release holds it is said when one does; the holder's posture is
+    Which release holds it is said when one does, judged against the item's
+    completion target: a member a stage run delivered while it owes prod
+    reads "delivered to stage; awaiting prod". The holder's posture is
     context in brackets and never adds a command.
     """
     wait = f"awaiting next {entry.delivery_gate.flow} release"
-    if entry.custody_state == HELD:
+    if entry.custody_state == HELD and _delivered_short_of_target(entry):
+        # A stage run that reached stage is not the custodian of a member
+        # that owes prod: its completion target still waits on a release.
+        wait = (
+            f"delivered to {entry.delivered_to}; "
+            f"awaiting {entry.completion_target}"
+        )
+    elif entry.custody_state == HELD:
         wait = f"awaiting {entry.custody_run_flow} release — {custody_phrase(entry)}"
     elif entry.custody_state in {REMERGED, CUSTODY_UNDETERMINED}:
         wait = f"{wait} — {custody_phrase(entry)}"
     return f"{wait} ({_holder_context(entry)})"
+
+
+def _delivered_short_of_target(entry: LandedItem) -> bool:
+    """A succeeded holder delivered somewhere other than the completion target."""
+    return bool(
+        entry.delivered_to
+        and entry.completion_target
+        and entry.delivered_to != entry.completion_target
+    )
 
 
 def _holder_context(entry: LandedItem) -> str:

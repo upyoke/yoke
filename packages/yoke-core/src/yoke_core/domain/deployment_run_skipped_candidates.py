@@ -14,7 +14,9 @@ histories by hand:
   ships, but it is not ready to be delivered, so enrollment skips it and a
   later release enrolls it once it returns;
 * **removed** -- an operator took it out of this run with a recorded reason
-  (:mod:`deployment_run_membership_removals`).
+  (:mod:`deployment_run_membership_removals`), or out of a run this one took
+  over before it started; that inherited exclusion is named with its source
+  run, its reason, and what ends it.
 * **open correction** -- an in-flight correction PR keeps its item carried
   until its landing closes; other ready items can enroll.
 * **blocked** -- an open dependency needs a blocker that has not shipped yet.
@@ -47,6 +49,8 @@ from yoke_core.domain.deployment_run_dependency_readiness import (
     unshipped_dependency_pairs,
 )
 from yoke_core.domain.deployment_run_membership_removals import (
+    InheritedExclusion,
+    inherited_exclusions,
     membership_removals,
 )
 from yoke_core.domain.deployment_landing_guard import open_landing_refusals
@@ -127,6 +131,7 @@ class SkippedCandidates(NamedTuple):
     rework: tuple[tuple[int, str], ...]
     blocked: list[tuple[int, int, GateResult]]
     open_landings: Mapping[int, str]
+    inherited: tuple[InheritedExclusion, ...] = ()
 
 
 def skipped_candidates(
@@ -147,8 +152,14 @@ def skipped_candidates(
     resolved = custody or resolve_candidate_custody(conn, run_id)
     held = resolved.held
     removed = tuple(membership_removals(conn, run_id))
-    excluded = frozenset(record.item_id for record in held) | frozenset(
-        int(entry["item_id"]) for entry in removed
+    own = frozenset(int(entry["item_id"]) for entry in removed)
+    inherited = tuple(
+        park for park in inherited_exclusions(conn, run_id) if park.item_id not in own
+    )
+    excluded = (
+        frozenset(record.item_id for record in held)
+        | own
+        | frozenset(park.item_id for park in inherited)
     )
     rework = (
         carried_items_in_rework(conn, run_id, carried_work, exclude=excluded)
@@ -172,18 +183,19 @@ def skipped_candidates(
     open_landings = open_landing_refusals(
         conn, [item_id for item_id in candidates if item_id in required]
     )
-    return SkippedCandidates(held, removed, rework, blocked, open_landings)
+    return SkippedCandidates(held, removed, rework, blocked, open_landings, inherited)
 
 
 def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) -> str:
     """The one notice naming every skipped carried item and why."""
     if skipped is None:
         return ""
-    held, removed, rework, blocked, open_landings = skipped
+    held, removed, rework, blocked, open_landings, inherited = skipped
     ref = render_item_ref_lookup(
         conn,
         [i for i, _ in rework]
         + [int(entry["item_id"]) for entry in removed]
+        + [park.item_id for park in inherited]
         + [i for dependent, blocker, _ in blocked for i in (dependent, blocker)],
     )
     parts: list[str] = []
@@ -222,12 +234,24 @@ def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) 
                 for entry in removed
             )
         )
+    if inherited:
+        parts.append(
+            "excluded by a run this one took over: "
+            + "; ".join(
+                f"{ref(park.item_id)} (removed from {park.source_run_id} at "
+                f"{park.removed_at}: {park.reason}; expires when it lands again, "
+                f"or add it with `yoke deployment-runs add-item {run_id} "
+                f"{ref(park.item_id)}`)"
+                for park in inherited
+            )
+        )
     if not parts:
         return ""
     count = (
         len(held)
         + len(rework)
         + len(removed)
+        + len(inherited)
         + len({d for d, _, _ in blocked} | set(open_landings))
     )
     return (
