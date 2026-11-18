@@ -64,10 +64,20 @@ class InputEntry:
             and not event.is_forwarded
             and event.character
             and event.character.isprintable()
-            and (self._swap_pending or self._body_swap_active)
+            and (self._selection_pending or self._swap_pending or self._body_swap_active)
         ):
             self._transition_text += event.character
             return
+        if (
+            isinstance(event, events.Key)
+            and not event.is_forwarded
+            and event.key in {"enter", "ctrl+j", "space"}
+            and isinstance(self.focused, SelectionList)
+            and self.focused.rows
+        ):
+            # Selected bubbles through widget queues after the raw activation.
+            # Protect the next key before forwarding activation to that queue.
+            self._selection_pending = True
         await super().on_event(event)
 
     def _flush_transition_text(self) -> None:
@@ -123,6 +133,8 @@ class InputEntry:
         cursor = int(getattr(widget, "cursor_position", len(value)) or 0)
         widget.value = value[:cursor] + text + value[cursor:]
         widget.cursor_position = cursor + len(text)
+        if isinstance(widget, FocusInput):
+            widget.preserve_typed_cursor()
 
     # ── submission ──────────────────────────────────────────
 

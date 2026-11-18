@@ -73,6 +73,7 @@ class OnboardWizardApp(
         # the body swap runs in the same handler turn as the transition keypress.
         self._swap_pending = False
         self._body_swap_active = False
+        self._selection_pending = False
         self._transition_text = ""
         self._screen_compat = screen_compat_terminal()
         self._plain_glyphs = plain_glyphs()
@@ -199,10 +200,14 @@ class OnboardWizardApp(
     # ── message routing ─────────────────────────────────────
 
     async def on_selection_list_selected(self, message: SelectionList.Selected) -> None:
-        handler = self._history[-1].on_select
-        if handler is not None:
-            handler(message.value)
-        await self._apply_pending_swap()
+        try:
+            handler = self._history[-1].on_select
+            if handler is not None:
+                handler(message.value)
+            await self._apply_pending_swap()
+        finally:
+            self._selection_pending = False
+            self._flush_transition_text()
 
 
 __all__ = ["OnboardWizardApp"]

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from rich.cells import cell_len
 from rich.text import Text
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.message import Message
@@ -252,6 +253,21 @@ class FocusInput(Input):
     def __init__(self, *args, claim_focus: bool = True, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._claim_focus = claim_focus
+        self._typed_before_focus = False
+
+    def preserve_typed_cursor(self) -> None:
+        self._typed_before_focus = True
+
+    async def on_event(self, event: events.Event) -> None:
+        cursor = self.cursor_position
+        preserve = isinstance(event, events.Focus) and self._typed_before_focus
+        await super().on_event(event)
+        if preserve:
+            # Run after Input and Widget focus handlers: a queued initial Focus
+            # must not select recovered typing for the next key to replace it.
+            self.cursor_position = cursor
+        if isinstance(event, (events.Focus, events.Blur)):
+            self._typed_before_focus = False
 
     def on_mount(self) -> None:
         if self._claim_focus:
