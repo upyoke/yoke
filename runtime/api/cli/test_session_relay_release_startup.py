@@ -53,7 +53,7 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
         ),
     )
 
-    def pin(*, instance, served_build):
+    def pin(*, instance, served_build, runner):
         pins.append(served_build)
         return SimpleNamespace(
             launch_executable=instance.state_dir / "venv" / "bin" / "yoke"

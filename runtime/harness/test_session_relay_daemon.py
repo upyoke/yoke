@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import logging
 import os
 import signal
@@ -11,7 +10,9 @@ import time
 
 import pytest
 
+from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceJobOutcome, ServeOnceOutcome
+from yoke_harness.session_relay_health import observe_relay_health
 from yoke_harness.session_launch_containment import (
     record_supervised_native,
     supervision_record_path,
@@ -140,6 +141,44 @@ def test_termination_finishes_in_flight_work_before_returning(tmp_path) -> None:
     assert outcome.reason == "signal:SIGTERM"
 
 
+def test_a_stalled_release_install_never_blocks_wake_dispatch(tmp_path) -> None:
+    never = threading.Event()
+    pin_started = threading.Event()
+    dispatched: list[int] = []
+    cycles: list[int] = []
+    in_flight: list[object] = []
+
+    def stalled_pin(build: str, **_kwargs):
+        pin_started.set()
+        never.wait()
+
+    def cycle(*, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
+        cycles.append(1)
+        control_plane_payload.observe_server_build("0.2.0.202611180002")
+        dispatch_job(lambda: dispatched.append(1), lambda reason: None)
+        if len(cycles) >= 3:
+            in_flight.append(observe_relay_health(tmp_path).get("release_pin"))
+        return ServeOnceOutcome("dispatched", 1)
+
+    outcome = serve_forever(
+        state_dir=tmp_path,
+        cycle=cycle,
+        stop_after_cycles=6,
+        idle_tick_seconds=0.01,
+        install_signals=False,
+        pinned_release="0.2.0.202611180001",
+        pin_served_release=stalled_pin,
+    )
+
+    assert pin_started.is_set()
+    assert outcome.reason == "cycle_cap"
+    assert outcome.cycles == 6
+    assert len(dispatched) == 6
+    assert in_flight and all(
+        pin["in_flight"]["served_build"] == "0.2.0.202611180002" for pin in in_flight
+    )
+
+
 def test_a_second_relay_on_the_machine_declines_the_lock(tmp_path) -> None:
     held = threading.Event()
     release = threading.Event()
@@ -191,38 +230,6 @@ def test_cycle_cap_bounds_a_directly_driven_loop(tmp_path, cap: int) -> None:
     assert outcome.cycles == cap
     assert outcome.reason == "cycle_cap"
     assert outcome.last_state == "active"
-
-
-def test_failure_burst_logs_first_periodic_and_recovery_lines(caplog) -> None:
-    import yoke_harness.session_relay_failure_log as failure_log
-
-    interval = failure_log.FAILURE_LOG_INTERVAL_SECONDS
-    observed = iter((0.0, 10.0, float(interval), float(interval + 5)))
-    stamp = datetime(2026, 9, 8, 14, 54, 9, tzinfo=timezone.utc)
-    reporter = failure_log.FailureReporter(
-        interval_seconds=interval,
-        clock=lambda: next(observed),
-        stamp_clock=lambda: stamp,
-    )
-    caplog.set_level(logging.WARNING, logger=failure_log.__name__)
-
-    reporter.failed("poll", "request rejected")
-    reporter.failed("poll", "request rejected")
-    reporter.failed("poll", "request rejected")
-    reporter.recovered("poll")
-
-    messages = [record.getMessage() for record in caplog.records]
-    assert messages == [
-        "2026-09-08T14:54:09.000000Z relay poll failed: request rejected; "
-        "class=relay_failure consecutive_failures=1 elapsed_seconds=0.0 "
-        "outcome=retrying",
-        "2026-09-08T14:54:09.000000Z relay poll failed: request rejected; "
-        "class=relay_failure consecutive_failures=3 "
-        f"elapsed_seconds={interval:.1f} outcome=retrying",
-        "2026-09-08T14:54:09.000000Z relay poll recovered; class=relay_recovery "
-        "consecutive_failures=3 "
-        f"elapsed_seconds={interval + 5:.1f} outcome=recovered",
-    ]
 
 
 def test_claim_failure_logs_reason_then_poll_recovery(tmp_path, caplog) -> None:

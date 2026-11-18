@@ -10,6 +10,8 @@ def relay_status_fields(payload: Mapping[str, Any]) -> list[tuple[str, Any]]:
     health = health if isinstance(health, Mapping) else {}
     poll = health.get("poll_outcome")
     poll = poll if isinstance(poll, Mapping) else {}
+    pin = health.get("release_pin")
+    pin = pin if isinstance(pin, Mapping) else {}
     fields = [
         ("Environment", payload.get("environment")),
         ("User service", payload.get("task_name") or payload.get("unit_name") or payload.get("launchd_label")),
@@ -31,6 +33,8 @@ def relay_status_fields(payload: Mapping[str, Any]) -> list[tuple[str, Any]]:
         ("Distribution index", payload.get("distribution_index")),
         ("Release pin error", payload.get("release_error_code")),
         ("Release pin recovery", payload.get("release_recovery")),
+        ("Release install in flight", _in_flight(pin.get("in_flight"))),
+        ("Last release install failure", _last_failure(pin.get("last_failure"))),
         ("Report delivery", humanize(health.get("state"))),
         ("Control-plane poll", humanize(poll.get("status"))),
         ("Poll error", poll.get("error_code")),
@@ -50,3 +54,21 @@ def relay_status_fields(payload: Mapping[str, Any]) -> list[tuple[str, Any]]:
             ]
         )
     return fields
+
+
+def _in_flight(value: object) -> str | None:
+    if not isinstance(value, Mapping):
+        return None
+    elapsed = value.get("elapsed_seconds")
+    since = f" since {value.get('started_at')}" if value.get("started_at") else ""
+    took = f" ({elapsed}s elapsed)" if elapsed is not None else ""
+    return f"{value.get('served_build')}{since}{took}"
+
+
+def _last_failure(value: object) -> str | None:
+    if not isinstance(value, Mapping):
+        return None
+    return (
+        f"{value.get('served_build')}: {value.get('error_code')} "
+        f"at {value.get('failed_at')}"
+    )
