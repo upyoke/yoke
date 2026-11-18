@@ -4,9 +4,6 @@ import json
 import sqlite3
 import subprocess
 
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type,
-)
 from runtime.api.domain.machine_qa_operator_double import FakeOperatorOperations
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 
@@ -321,13 +318,13 @@ def register_test_machine(
     resource_name: str = "mac-mini-lab",
     created_at: str = "2026-08-01T00:00:00Z",
 ) -> None:
-    """Declare a host; explicit created_at orders which project registered first."""
+    """Register one machine, naming the project whose credentials power it."""
     conn.execute(
-        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
+        "INSERT INTO test_machines(power_project_id,name,settings,created_at) "
         "VALUES(?,?,?,?)",
         (
             project_id,
-            test_machine_capability_type(resource_name),
+            resource_name,
             json.dumps(
                 {
                     "resource_name": resource_name,

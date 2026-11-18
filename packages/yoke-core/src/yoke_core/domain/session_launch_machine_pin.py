@@ -80,6 +80,10 @@ def _matching_machines(conn: Any, value: str) -> dict[str, _Candidate]:
 
 
 def _names_test_machine(conn: Any, value: str) -> bool:
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "test_machines"):
+        return False
     p = marker(conn)
     return conn.execute(
         f"SELECT 1 FROM test_machines WHERE LOWER(name)=LOWER({p})", (value,)

@@ -7,7 +7,7 @@
 Run one setup command on a registered macOS or Linux machine:
 
 ```text
-yoke test-machine exec --project P --test-machine NAME --admin -- COMMAND ARGS...
+yoke test-machine exec --test-machine NAME --admin -- COMMAND ARGS...
 ```
 
 Read `yoke test-machine exec --help` before use. The executing workstation
@@ -17,7 +17,7 @@ access; the registered SSH user must be authorized to use sudo with it.
 Import it from a private file, never put its value in a command or prompt:
 
 ```text
-yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE
+yoke test-machine secret set --test-machine NAME --key desktop_password --value-file PASSWORD_FILE
 ```
 
 Product code sends the password through private stdin to `sudo -S`. The
@@ -29,10 +29,10 @@ the ordinary remote `exec` contract. A foreign QA lease refuses access.
 For Xcode and iOS Simulator setup on a Mac with Xcode installed:
 
 ```text
-yoke test-machine exec --project P --test-machine NAME --admin -- xcodebuild -license accept
-yoke test-machine exec --project P --test-machine NAME --admin -- xcodebuild -runFirstLaunch
-yoke test-machine exec --project P --test-machine NAME --admin -- xcodebuild -downloadPlatform iOS
-yoke test-machine exec --project P --test-machine NAME -- xcrun simctl list runtimes
+yoke test-machine exec --test-machine NAME --admin -- xcodebuild -license accept
+yoke test-machine exec --test-machine NAME --admin -- xcodebuild -runFirstLaunch
+yoke test-machine exec --test-machine NAME --admin -- xcodebuild -downloadPlatform iOS
+yoke test-machine exec --test-machine NAME -- xcrun simctl list runtimes
 ```
 
 A reset restores the home, which drops any simulator created after the
@@ -41,7 +41,7 @@ a device type from `xcrun simctl list devicetypes` and a runtime
 from the list above; the command prints the new simulator's UDID:
 
 ```text
-yoke test-machine exec --project P --test-machine NAME -- xcrun simctl create SIMULATOR_NAME DEVICE_TYPE RUNTIME
+yoke test-machine exec --test-machine NAME -- xcrun simctl create SIMULATOR_NAME DEVICE_TYPE RUNTIME
 ```
 
 For Linux package setup, pass the host's package manager and its unattended
@@ -57,7 +57,7 @@ to receive the current documentation.
 ## Delete a registration
 
 ```text
-yoke test-machine delete --project P --test-machine NAME --confirm
+yoke test-machine delete --test-machine NAME --confirm
 ```
 
 Project administrators can remove one registration, its settings, verification
@@ -68,10 +68,10 @@ Reset debt also blocks deletion: run the named `yoke test-machine reset`
 recovery before retrying. Deletion refuses if removing a reset receipt would
 expose another project's reset debt.
 
-After the server succeeds, the CLI removes this computer's project-scoped
+After the server succeeds, the CLI removes this computer's machine-scoped
 `test-machine:NAME` secret directory. It keeps the shared `test-machine`
 SSH key. Other computers keep their local credentials; remove those separately.
 A local cleanup failure says the registration was deleted and names the
 remaining directory. This command does not decommission the physical host.
-A project may have no machines; `settings-replace --new` can register the same
-name again. Generic `projects capability-settings remove` refuses test machines.
+A universe may have no machines; `settings-replace --new` can register the same
+name again.

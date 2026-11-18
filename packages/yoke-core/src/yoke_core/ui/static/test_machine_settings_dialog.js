@@ -53,7 +53,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     documentNode,
     "p",
     "muted",
-    "Only non-secret project capability settings are saved here. Secret values never enter the browser.",
+    "Manage Test Machine settings here. Import credentials on the executing machine.",
   ));
   const fields = el(documentNode, "div", "test-machine-fields");
   const inputs = {};
@@ -122,7 +122,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
       documentNode,
       "code",
       null,
-      `yoke projects capability secret set --project ${detail.project} --cap-type ${secret.cap_type || "test-machine"} --key ${secret.key} --value-stdin`,
+      `yoke test-machine secret set --test-machine ${detail.test_machine} --key ${secret.key} --value-stdin`,
     ));
     credentials.appendChild(row);
   }
@@ -165,7 +165,6 @@ export function machineSettingsDialog(context, detail, close, saved) {
         context.client,
         "test_machine.settings_replace",
         {
-          project: detail.project,
           test_machine: detail.test_machine,
           settings: Object.fromEntries(
             Object.entries(inputs)

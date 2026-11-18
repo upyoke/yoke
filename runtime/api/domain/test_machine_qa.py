@@ -80,7 +80,7 @@ def test_test_machine_is_typed_and_secret_presence_only(
     conn = make_conn()
     result = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
@@ -128,7 +128,7 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
     conn = make_conn()
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",

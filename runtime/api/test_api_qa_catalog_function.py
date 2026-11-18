@@ -9,9 +9,7 @@ from runtime.api.qa_catalog_test_support import (
     CATALOG_CASES,
     create_release_readiness_plan,
 )
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_core.domain.qa_catalog_reads import get_method, list_methods, list_plans
 from yoke_core.domain.qa_command_plan_registration import (
     ensure_registered_command_plan,

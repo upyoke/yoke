@@ -60,8 +60,11 @@ Keep cloud security groups and network security groups closed to RDP (3389,
 Before rebuild, remove the old tailnet device, join again and verify the name
 has no `-1` suffix; clear the old host-key pin after verifying the new fingerprint.
 
-Hostnames, account names, infrastructure and credentials are project-owned.
-These procedures ship with Yoke; project records own the host inventory.
+Test Machines are registered once in the universe. Every project can request
+the same host, and each host has one serial lease shared by all projects.
+Cloud machines name a power project with `--power-project P` on
+`yoke test-machine settings-replace`. That project's cloud admin credentials
+stay in their project capability store.
 
 Baseline restores clear test-account-owned Yoke, Playwright, Chromium and pip
 run artifacts from system and OS user temporary locations, preserving the
@@ -71,7 +74,7 @@ verify refuse `test_machine_cleanup_live_lease` while a mission owns the host;
 finish or abort it before resetting. Every mission requires 1 GiB free on the
 home and temporary filesystems before packages or scratch are staged.
 `test_machine_disk_space_low` records the minimum and observed space; finish
-or abort the mission, run `yoke test-machine reset --project P --test-machine NAME`,
+or abort the mission, run `yoke test-machine reset --test-machine NAME`,
 and grow the disk as in [disk sizing and online resize](#disk-sizing-and-online-resize)
 if reset cannot recover the required space. Read reset `--help` before running it.
 
@@ -100,11 +103,11 @@ Check usage, then grow online without a reboot. Linux on AWS, as administrator
 of the account that owns the volume, then on the host:
 
 ```text
-yoke test-machine exec --project P --test-machine NAME -- df -h / /tmp
+yoke test-machine exec --test-machine NAME -- df -h / /tmp
 aws ec2 modify-volume --volume-id VOLUME_ID --size 40
 aws ec2 describe-volumes-modifications --volume-ids VOLUME_ID
-yoke test-machine exec --project P --test-machine NAME --admin -- growpart /dev/nvme0n1 1
-yoke test-machine exec --project P --test-machine NAME --admin -- resize2fs /dev/nvme0n1p1
+yoke test-machine exec --test-machine NAME --admin -- growpart /dev/nvme0n1 1
+yoke test-machine exec --test-machine NAME --admin -- resize2fs /dev/nvme0n1p1
 ```
 
 Wait for the modification state `optimizing` or `completed` before
@@ -116,8 +119,8 @@ An EC2 Mac grows the same way after `modify-volume`; then, with the disk and
 APFS container read from `diskutil list physical external`:
 
 ```text
-yoke test-machine exec --project P --test-machine NAME --admin -- sh -c 'yes | diskutil repairDisk DISK'
-yoke test-machine exec --project P --test-machine NAME --admin -- diskutil apfs resizeContainer CONTAINER 0
+yoke test-machine exec --test-machine NAME --admin -- sh -c 'yes | diskutil repairDisk DISK'
+yoke test-machine exec --test-machine NAME --admin -- diskutil apfs resizeContainer CONTAINER 0
 ```
 
 `yes` answers the `repairDisk` confirmation. A physical Mac's internal disk
@@ -149,9 +152,13 @@ older validators reject unknown settings; the CLI names
 `test_machine_cloud_provider_serving_floor_required` (minimum serving version
 `next-release`). Existing AWS settings work without the optional field.
 
-Power starts the instance without reading or writing the registered host, then
-waits for SSH on MagicDNS. Cloud Test Machines stay running after lease release
-until an operator stops them.
+Yoke starts a stopped instance under its host lease and waits for SSH on the
+registered MagicDNS name. When Yoke starts it, Yoke records a power marker.
+The releasing client stops a marked instance while holding the host lease
+and clears the marker after the provider confirms the stop. A queued
+handoff keeps the marker and the instance running. Already-running instances
+with no marker stay running. A manual stop and restart before a Yoke-confirmed
+stop can leave the marker set.
 `yoke test-machine exec`, desktop access and browser authorization each take
 the host's lease for their duration (or borrow the caller's own), power a
 stopped host on, and release afterwards; a foreign lease refuses them. EC2 uses auto-assigned
@@ -169,7 +176,26 @@ Re-registering before deploy permits an old client to rebind to public IPv4.
 Upgrade clients: retired host_rebind calls refuse `function_version_skew` with a
 required client floor. The target-changed guard still refuses a changed lease
 target. Run `yoke test-machine verify` and confirm the registered host stays
-unchanged, the lease is released and the provider still reports the VM running.
+unchanged. If Yoke started the VM and the host queue is empty, the provider
+reports it stopped after release.
+
+## Import Test Machine credentials
+
+Import secrets on every controller that executes work on the Test Machine.
+The CLI stores them under `~/.yoke/secrets/capability-secrets/test-machines/NAME/`.
+
+```text
+yoke test-machine secret set --test-machine NAME --key ssh_private_key --value-file KEY_FILE
+yoke test-machine secret set --test-machine NAME --key desktop_password --value-file PASSWORD_FILE
+```
+
+At cutover, use the previous owning project's `test-machine/ssh_private_key`
+file under `~/.yoke/secrets/capability-secrets/PROJECT/` as `KEY_FILE`.
+Import it separately for each machine that used the shared key. Import an
+existing named desktop password from `test-machine_NAME/desktop_password`
+under that same project directory. Run `yoke test-machine get --test-machine NAME`
+on each controller to check the required files are present. Retire the old
+paths after controllers use the new build.
 
 ### Stop a cloud Test Machine
 

@@ -8,10 +8,13 @@ release is what stops the host.
 
 from __future__ import annotations
 
+import importlib
+import sys
 from typing import Sequence
 
 from yoke_cli.transport.public_ref_display import redact_response
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 def settle_response(

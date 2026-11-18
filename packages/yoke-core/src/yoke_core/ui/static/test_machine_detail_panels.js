@@ -244,7 +244,7 @@ export function methodsPanel(documentNode, detail) {
     );
     link.href = buildUniverseRoute(
       "qa-methods",
-      String(detail.project_id),
+      detail.power_project_id ? String(detail.power_project_id) : "all",
       method.id,
     );
     link.appendChild(el(

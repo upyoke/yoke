@@ -51,14 +51,14 @@ def test_changed_host_refuses_and_preserves_execution_custody(
         execution = begun.result_payload["execution"]
         submission = execute_host_operation_contract(execution)
         row = conn.execute(
-            "SELECT type, settings FROM project_capabilities WHERE project_id=1 AND type LIKE 'test-machine:%'"
+            "SELECT name, settings FROM test_machines"
         ).fetchone()
         settings = json.loads(row["settings"])
         conn.execute(
-            "UPDATE project_capabilities SET settings=? WHERE project_id=1 AND type=?",
+            "UPDATE test_machines SET settings=? WHERE name=?",
             (
                 json.dumps({**settings, "host": "replacement.example.ts.net"}),
-                row["type"],
+                row["name"],
             ),
         )
         conn.commit()

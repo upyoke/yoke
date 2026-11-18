@@ -75,8 +75,7 @@ address with key-only authentication and keep VNC off public networks, as
 [network access](host-provisioning.md#network-access) requires; never forward
 VNC through a router or open it in a cloud security group. Enable Screen Sharing for the dedicated account when needed.
 
-Register `test-machine:<name>` using `yoke test-machine settings-replace
---project P --test-machine NAME --settings-file FILE --new`; read `--help` before
+Register the Test Machine by name using `yoke test-machine settings-replace --test-machine NAME --settings-file FILE --new`; read `--help` before
 an update, which uses the as-read settings token. Declare `resource_name`,
 `os=macos`, `host`, `user`, and an eventual absolute `golden_baseline_path`
 outside that user's home. Desktop settings are `desktop_route=direct`,
@@ -85,13 +84,13 @@ outside that user's home. Desktop settings are `desktop_route=direct`,
 host outside the tailnet uses `desktop_route=ssh-forward`. A relay capacity registration is a
 separate identity; ordinary work must use a different home from test resets.
 
-On every QA execution workstation, store the project's shared SSH private key:
+On every QA execution workstation, import the Test Machine's SSH private key:
 
 ```text
-yoke projects capability secret set --project P --cap-type test-machine --key ssh_private_key --value-file KEY_FILE
-yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE
-yoke test-machine get --project P --test-machine NAME
-yoke test-machine exec --project P --test-machine NAME -- /usr/bin/true
+yoke test-machine secret set --test-machine NAME --key ssh_private_key --value-file KEY_FILE
+yoke test-machine secret set --test-machine NAME --key desktop_password --value-file PASSWORD_FILE
+yoke test-machine get --test-machine NAME
+yoke test-machine exec --test-machine NAME -- /usr/bin/true
 ```
 
 Read each command's `--help`. The shared public key authorizes all project test
@@ -100,7 +99,7 @@ hosts. Secret values never enter settings, prompts, command arguments or logs.
 the capability-owned private key is missing. A serial host lease held by
 another session must be released before preparation or ad hoc access.
 
-For operator desktop access, use `yoke test-machine desktop-access --project P
+For operator desktop access, use `yoke test-machine desktop-access
 --test-machine NAME`. Read `--help`, open its returned address in Screen Sharing,
 and use the password from its private mode-0600 `password_file`, never output
 the file. On the SSH-forward fallback the address works while the command runs;
@@ -244,8 +243,8 @@ Disable Terminal → Secure Keyboard Entry. Prove control through the registered
 operation that needs it, not a permission-row inventory:
 
 ```text
-yoke test-machine bridge-diagnose --project P --test-machine NAME
-yoke test-machine screenshot --project P --test-machine NAME --json
+yoke test-machine bridge-diagnose --test-machine NAME
+yoke test-machine screenshot --test-machine NAME --json
 ```
 
 Read `--help`; these take the host lease. Diagnosis creates/drives a temporary

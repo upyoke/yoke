@@ -41,7 +41,7 @@ def _machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     conn = make_conn()
     configure_test_machine(conn, tmp_path, monkeypatch)
     conn.execute(
-        "UPDATE project_capabilities SET settings=? WHERE type LIKE 'test-machine:%'",
+        "UPDATE test_machines SET settings=?",
         (_settings(golden_baseline_path=GOLDEN_BASELINE_PATH),),
     )
     conn.execute(
@@ -54,9 +54,9 @@ def _machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def _register_platform(conn, name: str, settings: str) -> None:
     conn.execute(
-        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
+        "INSERT INTO test_machines(power_project_id,name,settings,created_at) "
         "VALUES(2,?,?,'2026-08-02T00:00:00Z')",
-        (f"test-machine:{name}", settings),
+        (name, settings),
     )
     conn.commit()
 

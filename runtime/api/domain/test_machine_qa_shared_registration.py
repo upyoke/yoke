@@ -4,13 +4,12 @@ import pytest
 
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
-    test_machine_capability_type as _machine_type,
 )
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
     VERIFICATION_CHECKS,
 )
-from yoke_core.domain.capabilities_test_machine_read import read_test_machine_facts
+from yoke_core.domain.coordination_claims import release
 from yoke_core.domain.machine_qa_capability import (
     host_claim_key,
     host_claim_target,
@@ -53,11 +52,7 @@ def _two_project_conn():
 
 def _shared_host_conn():
     conn = _two_project_conn()
-    # A second project naming one host is what the registration guard
-    # refuses; seeding it directly proves one physical machine still
-    # admits one execution.
-    register_test_machine(conn, project_id=1, created_at="2026-08-01T00:00:00Z")
-    register_test_machine(conn, project_id=2, created_at="2026-08-02T00:00:00Z")
+    register_test_machine(conn, project_id=1)
     return conn
 
 
@@ -73,11 +68,11 @@ def _begin_verification(conn, *, project: str, session_id: str, actor_id: str):
     )
 
 
-def test_registering_a_host_a_second_project_already_operates_is_refused() -> None:
+def test_duplicate_name_refuses_with_a_compare_and_replace_recovery() -> None:
     conn = _two_project_conn()
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings=_settings(),
         base_settings=None,
     )
@@ -85,15 +80,15 @@ def test_registering_a_host_a_second_project_already_operates_is_refused() -> No
     with pytest.raises(TestMachineCapabilityError) as caught:
         replace_test_machine_settings(
             conn,
-            project="buzz",
+            power_project="buzz",
             settings=_settings(),
             base_settings=None,
         )
 
-    assert "already registered by project 'yoke'" in str(caught.value)
+    assert "settings changed; reload before saving" in str(caught.value)
     replace_test_machine_settings(
         conn,
-        project="buzz",
+        power_project="buzz",
         settings=_settings("mac-studio-lab"),
         base_settings=None,
     )
@@ -104,14 +99,14 @@ def test_re_saving_settings_for_an_own_host_is_not_a_duplicate_registration() ->
     conn = _two_project_conn()
     first = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings=_settings(),
         base_settings=None,
     )
 
     second = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={**_settings(), "operating_notes": "Lab moved to rack two."},
         base_settings=first["settings_token"],
     )
@@ -169,11 +164,13 @@ def test_a_leased_shared_host_reads_as_in_use_for_every_naming_project() -> None
     conn = _shared_host_conn()
     _begin_verification(conn, project="yoke", session_id="yoke-session", actor_id="2")
 
-    _verification, active_items, _method_count = read_test_machine_facts(conn, [1, 2])
-
-    assert set(active_items) == {
-        (1, _machine_type(SHARED_HOST)),
-        (2, _machine_type(SHARED_HOST)),
-    }
-    detail = read_test_machine_detail(conn, project="buzz")
+    detail = read_test_machine_detail(conn, test_machine=SHARED_HOST)
     assert detail["active_lease"]["session_id"] == "yoke-session"
+    assert detail["power_project"] == "yoke"
+    release(conn, detail["active_lease"]["id"], "complete")
+
+    next_contract = _begin_verification(
+        conn, project="buzz", session_id="buzz-session", actor_id="3"
+    )
+    assert next_contract.project == "buzz"
+    assert next_contract.settings["resource_name"] == SHARED_HOST

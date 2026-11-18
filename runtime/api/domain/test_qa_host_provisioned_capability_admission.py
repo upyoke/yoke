@@ -13,9 +13,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_capability_type,
-)
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_capability_type
 from yoke_core.domain.handlers.qa_case_execution import (
     handle_case_execution_begin,
 )

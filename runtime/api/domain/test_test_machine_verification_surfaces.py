@@ -65,7 +65,7 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
     conn = make_conn()
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={
             "resource_name": MACHINE,
             "host": "test-mac.example.ts.net",

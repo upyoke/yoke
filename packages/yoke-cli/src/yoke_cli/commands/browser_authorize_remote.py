@@ -44,7 +44,7 @@ def _read(function, payload, actor):
         f"{error.message if error else function + ' returned no result'}. "
         + (
             (error.recovery_hint if error else None)
-            or "Check `yoke env list` and `yoke test-machine list --project P`, then retry."
+            or "Check `yoke env list` and `yoke test-machine list`, then retry."
         )
     )
 
@@ -72,7 +72,7 @@ def _desktop_command(project, test_machine, settings) -> str:
     }
     flag = " --view" if viewable else ""
     return (
-        f"yoke test-machine desktop-access --project {project} "
+        f"yoke test-machine desktop-access "
         f"--test-machine {test_machine}{flag}"
     )
 

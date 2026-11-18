@@ -24,7 +24,7 @@ Choose a new absolute destination outside the test home, in a separate new paren
 delete unregistered siblings. Preserve old/failed captures and sidecars:
 
 ```text
-yoke test-machine golden-capture --project P --test-machine NAME --destination /opt/yoke-golden-DATE-UNIQUE/home
+yoke test-machine golden-capture --test-machine NAME --destination /opt/yoke-golden-DATE-UNIQUE/home
 ```
 
 Read `--help` for default destination and custom probes. Probes run in the GUI
@@ -78,9 +78,9 @@ registered reset's responsibility; partial clear/copy is a failed operation.
 These commands are **destructive**, deliberately authorized provisioning work:
 
 ```text
-yoke test-machine verify --project P --test-machine NAME
-yoke test-machine reset --project P --test-machine NAME --baseline fresh-host
-yoke test-machine get --project P --test-machine NAME
+yoke test-machine verify --test-machine NAME
+yoke test-machine reset --test-machine NAME --baseline fresh-host
+yoke test-machine get --test-machine NAME
 ```
 
 Read their `--help`. Verify reaches both baselines and ends `shell-preconfigured`

@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from yoke_contracts.machine_config.test_machine import TEST_MACHINE_CAPABILITY_PREFIX
 from yoke_core.domain.session_launch_machine_pin import (
     MACHINE_UNRESOLVED,
     resolve_launch_machine_pin,
@@ -159,18 +156,8 @@ def test_duplicate_name_lists_each_live_candidate_with_name_and_last_seen() -> N
 
 def test_test_machine_name_refusal_names_the_right_input() -> None:
     conn = _two_live_machines()
-    conn.execute(
-        "CREATE TABLE project_capabilities (project_id INTEGER, type TEXT, "
-        "settings TEXT, created_at TEXT)"
-    )
-    conn.execute(
-        "INSERT INTO project_capabilities VALUES (10, ?, ?, ?)",
-        (
-            f"{TEST_MACHINE_CAPABILITY_PREFIX}test-mac",
-            json.dumps({"resource_name": "test-mac"}),
-            NOW,
-        ),
-    )
+    conn.execute("CREATE TABLE test_machines (name TEXT NOT NULL)")
+    conn.execute("INSERT INTO test_machines VALUES ('test-mac')")
     conn.commit()
 
     pin = resolve_launch_machine_pin(conn, "test-mac")

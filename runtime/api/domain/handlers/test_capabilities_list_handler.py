@@ -16,9 +16,7 @@ from runtime.api.domain.handlers.capabilities_list_test_support import (
     iso_timestamp as _iso,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_core.domain.capabilities_list_read import list_capabilities
 from yoke_core.domain.work_claim_targets import (
     make_item_target,

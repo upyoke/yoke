@@ -184,7 +184,7 @@ def _recovery(destination: str, parent: str) -> str:
         f"Preserve the verified capture {destination} and check its registration. "
         f"Remove every other snapshot under {parent}, but keep {destination}, "
         "every golden another project registered for this host and user (yoke "
-        "test-machine get --project P --test-machine TEST_MACHINE names it as "
+        "test-machine get --test-machine TEST_MACHINE names it as "
         "golden_baseline_path), and their .probes, .probes.sha256, .manifest "
         "and .harness-clis files. Do not capture again until those leftovers are gone."
     )

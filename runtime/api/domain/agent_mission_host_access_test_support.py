@@ -65,7 +65,7 @@ def mission(test_db, tmp_path, monkeypatch):
     configure_test_machine(test_db, tmp_path, monkeypatch)
     replace_test_machine_settings(
         test_db,
-        project="yoke",
+        power_project="yoke",
         test_machine=COMPANION,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": COMPANION},
         base_settings=None,

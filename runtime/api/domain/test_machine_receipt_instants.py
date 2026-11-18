@@ -9,9 +9,7 @@ from runtime.api.fixtures.session_zones import SESSION_ZONES
 from pydantic import ValidationError
 
 from yoke_contracts.timestamps import parse_instant, temporal_wire
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as machine_type,
-)
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as machine_type
 from yoke_core.domain import machine_operation_recording as operations
 from yoke_core.domain import machine_verification_recording as verification
 from yoke_core.domain.handlers.machine_qa_operation import (
@@ -21,8 +19,8 @@ from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
     test_machine_detail as machine_detail,
 )
-from yoke_core.domain.machine_qa_capability_rows import (
-    test_machine_capability_rows as machine_rows,
+from yoke_core.domain.test_machine_rows import (
+    test_machine_rows as machine_rows,
 )
 from runtime.api.domain.machine_qa_test_support import make_conn
 
@@ -39,7 +37,7 @@ OPAQUE = {
 def seed(conn):
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings={
             "resource_name": MACHINE,
             "host": "test.example",

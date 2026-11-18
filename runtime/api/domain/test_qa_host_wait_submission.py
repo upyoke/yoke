@@ -38,7 +38,7 @@ def test_host_wait_preserves_target_and_open_requirement(
     seed_qa_session(test_db, "busy-host-owner")
     replace_test_machine_settings(
         test_db,
-        project="yoke",
+        power_project="yoke",
         test_machine="linux-lab",
         settings={
             "resource_name": "linux-lab",

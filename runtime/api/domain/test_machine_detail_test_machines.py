@@ -11,7 +11,7 @@ from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 def _register(conn, test_machine: str, host: str) -> None:
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine=test_machine,
         settings={
             "resource_name": test_machine,

@@ -27,7 +27,7 @@ def require_abort_reset(
         raise MachineQaProtocolError(
             "qa_abort_reset_required: cancellation retains host custody; stop the "
             "runner, reset this machine to the interrupted case's declared baseline "
-            "with yoke test-machine reset --project P --test-machine TEST_MACHINE --baseline BASELINE, "
+            "with yoke test-machine reset --test-machine TEST_MACHINE --baseline BASELINE, "
             "then retry yoke qa plan abort. Other operations cannot borrow this lease"
         )
     if not request.get("requested_at"):

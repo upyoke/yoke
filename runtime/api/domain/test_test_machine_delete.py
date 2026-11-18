@@ -66,7 +66,7 @@ def test_deletes_cascades_and_allows_empty_project_and_reregistration(machine):
         )
     assert list_machines(machine, project="yoke")["test_machines"] == []
     replace_test_machine_settings(
-        machine, project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
+        machine, power_project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
     )
     assert capability_count(machine) == 1
 

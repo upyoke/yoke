@@ -17,8 +17,8 @@ from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.machine_qa_test_support import make_conn
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError as MachineCapabilityError,
-    test_machine_capability_type as _machine_type,
 )
+from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
     VERIFICATION_CHECKS,
@@ -79,13 +79,13 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
     with pytest.raises(MachineCapabilityError, match="multiple test machines"):
         replace_test_machine_settings(
             conn,
-            project="yoke",
+            power_project="yoke",
             settings=_settings(MACHINES[0], notes="rack two"),
             base_settings=first["settings_token"],
         )
     updated = replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine=MACHINES[0],
         settings=_settings(MACHINES[0], notes="rack two"),
         base_settings=first["settings_token"],
@@ -235,7 +235,7 @@ def test_a_selector_cannot_name_different_settings() -> None:
     with pytest.raises(MachineCapabilityError, match="does not match"):
         replace_test_machine_settings(
             conn,
-            project="yoke",
+            power_project="yoke",
             test_machine="mac-pro-lab",
             settings=_settings(MACHINES[0]),
             base_settings=None,

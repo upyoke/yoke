@@ -39,7 +39,7 @@ from yoke_core.domain.handlers.machine_qa_operation import (
 from yoke_core.domain.machine_qa_capability import (
     test_machine_detail as machine_detail,
 )
-from yoke_core.domain.machine_qa_capability_rows import TestMachineCapabilityRow
+from yoke_core.domain.test_machine_rows import TestMachineRow
 from yoke_core.domain.machine_qa_golden_destination import (
     resolve_golden_capture_destination,
 )
@@ -47,7 +47,7 @@ from yoke_core.domain.machine_qa_golden_destination import (
 
 def _declare_golden_baseline(conn) -> None:
     conn.execute(
-        "UPDATE project_capabilities SET settings=? WHERE type LIKE ?",
+        "UPDATE test_machines SET settings=?",
         (
             json.dumps(
                 validate_test_machine_settings(
@@ -59,7 +59,6 @@ def _declare_golden_baseline(conn) -> None:
                 separators=(",", ":"),
                 sort_keys=True,
             ),
-            "test-machine:%",
         ),
     )
     conn.commit()
@@ -182,11 +181,11 @@ def test_an_older_clients_null_capture_component_still_captures(
     )
 
 
-def _row(golden_baseline_path: str) -> TestMachineCapabilityRow:
+def _row(golden_baseline_path: str) -> TestMachineRow:
     settings = validate_test_machine_settings(
         {**TEST_MACHINE_SETTINGS, "golden_baseline_path": golden_baseline_path}
     )
-    return TestMachineCapabilityRow(
+    return TestMachineRow(
         project_id=1,
         project="yoke",
         capability_type=f"test-machine:{MACHINE}",
@@ -268,9 +267,9 @@ def _register_in_second_project(conn, settings_token: str) -> None:
         "VALUES(2,'platform','Platform','PLAT')"
     )
     conn.execute(
-        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
+        "INSERT INTO test_machines(power_project_id,name,settings,created_at) "
         "VALUES(2,?,?,'2026-08-02T00:00:00Z')",
-        (f"test-machine:{MACHINE}", settings_token),
+        ("platform-mac", settings_token),
     )
     conn.commit()
 
@@ -289,7 +288,7 @@ def test_capture_names_every_projects_golden_beside_it(
         conn,
         json.dumps(
             validate_test_machine_settings(
-                {**TEST_MACHINE_SETTINGS, "golden_baseline_path": other}
+                {**TEST_MACHINE_SETTINGS, "resource_name": "platform-mac", "golden_baseline_path": other}
             )
         ),
     )
@@ -310,7 +309,7 @@ def test_capture_begin_protects_current_and_new_goldens(tmp_path, monkeypatch):
     other = "/Users/Shared/yoke-golden/tester-home-platform"
     _register_in_second_project(
         conn, json.dumps(validate_test_machine_settings(
-            {**TEST_MACHINE_SETTINGS, "golden_baseline_path": other}
+            {**TEST_MACHINE_SETTINGS, "resource_name": "platform-mac", "golden_baseline_path": other}
         )),
     )
 

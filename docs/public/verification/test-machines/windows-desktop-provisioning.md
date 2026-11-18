@@ -11,7 +11,7 @@ desktop steps at its section 6, then return there to capture and prove the home.
 ## Desktop and browser coverage
 
 Registered terminal QA uses tmux transcripts. GUI commands and
-`yoke test-machine screenshot --project P --test-machine NAME --json` start or
+`yoke test-machine screenshot --test-machine NAME --json` start or
 reuse the same WSL XFCE display through the existing Linux desktop helper;
 the screenshot captures that display, including its actual headed browser.
 Declare the dedicated WSL user as `desktop_user` and its xrdp port as
@@ -22,7 +22,7 @@ user's ambiguous desktop refuses; no native Windows RDP login is needed.
 For a requested, announced personal application sign-in handoff, run:
 
 ```text
-yoke test-machine desktop-access --project P --test-machine NAME --view
+yoke test-machine desktop-access --test-machine NAME --view
 ```
 
 Read `--help`. Install FreeRDP's visible SDL client on the executing workstation

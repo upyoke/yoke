@@ -147,7 +147,9 @@ export function renderCapabilitiesView(context, main, scope) {
     return project?.emoji ? `${project.emoji} ${label}` : label;
   };
   const panel = section(documentNode, "Capabilities");
-  main.replaceChildren(panel);
+  const machines = el(documentNode, "a", "btn", "Test Machines");
+  machines.href = buildUniverseRoute("capabilities", String(scope || "all"), "test-machine");
+  main.replaceChildren(machines, panel);
   const buckets = scopeBuckets(scope, projects, false);
   loadScopedSection(
     context, panel,

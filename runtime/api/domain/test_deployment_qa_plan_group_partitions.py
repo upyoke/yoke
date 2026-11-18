@@ -70,7 +70,7 @@ def _seed(conn, tmp_path, monkeypatch, *plans):
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         test_machine=STUDIO,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": STUDIO},
         base_settings=None,

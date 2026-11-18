@@ -81,7 +81,7 @@ export async function locationResolves(client, href, projects, sections = {}, ba
           entry_id: Number(detail),
         }))?.entry);
       case "capabilities":
-        return detail === "test-machine" && Boolean(await read("test_machine.list", { project }));
+        return detail === "test-machine" && Boolean(await read("test_machine.list", {}));
       default: return false;
     }
   } catch { return false; }

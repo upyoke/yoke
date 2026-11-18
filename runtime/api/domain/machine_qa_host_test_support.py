@@ -121,7 +121,7 @@ def configure_test_machine(
     )
     replace_test_machine_settings(
         conn,
-        project="yoke",
+        power_project="yoke",
         settings=TEST_MACHINE_SETTINGS,
         base_settings=None,
     )

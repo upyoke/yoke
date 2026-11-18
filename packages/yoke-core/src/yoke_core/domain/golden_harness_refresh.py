@@ -228,7 +228,7 @@ def _capture_golden(
             "golden_refresh_capture_failed",
             f"golden capture on {machine} did not complete: {error}",
             "Read the named refusal; a project admin can capture by hand with "
-            f"`yoke test-machine golden-capture --project {contract.project} "
+            f"`yoke test-machine golden-capture "
             f"--test-machine {machine}`.",
         ) from error
     if submitted.get("status") != "verified":

@@ -281,10 +281,10 @@ credentials. Register provider/resource ID using the installed power contract;
 prove start, unchanged MagicDNS host and continued operation after lease release.
 
 ```text
-yoke test-machine settings-replace --project P --test-machine NAME --settings-file SETTINGS.json --new
-yoke test-machine golden-capture --project P --test-machine NAME --destination C:\YokeQa\goldens\baseline
-yoke test-machine verify --project P --test-machine NAME
-yoke test-machine screenshot --project P --test-machine NAME
+yoke test-machine settings-replace --power-project P --test-machine NAME --settings-file SETTINGS.json --new
+yoke test-machine golden-capture --test-machine NAME --destination C:\YokeQa\goldens\baseline
+yoke test-machine verify --test-machine NAME
+yoke test-machine screenshot --test-machine NAME
 ```
 
 Read command help first; never overwrite an existing golden. Restore mirrors

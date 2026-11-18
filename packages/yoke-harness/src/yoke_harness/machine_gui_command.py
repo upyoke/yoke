@@ -173,7 +173,7 @@ def check_yoke_installation(*, project, test_machine, settings, yoke_home):
         raise RemoteExecRefusal(
             "test_machine_yoke_missing",
             f"Yoke is absent from test machine {test_machine}'s login-shell PATH",
-            f"Run `yoke test-machine reset --project {project} --test-machine "
+            f"Run `yoke test-machine reset --test-machine "
             f"{test_machine} --baseline shell-preconfigured`, then retry authorization.",
         )
 
