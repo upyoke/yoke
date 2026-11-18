@@ -33,6 +33,7 @@
  */
 
 const { spawn, execFile } = require('child_process');
+const { windowOwnerPids } = require('./linux-window-owners');
 
 const WINDOW_POLL_MS = 2000;
 const WINDOW_START_MS = 30000;
@@ -73,7 +74,7 @@ function macWindowCount(pid) {
   });
 }
 
-function linuxWindowCount(pid) {
+function xdotoolWindows(pid) {
   return new Promise((resolve, reject) => {
     execFile('xdotool', ['search', '--pid', String(pid)], { timeout: 5000 },
       (error, stdout, stderr) => {
@@ -81,9 +82,22 @@ function linuxWindowCount(pid) {
           reject(new Error(`linux_authorization_window_check_failed: ${stderr.trim() || error.message}; install xdotool and check DISPLAY`));
           return;
         }
-        resolve(stdout.trim() ? stdout.trim().split(/\s+/).length : 0);
+        resolve(stdout.trim() ? stdout.trim().split(/\s+/) : []);
       });
   });
+}
+
+// X11 stamps a window with the PID of the browser that drew it, and the PID we
+// spawned may be a launcher whose child is that browser, so count the windows
+// of every Chromium main process in the spawned tree or on this profile.
+async function linuxWindowCount(pid, profileDir, {
+  ownerPids = windowOwnerPids, searchWindows = xdotoolWindows,
+} = {}) {
+  const windows = new Set();
+  for (const owner of ownerPids(pid, profileDir)) {
+    for (const id of await searchWindows(owner)) windows.add(id);
+  }
+  return windows.size;
 }
 
 /** Command-line flags for a plain, human-driven browser window. */
@@ -208,15 +222,18 @@ function openSignInWindow(
       }
       if (platform === 'darwin' || platform === 'linux') {
         try {
-          const count = await windowCount(child.pid);
+          const count = await windowCount(child.pid, profileDir);
           if (finished || stopping) return;
           if (count > 0) {
             seenWindow = true;
             emptyChecks = 0;
-          } else if (seenWindow && ++emptyChecks >= 2) {
-            windowClosed = true;
-            stop('all authorization windows closed but Chromium stayed running');
-            return;
+          } else if (seenWindow) {
+            // One empty check is a window between maps; two in a row is closed.
+            if (++emptyChecks >= 2) {
+              windowClosed = true;
+              stop('all authorization windows closed but Chromium stayed running');
+              return;
+            }
           } else if (elapsed >= startMs) {
             stop(`Chromium PID ${child.pid} opened no authorization window within ${startMs / 1000}s`);
             return;
@@ -263,4 +280,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildLaunchArgs, openSignInWindow, resolveExecutablePath };
+module.exports = {
+  buildLaunchArgs, linuxWindowCount, openSignInWindow, resolveExecutablePath,
+};
