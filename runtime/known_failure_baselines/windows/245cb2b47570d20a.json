@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agents_render_substrate.py::test_drift_detection_reports_missing_codex_native_view",
- "reason": "AssertionError: expected drift entry for missing native symlink, got: ['missing: .codex/agents']"
-}

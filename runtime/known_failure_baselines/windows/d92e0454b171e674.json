@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_ci_generated_surfaces.py::test_shipped_generated_surfaces_match_sources[check_agent_render]",
- "reason": "AssertionError: agent-render drift:"
-}

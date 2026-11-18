@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_pack_runner.py::test_update_follows_the_project_path_recorded_by_relink",
- "reason": "assert False is True"
-}

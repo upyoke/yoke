@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_global_skill_install.py::test_an_owned_older_copy_is_refreshed",
- "reason": "assert '---\\nname: y....com/docs>.\\n' == '---\\nname: y....com/docs>.\\n'"
-}

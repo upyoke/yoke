@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_skill_registry.py::test_registry_covers_each_installed_skill_exactly_once",
- "reason": "AssertionError: assert {'.agents/ski...KILL.md', ...} == {'.agents\\\\sk...KILL.md', ...}"
-}

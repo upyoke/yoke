@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_release_identity_failures.py::test_bridge_exits_with_the_named_record_refusal",
- "reason": "assert 1 == 7"
-}

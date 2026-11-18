@@ -1,4 +1,0 @@
-{
-  "node_id": "runtime/api/test_update_status_full_unblock_sync.py::TestAutoUnblock::test_auto_unblock_on_reviewed_implementation",
-  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
-}

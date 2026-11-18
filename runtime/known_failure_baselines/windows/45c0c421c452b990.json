@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_doctor_machine_scope.py::test_harness_setup_fix_repairs_machine_setup_outside_a_project",
- "reason": "AssertionError: assert 1 == 0"
-}

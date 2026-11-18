@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_installed_project_context.py::test_interrupted_manifest_refresh_resumes_the_existing_record",
- "reason": "Failed: DID NOT RAISE <class 'OSError'>"
-}

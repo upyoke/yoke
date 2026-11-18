@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/engines/test_doctor_filesystem_full_repo2.py::TestRepoFileHealthChecksB::test_stray_db_deletes_empty_worktree_stray_with_fix",
- "reason": "AssertionError: assert 'WARN' == 'PASS'"
-}

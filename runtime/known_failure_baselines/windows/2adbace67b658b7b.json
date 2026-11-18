@@ -1,4 +1,0 @@
-{
-  "node_id": "runtime/api/cli/test_yoke_qa_case_cli.py::test_qa_runner_preserves_child_interrupt_cleanup[qa_case_run-qa_case_execution_cli]",
-  "reason": "Child interrupt cleanup subprocess times out after 30 seconds on Windows; no path-rendering assertion is reached. Fresh Windows suite 44148219633; transferred to YOK-5395."
-}

@@ -1,4 +1,0 @@
-{
-  "node_id": "runtime/api/test_update_status_full_derive_project.py::TestCrossProject::test_cross_project_checkbox_repo_flag",
-  "reason": "UnicodeEncodeError: cp1252 cannot encode status arrow in update_status.py output"
-}

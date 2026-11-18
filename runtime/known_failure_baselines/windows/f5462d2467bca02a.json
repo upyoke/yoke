@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_harness_machine_inventory.py::test_every_matching_handler_is_approved[cli]",
- "reason": "AssertionError: assert 'unapproved' == 'approved'"
-}
