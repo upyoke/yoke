@@ -28,6 +28,7 @@ def test_cleanup_failure_retains_completed_diagnostics(monkeypatch, exit_code, c
         return subprocess.CompletedProcess(argv, 7, "", "cleanup refused")
 
     monkeypatch.setattr(provision.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
     monkeypatch.setattr(admin, "upload_received", lambda *args: True)
     cause_type = {
         "timeout": subprocess.TimeoutExpired,
@@ -81,6 +82,7 @@ def test_second_chunk_timeout_retains_safe_phase_and_cleanup(monkeypatch, cleanu
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     monkeypatch.setattr(admin.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
     with pytest.raises(admin.AdminScriptError) as error:
         provision.admin_script("key", "host", "admin", "x" * 2130, input_text="private password")
 
@@ -97,7 +99,7 @@ def test_second_chunk_timeout_retains_safe_phase_and_cleanup(monkeypatch, cleanu
     assert diagnostic["cleanup_duration_seconds"] == 1.0
     assert calls[0][1]["timeout"] == 30
     assert calls[1][1]["timeout"] == 28
-    assert calls[2][1]["timeout"] == 10
+    assert calls[2][1]["timeout"] == 30
     assert not any(" -File " in argv[-1] for argv, _ in calls)
     assert diagnostic["owned_path"] in str(error.value)
     assert "private-encoded-argv" not in str(error.value)

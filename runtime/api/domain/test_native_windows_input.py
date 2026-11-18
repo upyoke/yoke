@@ -100,6 +100,7 @@ def test_admin_upload_requires_receipt_and_password_stays_only_on_stdin(
         return completed("ready")
 
     monkeypatch.setattr(provision.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
     if valid_receipt:
         provision.admin_script("key", "host", "admin", script, input_text=password)
         assert calls[1][1]["input"] == frame_bytes(password.encode())
@@ -138,6 +139,7 @@ def test_admin_upload_chunks_verify_whole_prefix_with_one_deadline(monkeypatch, 
         return completed(receipt(bytes(stored)) if len(calls) != fail_chunk else receipt(b"wrong"))
 
     monkeypatch.setattr(provision.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
     if fail_chunk:
         with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed"):
             provision.admin_script("key", "host", "admin", source)
@@ -161,6 +163,7 @@ def test_admin_upload_never_resets_total_deadline(monkeypatch):
         return completed(receipt(base64.b64decode(kwargs["input"].split(":", 1)[1])))
 
     monkeypatch.setattr(provision.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
     with pytest.raises(admin.AdminScriptError) as error:
         provision.admin_script("key", "host", "admin", "x" * 5000)
     assert isinstance(error.value.__cause__, subprocess.TimeoutExpired)
@@ -330,10 +333,11 @@ def test_staging_cleanup_failure_preserves_original_upload_failure(monkeypatch):
     def run(argv, **kwargs):
         if "input" in kwargs:
             return completed("wrong receipt")
-        assert kwargs["timeout"] == 10
+        assert kwargs["timeout"] == 30
         raise subprocess.TimeoutExpired(argv, 10)
 
     monkeypatch.setattr(provision.subprocess, "run", run)
+    monkeypatch.setattr(admin, "run_framed", run)
     with pytest.raises(RuntimeError, match="windows_admin_script_upload_failed") as error:
         provision.admin_script("key", "host", "admin", "source")
     assert "Owned Windows staging cleanup failed" in error.value.__notes__[0]

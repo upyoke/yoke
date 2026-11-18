@@ -197,7 +197,11 @@ When administrator key SSH already works, add `--bootstrap-transport ssh` to run
 bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
 Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
 receipts under one 30-second deadline; only the complete verified script runs.
-Owned staging cleanup is bounded to ten seconds and preserves prior errors.
+Administrator framed input stays open until remote completion; output pipes drain
+concurrently and input delivery remains within the upload deadline. Local child
+termination/draining has a separate four-second reserve. Owned administrator
+staging cleanup is bounded to thirty seconds, including fresh SSH startup, and
+preserves prior errors. Include both reserves in the enclosing controller budget.
 Administrator upload failures retain the exact owned path, chunk timing and last
 verified offset in `staging_diagnostics`, including cleanup outcome. Inspect that
 metadata before a diagnostic retry; private causes can contain encoded argv.

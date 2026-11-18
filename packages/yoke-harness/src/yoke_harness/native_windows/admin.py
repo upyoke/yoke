@@ -4,6 +4,7 @@ import subprocess
 import time
 from uuid import uuid4
 
+from yoke_harness.native_windows.framed_process import run_framed
 from yoke_harness.native_windows.stdin_frame import frame_bytes, upload_received, upload_script
 from yoke_harness.native_windows.transport import encoded, quote
 from yoke_harness.test_machine_remote_exec import host_key_options
@@ -56,7 +57,7 @@ def admin_script(key, host, user, script, *, input_text=None):
                     if remaining <= 0:
                         event["outcome"] = "deadline_exhausted"
                         raise subprocess.TimeoutExpired("Windows script upload", 30)
-                    uploaded = subprocess.run(
+                    uploaded = run_framed(
                         [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
                         input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
                     )
@@ -67,7 +68,9 @@ def admin_script(key, host, user, script, *, input_text=None):
                         raise error
                     diagnostics["last_verified_offset"] = offset + len(chunk)
                     event["outcome"] = "verified"
-                except (OSError, subprocess.SubprocessError) as exc:
+                except AdminScriptError:
+                    raise
+                except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
                     event["outcome"] = type(exc).__name__
                     raise AdminScriptError("windows_admin_script_upload_failed", diagnostics) from exc
                 finally:
@@ -75,7 +78,8 @@ def admin_script(key, host, user, script, *, input_text=None):
         finally:
             diagnostics["upload_elapsed_seconds"] = round(time.monotonic() - started, 3)
         diagnostics["phase"] = "execution"
-        result = subprocess.run(
+        execute = run_framed if input_text is not None else subprocess.run
+        result = execute(
             [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
             input=frame_bytes(input_text.encode("utf-8")) if input_text is not None else None,
             capture_output=True, text=True, timeout=300,
@@ -93,7 +97,7 @@ def admin_script(key, host, user, script, *, input_text=None):
             cleanup = "$ErrorActionPreference='Stop'; Remove-Item -LiteralPath " + quote(path) + " -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath " + quote(path) + "){throw 'owned staging cleanup failed'}"
             removed = subprocess.run(
                 [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(cleanup)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, timeout=30,
             )
             diagnostics["cleanup_exit_code"] = removed.returncode
             if removed.returncode:
