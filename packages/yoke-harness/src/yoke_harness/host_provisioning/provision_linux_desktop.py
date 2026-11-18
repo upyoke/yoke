@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from yoke_contracts.owner_private_path import posix_uid
-
 import argparse
 import json
+import os
 from pathlib import Path
 import platform
 import re
@@ -77,7 +76,7 @@ def set_desktop_password(password: str) -> None:
     """Set only the dedicated fixture login through private product input."""
     import pwd
 
-    user = pwd.getpwuid(posix_uid()).pw_name
+    user = pwd.getpwuid(os.getuid()).pw_name
     command(["sudo", "-n", "chpasswd"], input_text=f"{user}:{password}\n")
 
 
@@ -132,7 +131,7 @@ def browser_selected(content: str) -> bool:
 
 
 def prerequisites() -> Path:
-    if platform.system() != "Linux" or posix_uid() == 0:
+    if platform.system() != "Linux" or os.getuid() == 0:
         raise ProvisionFailure(
             "linux_desktop_test_user_required: run as the dedicated non-root Linux "
             "test user with passwordless sudo"

@@ -145,3 +145,23 @@ def test_unnamed_tailnet_failure_names_the_recovery(wsl, monkeypatch):
     )
     with pytest.raises(Exception, match="windows_wsl_tailnet_failed: run provisioning"):
         wsl.expose_on_tailnet(3390, verify_only=False)
+
+
+def test_host_provisioning_scripts_import_only_stdlib_and_siblings():
+    """They are copied alone onto the test host, where no Yoke package exists."""
+    import ast
+
+    siblings = {path.stem for path in SCRIPTS.glob("*.py")}
+    allowed = set(sys.stdlib_module_names) | siblings | {"__future__"}
+    for path in SCRIPTS.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            names = (
+                [alias.name for alias in node.names]
+                if isinstance(node, ast.Import)
+                else [node.module or ""]
+                if isinstance(node, ast.ImportFrom) and not node.level
+                else []
+            )
+            for name in names:
+                assert name.split(".")[0] in allowed, (path.name, name)
