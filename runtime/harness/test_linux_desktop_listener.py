@@ -120,6 +120,25 @@ def test_tailnet_exposure_confines_the_port_to_tailscale(wsl, monkeypatch, verif
     assert "connectaddress=127.0.0.1 connectport=$port" in script
     assert "$port=3390" in script
     assert f"'{'verify' if verify_only else 'apply'}' -eq 'apply'" in script
+    # Both modes prove the boot-time rebind task carries this port's script.
+    argument = wsl.rebind_argument(3390)
+    assert f"-Argument '{argument}'" in script
+    assert f"$task.Actions[0].Arguments -ne '{argument}'" in script
+    assert "MSFT_TaskBootTrigger" in script and "windows_wsl_tailnet_rebind_not_proved" in script
+
+
+def test_boot_rebind_waits_for_tailscale_then_restarts_ip_helper(wsl):
+    import base64
+
+    encoded = wsl.rebind_argument(3391).rsplit(" ", 1)[1]
+    script = base64.b64decode(encoded).decode("utf-16-le")
+    assert script.startswith("$port=3391\n")
+    assert "Get-NetIPAddress -InterfaceAlias Tailscale" in script
+    assert "-LocalAddress $ip -LocalPort $port" in script
+    assert script.index("if(Listening $a[0].IPAddress){exit 0}") < script.index(
+        "Restart-Service iphlpsvc"
+    )
+    assert script.rstrip().endswith("exit 1")
 
 
 def test_tailnet_exposure_failure_is_named(wsl, monkeypatch):
