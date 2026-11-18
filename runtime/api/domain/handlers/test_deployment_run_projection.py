@@ -98,10 +98,11 @@ def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(
         monkeypatch.setattr(
             run_get_members,
             "run_membership",
-            lambda _: {"member_items": [], "membership_removals": []},
+            lambda _, *, visible: {"member_items": [], "membership_removals": []},
         )
         monkeypatch.setattr(
-            run_get_members, "run_lineage",
+            run_get_members,
+            "run_lineage",
             lambda _: {"supersedes_run_id": None, "superseded_by_run_id": None},
         )
         outcome = handle_deployment_run_get(

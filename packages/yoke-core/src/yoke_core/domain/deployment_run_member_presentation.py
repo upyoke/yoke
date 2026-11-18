@@ -160,3 +160,23 @@ def removed_member_items(
                 }
             )
     return result
+
+
+_COMPACT_MEMBER_FIELDS = (
+    "id",
+    "ref",
+    "title",
+    "status",
+    "project_id",
+    "project_sequence",
+    "item_qa",
+    "qa_obligations",
+    "completed_deliveries",
+)
+
+
+def compact_member_items(members: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {key: member[key] for key in _COMPACT_MEMBER_FIELDS if key in member}
+        for member in members
+    ]

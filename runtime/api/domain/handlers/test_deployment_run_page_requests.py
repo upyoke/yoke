@@ -117,6 +117,7 @@ def test_page_shape_resolves_actor_visible_projects_before_the_read():
         "page_size": 50,
         "cursor": None,
         "actor_id": 41,
+        "visible_project_ids": {1, 2},
     }
 
 

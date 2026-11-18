@@ -85,6 +85,7 @@ def handle_deployment_run_page(
                 page_size=page.page_size,
                 cursor=page.cursor,
                 actor_id=actor_id,
+                visible_project_ids=visible,
             )
         except RunHistoryCursorError as exc:
             return error(

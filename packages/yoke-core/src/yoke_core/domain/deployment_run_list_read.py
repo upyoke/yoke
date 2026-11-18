@@ -10,9 +10,14 @@ from typing import Any, Optional
 from yoke_core.domain.db_helpers import connect, instant_parameter
 from yoke_core.domain.deployment_run_member_presentation import (
     _member_items,
+    compact_member_items,
     removed_member_items,
 )
-from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
+from yoke_core.domain.deployment_run_project_presentation import (
+    scope_run_fields,
+    visible_bound_sources,
+    visible_carried_work,
+)
 from yoke_core.domain.deployment_run_carried_work_read import (
     compact_carried_work,
     read_carried_work,
@@ -152,7 +157,13 @@ def present_deployment_runs(
             for member in run_members:
                 member["item_qa"] = qa.get((run_id, int(member["id"])))
                 member["completed_deliveries"] = completed.get(int(member["id"]), [])
-    gates = run_gates(conn, run_ids, actor_id=actor_id)
+    gates = run_gates(
+        conn,
+        run_ids,
+        actor_id=actor_id,
+        visible_project_ids=visible_project_ids,
+        members=members,
+    )
     delivery_items = (
         candidate_delivery_items(conn, base) if include_item_delivery else {}
     )
@@ -162,11 +173,18 @@ def present_deployment_runs(
         run_id = str(row["id"])
         row.pop("membership_removals", None)
         if include_carried_work:
-            carried = read_carried_work(conn, row)
+            carried = visible_carried_work(
+                read_carried_work(conn, row), row.get("project_id"), visible_project_ids
+            )
             row["carried_work"] = compact_carried_work(carried) if compact else carried
         if "bound_sources" in row:
-            # Pinned sources are the same record delivery is judged on.
-            row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
+            row["bound_sources"] = visible_bound_sources(
+                row["bound_sources"],
+                row.get("stages"),
+                visible_project_ids,
+                owner_id=row.get("project_id"),
+            )
+        scope_run_fields(row, visible_project_ids)
         recorded_containment = row.pop("candidate_containment", None)
         containment = parse_candidate_containment(recorded_containment)
         stage_names = _stage_names(row.pop("stages", None))
@@ -177,24 +195,7 @@ def present_deployment_runs(
         )
         run_members = members.get(run_id, [])
         if compact:
-            run_members = [
-                {
-                    key: member[key]
-                    for key in (
-                        "id",
-                        "ref",
-                        "title",
-                        "status",
-                        "project_id",
-                        "project_sequence",
-                        "item_qa",
-                        "qa_obligations",
-                        "completed_deliveries",
-                    )
-                    if key in member
-                }
-                for member in run_members
-            ]
+            run_members = compact_member_items(run_members)
         # Candidate containment joins memberless in-flight runs to cards.
         contained: list[dict[str, Any]] = []
         if (
@@ -327,7 +328,7 @@ def list_deployment_runs(
                 conn,
                 base,
                 actor_id=actor_id,
-                visible_project_ids=None,
+                visible_project_ids=visible_project_ids,
                 include_carried_work=True,
                 include_item_delivery=relevance == "overview",
             )

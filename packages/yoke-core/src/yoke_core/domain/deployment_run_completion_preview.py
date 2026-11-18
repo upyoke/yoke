@@ -173,10 +173,26 @@ def _read_members(conn: Any, run_id: str) -> CompletionPreview:
     return CompletionPreview(tuple(entries), settling=True)
 
 
-def run_completion_diagnostics(run_id: str) -> dict[str, Any]:
+def run_completion_diagnostics(
+    run_id: str, *, visible_item_ids: set[int] | None = None
+) -> dict[str, Any]:
     """Additional, separately labelled diagnostics for the registered run read."""
     with connect() as conn:
         preview = completion_preview(conn, run_id)
+    if visible_item_ids is not None:
+        preview = CompletionPreview(
+            members=tuple(
+                member
+                for member in preview.members
+                if member.item_id in visible_item_ids
+            ),
+            settling=preview.settling,
+            unavailable=(
+                "member_closure_unavailable: ask the release driver to inspect the run"
+                if preview.unavailable
+                else ""
+            ),
+        )
     return {
         "members": [asdict(member) for member in preview.members],
         "lines": list(preview.lines),

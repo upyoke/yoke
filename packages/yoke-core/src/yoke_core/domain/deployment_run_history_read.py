@@ -8,8 +8,11 @@ from typing import Any, Collection, Optional, Sequence
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
+from yoke_core.domain.deployment_run_project_scope import run_project_scope
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.deployment_run_list_read import present_deployment_runs
+from yoke_core.domain.deployment_runs_schema import history_run_columns
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.schema_common import _column_exists
@@ -28,6 +31,7 @@ RUN_HISTORY_FIELDS = (
     "started_at",
     "completed_at",
     "carried_work",
+    "bound_sources",
     "release_lineage",
     "artifact_identity",
     "composition_frozen_at",
@@ -87,59 +91,8 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
     return [dict(zip(columns, row)) for row in rows]
 
 
-def _scope(
-    conn: Any,
-    project_ids: Optional[Collection[int]],
-) -> tuple[list[str], list[Any]]:
-    from yoke_core.domain.deployment_run_project_scope import run_project_scope
-
-    return run_project_scope(conn, project_ids)
-
-
 def _where(clauses: Sequence[str]) -> str:
     return " WHERE " + " AND ".join(clauses) if clauses else ""
-
-
-def _source(conn: Any) -> tuple[str, str]:
-    def column(name: str) -> str:
-        return f"dr.{name}" if _column_exists(conn, "deployment_runs", name) else "NULL"
-
-    if _column_exists(conn, "deployment_runs", "target_environment_id"):
-        environment = "e.name"
-        environment_join = (
-            " LEFT JOIN environments e ON e.id = dr.target_environment_id"
-        )
-    else:
-        environment = "NULL"
-        environment_join = ""
-    fields = ", ".join(
-        (
-            "dr.id",
-            "p.slug AS project",
-            "dr.flow",
-            "df.name AS flow_name",
-            f"{column('target_tier')} AS target_tier",
-            f"{environment} AS target_environment",
-            "dr.status",
-            f"{column('current_stage')} AS current_stage",
-            "dr.created_at",
-            f"{column('started_at')} AS started_at",
-            f"{column('completed_at')} AS completed_at",
-            f"{column('carried_work')} AS carried_work",
-            f"{column('membership_removals')} AS membership_removals",
-            # The identity a run froze. Without these three scalars a reader
-            # cannot tell whether evidence still answers for the run.
-            f"{column('release_lineage')} AS release_lineage",
-            f"{column('artifact_identity')} AS artifact_identity",
-            f"{column('composition_frozen_at')} AS composition_frozen_at",
-            "df.stages",
-        )
-    )
-    joins = (
-        " FROM deployment_runs dr JOIN projects p ON p.id = dr.project_id "
-        "JOIN deployment_flows df ON df.id = dr.flow" + environment_join
-    )
-    return fields, joins
 
 
 def _criteria(
@@ -147,7 +100,7 @@ def _criteria(
     *,
     base_clauses: Sequence[str],
     base_params: Sequence[Any],
-    project_ids: Optional[Collection[int]],
+    visible_project_ids: Optional[set[int]],
     search: Optional[str],
     status: Optional[str],
     environment: Optional[str],
@@ -171,16 +124,24 @@ def _criteria(
     normalized_search = str(search or "").strip().lower()
     if normalized_search:
         pattern = f"%{normalized_search}%"
+        scope = ""
+        visible = sorted(visible_project_ids or ())
+        if visible_project_ids is not None:
+            scope = (
+                f" AND i.project_id IN ({','.join([marker] * len(visible))})"
+                if visible
+                else " AND 1=0"
+            )
         clauses.append(
             "(LOWER(dr.id) LIKE " + marker + " OR EXISTS ("
             "SELECT 1 FROM deployment_run_items dri "
             "JOIN items i ON i.id = dri.item_id "
             "JOIN item_refs ir ON ir.item_id = i.id "
-            "WHERE dri.run_id = dr.id AND ("
+            f"WHERE dri.run_id = dr.id{scope} AND ("
             "LOWER(i.title) LIKE " + marker + " OR "
             "LOWER(ir.public_ref) LIKE " + marker + ")))"
         )
-        params.extend([pattern, pattern, pattern])
+        params.extend([pattern, *visible, pattern, pattern])
     return clauses, params
 
 
@@ -189,6 +150,7 @@ def _filters(
     joins: str,
     clauses: Sequence[str],
     params: Sequence[Any],
+    visible_project_ids: Optional[set[int]],
 ) -> dict[str, Any]:
     rows = _dict_rows(
         conn.execute(
@@ -201,7 +163,11 @@ def _filters(
             tuple(params),
         )
     )
-    projects = {int(row["project_id"]): str(row["project"]) for row in rows}
+    projects = {
+        int(row["project_id"]): str(row["project"])
+        for row in rows
+        if visible_project_ids is None or int(row["project_id"]) in visible_project_ids
+    }
     flows = {
         str(row["flow"]): str(row.get("flow_name") or row["flow"])
         for row in rows
@@ -238,21 +204,32 @@ def read_deployment_run_history(
     page_size: int,
     cursor: Optional[str],
     actor_id: Optional[int],
+    visible_project_ids: Optional[set[int]] = None,
 ) -> dict[str, Any]:
     """Return complete unfinished runs plus one compact completed page."""
-    fields, joins = _source(conn)
-    scope_clauses, scope_params = _scope(conn, project_ids)
+    if visible_project_ids is None and actor_id is not None:
+        visible_project_ids = actor_visible_project_ids(conn, actor_id)
+    if visible_project_ids is not None:
+        project_ids = (
+            visible_project_ids
+            if project_ids is None
+            else visible_project_ids.intersection(project_ids)
+        )
+    fields, joins = history_run_columns(conn)
+    scope_clauses, scope_params = run_project_scope(conn, project_ids)
     clauses, params = _criteria(
         conn,
         base_clauses=scope_clauses,
         base_params=scope_params,
-        project_ids=project_ids,
+        visible_project_ids=visible_project_ids,
         search=search,
         status=status,
         environment=environment,
         flow=flow,
     )
-    filters = None if cursor else _filters(conn, joins, clauses, params)
+    filters = (
+        None if cursor else _filters(conn, joins, clauses, params, visible_project_ids)
+    )
     marker = _p(conn)
     terminals = sorted(TERMINAL_RUN_STATUSES)
     terminal_markers = ", ".join(marker for _ in terminals)
@@ -322,7 +299,7 @@ def read_deployment_run_history(
         conn,
         [*unfinished_rows, *page],
         actor_id=actor_id,
-        visible_project_ids=None,
+        visible_project_ids=visible_project_ids,
         include_carried_work=True,
         compact=True,
     )
