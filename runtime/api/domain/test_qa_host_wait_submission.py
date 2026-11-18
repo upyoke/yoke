@@ -116,3 +116,59 @@ def test_host_wait_preserves_target_and_open_requirement(
         ).fetchone()[0]
         == 0
     )
+
+
+def test_controller_walk_awaiting_review_can_declare_host_wait(
+    test_db, tmp_path, monkeypatch
+):
+    """A hostless controller walk holds no lease and reviews at awaiting_walk_review."""
+    from runtime.api.domain.agent_mission_controller_test_support import _mission
+    from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain.coordination_claims import acquire
+    from yoke_core.domain.machine_qa_capability import host_claim_target
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_qa_session(test_db, "busy-host-owner")
+    execution = _mission(test_db)
+    case = execution["roster"][0]
+    begun = handle_plan_case_begin(
+        FunctionCallRequest(
+            function="test_machine.plan_case.begin",
+            actor=ActorContext(actor_id="7", session_id="manual-owner"),
+            target=TargetRef(kind="global", project_id="yoke"),
+            payload={
+                "execution_id": execution["id"],
+                "ordinal": 0,
+                "requirement_id": case["requirement_id"],
+            },
+        )
+    )
+    assert begun.primary_success, begun.error
+    bundle = begin_plan_review(test_db, lock_plan_execution(test_db, execution["id"]))
+    current = lock_plan_execution(test_db, execution["id"])
+    assert current["state"] == "awaiting_walk_review"
+    assert current["test_machine_lease_id"] is None
+    busy = acquire(test_db, host_claim_target("mac-mini-lab"), "busy-host-owner")
+    result = submit_host_wait(
+        test_db,
+        current,
+        bundle_id=bundle["bundle_id"],
+        bundle_digest=bundle["bundle_digest"],
+        test_machine="mac-mini-lab",
+        rationale=f"host leased by another mission: {busy.id}",
+    )
+    assert result["state"] == "waiting" and result["verdicts"] == []
+    fresh = lock_plan_execution(test_db, result["execution_id"])
+    assert fresh["roster"] == current["roster"]
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_plan_review_verdicts WHERE bundle_id=%s",
+            (bundle["bundle_id"],),
+        ).fetchone()[0]
+        == 0
+    )
