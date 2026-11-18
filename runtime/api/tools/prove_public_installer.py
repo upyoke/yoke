@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,23 @@ def status(argv, env, cwd):
         f"Proved {argv}: {payload['runtime']['package_versions']['yoke-cli']}",
         flush=True,
     )
+
+
+# uv's minor-version link (cpython-3.12-<platform>) is a junction on Windows
+# that OpenSSH sessions cannot follow; tool environments name the patch.
+MINOR_LINK = re.compile(r"cpython-\d+\.\d+-")
+
+
+def assert_patch_python_homes(tools: Path):
+    homes = {}
+    for config in tools.rglob("pyvenv.cfg"):
+        for line in config.read_text(encoding="utf-8").splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == "home":
+                homes[str(config)] = value.strip()
+    assert homes, f"no tool environment found under {tools}"
+    linked = {path: home for path, home in homes.items() if MINOR_LINK.search(home)}
+    assert not linked, f"tool environments use uv's minor-version link: {linked}"
 
 
 def prove(root: Path):
@@ -166,6 +184,7 @@ def prove(root: Path):
             else:
                 run([yoke, "update", "--json"], env=env, cwd=home)
             assert run([yoke, "--version"], env=env, cwd=home) == build.version
+            assert_patch_python_homes(home / "tools")
             if sys.platform == "win32":
                 status(
                     ["powershell.exe", "-NoProfile", "-Command", "yoke status --json"],

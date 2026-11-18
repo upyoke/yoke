@@ -171,6 +171,8 @@ class _Runner:
 
     def __call__(self, command):
         cmd = list(command)
+        if cmd[:3] == ["uv", "python", "find"]:
+            return subprocess.CompletedProcess(cmd, 0, "3.12.16\n", "")
         if cmd[:3] == ["uv", "tool", "install"]:
             return subprocess.CompletedProcess(
                 cmd, self.uv_rc, self.uv_stdout, self.uv_stderr

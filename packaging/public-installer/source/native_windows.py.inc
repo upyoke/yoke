@@ -39,9 +39,26 @@ def require_windows_path(path: Path) -> None:
             raise long_path_refusal()
 
 
+UNTRUSTED_MOUNT_POINT_REFUSAL = (
+    "windows_untrusted_mount_point: uv could not follow the Python link "
+    "directory it just created (os error 448, untrusted mount point). Windows "
+    "Redirection Guard blocks this process from following directory junctions; "
+    "OpenSSH sessions run under it. See https://github.com/astral-sh/uv/issues/19616. "
+    "Run the installer from a local PowerShell window on this computer, not over SSH."
+)
+
+
+def refuse_untrusted_mount_point(result) -> None:
+    if sys.platform != "win32":
+        return
+    if "os error 448" in ((result.stdout or "") + "\n" + (result.stderr or "")):
+        raise InstallError(UNTRUSTED_MOUNT_POINT_REFUSAL)
+
+
 def refuse_windows_path_failure(result) -> None:
     if sys.platform != "win32":
         return
+    refuse_untrusted_mount_point(result)
     diagnostic = (result.stdout + "\n" + result.stderr).lower()
     if any(word in diagnostic for word in ("filename or extension is too long", "os error 206", "winerror 206", "path too long")):
         if not windows_long_paths_enabled():

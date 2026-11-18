@@ -280,6 +280,12 @@ yoke test-machine verify --test-machine NAME
 yoke test-machine screenshot --test-machine NAME
 ```
 
+`shell-preconfigured` runs the released `/install.ps1` as the signed-in desktop
+user through an interactive task, the way users install; SSH only verifies.
+OpenSSH runs `sshd.exe` sessions under Redirection Guard, so they cannot
+follow user directory junctions such as uv's Python links; installs over SSH
+refuse with `windows_untrusted_mount_point`.
+
 Read command help first; never overwrite an existing golden. Restore mirrors
 the profile, restores user PATH/tasks and preserves live harness/browser
 identities and locked registry hives. Close apps before capture/reset; copy

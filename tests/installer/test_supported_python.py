@@ -94,62 +94,106 @@ def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path) -> None:
     assert runner.commands == []
 
 
-@pytest.mark.parametrize("host_version", ["3.9", "3.10", "3.15"])
-def test_unsupported_only_host_allows_managed_supported_python(host_version):
-    module = load_installer()
-    commands = []
+FIND = ["uv", "python", "find", "--no-project", "--show-version"]
+
+
+def _runner(module, commands, *, find=(0, "3.12.16", ""), python_install=(0, "", ""), tool=(0, "", "")):
+    finds = [find] if isinstance(find, tuple) else list(find)
 
     def runner(command):
         commands.append(command)
-        assert command[:3] == ["uv", "tool", "install"]
-        assert command[command.index("--python") + 1] == module.PYTHON_CONSTRAINT
-        assert "--no-python-downloads" not in command
-        return subprocess.CompletedProcess(
-            command, 0, f"Host {host_version}; downloaded managed Python 3.14", ""
-        )
+        if command[:5] == FIND:
+            rc, out, err = finds.pop(0) if len(finds) > 1 else finds[0]
+        elif command[:3] == ["uv", "python", "install"]:
+            rc, out, err = python_install
+        else:
+            rc, out, err = tool
+        return subprocess.CompletedProcess(command, rc, out, err)
 
+    return runner
+
+
+def test_tool_venv_names_the_exact_python_patch():
+    # A minor request makes uv point the venv at its minor-version link, a
+    # Windows junction OpenSSH sessions cannot follow (astral-sh/uv#19616).
+    module = load_installer()
+    commands = []
+    installer = module.Installer(_options(module), runner=_runner(module, commands))
+    command = installer.install_command("yoke-cli")
+    installer._run_uv_install(command)
+    assert commands[0] == [*FIND, module.PYTHON_CONSTRAINT]
+    pinned = list(command)
+    pinned[pinned.index("--python") + 1] = "3.12.16"
+    assert commands[1:] == [pinned]
+
+
+def test_missing_python_installs_managed_supported_python_before_pinning():
+    module = load_installer()
+    commands = []
+    runner = _runner(module, commands, find=[(2, "", "No interpreter found"), (0, "3.14.2", "")])
     installer = module.Installer(_options(module), runner=runner)
     installer._run_uv_install(installer.install_command("yoke-cli"))
-    assert len(commands) == 1
+    assert commands[:3] == [
+        [*FIND, module.PYTHON_CONSTRAINT],
+        ["uv", "python", "install", module.PYTHON_CONSTRAINT],
+        [*FIND, module.PYTHON_CONSTRAINT],
+    ]
+    assert commands[3][commands[3].index("--python") + 1] == "3.14.2"
+    assert "--no-python-downloads" not in commands[3]
 
 
 @pytest.mark.parametrize(
     "reason", ["Python download failed", "Python downloads disabled"]
 )
-def test_unavailable_python_after_install_failure_names_recovery(reason):
+def test_unavailable_python_names_recovery(reason):
     module = load_installer()
     commands = []
-
-    def runner(command):
-        commands.append(command)
-        return subprocess.CompletedProcess(command, 1, "", reason)
-
+    runner = _runner(module, commands, find=(2, "", "none"), python_install=(1, "", reason))
     installer = module.Installer(_options(module), runner=runner)
     with pytest.raises(
         module.InstallError, match="supported_python_unavailable"
     ) as failure:
         installer._run_uv_install(installer.install_command("yoke-cli"))
-    assert commands == [
-        installer.install_command("yoke-cli"),
-        ["uv", "python", "find", "--no-python-downloads", module.PYTHON_CONSTRAINT],
-    ]
+    assert [c[:3] for c in commands] == [["uv", "python", "find"], ["uv", "python", "install"]]
     assert f"supports Python {CONSTRAINT}" in str(failure.value)
     assert f"uv python install '{CONSTRAINT}'" in str(failure.value)
     assert "yoke update" in str(failure.value)
     assert reason in str(failure.value)
 
 
-@pytest.mark.parametrize("host_version", ["3.11", "3.14"])
-def test_supported_host_reaches_install(host_version):
+def test_unnamed_python_patch_refuses_by_name():
     module = load_installer()
-    runner = RecordingRunner(stdout=host_version)
+    runner = _runner(module, [], find=(0, "/usr/bin/python3", ""))
     installer = module.Installer(_options(module), runner=runner)
-    command = installer.install_command("yoke-cli")
-    installer._run_uv_install(command)
-    assert runner.commands[-1] == command
+    with pytest.raises(module.InstallError, match="supported_python_unresolved"):
+        installer._run_uv_install(installer.install_command("yoke-cli"))
 
 
-def test_package_install_failure_with_available_python_keeps_package_diagnostic():
+UNTRUSTED = (
+    "error: Failed to create Python minor version link directory\n"
+    "  cause: The path cannot be traversed because it contains an untrusted "
+    "mount point. (os error 448)"
+)
+
+
+@pytest.mark.parametrize("failing", ["python_install", "tool"])
+def test_untrusted_mount_point_refuses_by_name(monkeypatch, failing):
+    module = load_installer()
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    steps = {"python_install": (1, "", UNTRUSTED)} if failing == "python_install" else {"tool": (2, "", UNTRUSTED)}
+    find = (2, "", "none") if failing == "python_install" else (0, "3.12.16", "")
+    installer = module.Installer(_options(module), runner=_runner(module, [], find=find, **steps))
+    with pytest.raises(module.InstallError) as failure:
+        installer._run_uv_install(installer.install_command("yoke-cli"))
+    message = str(failure.value)
+    assert message.startswith("windows_untrusted_mount_point:")
+    assert "https://github.com/astral-sh/uv/issues/19616" in message
+    assert "local PowerShell" in message
+    assert "supported_python_unavailable" not in message
+    assert "Failed to create Python minor version link" not in message
+
+
+def test_package_install_failure_keeps_package_diagnostic():
     module = load_installer()
     installer = module.Installer(
         _options(module),
@@ -175,3 +219,20 @@ def test_package_install_failure_with_available_python_keeps_package_diagnostic(
 )
 def test_supported_range_boundaries(version, supported):
     assert (version in SpecifierSet(load_installer().PYTHON_CONSTRAINT)) is supported
+
+
+def test_install_proof_refuses_tool_environments_on_the_minor_link(tmp_path):
+    from runtime.api.tools.prove_public_installer import assert_patch_python_homes
+
+    venv = tmp_path / "releases/1.0/tools/yoke-cli"
+    venv.mkdir(parents=True)
+    config = venv / "pyvenv.cfg"
+    config.write_text(
+        "home = C:\\uv\\python\\cpython-3.12.16-windows-x86_64-none\n", encoding="utf-8"
+    )
+    assert_patch_python_homes(tmp_path)
+    config.write_text(
+        "home = C:\\uv\\python\\cpython-3.12-windows-x86_64-none\n", encoding="utf-8"
+    )
+    with pytest.raises(AssertionError, match="minor-version link"):
+        assert_patch_python_homes(tmp_path)

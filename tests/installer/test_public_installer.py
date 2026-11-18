@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 from public_installer_helpers import (
+    EXACT_PYTHON,
     RecordingRunner,
     YOKE_LAUNCHER,
     branded_installer_glyphs as branded_installer_glyphs,
@@ -98,12 +99,15 @@ def test_full_install_pins_channel_version_and_smokes(
 
     installer.run()
 
-    assert runner.commands[0][:4] == ["uv", "tool", "install", "yoke-cli==2.0.0"]
-    assert "--reinstall" in runner.commands[0]
-    assert "yoke-contracts==2.0.0" in runner.commands[0]
-    assert "yoke-harness==2.0.0" in runner.commands[0]
-    assert "yoke-core==2.0.0" in runner.commands[0]
-    assert "--config-file" in runner.commands[0]
+    assert runner.commands[1][:4] == ["uv", "tool", "install", "yoke-cli==2.0.0"]
+    assert "--reinstall" in runner.commands[1]
+    assert "yoke-contracts==2.0.0" in runner.commands[1]
+    assert "yoke-harness==2.0.0" in runner.commands[1]
+    assert "yoke-core==2.0.0" in runner.commands[1]
+    assert "--config-file" in runner.commands[1]
+    assert runner.commands[0][:3] == ["uv", "python", "find"]
+    python = runner.commands[1][runner.commands[1].index("--python") + 1]
+    assert python == EXACT_PYTHON
     assert [yoke_bin, "--version"] in runner.commands
     assert [yoke_bin, "--help"] in runner.commands
     assert [yoke_bin, "status", "--json"] in runner.commands
@@ -211,10 +215,10 @@ def test_explicit_version_skips_channel_fetch(tmp_path: Path, monkeypatch) -> No
     installer.run()
 
     assert fetched == []
-    assert runner.commands[0][:4] == ["uv", "tool", "install", "yoke-cli==9.9.9"]
-    assert "yoke-contracts==9.9.9" in runner.commands[0]
-    assert "yoke-harness==9.9.9" in runner.commands[0]
-    assert "yoke-core==9.9.9" in runner.commands[0]
+    assert runner.commands[1][:4] == ["uv", "tool", "install", "yoke-cli==9.9.9"]
+    assert "yoke-contracts==9.9.9" in runner.commands[1]
+    assert "yoke-harness==9.9.9" in runner.commands[1]
+    assert "yoke-core==9.9.9" in runner.commands[1]
     assert "Starting Yoke setup" not in output.getvalue()
 
 
@@ -270,7 +274,7 @@ def test_uv_install_failure_is_user_actionable(tmp_path: Path) -> None:
     assert "configured Yoke package index and public PyPI" in message
     assert PYPI_INDEX in message
     assert "uv: index not reachable" in message
-    # Smoke never ran after a failed install: only the install command issued.
+    # Smoke never ran after a failed install: only the Python find and install ran.
     assert len(runner.commands) == 2
 
 

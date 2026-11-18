@@ -102,6 +102,8 @@ class _InstallPyRunner:
 
     def __call__(self, command):  # noqa: ANN001, ANN204
         self.commands.append(list(command))
+        if list(command[:3]) == ["uv", "python", "find"]:
+            return subprocess.CompletedProcess(command, 0, "3.12.16\n", "")
         if command[0] == "uv":
             return subprocess.CompletedProcess(command, 0, "", "")
         if command[1:] == ["path", "fix", "--yes", "--json"]:

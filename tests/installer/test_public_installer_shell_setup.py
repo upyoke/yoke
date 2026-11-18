@@ -32,8 +32,8 @@ def test_installer_runs_owned_shell_setup_after_install(monkeypatch):
     runner = RecordingRunner()
     _, installer = _installer(monkeypatch, runner)
     installer.run()
-    assert runner.commands[0][:3] == ["uv", "tool", "install"]
-    assert runner.commands[1] == ["/tmp/bin/yoke", "path", "fix", "--yes", "--json"]
+    assert runner.commands[1][:3] == ["uv", "tool", "install"]
+    assert runner.commands[2] == ["/tmp/bin/yoke", "path", "fix", "--yes", "--json"]
     assert "Add Yoke to PATH:" not in installer.stdout.getvalue()
 
 
