@@ -11,10 +11,17 @@ Complete [macOS host provisioning](macos-host-provisioning.md) first.
 Sign the operator identity (the project's browser-control `default_identity`)
 into `https://app.upyoke.com` (or the declared self-hosted app URL) once with
 `yoke browser authorize --project P --identity NAME --test-machine NAME`.
-Complete password/2FA now and require the signed-in app page; a Google session
-alone is insufficient. Later approval should need only an existing account pick.
+The remote command can open a viewer on the controller. To keep the window
+on the fixture, run `yoke browser authorize --project P --identity NAME
+--declarations-json "$DECLARATIONS"` directly in the test user’s GUI Terminal.
+Use the browser-control `settings_json` from the project’s capability settings
+and keep it private. Complete password and MFA, then close the authorization
+window so Yoke checks both Google and the app. Later approval should need only
+an existing account pick.
 Start each harness's vendor login flow from the test user's **GUI Terminal**;
-the operator types passwords only where asked. Follow the [browser identity procedure](macos-baseline-recovery.md#11-live-browser-identities)
+the operator types passwords only where asked. Open one sign-in window at a
+time and wait for the operator to confirm before opening the next. Follow the
+[browser identity procedure](#11-live-browser-identities)
 for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
 requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
 is separate from app presence. A login-status line or credential file is
