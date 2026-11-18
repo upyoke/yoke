@@ -1,7 +1,9 @@
 {
  "id": "machine-installation",
  "title": "Machine installation",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "macOS machine uninstall also removes proven saved relay services after their connection aliases are retired; unreadable ownership or failed unload retains the machine home and CLI for recovery.",
+ "sources": ["docs/public/start/uninstall.md", "packages/yoke-core/src/yoke_core/tools/session_relay_owned_uninstall.py"],
  "page": "maintenance",
  "position": 0
 }

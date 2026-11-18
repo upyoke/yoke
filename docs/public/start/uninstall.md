@@ -49,6 +49,9 @@ reachable for the retry. Its result log, in the system temporary directory, is
 printed by the command.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
+On macOS, saved relay services are checked even after their connection was
+removed. Uninstall proves their machine-home ownership and waits for launchd
+to unload them; an unreadable service or failed unload retains recovery files.
 Independent cleanup continues after a failure; the machine home and CLI stay
 available when cleanup needs recovery. Fix the reported problem and retry.
 Source-checkout CLI installs refuse; retire those through your source-dev workflow.

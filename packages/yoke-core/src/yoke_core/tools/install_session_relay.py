@@ -30,7 +30,12 @@ def _parser() -> argparse.ArgumentParser:
         prog="install_session_relay",
         description="Install, inspect, or uninstall the Yoke relay user service.",
     )
-    parser.add_argument("action", choices=("install", "status", "uninstall"))
+    parser.add_argument(
+        "action", choices=("install", "status", "uninstall", "uninstall-owned")
+    )
+    parser.add_argument(
+        "--machine-home", type=Path, help="owned home for uninstall-owned"
+    )
     parser.add_argument(
         "--environment",
         default=None,
@@ -92,6 +97,22 @@ def relay_is_satisfied(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parsed = _parser().parse_args(argv)
+    if parsed.action == "uninstall-owned":
+        if sys.platform != "darwin" or parsed.machine_home is None:
+            print("uninstall-owned requires macOS and --machine-home", file=sys.stderr)
+            return 2
+        from yoke_core.tools.session_relay_owned_uninstall import uninstall_owned_relays
+
+        try:
+            labels = uninstall_owned_relays(parsed.machine_home)
+        except (RelayInstallError, OSError) as exc:
+            print(f"session relay: {exc}", file=sys.stderr)
+            return 1
+        print(f"session relay: removed {len(labels)} saved service(s)")
+        return 0
+    if parsed.machine_home is not None:
+        print("--machine-home requires uninstall-owned", file=sys.stderr)
+        return 2
     try:
         instance = resolve_relay_instance(
             config_path=parsed.config,
