@@ -98,6 +98,9 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     metadata = hook_stdin.pop("yoke_hook_evaluator")
     timing_id = metadata.pop("client_timing_id")
     assert str(UUID(timing_id)) == timing_id
+    # The relay hand-off stamps the hook's age since its client started.
+    age = metadata.pop("hook_age_ms")
+    assert isinstance(age, int) and age >= 0
     assert metadata == {"evaluator": "inprocess", "warm_duration_ms": 0}
     assert hook_stdin == dict(
         json.loads(raw_stdin),
