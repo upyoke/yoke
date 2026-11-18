@@ -7,8 +7,8 @@ from pathlib import Path
 
 def claude_project_storage_key(checkout: Path) -> str:
     """Return the ~/.claude/projects subdirectory key for a checkout root."""
-    # Claude uses JavaScript UTF-16 code units for replacement and hashing.
-    encoded = checkout.resolve().as_posix().encode("utf-16-le", errors="surrogatepass")
+    # Claude hashes the native path (including backslashes on Windows) as UTF-16 code units.
+    encoded = str(checkout.resolve()).encode("utf-16-le", errors="surrogatepass")
     units = [int.from_bytes(encoded[i:i + 2], "little") for i in range(0, len(encoded), 2)]
     key = "".join(
         chr(unit) if 48 <= unit <= 57 or 65 <= unit <= 90 or 97 <= unit <= 122 else "-"
