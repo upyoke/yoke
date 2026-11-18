@@ -71,7 +71,7 @@ Existing execution snapshots keep their original definitions and evidence; any
 `requirements_behind_plan` returned by replacement need their named refresh path
 before reuse, rather than being rewritten as part of the installation.
 
-Choose two distinct registered names from `yoke test-machine list --project P`.
+Choose two distinct registered names from `yoke test-machine list`.
 The saved case configurations retain those fixture choices; later source checks
 reuse them. The second-machine case must use a different physical host, not a
 reset of the first one. A deployment member stage runs the separate host rosters:
