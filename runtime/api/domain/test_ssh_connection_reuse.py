@@ -181,15 +181,12 @@ def test_windows_target_never_creates_or_checks_master_on_any_controller(monkeyp
     assert "ControlMaster=auto" not in argv and "ControlPersist=30" not in argv
 
 
-def test_windows_explicit_policy_overrides_ambient_ssh_configuration(tmp_path, monkeypatch):
-    import shutil
-
-    if shutil.which("ssh") is None:
-        pytest.skip("OpenSSH client not installed")
+def test_windows_explicit_policy_overrides_ambient_ssh_configuration(tmp_path_factory):
+    config_dir = tmp_path_factory.mktemp("windows-ssh-config")
     instance = object.__new__(transport.SshTestMachineTransport)
     instance.os, instance._host, instance._user = "windows", "localhost", "qa"
-    instance._key_path, instance._control_path, instance._host_key_options = tmp_path / "key", None, []
-    config = tmp_path / "config"
+    instance._key_path, instance._control_path, instance._host_key_options = config_dir / "key", None, []
+    config = config_dir / "config"
     config.write_text("Host *\n  ControlMaster auto\n  ControlPersist 99\n  ControlPath ambient-master\n")
     argv = instance._ssh_argv("must not execute")
     result = subprocess.run([argv[0], "-G", "-F", str(config), *argv[1:-1]], capture_output=True, text=True, timeout=10)
