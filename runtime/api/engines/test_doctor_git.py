@@ -171,6 +171,9 @@ class TestHcMainCheckout:
         assert "feature-branch" in rec.results[0].detail
 
 
+ORIGIN_URL = "git@example.com:o/r.git\n"
+
+
 class TestHcBranchDivergence:
     """Tests for hc_branch_divergence."""
 
@@ -181,6 +184,7 @@ class TestHcBranchDivergence:
     def test_no_divergence_passes(self, mock_run, mock_fetch):
         same_hash = "abc123\n"
         mock_run.side_effect = [
+            _make_completed(stdout=ORIGIN_URL),
             # git rev-parse --verify main
             _make_completed(stdout="abc\n"),
             # git rev-parse main
@@ -196,6 +200,7 @@ class TestHcBranchDivergence:
     @patch("yoke_core.engines.doctor_report._run")
     def test_divergence_warns(self, mock_run, mock_fetch):
         mock_run.side_effect = [
+            _make_completed(stdout=ORIGIN_URL),
             # git rev-parse --verify main
             _make_completed(stdout="abc\n"),
             # git rev-parse main
@@ -223,6 +228,7 @@ class TestHcBranchDivergence:
         never successfully reached origin.
         """
         mock_run.side_effect = [
+            _make_completed(stdout=ORIGIN_URL),
             _make_completed(stdout="abc\n"),
             _make_completed(stdout="abc123\n"),
             _make_completed(stdout="abc123\n"),
@@ -235,6 +241,17 @@ class TestHcBranchDivergence:
         assert rec.results[0].result == "WARN"
         assert "could not reach origin" in rec.results[0].detail
         assert "could not read Username" in rec.results[0].detail
+
+
+    @patch("yoke_cli.config.credentialed_git.run")
+    @patch("yoke_core.engines.doctor_report._run")
+    def test_no_origin_remote_is_not_applicable(self, mock_run, mock_fetch):
+        """Setup's Skip GitHub leaves no remote, which is a valid shape."""
+        mock_run.return_value = _make_completed(returncode=2)
+        rec = _run_hc(hc_branch_divergence)
+        assert rec.results[0].result == "N/A"
+        assert rec.results[0].detail == "no origin remote"
+        mock_fetch.assert_not_called()
 
 
 class TestHcUncapturedDiscoveries:

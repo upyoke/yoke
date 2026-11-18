@@ -50,9 +50,6 @@ class EventFamilyLivenessPair:
 
 EVENT_FAMILY_LIVENESS_PAIRS = (
     EventFamilyLivenessPair(
-        "items", "ItemStatusChanged", "updated_at", EVENT_FAMILY_JOIN_WINDOW_DAYS
-    ),
-    EventFamilyLivenessPair(
         "qa_requirements",
         "QARequirementCreated",
         "created_at",

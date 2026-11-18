@@ -82,7 +82,7 @@ severity_default TEXT NOT NULL DEFAULT 'INFO' -- default severity level
 
 **Source of truth:** the rows come from the code event catalog, `yoke_core.domain.event_catalog`. Every server boot makes `event_registry` equal that table: it inserts missing names, rewrites drifted metadata, and deletes names the catalog no longer lists. A second boot writes nothing. The table has no status column; a name with no producer is deleted from the catalog, not marked. Registry rows are not edited by hand or through a CLI.
 
-**Drift:** emitting a name the catalog does not list still records the event. The `registry audit` subcommand and the `HC-event-registry-coverage` doctor check report it as rogue (emitted but not registered), and report stale entries (registered but not emitted in 30 days, apart from expected low-cadence events).
+**Drift:** emitting a name the catalog does not list still records the event. The `registry audit` subcommand and the `HC-event-registry-coverage` doctor check report it as rogue (emitted but not registered), and report stale entries (registered but not emitted in 30 days, apart from expected low-cadence events). A universe whose oldest event is younger than 30 days has no stale list yet.
 
 ## Related
 

@@ -2,7 +2,8 @@
 
 Owns ``hc_event_registry_coverage`` — the HC that compares ``events``
 against ``event_registry`` to surface stale registry entries (not
-emitted in 30 days, excluding expected low-cadence events) and rogue
+emitted in 30 days, excluding expected low-cadence events, and only once the
+event history is older than that window) and rogue
 events (emitted but not in the code catalog the registry mirrors).
 """
 
@@ -86,18 +87,26 @@ def hc_event_registry_coverage(conn, args: DoctorArgs, rec: RecordCollector) -> 
     issues: List[str] = []
 
     # Stale: registered entries not emitted in 30 days, unless they are
-    # expected low-cadence events.
-    placeholders = ",".join(_p(conn) for _ in EXPECTED_LOW_CADENCE)
-    stale = query_rows(
+    # expected low-cadence events. A universe whose event history is younger
+    # than the window has had no chance to emit them, so it has no stale list.
+    history = query_rows(
         conn,
-        "SELECT er.event_name FROM event_registry er "
-        f"WHERE er.event_name NOT IN ({placeholders}) "
-        "AND er.event_name NOT IN ("
-        "  SELECT DISTINCT ae.event_name FROM events ae "
-        f"  WHERE ae.created_at >= {now_sql(offset_days=-30)}"
-        ")",
-        EXPECTED_LOW_CADENCE,
+        "SELECT 1 AS mature FROM events "
+        f"WHERE created_at < {now_sql(offset_days=-30)} LIMIT 1",
     )
+    stale = []
+    if history:
+        placeholders = ",".join(_p(conn) for _ in EXPECTED_LOW_CADENCE)
+        stale = query_rows(
+            conn,
+            "SELECT er.event_name FROM event_registry er "
+            f"WHERE er.event_name NOT IN ({placeholders}) "
+            "AND er.event_name NOT IN ("
+            "  SELECT DISTINCT ae.event_name FROM events ae "
+            f"  WHERE ae.created_at >= {now_sql(offset_days=-30)}"
+            ")",
+            EXPECTED_LOW_CADENCE,
+        )
     if stale:
         issues.append("Stale registry entries (not emitted in 30d):")
         for r in stale:

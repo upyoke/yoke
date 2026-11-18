@@ -246,6 +246,14 @@ class TestHCShepherdLifecycleFull:
 # HC-event-registry-coverage and HC-event-callsite-registry-sync tests
 
 
+def _register(conn, name):
+    conn.execute(
+        "INSERT INTO event_registry (event_name, event_kind, event_type, "
+        "owner_service, description) VALUES (%s, %s, %s, %s, %s)",
+        (name, "system", "generic", "cli", "test"),
+    )
+
+
 class TestHCEventRegistryCoverage:
     """Tests for HC-event-registry-coverage."""
 
@@ -266,22 +274,23 @@ class TestHCEventRegistryCoverage:
 
     def test_warn_stale_entries(self, test_db):
         """WARN on stale registry entries."""
-        test_db.execute(
-            "INSERT INTO event_registry (event_name, event_kind, event_type, owner_service, description) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            ("StaleEvent", "system", "generic", "cli", "test"),
-        )
-        test_db.execute(
-            "INSERT INTO event_registry (event_name, event_kind, event_type, owner_service, description) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            ("FreshEvent", "system", "generic", "cli", "test"),
-        )
+        _register(test_db, "StaleEvent")
+        _register(test_db, "FreshEvent")
         insert_event(test_db, event_id="evt-fresh-1", event_name="FreshEvent")
+        aged = "2000-01-01T00:00:00Z"  # history older than the 30-day window
+        insert_event(test_db, event_id="evt-0", event_name="FreshEvent", created_at=aged)
         rec = _run_hc(hc_event_registry_coverage, test_db)
         r = _result(rec)
         assert r.result == "WARN"
         assert "Stale registry entries" in r.detail
         assert "StaleEvent" in r.detail
+
+    def test_pass_when_event_history_is_younger_than_the_window(self, test_db):
+        """A fresh universe has had no chance to emit its catalog yet."""
+        _register(test_db, "NotYetEmitted")
+        _register(test_db, "TodayEvent")
+        insert_event(test_db, event_id="evt-today", event_name="TodayEvent")
+        assert _result(_run_hc(hc_event_registry_coverage, test_db)).result == "PASS"
 
     def test_pass_expected_low_cadence_without_recent_emission(self, test_db):
         """Expected low-cadence entries do not warn solely for no emission."""
@@ -308,11 +317,7 @@ class TestHCEventRegistryCoverage:
 
     def test_pass_when_clean(self, test_db):
         """PASS when registry and emissions are clean."""
-        test_db.execute(
-            "INSERT INTO event_registry (event_name, event_kind, event_type, owner_service, description) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            ("GoodEvent", "system", "generic", "cli", "test"),
-        )
+        _register(test_db, "GoodEvent")
         insert_event(test_db, event_id="evt-good-1", event_name="GoodEvent")
         rec = _run_hc(hc_event_registry_coverage, test_db)
         assert _result(rec).result == "PASS"
