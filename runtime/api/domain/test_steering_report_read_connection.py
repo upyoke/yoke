@@ -65,3 +65,31 @@ def test_writes_inside_a_savepoint_and_commit_refresh_rows():
     report.commit()
     conn.execute("INSERT INTO facts VALUES (5)")
     assert report.execute(sql).fetchall() == [(4,), (5,)]
+
+
+class _Cursor:
+    def __init__(self, rows):
+        self._rows = rows
+        self.description = (("value",),)
+
+    def fetchall(self):
+        return self._rows
+
+
+class _Inner:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def execute(self, sql, params=()):
+        return _Cursor(self.rows)
+
+
+def test_scalar_rows_are_shared_and_decoded_values_stay_private():
+    scalar = [("a", 1, None)]
+    report = ReportReadConnection(_Inner(scalar))
+    first = report.execute("SELECT a").fetchall()
+    assert first[0] is report.execute("SELECT a").fetchall()[0]
+    decoded = ReportReadConnection(_Inner([({"key": [1]},)]))
+    mine = decoded.execute("SELECT b").fetchone()
+    mine[0]["key"].append(2)
+    assert decoded.execute("SELECT b").fetchone() == ({"key": [1]},)
