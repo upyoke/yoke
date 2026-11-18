@@ -6,7 +6,6 @@ import tempfile
 
 import pytest
 
-from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness import ssh_test_machine_transport as transport
 
 
@@ -50,21 +49,15 @@ def test_unusable_socket_directory_teaches_recovery(tmp_path, monkeypatch):
     monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path,))
     directory = tmp_path / f"ssh-{transport.os.getuid()}"
     directory.symlink_to(tmp_path, target_is_directory=True)
-    with pytest.raises(HostControlLocalError) as caught:
+    with pytest.raises(RuntimeError, match="host_control_ssh_socket_unavailable.*temp_root"):
         transport._control_socket("host", "user", tmp_path / "key")
-    assert caught.value.code == "host_control_ssh_socket_unavailable"
-    assert caught.value.phase == "ssh_transport_setup"
-    assert "temp_root" in caught.value.recovery_hint
 
 
 @pytest.mark.posix_only(reason='requires Unix control sockets')
 def test_long_socket_path_teaches_recovery(tmp_path, monkeypatch):
     monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path / ("x" * 90),))
-    with pytest.raises(HostControlLocalError) as caught:
+    with pytest.raises(RuntimeError, match="host_control_ssh_socket_unavailable.*temp_root"):
         transport._control_socket("host", "user", tmp_path / "key")
-    assert caught.value.code == "host_control_ssh_socket_unavailable"
-    assert caught.value.phase == "ssh_transport_setup"
-    assert "temp_root" in caught.value.recovery_hint
 
 
 @pytest.mark.posix_only(reason='requires Unix control sockets')

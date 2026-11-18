@@ -21,7 +21,7 @@ from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 from yoke_cli.config.path_doctor import PathStateContract, resolve_path_state_contract
-from yoke_contracts.machine_qa_failures import HostControlLocalError, bounded_machine_qa_diagnostic
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
 # Keep SSH connection diagnostics focused on failures.
 SSH_OPTIONS = (
@@ -75,12 +75,10 @@ def _control_socket(host: str, user: str, key_path: Path) -> Path:
         directory.chmod(0o700)
         return socket
     except OSError as exc:
-        raise HostControlLocalError(
-            code="host_control_ssh_socket_unavailable",
-            phase="ssh_transport_setup",
-            detail="The controller could not prepare a private SSH control socket.",
-            stderr=str(exc),
-            recovery_hint="Configure a short, writable Yoke temp_root and retry the host command.",
+        raise RuntimeError(
+            "host_control_ssh_socket_unavailable: "
+            + str(exc)
+            + "; configure a short writable Yoke temp_root and retry the host command"
         ) from exc
 
 
