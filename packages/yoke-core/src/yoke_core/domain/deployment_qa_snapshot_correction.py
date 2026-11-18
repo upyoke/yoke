@@ -60,16 +60,23 @@ def selected_plan_owners(conn, *, run_id, stage, plan_id, member=None):
     return payload, candidates[0]
 
 
-def _case_passed(
-    conn, *, run_id, stage, plan_id, key, member=None, exclusive_member=None
-):
-    """Protect every accepted copy sharing the frozen plan contract."""
-    from yoke_core.domain.qa_deployment_case_correction_window import (
-        determinate_verdict,
-    )
+def _case_passed(row, verdicts):
+    """A pass at any baseline protects the frozen case."""
+    return verdicts.get(int(row["id"])) == "pass"
 
+
+def passed_case_keys(conn, *, run_id, stage, plan_id, snapshot, member=None):
+    """Return passed keys for the frozen contract and the current subject.
+
+    A contract can span member subjects. Another member's pass pins the shared
+    definition, while the current member can still correct its own failed row.
+    """
+    from yoke_core.domain.qa_deployment_case_correction_window import (
+        determinate_verdicts,
+    )
     from yoke_core.domain.qa_deployment_case_content_refresh import base_case_key
 
+    exclusive_member = snapshot.get("member_item_id")
     scope = "deployment_member_item_id IS " + ("NULL" if member is None else "NOT NULL")
     params = (run_id, stage, plan_id)
     if exclusive_member is not None:
@@ -77,20 +84,35 @@ def _case_passed(
         params += (exclusive_member,)
     rows = query_rows(
         conn,
-        "SELECT id,plan_case_key FROM qa_requirements WHERE deployment_run_id=%s "
+        "SELECT id,plan_case_key,deployment_member_item_id FROM qa_requirements "
+        "WHERE deployment_run_id=%s "
         "AND deployment_stage=%s AND plan_id=%s "
         "AND " + scope,
         params,
     )
-    return any(
-        determinate_verdict(conn, int(row["id"])) == "pass"
-        for row in rows
-        if base_case_key(row["plan_case_key"]) == key
-    )
+    frozen_keys = {str(case["case_key"]) for case in snapshot["cases"]}
+    verdicts = determinate_verdicts(conn, (row["id"] for row in rows))
+    contract_passes = set()
+    subject_passes = set()
+    for row in rows:
+        key = base_case_key(row["plan_case_key"])
+        if key in frozen_keys and _case_passed(row, verdicts):
+            contract_passes.add(key)
+            if row["deployment_member_item_id"] == member:
+                subject_passes.add(key)
+    return contract_passes, subject_passes
 
 
 def refresh_selected_cases(
-    conn, *, run_id, stage, plan_id, cases, allow_added=False, member=None
+    conn,
+    *,
+    run_id,
+    stage,
+    plan_id,
+    cases,
+    allow_added=False,
+    member=None,
+    passed_keys=None,
 ):
     """Correct only eligible cases, preserving the selection's admission provenance."""
     from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
@@ -114,20 +136,17 @@ def refresh_selected_cases(
     existing = {str(case["case_key"]) for case in snapshot["cases"]}
     if replacements.keys() - existing and not allow_added:
         incomplete_snapshot(plan_id, "corrected case has no admitted selection")
-    for frozen in snapshot["cases"]:
-        key = str(frozen["case_key"])
-        if key not in replacements or replacements[key] == frozen:
-            continue
-        if _case_passed(
+    if passed_keys is None:
+        passed_keys, _ = passed_case_keys(
             conn,
             run_id=run_id,
             stage=stage,
             plan_id=plan_id,
-            key=key,
+            snapshot=snapshot,
             member=member,
-            exclusive_member=snapshot.get("member_item_id"),
-        ):
-            replacements.pop(key, None)
+        )
+    for key in passed_keys:
+        replacements.pop(key, None)
     snapshot["cases"] = [
         replacements.get(str(case["case_key"]), case) for case in snapshot["cases"]
     ]

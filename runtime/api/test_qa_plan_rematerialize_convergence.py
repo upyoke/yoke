@@ -9,6 +9,8 @@ changed content.
 
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.qa_plan_rematerialize_convergence_test_support import (
     MEMBER as MEMBER,
     _case as _case,
@@ -21,11 +23,17 @@ from runtime.api.qa_plan_rematerialize_convergence_test_support import (
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
+    item_qa_stage_definitions,
     record_case_verdict,
     seed_member_qa_case,
+    seed_run_standing_on_qa_stage,
 )
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.qa_catalog_test_support import CATALOG_CASES
+from yoke_core.domain.deployment_qa_snapshot_correction import selected_plan_owners
+from yoke_core.domain.deployment_qa_stage_materialization import (
+    materialize_deployment_qa_stage,
+)
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     case_content_digest,
     refreshed_case_keys,
@@ -113,6 +121,99 @@ def test_stage_rematerialize_keeps_a_passed_case_and_waives_a_lost_one(test_db) 
     assert result["waived_requirement_ids"] == [lost]
     assert _row(test_db, lost)["waived_at"]
     assert _row(test_db, passed)["instructions"] == "run the frozen smoke command"
+
+
+def test_stage_rematerialize_keeps_a_passed_case_deleted_from_the_plan(test_db):
+    run_id = "run-converge-deleted-pass"
+    plan_id, passed, _pending = _two_case_stage(test_db, run_id)
+    record_case_verdict(test_db, passed, "pass", evidence=True)
+    replace_plan_cases(
+        test_db,
+        plan_id=plan_id,
+        cases=[_case("second-smoke", "run the second smoke command", 2)],
+    )
+
+    result = rematerialize_for_deployment_stage(test_db, **_stage(test_db, run_id))
+
+    assert result["created_requirement_ids"] == []
+    assert result["waived_requirement_ids"] == []
+    assert _row(test_db, passed)["waived_at"] is None
+
+
+@pytest.mark.parametrize(
+    "baselines",
+    [["fresh-host"], ["fresh-host", "shell-preconfigured"]],
+    ids=["moved-passed-baseline", "passed-with-pending-sibling"],
+)
+def test_stage_rematerialize_keeps_the_whole_passed_case(test_db, baselines):
+    run_id = "run-converge-baselines"
+    plan = create_plan(test_db, project="yoke", slug="converge-baselines")
+    plan_id = int(plan["id"])
+    case = {
+        **_case("command-smoke", "check the frozen host"),
+        "method_id": "machine-state-check",
+        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+        "host_baselines": baselines,
+    }
+    replace_plan_cases(test_db, plan_id=plan_id, cases=[case])
+    seed_run_standing_on_qa_stage(
+        test_db,
+        run_id=run_id,
+        project="yoke",
+        stages=item_qa_stage_definitions(plan_id),
+        members=(MEMBER,),
+        lineage="b" * 40,
+    )
+    scope = _stage(test_db, run_id)
+    materialize_deployment_qa_stage(test_db, **scope)
+    passed = test_db.execute(
+        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND plan_id=%s AND host_baseline='fresh-host'",
+        (run_id, plan_id),
+    ).fetchone()["id"]
+    record_case_verdict(test_db, passed, "pass", evidence=True)
+    owner_scope = dict(
+        run_id=run_id, stage=ITEM_QA_STAGE, plan_id=plan_id, member=MEMBER
+    )
+    _, before = selected_plan_owners(test_db, **owner_scope)
+    replace_plan_cases(
+        test_db,
+        plan_id=plan_id,
+        cases=[
+            {
+                **case,
+                "host_baselines": ["shell-preconfigured"],
+                "instructions": "check the edited host",
+            }
+        ],
+    )
+
+    result = rematerialize_for_deployment_stage(test_db, **scope)
+
+    assert result["created_requirement_ids"] == []
+    assert result["refreshed_requirement_ids"] == []
+    assert result["waived_requirement_ids"] == []
+    _, after = selected_plan_owners(test_db, **owner_scope)
+    assert after["cases"] == before["cases"]
+    assert (
+        refreshed_case_keys(
+            test_db,
+            run_id=run_id,
+            stage_name=ITEM_QA_STAGE,
+            member_item_id=MEMBER,
+            plan_id=plan_id,
+            cases=after["cases"],
+        )
+        == {}
+    )
+    rows = test_db.execute(
+        "SELECT host_baseline,instructions,waived_at FROM qa_requirements "
+        "WHERE deployment_run_id=%s AND plan_id=%s ORDER BY baseline_position",
+        (run_id, plan_id),
+    ).fetchall()
+    assert [
+        (row["host_baseline"], row["instructions"], row["waived_at"]) for row in rows
+    ] == [(baseline, case["instructions"], None) for baseline in baselines]
 
 
 def test_explicit_replacement_suppresses_the_automatic_one(test_db) -> None:

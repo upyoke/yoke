@@ -181,8 +181,10 @@ A deployment subject converges case by case, so one answered sibling never
 blocks the rest: a row nobody has judged is refreshed in place; a case whose
 rows all failed (or were discharged) and whose content has since changed gets
 one corrected row, declared the replacement of the failed attempts -- they
-keep their evidence and are superseded once it passes; a passed case stands
-as its acceptance record; a case the plan lost is waived. A case already
+keep their evidence and are superseded once it passes. A pass on any
+baseline keeps the whole frozen case and its rows for that subject, even if
+the plan changes or removes it. The edit applies from the next release.
+An unpassed case the plan lost is waived. A case already
 carried by a declared replacement (an explicit --replaces) gets no second,
 automatic one.
 The subject keeps the deployment target its stage receipt pinned --
