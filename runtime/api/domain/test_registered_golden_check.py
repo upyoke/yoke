@@ -21,8 +21,8 @@ def _run(command: str, *, timeout: int = 60):
     )
 
 
-def _golden(project: str, path: str) -> dict[str, str]:
-    return {"project": project, "test_machine": f"{project}-mac", "path": path}
+def _golden(name: str, path: str) -> dict[str, str]:
+    return {"test_machine": f"{name}-mac", "path": path}
 
 
 @pytest.mark.posix_only(reason="runs on the POSIX test machine")
@@ -55,6 +55,8 @@ def test_a_missing_or_symlinked_golden_is_named_by_path(tmp_path):
 
     error = raised.value
     assert error.code == REGISTERED_GOLDEN_MISSING
+    assert "Test Machine platform-mac" in str(error)
+    assert "golden-capture --test-machine platform-mac" in error.recovery_hint
     link = str(tmp_path / "link")
     registered = {str(tmp_path / "yoke"), gone, link}
     assert {path for path in registered if path in str(error)} == {gone, link}

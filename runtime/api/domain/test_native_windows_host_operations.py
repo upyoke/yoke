@@ -189,7 +189,7 @@ def test_azure_script_error_with_exit_zero_is_a_refusal(monkeypatch):
         provision.subprocess, "run", lambda *args, **kwargs: next(replies)
     )
     monkeypatch.setattr(
-        provision, "machine_capability_secret_path", lambda *args: "private-key"
+        provision, "test_machine_secret_path", lambda *args: "private-key"
     )
     with pytest.raises(RuntimeError, match="windows_openssh_bootstrap_failed"):
         provision.provision("project", "machine", "host", "group", "admin", "test")
@@ -200,7 +200,7 @@ def test_registered_native_goldens_are_checked_with_powershell():
 
     scripts = []
     path = r"C:\YokeQa\goldens\baseline"
-    registered = [{"project": "project", "test_machine": "machine", "path": path}]
+    registered = [{"test_machine": "machine", "path": path}]
     check_registered_goldens(
         lambda script, **kwargs: scripts.append(script) or completed(),
         registered,
@@ -254,7 +254,7 @@ def test_bootstrap_waits_for_an_existing_guest_command(monkeypatch):
         provision.subprocess, "run", lambda *args, **kwargs: next(replies)
     )
     monkeypatch.setattr(
-        provision, "machine_capability_secret_path", lambda *args: "private-key"
+        provision, "test_machine_secret_path", lambda *args: "private-key"
     )
     monkeypatch.setattr(provision.time, "sleep", lambda seconds: sleeps.append(seconds))
     with pytest.raises(RuntimeError, match="windows_openssh_bootstrap_failed"):
@@ -292,9 +292,9 @@ def test_provision_firewall_commands_cannot_prompt_or_hide_creation_errors(monke
 
     monkeypatch.setattr(provision.subprocess, "run", run)
     monkeypatch.setattr(provision, "admin_script", admin_script)
-    monkeypatch.setattr(provision, "machine_capability_secret_path", lambda *a: "key")
+    monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: "key")
     monkeypatch.setattr(
-        provision, "read_machine_capability_secret", lambda *a: "secret"
+        provision, "read_test_machine_secret", lambda *a: "secret"
     )
     with pytest.raises(RuntimeError, match="test_setup_captured"):
         provision.provision("project", "machine", "host", "group", "admin", "test")

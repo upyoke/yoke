@@ -121,10 +121,9 @@ def kept_golden_fields(
 ) -> dict[str, Any]:
     """Name every registered golden beside a capture so retention keeps it.
 
-    Several projects can register the same host and user, each with its own
-    golden in the same parent. Retention runs on the operator's machine and
-    can only see the capturing project, so the server names every golden
-    registered for this host and user in that parent. A registration it cannot
+    Several registrations can share a host and user, with separate goldens in
+    the same parent. The server names every golden registered for this host and
+    user in that parent so the client can retain them. A registration it cannot
     read, or another name for this home that is leased now, makes the answer
     unknown rather than incomplete.
     """
@@ -157,8 +156,7 @@ def registered_golden_fields(conn: Any, settings: Mapping[str, str]) -> dict[str
     return {
         REGISTERED_GOLDENS_KEY: [
             {
-                "power_project": row.power_project,
-                "test_machine": row.test_machine,
+                    "test_machine": row.test_machine,
                 "path": row.settings[GOLDEN_BASELINE_PATH_KEY],
             }
             for row in shared_home_registrations(conn, settings)

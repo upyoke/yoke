@@ -179,7 +179,8 @@ def test_machine_exec(args: List[str]) -> int:
             f"administrator command exited {completed.returncode}; see the redacted output above",
             "Correct the reported command failure and retry. If sudo rejected "
             "authentication, verify the registered user's sudo rights and "
-            "reimport its administrator password as test-machine:NAME.desktop_password.",
+            "reimport its administrator password with yoke test-machine secret set "
+            f"--test-machine {test_machine} --key desktop_password --value-file FILE.",
         )
     if completed.returncode and settings["os"] == "macos":
         from yoke_harness.ssh_mac_gui_session import (

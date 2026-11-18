@@ -1,8 +1,8 @@
 """Test Machine registrations that restore the same home.
 
-Several projects can register one physical host and user, each under its own
-name and with its own golden. Every one of them resets the same home, so golden
-custody follows the host and user, never the registered name.
+Several registrations can share a physical host and user, each with its own
+name and golden. They reset the same home, so each golden is relevant when
+that host and user are used.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def shared_home_registrations(
     conn: Any,
     settings: Mapping[str, str],
 ) -> list[TestMachineRow]:
-    """Return every project's registration of the host and user in *settings*.
+    """Return every registration for the host and user in *settings*.
 
     A stored registration that cannot be read could name this home, so it
     raises ``TestMachineCapabilityError`` instead of being skipped.
@@ -51,8 +51,8 @@ def leased_shared_home(
             continue
         if active_claim(conn, host_claim_target(row.test_machine)) is not None:
             return (
-                f"Test Machine {row.test_machine!r} registers this host and user as "
-                f"{row.test_machine!r}, and that machine is leased now, so a "
+                f"Test Machine {row.test_machine!r} registers this host and user "
+                "and is leased now, so a "
                 "capture it is running could be deleted"
             )
     return None

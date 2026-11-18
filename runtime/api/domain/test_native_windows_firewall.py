@@ -82,9 +82,9 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
     assert identity.returncode == 0, identity.stderr
     admin = identity.stdout.strip()
     custody = {}
-    monkeypatch.setattr(provision, "machine_capability_secret_path", lambda *a: key)
-    monkeypatch.setattr(provision, "read_machine_capability_secret", lambda *a: custody.get("password"))
-    monkeypatch.setattr(provision, "store_machine_capability_secret", lambda *a: custody.update(password=a[-1]))
+    monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: key)
+    monkeypatch.setattr(provision, "read_test_machine_secret", lambda *a: custody.get("password"))
+    monkeypatch.setattr(provision, "store_test_machine_secret", lambda *a: custody.update(password=a[-1]))
     actual_admin_script = provision.admin_script
     stages = []
 

@@ -159,8 +159,8 @@ def test_verify_begin_names_every_golden_registered_for_this_home(
 
     assert begun.primary_success, begun.error
     assert begun.result_payload["registered_goldens"] == [
-        {"power_project": "yoke", "test_machine": MACHINE, "path": GOLDEN_BASELINE_PATH},
-        {"power_project": "platform", "test_machine": "platform-mac", "path": OTHER_GOLDEN},
+        {"test_machine": MACHINE, "path": GOLDEN_BASELINE_PATH},
+        {"test_machine": "platform-mac", "path": OTHER_GOLDEN},
     ]
 
 
