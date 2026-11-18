@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.claude_posture_install import configure_claude_cli_permission_mode
 from yoke_contracts.harness_settings_revert import revert_recorded
@@ -26,7 +27,7 @@ FRESH = {"theme": "dark"}
 
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch) -> Path:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     claude_settings_path().parent.mkdir(parents=True)
     return tmp_path

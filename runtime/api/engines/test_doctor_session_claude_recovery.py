@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_contracts.harness_session_permission_posture import (
     CLAUDE_SESSION_PERMISSION_POSTURE as POSTURE,
 )
@@ -27,7 +28,7 @@ SESSION = "22222222-2222-4222-8222-222222222222"
 
 @pytest.fixture
 def session(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     claude_settings_path().parent.mkdir(parents=True)
     capture_permission_mode(
         {"session_id": SESSION, "permission_mode": "auto"}, "claude-code"

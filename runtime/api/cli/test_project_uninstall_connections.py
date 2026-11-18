@@ -10,6 +10,7 @@ import os
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_cli.config import writer
 from yoke_cli.project_install import owned_cleanup, uninstall_commit
@@ -25,7 +26,7 @@ SHARED = "project_uninstall_checkout_shared_with_other_connection"
 def two_universes(tmp_path, monkeypatch):
     home = tmp_path / "home"
     (home / ".codex").mkdir(parents=True)
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, home)
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     launcher = home / "bin/yoke"
