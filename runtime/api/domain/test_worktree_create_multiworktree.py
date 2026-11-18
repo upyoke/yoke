@@ -6,8 +6,6 @@ from runtime.api.domain.worktree_create_multiworktree_test_support import (_conf
 from runtime.api.domain.worktree_create_test_support import (_placeholder as _placeholder)
 
 
-from pathlib import Path
-
 import os
 import subprocess
 import sys
