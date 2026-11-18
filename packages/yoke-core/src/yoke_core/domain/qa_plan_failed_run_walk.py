@@ -5,7 +5,8 @@ belong to that one execution, so closing it before the walk strands every
 mission as needs_review. When an independent mission chain prepared cleanly,
 the run enters review like a clean run instead; the failed cases keep their
 recorded outcomes, and the review submission settles the execution as failed
-and names them. Item and deployment runs keep closing on the failure: their
+and names them. A refused review begin falls back to that same close.
+Item and deployment runs keep closing on the failure: their
 missions rerun alone through ``yoke qa case run --requirement-id``.
 """
 
@@ -60,4 +61,14 @@ def close_failed_run(
     return state if state in {"failed", "error"} else "failed"
 
 
-__all__ = ["close_failed_run", "walks_past_failures"]
+def with_review_refusal(recovery: str | None, refusal: str | None) -> str | None:
+    """Say why a failed run closed without walking its prepared missions."""
+    if refusal is None:
+        return recovery
+    return (
+        f"{recovery or ''} Its missions were not walked: review could not "
+        f"begin ({refusal}). Fix that refusal, then rerun the plan."
+    ).strip()
+
+
+__all__ = ["close_failed_run", "walks_past_failures", "with_review_refusal"]

@@ -198,8 +198,9 @@ run still enters `walking` for that mission and returns the review bundle
 (exit code `12`). The failed case keeps its recorded outcome and is not in the
 bundle; cases chained behind it stay blocked (`chain_blocked`). Submitting the
 review settles the execution as failed, with release reason
-`qa-plan-case-failed: requirements ...`. Without a prepared mission, the failed
-run closes immediately with that reason.
+`qa-plan-case-failed: requirements ...`. Without a prepared mission, or when
+review cannot begin, the failed run closes immediately with that reason; a
+review refusal is quoted in the run's `recovery`.
 
 A standalone mission belongs to its execution, so
 `yoke qa case run --requirement-id ID` refuses `qa_single_mission_standalone`.

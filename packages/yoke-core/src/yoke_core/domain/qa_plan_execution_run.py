@@ -12,6 +12,7 @@ from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
 from yoke_core.domain.qa_plan_failed_run_walk import (
     close_failed_run,
     walks_past_failures,
+    with_review_refusal,
 )
 from yoke_core.domain.qa_plan_execution_result_state import (
     QaPlanExecutionError,
@@ -273,7 +274,7 @@ def execute_begun_plan(
     if closing and not walk_failed:
         state = close_failed_run(_call_plan_function, state=state, **close)
 
-    review_bundle = None
+    review_bundle = review_refusal = None
     if len(results) == len(requirements) and (
         walk_failed or state not in {"failed", "error", "waiting", "removed"}
     ):
@@ -313,7 +314,11 @@ def execute_begun_plan(
                     cursor=len(requirements),
                     results=results,
                 )
-            raise
+            if not walk_failed:
+                raise
+            # A refused review must not strand the failed run active.
+            state = close_failed_run(_call_plan_function, state=state, **close)
+            review_refusal = str(exc)
 
     return {
         "execution_id": execution_id,
@@ -335,5 +340,7 @@ def execute_begun_plan(
         "executed_count": len(results),
         "results": results,
         "review_bundle": review_bundle,
-        "recovery": plan_recovery(state, failed_cases, results, raised=raised),
+        "recovery": with_review_refusal(
+            plan_recovery(state, failed_cases, results, raised=raised), review_refusal
+        ),
     }
