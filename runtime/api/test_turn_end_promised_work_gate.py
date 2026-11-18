@@ -248,6 +248,7 @@ def test_emit_deferred_consumes_chain_pending_state(monkeypatch) -> None:
 
 def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
     """A held Stop must not run remote session-end cleanup."""
+    from datetime import datetime, timezone
     from types import SimpleNamespace
 
     from yoke_core.hooks.remote_policy import RunControls
@@ -268,6 +269,7 @@ def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
         session_id="sess-1",
         item_id=1,
         tool_name="",
+        now=datetime.now(timezone.utc),
     )
     kwargs = dict(
         event_name="Stop",

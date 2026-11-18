@@ -159,10 +159,15 @@ def flush_run_tail(
 ) -> None:
     """Register inline; defer remote bookkeeping without changing guard results."""
     from yoke_core.hooks import telemetry as _telemetry
+    from yoke_contracts.hook_observation_age import observed_at as hook_observed_at
     from yoke_core.hooks.session_turn_posture_tail import (
         persist_accepted_hook_turn_posture,
     )
 
+    # Posture is stamped at the hook's observation instant, the same instant
+    # registration's stale_replay uses, so a hook the resident finishes after
+    # SessionEnd cannot outrank SessionEnd's own stamp.
+    posture_at = hook_observed_at(payload, context.now) or context.now
     failed = any(kind == "failed" for kind, _record in telem_records)
     observed_session = _observed_session_request(
         context=context,
@@ -176,7 +181,7 @@ def flush_run_tail(
         persist_accepted_hook_turn_posture(
             event_name=event_name,
             session_id=context.session_id or "",
-            observed_at=getattr(context, "now", None),
+            observed_at=posture_at,
             final_outcome=final_outcome,
             timed_out=timed_out,
             failed=failed,
@@ -240,6 +245,7 @@ def flush_run_tail(
             observed_session=observed_session,
             event_name=event_name,
             context=context,
+            observed_at=posture_at,
             final_outcome=final_outcome,
             timed_out=timed_out,
             failed=failed,
@@ -248,7 +254,7 @@ def flush_run_tail(
     persist_accepted_hook_turn_posture(
         event_name=event_name,
         session_id=context.session_id or "",
-        observed_at=getattr(context, "now", None),
+        observed_at=posture_at,
         final_outcome=final_outcome,
         timed_out=timed_out,
         failed=failed,
