@@ -130,7 +130,7 @@ class GroupHandle:
         def identity(pid, stamp):
             pid, stamp = int(pid), float(stamp)
             if pid <= 0 or not math.isfinite(stamp) or stamp <= 0:
-                raise ValueError("invalid_process_identity: record positive PID and creation time")
+                raise ValueError("invalid_process_identity: record positive PID and start identity")
             return pid, stamp
         pid, stamp = identity(record["pid"], record["start_time"])
         members = tuple(identity(*pair) for pair in record["members"])

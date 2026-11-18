@@ -1,6 +1,6 @@
 """Answer a relay pass's process identity questions from one portable snapshot.
 
-Tokens use the same creation epochs as process_start_time. Missing PIDs are
+Tokens use the same start_identity as process_start_time. Missing PIDs are
 checked live so a process started after the snapshot is never reported gone.
 An unreadable snapshot falls back to the ordinary identity probe.
 """
