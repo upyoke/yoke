@@ -92,12 +92,18 @@ def test_ready_text_times_out_without_sending_input(
 
     def run(
         command: str,
+        *,
+        input_text: str | None = None,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
         commands.append(command)
         if command.startswith("if command -v tmux"):
             return completed(command, stdout="screen")
-        if "return id of front window" in command:
+        if (
+            command == "/usr/bin/osascript"
+            and input_text
+            and "return id of front window" in input_text
+        ):
             return completed(command, stdout="445")
         if " hardcopy -h " in command:
             return completed(command, stdout="Connect GitHub?")
