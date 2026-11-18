@@ -34,13 +34,12 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
     _register(conn, "test-mac", "testers-mac-mini.tail0000.ts.net")
     _register(conn, "other-mac", "other-mini.tail0000.ts.net")
 
-    linked = _test_machines(conn, {_host_label("Testers-Mac-mini")}, {1})
+    linked = _test_machines(conn, {_host_label("Testers-Mac-mini")})
 
     assert linked == [
         {
-            "project": "yoke",
+            "power_project": "yoke",
             "test_machine": "test-mac",
-            "capability_type": "test-machine:test-mac",
             "host": "testers-mac-mini.tail0000.ts.net",
             "user": "tester",
             "os": "macos",
@@ -51,11 +50,11 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
     ]
 
 
-def test_a_capability_in_a_project_the_reader_cannot_see_stays_hidden() -> None:
+def test_link_uses_the_universe_host_name() -> None:
     conn = make_conn()
     _register(conn, "test-mac", "testers-mac-mini.tail0000.ts.net")
 
-    assert _test_machines(conn, {"testers-mac-mini"}, set()) == []
+    assert _test_machines(conn, {"testers-mac-mini"})[0]["test_machine"] == "test-mac"
 
 
 def test_the_detail_response_carries_the_cross_link() -> None:
