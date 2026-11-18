@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_case_execution_streaming.py::test_command_case_capture_survives_a_failing_run",
- "reason": "assert 127 == 3"
-}

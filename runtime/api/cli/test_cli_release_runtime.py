@@ -206,7 +206,9 @@ def test_installer_activates_candidate_with_the_candidates_own_runtime(
     assert not (generation / "pending").exists()
     assert version(bin_dir) == "2.0"
     shim = subprocess.run(
-        [str(root / "python"), "-c", "import release_marker; print(release_marker.VERSION)"],
+        ([sys.executable, str(root / "launcher"), "--python"] if runtime.WINDOWS
+         else [str(root / "python")])
+        + ["-c", "import release_marker; print(release_marker.VERSION)"],
         capture_output=True,
         text=True,
         timeout=30,

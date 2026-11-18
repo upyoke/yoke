@@ -19,12 +19,16 @@ reaping when it times out or is interrupted.
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Optional, TextIO
 
 from yoke_contracts.venv_layout import venv_python
+from yoke_contracts.project_command_shell import (
+    ProjectCommandShellUnavailable, project_command_shell,
+)
 from yoke_core.domain import source_pythonpath as _source_pythonpath
 
 #: Capture-file and banner label. Names the surface an agent is reading,
@@ -37,7 +41,7 @@ def product_command_environment(
 ) -> dict[str, str]:
     """Bind a Command case onto the checkout's .venv, else this runner.
 
-    ``/bin/sh -c`` otherwise resolves ``python3`` from the process PATH —
+    The project command shell otherwise resolves ``python3`` from PATH —
     typically the system interpreter, which imports neither the project's
     test packages nor ``yoke_cli``. When the case's checkout *cwd* is
     another project with its own ``.venv``, that interpreter's folder goes
@@ -62,6 +66,22 @@ def product_command_environment(
     out["PATH"] = os.pathsep.join(folders + ([existing] if existing else []))
     out["YOKE_PYTHON"] = sys.executable
     return out
+
+
+def python_bound_command(command: str, python: str, *, platform_name: str | None = None) -> str:
+    """Give native Windows shells both Python spellings for the bound interpreter.
+
+    A Windows venv only installs python.exe; PATH alone would let python3
+    escape to a global interpreter. Shell functions retain quoting and status.
+    """
+    if (platform_name or sys.platform) != "win32":
+        return command
+    executable = shlex.quote(Path(python).as_posix())
+    return (
+        f'python3() {{ {executable} "$@"; }}\n'
+        f'python() {{ {executable} "$@"; }}\n'
+        + command
+    )
 
 
 @dataclass(frozen=True)
@@ -120,6 +140,13 @@ def stream_command(
     )
     destination = sys.stderr if stream is None else stream
     product_env = product_command_environment(env, cwd)
+    try:
+        shell = project_command_shell()
+    except ProjectCommandShellUnavailable as exc:
+        output = str(exc) + "\n"
+        raw_capture.write_text(output, encoding="utf-8")
+        print(output, file=destination, end="", flush=True)
+        return StreamedCommand(1, False, output, raw_capture)
     evidence = None
     with candidate_source(candidate_root, product_env) as binding:
         if binding and binding.refusal:
@@ -128,7 +155,12 @@ def stream_command(
             print(binding.refusal, file=destination, flush=True)
         else:
             exit_code = run_watcher(
-                argv=["/bin/sh", "-c", command],
+                argv=[shell, "-c", python_bound_command(
+                    command,
+                    binding.python if binding else str(venv_python(
+                        Path(product_env["VIRTUAL_ENV"]), name="python3"
+                    )) if "VIRTUAL_ENV" in product_env else sys.executable,
+                )],
                 classifier=relay_every_line,
                 raw_capture=raw_capture,
                 progress_capture=progress_capture,

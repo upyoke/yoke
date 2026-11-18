@@ -14,6 +14,7 @@ from pathlib import Path
 from runtime.api.tools.source_dev_run_cli_child_binding_test_support import (
     _stub_source_tree,
 )
+from yoke_contracts.venv_layout import venv_python
 from yoke_core.domain import source_python_environment as environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.domain import source_pythonpath as _source_pythonpath
@@ -69,7 +70,9 @@ def test_import_check_and_nested_local_watcher_see_locked_lane_dependency(
         source_dev_run, "_claimed_root", lambda *_args: (root, None)
     )
     # The original path binds candidate packages but keeps invoking dependencies.
-    invoking = _stub_source_tree(tmp_path / "invoking") / ".venv/bin/python3"
+    invoking = venv_python(
+        _stub_source_tree(tmp_path / "invoking") / ".venv"
+    )
     before = subprocess.run(
         [str(invoking), "-c", PROBE],
         cwd=root,
@@ -87,16 +90,20 @@ def test_import_check_and_nested_local_watcher_see_locked_lane_dependency(
         "else:\n"
         "    assert sys.argv[1:4] == ['watch','pytest','--local']\n"
         "    print('nested-local-watcher', sys.executable)\n"
-        "    subprocess.run(['python3','-m','pytest'],check=True)\n"
+        "    subprocess.run([sys.executable,'-m','pytest'],check=True)\n"
     )
     # Locked fixture workload proves imports and Python identity, without pytest's own deps.
     binding = environment.resolve(root, os.environ)
-    site = next((root / ".venv/lib").glob("python*/site-packages"))
+    site = next(
+        path
+        for pattern in ("Lib/site-packages", "lib/python*/site-packages")
+        for path in (root / ".venv").glob(pattern)
+    )
     (site / "pytest").mkdir()
     (site / "pytest/__init__.py").touch()
     (site / "pytest/__main__.py").write_text(
         PROBE
-        + "\nimport subprocess\nsubprocess.run(['python3', '-c', "
+        + "\nimport subprocess\nsubprocess.run([sys.executable, '-c', "
         + repr(PROBE)
         + "], check=True)\n"
     )

@@ -56,7 +56,8 @@ class TestRunWatcherInterruption:
     process group precisely so an interruption can take the whole tree down.
     """
 
-    @pytest.mark.parametrize("signal_number", [signal.SIGTERM, signal.SIGHUP])
+    @pytest.mark.posix_only(reason="POSIX signals interrupt the watcher")
+    @pytest.mark.parametrize("signal_number", [signal.SIGTERM, getattr(signal, "SIGHUP", None)])
     def test_interruption_reaps_the_tree_and_reports_on_every_surface(
         self, tmp_path, signal_number
     ):
@@ -114,6 +115,7 @@ class TestRunWatcherTimeout:
     run releases them instead of hanging its caller forever.
     """
 
+    @pytest.mark.posix_only(reason="POSIX signals and shell process tree fixture")
     def test_timeout_reaps_the_tree_and_reports_on_every_surface(self, tmp_path):
         pid_file = tmp_path / "grandchild.pid"
         raw = tmp_path / "raw.log"

@@ -248,7 +248,7 @@ def _sweep(
         try:
             if not absent:
                 kept = _prune_lane(git, say, repo_root, entry.branch, target, item_ref)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             if entry.path.is_dir():
                 raise
             absent = True
@@ -291,7 +291,7 @@ def _sweep(
         # No worktree here means no lane row to release: pass no item.
         try:
             kept = _prune_lane(git, say, repo_root, branch, target, None)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             # Its folder vanished after this sweep's one registry prune.
             kept = (
                 "its worktree folder vanished mid-sweep; the next sweep "

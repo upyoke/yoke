@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_case_execution_tree_binding.py::test_checkout_under_the_claimed_lane_runs",
- "reason": "AttributeError: 'list' object has no attribute 'reachable'"
-}

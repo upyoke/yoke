@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_release_multi_group_e2e.py::test_driver_runs_candidate_plans_beside_a_pending_review",
- "reason": "AssertionError: ([{'slug': 'candidate-command', 'verdict': 'fail'}, {'slug': 'candidate-tests', 'verdict': 'fail'}, {'slug': 'review', 'verdict': None}], ['Release QA plan candidate-tests: failed; QA"
-}

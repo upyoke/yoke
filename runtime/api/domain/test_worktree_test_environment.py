@@ -7,7 +7,6 @@ command died on an import nobody could attribute to preparation.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -43,31 +42,45 @@ def _uv_project(directory: Path) -> Path:
     return directory
 
 
-def _fake_uv(bin_dir: Path, *, sync_exit: int = 0, body: str = "") -> None:
-    """Put a ``uv`` on PATH that records syncs and runs real pytest.
+def _fake_uv(
+    monkeypatch, bin_dir: Path, *, sync_exit: int = 0,
+    sync_stderr: str = "", environment_log: Path | None = None,
+) -> None:
+    """Intercept only uv and invoke its fixture through the running Python.
 
-    ``uv run --frozen python3 -m pytest …`` becomes this interpreter
-    running the same module, so the collection under test is a real
-    pytest collection of a real tree — only the environment resolution
-    is stood in for.
+    Keep the real runner's environment filtering and real pytest collection;
+    stand in only for dependency resolution, without an OS-specific launcher.
     """
     bin_dir.mkdir(parents=True, exist_ok=True)
-    script = bin_dir / "uv"
+    script = bin_dir / "fake_uv.py"
     script.write_text(
-        "#!/bin/sh\n"
-        'if [ "$1" = "sync" ]; then\n'
-        f'  echo "synced $PWD" >> "{bin_dir / "sync.log"}"\n'
-        f"{body}"
-        f"  exit {sync_exit}\n"
-        "fi\n"
-        'if [ "$1" = "run" ]; then\n'
-        "  shift 3\n"
-        f'  exec "{sys.executable}" "$@"\n'
-        "fi\n"
-        "exit 64\n",
+        "import os,sys\nfrom pathlib import Path\n"
+        "args=sys.argv[1:]\n"
+        f"root=Path({str(bin_dir)!r})\n"
+        "with (root / (args[0]+'.log')).open('a') as log:\n"
+        "    log.write(' '.join(args)+'\\n')\n"
+        "if args[0] == 'sync':\n"
+        + (f"    Path({str(environment_log)!r}).write_text("
+           "os.environ.get('UV_PROJECT_ENVIRONMENT','')+'|'"
+           "+os.environ.get('VIRTUAL_ENV','')+'\\n')\n" if environment_log else "")
+        + f"    sys.stderr.write({sync_stderr!r})\n"
+        + f"    raise SystemExit({sync_exit})\n"
+        "if args[0] == 'run':\n"
+        "    args=args[args.index('python3')+1:]\n"
+        "    os.execv(sys.executable, [sys.executable,*args])\n"
+        "raise SystemExit(64)\n",
         encoding="utf-8",
     )
-    script.chmod(0o755)
+    real_run, real_which = subprocess.run, env.shutil.which
+
+    def run(argv, **kwargs):
+        if argv[0] == 'uv':
+            argv = [sys.executable, str(script), *argv[1:]]
+        return real_run(argv, **kwargs)
+
+    monkeypatch.setattr(env.subprocess, "run", run)
+    monkeypatch.setattr(env.shutil, "which", lambda name, **kw:
+                        str(script) if name == 'uv' else real_which(name, **kw))
 
 
 def test_lane_root_project_is_the_whole_answer(tmp_path: Path) -> None:
@@ -124,8 +137,7 @@ def test_a_failed_sync_names_the_default_dependency_contract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = _uv_project(tmp_path)
-    _fake_uv(tmp_path / "bin", sync_exit=1, body='  echo "no solution found" >&2\n')
-    monkeypatch.setenv("PATH", str(tmp_path / "bin") + os.pathsep + os.environ["PATH"])
+    _fake_uv(monkeypatch, tmp_path / "bin", sync_exit=1, sync_stderr="no solution found\n")
 
     report = env.provision_test_environment(str(project))
 
@@ -141,8 +153,7 @@ def test_a_ready_lane_records_its_sync_and_its_collection(
     lane = tmp_path / "lane"
     project = _uv_project(lane)
     (project / "conftest.py").write_text("", encoding="utf-8")
-    _fake_uv(tmp_path / "bin")
-    monkeypatch.setenv("PATH", str(tmp_path / "bin") + os.pathsep + os.environ["PATH"])
+    _fake_uv(monkeypatch, tmp_path / "bin")
 
     report = env.provision_test_environment(str(lane))
 
@@ -163,10 +174,8 @@ def test_a_sync_ignores_the_callers_own_environment(
     project = _uv_project(tmp_path / "lane")
     seen = tmp_path / "bin" / "environment.log"
     _fake_uv(
-        tmp_path / "bin",
-        body=f'  echo "${{UV_PROJECT_ENVIRONMENT-}}|${{VIRTUAL_ENV-}}" > "{seen}"\n',
+        monkeypatch, tmp_path / "bin", environment_log=seen,
     )
-    monkeypatch.setenv("PATH", str(tmp_path / "bin") + os.pathsep + os.environ["PATH"])
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(tmp_path / "caller" / ".venv"))
     monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "caller" / ".venv"))
 
@@ -184,8 +193,7 @@ def test_a_conftest_that_cannot_import_blocks_the_lane(
     (project / "conftest.py").write_text(
         "import a_package_this_lane_never_installed\n", encoding="utf-8"
     )
-    _fake_uv(tmp_path / "bin")
-    monkeypatch.setenv("PATH", str(tmp_path / "bin") + os.pathsep + os.environ["PATH"])
+    _fake_uv(monkeypatch, tmp_path / "bin")
 
     report = env.provision_test_environment(str(lane))
 
@@ -278,25 +286,7 @@ def test_declared_extras_are_synced_and_named_on_the_receipt(
     project = _uv_project(lane)
     (project / "conftest.py").write_text("", encoding="utf-8")
     bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    script = bin_dir / "uv"
-    script.write_text(
-        "#!/bin/sh\n"
-        'if [ "$1" = "sync" ]; then\n'
-        f'  echo "$*" >> "{bin_dir / "sync.log"}"\n'
-        "  exit 0\n"
-        "fi\n"
-        'if [ "$1" = "run" ]; then\n'
-        f'  echo "$*" >> "{bin_dir / "run.log"}"\n'
-        '  while [ $# -gt 0 ] && [ "$1" != "python3" ]; do shift; done\n'
-        "  shift\n"
-        f'  exec "{sys.executable}" "$@"\n'
-        "fi\n"
-        "exit 64\n",
-        encoding="utf-8",
-    )
-    script.chmod(0o755)
-    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ["PATH"])
+    _fake_uv(monkeypatch, bin_dir)
     monkeypatch.setattr(
         env,
         "load_declaration",

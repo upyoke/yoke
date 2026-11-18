@@ -1,0 +1,10 @@
+{
+ "id": "project-command-shell",
+ "title": "Project command text uses the same shell contract on every OS",
+ "status": "observed",
+ "when": "A QA Command case or merge verification executes registered project command text on native Windows or POSIX.",
+ "need": "Write project commands in sh syntax. POSIX runs /bin/sh; native Windows explicitly locates sh.exe in Git for Windows. Missing Git sh refuses with project_command_shell_unavailable and asks for Git for Windows installation and its cmd directory on PATH.",
+ "surface": "QA CLI guidance and the captured command refusal.",
+ "review": "Source tests exercise Git installation layouts, quoted text, exit status and named missing-shell recovery; Windows and macOS suite runs own platform proof.",
+ "sources": ["docs/public/verification/qa-cli.md", "packages/yoke-contracts/src/yoke_contracts/project_command_shell.py", "runtime/api/cli/test_project_command_shell.py", "packages/yoke-core/src/yoke_core/domain/qa_case_command_stream.py", "packages/yoke-core/src/yoke_core/engines/merge_worktree_tests.py"]
+}

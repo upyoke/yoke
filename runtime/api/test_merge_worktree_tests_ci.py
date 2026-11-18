@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain import project_ci_workflow as ci_workflow
+from yoke_contracts.project_command_shell import project_command_shell
 from yoke_core.engines import merge_worktree_tests, merge_worktree_tests_ci
 
 
@@ -130,7 +131,7 @@ def test_run_tests_keeps_local_when_override(
     assert (
         merge_worktree_tests.run_tests(_ctx(tmp_path, local_verification=True)) is None
     )
-    assert seen == [["/bin/sh", "-c", "python3 verify_tree.py"]]
+    assert seen == [[project_command_shell(), "-c", "python3 verify_tree.py"]]
 
 
 def test_parse_args_local_verification():

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_process_group_reaping.py",
- "reason": "AttributeError: module 'signal' has no attribute 'SIGHUP'"
-}

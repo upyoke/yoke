@@ -13,6 +13,7 @@ import pytest
 
 from yoke_contracts import schema_authority
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.project_command_shell import project_command_shell
 from yoke_core.engines import merge_worktree_tests
 
 
@@ -89,7 +90,7 @@ def test_run_tests_executes_registered_command_in_candidate_worktree(
     assert merge_worktree_tests.run_tests(_ctx(tmp_path)) is None
     assert seen == [
         (
-            ["/bin/sh", "-c", "python3 verify_tree.py"],
+            [project_command_shell(), "-c", "python3 verify_tree.py"],
             {
                 "cwd": str(tmp_path),
                 "timeout": 1200,
@@ -194,7 +195,7 @@ def test_run_tests_executes_when_covered_tree_differs(
         lambda command, **_kwargs: (executed.append(command), (0, "ok"))[1],
     )
     assert merge_worktree_tests.run_tests(_ctx(repo)) is None
-    assert executed == [["/bin/sh", "-c", "python3 verify_tree.py"]]
+    assert executed == [[project_command_shell(), "-c", "python3 verify_tree.py"]]
 
 
 def test_run_tests_executes_when_covered_commit_is_unknown(
@@ -217,7 +218,7 @@ def test_run_tests_executes_when_covered_commit_is_unknown(
         lambda command, **_kwargs: (executed.append(command), (0, "ok"))[1],
     )
     assert merge_worktree_tests.run_tests(_ctx(repo)) is None
-    assert executed == [["/bin/sh", "-c", "python3 verify_tree.py"]]
+    assert executed == [[project_command_shell(), "-c", "python3 verify_tree.py"]]
 
 
 def test_run_tests_executes_when_worktree_is_not_a_repository(
@@ -240,7 +241,7 @@ def test_run_tests_executes_when_worktree_is_not_a_repository(
         lambda command, **_kwargs: (executed.append(command), (0, "ok"))[1],
     )
     assert merge_worktree_tests.run_tests(_ctx(tmp_path)) is None
-    assert executed == [["/bin/sh", "-c", "python3 verify_tree.py"]]
+    assert executed == [[project_command_shell(), "-c", "python3 verify_tree.py"]]
 
 
 def test_registered_verification_converges_a_schema_under_an_administering_env(

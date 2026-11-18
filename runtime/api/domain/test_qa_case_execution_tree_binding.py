@@ -167,7 +167,7 @@ def test_checkout_under_the_claimed_lane_runs(
     monkeypatch.setattr(
         verification_tree_binding,
         "resolve_claim_worktrees",
-        lambda _sid: [str(lane)],
+        lambda _sid: verification_tree_binding.ClaimLookup(worktrees=(str(lane),)),
     )
 
     with (

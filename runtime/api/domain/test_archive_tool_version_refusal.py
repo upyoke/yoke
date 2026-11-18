@@ -1,6 +1,8 @@
 """An incompatible catalog reader must not call a dump corrupt."""
 
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -9,7 +11,7 @@ from yoke_core.domain.universe_portability_inspection import inspect_archive
 
 
 @pytest.mark.parametrize("unsupported", [False, True])
-def test_catalog_reader_distinguishes_tool_version_from_corrupt_payload(tmp_path, unsupported):
+def test_catalog_reader_distinguishes_tool_version_from_corrupt_payload(tmp_path, monkeypatch, unsupported):
     message = (
         "pg_restore: error: unsupported version (1.16) in file header"
         if unsupported else "pg_restore: error: could not read from input file: end of file"
@@ -17,6 +19,9 @@ def test_catalog_reader_distinguishes_tool_version_from_corrupt_payload(tmp_path
     executable: Path = tmp_path / "pg_restore"
     executable.write_text(f"#!/usr/bin/env python3\nimport sys\nsys.stderr.write({message!r})\nsys.exit(1)\n")
     executable.chmod(0o700)
+    real_popen = subprocess.Popen
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kw:
+                        real_popen([sys.executable, *argv], **kw))
     archive = tmp_path / "universe.dump"
     archive.write_bytes(b"PGDMP" + b"test payload")
     with pytest.raises(ArchiveInvalidError) as caught:

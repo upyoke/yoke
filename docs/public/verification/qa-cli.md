@@ -17,6 +17,13 @@ updated lane and rerun the same case to rejoin any existing CI run.
 
 ## Run the gate and iterate
 
+Registered project command text uses `/bin/sh` on POSIX and Git for Windows
+`sh.exe` on native Windows, for both QA cases and merge verification. Install
+[Git for Windows](https://gitforwindows.org) and put its `cmd` directory on
+`PATH`; Yoke locates the shell in that installation. A missing shell refuses
+with `project_command_shell_unavailable` and installation recovery. Write
+commands in sh syntax regardless of the harness or terminal invoking Yoke.
+
 Find `<id>` with `yoke qa requirement list --item PREFIX-N`. Commit first; a
 CI-backed case publishes the lane itself. Run it after your test selections,
 and run it again only after you change something. A gate that prints nothing

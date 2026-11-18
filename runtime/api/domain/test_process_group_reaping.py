@@ -19,6 +19,8 @@ import pytest
 
 from yoke_core.domain import process_group_reaping
 
+pytestmark = pytest.mark.posix_only(reason="POSIX signals and process sessions")
+
 # A shell that reports its grandchild's PID, then blocks forever. Without
 # group reaping the grandchild outlives a kill aimed at the shell alone.
 _SPAWN_GRANDCHILD_THEN_BLOCK = "sleep 300 & echo $!; while true; do sleep 0.05; done"
@@ -153,7 +155,7 @@ def test_run_in_process_group_returns_completed_process_on_success():
 
 
 @pytest.mark.parametrize(
-    "signal_number", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP]
+    "signal_number", [signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", None)]
 )
 def test_signal_during_guarded_block_reaps_then_raises(signal_number):
     proc = process_group_reaping.popen_in_process_group(

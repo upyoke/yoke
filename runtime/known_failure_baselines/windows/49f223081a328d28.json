@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_case_execution_streaming.py::test_command_case_streams_output_and_reports_its_capture",
- "reason": "AssertionError: assert 'fail' == 'pass'"
-}

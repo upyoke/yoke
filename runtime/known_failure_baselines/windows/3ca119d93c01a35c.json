@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_qa_candidate_checkout.py::test_disposable_source_candidate_provisions_its_own_locked_python",
- "reason": "AssertionError: assert 'fail' == 'pass'"
-}

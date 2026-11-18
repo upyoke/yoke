@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_product_cli_no_checkout_smoke.py::test_writer_bootstrap_asserts_ok_envs_and_owner_only_config",
- "reason": "AssertionError: assert 'fail' == 'pass'"
-}

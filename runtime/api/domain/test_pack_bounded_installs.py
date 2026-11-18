@@ -68,6 +68,7 @@ def assert_outcomes(tmp_path, script, reason):
         assert "timeout" in calls
 
 
+@pytest.mark.posix_only(reason="GitHub Linux runner install step")
 def test_rendered_workflow_install_steps_bound_failure(monkeypatch, tmp_path):
     scripts = []
     for row in bundle(monkeypatch, "webapp-scaffold")["files"]:
@@ -104,6 +105,7 @@ def test_rendered_workflow_install_steps_bound_failure(monkeypatch, tmp_path):
                             "playwright_download_failed")
 
 
+@pytest.mark.posix_only(reason="GitHub Linux runner install step")
 def test_npm_zero_exit_incomplete_install_fails(monkeypatch, tmp_path):
     """npm10 may exit zero after ENOTFOUND while leaving direct deps missing."""
     scripts = []

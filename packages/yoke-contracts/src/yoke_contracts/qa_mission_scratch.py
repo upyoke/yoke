@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
+from yoke_contracts.project_command_shell import project_command_shell
 
 
 MISSION_SCRATCH_ROOT = "/tmp/yoke-qa-mission"
@@ -67,7 +68,9 @@ STALE_OWNER_MARKER = ".yoke/qa-project-owner.json"
 def stale_owner_marker_remove_argv() -> list[str]:
     """Delete the stale owner marker, then its Yoke home if left empty."""
     return [
-        "/bin/sh",
+        # This argv runs on the POSIX Test Machine, which may be reached
+        # from a Windows controller. Its shell belongs to that remote host.
+        project_command_shell(platform_name="posix"),
         "-c",
         f'rm -f "$HOME/{STALE_OWNER_MARKER}" || exit 1; '
         'rmdir "$HOME/.yoke" 2>/dev/null; exit 0',

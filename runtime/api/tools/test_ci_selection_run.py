@@ -279,6 +279,7 @@ def _dispatched_argv(pytest_args: Sequence[str], tmp_path: Path) -> list[str]:
     return json.loads(completed.stdout)
 
 
+@pytest.mark.posix_only(reason="GitHub Linux runner shell step")
 @pytest.mark.parametrize(
     "pytest_args",
     [
