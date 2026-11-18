@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_system_privileges.py::test_wizard_refuses_interactive_sudo_with_named_recovery",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
-}

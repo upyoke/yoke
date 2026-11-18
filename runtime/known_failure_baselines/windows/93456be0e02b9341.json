@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_persistent_host_operations.py::test_home_clear_failure_names_entry_and_preserves_sealed_archive",
- "reason": "assert 1 == 0"
-}

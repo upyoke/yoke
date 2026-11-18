@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_desktop_reconnect.py::test_gui_command_reuses_desktop_while_viewer_connected",
- "reason": "ModuleNotFoundError: No module named 'pwd'"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agent_mission_stale_owner_marker.py::test_teardown_deletes_a_stale_marker_too",
- "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_reset_cleanup.py::test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

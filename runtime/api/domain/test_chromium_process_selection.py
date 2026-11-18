@@ -2,10 +2,13 @@
 
 from pathlib import Path
 
+import pytest
+
 from yoke_harness import linux_desktop_chromium as host
 from yoke_harness import linux_chromium_processes as processes
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_proc_selection_handles_flattened_titles_and_excludes_crashpad(
     tmp_path, monkeypatch
 ):

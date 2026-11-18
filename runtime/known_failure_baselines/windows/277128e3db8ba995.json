@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_golden_snapshot_retention.py::test_a_shared_machine_keeps_every_projects_registered_golden",
- "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
-}

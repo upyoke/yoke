@@ -1,4 +1,0 @@
-{
- "node_id": "tests/test_machine_qa_temp_state.py::test_cleanup_removes_run_artifacts_preserving_golden_home_and_other_users",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

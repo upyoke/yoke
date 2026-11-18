@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_golden_snapshot_retention.py::test_low_disk_refuses_with_the_named_reason",
- "reason": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
-}

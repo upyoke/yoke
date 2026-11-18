@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_browser_apparmor.py::test_autoinstall_disabled_refuses_required_profile",
- "reason": "AssertionError: Regex pattern did not match."
-}

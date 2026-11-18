@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_reset_cleanup.py::test_reset_removes_relay_files_and_reloads_ghost_units[True]",
- "reason": "AssertionError: assert (not True)"
-}

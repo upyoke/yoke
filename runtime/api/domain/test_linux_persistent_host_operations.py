@@ -23,7 +23,6 @@ from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.ssh_linux_terminal import diagnose_linux_terminal
 from yoke_contracts.test_machine_types import HostActionResult
 
-
 SETTINGS = {
     "resource_name": "linux-lab",
     "host": "lab.invalid",
@@ -32,7 +31,6 @@ SETTINGS = {
     "operating_notes": "",
 }
 PROBES = json.dumps({"probes": [{"name": "CLI signed in", "argv": ["/bin/true"]}]})
-
 
 def test_linux_settings_refuse_root_and_unimplemented_os():
     assert validate_test_machine_settings(SETTINGS)["os"] == "linux"
@@ -45,7 +43,7 @@ def test_linux_settings_refuse_root_and_unimplemented_os():
             {key: value for key, value in SETTINGS.items() if key != "os"}
         )
 
-
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_linux_facts_are_bounded_non_root_and_credentials_stay_out_of_argv(monkeypatch):
     calls = []
 
@@ -74,7 +72,6 @@ def test_linux_facts_are_bounded_non_root_and_credentials_stay_out_of_argv(monke
     assert "opaque-key" not in str(calls)
     assert "/private/ssh-key" in calls[0]
 
-
 def test_linux_facts_refuse_root_before_any_restore(monkeypatch):
     monkeypatch.setattr(
         subprocess,
@@ -91,7 +88,6 @@ def test_linux_facts_refuse_root_before_any_restore(monkeypatch):
     with pytest.raises(Exception, match="non-root"):
         SshLinuxHostOperations(settings=SETTINGS, key_path="/private/key")
 
-
 def _archive_run(home: Path, golden: Path, operation: str):
     # This is the fake remote's interpreter; it only owns pytest's temp home.
     return subprocess.run(
@@ -104,6 +100,7 @@ def _archive_run(home: Path, golden: Path, operation: str):
     )
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_archive_roundtrip_keeps_live_credentials_and_ssh_and_proves_absence(
     tmp_path,
 ):
@@ -176,6 +173,7 @@ def test_archive_operation_records_malformed_transport_receipt_as_named_failure(
     assert result.evidence["recovery"]
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_home_clear_failure_names_entry_and_preserves_sealed_archive(
     tmp_path, monkeypatch, capsys
 ):
@@ -257,6 +255,7 @@ def test_linux_baseline_dispatch_uses_linux_operations():
     assert result.ok and requested == ["fresh-host"]
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 @pytest.mark.parametrize("unsafe_kind", ["normalized_yoke", "ssh_link_child"])
 def test_unsafe_golden_refuses_before_deleting_home(tmp_path, unsafe_kind):
     import hashlib
@@ -333,6 +332,7 @@ def test_linux_terminal_refuses_failed_entry_or_unproved_cleanup(failure):
     assert any("kill-session" in argv for argv in commands)
 
 
+@pytest.mark.posix_only(reason="runs on the remote Linux test machine")
 def test_capture_omits_link_outside_the_home(tmp_path):
     home = tmp_path / "home"
     home.mkdir()

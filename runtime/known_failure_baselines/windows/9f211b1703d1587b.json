@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_browser_apparmor.py::test_interactive_sudo_does_not_prompt_and_launches_unsandboxed",
- "reason": "RuntimeError: browser_apparmor_setup_failed: Chromium path cannot be expressed as an exact AppArmor attachment. Allow Yoke system setup through root or sudo, ensure AppArmor tooling is installed, then"
-}

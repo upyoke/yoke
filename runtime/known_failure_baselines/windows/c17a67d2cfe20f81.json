@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_desktop_session.py::test_start_and_reuse_keep_password_only_on_stdin[:10.0]",
- "reason": "ModuleNotFoundError: No module named 'pwd'"
-}

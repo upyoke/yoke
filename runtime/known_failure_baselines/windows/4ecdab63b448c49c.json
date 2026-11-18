@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_system_privileges.py::test_no_authority_preserves_callers_named_reason[True-False-True]",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
-}

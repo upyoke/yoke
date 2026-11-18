@@ -12,6 +12,8 @@ import pytest
 
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
 
+pytestmark = pytest.mark.posix_only(reason="runs on the remote Linux test machine")
+
 
 @pytest.fixture
 def archive_home(tmp_path):

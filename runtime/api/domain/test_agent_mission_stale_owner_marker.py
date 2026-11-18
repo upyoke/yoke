@@ -66,6 +66,7 @@ def host(tmp_path: Path) -> _YokeFreeHost:
     return _YokeFreeHost(tmp_path / "home")
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_the_host_needs_no_yoke_on_path(host) -> None:
     assert shutil.which("yoke", path=host.env["PATH"]) is None
     host.leave_stale_marker()
@@ -77,6 +78,7 @@ def test_the_host_needs_no_yoke_on_path(host) -> None:
     assert not any("yoke " in " ".join(c) for c in host.commands)
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_preparation_deletes_a_stale_marker_and_its_otherwise_empty_home(
     host,
 ) -> None:
@@ -90,6 +92,7 @@ def test_preparation_deletes_a_stale_marker_and_its_otherwise_empty_home(
     assert not (host.home / ".yoke").exists()
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_preparation_keeps_a_yoke_home_that_holds_anything_else(host) -> None:
     host.leave_stale_marker()
     (host.home / ".yoke" / "config.json").write_text("{}")
@@ -100,6 +103,7 @@ def test_preparation_keeps_a_yoke_home_that_holds_anything_else(host) -> None:
     assert (host.home / ".yoke" / "config.json").exists()
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_never_installed_baseline_gains_no_yoke_home(host) -> None:
     create_mission_scratch(host, execution_id=CURRENT)
     result = remove_mission_scratch(host, execution_id=CURRENT)
@@ -108,6 +112,7 @@ def test_a_never_installed_baseline_gains_no_yoke_home(host) -> None:
     assert not (host.home / ".yoke").exists()
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_teardown_deletes_a_stale_marker_too(host) -> None:
     host.leave_stale_marker()
 
@@ -118,6 +123,7 @@ def test_teardown_deletes_a_stale_marker_too(host) -> None:
     assert not host.marker.exists()
 
 
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_an_undeletable_stale_marker_refuses_by_name(host) -> None:
     host.leave_stale_marker()
     (host.home / ".yoke").chmod(0o500)

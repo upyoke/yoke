@@ -11,6 +11,8 @@ import pytest
 from yoke_harness import browser_system_dependencies as deps
 from yoke_harness import system_privileges as privileges
 
+pytestmark = pytest.mark.posix_only(reason="Linux browser and apt privilege setup")
+
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):

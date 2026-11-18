@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_persistent_host_operations.py::test_linux_facts_are_bounded_non_root_and_credentials_stay_out_of_argv",
- "reason": "AssertionError: assert '/private/ssh-key' in ['ssh', '-i', '\\\\private\\\\ssh-key', '-o', 'LogLevel=ERROR', '-o', ...]"
-}

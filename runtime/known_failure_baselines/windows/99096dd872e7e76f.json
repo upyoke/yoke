@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_system_privileges.py::test_wizard_keeps_passwordless_sudo",
- "reason": "AttributeError: <module 'os' (frozen)> has no attribute 'geteuid'"
-}

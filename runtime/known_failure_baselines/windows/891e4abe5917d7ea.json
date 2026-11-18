@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_browser_apparmor.py::test_file_alone_does_not_prove_loaded_kernel_profile",
- "reason": "RuntimeError: browser_apparmor_setup_failed: Chromium path cannot be expressed as an exact AppArmor attachment. Allow Yoke system setup through root or sudo, ensure AppArmor tooling is installed, then"
-}

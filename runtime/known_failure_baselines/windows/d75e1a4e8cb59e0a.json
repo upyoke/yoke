@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_agent_mission_stale_owner_marker.py::test_an_undeletable_stale_marker_refuses_by_name",
- "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
-}

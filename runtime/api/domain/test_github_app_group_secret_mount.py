@@ -16,6 +16,8 @@ from yoke_core.domain.github_app_control_plane import (
     load_github_app_control_plane_config,
 )
 
+pytestmark = pytest.mark.posix_only(reason="runs on the Linux service host with POSIX group permissions")
+
 
 def _patch_group_mount(
     monkeypatch: pytest.MonkeyPatch,

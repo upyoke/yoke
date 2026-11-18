@@ -8,6 +8,8 @@ import pytest
 from types import SimpleNamespace
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
 
+pytestmark = pytest.mark.posix_only(reason="runs on the remote Linux test machine")
+
 
 def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal(
     monkeypatch,

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_reset_service_inventory.py::test_reset_accepts_empty_definitions_and_evicts_loaded_fileless_relay[True-0]",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}

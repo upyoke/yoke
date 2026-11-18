@@ -14,6 +14,9 @@ import pytest
 from yoke_harness.ssh_linux_baseline import ABSENT_HOME_PATHS, _ARCHIVE_PROGRAM
 
 
+pytestmark = pytest.mark.posix_only(reason="runs on the remote Linux test machine")
+
+
 @pytest.mark.skipif(os.getuid() == 0, reason="capture requires a non-root test user")
 def test_capture_filters_socket_types_and_resolved_links(tmp_path, monkeypatch):
     home = tmp_path / "home"

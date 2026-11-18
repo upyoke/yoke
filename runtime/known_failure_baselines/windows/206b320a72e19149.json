@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_linux_reset_desktop_preference.py::test_restore_refuses_linked_preference_path_before_clearing[False]",
- "reason": "AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?"
-}
