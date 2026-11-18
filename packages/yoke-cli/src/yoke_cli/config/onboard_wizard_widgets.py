@@ -105,6 +105,14 @@ class _OptionRow(Static):
     def render(self) -> Text:
         selected = self.has_class("-selected")
         width = self.content_size.width
+        parent = self.parent
+        if selected and not (parent is not None and parent.has_focus):
+            # An unfocused list (a form whose text box holds focus) draws its
+            # cursor row as an unselected one. The row keeps the selected
+            # box, which starts one cell left of an unselected row, so a
+            # leading space lines the marker up with its neighbours.
+            line = _option_row_text(self._row, selected=False, width=width - 1)
+            return Text(" ", overflow="fold").append_text(line)
         return _option_row_text(self._row, selected=selected, width=width)
 
 
