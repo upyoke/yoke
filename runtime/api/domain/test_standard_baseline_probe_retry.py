@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_harness.baseline_harness_requests import read_rejection_record
 from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.standard_baseline_probes import standard_probes
@@ -211,7 +212,7 @@ def test_a_codex_that_prints_then_hangs_leaves_a_sanitized_tail_on_the_receipt(
         "time.sleep(60)\n"
     )
     codex.chmod(0o700)
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     monkeypatch.setenv("PATH", "")
     # The probe's deadline starts 108 seconds spent, so the hang times out in 2.
     clock = iter([0.0])
