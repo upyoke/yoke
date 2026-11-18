@@ -8,7 +8,6 @@ import pytest
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.hook_runner.shell_parse import parse_shell
-from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_harness.hooks import local_policy_common, main_commit_client
 
 
