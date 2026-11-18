@@ -50,7 +50,7 @@ Engine identity is actor-only. Historical JSON envelopes may retain a null human
 
 **Write-side severity filtering:** Before inserting, events are checked against the `severity_config` table. Events below the configured minimum severity for their `(event_name, source_type)` pair are silently dropped without error. The acknowledged anonymous frontend collector bypasses this optional filter; retention still applies.
 
-**Retention:** `yoke universe prune --dry-run` previews the connected universe using its effective settings; `yoke universe retention get` shows them. [Universe retention](../../universe-retention.md) owns severity/name windows, durable-reference protection, bounded foreground apply, counts and recovery. DEBUG remains the on-demand capture tier and has the shortest retention.
+**Retention:** control-plane upkeep prunes on a schedule and records each run in `universe_prune_receipts`. `yoke universe prune --dry-run` previews the connected universe using its effective settings; `yoke universe retention get` shows them. [Universe retention](../../universe-retention.md) owns severity/name windows, durable-reference protection, scheduled runs, bounded foreground apply, counts and recovery. DEBUG remains the on-demand capture tier and has the shortest retention.
 
 ## Table: severity_config
 

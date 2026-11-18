@@ -170,6 +170,7 @@ _EXPECTED_SCHEMA_STR = (
     "|test_machine_operation_receipts:test_machine_id/INTEGER,operation/TEXT,status/TEXT,performed_at/TIMESTAMPTZ,receipt_json/TEXT,error_code/TEXT,lease_id/INTEGER,contract_digest/TEXT,updated_at/TIMESTAMPTZ"
     "|test_machine_verifications:test_machine_id/INTEGER,status/TEXT,checked_at/TIMESTAMPTZ,receipt_json/TEXT,error_code/TEXT,updated_at/TIMESTAMPTZ"
     "|test_machines:id/INTEGER,name/TEXT,settings/TEXT,power_project_id/INTEGER,verified_at/TIMESTAMPTZ,created_at/TIMESTAMPTZ,yoke_started_at/TIMESTAMPTZ"
+    "|universe_prune_receipts:id/INTEGER,started_at/TIMESTAMPTZ,completed_at/TIMESTAMPTZ,elapsed_ms/INTEGER,outcome/TEXT,cutoff/TIMESTAMPTZ,policy_digest/TEXT,deleted/TEXT,unfinished/TEXT,vacuumed/TEXT,failure_code/TEXT,failure_reason/TEXT,failure_recovery/TEXT"
     "|universe_settings:key/TEXT,value/TEXT,updated_at/TIMESTAMPTZ,updated_by_actor_id/INTEGER"
     "|web_sessions:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,created_at/TIMESTAMPTZ,expires_at/TIMESTAMPTZ,revoked_at/TIMESTAMPTZ,last_used_at/TIMESTAMPTZ"
     "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,scope/TEXT,claim_type/TEXT,claimed_at/TIMESTAMPTZ,last_heartbeat/TIMESTAMPTZ,released_at/TIMESTAMPTZ,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"

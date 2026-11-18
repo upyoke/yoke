@@ -138,6 +138,7 @@ from yoke_core.engines.doctor_hc_scratch_databases import (
     hc_administered_scratch_databases,
 )  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_organization_settings import hc_organization_settings  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_universe_prune import hc_universe_prune_receipt  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_project_migration_ledger import (  # noqa: F401
     hc_project_migration_ledger_contract,
 )
@@ -263,6 +264,7 @@ HEALTH_CHECKS: list[HealthCheck] = [
         "Organization fleet settings registry validity",
         hc_organization_settings,
     ),
+    HealthCheck("universe-prune-receipt", "Scheduled universe pruning has a recent receipt", hc_universe_prune_receipt),  # noqa: E501
     HealthCheck("migration-audit", "Migration audit evidence", hc_migration_audit),
     # DB-only: events
     HealthCheck("event-registry-coverage", "Event registry coverage", hc_event_registry_coverage),

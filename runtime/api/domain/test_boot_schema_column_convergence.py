@@ -128,8 +128,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # dependency metadata columns, which keep an additive boot lookup.
 # deployment_preview_environments.env_type converges additively on boot.
 # Test Machines are born with the universe registry and retire project receipt keys.
+# Scheduled prune receipts add universe_prune_receipts, whose thirteen columns
+# are born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "327e426a0f89e12af459b6f0190e0d966f667cd9cf6ef4dd8633777875bbcbe6"
+    "2f5afb74d1ac01c161e0ce1ed78c4012d98f6155b3cf27bee043aa4f3e1a0bcd"
 )
 
 

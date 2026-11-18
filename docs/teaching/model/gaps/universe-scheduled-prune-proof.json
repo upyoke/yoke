@@ -1,0 +1,9 @@
+{
+ "id": "universe-scheduled-prune-proof",
+ "title": "Production proof that scheduled pruning runs and stops growth",
+ "status": "observed",
+ "need": "Within a day of the release reaching production, one scheduled universe_prune_receipts row exists; over the following seven days the events table's growth is roughly flat.",
+ "evidence": "Disposable-database tests show upkeep runs the prune and writes its receipt, the steering section and the Doctor staleness check; no production receipt exists yet (YOK-5483 post-deploy QA).",
+ "topics": ["universes/universe/retention"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/universe_prune_schedule.py", "runtime/api/domain/test_universe_prune_schedule.py"]
+}

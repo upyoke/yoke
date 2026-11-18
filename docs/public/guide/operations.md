@@ -82,7 +82,9 @@ The retention read shows the effective policy. A Universe administrator should r
 
 ### Previewing and applying pruning
 
-Pruning defaults to a preview. It reports eligible records and protected records without deleting them. Applying pruning requires the authorized administrator to select the apply mode; it works in bounded transactions and preserves committed progress if interrupted.
+Control-plane upkeep prunes automatically on a schedule and keeps a receipt for every run; a failed run shows in the steering report and Doctor flags a universe whose last successful receipt is over two days old.
+
+The manual command defaults to a preview. It reports eligible records and protected records without deleting them. Applying pruning requires the authorized administrator to select the apply mode; it works in bounded transactions and preserves committed progress if interrupted.
 
 Retention is not a backup strategy. See [Universe portability, backup, and restore](universe-portability.md) for that separate responsibility and [retention reference](../universe-retention.md) for exact protections and commands.
 

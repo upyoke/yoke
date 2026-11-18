@@ -6,6 +6,13 @@ Reaching the pass deadline is never a failure: the pass returns and the next
 one resumes the same table. A statement or lock limit hit by the pass's first
 cohort (full budget) skips that table for this pass; the caller decides how
 often to retry it.
+
+The pass budget runs from ``started``: the registered handler passes the
+instant its request arrived, so connecting and reading the policy spend the
+same budget. A new cohort starts only with :data:`COHORT_HEADROOM_SECONDS`
+left, because its commit is the one step no statement timeout bounds. A pass
+therefore answers well inside the HTTPS function relay's response limit and
+never ends with an unknown outcome merely because it ran long.
 """
 
 from __future__ import annotations
@@ -16,6 +23,7 @@ from yoke_contracts.timestamps import as_utc, utc_now
 from yoke_core.domain.universe_retention import _table_pass, read_retention
 
 LIMIT_SQLSTATES = ("57014", "55P03")
+COHORT_HEADROOM_SECONDS = 2.0
 POLICY_ERRORS = ("retention_policy_changed:", "retention_policy_invalid:")
 
 
@@ -76,7 +84,7 @@ def _skipped(rule, exc):
     }
 
 
-def prune_pass(conn, request):
+def prune_pass(conn, request, *, started=None):
     current = utc_now()
     cutoff = as_utc(request.cutoff) if request.cutoff else current
     if cutoff > current:
@@ -96,7 +104,7 @@ def prune_pass(conn, request):
         )
     # End read transactions before the cohort's bounded custody starts.
     conn.rollback()
-    deadline = time.monotonic() + policy.pass_seconds
+    deadline = (time.monotonic() if started is None else started) + policy.pass_seconds
     result.update(
         tables=[],
         skipped=[],
@@ -112,7 +120,10 @@ def prune_pass(conn, request):
         if rule.table in request.skip_tables:
             index += 1
             continue
-        if time.monotonic() >= deadline:
+        remaining = deadline - time.monotonic()
+        # The first cohort runs on whatever budget is left; later ones need
+        # room for their own commit.
+        if remaining <= 0 or (not full_budget and remaining < COHORT_HEADROOM_SECONDS):
             return result
         try:
             row = _table_pass(conn, policy, deadline, rule, request.apply)

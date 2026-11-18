@@ -92,6 +92,9 @@ from yoke_core.domain.strategy_docs_schema import (
 from yoke_core.domain.strategy_execution_schema import ensure_strategy_execution_schema
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.universe_levels import create_universe_settings_table
+from yoke_core.domain.universe_prune_receipt_schema import (
+    ensure_universe_prune_receipt_schema,
+)
 from yoke_core.domain.workflow_execution_instructions_schema import (
     ensure_workflow_execution_instructions_schema,
 )
@@ -166,6 +169,7 @@ def _create_in_dependency_order(conn: Any) -> None:
     ensure_harness_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     ensure_doctor_runs_schema(conn)
+    ensure_universe_prune_receipt_schema(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
     conn.commit()
     ensure_function_index(conn)
