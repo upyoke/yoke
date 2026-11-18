@@ -60,6 +60,27 @@ def test_case_routes_exact_mission_into_plan_execution(monkeypatch, deployment):
         assert selected["public_ref"] == MEMBER_REF
 
 
+def test_direct_host_command_uses_ordered_execution(monkeypatch):
+    case = mission_case(
+        runner_id="worktree_run",
+        method_config={"command": "true", "test_machine": "linux-lab"},
+    )
+    monkeypatch.setattr(cases, "fetch_case_execution_context", lambda *a, **k: case)
+    expected = {"execution_id": "single-host-command", "state": "completed"}
+    execute = Mock(return_value=expected)
+    monkeypatch.setattr(missions, "execute_plan", execute)
+
+    assert cases.execute_case(51) == expected
+    assert execute.call_args.kwargs["requirement_id"] == 51
+    assert execute.call_args.kwargs["public_ref"] == MEMBER_REF
+
+    case["starting_state"] = "inherit"
+    execute.reset_mock()
+    with pytest.raises(cases.QaCaseExecutionError, match="qa_single_host_command_inherits"):
+        cases.execute_case(51)
+    execute.assert_not_called()
+
+
 def test_inherit_refuses_before_starting_an_execution(monkeypatch):
     execute = Mock()
     monkeypatch.setattr(missions, "execute_plan", execute)

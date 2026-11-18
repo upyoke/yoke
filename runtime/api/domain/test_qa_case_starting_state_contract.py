@@ -133,6 +133,7 @@ def test_a_selection_keeps_each_inheriting_case_behind_its_predecessor() -> None
 def test_only_a_case_opening_a_chain_from_a_baseline_resets() -> None:
     opening = {"starting_state": "baseline", "host_baseline": "fresh-host"}
     assert reset_baselines(opening) == ["fresh-host"]
+    assert reset_baselines({"host_baseline": "fresh-host"}) == ["fresh-host"]
     assert reset_baselines(opening, continues=True) == []
     inherit = {"starting_state": "inherit", "host_baseline": "fresh-host"}
     assert reset_baselines(inherit) == []

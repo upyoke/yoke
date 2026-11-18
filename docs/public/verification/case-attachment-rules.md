@@ -27,6 +27,8 @@ declares no host starting state. Authoring, `qa.requirement.add`, and materializ
 A Command with `method_config.test_machine` follows the same rule. A new
 chain resets before its first case. Choose `shell-preconfigured` when it runs
 Yoke on the host, verifies browser identities, uninstalls, or upgrades.
+`yoke qa case run` takes a host turn for a direct Command. Run inheriting
+cases through their plan so the preceding case executes first.
 
 On macOS, a failed captured-entry copy retries once to handle entries a live
 service recreates during restore. A persistent failure retains the named

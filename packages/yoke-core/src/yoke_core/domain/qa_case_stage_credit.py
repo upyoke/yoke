@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext
+from yoke_contracts.qa_case_starting_state import is_host_command
 
 
 def item_scoped_stage_plan_run_command(case: Mapping[str, Any]) -> str | None:
@@ -71,16 +72,20 @@ def execute_authorized_case(
     refusal = item_scoped_stage_credit_refusal(case)
     if refusal:
         raise cases.QaCaseExecutionError(refusal)
-    return cases.execute_case_context(
-        case,
-        base_url=base_url,
-        expected_branch=expected_branch,
-        expected_sha=expected_sha,
-        timeout_seconds=timeout_seconds,
-        checkout_path=checkout_path,
-        allow_tree_mismatch=allow_tree_mismatch,
-        actor=actor,
-    )
+    runner_options = {
+        "base_url": base_url,
+        "expected_branch": expected_branch,
+        "expected_sha": expected_sha,
+        "timeout_seconds": timeout_seconds,
+        "checkout_path": checkout_path,
+        "allow_tree_mismatch": allow_tree_mismatch,
+        "actor": actor,
+    }
+    if is_host_command(case):
+        from yoke_core.domain.qa_case_mission_execution import execute_single_plan_case
+
+        return execute_single_plan_case(case, kind="host_command", **runner_options)
+    return cases.execute_case_context(case, **runner_options)
 
 
 __all__ = [

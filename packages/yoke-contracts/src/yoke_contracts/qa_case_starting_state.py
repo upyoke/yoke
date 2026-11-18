@@ -302,7 +302,7 @@ def reset_baselines(case: Any, *, continues: bool = False) -> list[str]:
     walks retain the state of their own execution.
     """
     baseline = _field(case, "host_baseline")
-    if continues or _field(case, "starting_state") != BASELINE or not baseline:
+    if continues or _field(case, "starting_state") == INHERIT or not baseline:
         return []
     return [str(baseline)]
 
