@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import shutil
 import subprocess
 from threading import Thread
+from uuid import uuid4
 
 import pytest
 
@@ -104,3 +105,53 @@ function Invoke-WebRequest {{
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell 5.1 and HKCU registry")
+@pytest.mark.parametrize("exit_code,already_present", [(0, False), (0, True), (1, False)])
+def test_claude_finishes_path_without_later_installers(tmp_path, exit_code, already_present):
+    powershell = shutil.which("powershell.exe")
+    assert powershell
+    directory = tmp_path / ".local" / "bin"
+    directory.mkdir(parents=True)
+    executable = directory / "claude.exe"
+    registry_path = "Software\\YokeQaTests\\" + uuid4().hex
+    raw = r"%USERPROFILE%\keep;C:\existing"
+    initial = raw + (";" + str(directory) if already_present else "")
+    expected = initial if exit_code else raw + ";" + str(directory)
+
+    class Control:
+        def _run(self, script, *, timeout):
+            # Exercise the real registry API in an owned test key. Never edit
+            # this CI user's actual Environment key or depend on vendor access.
+            script = script.replace("CreateSubKey('Environment')", f"CreateSubKey({quote(registry_path)})")
+            prelude = f"""$ErrorActionPreference='Stop';$env:USERPROFILE={quote(str(tmp_path))}
+[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+Add-Type -TypeDefinition 'public class Cli {{public static void Main() {{System.Console.WriteLine("1.2.3");}}}}' -OutputAssembly {quote(str(executable))} -OutputType ConsoleApplication
+$key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey({quote(registry_path)})
+$key.SetValue('Path',{quote(initial)},[Microsoft.Win32.RegistryValueKind]::ExpandString);$key.Dispose()
+function Invoke-WebRequest {{
+ [CmdletBinding()]param($Uri,[switch]$UseBasicParsing,$TimeoutSec)
+ @{{RawContentStream=[IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes('$global:LASTEXITCODE={exit_code}'))}}
+}}
+try {{
+"""
+            checks = f"""
+ $key=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey({quote(registry_path)})
+ try {{
+  if($key.GetValue('Path','',[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) -cne {quote(expected)}){{throw 'PATH entries changed or duplicated'}}
+  if($key.GetValueKind('Path') -ne [Microsoft.Win32.RegistryValueKind]::ExpandString){{throw 'PATH kind changed'}}
+ }}finally{{$key.Dispose()}}
+}}finally{{[Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree({quote(registry_path)})}}
+"""
+            encoded = base64.b64encode((prelude + script + checks).encode("utf-16le")).decode("ascii")
+            return subprocess.run(
+                [powershell, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+            )
+
+    result = host_program(
+        Control(), "install", ["claude-code", [str(executable)], "", "1.2.3"], 30, VERSION_TOKEN_PATTERN,
+    )
+    assert result["install_exit_code"] == exit_code
+    assert result["probe"]["version"] == "1.2.3"

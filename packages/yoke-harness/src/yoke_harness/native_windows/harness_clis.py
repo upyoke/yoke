@@ -38,7 +38,27 @@ $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environme
             "codex": "& npm.cmd install --global " + quote("@openai/codex@" + wanted),
             "cursor": "& (VendorScript 'https://cursor.com/install?win32=true')",
         }
-        script += installers[harness] + "; $code=$LASTEXITCODE; $p=Probe $payload[1]; "
+        script += installers[harness] + "; $code=$LASTEXITCODE; "
+        if harness == "claude-code":
+            # Claude's native installer reports success while only warning that
+            # .local\bin is absent from PATH. Finish this installer immediately,
+            # independently of any later vendor installation.
+            script += r"""if($code -eq 0){
+ $dir=Join-Path $env:USERPROFILE '.local\bin';$exe=Join-Path $dir 'claude.exe'
+ $installed=Probe @($exe)
+ if($installed.version){
+  $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+  try {
+   $raw=[string]$key.GetValue('Path','',[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+   $kind=if($key.GetValueNames() -contains 'Path'){$key.GetValueKind('Path')}else{[Microsoft.Win32.RegistryValueKind]::ExpandString}
+   $entries=@($raw -split ';'|ForEach-Object {[Environment]::ExpandEnvironmentVariables($_).TrimEnd('\')})
+   if($entries -inotcontains $dir){$key.SetValue('Path',($raw.TrimEnd(';')+';'+$dir).TrimStart(';'),$kind)}
+  } finally {$key.Dispose()}
+  $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
+ }
+}
+"""
+        script += "$p=Probe $payload[1]; "
         script += "@{install_exit_code=$code;install_stderr='';probe=$p} | ConvertTo-Json -Depth 8 -Compress"
     # Cursor's architecture query needs the same user's interactive logon token;
     # the standard SSH token can be denied local CIM/WMI access. The desktop

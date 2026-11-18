@@ -17,14 +17,30 @@ function VendorScript($uri) {
  [ScriptBlock]::Create($text)
 }
 & (VendorScript 'https://claude.ai/install.ps1')
+$claudeDir=Join-Path $env:USERPROFILE '.local\bin'
+& (Join-Path $claudeDir 'claude.exe') --version
+if($LASTEXITCODE -ne 0){throw 'Claude installation unverified'}
+$key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+try {
+ $raw=[string]$key.GetValue('Path','',[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+ $kind=if($key.GetValueNames() -contains 'Path'){$key.GetValueKind('Path')}else{[Microsoft.Win32.RegistryValueKind]::ExpandString}
+ $entries=@($raw -split ';'|ForEach-Object {[Environment]::ExpandEnvironmentVariables($_).TrimEnd('\')})
+ if($entries -inotcontains $claudeDir){$key.SetValue('Path',($raw.TrimEnd(';')+';'+$claudeDir).TrimStart(';'),$kind)}
+} finally {$key.Dispose()}
 npm.cmd install --global @openai/codex
 & (VendorScript 'https://cursor.com/install?win32=true')
+$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
 claude --version
 codex --version
 agent --version
 ```
 
 Native installer downloads are decoded as UTF-8 from their raw response bytes.
+Finish each successful install before starting another. Claude can report
+success while warning that `.local\bin` is missing from PATH; preserve existing
+entries and registry value kind when adding it. Existing GUI processes retain
+their inherited PATH. Verify command discovery in a fresh desktop shell as well
+as SSH; a probe that rebuilds its own PATH does not prove GUI inheritance.
 Windows PowerShell can expose binary media as a byte array in `Content`; treating
 that value as text can break execution or hash a conversion instead of the script.
 Compare raw bytes before attributing a checksum refusal to changed vendor code.
@@ -73,6 +89,14 @@ codex login
 agent login
 codex login status
 agent status
+```
+
+If that terminal still has an older PATH, use the installed launchers directly:
+
+```powershell
+& "$env:USERPROFILE\.local\bin\claude.exe" auth login
+& "$env:APPDATA\npm\codex.cmd" login
+& "$env:LOCALAPPDATA\cursor-agent\agent.ps1" login
 ```
 
 Follow [Claude authentication](https://code.claude.com/docs/en/authentication),
