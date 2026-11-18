@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -72,7 +73,16 @@ def _fake_cli(calls: list[list[str]], verify_output: str = "verified\n"):
 
 
 def _main(monkeypatch: pytest.MonkeyPatch, run) -> None:
-    monkeypatch.setattr(proof.subprocess, "run", run)
+    # Replace only the helper's subprocess binding; the CLI keeps the real one.
+    monkeypatch.setattr(
+        proof,
+        "subprocess",
+        SimpleNamespace(
+            run=run,
+            CompletedProcess=subprocess.CompletedProcess,
+            TimeoutExpired=subprocess.TimeoutExpired,
+        ),
+    )
     monkeypatch.setattr(
         sys,
         "argv",
