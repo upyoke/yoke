@@ -71,10 +71,11 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.case.begin` | `qa_subject` |
 | `test_machine.case.submit` | `qa_subject` |
 | `test_machine.case_execute` | `qa_subject` |
-| `test_machine.delete` | `none`; project admin; refuses shared leases, pending waits and reset debt. |
+| `test_machine.delete` | `none`; universe admin; refuses shared leases, pending waits and reset debt. |
 | `test_machine.desktop_access` | `none` |
 | `test_machine.get` | `none` |
 | `test_machine.golden_capture` | `none` |
+| `test_machine.lease_acquire` | Acquires the universe host lease for the calling session without joining the queue. |
 | `test_machine.list` | `none` |
 | `test_machine.mission.access` | `qa_subject` |
 | `test_machine.mission.ready` | `qa_subject` |
@@ -83,6 +84,8 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.operation.submit` | `none` |
 | `test_machine.plan_case.begin` | `qa_subject` |
 | `test_machine.plan_case.submit` | `qa_subject` |
+| `test_machine.power_started` | The current host lease holder records a Yoke start. |
+| `test_machine.power_stopped` | The current host lease holder clears the marker after a confirmed stop. |
 | `test_machine.reset` | `none` |
 | `test_machine.screenshot` | `none` |
 | `test_machine.settings_replace` | `none` |
