@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_onboard_wizard_git_recovery_navigation.py::test_connected_clone_remote_back_returns_to_visibility_without_stale_error",
- "reason": "assert \"couldn't reach that repo\" in \"\\u2717 couldn't install git automatically.  cause: could not run sudo -n dnf install -y git because sudo was not found. what to do   \\u2022 choose install git, or"
-}

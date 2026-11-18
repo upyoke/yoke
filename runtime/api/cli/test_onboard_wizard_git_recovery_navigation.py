@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 
 import pytest
 
@@ -44,7 +45,13 @@ def _force_linux(monkeypatch) -> None:
     monkeypatch.setattr(
         project_git_prerequisite,
         "git_available",
-        lambda **kwargs: real_available(**{**kwargs, "platform_name": "linux"}),
+        lambda **kwargs: real_available(
+            **{
+                **kwargs,
+                "platform_name": "linux",
+                "runner": lambda *args, **kw: subprocess.CompletedProcess(args, 0),
+            }
+        ),
     )
 
 

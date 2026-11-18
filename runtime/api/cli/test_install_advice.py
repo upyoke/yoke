@@ -115,6 +115,8 @@ def test_windows_git_guidance_uses_native_installers(monkeypatch) -> None:
     assert "winget install --id Git.Git -e" in advice.note
     assert "https://git-scm.com/download/win" in advice.note
     assert "new terminal" in advice.note
+    assert "PATH" in advice.note
+    assert "Git for Windows" in advice.note
     assert "Try again" in advice.note
     assert "WSL" not in advice.note
     assert "not supported" not in advice.note

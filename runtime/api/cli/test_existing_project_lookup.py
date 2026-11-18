@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import json
 
 from runtime.api.cli.project_onboarding_test_helpers import ProjectOnboardApi
 from yoke_cli.config import existing_project_lookup
@@ -204,9 +205,15 @@ def test_find_local_project_reference_reads_machine_config(tmp_path) -> None:
     checkout.mkdir()
     config = tmp_path / "config.json"
     config.write_text(
-        '{"schema_version": 1, "active_env": "local", "connection_projects": {"local": [{"checkout": "'
-        + str(checkout)
-        + '", "project_id": 37}]}}\n',
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(checkout), "project_id": 37}]
+                },
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -232,9 +239,15 @@ def test_source_link_manifest_without_project_id_uses_machine_config(
     )
     config = tmp_path / "config.json"
     config.write_text(
-        '{"schema_version": 1, "active_env": "local", "connection_projects": {"local": [{"checkout": "'
-        + str(checkout)
-        + '", "project_id": 37}]}}\n',
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(checkout), "project_id": 37}]
+                },
+            }
+        ),
         encoding="utf-8",
     )
 

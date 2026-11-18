@@ -109,7 +109,8 @@ def install_advice(
             None,
             "Install Git for Windows with `winget install --id Git.Git -e` "
             "or the installer at https://git-scm.com/download/win. "
-            "Open a new terminal after installation, then choose Try again.",
+            "Enable Git on PATH, open a new terminal after installation, "
+            "then choose Try again.",
         )
 
     if "linux" in name:

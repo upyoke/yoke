@@ -158,7 +158,7 @@ def fast_forward(
     holder = branch_checkout_path(repo_root, base_branch)
     # git prints C:/... on Windows while callers hold native paths: compare
     # them as paths, not text.
-    if holder and Path(holder) == Path(repo_root):
+    if holder and Path(holder).resolve() == Path(repo_root).resolve():
         merged = git(repo_root, "merge", "--ff-only", upstream_sha)
         return (merged.returncode == 0), reason(merged)
     if holder:

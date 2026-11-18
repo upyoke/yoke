@@ -32,7 +32,8 @@ def test_github_error_text_neutralizes_terminal_control_sequences() -> None:
 
 
 def test_git_credential_helper_sanitizes_store_error(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     store = github_git_credential_helper.credential_store
     monkeypatch.setattr(
@@ -58,12 +59,15 @@ def test_git_credential_helper_sanitizes_store_error(
     assert "yoke github connect" not in error
 
 
-@pytest.mark.parametrize("invalid_body", [
-    b"credential-body-must-not-leak-\xff",
-    b"credential-body-must-not-leak" + b"x" * (
-        github_git_credential_file.MAX_CREDENTIAL_DOCUMENT_BYTES + 1
-    ),
-])
+@pytest.mark.parametrize(
+    "invalid_body",
+    [
+        b"credential-body-must-not-leak-\xff",
+        b"credential-body-must-not-leak"
+        + b"x" * (github_git_credential_file.MAX_CREDENTIAL_DOCUMENT_BYTES + 1),
+    ],
+    ids=["invalid-utf8", "oversized-document"],
+)
 def test_git_credential_helper_hides_invalid_credential_body(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -77,18 +81,23 @@ def test_git_credential_helper_hides_invalid_credential_body(
     credential.write_bytes(invalid_body)
     credential.chmod(0o600)
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({
-        "github": {
-            "api_url": "https://api.github.com",
-            "web_url": "https://github.com",
-            "client_id": "Iv1.safe",
-            "authorization": {
-                "kind": "github_app_user_authorization",
-                "status": "authorized",
-                "refresh_credential_ref": str(credential),
-            },
-        },
-    }), encoding="utf-8")
+    config.write_text(
+        json.dumps(
+            {
+                "github": {
+                    "api_url": "https://api.github.com",
+                    "web_url": "https://github.com",
+                    "client_id": "Iv1.safe",
+                    "authorization": {
+                        "kind": "github_app_user_authorization",
+                        "status": "authorized",
+                        "refresh_credential_ref": str(credential),
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     rc = github_git_credential_helper.main(
         ["--config", str(config), "get"],
@@ -104,7 +113,8 @@ def test_git_credential_helper_hides_invalid_credential_body(
 
 
 def test_connect_sanitizes_initial_credential_save_error(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setattr(
@@ -131,7 +141,9 @@ def test_connect_sanitizes_initial_credential_save_error(
 
 
 def test_noninteractive_onboard_sanitizes_user_token_error(
-    tmp_path: Path, monkeypatch, capsys,
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setattr(
@@ -147,15 +159,20 @@ def test_noninteractive_onboard_sanitizes_user_token_error(
         ),
     )
 
-    rc = onboard_adapter.onboard([
-        "--non-interactive",
-        "--config", str(tmp_path / "home" / "config.json"),
-        "--env", "stage",
-        "--api-url", "https://yoke.example.test",
-        "server-token",
-        "--yes",
-        "--skip-identity-check",
-    ])
+    rc = onboard_adapter.onboard(
+        [
+            "--non-interactive",
+            "--config",
+            str(tmp_path / "home" / "config.json"),
+            "--env",
+            "stage",
+            "--api-url",
+            "https://yoke.example.test",
+            "server-token",
+            "--yes",
+            "--skip-identity-check",
+        ]
+    )
 
     error = capsys.readouterr().err
     assert rc == 2
