@@ -211,7 +211,8 @@ def test_done_answers_a_post_deploy_selection_from_its_plan_group(test_db, monke
         qa_phase="post_deploy",
     )
     miss = credit._miss(
-        item_id, plan["id"], "post-deploy-selection", {"id": "run-x"}, "item-qa", "prod", conn=test_db
+        item_id, plan["id"], "post-deploy-selection", {"id": "run-x"}, "item-qa", "prod",
+        carried_ids=[], conn=test_db,
     )
     monkeypatch.setattr(credit, "plan_credit_misses", lambda conn, item: [miss])
     refused = verification_gate(

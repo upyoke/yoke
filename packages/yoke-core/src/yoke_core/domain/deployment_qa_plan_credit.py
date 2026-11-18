@@ -89,8 +89,8 @@ def _miss(
     run: dict | None,
     stage: str,
     target_env: str,
-    carried_ids: list[int],
     *,
+    carried_ids: list[int],
     conn: Any,
 ) -> dict:
     from yoke_core.domain.deployment_qa_plan_groups import run_groups
@@ -254,7 +254,8 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
                 )
                 misses.append(
                     _miss(
-                        item_id, plan_id, slug, run, stage, target_env, carried_ids, conn=conn
+                        item_id, plan_id, slug, run, stage, target_env,
+                        carried_ids=carried_ids, conn=conn,
                     )
                 )
                 break
