@@ -137,7 +137,7 @@ QA_TABLES: dict[str, dict] = {
             "argument does not exist. Host capabilities are resolved internally "
             "from the acting session. Machine-run cases (host_control and "
             "agent_mission runners) carry `starting_state` (`baseline`, "
-            "`inherit`, `as_is`) and `starting_state_reason`; "
+            "`inherit`) and `starting_state_reason`; "
             "`yoke_core.domain.qa_plan_case_chain` owns chain ends and the "
             "inherit blocker. Plan and requirement reads select the stored "
             "starting-state and target fields explicitly. "

@@ -71,6 +71,7 @@ def test_method_details_roll_up_only_their_current_case_proofs() -> None:
                 case_key=case_key,
                 method_id=method_id,
                 created_at=created_at,
+                host_baseline="fresh-host" if method_id == "machine-state-check" else None,
             )
             for case_key, method_id, created_at in requirement_specs
         }

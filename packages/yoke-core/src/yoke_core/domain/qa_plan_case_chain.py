@@ -1,6 +1,6 @@
 """Chains of machine-run cases inside one ordered QA plan execution.
 
-A case that starts from a named baseline or runs ``as_is`` opens a chain; the
+A case that starts from a named baseline opens a chain; the
 ``inherit`` cases right behind it in the roster, at the same plan and
 baseline position, continue on the machine it left. The roster runs every
 case of a baseline position before the next position, so a chain is always a

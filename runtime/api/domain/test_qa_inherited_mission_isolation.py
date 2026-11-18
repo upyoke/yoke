@@ -158,10 +158,8 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
                 },
                 "entry_surface": "printf done",
                 "required_completion": "complete",
-                "starting_state": "inherit" if position == 3 else "as_is",
-                "starting_state_reason": None
-                if position == 3
-                else "Read host identity.",
+                "starting_state": "inherit" if position == 3 else "baseline",
+                "host_baselines": [] if position == 3 else ["fresh-host"],
             }
             for position, key in enumerate(["independent", "opener", "follower"], 1)
         ],

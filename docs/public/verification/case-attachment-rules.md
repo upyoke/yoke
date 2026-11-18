@@ -24,14 +24,11 @@ declares no host starting state. Authoring, `qa.requirement.add`, and materializ
   may inherit only at the chain's tail, on the same driver, in an isolated
   execution; [Machine partitions](deployment-plan-execution.md#machine-partitions)
   explains host custody and the standalone plan boundary.
-- `"starting_state": "as_is"` with `"starting_state_reason"`: run on the
-  machine as found, for the stated reason.
-
-A Command case whose `method_config.test_machine` names a host may declare
-`host_baselines` (`--host-baseline`); plan admission resets that host to the
-baseline before the command runs, and a failed reset stops the plan with the
-host repair step. With no baseline the Command runs on the host as found. It
-never declares `inherit` or `as_is`.
+A Command with `method_config.test_machine` follows the same rule. A new
+chain resets before its first case. Choose `shell-preconfigured` when it runs
+Yoke on the host, verifies browser identities, uninstalls, or upgrades.
+`yoke qa case run` takes a host turn for a direct Command. Run inheriting
+cases through their plan so the preceding case executes first.
 
 On macOS, a failed captured-entry copy retries once to handle entries a live
 service recreates during restore. A persistent failure retains the named
@@ -39,7 +36,7 @@ unrestored-entry receipt and copier diagnostic. Inspect that entry and repair
 its permissions or service contention before retrying reset.
 
 For a continuity case that needs earlier machine state, add
-`method_config.continuity_fingerprint` to its `as_is` configuration: an object
+`method_config.continuity_fingerprint` to its `inherit` configuration: an object
 mapping 1..16 absolute or `~/` stable file paths to recorded lowercase SHA-256
 hashes. Record the hashes while the intended state is present under the host
 lease, save the plan, and rematerialize its cases. For example, retain the
@@ -59,18 +56,14 @@ unreadable or uncheckable files refuse as `continuity_lost` without starting
 the case. These contracts use `host-control-continuity-v1`, so an older
 runner refuses the protocol instead of ignoring the check; upgrade the CLI
 before retrying. Restore and prove the required state before recording replacement
-hashes. `as_is` alone keeps the state it finds; it does not reserve a machine
-between leases. Fingerprints detect loss; they do not prevent another lease
-from resetting the host.
+hashes.
 
 A case added on its own (`yoke qa requirement add`) belongs to no plan, so it
-takes `--host-baseline NAME` or `--starting-state as_is
---starting-state-reason TEXT` and cannot inherit.
+takes `--host-baseline NAME`. Define inherited cases in a plan.
 Before anything has run a case — no QA run, no plan result, not in a live
 execution's roster — re-declare its starting state with `yoke qa requirement
 update --requirement-id N --field starting_state --value
-'{"starting_state":"as_is","starting_state_reason":"..."}'` (or
-`{"starting_state":"baseline","host_baseline":"fresh-host"}`). It also rewrites
+'{"starting_state":"baseline","host_baseline":"fresh-host"}'`. It also rewrites
 the row's in-flight admitted copies. Afterwards it refuses
 `starting_state_case_executed` and names the corrected-case route. An item row
 materialized from a plan refuses `starting_state_plan_owned`: edit the plan
@@ -109,7 +102,7 @@ case whose predecessor did not pass in the same run is recorded
 `blocked_on_precondition` (`inherited_predecessor_not_passed`) naming that
 predecessor, and does not run. A failed or errored case blocks only its own
 chain: the run continues with each later chain that starts from a named
-baseline or `as_is`, then closes the execution once every case has a result,
+baseline, then closes the execution once every case has a result,
 naming the failed requirements in its reason (`qa-plan-case-failed`). The
 review bundle for its completed captures lists the blocked cases and their
 reasons under `chain_blocked`. A case that raises while running, a lost lease

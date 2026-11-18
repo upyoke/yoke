@@ -60,10 +60,8 @@ def _case(key, driver, *, machines=None, inherit=False):
         },
         "entry_surface": "printf done",
         "required_completion": "complete",
-        "starting_state": "inherit" if inherit else "as_is",
-        "starting_state_reason": None
-        if inherit
-        else "The check reads host identity only and needs no reset.",
+        "starting_state": "inherit" if inherit else "baseline",
+        "host_baselines": [] if inherit else ["fresh-host"],
     }
 
 

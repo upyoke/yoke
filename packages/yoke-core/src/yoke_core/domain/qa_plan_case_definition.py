@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.qa_case_starting_state import BASELINE
 from yoke_contracts.qa_case_wake_path import stored_wake_path
 
 from yoke_core.domain.machine_qa_case_machine import materialized_capability_kinds
@@ -148,7 +149,7 @@ def materialized_definition(
         "runner_id": str(case["runner_id"]),
         "verdict_path": str(case["verdict_path"]),
         "host_baseline": baseline,
-        "starting_state": case.get("starting_state"),
+        "starting_state": case.get("starting_state") or (BASELINE if baseline else None),
         "starting_state_reason": case.get("starting_state_reason"),
         "entry_surface": case["entry_surface"],
         "required_completion": case["required_completion"],
@@ -318,7 +319,7 @@ def case_baselines(case: Any) -> list[Optional[str]]:
 
     A ``baseline`` case fans out across its declared baselines; an
     ``inherit`` case follows its predecessor's fan-out, so each of its rows
-    names the baseline its chain started from; an ``as_is`` or non-machine
+    names the baseline its chain started from; a non-machine
     case materializes exactly one row with ``host_baseline`` NULL.
     """
     return list(case["materialized_baselines"])

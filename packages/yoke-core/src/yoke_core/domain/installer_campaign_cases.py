@@ -66,8 +66,9 @@ def _require_exact_contract() -> None:
     }
     if baseline_cases != {
         "cold-start-hosted": ["fresh-host", "shell-preconfigured"],
-        "hosted-connect": ["fresh-host"],
+        "hosted-connect": ["shell-preconfigured"],
         "path-on-shell": ["fresh-host", "shell-preconfigured"],
+        "welcome-frame": ["fresh-host"],
     }:
         raise RuntimeError(
             f"installer campaign baseline roster differs: {baseline_cases!r}"

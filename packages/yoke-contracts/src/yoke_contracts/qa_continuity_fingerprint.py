@@ -37,7 +37,7 @@ def normalize_fingerprint(raw: Any) -> dict[str, str]:
 
 
 def require_continuity_state(case: Any) -> None:
-    """A fingerprint belongs only to a case that keeps the machine as found."""
+    """A fingerprint can verify state produced by the preceding case."""
     config = (
         case.get("method_config", {})
         if isinstance(case, Mapping)
@@ -48,9 +48,9 @@ def require_continuity_state(case: Any) -> None:
     state = (
         case.get("starting_state") if isinstance(case, Mapping) else case.starting_state
     )
-    if state != "as_is":
+    if state != "inherit":
         raise ValueError(
-            "continuity_fingerprint requires starting_state as_is; remove the reset or fingerprint"
+            "continuity_fingerprint requires starting_state inherit; declare a predecessor or remove the fingerprint"
         )
     normalize_fingerprint(config[KEY])
 

@@ -95,7 +95,8 @@ def walker_identity_dispatch(
     project default identity the walker's setup and steps pass, if offered."""
     identities = list((case.get("method_config") or {}).get("browser_identities") or [])
     preferred = None
-    if not identities:
+    fresh_host = host_command_base and case.get("host_baseline") == "fresh-host"
+    if not identities and not fresh_host:
         identities, preferred = _target_identities(browser_settings, execution_target)
     prefix = f"{host_command_base} -- " if host_command_base else ""
     commands = [

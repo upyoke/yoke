@@ -6,6 +6,7 @@ from yoke_core.domain.installer_campaign_plan_common import (
     BROWSER_APPROVAL_TEXT,
     BROWSER_PRIMARY_POST_CHECKS,
     CHOOSE_BACKLOG_KEYS,
+    FRESH_HOST,
     HOSTED_ONBOARD,
     MACHINE_GITHUB_TEXT,
     PUBLIC_WELCOME,
@@ -58,11 +59,7 @@ WELCOME_FRAME = terminal_case(
     ),
     entry_surface=PUBLIC_WELCOME,
     required_completion="welcome-frame",
-    starting_state="as_is",
-    starting_state_reason=(
-        "The installer runs with HOME=/var/empty and a minimal system PATH, so "
-        "it neither reads nor changes the host user's state"
-    ),
+    host_baselines=[FRESH_HOST],
 )
 
 

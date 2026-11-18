@@ -15,11 +15,9 @@ WELCOME_FRAME = {'position': 5,
                   'YOKE_INSTALL_BASE_URL={{installer_base_url}} '
                   'YOKE_CHANNEL={{release_channel}} /bin/sh',
  'required_completion': 'welcome-frame',
- 'host_baselines': [],
- 'starting_state': 'as_is',
- 'starting_state_reason': 'The installer runs with HOME=/var/empty and a minimal '
-                          'system PATH, so it neither reads nor changes the host '
-                          "user's state",
+ 'host_baselines': ['fresh-host'],
+ 'starting_state': 'baseline',
+ 'starting_state_reason': None,
  'method_id': 'exploratory-mission',
  'instructions': 'Resolve host/setup obstacles yourself: answer consent prompts, '
                  "select the declared identity's email in Google's account chooser "
@@ -177,7 +175,7 @@ CONNECT_WAIT_PREPARE = terminal_case(
         notes="Deterministic preparation only; the following mission owns visible proof.",
     ),
     entry_surface="printf '%s\\n' connect-wait-prepare",
-    required_completion="connect-wait-prepare", host_baselines=["fresh-host"],
+    required_completion="connect-wait-prepare", host_baselines=["shell-preconfigured"],
 )
 
 REVIEW_FRAME_PREPARE = terminal_case(
@@ -192,13 +190,13 @@ REVIEW_FRAME_PREPARE = terminal_case(
         notes="Deterministic preparation only; the following mission owns visible proof.",
     ),
     entry_surface="printf '%s\\n' review-frame-prepare",
-    required_completion="review-frame-prepare", host_baselines=["fresh-host"],
+    required_completion="review-frame-prepare", host_baselines=["shell-preconfigured"],
 )
 
 _STABLE = {case["case_key"]: case for case in CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES}
 INSTALLER_CAMPAIGN_CASES = (
     _STABLE["path-on-shell"],
-    {**_STABLE["path-repair"], "position": 2, "host_baselines": ["fresh-host"],
+    {**_STABLE["path-repair"], "position": 2, "host_baselines": ["shell-preconfigured"],
      "starting_state": None},
     {**_STABLE["apply-handoff"], "position": 3},
     {**_STABLE["universe-born"], "position": 4},

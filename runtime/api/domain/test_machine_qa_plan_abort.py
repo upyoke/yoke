@@ -78,9 +78,8 @@ def test_cleanup_finishes_despite_abort_signal():
 
 
 @pytest.mark.parametrize("restored", [True, False])
-@pytest.mark.parametrize("declared_baseline", [True, False])
 def test_server_retains_lease_until_submitted_restore_proof(
-    test_db, tmp_path, monkeypatch, restored, declared_baseline
+    test_db, tmp_path, monkeypatch, restored
 ):
     from runtime.api.domain.machine_qa_plan_execution_test_support import (
         ACTOR,
@@ -105,21 +104,6 @@ def test_server_retains_lease_until_submitted_restore_proof(
     from yoke_core.domain.qa_plan_execution_reentry import checkin_view
 
     item_id = 4550
-    if not declared_baseline:
-        from runtime.api.domain import machine_qa_host_test_support as support
-
-        baseline_case = support._plan_case
-
-        def as_is_case(*args):
-            case = baseline_case(*args)
-            case.pop("host_baselines")
-            return {
-                **case,
-                "starting_state": "as_is",
-                "starting_state_reason": "inspect machine as found",
-            }
-
-        monkeypatch.setattr(support, "_plan_case", as_is_case)
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
     execution = begin_plan_execution(
@@ -199,11 +183,6 @@ def test_server_retains_lease_until_submitted_restore_proof(
             "restored": restored,
         },
     }
-    if not declared_baseline:
-        evidence["starting_state_restore"] = {
-            "restored": False,
-            "reason": "the chain began as_is and has no declared state to restore",
-        }
     submitted = handle_plan_case_submit(
         _request(
             "test_machine.plan_case.submit",
@@ -229,7 +208,7 @@ def test_server_retains_lease_until_submitted_restore_proof(
     )
     assert submitted.primary_success, submitted.error
     current = lock_plan_execution(test_db, execution["id"])
-    settled = restored or not declared_baseline
+    settled = restored
     assert current["state"] == ("aborted" if settled else "active")
     assert _active_lease_count(test_db) == (0 if settled else 1)
     if settled:

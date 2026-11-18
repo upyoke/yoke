@@ -97,7 +97,7 @@ def host_recovery_refusal(
 ) -> QaPlanExecutionStateError:
     case = execution["roster"][int(request["ordinal"])]
     baseline = case.get("host_baseline")
-    if baseline and case.get("starting_state") != "as_is":
+    if baseline:
         lead = "reset each held host to the interrupted case's declared baseline"
         steps = [
             f"yoke test-machine reset --project {project} --test-machine "

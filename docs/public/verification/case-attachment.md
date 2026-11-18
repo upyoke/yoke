@@ -68,8 +68,7 @@ member attaches its plan.
 [In-flight host cancellation](deployment-plan-execution.md#stop-host-work-safely)
 refuses as `qa_abort_restore_required`: abort through the plan command, wait
 for the interrupted case's cleanup proof, then retry removal. A declared
-baseline requires restoration; an `as_is` case or chain without a baseline
-settles on its no-restore cleanup receipt. To clean
+baseline requires restoration. To clean
 an older removal's residue, a holder runs `yoke qa plan abort
 --execution-id ID --reason TEXT --project P` (read its `--help` first). The
 audited removal keeps abort authority under the member's item claim and

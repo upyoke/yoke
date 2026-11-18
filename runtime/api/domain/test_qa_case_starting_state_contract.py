@@ -42,10 +42,6 @@ def _normalize(case):
 def test_each_declaration_normalizes_to_its_stored_form() -> None:
     assert _normalize(_case("a", baselines=["fresh-host"])) == ("baseline", None)
     assert _normalize(_case("b", state="inherit")) == ("inherit", None)
-    assert _normalize(_case("c", state="as_is", reason=" lab host ")) == (
-        "as_is",
-        "lab host",
-    )
     assert _normalize(_case("d", runner="browser_substrate")) == (None, None)
 
 
@@ -53,11 +49,11 @@ def test_each_declaration_normalizes_to_its_stored_form() -> None:
     ("case", "expected"),
     [
         (_case("none"), "declares no starting state"),
-        (_case("bad", state="later"), "is not one of baseline, inherit, as_is"),
+        (_case("bad", state="later"), "is not one of baseline, inherit"),
         (_case("odd", baselines=["fresh-hose"]), "available baselines: fresh-host"),
         (_case("both", baselines=["fresh-host"], state="inherit"), "never both"),
         (_case("empty", state="baseline"), "with no host_baselines"),
-        (_case("why", state="as_is"), "without a starting_state_reason"),
+        (_case("why", state="as_is", reason="lab"), "is not one of"),
         (_case("extra", state="inherit", reason="x"), "takes no"),
     ],
 )
@@ -76,7 +72,6 @@ def test_undeclared_refusal_names_every_choice_and_the_edit_commands() -> None:
     for fragment in (
         "fresh-host, shell-preconfigured",
         '"inherit"',
-        '"as_is"',
         "yoke qa plan edit",
         "yoke qa plan-cases replace",
     ):
@@ -88,16 +83,12 @@ def test_inheriting_cases_follow_their_predecessors_fan_out() -> None:
         [
             _case("open", baselines=["fresh-host", "shell-preconfigured"]),
             _case("follow", state="inherit"),
-            _case("found", state="as_is", reason="lab"),
-            _case("after-found", state="inherit"),
             _case("web", runner="browser_substrate"),
         ]
     )
     assert fan_out == {
         "open": ["fresh-host", "shell-preconfigured"],
         "follow": ["fresh-host", "shell-preconfigured"],
-        "found": [None],
-        "after-found": [None],
         "web": [None],
     }
 
@@ -142,10 +133,13 @@ def test_a_selection_keeps_each_inheriting_case_behind_its_predecessor() -> None
 def test_only_a_case_opening_a_chain_from_a_baseline_resets() -> None:
     opening = {"starting_state": "baseline", "host_baseline": "fresh-host"}
     assert reset_baselines(opening) == ["fresh-host"]
+    assert reset_baselines({"host_baseline": "fresh-host"}) == ["fresh-host"]
     assert reset_baselines(opening, continues=True) == []
     inherit = {"starting_state": "inherit", "host_baseline": "fresh-host"}
     assert reset_baselines(inherit) == []
-    assert reset_baselines({"starting_state": "as_is", "host_baseline": None}) == []
+    assert reset_baselines({**opening, "host_baseline": "shell-preconfigured"}) == [
+        "shell-preconfigured"
+    ]
 
 
 def test_a_materialized_case_must_carry_a_consistent_declaration() -> None:
@@ -155,11 +149,12 @@ def test_a_materialized_case_must_carry_a_consistent_declaration() -> None:
         )
 
     require_materialized_starting_state(row("baseline", "fresh-host"))
-    require_materialized_starting_state(row("inherit", None))
+    require_materialized_starting_state(row("inherit", "fresh-host"))
     for state, baseline, expected in (
-        (None, "fresh-host", "declares no starting state"),
+        (None, "fresh-host", "declares no valid starting state"),
         ("baseline", None, "disagrees with its host baseline"),
-        ("as_is", "fresh-host", "disagrees with its host baseline"),
+        ("as_is", "fresh-host", "declares no valid starting state"),
+        ("inherit", None, "disagrees with its host baseline"),
     ):
         with pytest.raises(StartingStateError) as refusal:
             require_materialized_starting_state(row(state, baseline))
@@ -237,9 +232,9 @@ def test_host_command_resets_only_a_declared_baseline() -> None:
     assert reset_baselines(
         {"starting_state": state[0], "host_baseline": "shell-preconfigured"}
     ) == ["shell-preconfigured"]
-    assert _command() == (None, None)
+    assert _command(state="inherit") == ("inherit", None)
     for declared in (
-        {"state": "inherit"},
+        {},
         {"state": "as_is", "reason": "why"},
         {"state": "baseline"},
         {"baselines": ["no-such-baseline"]},
@@ -251,3 +246,52 @@ def test_host_command_resets_only_a_declared_baseline() -> None:
         None,
         None,
     )
+
+def test_plan_refuses_a_host_command_without_a_baseline():
+    case = _case("command", runner="worktree_run")
+    case["method_config"] = {"test_machine": "linux-lab", "command": "true"}
+    with pytest.raises(StartingStateError, match="declares no starting state"):
+        chain_baselines([case])
+
+
+def test_plan_refuses_as_is_even_with_a_reason():
+    with pytest.raises(StartingStateError, match="as_is"):
+        chain_baselines([_case("old", state="as_is", reason="lab")])
+
+
+@pytest.mark.parametrize(
+    ("runner", "key", "config"),
+    [
+        ("agent_mission", "sign-in", {"browser_identities": ["operator"]}),
+        ("worktree_run", "authorize", {
+            "command": "yoke browser authorize --test-machine linux-lab",
+        }),
+        ("worktree_run", "remote", {
+            "command": "yoke test-machine exec --test-machine linux-lab -- yoke status",
+        }),
+        ("host_control", "steps", {"steps": [{"argv": ["/bin/yoke", "status"]}]}),
+        ("host_control", "terminal-steps", {"steps": [{"send": "yoke status\n"}]}),
+        ("host_control", "uninstall", {}),
+        ("host_control", "upgrade-project", {}),
+    ],
+)
+def test_yoke_cases_require_shell_preconfigured_on_the_chain_head(runner, key, config):
+    follower = _case(key, runner=runner, state="inherit")
+    follower["method_config"] = {"test_machine": "linux-lab", **config}
+    opener = _case("setup", baselines=["fresh-host"])
+    opener["method_config"] = {"test_machine": "linux-lab"}
+    with pytest.raises(StartingStateError, match="starting_state_lacks_yoke.*shell-preconfigured"):
+        chain_baselines([opener, follower])
+
+    opener["host_baselines"] = ["shell-preconfigured"]
+    assert chain_baselines([opener, follower]) == {
+        "setup": ["shell-preconfigured"], key: ["shell-preconfigured"]
+    }
+    assert reset_baselines({"starting_state": "inherit", "host_baseline": "shell-preconfigured"}) == []
+
+
+def test_mission_cannot_open_from_fresh_host_with_browser_identities():
+    case = _case("browser", runner="agent_mission", baselines=["fresh-host"])
+    case["method_config"]["browser_identities"] = ["operator"]
+    with pytest.raises(StartingStateError, match="starting_state_lacks_yoke.*shell-preconfigured"):
+        chain_baselines([case])

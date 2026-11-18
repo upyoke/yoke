@@ -60,10 +60,10 @@ def test_current_mission_restore_records_debt_only_from_its_holder(
     [
         ("fresh-host", False, None, True, "fresh-host"),
         ("fresh-host", True, None, True, None),
-        (None, False, None, True, "shell-preconfigured"),
-        (None, False, "restore_failed", True, "shell-preconfigured"),
+        ("shell-preconfigured", False, None, True, "shell-preconfigured"),
+        ("shell-preconfigured", False, "restore_failed", True, "shell-preconfigured"),
         ("fresh-host", None, None, True, "fresh-host"),
-        (None, None, None, True, "shell-preconfigured"),
+        ("shell-preconfigured", None, None, True, "shell-preconfigured"),
         ("fresh-host", None, None, False, None),
     ],
 )
@@ -82,8 +82,6 @@ def test_case_capture_persists_unproven_restore_debt(
     restore = {"restored": restored, "baseline": baseline}
     if error:
         restore["error_code"] = error
-    elif baseline is None:
-        restore["reason"] = "the chain started as found"
     result = recording.MachineCaseSubmissionResult(
         requirement_id=case["requirement_id"],
         case_outcome="passed",

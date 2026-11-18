@@ -205,18 +205,6 @@ def test_walk_end_removes_scratch_then_restores_the_declared_baseline(
     assert result["starting_state_restore"]["baseline"] == "fresh-host"
 
 
-def test_walk_end_of_an_as_is_mission_says_there_is_nothing_to_restore(
-    monkeypatch: Any,
-) -> None:
-    reached = _patch_execution(monkeypatch, FakeHostControl(), _walk_contract("as_is"))
-
-    result = machine_qa_mission_walk.execute_agent_mission_walk_end({"c": 1})
-
-    assert reached == []
-    assert result["starting_state_restore"]["restored"] is False
-    assert "no declared starting state" in result["starting_state_restore"]["reason"]
-
-
 def test_walk_start_refuses_to_walk_when_preparation_failed(monkeypatch, capsys):
     monkeypatch.setattr(
         agent_mission_walk_cli,

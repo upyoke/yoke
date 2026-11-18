@@ -96,7 +96,7 @@ def test_execution_termination_only_settles_its_bound_capture(test_db, terminati
         "SELECT plan_id FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()[0]
     proof = get_plan(test_db, plan_id=plan_id)
-    assert proof["cases"][0]["last_result"]["run_id"] == newer_id
+    assert proof["cases"][0]["proofs"][0]["run_id"] == newer_id
     assert proof["union"] == {"satisfied": False, "counts": {"needs_review": 1}}
     stamp_reviewed_capture(
         test_db,

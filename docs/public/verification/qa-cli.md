@@ -100,7 +100,7 @@ yoke qa requirement update --requirement-id 4309 --field wake_path --value manua
 # Its owner, woken while the evidence is missing, parks only behind its next recheck
 yoke sessions wake schedule --at UTC_INSTANT --reason "check the required evidence"
 # Re-declare a machine case's starting state before anything has run it
-yoke qa requirement update --requirement-id 4309 --field starting_state --value '{"starting_state":"as_is","starting_state_reason":"keeps the session a person opened"}'
+yoke qa requirement update --requirement-id 4309 --field starting_state --value '{"starting_state":"baseline","host_baseline":"shell-preconfigured"}'
 
 # Record a QA run for that item-bound review requirement.
 # Blocking passes stamp verification_tree.head_sha from the claimed lane HEAD

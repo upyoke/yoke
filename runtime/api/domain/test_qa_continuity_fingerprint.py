@@ -101,8 +101,8 @@ def test_invalid_fingerprints_are_rejected(raw):
         normalize_fingerprint(raw)
 
 
-def test_fingerprint_requires_as_is():
-    with pytest.raises(ValueError, match="requires starting_state as_is"):
+def test_fingerprint_requires_inherit():
+    with pytest.raises(ValueError, match="requires starting_state inherit"):
         require_continuity_state(
             {
                 "starting_state": "baseline",
@@ -130,12 +130,15 @@ def test_local_case_refusal_skips_fixture_execution(monkeypatch, tmp_path):
     from runtime.api.domain.machine_qa_chain_restore_test_support import _contract
     from yoke_core.domain import machine_qa_local_execution as local
 
-    contract = _contract(baselines=[], starting_state="as_is")
+    contract = _contract(baselines=[], starting_state="inherit")
     contract.cases[0].method_config.update(fingerprint(tmp_path / "lost"))
+    events = []
     execution = SimpleNamespace(
         control=LocalControl(),
         material=SimpleNamespace(secrets={}),
-        reach_baseline=lambda *args: pytest.fail("as_is must not reset the host"),
+        reach_baseline=lambda name: (
+            events.append(name) or SimpleNamespace(ok=True, error_code=None, evidence={})
+        ),
     )
     monkeypatch.setattr(
         local.HostControlExecutionContract, "model_validate", lambda raw: contract
@@ -149,6 +152,7 @@ def test_local_case_refusal_skips_fixture_execution(monkeypatch, tmp_path):
     row = local.execute_machine_case_contract({}).payload["results"][0]
     assert row["error_code"] == "continuity_lost"
     assert row["evidence"]["case_started"] is False
+    assert events == ["fresh-host"]  # Cleanup follows the failed continuity check.
 
 
 def test_continuity_contract_uses_a_protocol_older_runners_reject():
@@ -163,7 +167,7 @@ def test_continuity_contract_uses_a_protocol_older_runners_reject():
         execution_contract_digest,
     )
 
-    case = case_contract()
+    case = case_contract().model_copy(update={"starting_state": "inherit"})
     case.method_config["continuity_fingerprint"] = {"~/state": "a" * 64}
     contract = issue_execution_contract(
         operation="case",

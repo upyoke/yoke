@@ -69,8 +69,7 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
-    #: A machine-run case names the registered baseline it resets to, or
-    #: runs ``as_is`` with a reason (see yoke_contracts.qa_case_starting_state).
+    #: A standalone machine-run case names the registered baseline it resets to.
     host_baseline: Optional[str] = None
     starting_state: Optional[str] = None
     starting_state_reason: Optional[str] = None

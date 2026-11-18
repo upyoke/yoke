@@ -115,11 +115,7 @@ def validate_method_requirement(
 
 
 _STARTING_STATE_KEYS = ("host_baseline", "starting_state", "starting_state_reason")
-_RECOVERY = (
-    "pass --host-baseline NAME to reset to a registered baseline, or "
-    "--starting-state as_is --starting-state-reason TEXT to run on the "
-    "machine as found"
-)
+_RECOVERY = "pass --host-baseline NAME to reset to a registered baseline"
 
 
 def _validate_starting_state(
@@ -133,18 +129,11 @@ def _validate_starting_state(
     from yoke_contracts.qa_case_starting_state import (
         INHERIT,
         StartingStateError,
-        needs_test_machine,
+        chain_baselines,
         normalize_starting_state,
     )
 
     baseline = row.get("host_baseline")
-    machine = needs_test_machine(row)
-    if machine and not baseline and not row.get("starting_state"):
-        return _error(
-            "payload_invalid",
-            "this machine-run case declares no starting state; " + _RECOVERY,
-            jsonpath=f"{jsonpath}.starting_state",
-        )
     if row.get("starting_state") == INHERIT:
         return _error(
             "payload_invalid",
@@ -153,12 +142,15 @@ def _validate_starting_state(
             jsonpath=f"{jsonpath}.starting_state",
         )
     try:
+        baselines = [str(baseline)] if baseline else []
+        case_key = str(row["method_id"])
+        chain_baselines([{**row, "case_key": case_key, "host_baselines": baselines}])
         row["starting_state"], row["starting_state_reason"] = normalize_starting_state(
-            case_key=str(row["method_id"]),
+            case_key=case_key,
             runner_id=row["runner_id"],
             method_config=row.get("method_config"),
             capability_requirements=row.get("capability_requirements"),
-            host_baselines=[str(baseline)] if baseline else [],
+            host_baselines=baselines,
             starting_state=row.get("starting_state"),
             starting_state_reason=row.get("starting_state_reason"),
         )
