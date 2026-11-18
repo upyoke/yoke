@@ -60,6 +60,9 @@ class TestMachineFleetBusy(TestMachineCapabilityError):
 class TestMachineHostUnhealthy(TestMachineCapabilityError):
     """Every eligible free machine last failed verification; plans queue."""
 
+    #: Every host the refused plan case needs; its plan waits on all of them.
+    test_machines: tuple[str, ...] = ()
+
     def __init__(self, health: dict[str, Any]) -> None:
         from yoke_core.domain.qa_host_health import unhealthy_rationale
 

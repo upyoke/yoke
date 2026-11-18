@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.qa_plan_execution_store import marker, select_plan_execution
-from yoke_core.domain.qa_host_turns import record_host_wait
+from yoke_core.domain.qa_host_set_turns import record_host_wait
 
 
 def submit_host_wait(

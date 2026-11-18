@@ -112,14 +112,12 @@ as `method_config.test_machine` and every required host in
 `method_config.test_machines`; names must be registered, unique, and include
 the driving host. Run this case through `yoke qa plan run`; direct case
 execution refuses it. The
-runner acquires every host through its FIFO in sorted name order, releases
-partial acquisitions on contention, and retains the full set through case
-execution and mission review. Completion or abort releases the set; [completed captures remain reviewable](requirement-state.md). Independent cases with different driving hosts or declared sets use separate
-execution rosters. An `inherit` chain uses its head driver and the union of
-its hosts as one execution group. Admission reserves all chains' hosts for
-that driver before the first capture and retains them through completion,
-review or abort. Contention releases partial acquisitions and queues the
-chain; a retry never reacquires lost custody. Definition-time validation
+runner takes the set in sorted name order once every host is free or reserved
+for it, and retains it through case execution and mission review. Completion
+or abort releases it; [completed captures remain reviewable](requirement-state.md).
+A set is the case's hosts plus its own `inherit` chain's, never another
+chain's. Each chain baseline holds exactly its set, releasing extra hosts or
+reacquiring an uncovered set; a retry inside a chain never reacquires lost custody. Definition-time validation
 refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
 `method_config.test_machine`, or start a new chain from a named baseline.
 
@@ -141,7 +139,10 @@ FIFO line a refused manual `yoke claims coordination-claim acquire --key QA_HOST
 joins. The runner prints `Queued for QA host <machine>, position N of M` with
 the park command; write no host hold of your own. A session keeps its place
 from its first wait and across retries; a rerun of an aborted walk
-that held the host takes its place. Every release of the host — including
+that held the host takes its place. A plan execution keeps its first wait's
+place on every host, waits on each host of a set and keeps its reservations; a
+partial set's reservation passes to an older waiter, so sets cannot deadlock.
+It is woken once its last host is reserved. Every release of the host — including
 `yoke claims work release --claim-id N` — reserves it for the oldest live
 waiter and sends that session the exact resume command; stopped owners use the
 same harness-neutral wake route as other control-plane notices. An unhealthy
@@ -152,9 +153,9 @@ SSH cannot reach (`ssh_unavailable`: connect timeout, refusal, no route or a
 rejected key) records that failed verification itself and queues the same way
 instead of recording an error verdict. Leases start and stop cloud hosts;
 start others (or repair SSH), then run `yoke test-machine verify`. Reset and
-diagnosis receipts do not change health. Ending the session, settling the
-execution, or releasing an unused reservation cancels the wait and passes a
-reserved turn to the next waiter.
+diagnosis receipts do not change health. Ending the session or settling the
+execution cancels its waits; releasing an unused reservation cancels that wait,
+passes the turn on, and aborts the execution if no live wait remains.
 
 Removing a release member ends its QA execution and releases its hosts when
 every mission already recorded its walk-end restore. Otherwise the removed

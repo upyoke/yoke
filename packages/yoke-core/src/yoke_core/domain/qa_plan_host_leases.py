@@ -1,4 +1,9 @@
-"""Execution-owned host sets acquired together through each host's FIFO."""
+"""Execution-owned host sets acquired together through each host's FIFO.
+
+A case's set is its own hosts plus the union of its ``inherit`` chain's hosts.
+Each chain baseline holds exactly its set: held hosts it does not need are
+released, and a set the held hosts do not cover is released and acquired anew.
+"""
 
 from __future__ import annotations
 
@@ -94,8 +99,8 @@ def begin_case_host_contract(
     actor_id: str | None,
     session_id: str,
 ) -> Any:
-    """Acquire a full sorted set or release the partial set and queue the
-    busy or unhealthy host."""
+    """Acquire the case's full sorted set, or acquire nothing and raise the
+    first busy or unhealthy host for the caller to queue the whole set."""
     from yoke_core.domain.claim_chain_state import record_claim_reason
     from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
     from yoke_core.domain.machine_qa_execution_protocol import (
@@ -133,16 +138,22 @@ def begin_case_host_contract(
             f"but --test-machine names {test_machine!r}; omit --test-machine to resume on its recorded host"
         )
     driver = resolve_case_machine(case, retained or test_machine)
-    declared_driver = resolve_case_machine(case, None)
-    hosts = set(case_machines(case, driver))
-    for row in execution["roster"]:
-        if resolve_case_machine(row, None) == declared_driver:
-            hosts.update(case_machines(row))
-    names = tuple(sorted(hosts))
+    names = case_host_set(execution, case, ordinal, driver)
     lease_id = execution.get("test_machine_lease_id")
-    if (
-        lease_id is not None
-        and get_claim(conn, int(lease_id)).target.test_machine != driver
+    from yoke_core.domain.qa_plan_execution_reentry import admitted_case
+
+    primary = get_claim(conn, int(lease_id)).target.test_machine if lease_id else None
+    held = held_hosts(conn, execution) if lease_id is not None else set()
+    # A chain baseline not yet admitted takes exactly its set; an admitted
+    # case continues only with the custody it was admitted with.
+    baseline = (
+        case.get("starting_state") != "inherit"
+        and admitted_case(execution) != ordinal
+    )
+    if primary == driver and baseline and set(names) < held:
+        release_hosts_outside(conn, execution, names)
+    if lease_id is not None and (
+        primary != driver or (baseline and not set(names) <= held)
     ):
         release_execution_hosts(conn, execution, reason="qa-case-host-change")
         release(conn, int(lease_id), "qa-case-host-change", commit=False)
@@ -214,12 +225,15 @@ def begin_case_host_contract(
         )
 
     from yoke_core.domain.machine_qa_capability import host_claim_target
+    from yoke_core.domain.qa_host_set_turns import require_host_set_turn
     from yoke_core.domain.qa_host_turns import lock_host_turn
 
-    # Lock and acquire in the same fixed order. On contention no partial set
-    # remains held, so opposite driving hosts cannot form a hold-and-wait cycle.
+    # Lock in one fixed order and acquire only a set that is wholly free or
+    # reserved for this execution; otherwise nothing is acquired and the
+    # caller queues the execution on every host at its one place.
     for name in names:
         lock_host_turn(conn, host_claim_target(name))
+    require_host_set_turn(conn, execution, names)
     admissions = {}
     try:
         for name in names:
@@ -261,3 +275,49 @@ def begin_case_host_contract(
     )
     set_plan_machine_lease(conn, execution, lease_id=contract.lease_id)
     return contract
+
+
+def case_host_set(
+    execution: dict[str, Any], case: dict[str, Any], ordinal: int, driver: str | None
+) -> tuple[str, ...]:
+    """The case's hosts with its own ``inherit`` chain's union, sorted."""
+    from yoke_core.domain.qa_plan_case_chain import ends_chain
+
+    roster = execution["roster"]
+    start = ordinal
+    while start > 0 and not ends_chain(roster, start - 1):
+        start -= 1
+    end = ordinal
+    while end < len(roster) - 1 and not ends_chain(roster, end):
+        end += 1
+    hosts = set(case_machines(case, driver))
+    for row in roster[start : end + 1]:
+        hosts.update(case_machines(row))
+    return tuple(sorted(hosts))
+
+
+def held_hosts(conn: Any, execution: dict[str, Any]) -> set[str]:
+    """Hosts the execution holds: its primary lease and its companions."""
+    hosts = {str(claim.target.test_machine) for claim in execution_host_leases(conn, execution)}
+    lease_id = execution.get("test_machine_lease_id")
+    if lease_id is not None:
+        hosts.add(str(get_claim(conn, int(lease_id)).target.test_machine))
+    return hosts
+
+
+def release_hosts_outside(
+    conn: Any, execution: dict[str, Any], names: tuple[str, ...]
+) -> None:
+    """Release companions a new chain baseline no longer needs."""
+    from yoke_core.domain.qa_host_turns import lock_host_turn
+
+    extra = [
+        claim
+        for claim in execution_host_leases(conn, execution)
+        if str(claim.target.test_machine) not in names
+        and claim.id != execution.get("test_machine_lease_id")
+    ]
+    for claim in extra:
+        lock_host_turn(conn, claim.target)
+    for claim in extra:
+        release(conn, claim.id, "qa-case-host-set-shrunk", commit=False)

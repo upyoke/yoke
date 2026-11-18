@@ -96,7 +96,7 @@ def test_standalone_mission_chain_requires_its_own_plan(
         assert execution["roster"][-1]["starting_state"] == "inherit"
 
 
-def test_later_chain_hosts_are_reserved_before_the_first_capture(
+def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     test_db, tmp_path, monkeypatch
 ):
     from runtime.api.domain.machine_qa_host_test_support import (
@@ -176,7 +176,8 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
     old_lease = current["test_machine_lease_id"]
-    assert len(execution_host_leases(test_db, current)) == 3
+    # The one-host chain holds only its driver, not a later chain's hosts.
+    assert not execution_host_leases(test_db, current)
     opener = current["roster"][0]
     advance_plan_execution(
         test_db,
@@ -188,11 +189,12 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     response = _case_begin(current, 1)
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, execution["id"])
+    # The opener's baseline is not covered, so its chain set is acquired anew.
     assert {
         lease.target.test_machine for lease in execution_host_leases(test_db, current)
     } == {*MACHINES, third}
-    assert current["test_machine_lease_id"] == old_lease
-    assert not test_db.execute(
+    assert current["test_machine_lease_id"] != old_lease
+    assert test_db.execute(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
     ).fetchone()[0]
 

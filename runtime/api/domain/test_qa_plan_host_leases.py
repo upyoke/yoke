@@ -15,7 +15,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
-from yoke_core.domain.coordination_claims import acquire, release
+from yoke_core.domain.coordination_claims import release
 from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
@@ -27,7 +27,6 @@ from yoke_core.domain.qa_plan_host_leases import (
     execution_host_leases,
     require_case_host_leases,
 )
-from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 def test_case_holds_both_hosts_and_releases_them_after_completion(
@@ -52,35 +51,6 @@ def test_case_holds_both_hosts_and_releases_them_after_completion(
         ).fetchone()[0]
         for claim in leases
     )
-
-
-def test_partial_acquisition_releases_first_host_and_queues_second(
-    test_db, tmp_path, monkeypatch
-):
-    _seed(test_db, tmp_path, monkeypatch, simultaneous=True, driver=MACHINES[1])
-    seed_qa_session(test_db, SESSION, "busy-host", messageable=True)
-    held = acquire(test_db, make_qa_admission_target(MACHINES[1]), "busy-host")
-    execution = _begin(test_db)
-    response = _case_begin(execution)
-    assert response.primary_success, response.error
-    assert response.result_payload["state"] == "waiting"
-    assert response.result_payload["host_wait"]["test_machine"] == MACHINES[1]
-    assert not execution_host_leases(test_db, execution)
-    assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL AND target_kind='qa_admission'"
-        ).fetchone()[0]
-        == 1
-    )
-    release(test_db, held.id, "ready")
-    resumed = _begin(test_db)
-    assert resumed["id"] == execution["id"]
-    response = _case_begin(resumed)
-    assert response.primary_success, response.error
-    leases = execution_host_leases(test_db, resumed)
-    assert [claim.target.test_machine for claim in leases] == list(MACHINES)
-    # Consuming one FIFO reservation must not cancel the companion host.
-    assert all(claim.is_active for claim in leases)
 
 
 def test_mission_review_retains_and_heartbeats_every_host(
