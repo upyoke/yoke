@@ -186,7 +186,8 @@ It checks three things about this session only: it is registered, its harness
 CLI is signed in, and its harness runs `yoke` without approval prompts. Other
 installed harnesses do not block it. Each failed check names one next step: a
 new session, a restart, a sign-in such as `claude auth login`, or a hook
-approval. Give the person that step, then rerun the check. When every check
+approval. A `HARNESS_AUTH_PROBE_FAILED` warning means the sign-in status
+command itself failed, not that the person is signed out. Give the person that step, then rerun the check. When every check
 passes, follow the returned `next_action` command and deeper home.
 
 Whether the session that ran setup needs replacing depends on its harness.
