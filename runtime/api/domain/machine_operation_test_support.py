@@ -56,6 +56,7 @@ def begin_operation(
                 {
                     "project": "yoke",
                     "operation": operation,
+                    "test_machine": MACHINE,
                     **(begin_payload or {}),
                 }
             )
@@ -78,6 +79,7 @@ def run_operation(
                 {
                     "project": "yoke",
                     "operation": operation,
+                    "test_machine": MACHINE,
                     **(begin_payload or {}),
                 }
             )

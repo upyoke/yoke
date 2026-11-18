@@ -220,20 +220,14 @@ def materialize_test_machine_contract(
     secrets: dict[str, str] = {}
     secret_paths: dict[str, str] = {}
     missing: list[str] = []
+    name = normalized.settings["resource_name"]
     for key in sorted(TEST_MACHINE_SECRET_KEYS):
-        value = read_test_machine_secret(
-            normalized.project,
-                    key,
-        )
+        value = read_test_machine_secret(name, key)
         if value is None:
             missing.append(key)
         else:
             secrets[key] = value
-            secret_paths[key] = str(
-                test_machine_secret_path(
-                    normalized.settings["resource_name"], key,
-                )
-            )
+            secret_paths[key] = str(test_machine_secret_path(name, key))
     if missing:
         raise HostControlLocalError(
             code="host_control_credential_missing",
@@ -242,17 +236,14 @@ def materialize_test_machine_contract(
             + ", ".join(missing),
             recovery_hint=(
                 "Store the named credential on this executing machine with "
-                f"`yoke test-machine secret set --test-machine {normalized.settings['resource_name']} "
+                f"`yoke test-machine secret set --test-machine {name} "
                 "--key KEY --value-stdin`, then retry."
             ),
         )
     if normalized.settings.get("os") in {"linux", "wsl"}:
         from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
-        password = read_test_machine_secret(
-            normalized.settings["resource_name"],
-            DESKTOP_PASSWORD_KEY,
-        )
+        password = read_test_machine_secret(name, DESKTOP_PASSWORD_KEY)
         if password is not None:
             secrets[DESKTOP_PASSWORD_KEY] = password
     return TestMachineMaterial(
