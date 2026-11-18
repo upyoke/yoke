@@ -52,7 +52,13 @@ def _served_request(argv: list[str]) -> FunctionCallRequest:
     return captured[0]
 
 
-def _fake_cli(calls: list[list[str]], verify_output: str = "verified\n"):
+def _fake_cli(
+    calls: list[list[str]],
+    verify_output: str = "verified\n",
+    leases: tuple[dict | None, dict | None] = (None, None),
+):
+    records = [{**RECORD, "active_lease": lease} for lease in leases]
+
     def run(cmd, **_kwargs):
         argv = cmd[1:]
         calls.append(argv)
@@ -61,7 +67,7 @@ def _fake_cli(calls: list[list[str]], verify_output: str = "verified\n"):
             request = _served_request(argv)
             assert request.payload.get("test_machine") == "linux-lab"
             if argv[1] == "get":
-                stdout = json.dumps({"success": True, "result": RECORD})
+                stdout = json.dumps({"success": True, "result": records.pop(0)})
             elif argv[1] == "verify":
                 stdout = verify_output
         else:
@@ -116,3 +122,22 @@ def test_reported_provider_stop_still_fails_the_proof(
     calls: list[list[str]] = []
     with pytest.raises(RuntimeError, match="tailnet_power_failed"):
         _main(monkeypatch, _fake_cli(calls, "Stopping instance i-0abc\n"))
+
+
+def test_runner_held_lease_is_borrowed_and_must_stay_unchanged(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    runner_lease = {"id": 51767}
+    _main(monkeypatch, _fake_cli([], leases=(runner_lease, runner_lease)))
+    assert "host lease unchanged" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "leases",
+    [(None, {"id": 9}), ({"id": 51767}, {"id": 9}), ({"id": 51767}, None)],
+)
+def test_lease_left_different_by_exec_or_verify_fails_the_proof(
+    monkeypatch: pytest.MonkeyPatch, leases
+) -> None:
+    with pytest.raises(RuntimeError, match="different host lease"):
+        _main(monkeypatch, _fake_cli([], leases=leases))
