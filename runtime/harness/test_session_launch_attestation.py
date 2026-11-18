@@ -13,7 +13,7 @@ from yoke_core.domain.session_launch_binding_evidence import (
     SESSION_END_SKIP_LAUNCH_CLOSED,
     SESSION_END_SKIP_NATIVE_SESSION_MISMATCH,
 )
-from yoke_core.domain.session_launch_types import LaunchRegistrationInjection
+from yoke_core.domain.session_launch_types import LaunchRegistrationInjection, SessionLaunchError
 from yoke_core.hooks import session_launch_attestation as launch_hook
 from yoke_core.hooks.decision_render import (
     render_claude_decision,
@@ -156,20 +156,24 @@ def test_finalize_records_only_actual_render_delivery(monkeypatch) -> None:
 def test_superseded_launch_code_yields_a_stop_context() -> None:
     for state in ("succeeded", "failed", "expired"):
         context = launch_hook._superseded_launch_stop_context(
-            "invalid_state", launch_state=state
+            SessionLaunchError("invalid_state", "registration refused", launch_state=state)
         )
         assert context is not None and "Stop now" in context
     for code in ("attestation_consumed", "launch_taken_over"):
-        context = launch_hook._superseded_launch_stop_context(code)
+        context = launch_hook._superseded_launch_stop_context(
+            SessionLaunchError(code, "registration refused")
+        )
         assert context is not None and "Stop now" in context
     for state in ("launching", "awaiting_registration"):
         assert (
             launch_hook._superseded_launch_stop_context(
-                "invalid_state", launch_state=state
+                SessionLaunchError("invalid_state", "registration refused", launch_state=state)
             )
             is None
         )
-    assert launch_hook._superseded_launch_stop_context("attestation_invalid") is None
+    assert launch_hook._superseded_launch_stop_context(
+        SessionLaunchError("attestation_invalid", "registration refused")
+    ) is None
 
 
 def test_launching_registration_retries_without_recording_or_stopping(
@@ -293,8 +297,6 @@ def test_session_end_that_records_nothing_names_why(monkeypatch) -> None:
 
 
 def test_taken_over_launch_names_the_holder_and_stops_opening_worker(monkeypatch) -> None:
-    from yoke_core.domain.session_launch_types import SessionLaunchError
-
     def refuse(conn, **kwargs):
         raise SessionLaunchError(
             "launch_taken_over",
